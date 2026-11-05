@@ -1,0 +1,38 @@
+# deny.toml - workspace root
+[graph]
+all-features = true           # optional dependencies are held to the same policy
+
+[advisories]
+db-path = "~/.cargo/advisory-db"
+db-urls = ["https://github.com/rustsec/advisory-db"]
+# Scope, NOT a lint level: one of "all" | "workspace" | "transitive" | "none".
+# "all" - transitive deps are where most RUSTSEC exposure actually lives.
+unmaintained = "all"
+unsound = "all"
+yanked = "deny"
+
+[licenses]
+confidence-threshold = 0.93
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "Zlib",
+    "BSL-1.0",
+]
+
+[bans]
+multiple-versions = "deny"    # unavoidable duplicates go into `skip`, each with a reason
+wildcards = "deny"            # No * version specs
+allow-wildcard-paths = false
+highlight = "all"
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+required-git-spec = "rev"     # git dependencies pinned to a commit
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]
+allow-git = []

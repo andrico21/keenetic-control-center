@@ -24,3 +24,7 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Bin crate needed a non-trivial main: `fn main() {}` trips clippy missing_const_for_fn; `std::process::exit(0)` trips absolute_paths. Used `use std::process::exit; fn main() { exit(0) }`.
 - Tools: cargo-vet/machete/nextest/mutants/zigbuild/taplo installed from source. `lychee-bin` does not exist; crate is `lychee`. shellcheck, actionlint, zig 0.17.1 prebuilt into ~/.cargo/bin and ~/.local/bin (zig needs PATH).
 - Toolchain 1.99.1 installed via rustup (stable already 1.99.1).
+
+## Todo 2
+- cargo-audit parse needs `fetch`+`stale` alongside `[database] path`; default db dir collides with cargo-deny's, hence a separate path in .cargo/audit.toml.
+- `cargo machete` at root also scans spikes/lint-macros (reports unused deps); use `cargo machete crates xtask`.

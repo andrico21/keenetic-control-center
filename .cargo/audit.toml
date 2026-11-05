@@ -1,0 +1,14 @@
+# .cargo/audit.toml
+# Keep in sync with deny.toml: both tools read their own ignore list, and an
+# advisory suppressed in only one of them still fails the other.
+# Every ignore entry must name the advisory, state why it does not apply to this
+# workspace, and note whether an upstream fix exists. No entry without a reason.
+[advisories]
+ignore = []
+
+# cargo-deny keeps its hashed advisory-db clones under ~/.cargo/advisory-db, and
+# cargo-audit refuses to clone into that non-empty directory, so it gets its own.
+[database]
+path = "~/.cargo/audit-advisory-db"
+fetch = true
+stale = false
