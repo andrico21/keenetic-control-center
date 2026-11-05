@@ -1,6 +1,0 @@
-/home/andrico/keenetic-control-center/spikes/lint-macros/target/debug/deps/askama_macros-59b23f6ae8011409.d: /home/andrico/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/askama_macros-0.16.1/src/lib.rs /home/andrico/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/askama_macros-0.16.1/src/../README.md
-
-/home/andrico/keenetic-control-center/spikes/lint-macros/target/debug/deps/libaskama_macros-59b23f6ae8011409.so: /home/andrico/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/askama_macros-0.16.1/src/lib.rs /home/andrico/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/askama_macros-0.16.1/src/../README.md
-
-/home/andrico/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/askama_macros-0.16.1/src/lib.rs:
-/home/andrico/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/askama_macros-0.16.1/src/../README.md:

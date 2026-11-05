@@ -1,4 +1,6 @@
 /target
 /xtask/target
+/spikes/*/target
 /catalog/.cache/
 /.omo/evidence/
+/~

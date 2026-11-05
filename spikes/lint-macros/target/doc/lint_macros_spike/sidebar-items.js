@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["SpikeError"],"fn":["render_kazakh_page","render_russian_page","sse_router"],"struct":["SpikeServer"]};
