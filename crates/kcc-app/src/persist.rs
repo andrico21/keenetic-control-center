@@ -424,7 +424,7 @@ where
 /// # Errors
 ///
 /// [`StateError::Io`].
-fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), StateError> {
+pub(crate) fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), StateError> {
     let target = dir.join(name);
     let temp = dir.join(format!(".{name}.tmp"));
     remove_if_present(&temp)?;

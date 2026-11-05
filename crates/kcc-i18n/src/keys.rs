@@ -278,8 +278,107 @@ pub const WEB_CONFIRM_DESTRUCTIVE: MessageKey = MessageKey::new("web-confirm-des
 /// `web-session-expired` in `web.ftl`.
 pub const WEB_SESSION_EXPIRED: MessageKey = MessageKey::new("web-session-expired");
 
+/// `web-skip-to-content` in `web.ftl`.
+pub const WEB_SKIP_TO_CONTENT: MessageKey = MessageKey::new("web-skip-to-content");
+
+/// `web-nav-label` in `web.ftl`.
+pub const WEB_NAV_LABEL: MessageKey = MessageKey::new("web-nav-label");
+
+/// `web-nav-menu` in `web.ftl`.
+pub const WEB_NAV_MENU: MessageKey = MessageKey::new("web-nav-menu");
+
+/// `web-nav-network` in `web.ftl`.
+pub const WEB_NAV_NETWORK: MessageKey = MessageKey::new("web-nav-network");
+
+/// `web-nav-firewall` in `web.ftl`.
+pub const WEB_NAV_FIREWALL: MessageKey = MessageKey::new("web-nav-firewall");
+
+/// `web-nav-dns` in `web.ftl`.
+pub const WEB_NAV_DNS: MessageKey = MessageKey::new("web-nav-dns");
+
+/// `web-nav-system` in `web.ftl`.
+pub const WEB_NAV_SYSTEM: MessageKey = MessageKey::new("web-nav-system");
+
+/// `web-nav-configuration` in `web.ftl`.
+pub const WEB_NAV_CONFIGURATION: MessageKey = MessageKey::new("web-nav-configuration");
+
+/// `web-nav-advanced` in `web.ftl`.
+pub const WEB_NAV_ADVANCED: MessageKey = MessageKey::new("web-nav-advanced");
+
+/// `web-nav-admin` in `web.ftl`.
+pub const WEB_NAV_ADMIN: MessageKey = MessageKey::new("web-nav-admin");
+
+/// `web-fleet-label` in `web.ftl`.
+pub const WEB_FLEET_LABEL: MessageKey = MessageKey::new("web-fleet-label");
+
+/// `web-fleet-open` in `web.ftl`.
+pub const WEB_FLEET_OPEN: MessageKey = MessageKey::new("web-fleet-open");
+
+/// `web-fleet-empty` in `web.ftl`.
+pub const WEB_FLEET_EMPTY: MessageKey = MessageKey::new("web-fleet-empty");
+
+/// `web-router-unknown` in `web.ftl`.
+pub const WEB_ROUTER_UNKNOWN: MessageKey = MessageKey::new("web-router-unknown");
+
+/// `web-unsaved-changes` in `web.ftl`.
+pub const WEB_UNSAVED_CHANGES: MessageKey = MessageKey::new("web-unsaved-changes");
+
+/// `web-theme-label` in `web.ftl`.
+pub const WEB_THEME_LABEL: MessageKey = MessageKey::new("web-theme-label");
+
+/// `web-theme-system` in `web.ftl`.
+pub const WEB_THEME_SYSTEM: MessageKey = MessageKey::new("web-theme-system");
+
+/// `web-theme-light` in `web.ftl`.
+pub const WEB_THEME_LIGHT: MessageKey = MessageKey::new("web-theme-light");
+
+/// `web-theme-dark` in `web.ftl`.
+pub const WEB_THEME_DARK: MessageKey = MessageKey::new("web-theme-dark");
+
+/// `web-locale-en` in `web.ftl`.
+pub const WEB_LOCALE_EN: MessageKey = MessageKey::new("web-locale-en");
+
+/// `web-locale-ru` in `web.ftl`.
+pub const WEB_LOCALE_RU: MessageKey = MessageKey::new("web-locale-ru");
+
+/// `web-locale-uk` in `web.ftl`.
+pub const WEB_LOCALE_UK: MessageKey = MessageKey::new("web-locale-uk");
+
+/// `web-locale-de` in `web.ftl`.
+pub const WEB_LOCALE_DE: MessageKey = MessageKey::new("web-locale-de");
+
+/// `web-locale-be` in `web.ftl`.
+pub const WEB_LOCALE_BE: MessageKey = MessageKey::new("web-locale-be");
+
+/// `web-locale-kk` in `web.ftl`.
+pub const WEB_LOCALE_KK: MessageKey = MessageKey::new("web-locale-kk");
+
+/// `web-notifications` in `web.ftl`.
+pub const WEB_NOTIFICATIONS: MessageKey = MessageKey::new("web-notifications");
+
+/// `web-section-unavailable` in `web.ftl`.
+pub const WEB_SECTION_UNAVAILABLE: MessageKey = MessageKey::new("web-section-unavailable");
+
+/// `web-error-not-found-title` in `web.ftl`.
+pub const WEB_ERROR_NOT_FOUND_TITLE: MessageKey = MessageKey::new("web-error-not-found-title");
+
+/// `web-error-not-found-text` in `web.ftl`.
+pub const WEB_ERROR_NOT_FOUND_TEXT: MessageKey = MessageKey::new("web-error-not-found-text");
+
+/// `web-error-forbidden-title` in `web.ftl`.
+pub const WEB_ERROR_FORBIDDEN_TITLE: MessageKey = MessageKey::new("web-error-forbidden-title");
+
+/// `web-error-internal-title` in `web.ftl`.
+pub const WEB_ERROR_INTERNAL_TITLE: MessageKey = MessageKey::new("web-error-internal-title");
+
+/// `web-error-internal-text` in `web.ftl`.
+pub const WEB_ERROR_INTERNAL_TEXT: MessageKey = MessageKey::new("web-error-internal-text");
+
+/// `web-error-home` in `web.ftl`.
+pub const WEB_ERROR_HOME: MessageKey = MessageKey::new("web-error-home");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 92] = [
+pub const ALL: [MessageKey; 125] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -372,4 +471,37 @@ pub const ALL: [MessageKey; 92] = [
     WEB_ROUTER_OFFLINE,
     WEB_CONFIRM_DESTRUCTIVE,
     WEB_SESSION_EXPIRED,
+    WEB_SKIP_TO_CONTENT,
+    WEB_NAV_LABEL,
+    WEB_NAV_MENU,
+    WEB_NAV_NETWORK,
+    WEB_NAV_FIREWALL,
+    WEB_NAV_DNS,
+    WEB_NAV_SYSTEM,
+    WEB_NAV_CONFIGURATION,
+    WEB_NAV_ADVANCED,
+    WEB_NAV_ADMIN,
+    WEB_FLEET_LABEL,
+    WEB_FLEET_OPEN,
+    WEB_FLEET_EMPTY,
+    WEB_ROUTER_UNKNOWN,
+    WEB_UNSAVED_CHANGES,
+    WEB_THEME_LABEL,
+    WEB_THEME_SYSTEM,
+    WEB_THEME_LIGHT,
+    WEB_THEME_DARK,
+    WEB_LOCALE_EN,
+    WEB_LOCALE_RU,
+    WEB_LOCALE_UK,
+    WEB_LOCALE_DE,
+    WEB_LOCALE_BE,
+    WEB_LOCALE_KK,
+    WEB_NOTIFICATIONS,
+    WEB_SECTION_UNAVAILABLE,
+    WEB_ERROR_NOT_FOUND_TITLE,
+    WEB_ERROR_NOT_FOUND_TEXT,
+    WEB_ERROR_FORBIDDEN_TITLE,
+    WEB_ERROR_INTERNAL_TITLE,
+    WEB_ERROR_INTERNAL_TEXT,
+    WEB_ERROR_HOME,
 ];

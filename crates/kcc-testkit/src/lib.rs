@@ -24,9 +24,11 @@
 
 extern crate alloc;
 
+pub mod anonymize;
 pub mod auth_fixture;
 mod auth_fixture_digest;
 mod auth_fixture_ndw4;
+pub mod capture;
 mod config_state;
 mod failsafe;
 mod fixtures;

@@ -1,0 +1,79 @@
+{
+  "schema_version": 2,
+  "active_work_id": "keenetic-control-center-b590fef9",
+  "works": {
+    "keenetic-control-center-d60645fa": {
+      "work_id": "keenetic-control-center-d60645fa",
+      "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
+      "plan_name": "keenetic-control-center",
+      "status": "active",
+      "started_at": "2026-11-05T16:38:10.317Z",
+      "updated_at": "2026-11-05T16:38:10.317Z",
+      "session_ids": [
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
+      ],
+      "session_origins": {
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {}
+    },
+    "keenetic-control-center-b590fef9": {
+      "work_id": "keenetic-control-center-b590fef9",
+      "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
+      "plan_name": "keenetic-control-center",
+      "status": "active",
+      "started_at": "2026-11-05T16:38:10.421Z",
+      "updated_at": "2026-11-05T20:32:45.900Z",
+      "session_ids": [
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
+      ],
+      "session_origins": {
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {
+        "todo:17": {
+          "task_key": "todo:17",
+          "task_label": "17",
+          "task_title": "Fixture capture tool, anonymizer, secret scanner, live read-only smoke",
+          "session_id": "opencode:ses_e52b7001bffeVnVhQ8FDeQFU3o",
+          "agent": "Sisyphus-Junior",
+          "category": "visual-engineering",
+          "started_at": "2026-11-05T16:52:39.159Z",
+          "status": "completed",
+          "updated_at": "2026-11-05T20:32:45.900Z",
+          "ended_at": "2026-11-05T20:32:45.900Z",
+          "elapsed_ms": 13206741
+        }
+      }
+    }
+  },
+  "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
+  "started_at": "2026-11-05T16:38:10.421Z",
+  "status": "active",
+  "updated_at": "2026-11-05T20:32:45.900Z",
+  "session_ids": [
+    "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
+  ],
+  "session_origins": {
+    "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
+  },
+  "plan_name": "keenetic-control-center",
+  "task_sessions": {
+    "todo:17": {
+      "task_key": "todo:17",
+      "task_label": "17",
+      "task_title": "Fixture capture tool, anonymizer, secret scanner, live read-only smoke",
+      "session_id": "opencode:ses_e52b7001bffeVnVhQ8FDeQFU3o",
+      "agent": "Sisyphus-Junior",
+      "category": "visual-engineering",
+      "started_at": "2026-11-05T16:52:39.159Z",
+      "status": "completed",
+      "updated_at": "2026-11-05T20:32:45.900Z",
+      "ended_at": "2026-11-05T20:32:45.900Z",
+      "elapsed_ms": 13206741
+    }
+  },
+  "agent": "atlas"
+}

@@ -1,7 +1,7 @@
 //! Catalog-backed request validation and JSON Schema generation.
 
-use core::{net::IpAddr, str::FromStr};
-use std::collections::BTreeSet;
+use alloc::collections::BTreeSet;
+use core::{net::IpAddr, str::FromStr as _};
 
 use kcc_rci::{Mac, ObjectName};
 use serde_json::{Map, Value, json};
@@ -93,168 +93,78 @@ pub enum ValidationIssue {
     RawAuthorizationRequired,
 }
 
-impl Catalog {
-    /// Validates a catalog request with no raw escape hatch.
-    ///
-    /// # Errors
-    ///
-    /// Returns every validation issue found at the request boundary.
-    #[inline]
-    pub fn validate(
-        &self,
-        path: &str,
-        method: HttpMethod,
-        value: &Value,
-    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
-        self.validate_with_options(path, method, value, RequestOptions::default())
+/// Validates the recursive object accepted by the batch `/rci/` endpoint.
+///
+/// # Errors
+///
+/// Returns every validation issue found in the recursive request object.
+pub(crate) fn validate_root(
+    catalog: &Catalog,
+    method: HttpMethod,
+    value: &Value,
+) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
+    let mut issues = Vec::new();
+    if method != HttpMethod::Post {
+        issues.push(ValidationIssue::MethodNotAllowed { method });
     }
-
-    /// Validates a request and conditionally permits an audited raw escape.
-    ///
-    /// # Errors
-    ///
-    /// Returns catalog issues, or [`ValidationIssue::RawAuthorizationRequired`] when the raw
-    /// escape is requested without both `RawRci` and administrator `ManageRouters`.
-    #[inline]
-    pub fn validate_with_options(
-        &self,
-        path: &str,
-        method: HttpMethod,
-        value: &Value,
-        options: RequestOptions,
-    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
-        if path.is_empty() {
-            return self.validate_root(method, value);
-        }
-        let Some(command) = self.lookup(path) else {
-            if options.unvalidated {
-                if options.authorization.raw_rci && options.authorization.admin_manage_routers {
-                    return Ok(ValidatedRequest {
-                        path: path.to_owned(),
-                        method,
-                        value: value.clone(),
-                        risk: Risk::Management,
-                        unvalidated: true,
-                    });
-                }
-                return Err(vec![ValidationIssue::RawAuthorizationRequired]);
-            }
-            return Err(vec![ValidationIssue::UnknownPath {
-                path: path.to_owned(),
-            }]);
-        };
-
-        let mut issues = Vec::new();
-        if !self.method_allowed(command, path, method) {
-            issues.push(ValidationIssue::MethodNotAllowed { method });
-        }
-        validate_value(self, command, path, value, "", &mut issues);
-        if issues.is_empty() {
-            Ok(ValidatedRequest {
-                path: path.to_owned(),
-                method,
-                value: value.clone(),
-                risk: self.risk(path).unwrap_or(Risk::Write),
-                unvalidated: false,
-            })
+    let Some(object) = value.as_object() else {
+        issues.push(ValidationIssue::ExpectedObject {
+            field: String::new(),
+        });
+        return Err(issues);
+    };
+    let roots = child_names(catalog, "");
+    let root_refs = roots.iter().map(String::as_str).collect::<Vec<_>>();
+    let mut risk = Risk::Read;
+    for (field, child_value) in object {
+        if catalog.lookup(field).is_some() || roots.contains(field) {
+            validate_node(catalog, field, child_value, field, &mut issues);
+            risk = risk.max(catalog.risk(field).unwrap_or(Risk::Write));
         } else {
-            Err(issues)
-        }
-    }
-
-    /// Validates the recursive object accepted by the batch `/rci/` endpoint.
-    fn validate_root(
-        &self,
-        method: HttpMethod,
-        value: &Value,
-    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
-        let mut issues = Vec::new();
-        if method != HttpMethod::Post {
-            issues.push(ValidationIssue::MethodNotAllowed { method });
-        }
-        let Some(object) = value.as_object() else {
-            issues.push(ValidationIssue::ExpectedObject {
-                field: String::new(),
+            issues.push(ValidationIssue::UnknownField {
+                field: field.clone(),
+                suggestion: nearest(field, &root_refs),
             });
-            return Err(issues);
-        };
-        let roots = child_names(self, "");
-        let root_refs = roots.iter().map(String::as_str).collect::<Vec<_>>();
-        let mut risk = Risk::Read;
-        for (field, child_value) in object {
-            if self.lookup(field).is_some() || roots.contains(field) {
-                validate_node(self, field, child_value, field, &mut issues);
-                risk = risk.max(self.risk(field).unwrap_or(Risk::Write));
-            } else {
-                issues.push(ValidationIssue::UnknownField {
-                    field: field.clone(),
-                    suggestion: nearest(field, &root_refs),
-                });
-            }
-        }
-        if issues.is_empty() {
-            Ok(ValidatedRequest {
-                path: String::new(),
-                method,
-                value: value.clone(),
-                risk,
-                unvalidated: false,
-            })
-        } else {
-            Err(issues)
         }
     }
-
-    /// Produces a draft 2020-12 object schema for one visible command.
-    #[inline]
-    #[must_use]
-    pub fn to_json_schema(&self, path: &str) -> Option<Value> {
-        let command = self.lookup(path)?;
-        let mut properties = Map::new();
-        for (name, argument) in &command.arguments {
-            let _old = properties.insert(name.clone(), argument_schema(argument));
-            for keyword in boolean_keyword_forms(argument) {
-                let _old = properties.insert(keyword.to_owned(), json!({ "type": "boolean" }));
-            }
-        }
-        for child in child_names(self, path) {
-            let child_path = format!("{path} {child}");
-            if let Some(schema) = self.to_json_schema(&child_path) {
-                let _old = properties.insert(child, schema);
-            }
-        }
-        if command.prefix_no {
-            let _old = properties.insert("no".to_owned(), json!({ "const": true }));
-        }
-        Some(json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object",
-            "properties": properties,
-            "additionalProperties": false
-        }))
+    if issues.is_empty() {
+        Ok(ValidatedRequest {
+            path: String::new(),
+            method,
+            value: value.clone(),
+            risk,
+            unvalidated: false,
+        })
+    } else {
+        Err(issues)
     }
+}
 
-    /// Applies kind and background rules to an HTTP method.
-    fn method_allowed(&self, command: &Command, path: &str, method: HttpMethod) -> bool {
-        if self.is_background(path) {
-            return matches!(
-                method,
-                HttpMethod::Get | HttpMethod::Post | HttpMethod::Delete
-            );
+/// Applies kind and background rules to an HTTP method.
+pub(crate) fn method_allowed(
+    catalog: &Catalog,
+    command: &Command,
+    path: &str,
+    method: HttpMethod,
+) -> bool {
+    if catalog.is_background(path) {
+        return matches!(
+            method,
+            HttpMethod::Get | HttpMethod::Post | HttpMethod::Delete
+        );
+    }
+    match command.kind {
+        CommandKind::Setting => {
+            matches!(method, HttpMethod::Get | HttpMethod::Post)
+                || (method == HttpMethod::Delete && command.prefix_no)
         }
-        match command.kind {
-            CommandKind::Setting => {
-                matches!(method, HttpMethod::Get | HttpMethod::Post)
-                    || (method == HttpMethod::Delete && command.prefix_no)
-            }
-            CommandKind::Show => matches!(method, HttpMethod::Get | HttpMethod::Post),
-            CommandKind::Action => method == HttpMethod::Post,
-        }
+        CommandKind::Show => matches!(method, HttpMethod::Get | HttpMethod::Post),
+        CommandKind::Action => method == HttpMethod::Post,
     }
 }
 
 /// Validates one object node, recursively following nested command names.
-fn validate_value(
+pub(crate) fn validate_value(
     catalog: &Catalog,
     _command: &Command,
     command_path: &str,
@@ -326,7 +236,7 @@ fn validate_node(
 }
 
 /// Returns immediate child path segments for recursive RCI object validation.
-fn child_names(catalog: &Catalog, path: &str) -> BTreeSet<String> {
+pub(crate) fn child_names(catalog: &Catalog, path: &str) -> BTreeSet<String> {
     let prefix = if path.is_empty() {
         String::new()
     } else {
@@ -341,7 +251,7 @@ fn child_names(catalog: &Catalog, path: &str) -> BTreeSet<String> {
 }
 
 /// Maps one catalog argument to a structural JSON Schema fragment.
-fn argument_schema(argument: &Argument) -> Value {
+pub(crate) fn argument_schema(argument: &Argument) -> Value {
     match argument.kind {
         ArgumentKind::Integer => {
             let mut schema =
@@ -404,7 +314,7 @@ fn valid_mask(text: &str) -> bool {
 }
 
 /// Returns keyword values that RCI also accepts as `{ "keyword": true }`.
-fn boolean_keyword_forms(argument: &Argument) -> impl Iterator<Item = &str> {
+pub(crate) fn boolean_keyword_forms(argument: &Argument) -> impl Iterator<Item = &str> {
     argument.values.iter().map(String::as_str).filter(|value| {
         value
             .bytes()
@@ -435,22 +345,22 @@ fn nearest(field: &str, siblings: &[&str]) -> Option<String> {
 
 /// Computes optimal-string-alignment Damerau-Levenshtein distance.
 fn damerau_levenshtein(left: &str, right: &str) -> usize {
-    let left = left.chars().collect::<Vec<_>>();
-    let right = right.chars().collect::<Vec<_>>();
-    let columns = right.len().saturating_add(1);
-    let mut matrix = vec![0; left.len().saturating_add(1).saturating_mul(columns)];
-    for row in 0..=left.len() {
+    let left_chars = left.chars().collect::<Vec<_>>();
+    let right_chars = right.chars().collect::<Vec<_>>();
+    let columns = right_chars.len().saturating_add(1);
+    let mut matrix = vec![0; left_chars.len().saturating_add(1).saturating_mul(columns)];
+    for row in 0..=left_chars.len() {
         if let Some(cell) = matrix.get_mut(row.saturating_mul(columns)) {
             *cell = row;
         }
     }
-    for column in 0..=right.len() {
+    for column in 0..=right_chars.len() {
         if let Some(cell) = matrix.get_mut(column) {
             *cell = column;
         }
     }
-    for row in 1..=left.len() {
-        for column in 1..=right.len() {
+    for row in 1..=left_chars.len() {
+        for column in 1..=right_chars.len() {
             let index = row.saturating_mul(columns).saturating_add(column);
             let deletion = matrix
                 .get(index.saturating_sub(columns))
@@ -466,12 +376,23 @@ fn damerau_levenshtein(left: &str, right: &str) -> usize {
                 .get(index.saturating_sub(columns).saturating_sub(1))
                 .copied()
                 .unwrap_or(usize::MAX)
-                .saturating_add(usize::from(left[row - 1] != right[column - 1]));
+                .saturating_add(usize::from(
+                    row.checked_sub(1).and_then(|offset| left_chars.get(offset))
+                        != column
+                            .checked_sub(1)
+                            .and_then(|offset| right_chars.get(offset)),
+                ));
             let mut distance = deletion.min(insertion).min(substitution);
             if row > 1
                 && column > 1
-                && left[row - 1] == right[column - 2]
-                && left[row - 2] == right[column - 1]
+                && row.checked_sub(1).and_then(|offset| left_chars.get(offset))
+                    == column
+                        .checked_sub(2)
+                        .and_then(|offset| right_chars.get(offset))
+                && row.checked_sub(2).and_then(|offset| left_chars.get(offset))
+                    == column
+                        .checked_sub(1)
+                        .and_then(|offset| right_chars.get(offset))
             {
                 distance = distance.min(
                     matrix

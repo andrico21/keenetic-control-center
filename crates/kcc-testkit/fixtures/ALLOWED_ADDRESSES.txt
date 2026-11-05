@@ -1,0 +1,16 @@
+# Private (RFC 1918) addresses and MAC addresses that may appear in the repository.
+#
+# crates/kcc-testkit/tests/no_secrets.rs fails on any RFC 1918 address or MAC address
+# (outside 02:00:00:xx:xx:xx) that is not listed here. One address per line; `#` starts a
+# comment. Every entry is a documented example, not a captured value.
+
+# Default Keenetic LAN address used as an example router URL (AGENTS.md, config and
+# engine tests).
+192.168.1.1
+# RFC 1918 network bases in documentation and outbound-policy examples.
+10.0.0.0
+172.16.0.0
+192.168.0.0
+192.168.1.0
+# Static-route example in crates/kcc-catalog/src/tests.rs.
+10.0.5.0

@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(kind.title()) }}{% endblock %}
+{%- block content %}
+<div class="page">
+  <h1 class="page__title">{{ t(kind.title()) }}</h1>
+  <p class="page__text">{{ t(kind.text()) }}</p>
+  <p><a class="button button--primary" href="/ui/">{{ t(keys::WEB_ERROR_HOME) }}</a></p>
+</div>
+{%- endblock %}

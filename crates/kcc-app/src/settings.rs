@@ -26,7 +26,7 @@ use rmcp_server_kit::{
         validate_observability_config, validate_server_config,
     },
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use toml::de::Error as TomlError;
 use url::Url;
 
@@ -215,7 +215,7 @@ impl Default for McpConfig {
 }
 
 /// `[outbound]` section.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 #[non_exhaustive]
 pub struct OutboundConfig {
@@ -335,6 +335,12 @@ pub struct RouterProfile {
     pub login: Option<String>,
     /// File holding the password.
     pub password_file: Option<PathBuf>,
+    /// Optional login used by the shared read-only poller.
+    #[serde(default)]
+    pub read_login: Option<String>,
+    /// Optional password file used by the shared read-only poller.
+    #[serde(default)]
+    pub read_password_file: Option<PathBuf>,
     /// File holding the API token.
     pub token_file: Option<PathBuf>,
     /// Authentication scheme.
@@ -370,7 +376,7 @@ pub enum RouterAuth {
 }
 
 /// `tls` of a router profile: `"verify"` or `{ pin_sha256 = "<hex>" }`.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum RouterTls {
@@ -575,6 +581,16 @@ impl RouterProfile {
                 if self.login.as_deref().is_none_or(str::is_empty) {
                     return Err(invalid(field("login"), "required with password_file"));
                 }
+            }
+        }
+        match (&self.read_login, &self.read_password_file) {
+            (None, None) => {}
+            (Some(login), Some(_)) if !login.is_empty() => {}
+            (Some(_) | None, Some(_)) | (Some(_), None) => {
+                return Err(invalid(
+                    field("read_login"),
+                    "set both non-empty read_login and read_password_file, or neither",
+                ));
             }
         }
         if let RouterTls::PinSha256(pin) = &self.tls

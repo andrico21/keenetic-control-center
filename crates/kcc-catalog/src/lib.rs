@@ -1,5 +1,12 @@
 //! Command and parameter catalog for the router RCI surface.
 
+#![expect(
+    clippy::pub_use,
+    reason = "the crate root re-exports the established kcc-catalog public API"
+)]
+
+extern crate alloc;
+
 /// Generated embedded catalog artifacts.
 pub mod generated;
 mod runtime;

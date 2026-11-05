@@ -20,3 +20,42 @@ web-router-online = В сети
 web-router-offline = Не в сети
 web-confirm-destructive = Это действие нельзя отменить. Продолжить?
 web-session-expired = Сеанс истёк. Войдите снова.
+web-skip-to-content = Перейти к основному содержимому
+web-nav-label = Основная навигация
+web-nav-menu = Меню
+web-nav-network = Сеть
+web-nav-firewall = Межсетевой экран
+web-nav-dns = DNS
+web-nav-system = Система
+web-nav-configuration = Конфигурация
+web-nav-advanced = Дополнительно
+web-nav-admin = Администрирование
+web-fleet-label = Роутер
+web-fleet-open = Открыть
+web-fleet-empty = Роутеры не настроены
+web-router-unknown = Состояние неизвестно
+web-unsaved-changes =
+    { $count ->
+        [one] { $count } несохранённое изменение
+        [few] { $count } несохранённых изменения
+        [many] { $count } несохранённых изменений
+       *[other] { $count } несохранённого изменения
+    }
+web-theme-label = Тема
+web-theme-system = Как в системе
+web-theme-light = Светлая
+web-theme-dark = Тёмная
+web-locale-en = English
+web-locale-ru = Русский
+web-locale-uk = Українська
+web-locale-de = Deutsch
+web-locale-be = Беларуская
+web-locale-kk = Қазақша
+web-notifications = Уведомления
+web-section-unavailable = Этот раздел пока недоступен.
+web-error-not-found-title = Страница не найдена
+web-error-not-found-text = Страница не существует или была перемещена.
+web-error-forbidden-title = Доступ запрещён
+web-error-internal-title = Что-то пошло не так
+web-error-internal-text = Не удалось выполнить запрос. Повторите попытку позже.
+web-error-home = Перейти к обзору

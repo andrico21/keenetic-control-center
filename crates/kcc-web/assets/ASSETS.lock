@@ -1,0 +1,51 @@
+# Third-party web assets vendored under `vendor/`, served from `/ui/static/<sha256-prefix>/<file>`.
+#
+# Each file was extracted once from the npm registry tarball named by `upstream` (path
+# `upstream_path` inside it; the tarball matched npm's published `upstream_integrity`) and
+# is never edited. `cargo xtask assets-check` recomputes every `sha256`, requires every
+# file under `vendor/` to be listed here, and fails on any template reference to an
+# unpinned asset. Nothing is ever loaded from a CDN.
+
+[[asset]]
+name = "htmx"
+version = "2.0.11"
+file = "vendor/htmx.min.js"
+upstream = "https://registry.npmjs.org/htmx.org/-/htmx.org-2.0.11.tgz"
+upstream_path = "package/dist/htmx.min.js"
+upstream_integrity = "sha512-Thx/WtpeOQqSrqBCw/A1cwGJGg4UrVa3+sW0GmrM3p4gJgO89ecH4qtbnyzDDWFvBTqjnIMCgELTNt636dtamA=="
+sha256 = "d6fdc75f204e6bdefa99b69bf1e6d4ac69b8a364f77929f45c13476b4000f717"
+license = "0BSD"
+license_file = "LICENSES/htmx-0BSD.txt"
+
+[[asset]]
+name = "htmx-ext-sse"
+version = "2.2.4"
+file = "vendor/htmx-ext-sse.min.js"
+upstream = "https://registry.npmjs.org/htmx-ext-sse/-/htmx-ext-sse-2.2.4.tgz"
+upstream_path = "package/dist/sse.min.js"
+upstream_integrity = "sha512-LJmxVhykyflBWgh5PvbRidcyuqMHlgfajmmzumvKctv9puvsufeH6OaejSMZTNTnEI8O2wXXn4ZZtBdpEMqmEQ=="
+sha256 = "98a46496de0c3605fbffdce9167ba427bdd9553184f83f149c261891a92c0136"
+license = "0BSD"
+license_file = "LICENSES/htmx-ext-sse-0BSD.txt"
+
+[[asset]]
+name = "uplot"
+version = "1.6.32"
+file = "vendor/uPlot.iife.min.js"
+upstream = "https://registry.npmjs.org/uplot/-/uplot-1.6.32.tgz"
+upstream_path = "package/dist/uPlot.iife.min.js"
+upstream_integrity = "sha512-KIMVnG68zvu5XXUbC4LQEPnhwOxBuLyW1AHtpm6IKTXImkbLgkMy+jabjLgSLMasNuGGzQm/ep3tOkyTxpiQIw=="
+sha256 = "19c8d4c6ad88929a79f4ae49d6f7161566dfd0ba3d15cc495e974f787eb78f1f"
+license = "MIT"
+license_file = "LICENSES/uPlot-MIT.txt"
+
+[[asset]]
+name = "uplot-css"
+version = "1.6.32"
+file = "vendor/uPlot.min.css"
+upstream = "https://registry.npmjs.org/uplot/-/uplot-1.6.32.tgz"
+upstream_path = "package/dist/uPlot.min.css"
+upstream_integrity = "sha512-KIMVnG68zvu5XXUbC4LQEPnhwOxBuLyW1AHtpm6IKTXImkbLgkMy+jabjLgSLMasNuGGzQm/ep3tOkyTxpiQIw=="
+sha256 = "df630c6a8d6f8eeaff264b50f73ce5b114f646ffd9a0bb74f049b0a00135fa04"
+license = "MIT"
+license_file = "LICENSES/uPlot-MIT.txt"

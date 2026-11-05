@@ -1,15 +1,24 @@
 //! Lazy catalog loading and router-specific command views.
 
-use std::{
+use alloc::{
     collections::{BTreeMap, BTreeSet},
-    sync::{Arc, LazyLock, RwLock},
+    sync::Arc,
 };
+use core::cmp::Reverse;
+use std::sync::{LazyLock, PoisonError, RwLock};
 
 use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
 use serde::Deserialize;
 use thiserror::Error;
 
-use crate::generated;
+use crate::{
+    generated,
+    search::{SearchResult, expand, score, tokenize},
+    validate::{
+        HttpMethod, RequestOptions, ValidatedRequest, ValidationIssue, argument_schema,
+        boolean_keyword_forms, child_names, method_allowed, validate_root, validate_value,
+    },
+};
 
 /// A generated catalog line.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
@@ -36,6 +45,10 @@ impl CatalogVersion {
     }
 
     /// Selects the newest documented line not newer than `firmware`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CatalogError::UnsupportedFirmware`] for firmware older than 4.3.
     fn for_firmware(firmware: FirmwareVersion) -> Result<Self, CatalogError> {
         match firmware.line() {
             line if line >= (5, 1) => Ok(Self::V5_1),
@@ -149,8 +162,11 @@ pub enum CatalogError {
 /// A firmware- and model-specific command catalog.
 #[derive(Clone, Debug)]
 pub struct Catalog {
+    /// Lazily decoded catalog data for the selected firmware line.
     data: &'static CatalogData,
+    /// Hardware-model selection applied to the shared catalog data.
     model_match: ModelMatch,
+    /// Command paths observed as background work at runtime.
     learned_background: Arc<RwLock<BTreeSet<String>>>,
 }
 
@@ -231,7 +247,7 @@ impl Catalog {
         let mut learned = self
             .learned_background
             .write()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
+            .unwrap_or_else(PoisonError::into_inner);
         let _inserted = learned.insert(path.to_owned());
     }
 
@@ -243,7 +259,7 @@ impl Catalog {
             || self
                 .learned_background
                 .read()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .unwrap_or_else(PoisonError::into_inner)
                 .contains(path)
     }
 
@@ -272,42 +288,182 @@ impl Catalog {
             CommandKind::Setting | CommandKind::Action => Risk::Write,
         })
     }
+
+    /// Validates a catalog request with no raw escape hatch.
+    ///
+    /// # Errors
+    ///
+    /// Returns every validation issue found at the request boundary.
+    #[inline]
+    pub fn validate(
+        &self,
+        path: &str,
+        method: HttpMethod,
+        value: &serde_json::Value,
+    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
+        self.validate_with_options(path, method, value, RequestOptions::default())
+    }
+
+    /// Validates a request and conditionally permits an audited raw escape.
+    ///
+    /// # Errors
+    ///
+    /// Returns catalog issues, or [`ValidationIssue::RawAuthorizationRequired`] when the raw
+    /// escape is requested without both `RawRci` and administrator `ManageRouters`.
+    #[inline]
+    pub fn validate_with_options(
+        &self,
+        path: &str,
+        method: HttpMethod,
+        value: &serde_json::Value,
+        options: RequestOptions,
+    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
+        if path.is_empty() {
+            return validate_root(self, method, value);
+        }
+        let Some(command) = self.lookup(path) else {
+            if options.unvalidated {
+                if options.authorization.raw_rci && options.authorization.admin_manage_routers {
+                    return Ok(ValidatedRequest {
+                        path: path.to_owned(),
+                        method,
+                        value: value.clone(),
+                        risk: Risk::Management,
+                        unvalidated: true,
+                    });
+                }
+                return Err(vec![ValidationIssue::RawAuthorizationRequired]);
+            }
+            return Err(vec![ValidationIssue::UnknownPath {
+                path: path.to_owned(),
+            }]);
+        };
+
+        let mut issues = Vec::new();
+        if !method_allowed(self, command, path, method) {
+            issues.push(ValidationIssue::MethodNotAllowed { method });
+        }
+        validate_value(self, command, path, value, "", &mut issues);
+        if issues.is_empty() {
+            Ok(ValidatedRequest {
+                path: path.to_owned(),
+                method,
+                value: value.clone(),
+                risk: self.risk(path).unwrap_or(Risk::Write),
+                unvalidated: false,
+            })
+        } else {
+            Err(issues)
+        }
+    }
+
+    /// Produces a draft 2020-12 object schema for one visible command.
+    #[inline]
+    #[must_use]
+    pub fn to_json_schema(&self, path: &str) -> Option<serde_json::Value> {
+        let command = self.lookup(path)?;
+        let mut properties = serde_json::Map::new();
+        for (name, argument) in &command.arguments {
+            let _old = properties.insert(name.clone(), argument_schema(argument));
+            for keyword in boolean_keyword_forms(argument) {
+                let _previous =
+                    properties.insert(keyword.to_owned(), serde_json::json!({ "type": "boolean" }));
+            }
+        }
+        for child in child_names(self, path) {
+            let child_path = format!("{path} {child}");
+            if let Some(schema) = self.to_json_schema(&child_path) {
+                let _old = properties.insert(child, schema);
+            }
+        }
+        if command.prefix_no {
+            let _old = properties.insert("no".to_owned(), serde_json::json!({ "const": true }));
+        }
+        Some(serde_json::json!({
+            "$schema": "https://json-schema.org/draft/2020-12/schema",
+            "type": "object",
+            "properties": properties,
+            "additionalProperties": false
+        }))
+    }
+
+    /// Searches visible command paths and argument names with prefix-weighted token matching.
+    #[inline]
+    #[must_use]
+    pub fn search(&self, query: &str, limit: usize) -> Vec<SearchResult<'_>> {
+        if limit == 0 {
+            return Vec::new();
+        }
+        let query_tokens = tokenize(query);
+        if query_tokens.is_empty() {
+            return Vec::new();
+        }
+        let expanded = expand(&query_tokens);
+        let mut results = self
+            .commands()
+            .filter_map(|command| {
+                score(command, &query_tokens, &expanded)
+                    .filter(|value| *value > 0)
+                    .map(|value| SearchResult {
+                        command,
+                        score: value,
+                    })
+            })
+            .collect::<Vec<_>>();
+        results.sort_by_key(|result| (Reverse(result.score), result.command.path.as_str()));
+        results.truncate(limit);
+        results
+    }
 }
 
 /// Parsed data shared by all router views of one firmware line.
 #[derive(Debug)]
 struct CatalogData {
+    /// Firmware line represented by this decoded data set.
     version: CatalogVersion,
+    /// Commands keyed by their space-separated catalog path.
     commands: BTreeMap<String, Command>,
+    /// Hardware models represented by the decoded command shards.
     models: BTreeSet<String>,
 }
 
 /// Generated shard envelope.
 #[derive(Deserialize)]
 struct Shard {
+    /// Commands contained in this generated shard.
     commands: Vec<RawCommand>,
 }
 
 /// Generated command fields consumed at runtime.
 #[derive(Deserialize)]
 struct RawCommand {
+    /// Space-separated command path.
     path: String,
+    /// Models whose manuals contain the command.
     models: BTreeSet<String>,
+    /// First firmware line containing the command.
     since: String,
+    /// Generated command category.
     kind: CommandKind,
+    /// Whether the command supports the CLI `no` prefix.
     prefix_no: bool,
+    /// Generated arguments keyed by request member name.
     arguments: BTreeMap<String, RawArgument>,
 }
 
 /// Generated argument fields consumed at runtime.
 #[derive(Deserialize)]
 struct RawArgument {
+    /// Generated argument type name.
     #[serde(rename = "type")]
     kind: String,
+    /// Accepted keyword values.
     #[serde(default)]
     values: Vec<String>,
+    /// Inclusive generated minimum.
     #[serde(default, alias = "min")]
     minimum: Option<i64>,
+    /// Inclusive generated maximum.
     #[serde(default, alias = "max")]
     maximum: Option<i64>,
 }
@@ -350,6 +506,10 @@ const DESTRUCTIVE_PATHS: &[&str] = &[
 ];
 
 /// Gets one lazily parsed data set.
+///
+/// # Errors
+///
+/// Returns [`CatalogError::InvalidGeneratedCatalog`] when embedded JSON is malformed.
 fn data(version: CatalogVersion) -> Result<&'static CatalogData, CatalogError> {
     match version {
         CatalogVersion::V4_3 => V4_3.as_ref().map_err(Clone::clone),
@@ -359,6 +519,10 @@ fn data(version: CatalogVersion) -> Result<&'static CatalogData, CatalogError> {
 }
 
 /// Parses all generated command shards for one version.
+///
+/// # Errors
+///
+/// Returns [`CatalogError::InvalidGeneratedCatalog`] when an embedded shard is malformed.
 fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
     let prefix = format!("catalog/{}/", version.as_str());
     let mut commands = BTreeMap::new();

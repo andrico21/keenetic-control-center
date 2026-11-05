@@ -12,7 +12,12 @@
 pub mod accounts;
 pub mod api_keys;
 pub mod audit;
+pub mod backups;
+pub mod jobs;
 pub mod permissions;
 pub mod persist;
+pub mod poller;
+pub mod registry;
 pub mod secrets;
 pub mod settings;
+pub mod workflow;

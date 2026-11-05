@@ -31,3 +31,17 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - base64 duplicate eliminated by bumping kcc-config to 0.23.1 (no code change needed).
 - cargo-machete: `[package.metadata.cargo-machete] ignored` for humantime-serde (kcc-app; used via `serde(with=...)`) and md-5 (kcc-config, kcc-testkit; imported as `md5`, plain machete misses it). `--with-metadata` alone only caught the first.
 - cargo vet: R-KIT's config has NO imports (exemptions only). Imported bytecode-alliance, embark-studios, google, mozilla (the four registries the vet dry-run recommended), then `cargo vet regenerate exemptions` -> 50 fully audited, 19 partially, 259 exempted; exemptions are tracked in supply-chain/config.toml.
+
+## Todo 19 (permissions, accounts, API keys, audit)
+- rmcp-server-kit 3.21.1 API confirmed from its checked-out source/docs: `auth::generate_api_key() -> Result<(String, String), RmcpServerKitError>` returns one-shot plaintext plus an Argon2id PHC hash; `auth::ApiKeyEntry::new(name, hash, role)` is the supported conversion; `rbac::RbacConfig::with_roles(Vec<RoleConfig>)` and `RoleConfig::new(name, allow, hosts)` accept exact tool names and the kit's `*`-only, case-sensitive host glob semantics.
+- KCC roles map each `Permission` to exact registered tool names; router scopes pass unchanged to `RoleConfig::hosts`. Built-ins cannot be overridden by `roles.json`.
+- `users.json` stores the Argon2id PHC string encrypted with todo 18's `MasterKey`/`SealedSecret`, username-bound as AAD. Account hashing is fixed to Argon2id v19 m=19456 KiB, t=2, p=1. Lockout state updates through `StateStore::update` and an injected Unix clock, with no sleeps in tests.
+- `api_keys.json` stores only kit-generated hashes and metadata; plaintext is returned once inside `SecretString`. `audit.jsonl` remains append-only plaintext metadata but rejects secret-shaped parameter keys, uses one mpsc writer task, hashes canonical fixed-order JSON, and carries sequence/hash continuity across 50 MiB rotations.
+- Direct dependencies `argon2 0.6`, `sha2 0.11`, and `tokio` reuse versions already present through rmcp-server-kit; no second RustCrypto generation was introduced. Full G0 and deny/audit/vet/machete/tree gates passed.
+
+## Todo 56: platform privilege APIs
+- Linux/Unix use direct `rustix` 1.1.6 (`process`, `thread`) plus `caps` 0.5.6; no `nix`. Windows uses target-gated `check_elevation` 0.3.0, the maintained successor to `is_elevated`; it is BSD-3-Clause, depends only on `windows-sys` 0.52.0, and returns a Windows error so startup fails closed when token elevation cannot be queried. The Windows branch is compile-unverified on this Linux host.
+
+## Todo 8: ndw2 dependency shape
+- `kcc-rci` selected the versions already present in the lockfile: reqwest 0.13.5 (`default-features = false`, `json`, `rustls-no-provider`), rustls 0.23.46 (`ring`, `std`, `tls12`), sha2 0.11.1, md-5 0.11.0, secrecy 0.10.3, zeroize 1.9.1, and tokio 1.54.1. `cargo tree -p kcc-rci -d -e normal --all-features` reported no normal dependency duplicates after the addition.
+- The process-wide ring provider is installed once by the session manager; an already-installed provider is accepted, matching composition with rmcp-server-kit without enabling aws-lc.

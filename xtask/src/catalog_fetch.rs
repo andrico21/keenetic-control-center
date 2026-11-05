@@ -28,7 +28,7 @@ pub(crate) fn today() -> String {
 }
 
 /// Lowercase hex SHA-256 of `bytes`.
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     Sha256::digest(bytes)
         .iter()
         .flat_map(|byte| [byte >> 4_u8, byte & 0x0f_u8])

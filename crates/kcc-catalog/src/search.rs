@@ -1,10 +1,12 @@
 //! Tokenized catalog search over command paths, arguments, and project-owned synonyms.
 
-use std::{cmp::Reverse, collections::BTreeMap, sync::LazyLock};
+use alloc::collections::BTreeMap;
+use core::iter;
+use std::sync::LazyLock;
 
 use serde::Deserialize;
 
-use crate::{Catalog, Command};
+use crate::Command;
 
 /// One ranked catalog search match.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -16,44 +18,20 @@ pub struct SearchResult<'catalog> {
     pub score: usize,
 }
 
-impl Catalog {
-    /// Searches visible command paths and argument names with prefix-weighted token matching.
-    #[inline]
-    #[must_use]
-    pub fn search(&self, query: &str, limit: usize) -> Vec<SearchResult<'_>> {
-        if limit == 0 {
-            return Vec::new();
-        }
-        let query_tokens = tokenize(query);
-        if query_tokens.is_empty() {
-            return Vec::new();
-        }
-        let expanded = expand(&query_tokens);
-        let mut results = self
-            .commands()
-            .filter_map(|command| {
-                score(command, &query_tokens, &expanded)
-                    .filter(|value| *value > 0)
-                    .map(|value| SearchResult {
-                        command,
-                        score: value,
-                    })
-            })
-            .collect::<Vec<_>>();
-        results.sort_by_key(|result| (Reverse(result.score), result.command.path.as_str()));
-        results.truncate(limit);
-        results
-    }
-}
-
 /// Deserialized synonym file.
 #[derive(Deserialize)]
 struct SynonymTable {
+    /// English synonyms.
     en: BTreeMap<String, Vec<String>>,
+    /// Russian synonyms.
     ru: BTreeMap<String, Vec<String>>,
+    /// Ukrainian synonyms.
     uk: BTreeMap<String, Vec<String>>,
+    /// German synonyms.
     de: BTreeMap<String, Vec<String>>,
+    /// Belarusian synonyms.
     be: BTreeMap<String, Vec<String>>,
+    /// Kazakh synonyms.
     kk: BTreeMap<String, Vec<String>>,
 }
 
@@ -89,7 +67,7 @@ static SYNONYMS: LazyLock<BTreeMap<String, Vec<String>>> = LazyLock::new(|| {
 });
 
 /// Converts punctuation-separated text into lowercase search tokens.
-fn tokenize(text: &str) -> Vec<String> {
+pub(crate) fn tokenize(text: &str) -> Vec<String> {
     text.split(|character: char| !character.is_alphanumeric())
         .filter(|token| !token.is_empty())
         .map(str::to_lowercase)
@@ -97,10 +75,10 @@ fn tokenize(text: &str) -> Vec<String> {
 }
 
 /// Adds synonym targets for exact query phrases and individual terms.
-fn expand(query_tokens: &[String]) -> Vec<String> {
+pub(crate) fn expand(query_tokens: &[String]) -> Vec<String> {
     let phrase = query_tokens.join(" ");
     let mut expanded = Vec::new();
-    for key in core::iter::once(&phrase).chain(query_tokens) {
+    for key in iter::once(&phrase).chain(query_tokens) {
         if let Some(values) = SYNONYMS.get(key) {
             for value in values {
                 expanded.extend(tokenize(value));
@@ -111,7 +89,11 @@ fn expand(query_tokens: &[String]) -> Vec<String> {
 }
 
 /// Scores direct path/argument tokens above synonym-only matches.
-fn score(command: &Command, query_tokens: &[String], expanded: &[String]) -> Option<usize> {
+pub(crate) fn score(
+    command: &Command,
+    query_tokens: &[String],
+    expanded: &[String],
+) -> Option<usize> {
     let path_tokens = tokenize(&command.path);
     let argument_tokens = command
         .arguments
@@ -120,20 +102,34 @@ fn score(command: &Command, query_tokens: &[String], expanded: &[String]) -> Opt
         .collect::<Vec<_>>();
     let direct = query_tokens
         .iter()
-        .map(|query| token_score(query, &path_tokens, 12) + token_score(query, &argument_tokens, 6))
+        .map(|query| {
+            token_score(query, &path_tokens, 12).saturating_add(token_score(
+                query,
+                &argument_tokens,
+                6,
+            ))
+        })
         .sum::<usize>();
-    let synonym_phrase_bonus = SYNONYMS
+    let synonym_phrase_bonus = if SYNONYMS
         .get(&query_tokens.join(" "))
         .is_some_and(|targets| {
             targets.iter().any(|target| {
                 command.path == *target || command.path.starts_with(&format!("{target} "))
             })
-        })
-        .then_some(64)
-        .unwrap_or(0);
+        }) {
+        64
+    } else {
+        0
+    };
     let synonym = expanded
         .iter()
-        .map(|query| token_score(query, &path_tokens, 8) + token_score(query, &argument_tokens, 4))
+        .map(|query| {
+            token_score(query, &path_tokens, 8).saturating_add(token_score(
+                query,
+                &argument_tokens,
+                4,
+            ))
+        })
         .sum::<usize>();
     direct
         .checked_add(synonym)?

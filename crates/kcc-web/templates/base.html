@@ -1,0 +1,81 @@
+{%- import "components.html" as ui -%}
+<!doctype html>
+<html lang="{{ shell.locale().tag() }}" dir="ltr"{% if let Some(class) = shell.theme().class() %} class="{{ class }}"{% endif %}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="{{ shell.theme().color_scheme() }}">
+<meta name="htmx-config" content='{"allowEval":false,"allowScriptTags":false,"includeIndicatorStyles":false,"selfRequestsOnly":true}'>
+{%- if let Some(token) = shell.csrf_token() %}
+<meta name="csrf-token" content="{{ token }}">
+{%- endif %}
+<title>{% block title %}{% endblock %} - {{ t(keys::COMMON_APP_NAME) }}</title>
+<link rel="icon" href="data:,">
+{{ ui::stylesheet("css/app.css") }}
+{%- block head %}{% endblock %}
+{{ ui::script("vendor/htmx.min.js") }}
+{{ ui::script("vendor/htmx-ext-sse.min.js") }}
+{{ ui::script("js/app.js") }}
+</head>
+<body>
+<a class="skip-link" href="#main">{{ t(keys::WEB_SKIP_TO_CONTENT) }}</a>
+<div class="app">
+  <header class="masthead">
+    <button class="button button--ghost masthead__menu" type="button" popovertarget="site-nav">{{ t(keys::WEB_NAV_MENU) }}</button>
+    <a class="masthead__brand" href="/ui/">{{ t(keys::COMMON_APP_NAME) }}</a>
+    <div class="masthead__context">
+      {%- if shell.fleet().is_empty() %}
+      <p class="masthead__note">{{ t(keys::WEB_FLEET_EMPTY) }}</p>
+      {%- else %}
+      <form class="fleet" method="get" action="/ui/">
+        <label class="fleet__label" for="fleet-router">{{ t(keys::WEB_FLEET_LABEL) }}</label>
+        <select class="fleet__select" id="fleet-router" name="router">
+          {%- for router in shell.fleet() %}
+          <option value="{{ router.id() }}"{% if router.selected() %} selected{% endif %}>{{ router.name() }}</option>
+          {%- endfor %}
+        </select>
+        <button class="button button--secondary" type="submit">{{ t(keys::WEB_FLEET_OPEN) }}</button>
+      </form>
+      {%- endif %}
+      {%- if let Some(status) = shell.router_status() %}
+      <span class="status" data-status="{{ status.value() }}">{{ t(status.label()) }}</span>
+      {%- endif %}
+      {%- if shell.unsaved_changes() > 0 %}
+      <a class="badge" href="/ui/configuration">{{ t_count(keys::WEB_UNSAVED_CHANGES, shell.unsaved_changes()) }}</a>
+      {%- endif %}
+    </div>
+    <div class="masthead__prefs">
+      <button class="button button--ghost menu-button" type="button" popovertarget="locale-menu"><span class="visually-hidden">{{ t(keys::COMMON_LANGUAGE) }}: </span>{{ t(shell.locale_label()) }}</button>
+      <div class="menu" id="locale-menu" popover>
+        <ul class="menu__list">
+          {%- for option in shell.locales() %}
+          <li><button class="menu__item" type="button" lang="{{ option.tag() }}" data-kcc-locale="{{ option.tag() }}"{% if option.current() %} aria-current="true"{% endif %}>{{ t(option.label()) }}</button></li>
+          {%- endfor %}
+        </ul>
+      </div>
+      <button class="button button--ghost menu-button" type="button" popovertarget="theme-menu">{{ t(keys::WEB_THEME_LABEL) }}</button>
+      <div class="menu" id="theme-menu" popover>
+        <ul class="menu__list">
+          {%- for option in shell.themes() %}
+          <li><button class="menu__item" type="button" data-kcc-theme="{{ option.value() }}"{% if option.current() %} aria-current="true"{% endif %}>{{ t(option.label()) }}</button></li>
+          {%- endfor %}
+        </ul>
+      </div>
+    </div>
+  </header>
+  <nav class="sidenav" id="site-nav" popover aria-label="{{ t(keys::WEB_NAV_LABEL) }}">
+    <button class="button button--ghost sidenav__close" type="button" popovertarget="site-nav" popovertargetaction="hide">{{ t(keys::COMMON_CLOSE) }}</button>
+    <ul class="sidenav__list">
+      {%- for link in shell.nav() %}
+      <li><a class="sidenav__link" href="{{ link.href() }}"{% if link.current() %} aria-current="page"{% endif %}>{{ t(link.label()) }}</a></li>
+      {%- endfor %}
+    </ul>
+  </nav>
+  <main class="main" id="main" tabindex="-1">
+    {%- block content %}{% endblock %}
+  </main>
+</div>
+<div class="toasts" id="toasts" role="status" aria-live="polite" aria-label="{{ t(keys::WEB_NOTIFICATIONS) }}"></div>
+<dialog class="dialog" id="dialog"><div class="dialog__content" id="dialog-content"></div></dialog>
+</body>
+</html>

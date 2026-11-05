@@ -6,6 +6,7 @@
 extern crate alloc;
 
 mod allow_gate;
+mod assets;
 mod catalog;
 mod catalog_build;
 mod catalog_extract;
@@ -61,6 +62,14 @@ enum Task {
         /// Catalog directory to check instead of `crates/kcc-i18n/locales`.
         #[arg(long)]
         locales_dir: Option<PathBuf>,
+    },
+    /// Check the vendored Web UI assets against `ASSETS.lock` (hashes, licenses, no
+    /// unpinned file) and that no template loads an unpinned or foreign asset.
+    #[command(name = "assets-check")]
+    AssetsCheck {
+        /// Asset directory to check instead of `crates/kcc-web/assets`.
+        #[arg(long)]
+        assets_dir: Option<PathBuf>,
     },
 }
 
@@ -135,6 +144,7 @@ where
         Task::Catalog(CatalogTask::Build { version }) => catalog_build::run(&root, version, out),
         Task::I18nGen => i18n::generate(&root, out),
         Task::I18nCheck { locales_dir } => i18n::check(&root, locales_dir.as_deref(), out),
+        Task::AssetsCheck { assets_dir } => assets::run(&root, assets_dir.as_deref(), out),
     }
 }
 
