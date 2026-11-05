@@ -1,0 +1,5 @@
+[build]
+warnings = "deny"
+
+[alias]
+xtask = "run --quiet --manifest-path xtask/Cargo.toml --"
