@@ -24,7 +24,7 @@
       "plan_name": "keenetic-control-center",
       "status": "active",
       "started_at": "2026-11-05T16:38:10.421Z",
-      "updated_at": "2026-11-05T20:32:45.900Z",
+      "updated_at": "2026-11-05T21:11:03.480Z",
       "session_ids": [
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
       ],
@@ -45,6 +45,17 @@
           "updated_at": "2026-11-05T20:32:45.900Z",
           "ended_at": "2026-11-05T20:32:45.900Z",
           "elapsed_ms": 13206741
+        },
+        "todo:21": {
+          "task_key": "todo:21",
+          "task_label": "21",
+          "task_title": "Domain framework + system, internet, configuration and diagnostics domains",
+          "session_id": "opencode:ses_e527f2678ffeYhkuiXsAOTTTv5",
+          "agent": "Sisyphus-Junior",
+          "category": "deep-low",
+          "started_at": "2026-11-05T20:38:23.315Z",
+          "status": "running",
+          "updated_at": "2026-11-05T21:11:03.480Z"
         }
       }
     }
@@ -52,7 +63,7 @@
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
   "started_at": "2026-11-05T16:38:10.421Z",
   "status": "active",
-  "updated_at": "2026-11-05T20:32:45.900Z",
+  "updated_at": "2026-11-05T21:11:03.480Z",
   "session_ids": [
     "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
   ],
@@ -73,6 +84,17 @@
       "updated_at": "2026-11-05T20:32:45.900Z",
       "ended_at": "2026-11-05T20:32:45.900Z",
       "elapsed_ms": 13206741
+    },
+    "todo:21": {
+      "task_key": "todo:21",
+      "task_label": "21",
+      "task_title": "Domain framework + system, internet, configuration and diagnostics domains",
+      "session_id": "opencode:ses_e527f2678ffeYhkuiXsAOTTTv5",
+      "agent": "Sisyphus-Junior",
+      "category": "deep-low",
+      "started_at": "2026-11-05T20:38:23.315Z",
+      "status": "running",
+      "updated_at": "2026-11-05T21:11:03.480Z"
     }
   },
   "agent": "atlas"

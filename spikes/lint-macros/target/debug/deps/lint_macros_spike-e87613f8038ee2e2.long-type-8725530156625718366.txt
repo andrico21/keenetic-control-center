@@ -1,0 +1,2 @@
+(Tool, for<'a> fn(&'a SpikeServer, std::string::String) -> std::string::String {SpikeServer::record})
+(Tool, for<'a> fn(&'a SpikeServer, std::string::String) -> std::string::String {SpikeServer::record}): IntoToolRoute<SpikeServer, _>

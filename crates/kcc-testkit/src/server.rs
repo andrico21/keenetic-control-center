@@ -26,7 +26,7 @@ use zeroize::Zeroizing;
 use crate::{
     FaultInjection,
     config_state::ConfigState,
-    failsafe::FailSafe,
+    failsafe::{FailSafe, ScheduledReboot},
     ndw2,
     time::Clock,
     tree::{self, Selector},
@@ -102,6 +102,69 @@ struct Session {
 #[derive(Debug, Clone)]
 struct Login(String);
 
+/// One supported simulated background-process kind.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ProcessKind {
+    /// IPv4 ping.
+    Ping,
+    /// IPv6 ping.
+    Ping6,
+    /// Route trace.
+    Traceroute,
+    /// Address-resolution ping.
+    Arping,
+    /// Throughput measurement.
+    Iperf3,
+}
+
+impl ProcessKind {
+    /// Parses the resource path of a supported process kind.
+    fn from_path(path: &str) -> Option<Self> {
+        match path {
+            "tools/ping" => Some(Self::Ping),
+            "tools/ping6" => Some(Self::Ping6),
+            "tools/traceroute" => Some(Self::Traceroute),
+            "tools/arping" => Some(Self::Arping),
+            "tools/iperf3" => Some(Self::Iperf3),
+            _ => None,
+        }
+    }
+
+    /// Stable process kind name returned on the wire.
+    const fn name(self) -> &'static str {
+        match self {
+            Self::Ping => "ping",
+            Self::Ping6 => "ping6",
+            Self::Traceroute => "traceroute",
+            Self::Arping => "arping",
+            Self::Iperf3 => "iperf3",
+        }
+    }
+
+    /// Deterministic completed reply for this process kind.
+    fn reply(self) -> Value {
+        match self {
+            Self::Ping => serde_json::json!([1, 2, 3]),
+            Self::Ping6 => serde_json::json!(["2001:db8::1", "2001:db8::1"]),
+            Self::Traceroute => serde_json::json!([
+                {"hop":1,"address":"192.0.2.1"},
+                {"hop":2,"address":"198.51.100.1"}
+            ]),
+            Self::Arping => serde_json::json!([{"address":"192.0.2.1","mac":"02:00:00:00:00:01"}]),
+            Self::Iperf3 => serde_json::json!({"bits_per_second":100_000_000_u64}),
+        }
+    }
+}
+
+/// Mutable state of one simulated background process.
+#[derive(Debug)]
+struct Process {
+    /// Process command kind.
+    kind: ProcessKind,
+    /// Remaining continued polls before completion.
+    remaining: u8,
+}
+
 /// Everything the handlers share.
 #[derive(Debug)]
 pub(crate) struct Shared {
@@ -127,14 +190,16 @@ pub(crate) struct Shared {
     config: Mutex<ConfigState>,
     /// Fail-safe timer state.
     fail_safe: Mutex<FailSafe>,
+    /// Scheduled reboot timer state.
+    scheduled_reboot: Mutex<ScheduledReboot>,
     /// Per-instance fault injection controls.
     faults: FaultInjection,
     /// Number of requests observed by the fault middleware.
     request_count: AtomicU64,
     /// Next background process identifier.
     process_id: AtomicU64,
-    /// Remaining continued polls by background process identifier.
-    processes: Mutex<BTreeMap<String, u8>>,
+    /// Running background processes by identifier.
+    processes: Mutex<BTreeMap<String, Process>>,
     /// Number of background processes stopped through DELETE.
     stopped_processes: AtomicU64,
 }
@@ -187,6 +252,7 @@ impl Shared {
             show,
             config: Mutex::new(config),
             fail_safe: Mutex::new(FailSafe::default()),
+            scheduled_reboot: Mutex::new(ScheduledReboot::default()),
             faults,
             request_count: AtomicU64::new(0),
             process_id: AtomicU64::new(1),
@@ -215,6 +281,11 @@ impl Shared {
         self.stopped_processes.load(Ordering::SeqCst)
     }
 
+    /// Number of requests observed by the fault middleware.
+    pub(crate) fn request_count(&self) -> u64 {
+        self.request_count.load(Ordering::SeqCst)
+    }
+
     /// The session id carried in this server's cookie, if any.
     fn session_id(&self, headers: &HeaderMap) -> Option<String> {
         headers
@@ -234,7 +305,7 @@ impl Shared {
 
     /// The login of the valid authenticated session in `headers`, refreshing it.
     fn authorize(&self, headers: &HeaderMap) -> Option<String> {
-        self.expire_fail_safe();
+        self.expire_reboots();
         let id = self.session_id(headers)?;
         let mut sessions = lock(&self.sessions);
         let session = sessions.get_mut(&id)?;
@@ -324,12 +395,13 @@ impl Shared {
         }
     }
 
-    /// Restores startup and invalidates every session when the fail-safe timer expires.
-    fn expire_fail_safe(&self) {
-        let expired = lock(&self.fail_safe).take_expired(self.clock.now());
-        if expired {
-            lock(&self.config).reboot();
-            lock(&self.sessions).clear();
+    /// Restores startup and invalidates every session when a reboot timer expires.
+    fn expire_reboots(&self) {
+        let now = self.clock.now();
+        let fail_safe_expired = lock(&self.fail_safe).take_expired(now);
+        let scheduled_expired = lock(&self.scheduled_reboot).take_expired(now);
+        if fail_safe_expired || scheduled_expired {
+            self.reboot();
         }
     }
 
@@ -337,6 +409,7 @@ impl Shared {
     fn reboot(&self) {
         lock(&self.config).reboot();
         lock(&self.fail_safe).disarm();
+        lock(&self.scheduled_reboot).disarm();
         lock(&self.sessions).clear();
     }
 
@@ -351,6 +424,16 @@ impl Shared {
             ["system", "reboot"] => {
                 self.reboot();
                 tree::status("message", "rebooting.")
+            }
+            ["system", "reboot", seconds] => match seconds.parse::<u64>() {
+                Ok(value) if lock(&self.scheduled_reboot).arm(self.clock.now(), value) => {
+                    tree::status("message", "reboot scheduled.")
+                }
+                Ok(_) | Err(_) => tree::status("error", "invalid reboot timeout."),
+            },
+            ["no", "system", "reboot"] => {
+                lock(&self.scheduled_reboot).disarm();
+                tree::status("message", "scheduled reboot cancelled.")
             }
             ["components", "install", _] => tree::status("message", "component staged."),
             ["components", "commit"] => {
@@ -409,7 +492,7 @@ impl Shared {
 
     /// Returns dynamic `show last-change` state.
     fn last_change(&self) -> Value {
-        self.expire_fail_safe();
+        self.expire_reboots();
         let now = self.clock.now();
         let fail_safe = *lock(&self.fail_safe);
         lock(&self.config).last_change(&fail_safe.as_json(now))
@@ -426,29 +509,44 @@ impl Shared {
     }
 
     /// Allocates a simulated background-process response.
-    fn start_ping(&self) -> Value {
+    fn start_process(&self, kind: ProcessKind) -> Value {
         let id = self.process_id.fetch_add(1, Ordering::SeqCst);
-        let _: Option<u8> = lock(&self.processes).insert(id.to_string(), 3);
-        serde_json::json!({"process":{"id":id.to_string(),"status":"running","kind":"ping"}})
+        let _: Option<Process> =
+            lock(&self.processes).insert(id.to_string(), Process { kind, remaining: 3 });
+        serde_json::json!({"process":{"id":id.to_string(),"status":"running","kind":kind.name()}})
     }
 
-    /// Polls one simulated ping process.
-    fn poll_ping(&self, id: &str) -> Option<Value> {
+    /// Polls one simulated background process at its matching resource path.
+    fn poll_process(&self, kind: ProcessKind, id: &str) -> Option<Value> {
         let mut processes = lock(&self.processes);
-        let remaining = processes.get_mut(id)?;
-        if *remaining == 0 {
-            let _: Option<u8> = processes.remove(id);
-            drop(processes);
-            return Some(serde_json::json!({"process":{"id":id,"status":"done"},"reply":[1,2,3]}));
+        let process = processes.get_mut(id)?;
+        if process.kind != kind {
+            return None;
         }
-        *remaining = remaining.saturating_sub(1);
+        if process.remaining == 0 {
+            let _: Option<Process> = processes.remove(id);
+            drop(processes);
+            return Some(serde_json::json!({
+                "process":{"id":id,"status":"done","kind":kind.name()},
+                "reply":kind.reply()
+            }));
+        }
+        process.remaining = process.remaining.saturating_sub(1);
         drop(processes);
-        Some(serde_json::json!({"process":{"id":id,"status":"running"},"continued":true}))
+        Some(serde_json::json!({
+            "process":{"id":id,"status":"running","kind":kind.name()},
+            "continued":true
+        }))
     }
 
-    /// Stops one simulated ping process.
-    fn stop_ping(&self, id: &str) -> bool {
-        let removed = lock(&self.processes).remove(id).is_some();
+    /// Stops one simulated background process at its matching resource path.
+    fn stop_process(&self, kind: ProcessKind, id: &str) -> bool {
+        let mut processes = lock(&self.processes);
+        let matches_kind = processes
+            .get(id)
+            .is_some_and(|process| process.kind == kind);
+        let removed = matches_kind && processes.remove(id).is_some();
+        drop(processes);
         if removed {
             let _: u64 = self.stopped_processes.fetch_add(1, Ordering::SeqCst);
         }
@@ -676,10 +774,8 @@ fn query_selector(query: &BTreeMap<String, String>) -> Option<Selector<'_>> {
 
 /// Answers a read of `path`.
 fn read(shared: &Shared, login: &str, path: &str, query: &BTreeMap<String, String>) -> Response {
-    if path == "tools/ping"
-        && let Some(id) = query.get("id")
-    {
-        return shared.poll_ping(id).map_or_else(
+    if let Some((kind, id)) = ProcessKind::from_path(path).zip(query.get("id")) {
+        return shared.poll_process(kind, id).map_or_else(
             || empty(StatusCode::NOT_FOUND),
             |value| Json(value).into_response(),
         );
@@ -751,8 +847,8 @@ async fn rci_post(
         }
         return read(&shared, &login, &path, &params);
     }
-    if path == "tools/ping" {
-        return Json(shared.start_ping()).into_response();
+    if let Some(kind) = ProcessKind::from_path(&path) {
+        return Json(shared.start_process(kind)).into_response();
     }
     if shared.silent_noop(&path) {
         return Json(tree::status("message", "saved.")).into_response();
@@ -774,10 +870,8 @@ async fn rci_delete(
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
-    if path == "tools/ping"
-        && let Some(id) = query.get("id")
-    {
-        return if shared.stop_ping(id) {
+    if let Some((kind, id)) = ProcessKind::from_path(&path).zip(query.get("id")) {
+        return if shared.stop_process(kind, id) {
             Json(tree::status("message", "stopped.")).into_response()
         } else {
             empty(StatusCode::NOT_FOUND)

@@ -371,6 +371,7 @@ impl FakeRouter {
         let listener = TcpListener::bind(addr).await?;
         let local = listener.local_addr()?;
         let (stop, stopped) = oneshot::channel::<()>();
+        let shared = Arc::clone(&self.shared);
         let app = self.router();
         let task = tokio::spawn(async move {
             axum::serve(listener, app)
@@ -381,7 +382,14 @@ impl FakeRouter {
                 })
                 .await
         });
-        Ok((local, Handle { stop, task }))
+        Ok((
+            local,
+            Handle {
+                router: Some(shared),
+                stop,
+                task,
+            },
+        ))
     }
 
     /// The axum router, for in-process requests without a socket.
@@ -417,12 +425,21 @@ impl FakeRouter {
     pub fn stopped_processes(&self) -> u64 {
         self.shared.stopped_processes()
     }
+
+    /// Returns the number of HTTP requests observed by this router.
+    #[inline]
+    #[must_use]
+    pub fn request_count(&self) -> u64 {
+        self.shared.request_count()
+    }
 }
 
 /// A running server; dropping it also stops the server.
 #[derive(Debug)]
 #[must_use = "dropping the handle stops the server"]
 pub struct Handle {
+    /// Main-router state; isolated authentication fixtures have none.
+    router: Option<Arc<Shared>>,
     /// Signals graceful shutdown.
     stop: oneshot::Sender<()>,
     /// The serving task.
@@ -430,6 +447,15 @@ pub struct Handle {
 }
 
 impl Handle {
+    /// Returns the number of HTTP requests observed by this router.
+    #[inline]
+    #[must_use]
+    pub fn request_count(&self) -> u64 {
+        self.router
+            .as_ref()
+            .map_or(0, |shared| shared.request_count())
+    }
+
     /// Stops the server and waits for it to finish.
     ///
     /// # Errors

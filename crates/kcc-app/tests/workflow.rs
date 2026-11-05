@@ -15,14 +15,18 @@ use std::sync::Arc;
 use kcc_app::{
     audit::{Actor, ActorKind, AuditLog},
     backups::BackupStore,
-    jobs::{JobError, JobRunner},
+    jobs::{JobError, JobProgress, JobRunner},
     permissions::{Permission, Role},
     persist::StateStore,
     registry::{ManagedRouterProfile, RouterRegistry},
     secrets::MasterKey,
     settings::OutboundConfig,
-    workflow::{ChangeRequest, ChangeWorkflow, LastChange, VerificationSpec, WorkflowError},
+    workflow::{
+        ChangeRequest, ChangeWorkflow, CliChangeRequest, CliCommand, LastChange, VerificationSpec,
+        WorkflowError,
+    },
 };
+use kcc_catalog::{Catalog, HttpMethod};
 use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, model::Profile};
 use serde_json::{Value, json};
 use tempfile::TempDir;
@@ -104,6 +108,72 @@ async fn stale_read_from_another_agent_conflicts() -> Result<(), Box<dyn Error>>
     reason = "integration-test assertions and fixtures define the contract"
 )]
 #[tokio::test]
+async fn operation_permission_is_enforced_after_read_lease() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let role = Role::new(
+        "reader".to_owned(),
+        [Permission::Read, Permission::Write],
+        vec!["*".to_owned()],
+    );
+    let mut changes = fixture.begin_with_role(&role).await?;
+    let mut request = description_request("denied");
+    request.permission = Permission::Destructive;
+    let error = changes
+        .apply(request)
+        .await
+        .expect_err("the operation permission must be checked inside apply");
+    assert!(matches!(error, WorkflowError::PermissionDenied { router } if router == "router"));
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn cli_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let info = fixture.registry.poll_info("router").await?;
+    let catalog = Catalog::for_router(&info)?;
+    let validated = catalog
+        .validate(
+            "interface description",
+            HttpMethod::Post,
+            &json!({"description":"cli-protected"}),
+        )
+        .map_err(|issues| format!("catalog rejected fixture command: {issues:?}"))?;
+    let request = CliChangeRequest::new(
+        vec![CliCommand::new(
+            "interface Bridge0 description cli-protected".to_owned(),
+            validated,
+        )],
+        vec![VerificationSpec::new(
+            vec!["show".to_owned(), "last-change".to_owned()],
+            "/unsaved".to_owned(),
+            Value::Bool(true),
+        )],
+        Permission::Write,
+        json!({"interface":"Bridge0"}),
+    );
+    let mut changes = fixture.begin(None).await?;
+    let result = changes.apply_cli(request).await?;
+    assert!(result.unsaved);
+    assert_eq!(result.responses.len(), 1);
+    assert_eq!(fixture.backups.list("router")?.len(), 1);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
 async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
     let runner = JobRunner::open(fixture.state.clone(), Arc::clone(&fixture.registry)).await?;
@@ -138,6 +208,39 @@ async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dy
     loop {
         let event = events.recv().await?;
         if event.id == first {
+            break;
+        }
+    }
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn job_streams_typed_progress_with_latest_percentage() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let runner = JobRunner::open(fixture.state.clone(), Arc::clone(&fixture.registry)).await?;
+    let mut events = runner.subscribe();
+    let id = runner
+        .start("ping".to_owned(), None, false, async |context| {
+            context.progress(25);
+            context.structured_progress(JobProgress::OutputLine("reply".to_owned()));
+            Ok(())
+        })
+        .await?;
+    loop {
+        let event = events.recv().await?;
+        if event.id == id && event.detail.is_some() {
+            assert_eq!(event.progress, 25);
+            assert_eq!(
+                event.detail,
+                Some(JobProgress::OutputLine("reply".to_owned()))
+            );
             break;
         }
     }
@@ -215,6 +318,21 @@ impl Fixture {
             .await
     }
 
+    async fn begin_with_role(
+        &self,
+        role: &Role,
+    ) -> Result<kcc_app::workflow::ChangeSet, WorkflowError> {
+        self.workflow
+            .begin(
+                "router",
+                Actor::new(ActorKind::Cli, "test".to_owned()),
+                role,
+                None,
+                false,
+            )
+            .await
+    }
+
     async fn last_change(&self) -> Result<LastChange, Box<dyn Error>> {
         let changes = self.begin(None).await?;
         let value = changes.baseline().clone();
@@ -251,6 +369,7 @@ fn description_request(value: &str) -> ChangeRequest {
             "/description".to_owned(),
             Value::String(value.to_owned()),
         )],
+        Permission::Write,
         json!({"field":"description"}),
     )
 }

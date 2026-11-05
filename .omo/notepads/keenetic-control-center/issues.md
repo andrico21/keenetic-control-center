@@ -24,3 +24,6 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 ## [2026-11-05] Todo 33 follow-ups
 - Todo 48 must use `kcc_web::csp::security_headers(tls)`; with the kit default the CSP would block every Web UI script/style and `Cache-Control: no-store` would defeat the hashed-asset cache. With it, `/mcp`, `/healthz`, `/readyz`, `/version` carry no Cache-Control (accepted: authenticated POST/SSE and small status documents without validators); revisit if the kit gains a per-route Cache-Control opt-out.
 - Theme and language menus write their cookies client-side in `assets/js/app.js` (no state-changing endpoint before CSRF exists); without JavaScript they do nothing. Recorded as accepted debt in `crates/kcc-web/DESIGN.md` section 8; todo 34 may add a POST fallback behind CSRF.
+
+## [2026-11-06] Todo 34 partial execution
+- The single-task directive required stopping after the first logical unit. Session storage, CSRF, web routes/templates, authorization middleware, account UI, audit wiring, and `crates/kcc-web/tests/auth.rs` remain unimplemented; todo 34 is not complete.

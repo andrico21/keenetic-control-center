@@ -1493,12 +1493,14 @@ dependencies = [
  "kcc-rci",
  "kcc-testkit",
  "md-5",
+ "proptest",
  "reqwest",
  "secrecy",
  "serde",
  "serde_json",
  "thiserror",
  "tokio",
+ "toml",
 ]
 
 [[package]]

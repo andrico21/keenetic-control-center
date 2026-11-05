@@ -11,7 +11,7 @@ mod tests {
     extern crate alloc;
 
     use alloc::sync::Arc;
-    use core::{error::Error, time::Duration};
+    use core::{error::Error, net::SocketAddr, time::Duration};
 
     use axum::{
         Router,
@@ -383,6 +383,125 @@ mod tests {
     async fn spawn_and_shutdown() -> TestResult {
         let (addr, handle) = FakeRouter::spawn().await?;
         assert!(addr.ip().is_loopback(), "binds loopback");
+        handle.shutdown().await?;
+        Ok(())
+    }
+
+    /// Every diagnostics endpoint preserves its process kind and returns its canned reply.
+    #[tokio::test]
+    async fn diagnostic_process_kinds_complete_with_distinct_replies() -> TestResult {
+        let (fake, app) = ultra()?;
+        let cookie = login(&app, fake.realm()).await?;
+        let cases = [
+            ("ping", json!([1_u8, 2_u8, 3_u8])),
+            ("ping6", json!(["2001:db8::1", "2001:db8::1"])),
+            (
+                "traceroute",
+                json!([
+                    {"hop":1_u8,"address":"192.0.2.1"},
+                    {"hop":2_u8,"address":"198.51.100.1"}
+                ]),
+            ),
+            (
+                "arping",
+                json!([{"address":"192.0.2.1","mac":"02:00:00:00:00:01"}]),
+            ),
+            ("iperf3", json!({"bits_per_second":100_000_000_u64})),
+        ];
+
+        for (kind, expected_reply) in cases {
+            let path = format!("/rci/tools/{kind}");
+            let started = send(&app, Method::POST, &path, Some(&cookie), Body::from("{}"))
+                .await?
+                .json()?;
+            assert_eq!(started.pointer("/process/kind"), Some(&json!(kind)));
+            let id = started
+                .pointer("/process/id")
+                .and_then(Value::as_str)
+                .unwrap_or_default();
+            let poll_path = format!("{path}?id={id}");
+            for _poll in 0_u8..3_u8 {
+                let running = send(&app, Method::GET, &poll_path, Some(&cookie), Body::empty())
+                    .await?
+                    .json()?;
+                assert_eq!(running.pointer("/process/kind"), Some(&json!(kind)));
+                assert_eq!(running.get("continued"), Some(&json!(true)));
+            }
+            let completed = send(&app, Method::GET, &poll_path, Some(&cookie), Body::empty())
+                .await?
+                .json()?;
+            assert_eq!(completed.pointer("/process/kind"), Some(&json!(kind)));
+            assert_eq!(completed.get("reply"), Some(&expected_reply));
+        }
+        Ok(())
+    }
+
+    /// Poll and stop reject a process id presented at a different diagnostics endpoint.
+    #[tokio::test]
+    async fn diagnostic_process_ids_are_scoped_to_their_kind() -> TestResult {
+        let (fake, app) = ultra()?;
+        let cookie = login(&app, fake.realm()).await?;
+        let started = send(
+            &app,
+            Method::POST,
+            "/rci/tools/ping6",
+            Some(&cookie),
+            Body::from("{}"),
+        )
+        .await?
+        .json()?;
+        let id = started
+            .pointer("/process/id")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+
+        let wrong_poll = send(
+            &app,
+            Method::GET,
+            &format!("/rci/tools/ping?id={id}"),
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert_eq!(wrong_poll.status, StatusCode::NOT_FOUND);
+        let wrong_stop = send(
+            &app,
+            Method::DELETE,
+            &format!("/rci/tools/traceroute?id={id}"),
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert_eq!(wrong_stop.status, StatusCode::NOT_FOUND);
+        let stopped = send(
+            &app,
+            Method::DELETE,
+            &format!("/rci/tools/ping6?id={id}"),
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert_eq!(stopped.status, StatusCode::OK);
+        assert_eq!(fake.stopped_processes(), 1);
+        Ok(())
+    }
+
+    /// Fake-router and server-handle counters expose the same shared request count.
+    #[tokio::test]
+    async fn request_count_is_shared_by_fake_router_and_handle() -> TestResult {
+        let fake = FakeRouter::builder(Profile::default()).build()?;
+        let app = fake.router();
+        let (_, handle) = fake
+            .clone()
+            .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
+            .await?;
+        assert_eq!(fake.request_count(), 0);
+        assert_eq!(handle.request_count(), 0);
+
+        let reply = send(&app, Method::GET, "/auth", None, Body::empty()).await?;
+        assert_eq!(reply.status, StatusCode::UNAUTHORIZED);
+        assert_eq!(fake.request_count(), 1);
+        assert_eq!(handle.request_count(), 1);
         handle.shutdown().await?;
         Ok(())
     }

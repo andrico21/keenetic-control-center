@@ -193,4 +193,85 @@ mod tests {
         assert!(startup.contains("Committed LAN"));
         Ok(())
     }
+
+    #[tokio::test]
+    async fn scheduled_reboot_expiry_restores_startup_and_drops_sessions() -> TestResult {
+        let clock = Arc::new(MockClock::new());
+        let injected: Arc<dyn Clock> = Arc::<MockClock>::clone(&clock);
+        let fake = FakeRouter::builder(Profile::default())
+            .clock(injected)
+            .build()?;
+        let app = fake.router();
+        let cookie = login(&app, fake.realm()).await?;
+        drop(
+            parse(
+                &app,
+                &cookie,
+                "interface Bridge0 description \"Scheduled rollback\"",
+            )
+            .await?,
+        );
+        let armed = parse(&app, &cookie, "system reboot 30").await?;
+        assert_eq!(armed.pointer("/status/0/status"), Some(&json!("message")));
+
+        clock.advance(Duration::from_secs(30));
+        let (old_status, _) = send(
+            &app,
+            Method::GET,
+            "/ci/running-config.txt",
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert_eq!(old_status, StatusCode::UNAUTHORIZED);
+        let new_cookie = login(&app, fake.realm()).await?;
+        let (_, running) = send(
+            &app,
+            Method::GET,
+            "/ci/running-config.txt",
+            Some(&new_cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert!(!running.contains("Scheduled rollback"));
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn cancelling_scheduled_reboot_preserves_running_state_and_session() -> TestResult {
+        let clock = Arc::new(MockClock::new());
+        let injected: Arc<dyn Clock> = Arc::<MockClock>::clone(&clock);
+        let fake = FakeRouter::builder(Profile::default())
+            .clock(injected)
+            .build()?;
+        let app = fake.router();
+        let cookie = login(&app, fake.realm()).await?;
+        drop(
+            parse(
+                &app,
+                &cookie,
+                "interface Bridge0 description \"Kept after cancel\"",
+            )
+            .await?,
+        );
+        drop(parse(&app, &cookie, "system reboot 30").await?);
+        let cancelled = parse(&app, &cookie, "no system reboot").await?;
+        assert_eq!(
+            cancelled.pointer("/status/0/status"),
+            Some(&json!("message"))
+        );
+
+        clock.advance(Duration::from_secs(31));
+        let (status, running) = send(
+            &app,
+            Method::GET,
+            "/ci/running-config.txt",
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert_eq!(status, StatusCode::OK);
+        assert!(running.contains("Kept after cancel"));
+        Ok(())
+    }
 }

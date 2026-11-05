@@ -1,0 +1,168 @@
+# Migration classification policy. Patterns match complete flattened CLI lines.
+# `*` matches one word, a suffix `*` matches a word prefix, and `**` matches
+# zero or more words. First matching rule wins.
+#
+# Password hashes are realm-bound: ndw2 hash = md5(login:realm:password).
+# This is derived, verified by todo 31 live rehearsal.
+
+[[rule]]
+id = "identity-ndns-registration"
+match = "ndns registration **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-ndns"
+
+[[rule]]
+id = "identity-ndns-booking"
+match = "ndns booking **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-ndns"
+
+[[rule]]
+id = "identity-cloud"
+match = "cloud **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-cloud"
+
+[[rule]]
+id = "identity-acme-certificates"
+match = "ip http ssl acme **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-certificate"
+
+[[rule]]
+id = "identity-crypto-certificates"
+match = "crypto certificate* **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-certificate"
+
+[[rule]]
+id = "identity-crypto-pki"
+match = "crypto pki **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-certificate"
+
+[[rule]]
+id = "identity-mws-member-pairing"
+match = "mws member * pair* **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-mws"
+
+[[rule]]
+id = "identity-mws-acquire"
+match = "mws acquire **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-mws"
+
+[[rule]]
+id = "identity-dpn-accept"
+match = "dpn accept **"
+disposition = "skip-identity"
+reason_key = "migration-reason-preflight-agreement"
+
+[[rule]]
+id = "identity-eula-accept"
+match = "eula accept **"
+disposition = "skip-identity"
+reason_key = "migration-reason-preflight-agreement"
+
+[[rule]]
+id = "identity-kernel-tunables"
+match = "system set **"
+disposition = "skip-identity"
+reason_key = "migration-reason-kernel-tunable"
+
+[[rule]]
+id = "identity-interface-mac"
+match = "interface * mac address **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-mac"
+
+[[rule]]
+id = "identity-factory-mac"
+match = "mac address factory **"
+disposition = "skip-identity"
+reason_key = "migration-reason-identity-mac"
+
+[[rule]]
+id = "hardware-led"
+match = "system led* **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-led"
+
+[[rule]]
+id = "hardware-button"
+match = "system button **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-button"
+
+[[rule]]
+id = "hardware-usb-power"
+match = "system usb power* **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-usb"
+
+[[rule]]
+id = "hardware-radio-eeprom"
+match = "interface * rf e2p **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-radio"
+
+[[rule]]
+id = "hardware-wan-led"
+match = "interface * led wan **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-led"
+
+[[rule]]
+id = "hardware-usb-device"
+match = "interface * usb **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-usb"
+
+[[rule]]
+id = "hardware-printer-binding"
+match = "printer **"
+disposition = "skip-hardware"
+reason_key = "migration-reason-hardware-printer"
+
+[[rule]]
+id = "realm-bound-password-hash"
+match = "user * password md5 **"
+disposition = "needs-input"
+reason_key = "migration-reason-password-realm"
+condition = "realm-differs"
+
+[[rule]]
+id = "realm-bound-password-hash-nt"
+match = "user * password nt **"
+disposition = "needs-input"
+reason_key = "migration-reason-password-realm"
+condition = "realm-differs"
+
+[[rule]]
+id = "copy-wireguard-private-key"
+match = "interface * wireguard private-key **"
+disposition = "copy"
+reason_key = "migration-reason-copy-secret"
+requires_component = "wireguard"
+
+[[rule]]
+id = "copy-ns3-secret"
+match = "**"
+disposition = "copy"
+reason_key = "migration-reason-copy-secret"
+condition = "contains-ns3"
+
+[[rule]]
+id = "remap-mapped-reference"
+match = "**"
+disposition = "remap"
+reason_key = "migration-reason-remap-reference"
+condition = "references-mapped-name"
+
+[[rule]]
+id = "scalar-conflict"
+match = "**"
+disposition = "conflict"
+reason_key = "migration-reason-scalar-conflict"
+condition = "scalar-conflict"

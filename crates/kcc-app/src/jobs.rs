@@ -16,6 +16,7 @@ use core::fmt;
 use std::{
     fs, io,
     path::PathBuf,
+    sync::atomic::{AtomicU8, Ordering},
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -72,7 +73,17 @@ pub struct JobRecord {
 }
 
 /// Progress event broadcast to interested front-ends.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum JobProgress {
+    /// One textual output line from a streaming operation.
+    OutputLine(String),
+    /// Operation-specific structured progress data.
+    Structured(Value),
+}
+
+/// Progress event broadcast to interested front-ends.
+#[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct JobEvent {
     /// Job id.
@@ -81,6 +92,8 @@ pub struct JobEvent {
     pub progress: u8,
     /// Current status.
     pub status: JobStatus,
+    /// Optional operation-specific progress payload.
+    pub detail: Option<JobProgress>,
 }
 
 /// Recovery state discovered for an interrupted router job.
@@ -136,6 +149,8 @@ pub struct JobContext {
     cancellation: CancellationToken,
     /// Progress channel.
     events: broadcast::Sender<JobEvent>,
+    /// Latest percentage paired with structured events.
+    progress: Arc<AtomicU8>,
 }
 
 impl fmt::Debug for JobContext {
@@ -158,10 +173,24 @@ impl JobContext {
     /// Broadcasts a progress update.
     #[inline]
     pub fn progress(&self, progress: u8) {
+        let bounded = progress.min(100);
+        self.progress.store(bounded, Ordering::Relaxed);
         drop(self.events.send(JobEvent {
             id: self.id.clone(),
-            progress: progress.min(100),
+            progress: bounded,
             status: JobStatus::Running,
+            detail: None,
+        }));
+    }
+
+    /// Broadcasts operation-specific progress while preserving the latest percentage.
+    #[inline]
+    pub fn structured_progress(&self, detail: JobProgress) {
+        drop(self.events.send(JobEvent {
+            id: self.id.clone(),
+            progress: self.progress.load(Ordering::Relaxed),
+            status: JobStatus::Running,
+            detail: Some(detail),
         }));
     }
 }
@@ -312,6 +341,7 @@ impl JobRunner {
                 id: task_id.clone(),
                 cancellation: cancellation.clone(),
                 events: owner.events.clone(),
+                progress: Arc::new(AtomicU8::new(0)),
             };
             let result = work(context).await;
             let status = if cancellation.is_cancelled() {
@@ -335,6 +365,7 @@ impl JobRunner {
                     id: task_id.clone(),
                     progress: record.progress,
                     status,
+                    detail: None,
                 }));
                 if record.write
                     && let Some(target) = record.router
@@ -469,7 +500,7 @@ fn validate_id(id: &str) -> Result<(), JobError> {
 /// Allocates a process-unique sortable job id.
 fn new_id() -> String {
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-    let sequence = NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
     format!("job-{}-{sequence}", unix_seconds())
 }
 

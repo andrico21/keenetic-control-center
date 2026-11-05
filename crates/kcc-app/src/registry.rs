@@ -619,11 +619,7 @@ fn tls_mode(tls: &RouterTls) -> Result<TlsMode, RegistryError> {
 }
 
 /// Enforces an application permission and router scope.
-pub(crate) fn authorize(
-    role: &Role,
-    permission: Permission,
-    router: &str,
-) -> Result<(), RegistryError> {
+pub fn authorize(role: &Role, permission: Permission, router: &str) -> Result<(), RegistryError> {
     if !role.grants(permission) || !scope_matches(&role.router_scope, router) {
         return Err(RegistryError::PermissionDenied {
             router: router.to_owned(),
@@ -633,12 +629,13 @@ pub(crate) fn authorize(
 }
 
 /// Matches the kit-compatible `*` glob semantics used by router scopes.
-pub(crate) fn scope_matches(patterns: &[String], value: &str) -> bool {
+#[must_use]
+pub fn scope_matches(patterns: &[String], value: &str) -> bool {
     patterns.is_empty() || patterns.iter().any(|pattern| glob_matches(pattern, value))
 }
 
 /// Matches one `*`-only glob.
-fn glob_matches(pattern: &str, value: &str) -> bool {
+pub(crate) fn glob_matches(pattern: &str, value: &str) -> bool {
     if pattern == "*" {
         return true;
     }

@@ -171,3 +171,15 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - askama adds only askama/askama_derive/askama_macros/askama_parser (syn 3, winnow 1.0.5 already in the graph): `cargo deny` ok; `cargo vet` needed 4 exemptions, added by hand to supply-chain/config.toml (no `regenerate`, so concurrent siblings' in-flight deps were not swept in).
 - CSS gotcha caught only in visual QA: `.button { display: inline-flex }` declared after `.masthead__menu { display: none }` (equal specificity) re-showed the Menu button at wide widths; component rules now precede layout overrides in app.css.
 - Visual QA recipe that works here (no host browser): podman `mcr.microsoft.com/playwright:v1.64.1-noble`, `npm i playwright@1.64.1` inside with `PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1`, `--network host`, against a scratch `#[ignore]` lib test that `axum::serve`s `web_router` (+ CSP header) on 127.0.0.1:18433, deleted afterwards. Background processes need `setsid -f ...`; a plain `&` dies with the tool shell.
+
+## [2026-11-06] Todo 28: migration classification rules
+- `kcc-migrate::rules` embeds ordered TOML policy with a small segment glob (`*`, prefix `foo*`, `**`); evaluation is explicit rule, target catalog, explicit rule component requirement, then default copy. Catalog command detection selects the longest visible command path whose command words occur in order among flattened CLI words.
+- Classification consumes `kcc_config::config_text::flatten`; source-order index plus line number makes the one-item-per-leaf invariant observable. A 256-case property test compares item indices and line numbers directly with parser-produced flattened lines.
+- Reports use `kcc_config::secrets::redact` plus an unconditional typed-NS3 redaction pass; executable output is held separately in `SecretString`. Thus NS3 and WireGuard keys are copied unchanged for migration but never appear in `Debug`, `before`, or `after`.
+- Realm hashes follow `ndw2 hash = md5(login:realm:password)` and are treated as realm-bound pending todo 31 live rehearsal. A differing realm requires an operator password and emits `user <name> password plain`; an equal realm copies the hash.
+- Verification: focused rules suite 18/18 and full G0 pass. LSP diagnostics timed out twice; compiler and strict workspace Clippy diagnostics are clean. Evidence: `.omo/evidence/task-28-keenetic-control-center.log`.
+
+## [2026-11-06] Todo 34 first atomic unit
+- `AccountStore` is the single Argon2id boundary: unknown usernames now execute the same fixed m=19456/t=2/p=1 work through a dummy derivation, and web-facing password/locale/admin queries remain in this service rather than duplicating Argon2 in `kcc-web`.
+- `Config::web_allowed_origins` derives all three loopback aliases (`127.0.0.1`, `localhost`, `[::1]`) with the configured scheme/port, normalizes `web.public_url` to a bare origin, and rejects non-loopback plain HTTP unless an HTTPS public URL and nonempty trusted proxy list prove reverse-proxy termination.
+- Focused `kcc-app` config/account tests and strict Clippy passed. LSP diagnostics timed out twice; compiler and Clippy diagnostics were used instead.

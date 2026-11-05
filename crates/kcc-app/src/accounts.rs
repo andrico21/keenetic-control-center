@@ -303,6 +303,7 @@ impl AccountStore {
                 .iter_mut()
                 .find(|candidate| candidate.username == username)
             else {
+                verify_dummy_password(password)?;
                 return Ok(Authentication::Invalid);
             };
             if account.disabled {
@@ -332,6 +333,86 @@ impl AccountStore {
             }
             Ok(Authentication::Invalid)
         })?
+    }
+
+    /// Whether at least one enabled administrator account exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns a state error when `users.json` cannot be read.
+    #[inline]
+    pub fn has_admin(&self) -> Result<bool, AccountError> {
+        Ok(self.state.read::<UsersDocument>()?.is_some_and(|document| {
+            document
+                .users
+                .iter()
+                .any(|account| account.role == "admin" && !account.disabled)
+        }))
+    }
+
+    /// Replaces `username`'s password after verifying the current password.
+    ///
+    /// The returned authentication result deliberately has the same shape as
+    /// [`Self::authenticate`], so a web boundary can keep credential failures
+    /// uniform. Password hashing uses the same fixed Argon2id parameters as
+    /// account creation.
+    ///
+    /// # Errors
+    ///
+    /// Returns an account, password-policy, hashing, encryption, or state error.
+    #[inline]
+    pub fn change_password(
+        &self,
+        username: &str,
+        current_password: &SecretString,
+        new_password: &SecretString,
+    ) -> Result<Authentication, AccountError> {
+        let authentication = self.authenticate(username, current_password)?;
+        if !matches!(
+            authentication,
+            Authentication::Authenticated { role: _, locale: _ }
+        ) {
+            return Ok(authentication);
+        }
+        validate_password(username, new_password)?;
+        let hash = hash_password(new_password)?;
+        let sealed = self.key.seal(username, &SecretString::from(hash))?;
+        self.state.update(|document: &mut UsersDocument| {
+            if let Some(account) = document
+                .users
+                .iter_mut()
+                .find(|candidate| candidate.username == username)
+            {
+                account.password_hash = sealed;
+                account.failure_count = 0;
+                account.lockout_until = None;
+            }
+        })?;
+        Ok(authentication)
+    }
+
+    /// Updates the preferred locale of an existing account.
+    ///
+    /// Returns `false` when the account disappeared before the update.
+    ///
+    /// # Errors
+    ///
+    /// Returns a state error when `users.json` cannot be updated.
+    #[inline]
+    pub fn set_locale(&self, username: &str, locale: String) -> Result<bool, AccountError> {
+        self.state
+            .update(|document: &mut UsersDocument| {
+                let Some(account) = document
+                    .users
+                    .iter_mut()
+                    .find(|candidate| candidate.username == username)
+                else {
+                    return false;
+                };
+                account.locale = locale;
+                true
+            })
+            .map_err(AccountError::from)
     }
 }
 
@@ -372,6 +453,27 @@ fn verify_password(password: &SecretString, hash: &SecretString) -> Result<bool,
     Ok(Argon2::default()
         .verify_password(password.expose_secret().as_bytes(), &parsed)
         .is_ok())
+}
+
+/// Performs the same Argon2id work for an unknown username without needing a
+/// persisted hash. The fixed salt is public and exists only to equalize login
+/// work; no derived bytes leave this function.
+///
+/// # Errors
+///
+/// Returns [`AccountError::PasswordHash`] if the fixed Argon2 parameters or
+/// hashing operation fail.
+fn verify_dummy_password(password: &SecretString) -> Result<(), AccountError> {
+    let params = password_params().map_err(|_error| AccountError::PasswordHash)?;
+    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
+    let mut output = [0_u8; 32];
+    argon2
+        .hash_password_into(
+            password.expose_secret().as_bytes(),
+            b"kcc-unknown-user",
+            &mut output,
+        )
+        .map_err(|_error| AccountError::PasswordHash)
 }
 
 /// Applies the account username boundary policy.

@@ -13,6 +13,13 @@ pub(crate) struct FailSafe {
     deadline: Option<Duration>,
 }
 
+/// Armed scheduled-reboot timer state.
+#[derive(Clone, Copy, Debug, Default)]
+pub(crate) struct ScheduledReboot {
+    /// Monotonic time at which reboot occurs.
+    deadline: Option<Duration>,
+}
+
 impl FailSafe {
     /// Arms or re-arms the reboot timer.
     pub(crate) fn arm(&mut self, now: Duration, seconds: u64) -> bool {
@@ -61,5 +68,31 @@ impl FailSafe {
             "timeout": self.period.map(|period| period.as_secs()),
             "remaining": remaining,
         })
+    }
+}
+
+impl ScheduledReboot {
+    /// Arms or re-arms the reboot timer.
+    pub(crate) const fn arm(&mut self, now: Duration, seconds: u64) -> bool {
+        if seconds == 0 {
+            return false;
+        }
+        self.deadline = Some(now.saturating_add(Duration::from_secs(seconds)));
+        true
+    }
+
+    /// Disarms the timer.
+    pub(crate) const fn disarm(&mut self) {
+        self.deadline = None;
+    }
+
+    /// Whether an armed timer has expired.
+    pub(crate) fn take_expired(&mut self, now: Duration) -> bool {
+        if self.deadline.is_some_and(|deadline| now >= deadline) {
+            self.disarm();
+            true
+        } else {
+            false
+        }
     }
 }

@@ -11,7 +11,10 @@
 extern crate alloc;
 
 use alloc::collections::BTreeSet;
-use core::{net::SocketAddr, time::Duration};
+use core::{
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
 use std::{
     env::{self, VarError},
     fs, io,
@@ -44,6 +47,7 @@ pub const KCC_ENV_VARS: &[&str] = &[
     "KCC_MCP_READ_ONLY",
     "KCC_MCP_ALLOW_DESTRUCTIVE",
     "KCC_MCP_MAX_RESULT_BYTES",
+    "KCC_MCP_TOOLSETS",
     "KCC_OUTBOUND_ALLOWED_NETWORKS",
     "KCC_OUTBOUND_ALLOWED_SUFFIXES",
     "KCC_OUTBOUND_ALLOW_LOOPBACK",
@@ -181,7 +185,7 @@ impl Default for WebConfig {
 }
 
 /// `[mcp]` section.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields, default)]
 #[non_exhaustive]
 #[expect(
@@ -199,6 +203,8 @@ pub struct McpConfig {
     pub allow_destructive: bool,
     /// Cap on the JSON text of one tool result, in bytes.
     pub max_result_bytes: u32,
+    /// Tool groups registered by the MCP server.
+    pub toolsets: Vec<String>,
 }
 
 impl Default for McpConfig {
@@ -210,6 +216,7 @@ impl Default for McpConfig {
             read_only: false,
             allow_destructive: false,
             max_result_bytes: 32 * 1024,
+            toolsets: vec!["core".to_owned()],
         }
     }
 }
@@ -528,6 +535,7 @@ impl Config {
         if self.web.default_locale.is_empty() {
             return Err(invalid("web.default_locale", "must not be empty"));
         }
+        drop(self.web_allowed_origins()?);
         if self.mcp.max_result_bytes == 0 {
             return Err(invalid("mcp.max_result_bytes", "must be at least 1"));
         }
@@ -542,6 +550,79 @@ impl Config {
             }
         }
         Ok(())
+    }
+
+    /// Derives the Web UI Origin allowlist from its public URL and listener.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ConfigError::Invalid`] when Web UI transport settings would
+    /// expose plain HTTP beyond loopback, trust an undeclared reverse proxy, or
+    /// produce no origin accepted by the shared HTTP transport.
+    #[inline]
+    pub fn web_allowed_origins(&self) -> Result<Vec<String>, ConfigError> {
+        if !self.web.enabled {
+            return Ok(Vec::new());
+        }
+        let listen_text = self.server.listen_addr.trim_matches(['[', ']']);
+        let listen_ip = listen_text.parse::<IpAddr>().map_err(|_error| {
+            invalid("server.listen_addr", "must be an IP address for the Web UI")
+        })?;
+        let tls = self.server.tls_cert_path.is_some() && self.server.tls_key_path.is_some();
+        let public_https = self
+            .web
+            .public_url
+            .as_ref()
+            .is_some_and(|url| url.scheme() == "https");
+        let trusted_https_proxy = public_https && !self.server.trusted_proxies.is_empty();
+        if !(listen_ip.is_loopback() || tls || trusted_https_proxy) {
+            return Err(invalid(
+                "server.listen_addr",
+                "a non-loopback Web UI requires TLS or an https web.public_url behind trusted_proxies",
+            ));
+        }
+        if self.web.public_url.is_some() && self.server.trusted_proxies.is_empty() && !tls {
+            return Err(invalid(
+                "server.trusted_proxies",
+                "web.public_url without listener TLS requires at least one trusted proxy",
+            ));
+        }
+
+        let mut origins = BTreeSet::new();
+        if let Some(public_url) = &self.web.public_url {
+            if !matches!(public_url.scheme(), "http" | "https") {
+                return Err(invalid("web.public_url", "scheme must be http or https"));
+            }
+            let _: bool = origins.insert(public_url.origin().ascii_serialization());
+        }
+        let scheme = if tls { "https" } else { "http" };
+        if listen_ip.is_loopback() {
+            for host in ["127.0.0.1", "localhost", "[::1]"] {
+                let _: bool =
+                    origins.insert(format!("{scheme}://{host}:{}", self.server.listen_port));
+            }
+        } else {
+            match (tls, listen_ip) {
+                (true, IpAddr::V4(address)) => {
+                    let _: bool =
+                        origins.insert(format!("{scheme}://{address}:{}", self.server.listen_port));
+                }
+                (true, IpAddr::V6(address)) => {
+                    let _: bool = origins.insert(format!(
+                        "{scheme}://[{address}]:{}",
+                        self.server.listen_port
+                    ));
+                }
+                (false, IpAddr::V4(_) | IpAddr::V6(_)) => {}
+            }
+        }
+        if origins.is_empty() {
+            return Err(invalid(
+                "web.public_url",
+                "Web UI origin allowlist must not be empty",
+            ));
+        }
+        Ok(origins.into_iter().collect())
     }
 }
 
@@ -826,6 +907,12 @@ where
             "mcp.max_result_bytes",
             &mut mcp.max_result_bytes,
             parse_number,
+        )?;
+        self.apply(
+            "KCC_MCP_TOOLSETS",
+            "mcp.toolsets",
+            &mut mcp.toolsets,
+            |raw| Ok(split_list(raw)),
         )
     }
 

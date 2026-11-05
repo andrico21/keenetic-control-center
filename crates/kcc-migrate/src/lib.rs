@@ -12,4 +12,5 @@ extern crate alloc;
 
 pub mod inventory;
 pub mod maps;
+pub mod rules;
 pub mod source;

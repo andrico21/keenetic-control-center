@@ -69,6 +69,15 @@ password_file = "/etc/kcc/home.pw"
     fn empty_file_gives_documented_defaults() -> TestResult {
         let config = Config::from_toml_str("")?;
         config.validate()?;
+        assert_eq!(
+            config.web_allowed_origins()?,
+            [
+                "http://127.0.0.1:8443",
+                "http://[::1]:8443",
+                "http://localhost:8443",
+            ],
+            "loopback aliases are accepted automatically"
+        );
         assert!(config.web.enabled, "web enabled by default");
         assert_eq!(
             config.web.session_idle,
@@ -88,6 +97,7 @@ password_file = "/etc/kcc/home.pw"
         assert!(!config.mcp.read_only, "read_only");
         assert!(!config.mcp.allow_destructive, "allow_destructive");
         assert_eq!(config.mcp.max_result_bytes, 32 * 1024, "max_result_bytes");
+        assert_eq!(config.mcp.toolsets, ["core"], "toolsets");
         assert!(!config.outbound.allow_loopback, "allow_loopback");
         assert_eq!(config.state.dir, None, "state dir");
         assert_eq!(config.backups.keep_last, 50, "keep_last");
@@ -108,6 +118,29 @@ password_file = "/etc/kcc/home.pw"
             "redact_clients_in_mcp"
         );
         assert!(config.routers.is_empty(), "routers");
+        Ok(())
+    }
+
+    #[test]
+    fn web_transport_refuses_non_loopback_plain_http() -> TestResult {
+        expect_invalid("[server]\nlisten_addr = \"0.0.0.0\"", "server.listen_addr")?;
+
+        let proxied = Config::from_toml_str(
+            r#"
+[server]
+listen_addr = "0.0.0.0"
+trusted_proxies = ["127.0.0.1/32"]
+
+[web]
+public_url = "https://kcc.example.net/app"
+"#,
+        )?;
+        proxied.validate()?;
+        assert_eq!(
+            proxied.web_allowed_origins()?,
+            ["https://kcc.example.net"],
+            "public URL is normalized to an origin"
+        );
         Ok(())
     }
 
@@ -282,6 +315,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         let env = BTreeMap::from([
             ("KCC_WEB_SESSION_IDLE", "45m"),
             ("KCC_MCP_READ_ONLY", "true"),
+            ("KCC_MCP_TOOLSETS", "core, network-write"),
             (
                 "KCC_OUTBOUND_ALLOWED_NETWORKS",
                 "192.168.1.0/24, 10.0.0.0/8",
@@ -299,6 +333,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             "session_idle"
         );
         assert!(config.mcp.read_only, "read_only");
+        assert_eq!(config.mcp.toolsets, ["core", "network-write"], "toolsets");
         assert_eq!(
             config.outbound.allowed_networks.len(),
             2,
@@ -319,6 +354,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             [
                 "web.session_idle",
                 "mcp.read_only",
+                "mcp.toolsets",
                 "outbound.allowed_networks",
                 "state.dir",
                 "cli.router_scope"

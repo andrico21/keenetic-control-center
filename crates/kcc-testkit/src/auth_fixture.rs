@@ -163,7 +163,15 @@ pub async fn spawn(options: Options) -> io::Result<(SocketAddr, Handle, Arc<Coun
             })
             .await
     });
-    Ok((address, Handle { stop, task }, counts))
+    Ok((
+        address,
+        Handle {
+            router: None,
+            stop,
+            task,
+        },
+        counts,
+    ))
 }
 
 /// Checks the fixed dummy fixture cookie and completed handshake.
