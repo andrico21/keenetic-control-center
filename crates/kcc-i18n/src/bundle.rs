@@ -70,7 +70,7 @@ pub enum LoadError {
 /// The embedded `.ftl` files of one locale, as `(file name, contents)`.
 type Sources = [(&'static str, &'static [u8])];
 
-/// Embeds the six catalog files of one locale directory.
+/// Embeds the seven catalog files of one locale directory.
 macro_rules! locale_sources {
     ($lang:literal) => {
         &[
@@ -93,6 +93,10 @@ macro_rules! locale_sources {
             (
                 "migrate.ftl",
                 include_bytes!(concat!("../locales/", $lang, "/migrate.ftl")),
+            ),
+            (
+                "mcp.ftl",
+                include_bytes!(concat!("../locales/", $lang, "/mcp.ftl")),
             ),
             (
                 "errors.ftl",

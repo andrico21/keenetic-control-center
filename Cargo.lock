@@ -1497,6 +1497,23 @@ dependencies = [
 [[package]]
 name = "kcc-mcp"
 version = "0.1.0"
+dependencies = [
+ "kcc-app",
+ "kcc-catalog",
+ "kcc-i18n",
+ "kcc-rci",
+ "kcc-testkit",
+ "proptest",
+ "rmcp",
+ "rmcp-server-kit",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tokio",
+ "tracing",
+ "url",
+]
 
 [[package]]
 name = "kcc-migrate"

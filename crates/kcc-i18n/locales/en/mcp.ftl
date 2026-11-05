@@ -1,0 +1,6 @@
+# MCP troubleshooting and safe-change prompts.
+
+mcp-prompt-troubleshoot-internet = Diagnose an internet outage safely: identify the router, inspect system and internet status, interfaces, routes, DNS, and recent changes; compare evidence before proposing a cause. Start with read-only tools, state uncertainty, and ask before any change.
+mcp-prompt-troubleshoot-wifi = Diagnose Wi-Fi problems safely: identify the affected router, radio, network, band, and client; inspect radio, access-point, client, channel, and interference evidence. Begin read-only, avoid exposing client identifiers, and propose the smallest reversible change only after confirming the cause.
+mcp-prompt-troubleshoot-device = Diagnose one device safely: identify its router and pseudonymized client record, then inspect connection state, address assignment, signal, interface, routing, and DNS evidence. Correlate timestamps, do not reveal client identifiers, and request confirmation before changing access or network settings.
+mcp-prompt-safe-change-workflow = Make router changes through a safe workflow: read the current state and command schema, explain the intended effect and risk, apply the smallest validated change without saving implicitly, verify the result, report unsaved state, and ask separately before saving or running a destructive action.

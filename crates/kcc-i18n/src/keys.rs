@@ -188,6 +188,22 @@ pub const ERRORS_TIMEOUT: MessageKey = MessageKey::new("errors-timeout");
 /// `errors-csrf` in `errors.ftl`.
 pub const ERRORS_CSRF: MessageKey = MessageKey::new("errors-csrf");
 
+/// `mcp-prompt-troubleshoot-internet` in `mcp.ftl`.
+pub const MCP_PROMPT_TROUBLESHOOT_INTERNET: MessageKey =
+    MessageKey::new("mcp-prompt-troubleshoot-internet");
+
+/// `mcp-prompt-troubleshoot-wifi` in `mcp.ftl`.
+pub const MCP_PROMPT_TROUBLESHOOT_WIFI: MessageKey =
+    MessageKey::new("mcp-prompt-troubleshoot-wifi");
+
+/// `mcp-prompt-troubleshoot-device` in `mcp.ftl`.
+pub const MCP_PROMPT_TROUBLESHOOT_DEVICE: MessageKey =
+    MessageKey::new("mcp-prompt-troubleshoot-device");
+
+/// `mcp-prompt-safe-change-workflow` in `mcp.ftl`.
+pub const MCP_PROMPT_SAFE_CHANGE_WORKFLOW: MessageKey =
+    MessageKey::new("mcp-prompt-safe-change-workflow");
+
 /// `migrate-title` in `migrate.ftl`.
 pub const MIGRATE_TITLE: MessageKey = MessageKey::new("migrate-title");
 
@@ -378,7 +394,7 @@ pub const WEB_ERROR_INTERNAL_TEXT: MessageKey = MessageKey::new("web-error-inter
 pub const WEB_ERROR_HOME: MessageKey = MessageKey::new("web-error-home");
 
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 125] = [
+pub const ALL: [MessageKey; 129] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -441,6 +457,10 @@ pub const ALL: [MessageKey; 125] = [
     ERRORS_UNSUPPORTED_FIRMWARE,
     ERRORS_TIMEOUT,
     ERRORS_CSRF,
+    MCP_PROMPT_TROUBLESHOOT_INTERNET,
+    MCP_PROMPT_TROUBLESHOOT_WIFI,
+    MCP_PROMPT_TROUBLESHOOT_DEVICE,
+    MCP_PROMPT_SAFE_CHANGE_WORKFLOW,
     MIGRATE_TITLE,
     MIGRATE_SOURCE,
     MIGRATE_TARGET,
