@@ -12,11 +12,13 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use crate::{
+    cli::{Synopsis, cli_value},
     generated,
     search::{SearchResult, expand, score, tokenize},
     validate::{
-        HttpMethod, RequestOptions, ValidatedRequest, ValidationIssue, argument_schema,
-        boolean_keyword_forms, child_names, method_allowed, validate_root, validate_value,
+        HttpMethod, RawAuthorization, RequestOptions, ValidatedRequest, ValidationIssue,
+        argument_schema, boolean_keyword_forms, child_names, method_allowed, validate_root,
+        validate_value,
     },
 };
 
@@ -304,6 +306,71 @@ impl Catalog {
         self.validate_with_options(path, method, value, RequestOptions::default())
     }
 
+    /// Validates a whitespace-tokenized CLI line against the longest known command prefix.
+    ///
+    /// Fixed synopsis forms supply positional order, including multi-argument commands;
+    /// the alphabetic argument map never supplies order. Optional/alternative grammar,
+    /// missing or warning-bearing synopses, quoting, escaping, and multiple lines are
+    /// rejected rather than guessed. Each argument consumes exactly one token, including
+    /// strings. The `no` prefix selects a separately documented fixed negative form.
+    /// Scalar checks and risk classification are shared with [`Self::validate`].
+    ///
+    /// A line with no known command prefix uses [`Self::validate_with_options`]'s raw
+    /// authorization gate. Its request has the original line as `path`, a
+    /// `{ "command": line }` body, management risk, and `unvalidated: true`; these are
+    /// CLI metadata, not a catalogued RCI endpoint. Known malformed or unsupported
+    /// commands never fall back to raw authorization.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ValidationIssue::InvalidCliSyntax`] for unsupported token syntax or
+    /// argument counts, [`ValidationIssue::UnsupportedCliSyntax`] when the synopsis
+    /// cannot establish a fixed form, or the ordinary request validation issues.
+    #[inline]
+    pub fn validate_cli(
+        &self,
+        line: &str,
+        authorization: RawAuthorization,
+    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
+        if line.chars().any(|character| {
+            character.is_control() && character != '\t'
+                || matches!(character, '\'' | '"' | '\\' | ';' | '|')
+        }) {
+            return Err(vec![ValidationIssue::InvalidCliSyntax]);
+        }
+        let tokens = line.split_whitespace().collect::<Vec<_>>();
+        let words = tokens.strip_prefix(&["no"]).unwrap_or(&tokens);
+        if words.is_empty() {
+            return Err(vec![ValidationIssue::InvalidCliSyntax]);
+        }
+        let mut path = String::new();
+        let mut longest = None;
+        for word in words {
+            if !path.is_empty() {
+                path.push(' ');
+            }
+            path.push_str(word);
+            if let Some(command) = self.lookup(&path) {
+                longest = Some(command);
+            }
+        }
+        match longest {
+            Some(command) => {
+                let value = cli_value(command, self.data.synopses.get(&command.path), &tokens)?;
+                self.validate(&command.path, HttpMethod::Post, &value)
+            }
+            None => self.validate_with_options(
+                line,
+                HttpMethod::Post,
+                &serde_json::json!({ "command": line }),
+                RequestOptions {
+                    unvalidated: true,
+                    authorization,
+                },
+            ),
+        }
+    }
+
     /// Validates a request and conditionally permits an audited raw escape.
     ///
     /// # Errors
@@ -423,6 +490,8 @@ struct CatalogData {
     version: CatalogVersion,
     /// Commands keyed by their space-separated catalog path.
     commands: BTreeMap<String, Command>,
+    /// Ordered manual grammar retained for conservative CLI parsing.
+    synopses: BTreeMap<String, Synopsis>,
     /// Hardware models represented by the decoded command shards.
     models: BTreeSet<String>,
 }
@@ -449,6 +518,11 @@ struct RawCommand {
     prefix_no: bool,
     /// Generated arguments keyed by request member name.
     arguments: BTreeMap<String, RawArgument>,
+    /// Ordered CLI grammar, absent for undocumented command groups.
+    synopsis: Option<Synopsis>,
+    /// Incomplete manual extraction prevents confident CLI validation.
+    #[serde(default)]
+    parse_warnings: Vec<String>,
 }
 
 /// Generated argument fields consumed at runtime.
@@ -526,6 +600,7 @@ fn data(version: CatalogVersion) -> Result<&'static CatalogData, CatalogError> {
 fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
     let prefix = format!("catalog/{}/", version.as_str());
     let mut commands = BTreeMap::new();
+    let mut synopses = BTreeMap::new();
     let mut models = BTreeSet::new();
     for (relative_path, contents) in generated::FILES {
         if !relative_path.starts_with(&prefix) || relative_path.ends_with("/index.json") {
@@ -538,6 +613,11 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
                 continue;
             }
             models.extend(raw.models.iter().cloned());
+            if raw.parse_warnings.is_empty()
+                && let Some(synopsis) = raw.synopsis
+            {
+                drop(synopses.insert(raw.path.clone(), synopsis));
+            }
             let arguments = raw
                 .arguments
                 .into_iter()
@@ -574,6 +654,7 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
     Ok(CatalogData {
         version,
         commands,
+        synopses,
         models,
     })
 }

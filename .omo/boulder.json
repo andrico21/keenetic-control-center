@@ -24,7 +24,7 @@
       "plan_name": "keenetic-control-center",
       "status": "active",
       "started_at": "2026-11-05T16:38:10.421Z",
-      "updated_at": "2026-11-05T22:01:24.147Z",
+      "updated_at": "2026-11-05T22:13:43.467Z",
       "session_ids": [
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
       ],
@@ -58,6 +58,17 @@
           "updated_at": "2026-11-05T22:01:24.147Z",
           "ended_at": "2026-11-05T22:01:24.147Z",
           "elapsed_ms": 4980832
+        },
+        "todo:22": {
+          "task_key": "todo:22",
+          "task_label": "22",
+          "task_title": "Interfaces, WAN connections, Wi-Fi and mesh domains",
+          "session_id": "opencode:ses_e52430d7fffe0Go9fW7JkTAddq",
+          "agent": "Sisyphus-Junior",
+          "category": "deep-high",
+          "updated_at": "2026-11-05T22:13:43.468Z",
+          "started_at": "2026-11-05T22:13:43.468Z",
+          "status": "running"
         }
       }
     }
@@ -65,7 +76,7 @@
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
   "started_at": "2026-11-05T16:38:10.421Z",
   "status": "active",
-  "updated_at": "2026-11-05T22:01:24.147Z",
+  "updated_at": "2026-11-05T22:13:43.467Z",
   "session_ids": [
     "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
   ],
@@ -99,6 +110,17 @@
       "updated_at": "2026-11-05T22:01:24.147Z",
       "ended_at": "2026-11-05T22:01:24.147Z",
       "elapsed_ms": 4980832
+    },
+    "todo:22": {
+      "task_key": "todo:22",
+      "task_label": "22",
+      "task_title": "Interfaces, WAN connections, Wi-Fi and mesh domains",
+      "session_id": "opencode:ses_e52430d7fffe0Go9fW7JkTAddq",
+      "agent": "Sisyphus-Junior",
+      "category": "deep-high",
+      "updated_at": "2026-11-05T22:13:43.468Z",
+      "started_at": "2026-11-05T22:13:43.468Z",
+      "status": "running"
     }
   },
   "agent": "atlas"

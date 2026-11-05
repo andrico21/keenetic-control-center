@@ -7,6 +7,7 @@
 
 extern crate alloc;
 
+mod cli;
 /// Generated embedded catalog artifacts.
 pub mod generated;
 mod runtime;
@@ -22,5 +23,7 @@ pub use validate::{
     HttpMethod, RawAuthorization, RequestOptions, ValidatedRequest, ValidationIssue,
 };
 
+#[cfg(test)]
+mod cli_tests;
 #[cfg(test)]
 mod tests;

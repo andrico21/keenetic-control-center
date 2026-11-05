@@ -89,6 +89,13 @@ pub enum ValidationIssue {
     },
     /// `no: true` was used for a command without `prefix_no`.
     NoPrefixUnsupported,
+    /// CLI input is empty, contains unsupported token syntax, or has the wrong argument count.
+    InvalidCliSyntax,
+    /// The retained synopsis cannot establish an unambiguous fixed CLI form.
+    UnsupportedCliSyntax {
+        /// Catalog path whose grammar is missing, incomplete, optional, or alternative.
+        path: String,
+    },
     /// Raw escape was requested without both required administrator capabilities.
     RawAuthorizationRequired,
 }
