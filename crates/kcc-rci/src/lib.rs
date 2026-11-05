@@ -12,7 +12,9 @@
 extern crate alloc;
 
 pub mod auth;
+pub mod capabilities;
 pub mod session;
+pub mod version;
 
 use core::{fmt, net::Ipv4Addr, str::FromStr};
 
