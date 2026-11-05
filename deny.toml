@@ -22,6 +22,7 @@ allow = [
     "Unicode-3.0",
     "Zlib",
     "BSL-1.0",
+    "CDLA-Permissive-2.0", # webpki-root-certs <- rustls-platform-verifier 0.7.1 <- reqwest 0.13.5 <- rmcp-server-kit 3.21.1
 ]
 
 [bans]
@@ -29,6 +30,22 @@ multiple-versions = "deny"    # unavoidable duplicates go into `skip`, each with
 wildcards = "deny"            # No * version specs
 allow-wildcard-paths = false
 highlight = "all"
+
+# Unavoidable duplicates, all inherited from rmcp-server-kit 3.21.1; mirrors clippy.toml `allowed-duplicate-crates`.
+skip = [
+    { crate = "bitflags@1.3.2", reason = "windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)" },
+    { crate = "getrandom@0.2.17", reason = "ring 0.17.14 -> rustls 0.23 -> reqwest 0.13.5 -> rmcp-server-kit" },
+    { crate = "getrandom@0.3.4", reason = "governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit" },
+    { crate = "hashbrown@0.14.5", reason = "dashmap 6.2.1 -> governor 0.10.4 -> rmcp-server-kit" },
+    { crate = "hashbrown@0.16.1", reason = "governor 0.10.4 -> rmcp-server-kit" },
+    { crate = "r-efi@5.3.0", reason = "getrandom 0.3.4 -> governor 0.10.4 -> rmcp-server-kit (UEFI target only)" },
+    { crate = "rand@0.9.5", reason = "governor 0.10.4 -> rmcp-server-kit" },
+    { crate = "rand_core@0.9.5", reason = "rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit" },
+    { crate = "syn@2.0.119", reason = "asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit" },
+    { crate = "synstructure@0.13.2", reason = "asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit" },
+    { crate = "tower-http@0.6.11", reason = "reqwest 0.13.5 -> rmcp-server-kit; 0.7.1 is the kit's direct dependency" },
+    { crate = "windows-sys@0.52.0", reason = "ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit (Windows-only)" },
+]
 
 [sources]
 unknown-registry = "deny"
