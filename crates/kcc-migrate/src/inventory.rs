@@ -150,6 +150,14 @@ pub struct TargetInventory {
     pub catalog: Catalog,
     /// Parsed active configuration.
     pub running_config: Ast,
+    /// MD5 advertised by the target startup configuration.
+    pub startup_config_md5: Option<String>,
+    /// Stable checksum of the target's observed last-change marker.
+    pub last_change_checksum: String,
+    /// Interface carrying the current management connection.
+    pub management_interface: Option<String>,
+    /// Origin used for the current management connection.
+    pub management_url: String,
     /// Physical ports and roles.
     pub ports: Vec<PhysicalPort>,
     /// Wi-Fi radios and bands.
@@ -208,6 +216,10 @@ impl TargetInventory {
         let text = str::from_utf8(secrecy::ExposeSecret::expose_secret(&bytes))
             .map_err(|_error| InventoryError::ConfigEncoding)?;
         let running_config = parse(text)?;
+        let startup_bytes = client.rci.download_config(ConfigKind::Startup).await?;
+        let startup_text = str::from_utf8(secrecy::ExposeSecret::expose_secret(&startup_bytes))
+            .map_err(|_error| InventoryError::ConfigEncoding)?;
+        let startup_config = parse(startup_text)?;
         let ports = collect_ports(&info);
         let radios = collect_radios(&info);
         let (usb_modems, interfaces) = collect_interfaces(&running_config);
@@ -222,10 +234,21 @@ impl TargetInventory {
         let fail_safe_available = matches!(info.system_mode, Some(SystemMode::Router));
         let installed_components = info.components.clone();
         let system_mode = info.system_mode.clone();
+        let startup_config_md5 = startup_config.header.md5.clone();
+        let last_change_checksum = checksum_marker(running_config.header.last_change.as_deref());
+        let management_interface = interfaces
+            .iter()
+            .find(|interface| interface.kind == "Bridge")
+            .map(|interface| interface.name.clone());
+        let management_url = client.router.as_str().to_owned();
         Ok(Self {
             info,
             catalog,
             running_config,
+            startup_config_md5,
+            last_change_checksum,
+            management_interface,
+            management_url,
             ports,
             radios,
             usb_modems,
@@ -238,6 +261,19 @@ impl TargetInventory {
             interfaces,
         })
     }
+}
+
+/// Hashes a last-change marker without retaining router-specific text in a plan fingerprint.
+fn checksum_marker(marker: Option<&str>) -> String {
+    use core::fmt::Write as _;
+
+    use md5::{Digest as _, Md5};
+
+    let mut checksum = String::with_capacity(32);
+    for byte in Md5::digest(marker.unwrap_or_default().as_bytes()) {
+        let _result = write!(checksum, "{byte:02x}");
+    }
+    checksum
 }
 
 /// Target inventory failures.

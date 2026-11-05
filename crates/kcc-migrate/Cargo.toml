@@ -7,8 +7,10 @@ license.workspace = true
 publish = false
 
 [dependencies]
+askama = { version = "0.16.1", default-features = false, features = ["derive", "std"] }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
+kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 md-5 = "0.11.0"
 reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }

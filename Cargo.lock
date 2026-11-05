@@ -1519,8 +1519,10 @@ dependencies = [
 name = "kcc-migrate"
 version = "0.1.0"
 dependencies = [
+ "askama",
  "kcc-catalog",
  "kcc-config",
+ "kcc-i18n",
  "kcc-rci",
  "kcc-testkit",
  "md-5",

@@ -10,7 +10,7 @@ use kcc_config::{
     secrets::redact,
 };
 use secrecy::{ExposeSecret as _, SecretString};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::maps::{InterfaceMap, MapEntry, PortMap, RadioMap};
@@ -19,7 +19,7 @@ use crate::maps::{InterfaceMap, MapEntry, PortMap, RadioMap};
 const RULES_TOML: &str = include_str!("../rules/rules.toml");
 
 /// Resulting treatment of one flattened source command.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 #[serde(rename_all = "kebab-case")]
 pub enum Disposition {

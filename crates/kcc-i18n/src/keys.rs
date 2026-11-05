@@ -234,6 +234,29 @@ pub const MIGRATE_ROLLBACK: MessageKey = MessageKey::new("migrate-rollback");
 /// `migrate-backup-created` in `migrate.ftl`.
 pub const MIGRATE_BACKUP_CREATED: MessageKey = MessageKey::new("migrate-backup-created");
 
+/// `migrate-reason-copy` in `migrate.ftl`.
+pub const MIGRATE_REASON_COPY: MessageKey = MessageKey::new("migrate-reason-copy");
+
+/// `migrate-reason-remap` in `migrate.ftl`.
+pub const MIGRATE_REASON_REMAP: MessageKey = MessageKey::new("migrate-reason-remap");
+
+/// `migrate-reason-skip-hardware` in `migrate.ftl`.
+pub const MIGRATE_REASON_SKIP_HARDWARE: MessageKey =
+    MessageKey::new("migrate-reason-skip-hardware");
+
+/// `migrate-reason-skip-identity` in `migrate.ftl`.
+pub const MIGRATE_REASON_SKIP_IDENTITY: MessageKey =
+    MessageKey::new("migrate-reason-skip-identity");
+
+/// `migrate-reason-needs-input` in `migrate.ftl`.
+pub const MIGRATE_REASON_NEEDS_INPUT: MessageKey = MessageKey::new("migrate-reason-needs-input");
+
+/// `migrate-reason-unsupported` in `migrate.ftl`.
+pub const MIGRATE_REASON_UNSUPPORTED: MessageKey = MessageKey::new("migrate-reason-unsupported");
+
+/// `migrate-reason-prune` in `migrate.ftl`.
+pub const MIGRATE_REASON_PRUNE: MessageKey = MessageKey::new("migrate-reason-prune");
+
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
@@ -418,7 +441,7 @@ pub const WEB_ACCOUNT_LOCALE: MessageKey = MessageKey::new("web-account-locale")
 pub const WEB_ACCOUNT_SAVED: MessageKey = MessageKey::new("web-account-saved");
 
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 137] = [
+pub const ALL: [MessageKey; 144] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -495,6 +518,13 @@ pub const ALL: [MessageKey; 137] = [
     MIGRATE_DONE,
     MIGRATE_ROLLBACK,
     MIGRATE_BACKUP_CREATED,
+    MIGRATE_REASON_COPY,
+    MIGRATE_REASON_REMAP,
+    MIGRATE_REASON_SKIP_HARDWARE,
+    MIGRATE_REASON_SKIP_IDENTITY,
+    MIGRATE_REASON_NEEDS_INPUT,
+    MIGRATE_REASON_UNSUPPORTED,
+    MIGRATE_REASON_PRUNE,
     WEB_NAV_DASHBOARD,
     WEB_NAV_ROUTERS,
     WEB_NAV_INTERFACES,
