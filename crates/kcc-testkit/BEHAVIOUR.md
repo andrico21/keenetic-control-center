@@ -11,8 +11,9 @@ Sources:
   (MIT OR Apache-2.0). The ndw2 known-answer vector in `src/ndw2.rs` and the shape of the
   `show version`, `show identification`, `show system` and `show interface` fixtures are
   adapted from its `src/auth.rs` and `tests/fixtures/`.
-- **assumed**: chosen for the simulator, not confirmed against a router. The live probe
-  (plan todo 53) has not run yet; todo 16 reconciles these rows with its evidence.
+- **assumed**: chosen for the simulator from R-CLI/R-RCI documentation, not confirmed
+  against a router. Todo 53 was `NOT-RUN` because no hardware was available; see
+  `spikes/live-router/RESULT.md` and `.omo/evidence/task-53-keenetic-control-center.json`.
 
 ## Profiles
 
@@ -78,10 +79,60 @@ Sources:
 | `GET`/`POST /rci/show/<path>` answer from the profile's show fixtures; a missing fixture is 404 with an empty body | plan |
 | `?name=`/`?mac=` (or string fields of a POST body) narrow a show fixture: an object keyed by name yields the entry, an array the first matching member | R-RS `show interface` shape; narrowing **assumed** |
 | In a root POST, `{"show": {"system": {}}}` and `{"show": {"clock": {"date": {}}}}` answer the fixture nested in the request shape; unknown shows answer `{}` | R-RCI |
-| `{"show": {"rc": ..}}` and `{"show": {"sc": ..}}` fill the request shape from the settings tree. Both read the same tree here; todo 16 adds separate running/startup configs | R-RCI; single tree is a simplification |
+| `{"show": {"rc": ..}}` and `{"show": {"sc": ..}}` fill the request shape from the JSON settings tree | R-RCI |
 | `GET /rci/whoami` returns `{"name": <login>, "tags": [..]}` | R-RCI names `whoami` as readonly; shape **assumed** |
+
+## CLI configuration files and parser
+
+- The JSON settings tree and CLI configuration ASTs are deliberately independent stores.
+  A write to one does not propagate to the other. Tests must not infer propagation.
+- Every profile seeds running and startup `kcc-config` ASTs from
+  `fixtures/<hw_id>/startup-config.txt`. Seed addresses are documentation ranges.
+- `GET /ci/running-config.txt` and `GET /ci/startup-config.txt` print canonical AST text
+  with model, version, `http/rci` agent, and the lowercase MD5 of the command body.
+- Root `POST {"parse":"<full-path line>"}` mutates only running config. Supported
+  stand-in catalog commands cover interface creation/removal, description and IP address,
+  save/reboot, fail-safe, components, and tools used by this simulator. Unknown commands
+  return code `7405600` and leave the AST byte-identical. This command-existence check is
+  temporary until `kcc-catalog` exposes its generated catalog at runtime.
+- `parse` accepting `authentication password ns3 <blob>` is **assumed (R-CLI
+  documentation, not live-verified - see `spikes/live-router/RESULT.md`)**. The AST parser
+  itself accepts typed NS3 tokens; the simulator catalog stand-in does not yet expose that
+  command.
+
+## Fail-safe and last change
+
+All semantics in this section are **assumed (R-CLI documentation, not live-verified - see
+`spikes/live-router/RESULT.md`)** because todo 53 probes 7 and 7b were `NOT-RUN`:
+
+- `timer reboot 60..86400` arms; `keep-alive` restarts the full period.
+- `no ... fail-safe timer` disarms while leaving unsaved running changes intact.
+- `commit` copies running to startup and disarms; `rollback` restores startup and simulates
+  reboot.
+- Injectable-clock expiry restores startup, disarms, and drops every session. The next use
+  of an old cookie is 401.
+- `show last-change` returns agent, user, running checksum, unsaved flag and a `fail-safe`
+  object with active/mode/timeout/remaining.
+
+## Uploads, processes and injected faults
+
+- `PUT /fui/startup-config.txt` parses and replaces startup config; running changes only
+  after `system reboot`. **assumed (R-RCI/R-FORUM-UPLOAD documentation, not live-verified).**
+- `tools ping` returns a per-instance background process id and running state. POST-only
+  show/process behavior is **assumed (R-CLI documentation, not live-verified - see
+  `spikes/live-router/RESULT.md`)**.
+- `components install` stages and `components commit` simulates a reboot. **assumed
+  (R-CLI documentation, not live-verified).**
+- `FaultInjection` is per fake-router instance: acknowledged silent no-op paths, HTTP 500
+  after N requests, latency, session drop after N requests, and refusal to disable
+  management `Bridge0`. No mutable state is shared between separately built instances.
+
+## Other assumed protocol details
+
+- POST-only `show log` and `show ipsec` behavior remains **assumed (R-CLI documentation,
+  not live-verified - see `spikes/live-router/RESULT.md`)** and is not yet a full stream
+  emulation.
 
 ## Not simulated yet
 
-Background processes, `system configuration save`, CLI `parse`, fail-safe, ndw4, token and
-digest auth, `show log` streams. These come in todos 10, 16 and later.
+ndw4, token and digest auth, and full `show log` streams.

@@ -1,0 +1,4 @@
+interface Bridge0
+ description "Home network"
+ ip address 192.0.2.1 255.255.255.0
+!

@@ -24,6 +24,8 @@
 
 extern crate alloc;
 
+mod config_state;
+mod failsafe;
 mod fixtures;
 pub mod model;
 pub mod ndw2;
@@ -31,11 +33,12 @@ mod server;
 pub mod time;
 mod tree;
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeSet, sync::Arc};
 use core::{error::Error, fmt, net::SocketAddr, time::Duration};
 use std::io;
 
 use axum::http::HeaderValue;
+use kcc_config::config_text::ParseError;
 use serde_json::Value;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
 use zeroize::Zeroizing;
@@ -57,6 +60,67 @@ pub const DEFAULT_SESSION_TTL: Duration = Duration::from_secs(300);
 
 /// Largest accepted request body in bytes; larger bodies get 413.
 pub const MAX_BODY_BYTES: usize = server::MAX_BODY_BYTES;
+
+/// Per-instance fault injection controls for workflow tests.
+#[derive(Clone, Debug, Default)]
+#[non_exhaustive]
+pub struct FaultInjection {
+    /// RCI paths whose writes acknowledge but do not mutate state.
+    silent_noop_paths: BTreeSet<String>,
+    /// Return HTTP 500 after this many requests have completed normally.
+    fail_after_requests: Option<u64>,
+    /// Artificial delay before each request.
+    latency: Duration,
+    /// Clear all sessions after this many authenticated requests.
+    session_drop_after_requests: Option<u64>,
+    /// Refuse attempts to take the management bridge down.
+    refuse_management_bridge_down: bool,
+}
+
+impl FaultInjection {
+    /// Adds one RCI path whose writes become acknowledged no-ops.
+    #[inline]
+    #[must_use]
+    pub fn silent_noop_path<S>(mut self, path: S) -> Self
+    where
+        S: Into<String>,
+    {
+        let _: bool = self.silent_noop_paths.insert(path.into());
+        self
+    }
+
+    /// Starts returning HTTP 500 after `count` requests.
+    #[inline]
+    #[must_use]
+    pub const fn fail_after_requests(mut self, count: u64) -> Self {
+        self.fail_after_requests = Some(count);
+        self
+    }
+
+    /// Adds artificial request latency.
+    #[inline]
+    #[must_use]
+    pub const fn latency(mut self, latency: Duration) -> Self {
+        self.latency = latency;
+        self
+    }
+
+    /// Drops every session after `count` authenticated requests.
+    #[inline]
+    #[must_use]
+    pub const fn session_drop_after_requests(mut self, count: u64) -> Self {
+        self.session_drop_after_requests = Some(count);
+        self
+    }
+
+    /// Refuses `interface Bridge0 down` parser commands.
+    #[inline]
+    #[must_use]
+    pub const fn refuse_management_bridge_down(mut self, enabled: bool) -> Self {
+        self.refuse_management_bridge_down = enabled;
+        self
+    }
+}
 
 /// A user to create on the fake router.
 #[derive(Clone)]
@@ -97,6 +161,8 @@ pub struct FakeRouterBuilder {
     ttl: Duration,
     /// Time source.
     clock: Arc<dyn Clock>,
+    /// Fault injection controls.
+    faults: FaultInjection,
 }
 
 impl FakeRouterBuilder {
@@ -153,6 +219,13 @@ impl FakeRouterBuilder {
         self
     }
 
+    /// Replaces the per-instance fault injection controls.
+    #[inline]
+    pub fn faults(mut self, faults: FaultInjection) -> Self {
+        self.faults = faults;
+        self
+    }
+
     /// Builds the router state from the profile's fixtures.
     ///
     /// # Errors
@@ -171,8 +244,10 @@ impl FakeRouterBuilder {
         let release = self
             .release
             .unwrap_or_else(|| firmware.release().to_owned());
-        let (settings, show) =
+        let (settings, show, startup_config) =
             fixtures::load(self.profile, &title, &release).map_err(BuildError::Fixture)?;
+        let config = config_state::ConfigState::new(startup_config, model.hw_id(), &title)
+            .map_err(BuildError::ConfigFixture)?;
         let mut users = self.users;
         if users.is_empty() {
             users.push(UserSpec {
@@ -197,6 +272,8 @@ impl FakeRouterBuilder {
             self.clock,
             settings,
             show,
+            config,
+            self.faults,
         );
         Ok(FakeRouter {
             shared: Arc::new(shared),
@@ -212,6 +289,8 @@ pub enum BuildError {
     InvalidRealm,
     /// An embedded fixture does not parse.
     Fixture(serde_json::Error),
+    /// An embedded startup configuration does not parse.
+    ConfigFixture(ParseError),
 }
 
 impl fmt::Display for BuildError {
@@ -220,6 +299,7 @@ impl fmt::Display for BuildError {
         match self {
             Self::InvalidRealm => f.write_str("realm is not a valid header value"),
             Self::Fixture(_) => f.write_str("embedded fixture does not parse"),
+            Self::ConfigFixture(_) => f.write_str("embedded startup configuration does not parse"),
         }
     }
 }
@@ -230,6 +310,7 @@ impl Error for BuildError {
         match self {
             Self::InvalidRealm => None,
             Self::Fixture(source) => Some(source),
+            Self::ConfigFixture(source) => Some(source),
         }
     }
 }
@@ -255,6 +336,7 @@ impl FakeRouter {
             users: Vec::new(),
             ttl: DEFAULT_SESSION_TTL,
             clock: Arc::new(SystemClock::new()),
+            faults: FaultInjection::default(),
         }
     }
 

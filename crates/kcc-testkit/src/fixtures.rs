@@ -14,7 +14,7 @@ use crate::{
 
 /// The initial settings tree and the show responses keyed by the path below `show/`
 /// (e.g. `clock/date`) of one profile.
-pub(crate) type Fixtures = (Value, Map<String, Value>);
+pub(crate) type Fixtures = (Value, Map<String, Value>, &'static str);
 
 /// The `(settings, show)` seed texts of a model.
 const fn seed(model: Model) -> (&'static str, &'static str) {
@@ -35,6 +35,16 @@ const fn seed(model: Model) -> (&'static str, &'static str) {
             include_str!("../fixtures/NC-3013/settings.json"),
             include_str!("../fixtures/NC-3013/show.json"),
         ),
+    }
+}
+
+/// Startup configuration seed of a model.
+const fn startup(model: Model) -> &'static str {
+    match model {
+        Model::Kn1811 => include_str!("../fixtures/KN-1811/startup-config.txt"),
+        Model::Kn1010 => include_str!("../fixtures/KN-1010/startup-config.txt"),
+        Model::Kn3810 => include_str!("../fixtures/KN-3810/startup-config.txt"),
+        Model::Nc3013 => include_str!("../fixtures/NC-3013/startup-config.txt"),
     }
 }
 
@@ -88,7 +98,7 @@ pub(crate) fn load(
             Map::new()
         }
     };
-    Ok((settings, show_map))
+    Ok((settings, show_map, startup(profile.model())))
 }
 
 #[cfg(test)]
@@ -109,13 +119,14 @@ mod tests {
     fn every_profile_loads() -> Result<(), Box<dyn Error>> {
         for model in Model::ALL {
             for &firmware in model.firmware_lines() {
-                let (settings, show) = load(Profile::new(model, firmware)?, "t", "r")?;
+                let (settings, show, startup) = load(Profile::new(model, firmware)?, "t", "r")?;
                 let has_acl = settings.pointer("/ipv6/access-list").is_some();
                 assert_eq!(has_acl, firmware == Firmware::V5_1, "{model} {firmware}");
                 assert_eq!(
                     show.get("version").and_then(|version| version.get("hw_id")),
                     Some(&serde_json::Value::from(model.hw_id()))
                 );
+                assert!(startup.contains("192.0.2.1"));
             }
         }
         Ok(())

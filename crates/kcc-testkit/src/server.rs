@@ -1,7 +1,12 @@
 //! Shared state and the axum handlers of the fake router.
 
 use alloc::{collections::BTreeMap, sync::Arc};
-use core::{fmt, iter, time::Duration};
+use core::{
+    fmt, iter,
+    str::from_utf8,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use axum::{
@@ -11,13 +16,17 @@ use axum::{
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse as _, Response},
-    routing::{any, get},
+    routing::{any, get, put},
 };
 use rand::RngExt as _;
 use serde_json::{Map, Value};
+use tokio::time::sleep;
 use zeroize::Zeroizing;
 
 use crate::{
+    FaultInjection,
+    config_state::ConfigState,
+    failsafe::FailSafe,
     ndw2,
     time::Clock,
     tree::{self, Selector},
@@ -114,6 +123,16 @@ pub(crate) struct Shared {
     settings: Mutex<Value>,
     /// Show fixtures keyed by the path below `show/`.
     show: Map<String, Value>,
+    /// Independent running/startup CLI configuration.
+    config: Mutex<ConfigState>,
+    /// Fail-safe timer state.
+    fail_safe: Mutex<FailSafe>,
+    /// Per-instance fault injection controls.
+    faults: FaultInjection,
+    /// Number of requests observed by the fault middleware.
+    request_count: AtomicU64,
+    /// Next background process identifier.
+    process_id: AtomicU64,
 }
 
 /// Locks `mutex`, recovering the data if a previous holder panicked.
@@ -149,6 +168,8 @@ impl Shared {
         clock: Arc<dyn Clock>,
         settings: Value,
         show: Map<String, Value>,
+        config: ConfigState,
+        faults: FaultInjection,
     ) -> Self {
         Self {
             cookie_name,
@@ -160,6 +181,11 @@ impl Shared {
             sessions: Mutex::new(BTreeMap::new()),
             settings: Mutex::new(settings),
             show,
+            config: Mutex::new(config),
+            fail_safe: Mutex::new(FailSafe::default()),
+            faults,
+            request_count: AtomicU64::new(0),
+            process_id: AtomicU64::new(1),
         }
     }
 
@@ -197,6 +223,7 @@ impl Shared {
 
     /// The login of the valid authenticated session in `headers`, refreshing it.
     fn authorize(&self, headers: &HeaderMap) -> Option<String> {
+        self.expire_fail_safe();
         let id = self.session_id(headers)?;
         let mut sessions = lock(&self.sessions);
         let session = sessions.get_mut(&id)?;
@@ -286,6 +313,113 @@ impl Shared {
         }
     }
 
+    /// Restores startup and invalidates every session when the fail-safe timer expires.
+    fn expire_fail_safe(&self) {
+        let expired = lock(&self.fail_safe).take_expired(self.clock.now());
+        if expired {
+            lock(&self.config).reboot();
+            lock(&self.sessions).clear();
+        }
+    }
+
+    /// Simulates a reboot by loading startup and dropping all sessions.
+    fn reboot(&self) {
+        lock(&self.config).reboot();
+        lock(&self.fail_safe).disarm();
+        lock(&self.sessions).clear();
+    }
+
+    /// Applies a full-path CLI parser command.
+    fn parse_command(&self, line: &str) -> Value {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        match words.as_slice() {
+            ["system", "configuration", "save"] => {
+                lock(&self.config).save();
+                tree::status("message", "saved.")
+            }
+            ["system", "reboot"] => {
+                self.reboot();
+                tree::status("message", "rebooting.")
+            }
+            ["components", "install", _] => tree::status("message", "component staged."),
+            ["components", "commit"] => {
+                self.reboot();
+                tree::status("message", "components committed; rebooting.")
+            }
+            ["interface", "Bridge0", "down"] if self.faults.refuse_management_bridge_down => {
+                tree::status("error", "management bridge cannot be disabled.")
+            }
+            [
+                "system",
+                "configuration",
+                "fail-safe",
+                "timer",
+                "reboot",
+                seconds,
+            ] => match seconds.parse::<u64>() {
+                Ok(value) if lock(&self.fail_safe).arm(self.clock.now(), value) => {
+                    tree::status("message", "fail-safe armed.")
+                }
+                Ok(_) | Err(_) => tree::status("error", "invalid fail-safe timeout."),
+            },
+            ["system", "configuration", "fail-safe", "keep-alive"] => {
+                if lock(&self.fail_safe).keep_alive(self.clock.now()) {
+                    tree::status("message", "fail-safe timer restarted.")
+                } else {
+                    tree::status("error", "fail-safe is not active.")
+                }
+            }
+            ["system", "configuration", "fail-safe", "commit"] => {
+                lock(&self.config).save();
+                lock(&self.fail_safe).disarm();
+                tree::status("message", "committed.")
+            }
+            ["system", "configuration", "fail-safe", "rollback"] => {
+                self.reboot();
+                tree::status("message", "rolling back.")
+            }
+            ["no", "system", "configuration", "fail-safe", "timer"] => {
+                lock(&self.fail_safe).disarm();
+                tree::status("message", "fail-safe disabled.")
+            }
+            _ => lock(&self.config).apply(line),
+        }
+    }
+
+    /// Returns generated configuration text for one store.
+    fn config_text(&self, startup: bool) -> String {
+        let config = lock(&self.config);
+        if startup {
+            config.startup_text()
+        } else {
+            config.running_text()
+        }
+    }
+
+    /// Returns dynamic `show last-change` state.
+    fn last_change(&self) -> Value {
+        self.expire_fail_safe();
+        let now = self.clock.now();
+        let fail_safe = *lock(&self.fail_safe);
+        lock(&self.config).last_change(&fail_safe.as_json(now))
+    }
+
+    /// Parses an uploaded startup configuration.
+    fn upload(&self, text: &str) -> bool {
+        lock(&self.config).upload(text).is_ok()
+    }
+
+    /// Whether writes to an RCI path should acknowledge without mutation.
+    fn silent_noop(&self, path: &str) -> bool {
+        self.faults.silent_noop_paths.contains(path)
+    }
+
+    /// Allocates a simulated background-process response.
+    fn start_ping(&self) -> Value {
+        let id = self.process_id.fetch_add(1, Ordering::SeqCst);
+        serde_json::json!({"process":{"id":id.to_string(),"status":"running","kind":"ping"}})
+    }
+
     /// Answers one show request below `show/`, or `None` when no fixture exists.
     fn show(&self, path: &str, selector: Option<Selector<'_>>) -> Option<Value> {
         tree::select_show(self.show.get(path.trim_end_matches('/'))?, selector)
@@ -328,6 +462,11 @@ impl Shared {
 
     /// Applies one POST body element at `pointer`.
     fn post_one(&self, settings: &mut Value, pointer: &str, body: &Value) -> Value {
+        if pointer.is_empty()
+            && let Some(line) = body.get("parse").and_then(Value::as_str)
+        {
+            return self.parse_command(line);
+        }
         if pointer.is_empty()
             && let Some(fields) = body.as_object()
             && fields.contains_key("show")
@@ -417,6 +556,37 @@ async fn require_session(
     }
 }
 
+/// Applies per-instance latency, HTTP failure, and session-drop faults.
+// cancel-safe: sleeping is cancel-safe and no lock is held across the inner handler.
+async fn inject_faults(
+    State(shared): State<Arc<Shared>>,
+    request: Request,
+    next: Next,
+) -> Response {
+    if !shared.faults.latency.is_zero() {
+        sleep(shared.faults.latency).await;
+    }
+    let count = shared
+        .request_count
+        .fetch_add(1, Ordering::SeqCst)
+        .saturating_add(1);
+    if shared
+        .faults
+        .fail_after_requests
+        .is_some_and(|limit| count > limit)
+    {
+        return empty(StatusCode::INTERNAL_SERVER_ERROR);
+    }
+    if shared
+        .faults
+        .session_drop_after_requests
+        .is_some_and(|limit| count > limit)
+    {
+        lock(&shared.sessions).clear();
+    }
+    next.run(request).await
+}
+
 /// `GET /auth`: 200 for a valid session, else a fresh ndw2 challenge.
 // cancel-safe: no await point.
 async fn auth_get(State(shared): State<Arc<Shared>>, headers: HeaderMap) -> Response {
@@ -468,6 +638,7 @@ fn query_selector(query: &BTreeMap<String, String>) -> Option<Selector<'_>> {
 fn read(shared: &Shared, login: &str, path: &str, query: &BTreeMap<String, String>) -> Response {
     let selector = query_selector(query);
     let found = match path.strip_prefix("show/") {
+        Some("last-change") => Some(shared.last_change()),
         Some(rest) => shared.show(rest, selector),
         None if path == "whoami" => shared
             .accounts
@@ -529,6 +700,12 @@ async fn rci_post(
         }
         return read(&shared, &login, &path, &params);
     }
+    if path == "tools/ping" {
+        return Json(shared.start_ping()).into_response();
+    }
+    if shared.silent_noop(&path) {
+        return Json(tree::status("message", "saved.")).into_response();
+    }
     let resolved = {
         let settings = lock(&shared.settings);
         tree::resolve(&settings, &segments(&path), query_selector(&query))
@@ -557,6 +734,34 @@ async fn rci_delete(
     }
 }
 
+/// Reads a generated CLI configuration file.
+// cancel-safe: no await point.
+async fn ci_config(State(shared): State<Arc<Shared>>, Path(name): Path<String>) -> Response {
+    match name.as_str() {
+        "running-config.txt" => shared.config_text(false).into_response(),
+        "startup-config.txt" => shared.config_text(true).into_response(),
+        _ => empty(StatusCode::NOT_FOUND),
+    }
+}
+
+/// Uploads startup configuration text; a later reboot applies it to running state.
+// cancel-safe: no await point after the body is read.
+async fn fui_upload(
+    State(shared): State<Arc<Shared>>,
+    Path(name): Path<String>,
+    body: Bytes,
+) -> Response {
+    if name != "startup-config.txt" {
+        return empty(StatusCode::NOT_FOUND);
+    }
+    match from_utf8(&body) {
+        Ok(text) if shared.upload(text) => {
+            Json(tree::status("message", "uploaded.")).into_response()
+        }
+        Ok(_) | Err(_) => empty(StatusCode::BAD_REQUEST),
+    }
+}
+
 /// The complete axum router over `shared`.
 pub(crate) fn router(shared: Arc<Shared>) -> Router {
     let rci = Router::new()
@@ -570,10 +775,22 @@ pub(crate) fn router(shared: Arc<Shared>) -> Router {
             Arc::clone(&shared),
             require_session,
         ));
+    let files = Router::new()
+        .route("/ci/{name}", get(ci_config))
+        .route("/fui/{name}", put(fui_upload))
+        .route_layer(middleware::from_fn_with_state(
+            Arc::clone(&shared),
+            require_session,
+        ));
     Router::new()
         .route("/auth", get(auth_get).post(auth_post).delete(auth_delete))
         .merge(rci)
+        .merge(files)
         .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
+        .layer(middleware::from_fn_with_state(
+            Arc::clone(&shared),
+            inject_faults,
+        ))
         .layer(middleware::map_response(security_headers))
         .with_state(shared)
 }
