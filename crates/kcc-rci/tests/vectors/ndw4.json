@@ -1,0 +1,19 @@
+{
+  "source": "Eralde/rci-tools@1486b62af803b816a570e44a67c14f6c30bc4904",
+  "hashWasm": "4.12.0",
+  "login": "admin",
+  "password": "vector-password",
+  "salt": "AAECAwQFBgcICQoLDA0ODw==",
+  "nonce": "EBESExQVFhcYGRobHB0eHw==",
+  "combinedNonce": "EBESExQVFhcYGRobHB0eHw==ICEiIyQlJicoKSorLC0uLw==",
+  "iter": "02",
+  "memcost": "0064",
+  "message": "login1=admin,nonce1=EBESExQVFhcYGRobHB0eHw==;iter2=02,memcost2=0064,nonce2=EBESExQVFhcYGRobHB0eHw==ICEiIyQlJicoKSorLC0uLw==,salt2=AAECAwQFBgcICQoLDA0ODw==;login3=admin,nonce3=EBESExQVFhcYGRobHB0eHw==ICEiIyQlJicoKSorLC0uLw==",
+  "salted": "IHq7fQ7rP0xaR1eqGqt20ZWh1xmcmoUXSH65vVKKcIppf8T35vxotdbenabH06TsTpsnnliMcVR9xGnIrrm9xA==",
+  "client": "bQkRF34QnytM4jBzNKtTxVIOPT2GKMrwat249Kq2y6hzq3yvOH4+UFa2DFQhc+IlnQxgf+LXLQH9nItsn5rXwQ==",
+  "stored": "DkdXY9XBOww3ZOFERGGipMGK24djENHfwgeIw9eEAfM+o21Lr91scGVb8hKvgAp1+KkaqehlVpmOoIWWGAFInQ==",
+  "server": "yVhzg27RAmS+DbC5CGEJn4zE7RNK6fOhbNimx3Upu28DAWqsB0Wd25soqwRr+KlAiBLk0OqqwmE4CamuxZRO8g==",
+  "proof": "jHndypdOL98SNw6icGnkXibn+RrjeY7w4CTqtbn9PXdi6BhYJggr8HSyDcdBEtZd5FV7PQOpieNfT6A7CVY+TQ==",
+  "signature": "5f3bugai3ExB6xbQR6RRZk4MmWY/omjcOdm0u5cCS6Obq/zTw3oAbB01OdMXbILEFMLKyNLB0MMKlJypODImzA==",
+  "signatureProof": "sl967qA32zecfsdigIHfrLInWkZS2S7gZ7f1t2NhFzWG4kF0OpjCYgFIbytgdDLCdn2R4dXncW8G70kbKD2m5Q=="
+}

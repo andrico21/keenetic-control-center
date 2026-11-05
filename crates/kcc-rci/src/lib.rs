@@ -12,7 +12,13 @@
 extern crate alloc;
 
 pub mod auth;
+mod auth_digest;
+mod auth_ndw4;
+pub mod auth_options;
+mod auth_token;
 pub mod capabilities;
+pub mod ndw4_keys;
+mod ndw4_reply;
 pub mod session;
 pub mod version;
 
@@ -472,6 +478,15 @@ pub enum AuthError {
     /// The router advertised no supported authentication method.
     #[error("router authentication method is unsupported")]
     Unsupported,
+    /// The router requested more Argon2 memory than the local budget.
+    #[error("router authentication cost exceeds local policy")]
+    CostTooHigh,
+    /// The router failed mutual authentication.
+    #[error("router server signature did not match")]
+    ServerSignatureMismatch,
+    /// An experimental access token was rejected.
+    #[error("router access token was rejected")]
+    TokenRejected,
 }
 
 /// Failures produced by RCI validation, transport, or response processing.

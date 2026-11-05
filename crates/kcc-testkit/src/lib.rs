@@ -24,6 +24,9 @@
 
 extern crate alloc;
 
+pub mod auth_fixture;
+mod auth_fixture_digest;
+mod auth_fixture_ndw4;
 mod config_state;
 mod failsafe;
 mod fixtures;

@@ -20,7 +20,11 @@ use zeroize::Zeroizing;
 
 use crate::{
     AuthError, RciError, RouterUrl,
-    auth::{Credentials, WwwAuthenticate, ndw2_response},
+    auth::{Credentials, Scheme, WwwAuthenticate, ndw2_response},
+    auth_digest,
+    auth_ndw4::{Cache, Exchange},
+    auth_options::{Mode, Options},
+    auth_token,
 };
 
 /// Default interval for keeping a session active while long-lived work needs it.
@@ -98,7 +102,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns [`RciError::Transport`] if the cookie cannot be represented as a header.
-    fn header_value(&self) -> Result<HeaderValue, RciError> {
+    pub(crate) fn header_value(&self) -> Result<HeaderValue, RciError> {
         HeaderValue::from_str(&format!(
             "{}={}",
             self.cookie_name,
@@ -112,7 +116,7 @@ impl Session {
     /// # Errors
     ///
     /// Returns an error for a malformed matching cookie.
-    fn refresh_from_headers(&mut self, headers: &HeaderMap) -> Result<(), RciError> {
+    pub(crate) fn refresh_from_headers(&mut self, headers: &HeaderMap) -> Result<(), RciError> {
         let Some(parsed) = parse_set_cookie(headers, Some(&self.cookie_name))? else {
             return Ok(());
         };
@@ -154,6 +158,14 @@ pub struct Manager {
     router: RouterUrl,
     /// Authentication credentials.
     credentials: Credentials,
+    /// Explicit authentication policy.
+    options: Options,
+    /// Whether password credentials were supplied (token-only managers have none).
+    password_configured: bool,
+    /// One key set bound to this manager's immutable router and credentials.
+    ndw4_cache: Cache,
+    /// Per-router digest nonce state.
+    digest: auth_digest::State,
     /// Current session, read synchronously so requests never hold the login lock on wire I/O.
     session: StdMutex<Option<Session>>,
     /// Serializes only authentication exchanges.
@@ -207,6 +219,10 @@ impl Manager {
             client,
             router,
             credentials,
+            options: Options::default(),
+            password_configured: true,
+            ndw4_cache: Cache::default(),
+            digest: auth_digest::State::default(),
             session: StdMutex::new(None),
             login: Mutex::new(()),
         })
@@ -220,6 +236,30 @@ impl Manager {
     #[inline]
     pub fn with_defaults(router: RouterUrl, credentials: Credentials) -> Result<Self, RciError> {
         Self::new(router, credentials, HttpTimeouts::default())
+    }
+
+    /// Creates a manager with explicit protocol policy and optional password credentials.
+    ///
+    /// # Errors
+    /// Returns validation errors for an invalid memory cap or a profile without credentials.
+    #[inline]
+    pub fn with_options(
+        router: RouterUrl,
+        credentials: Option<Credentials>,
+        options: Options,
+    ) -> Result<Self, RciError> {
+        if !(8..=0x0004_0000).contains(&options.max_argon2_memory_kib)
+            || (credentials.is_none() && options.experimental_token.is_none())
+        {
+            return Err(RciError::Validation);
+        }
+        let password_configured = credentials.is_some();
+        let identity = credentials
+            .unwrap_or_else(|| Credentials::new(String::new(), SecretString::from(String::new())));
+        let mut manager = Self::with_defaults(router, identity)?;
+        manager.options = options;
+        manager.password_configured = password_configured;
+        Ok(manager)
     }
 
     /// Returns a snapshot of the current in-memory session.
@@ -238,6 +278,18 @@ impl Manager {
     // was not installed locally; the next call safely starts a fresh authentication exchange.
     #[inline]
     pub async fn ensure_session(&self) -> Result<(), RciError> {
+        if self.options.experimental_token.is_some() || self.options.mode == Mode::DigestProxy {
+            return Ok(());
+        }
+        self.ensure_password_session().await
+    }
+
+    /// Ensures a cookie after explicit password policy selection.
+    ///
+    /// # Errors
+    /// Returns authentication or transport failures.
+    // NOT cancel-safe: an interrupted handshake can leave remote state without a local cookie.
+    async fn ensure_password_session(&self) -> Result<(), RciError> {
         if self.usable_session().is_some() {
             return Ok(());
         }
@@ -267,7 +319,28 @@ impl Manager {
     where
         T: Serialize + Sync + ?Sized,
     {
-        self.ensure_session().await?;
+        if let Some(token) = &self.options.experimental_token {
+            let mut request = self.client.request(method.clone(), self.url(path));
+            if let Some(value) = body {
+                request = request.json(value);
+            }
+            let response = auth_token::send(request, token).await?;
+            if response.status() != StatusCode::UNAUTHORIZED
+                || !self.options.token_fallback
+                || !self.password_configured
+                || !kind.retry_on_unauthorized()
+            {
+                return auth_token::accepted(response);
+            }
+        }
+        if self.options.mode == Mode::DigestProxy {
+            let mut request = self.client.request(method, self.url(path));
+            if let Some(value) = body {
+                request = request.json(value);
+            }
+            return self.digest.request(request, &self.credentials).await;
+        }
+        self.ensure_password_session().await?;
         let first_session = self
             .usable_session()
             .ok_or(RciError::Auth(AuthError::Rejected))?;
@@ -365,6 +438,9 @@ impl Manager {
     /// Returns authentication, transport, or non-success HTTP status errors.
     // cancel-safe: GET /auth is read-only, and cancellation leaves local state unchanged.
     async fn keepalive_once(&self) -> Result<(), RciError> {
+        if self.options.experimental_token.is_some() || self.options.mode == Mode::DigestProxy {
+            return Ok(());
+        }
         let response = self.get("/auth").await?;
         if response.status().is_success() {
             Ok(())
@@ -400,14 +476,42 @@ impl Manager {
                 status: challenge_response.status().as_u16(),
             });
         }
-        let authenticate = challenge_response
+        let headers = challenge_response
             .headers()
             .get_all(header::WWW_AUTHENTICATE)
             .iter()
             .filter_map(|value| value.to_str().ok())
-            .map(WwwAuthenticate::parse)
-            .find_map(Result::ok)
+            .collect::<Vec<_>>()
+            .join(", ");
+        let authenticate = WwwAuthenticate::parse(&headers)
+            .ok()
             .ok_or(RciError::Auth(AuthError::Unsupported))?;
+        if self.options.mode != Mode::Ndw2 {
+            if let Some(challenge) = authenticate
+                .schemes()
+                .iter()
+                .find_map(|scheme| match scheme {
+                    Scheme::Ndw4(challenge) => Some(challenge),
+                    Scheme::Ndw2(_) | Scheme::Unknown(_) => None,
+                })
+            {
+                let exchange = Exchange {
+                    client: &self.client,
+                    origin: self.router.as_str(),
+                    credentials: &self.credentials,
+                    memory_cap: self.options.max_argon2_memory_kib,
+                    cache: &self.ndw4_cache,
+                };
+                let session = exchange
+                    .authenticate(challenge, &challenge_response)
+                    .await?;
+                *lock(&self.session) = Some(session);
+                return Ok(());
+            }
+            if self.options.mode == Mode::Ndw4 || authenticate.schemes().iter().any(|scheme| matches!(scheme, Scheme::Unknown(unknown) if unknown.name.eq_ignore_ascii_case("x-ndw4-interactive"))) {
+                return Err(RciError::Auth(AuthError::Unsupported));
+            }
+        }
         let challenge = authenticate
             .ndw2()
             .ok_or(RciError::Auth(AuthError::Unsupported))?;
@@ -548,7 +652,7 @@ struct LoginBody<'value> {
 }
 
 /// Parsed cookie fields before installation.
-struct ParsedCookie {
+pub(crate) struct ParsedCookie {
     /// Router-selected cookie name.
     cookie_name: String,
     /// Secret cookie value.
@@ -616,7 +720,7 @@ fn install_ring_provider() -> Result<(), RciError> {
 /// # Errors
 ///
 /// Returns an error when a matching cookie is malformed or not a valid header value.
-fn parse_set_cookie(
+pub(crate) fn parse_set_cookie(
     headers: &HeaderMap,
     expected_name: Option<&str>,
 ) -> Result<Option<ParsedCookie>, RciError> {
