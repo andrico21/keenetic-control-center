@@ -1,0 +1,2291 @@
+{
+  "version": "5.0",
+  "group": "dns-proxy",
+  "commands": [
+    {
+      "path": "dns-proxy",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.04",
+      "page": 129,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-dnspx)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "dns-proxy"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "dns-proxy debug",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "5.00",
+      "page": 130,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "debug"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "debug"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "dns-proxy filter assign host preset",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 130,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "host"
+          },
+          {
+            "node": "Keyword",
+            "value": "preset"
+          },
+          {
+            "node": "Argument",
+            "value": "host"
+          },
+          {
+            "node": "Argument",
+            "value": "preset"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "host"
+          },
+          {
+            "node": "Keyword",
+            "value": "preset"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "host"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "host": {
+          "type": "MacAddress"
+        },
+        "preset": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter assign host profile",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 131,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "host"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "host"
+          },
+          {
+            "node": "Argument",
+            "value": "profile"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "host"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "host"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "host": {
+          "type": "MacAddress"
+        },
+        "profile": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter assign interface preset",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 132,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "preset"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "preset"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "preset"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interface"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        },
+        "preset": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter assign interface profile",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 133,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "profile"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interface"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        },
+        "profile": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter engine",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 133,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "engine"
+          },
+          {
+            "node": "Argument",
+            "value": "engine"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "engine"
+          }
+        ]
+      },
+      "arguments": {
+        "engine": {
+          "type": "Keyword",
+          "values": [
+            "interceptor",
+            "nextdns",
+            "opkg",
+            "public",
+            "skydns"
+          ]
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter profile",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 134,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter profile description",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 135,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          },
+          {
+            "node": "Argument",
+            "value": "description"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          },
+          {
+            "node": "Argument",
+            "value": "description"
+          }
+        ]
+      },
+      "arguments": {
+        "description": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter profile dns53 upstream",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 136,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "dns53"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": ":"
+                },
+                {
+                  "node": "Argument",
+                  "value": "port"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "dns53"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "address"
+                },
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Keyword",
+                        "value": ":"
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "port"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "IpAddress"
+        },
+        "name": {
+          "type": "String"
+        },
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter profile https upstream",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 136,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "https"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Argument",
+            "value": "url"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "spki"
+                },
+                {
+                  "node": "Argument",
+                  "value": "hash"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "https"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "url"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "hash": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        },
+        "url": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter profile intercept enable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.09",
+      "page": 137,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy filter profile tls upstream",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 138,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "tls"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "port"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "sni"
+                },
+                {
+                  "node": "Argument",
+                  "value": "fqdn"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "spki"
+                },
+                {
+                  "node": "Argument",
+                  "value": "hash"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "tls"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "address"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "port"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "IpAddress"
+        },
+        "fqdn": {
+          "type": "String"
+        },
+        "hash": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        },
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy https upstream",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.01",
+      "page": 139,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "https"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Argument",
+            "value": "url"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "format"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "sni"
+                },
+                {
+                  "node": "Argument",
+                  "value": "hash"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "on"
+                },
+                {
+                  "node": "Argument",
+                  "value": "interface"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "domain"
+                },
+                {
+                  "node": "Argument",
+                  "value": "domain"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "https"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "url"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "domain": {
+          "type": "String"
+        },
+        "format": {
+          "type": "Keyword",
+          "values": [
+            "dnsm",
+            "json"
+          ]
+        },
+        "hash": {
+          "type": "String"
+        },
+        "interface": {
+          "type": "Interface"
+        },
+        "url": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy intercept enable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.06",
+      "page": 140,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "dns-proxy max-ttl",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.05",
+      "page": 141,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "max-ttl"
+          },
+          {
+            "node": "Argument",
+            "value": "max-ttl"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "max-ttl"
+          }
+        ]
+      },
+      "arguments": {
+        "max-ttl": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy proceed",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.04",
+      "page": 141,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "proceed"
+          },
+          {
+            "node": "Argument",
+            "value": "proceed"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "proceed"
+          }
+        ]
+      },
+      "arguments": {
+        "proceed": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy rebind-protect",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.04",
+      "page": 142,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "rebind-protect"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "auto"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "strict"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rebind-protect"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "dns-proxy route object-group",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "5.00",
+      "page": 143,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "route"
+          },
+          {
+            "node": "Keyword",
+            "value": "object-group"
+          },
+          {
+            "node": "Argument",
+            "value": "group"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Argument",
+                        "value": "gateway"
+                      },
+                      {
+                        "node": "Optional",
+                        "value": {
+                          "node": "Argument",
+                          "value": "interface"
+                        }
+                      }
+                    ]
+                  }
+                },
+                {
+                  "node": "Argument",
+                  "value": "interface"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "auto"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "reject"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "route"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "object-group"
+                },
+                {
+                  "node": "Argument",
+                  "value": "group"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interface"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "gateway": {
+          "type": "Keyword",
+          "values": [
+            "becomes",
+            "reject"
+          ]
+        },
+        "group": {
+          "type": "String"
+        },
+        "interface": {
+          "type": "Interface"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy srr-reset",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 144,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "srr-reset"
+          },
+          {
+            "node": "Argument",
+            "value": "srr-reset"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "srr-reset"
+          }
+        ]
+      },
+      "arguments": {
+        "srr-reset": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "dns-proxy tls upstream",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "3.01",
+      "page": 145,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "tls"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "port"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "sni"
+                },
+                {
+                  "node": "Argument",
+                  "value": "fqdn"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "spki"
+                },
+                {
+                  "node": "Argument",
+                  "value": "hash"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "on"
+                },
+                {
+                  "node": "Argument",
+                  "value": "interface"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "domain"
+                },
+                {
+                  "node": "Argument",
+                  "value": "domain"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dnspx"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "tls"
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "address"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "port"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "IpAddress"
+        },
+        "domain": {
+          "type": "String"
+        },
+        "fqdn": {
+          "type": "String"
+        },
+        "hash": {
+          "type": "String"
+        },
+        "interface": {
+          "type": "Interface"
+        },
+        "port": {
+          "type": "Integer"
+        }
+      }
+    }
+  ]
+}

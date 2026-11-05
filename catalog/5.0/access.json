@@ -1,0 +1,113 @@
+{
+  "version": "5.0",
+  "group": "access",
+  "commands": [
+    {
+      "path": "access",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 49,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "access"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          },
+          {
+            "node": "Argument",
+            "value": "user"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "recursive"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "access"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          },
+          {
+            "node": "Argument",
+            "value": "user"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "recursive"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "directory": {
+          "type": "String"
+        },
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "folder.",
+            "forbidden",
+            "inherited",
+            "read",
+            "read/write",
+            "recursive",
+            "write"
+          ]
+        },
+        "user": {
+          "type": "String"
+        }
+      }
+    }
+  ]
+}

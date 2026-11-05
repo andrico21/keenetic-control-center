@@ -1,0 +1,1492 @@
+{
+  "version": "5.0",
+  "group": "ipv6",
+  "commands": [
+    {
+      "path": "ipv6 local-prefix",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 445,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "local-prefix"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "default"
+                },
+                {
+                  "node": "Argument",
+                  "value": "prefix"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "local-prefix"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "default"
+                },
+                {
+                  "node": "Argument",
+                  "value": "prefix"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "prefix": {
+          "type": "Keyword",
+          "values": [
+            "Prefix"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ipv6 name-server",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 445,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "name-server"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "domain"
+                },
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Keyword",
+                        "value": "on"
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "interface"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "name-server"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "address"
+                },
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Argument",
+                        "value": "domain"
+                      },
+                      {
+                        "node": "Optional",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "on"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "interface"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "Keyword",
+          "values": [
+            "IPv6-address"
+          ]
+        },
+        "domain": {
+          "type": "Keyword",
+          "values": [
+            "is"
+          ]
+        },
+        "interface": {
+          "type": "Interface"
+        }
+      }
+    },
+    {
+      "path": "ipv6 pass",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.06",
+      "page": 447,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "pass"
+          },
+          {
+            "node": "Keyword",
+            "value": "through"
+          },
+          {
+            "node": "Argument",
+            "value": "wan-iface"
+          },
+          {
+            "node": "Argument",
+            "value": "lan-iface"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "pass"
+          }
+        ]
+      },
+      "arguments": {
+        "lan-iface": {
+          "type": "Interface"
+        },
+        "wan-iface": {
+          "type": "Interface"
+        }
+      }
+    },
+    {
+      "path": "ipv6 route",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 447,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "route"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "prefix"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "default"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Argument",
+                      "value": "interface"
+                    },
+                    {
+                      "node": "Optional",
+                      "value": {
+                        "node": "Argument",
+                        "value": "gateway"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "node": "Argument",
+                  "value": "gateway"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "route"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "prefix"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "default"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Argument",
+                      "value": "interface"
+                    },
+                    {
+                      "node": "Optional",
+                      "value": {
+                        "node": "Argument",
+                        "value": "gateway"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "node": "Argument",
+                  "value": "gateway"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "gateway": {
+          "type": "IpAddress"
+        },
+        "interface": {
+          "type": "Interface"
+        },
+        "prefix": {
+          "type": "Keyword",
+          "values": [
+            "Prefix",
+            "default"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ipv6 static",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 449,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "static"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "protocol"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Argument",
+                      "value": "interface"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "mac"
+                    }
+                  ]
+                },
+                {
+                  "node": "Argument",
+                  "value": "mac"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "port"
+                },
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Keyword",
+                        "value": "through"
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "end-port"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "static"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Argument",
+                    "value": "protocol"
+                  }
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Sequence",
+                        "value": [
+                          {
+                            "node": "Argument",
+                            "value": "interface"
+                          },
+                          {
+                            "node": "Argument",
+                            "value": "mac"
+                          }
+                        ]
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "mac"
+                      }
+                    ]
+                  }
+                },
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Argument",
+                        "value": "port"
+                      },
+                      {
+                        "node": "Optional",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "through"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "end-port": {
+          "type": "Integer"
+        },
+        "interface": {
+          "type": "Interface"
+        },
+        "mac": {
+          "type": "MacAddress"
+        },
+        "port": {
+          "type": "Integer"
+        },
+        "protocol": {
+          "type": "Keyword",
+          "values": [
+            "icmp6",
+            "tcp",
+            "tcpudp",
+            "udp"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ipv6 static rule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "5.00",
+      "page": 450,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "static"
+          },
+          {
+            "node": "Keyword",
+            "value": "rule"
+          },
+          {
+            "node": "Argument",
+            "value": "index"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "disable"
+                },
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "schedule"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "schedule"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "static"
+          },
+          {
+            "node": "Keyword",
+            "value": "rule"
+          },
+          {
+            "node": "Argument",
+            "value": "index"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "disable"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "schedule"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "index": {
+          "type": "Integer"
+        },
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 450,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-subnet)",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "subnet"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6"
+          },
+          {
+            "node": "Keyword",
+            "value": "subnet"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "name"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet bind",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 451,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "bind"
+          },
+          {
+            "node": "Argument",
+            "value": "bind"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-subnet"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "bind"
+          }
+        ]
+      },
+      "arguments": {
+        "bind": {
+          "type": "Interface"
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet dns-server",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "4.03",
+      "page": 452,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "dns-server"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Argument",
+                      "value": "address1"
+                    },
+                    {
+                      "node": "Optional",
+                      "value": {
+                        "node": "Argument",
+                        "value": "address2"
+                      }
+                    }
+                  ]
+                },
+                {
+                  "node": "Keyword",
+                  "value": "disable"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-subnet"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dns-server"
+          }
+        ]
+      },
+      "arguments": {
+        "address1": {
+          "type": "Keyword",
+          "values": [
+            "IPv6-address"
+          ]
+        },
+        "address2": {
+          "type": "Keyword",
+          "values": [
+            "IPv6-address",
+            "disable"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet mode",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 453,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mode"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-subnet"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "dhcp",
+            "slaac"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet number",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 453,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "number"
+          },
+          {
+            "node": "Argument",
+            "value": "number"
+          }
+        ]
+      },
+      "arguments": {
+        "number": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet prefix delegate",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 454,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "prefix"
+          },
+          {
+            "node": "Keyword",
+            "value": "delegate"
+          },
+          {
+            "node": "Argument",
+            "value": "delegate"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-subnet"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "prefix"
+          },
+          {
+            "node": "Keyword",
+            "value": "delegate"
+          }
+        ]
+      },
+      "arguments": {
+        "delegate": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "ipv6 subnet prefix length",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 454,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "prefix"
+          },
+          {
+            "node": "Keyword",
+            "value": "length"
+          },
+          {
+            "node": "Argument",
+            "value": "length"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-subnet"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "prefix"
+          },
+          {
+            "node": "Keyword",
+            "value": "length"
+          }
+        ]
+      },
+      "arguments": {
+        "length": {
+          "type": "Integer"
+        }
+      }
+    }
+  ]
+}

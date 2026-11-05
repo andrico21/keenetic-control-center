@@ -1,0 +1,436 @@
+{
+  "version": "4.3",
+  "group": "nextdns",
+  "commands": [
+    {
+      "path": "nextdns",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 457,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(nextdns)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "nextdns"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nextdns assign",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 458,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Alternative",
+        "value": [
+          {
+            "node": "Sequence",
+            "value": [
+              {
+                "node": "Group",
+                "value": {
+                  "node": "Keyword",
+                  "value": "nextdns"
+                }
+              },
+              {
+                "node": "Keyword",
+                "value": "assign"
+              },
+              {
+                "node": "Argument",
+                "value": "host"
+              },
+              {
+                "node": "Argument",
+                "value": "token"
+              }
+            ]
+          },
+          {
+            "node": "Sequence",
+            "value": [
+              {
+                "node": "Keyword",
+                "value": "interface"
+              },
+              {
+                "node": "Argument",
+                "value": "iface"
+              },
+              {
+                "node": "Argument",
+                "value": "token"
+              },
+              {
+                "node": "Group",
+                "value": {
+                  "node": "Keyword",
+                  "value": "nextdns"
+                }
+              },
+              {
+                "node": "Keyword",
+                "value": "assign"
+              },
+              {
+                "node": "Optional",
+                "value": {
+                  "node": "Alternative",
+                  "value": [
+                    {
+                      "node": "Argument",
+                      "value": "host"
+                    },
+                    {
+                      "node": "Sequence",
+                      "value": [
+                        {
+                          "node": "Keyword",
+                          "value": "interface"
+                        },
+                        {
+                          "node": "Argument",
+                          "value": "iface"
+                        }
+                      ]
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "arguments": {
+        "host": {
+          "type": "MacAddress"
+        },
+        "iface": {
+          "type": "Interface"
+        },
+        "token": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nextdns authenticate",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 458,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "authenticate"
+          },
+          {
+            "node": "Argument",
+            "value": "login"
+          },
+          {
+            "node": "Argument",
+            "value": "password"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "pin"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "authenticate"
+          }
+        ]
+      },
+      "arguments": {
+        "login": {
+          "type": "String"
+        },
+        "password": {
+          "type": "String"
+        },
+        "pin": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nextdns authtoken",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 459,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "authtoken"
+          },
+          {
+            "node": "Argument",
+            "value": "authtoken"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "authtoken"
+          }
+        ]
+      },
+      "arguments": {
+        "authtoken": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nextdns check-availability",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 460,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "check-availability"
+          }
+        ]
+      },
+      "arguments": {}
+    }
+  ]
+}

@@ -1,0 +1,239 @@
+{
+  "version": "5.0",
+  "group": "afp",
+  "commands": [
+    {
+      "path": "afp",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.06",
+      "page": 57,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-afp)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "afp"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "afp automount",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.06",
+      "page": 57,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "automount"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-afp"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "automount"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "afp permissive",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.06",
+      "page": 58,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "permissive"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-afp"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "permissive"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "afp share",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.06",
+      "page": 58,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "share"
+          },
+          {
+            "node": "Argument",
+            "value": "label"
+          },
+          {
+            "node": "Argument",
+            "value": "mount"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "description"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-afp"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "share"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "label"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "description": {
+          "type": "String"
+        },
+        "label": {
+          "type": "String"
+        },
+        "mount": {
+          "type": "String"
+        }
+      }
+    }
+  ]
+}

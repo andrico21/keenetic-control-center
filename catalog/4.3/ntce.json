@@ -1,0 +1,1390 @@
+{
+  "version": "4.3",
+  "group": "ntce",
+  "commands": [
+    {
+      "path": "ntce",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.07",
+      "page": 468,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-ntce)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "ntce"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "ntce debug",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.07",
+      "page": 386,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "debug"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "debug"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "ntce filter assign host",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 469,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "host"
+          },
+          {
+            "node": "Argument",
+            "value": "host"
+          },
+          {
+            "node": "Argument",
+            "value": "profile"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "host"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "host"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "host": {
+          "type": "MacAddress"
+        },
+        "profile": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ntce filter assign interface",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 470,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "profile"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interface"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        },
+        "profile": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ntce filter profile",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 471,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "interface_type": "IP",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ntce filter profile application",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 471,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "application"
+          },
+          {
+            "node": "Argument",
+            "value": "application"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "application"
+          },
+          {
+            "node": "Argument",
+            "value": "application"
+          }
+        ]
+      },
+      "arguments": {
+        "application": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ntce filter profile description",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 472,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          },
+          {
+            "node": "Argument",
+            "value": "description"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "description"
+          }
+        ]
+      },
+      "arguments": {
+        "description": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ntce filter profile group",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 473,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "group"
+          },
+          {
+            "node": "Argument",
+            "value": "group"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "group"
+          },
+          {
+            "node": "Argument",
+            "value": "group"
+          }
+        ]
+      },
+      "arguments": {
+        "group": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ntce filter profile schedule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 473,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "schedule"
+          },
+          {
+            "node": "Argument",
+            "value": "schedule"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "schedule"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        },
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ntce filter profile type",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 474,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Keyword",
+            "value": "profile"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "type"
+          },
+          {
+            "node": "Argument",
+            "value": "type"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        },
+        "type": {
+          "type": "Keyword",
+          "values": [
+            "deny",
+            "permit"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ntce memory-watcher",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 475,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "memory-watcher"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "memory-watcher"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "ntce qos category priority",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 475,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "qos"
+          },
+          {
+            "node": "Keyword",
+            "value": "category"
+          },
+          {
+            "node": "Argument",
+            "value": "category"
+          },
+          {
+            "node": "Keyword",
+            "value": "priority"
+          },
+          {
+            "node": "Argument",
+            "value": "priority"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "qos"
+          },
+          {
+            "node": "Keyword",
+            "value": "category"
+          },
+          {
+            "node": "Argument",
+            "value": "category"
+          },
+          {
+            "node": "Keyword",
+            "value": "priority"
+          }
+        ]
+      },
+      "arguments": {
+        "category": {
+          "type": "Keyword",
+          "values": [
+            "calling",
+            "gaming",
+            "other",
+            "streaming",
+            "surfing",
+            "work"
+          ]
+        },
+        "priority": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "ntce qos enable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.07",
+      "page": 476,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "qos"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "qos"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "ntce upstream rate-limit input",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.01",
+      "page": 477,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Keyword",
+            "value": "rate-limit"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "input"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "rate"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "auto"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Keyword",
+            "value": "rate-limit"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "input"
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        },
+        "rate": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "ntce upstream rate-limit output",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.01",
+      "page": 477,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Keyword",
+            "value": "rate-limit"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "output"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "rate"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "auto"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-ntce"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "upstream"
+          },
+          {
+            "node": "Keyword",
+            "value": "rate-limit"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Keyword",
+            "value": "output"
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        },
+        "rate": {
+          "type": "Integer"
+        }
+      }
+    }
+  ]
+}

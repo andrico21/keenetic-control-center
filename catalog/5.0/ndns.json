@@ -1,0 +1,503 @@
+{
+  "version": "5.0",
+  "group": "ndns",
+  "commands": [
+    {
+      "path": "ndns",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.07",
+      "page": 479,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(ndns)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "ndns"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "ndns book-name",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.07",
+      "page": 479,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "ndns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "book-name"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Argument",
+            "value": "domain"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Argument",
+                      "value": "access"
+                    },
+                    {
+                      "node": "Optional",
+                      "value": {
+                        "node": "Sequence",
+                        "value": [
+                          {
+                            "node": "Keyword",
+                            "value": "ipv6"
+                          },
+                          {
+                            "node": "Argument",
+                            "value": "access6"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                },
+                {
+                  "node": "Argument",
+                  "value": "transfer-code"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "access": {
+          "type": "Keyword",
+          "values": [
+            "auto",
+            "cloud"
+          ]
+        },
+        "access6": {
+          "type": "Keyword",
+          "values": [
+            "cloud"
+          ]
+        },
+        "domain": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        },
+        "transfer-code": {
+          "type": "Keyword",
+          "values": [
+            "Hex"
+          ]
+        }
+      }
+    },
+    {
+      "path": "ndns check-name",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.07",
+      "page": 482,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "ndns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "check-name"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ndns drop-name",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.07",
+      "page": 483,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "ndns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "drop-name"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Argument",
+            "value": "domain"
+          }
+        ]
+      },
+      "arguments": {
+        "domain": {
+          "type": "String"
+        },
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "ndns get-booked",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.08",
+      "page": 484,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "ndns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "get-booked"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "ndns get-update",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "2.07",
+      "page": 485,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "ndns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "get-update"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "access"
+                },
+                {
+                  "node": "Optional",
+                  "value": {
+                    "node": "Sequence",
+                    "value": [
+                      {
+                        "node": "Keyword",
+                        "value": "ipv6"
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "access6"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "access": {
+          "type": "Keyword",
+          "values": [
+            "auto",
+            "cloud"
+          ]
+        },
+        "access6": {
+          "type": "Keyword",
+          "values": [
+            "cloud"
+          ]
+        }
+      }
+    }
+  ]
+}

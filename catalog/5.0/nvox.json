@@ -1,0 +1,6911 @@
+{
+  "version": "5.0",
+  "group": "nvox",
+  "commands": [
+    {
+      "path": "nvox",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.00",
+      "page": 814,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(nvox)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "nvox"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox call-history clear",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.06",
+      "page": 814,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "clear"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox call-history delete-call",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 815,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "delete-call"
+          },
+          {
+            "node": "Argument",
+            "value": "call-index"
+          }
+        ]
+      },
+      "arguments": {
+        "call-index": {
+          "type": "Keyword",
+          "values": [
+            "Hex"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox call-history directory",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 815,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "directory"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "directory"
+          }
+        ]
+      },
+      "arguments": {
+        "directory": {
+          "type": "Filename"
+        }
+      }
+    },
+    {
+      "path": "nvox call-history dump",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 816,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "dump"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox call-history filter",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 817,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          },
+          {
+            "node": "Argument",
+            "value": "time-from"
+          },
+          {
+            "node": "Argument",
+            "value": "time-to"
+          },
+          {
+            "node": "Argument",
+            "value": "type"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "text"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "filter"
+          }
+        ]
+      },
+      "arguments": {
+        "time-from": {
+          "type": "String"
+        },
+        "time-to": {
+          "type": "String"
+        },
+        "type": {
+          "type": "Keyword",
+          "values": [
+            "in",
+            "missed",
+            "out"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox call-history length",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 818,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "length"
+          },
+          {
+            "node": "Argument",
+            "value": "length"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "call-history"
+          },
+          {
+            "node": "Keyword",
+            "value": "length"
+          }
+        ]
+      },
+      "arguments": {
+        "length": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox fxs",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.00",
+      "page": 818,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(nvox-fxs)",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "nvox"
+          },
+          {
+            "node": "Keyword",
+            "value": "fxs"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox fxs country",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 819,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "country"
+          },
+          {
+            "node": "Argument",
+            "value": "country"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "country"
+          }
+        ]
+      },
+      "arguments": {
+        "country": {
+          "type": "Keyword",
+          "values": [
+            "BG",
+            "CA",
+            "CS",
+            "DE",
+            "DK",
+            "EE",
+            "ES",
+            "FI",
+            "FR",
+            "GR",
+            "HR",
+            "HU",
+            "IT",
+            "KZ",
+            "LT",
+            "LV",
+            "NO",
+            "PL",
+            "PT",
+            "RO",
+            "RS",
+            "RU",
+            "SE",
+            "SI",
+            "SK",
+            "TR",
+            "UA"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox fxs echo-canc-mode",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 820,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "echo-canc-mode"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "echo-canc-mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "0",
+            "1",
+            "2",
+            "3"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox fxs echo-canc-thresholds",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 821,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "echo-canc-thresholds"
+          },
+          {
+            "node": "Argument",
+            "value": "mute_threshold"
+          },
+          {
+            "node": "Argument",
+            "value": "unmute_threshold"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "echo-canc-thresholds"
+          }
+        ]
+      },
+      "arguments": {
+        "mute_threshold": {
+          "type": "Integer"
+        },
+        "unmute_threshold": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox fxs force-calibration",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 821,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "force-calibration"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "force-calibration"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox fxs init-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 822,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "init-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "init-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timer": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox fxs led-blinking-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 823,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "led-blinking-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "led-blinking-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timer": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox fxs port-paging",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 823,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "port-paging"
+          },
+          {
+            "node": "Argument",
+            "value": "id"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "port-paging"
+          }
+        ]
+      },
+      "arguments": {
+        "id": {
+          "type": "Keyword",
+          "values": [
+            "1",
+            "2"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox fxs pulse-dial-mode",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 824,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "pulse-dial-mode"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "pulse-dial-mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "0",
+            "1",
+            "2"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox fxs unmute-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 825,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "unmute-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-fxs"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "unmute-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timer": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel accept",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 825,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "accept"
+          },
+          {
+            "node": "Argument",
+            "value": "accept"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "accept"
+          }
+        ]
+      },
+      "arguments": {
+        "accept": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel call-external",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 827,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "call-external"
+          },
+          {
+            "node": "Argument",
+            "value": "call-external"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "call-external"
+          }
+        ]
+      },
+      "arguments": {
+        "call-external": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel call-internal",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 827,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "call-internal"
+          },
+          {
+            "node": "Argument",
+            "value": "call-internal"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "call-internal"
+          }
+        ]
+      },
+      "arguments": {
+        "call-internal": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel disable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 826,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "disable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "disable"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox parallel hold-resume",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 828,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "hold-resume"
+          },
+          {
+            "node": "Argument",
+            "value": "hold-resume"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "hold-resume"
+          }
+        ]
+      },
+      "arguments": {
+        "hold-resume": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel intercept",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 829,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          },
+          {
+            "node": "Argument",
+            "value": "intercept"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          }
+        ]
+      },
+      "arguments": {
+        "intercept": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel reject",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 830,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          },
+          {
+            "node": "Argument",
+            "value": "reject"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "intercept"
+          }
+        ]
+      },
+      "arguments": {
+        "reject": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel release-active",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 830,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "release-active"
+          },
+          {
+            "node": "Argument",
+            "value": "release-active"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "release-active"
+          }
+        ]
+      },
+      "arguments": {
+        "release-active": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel release-passive",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 831,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "release-passive"
+          },
+          {
+            "node": "Argument",
+            "value": "release-passive"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "release-passive"
+          }
+        ]
+      },
+      "arguments": {
+        "release-passive": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel toggle",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 832,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "toggle"
+          },
+          {
+            "node": "Argument",
+            "value": "toggle"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "toggle"
+          }
+        ]
+      },
+      "arguments": {
+        "toggle": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox parallel transfer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 833,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "transfer"
+          },
+          {
+            "node": "Argument",
+            "value": "transfer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "parallel"
+          },
+          {
+            "node": "Keyword",
+            "value": "transfer"
+          }
+        ]
+      },
+      "arguments": {
+        "transfer": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox phone",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 833,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(nvox-phone)",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "nvox"
+          },
+          {
+            "node": "Keyword",
+            "value": "phone"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox phone cadence",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 834,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "cadence"
+          },
+          {
+            "node": "Argument",
+            "value": "cadence"
+          },
+          {
+            "node": "Argument",
+            "value": "active1"
+          },
+          {
+            "node": "Argument",
+            "value": "passive1"
+          },
+          {
+            "node": "Argument",
+            "value": "active2"
+          },
+          {
+            "node": "Argument",
+            "value": "passive2"
+          },
+          {
+            "node": "Argument",
+            "value": "active3"
+          },
+          {
+            "node": "Argument",
+            "value": "passive3"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-phone"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "cadence"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "cadence"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "active1": {
+          "type": "Integer"
+        },
+        "active2": {
+          "type": "Integer"
+        },
+        "active3": {
+          "type": "Integer"
+        },
+        "cadence": {
+          "type": "Integer"
+        },
+        "passive1": {
+          "type": "Integer"
+        },
+        "passive2": {
+          "type": "Integer"
+        },
+        "passive3": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox phone dial-digit-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 835,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "dial-digit-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-phone"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dial-digit-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timer": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox phone intercom-cadence",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 836,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "intercom-cadence"
+          },
+          {
+            "node": "Argument",
+            "value": "cadence"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-phone"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "intercom-cadence"
+          }
+        ]
+      },
+      "arguments": {
+        "cadence": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox phone offhook-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 836,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "offhook-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-phone"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "offhook-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timer": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox phone paging-cadence",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 837,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "paging-cadence"
+          },
+          {
+            "node": "Argument",
+            "value": "cadence"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-phone"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "paging-cadence"
+          }
+        ]
+      },
+      "arguments": {
+        "cadence": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox phonebook delete",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.02",
+      "page": 838,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "nvox"
+          },
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "delete"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox phonebook handset-edit",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 838,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "handset-edit"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "handset-edit"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox phonebook import",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.02",
+      "page": 839,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "import"
+          },
+          {
+            "node": "Argument",
+            "value": "filename"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          }
+        ]
+      },
+      "arguments": {
+        "filename": {
+          "type": "String"
+        },
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "replace"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox phonebook last-name-first",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 840,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "last-name-first"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "last-name-first"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox phonebook length",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 841,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "length"
+          },
+          {
+            "node": "Argument",
+            "value": "length"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "length"
+          }
+        ]
+      },
+      "arguments": {
+        "length": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox phonebook match-length",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 841,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "match-length"
+          },
+          {
+            "node": "Argument",
+            "value": "length"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "phonebook"
+          },
+          {
+            "node": "Keyword",
+            "value": "match-length"
+          }
+        ]
+      },
+      "arguments": {
+        "length": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox postdial key",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 842,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "key"
+          },
+          {
+            "node": "Argument",
+            "value": "key"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "key"
+          }
+        ]
+      },
+      "arguments": {
+        "key": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox postdial mid-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 843,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "mid-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "mid-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox postdial post-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 843,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "post-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "post-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox postdial pre-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 844,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "pre-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "postdial"
+          },
+          {
+            "node": "Keyword",
+            "value": "pre-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.00",
+      "page": 845,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(nvox-sip)",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "sip"
+          },
+          {
+            "node": "Argument",
+            "value": "id"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sip"
+          },
+          {
+            "node": "Argument",
+            "value": "id"
+          }
+        ]
+      },
+      "arguments": {
+        "id": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip audio-protocol",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 845,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "audio-protocol"
+          },
+          {
+            "node": "Argument",
+            "value": "protocol"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "audio-protocol"
+          }
+        ]
+      },
+      "arguments": {
+        "protocol": {
+          "type": "Keyword",
+          "values": [
+            "both",
+            "rtp",
+            "srtp"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip blacklist",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.01",
+      "page": 846,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "blacklist"
+          },
+          {
+            "node": "Argument",
+            "value": "map"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "blacklist"
+          }
+        ]
+      },
+      "arguments": {
+        "map": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip cadence",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 847,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "cadence"
+          },
+          {
+            "node": "Argument",
+            "value": "cadence"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "cadence"
+          }
+        ]
+      },
+      "arguments": {
+        "cadence": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip cadence-rule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 848,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "cadence-rule"
+          },
+          {
+            "node": "Argument",
+            "value": "rule"
+          },
+          {
+            "node": "Argument",
+            "value": "cadence"
+          },
+          {
+            "node": "Argument",
+            "value": "digitmap"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "cadence-rule"
+          }
+        ]
+      },
+      "arguments": {
+        "cadence": {
+          "type": "Integer"
+        },
+        "digitmap": {
+          "type": "String"
+        },
+        "rule": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip codec",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 849,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "codec"
+          },
+          {
+            "node": "Argument",
+            "value": "codec"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "codec"
+          }
+        ]
+      },
+      "arguments": {
+        "codec": {
+          "type": "Keyword",
+          "values": [
+            "g711a",
+            "g711u",
+            "g722",
+            "g726"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip deny-interception",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 849,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "deny-interception"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "deny-interception"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip deny-pickup",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 850,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "deny-pickup"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "deny-pickup"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip digit-map",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 851,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "digit-map"
+          },
+          {
+            "node": "Argument",
+            "value": "map"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "digit-map"
+          }
+        ]
+      },
+      "arguments": {
+        "map": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip disable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 851,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "disable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "disable"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip disable-extended-keepalive",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.01",
+      "page": 852,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "disable-extended-keepalive"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "disable-extended-keepalive"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip disable-force-registration-retry",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 853,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "disable-force-registration-retry"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "disable-force-registration-retry"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip disable-stun",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 853,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "disable-stun"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "disable-stun"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip display-name",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 854,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "display-name"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "display-name"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip dnd",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 854,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "dnd"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dnd"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip dnd-schedule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 855,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "dnd-schedule"
+          },
+          {
+            "node": "Argument",
+            "value": "schedule"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dnd-schedule"
+          }
+        ]
+      },
+      "arguments": {
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip domain",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 856,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "domain"
+          },
+          {
+            "node": "Argument",
+            "value": "domain"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "domain"
+          }
+        ]
+      },
+      "arguments": {
+        "domain": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip dtmf-flash-signal",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 856,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "dtmf-flash-signal"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dtmf-flash-signal"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip dtmf-mode",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 857,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "dtmf-mode"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dtmf-mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "inband",
+            "messages.",
+            "requests.",
+            "rfc2833",
+            "sip-info"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip enable-blacklist",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.01",
+      "page": 858,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "enable-blacklist"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "enable-blacklist"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip enable-whitelist",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.01",
+      "page": 858,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "enable-whitelist"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "enable-whitelist"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip enable-whitelist-phonebook",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.02",
+      "page": 859,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "enable-whitelist-phonebook"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "enable-whitelist-phonebook"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip forward",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 860,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "forward"
+          },
+          {
+            "node": "Argument",
+            "value": "number"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "forward"
+          }
+        ]
+      },
+      "arguments": {
+        "number": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip forward-if-busy",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 860,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "forward-if-busy"
+          },
+          {
+            "node": "Argument",
+            "value": "{number"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "forward-if-busy"
+          }
+        ]
+      },
+      "arguments": {},
+      "parse_warnings": [
+        "argument {number has no recognized type"
+      ]
+    },
+    {
+      "path": "nvox sip forward-if-busy-schedule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 861,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "forward-if-busy-schedule"
+          },
+          {
+            "node": "Argument",
+            "value": "schedule"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "forward-if-busy-schedule"
+          }
+        ]
+      },
+      "arguments": {
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip forward-if-timeout",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 862,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "forward-if-timeout"
+          },
+          {
+            "node": "Argument",
+            "value": "number"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "forward-if-timeout"
+          }
+        ]
+      },
+      "arguments": {
+        "number": {
+          "type": "String"
+        },
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip forward-if-timeout-schedule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 862,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "forward-if-timeout-schedule"
+          },
+          {
+            "node": "Argument",
+            "value": "schedule"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "forward-if-timeout-schedule"
+          }
+        ]
+      },
+      "arguments": {
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip forward-schedule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 863,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "forward-schedule"
+          },
+          {
+            "node": "Argument",
+            "value": "schedule"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "forward-schedule"
+          }
+        ]
+      },
+      "arguments": {
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip identity",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 864,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "identity"
+          },
+          {
+            "node": "Argument",
+            "value": "identity"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "identity"
+          }
+        ]
+      },
+      "arguments": {
+        "identity": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip incoming-mask",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 864,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "incoming-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "ipui"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "incoming-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "ipui"
+          }
+        ]
+      },
+      "arguments": {
+        "ipui": {
+          "type": "Keyword",
+          "values": [
+            "1",
+            "2",
+            "String"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip keepalive",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 865,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "keepalive"
+          },
+          {
+            "node": "Argument",
+            "value": "keepalive"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "keepalive"
+          }
+        ]
+      },
+      "arguments": {
+        "keepalive": {
+          "type": "Keyword",
+          "values": [
+            "messages."
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip lock-codec",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 866,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "lock-codec"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "lock-codec"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip login",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 866,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "login"
+          },
+          {
+            "node": "Argument",
+            "value": "login"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "login"
+          }
+        ]
+      },
+      "arguments": {
+        "login": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip name",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 867,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "name"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "name"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip outgoing-mask",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 868,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "outgoing-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "ipui"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "outgoing-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "ipui"
+          }
+        ]
+      },
+      "arguments": {
+        "ipui": {
+          "type": "Keyword",
+          "values": [
+            "1",
+            "2",
+            "String"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip password",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 868,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "password"
+          },
+          {
+            "node": "Argument",
+            "value": "password"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "password"
+          }
+        ]
+      },
+      "arguments": {
+        "password": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip priority",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 869,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "priority"
+          },
+          {
+            "node": "Argument",
+            "value": "priority"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "priority"
+          }
+        ]
+      },
+      "arguments": {
+        "priority": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip proxy",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 870,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "proxy"
+          },
+          {
+            "node": "Argument",
+            "value": "proxy"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "proxy"
+          }
+        ]
+      },
+      "arguments": {
+        "proxy": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip reg-timeout",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 871,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "reg-timeout"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "reg-timeout"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip registration-first-retry",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 871,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "registration-first-retry"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "registration-first-retry"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip registration-retry",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 872,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "registration-retry"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "registration-retry"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip registration-uri",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 873,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "registration-uri"
+          },
+          {
+            "node": "Argument",
+            "value": "uri"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "registration-uri"
+          }
+        ]
+      },
+      "arguments": {
+        "uri": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip sdp-nat-rewrite",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 873,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "sdp-nat-rewrite"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sdp-nat-rewrite"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip selection-id",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 874,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "selection-id"
+          },
+          {
+            "node": "Argument",
+            "value": "sel-id"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "selection-id"
+          }
+        ]
+      },
+      "arguments": {
+        "sel-id": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip session-timer",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 875,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "session-timer"
+          },
+          {
+            "node": "Argument",
+            "value": "timer"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "session-timer"
+          }
+        ]
+      },
+      "arguments": {
+        "timer": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip session-timer-mode",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 875,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "session-timer-mode"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "session-timer-mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "disable"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip substitute",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 876,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "substitute"
+          },
+          {
+            "node": "Argument",
+            "value": "substitute"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "substitute"
+          }
+        ]
+      },
+      "arguments": {
+        "substitute": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip tls-security-mode",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 877,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "tls-security-mode"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "tls-security-mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "sip-tls"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip transport",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 878,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "transport"
+          },
+          {
+            "node": "Argument",
+            "value": "transport"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "transport"
+          }
+        ]
+      },
+      "arguments": {
+        "transport": {
+          "type": "Keyword",
+          "values": [
+            "udp"
+          ]
+        }
+      }
+    },
+    {
+      "path": "nvox sip whitelist",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.01",
+      "page": 879,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "whitelist"
+          },
+          {
+            "node": "Argument",
+            "value": "map"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "whitelist"
+          }
+        ]
+      },
+      "arguments": {
+        "map": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.00",
+      "page": 880,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(nvox-sip-common)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "sip-common"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common 100rel",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 880,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "100rel"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "100rel"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common agent",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 881,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "agent"
+          },
+          {
+            "node": "Argument",
+            "value": "agent"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "agent"
+          }
+        ]
+      },
+      "arguments": {
+        "agent": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common disable-dns-srv",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 882,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "disable-dns-srv"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "disable-dns-srv"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common disable-tls-validation",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.09",
+      "page": 882,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "disable-tls-validation"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "disable-tls-validation"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common g726-dynamic-payload",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 883,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "g726-dynamic-payload"
+          },
+          {
+            "node": "Argument",
+            "value": "payload"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "g726-dynamic-payload"
+          }
+        ]
+      },
+      "arguments": {
+        "payload": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common outbound-proxy",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 884,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "outbound-proxy"
+          },
+          {
+            "node": "Argument",
+            "value": "proxy"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "outbound-proxy"
+          }
+        ]
+      },
+      "arguments": {
+        "proxy": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common qos",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 885,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "context": "(sip-common-qos)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "qos"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common qos rtp-dscp",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 885,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rtp-dscp"
+          },
+          {
+            "node": "Argument",
+            "value": "dscp"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rtp-dscp"
+          }
+        ]
+      },
+      "arguments": {
+        "dscp": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common qos rtp-so-prio",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 886,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rtp-so-prio"
+          },
+          {
+            "node": "Argument",
+            "value": "so_prio"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rtp-so-prio"
+          }
+        ]
+      },
+      "arguments": {
+        "so_prio": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common qos sip-dscp",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 886,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sip-dscp"
+          },
+          {
+            "node": "Argument",
+            "value": "dscp"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sip-dscp"
+          }
+        ]
+      },
+      "arguments": {
+        "dscp": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common qos sip-so-prio",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 887,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sip-so-prio"
+          },
+          {
+            "node": "Argument",
+            "value": "so_prio"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sip-common-qos"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sip-so-prio"
+          }
+        ]
+      },
+      "arguments": {
+        "so_prio": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common rtp-port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 888,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "rtp-port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Keyword",
+            "value": "through"
+          },
+          {
+            "node": "Argument",
+            "value": "end-port"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rtp-port"
+          }
+        ]
+      },
+      "arguments": {
+        "end-port": {
+          "type": "Integer"
+        },
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common sdp rtcp",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 889,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "sdp"
+          },
+          {
+            "node": "Keyword",
+            "value": "rtcp"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sdp"
+          },
+          {
+            "node": "Keyword",
+            "value": "rtcp"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common sdp tias",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 889,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "sdp"
+          },
+          {
+            "node": "Keyword",
+            "value": "tias"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sdp"
+          },
+          {
+            "node": "Keyword",
+            "value": "tias"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "nvox sip-common stun-server",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 890,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "stun-server"
+          },
+          {
+            "node": "Argument",
+            "value": "stun"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "stun-server"
+          }
+        ]
+      },
+      "arguments": {
+        "stun": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common tcp-keepalive",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 890,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "tcp-keepalive"
+          },
+          {
+            "node": "Argument",
+            "value": "interval"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "tcp-keepalive"
+          }
+        ]
+      },
+      "arguments": {
+        "interval": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common tcp-port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 891,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "tcp-port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "tcp-port"
+          }
+        ]
+      },
+      "arguments": {
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common td-timeout",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 892,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "td-timeout"
+          },
+          {
+            "node": "Argument",
+            "value": "timeout"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "td-timeout"
+          }
+        ]
+      },
+      "arguments": {
+        "timeout": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common tls-keepalive",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 893,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "tls-keepalive"
+          },
+          {
+            "node": "Argument",
+            "value": "interval"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "tls-keepalive"
+          }
+        ]
+      },
+      "arguments": {
+        "interval": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common tls-port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 894,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "tcp-port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "tcp-port"
+          }
+        ]
+      },
+      "arguments": {
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common udp-port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 895,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "udp-port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "udp-port"
+          }
+        ]
+      },
+      "arguments": {
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "nvox sip-common unescape-hash-char",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "3.05",
+      "page": 895,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "unescape-hash-char"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nvox-sip-common"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "unescape-hash-char"
+          }
+        ]
+      },
+      "arguments": {}
+    }
+  ]
+}

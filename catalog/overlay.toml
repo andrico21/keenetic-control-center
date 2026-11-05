@@ -1,0 +1,19 @@
+[[background]]
+paths = ["tools ping", "tools ping6", "tools traceroute", "tools arping", "tools iperf3", "components list", "ussd send", "show log", "mws log"]
+reason = "Router responses expose continued:true at runtime; the manuals do not classify background processes."
+
+[[destructive]]
+paths = ["system reboot", "system configuration factory-reset", "system configuration fail-safe rollback", "components commit", "erase", "copy", "media * format", "mws member reboot", "system eject", "interface * esim profile delete"]
+reason = "These operations erase data, reboot hardware, replace configuration, or irreversibly mutate components."
+
+[[secret]]
+paths = ["interface wireguard private-key", "interface wireguard peer preshared-key", "user password"]
+reason = "These arguments carry credentials even where the manual's structural Value column says String."
+
+[[post_only_show]]
+paths = ["show log"]
+reason = "The live RCI surface starts this polling operation with POST."
+
+[[persists_immediately]]
+paths = ["system country"]
+reason = "The manual states that the selected country is permanently stored without configuration save."

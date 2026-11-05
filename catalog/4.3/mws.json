@@ -1,0 +1,1838 @@
+{
+  "version": "4.3",
+  "group": "mws",
+  "commands": [
+    {
+      "path": "mws acquire",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.15",
+      "page": 443,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "acquire"
+          },
+          {
+            "node": "Argument",
+            "value": "candidate"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "eula-accept"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "dpn-accept"
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "no-update"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "acquire"
+          },
+          {
+            "node": "Argument",
+            "value": "candidate"
+          }
+        ]
+      },
+      "arguments": {
+        "candidate": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws auto-ap-shutdown",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 444,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "auto-ap-shutdown"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "auto-ap-shutdown"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws backhaul shutdown",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.04",
+      "page": 445,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "backhaul"
+          },
+          {
+            "node": "Keyword",
+            "value": "shutdown"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "backhaul"
+          },
+          {
+            "node": "Keyword",
+            "value": "shutdown"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws log stp",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.06",
+      "page": 445,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "log"
+          },
+          {
+            "node": "Keyword",
+            "value": "stp"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "log"
+          },
+          {
+            "node": "Keyword",
+            "value": "stp"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interface"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Keyword",
+          "values": [
+            "[Tab]"
+          ]
+        }
+      }
+    },
+    {
+      "path": "mws member",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.15",
+      "page": 446,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "member"
+            }
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws member debug",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.05",
+      "page": 447,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "debug"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "debug"
+          }
+        ]
+      },
+      "arguments": {
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws member dpn-accept",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.05",
+      "page": 447,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "dpn-accept"
+          }
+        ]
+      },
+      "arguments": {
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws member port access",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 448,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Keyword",
+            "value": "access"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Keyword",
+            "value": "access"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interface"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        },
+        "member": {
+          "type": "String"
+        },
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "mws member port disable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 449,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Keyword",
+            "value": "disable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Keyword",
+            "value": "disable"
+          }
+        ]
+      },
+      "arguments": {
+        "member": {
+          "type": "String"
+        },
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "mws member reboot",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 449,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "reboot"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "interval"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "interval": {
+          "type": "Integer"
+        },
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws member update channel",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 450,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "channel"
+          },
+          {
+            "node": "Argument",
+            "value": "channel"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "channel"
+          }
+        ]
+      },
+      "arguments": {
+        "channel": {
+          "type": "String"
+        },
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws member update check",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 451,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "check"
+          }
+        ]
+      },
+      "arguments": {
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws member update start",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 451,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "start"
+          }
+        ]
+      },
+      "arguments": {
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws member update stop",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 452,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "member"
+          },
+          {
+            "node": "Argument",
+            "value": "member"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "stop"
+          }
+        ]
+      },
+      "arguments": {
+        "member": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws reboot",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.08",
+      "page": 452,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "reboot"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws revisit",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.15",
+      "page": 453,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "revisit"
+          },
+          {
+            "node": "Argument",
+            "value": "candidate"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "revisit"
+          },
+          {
+            "node": "Argument",
+            "value": "candidate"
+          }
+        ]
+      },
+      "arguments": {
+        "candidate": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "mws stp encapsulation",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.03",
+      "page": 453,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "stp"
+          },
+          {
+            "node": "Keyword",
+            "value": "encapsulation"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "stp"
+          },
+          {
+            "node": "Keyword",
+            "value": "encapsulation"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws stp priority",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.01",
+      "page": 454,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "stp"
+          },
+          {
+            "node": "Keyword",
+            "value": "priority"
+          },
+          {
+            "node": "Argument",
+            "value": "priority"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "stp"
+          },
+          {
+            "node": "Keyword",
+            "value": "priority"
+          }
+        ]
+      },
+      "arguments": {
+        "priority": {
+          "type": "Keyword",
+          "values": [
+            "0",
+            "12288",
+            "16384",
+            "20480",
+            "24576",
+            "28672",
+            "32768",
+            "36864",
+            "4096",
+            "40960",
+            "45056",
+            "49152",
+            "53248",
+            "8192"
+          ]
+        }
+      }
+    },
+    {
+      "path": "mws update start",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 455,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "start"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "controller"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "members"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws update stop",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.00",
+      "page": 456,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "update"
+          },
+          {
+            "node": "Keyword",
+            "value": "stop"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "mws zone",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.06",
+      "page": 456,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "zone"
+          },
+          {
+            "node": "Argument",
+            "value": "mac"
+          },
+          {
+            "node": "Argument",
+            "value": "cid"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mws"
+          },
+          {
+            "node": "Keyword",
+            "value": "zone"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "mac"
+                },
+                {
+                  "node": "Argument",
+                  "value": "cid"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "cid": {
+          "type": "Keyword",
+          "values": [
+            "CID"
+          ]
+        },
+        "mac": {
+          "type": "MacAddress"
+        }
+      }
+    }
+  ]
+}

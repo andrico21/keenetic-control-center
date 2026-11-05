@@ -1,0 +1,570 @@
+{
+  "version": "5.1",
+  "group": "dlna",
+  "commands": [
+    {
+      "path": "dlna",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 124,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-dlna)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "dlna"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "dlna container",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.11",
+      "page": 124,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "container"
+          },
+          {
+            "node": "Argument",
+            "value": "container"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "container"
+          }
+        ]
+      },
+      "arguments": {
+        "container": {
+          "type": "Keyword",
+          "values": [
+            "browse",
+            "images",
+            "music",
+            "video"
+          ]
+        }
+      }
+    },
+    {
+      "path": "dlna db-directory",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.06",
+      "page": 125,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "db-directory"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "db-directory"
+          }
+        ]
+      },
+      "arguments": {
+        "directory": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dlna directory",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 126,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "directory"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "media-type"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "directory"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          }
+        ]
+      },
+      "arguments": {
+        "directory": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dlna display-name",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.12",
+      "page": 126,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "display-name"
+          },
+          {
+            "node": "Argument",
+            "value": "display-name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "display-name"
+          }
+        ]
+      },
+      "arguments": {
+        "display-name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "dlna interface",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 127,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "interface_type": "IP",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Keyword",
+          "values": [
+            "[Tab]"
+          ]
+        }
+      }
+    },
+    {
+      "path": "dlna port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 128,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "port"
+          }
+        ]
+      },
+      "arguments": {
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "dlna rescan",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 129,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "rescan"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "full"
+            }
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "dlna sort",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.11",
+      "page": 129,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "sort"
+          },
+          {
+            "node": "Argument",
+            "value": "key"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "order"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-dlna"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "sort"
+          }
+        ]
+      },
+      "arguments": {
+        "key": {
+          "type": "Keyword",
+          "values": [
+            "class"
+          ]
+        },
+        "order": {
+          "type": "Keyword",
+          "values": [
+            "ascending"
+          ]
+        }
+      }
+    }
+  ]
+}

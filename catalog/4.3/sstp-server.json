@@ -1,0 +1,1293 @@
+{
+  "version": "4.3",
+  "group": "sstp-server",
+  "commands": [
+    {
+      "path": "sstp-server",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 684,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(sstp-server)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "sstp-server"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server allow-bridging",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.09",
+      "page": 684,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "allow-bridging"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "allow-bridging"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server camouflage",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 685,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "camouflage"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "camouflage"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server debug",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.03",
+      "page": 686,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "debug"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "debug"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server dhcp route",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 686,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dhcp"
+          },
+          {
+            "node": "Keyword",
+            "value": "route"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Argument",
+            "value": "mask"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "dhcp"
+          },
+          {
+            "node": "Keyword",
+            "value": "route"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "address"
+                },
+                {
+                  "node": "Argument",
+                  "value": "mask"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "IpAddress"
+        },
+        "mask": {
+          "type": "IpMask"
+        }
+      }
+    },
+    {
+      "path": "sstp-server interface",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 687,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          },
+          {
+            "node": "Argument",
+            "value": "interface"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "interface"
+          }
+        ]
+      },
+      "arguments": {
+        "interface": {
+          "type": "Keyword",
+          "values": [
+            "[Tab]"
+          ]
+        }
+      }
+    },
+    {
+      "path": "sstp-server ipv6cp",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.00",
+      "page": 688,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6cp"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ipv6cp"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server lcp echo",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 688,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "lcp"
+          },
+          {
+            "node": "Keyword",
+            "value": "echo"
+          },
+          {
+            "node": "Argument",
+            "value": "interval"
+          },
+          {
+            "node": "Argument",
+            "value": "count"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "adaptive"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "lcp"
+          },
+          {
+            "node": "Keyword",
+            "value": "echo"
+          }
+        ]
+      },
+      "arguments": {
+        "count": {
+          "type": "Integer"
+        },
+        "interval": {
+          "type": "Keyword",
+          "values": [
+            "there"
+          ]
+        }
+      }
+    },
+    {
+      "path": "sstp-server lcp force-pap",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.05",
+      "page": 689,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "lcp"
+          },
+          {
+            "node": "Keyword",
+            "value": "force-pap"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "lcp"
+          },
+          {
+            "node": "Keyword",
+            "value": "force-pap"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server mru",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 690,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mru"
+          },
+          {
+            "node": "Argument",
+            "value": "value"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mru"
+          }
+        ]
+      },
+      "arguments": {
+        "value": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "sstp-server mtu",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 690,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mtu"
+          },
+          {
+            "node": "Argument",
+            "value": "value"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "mtu"
+          }
+        ]
+      },
+      "arguments": {
+        "value": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "sstp-server multi-login",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 691,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "multi-login"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "multi-login"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server pool-range",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 691,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "pool-range"
+          },
+          {
+            "node": "Argument",
+            "value": "begin"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "size"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "pool-range"
+          }
+        ]
+      },
+      "arguments": {
+        "begin": {
+          "type": "IpAddress"
+        },
+        "size": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "sstp-server session-logout",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.03",
+      "page": 692,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "session-logout"
+          },
+          {
+            "node": "Argument",
+            "value": "session"
+          }
+        ]
+      },
+      "arguments": {
+        "session": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "sstp-server session-preempt",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "4.03",
+      "page": 692,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "session-preempt"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "session-preempt"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "sstp-server static-ip",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.12",
+      "page": 693,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "static-ip"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "sstp-server"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "static-ip"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "IpAddress"
+        },
+        "name": {
+          "type": "String"
+        }
+      }
+    }
+  ]
+}

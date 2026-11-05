@@ -1,0 +1,385 @@
+{
+  "version": "5.1",
+  "group": "torrent",
+  "commands": [
+    {
+      "path": "torrent",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 779,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-torrent)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "torrent"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "torrent directory",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 780,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "directory"
+          },
+          {
+            "node": "Argument",
+            "value": "directory"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-torrent"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "directory"
+          }
+        ]
+      },
+      "arguments": {
+        "directory": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "torrent io-priority",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "4.03",
+      "page": 780,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "io-priority"
+          },
+          {
+            "node": "Argument",
+            "value": "io-priority"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-torrent"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "io-priority"
+          }
+        ]
+      },
+      "arguments": {
+        "io-priority": {
+          "type": "Keyword",
+          "values": [
+            "low",
+            "normal"
+          ]
+        }
+      }
+    },
+    {
+      "path": "torrent peer-port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 781,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "peer-port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          }
+        ]
+      },
+      "arguments": {
+        "port": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "torrent policy",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "3.01",
+      "page": 782,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "policy"
+          },
+          {
+            "node": "Argument",
+            "value": "policy"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-torrent"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "policy"
+          }
+        ]
+      },
+      "arguments": {
+        "policy": {
+          "type": "Keyword",
+          "values": [
+            "Policy"
+          ]
+        }
+      }
+    },
+    {
+      "path": "torrent reset",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.10",
+      "page": 782,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Keyword",
+        "value": "reset"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "torrent rpc-port",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "2.00",
+      "page": 783,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "rpc-port"
+          },
+          {
+            "node": "Argument",
+            "value": "port"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Keyword",
+              "value": "public"
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "port": {
+          "type": "Integer"
+        }
+      }
+    }
+  ]
+}

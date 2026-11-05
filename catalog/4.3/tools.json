@@ -1,0 +1,839 @@
+{
+  "version": "4.3",
+  "group": "tools",
+  "commands": [
+    {
+      "path": "tools",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 715,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(tools)",
+      "synopsis": {
+        "node": "Keyword",
+        "value": "tools"
+      },
+      "arguments": {}
+    },
+    {
+      "path": "tools arping",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 716,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "tools"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "arping"
+          },
+          {
+            "node": "Argument",
+            "value": "address"
+          },
+          {
+            "node": "Keyword",
+            "value": "source-interface"
+          },
+          {
+            "node": "Argument",
+            "value": "source-interface"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "count"
+                },
+                {
+                  "node": "Argument",
+                  "value": "count"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "wait-time"
+                },
+                {
+                  "node": "Argument",
+                  "value": "wait-time"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "address": {
+          "type": "IpAddress"
+        },
+        "count": {
+          "type": "Integer"
+        },
+        "source-interface": {
+          "type": "Interface"
+        },
+        "wait-time": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "tools ping",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 716,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "tools"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ping"
+          },
+          {
+            "node": "Argument",
+            "value": "host"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "count"
+                },
+                {
+                  "node": "Argument",
+                  "value": "count"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "packetsize"
+                },
+                {
+                  "node": "Argument",
+                  "value": "packetsize"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "sequence-id"
+                },
+                {
+                  "node": "Argument",
+                  "value": "sequence-id"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "source"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Argument",
+                        "value": "source-interface"
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "source-address"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tos"
+                },
+                {
+                  "node": "Argument",
+                  "value": "tos"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "ttl"
+                },
+                {
+                  "node": "Argument",
+                  "value": "ttl"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "count": {
+          "type": "Integer"
+        },
+        "host": {
+          "type": "String"
+        },
+        "packetsize": {
+          "type": "Integer"
+        },
+        "sequence-id": {
+          "type": "Integer"
+        },
+        "source-interface": {
+          "type": "Interface"
+        },
+        "tos": {
+          "type": "Integer"
+        },
+        "ttl": {
+          "type": "Integer"
+        }
+      },
+      "parse_warnings": [
+        "argument source-address has no recognized type"
+      ]
+    },
+    {
+      "path": "tools ping6",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 718,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "tools"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "ping6"
+          },
+          {
+            "node": "Argument",
+            "value": "host"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "count"
+                },
+                {
+                  "node": "Argument",
+                  "value": "count"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "packetsize"
+                },
+                {
+                  "node": "Argument",
+                  "value": "packetsize"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "sequence-id"
+                },
+                {
+                  "node": "Argument",
+                  "value": "sequence-id"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "source"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Argument",
+                        "value": "source-interface"
+                      },
+                      {
+                        "node": "Argument",
+                        "value": "source-address"
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tos"
+                },
+                {
+                  "node": "Argument",
+                  "value": "tos"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "ttl"
+                },
+                {
+                  "node": "Argument",
+                  "value": "ttl"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "count": {
+          "type": "Integer"
+        },
+        "host": {
+          "type": "String"
+        },
+        "packetsize": {
+          "type": "Integer"
+        },
+        "sequence-id": {
+          "type": "Integer"
+        },
+        "source-interface": {
+          "type": "Interface"
+        },
+        "tos": {
+          "type": "Integer"
+        },
+        "ttl": {
+          "type": "Integer"
+        }
+      },
+      "parse_warnings": [
+        "argument source-address has no recognized type"
+      ]
+    },
+    {
+      "path": "tools traceroute",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 720,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "tools"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "traceroute"
+          },
+          {
+            "node": "Argument",
+            "value": "host"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "count"
+                },
+                {
+                  "node": "Argument",
+                  "value": "count"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "interval"
+                },
+                {
+                  "node": "Argument",
+                  "value": "interval"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "wait-time"
+                },
+                {
+                  "node": "Argument",
+                  "value": "wait-time"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "packetsize"
+                },
+                {
+                  "node": "Argument",
+                  "value": "packetsize"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "max-ttl"
+                },
+                {
+                  "node": "Argument",
+                  "value": "max-ttl"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Argument",
+                  "value": "port"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "source-address"
+                },
+                {
+                  "node": "Argument",
+                  "value": "source-address"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "source-interface"
+                },
+                {
+                  "node": "Argument",
+                  "value": "source-interface"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "type"
+                },
+                {
+                  "node": "Argument",
+                  "value": "type"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tos"
+                },
+                {
+                  "node": "Argument",
+                  "value": "tos"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "count": {
+          "type": "Integer"
+        },
+        "host": {
+          "type": "String"
+        },
+        "interval": {
+          "type": "Integer"
+        },
+        "max-ttl": {
+          "type": "Integer"
+        },
+        "packetsize": {
+          "type": "Integer"
+        },
+        "port": {
+          "type": "Integer"
+        },
+        "source-address": {
+          "type": "String"
+        },
+        "source-interface": {
+          "type": "String"
+        },
+        "tos": {
+          "type": "Integer"
+        },
+        "type": {
+          "type": "Keyword",
+          "values": [
+            "icmp",
+            "tcp",
+            "udp"
+          ]
+        },
+        "wait-time": {
+          "type": "Integer"
+        }
+      }
+    }
+  ]
+}

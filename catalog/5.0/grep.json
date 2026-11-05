@@ -1,0 +1,150 @@
+{
+  "version": "5.0",
+  "group": "grep",
+  "commands": [
+    {
+      "path": "grep",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "4.02",
+      "page": 44,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Alternative",
+        "value": [
+          {
+            "node": "Sequence",
+            "value": [
+              {
+                "node": "Group",
+                "value": {
+                  "node": "Keyword",
+                  "value": "show"
+                }
+              },
+              {
+                "node": "Argument",
+                "value": "command"
+              }
+            ]
+          },
+          {
+            "node": "Sequence",
+            "value": [
+              {
+                "node": "Keyword",
+                "value": "grep"
+              },
+              {
+                "node": "Optional",
+                "value": {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "-A"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "a"
+                    }
+                  ]
+                }
+              },
+              {
+                "node": "Optional",
+                "value": {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "-B"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "b"
+                    }
+                  ]
+                }
+              },
+              {
+                "node": "Optional",
+                "value": {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "-C"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "c"
+                    }
+                  ]
+                }
+              },
+              {
+                "node": "Argument",
+                "value": "pattern"
+              }
+            ]
+          }
+        ]
+      },
+      "arguments": {
+        "a": {
+          "type": "Integer"
+        },
+        "b": {
+          "type": "Integer"
+        },
+        "c": {
+          "type": "Integer"
+        },
+        "command": {
+          "type": "String"
+        },
+        "pattern": {
+          "type": "String"
+        }
+      }
+    }
+  ]
+}

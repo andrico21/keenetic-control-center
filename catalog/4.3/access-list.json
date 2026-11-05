@@ -1,0 +1,1314 @@
+{
+  "version": "4.3",
+  "group": "access-list",
+  "commands": [
+    {
+      "path": "access-list",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 48,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "context": "(config-acl)",
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "access-list"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "access-list"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "access-list auto-delete",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "3.09",
+      "page": 48,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "auto-delete"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "auto-delete"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "access-list deny",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 49,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "deny"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tcp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "udp"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "src-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "dst-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "deny"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "icmp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "esp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "gre"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ipip"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ip"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "deny"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tcp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "udp"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "src-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "dst-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "deny"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "icmp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "esp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "gre"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ipip"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ip"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          }
+        ]
+      },
+      "arguments": {
+        "destination": {
+          "type": "IpAddress"
+        },
+        "destination-end-port": {
+          "type": "Integer"
+        },
+        "destination-mask": {
+          "type": "IpMask"
+        },
+        "destination-port": {
+          "type": "Integer"
+        },
+        "dst-port-operator": {
+          "type": "Keyword",
+          "values": [
+            "lt"
+          ]
+        },
+        "source": {
+          "type": "IpAddress"
+        },
+        "source-end-port": {
+          "type": "Integer"
+        },
+        "source-mask": {
+          "type": "IpMask"
+        },
+        "source-port": {
+          "type": "Integer"
+        },
+        "src-port-operator": {
+          "type": "Keyword",
+          "values": [
+            "lt"
+          ]
+        }
+      }
+    },
+    {
+      "path": "access-list permit",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.00",
+      "page": 51,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "permit"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tcp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "udp"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "src-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "dst-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "permit"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "icmp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "esp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "gre"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ipip"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ip"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "permit"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "tcp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "udp"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "src-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "source-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Sequence",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "port"
+                },
+                {
+                  "node": "Group",
+                  "value": {
+                    "node": "Alternative",
+                    "value": [
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Argument",
+                              "value": "dst-port-operator"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "node": "Group",
+                        "value": {
+                          "node": "Sequence",
+                          "value": [
+                            {
+                              "node": "Keyword",
+                              "value": "range"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-port"
+                            },
+                            {
+                              "node": "Argument",
+                              "value": "destination-end-port"
+                            }
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "permit"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "icmp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "esp"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "gre"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ipip"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "ip"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Argument",
+            "value": "source"
+          },
+          {
+            "node": "Argument",
+            "value": "source-mask"
+          },
+          {
+            "node": "Argument",
+            "value": "destination"
+          },
+          {
+            "node": "Argument",
+            "value": "destination-mask"
+          }
+        ]
+      },
+      "arguments": {
+        "destination": {
+          "type": "IpAddress"
+        },
+        "destination-end-port": {
+          "type": "Integer"
+        },
+        "destination-mask": {
+          "type": "IpMask"
+        },
+        "destination-port": {
+          "type": "Integer"
+        },
+        "dst-port-operator": {
+          "type": "Keyword",
+          "values": [
+            "lt"
+          ]
+        },
+        "source": {
+          "type": "IpAddress"
+        },
+        "source-end-port": {
+          "type": "Integer"
+        },
+        "source-mask": {
+          "type": "IpMask"
+        },
+        "source-port": {
+          "type": "Integer"
+        },
+        "src-port-operator": {
+          "type": "Keyword",
+          "values": [
+            "lt"
+          ]
+        }
+      }
+    },
+    {
+      "path": "access-list rule",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3010",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4910"
+      ],
+      "since": "2.08",
+      "page": 53,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": true,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "rule"
+          },
+          {
+            "node": "Argument",
+            "value": "index"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "disable"
+                },
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "schedule"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "schedule"
+                    }
+                  ]
+                },
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "order"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "new-index"
+                    }
+                  ]
+                },
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "description"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "description"
+                    }
+                  ]
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-acl"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "rule"
+          },
+          {
+            "node": "Argument",
+            "value": "index"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "disable"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "schedule"
+                },
+                {
+                  "node": "Keyword",
+                  "value": "description"
+                }
+              ]
+            }
+          }
+        ]
+      },
+      "arguments": {
+        "description": {
+          "type": "String"
+        },
+        "index": {
+          "type": "Integer"
+        },
+        "schedule": {
+          "type": "Keyword",
+          "values": [
+            "Schedule"
+          ]
+        }
+      },
+      "parse_warnings": [
+        "argument new-index has no recognized type"
+      ]
+    }
+  ]
+}

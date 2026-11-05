@@ -1,0 +1,452 @@
+{
+  "version": "4.3",
+  "group": "opkg",
+  "commands": [
+    {
+      "path": "opkg chroot",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.05",
+      "page": 492,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "chroot"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "chroot"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "opkg disk",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.05",
+      "page": 493,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "disk"
+          },
+          {
+            "node": "Argument",
+            "value": "disk"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Argument",
+              "value": "url"
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "disk"
+          }
+        ]
+      },
+      "arguments": {
+        "disk": {
+          "type": "String"
+        },
+        "url": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "opkg dns-override",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "2.05",
+      "page": 494,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "dns-override"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "dns-override"
+          }
+        ]
+      },
+      "arguments": {}
+    },
+    {
+      "path": "opkg initrc",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.3",
+      "page": 494,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "initrc"
+          },
+          {
+            "node": "Argument",
+            "value": "path"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "initrc"
+          }
+        ]
+      },
+      "arguments": {
+        "path": {
+          "type": "Filename"
+        }
+      }
+    },
+    {
+      "path": "opkg object-group fqdn enable",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.03",
+      "page": 495,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "object-group"
+          },
+          {
+            "node": "Keyword",
+            "value": "fqdn"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "object-group"
+          },
+          {
+            "node": "Keyword",
+            "value": "fqdn"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "enable"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "opkg timezone",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1711",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812"
+      ],
+      "since": "4.3",
+      "page": 496,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "timezone"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Keyword",
+                  "value": "auto"
+                },
+                {
+                  "node": "Argument",
+                  "value": "timezone"
+                }
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "opkg"
+          },
+          {
+            "node": "Keyword",
+            "value": "timezone"
+          }
+        ]
+      },
+      "arguments": {
+        "timezone": {
+          "type": "String"
+        }
+      }
+    }
+  ]
+}

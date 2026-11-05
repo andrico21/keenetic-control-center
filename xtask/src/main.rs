@@ -3,15 +3,11 @@
 //! Every gate writes its report through [`std::io::Write`] and maps its verdict to the
 //! process exit code: 0 when the gate passes, 1 when it fails, 2 when it could not run.
 
-#![expect(
-    clippy::multiple_crate_versions,
-    reason = "lopdf (getrandom 0.4) and ureq/rustls/ring (getrandom 0.2) cannot be unified; xtask is not shipped"
-)]
-
 extern crate alloc;
 
 mod allow_gate;
 mod catalog;
+mod catalog_build;
 mod catalog_extract;
 mod catalog_fetch;
 mod failure;
@@ -71,6 +67,12 @@ enum CatalogTask {
     },
     /// Run `pdftotext` and read the PDF bookmarks of every cached manual.
     Extract,
+    /// Parse extracted manuals and generate one committed firmware catalog.
+    Build {
+        /// Firmware version: `4.3`, `5.0`, or `5.1`.
+        #[arg(long)]
+        version: String,
+    },
 }
 
 /// Outcome of a gate that ran to completion.
@@ -118,6 +120,7 @@ where
             catalog_fetch::run(&root, version, models.as_deref(), out)
         }
         Task::Catalog(CatalogTask::Extract) => catalog_extract::run(&root, out),
+        Task::Catalog(CatalogTask::Build { version }) => catalog_build::run(&root, version, out),
     }
 }
 
