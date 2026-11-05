@@ -1320,6 +1320,18 @@ dependencies = [
 [[package]]
 name = "kcc-catalog"
 version = "0.1.0"
+dependencies = [
+ "kcc-rci",
+ "kcc-testkit",
+ "proptest",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "toml",
+]
 
 [[package]]
 name = "kcc-config"

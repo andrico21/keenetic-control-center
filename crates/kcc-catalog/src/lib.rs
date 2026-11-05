@@ -1,12 +1,19 @@
 //! Command and parameter catalog for the router RCI surface.
 
-#![cfg_attr(
-    test,
-    expect(
-        dead_code_pub_in_binary,
-        reason = "the generated public catalog table is consumed by downstream crates, not this crate's unit-test harness"
-    )
-)]
-
 /// Generated embedded catalog artifacts.
 pub mod generated;
+mod runtime;
+mod search;
+mod validate;
+
+pub use runtime::{
+    Argument, ArgumentKind, Catalog, CatalogError, CatalogVersion, Command, CommandKind,
+    ModelMatch, Risk,
+};
+pub use search::SearchResult;
+pub use validate::{
+    HttpMethod, RawAuthorization, RequestOptions, ValidatedRequest, ValidationIssue,
+};
+
+#[cfg(test)]
+mod tests;
