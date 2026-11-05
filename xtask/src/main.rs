@@ -11,6 +11,7 @@ mod catalog_build;
 mod catalog_extract;
 mod catalog_fetch;
 mod failure;
+mod i18n;
 mod lint_completeness;
 mod manifest;
 mod profile_eq;
@@ -50,6 +51,17 @@ enum Task {
     /// Fetch and extract the official CLI reference manuals into `catalog/.cache/`.
     #[command(subcommand)]
     Catalog(CatalogTask),
+    /// Regenerate `crates/kcc-i18n/src/keys.rs` from `locales/en/*.ftl`.
+    #[command(name = "i18n-gen")]
+    I18nGen,
+    /// Check every locale against the English catalog: same keys, same variables, no
+    /// empty values, valid Fluent syntax, and an up-to-date `keys.rs`.
+    #[command(name = "i18n-check")]
+    I18nCheck {
+        /// Catalog directory to check instead of `crates/kcc-i18n/locales`.
+        #[arg(long)]
+        locales_dir: Option<PathBuf>,
+    },
 }
 
 /// One `catalog` subcommand.
@@ -121,6 +133,8 @@ where
         }
         Task::Catalog(CatalogTask::Extract) => catalog_extract::run(&root, out),
         Task::Catalog(CatalogTask::Build { version }) => catalog_build::run(&root, version, out),
+        Task::I18nGen => i18n::generate(&root, out),
+        Task::I18nCheck { locales_dir } => i18n::check(&root, locales_dir.as_deref(), out),
     }
 }
 

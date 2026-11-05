@@ -1,0 +1,25 @@
+# locale|count|expected `common-items-count` output (CLDR cardinal categories)
+en|1|1 item
+en|2|2 items
+en|5|5 items
+en|21|21 items
+ru|1|1 элемент
+ru|2|2 элемента
+ru|5|5 элементов
+ru|21|21 элемент
+uk|1|1 елемент
+uk|2|2 елементи
+uk|5|5 елементів
+uk|21|21 елемент
+be|1|1 элемент
+be|2|2 элементы
+be|5|5 элементаў
+be|21|21 элемент
+de|1|1 Element
+de|2|2 Elemente
+de|5|5 Elemente
+de|21|21 Elemente
+kk|1|1 элемент
+kk|2|2 элемент
+kk|5|5 элемент
+kk|21|21 элемент
