@@ -1,0 +1,8 @@
+{
+  "source": "5.1 seed fixtures",
+  "basis": "ipv6 access-list is documented from the 5.1.1 CLI manual on; absent from the 4.3 and 5.0 catalogs",
+  "settings": [
+    "/ipv6/access-list"
+  ],
+  "show": []
+}

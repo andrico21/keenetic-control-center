@@ -1,0 +1,187 @@
+{
+  "version": {
+    "title": "",
+    "release": "",
+    "model": "Keenetic Hopper",
+    "device": "Hopper",
+    "hw_id": "KN-3810",
+    "hw_version": "10000000",
+    "hw_type": "router",
+    "arch": "aarch64",
+    "sandbox": "stable",
+    "vendor": "Keenetic",
+    "manufacturer": "Keenetic Ltd.",
+    "series": "KN",
+    "region": "EA",
+    "ndm": {
+      "exact": "0-00000000",
+      "cdate": "1 Jan 2026"
+    },
+    "ndw": {
+      "components": "base,cloudcontrol,wireguard,usb",
+      "features": "wifi2ghz,wifi5ghz,wpa3"
+    }
+  },
+  "identification": {
+    "servicetag": "0000-0000-0000",
+    "serial": "S0000000000003",
+    "mac": "02:00:00:00:03:00",
+    "hwid": "KN-3810",
+    "cid": "00000000-0000-4000-8000-000000000003"
+  },
+  "system": {
+    "hostname": "host-3",
+    "domainname": "fixture.invalid",
+    "uptime": "3723",
+    "cpuload": 7,
+    "memtotal": 262144,
+    "memfree": 131072,
+    "memcache": 16384,
+    "membuffers": 8192,
+    "conntotal": 32768,
+    "connfree": 32000,
+    "memory": "131072/262144",
+    "swap": "0/0"
+  },
+  "interface": {
+    "GigabitEthernet0/0": {
+      "id": "GigabitEthernet0/0",
+      "index": 0,
+      "interface-name": "GigabitEthernet0/0",
+      "type": "Port",
+      "description": "",
+      "traits": [
+        "Ethernet"
+      ],
+      "link": "up",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false
+    },
+    "GigabitEthernet0/1": {
+      "id": "GigabitEthernet0/1",
+      "index": 1,
+      "interface-name": "GigabitEthernet0/1",
+      "type": "Port",
+      "description": "",
+      "traits": [
+        "Ethernet"
+      ],
+      "link": "down",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false
+    },
+    "GigabitEthernet0/2": {
+      "id": "GigabitEthernet0/2",
+      "index": 2,
+      "interface-name": "GigabitEthernet0/2",
+      "type": "Port",
+      "description": "",
+      "traits": [
+        "Ethernet"
+      ],
+      "link": "down",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false
+    },
+    "GigabitEthernet0/3": {
+      "id": "GigabitEthernet0/3",
+      "index": 3,
+      "interface-name": "GigabitEthernet0/3",
+      "type": "Port",
+      "description": "",
+      "traits": [
+        "Ethernet"
+      ],
+      "link": "down",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false
+    },
+    "ISP": {
+      "id": "ISP",
+      "index": 4,
+      "interface-name": "ISP",
+      "type": "GigabitEthernet",
+      "description": "Fixture uplink",
+      "traits": [
+        "Ethernet",
+        "Ip"
+      ],
+      "link": "up",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false,
+      "address": "203.0.113.13",
+      "mask": "255.255.255.0",
+      "global": true,
+      "defaultgw": true
+    },
+    "Bridge0": {
+      "id": "Bridge0",
+      "index": 5,
+      "interface-name": "Bridge0",
+      "type": "Bridge",
+      "description": "Fixture network",
+      "traits": [
+        "Ethernet",
+        "Ip"
+      ],
+      "link": "up",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false,
+      "address": "192.0.2.1",
+      "mask": "255.255.255.0",
+      "mac": "02:00:00:00:03:01"
+    },
+    "WifiMaster0/AccessPoint0": {
+      "id": "WifiMaster0/AccessPoint0",
+      "index": 6,
+      "interface-name": "WifiMaster0/AccessPoint0",
+      "type": "AccessPoint",
+      "description": "Fixture Wi-Fi",
+      "traits": [
+        "Wireless"
+      ],
+      "link": "up",
+      "state": "up",
+      "mtu": 1500,
+      "admin-only": false,
+      "ssid": "ssid-1"
+    }
+  },
+  "clock/date": {
+    "weekday": 4,
+    "day": 1,
+    "month": 1,
+    "year": 2026,
+    "hour": 0,
+    "min": 0,
+    "sec": 0,
+    "msec": 0,
+    "dst": false,
+    "tz": {
+      "locality": "UTC",
+      "stdoffset": 0,
+      "dstoffset": 0,
+      "usesdst": false,
+      "rule": "UTC",
+      "custom": false
+    }
+  },
+  "ip/route": [
+    {
+      "destination": "0.0.0.0/0",
+      "gateway": "203.0.113.1",
+      "interface": "ISP",
+      "metric": 0,
+      "flags": "UGS",
+      "rejecting": false,
+      "proto": "boot",
+      "floating": false
+    }
+  ]
+}

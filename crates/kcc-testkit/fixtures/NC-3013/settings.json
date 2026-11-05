@@ -1,0 +1,115 @@
+{
+  "system": {
+    "name": "host-4",
+    "description": "fixture router"
+  },
+  "interface": {
+    "GigabitEthernet0/0": {
+      "rename": "0",
+      "up": true
+    },
+    "GigabitEthernet0/1": {
+      "rename": "1",
+      "up": true
+    },
+    "GigabitEthernet0/2": {
+      "rename": "2",
+      "up": true
+    },
+    "GigabitEthernet0/3": {
+      "rename": "3",
+      "up": true
+    },
+    "ISP": {
+      "description": "Fixture uplink",
+      "up": true,
+      "ip": {
+        "address": {
+          "dhcp": true
+        },
+        "global": {
+          "order": 0
+        }
+      }
+    },
+    "Bridge0": {
+      "description": "Fixture network",
+      "up": true,
+      "include": [
+        {
+          "interface": "GigabitEthernet0/1"
+        },
+        {
+          "interface": "GigabitEthernet0/2"
+        },
+        {
+          "interface": "GigabitEthernet0/3"
+        },
+        {
+          "interface": "WifiMaster0/AccessPoint0"
+        }
+      ],
+      "ip": {
+        "address": {
+          "address": "192.0.2.1",
+          "mask": "255.255.255.0"
+        }
+      },
+      "traffic-shape": {
+        "rate": "0"
+      }
+    },
+    "WifiMaster0/AccessPoint0": {
+      "description": "Fixture Wi-Fi",
+      "ssid": "ssid-1",
+      "up": true
+    }
+  },
+  "ip": {
+    "http": {
+      "security-level": {
+        "private": true
+      }
+    },
+    "telnet": {
+      "security-level": {
+        "private": true
+      },
+      "lockout-policy": {
+        "threshold": "5",
+        "duration": "15",
+        "observation-window": "3"
+      }
+    },
+    "name-server": [
+      {
+        "address": "192.0.2.53"
+      }
+    ],
+    "hotspot": {
+      "host": [
+        {
+          "mac": "02:00:00:00:14:01",
+          "permit": true,
+          "policy": "Policy0"
+        },
+        {
+          "mac": "02:00:00:00:14:02",
+          "permit": false
+        }
+      ]
+    },
+    "nat": [
+      {
+        "interface": "Bridge0"
+      }
+    ]
+  },
+  "ipv6": {
+    "access-list": {
+      "Fixture6": {
+        "description": "fixture IPv6 access list"
+      }
+    }
+  }
+}
