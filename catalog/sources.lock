@@ -1,0 +1,1422 @@
+[extraction]
+method = "podman"
+poppler = "22.12.0-2+deb12u3"
+date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1011"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1011.pdf"
+status = 200
+absent = false
+sha256 = "f11c4fa5215152dd47695bd2a02b67c3191ebe583f128272ac5ab20952a728d9"
+size = 7428617
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1012"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1012.pdf"
+status = 200
+absent = false
+sha256 = "302db2f205f9b557d586786a8551ec77c70ba60244b16bfb54298de79dfb2f37"
+size = 7419725
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1111"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1111.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1112"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1112.pdf"
+status = 200
+absent = false
+sha256 = "4d94a2b36ad8688ba1b22b0c2c88939320f321f638a54a74f76715e24829082e"
+size = 5579618
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1121"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1121.pdf"
+status = 200
+absent = false
+sha256 = "b660f277e0833f2e95c5cc917416f412aa52f51475da5a5a67f8b7a564feff8d"
+size = 5617518
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1212"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1212.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1221"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1221.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1410.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1510.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1613"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1613.pdf"
+status = 200
+absent = false
+sha256 = "86176010ba39f4dbf59a10176e9926fe2d97db7c1b59ea1c6ed0c81203f38e26"
+size = 5774001
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1621"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1621.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1710.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1711"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1711.pdf"
+status = 200
+absent = false
+sha256 = "8536383caa247247c06363d5c83573abff6ee0f312c26ca353afd3623dbf9bc9"
+size = 7331525
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1713"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1713.pdf"
+status = 200
+absent = false
+sha256 = "848541a5c8865ce5081c49cf559d6636b3c1397f9a6906e753724d971a70350e"
+size = 7293399
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1714"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1714.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1721"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1721.pdf"
+status = 200
+absent = false
+sha256 = "411ede70b3c9d2263b937f0ac7b3da3cd7fecbf6e5efd5a63bcc230eef137212"
+size = 7273785
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1810"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1810.pdf"
+status = 200
+absent = false
+sha256 = "75a67561446e2a9509bd22771b06383291e3e9f34192b62932ffa1cea4a87c41"
+size = 7394744
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1811.pdf"
+status = 200
+absent = false
+sha256 = "ad86ca5f062359e714da9a3a04ff1b3883373b6880a0a1847575e004851755f2"
+size = 7394068
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-1812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-1812.pdf"
+status = 200
+absent = false
+sha256 = "dceae357e61798ac91f8ac415be59ddf764383939c17f014368eed4d108af2b0"
+size = 7353494
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2110"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2110.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2111"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2111.pdf"
+status = 200
+absent = false
+sha256 = "c5ae247ba8f60b4ec1de2d4229167a0c7b6e935411aa3125ff601273d6a48f16"
+size = 7405683
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2112"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2112.pdf"
+status = 200
+absent = false
+sha256 = "cfb21ba5c5c28de50e1e1d021a8f2b6cef3e81bbf9501526fe3936c8ddb4c6c5"
+size = 7412243
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2211"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2211.pdf"
+status = 200
+absent = false
+sha256 = "4f3f7c789e4433a4aeffbb542dd7873f4ba375709b3114b142a34ec3feb0d868"
+size = 5849526
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2212"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2212.pdf"
+status = 200
+absent = false
+sha256 = "536ba7042aad5d5e3a332c67a15764010defa793f79515341445fa5ec0730990"
+size = 5849387
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2311"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2311.pdf"
+status = 200
+absent = false
+sha256 = "4d736294c07cd738259c687feba5ffd9a426ec5907c85ef88cff0804aa9f3956"
+size = 7330987
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2410.pdf"
+status = 200
+absent = false
+sha256 = "52cfaae1763310be7e7173c26765e838f6a3cebe12f98e2ee114611f9904dd1f"
+size = 7412507
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2510.pdf"
+status = 200
+absent = false
+sha256 = "b72c157c575a3d3fab8ad77df6d3e51b44c84c32b72d364380c44e8f18771be0"
+size = 7439294
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2710.pdf"
+status = 200
+absent = false
+sha256 = "1bdc30146837b727ed5a31f17baec6d0f2bebc96db1fe79faaa8b3f9eb0fe5ed"
+size = 7418068
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-2910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2910.pdf"
+status = 200
+absent = false
+sha256 = "43d658318d5ae5307df5ca29aae68f097426f1581b656e7dc2f7794f962c65ee"
+size = 7364617
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3010.pdf"
+status = 200
+absent = false
+sha256 = "e4e29c207f54441b1b1ef9756f6e3d55cfbc248bde2b45e4275f820621328d61"
+size = 5767079
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3210"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3210.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3311"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3311.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3410.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3510.pdf"
+status = 200
+absent = false
+sha256 = "40358fb33be509b9e598ff7bbe30a754d59fd79eca8730ae0cf4bf1db996036e"
+size = 5819215
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3610"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3610.pdf"
+status = 200
+absent = false
+sha256 = "77698aacfe9b324af3f3148aef4d442d6b3bebf5e040db807aa8fb7e3b165791"
+size = 7414480
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3710.pdf"
+status = 200
+absent = false
+sha256 = "54a3bcb8e980a84d24897afb62dcc83f64c2201c7a5240b73dc3cea03a1d7851"
+size = 5793173
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3711"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3711.pdf"
+status = 200
+absent = false
+sha256 = "facd9057bbc1fe95d1056f6bb433b12f41c40818c483729f9e0efdd2844f43fa"
+size = 5772008
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3810"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3810.pdf"
+status = 200
+absent = false
+sha256 = "ae01c32ebc3a366ab36f580c6ea529e67a37232da3ea57cdf5be55e51d68b996"
+size = 7370400
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3811.pdf"
+status = 200
+absent = false
+sha256 = "d3b334abac0eb71e1820c21bb16cce348716cf270d0d29f8340891f3bcd42aae"
+size = 7367865
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3812.pdf"
+status = 200
+absent = false
+sha256 = "9ea6606f3e99272768f21c5716947253b3cc59d1d9292303fb09d8f45b5197b6"
+size = 7365531
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-3910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-3910.pdf"
+status = 200
+absent = false
+sha256 = "db542e1a6b1cc102fcba11222b586ae0afac89451e25869e15a9df3a1d165b3b"
+size = 5775161
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-4010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-4010.pdf"
+status = 200
+absent = false
+sha256 = "220427c165b22410797898bb5b03ff1690490ae49c6f741ec45112758c903204"
+size = 5771563
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-4110"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-4110.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "KN-4910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-4910.pdf"
+status = 200
+absent = false
+sha256 = "399d58c713a1c52d9220038c025bb275b4de8b764fc6b15fed229d5b158e28bd"
+size = 5981194
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "NC-1812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_nc-1812.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "NC-2312"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_nc-2312.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "NC-3013"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_nc-3013.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "NC-3611"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_nc-3611.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "4.3"
+model = "NC-4210"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_nc-4210.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1011"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1011.pdf"
+status = 200
+absent = false
+sha256 = "9e1fd6e0d981dbe27543a40723b789816062bce31c3f1058791c0ad15a1a0338"
+size = 7692858
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1012"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1012.pdf"
+status = 200
+absent = false
+sha256 = "b5ff6ef0e650c2f26a409e3d368ba0f89dfdd113866ee8f026d9639fb633182f"
+size = 7681722
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1111"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1111.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1112"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1112.pdf"
+status = 200
+absent = false
+sha256 = "cbfcfb32533fbb83f42eb75140091264d54540fabffbc73024a38eab92ab3976"
+size = 5848842
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1121"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1121.pdf"
+status = 200
+absent = false
+sha256 = "93eeee9fb6ddd48a73824cd19aca9085480cd7a7609f0c2eea6198618be35381"
+size = 5885676
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1212"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1212.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1221"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1221.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1410.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1510.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1613"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1613.pdf"
+status = 200
+absent = false
+sha256 = "e2e05eb49806599275da081cd6be02cdd1cc7a0b9430170aa14b4982d8e89332"
+size = 6048718
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1621"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1621.pdf"
+status = 200
+absent = false
+sha256 = "f641d11b16cd7ff957de5d402ebe2ee75873a73a8cfd6e06357b0276b916927e"
+size = 6001186
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1710.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1711"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1711.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1713"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1713.pdf"
+status = 200
+absent = false
+sha256 = "8751204e4bd9d8cc609d93df9dfb243394606971fe262914da8a7a7c087b96e0"
+size = 7558302
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1714"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1714.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1721"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1721.pdf"
+status = 200
+absent = false
+sha256 = "49afdbae7fbb69b5aa9853a6bf764ced87233e07c5396e6e622996de37f0e663"
+size = 7534380
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1810"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1810.pdf"
+status = 200
+absent = false
+sha256 = "5aedaaa17806b663ee3be5c9f7d8bac08c05be01cc1bba6bfd0253308fc3d5eb"
+size = 7658176
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1811.pdf"
+status = 200
+absent = false
+sha256 = "a4a89b72e29b9a5b6408dd88e8d7dbc467377301b316c78bdd0b7f8f1e3de929"
+size = 7661474
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-1812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-1812.pdf"
+status = 200
+absent = false
+sha256 = "2735cb6afafb1a2fdaa06eb646225ea86a19688e542d10ed04770ce93a0303bd"
+size = 7624246
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2110"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2110.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2111"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2111.pdf"
+status = 200
+absent = false
+sha256 = "ef0ef7d60408e9199437f3050f75672e610d08da838ed60e29fb2b425514842c"
+size = 7668987
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2112"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2112.pdf"
+status = 200
+absent = false
+sha256 = "c82e43ab9e05daa4899810698b18adb03e43e8bd1e47854c17d3648104048761"
+size = 7675514
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2211"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2211.pdf"
+status = 200
+absent = false
+sha256 = "ad1b524a16d2a0af4c15415c75427b91499b4adff52e367b61171123aaa99da2"
+size = 6124010
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2212"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2212.pdf"
+status = 200
+absent = false
+sha256 = "b87dce75fb015dba3f0eb7fea58d9cf6dfb7716fda52513d321b019f9d930431"
+size = 6123845
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2311"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2311.pdf"
+status = 200
+absent = false
+sha256 = "c411214ee29c8162b12777b5df0bb64c8f4bd0b784c2fadb2020c1db77092dd7"
+size = 7596641
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2410.pdf"
+status = 200
+absent = false
+sha256 = "99a4f9767340167b5876974dd45598ea258af14387aa09c1f44d823775eb9555"
+size = 7676644
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2510.pdf"
+status = 200
+absent = false
+sha256 = "1a6434ee65e72ccc5a7ece00b02dbe4d18e3180cab860e1dbe3522982193dcf3"
+size = 7707226
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2710.pdf"
+status = 200
+absent = false
+sha256 = "e81154005453f4dd9bb9273d9f93608bd43d7ff1238a38f5dfdd9c595a580e6f"
+size = 7684771
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-2910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-2910.pdf"
+status = 200
+absent = false
+sha256 = "dae8ace6e7fe172c89ba4d1f385f3bbfc1e96c39cf3bfc01a635af122f5f7b3c"
+size = 7634698
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3210"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3210.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3311"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3311.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3410.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3510.pdf"
+status = 200
+absent = false
+sha256 = "9331a21f2416353c7aa85e048ea5fc10693968acc801fcfb46e3549f8a16d34a"
+size = 6092730
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3610"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3610.pdf"
+status = 200
+absent = false
+sha256 = "102563c0e689d033f9a404f6d173ac2e2ea9c12bd86d1449bf55aa2cda7ae0cb"
+size = 7678837
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3710.pdf"
+status = 200
+absent = false
+sha256 = "55ece3b573219fe7107555e32e0635284d03f66f6642f4ab367af66674ea0886"
+size = 6069558
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3711"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3711.pdf"
+status = 200
+absent = false
+sha256 = "811bed95cb24a885409975484aae8e8865ea6de29ee4d82d07175a2ef3f545be"
+size = 6047142
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3810"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3810.pdf"
+status = 200
+absent = false
+sha256 = "2989ba6c23fdce09c21b6b0e494e4215edd59a67636d863c03e787790cd4f7b7"
+size = 7635930
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3811.pdf"
+status = 200
+absent = false
+sha256 = "71b0fd8f24d5b9ca5c09afea787ac11600116461e5b17bce08fa67bfd6a17669"
+size = 7634590
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3812.pdf"
+status = 200
+absent = false
+sha256 = "2922b1f148ad576b358381bda6dc3a0ad1910f3754cdef8580293d0064d0aa3d"
+size = 7632905
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-3910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-3910.pdf"
+status = 200
+absent = false
+sha256 = "d05bc85d59631a5e7845776e5e2ed18ef0da039ccfebd4b32f6df4ee678a572b"
+size = 6053276
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-4010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-4010.pdf"
+status = 200
+absent = false
+sha256 = "9d2cc1410b6165c375a08a13bce46b5be54c35f68957b4f6c2667cc8358261db"
+size = 6046352
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-4110"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-4110.pdf"
+status = 200
+absent = false
+sha256 = "985ba76a4135472a5804deb7fb43a96f3eef845fb9e80df47b31bea12a8b2111"
+size = 7601633
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "KN-4910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_kn-4910.pdf"
+status = 200
+absent = false
+sha256 = "7ab16d8d6e964484a915f409db4b0836cb94f936ecad18edbffd75dfd84ede56"
+size = 6252441
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "NC-1812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_nc-1812.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "NC-2312"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_nc-2312.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "NC-3013"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_nc-3013.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "NC-3611"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_nc-3611.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.0"
+model = "NC-4210"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.0/en/cli_manual_nc-4210.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1011"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf"
+status = 200
+absent = false
+sha256 = "67c69c95c5db5aca1812a974f1d8f7d343fb262a1c8db1bfcaf4f1e98ac3c40a"
+size = 7859799
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1012"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1012.pdf"
+status = 200
+absent = false
+sha256 = "d91554a93f12671346a00cc2314c295723aef648f7c4c158332bdcc99bb08940"
+size = 7847969
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1111"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1111.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1112"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1112.pdf"
+status = 200
+absent = false
+sha256 = "4e28df22149b2e6547071e3b55d3b11633cc24bfd4a6984175037d228cb2022a"
+size = 6022836
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1121"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1121.pdf"
+status = 200
+absent = false
+sha256 = "c1d108c5b9169882fbcb4069eb70c02e1fb03d319446aa7a8b9b67cda2ae50bc"
+size = 6060197
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1212"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1212.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1221"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1221.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1410.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1510.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1613"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1613.pdf"
+status = 200
+absent = false
+sha256 = "d587644bba9693421b54bbb25e1c66c197775abe6cb65a2e6589c4ad5790f45c"
+size = 6216197
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1621"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1621.pdf"
+status = 200
+absent = false
+sha256 = "5543a72fa6e74f97e9ee27c8e69cc157464ebf035994f3370791899f48e6e028"
+size = 6169887
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1710.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1711"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1711.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1713"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1713.pdf"
+status = 200
+absent = false
+sha256 = "e1b7a0c005b0a715bb92f6a772ab86617a4b4cd14f38c926e47fbdc87826e8e7"
+size = 7725497
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1714"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1714.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1721"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1721.pdf"
+status = 200
+absent = false
+sha256 = "6322a966b4dca8c5548b255d5cd568aab1a5860c6900485eaaffdd035ba29a9b"
+size = 7710439
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1810"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1810.pdf"
+status = 200
+absent = false
+sha256 = "666ae234fe6c0e1ace86fde4ac4ec562577ce36d4e99f509db4bf36feb0fa7b1"
+size = 7826425
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1811.pdf"
+status = 200
+absent = false
+sha256 = "caebad8138b5272c88316431a4dfa9f0b379f09e62c54b8bf86f837d4ae7dd25"
+size = 7826084
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-1812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1812.pdf"
+status = 200
+absent = false
+sha256 = "6d6aca19c88f8d403186d5e92fb40c5ddc265fbb4499c9ba9e1452722b8e51ae"
+size = 7789144
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2110"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2110.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2111"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2111.pdf"
+status = 200
+absent = false
+sha256 = "cf0ae4c1b6ca0b5dea08699e5578849b91392c41b8692ac1908f848a8160512b"
+size = 7840449
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2112"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2112.pdf"
+status = 200
+absent = false
+sha256 = "6c47881a839eca20b1080806aa318a7f133d376f20706676c49c3a5d6dffb515"
+size = 7847399
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2211"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2211.pdf"
+status = 200
+absent = false
+sha256 = "8305b380e4f0aabecd8e2b324c7d0b4fb6403624ffbe8c08370bfa69831a23d8"
+size = 6289233
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2212"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2212.pdf"
+status = 200
+absent = false
+sha256 = "e8bec18f6bdf0c7192068a12449a4c684de570ad3300fea1ff0a5c9e5063f837"
+size = 6289093
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2311"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2311.pdf"
+status = 200
+absent = false
+sha256 = "b680768e7dad4e7eb80a9f0c4355e448716479bd154a7d0529a7fae16516c7cb"
+size = 7764260
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2410.pdf"
+status = 200
+absent = false
+sha256 = "9c74970757c949a5aba3973a9ad897328c8945fe6026f6b5b8534a97a5d4ffd8"
+size = 7847804
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2510.pdf"
+status = 200
+absent = false
+sha256 = "3f8aad18847c7d5f92250230e6e274be14e08e5a37afae525ef5967e63f02101"
+size = 7875973
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2710.pdf"
+status = 200
+absent = false
+sha256 = "dab7e2c5c33bdd4d758e057f796b8bf36b1cf73a8a7e866980046d9636dda70e"
+size = 7845358
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-2910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-2910.pdf"
+status = 200
+absent = false
+sha256 = "9e60cc7b5ce2691297798a06f7e242de55d870fc8bf65fecbb33a4a7301580c5"
+size = 7802258
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3010.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3210"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3210.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3311"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3311.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3410"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3410.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3510"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3510.pdf"
+status = 200
+absent = false
+sha256 = "f2b5e25c0f8bc174e886261a697a5a1f0bb83af2f72e5de4654ed99e8b5738db"
+size = 6260184
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3610"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3610.pdf"
+status = 200
+absent = false
+sha256 = "a65b5bf52a93a92a8ffb790808fe02ed5d8b9b11966b0f1743323179e29a7cb8"
+size = 7850148
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3710"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3710.pdf"
+status = 200
+absent = false
+sha256 = "3400dec1ab8e7ffcfefef6cf6557dd62ea48717976e9d8b02a9647388c502f3e"
+size = 6233833
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3711"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3711.pdf"
+status = 200
+absent = false
+sha256 = "a0282448a407e1c56257c9f024e52ab353cd5176e99995e93fe32bfa650f24fa"
+size = 6214381
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3810"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3810.pdf"
+status = 200
+absent = false
+sha256 = "b1c88138b65161820f3fb7cbecffb5273e3376a38b2b58e3fa97cd917cf2a1e8"
+size = 7798373
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3811.pdf"
+status = 200
+absent = false
+sha256 = "37e118569361d9d7913a94142c243bce0001113e1d2260fe3a636ff204dd4f48"
+size = 7798285
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3812.pdf"
+status = 200
+absent = false
+sha256 = "5de64e0f309a8a839826e07d4091dbbcd75c591f3a4c1beb7f0f8344c2c28595"
+size = 7798072
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-3910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-3910.pdf"
+status = 200
+absent = false
+sha256 = "b644b6c0354ac514e5dde7a9cdeebe102c1a60a5dc9450685ca34ac97ca0a20f"
+size = 6221677
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-4010"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-4010.pdf"
+status = 200
+absent = false
+sha256 = "2dac05e0eb8036667716d61f18e9aaed0b7ebfefdf131fbd7dbd47328d45abe0"
+size = 6213568
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-4110"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-4110.pdf"
+status = 200
+absent = false
+sha256 = "d933f5091c97902f1c162750f80fc9cb6cebaa4388338df227150f62f9ecec6d"
+size = 7768393
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "KN-4910"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-4910.pdf"
+status = 200
+absent = false
+sha256 = "e6bbf4a377c9d3113957f466e1007e1b49103a821aa79f084a94d6409d1a1da4"
+size = 6419783
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "NC-1812"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_nc-1812.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "NC-2312"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_nc-2312.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "NC-3013"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_nc-3013.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "NC-3611"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_nc-3611.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "5.1"
+model = "NC-4210"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_nc-4210.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"
+
+[[entries]]
+version = "9.9"
+model = "KN-1811"
+url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/9.9/en/cli_manual_kn-1811.pdf"
+status = 404
+absent = true
+fetch_date = "2026-11-05"

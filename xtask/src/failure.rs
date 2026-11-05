@@ -38,6 +38,27 @@ pub(crate) enum GateError {
         /// What went wrong.
         detail: String,
     },
+    /// An HTTP request failed or answered with an unexpected status.
+    Http {
+        /// The requested URL.
+        url: String,
+        /// What went wrong.
+        detail: String,
+    },
+    /// A PDF could not be read or its outline could not be extracted.
+    Pdf {
+        /// The PDF path.
+        path: PathBuf,
+        /// What went wrong.
+        detail: String,
+    },
+    /// A document could not be serialised or a file could not be written.
+    Write {
+        /// The path being written.
+        path: PathBuf,
+        /// What went wrong.
+        detail: String,
+    },
     /// Writing the report failed.
     Output(io::Error),
 }
@@ -53,6 +74,11 @@ impl fmt::Display for GateError {
                 write!(f, "{} has no [{key}] table", path.display())
             }
             Self::Command { program, detail } => write!(f, "`{program}` failed: {detail}"),
+            Self::Http { url, detail } => write!(f, "GET {url} failed: {detail}"),
+            Self::Pdf { path, detail } => write!(f, "PDF {}: {detail}", path.display()),
+            Self::Write { path, detail } => {
+                write!(f, "cannot write {}: {detail}", path.display())
+            }
             Self::Output(source) => write!(f, "cannot write the report: {source}"),
         }
     }
@@ -69,7 +95,10 @@ impl Error for GateError {
             | Self::Command {
                 program: _,
                 detail: _,
-            } => None,
+            }
+            | Self::Http { url: _, detail: _ }
+            | Self::Pdf { path: _, detail: _ }
+            | Self::Write { path: _, detail: _ } => None,
         }
     }
 }

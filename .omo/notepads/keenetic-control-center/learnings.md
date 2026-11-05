@@ -28,3 +28,16 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 ## Todo 2
 - cargo-audit parse needs `fetch`+`stale` alongside `[database] path`; default db dir collides with cargo-deny's, hence a separate path in .cargo/audit.toml.
 - `cargo machete` at root also scans spikes/lint-macros (reports unused deps); use `cargo machete crates xtask`.
+
+## Todo 7
+- `kcc-rci` dependency resolution selected serde 1.0.229, serde_json 1.0.154, serde_urlencoded 0.7.1, thiserror 2.0.21, url 2.5.8, and proptest 1.12.0 (manifest lower bounds remain compatible); proptest defaults were pinned explicitly to 256 cases in the property-test configuration.
+- Treating `RciPath::from_str` as one segment is essential: multi-segment paths use `RciPath::from_segments`, so an object name such as `WifiMaster0/AccessPoint0` cannot silently become a path. Iterative status traversal stores `(JsonPointer, &Value)` on a `Vec` stack and skips descending into the consumed `status` member.
+- The strict lint profile requires `#[inline]` on public trait methods, `# Errors` docs even for private fallible helpers, and narrow `#[expect]` annotations on assertion-based tests. A manual `Debug` implementation for `RciError` prevents retained router messages from leaking.
+
+## Todo 12: catalog fetch/extract (xtask)
+- `pdftotext` is NOT installed on this host, so `extract` used the podman fallback (debian:12-slim, one container run over `/w/*/*.pdf`); poppler-utils 22.12.0-2+deb12u3 recorded in `[extraction]` of `catalog/sources.lock`. `extract` auto-picks native when `pdftotext -v` works.
+- URL pattern held as specified. Per version: 31 manuals answer 200, 20 answer 404 (recorded `absent`); all five NC ids 404 on 4.3/5.0/5.1 (no Netcraze CLI manuals published). KN-1811 is 200 on 4.3, 5.0 and 5.1. GCS answers a clean 404 for missing objects; any other non-200 status fails the run.
+- `catalog/.cache` is ~800 MB for three versions (PDFs + txt + outline.json); `kn-1811.txt` (5.1) is 54697 lines. lopdf `get_toc` gives ~900-1150 bookmarks per manual.
+- xtask new deps: ureq 3 (rustls/ring), sha2, lopdf (default features off), serde, serde_json, jiff (UTC date only). ring (getrandom 0.2) and lopdf (getrandom 0.4) trip `clippy::cargo` multiple_crate_versions, so main.rs carries a crate-level `#![expect(clippy::multiple_crate_versions, reason=...)]`.
+- Lints: `field_scoped_visibility_modifiers` denies `pub(crate)` fields, so lock structs use plain `pub` fields inside `pub(crate)` types. `Task` lost `Copy` (Catalog carries a String).
+- The `catalog fetch --version 9.9` QA run leaves a 9.9 `absent` entry in `sources.lock`.

@@ -1,0 +1,233 @@
+fetch 4.3 KN-1010: 404 absent
+fetch 4.3 KN-1011: 200 f11c4fa5215152dd47695bd2a02b67c3191ebe583f128272ac5ab20952a728d9
+fetch 4.3 KN-1012: 200 302db2f205f9b557d586786a8551ec77c70ba60244b16bfb54298de79dfb2f37
+fetch 4.3 KN-1111: 404 absent
+fetch 4.3 KN-1112: 200 4d94a2b36ad8688ba1b22b0c2c88939320f321f638a54a74f76715e24829082e
+fetch 4.3 KN-1121: 200 b660f277e0833f2e95c5cc917416f412aa52f51475da5a5a67f8b7a564feff8d
+fetch 4.3 KN-1212: 404 absent
+fetch 4.3 KN-1221: 404 absent
+fetch 4.3 KN-1410: 404 absent
+fetch 4.3 KN-1510: 404 absent
+fetch 4.3 KN-1613: 200 86176010ba39f4dbf59a10176e9926fe2d97db7c1b59ea1c6ed0c81203f38e26
+fetch 4.3 KN-1621: 404 absent
+fetch 4.3 KN-1710: 404 absent
+fetch 4.3 KN-1711: 200 8536383caa247247c06363d5c83573abff6ee0f312c26ca353afd3623dbf9bc9
+fetch 4.3 KN-1713: 200 848541a5c8865ce5081c49cf559d6636b3c1397f9a6906e753724d971a70350e
+fetch 4.3 KN-1714: 404 absent
+fetch 4.3 KN-1721: 200 411ede70b3c9d2263b937f0ac7b3da3cd7fecbf6e5efd5a63bcc230eef137212
+fetch 4.3 KN-1810: 200 75a67561446e2a9509bd22771b06383291e3e9f34192b62932ffa1cea4a87c41
+fetch 4.3 KN-1811: 200 ad86ca5f062359e714da9a3a04ff1b3883373b6880a0a1847575e004851755f2
+fetch 4.3 KN-1812: 200 dceae357e61798ac91f8ac415be59ddf764383939c17f014368eed4d108af2b0
+fetch 4.3 KN-2010: 404 absent
+fetch 4.3 KN-2110: 404 absent
+xtask: GET https://storage.googleapis.com/docs.help.keenetic.com/cli/4.3/en/cli_manual_kn-2111.pdf failed: io: Connection reset by peer (os error 104)
+fetch 5.0 KN-1010: 404 absent
+fetch 5.0 KN-1011: 200 9e1fd6e0d981dbe27543a40723b789816062bce31c3f1058791c0ad15a1a0338
+fetch 5.0 KN-1012: 200 b5ff6ef0e650c2f26a409e3d368ba0f89dfdd113866ee8f026d9639fb633182f
+fetch 5.0 KN-1111: 404 absent
+fetch 5.0 KN-1112: 200 cbfcfb32533fbb83f42eb75140091264d54540fabffbc73024a38eab92ab3976
+fetch 5.0 KN-1121: 200 93eeee9fb6ddd48a73824cd19aca9085480cd7a7609f0c2eea6198618be35381
+fetch 5.0 KN-1212: 404 absent
+fetch 5.0 KN-1221: 404 absent
+fetch 5.0 KN-1410: 404 absent
+fetch 5.0 KN-1510: 404 absent
+fetch 5.0 KN-1613: 200 e2e05eb49806599275da081cd6be02cdd1cc7a0b9430170aa14b4982d8e89332
+fetch 5.0 KN-1621: 200 f641d11b16cd7ff957de5d402ebe2ee75873a73a8cfd6e06357b0276b916927e
+fetch 5.0 KN-1710: 404 absent
+fetch 5.0 KN-1711: 404 absent
+fetch 5.0 KN-1713: 200 8751204e4bd9d8cc609d93df9dfb243394606971fe262914da8a7a7c087b96e0
+fetch 5.0 KN-1714: 404 absent
+fetch 5.0 KN-1721: 200 49afdbae7fbb69b5aa9853a6bf764ced87233e07c5396e6e622996de37f0e663
+fetch 5.0 KN-1810: 200 5aedaaa17806b663ee3be5c9f7d8bac08c05be01cc1bba6bfd0253308fc3d5eb
+fetch 5.0 KN-1811: 200 a4a89b72e29b9a5b6408dd88e8d7dbc467377301b316c78bdd0b7f8f1e3de929
+fetch 5.0 KN-1812: 200 2735cb6afafb1a2fdaa06eb646225ea86a19688e542d10ed04770ce93a0303bd
+fetch 5.0 KN-2010: 404 absent
+fetch 5.0 KN-2110: 404 absent
+fetch 5.0 KN-2111: 200 ef0ef7d60408e9199437f3050f75672e610d08da838ed60e29fb2b425514842c
+fetch 5.0 KN-2112: 200 c82e43ab9e05daa4899810698b18adb03e43e8bd1e47854c17d3648104048761
+fetch 5.0 KN-2211: 200 ad1b524a16d2a0af4c15415c75427b91499b4adff52e367b61171123aaa99da2
+fetch 5.0 KN-2212: 200 b87dce75fb015dba3f0eb7fea58d9cf6dfb7716fda52513d321b019f9d930431
+fetch 5.0 KN-2311: 200 c411214ee29c8162b12777b5df0bb64c8f4bd0b784c2fadb2020c1db77092dd7
+fetch 5.0 KN-2410: 200 99a4f9767340167b5876974dd45598ea258af14387aa09c1f44d823775eb9555
+fetch 5.0 KN-2510: 200 1a6434ee65e72ccc5a7ece00b02dbe4d18e3180cab860e1dbe3522982193dcf3
+fetch 5.0 KN-2710: 200 e81154005453f4dd9bb9273d9f93608bd43d7ff1238a38f5dfdd9c595a580e6f
+fetch 5.0 KN-2910: 200 dae8ace6e7fe172c89ba4d1f385f3bbfc1e96c39cf3bfc01a635af122f5f7b3c
+fetch 5.0 KN-3010: 404 absent
+fetch 5.0 KN-3210: 404 absent
+fetch 5.0 KN-3311: 404 absent
+fetch 5.0 KN-3410: 404 absent
+fetch 5.0 KN-3510: 200 9331a21f2416353c7aa85e048ea5fc10693968acc801fcfb46e3549f8a16d34a
+fetch 5.0 KN-3610: 200 102563c0e689d033f9a404f6d173ac2e2ea9c12bd86d1449bf55aa2cda7ae0cb
+fetch 5.0 KN-3710: 200 55ece3b573219fe7107555e32e0635284d03f66f6642f4ab367af66674ea0886
+fetch 5.0 KN-3711: 200 811bed95cb24a885409975484aae8e8865ea6de29ee4d82d07175a2ef3f545be
+fetch 5.0 KN-3810: 200 2989ba6c23fdce09c21b6b0e494e4215edd59a67636d863c03e787790cd4f7b7
+fetch 5.0 KN-3811: 200 71b0fd8f24d5b9ca5c09afea787ac11600116461e5b17bce08fa67bfd6a17669
+fetch 5.0 KN-3812: 200 2922b1f148ad576b358381bda6dc3a0ad1910f3754cdef8580293d0064d0aa3d
+fetch 5.0 KN-3910: 200 d05bc85d59631a5e7845776e5e2ed18ef0da039ccfebd4b32f6df4ee678a572b
+fetch 5.0 KN-4010: 200 9d2cc1410b6165c375a08a13bce46b5be54c35f68957b4f6c2667cc8358261db
+fetch 5.0 KN-4110: 200 985ba76a4135472a5804deb7fb43a96f3eef845fb9e80df47b31bea12a8b2111
+fetch 5.0 KN-4910: 200 7ab16d8d6e964484a915f409db4b0836cb94f936ecad18edbffd75dfd84ede56
+fetch 5.0 NC-1812: 404 absent
+fetch 5.0 NC-2312: 404 absent
+fetch 5.0 NC-3013: 404 absent
+fetch 5.0 NC-3611: 404 absent
+fetch 5.0 NC-4210: 404 absent
+fetch 5.0: 31 fetched, 20 absent, lock written to /home/andrico/keenetic-control-center/catalog/sources.lock
+fetch 5.1 KN-1010: 404 absent
+fetch 5.1 KN-1011: 200 67c69c95c5db5aca1812a974f1d8f7d343fb262a1c8db1bfcaf4f1e98ac3c40a
+fetch 5.1 KN-1012: 200 d91554a93f12671346a00cc2314c295723aef648f7c4c158332bdcc99bb08940
+fetch 5.1 KN-1111: 404 absent
+fetch 5.1 KN-1112: 200 4e28df22149b2e6547071e3b55d3b11633cc24bfd4a6984175037d228cb2022a
+fetch 5.1 KN-1121: 200 c1d108c5b9169882fbcb4069eb70c02e1fb03d319446aa7a8b9b67cda2ae50bc
+fetch 5.1 KN-1212: 404 absent
+fetch 5.1 KN-1221: 404 absent
+fetch 5.1 KN-1410: 404 absent
+fetch 5.1 KN-1510: 404 absent
+fetch 5.1 KN-1613: 200 d587644bba9693421b54bbb25e1c66c197775abe6cb65a2e6589c4ad5790f45c
+fetch 5.1 KN-1621: 200 5543a72fa6e74f97e9ee27c8e69cc157464ebf035994f3370791899f48e6e028
+fetch 5.1 KN-1710: 404 absent
+fetch 5.1 KN-1711: 404 absent
+fetch 5.1 KN-1713: 200 e1b7a0c005b0a715bb92f6a772ab86617a4b4cd14f38c926e47fbdc87826e8e7
+fetch 5.1 KN-1714: 404 absent
+fetch 5.1 KN-1721: 200 6322a966b4dca8c5548b255d5cd568aab1a5860c6900485eaaffdd035ba29a9b
+fetch 5.1 KN-1810: 200 666ae234fe6c0e1ace86fde4ac4ec562577ce36d4e99f509db4bf36feb0fa7b1
+fetch 5.1 KN-1811: 200 caebad8138b5272c88316431a4dfa9f0b379f09e62c54b8bf86f837d4ae7dd25
+fetch 5.1 KN-1812: 200 6d6aca19c88f8d403186d5e92fb40c5ddc265fbb4499c9ba9e1452722b8e51ae
+fetch 5.1 KN-2010: 404 absent
+fetch 5.1 KN-2110: 404 absent
+fetch 5.1 KN-2111: 200 cf0ae4c1b6ca0b5dea08699e5578849b91392c41b8692ac1908f848a8160512b
+fetch 5.1 KN-2112: 200 6c47881a839eca20b1080806aa318a7f133d376f20706676c49c3a5d6dffb515
+fetch 5.1 KN-2211: 200 8305b380e4f0aabecd8e2b324c7d0b4fb6403624ffbe8c08370bfa69831a23d8
+fetch 5.1 KN-2212: 200 e8bec18f6bdf0c7192068a12449a4c684de570ad3300fea1ff0a5c9e5063f837
+fetch 5.1 KN-2311: 200 b680768e7dad4e7eb80a9f0c4355e448716479bd154a7d0529a7fae16516c7cb
+fetch 5.1 KN-2410: 200 9c74970757c949a5aba3973a9ad897328c8945fe6026f6b5b8534a97a5d4ffd8
+fetch 5.1 KN-2510: 200 3f8aad18847c7d5f92250230e6e274be14e08e5a37afae525ef5967e63f02101
+fetch 5.1 KN-2710: 200 dab7e2c5c33bdd4d758e057f796b8bf36b1cf73a8a7e866980046d9636dda70e
+fetch 5.1 KN-2910: 200 9e60cc7b5ce2691297798a06f7e242de55d870fc8bf65fecbb33a4a7301580c5
+fetch 5.1 KN-3010: 404 absent
+fetch 5.1 KN-3210: 404 absent
+fetch 5.1 KN-3311: 404 absent
+fetch 5.1 KN-3410: 404 absent
+fetch 5.1 KN-3510: 200 f2b5e25c0f8bc174e886261a697a5a1f0bb83af2f72e5de4654ed99e8b5738db
+fetch 5.1 KN-3610: 200 a65b5bf52a93a92a8ffb790808fe02ed5d8b9b11966b0f1743323179e29a7cb8
+fetch 5.1 KN-3710: 200 3400dec1ab8e7ffcfefef6cf6557dd62ea48717976e9d8b02a9647388c502f3e
+fetch 5.1 KN-3711: 200 a0282448a407e1c56257c9f024e52ab353cd5176e99995e93fe32bfa650f24fa
+fetch 5.1 KN-3810: 200 b1c88138b65161820f3fb7cbecffb5273e3376a38b2b58e3fa97cd917cf2a1e8
+fetch 5.1 KN-3811: 200 37e118569361d9d7913a94142c243bce0001113e1d2260fe3a636ff204dd4f48
+fetch 5.1 KN-3812: 200 5de64e0f309a8a839826e07d4091dbbcd75c591f3a4c1beb7f0f8344c2c28595
+fetch 5.1 KN-3910: 200 b644b6c0354ac514e5dde7a9cdeebe102c1a60a5dc9450685ca34ac97ca0a20f
+fetch 5.1 KN-4010: 200 2dac05e0eb8036667716d61f18e9aaed0b7ebfefdf131fbd7dbd47328d45abe0
+fetch 5.1 KN-4110: 200 d933f5091c97902f1c162750f80fc9cb6cebaa4388338df227150f62f9ecec6d
+fetch 5.1 KN-4910: 200 e6bbf4a377c9d3113957f466e1007e1b49103a821aa79f084a94d6409d1a1da4
+fetch 5.1 NC-1812: 404 absent
+fetch 5.1 NC-2312: 404 absent
+fetch 5.1 NC-3013: 404 absent
+fetch 5.1 NC-3611: 404 absent
+fetch 5.1 NC-4210: 404 absent
+fetch 5.1: 31 fetched, 20 absent, lock written to /home/andrico/keenetic-control-center/catalog/sources.lock
+time="2026-11-05T17:06:15+04:00" level=warning msg="\"/\" is not a shared mount, this could cause issues or missing mounts with rootless containers"
+Trying to pull docker.io/library/debian:12-slim...
+Getting image source signatures
+Copying blob sha256:dd051e1b8c92ff101fa3071ab97ea4924885942f15644e01c3dc095764e863e3
+Copying config sha256:43f84a0b210f98845ef003912981774c95efe439eaa4b1cb62cf803fd46fc82a
+Writing manifest to image destination
+debconf: delaying package configuration, since apt-utils is not installed
+extract: 93 PDFs via podman, poppler 22.12.0-2+deb12u3
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1011.pdf: 1110 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1012.pdf: 1109 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1112.pdf: 806 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1121.pdf: 812 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1613.pdf: 843 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1711.pdf: 1096 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1713.pdf: 1082 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1721.pdf: 1079 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1810.pdf: 1104 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1811.pdf: 1106 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-1812.pdf: 1099 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2111.pdf: 1103 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2112.pdf: 1104 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2211.pdf: 846 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2212.pdf: 846 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2311.pdf: 1086 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2410.pdf: 1105 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2510.pdf: 1109 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2710.pdf: 1108 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-2910.pdf: 1099 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3010.pdf: 842 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3510.pdf: 849 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3610.pdf: 1105 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3710.pdf: 847 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3711.pdf: 844 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3810.pdf: 1102 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3811.pdf: 1102 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3812.pdf: 1100 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-3910.pdf: 844 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-4010.pdf: 844 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/4.3/kn-4910.pdf: 873 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1011.pdf: 1142 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1012.pdf: 1141 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1112.pdf: 839 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1121.pdf: 845 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1613.pdf: 876 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1621.pdf: 869 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1713.pdf: 1114 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1721.pdf: 1111 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1810.pdf: 1136 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1811.pdf: 1138 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-1812.pdf: 1132 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2111.pdf: 1135 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2112.pdf: 1136 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2211.pdf: 879 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2212.pdf: 879 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2311.pdf: 1118 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2410.pdf: 1137 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2510.pdf: 1141 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2710.pdf: 1140 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-2910.pdf: 1131 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3510.pdf: 882 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3610.pdf: 1137 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3710.pdf: 880 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3711.pdf: 877 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3810.pdf: 1134 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3811.pdf: 1134 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3812.pdf: 1132 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-3910.pdf: 878 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-4010.pdf: 877 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-4110.pdf: 1119 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.0/kn-4910.pdf: 906 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1011.pdf: 1167 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1012.pdf: 1166 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1112.pdf: 864 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1121.pdf: 870 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1613.pdf: 901 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1621.pdf: 894 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1713.pdf: 1139 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1721.pdf: 1136 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1810.pdf: 1161 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1811.pdf: 1163 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-1812.pdf: 1157 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2111.pdf: 1160 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2112.pdf: 1161 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2211.pdf: 904 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2212.pdf: 904 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2311.pdf: 1143 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2410.pdf: 1162 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2510.pdf: 1166 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2710.pdf: 1165 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-2910.pdf: 1156 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3510.pdf: 907 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3610.pdf: 1162 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3710.pdf: 905 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3711.pdf: 902 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3810.pdf: 1159 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3811.pdf: 1159 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3812.pdf: 1157 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-3910.pdf: 903 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-4010.pdf: 902 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-4110.pdf: 1144 bookmarks
+extract /home/andrico/keenetic-control-center/catalog/.cache/5.1/kn-4910.pdf: 931 bookmarks
+--- failure QA: fetch --version 9.9
+fetch 9.9 KN-1811: 404 absent
+fetch 9.9: 0 fetched, 1 absent, lock written to /home/andrico/keenetic-control-center/catalog/sources.lock
+exit 0
+--- extract summary

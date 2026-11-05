@@ -3,9 +3,17 @@
 //! Every gate writes its report through [`std::io::Write`] and maps its verdict to the
 //! process exit code: 0 when the gate passes, 1 when it fails, 2 when it could not run.
 
+#![expect(
+    clippy::multiple_crate_versions,
+    reason = "lopdf (getrandom 0.4) and ureq/rustls/ring (getrandom 0.2) cannot be unified; xtask is not shipped"
+)]
+
 extern crate alloc;
 
 mod allow_gate;
+mod catalog;
+mod catalog_extract;
+mod catalog_fetch;
 mod failure;
 mod lint_completeness;
 mod manifest;
@@ -34,7 +42,7 @@ struct Cli {
 }
 
 /// One xtask subcommand. Later gates and generators are added as new variants.
-#[derive(Debug, Clone, Copy, Subcommand)]
+#[derive(Debug, Clone, Subcommand)]
 enum Task {
     /// Check that the lint profile covers every allow-by-default rustc lint and every
     /// Clippy `restriction` lint, except the documented exclusions.
@@ -43,6 +51,26 @@ enum Task {
     AllowGate,
     /// Fail when the xtask `[lints]` tables differ from the root `[workspace.lints]`.
     ProfileEq,
+    /// Fetch and extract the official CLI reference manuals into `catalog/.cache/`.
+    #[command(subcommand)]
+    Catalog(CatalogTask),
+}
+
+/// One `catalog` subcommand.
+#[derive(Debug, Clone, Subcommand)]
+enum CatalogTask {
+    /// Download the CLI manual of every model for one firmware version and write
+    /// `catalog/sources.lock`. A 404 records the model as absent and is not a failure.
+    Fetch {
+        /// Firmware version, for example `5.1`.
+        #[arg(long)]
+        version: String,
+        /// Model list overriding `catalog/sources.toml`.
+        #[arg(long)]
+        models: Option<PathBuf>,
+    },
+    /// Run `pdftotext` and read the PDF bookmarks of every cached manual.
+    Extract,
 }
 
 /// Outcome of a gate that ran to completion.
@@ -82,10 +110,14 @@ where
         Some(root) => root.clone(),
         None => default_root()?,
     };
-    match cli.command {
+    match &cli.command {
         Task::LintCompleteness => lint_completeness::run(&root, out),
         Task::AllowGate => allow_gate::run(&root, out),
         Task::ProfileEq => profile_eq::run(&root, out),
+        Task::Catalog(CatalogTask::Fetch { version, models }) => {
+            catalog_fetch::run(&root, version, models.as_deref(), out)
+        }
+        Task::Catalog(CatalogTask::Extract) => catalog_extract::run(&root, out),
     }
 }
 
