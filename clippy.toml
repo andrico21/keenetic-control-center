@@ -13,5 +13,16 @@ cognitive-complexity-threshold = 25   # drives `cognitive_complexity`
 too-many-lines-threshold = 100        # drives `too_many_lines`
 max-fn-params-bools = 3               # drives `fn_params_excessive_bools`
 enum-variant-size-threshold = 200     # drives `large_enum_variant`
-allowed-duplicate-crates = []         # each unavoidable duplicate, with a reason comment
+allowed-duplicate-crates = [         # each unavoidable duplicate, with a reason comment
+  "bitflags",     # =1.3.2: windows-permissions 0.2.4 -> rmcp-server-kit 3.21.1 (Windows-only)
+  "getrandom",    # =0.2.17: ring 0.17.14 -> rustls 0.23 -> reqwest 0.13.5 -> rmcp-server-kit; =0.3.4: governor 0.10.4 and rand_core 0.9.5 -> rmcp-server-kit
+  "hashbrown",    # =0.14.5: dashmap 6.2.1 -> governor 0.10.4; =0.16.1: governor 0.10.4 -> rmcp-server-kit
+  "r-efi",        # =5.3.0: getrandom 0.3.4 -> governor 0.10.4 -> rmcp-server-kit (UEFI target only)
+  "rand",         # =0.9.5: governor 0.10.4 -> rmcp-server-kit
+  "rand_core",    # =0.9.5: rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit
+  "syn",          # =2.0.119: asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit
+  "synstructure", # =0.13.2: asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit
+  "tower-http",   # =0.6.11: reqwest 0.13.5 -> rmcp-server-kit; 0.7.1 is the kit's direct dependency
+  "windows-sys",  # =0.52.0: ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit (Windows-only)
+]
 doc-valid-idents = ["..", "KeeneticOS", "NetcrazeOS", "Keenetic", "Netcraze", "KeenDNS", "WireGuard", "OpenVPN", "OpenConnect", "ZeroTier", "IPsec", "IKEv2", "SSTP", "L2TP", "PPTP", "PPPoE", "IPoE", "NDMS", "RCI", "htmx", "SSE", "SCRAM", "Argon2id", "SHA3", "DoT", "DoH", "UPnP", "DLNA", "IPTV"]
