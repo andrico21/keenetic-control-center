@@ -408,6 +408,13 @@ impl FakeRouter {
     pub fn settings(&self) -> Value {
         self.shared.settings()
     }
+
+    /// Returns the number of background processes stopped through DELETE.
+    #[inline]
+    #[must_use]
+    pub fn stopped_processes(&self) -> u64 {
+        self.shared.stopped_processes()
+    }
 }
 
 /// A running server; dropping it also stops the server.

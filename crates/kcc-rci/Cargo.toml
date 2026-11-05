@@ -12,7 +12,7 @@ base64 = "0.23.1"
 getrandom = "0.2.17"
 hmac = { version = "0.13.0", features = ["zeroize"] }
 md-5 = "0.11.0"
-reqwest = { version = "0.13.5", default-features = false, features = ["json", "rustls-no-provider"] }
+reqwest = { version = "0.13.5", default-features = false, features = ["json", "multipart", "rustls-no-provider"] }
 rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
 secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"] }
@@ -22,14 +22,22 @@ sha2 = "0.11.1"
 sha3 = { version = "0.11.0", features = ["zeroize"] }
 subtle = "2.6.1"
 thiserror = "2.0.17"
-tokio = { version = "1.54.1", features = ["rt", "sync", "time"] }
+tokio = { version = "1.54.1", features = ["macros", "rt", "sync", "time"] }
+tokio-util = "0.7.17"
 url = "2.5.7"
+x509-parser = { version = "0.18.1", default-features = false }
 zeroize = "1.9.1"
 
 [dev-dependencies]
+axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+hyper = { version = "1.8.1", default-features = false, features = ["http1", "server"] }
+hyper-util = { version = "0.1.21", default-features = false, features = ["tokio"] }
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
 proptest = "1.9.0"
-tokio = { version = "1.54.1", features = ["io-util", "macros", "net", "rt-multi-thread"] }
+rcgen = { version = "0.14.6", default-features = false, features = ["crypto", "ring"] }
+tokio = { version = "1.54.1", features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }
+tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
+tower = { version = "0.5.3", default-features = false, features = ["util"] }
 
 [package.metadata.cargo-machete]
 # md-5 is imported as `md5`, which machete's name matching misses

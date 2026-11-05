@@ -8,6 +8,10 @@
         reason = "public API is exercised by integration tests and downstream crates"
     )
 )]
+#![expect(
+    clippy::pub_use,
+    reason = "the crate root preserves the established kcc-rci protocol API"
+)]
 
 extern crate alloc;
 
@@ -17,13 +21,17 @@ mod auth_ndw4;
 pub mod auth_options;
 mod auth_token;
 pub mod capabilities;
+pub mod engine;
 pub mod ndw4_keys;
 mod ndw4_reply;
+pub mod outbound;
 pub mod session;
 pub mod version;
 
 use core::{fmt, net::Ipv4Addr, str::FromStr};
 
+pub use engine::{BackgroundHandle, ConfigKind, RciBody, RciClient, RciClientOptions, SecretBytes};
+pub use outbound::{AllowedNetwork, OutboundPolicy, TlsMode};
 use serde::{Deserialize, Serialize, Serializer};
 use serde_json::Value;
 use thiserror::Error;

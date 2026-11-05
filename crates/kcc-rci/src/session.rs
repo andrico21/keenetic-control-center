@@ -10,6 +10,7 @@ use std::{
 use reqwest::{
     Client, Method, Response, StatusCode,
     header::{self, HeaderMap, HeaderValue},
+    multipart::Form,
     redirect::Policy,
 };
 use rustls::crypto::{CryptoProvider, ring::default_provider};
@@ -394,6 +395,27 @@ impl Manager {
             RequestKind::PostRejectedBeforeBody,
         )
         .await
+    }
+
+    /// Sends an authenticated multipart POST without transport replay.
+    ///
+    /// # Errors
+    ///
+    /// Returns authentication or transport failures.
+    // NOT cancel-safe: cancellation after transmission may leave a completed upload.
+    #[inline]
+    pub async fn post_multipart(&self, path: &str, form: Form) -> Result<Response, RciError> {
+        self.ensure_password_session().await?;
+        let session = self
+            .usable_session()
+            .ok_or(RciError::Auth(AuthError::Rejected))?;
+        self.client
+            .post(self.url(path))
+            .header(header::COOKIE, session.header_value()?)
+            .multipart(form)
+            .send()
+            .await
+            .map_err(|error| map_reqwest_error(&error))
     }
 
     /// Deletes the router session and always clears the local cookie.

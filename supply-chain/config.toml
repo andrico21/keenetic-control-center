@@ -440,6 +440,10 @@ criteria = "safe-to-deploy"
 version = "0.3.107"
 criteria = "safe-to-deploy"
 
+[[exemptions.keccak]]
+version = "0.2.2"
+criteria = "safe-to-deploy"
+
 [[exemptions.lazy_static]]
 version = "1.5.1"
 criteria = "safe-to-deploy"
@@ -478,6 +482,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.mime]]
 version = "0.3.16"
+criteria = "safe-to-deploy"
+
+[[exemptions.mime_guess]]
+version = "2.0.4"
 criteria = "safe-to-deploy"
 
 [[exemptions.minimal-lexical]]
@@ -611,6 +619,10 @@ criteria = "safe-to-run"
 [[exemptions.raw-cpuid]]
 version = "11.6.0"
 criteria = "safe-to-deploy"
+
+[[exemptions.rcgen]]
+version = "0.14.10"
+criteria = "safe-to-run"
 
 [[exemptions.redox_syscall]]
 version = "0.5.18"
@@ -762,6 +774,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.sha2]]
 version = "0.11.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.sha3]]
+version = "0.11.0"
 criteria = "safe-to-deploy"
 
 [[exemptions.signal-hook-registry]]
@@ -928,6 +944,10 @@ criteria = "safe-to-deploy"
 version = "1.20.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.unicase]]
+version = "2.10.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.unicode-ident]]
 version = "1.0.27"
 criteria = "safe-to-deploy"
@@ -1083,6 +1103,10 @@ criteria = "safe-to-deploy"
 [[exemptions.x509-parser]]
 version = "0.18.1"
 criteria = "safe-to-deploy"
+
+[[exemptions.yasna]]
+version = "0.6.0"
+criteria = "safe-to-run"
 
 [[exemptions.yoke]]
 version = "0.8.4"

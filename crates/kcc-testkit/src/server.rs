@@ -16,7 +16,7 @@ use axum::{
     http::{HeaderMap, HeaderName, HeaderValue, StatusCode, header},
     middleware::{self, Next},
     response::{IntoResponse as _, Response},
-    routing::{any, get, put},
+    routing::{any, get, post, put},
 };
 use rand::RngExt as _;
 use serde_json::{Map, Value};
@@ -133,6 +133,10 @@ pub(crate) struct Shared {
     request_count: AtomicU64,
     /// Next background process identifier.
     process_id: AtomicU64,
+    /// Remaining continued polls by background process identifier.
+    processes: Mutex<BTreeMap<String, u8>>,
+    /// Number of background processes stopped through DELETE.
+    stopped_processes: AtomicU64,
 }
 
 /// Locks `mutex`, recovering the data if a previous holder panicked.
@@ -186,6 +190,8 @@ impl Shared {
             faults,
             request_count: AtomicU64::new(0),
             process_id: AtomicU64::new(1),
+            processes: Mutex::new(BTreeMap::new()),
+            stopped_processes: AtomicU64::new(0),
         }
     }
 
@@ -202,6 +208,11 @@ impl Shared {
     /// A snapshot of the settings tree.
     pub(crate) fn settings(&self) -> Value {
         lock(&self.settings).clone()
+    }
+
+    /// Number of background-process DELETE requests observed.
+    pub(crate) fn stopped_processes(&self) -> u64 {
+        self.stopped_processes.load(Ordering::SeqCst)
     }
 
     /// The session id carried in this server's cookie, if any.
@@ -417,7 +428,31 @@ impl Shared {
     /// Allocates a simulated background-process response.
     fn start_ping(&self) -> Value {
         let id = self.process_id.fetch_add(1, Ordering::SeqCst);
+        let _: Option<u8> = lock(&self.processes).insert(id.to_string(), 3);
         serde_json::json!({"process":{"id":id.to_string(),"status":"running","kind":"ping"}})
+    }
+
+    /// Polls one simulated ping process.
+    fn poll_ping(&self, id: &str) -> Option<Value> {
+        let mut processes = lock(&self.processes);
+        let remaining = processes.get_mut(id)?;
+        if *remaining == 0 {
+            let _: Option<u8> = processes.remove(id);
+            drop(processes);
+            return Some(serde_json::json!({"process":{"id":id,"status":"done"},"reply":[1,2,3]}));
+        }
+        *remaining = remaining.saturating_sub(1);
+        drop(processes);
+        Some(serde_json::json!({"process":{"id":id,"status":"running"},"continued":true}))
+    }
+
+    /// Stops one simulated ping process.
+    fn stop_ping(&self, id: &str) -> bool {
+        let removed = lock(&self.processes).remove(id).is_some();
+        if removed {
+            let _: u64 = self.stopped_processes.fetch_add(1, Ordering::SeqCst);
+        }
+        removed
     }
 
     /// Answers one show request below `show/`, or `None` when no fixture exists.
@@ -462,6 +497,11 @@ impl Shared {
 
     /// Applies one POST body element at `pointer`.
     fn post_one(&self, settings: &mut Value, pointer: &str, body: &Value) -> Value {
+        if pointer.is_empty()
+            && body.pointer("/put/filename").and_then(Value::as_str) == Some("flash:startup-config")
+        {
+            return serde_json::json!({"put":{"port":"1"}});
+        }
         if pointer.is_empty()
             && let Some(line) = body.get("parse").and_then(Value::as_str)
         {
@@ -636,6 +676,14 @@ fn query_selector(query: &BTreeMap<String, String>) -> Option<Selector<'_>> {
 
 /// Answers a read of `path`.
 fn read(shared: &Shared, login: &str, path: &str, query: &BTreeMap<String, String>) -> Response {
+    if path == "tools/ping"
+        && let Some(id) = query.get("id")
+    {
+        return shared.poll_ping(id).map_or_else(
+            || empty(StatusCode::NOT_FOUND),
+            |value| Json(value).into_response(),
+        );
+    }
     let selector = query_selector(query);
     let found = match path.strip_prefix("show/") {
         Some("last-change") => Some(shared.last_change()),
@@ -692,6 +740,9 @@ async fn rci_post(
         return empty(StatusCode::BAD_REQUEST);
     };
     if path.starts_with("show/") || path == "whoami" {
+        if path == "show/log" {
+            return "router log text".into_response();
+        }
         let mut params = query;
         for (key, value) in parsed.as_object().into_iter().flatten() {
             if let Some(text) = value.as_str() {
@@ -723,6 +774,15 @@ async fn rci_delete(
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
+    if path == "tools/ping"
+        && let Some(id) = query.get("id")
+    {
+        return if shared.stop_ping(id) {
+            Json(tree::status("message", "stopped.")).into_response()
+        } else {
+            empty(StatusCode::NOT_FOUND)
+        };
+    }
     let mut settings = lock(&shared.settings);
     let removed = tree::resolve(&settings, &segments(&path), query_selector(&query))
         .is_some_and(|(pointer, _)| tree::remove(&mut settings, &pointer));
@@ -762,6 +822,40 @@ async fn fui_upload(
     }
 }
 
+/// Uploads startup configuration through the `/fui/` multipart endpoint.
+// cancel-safe: no await point after the body is read.
+async fn fui_multipart(State(shared): State<Arc<Shared>>, body: Bytes) -> Response {
+    let Some(file_header) = body
+        .windows(b"filename=\"startup-config.txt\"".len())
+        .position(|window| window == b"filename=\"startup-config.txt\"")
+    else {
+        return empty(StatusCode::BAD_REQUEST);
+    };
+    let marker = b"\r\n\r\n";
+    let Some(relative_header_end) = body.get(file_header..).and_then(|remaining| {
+        remaining
+            .windows(marker.len())
+            .position(|window| window == marker)
+    }) else {
+        return empty(StatusCode::BAD_REQUEST);
+    };
+    let start = file_header
+        .saturating_add(relative_header_end)
+        .saturating_add(marker.len());
+    let Some(payload) = body.get(start..) else {
+        return empty(StatusCode::BAD_REQUEST);
+    };
+    let Some(end) = payload.windows(4).rposition(|window| window == b"\r\n--") else {
+        return empty(StatusCode::BAD_REQUEST);
+    };
+    match payload.get(..end).and_then(|bytes| from_utf8(bytes).ok()) {
+        Some(text) if shared.upload(text) => {
+            Json(tree::status("message", "uploaded.")).into_response()
+        }
+        Some(_) | None => empty(StatusCode::BAD_REQUEST),
+    }
+}
+
 /// The complete axum router over `shared`.
 pub(crate) fn router(shared: Arc<Shared>) -> Router {
     let rci = Router::new()
@@ -777,6 +871,7 @@ pub(crate) fn router(shared: Arc<Shared>) -> Router {
         ));
     let files = Router::new()
         .route("/ci/{name}", get(ci_config))
+        .route("/fui/", post(fui_multipart))
         .route("/fui/{name}", put(fui_upload))
         .route_layer(middleware::from_fn_with_state(
             Arc::clone(&shared),
