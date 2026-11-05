@@ -217,6 +217,18 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         expect_parse_error("[serverr]\nlisten_port = 8443\n", "unknown field `serverr`")
     }
 
+    #[test]
+    fn privileged_listener_ports_are_rejected() -> TestResult {
+        expect_invalid(
+            "[server]\nlisten_addr = \"0.0.0.0\"\nlisten_port = 443\n",
+            "server.listen_port",
+        )?;
+        expect_invalid(
+            "[observability]\nmetrics_enabled = true\nmetrics_bind = \"127.0.0.1:443\"\n",
+            "observability.metrics_bind",
+        )
+    }
+
     /// An unknown key in any section is rejected with an error naming it.
     #[test]
     fn unknown_key_in_every_section_is_rejected() -> TestResult {

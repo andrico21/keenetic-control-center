@@ -1,7 +1,13 @@
 //! Keenetic Control Center command-line entry point.
 
-use std::process::exit;
-
+#[expect(
+    clippy::absolute_paths,
+    clippy::print_stderr,
+    reason = "the pre-logging privilege refusal must use only explicit stderr and exit APIs"
+)]
 fn main() {
-    exit(0)
+    if let Err(error) = kcc::privileges::enforce() {
+        eprintln!("{error}");
+        std::process::exit(77);
+    }
 }
