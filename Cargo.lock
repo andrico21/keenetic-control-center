@@ -1295,6 +1295,7 @@ dependencies = [
 name = "kcc-app"
 version = "0.1.0"
 dependencies = [
+ "argon2",
  "base64",
  "chacha20poly1305",
  "humantime",
@@ -1304,8 +1305,10 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
+ "sha2",
  "tempfile",
  "thiserror",
+ "tokio",
  "toml",
  "url",
  "zeroize",
@@ -1346,12 +1349,20 @@ version = "0.1.0"
 name = "kcc-rci"
 version = "0.1.0"
 dependencies = [
+ "kcc-testkit",
+ "md-5",
  "proptest",
+ "reqwest",
+ "rustls",
+ "secrecy",
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "sha2",
  "thiserror",
+ "tokio",
  "url",
+ "zeroize",
 ]
 
 [[package]]
@@ -1364,6 +1375,7 @@ version = "0.1.0"
 dependencies = [
  "axum",
  "clap",
+ "kcc-config",
  "md-5",
  "rand 0.10.3",
  "serde_json",
