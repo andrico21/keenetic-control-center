@@ -1,0 +1,50 @@
+$ cargo +nightly-2026-10-03 fmt --manifest-path spikes/lint-macros/Cargo.toml -- --check
+$ cargo test --manifest-path spikes/lint-macros/Cargo.toml
+   Compiling rmcp-macros v3.6.0
+   Compiling rmcp v3.6.0
+   Compiling lint-macros-spike v0.1.0 (/home/andrico/keenetic-control-center/spikes/lint-macros)
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 18.35s
+     Running unittests src/lib.rs (spikes/lint-macros/target/debug/deps/lint_macros_spike-747537d7fd89bf33)
+
+running 2 tests
+test tests::constructs_macro_service_and_sse_route ... ok
+test tests::renders_both_cyrillic_locales ... ok
+
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+   Doc-tests lint_macros_spike
+
+running 0 tests
+
+test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
+
+$ cargo clippy --manifest-path spikes/lint-macros/Cargo.toml --all-targets -- -D warnings
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.15s
+$ RUSTDOCFLAGS="-D warnings" cargo doc --manifest-path spikes/lint-macros/Cargo.toml --no-deps
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.18s
+   Generated /home/andrico/keenetic-control-center/spikes/lint-macros/target/doc/lint_macros_spike/index.html
+
+FAILURE-PATH QA: removed the rmcp tool_handler expectation
+$ cargo clippy --manifest-path spikes/lint-macros/Cargo.toml --all-targets -- -D warnings
+    Checking lint-macros-spike v0.1.0 (/home/andrico/keenetic-control-center/spikes/lint-macros)
+error: unused `async` for async trait impl function with no `.await` statements
+   --> src/lib.rs:189:1
+    |
+189 | #[tool_handler]
+    | ^^^^^^^^^^^^^^^
+    |
+    = note: `std::future::ready` creates a `Future` which returns the value immediately when `poll`ed
+    = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.99.0/index.html#unused_async_trait_impl
+    = note: `-D clippy::unused-async-trait-impl` implied by `-D clippy::pedantic`
+    = help: to override `-D clippy::pedantic` add `#[allow(clippy::unused_async_trait_impl)]`
+    = note: this error originates in the attribute macro `tool_handler` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error: could not compile `lint-macros-spike` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+error: could not compile `lint-macros-spike` (lib test) due to 1 previous error
+expected failure exit code: 101
+
+RESTORED EXPECTATION: final clean clippy confirmation
+$ cargo clippy --manifest-path spikes/lint-macros/Cargo.toml --all-targets -- -D warnings
+    Checking lint-macros-spike v0.1.0 (/home/andrico/keenetic-control-center/spikes/lint-macros)
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 0.59s

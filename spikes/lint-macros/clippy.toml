@@ -1,0 +1,19 @@
+# clippy.toml - workspace root
+avoid-breaking-exported-api = false   # report even when the fix changes public API
+check-private-items = true            # missing_*_doc lints cover private items too
+allow-unwrap-in-tests = false         # tests follow the same panic rules
+allow-expect-in-tests = false
+allow-panic-in-tests = false
+allow-dbg-in-tests = false
+allow-print-in-tests = false
+allow-indexing-slicing-in-tests = false
+warn-on-all-wildcard-imports = true
+allow-mixed-uninlined-format-args = false
+cognitive-complexity-threshold = 25   # drives `cognitive_complexity`
+too-many-lines-threshold = 100        # drives `too_many_lines`
+max-fn-params-bools = 3               # drives `fn_params_excessive_bools`
+enum-variant-size-threshold = 200     # drives `large_enum_variant`
+allowed-duplicate-crates = [
+  "syn", # 2.x: Askama derive stack; 3.x: rmcp-macros 3.6.0
+]
+doc-valid-idents = [".."]             # ".." keeps Clippy's defaults; append proper nouns
