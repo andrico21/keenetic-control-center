@@ -1,0 +1,61 @@
+! $$$ Model: ZyXEL Keenetic II
+! $$$ Version: 2.0
+! $$$ Agent: http/ci
+! $$$ Last change: Mon, 2 Nov 2015 10:11:09 GMT
+! $$$ Md5 checksum: 0123456789abcdef0123456789abcdef
+system
+ hostname example-router
+ domainname example.test
+!
+interface WifiMaster0/AccessPoint0
+ description "Wi-Fi access point"
+ security-level private
+ authentication wpa-psk ns3 QP/a3C96cTqJxMboZoZojIZB
+ encryption enable
+ encryption wpa2
+ ssid ExampleNetwork
+ up
+!
+interface UsbModem0
+ description "USB modem"
+ authentication identity gdata
+ authentication password ns3 QP/a3C96cTqJxMboZoZojIZB
+ ip address dhcp
+ up
+!
+interface Bridge0
+ description "Home network"
+ include AccessPoint
+ security-level private
+ ip address 192.0.2.1 255.255.255.0
+ iapp key ns3 ClkGVb4VylHfkHQBQAg2jSUN
+ up
+!
+interface PPPoE0
+ description Internet
+ no ipv6cp
+ lcp echo 30 3
+ ipcp default-route
+ no ccp
+ security-level public
+ authentication identity example-user
+ authentication password ns3 57QZ+pHpr1U563wnqus9ZIKM
+ ip mtu 1400
+ ip global 1000
+ connect via Ethernet0/Vlan101
+ up
+!
+ip dhcp pool EXAMPLE
+ range 192.0.2.10 192.0.2.109
+ default-router 192.0.2.1
+ dns-server 192.0.2.1
+ bind Home
+ enable
+!
+user admin
+ password md5 QP/a3C96cTqJxMboZoZojIZB
+ tag cli
+ tag http
+!
+service dhcp
+service dns-proxy
