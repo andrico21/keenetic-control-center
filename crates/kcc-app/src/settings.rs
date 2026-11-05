@@ -11,7 +11,7 @@
 extern crate alloc;
 
 use alloc::collections::BTreeSet;
-use core::{net::SocketAddr, time::Duration};
+use core::time::Duration;
 use std::{
     env::{self, VarError},
     fs, io,
@@ -492,30 +492,6 @@ impl Config {
     pub fn validate(&self) -> Result<(), ConfigError> {
         validate_server_config(&self.server)?;
         validate_observability_config(&self.observability)?;
-        if self.server.listen_port < 1024 {
-            return Err(invalid(
-                "server.listen_port",
-                "must be at least 1024; this service never binds privileged ports",
-            ));
-        }
-        if self.observability.metrics_enabled {
-            let metrics_addr = self
-                .observability
-                .metrics_bind
-                .parse::<SocketAddr>()
-                .map_err(|_error| {
-                    invalid(
-                        "observability.metrics_bind",
-                        "must be a socket address such as 127.0.0.1:9090",
-                    )
-                })?;
-            if metrics_addr.port() < 1024 {
-                return Err(invalid(
-                    "observability.metrics_bind",
-                    "port must be at least 1024; this service never binds privileged ports",
-                ));
-            }
-        }
         if self.web.login_max_failures == 0 {
             return Err(invalid("web.login_max_failures", "must be at least 1"));
         }

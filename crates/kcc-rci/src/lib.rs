@@ -1,19 +1,5 @@
 //! Validated RCI protocol values and response status extraction.
 
-// `dead_code_pub_in_binary` sees public library APIs as unused only in the unit-test binary.
-#![cfg_attr(
-    test,
-    expect(
-        dead_code_pub_in_binary,
-        reason = "public API is exercised by integration tests and downstream crates"
-    )
-)]
-
-extern crate alloc;
-
-pub mod auth;
-pub mod session;
-
 use core::{fmt, net::Ipv4Addr, str::FromStr};
 
 use serde::{Deserialize, Serialize, Serializer};

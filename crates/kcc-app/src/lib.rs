@@ -9,10 +9,6 @@
     )
 )]
 
-pub mod accounts;
-pub mod api_keys;
-pub mod audit;
-pub mod permissions;
 pub mod persist;
 pub mod secrets;
 pub mod settings;

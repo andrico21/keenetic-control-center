@@ -335,6 +335,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fc652a48c352aef3ea3aed32080501cf3ef6ed5da78602a020c991775b0aff04"
 
 [[package]]
+name = "caps"
+version = "0.5.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fd1ddba47aba30b6a889298ad0109c3b8dcb0e8fc993b459daa7067d46f865e0"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "cc"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,6 +389,15 @@ dependencies = [
  "cipher",
  "poly1305",
  "zeroize",
+]
+
+[[package]]
+name = "check_elevation"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b8bd5a44e782b910d9336320487a74e7a8256741c1485332608d014d3c2864e7"
+dependencies = [
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
@@ -1266,6 +1284,12 @@ dependencies = [
 [[package]]
 name = "kcc"
 version = "0.1.0"
+dependencies = [
+ "caps",
+ "check_elevation",
+ "rustix",
+ "thiserror",
+]
 
 [[package]]
 name = "kcc-app"
@@ -1322,20 +1346,12 @@ version = "0.1.0"
 name = "kcc-rci"
 version = "0.1.0"
 dependencies = [
- "kcc-testkit",
- "md-5",
  "proptest",
- "reqwest",
- "rustls",
- "secrecy",
  "serde",
  "serde_json",
  "serde_urlencoded",
- "sha2",
  "thiserror",
- "tokio",
  "url",
- "zeroize",
 ]
 
 [[package]]
