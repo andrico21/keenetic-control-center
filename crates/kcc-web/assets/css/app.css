@@ -628,6 +628,26 @@ samp {
   margin-block-start: var(--space-5);
 }
 
+.auth-page {
+  max-inline-size: 32rem;
+}
+
+.form,
+.form-section {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.form-section {
+  margin-block-start: var(--space-5);
+}
+
+.notice {
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-success-wash);
+  color: var(--color-success-ink);
+}
+
 h2 {
   font-size: var(--text-h2);
   font-weight: var(--weight-regular);

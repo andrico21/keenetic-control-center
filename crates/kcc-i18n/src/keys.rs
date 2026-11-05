@@ -393,8 +393,32 @@ pub const WEB_ERROR_INTERNAL_TEXT: MessageKey = MessageKey::new("web-error-inter
 /// `web-error-home` in `web.ftl`.
 pub const WEB_ERROR_HOME: MessageKey = MessageKey::new("web-error-home");
 
+/// `web-no-admin-text` in `web.ftl`.
+pub const WEB_NO_ADMIN_TEXT: MessageKey = MessageKey::new("web-no-admin-text");
+
+/// `web-no-admin-command` in `web.ftl`.
+pub const WEB_NO_ADMIN_COMMAND: MessageKey = MessageKey::new("web-no-admin-command");
+
+/// `web-account-title` in `web.ftl`.
+pub const WEB_ACCOUNT_TITLE: MessageKey = MessageKey::new("web-account-title");
+
+/// `web-current-password` in `web.ftl`.
+pub const WEB_CURRENT_PASSWORD: MessageKey = MessageKey::new("web-current-password");
+
+/// `web-new-password` in `web.ftl`.
+pub const WEB_NEW_PASSWORD: MessageKey = MessageKey::new("web-new-password");
+
+/// `web-change-password` in `web.ftl`.
+pub const WEB_CHANGE_PASSWORD: MessageKey = MessageKey::new("web-change-password");
+
+/// `web-account-locale` in `web.ftl`.
+pub const WEB_ACCOUNT_LOCALE: MessageKey = MessageKey::new("web-account-locale");
+
+/// `web-account-saved` in `web.ftl`.
+pub const WEB_ACCOUNT_SAVED: MessageKey = MessageKey::new("web-account-saved");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 129] = [
+pub const ALL: [MessageKey; 137] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -524,4 +548,12 @@ pub const ALL: [MessageKey; 129] = [
     WEB_ERROR_INTERNAL_TITLE,
     WEB_ERROR_INTERNAL_TEXT,
     WEB_ERROR_HOME,
+    WEB_NO_ADMIN_TEXT,
+    WEB_NO_ADMIN_COMMAND,
+    WEB_ACCOUNT_TITLE,
+    WEB_CURRENT_PASSWORD,
+    WEB_NEW_PASSWORD,
+    WEB_CHANGE_PASSWORD,
+    WEB_ACCOUNT_LOCALE,
+    WEB_ACCOUNT_SAVED,
 ];

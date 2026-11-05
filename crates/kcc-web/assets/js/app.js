@@ -7,6 +7,16 @@
   const YEAR_SECONDS = 31536000;
   const THEMES = ["system", "light", "dark"];
 
+  document.addEventListener("htmx:configRequest", (event) => {
+    if (event.detail?.verb === "get") {
+      return;
+    }
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+    if (token) {
+      event.detail.headers["X-CSRF-Token"] = token;
+    }
+  });
+
   // Preference cookies: readable by the server on the next request, never sent cross-site.
   const writeCookie = (name, value, maxAge) => {
     const secure = window.location.protocol === "https:" ? "; Secure" : "";

@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_ACCOUNT_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page auth-page">
+  <h1 class="page__title">{{ t(keys::WEB_ACCOUNT_TITLE) }}</h1>
+  <p class="page__text">{{ username }}</p>
+  {%- if saved %}<p class="notice" data-tone="success">{{ t(keys::WEB_ACCOUNT_SAVED) }}</p>{% endif %}
+  <section class="form-section">
+    <h2>{{ t(keys::WEB_CHANGE_PASSWORD) }}</h2>
+    <form class="form" method="post" action="/ui/account/password" hx-post="/ui/account/password" hx-target="body">
+      {{ ui::field("current-password", "current_password", t(keys::WEB_CURRENT_PASSWORD), "", "", "password", "current-password") }}
+      {{ ui::field("new-password", "new_password", t(keys::WEB_NEW_PASSWORD), "", error, "password", "new-password") }}
+      <button class="button button--primary" type="submit">{{ t(keys::WEB_CHANGE_PASSWORD) }}</button>
+    </form>
+  </section>
+  <section class="form-section">
+    <h2>{{ t(keys::WEB_ACCOUNT_LOCALE) }}</h2>
+    <form class="form" method="post" action="/ui/account/locale" hx-post="/ui/account/locale" hx-target="body">
+      <label class="field__label" for="account-locale">{{ t(keys::COMMON_LANGUAGE) }}</label>
+      <select class="field__input" id="account-locale" name="locale">
+        {%- for option in shell.locales() %}
+        <option value="{{ option.tag() }}"{% if option.current() %} selected{% endif %}>{{ t(option.label()) }}</option>
+        {%- endfor %}
+      </select>
+      <button class="button button--secondary" type="submit">{{ t(keys::COMMON_SAVE) }}</button>
+    </form>
+  </section>
+  <form method="post" action="/ui/logout" hx-post="/ui/logout" hx-target="body" hx-push-url="true">
+    <button class="button button--ghost" type="submit">{{ t(keys::WEB_LOGOUT) }}</button>
+  </form>
+</div>
+{%- endblock %}

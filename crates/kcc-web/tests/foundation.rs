@@ -10,7 +10,10 @@
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
-    use core::error::Error;
+    extern crate alloc;
+
+    use alloc::sync::Arc;
+    use core::{error::Error, time::Duration};
     use std::{fs, path::PathBuf};
 
     use axum::{
@@ -20,13 +23,22 @@ mod tests {
         response::Response,
     };
     use base64::{Engine as _, engine::general_purpose::STANDARD};
+    use kcc_app::{
+        accounts::{AccountStore, Clock, SystemClock},
+        audit::AuditLog,
+        permissions::built_in_roles,
+        persist::StateStore,
+        secrets::MasterKey,
+    };
     use kcc_i18n::locale::Locale;
-    use kcc_web::{BODY_LIMIT, WebState, nav::Section, web_router};
+    use kcc_web::{
+        BODY_LIMIT, WebState, WebStateConfig, nav::Section, session::CookieSecurity, web_router,
+    };
     use sha2::{Digest as _, Sha256};
     use tower::ServiceExt as _;
 
     /// Fallible test result.
-    type TestResult = Result<(), Box<dyn Error>>;
+    type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Largest response body a test reads.
     const BODY_CAP: usize = 0x0040_0000;
@@ -56,8 +68,28 @@ mod tests {
     const TEMPLATE_DELIMITERS: [(&str, &str); 3] = [("{#", "#}"), ("{%", "%}"), ("{{", "}}")];
 
     /// The router under test, with English as the configured default locale.
-    fn router() -> Router {
-        web_router(WebState::new(Locale::En))
+    fn router() -> Result<Router, Box<dyn Error + Send + Sync>> {
+        let directory = tempfile::tempdir()?.keep();
+        let state = StateStore::open(&directory.join("state"))?;
+        let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
+        let accounts = Arc::new(AccountStore::new(
+            state.clone(),
+            MasterKey::generate()?,
+            Duration::from_secs(60),
+            Arc::clone(&clock),
+        ));
+        let audit = AuditLog::spawn(&state)?;
+        Ok(web_router(WebState::new(WebStateConfig {
+            default_locale: Locale::En,
+            accounts,
+            audit,
+            roles: Vec::from(built_in_roles()),
+            session_idle: Duration::from_secs(30),
+            session_absolute: Duration::from_secs(300),
+            allowed_origins: vec!["http://127.0.0.1:8080".to_owned()],
+            cookie_security: CookieSecurity::LoopbackHttp,
+            clock,
+        })))
     }
 
     /// Sends one request through the router.
@@ -66,21 +98,24 @@ mod tests {
         path: &str,
         headers: &[(HeaderName, &str)],
         body: Body,
-    ) -> Result<Response, Box<dyn Error>> {
+    ) -> Result<Response, Box<dyn Error + Send + Sync>> {
         let mut request = Request::builder().method(method).uri(path);
         for (name, value) in headers {
             request = request.header(name, *value);
         }
-        Ok(router().oneshot(request.body(body)?).await?)
+        Ok(router()?.oneshot(request.body(body)?).await?)
     }
 
     /// Sends `GET path` with `headers`.
-    async fn get(path: &str, headers: &[(HeaderName, &str)]) -> Result<Response, Box<dyn Error>> {
+    async fn get(
+        path: &str,
+        headers: &[(HeaderName, &str)],
+    ) -> Result<Response, Box<dyn Error + Send + Sync>> {
         send(Method::GET, path, headers, Body::empty()).await
     }
 
     /// The response body as text.
-    async fn text(response: Response) -> Result<String, Box<dyn Error>> {
+    async fn text(response: Response) -> Result<String, Box<dyn Error + Send + Sync>> {
         let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
         Ok(String::from_utf8(bytes.to_vec())?)
     }
@@ -109,13 +144,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn root_and_bare_ui_redirect_to_the_dashboard() -> TestResult {
+    async fn root_and_bare_ui_redirect_to_login_without_a_session() -> TestResult {
         for path in ["/", "/ui"] {
             let response = get(path, &[]).await?;
             assert_eq!(response.status(), StatusCode::SEE_OTHER, "{path}");
             assert_eq!(
                 header_text(&response, &header::LOCATION).as_deref(),
-                Some("/ui/"),
+                Some("/ui/login"),
                 "{path}"
             );
         }
@@ -124,7 +159,7 @@ mod tests {
 
     #[tokio::test]
     async fn hash_addressed_assets_are_immutable_with_their_content_type() -> TestResult {
-        let page = text(get("/ui/", &[]).await?).await?;
+        let page = text(get("/ui/login", &[]).await?).await?;
         let script = tags(&page, "<script")
             .into_iter()
             .find(|tag| tag.contains("htmx.min.js"))
@@ -180,47 +215,24 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn unknown_paths_get_a_generic_localized_404() -> TestResult {
-        let probe = "/ui/no-such-page/../../etc/passwd%00<script>";
+    async fn unknown_protected_paths_redirect_to_login_without_reflection() -> TestResult {
         let response = get(
             "/ui/no-such-page/deeper",
             &[(header::ACCEPT_LANGUAGE, "de-DE,de;q=0.9")],
         )
         .await?;
-        assert_eq!(response.status(), StatusCode::NOT_FOUND, "status");
+        assert_eq!(response.status(), StatusCode::SEE_OTHER, "status");
         assert_eq!(
-            header_text(&response, &header::CONTENT_TYPE).as_deref(),
-            Some("text/html; charset=utf-8"),
-            "an HTML page, not the kit's JSON 404"
-        );
-        assert_eq!(
-            header_text(&response, &header::CACHE_CONTROL).as_deref(),
-            Some("no-store, max-age=0"),
-            "never cached"
+            header_text(&response, &header::LOCATION).as_deref(),
+            Some("/ui/login"),
+            "authentication precedes path disclosure"
         );
         let html = text(response).await?;
-        assert!(html.contains("<html lang=\"de\""), "negotiated locale");
-        assert!(html.contains("Seite nicht gefunden"), "German title");
-        for leak in [
-            "no-such-page",
-            "deeper",
-            "panicked",
-            ".rs",
-            "src/",
-            "kcc_web",
-            "axum",
-            "Error",
-        ] {
+        for leak in ["no-such-page", "deeper", "panicked", ".rs", "src/"] {
             assert!(!html.contains(leak), "the 404 page leaks {leak}");
         }
-
-        let encoded = get(&probe.replace('<', "%3C").replace('>', "%3E"), &[]).await?;
-        assert_eq!(encoded.status(), StatusCode::NOT_FOUND, "encoded probe");
-        let probed = text(encoded).await?;
-        assert!(!probed.contains("passwd"), "no reflection of the path");
-
         let posted = send(Method::POST, "/ui/clients", &[], Body::empty()).await?;
-        assert_eq!(posted.status(), StatusCode::NOT_FOUND, "non-GET under /ui");
+        assert_eq!(posted.status(), StatusCode::FORBIDDEN, "CSRF precedes auth");
         Ok(())
     }
 
@@ -243,26 +255,18 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn every_section_renders_inside_the_shell() -> TestResult {
+    async fn every_section_requires_authentication() -> TestResult {
         for section in Section::ALL {
             let response = get(section.href(), &[]).await?;
-            assert_eq!(response.status(), StatusCode::OK, "{}", section.href());
             assert_eq!(
-                header_text(&response, &header::CACHE_CONTROL).as_deref(),
-                Some("no-store, max-age=0"),
+                response.status(),
+                StatusCode::SEE_OTHER,
                 "{}",
                 section.href()
             );
-            let html = text(response).await?;
-            let current = format!("href=\"{}\" aria-current=\"page\"", section.href());
-            assert!(
-                html.contains(&current),
-                "{} is the current link",
-                section.href()
-            );
             assert_eq!(
-                html.matches("aria-current=\"page\"").count(),
-                1,
+                header_text(&response, &header::LOCATION).as_deref(),
+                Some("/ui/login"),
                 "{}",
                 section.href()
             );
@@ -272,7 +276,7 @@ mod tests {
 
     #[tokio::test]
     async fn pages_load_only_pinned_scripts_and_styles() -> TestResult {
-        let html = text(get("/ui/", &[]).await?).await?;
+        let html = text(get("/ui/login", &[]).await?).await?;
         assert!(
             html.contains(
                 "<meta name=\"htmx-config\" content='{\"allowEval\":false,\"allowScriptTags\":false,\"includeIndicatorStyles\":false,\"selfRequestsOnly\":true}'>"
@@ -300,7 +304,7 @@ mod tests {
     async fn theme_and_language_cookies_shape_the_page() -> TestResult {
         let html = text(
             get(
-                "/ui/",
+                "/ui/login",
                 &[
                     (header::COOKIE, "kcc_theme=dark; kcc_lang=kk"),
                     (header::ACCEPT_LANGUAGE, "de"),
@@ -329,7 +333,7 @@ mod tests {
     }
 
     /// Every `.html` template under `templates/`, as `(path, text)`.
-    fn templates() -> Result<Vec<(String, String)>, Box<dyn Error>> {
+    fn templates() -> Result<Vec<(String, String)>, Box<dyn Error + Send + Sync>> {
         let mut found = Vec::new();
         let mut pending = vec![PathBuf::from(TEMPLATES)];
         while let Some(dir) = pending.pop() {

@@ -22,6 +22,12 @@ pub(crate) fn shell(headers: &HeaderMap, default_locale: Locale) -> Shell {
     Shell::new(locale, theme)
 }
 
+/// A page shell using an authenticated account locale and the request's theme cookie.
+pub(crate) fn shell_for_locale(headers: &HeaderMap, locale: Locale) -> Shell {
+    let theme = cookie(headers, Theme::COOKIE_NAME).map_or(Theme::System, Theme::from_cookie);
+    Shell::new(locale, theme)
+}
+
 /// The value of the first cookie named `name` across every `Cookie` header.
 fn cookie<'headers>(headers: &'headers HeaderMap, name: &str) -> Option<&'headers str> {
     headers

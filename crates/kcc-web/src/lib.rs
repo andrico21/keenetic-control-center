@@ -26,29 +26,44 @@
 extern crate alloc;
 
 pub mod csp;
+mod csrf;
 pub mod errors;
 pub mod nav;
 pub mod page;
+pub mod session;
 pub mod sse;
 pub mod table;
+
+mod auth;
+mod authz;
 
 mod assets;
 mod pages;
 mod prefs;
 
-use core::time::Duration;
+use alloc::sync::Arc;
+use core::{fmt, time::Duration};
 
 use axum::{
     Router,
     http::{HeaderValue, StatusCode, header},
-    routing::get,
+    middleware,
+    routing::{get, post},
+};
+use kcc_app::{
+    accounts::{AccountStore, Clock},
+    audit::AuditLog,
+    permissions::Role,
 };
 use kcc_i18n::locale::Locale;
 use tower_http::{
     limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer,
 };
 
-use crate::sse::StreamLimiter;
+use crate::{
+    session::{CookieSecurity, SessionStore},
+    sse::StreamLimiter,
+};
 
 /// Time limit for producing a response on every route except server-sent event streams.
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
@@ -61,22 +76,83 @@ pub const BODY_LIMIT: usize = 1024 * 1024;
 const NO_STORE: &str = "no-store, max-age=0";
 
 /// Shared state of every Web UI handler.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct WebState {
     /// Locale used when neither the `kcc_lang` cookie nor `Accept-Language` selects one.
     default_locale: Locale,
     /// Open server-sent event streams per session.
     streams: StreamLimiter,
+    /// Persistent account service.
+    accounts: Arc<AccountStore>,
+    /// In-memory browser sessions.
+    sessions: SessionStore,
+    /// Tamper-evident audit writer.
+    audit: AuditLog,
+    /// Built-in and custom roles resolved at startup.
+    roles: Arc<[Role]>,
+    /// Origins accepted for browser state-changing requests.
+    allowed_origins: Arc<[String]>,
+    /// Cookie policy selected from the actual listener transport.
+    cookie_security: CookieSecurity,
+    /// Wall clock shared with account lockout and audit timestamps.
+    clock: Arc<dyn Clock>,
+}
+
+impl fmt::Debug for WebState {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WebState").finish_non_exhaustive()
+    }
+}
+
+/// Security services and listener facts needed to build [`WebState`].
+#[derive(Debug)]
+#[expect(
+    clippy::exhaustive_structs,
+    reason = "application integration constructs the complete validated Web state"
+)]
+pub struct WebStateConfig {
+    /// Locale used before login or when an account locale is invalid.
+    pub default_locale: Locale,
+    /// Persistent account service.
+    pub accounts: Arc<AccountStore>,
+    /// Tamper-evident audit writer.
+    pub audit: AuditLog,
+    /// Roles loaded from application state.
+    pub roles: Vec<Role>,
+    /// Session idle timeout.
+    pub session_idle: Duration,
+    /// Session absolute timeout.
+    pub session_absolute: Duration,
+    /// Origin allowlist derived by `Config::web_allowed_origins`.
+    pub allowed_origins: Vec<String>,
+    /// Cookie transport selected from the actual listener.
+    pub cookie_security: CookieSecurity,
+    /// Shared wall clock.
+    pub clock: Arc<dyn Clock>,
 }
 
 impl WebState {
-    /// Creates the state with the configured default locale (`[web] default_locale`).
+    /// Creates the state from validated application services and listener facts.
     #[inline]
     #[must_use]
-    pub fn new(default_locale: Locale) -> Self {
+    pub fn new(config: WebStateConfig) -> Self {
+        let sessions = SessionStore::new(
+            config.session_idle,
+            config.session_absolute,
+            config.default_locale,
+            Arc::clone(&config.clock),
+        );
         Self {
-            default_locale,
+            default_locale: config.default_locale,
             streams: StreamLimiter::default(),
+            accounts: config.accounts,
+            sessions,
+            audit: config.audit,
+            roles: config.roles.into(),
+            allowed_origins: config.allowed_origins.into(),
+            cookie_security: config.cookie_security,
+            clock: config.clock,
         }
     }
 
@@ -92,6 +168,54 @@ impl WebState {
     #[must_use]
     pub const fn streams(&self) -> &StreamLimiter {
         &self.streams
+    }
+
+    /// Account service used by login and account settings.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn accounts(&self) -> &Arc<AccountStore> {
+        &self.accounts
+    }
+
+    /// In-memory session store.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn sessions(&self) -> &SessionStore {
+        &self.sessions
+    }
+
+    /// Audit writer for authentication events.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn audit(&self) -> &AuditLog {
+        &self.audit
+    }
+
+    /// Resolves an account's persisted role name.
+    #[must_use]
+    pub(crate) fn role(&self, name: &str) -> Option<Role> {
+        self.roles.iter().find(|role| role.name == name).cloned()
+    }
+
+    /// Origins accepted for state-changing browser requests.
+    #[inline]
+    #[must_use]
+    pub(crate) fn allowed_origins(&self) -> &[String] {
+        &self.allowed_origins
+    }
+
+    /// Session cookie policy for this listener.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn cookie_security(&self) -> CookieSecurity {
+        self.cookie_security
+    }
+
+    /// Current Unix timestamp for audit records.
+    #[inline]
+    #[must_use]
+    pub(crate) fn unix_seconds(&self) -> u64 {
+        self.clock.unix_seconds()
     }
 }
 
@@ -109,19 +233,45 @@ impl WebState {
 ///   explicit route that renders the HTML 404 page for every unknown path.
 #[inline]
 pub fn web_router(state: WebState) -> Router {
-    let bounded = Router::new()
+    let protected = Router::new()
         .route("/", get(pages::to_ui))
         .route("/ui", get(pages::to_ui))
         .route("/ui/", get(pages::dashboard))
-        .route(assets::ROUTE, get(assets::serve))
+        .route("/ui/account", get(auth::account_page))
+        .route("/ui/account/password", post(auth::change_password))
+        .route("/ui/account/locale", post(auth::change_locale))
+        .route("/ui/logout", post(auth::logout))
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),
         )
-        .layer(TimeoutLayer::with_status_code(
-            StatusCode::REQUEST_TIMEOUT,
-            REQUEST_TIMEOUT,
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            authz::authorization_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            authz::authentication_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf::middleware,
         ));
+    let public = Router::new()
+        .route(assets::ROUTE, get(assets::serve))
+        .route("/ui/login", get(auth::login_page).post(auth::login))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf::middleware,
+        ));
+    let bounded =
+        Router::new()
+            .merge(public)
+            .merge(protected)
+            .layer(TimeoutLayer::with_status_code(
+                StatusCode::REQUEST_TIMEOUT,
+                REQUEST_TIMEOUT,
+            ));
     Router::new()
         .merge(bounded)
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))

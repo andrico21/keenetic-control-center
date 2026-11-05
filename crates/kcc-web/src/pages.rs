@@ -13,6 +13,7 @@ use kcc_i18n::keys;
 
 use crate::{
     WebState,
+    authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     nav::Section,
     page::{Localize, Shell},
@@ -41,8 +42,13 @@ pub(crate) async fn to_ui() -> Redirect {
 }
 
 /// `GET /ui/`: the dashboard.
-pub(crate) async fn dashboard(State(state): State<WebState>, headers: HeaderMap) -> Response {
-    page(&state, &headers, Section::Dashboard)
+pub(crate) async fn dashboard(
+    State(state): State<WebState>,
+    headers: HeaderMap,
+    current: CurrentSession,
+    user: CurrentUser,
+) -> Response {
+    page(&state, &headers, &current, &user, Section::Dashboard)
 }
 
 /// `GET /ui/{*rest}`: a section page, or the 404 page for any other path.
@@ -50,6 +56,8 @@ pub(crate) async fn section(
     State(state): State<WebState>,
     rest: Result<Path<String>, PathRejection>,
     headers: HeaderMap,
+    current: CurrentSession,
+    user: CurrentUser,
 ) -> Response {
     rest.ok()
         .and_then(|Path(slug)| Section::from_slug(&slug))
@@ -58,25 +66,41 @@ pub(crate) async fn section(
             || {
                 errors::response(
                     Kind::NotFound,
-                    prefs::shell(&headers, state.default_locale()),
+                    prefs::shell_for_locale(&headers, user.locale())
+                        .with_csrf_token(current.session().csrf_token().to_owned()),
                 )
             },
-            |section| page(&state, &headers, section),
+            |section| page(&state, &headers, &current, &user, section),
         )
 }
 
 /// Any method but `GET` under `/ui/{*rest}`: the 404 page.
-pub(crate) async fn not_found(State(state): State<WebState>, headers: HeaderMap) -> Response {
+pub(crate) async fn not_found(
+    State(_state): State<WebState>,
+    headers: HeaderMap,
+    current: CurrentSession,
+    user: CurrentUser,
+) -> Response {
     errors::response(
         Kind::NotFound,
-        prefs::shell(&headers, state.default_locale()),
+        prefs::shell_for_locale(&headers, user.locale())
+            .with_csrf_token(current.session().csrf_token().to_owned()),
     )
 }
 
 /// Renders the page of `section`.
-fn page(state: &WebState, headers: &HeaderMap, section: Section) -> Response {
+fn page(
+    state: &WebState,
+    headers: &HeaderMap,
+    current: &CurrentSession,
+    user: &CurrentUser,
+    section: Section,
+) -> Response {
+    let _: &WebState = state;
     errors::render(&SectionPage {
-        shell: prefs::shell(headers, state.default_locale()).with_section(section),
+        shell: prefs::shell_for_locale(headers, user.locale())
+            .with_csrf_token(current.session().csrf_token().to_owned())
+            .with_section(section),
         section,
     })
 }

@@ -8,17 +8,26 @@ publish = false
 
 [dependencies]
 askama = { version = "0.16.1", default-features = false, features = ["derive", "std"] }
-axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+axum = { version = "0.8.9", default-features = false, features = ["form", "http1", "tokio"] }
 base64 = "0.23.1"
 fluent-bundle = "0.16.0"
+kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
+rand = "0.10.3"
 rmcp-server-kit = "3.21.1"
+secrecy = "0.10.3"
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.145"
 sha2 = "0.11.1"
+subtle = "2.6.1"
+thiserror = "2.0.17"
+tokio = { version = "1.54.1", features = ["rt", "sync", "time"] }
 tower-http = { version = "0.7.1", features = ["limit", "set-header", "timeout"] }
 tracing = { version = "0.1.44", default-features = false, features = ["std"] }
 
 [dev-dependencies]
-tokio = { version = "1.54.1", features = ["macros", "rt"] }
+tempfile = "3.27.0"
+tokio = { version = "1.54.1", features = ["macros", "rt", "test-util"] }
 tower = { version = "0.5.3", default-features = false, features = ["util"] }
 
 [lints]

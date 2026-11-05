@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_LOGIN_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page auth-page">
+  <h1 class="page__title">{{ t(keys::WEB_LOGIN_TITLE) }}</h1>
+  {%- if no_admin %}
+  <p class="page__text">{{ t(keys::WEB_NO_ADMIN_TEXT) }}</p>
+  <p><code>{{ t(keys::WEB_NO_ADMIN_COMMAND) }}</code></p>
+  {%- else %}
+  <form class="form" method="post" action="/ui/login" hx-post="/ui/login" hx-target="body" hx-push-url="true">
+    {{ ui::field("login-username", "username", t(keys::WEB_LOGIN_USERNAME), username, "", "text", "username") }}
+    {{ ui::field("login-password", "password", t(keys::WEB_LOGIN_PASSWORD), "", error, "password", "current-password") }}
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_LOGIN_SUBMIT) }}</button>
+  </form>
+  {%- endif %}
+</div>
+{%- endblock %}
