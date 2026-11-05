@@ -18,7 +18,7 @@ use core::{fmt, time::Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_catalog::{Catalog, HttpMethod, ValidatedRequest, ValidationIssue};
-use kcc_rci::{ConfigKind, RciBody, RciClient, RciError, RciPath};
+use kcc_rci::{ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Value, json};
 use tokio::{
@@ -142,6 +142,109 @@ impl ChangeRequest {
     }
 }
 
+/// One validated deletion request.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct DeleteRequest {
+    /// Space-separated catalog path.
+    pub catalog_path: String,
+    /// Slash-separated RCI resource path segments.
+    pub rci_path: Vec<String>,
+    /// Serialized deletion query parameters.
+    pub query: Value,
+    /// Read-back expectations.
+    pub verify: Vec<VerificationSpec>,
+    /// Permission required to execute this operation.
+    pub permission: Permission,
+    /// Redacted audit parameters.
+    pub audit_params: Value,
+}
+
+impl DeleteRequest {
+    /// Creates a deletion request with read-back and redacted audit data.
+    #[inline]
+    #[must_use]
+    pub const fn new(
+        catalog_path: String,
+        rci_path: Vec<String>,
+        query: Value,
+        verify: Vec<VerificationSpec>,
+        permission: Permission,
+        audit_params: Value,
+    ) -> Self {
+        Self {
+            catalog_path,
+            rci_path,
+            query,
+            verify,
+            permission,
+            audit_params,
+        }
+    }
+}
+
+/// One root RCI batch item paired with its catalog validation result.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct BatchItem {
+    /// Root RCI object sent to the router.
+    pub value: Value,
+    /// Catalog validation result proving the operation shape and risk.
+    pub validated: ValidatedRequest,
+}
+
+impl BatchItem {
+    /// Pairs one root RCI object with its catalog validation result.
+    #[inline]
+    #[must_use]
+    pub const fn new(value: Value, validated: ValidatedRequest) -> Self {
+        Self { value, validated }
+    }
+}
+
+/// One protected root RCI batch mutation.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct BatchChangeRequest {
+    /// Ordered catalog-validated root RCI items.
+    pub items: Vec<BatchItem>,
+    /// Read-back expectations after all items complete.
+    pub verify: Vec<VerificationSpec>,
+    /// Permission required to execute this operation.
+    pub permission: Permission,
+    /// Redacted audit parameters.
+    pub audit_params: Value,
+}
+
+impl BatchChangeRequest {
+    /// Creates a protected root RCI batch mutation.
+    #[inline]
+    #[must_use]
+    pub const fn new(
+        items: Vec<BatchItem>,
+        verify: Vec<VerificationSpec>,
+        permission: Permission,
+        audit_params: Value,
+    ) -> Self {
+        Self {
+            items,
+            verify,
+            permission,
+            audit_params,
+        }
+    }
+}
+
+/// Successful root RCI batch mutation result.
+#[derive(Debug)]
+#[non_exhaustive]
+pub struct BatchChangeResult {
+    /// Ordinary writes always remain unsaved until an explicit save.
+    pub unsaved: bool,
+    /// Ordered per-item router responses, including item-level failures.
+    pub responses: Vec<Result<RciResponse, RciError>>,
+}
+
 /// One catalog-validated CLI parser command.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
@@ -201,6 +304,43 @@ pub struct CliChangeResult {
     /// Ordinary writes always remain unsaved until an explicit save.
     pub unsaved: bool,
     /// Ordered router responses for the parser commands.
+    pub responses: Vec<RciBody>,
+}
+
+/// One protected terminal CLI parser mutation.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct TerminalCliChangeRequest {
+    /// Ordered catalog-validated parser commands.
+    pub commands: Vec<CliCommand>,
+    /// Permission required to execute this operation.
+    pub permission: Permission,
+    /// Redacted audit parameters.
+    pub audit_params: Value,
+}
+
+impl TerminalCliChangeRequest {
+    /// Creates a protected terminal CLI parser mutation.
+    #[inline]
+    #[must_use]
+    pub const fn new(
+        commands: Vec<CliCommand>,
+        permission: Permission,
+        audit_params: Value,
+    ) -> Self {
+        Self {
+            commands,
+            permission,
+            audit_params,
+        }
+    }
+}
+
+/// Successful terminal CLI parser mutation result.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct TerminalCliChangeResult {
+    /// Ordered router responses received before the session became unreachable.
     pub responses: Vec<RciBody>,
 }
 
@@ -480,6 +620,90 @@ impl ChangeSet {
         Ok(ChangeResult { unsaved: true })
     }
 
+    /// Applies one deletion after catalog validation, backup, conflict check, and read-back.
+    ///
+    /// # Errors
+    ///
+    /// Returns validation, conflict, backup, request, verification, or audit errors.
+    // NOT cancel-safe: cancellation after transmission may leave an applied unaudited deletion.
+    pub async fn apply_delete(
+        &mut self,
+        request: DeleteRequest,
+    ) -> Result<ChangeResult, WorkflowError> {
+        authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
+        let _validated = self
+            .catalog
+            .validate(&request.catalog_path, HttpMethod::Delete, &request.query)
+            .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
+        self.check_conflict().await?;
+        self.ensure_backup().await?;
+        let path =
+            RciPath::from_segments(&request.rci_path).map_err(|_error| RciError::Validation)?;
+        drop(self.client.delete(&path, &request.query).await?);
+        for verification in &request.verify {
+            verify(&self.client, verification).await?;
+        }
+        self.expected = read_last_change(&self.client).await?;
+        let timestamp = unix_seconds();
+        let event = AuditEvent::new(
+            timestamp,
+            self.actor.clone(),
+            "router.change_delete".to_owned(),
+        )
+        .with_router(self.router.clone())
+        .with_target(request.catalog_path)
+        .with_params(request.audit_params)
+        .with_result("applied_unsaved".to_owned(), format!("change-{timestamp}"));
+        drop(self.workflow.audit.append(event).await?);
+        Ok(ChangeResult { unsaved: true })
+    }
+
+    /// Applies catalog-validated root RCI items under the normal write protections.
+    ///
+    /// # Errors
+    ///
+    /// Returns permission, conflict, backup, request, verification, or audit errors.
+    // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
+    pub async fn apply_batch(
+        &mut self,
+        request: BatchChangeRequest,
+    ) -> Result<BatchChangeResult, WorkflowError> {
+        authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
+        self.check_conflict().await?;
+        self.ensure_backup().await?;
+        let values = request
+            .items
+            .iter()
+            .map(|item| item.value.clone())
+            .collect::<Vec<_>>();
+        let responses = self.client.batch(values).await?;
+        for verification in &request.verify {
+            verify(&self.client, verification).await?;
+        }
+        self.expected = read_last_change(&self.client).await?;
+        let timestamp = unix_seconds();
+        let target = request
+            .items
+            .iter()
+            .map(|item| item.validated.path.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let event = AuditEvent::new(
+            timestamp,
+            self.actor.clone(),
+            "router.change_batch".to_owned(),
+        )
+        .with_router(self.router.clone())
+        .with_target(target)
+        .with_params(request.audit_params)
+        .with_result("applied_unsaved".to_owned(), format!("change-{timestamp}"));
+        drop(self.workflow.audit.append(event).await?);
+        Ok(BatchChangeResult {
+            unsaved: true,
+            responses,
+        })
+    }
+
     /// Applies catalog-validated CLI parser commands under the normal write protections.
     ///
     /// # Errors
@@ -490,45 +714,45 @@ impl ChangeSet {
         &mut self,
         request: CliChangeRequest,
     ) -> Result<CliChangeResult, WorkflowError> {
-        authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
-        self.check_conflict().await?;
-        self.ensure_backup().await?;
-        let responses = match request.commands.as_slice() {
-            [] => Vec::new(),
-            [command] => vec![self.client.parse(&command.line).await?],
-            commands => self
-                .client
-                .parse_batch(commands.iter().map(|command| command.line.as_str()))
-                .await?
-                .into_iter()
-                .map(|response| response.map(RciBody::Json))
-                .collect::<Result<Vec<_>, _>>()?,
-        };
+        self.prepare_cli(request.permission).await?;
+        let responses = self.dispatch_cli(&request.commands).await?;
         for verification in &request.verify {
             verify(&self.client, verification).await?;
         }
         self.expected = read_last_change(&self.client).await?;
-        let timestamp = unix_seconds();
-        let target = request
-            .commands
-            .iter()
-            .map(|command| command.validated.path.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let event = AuditEvent::new(
-            timestamp,
-            self.actor.clone(),
-            "router.change_cli".to_owned(),
+        self.audit_cli(
+            &request.commands,
+            "router.change_cli",
+            request.audit_params,
+            "applied_unsaved",
         )
-        .with_router(self.router.clone())
-        .with_target(target)
-        .with_params(request.audit_params)
-        .with_result("applied_unsaved".to_owned(), format!("change-{timestamp}"));
-        drop(self.workflow.audit.append(event).await?);
+        .await?;
         Ok(CliChangeResult {
             unsaved: true,
             responses,
         })
+    }
+
+    /// Applies terminal CLI parser commands without requiring the router to remain reachable.
+    ///
+    /// # Errors
+    ///
+    /// Returns permission, conflict, backup, request, or audit errors.
+    // NOT cancel-safe: cancellation after transmission may leave an applied unaudited mutation.
+    pub async fn apply_cli_terminal(
+        &mut self,
+        request: TerminalCliChangeRequest,
+    ) -> Result<TerminalCliChangeResult, WorkflowError> {
+        self.prepare_cli(request.permission).await?;
+        let responses = self.dispatch_cli(&request.commands).await?;
+        self.audit_cli(
+            &request.commands,
+            "router.change_cli_terminal",
+            request.audit_params,
+            "applied_state_unknown",
+        )
+        .await?;
+        Ok(TerminalCliChangeResult { responses })
     }
 
     /// Explicitly saves running configuration and waits until `unsaved` clears.
@@ -576,6 +800,51 @@ impl ChangeSet {
     // cancel-safe: the router operation is a read.
     pub async fn current_last_change(&self) -> Result<LastChange, WorkflowError> {
         read_last_change(&self.client).await
+    }
+
+    /// Applies authorization, conflict, and backup preflight for CLI mutations.
+    async fn prepare_cli(&mut self, permission: Permission) -> Result<(), WorkflowError> {
+        authorize(&self.role, permission, &self.router).map_err(map_permission)?;
+        self.check_conflict().await?;
+        self.ensure_backup().await
+    }
+
+    /// Sends CLI commands and preserves their ordered responses.
+    async fn dispatch_cli(&self, commands: &[CliCommand]) -> Result<Vec<RciBody>, WorkflowError> {
+        match commands {
+            [] => Ok(Vec::new()),
+            [command] => Ok(vec![self.client.parse(&command.line).await?]),
+            many => self
+                .client
+                .parse_batch(many.iter().map(|command| command.line.as_str()))
+                .await?
+                .into_iter()
+                .map(|response| response.map(RciBody::Json).map_err(WorkflowError::from))
+                .collect(),
+        }
+    }
+
+    /// Appends a CLI mutation audit event without contacting the router.
+    async fn audit_cli(
+        &self,
+        commands: &[CliCommand],
+        action: &str,
+        audit_params: Value,
+        outcome: &str,
+    ) -> Result<(), WorkflowError> {
+        let timestamp = unix_seconds();
+        let target = commands
+            .iter()
+            .map(|command| command.validated.path.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let event = AuditEvent::new(timestamp, self.actor.clone(), action.to_owned())
+            .with_router(self.router.clone())
+            .with_target(target)
+            .with_params(audit_params)
+            .with_result(outcome.to_owned(), format!("change-{timestamp}"));
+        drop(self.workflow.audit.append(event).await?);
+        Ok(())
     }
 
     /// Compares the router with the last state observed after this set's own work.

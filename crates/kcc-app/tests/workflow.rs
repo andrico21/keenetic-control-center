@@ -13,7 +13,7 @@ use core::error::Error;
 use std::sync::Arc;
 
 use kcc_app::{
-    audit::{Actor, ActorKind, AuditLog},
+    audit::{Actor, ActorKind, AuditLog, verify_chain},
     backups::BackupStore,
     jobs::{JobError, JobProgress, JobRunner},
     permissions::{Permission, Role},
@@ -22,8 +22,8 @@ use kcc_app::{
     secrets::MasterKey,
     settings::OutboundConfig,
     workflow::{
-        ChangeRequest, ChangeWorkflow, CliChangeRequest, CliCommand, LastChange, VerificationSpec,
-        WorkflowError,
+        BatchChangeRequest, BatchItem, ChangeRequest, ChangeWorkflow, CliChangeRequest, CliCommand,
+        DeleteRequest, LastChange, TerminalCliChangeRequest, VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::{Catalog, HttpMethod};
@@ -163,6 +163,217 @@ async fn cli_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<d
     assert!(result.unsaved);
     assert_eq!(result.responses.len(), 1);
     assert_eq!(fixture.backups.list("router")?.len(), 1);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn terminal_cli_mutation_survives_session_loss_after_preflight() -> Result<(), Box<dyn Error>>
+{
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let info = fixture.registry.poll_info("router").await?;
+    let catalog = Catalog::for_router(&info)?;
+    let validated = catalog
+        .validate("system reboot", HttpMethod::Post, &json!({}))
+        .map_err(|issues| format!("catalog rejected terminal command: {issues:?}"))?;
+    let request = TerminalCliChangeRequest::new(
+        vec![CliCommand::new("system reboot".to_owned(), validated)],
+        Permission::Destructive,
+        json!({"operation":"reboot"}),
+    );
+    let mut changes = fixture.begin(None).await?;
+    let requests_before = fixture.handle.request_count();
+    let result = changes.apply_cli_terminal(request).await?;
+    let requests_after = fixture.handle.request_count();
+    assert_eq!(result.responses.len(), 1);
+    assert_eq!(requests_after.saturating_sub(requests_before), 3);
+    assert_eq!(fixture.backups.list("router")?.len(), 1);
+    let entries = verify_chain(fixture.state.dir())?;
+    let event = entries.last().ok_or("terminal audit event missing")?;
+    assert_eq!(event.action, "router.change_cli_terminal");
+    assert_eq!(event.outcome, "applied_state_unknown");
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn terminal_cli_mutation_enforces_operation_permission() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let role = Role::new(
+        "writer".to_owned(),
+        [Permission::Read, Permission::Write],
+        vec!["*".to_owned()],
+    );
+    let info = fixture.registry.poll_info("router").await?;
+    let catalog = Catalog::for_router(&info)?;
+    let validated = catalog
+        .validate("system reboot", HttpMethod::Post, &json!({}))
+        .map_err(|issues| format!("catalog rejected terminal command: {issues:?}"))?;
+    let request = TerminalCliChangeRequest::new(
+        vec![CliCommand::new("system reboot".to_owned(), validated)],
+        Permission::Destructive,
+        json!({"operation":"reboot"}),
+    );
+    let mut changes = fixture.begin_with_role(&role).await?;
+    let error = changes
+        .apply_cli_terminal(request)
+        .await
+        .expect_err("terminal CLI permission must be checked before dispatch");
+    assert!(matches!(error, WorkflowError::PermissionDenied { router } if router == "router"));
+    assert_eq!(fixture.backups.list("router")?.len(), 0);
+    assert_eq!(verify_chain(fixture.state.dir())?.len(), 0);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn delete_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let request = DeleteRequest::new(
+        "system description".to_owned(),
+        vec!["system".to_owned(), "description".to_owned()],
+        json!({}),
+        vec![VerificationSpec::new(
+            vec!["system".to_owned()],
+            String::new(),
+            json!({"name":"host-1"}),
+        )],
+        Permission::Write,
+        json!({"field":"description"}),
+    );
+    let mut changes = fixture.begin(None).await?;
+    let result = changes.apply_delete(request).await?;
+    assert!(result.unsaved);
+    assert_eq!(fixture.backups.list("router")?.len(), 1);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn delete_mutation_enforces_operation_permission() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let role = Role::new(
+        "reader".to_owned(),
+        [Permission::Read, Permission::Write],
+        vec!["*".to_owned()],
+    );
+    let request = DeleteRequest::new(
+        "system description".to_owned(),
+        vec!["system".to_owned(), "description".to_owned()],
+        json!({}),
+        Vec::new(),
+        Permission::Destructive,
+        json!({"field":"description"}),
+    );
+    let mut changes = fixture.begin_with_role(&role).await?;
+    let error = changes
+        .apply_delete(request)
+        .await
+        .expect_err("the operation permission must be checked inside apply_delete");
+    assert!(matches!(error, WorkflowError::PermissionDenied { router } if router == "router"));
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn batch_mutation_preserves_responses_and_read_back_protection() -> Result<(), Box<dyn Error>>
+{
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let info = fixture.registry.poll_info("router").await?;
+    let catalog = Catalog::for_router(&info)?;
+    let first = json!({"interface":{"name":"Batch1"}});
+    let second = json!({"interface":{"name":"Batch2"}});
+    let first_validated = catalog
+        .validate("", HttpMethod::Post, &first)
+        .map_err(|issues| format!("catalog rejected first batch item: {issues:?}"))?;
+    let second_validated = catalog
+        .validate("", HttpMethod::Post, &second)
+        .map_err(|issues| format!("catalog rejected second batch item: {issues:?}"))?;
+    let request = BatchChangeRequest::new(
+        vec![
+            BatchItem::new(first, first_validated),
+            BatchItem::new(second, second_validated),
+        ],
+        vec![VerificationSpec::new(
+            vec!["interface".to_owned()],
+            "/Batch2".to_owned(),
+            json!({}),
+        )],
+        Permission::Write,
+        json!({"items":2_u8}),
+    );
+    let mut changes = fixture.begin(None).await?;
+    let result = changes.apply_batch(request).await?;
+    assert!(result.unsaved);
+    assert_eq!(result.responses.len(), 2);
+    assert!(result.responses.iter().all(Result::is_ok));
+    assert_eq!(fixture.backups.list("router")?.len(), 1);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn batch_mutation_enforces_operation_permission() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let role = Role::new(
+        "reader".to_owned(),
+        [Permission::Read, Permission::Write],
+        vec!["*".to_owned()],
+    );
+    let info = fixture.registry.poll_info("router").await?;
+    let catalog = Catalog::for_router(&info)?;
+    let value = json!({"interface":{"name":"Denied"}});
+    let validated = catalog
+        .validate("", HttpMethod::Post, &value)
+        .map_err(|issues| format!("catalog rejected batch item: {issues:?}"))?;
+    let request = BatchChangeRequest::new(
+        vec![BatchItem::new(value, validated)],
+        Vec::new(),
+        Permission::Destructive,
+        json!({"items":1_u8}),
+    );
+    let mut changes = fixture.begin_with_role(&role).await?;
+    let error = changes
+        .apply_batch(request)
+        .await
+        .expect_err("the operation permission must be checked inside apply_batch");
+    assert!(matches!(error, WorkflowError::PermissionDenied { router } if router == "router"));
     fixture.shutdown().await?;
     Ok(())
 }

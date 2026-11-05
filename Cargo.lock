@@ -1469,6 +1469,20 @@ dependencies = [
 [[package]]
 name = "kcc-domain"
 version = "0.1.0"
+dependencies = [
+ "kcc-app",
+ "kcc-catalog",
+ "kcc-rci",
+ "kcc-testkit",
+ "secrecy",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror",
+ "tokio",
+ "tokio-util",
+ "url",
+]
 
 [[package]]
 name = "kcc-i18n"
