@@ -1322,12 +1322,20 @@ version = "0.1.0"
 name = "kcc-rci"
 version = "0.1.0"
 dependencies = [
+ "kcc-testkit",
+ "md-5",
  "proptest",
+ "reqwest",
+ "rustls",
+ "secrecy",
  "serde",
  "serde_json",
  "serde_urlencoded",
+ "sha2",
  "thiserror",
+ "tokio",
  "url",
+ "zeroize",
 ]
 
 [[package]]

@@ -495,6 +495,23 @@ pub(crate) fn create_private_file(path: &Path) -> Result<File, StateError> {
     Ok(file)
 }
 
+/// Opens or creates an owner-only appendable state file.
+///
+/// This is exposed within the crate for append-only stores such as the audit
+/// log, while preserving the same owner-only permissions as versioned state.
+///
+/// # Errors
+///
+/// [`StateError::Io`] when the file cannot be opened or restricted.
+pub(crate) fn open_private_append_file(path: &Path) -> Result<File, StateError> {
+    let mut options = OpenOptions::new();
+    let _: &mut OpenOptions = options.append(true).create(true);
+    restrict_options(&mut options);
+    let file = options.open(path).map_err(|error| io_error(path, error))?;
+    restrict_file(&file, path)?;
+    Ok(file)
+}
+
 /// Creates `dir` (and parents) owner-only and restricts an existing one.
 ///
 /// # Errors
