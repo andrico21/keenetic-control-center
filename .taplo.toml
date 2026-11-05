@@ -1,0 +1,30 @@
+# taplo configuration
+# https://taplo.tamasfe.dev/configuration/file.html
+#
+# Scopes `taplo fmt --check` to source-tracked TOML.
+
+include = ["**/*.toml"]
+exclude = [
+    "target/**",
+    "**/target/**",
+    ".git/**",
+    # throwaway lint-macro spike, outside the profile
+    "spikes/**",
+    # cargo-vet owns and regenerates these
+    "supply-chain/**",
+    # fetched/generated catalog data
+    "catalog/.cache/**",
+    # root manifest is pinned byte-for-byte to the R-GUIDE template (trailing-comment alignment differs)
+    "Cargo.toml",
+    # stray literal `~` directory created by cargo-audit db-path (not source)
+    "~/**",
+]
+
+# Match the existing hand-written style (4-space indent, no forced
+# comment alignment, inline tables kept on one line).
+[formatting]
+align_comments = false
+indent_string = "    "
+column_width = 200
+array_auto_expand = false
+array_auto_collapse = false

@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "cargo"
+    directory: "/xtask"
+    schedule:
+      interval: "weekly"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    ignore:
+      # Pinned by branch name; Dependabot would rewrite the pin to one commit
+      # and drop the toolchain the branch name selected. Refresh by hand with
+      # the toolchain-bump procedure in RUST_GUIDELINES.md.
+      - dependency-name: "dtolnay/rust-toolchain"

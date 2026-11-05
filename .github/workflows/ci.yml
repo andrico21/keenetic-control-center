@@ -1,0 +1,222 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least-privilege default: every job only reads the repo and runs cargo/tooling
+# commands, so the read-only default covers the whole workflow.
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # R-GUIDE Section 12: deny rustc warnings through Cargo build.warnings (the
+  # config key), never through the RUSTFLAGS variable.
+  CARGO_BUILD_WARNINGS: deny
+
+# Action pins: actions/checkout v7.0.1, dtolnay/rust-toolchain (master, the
+# `toolchain:` input selects the compiler), Swatinem/rust-cache v2.9.2,
+# taiki-e/install-action v2. Refresh by hand or through Dependabot (which is
+# told to leave rust-toolchain alone, see .github/dependabot.yml).
+jobs:
+  fmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: nightly-2026-10-03
+          components: rustfmt
+      - run: cargo +nightly-2026-10-03 fmt --all -- --check
+
+  clippy:
+    name: Clippy (${{ matrix.scope }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # `workspace` lints everything with all features; every other leg lints
+        # and tests one library crate alone at its default features, because
+        # --all-features never compiles cfg(not(feature = "..")) code.
+        scope:
+          - workspace
+          - kcc-app
+          - kcc-catalog
+          - kcc-config
+          - kcc-domain
+          - kcc-i18n
+          - kcc-mcp
+          - kcc-migrate
+          - kcc-rci
+          - kcc-telemetry
+          - kcc-testkit
+          - kcc-web
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - name: Clippy (workspace, all features)
+        if: matrix.scope == 'workspace'
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Clippy (library, default features)
+        if: matrix.scope != 'workspace'
+        run: cargo clippy -p ${{ matrix.scope }} --all-targets -- -D warnings
+      - name: Test (library, default features)
+        if: matrix.scope != 'workspace'
+        run: cargo test -p ${{ matrix.scope }}
+
+  test:
+    name: Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo test --workspace --all-features
+      - name: Doctests
+        run: cargo test --doc --workspace
+
+  rustdoc:
+    name: Rustdoc
+    runs-on: ubuntu-latest
+    env:
+      RUSTDOCFLAGS: "-D warnings"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo doc --workspace --no-deps --all-features
+
+  deny:
+    name: cargo-deny
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: cargo-deny
+      - run: cargo deny check
+
+  audit:
+    name: cargo-audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: cargo-audit
+      - run: cargo audit
+
+  vet:
+    name: cargo-vet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: cargo-vet
+      # Cargo.lock is committed and exemptions pin exact versions, so this is
+      # deterministic. Bump dependencies and run `cargo vet regenerate
+      # exemptions` in the same commit.
+      - run: cargo vet --locked
+
+  machete:
+    name: cargo-machete
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: cargo-machete
+      # First-party crates only: spikes/ is throwaway code outside the profile.
+      - run: cargo machete crates xtask
+
+  msrv:
+    name: MSRV (1.99.1)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo +1.99.1 build --workspace --all-features
+
+  gates:
+    name: Project gates (xtask)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+      - run: cargo xtask lint-completeness
+      - run: cargo xtask allow-gate
+      - run: cargo xtask profile-eq
+      # TODO(todos 32/33): add `cargo xtask i18n-check` and
+      # `cargo xtask assets-check` once those subcommands exist.
+
+  xtask:
+    name: xtask (clippy, test, deny)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+          components: clippy
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: xtask
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: cargo-deny
+      - run: cargo clippy --manifest-path xtask/Cargo.toml --all-targets --all-features -- -D warnings
+      - run: cargo test --manifest-path xtask/Cargo.toml --all-features
+      - run: cargo deny --manifest-path xtask/Cargo.toml check
+
+  taplo:
+    name: TOML format (taplo)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: taplo
+      - run: taplo fmt --check
+
+  guidelines:
+    name: Vendored guidelines checksum
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: cd docs/rust-guidelines && sha256sum -c SHA256SUMS
