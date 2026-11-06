@@ -1,0 +1,59 @@
+{#- The inside of one fleet card; the page includes it and the fleet stream re-sends it. -#}
+<div class="router-card__head">
+  <h2 class="router-card__title"><a class="router-card__link" href="/ui/r/{{ card.id() }}">{{ card.id() }}</a></h2>
+  <span class="status" data-status="{{ card.status().value() }}">{{ t(card.status().label()) }}</span>
+</div>
+{%- if card.brand().is_some() || card.model().is_some() || card.hw_id().is_some() %}
+<p class="identity">
+  {%- if let Some(brand) = card.brand() %}<span class="brand-mark">{{ t(**brand) }}</span>{% endif %}
+  {%- if let Some(model) = card.model() %} <span>{{ model }}</span>{% endif %}
+  {%- if let Some(hw_id) = card.hw_id() %} <span class="mono">{{ hw_id }}</span>{% endif %}
+</p>
+{%- endif %}
+{%- if !card.polled() %}
+<p class="router-card__note">{{ t(keys::WEB_ROUTER_WAITING) }}</p>
+{%- else %}
+{%- if card.status().value() == "offline" %}
+<p class="router-card__note" data-tone="error">{{ t(keys::WEB_ROUTER_UNREACHABLE) }}</p>
+{%- endif %}
+{%- if card.observed() %}
+<dl class="facts">
+  {%- if let Some(firmware) = card.firmware() %}
+  <div class="facts__row"><dt>{{ t(keys::DOMAINS_FIRMWARE) }}</dt><dd>{{ firmware }}</dd></div>
+  {%- endif %}
+  {%- if let Some(uptime) = card.uptime() %}
+  <div class="facts__row"><dt>{{ t(keys::DOMAINS_UPTIME) }}</dt><dd>{{ uptime }}</dd></div>
+  {%- endif %}
+  <div class="facts__row"><dt>{{ t(keys::WEB_INTERNET_LABEL) }}</dt><dd>{{ t(card.internet()) }}</dd></div>
+  {%- if let Some(clients) = card.clients() %}
+  <div class="facts__row"><dt>{{ t(keys::DOMAINS_CLIENTS) }}</dt><dd>{{ clients }}</dd></div>
+  {%- endif %}
+</dl>
+{%- if let Some(cpu) = card.cpu() %}
+<div class="gauge">
+  <span class="gauge__label">{{ t(keys::DOMAINS_CPU_LOAD) }}</span>
+  <span class="gauge__value">{{ cpu.text() }}</span>
+  <meter class="gauge__meter" min="0" max="100" value="{{ cpu.percent() }}" aria-hidden="true"></meter>
+</div>
+{%- endif %}
+{%- if let Some(memory) = card.memory() %}
+<div class="gauge">
+  <span class="gauge__label">{{ t(keys::DOMAINS_MEMORY) }}</span>
+  <span class="gauge__value">{{ memory.text() }}</span>
+  <meter class="gauge__meter" min="0" max="100" value="{{ memory.percent() }}" aria-hidden="true"></meter>
+</div>
+{%- endif %}
+{%- endif %}
+{%- endif %}
+{%- if card.unsaved() || card.config_defined() || card.can_edit() %}
+<div class="router-card__foot">
+  {%- if card.unsaved() %}
+  <span class="flag" data-tone="warning">{{ t(keys::WEB_ROUTER_UNSAVED) }}</span>
+  {%- endif %}
+  {%- if card.config_defined() %}
+  <span class="router-card__note">{{ t(keys::WEB_ROUTER_CONFIG_DEFINED) }}</span>
+  {%- else if card.can_edit() %}
+  <a class="button button--ghost" href="/ui/routers/{{ card.id() }}/edit">{{ t(keys::WEB_ROUTER_EDIT) }}</a>
+  {%- endif %}
+</div>
+{%- endif %}

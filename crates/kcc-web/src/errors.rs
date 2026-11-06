@@ -4,6 +4,8 @@
 //! dashboard. It never shows the request path, an error message, a stack trace or any
 //! other internal detail; the cause of a 500 goes to the server log instead.
 
+use core::fmt::Display;
+
 use askama::Template;
 use axum::{
     http::{StatusCode, header},
@@ -114,4 +116,13 @@ where
             response(Kind::Internal, Shell::new(shell.locale(), shell.theme()))
         }
     }
+}
+
+/// Logs `error` as the cause of a failed request and answers with the 500 page.
+pub(crate) fn internal<E>(error: &E, shell: Shell) -> Response
+where
+    E: Display + ?Sized,
+{
+    tracing::error!(%error, "web request failed");
+    response(Kind::Internal, shell)
 }

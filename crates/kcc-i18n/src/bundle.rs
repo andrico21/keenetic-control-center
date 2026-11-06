@@ -259,7 +259,9 @@ mod tests {
     /// Arguments covering every variable used by any message.
     fn all_arguments() -> FluentArgs<'static> {
         let mut args = FluentArgs::new();
-        for name in ["user", "name", "url", "model", "version", "path", "field"] {
+        for name in [
+            "user", "name", "url", "model", "version", "path", "field", "value",
+        ] {
             args.set(name, "x");
         }
         for name in ["count", "current", "total", "minutes"] {

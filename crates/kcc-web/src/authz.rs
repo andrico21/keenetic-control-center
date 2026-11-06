@@ -11,10 +11,12 @@ use kcc_app::{
     registry,
 };
 use kcc_i18n::locale::Locale;
+use sha2::{Digest as _, Sha256};
 
 use crate::{
     WebState,
     errors::{self, Kind},
+    overview::masthead,
     prefs,
     session::{Session, SessionId, SessionStore},
 };
@@ -53,6 +55,17 @@ impl CurrentSession {
     pub(crate) const fn session(&self) -> &Session {
         &self.session
     }
+
+    /// The opaque key under which this session's event streams are counted: a hash of
+    /// the session id, so the id itself never leaves the session store.
+    #[must_use]
+    pub(crate) fn stream_key(&self) -> String {
+        Sha256::digest(self.id.as_str().as_bytes())
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<Vec<_>>()
+            .concat()
+    }
 }
 
 impl CurrentUser {
@@ -61,6 +74,13 @@ impl CurrentUser {
     #[must_use]
     pub(crate) const fn username(&self) -> &str {
         self.username.as_str()
+    }
+
+    /// Resolved role and router scope.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn role(&self) -> &Role {
+        &self.role
     }
 
     /// Account locale.
@@ -156,24 +176,30 @@ pub(crate) async fn authorization_middleware(
     let Some(user) = request.extensions().get::<CurrentUser>() else {
         return StatusCode::UNAUTHORIZED.into_response();
     };
-    let requirement = requirement(request.uri().path());
-    let permitted = user.role.grants(requirement.permission)
-        && requirement.router.as_ref().is_none_or(|router| {
-            registry::authorize(&user.role, requirement.permission, router).is_ok()
-        });
-    if !permitted {
-        let shell = prefs::shell_for_locale(request.headers(), user.locale).with_csrf_token(
-            request
-                .extensions()
-                .get::<CurrentSession>()
-                .map_or_else(String::new, |current| {
-                    current.session.csrf_token().to_owned()
-                }),
-        );
+    if !permits(&user.role, request.uri().path()) {
+        let shell = prefs::shell_for_locale(request.headers(), user.locale)
+            .with_csrf_token(
+                request
+                    .extensions()
+                    .get::<CurrentSession>()
+                    .map_or_else(String::new, |current| {
+                        current.session.csrf_token().to_owned()
+                    }),
+            )
+            .with_fleet(masthead(&state, &user.role, None).await, None);
         return errors::response(Kind::Forbidden, shell);
     }
-    let _: &WebState = &state;
     next.run(request).await
+}
+
+/// Whether `role` may open `path` under the route table, including its router scope.
+pub(crate) fn permits(role: &Role, path: &str) -> bool {
+    let requirement = requirement(path);
+    role.grants(requirement.permission)
+        && requirement
+            .router
+            .as_ref()
+            .is_none_or(|router| registry::authorize(role, requirement.permission, router).is_ok())
 }
 
 /// One route-table authorization decision.
@@ -187,6 +213,7 @@ struct Requirement {
 
 /// Maps current and planned Web UI route families to application permissions.
 fn requirement(path: &str) -> Requirement {
+    let router = router_scope(path);
     let permission = match path {
         value if value.starts_with("/ui/admin") => Permission::ManageUsers,
         value if value.starts_with("/ui/audit") => Permission::ViewAudit,
@@ -194,17 +221,25 @@ fn requirement(path: &str) -> Requirement {
         value if value.starts_with("/ui/configuration") => Permission::Write,
         value if value.starts_with("/ui/advanced") => Permission::RawRci,
         value if value.starts_with("/ui/routers") => Permission::ManageRouters,
+        value if router.is_some() && value.ends_with("/save") => Permission::Save,
         _ => Permission::Read,
     };
-    let router = router_scope(path);
     Requirement { permission, router }
 }
 
-/// Extracts the `:router` value from `/ui/router/:router/...` route families.
+/// Extracts the router id from the `/ui/r/{router}/...` and `/ui/sse/r/{router}/...`
+/// route families.
 fn router_scope(path: &str) -> Option<String> {
     let mut segments = path.trim_start_matches('/').split('/');
-    match (segments.next(), segments.next(), segments.next()) {
-        (Some("ui"), Some("router"), Some(router)) if !router.is_empty() => Some(router.to_owned()),
-        _ => None,
-    }
+    let ((Some("ui"), Some("r"), Some(router), _)
+    | (Some("ui"), Some("sse"), Some("r"), Some(router))) = (
+        segments.next(),
+        segments.next(),
+        segments.next(),
+        segments.next(),
+    )
+    else {
+        return None;
+    };
+    (!router.is_empty()).then(|| router.to_owned())
 }

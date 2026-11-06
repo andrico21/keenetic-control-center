@@ -1,0 +1,5 @@
+{%- import "components.html" as ui -%}
+{{ ui::toast(tone, message) }}
+{%- if saved %}
+<div id="unsaved-banner" hx-swap-oob="true" hidden></div>
+{%- endif %}

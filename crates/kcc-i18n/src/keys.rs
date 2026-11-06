@@ -89,6 +89,48 @@ pub const COMMON_ITEMS_COUNT: MessageKey = MessageKey::new("common-items-count")
 /// `common-routers-count` in `common.ftl`.
 pub const COMMON_ROUTERS_COUNT: MessageKey = MessageKey::new("common-routers-count");
 
+/// `common-unit-bytes` in `common.ftl`.
+pub const COMMON_UNIT_BYTES: MessageKey = MessageKey::new("common-unit-bytes");
+
+/// `common-unit-kilobytes` in `common.ftl`.
+pub const COMMON_UNIT_KILOBYTES: MessageKey = MessageKey::new("common-unit-kilobytes");
+
+/// `common-unit-megabytes` in `common.ftl`.
+pub const COMMON_UNIT_MEGABYTES: MessageKey = MessageKey::new("common-unit-megabytes");
+
+/// `common-unit-gigabytes` in `common.ftl`.
+pub const COMMON_UNIT_GIGABYTES: MessageKey = MessageKey::new("common-unit-gigabytes");
+
+/// `common-unit-terabytes` in `common.ftl`.
+pub const COMMON_UNIT_TERABYTES: MessageKey = MessageKey::new("common-unit-terabytes");
+
+/// `common-unit-bits` in `common.ftl`.
+pub const COMMON_UNIT_BITS: MessageKey = MessageKey::new("common-unit-bits");
+
+/// `common-unit-kilobits` in `common.ftl`.
+pub const COMMON_UNIT_KILOBITS: MessageKey = MessageKey::new("common-unit-kilobits");
+
+/// `common-unit-megabits` in `common.ftl`.
+pub const COMMON_UNIT_MEGABITS: MessageKey = MessageKey::new("common-unit-megabits");
+
+/// `common-unit-gigabits` in `common.ftl`.
+pub const COMMON_UNIT_GIGABITS: MessageKey = MessageKey::new("common-unit-gigabits");
+
+/// `common-percent` in `common.ftl`.
+pub const COMMON_PERCENT: MessageKey = MessageKey::new("common-percent");
+
+/// `common-duration-days` in `common.ftl`.
+pub const COMMON_DURATION_DAYS: MessageKey = MessageKey::new("common-duration-days");
+
+/// `common-duration-hours` in `common.ftl`.
+pub const COMMON_DURATION_HOURS: MessageKey = MessageKey::new("common-duration-hours");
+
+/// `common-duration-minutes` in `common.ftl`.
+pub const COMMON_DURATION_MINUTES: MessageKey = MessageKey::new("common-duration-minutes");
+
+/// `common-duration-seconds` in `common.ftl`.
+pub const COMMON_DURATION_SECONDS: MessageKey = MessageKey::new("common-duration-seconds");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -440,8 +482,295 @@ pub const WEB_ACCOUNT_LOCALE: MessageKey = MessageKey::new("web-account-locale")
 /// `web-account-saved` in `web.ftl`.
 pub const WEB_ACCOUNT_SAVED: MessageKey = MessageKey::new("web-account-saved");
 
+/// `web-fleet-title` in `web.ftl`.
+pub const WEB_FLEET_TITLE: MessageKey = MessageKey::new("web-fleet-title");
+
+/// `web-fleet-add` in `web.ftl`.
+pub const WEB_FLEET_ADD: MessageKey = MessageKey::new("web-fleet-add");
+
+/// `web-fleet-empty-admin` in `web.ftl`.
+pub const WEB_FLEET_EMPTY_ADMIN: MessageKey = MessageKey::new("web-fleet-empty-admin");
+
+/// `web-fleet-empty-viewer` in `web.ftl`.
+pub const WEB_FLEET_EMPTY_VIEWER: MessageKey = MessageKey::new("web-fleet-empty-viewer");
+
+/// `web-fleet-unavailable` in `web.ftl`.
+pub const WEB_FLEET_UNAVAILABLE: MessageKey = MessageKey::new("web-fleet-unavailable");
+
+/// `web-brand-keenetic` in `web.ftl`.
+pub const WEB_BRAND_KEENETIC: MessageKey = MessageKey::new("web-brand-keenetic");
+
+/// `web-brand-netcraze` in `web.ftl`.
+pub const WEB_BRAND_NETCRAZE: MessageKey = MessageKey::new("web-brand-netcraze");
+
+/// `web-router-firmware` in `web.ftl`.
+pub const WEB_ROUTER_FIRMWARE: MessageKey = MessageKey::new("web-router-firmware");
+
+/// `web-router-waiting` in `web.ftl`.
+pub const WEB_ROUTER_WAITING: MessageKey = MessageKey::new("web-router-waiting");
+
+/// `web-router-unreachable` in `web.ftl`.
+pub const WEB_ROUTER_UNREACHABLE: MessageKey = MessageKey::new("web-router-unreachable");
+
+/// `web-router-config-defined` in `web.ftl`.
+pub const WEB_ROUTER_CONFIG_DEFINED: MessageKey = MessageKey::new("web-router-config-defined");
+
+/// `web-router-edit` in `web.ftl`.
+pub const WEB_ROUTER_EDIT: MessageKey = MessageKey::new("web-router-edit");
+
+/// `web-router-unsaved` in `web.ftl`.
+pub const WEB_ROUTER_UNSAVED: MessageKey = MessageKey::new("web-router-unsaved");
+
+/// `web-internet-label` in `web.ftl`.
+pub const WEB_INTERNET_LABEL: MessageKey = MessageKey::new("web-internet-label");
+
+/// `web-internet-connected` in `web.ftl`.
+pub const WEB_INTERNET_CONNECTED: MessageKey = MessageKey::new("web-internet-connected");
+
+/// `web-internet-disconnected` in `web.ftl`.
+pub const WEB_INTERNET_DISCONNECTED: MessageKey = MessageKey::new("web-internet-disconnected");
+
+/// `web-internet-wan-up` in `web.ftl`.
+pub const WEB_INTERNET_WAN_UP: MessageKey = MessageKey::new("web-internet-wan-up");
+
+/// `web-internet-wan-down` in `web.ftl`.
+pub const WEB_INTERNET_WAN_DOWN: MessageKey = MessageKey::new("web-internet-wan-down");
+
+/// `web-internet-unknown` in `web.ftl`.
+pub const WEB_INTERNET_UNKNOWN: MessageKey = MessageKey::new("web-internet-unknown");
+
+/// `web-memory-usage` in `web.ftl`.
+pub const WEB_MEMORY_USAGE: MessageKey = MessageKey::new("web-memory-usage");
+
+/// `web-dashboard-hostname` in `web.ftl`.
+pub const WEB_DASHBOARD_HOSTNAME: MessageKey = MessageKey::new("web-dashboard-hostname");
+
+/// `web-dashboard-firmware-update` in `web.ftl`.
+pub const WEB_DASHBOARD_FIRMWARE_UPDATE: MessageKey =
+    MessageKey::new("web-dashboard-firmware-update");
+
+/// `web-update-available` in `web.ftl`.
+pub const WEB_UPDATE_AVAILABLE: MessageKey = MessageKey::new("web-update-available");
+
+/// `web-update-current` in `web.ftl`.
+pub const WEB_UPDATE_CURRENT: MessageKey = MessageKey::new("web-update-current");
+
+/// `web-update-unknown` in `web.ftl`.
+pub const WEB_UPDATE_UNKNOWN: MessageKey = MessageKey::new("web-update-unknown");
+
+/// `web-tier-documentation` in `web.ftl`.
+pub const WEB_TIER_DOCUMENTATION: MessageKey = MessageKey::new("web-tier-documentation");
+
+/// `web-tier-documentation-text` in `web.ftl`.
+pub const WEB_TIER_DOCUMENTATION_TEXT: MessageKey = MessageKey::new("web-tier-documentation-text");
+
+/// `web-tier-unsupported` in `web.ftl`.
+pub const WEB_TIER_UNSUPPORTED: MessageKey = MessageKey::new("web-tier-unsupported");
+
+/// `web-tier-unsupported-text` in `web.ftl`.
+pub const WEB_TIER_UNSUPPORTED_TEXT: MessageKey = MessageKey::new("web-tier-unsupported-text");
+
+/// `web-tier-verified` in `web.ftl`.
+pub const WEB_TIER_VERIFIED: MessageKey = MessageKey::new("web-tier-verified");
+
+/// `web-tier-link` in `web.ftl`.
+pub const WEB_TIER_LINK: MessageKey = MessageKey::new("web-tier-link");
+
+/// `web-unsaved-text` in `web.ftl`.
+pub const WEB_UNSAVED_TEXT: MessageKey = MessageKey::new("web-unsaved-text");
+
+/// `web-unsaved-save` in `web.ftl`.
+pub const WEB_UNSAVED_SAVE: MessageKey = MessageKey::new("web-unsaved-save");
+
+/// `web-unsaved-backups` in `web.ftl`.
+pub const WEB_UNSAVED_BACKUPS: MessageKey = MessageKey::new("web-unsaved-backups");
+
+/// `web-save-done` in `web.ftl`.
+pub const WEB_SAVE_DONE: MessageKey = MessageKey::new("web-save-done");
+
+/// `web-save-busy` in `web.ftl`.
+pub const WEB_SAVE_BUSY: MessageKey = MessageKey::new("web-save-busy");
+
+/// `web-save-conflict` in `web.ftl`.
+pub const WEB_SAVE_CONFLICT: MessageKey = MessageKey::new("web-save-conflict");
+
+/// `web-save-failed` in `web.ftl`.
+pub const WEB_SAVE_FAILED: MessageKey = MessageKey::new("web-save-failed");
+
+/// `web-save-pending` in `web.ftl`.
+pub const WEB_SAVE_PENDING: MessageKey = MessageKey::new("web-save-pending");
+
+/// `web-wan-title` in `web.ftl`.
+pub const WEB_WAN_TITLE: MessageKey = MessageKey::new("web-wan-title");
+
+/// `web-wan-interface` in `web.ftl`.
+pub const WEB_WAN_INTERFACE: MessageKey = MessageKey::new("web-wan-interface");
+
+/// `web-wan-address` in `web.ftl`.
+pub const WEB_WAN_ADDRESS: MessageKey = MessageKey::new("web-wan-address");
+
+/// `web-wan-link` in `web.ftl`.
+pub const WEB_WAN_LINK: MessageKey = MessageKey::new("web-wan-link");
+
+/// `web-wan-none` in `web.ftl`.
+pub const WEB_WAN_NONE: MessageKey = MessageKey::new("web-wan-none");
+
+/// `web-wifi-radios` in `web.ftl`.
+pub const WEB_WIFI_RADIOS: MessageKey = MessageKey::new("web-wifi-radios");
+
+/// `web-wifi-access-points` in `web.ftl`.
+pub const WEB_WIFI_ACCESS_POINTS: MessageKey = MessageKey::new("web-wifi-access-points");
+
+/// `web-wifi-radio` in `web.ftl`.
+pub const WEB_WIFI_RADIO: MessageKey = MessageKey::new("web-wifi-radio");
+
+/// `web-wifi-state` in `web.ftl`.
+pub const WEB_WIFI_STATE: MessageKey = MessageKey::new("web-wifi-state");
+
+/// `web-wifi-none` in `web.ftl`.
+pub const WEB_WIFI_NONE: MessageKey = MessageKey::new("web-wifi-none");
+
+/// `web-traffic-title` in `web.ftl`.
+pub const WEB_TRAFFIC_TITLE: MessageKey = MessageKey::new("web-traffic-title");
+
+/// `web-traffic-download` in `web.ftl`.
+pub const WEB_TRAFFIC_DOWNLOAD: MessageKey = MessageKey::new("web-traffic-download");
+
+/// `web-traffic-upload` in `web.ftl`.
+pub const WEB_TRAFFIC_UPLOAD: MessageKey = MessageKey::new("web-traffic-upload");
+
+/// `web-traffic-window` in `web.ftl`.
+pub const WEB_TRAFFIC_WINDOW: MessageKey = MessageKey::new("web-traffic-window");
+
+/// `web-traffic-waiting` in `web.ftl`.
+pub const WEB_TRAFFIC_WAITING: MessageKey = MessageKey::new("web-traffic-waiting");
+
+/// `web-traffic-chart` in `web.ftl`.
+pub const WEB_TRAFFIC_CHART: MessageKey = MessageKey::new("web-traffic-chart");
+
+/// `web-router-new-title` in `web.ftl`.
+pub const WEB_ROUTER_NEW_TITLE: MessageKey = MessageKey::new("web-router-new-title");
+
+/// `web-router-edit-title` in `web.ftl`.
+pub const WEB_ROUTER_EDIT_TITLE: MessageKey = MessageKey::new("web-router-edit-title");
+
+/// `web-router-id` in `web.ftl`.
+pub const WEB_ROUTER_ID: MessageKey = MessageKey::new("web-router-id");
+
+/// `web-router-id-help` in `web.ftl`.
+pub const WEB_ROUTER_ID_HELP: MessageKey = MessageKey::new("web-router-id-help");
+
+/// `web-router-url` in `web.ftl`.
+pub const WEB_ROUTER_URL: MessageKey = MessageKey::new("web-router-url");
+
+/// `web-router-url-help` in `web.ftl`.
+pub const WEB_ROUTER_URL_HELP: MessageKey = MessageKey::new("web-router-url-help");
+
+/// `web-router-login` in `web.ftl`.
+pub const WEB_ROUTER_LOGIN: MessageKey = MessageKey::new("web-router-login");
+
+/// `web-router-password` in `web.ftl`.
+pub const WEB_ROUTER_PASSWORD: MessageKey = MessageKey::new("web-router-password");
+
+/// `web-router-password-keep` in `web.ftl`.
+pub const WEB_ROUTER_PASSWORD_KEEP: MessageKey = MessageKey::new("web-router-password-keep");
+
+/// `web-router-auth` in `web.ftl`.
+pub const WEB_ROUTER_AUTH: MessageKey = MessageKey::new("web-router-auth");
+
+/// `web-router-auth-text` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_TEXT: MessageKey = MessageKey::new("web-router-auth-text");
+
+/// `web-router-tls` in `web.ftl`.
+pub const WEB_ROUTER_TLS: MessageKey = MessageKey::new("web-router-tls");
+
+/// `web-router-tls-verify` in `web.ftl`.
+pub const WEB_ROUTER_TLS_VERIFY: MessageKey = MessageKey::new("web-router-tls-verify");
+
+/// `web-router-tls-pin` in `web.ftl`.
+pub const WEB_ROUTER_TLS_PIN: MessageKey = MessageKey::new("web-router-tls-pin");
+
+/// `web-router-tls-pin-value` in `web.ftl`.
+pub const WEB_ROUTER_TLS_PIN_VALUE: MessageKey = MessageKey::new("web-router-tls-pin-value");
+
+/// `web-router-tls-help` in `web.ftl`.
+pub const WEB_ROUTER_TLS_HELP: MessageKey = MessageKey::new("web-router-tls-help");
+
+/// `web-router-tags` in `web.ftl`.
+pub const WEB_ROUTER_TAGS: MessageKey = MessageKey::new("web-router-tags");
+
+/// `web-router-tags-help` in `web.ftl`.
+pub const WEB_ROUTER_TAGS_HELP: MessageKey = MessageKey::new("web-router-tags-help");
+
+/// `web-router-test-device` in `web.ftl`.
+pub const WEB_ROUTER_TEST_DEVICE: MessageKey = MessageKey::new("web-router-test-device");
+
+/// `web-router-test-device-help` in `web.ftl`.
+pub const WEB_ROUTER_TEST_DEVICE_HELP: MessageKey = MessageKey::new("web-router-test-device-help");
+
+/// `web-router-test` in `web.ftl`.
+pub const WEB_ROUTER_TEST: MessageKey = MessageKey::new("web-router-test");
+
+/// `web-router-save` in `web.ftl`.
+pub const WEB_ROUTER_SAVE: MessageKey = MessageKey::new("web-router-save");
+
+/// `web-router-delete` in `web.ftl`.
+pub const WEB_ROUTER_DELETE: MessageKey = MessageKey::new("web-router-delete");
+
+/// `web-router-delete-title` in `web.ftl`.
+pub const WEB_ROUTER_DELETE_TITLE: MessageKey = MessageKey::new("web-router-delete-title");
+
+/// `web-router-delete-text` in `web.ftl`.
+pub const WEB_ROUTER_DELETE_TEXT: MessageKey = MessageKey::new("web-router-delete-text");
+
+/// `web-router-read-only` in `web.ftl`.
+pub const WEB_ROUTER_READ_ONLY: MessageKey = MessageKey::new("web-router-read-only");
+
+/// `web-test-success` in `web.ftl`.
+pub const WEB_TEST_SUCCESS: MessageKey = MessageKey::new("web-test-success");
+
+/// `web-test-auth` in `web.ftl`.
+pub const WEB_TEST_AUTH: MessageKey = MessageKey::new("web-test-auth");
+
+/// `web-test-tier` in `web.ftl`.
+pub const WEB_TEST_TIER: MessageKey = MessageKey::new("web-test-tier");
+
+/// `web-router-error-id` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_ID: MessageKey = MessageKey::new("web-router-error-id");
+
+/// `web-router-error-exists` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_EXISTS: MessageKey = MessageKey::new("web-router-error-exists");
+
+/// `web-router-error-url` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_URL: MessageKey = MessageKey::new("web-router-error-url");
+
+/// `web-router-error-login` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_LOGIN: MessageKey = MessageKey::new("web-router-error-login");
+
+/// `web-router-error-password` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_PASSWORD: MessageKey = MessageKey::new("web-router-error-password");
+
+/// `web-router-error-pin` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_PIN: MessageKey = MessageKey::new("web-router-error-pin");
+
+/// `web-router-error-policy` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_POLICY: MessageKey = MessageKey::new("web-router-error-policy");
+
+/// `web-router-error-unreachable` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_UNREACHABLE: MessageKey =
+    MessageKey::new("web-router-error-unreachable");
+
+/// `web-router-error-tls` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_TLS: MessageKey = MessageKey::new("web-router-error-tls");
+
+/// `web-router-error-check` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_CHECK: MessageKey = MessageKey::new("web-router-error-check");
+
+/// `web-router-error-save` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_SAVE: MessageKey = MessageKey::new("web-router-error-save");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 144] = [
+pub const ALL: [MessageKey; 253] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -471,6 +800,20 @@ pub const ALL: [MessageKey; 144] = [
     COMMON_LANGUAGE,
     COMMON_ITEMS_COUNT,
     COMMON_ROUTERS_COUNT,
+    COMMON_UNIT_BYTES,
+    COMMON_UNIT_KILOBYTES,
+    COMMON_UNIT_MEGABYTES,
+    COMMON_UNIT_GIGABYTES,
+    COMMON_UNIT_TERABYTES,
+    COMMON_UNIT_BITS,
+    COMMON_UNIT_KILOBITS,
+    COMMON_UNIT_MEGABITS,
+    COMMON_UNIT_GIGABITS,
+    COMMON_PERCENT,
+    COMMON_DURATION_DAYS,
+    COMMON_DURATION_HOURS,
+    COMMON_DURATION_MINUTES,
+    COMMON_DURATION_SECONDS,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,
@@ -586,4 +929,99 @@ pub const ALL: [MessageKey; 144] = [
     WEB_CHANGE_PASSWORD,
     WEB_ACCOUNT_LOCALE,
     WEB_ACCOUNT_SAVED,
+    WEB_FLEET_TITLE,
+    WEB_FLEET_ADD,
+    WEB_FLEET_EMPTY_ADMIN,
+    WEB_FLEET_EMPTY_VIEWER,
+    WEB_FLEET_UNAVAILABLE,
+    WEB_BRAND_KEENETIC,
+    WEB_BRAND_NETCRAZE,
+    WEB_ROUTER_FIRMWARE,
+    WEB_ROUTER_WAITING,
+    WEB_ROUTER_UNREACHABLE,
+    WEB_ROUTER_CONFIG_DEFINED,
+    WEB_ROUTER_EDIT,
+    WEB_ROUTER_UNSAVED,
+    WEB_INTERNET_LABEL,
+    WEB_INTERNET_CONNECTED,
+    WEB_INTERNET_DISCONNECTED,
+    WEB_INTERNET_WAN_UP,
+    WEB_INTERNET_WAN_DOWN,
+    WEB_INTERNET_UNKNOWN,
+    WEB_MEMORY_USAGE,
+    WEB_DASHBOARD_HOSTNAME,
+    WEB_DASHBOARD_FIRMWARE_UPDATE,
+    WEB_UPDATE_AVAILABLE,
+    WEB_UPDATE_CURRENT,
+    WEB_UPDATE_UNKNOWN,
+    WEB_TIER_DOCUMENTATION,
+    WEB_TIER_DOCUMENTATION_TEXT,
+    WEB_TIER_UNSUPPORTED,
+    WEB_TIER_UNSUPPORTED_TEXT,
+    WEB_TIER_VERIFIED,
+    WEB_TIER_LINK,
+    WEB_UNSAVED_TEXT,
+    WEB_UNSAVED_SAVE,
+    WEB_UNSAVED_BACKUPS,
+    WEB_SAVE_DONE,
+    WEB_SAVE_BUSY,
+    WEB_SAVE_CONFLICT,
+    WEB_SAVE_FAILED,
+    WEB_SAVE_PENDING,
+    WEB_WAN_TITLE,
+    WEB_WAN_INTERFACE,
+    WEB_WAN_ADDRESS,
+    WEB_WAN_LINK,
+    WEB_WAN_NONE,
+    WEB_WIFI_RADIOS,
+    WEB_WIFI_ACCESS_POINTS,
+    WEB_WIFI_RADIO,
+    WEB_WIFI_STATE,
+    WEB_WIFI_NONE,
+    WEB_TRAFFIC_TITLE,
+    WEB_TRAFFIC_DOWNLOAD,
+    WEB_TRAFFIC_UPLOAD,
+    WEB_TRAFFIC_WINDOW,
+    WEB_TRAFFIC_WAITING,
+    WEB_TRAFFIC_CHART,
+    WEB_ROUTER_NEW_TITLE,
+    WEB_ROUTER_EDIT_TITLE,
+    WEB_ROUTER_ID,
+    WEB_ROUTER_ID_HELP,
+    WEB_ROUTER_URL,
+    WEB_ROUTER_URL_HELP,
+    WEB_ROUTER_LOGIN,
+    WEB_ROUTER_PASSWORD,
+    WEB_ROUTER_PASSWORD_KEEP,
+    WEB_ROUTER_AUTH,
+    WEB_ROUTER_AUTH_TEXT,
+    WEB_ROUTER_TLS,
+    WEB_ROUTER_TLS_VERIFY,
+    WEB_ROUTER_TLS_PIN,
+    WEB_ROUTER_TLS_PIN_VALUE,
+    WEB_ROUTER_TLS_HELP,
+    WEB_ROUTER_TAGS,
+    WEB_ROUTER_TAGS_HELP,
+    WEB_ROUTER_TEST_DEVICE,
+    WEB_ROUTER_TEST_DEVICE_HELP,
+    WEB_ROUTER_TEST,
+    WEB_ROUTER_SAVE,
+    WEB_ROUTER_DELETE,
+    WEB_ROUTER_DELETE_TITLE,
+    WEB_ROUTER_DELETE_TEXT,
+    WEB_ROUTER_READ_ONLY,
+    WEB_TEST_SUCCESS,
+    WEB_TEST_AUTH,
+    WEB_TEST_TIER,
+    WEB_ROUTER_ERROR_ID,
+    WEB_ROUTER_ERROR_EXISTS,
+    WEB_ROUTER_ERROR_URL,
+    WEB_ROUTER_ERROR_LOGIN,
+    WEB_ROUTER_ERROR_PASSWORD,
+    WEB_ROUTER_ERROR_PIN,
+    WEB_ROUTER_ERROR_POLICY,
+    WEB_ROUTER_ERROR_UNREACHABLE,
+    WEB_ROUTER_ERROR_TLS,
+    WEB_ROUTER_ERROR_CHECK,
+    WEB_ROUTER_ERROR_SAVE,
 ];

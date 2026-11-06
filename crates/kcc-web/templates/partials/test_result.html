@@ -1,0 +1,19 @@
+{%- if !error.is_empty() %}
+<p class="notice" data-tone="error">{{ error }}</p>
+{%- else %}
+<div class="notice" data-tone="success">
+  <p class="notice__title">{{ t(keys::WEB_TEST_SUCCESS) }}</p>
+  <dl class="facts">
+    {%- if !model.is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::DOMAINS_MODEL) }}</dt><dd>{{ model }}</dd></div>
+    {%- endif %}
+    {%- if !firmware.is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::DOMAINS_FIRMWARE) }}</dt><dd>{{ firmware }}</dd></div>
+    {%- endif %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_TEST_TIER) }}</dt><dd>{{ t(*tier) }}</dd></div>
+    {%- if !schemes.is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_TEST_AUTH) }}</dt><dd>{{ schemes }}</dd></div>
+    {%- endif %}
+  </dl>
+</div>
+{%- endif %}

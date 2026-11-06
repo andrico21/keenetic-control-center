@@ -15,7 +15,7 @@ use core::{fmt, time::Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_rci::{RciBody, RciClient, RciPath, capabilities::RouterInfo};
-use serde_json::{Value, json};
+use serde_json::{Map, Value, json};
 use tokio::{
     sync::{Mutex, watch},
     time::{Instant, sleep},
@@ -50,6 +50,10 @@ pub struct Snapshot {
     pub wifi_summary: Value,
     /// `show last-change` response.
     pub last_change: Value,
+    /// `show interface stat` of every Internet-facing interface, keyed by interface id
+    /// and refreshed on the light cadence; interfaces whose counters could not be read
+    /// are absent.
+    pub interface_stats: Value,
     /// Unix timestamp in seconds when this snapshot completed.
     pub fetched_at: u64,
 }
@@ -259,6 +263,7 @@ impl Poller {
         }
         let (interfaces_summary, clients_count, _) =
             heavy_snapshot.as_ref().ok_or(PollError::Request)?;
+        let interface_stats = wan_stats(&client, interfaces_summary).await;
         Ok(Snapshot {
             info,
             system,
@@ -267,11 +272,46 @@ impl Poller {
             clients_count: *clients_count,
             wifi_summary,
             last_change,
+            interface_stats,
             fetched_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_or(0, |elapsed| elapsed.as_secs()),
         })
     }
+}
+
+/// Ids of the interfaces a `show interface` response marks as Internet-facing
+/// (`global` or `defaultgw`), in response order.
+#[must_use]
+pub fn wan_interface_ids(interfaces: &Value) -> Vec<String> {
+    let entries: Vec<&Value> = match interfaces {
+        Value::Object(map) => map.values().collect(),
+        Value::Array(items) => items.iter().collect(),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => Vec::new(),
+    };
+    entries
+        .into_iter()
+        .filter(|entry| {
+            ["global", "defaultgw"]
+                .iter()
+                .any(|flag| entry.get(*flag).and_then(Value::as_bool) == Some(true))
+        })
+        .filter_map(|entry| entry.get("id").and_then(Value::as_str).map(str::to_owned))
+        .collect()
+}
+
+/// Reads `show interface stat` for every Internet-facing interface.
+async fn wan_stats(client: &RciClient, interfaces: &Value) -> Value {
+    let mut stats = Map::new();
+    let Ok(path) = RciPath::from_segments(["show", "interface", "stat"]) else {
+        return Value::Object(stats);
+    };
+    for id in wan_interface_ids(interfaces) {
+        if let Ok(RciBody::Json(response)) = client.show(&path, &[("name", id.as_str())]).await {
+            drop(stats.insert(id, response.value));
+        }
+    }
+    Value::Object(stats)
 }
 
 /// Reads one JSON show resource.
@@ -293,5 +333,35 @@ fn count_clients(value: &Value) -> u64 {
         Value::Array(items) => u64::try_from(items.len()).unwrap_or(u64::MAX),
         Value::Object(items) => u64::try_from(items.len()).unwrap_or(u64::MAX),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => 0,
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use serde_json::json;
+
+    use super::wan_interface_ids;
+
+    /// Only interfaces flagged `global` or `defaultgw` get counters, in either response shape.
+    #[test]
+    fn wan_interfaces_are_the_global_and_default_gateway_ones() {
+        let keyed = json!({
+            "Bridge0": {"id": "Bridge0", "global": false},
+            "ISP": {"id": "ISP", "global": true, "defaultgw": true},
+            "PPPoE0": {"id": "PPPoE0", "defaultgw": true},
+            "Wireguard0": {"id": "Wireguard0"}
+        });
+        assert_eq!(wan_interface_ids(&keyed), ["ISP", "PPPoE0"], "object form");
+        let listed = json!([{"id": "GigabitEthernet1", "global": true}, {"id": "Bridge0"}]);
+        assert_eq!(
+            wan_interface_ids(&listed),
+            ["GigabitEthernet1"],
+            "array form"
+        );
+        assert!(wan_interface_ids(&json!(null)).is_empty(), "absent");
     }
 }

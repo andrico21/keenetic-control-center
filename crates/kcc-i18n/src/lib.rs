@@ -7,7 +7,9 @@
 //!
 //! - [`locale::Locale`] lists the supported locales and negotiates one per request.
 //! - [`bundle::tr`] formats a message, falling back to English.
+//! - [`format`](mod@format) writes numbers, sizes, rates and durations the way each locale does.
 
 pub mod bundle;
+pub mod format;
 pub mod keys;
 pub mod locale;

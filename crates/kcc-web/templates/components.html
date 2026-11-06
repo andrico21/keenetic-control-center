@@ -12,12 +12,19 @@
 {%- endif -%}
 {%- endmacro -%}
 
-{#- A labelled text input. An error message, when not empty, is announced with the field. -#}
-{%- macro field(id, name, label, value, error, kind = "text", autocomplete = "off") -%}
+{#- A labelled text input with optional help text. An error message, when not empty, is announced with the field. -#}
+{%- macro field(id, name, label, value, error, kind = "text", autocomplete = "off", help = "") -%}
 <div class="field">
   <label class="field__label" for="{{ id }}">{{ label }}</label>
   <input class="field__input" id="{{ id }}" name="{{ name }}" type="{{ kind }}" value="{{ value }}" autocomplete="{{ autocomplete }}"
-    {%- if !error.is_empty() %} aria-invalid="true" aria-describedby="{{ id }}-error"{% endif %}>
+    {%- if !error.is_empty() %} aria-invalid="true"{% endif %}
+    {%- if !error.is_empty() && !help.is_empty() %} aria-describedby="{{ id }}-error {{ id }}-help"
+    {%- else if !error.is_empty() %} aria-describedby="{{ id }}-error"
+    {%- else if !help.is_empty() %} aria-describedby="{{ id }}-help"
+    {%- endif %}>
+  {%- if !help.is_empty() %}
+  <p class="field__help" id="{{ id }}-help">{{ help }}</p>
+  {%- endif %}
   {%- if !error.is_empty() %}
   <p class="field__error" id="{{ id }}-error">{{ error }}</p>
   {%- endif %}

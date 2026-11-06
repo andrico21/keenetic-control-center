@@ -1607,8 +1607,11 @@ dependencies = [
  "axum",
  "base64",
  "fluent-bundle",
+ "futures-util",
  "kcc-app",
  "kcc-i18n",
+ "kcc-rci",
+ "kcc-testkit",
  "rand 0.10.3",
  "rmcp-server-kit",
  "secrecy",
@@ -1622,6 +1625,7 @@ dependencies = [
  "tower",
  "tower-http 0.7.1",
  "tracing",
+ "url",
 ]
 
 [[package]]

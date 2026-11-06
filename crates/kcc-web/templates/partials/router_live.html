@@ -1,0 +1,106 @@
+{#- The live region of a dashboard; the page includes it and the dashboard stream re-sends it. -#}
+{%- if router.unsaved() %}
+<div class="banner" id="unsaved-banner" data-tone="warning">
+  <p class="banner__text">{{ t(keys::WEB_UNSAVED_TEXT) }}</p>
+  {%- if router.can_save() || backups.is_some() %}
+  <div class="banner__actions">
+    {%- if router.can_save() %}
+    <button class="button button--primary" type="button" hx-post="/ui/r/{{ router.id() }}/save" hx-target="#toasts" hx-swap="beforeend">{{ t(keys::WEB_UNSAVED_SAVE) }}</button>
+    {%- endif %}
+    {%- if let Some(href) = backups %}
+    <a class="button button--ghost" href="{{ href }}">{{ t(keys::WEB_UNSAVED_BACKUPS) }}</a>
+    {%- endif %}
+  </div>
+  {%- endif %}
+</div>
+{%- endif %}
+{%- if !router.polled() %}
+<p class="notice" data-tone="neutral">{{ t(keys::WEB_ROUTER_WAITING) }}</p>
+{%- else if router.status().value() == "offline" %}
+<p class="notice" data-tone="error">{{ t(keys::WEB_ROUTER_UNREACHABLE) }}</p>
+{%- endif %}
+{%- if router.observed() %}
+<div class="panels">
+  <section class="panel" aria-labelledby="system-title">
+    <h2 class="panel__title" id="system-title">{{ t(keys::DOMAINS_SYSTEM) }}</h2>
+    <dl class="facts">
+      {%- if let Some(hostname) = router.hostname() %}
+      <div class="facts__row"><dt>{{ t(keys::WEB_DASHBOARD_HOSTNAME) }}</dt><dd>{{ hostname }}</dd></div>
+      {%- endif %}
+      {%- if let Some(firmware) = router.firmware() %}
+      <div class="facts__row"><dt>{{ t(keys::DOMAINS_FIRMWARE) }}</dt><dd>{{ firmware }}</dd></div>
+      {%- endif %}
+      <div class="facts__row"><dt>{{ t(keys::WEB_DASHBOARD_FIRMWARE_UPDATE) }}</dt><dd>{% if update.available() %}<span class="flag" data-tone="info">{{ update.text() }}</span>{% else %}{{ update.text() }}{% endif %}</dd></div>
+      {%- if let Some(uptime) = router.uptime() %}
+      <div class="facts__row"><dt>{{ t(keys::DOMAINS_UPTIME) }}</dt><dd>{{ uptime }}</dd></div>
+      {%- endif %}
+      {%- if let Some(clients) = router.clients() %}
+      <div class="facts__row"><dt>{{ t(keys::DOMAINS_CLIENTS) }}</dt><dd>{{ clients }}</dd></div>
+      {%- endif %}
+    </dl>
+    {%- if let Some(cpu) = router.cpu() %}
+    <div class="gauge">
+      <span class="gauge__label">{{ t(keys::DOMAINS_CPU_LOAD) }}</span>
+      <span class="gauge__value">{{ cpu.text() }}</span>
+      <meter class="gauge__meter" min="0" max="100" value="{{ cpu.percent() }}" aria-hidden="true"></meter>
+    </div>
+    {%- endif %}
+    {%- if let Some(memory) = router.memory() %}
+    <div class="gauge">
+      <span class="gauge__label">{{ t(keys::DOMAINS_MEMORY) }}</span>
+      <span class="gauge__value">{{ memory.text() }}</span>
+      <meter class="gauge__meter" min="0" max="100" value="{{ memory.percent() }}" aria-hidden="true"></meter>
+    </div>
+    {%- endif %}
+  </section>
+  <section class="panel" aria-labelledby="internet-title">
+    <h2 class="panel__title" id="internet-title">{{ t(keys::WEB_INTERNET_LABEL) }}</h2>
+    <p class="panel__lead">{{ t(router.internet()) }}</p>
+    {%- if router.wan().is_empty() %}
+    <p class="panel__note">{{ t(keys::WEB_WAN_NONE) }}</p>
+    {%- else %}
+    <h3 class="panel__subtitle">{{ t(keys::WEB_WAN_TITLE) }}</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th scope="col">{{ t(keys::WEB_WAN_INTERFACE) }}</th><th scope="col">{{ t(keys::WEB_WAN_ADDRESS) }}</th><th scope="col">{{ t(keys::WEB_WAN_LINK) }}</th></tr></thead>
+        <tbody>
+          {%- for wan in router.wan() %}
+          <tr><td>{{ wan.label() }}{% if wan.label() != wan.id() %} <span class="mono muted">{{ wan.id() }}</span>{% endif %}</td><td class="mono">{{ wan.address() }}</td><td>{% if wan.up() %}{{ t(keys::DOMAINS_INTERFACE_UP) }}{% else %}{{ t(keys::DOMAINS_INTERFACE_DOWN) }}{% endif %}</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+  <section class="panel" aria-labelledby="wifi-title">
+    <h2 class="panel__title" id="wifi-title">{{ t(keys::DOMAINS_WIFI) }}</h2>
+    {%- if router.radios().is_empty() && router.access_points().is_empty() %}
+    <p class="panel__note">{{ t(keys::WEB_WIFI_NONE) }}</p>
+    {%- endif %}
+    {%- if !router.radios().is_empty() %}
+    <h3 class="panel__subtitle">{{ t(keys::WEB_WIFI_RADIOS) }}</h3>
+    <ul class="plain-list">
+      {%- for radio in router.radios() %}
+      <li><span class="mono">{{ radio.id() }}</span>{% if !radio.bands().is_empty() %} <span class="muted">{{ radio.bands() }}</span>{% endif %}</li>
+      {%- endfor %}
+    </ul>
+    {%- endif %}
+    {%- if !router.access_points().is_empty() %}
+    <h3 class="panel__subtitle">{{ t(keys::WEB_WIFI_ACCESS_POINTS) }}</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th scope="col">{{ t(keys::DOMAINS_WIFI_SSID) }}</th><th scope="col">{{ t(keys::WEB_WIFI_RADIO) }}</th><th scope="col">{{ t(keys::WEB_WIFI_STATE) }}</th></tr></thead>
+        <tbody>
+          {%- for access_point in router.access_points() %}
+          <tr><td>{{ access_point.ssid() }}</td><td class="mono">{{ access_point.id() }}</td><td>{% if access_point.up() %}{{ t(keys::COMMON_ENABLED) }}{% else %}{{ t(keys::COMMON_DISABLED) }}{% endif %}</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+</div>
+{%- endif %}
+{%- if oob %}
+<span class="masthead__status" id="router-status" hx-swap-oob="true"><span class="status" data-status="{{ router.status().value() }}">{{ t(router.status().label()) }}</span></span>
+{%- endif %}

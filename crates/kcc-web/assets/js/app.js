@@ -7,6 +7,12 @@
   const YEAR_SECONDS = 31536000;
   const THEMES = ["system", "light", "dark"];
 
+  // htmx's settle step copies old `style` attributes onto swapped elements with
+  // setAttribute, which the CSP (style-src 'self') blocks; styles live in app.css only.
+  if (window.htmx) {
+    window.htmx.config.attributesToSettle = ["class", "width", "height"];
+  }
+
   document.addEventListener("htmx:configRequest", (event) => {
     if (event.detail?.verb === "get") {
       return;
@@ -14,6 +20,14 @@
     const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
     if (token) {
       event.detail.headers["X-CSRF-Token"] = token;
+    }
+  });
+
+  // A form answered with 422 carries its field errors: swap it like a success.
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    if (event.detail?.xhr?.status === 422) {
+      event.detail.shouldSwap = true;
+      event.detail.isError = false;
     }
   });
 
@@ -46,6 +60,7 @@
         item.removeAttribute("aria-current");
       }
     }
+    document.dispatchEvent(new CustomEvent("kcc:theme"));
   };
 
   document.addEventListener("click", (event) => {
@@ -130,5 +145,131 @@
         dialog.close();
       }
     });
+  }
+
+  // Traffic chart. The dashboard stream sends `traffic` events with uPlot columns (unix
+  // seconds, download and upload bits per second) and the newest rates as text; htmx must
+  // not swap them, so this handler takes the data and cancels the swap. The browser only
+  // listens to kcc and never contacts a router.
+  const chartBox = document.getElementById("traffic-chart");
+  if (chartBox && typeof uPlot === "function") {
+    const WINDOW_SECONDS = 1800;
+    const GAP_SECONDS = 45;
+    const HEIGHT = 224;
+    const columns = [[], [], []];
+    const lang = root.getAttribute("lang") || "en";
+    const units = JSON.parse(chartBox.dataset.units || "[]");
+    const decimal = new Intl.NumberFormat(lang, { maximumFractionDigits: 1 });
+    const clock = new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit" });
+    const rate = (bits) => {
+      let value = bits;
+      let unit = 0;
+      while (value >= 1000 && unit < units.length - 1) {
+        value /= 1000;
+        unit += 1;
+      }
+      return (units[unit] || "{}").replace("{}", decimal.format(value));
+    };
+    const ink = (selector) => {
+      const element = document.querySelector(selector);
+      return element ? getComputedStyle(element).color : "currentColor";
+    };
+    const faint = (color) => {
+      const [red, green, blue] = color.match(/\d+(\.\d+)?/g) || ["0", "0", "0"];
+      return `rgba(${red}, ${green}, ${blue}, 0.25)`;
+    };
+    const seconds = new Intl.DateTimeFormat(lang, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    let chart = null;
+    const build = () => {
+      chart?.destroy();
+      chart = null;
+      if (columns[0].length === 0) {
+        return;
+      }
+      const axisInk = getComputedStyle(chartBox).color;
+      const axis = {
+        stroke: axisInk,
+        grid: { stroke: faint(axisInk), width: 1 },
+        ticks: { stroke: faint(axisInk), width: 1 },
+      };
+      chart = new uPlot(
+        {
+          width: chartBox.clientWidth,
+          height: HEIGHT,
+          legend: { show: false },
+          cursor: { drag: { x: false, y: false } },
+          scales: { y: { range: (_plot, _min, max) => [0, Math.max(max, 1000)] } },
+          axes: [
+            {
+              ...axis,
+              space: 72,
+              incrs: [15, 30, 60, 120, 300, 600, 900, 1800],
+              values: (_plot, ticks, _axis, _space, step) =>
+                ticks.map((tick) => (step < 60 ? seconds : clock).format(new Date(tick * 1000))),
+            },
+            { ...axis, size: 88, values: (_plot, ticks) => ticks.map(rate) },
+          ],
+          series: [
+            {},
+            { stroke: ink('.traffic__swatch[data-series="rx"]'), width: 2 },
+            { stroke: ink('.traffic__swatch[data-series="tx"]'), width: 2, dash: [6, 4] },
+          ],
+        },
+        columns,
+        chartBox,
+      );
+    };
+    const show = (payload) => {
+      if (payload.replace) {
+        for (const column of columns) {
+          column.length = 0;
+        }
+      }
+      payload.t.forEach((at, index) => {
+        const last = columns[0][columns[0].length - 1];
+        if (last === undefined || at > last) {
+          if (last !== undefined && at - last > GAP_SECONDS) {
+            columns[0].push(last + 1);
+            columns[1].push(null);
+            columns[2].push(null);
+          }
+          columns[0].push(at);
+          columns[1].push(payload.rx[index]);
+          columns[2].push(payload.tx[index]);
+        }
+      });
+      const newest = columns[0][columns[0].length - 1];
+      while (columns[0].length > 0 && columns[0][0] <= newest - WINDOW_SECONDS) {
+        for (const column of columns) {
+          column.shift();
+        }
+      }
+      for (const [series, text] of [["rx", payload.rx_text], ["tx", payload.tx_text]]) {
+        const value = document.getElementById(`traffic-${series}`);
+        if (value && typeof text === "string") {
+          value.textContent = text;
+        }
+      }
+      const empty = document.getElementById("traffic-empty");
+      if (empty) {
+        empty.hidden = columns[0].length > 0;
+      }
+      if (chart) {
+        chart.setData(columns);
+      } else {
+        build();
+      }
+    };
+    chartBox.addEventListener("htmx:sseBeforeMessage", (event) => {
+      event.preventDefault();
+      try {
+        show(JSON.parse(event.detail.data));
+      } catch {
+        // A malformed event leaves the chart as it was.
+      }
+    });
+    new ResizeObserver(() => chart?.setSize({ width: chartBox.clientWidth, height: HEIGHT })).observe(chartBox);
+    document.addEventListener("kcc:theme", build);
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", build);
   }
 })();

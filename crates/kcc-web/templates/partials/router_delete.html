@@ -1,0 +1,7 @@
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+<p class="dialog__text">{{ t(keys::WEB_ROUTER_DELETE_TEXT) }}</p>
+<form class="dialog__actions" method="post" action="/ui/routers/{{ id }}/delete" hx-post="/ui/routers/{{ id }}/delete">
+  <button class="button button--danger" type="submit">{{ t(keys::COMMON_DELETE) }}</button>
+</form>
+{% endcall %}

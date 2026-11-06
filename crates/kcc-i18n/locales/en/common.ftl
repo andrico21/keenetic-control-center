@@ -28,3 +28,17 @@ common-routers-count =
         [one] { $count } router
        *[other] { $count } routers
     }
+common-unit-bytes = { $value } B
+common-unit-kilobytes = { $value } KB
+common-unit-megabytes = { $value } MB
+common-unit-gigabytes = { $value } GB
+common-unit-terabytes = { $value } TB
+common-unit-bits = { $value } bit/s
+common-unit-kilobits = { $value } kbit/s
+common-unit-megabits = { $value } Mbit/s
+common-unit-gigabits = { $value } Gbit/s
+common-percent = { $value }%
+common-duration-days = { $count } d
+common-duration-hours = { $count } h
+common-duration-minutes = { $count } min
+common-duration-seconds = { $count } s

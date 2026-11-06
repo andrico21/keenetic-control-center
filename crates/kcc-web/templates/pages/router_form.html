@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{%- block title %}{{ title }}{% endblock %}
+{%- block content %}
+<div class="page form-page">
+  <h1 class="page__title">{{ title }}</h1>
+  {%- if read_only %}
+  <p class="page__text">{{ t(keys::WEB_ROUTER_READ_ONLY) }}</p>
+  <dl class="facts">
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_URL) }}</dt><dd class="mono">{{ draft.url }}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_LOGIN) }}</dt><dd>{{ draft.login }}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_TLS) }}</dt><dd>{% if draft.pinned %}{{ t(keys::WEB_ROUTER_TLS_PIN) }}{% else %}{{ t(keys::WEB_ROUTER_TLS_VERIFY) }}{% endif %}</dd></div>
+    {%- if !draft.tags.is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_TAGS) }}</dt><dd>{{ draft.tags }}</dd></div>
+    {%- endif %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_TEST_DEVICE) }}</dt><dd>{% if draft.test_device %}{{ t(keys::COMMON_YES) }}{% else %}{{ t(keys::COMMON_NO) }}{% endif %}</dd></div>
+  </dl>
+  <p><a class="button button--secondary" href="{{ cancel() }}">{{ t(keys::COMMON_BACK) }}</a></p>
+  {%- else %}
+  <form class="form" method="post" action="{{ action() }}" hx-post="{{ action() }}" hx-target="body">
+    {%- if editing %}
+    <input type="hidden" name="router" value="{{ draft.id }}">
+    <div class="field">
+      <span class="field__label">{{ t(keys::WEB_ROUTER_ID) }}</span>
+      <p class="field__static mono">{{ draft.id }}</p>
+    </div>
+    {%- else %}
+    {{ ui::field("router-id", "id", t(keys::WEB_ROUTER_ID), draft.id, errors.id, "text", "off", t(keys::WEB_ROUTER_ID_HELP)) }}
+    {%- endif %}
+    {{ ui::field("router-url", "url", t(keys::WEB_ROUTER_URL), draft.url, errors.url, "url", "off", t(keys::WEB_ROUTER_URL_HELP)) }}
+    {{ ui::field("router-login", "login", t(keys::WEB_ROUTER_LOGIN), draft.login, errors.login, "text", "off") }}
+    {%- if editing %}
+    {{ ui::field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), "", errors.password, "password", "new-password", t(keys::WEB_ROUTER_PASSWORD_KEEP)) }}
+    {%- else %}
+    {{ ui::field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), "", errors.password, "password", "new-password") }}
+    {%- endif %}
+    <div class="field">
+      <span class="field__label">{{ t(keys::WEB_ROUTER_AUTH) }}</span>
+      <p class="field__static">{{ t(keys::WEB_ROUTER_AUTH_TEXT) }}</p>
+    </div>
+    <fieldset class="choice">
+      <legend class="field__label">{{ t(keys::WEB_ROUTER_TLS) }}</legend>
+      <label class="choice__option"><input type="radio" name="tls" value="verify"{% if !draft.pinned %} checked{% endif %}><span>{{ t(keys::WEB_ROUTER_TLS_VERIFY) }}</span></label>
+      <label class="choice__option"><input type="radio" name="tls" value="pin"{% if draft.pinned %} checked{% endif %}><span>{{ t(keys::WEB_ROUTER_TLS_PIN) }}</span></label>
+      <p class="field__help">{{ t(keys::WEB_ROUTER_TLS_HELP) }}</p>
+    </fieldset>
+    <div class="pin-field">
+      {{ ui::field("router-pin", "tls_pin", t(keys::WEB_ROUTER_TLS_PIN_VALUE), draft.pin, errors.pin, "text", "off") }}
+    </div>
+    {{ ui::field("router-tags", "tags", t(keys::WEB_ROUTER_TAGS), draft.tags, "", "text", "off", t(keys::WEB_ROUTER_TAGS_HELP)) }}
+    <div class="check">
+      <input class="check__input" type="checkbox" id="router-test-device" name="test_device" value="on" aria-describedby="router-test-device-help"{% if draft.test_device %} checked{% endif %}>
+      <label class="check__label" for="router-test-device">{{ t(keys::WEB_ROUTER_TEST_DEVICE) }}</label>
+      <p class="field__help" id="router-test-device-help">{{ t(keys::WEB_ROUTER_TEST_DEVICE_HELP) }}</p>
+    </div>
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">{% if editing %}{{ t(keys::WEB_ROUTER_SAVE) }}{% else %}{{ t(keys::WEB_FLEET_ADD) }}{% endif %}</button>
+      <button class="button button--secondary" type="button" hx-post="/ui/routers/test" hx-include="closest form" hx-target="#test-result">{{ t(keys::WEB_ROUTER_TEST) }}</button>
+      <a class="button button--ghost" href="{{ cancel() }}">{{ t(keys::COMMON_CANCEL) }}</a>
+    </div>
+    <div class="test-result" id="test-result" aria-live="polite"></div>
+  </form>
+  {%- if editing %}
+  <section class="form-section">
+    <h2>{{ t(keys::WEB_ROUTER_DELETE) }}</h2>
+    <p class="page__text">{{ t(keys::WEB_ROUTER_DELETE_TEXT) }}</p>
+    <p><button class="button button--danger-ghost" type="button" hx-get="/ui/routers/{{ draft.id }}/delete" hx-target="#dialog-content">{{ t(keys::WEB_ROUTER_DELETE) }}</button></p>
+  </section>
+  {%- endif %}
+  {%- endif %}
+</div>
+{%- endblock %}

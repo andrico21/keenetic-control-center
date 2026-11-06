@@ -440,23 +440,33 @@ impl RouterRegistry {
         profile: &ManagedRouterProfile,
     ) -> Result<RouterInfo, RegistryError> {
         profile.validate()?;
-        let router = router_url(profile)?;
         let credentials = credentials(profile, CredentialUse::Primary)?;
-        let tls = tls_mode(&profile.tls)?;
-        let builder = self
-            .outbound
-            .client_builder(&router, &tls, HttpTimeouts::default())
-            .await?;
-        let session = SessionManager::with_client_builder(
-            router.clone(),
-            credentials,
-            HttpTimeouts::default(),
-            builder,
-        )?;
-        session.ensure_session().await?;
-        RouterInfo::detect(&session, &router)
-            .await
-            .map_err(RegistryError::from)
+        self.detect_with(profile, credentials).await
+    }
+
+    /// Authenticates with `password` instead of the profile's password file and detects
+    /// the router without adding it to the registry, so a form can test credentials that
+    /// are not stored yet.
+    ///
+    /// # Errors
+    ///
+    /// Returns profile, authentication, detection, or policy errors.
+    // cancel-safe: every router operation is a read.
+    pub async fn test_connection_with(
+        &self,
+        profile: &ManagedRouterProfile,
+        password: SecretString,
+    ) -> Result<RouterInfo, RegistryError> {
+        profile.validate()?;
+        let credentials = Credentials::new(profile.login.clone(), password);
+        self.detect_with(profile, credentials).await
+    }
+
+    /// The outbound policy every router connection passes, for checking a target before
+    /// a profile is stored.
+    #[must_use]
+    pub const fn outbound_policy(&self) -> &OutboundPolicy {
+        &self.outbound
     }
 
     /// Detects a registered router using its read-only credentials when available.
@@ -498,6 +508,31 @@ impl RouterRegistry {
             profile.validate()?;
         }
         Ok(document.routers)
+    }
+
+    /// Opens a policy-checked session with `credentials` and detects the router.
+    // cancel-safe: every router operation is a read.
+    async fn detect_with(
+        &self,
+        profile: &ManagedRouterProfile,
+        credentials: Credentials,
+    ) -> Result<RouterInfo, RegistryError> {
+        let router = router_url(profile)?;
+        let tls = tls_mode(&profile.tls)?;
+        let builder = self
+            .outbound
+            .client_builder(&router, &tls, HttpTimeouts::default())
+            .await?;
+        let session = SessionManager::with_client_builder(
+            router.clone(),
+            credentials,
+            HttpTimeouts::default(),
+            builder,
+        )?;
+        session.ensure_session().await?;
+        RouterInfo::detect(&session, &router)
+            .await
+            .map_err(RegistryError::from)
     }
 
     /// Connects one client with the selected credential pair.

@@ -13,8 +13,10 @@ A token a page needs and cannot find is added here first, then to the stylesheet
   this is a Carbon-*inspired* token set in one hand-written stylesheet, not Carbon itself.
 - StyleGallery: `CATALOG.md` + `fixed-sidenav-shell` read; picked `sticky-aside` for the shell
   (see section 4).
-- Lazyweb: skipped - todo 33 builds the shell and primitives only, no product screen yet;
-  run it with the first data page (todo 35).
+- Lazyweb: skipped - todo 33 builds the shell and primitives only, no product screen yet.
+  Todo 35 (first data pages): the Lazyweb and StyleGallery tooling was not available in this
+  environment; the fleet grid and dashboard follow Carbon's dashboard conventions (tonal
+  tiles, label/value lists, one data-visualization palette) on the existing tokens.
 - Imagen drafts: skipped - no image-generation tool in this environment.
 
 ## 1. Atmosphere & Identity
@@ -63,6 +65,11 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 | Info | `--color-info-ink` / `-wash` | #0043ce / #edf5ff | #78a9ff / #4589ff 16% | Info toasts |
 | Neutral | `--color-neutral-ink` / `-wash` | #393939 / #e0e0e0 | #c6c6c6 / #393939 | Unknown status |
 | Disabled | `--color-disabled` / `-ink` | #c6c6c6 / #8d8d8d | #525252 / #8d8d8d | Disabled controls (exempt) |
+| Danger | `--color-danger` / `-hover` / `-active` | #da1e28 / #b81921 / #750e13 | same | Destructive button fill (white text 5.0:1) |
+| Meter track | `--color-meter-track` | #e0e0e0 | #393939 | Gauge background |
+| Meter fill | `--color-meter-fill` | #525252 | #c6c6c6 | Gauge value (5.9:1 / 6.8:1 on the track) |
+| Chart download | `--color-chart-rx` | #0072c3 | #33b1ff | Traffic download line and swatch (4.6:1 / 6.4:1 on chrome) |
+| Chart upload | `--color-chart-tx` | #ba4e00 | #ff832b | Traffic upload line (dashed) and swatch (4.6:1 / 6.2:1 on chrome) |
 | Selection | `--color-selection` | #0f62fe 20% | #78a9ff 30% | `::selection` |
 | Scrim | `--color-scrim` | #161616 50% | #000000 60% | Dialog and sheet backdrop |
 | Shadow | `--color-shadow` | #000000 20% | #000000 60% | Floating surfaces only |
@@ -72,7 +79,9 @@ placeholder 4.6 / 6.4, link 5.0 / 7.7, on-accent 5.0, every status ink >= 4.8 on
 field edge 3.3 / 4.6.
 
 Rules: accent fills only the primary action; the current place uses the selected wash and ink;
-status colour lives only in pills, badges, toasts and field errors.
+status colour lives only in pills, badges, flags, notices, the banner, toasts and field errors.
+Gauges stay neutral. The two chart colours are a blue/orange pair that stays distinct for the
+common colour-vision deficiencies; upload is also dashed and both have text labels.
 
 ## 3. Typography
 
@@ -107,7 +116,9 @@ Base unit 0.25rem (4px), Carbon spacing steps:
 | `--space-9` | 3rem | Menu offset under the masthead |
 
 `--control-height` is 2.5rem (pointer) and 2.75rem under `pointer: coarse` (44 px targets).
-`--sidenav-width` is 15rem. Breakpoints: compact < 48rem, medium >= 48rem (masthead on one
+`--sidenav-width` is 15rem. `--card-min` (19rem) and `--panel-min` (22rem) are the narrowest
+fleet card and dashboard panel before the grid drops a column; `--chart-height` (14rem) is the
+traffic chart's reserved height. Breakpoints: compact < 48rem, medium >= 48rem (masthead on one
 row), wide >= 80rem (persistent side navigation).
 
 Layout: app shell - persistent section navigation beside long admin pages -> sticky-aside
@@ -116,6 +127,19 @@ scroll owner: the document (`html`); the navigation list sticks at the top of it
 scrolls itself only when taller than the viewport; below 80rem the navigation is a popover
 sheet opened by the Menu button; anti-patterns: a second scroll container for `main`,
 `100vh` heights, a visual order different from DOM and focus order.
+
+Layout (fleet overview `/ui/`): card grid - one tonal card per router in
+`repeat(auto-fill, minmax(min(100%, --card-min), 1fr))`, so 390 px shows one column and
+1440 px three or four; scroll owner: the document; anti-patterns: fixed card heights,
+a scrolling grid box, cards nested in cards.
+
+Layout (router dashboard `/ui/r/{router}`): stacked sections - header, notices, the live
+region (banner + `repeat(auto-fit, minmax(min(100%, --panel-min), 1fr))` panels), then the
+full-width traffic panel; scroll owner: the document; anti-patterns: a fixed-height
+scrolling panel, the chart inside the live region (it would be re-created on every poll).
+
+Layout (router form `/ui/routers/...`): single column, 40rem max, actions in one row that
+wraps; scroll owner: the document.
 
 ## 5. Components
 
@@ -168,9 +192,71 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   calls `showModal()`; header with title (`#dialog-title`) and a `method="dialog"` Close form.
 - Accessibility: native modal focus trap, Escape, focus return.
 
+### Router card (`partials/router_card.html`)
+- Structure: `<li class="router-card">` holding a title link to the dashboard, the status
+  pill, an identity line (brand wordmark, model, hardware id), facts, CPU and memory gauges
+  (only once a poll has reached the router), and a foot with the unsaved flag and Edit (or
+  the `kcc.toml` note).
+- Surface: chrome tone, no border, no shadow; groups separate by `--space-4`.
+- Live: the fleet stream replaces the card's content (`sse-swap="router-<id>"`).
+
+### Facts (`.facts`)
+- `<dl>` of label/value rows; label muted, value end-aligned with tabular numerals.
+
+### Gauge (`.gauge`)
+- Label, value text, then a native `<meter>` (hidden from assistive technology because the
+  text says the same). Track and fill are neutral tokens; no status colour.
+
+### Panel (`.panel`)
+- A dashboard group with an `h2` styled at the H3 size; same tone as the router card.
+
+### Banner (`.banner`) and flag (`.flag`)
+- Banner: warning wash block with text and actions (Save, Backups); a tonal block, never an
+  edge stripe. Flag: a non-link pill (warning by default, `data-tone="info"`).
+
+### Notice (`.notice`)
+- Tones by wash: success (default), info, error, neutral; `notice__title` for a bold first
+  line. A `role="note"` notice is one paragraph (the tier notice with its link).
+
+### Traffic chart (`.traffic`)
+- Legend `<dl>` with colour swatches and the newest rates as text, then the uPlot canvas
+  (`role="img"` with a label). `app.js` feeds uPlot from the `traffic` events; the axis units
+  are server-localized patterns in `data-units`, numbers and times use `Intl` with the page
+  language. More than 45 s (three polls) without a sample breaks the lines instead of
+  drawing a straight segment across time nobody watched. No animation.
+
+### Choice and check (`.choice`, `.check`)
+- Radio group in a `fieldset` with a legend; checkbox with its label and help text. The pin
+  field shows only while "Pin one certificate" is selected (CSS `:has`).
+
+### Danger buttons
+- `button--danger`: filled, for the confirming button inside the dialog only.
+  `button--danger-ghost`: danger ink on transparent, for the action that opens it.
+
 ### Toast (`ui::toast`)
 - Structure: `#toasts` `role="status"` `aria-live="polite"` region; each toast has a message
   and a Close button; tone by wash (info, success, warning, error), never by an edge stripe.
+
+### Page briefs (todo 35)
+
+- Fleet overview. Primary action: open a router (card title link); "Add router" is primary
+  only in the empty state, secondary otherwise, and shown only with ManageRouters.
+  Priorities: 1 reachability, 2 health (internet, CPU, memory, clients), 3 unsaved flag.
+  Left out on purpose: fleet totals and stat tiles, per-card timestamps, sparklines, icons.
+  Required content: brand wordmark, name, model, hardware id, firmware, uptime, CPU and memory
+  gauges, internet state, clients online, unsaved flag, reachability; Edit for state routers
+  (ManageRouters), the `kcc.toml` note for config routers.
+- Router dashboard. Primary action: Save, only while the router has unsaved changes and the
+  role has Save. Priorities: 1 identity and reachability (with the support-tier notice),
+  2 system health and internet/WAN, 3 Wi-Fi, clients, traffic. Left out on purpose: decorative
+  icons, duplicate stat tiles, per-panel subtitles. Required content: name, status, brand,
+  model, hardware id, serial, tier badge and notice with the FIRMWARE.md link, unsaved banner
+  with Save and Backups, host name, firmware, update status, uptime, clients, CPU, memory,
+  internet state, WAN table, radios, access points, traffic legend and chart.
+- Router form. Primary action: Add router / Save changes. Secondary: Test connection,
+  Cancel; Delete router in its own section (edit only). Required content: name (fixed when
+  editing), address, login, password (write-only; empty keeps it when editing), sign-in
+  note, certificate check (verify or pin + SHA-256), tags, test-device flag, test result.
 
 ## 6. Motion & Interaction
 
@@ -197,3 +283,5 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Item | Location | Why accepted | Owner / Exit |
 |---|---|---|---|
 | Theme and language menus do nothing without JavaScript | `base.html` | The Web UI requires htmx anyway; cookies are written client-side so no state-changing endpoint exists before CSRF (todo 34) | Todo 34 may add a POST fallback |
+| The traffic chart is a canvas | `pages/dashboard.html` | uPlot draws on canvas; the chart has `role="img"` and a label, and the legend states the newest rates as text | A data table view if users ask for history values |
+| Router forms need JavaScript | `pages/router_form.html` | Every state-changing request carries the CSRF header that `app.js` adds to htmx requests | Same as the menus |

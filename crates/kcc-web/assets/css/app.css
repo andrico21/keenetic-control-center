@@ -42,6 +42,13 @@
   --color-neutral-wash: light-dark(#e0e0e0, #393939);
   --color-disabled: light-dark(#c6c6c6, #525252);
   --color-disabled-ink: light-dark(#8d8d8d, #8d8d8d);
+  --color-danger: light-dark(#da1e28, #da1e28);
+  --color-danger-hover: light-dark(#b81921, #b81921);
+  --color-danger-active: light-dark(#750e13, #750e13);
+  --color-meter-track: light-dark(#e0e0e0, #393939);
+  --color-meter-fill: light-dark(#525252, #c6c6c6);
+  --color-chart-rx: light-dark(#0072c3, #33b1ff);
+  --color-chart-tx: light-dark(#ba4e00, #ff832b);
   --color-selection: light-dark(rgb(15 98 254 / 0.2), rgb(120 169 255 / 0.3));
   --color-scrim: light-dark(rgb(22 22 22 / 0.5), rgb(0 0 0 / 0.6));
   --color-shadow: light-dark(rgb(0 0 0 / 0.2), rgb(0 0 0 / 0.6));
@@ -78,6 +85,9 @@
   --control-height: 2.5rem;
   --sidenav-width: 15rem;
   --measure: 65ch;
+  --card-min: 19rem;
+  --panel-min: 22rem;
+  --chart-height: 14rem;
 
   --radius-control: 0;
   --radius-pill: 62.5rem;
@@ -256,6 +266,27 @@ samp {
 
 .button--ghost:disabled {
   background: transparent;
+}
+
+.button--danger {
+  background: var(--color-danger);
+  color: var(--color-on-accent);
+}
+
+.button--danger:hover {
+  background: var(--color-danger-hover);
+}
+
+.button--danger:active {
+  background: var(--color-danger-active);
+}
+
+.button--danger-ghost {
+  color: var(--color-danger-ink);
+}
+
+.button--danger-ghost:hover {
+  background: var(--color-danger-wash);
 }
 
 /* ---------- Shell ---------- */
@@ -841,6 +872,432 @@ h3 {
 .toast__close {
   flex: none;
   color: inherit;
+}
+
+/* ---------- Page header, identity line, utility text ---------- */
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-2) var(--space-3);
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  line-height: var(--leading-small);
+}
+
+.brand-mark {
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.masthead__status {
+  display: contents;
+}
+
+/* ---------- Notices, banner, flags ---------- */
+
+.notice {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.notice[data-tone="info"] {
+  background: var(--color-info-wash);
+  color: var(--color-info-ink);
+}
+
+.notice[data-tone="error"] {
+  background: var(--color-danger-wash);
+  color: var(--color-danger-ink);
+}
+
+.notice[data-tone="neutral"] {
+  background: var(--color-neutral-wash);
+  color: var(--color-neutral-ink);
+}
+
+.notice[role="note"] {
+  display: block;
+}
+
+.notice__title {
+  font-weight: var(--weight-semibold);
+}
+
+.banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-5);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-warning-wash);
+  color: var(--color-warning-ink);
+}
+
+.banner__text {
+  flex: 1 1 24rem;
+  max-inline-size: var(--measure);
+}
+
+.banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.banner .button--ghost {
+  color: inherit;
+}
+
+.flag {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 1.5rem;
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-pill);
+  background: var(--color-warning-wash);
+  color: var(--color-warning-ink);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  line-height: var(--leading-caption);
+}
+
+.flag[data-tone="info"] {
+  background: var(--color-info-wash);
+  color: var(--color-info-ink);
+}
+
+/* ---------- Fleet grid and router cards ---------- */
+
+.fleet-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min)), 1fr));
+  gap: var(--space-5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.router-card,
+.panel {
+  --color-field: var(--color-field-on-chrome);
+
+  display: grid;
+  align-content: start;
+  gap: var(--space-4);
+  min-inline-size: 0;
+  padding: var(--space-5);
+  background: var(--color-chrome);
+}
+
+.router-card__head,
+.panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.router-card__title,
+.panel__title {
+  min-inline-size: 0;
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-h3);
+  overflow-wrap: anywhere;
+}
+
+.router-card__link {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.router-card__link:hover {
+  text-decoration: underline;
+}
+
+.router-card__note {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.router-card__note[data-tone="error"] {
+  color: var(--color-danger-ink);
+}
+
+.router-card__foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-start: var(--space-2);
+}
+
+.router-card__foot .button {
+  margin-inline-start: auto;
+}
+
+/* ---------- Facts and gauges ---------- */
+
+.facts {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  line-height: var(--leading-small);
+}
+
+.facts__row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 0 var(--space-5);
+}
+
+.facts dt {
+  color: var(--color-text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.gauge {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--space-2) var(--space-3);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.gauge__label {
+  color: var(--color-text-muted);
+}
+
+.gauge__value {
+  font-variant-numeric: tabular-nums;
+}
+
+.gauge__meter {
+  grid-column: 1 / -1;
+  inline-size: 100%;
+  block-size: 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-meter-track);
+  appearance: none;
+}
+
+.gauge__meter::-webkit-meter-bar {
+  block-size: 0.5rem;
+  border: 0;
+  border-radius: 0;
+  background: var(--color-meter-track);
+}
+
+.gauge__meter::-webkit-meter-optimum-value,
+.gauge__meter::-webkit-meter-suboptimum-value,
+.gauge__meter::-webkit-meter-even-less-good-value {
+  background: var(--color-meter-fill);
+}
+
+.gauge__meter::-moz-meter-bar {
+  background: var(--color-meter-fill);
+}
+
+/* ---------- Dashboard panels and traffic chart ---------- */
+
+.live {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--panel-min)), 1fr));
+  gap: var(--space-5);
+}
+
+.panel__aside,
+.panel__note {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.panel__subtitle {
+  margin-block-start: var(--space-3);
+  font-size: var(--text-small);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-small);
+  line-height: var(--leading-small);
+}
+
+.panel .table thead th {
+  background: transparent;
+}
+
+.panel .table th,
+.panel .table td {
+  padding-inline: var(--space-3);
+}
+
+.table .mono {
+  overflow-wrap: anywhere;
+}
+
+.plain-list {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-small);
+}
+
+.traffic__legend {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  column-gap: var(--space-6);
+}
+
+.traffic__legend .facts__row {
+  justify-content: flex-start;
+  gap: 0 var(--space-4);
+}
+
+.traffic__legend dt {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.traffic__swatch {
+  inline-size: 0.75rem;
+  block-size: 0.75rem;
+  background: currentColor;
+}
+
+.traffic__swatch[data-series="rx"] {
+  color: var(--color-chart-rx);
+}
+
+.traffic__swatch[data-series="tx"] {
+  color: var(--color-chart-tx);
+}
+
+.traffic__chart {
+  min-block-size: var(--chart-height);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+}
+
+.traffic__chart:empty {
+  display: none;
+}
+
+.traffic__empty {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+}
+
+/* ---------- Router form ---------- */
+
+.form-page {
+  max-inline-size: 40rem;
+}
+
+.field__help {
+  max-inline-size: var(--measure);
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  line-height: var(--leading-caption);
+}
+
+.field__static {
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.choice {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.choice__option,
+.check {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  min-block-size: var(--control-height);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  cursor: pointer;
+}
+
+.choice__option input,
+.check__input {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+  margin: 0;
+}
+
+.check .field__help {
+  flex-basis: 100%;
+  max-inline-size: none;
+  padding-inline-start: calc(1.25rem + var(--space-3));
+}
+
+.form:has(input[name="tls"][value="verify"]:checked) .pin-field {
+  display: none;
+}
+
+.form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.test-result:empty {
+  display: none;
+}
+
+.dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
 }
 
 /* ---------- htmx request indicator (htmx's own injected style is disabled for the CSP) ---------- */

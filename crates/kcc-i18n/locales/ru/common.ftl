@@ -32,3 +32,17 @@ common-routers-count =
         [many] { $count } роутеров
        *[other] { $count } роутера
     }
+common-unit-bytes = { $value } Б
+common-unit-kilobytes = { $value } КБ
+common-unit-megabytes = { $value } МБ
+common-unit-gigabytes = { $value } ГБ
+common-unit-terabytes = { $value } ТБ
+common-unit-bits = { $value } бит/с
+common-unit-kilobits = { $value } Кбит/с
+common-unit-megabits = { $value } Мбит/с
+common-unit-gigabits = { $value } Гбит/с
+common-percent = { $value } %
+common-duration-days = { $count } дн.
+common-duration-hours = { $count } ч
+common-duration-minutes = { $count } мин
+common-duration-seconds = { $count } с

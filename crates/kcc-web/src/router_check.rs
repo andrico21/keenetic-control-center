@@ -1,0 +1,202 @@
+//! The connection test at `/ui/routers/test` and the outbound-policy check of the router
+//! forms.
+
+use core::str::FromStr as _;
+use std::path::PathBuf;
+
+use askama::Template;
+use axum::{
+    Form,
+    extract::State,
+    http::StatusCode,
+    response::{IntoResponse as _, Response},
+};
+use kcc_app::registry::{ManagedRouterProfile, RegistryError};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+};
+use kcc_rci::{
+    RciError, RouterUrl, TlsMode,
+    capabilities::{AuthSchemeKind, RouterInfo, SupportTier},
+    session::HttpTimeouts,
+};
+use url::Url;
+
+use crate::{
+    WebState,
+    authz::CurrentUser,
+    errors,
+    fleet::Fleet,
+    page::{Localize, Shell, Theme},
+    router_access::lookup,
+    router_form::{FieldErrors, RouterForm, is_slug},
+};
+
+/// The id a connection test uses when the form has no valid one yet.
+const TEST_ID: &str = "connection-test";
+
+/// `POST /ui/routers/test`: signs in with the form's values and shows the result.
+///
+/// An empty password on the edit form uses the stored one. A failure, including an
+/// outbound-policy refusal, is explained in the viewer's language.
+pub(crate) async fn test(
+    State(state): State<WebState>,
+    user: CurrentUser,
+    Form(form): Form<RouterForm>,
+) -> Response {
+    let shell = Shell::new(user.locale(), Theme::System);
+    let Some(fleet) = state.fleet() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let editing = form.router().to_owned();
+    let id = [form.id(), editing.as_str()]
+        .into_iter()
+        .find(|candidate| is_slug(candidate))
+        .unwrap_or(TEST_ID)
+        .to_owned();
+    let (_draft, password, parsed) = form.parse(user.locale(), false);
+    let fields = match parsed {
+        Ok(fields) => fields,
+        Err(errors) => return errors::render(&TestResult::invalid(shell, &errors)),
+    };
+    let mut profile =
+        ManagedRouterProfile::new(id, fields.url().clone(), String::new(), PathBuf::new());
+    fields.apply(&mut profile);
+    let outcome = if let Some(secret) = password {
+        fleet
+            .registry()
+            .test_connection_with(&profile, secret)
+            .await
+    } else {
+        let Ok(Some(existing)) = lookup(fleet, user.role(), &editing).await else {
+            let missing = TestResult::message(shell, keys::WEB_ROUTER_ERROR_PASSWORD);
+            return errors::render(&missing);
+        };
+        profile.password_file = existing.profile.password_file;
+        fleet.registry().test_connection(&profile).await
+    };
+    errors::render(&TestResult::new(shell, &outcome))
+}
+
+/// Whether the outbound policy admits `url`; resolves the host but sends nothing.
+// cancel-safe: resolution changes no state.
+pub(crate) async fn allowed(fleet: &Fleet, url: &Url) -> bool {
+    let Ok(target) = RouterUrl::from_str(url.as_str()) else {
+        return false;
+    };
+    fleet
+        .registry()
+        .outbound_policy()
+        .client_builder(&target, &TlsMode::Verify, HttpTimeouts::default())
+        .await
+        .is_ok()
+}
+
+/// The outcome of a connection test.
+#[derive(Template)]
+#[template(path = "partials/test_result.html")]
+pub(crate) struct TestResult {
+    /// Locale carrier.
+    shell: Shell,
+    /// The localized failure, or empty on success.
+    error: String,
+    /// Detected model and hardware id.
+    model: String,
+    /// Detected firmware.
+    firmware: String,
+    /// Support tier label.
+    tier: MessageKey,
+    /// Advertised sign-in schemes.
+    schemes: String,
+}
+
+impl TestResult {
+    /// The result of `outcome`, described in the shell's locale.
+    pub(crate) fn new(shell: Shell, outcome: &Result<RouterInfo, RegistryError>) -> Self {
+        let locale = shell.locale();
+        match outcome {
+            Ok(info) => Self {
+                shell,
+                error: String::new(),
+                model: [info.version.model.as_deref(), info.hw_id()]
+                    .into_iter()
+                    .flatten()
+                    .collect::<Vec<_>>()
+                    .join(" "),
+                firmware: info
+                    .firmware
+                    .map(|firmware| firmware.to_string())
+                    .unwrap_or_default(),
+                tier: match info.support_tier() {
+                    SupportTier::HardwareVerified => keys::WEB_TIER_VERIFIED,
+                    SupportTier::DocumentationBased => keys::WEB_TIER_DOCUMENTATION,
+                    SupportTier::Unsupported | _ => keys::WEB_TIER_UNSUPPORTED,
+                },
+                schemes: info
+                    .auth_schemes
+                    .iter()
+                    .map(|scheme| match scheme {
+                        AuthSchemeKind::Ndw2 => "ndw2".to_owned(),
+                        AuthSchemeKind::Ndw4 => "ndw4".to_owned(),
+                        AuthSchemeKind::Other(name) => name.clone(),
+                        _ => String::new(),
+                    })
+                    .filter(|name| !name.is_empty())
+                    .collect::<Vec<_>>()
+                    .join(", "),
+            },
+            Err(error) => Self::failed(shell, tr(locale, failure(error), None)),
+        }
+    }
+
+    /// A test that could not run because the form is invalid.
+    pub(crate) fn invalid(shell: Shell, errors: &FieldErrors) -> Self {
+        let error = errors.first().to_owned();
+        Self::failed(shell, error)
+    }
+
+    /// A test that could not run, explained by `key`.
+    pub(crate) fn message(shell: Shell, key: MessageKey) -> Self {
+        let error = tr(shell.locale(), key, None);
+        Self::failed(shell, error)
+    }
+
+    /// A failed test showing `error`.
+    const fn failed(shell: Shell, error: String) -> Self {
+        Self {
+            shell,
+            error,
+            model: String::new(),
+            firmware: String::new(),
+            tier: keys::WEB_TIER_UNSUPPORTED,
+            schemes: String::new(),
+        }
+    }
+}
+
+impl Localize for TestResult {
+    fn shell(&self) -> &Shell {
+        &self.shell
+    }
+}
+
+/// The message explaining why a connection test failed.
+pub(crate) const fn failure(error: &RegistryError) -> MessageKey {
+    match error {
+        RegistryError::Rci(RciError::Policy) => keys::WEB_ROUTER_ERROR_POLICY,
+        RegistryError::Rci(RciError::Auth(_)) => keys::ERRORS_ROUTER_AUTH,
+        RegistryError::Rci(RciError::Transport | RciError::Timeout) => {
+            keys::WEB_ROUTER_ERROR_UNREACHABLE
+        }
+        RegistryError::InvalidProfile { reason: _ } => keys::WEB_ROUTER_ERROR_URL,
+        RegistryError::CredentialFile { path: _, source: _ } => keys::WEB_ROUTER_ERROR_PASSWORD,
+        RegistryError::State(_)
+        | RegistryError::PermissionDenied { router: _ }
+        | RegistryError::AlreadyExists { id: _ }
+        | RegistryError::NotFound { id: _ }
+        | RegistryError::ConfigDefined { id: _ }
+        | RegistryError::Rci(_)
+        | _ => keys::WEB_ROUTER_ERROR_CHECK,
+    }
+}

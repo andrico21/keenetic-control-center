@@ -13,6 +13,8 @@
 //!   Content-Security-Policy, and no kit `Cache-Control`, because the kit would overwrite
 //!   the per-response value this router sets.
 //! - Unknown paths under `/ui` render a generic, localized 404 page ([`errors`]).
+//! - [`WebState::with_fleet`] attaches the router fleet ([`fleet::FleetServices`]): the
+//!   fleet overview, the router dashboards and forms, and their live event streams.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
 // binary; rustc accepts an expect for it at crate level alone.
 #![cfg_attr(
@@ -28,6 +30,7 @@ extern crate alloc;
 pub mod csp;
 mod csrf;
 pub mod errors;
+pub mod fleet;
 pub mod nav;
 pub mod page;
 pub mod session;
@@ -38,8 +41,22 @@ mod auth;
 mod authz;
 
 mod assets;
+mod credentials;
+mod dashboard;
+mod gauge;
+mod network;
+mod overview;
 mod pages;
 mod prefs;
+mod router_access;
+mod router_check;
+mod router_delete;
+mod router_form;
+mod routers;
+mod save;
+mod telemetry;
+mod traffic;
+mod view;
 
 use alloc::sync::Arc;
 use core::{fmt, time::Duration};
@@ -61,6 +78,7 @@ use tower_http::{
 };
 
 use crate::{
+    fleet::{Fleet, FleetServices},
     session::{CookieSecurity, SessionStore},
     sse::StreamLimiter,
 };
@@ -96,6 +114,8 @@ pub struct WebState {
     cookie_security: CookieSecurity,
     /// Wall clock shared with account lockout and audit timestamps.
     clock: Arc<dyn Clock>,
+    /// Router fleet services, when attached with [`WebState::with_fleet`].
+    fleet: Option<Arc<Fleet>>,
 }
 
 impl fmt::Debug for WebState {
@@ -153,7 +173,24 @@ impl WebState {
             allowed_origins: config.allowed_origins.into(),
             cookie_security: config.cookie_security,
             clock: config.clock,
+            fleet: None,
         }
+    }
+
+    /// Attaches the router fleet: the overview, router dashboards and forms, and their
+    /// live streams use these services. Without it those pages show a "not configured"
+    /// notice and the streams answer `503`.
+    #[inline]
+    #[must_use]
+    pub fn with_fleet(mut self, services: FleetServices) -> Self {
+        self.fleet = Some(Arc::new(Fleet::new(services, Arc::clone(&self.clock))));
+        self
+    }
+
+    /// Router fleet services, when attached.
+    #[must_use]
+    pub(crate) fn fleet(&self) -> Option<&Fleet> {
+        self.fleet.as_deref()
     }
 
     /// The locale used when a request does not select one.
@@ -224,19 +261,35 @@ impl WebState {
 /// Layering contract for the routes later pages add:
 ///
 /// - Request/response routes join `bounded`, under the [`REQUEST_TIMEOUT`].
-/// - Server-sent event routes are merged after the timeout layer and before the body
-///   limit, so the timeout never cuts a stream; [`WebState::streams`] caps them per
-///   session.
+/// - Server-sent event routes (`/ui/sse/...`) are merged after the timeout layer and
+///   before the body limit, so the timeout never cuts a stream; [`WebState::streams`]
+///   caps them per session. They pass the same CSRF, authentication and authorization
+///   layers as pages.
 /// - Upload routes are merged after the [`BODY_LIMIT`] layer, each with its own larger
 ///   `RequestBodyLimitLayer` and axum `DefaultBodyLimit`.
 /// - The kit installs its JSON 404 after merging this router, so `/ui/{*rest}` is an
 ///   explicit route that renders the HTML 404 page for every unknown path.
 #[inline]
 pub fn web_router(state: WebState) -> Router {
-    let protected = Router::new()
+    let pages = Router::new()
         .route("/", get(pages::to_ui))
         .route("/ui", get(pages::to_ui))
-        .route("/ui/", get(pages::dashboard))
+        .route("/ui/", get(overview::page))
+        .route("/ui/r/{router}", get(dashboard::page))
+        .route("/ui/r/{router}/save", post(save::save))
+        .route(
+            "/ui/routers/new",
+            get(routers::new_page).post(routers::create),
+        )
+        .route("/ui/routers/test", post(router_check::test))
+        .route(
+            "/ui/routers/{id}/edit",
+            get(routers::edit_page).post(routers::update),
+        )
+        .route(
+            "/ui/routers/{id}/delete",
+            get(router_delete::delete_dialog).post(router_delete::delete),
+        )
         .route("/ui/account", get(auth::account_page))
         .route("/ui/account/password", post(auth::change_password))
         .route("/ui/account/locale", post(auth::change_locale))
@@ -244,19 +297,14 @@ pub fn web_router(state: WebState) -> Router {
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),
-        )
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            authz::authorization_middleware,
-        ))
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            authz::authentication_middleware,
-        ))
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            csrf::middleware,
-        ));
+        );
+    let protected = protect(pages, &state);
+    let streams = protect(
+        Router::new()
+            .route("/ui/sse/fleet", get(overview::stream))
+            .route("/ui/sse/r/{router}/traffic", get(dashboard::stream)),
+        &state,
+    );
     let public = Router::new()
         .route(assets::ROUTE, get(assets::serve))
         .route("/ui/login", get(auth::login_page).post(auth::login))
@@ -274,10 +322,28 @@ pub fn web_router(state: WebState) -> Router {
             ));
     Router::new()
         .merge(bounded)
+        .merge(streams)
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CACHE_CONTROL,
             HeaderValue::from_static(NO_STORE),
         ))
         .with_state(state)
+}
+
+/// Adds the CSRF, authentication and route-table authorization layers to `routes`.
+fn protect(routes: Router<WebState>, state: &WebState) -> Router<WebState> {
+    routes
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            authz::authorization_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            authz::authentication_middleware,
+        ))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf::middleware,
+        ))
 }

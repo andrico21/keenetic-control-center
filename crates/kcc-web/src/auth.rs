@@ -367,20 +367,24 @@ async fn audit(
     action: &'static str,
     outcome: &'static str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let request_id = format!("web-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed));
     let event = AuditEvent::new(
         state.unix_seconds(),
         Actor::new(ActorKind::Web, username.to_owned()),
         action.to_owned(),
     )
     .with_params(Value::Null)
-    .with_result(outcome.to_owned(), request_id);
+    .with_result(outcome.to_owned(), request_id());
     state
         .audit()
         .append(event)
         .await
         .map(|_entry| ())
         .map_err(Box::<dyn Error + Send + Sync>::from)
+}
+
+/// A new correlation id for one Web audit event.
+pub(crate) fn request_id() -> String {
+    format!("web-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed))
 }
 
 /// Renders the account page with the current session's CSRF token.

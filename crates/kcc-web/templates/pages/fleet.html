@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_FLEET_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page fleet-page"{% if !cards.is_empty() %} hx-ext="sse" sse-connect="/ui/sse/fleet"{% endif %}>
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_FLEET_TITLE) }}</h1>
+    {%- if available && can_add %}
+    <a class="button{% if cards.is_empty() %} button--primary{% else %} button--secondary{% endif %}" href="/ui/routers/new">{{ t(keys::WEB_FLEET_ADD) }}</a>
+    {%- endif %}
+  </div>
+  {%- if !available %}
+  <p class="page__text">{{ t(keys::WEB_FLEET_UNAVAILABLE) }}</p>
+  {%- else if cards.is_empty() %}
+  <p class="page__text">{% if can_add %}{{ t(keys::WEB_FLEET_EMPTY_ADMIN) }}{% else %}{{ t(keys::WEB_FLEET_EMPTY_VIEWER) }}{% endif %}</p>
+  {%- else %}
+  <ul class="fleet-grid">
+    {%- for card in cards %}
+    <li class="router-card" id="router-{{ card.id() }}" sse-swap="router-{{ card.id() }}">
+      {%- include "partials/router_card.html" %}
+    </li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</div>
+{%- endblock %}

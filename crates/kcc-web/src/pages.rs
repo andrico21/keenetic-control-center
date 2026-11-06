@@ -1,7 +1,8 @@
-//! Page handlers: the dashboard, the section pages and the redirects into `/ui/`.
+//! Page handlers: the section pages and the redirects into `/ui/`.
 //!
 //! The sections are placeholders until their own pages land; each renders its heading
-//! inside the full shell, so navigation works end to end.
+//! inside the full shell, so navigation works end to end. The dashboard section is the
+//! fleet overview (`overview`).
 
 use askama::Template;
 use axum::{
@@ -16,6 +17,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     nav::Section,
+    overview::masthead,
     page::{Localize, Shell},
     prefs,
 };
@@ -41,16 +43,6 @@ pub(crate) async fn to_ui() -> Redirect {
     Redirect::to(Section::Dashboard.href())
 }
 
-/// `GET /ui/`: the dashboard.
-pub(crate) async fn dashboard(
-    State(state): State<WebState>,
-    headers: HeaderMap,
-    current: CurrentSession,
-    user: CurrentUser,
-) -> Response {
-    page(&state, &headers, &current, &user, Section::Dashboard)
-}
-
 /// `GET /ui/{*rest}`: a section page, or the 404 page for any other path.
 pub(crate) async fn section(
     State(state): State<WebState>,
@@ -59,24 +51,25 @@ pub(crate) async fn section(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    rest.ok()
+    let shell = prefs::shell_for_locale(&headers, user.locale())
+        .with_csrf_token(current.session().csrf_token().to_owned())
+        .with_fleet(masthead(&state, user.role(), None).await, None);
+    match rest
+        .ok()
         .and_then(|Path(slug)| Section::from_slug(&slug))
         .filter(|section| *section != Section::Dashboard)
-        .map_or_else(
-            || {
-                errors::response(
-                    Kind::NotFound,
-                    prefs::shell_for_locale(&headers, user.locale())
-                        .with_csrf_token(current.session().csrf_token().to_owned()),
-                )
-            },
-            |section| page(&state, &headers, &current, &user, section),
-        )
+    {
+        Some(section) => errors::render(&SectionPage {
+            shell: shell.with_section(section),
+            section,
+        }),
+        None => errors::response(Kind::NotFound, shell),
+    }
 }
 
 /// Any method but `GET` under `/ui/{*rest}`: the 404 page.
 pub(crate) async fn not_found(
-    State(_state): State<WebState>,
+    State(state): State<WebState>,
     headers: HeaderMap,
     current: CurrentSession,
     user: CurrentUser,
@@ -84,25 +77,9 @@ pub(crate) async fn not_found(
     errors::response(
         Kind::NotFound,
         prefs::shell_for_locale(&headers, user.locale())
-            .with_csrf_token(current.session().csrf_token().to_owned()),
-    )
-}
-
-/// Renders the page of `section`.
-fn page(
-    state: &WebState,
-    headers: &HeaderMap,
-    current: &CurrentSession,
-    user: &CurrentUser,
-    section: Section,
-) -> Response {
-    let _: &WebState = state;
-    errors::render(&SectionPage {
-        shell: prefs::shell_for_locale(headers, user.locale())
             .with_csrf_token(current.session().csrf_token().to_owned())
-            .with_section(section),
-        section,
-    })
+            .with_fleet(masthead(&state, user.role(), None).await, None),
+    )
 }
 
 #[cfg(test)]

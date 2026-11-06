@@ -1,0 +1,95 @@
+//! Deleting a Web UI router profile: the confirmation dialog and the delete action.
+
+use askama::Template;
+use axum::{
+    extract::{Path, State},
+    http::StatusCode,
+    response::{IntoResponse as _, Response},
+};
+use fluent_bundle::FluentArgs;
+use kcc_app::registry::ProfileSource;
+use kcc_i18n::{bundle::tr, keys};
+
+use crate::{
+    WebState,
+    authz::CurrentUser,
+    credentials, errors,
+    nav::Section,
+    page::{Localize, Shell, Theme},
+    router_access::{ProfileAction, audit, managed, open},
+};
+
+/// `GET /ui/routers/{id}/delete`: the confirmation dialog.
+pub(crate) async fn delete_dialog(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    user: CurrentUser,
+) -> Response {
+    let shell = Shell::new(user.locale(), Theme::System);
+    let Some(fleet) = state.fleet() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    match managed(fleet, user.role(), &id).await {
+        Ok(entry) if matches!(entry.source, ProfileSource::State) => {
+            errors::render(&DeleteDialog::new(shell, id))
+        }
+        Ok(_) => StatusCode::FORBIDDEN.into_response(),
+        Err(refusal) => refusal.respond(shell),
+    }
+}
+
+/// `POST /ui/routers/{id}/delete`: forgets a Web UI profile and its password file.
+pub(crate) async fn delete(
+    State(state): State<WebState>,
+    Path(id): Path<String>,
+    user: CurrentUser,
+) -> Response {
+    let shell = Shell::new(user.locale(), Theme::System);
+    let Some(fleet) = state.fleet() else {
+        return StatusCode::SERVICE_UNAVAILABLE.into_response();
+    };
+    let entry = match managed(fleet, user.role(), &id).await {
+        Ok(entry) if matches!(entry.source, ProfileSource::State) => entry,
+        Ok(_) => return StatusCode::FORBIDDEN.into_response(),
+        Err(refusal) => return refusal.respond(shell),
+    };
+    if let Err(error) = fleet.registry().delete(user.role(), &id).await {
+        return errors::internal(&error, shell);
+    }
+    let managed_file = credentials::path(fleet.credentials_dir(), &id);
+    if entry.profile.password_file == managed_file
+        && let Err(error) = credentials::remove(managed_file).await
+    {
+        tracing::error!(%error, "router password file could not be removed");
+    }
+    audit(&state, &user, ProfileAction::Delete(&entry.profile)).await;
+    open(Section::Dashboard.href())
+}
+
+/// The delete confirmation shown in the shared dialog.
+#[derive(Template)]
+#[template(path = "partials/router_delete.html")]
+pub(crate) struct DeleteDialog {
+    /// Locale carrier.
+    shell: Shell,
+    /// The router to delete.
+    id: String,
+    /// Dialog title.
+    title: String,
+}
+
+impl DeleteDialog {
+    /// The confirmation for `id`.
+    pub(crate) fn new(shell: Shell, id: String) -> Self {
+        let mut args = FluentArgs::new();
+        args.set("name", id.clone());
+        let title = tr(shell.locale(), keys::WEB_ROUTER_DELETE_TITLE, Some(&args));
+        Self { shell, id, title }
+    }
+}
+
+impl Localize for DeleteDialog {
+    fn shell(&self) -> &Shell {
+        &self.shell
+    }
+}

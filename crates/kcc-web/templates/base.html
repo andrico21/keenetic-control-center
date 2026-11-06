@@ -38,7 +38,7 @@
       </form>
       {%- endif %}
       {%- if let Some(status) = shell.router_status() %}
-      <span class="status" data-status="{{ status.value() }}">{{ t(status.label()) }}</span>
+      <span class="masthead__status" id="router-status"><span class="status" data-status="{{ status.value() }}">{{ t(status.label()) }}</span></span>
       {%- endif %}
       {%- if shell.unsaved_changes() > 0 %}
       <a class="badge" href="/ui/configuration">{{ t_count(keys::WEB_UNSAVED_CHANGES, shell.unsaved_changes()) }}</a>

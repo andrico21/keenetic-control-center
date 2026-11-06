@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{%- block title %}{{ router.id() }}{% endblock %}
+{%- block head %}
+{{ ui::stylesheet("vendor/uPlot.min.css") }}
+{{ ui::script("vendor/uPlot.iife.min.js") }}
+{%- endblock %}
+{%- block content %}
+<div class="page dashboard" hx-ext="sse" sse-connect="{{ stream }}">
+  <div class="page-head">
+    <h1 class="page__title">{{ router.id() }}</h1>
+    {%- if router.can_edit() %}
+    <a class="button button--secondary" href="/ui/routers/{{ router.id() }}/edit">{{ t(keys::WEB_ROUTER_EDIT) }}</a>
+    {%- endif %}
+  </div>
+  {%- if router.brand().is_some() || router.model().is_some() || router.serial().is_some() %}
+  <p class="identity">
+    {%- if let Some(brand) = router.brand() %}<span class="brand-mark">{{ t(**brand) }}</span>{% endif %}
+    {%- if let Some(model) = router.model() %} <span>{{ model }}</span>{% endif %}
+    {%- if let Some(hw_id) = router.hw_id() %} <span class="mono">{{ hw_id }}</span>{% endif %}
+    {%- if let Some(serial) = router.serial() %} <span class="identity__item">{{ t(keys::DOMAINS_SERIAL) }} <span class="mono">{{ serial }}</span></span>{% endif %}
+    {%- if let Some(tier) = router.tier() %} <span class="flag" data-tone="info">{{ t(**tier) }}</span>{% endif %}
+  </p>
+  {%- endif %}
+  {%- if router.config_defined() %}
+  <p class="page__text">{{ t(keys::WEB_ROUTER_CONFIG_DEFINED) }}</p>
+  {%- endif %}
+  {%- if let Some(tier) = router.tier() %}
+  <p class="notice" data-tone="info" role="note">
+    {%- if *tier == keys::WEB_TIER_DOCUMENTATION %}{{ t(keys::WEB_TIER_DOCUMENTATION_TEXT) }}{% else %}{{ t(keys::WEB_TIER_UNSUPPORTED_TEXT) }}{% endif %}
+    <a href="{{ firmware_doc }}">{{ t(keys::WEB_TIER_LINK) }}</a>
+  </p>
+  {%- endif %}
+  <div class="live" id="router-live" sse-swap="live">
+    {%- include "partials/router_live.html" %}
+  </div>
+  <section class="panel traffic" aria-labelledby="traffic-title">
+    <div class="panel__head">
+      <h2 class="panel__title" id="traffic-title">{{ t(keys::WEB_TRAFFIC_TITLE) }}</h2>
+      <span class="panel__aside">{{ t(keys::WEB_TRAFFIC_WINDOW) }}</span>
+    </div>
+    <dl class="facts traffic__legend">
+      <div class="facts__row"><dt><span class="traffic__swatch" data-series="rx"></span>{{ t(keys::WEB_TRAFFIC_DOWNLOAD) }}</dt><dd id="traffic-rx">{% if let Some((rx, _)) = router.traffic() %}{{ rx }}{% endif %}</dd></div>
+      <div class="facts__row"><dt><span class="traffic__swatch" data-series="tx"></span>{{ t(keys::WEB_TRAFFIC_UPLOAD) }}</dt><dd id="traffic-tx">{% if let Some((_, tx)) = router.traffic() %}{{ tx }}{% endif %}</dd></div>
+    </dl>
+    <div class="traffic__chart" id="traffic-chart" sse-swap="traffic" hx-swap="none" role="img" aria-label="{{ t(keys::WEB_TRAFFIC_CHART) }}" data-units="{{ units }}"></div>
+    <p class="traffic__empty" id="traffic-empty">{{ t(keys::WEB_TRAFFIC_WAITING) }}</p>
+  </section>
+</div>
+{%- endblock %}
