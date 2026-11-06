@@ -2334,8 +2334,443 @@ pub const WEB_SEGMENTS_FAILED_STEP: MessageKey = MessageKey::new("web-segments-f
 pub const WEB_SEGMENTS_ROLLBACK_FAILED: MessageKey =
     MessageKey::new("web-segments-rollback-failed");
 
+/// `web-network-tabs` in `web.ftl`.
+pub const WEB_NETWORK_TABS: MessageKey = MessageKey::new("web-network-tabs");
+
+/// `web-network-tab-mesh` in `web.ftl`.
+pub const WEB_NETWORK_TAB_MESH: MessageKey = MessageKey::new("web-network-tab-mesh");
+
+/// `web-network-title` in `web.ftl`.
+pub const WEB_NETWORK_TITLE: MessageKey = MessageKey::new("web-network-title");
+
+/// `web-network-filter` in `web.ftl`.
+pub const WEB_NETWORK_FILTER: MessageKey = MessageKey::new("web-network-filter");
+
+/// `web-network-none` in `web.ftl`.
+pub const WEB_NETWORK_NONE: MessageKey = MessageKey::new("web-network-none");
+
+/// `web-network-interface` in `web.ftl`.
+pub const WEB_NETWORK_INTERFACE: MessageKey = MessageKey::new("web-network-interface");
+
+/// `web-network-type` in `web.ftl`.
+pub const WEB_NETWORK_TYPE: MessageKey = MessageKey::new("web-network-type");
+
+/// `web-network-link` in `web.ftl`.
+pub const WEB_NETWORK_LINK: MessageKey = MessageKey::new("web-network-link");
+
+/// `web-network-state` in `web.ftl`.
+pub const WEB_NETWORK_STATE: MessageKey = MessageKey::new("web-network-state");
+
+/// `web-network-address` in `web.ftl`.
+pub const WEB_NETWORK_ADDRESS: MessageKey = MessageKey::new("web-network-address");
+
+/// `web-network-security` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY: MessageKey = MessageKey::new("web-network-security");
+
+/// `web-network-security-public` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY_PUBLIC: MessageKey = MessageKey::new("web-network-security-public");
+
+/// `web-network-security-private` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY_PRIVATE: MessageKey =
+    MessageKey::new("web-network-security-private");
+
+/// `web-network-security-protected` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY_PROTECTED: MessageKey =
+    MessageKey::new("web-network-security-protected");
+
+/// `web-network-details` in `web.ftl`.
+pub const WEB_NETWORK_DETAILS: MessageKey = MessageKey::new("web-network-details");
+
+/// `web-network-enable` in `web.ftl`.
+pub const WEB_NETWORK_ENABLE: MessageKey = MessageKey::new("web-network-enable");
+
+/// `web-network-disable` in `web.ftl`.
+pub const WEB_NETWORK_DISABLE: MessageKey = MessageKey::new("web-network-disable");
+
+/// `web-network-detail-title` in `web.ftl`.
+pub const WEB_NETWORK_DETAIL_TITLE: MessageKey = MessageKey::new("web-network-detail-title");
+
+/// `web-network-description-title` in `web.ftl`.
+pub const WEB_NETWORK_DESCRIPTION_TITLE: MessageKey =
+    MessageKey::new("web-network-description-title");
+
+/// `web-network-security-title` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY_TITLE: MessageKey = MessageKey::new("web-network-security-title");
+
+/// `web-network-security-help` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY_HELP: MessageKey = MessageKey::new("web-network-security-help");
+
+/// `web-network-security-error` in `web.ftl`.
+pub const WEB_NETWORK_SECURITY_ERROR: MessageKey = MessageKey::new("web-network-security-error");
+
+/// `web-network-mac` in `web.ftl`.
+pub const WEB_NETWORK_MAC: MessageKey = MessageKey::new("web-network-mac");
+
+/// `web-network-mtu` in `web.ftl`.
+pub const WEB_NETWORK_MTU: MessageKey = MessageKey::new("web-network-mtu");
+
+/// `web-network-default-gateway` in `web.ftl`.
+pub const WEB_NETWORK_DEFAULT_GATEWAY: MessageKey = MessageKey::new("web-network-default-gateway");
+
+/// `web-network-priority` in `web.ftl`.
+pub const WEB_NETWORK_PRIORITY: MessageKey = MessageKey::new("web-network-priority");
+
+/// `web-network-counters` in `web.ftl`.
+pub const WEB_NETWORK_COUNTERS: MessageKey = MessageKey::new("web-network-counters");
+
+/// `web-network-received` in `web.ftl`.
+pub const WEB_NETWORK_RECEIVED: MessageKey = MessageKey::new("web-network-received");
+
+/// `web-network-sent` in `web.ftl`.
+pub const WEB_NETWORK_SENT: MessageKey = MessageKey::new("web-network-sent");
+
+/// `web-network-packets-received` in `web.ftl`.
+pub const WEB_NETWORK_PACKETS_RECEIVED: MessageKey =
+    MessageKey::new("web-network-packets-received");
+
+/// `web-network-packets-sent` in `web.ftl`.
+pub const WEB_NETWORK_PACKETS_SENT: MessageKey = MessageKey::new("web-network-packets-sent");
+
+/// `web-network-traffic` in `web.ftl`.
+pub const WEB_NETWORK_TRAFFIC: MessageKey = MessageKey::new("web-network-traffic");
+
+/// `web-network-traffic-live` in `web.ftl`.
+pub const WEB_NETWORK_TRAFFIC_LIVE: MessageKey = MessageKey::new("web-network-traffic-live");
+
+/// `web-network-traffic-waiting` in `web.ftl`.
+pub const WEB_NETWORK_TRAFFIC_WAITING: MessageKey = MessageKey::new("web-network-traffic-waiting");
+
+/// `web-network-traffic-chart` in `web.ftl`.
+pub const WEB_NETWORK_TRAFFIC_CHART: MessageKey = MessageKey::new("web-network-traffic-chart");
+
+/// `web-internet-title` in `web.ftl`.
+pub const WEB_INTERNET_TITLE: MessageKey = MessageKey::new("web-internet-title");
+
+/// `web-internet-add` in `web.ftl`.
+pub const WEB_INTERNET_ADD: MessageKey = MessageKey::new("web-internet-add");
+
+/// `web-internet-filter` in `web.ftl`.
+pub const WEB_INTERNET_FILTER: MessageKey = MessageKey::new("web-internet-filter");
+
+/// `web-internet-none` in `web.ftl`.
+pub const WEB_INTERNET_NONE: MessageKey = MessageKey::new("web-internet-none");
+
+/// `web-internet-connection` in `web.ftl`.
+pub const WEB_INTERNET_CONNECTION: MessageKey = MessageKey::new("web-internet-connection");
+
+/// `web-internet-kind` in `web.ftl`.
+pub const WEB_INTERNET_KIND: MessageKey = MessageKey::new("web-internet-kind");
+
+/// `web-internet-kind-ipoe` in `web.ftl`.
+pub const WEB_INTERNET_KIND_IPOE: MessageKey = MessageKey::new("web-internet-kind-ipoe");
+
+/// `web-internet-kind-pppoe` in `web.ftl`.
+pub const WEB_INTERNET_KIND_PPPOE: MessageKey = MessageKey::new("web-internet-kind-pppoe");
+
+/// `web-internet-kind-l2tp` in `web.ftl`.
+pub const WEB_INTERNET_KIND_L2TP: MessageKey = MessageKey::new("web-internet-kind-l2tp");
+
+/// `web-internet-kind-pptp` in `web.ftl`.
+pub const WEB_INTERNET_KIND_PPTP: MessageKey = MessageKey::new("web-internet-kind-pptp");
+
+/// `web-internet-via` in `web.ftl`.
+pub const WEB_INTERNET_VIA: MessageKey = MessageKey::new("web-internet-via");
+
+/// `web-internet-identity` in `web.ftl`.
+pub const WEB_INTERNET_IDENTITY: MessageKey = MessageKey::new("web-internet-identity");
+
+/// `web-internet-password` in `web.ftl`.
+pub const WEB_INTERNET_PASSWORD: MessageKey = MessageKey::new("web-internet-password");
+
+/// `web-internet-set` in `web.ftl`.
+pub const WEB_INTERNET_SET: MessageKey = MessageKey::new("web-internet-set");
+
+/// `web-internet-not-set` in `web.ftl`.
+pub const WEB_INTERNET_NOT_SET: MessageKey = MessageKey::new("web-internet-not-set");
+
+/// `web-internet-default-route` in `web.ftl`.
+pub const WEB_INTERNET_DEFAULT_ROUTE: MessageKey = MessageKey::new("web-internet-default-route");
+
+/// `web-internet-default-route-on` in `web.ftl`.
+pub const WEB_INTERNET_DEFAULT_ROUTE_ON: MessageKey =
+    MessageKey::new("web-internet-default-route-on");
+
+/// `web-internet-default-route-off` in `web.ftl`.
+pub const WEB_INTERNET_DEFAULT_ROUTE_OFF: MessageKey =
+    MessageKey::new("web-internet-default-route-off");
+
+/// `web-internet-move-up` in `web.ftl`.
+pub const WEB_INTERNET_MOVE_UP: MessageKey = MessageKey::new("web-internet-move-up");
+
+/// `web-internet-move-down` in `web.ftl`.
+pub const WEB_INTERNET_MOVE_DOWN: MessageKey = MessageKey::new("web-internet-move-down");
+
+/// `web-internet-settings` in `web.ftl`.
+pub const WEB_INTERNET_SETTINGS: MessageKey = MessageKey::new("web-internet-settings");
+
+/// `web-internet-settings-title` in `web.ftl`.
+pub const WEB_INTERNET_SETTINGS_TITLE: MessageKey = MessageKey::new("web-internet-settings-title");
+
+/// `web-internet-create-title` in `web.ftl`.
+pub const WEB_INTERNET_CREATE_TITLE: MessageKey = MessageKey::new("web-internet-create-title");
+
+/// `web-internet-name` in `web.ftl`.
+pub const WEB_INTERNET_NAME: MessageKey = MessageKey::new("web-internet-name");
+
+/// `web-internet-name-help` in `web.ftl`.
+pub const WEB_INTERNET_NAME_HELP: MessageKey = MessageKey::new("web-internet-name-help");
+
+/// `web-internet-name-error` in `web.ftl`.
+pub const WEB_INTERNET_NAME_ERROR: MessageKey = MessageKey::new("web-internet-name-error");
+
+/// `web-internet-name-exists` in `web.ftl`.
+pub const WEB_INTERNET_NAME_EXISTS: MessageKey = MessageKey::new("web-internet-name-exists");
+
+/// `web-internet-kind-error` in `web.ftl`.
+pub const WEB_INTERNET_KIND_ERROR: MessageKey = MessageKey::new("web-internet-kind-error");
+
+/// `web-internet-via-help` in `web.ftl`.
+pub const WEB_INTERNET_VIA_HELP: MessageKey = MessageKey::new("web-internet-via-help");
+
+/// `web-internet-via-title` in `web.ftl`.
+pub const WEB_INTERNET_VIA_TITLE: MessageKey = MessageKey::new("web-internet-via-title");
+
+/// `web-internet-via-error` in `web.ftl`.
+pub const WEB_INTERNET_VIA_ERROR: MessageKey = MessageKey::new("web-internet-via-error");
+
+/// `web-internet-identity-title` in `web.ftl`.
+pub const WEB_INTERNET_IDENTITY_TITLE: MessageKey = MessageKey::new("web-internet-identity-title");
+
+/// `web-internet-identity-help` in `web.ftl`.
+pub const WEB_INTERNET_IDENTITY_HELP: MessageKey = MessageKey::new("web-internet-identity-help");
+
+/// `web-internet-identity-error` in `web.ftl`.
+pub const WEB_INTERNET_IDENTITY_ERROR: MessageKey = MessageKey::new("web-internet-identity-error");
+
+/// `web-internet-mtu-title` in `web.ftl`.
+pub const WEB_INTERNET_MTU_TITLE: MessageKey = MessageKey::new("web-internet-mtu-title");
+
+/// `web-internet-mtu-error` in `web.ftl`.
+pub const WEB_INTERNET_MTU_ERROR: MessageKey = MessageKey::new("web-internet-mtu-error");
+
+/// `web-internet-priority-title` in `web.ftl`.
+pub const WEB_INTERNET_PRIORITY_TITLE: MessageKey = MessageKey::new("web-internet-priority-title");
+
+/// `web-internet-priority-help` in `web.ftl`.
+pub const WEB_INTERNET_PRIORITY_HELP: MessageKey = MessageKey::new("web-internet-priority-help");
+
+/// `web-internet-priority-error` in `web.ftl`.
+pub const WEB_INTERNET_PRIORITY_ERROR: MessageKey = MessageKey::new("web-internet-priority-error");
+
+/// `web-internet-address-title` in `web.ftl`.
+pub const WEB_INTERNET_ADDRESS_TITLE: MessageKey = MessageKey::new("web-internet-address-title");
+
+/// `web-internet-mode` in `web.ftl`.
+pub const WEB_INTERNET_MODE: MessageKey = MessageKey::new("web-internet-mode");
+
+/// `web-internet-mode-dhcp` in `web.ftl`.
+pub const WEB_INTERNET_MODE_DHCP: MessageKey = MessageKey::new("web-internet-mode-dhcp");
+
+/// `web-internet-mode-static` in `web.ftl`.
+pub const WEB_INTERNET_MODE_STATIC: MessageKey = MessageKey::new("web-internet-mode-static");
+
+/// `web-internet-static-address` in `web.ftl`.
+pub const WEB_INTERNET_STATIC_ADDRESS: MessageKey = MessageKey::new("web-internet-static-address");
+
+/// `web-internet-static-mask` in `web.ftl`.
+pub const WEB_INTERNET_STATIC_MASK: MessageKey = MessageKey::new("web-internet-static-mask");
+
+/// `web-internet-static-help` in `web.ftl`.
+pub const WEB_INTERNET_STATIC_HELP: MessageKey = MessageKey::new("web-internet-static-help");
+
+/// `web-internet-static-error` in `web.ftl`.
+pub const WEB_INTERNET_STATIC_ERROR: MessageKey = MessageKey::new("web-internet-static-error");
+
+/// `web-internet-delete-title` in `web.ftl`.
+pub const WEB_INTERNET_DELETE_TITLE: MessageKey = MessageKey::new("web-internet-delete-title");
+
+/// `web-internet-delete-text` in `web.ftl`.
+pub const WEB_INTERNET_DELETE_TEXT: MessageKey = MessageKey::new("web-internet-delete-text");
+
+/// `web-internet-ping-check` in `web.ftl`.
+pub const WEB_INTERNET_PING_CHECK: MessageKey = MessageKey::new("web-internet-ping-check");
+
+/// `web-internet-ping-text` in `web.ftl`.
+pub const WEB_INTERNET_PING_TEXT: MessageKey = MessageKey::new("web-internet-ping-text");
+
+/// `web-internet-ping-none` in `web.ftl`.
+pub const WEB_INTERNET_PING_NONE: MessageKey = MessageKey::new("web-internet-ping-none");
+
+/// `web-internet-ping-profile` in `web.ftl`.
+pub const WEB_INTERNET_PING_PROFILE: MessageKey = MessageKey::new("web-internet-ping-profile");
+
+/// `web-internet-ping-hosts` in `web.ftl`.
+pub const WEB_INTERNET_PING_HOSTS: MessageKey = MessageKey::new("web-internet-ping-hosts");
+
+/// `web-internet-ping-mode` in `web.ftl`.
+pub const WEB_INTERNET_PING_MODE: MessageKey = MessageKey::new("web-internet-ping-mode");
+
+/// `web-internet-ping-interval` in `web.ftl`.
+pub const WEB_INTERNET_PING_INTERVAL: MessageKey = MessageKey::new("web-internet-ping-interval");
+
+/// `web-wifi-title` in `web.ftl`.
+pub const WEB_WIFI_TITLE: MessageKey = MessageKey::new("web-wifi-title");
+
+/// `web-wifi-band` in `web.ftl`.
+pub const WEB_WIFI_BAND: MessageKey = MessageKey::new("web-wifi-band");
+
+/// `web-wifi-channel` in `web.ftl`.
+pub const WEB_WIFI_CHANNEL: MessageKey = MessageKey::new("web-wifi-channel");
+
+/// `web-wifi-width` in `web.ftl`.
+pub const WEB_WIFI_WIDTH: MessageKey = MessageKey::new("web-wifi-width");
+
+/// `web-wifi-power` in `web.ftl`.
+pub const WEB_WIFI_POWER: MessageKey = MessageKey::new("web-wifi-power");
+
+/// `web-wifi-country` in `web.ftl`.
+pub const WEB_WIFI_COUNTRY: MessageKey = MessageKey::new("web-wifi-country");
+
+/// `web-wifi-security` in `web.ftl`.
+pub const WEB_WIFI_SECURITY: MessageKey = MessageKey::new("web-wifi-security");
+
+/// `web-wifi-security-wpa2` in `web.ftl`.
+pub const WEB_WIFI_SECURITY_WPA2: MessageKey = MessageKey::new("web-wifi-security-wpa2");
+
+/// `web-wifi-security-wpa3` in `web.ftl`.
+pub const WEB_WIFI_SECURITY_WPA3: MessageKey = MessageKey::new("web-wifi-security-wpa3");
+
+/// `web-wifi-security-enable` in `web.ftl`.
+pub const WEB_WIFI_SECURITY_ENABLE: MessageKey = MessageKey::new("web-wifi-security-enable");
+
+/// `web-wifi-psk` in `web.ftl`.
+pub const WEB_WIFI_PSK: MessageKey = MessageKey::new("web-wifi-psk");
+
+/// `web-wifi-hidden` in `web.ftl`.
+pub const WEB_WIFI_HIDDEN: MessageKey = MessageKey::new("web-wifi-hidden");
+
+/// `web-wifi-schedule` in `web.ftl`.
+pub const WEB_WIFI_SCHEDULE: MessageKey = MessageKey::new("web-wifi-schedule");
+
+/// `web-wifi-segment` in `web.ftl`.
+pub const WEB_WIFI_SEGMENT: MessageKey = MessageKey::new("web-wifi-segment");
+
+/// `web-wifi-hide` in `web.ftl`.
+pub const WEB_WIFI_HIDE: MessageKey = MessageKey::new("web-wifi-hide");
+
+/// `web-wifi-show` in `web.ftl`.
+pub const WEB_WIFI_SHOW: MessageKey = MessageKey::new("web-wifi-show");
+
+/// `web-wifi-access-point` in `web.ftl`.
+pub const WEB_WIFI_ACCESS_POINT: MessageKey = MessageKey::new("web-wifi-access-point");
+
+/// `web-wifi-stations` in `web.ftl`.
+pub const WEB_WIFI_STATIONS: MessageKey = MessageKey::new("web-wifi-stations");
+
+/// `web-wifi-stations-filter` in `web.ftl`.
+pub const WEB_WIFI_STATIONS_FILTER: MessageKey = MessageKey::new("web-wifi-stations-filter");
+
+/// `web-wifi-stations-none` in `web.ftl`.
+pub const WEB_WIFI_STATIONS_NONE: MessageKey = MessageKey::new("web-wifi-stations-none");
+
+/// `web-wifi-signal` in `web.ftl`.
+pub const WEB_WIFI_SIGNAL: MessageKey = MessageKey::new("web-wifi-signal");
+
+/// `web-wifi-signal-value` in `web.ftl`.
+pub const WEB_WIFI_SIGNAL_VALUE: MessageKey = MessageKey::new("web-wifi-signal-value");
+
+/// `web-wifi-rx-rate` in `web.ftl`.
+pub const WEB_WIFI_RX_RATE: MessageKey = MessageKey::new("web-wifi-rx-rate");
+
+/// `web-wifi-tx-rate` in `web.ftl`.
+pub const WEB_WIFI_TX_RATE: MessageKey = MessageKey::new("web-wifi-tx-rate");
+
+/// `web-wifi-rate-value` in `web.ftl`.
+pub const WEB_WIFI_RATE_VALUE: MessageKey = MessageKey::new("web-wifi-rate-value");
+
+/// `web-wifi-radio-title` in `web.ftl`.
+pub const WEB_WIFI_RADIO_TITLE: MessageKey = MessageKey::new("web-wifi-radio-title");
+
+/// `web-wifi-ap-title` in `web.ftl`.
+pub const WEB_WIFI_AP_TITLE: MessageKey = MessageKey::new("web-wifi-ap-title");
+
+/// `web-wifi-ssid-title` in `web.ftl`.
+pub const WEB_WIFI_SSID_TITLE: MessageKey = MessageKey::new("web-wifi-ssid-title");
+
+/// `web-wifi-ssid-error` in `web.ftl`.
+pub const WEB_WIFI_SSID_ERROR: MessageKey = MessageKey::new("web-wifi-ssid-error");
+
+/// `web-wifi-security-title` in `web.ftl`.
+pub const WEB_WIFI_SECURITY_TITLE: MessageKey = MessageKey::new("web-wifi-security-title");
+
+/// `web-wifi-security-error` in `web.ftl`.
+pub const WEB_WIFI_SECURITY_ERROR: MessageKey = MessageKey::new("web-wifi-security-error");
+
+/// `web-wifi-schedule-title` in `web.ftl`.
+pub const WEB_WIFI_SCHEDULE_TITLE: MessageKey = MessageKey::new("web-wifi-schedule-title");
+
+/// `web-wifi-schedule-error` in `web.ftl`.
+pub const WEB_WIFI_SCHEDULE_ERROR: MessageKey = MessageKey::new("web-wifi-schedule-error");
+
+/// `web-wifi-channel-title` in `web.ftl`.
+pub const WEB_WIFI_CHANNEL_TITLE: MessageKey = MessageKey::new("web-wifi-channel-title");
+
+/// `web-wifi-channel-help` in `web.ftl`.
+pub const WEB_WIFI_CHANNEL_HELP: MessageKey = MessageKey::new("web-wifi-channel-help");
+
+/// `web-wifi-channel-error` in `web.ftl`.
+pub const WEB_WIFI_CHANNEL_ERROR: MessageKey = MessageKey::new("web-wifi-channel-error");
+
+/// `web-wifi-width-title` in `web.ftl`.
+pub const WEB_WIFI_WIDTH_TITLE: MessageKey = MessageKey::new("web-wifi-width-title");
+
+/// `web-wifi-width-error` in `web.ftl`.
+pub const WEB_WIFI_WIDTH_ERROR: MessageKey = MessageKey::new("web-wifi-width-error");
+
+/// `web-wifi-power-title` in `web.ftl`.
+pub const WEB_WIFI_POWER_TITLE: MessageKey = MessageKey::new("web-wifi-power-title");
+
+/// `web-wifi-power-error` in `web.ftl`.
+pub const WEB_WIFI_POWER_ERROR: MessageKey = MessageKey::new("web-wifi-power-error");
+
+/// `web-wifi-country-title` in `web.ftl`.
+pub const WEB_WIFI_COUNTRY_TITLE: MessageKey = MessageKey::new("web-wifi-country-title");
+
+/// `web-wifi-country-help` in `web.ftl`.
+pub const WEB_WIFI_COUNTRY_HELP: MessageKey = MessageKey::new("web-wifi-country-help");
+
+/// `web-wifi-country-error` in `web.ftl`.
+pub const WEB_WIFI_COUNTRY_ERROR: MessageKey = MessageKey::new("web-wifi-country-error");
+
+/// `web-mesh-title` in `web.ftl`.
+pub const WEB_MESH_TITLE: MessageKey = MessageKey::new("web-mesh-title");
+
+/// `web-mesh-text` in `web.ftl`.
+pub const WEB_MESH_TEXT: MessageKey = MessageKey::new("web-mesh-text");
+
+/// `web-mesh-none` in `web.ftl`.
+pub const WEB_MESH_NONE: MessageKey = MessageKey::new("web-mesh-none");
+
+/// `web-mesh-member` in `web.ftl`.
+pub const WEB_MESH_MEMBER: MessageKey = MessageKey::new("web-mesh-member");
+
+/// `web-mesh-id` in `web.ftl`.
+pub const WEB_MESH_ID: MessageKey = MessageKey::new("web-mesh-id");
+
+/// `web-mesh-status` in `web.ftl`.
+pub const WEB_MESH_STATUS: MessageKey = MessageKey::new("web-mesh-status");
+
+/// `web-mesh-check` in `web.ftl`.
+pub const WEB_MESH_CHECK: MessageKey = MessageKey::new("web-mesh-check");
+
+/// `web-mesh-update` in `web.ftl`.
+pub const WEB_MESH_UPDATE: MessageKey = MessageKey::new("web-mesh-update");
+
+/// `web-mesh-restart` in `web.ftl`.
+pub const WEB_MESH_RESTART: MessageKey = MessageKey::new("web-mesh-restart");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 756] = [
+pub const ALL: [MessageKey; 899] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -3092,4 +3527,147 @@ pub const ALL: [MessageKey; 756] = [
     WEB_SEGMENTS_ERROR_ACCESS_POINT,
     WEB_SEGMENTS_FAILED_STEP,
     WEB_SEGMENTS_ROLLBACK_FAILED,
+    WEB_NETWORK_TABS,
+    WEB_NETWORK_TAB_MESH,
+    WEB_NETWORK_TITLE,
+    WEB_NETWORK_FILTER,
+    WEB_NETWORK_NONE,
+    WEB_NETWORK_INTERFACE,
+    WEB_NETWORK_TYPE,
+    WEB_NETWORK_LINK,
+    WEB_NETWORK_STATE,
+    WEB_NETWORK_ADDRESS,
+    WEB_NETWORK_SECURITY,
+    WEB_NETWORK_SECURITY_PUBLIC,
+    WEB_NETWORK_SECURITY_PRIVATE,
+    WEB_NETWORK_SECURITY_PROTECTED,
+    WEB_NETWORK_DETAILS,
+    WEB_NETWORK_ENABLE,
+    WEB_NETWORK_DISABLE,
+    WEB_NETWORK_DETAIL_TITLE,
+    WEB_NETWORK_DESCRIPTION_TITLE,
+    WEB_NETWORK_SECURITY_TITLE,
+    WEB_NETWORK_SECURITY_HELP,
+    WEB_NETWORK_SECURITY_ERROR,
+    WEB_NETWORK_MAC,
+    WEB_NETWORK_MTU,
+    WEB_NETWORK_DEFAULT_GATEWAY,
+    WEB_NETWORK_PRIORITY,
+    WEB_NETWORK_COUNTERS,
+    WEB_NETWORK_RECEIVED,
+    WEB_NETWORK_SENT,
+    WEB_NETWORK_PACKETS_RECEIVED,
+    WEB_NETWORK_PACKETS_SENT,
+    WEB_NETWORK_TRAFFIC,
+    WEB_NETWORK_TRAFFIC_LIVE,
+    WEB_NETWORK_TRAFFIC_WAITING,
+    WEB_NETWORK_TRAFFIC_CHART,
+    WEB_INTERNET_TITLE,
+    WEB_INTERNET_ADD,
+    WEB_INTERNET_FILTER,
+    WEB_INTERNET_NONE,
+    WEB_INTERNET_CONNECTION,
+    WEB_INTERNET_KIND,
+    WEB_INTERNET_KIND_IPOE,
+    WEB_INTERNET_KIND_PPPOE,
+    WEB_INTERNET_KIND_L2TP,
+    WEB_INTERNET_KIND_PPTP,
+    WEB_INTERNET_VIA,
+    WEB_INTERNET_IDENTITY,
+    WEB_INTERNET_PASSWORD,
+    WEB_INTERNET_SET,
+    WEB_INTERNET_NOT_SET,
+    WEB_INTERNET_DEFAULT_ROUTE,
+    WEB_INTERNET_DEFAULT_ROUTE_ON,
+    WEB_INTERNET_DEFAULT_ROUTE_OFF,
+    WEB_INTERNET_MOVE_UP,
+    WEB_INTERNET_MOVE_DOWN,
+    WEB_INTERNET_SETTINGS,
+    WEB_INTERNET_SETTINGS_TITLE,
+    WEB_INTERNET_CREATE_TITLE,
+    WEB_INTERNET_NAME,
+    WEB_INTERNET_NAME_HELP,
+    WEB_INTERNET_NAME_ERROR,
+    WEB_INTERNET_NAME_EXISTS,
+    WEB_INTERNET_KIND_ERROR,
+    WEB_INTERNET_VIA_HELP,
+    WEB_INTERNET_VIA_TITLE,
+    WEB_INTERNET_VIA_ERROR,
+    WEB_INTERNET_IDENTITY_TITLE,
+    WEB_INTERNET_IDENTITY_HELP,
+    WEB_INTERNET_IDENTITY_ERROR,
+    WEB_INTERNET_MTU_TITLE,
+    WEB_INTERNET_MTU_ERROR,
+    WEB_INTERNET_PRIORITY_TITLE,
+    WEB_INTERNET_PRIORITY_HELP,
+    WEB_INTERNET_PRIORITY_ERROR,
+    WEB_INTERNET_ADDRESS_TITLE,
+    WEB_INTERNET_MODE,
+    WEB_INTERNET_MODE_DHCP,
+    WEB_INTERNET_MODE_STATIC,
+    WEB_INTERNET_STATIC_ADDRESS,
+    WEB_INTERNET_STATIC_MASK,
+    WEB_INTERNET_STATIC_HELP,
+    WEB_INTERNET_STATIC_ERROR,
+    WEB_INTERNET_DELETE_TITLE,
+    WEB_INTERNET_DELETE_TEXT,
+    WEB_INTERNET_PING_CHECK,
+    WEB_INTERNET_PING_TEXT,
+    WEB_INTERNET_PING_NONE,
+    WEB_INTERNET_PING_PROFILE,
+    WEB_INTERNET_PING_HOSTS,
+    WEB_INTERNET_PING_MODE,
+    WEB_INTERNET_PING_INTERVAL,
+    WEB_WIFI_TITLE,
+    WEB_WIFI_BAND,
+    WEB_WIFI_CHANNEL,
+    WEB_WIFI_WIDTH,
+    WEB_WIFI_POWER,
+    WEB_WIFI_COUNTRY,
+    WEB_WIFI_SECURITY,
+    WEB_WIFI_SECURITY_WPA2,
+    WEB_WIFI_SECURITY_WPA3,
+    WEB_WIFI_SECURITY_ENABLE,
+    WEB_WIFI_PSK,
+    WEB_WIFI_HIDDEN,
+    WEB_WIFI_SCHEDULE,
+    WEB_WIFI_SEGMENT,
+    WEB_WIFI_HIDE,
+    WEB_WIFI_SHOW,
+    WEB_WIFI_ACCESS_POINT,
+    WEB_WIFI_STATIONS,
+    WEB_WIFI_STATIONS_FILTER,
+    WEB_WIFI_STATIONS_NONE,
+    WEB_WIFI_SIGNAL,
+    WEB_WIFI_SIGNAL_VALUE,
+    WEB_WIFI_RX_RATE,
+    WEB_WIFI_TX_RATE,
+    WEB_WIFI_RATE_VALUE,
+    WEB_WIFI_RADIO_TITLE,
+    WEB_WIFI_AP_TITLE,
+    WEB_WIFI_SSID_TITLE,
+    WEB_WIFI_SSID_ERROR,
+    WEB_WIFI_SECURITY_TITLE,
+    WEB_WIFI_SECURITY_ERROR,
+    WEB_WIFI_SCHEDULE_TITLE,
+    WEB_WIFI_SCHEDULE_ERROR,
+    WEB_WIFI_CHANNEL_TITLE,
+    WEB_WIFI_CHANNEL_HELP,
+    WEB_WIFI_CHANNEL_ERROR,
+    WEB_WIFI_WIDTH_TITLE,
+    WEB_WIFI_WIDTH_ERROR,
+    WEB_WIFI_POWER_TITLE,
+    WEB_WIFI_POWER_ERROR,
+    WEB_WIFI_COUNTRY_TITLE,
+    WEB_WIFI_COUNTRY_HELP,
+    WEB_WIFI_COUNTRY_ERROR,
+    WEB_MESH_TITLE,
+    WEB_MESH_TEXT,
+    WEB_MESH_NONE,
+    WEB_MESH_MEMBER,
+    WEB_MESH_ID,
+    WEB_MESH_STATUS,
+    WEB_MESH_CHECK,
+    WEB_MESH_UPDATE,
+    WEB_MESH_RESTART,
 ];

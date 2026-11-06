@@ -1,0 +1,17 @@
+{#- One object's settings with Edit where the role may change them, then its buttons; each answer lands in the page's outcome region. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+{% call ui::dialog_body(title) %}
+<dl class="settings">
+  {%- for fact in facts %}
+  {{ kit::setting(fact.id(), fact.label(), fact.value(), fact.edit()) }}
+  {%- endfor %}
+</dl>
+{%- if !buttons.is_empty() %}
+<div class="drawer__actions">
+  {%- for button in buttons %}
+  <button class="button button--secondary" type="button" hx-post="{{ button.href() }}" hx-target="#page-outcome">{{ button.label() }}</button>
+  {%- endfor %}
+</div>
+{%- endif %}
+{% endcall %}

@@ -147,12 +147,17 @@
     });
   }
 
-  // Traffic chart. The dashboard stream sends `traffic` events with uPlot columns (unix
-  // seconds, download and upload bits per second) and the newest rates as text; htmx must
-  // not swap them, so this handler takes the data and cancels the swap. The browser only
-  // listens to kcc and never contacts a router.
-  const chartBox = document.getElementById("traffic-chart");
-  if (chartBox && typeof uPlot === "function") {
+  // Traffic chart. The dashboard stream, and the stream of an interface drawer on the
+  // network pages, send `traffic` events with uPlot columns (unix seconds, received and
+  // sent bits per second) and the newest rates as text; htmx must not swap them, so this
+  // handler takes the data and cancels the swap. The browser only listens to kcc and never
+  // contacts a router. A drawer arrives after the page loaded, so charts mount as htmx
+  // loads them, and a chart that left the page stops listening.
+  const mountTraffic = (chartBox) => {
+    if (chartBox.dataset.kccChart || typeof uPlot !== "function") {
+      return;
+    }
+    chartBox.dataset.kccChart = "mounted";
     const WINDOW_SECONDS = 1800;
     const GAP_SECONDS = 45;
     const HEIGHT = 224;
@@ -268,10 +273,34 @@
         // A malformed event leaves the chart as it was.
       }
     });
-    new ResizeObserver(() => chart?.setSize({ width: chartBox.clientWidth, height: HEIGHT })).observe(chartBox);
-    document.addEventListener("kcc:theme", build);
-    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", build);
+    const listening = new AbortController();
+    const resizing = new ResizeObserver(() => chart?.setSize({ width: chartBox.clientWidth, height: HEIGHT }));
+    resizing.observe(chartBox);
+    const rebuild = () => {
+      if (chartBox.isConnected) {
+        build();
+        return;
+      }
+      listening.abort();
+      resizing.disconnect();
+      chart?.destroy();
+      chart = null;
+    };
+    document.addEventListener("kcc:theme", rebuild, { signal: listening.signal });
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener("change", rebuild, { signal: listening.signal });
+  };
+  const initialChart = document.getElementById("traffic-chart");
+  if (initialChart) {
+    mountTraffic(initialChart);
   }
+  window.htmx?.onLoad((element) => {
+    const box = element.id === "traffic-chart" ? element : element.querySelector?.("#traffic-chart");
+    if (box) {
+      mountTraffic(box);
+    }
+  });
 })();
 
 // todo 44: admin pages. The Copy button beside a new API key, and <time data-kcc-time>
@@ -338,4 +367,28 @@
     },
     true,
   );
+})();
+
+// todo 37: network pages. A dialog input's data-kcc-invalid holds the localized rule: the
+// browser shows it instead of its own message when the input's constraints fail, so an
+// invalid value is never sent. Typing clears it until the next check.
+(() => {
+  "use strict";
+
+  document.addEventListener(
+    "invalid",
+    (event) => {
+      const input = event.target;
+      if (input instanceof HTMLInputElement && input.dataset.kccInvalid) {
+        input.setCustomValidity(input.dataset.kccInvalid);
+      }
+    },
+    true,
+  );
+  document.addEventListener("input", (event) => {
+    const input = event.target;
+    if (input instanceof HTMLInputElement && input.dataset.kccInvalid) {
+      input.setCustomValidity("");
+    }
+  });
 })();

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(keys::WEB_WIFI_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page net-page">
+  {%- include "partials/net_tabs.html" %}
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_WIFI_TITLE) }}</h1>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {{ kit::outcome_region() }}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(region) = listing %}
+  {{ region|safe }}
+  {%- endif %}
+</div>
+{%- endblock %}

@@ -1,0 +1,39 @@
+{#- The mesh members with the actions the role may run; a change sends them again out of band. -#}
+<div class="net-region" id="net-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if members.is_empty() %}
+  <p class="panel__note">{{ t(keys::WEB_MESH_NONE) }}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table net-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_MESH_MEMBER) }}</th>
+          <th scope="col">{{ t(keys::WEB_MESH_ID) }}</th>
+          <th scope="col">{{ t(keys::WEB_NETWORK_MAC) }}</th>
+          <th scope="col">{{ t(keys::WEB_MESH_STATUS) }}</th>
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for member in members %}
+        {%- let row = loop.index %}
+        {%- let status = status(member) %}
+        <tr>
+          <th scope="row" id="member-{{ row }}">{% if let Some(text) = member.name %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</th>
+          <td class="mono">{% if let Some(text) = member.id %}{{ text }}{% endif %}</td>
+          <td class="mono">{% if let Some(text) = member.mac %}{{ text }}{% endif %}</td>
+          <td><span class="status" data-status="{{ status.value }}">{{ status.text }}</span></td>
+          <td>
+            <div class="admin-actions">
+              {%- for action in actions(member) %}
+              <button class="button {% if action.destructive %}button--danger-ghost{% else %}button--ghost{% endif %}" type="button" hx-post="{{ action.href }}" hx-target="#page-outcome" aria-describedby="member-{{ row }}">{{ action.label }}</button>
+              {%- endfor %}
+            </div>
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+</div>

@@ -2172,3 +2172,110 @@ h3 {
   letter-spacing: var(--tracking-small);
   line-height: var(--leading-small);
 }
+
+/* todo 37 */
+
+/* ---------- Network pages: interfaces, internet connections, Wi-Fi, mesh ---------- */
+
+.net-page {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.net-page .table-wrap {
+  position: relative;
+}
+
+.net-region {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.net-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+  margin-block-start: var(--space-5);
+}
+
+.net-section__title {
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-h3);
+}
+
+.net-region__count {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.net-status {
+  max-inline-size: 24rem;
+}
+
+.net-table {
+  min-inline-size: 40rem;
+}
+
+.net-table th,
+.net-table td {
+  vertical-align: middle;
+}
+
+.net-table .mono {
+  overflow-wrap: normal;
+}
+
+.net-table td.mono,
+.net-table .muted {
+  white-space: nowrap;
+}
+
+.net-table__note {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-caption);
+  line-height: var(--leading-caption);
+}
+
+/* An interface's drawer: the shared dialog as a sheet at the inline end. */
+
+.dialog:has(.drawer) {
+  inline-size: min(36rem, 100vw);
+  max-inline-size: none;
+  block-size: 100dvh;
+  max-block-size: 100dvh;
+  margin-block: 0;
+  margin-inline: auto 0;
+  border-block: 0;
+  border-inline-end: 0;
+}
+
+.drawer,
+.drawer__section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.drawer {
+  gap: var(--space-7);
+}
+
+.drawer__section {
+  gap: var(--space-4);
+}
+
+.drawer__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.drawer__title {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-body);
+}

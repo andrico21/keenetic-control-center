@@ -59,6 +59,31 @@ mod clients_pages;
 mod credentials;
 mod dashboard;
 mod gauge;
+mod net_change;
+mod net_form;
+mod net_interface_actions;
+mod net_interface_detail;
+mod net_interface_edits;
+mod net_interface_line;
+mod net_interface_traffic;
+mod net_interfaces;
+mod net_internet;
+mod net_internet_address;
+mod net_internet_create;
+mod net_internet_delete;
+mod net_internet_edit;
+mod net_internet_order;
+mod net_internet_settings;
+mod net_mesh;
+mod net_pages;
+mod net_settings;
+mod net_wan;
+mod net_wifi;
+mod net_wifi_edit;
+mod net_wifi_fields;
+mod net_wifi_rows;
+mod net_wifi_settings;
+mod net_wifi_stations;
 mod network;
 mod overview;
 mod page_kit;
@@ -377,6 +402,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(advanced::routes())
         .merge(system_general::routes())
         .merge(clients_pages::routes())
+        .merge(net_pages::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),
@@ -386,7 +412,8 @@ pub fn web_router(state: WebState) -> Router {
         Router::new()
             .route("/ui/sse/fleet", get(overview::stream))
             .route("/ui/sse/r/{router}/traffic", get(dashboard::stream))
-            .merge(advanced::streams()),
+            .merge(advanced::streams())
+            .merge(net_pages::streams()),
         &state,
     );
     let public = Router::new()

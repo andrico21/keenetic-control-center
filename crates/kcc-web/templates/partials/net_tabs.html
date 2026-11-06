@@ -1,0 +1,8 @@
+{#- The tab bar of the network pages: interfaces, internet connections, Wi-Fi and the mesh. -#}
+<nav class="tabs" aria-label="{{ t(keys::WEB_NETWORK_TABS) }}">
+  <ul class="tabs__list">
+    {%- for link in tabs.links() %}
+    <li><a class="tabs__link" href="{{ link.href() }}"{% if link.current() %} aria-current="page"{% endif %}>{{ t(link.label()) }}</a></li>
+    {%- endfor %}
+  </ul>
+</nav>

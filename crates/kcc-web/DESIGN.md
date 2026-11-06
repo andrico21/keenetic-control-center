@@ -514,6 +514,62 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 - Segments. Primary action: Create segment. Required content: the wizard (number, VLAN ID,
   router address, mask, DHCP range, switch ports, access point, connection policy; the
   review; Back, Create segment) and the note that listing and deleting arrive later.
+### Network pages (todo 37)
+
+Layout (network pages `/ui/r/{router}/{network,internet,wifi,mesh}`): stacked sections - the
+network tab bar, page head (title; Add connection on the internet page), router link, the
+outcome region (hidden while empty), then the region `#net-region` (a filtered table with its
+pager, or the radio, access-point and device sections); tables sit in `.table-wrap`, which
+scrolls sideways only for the table (`.net-table` is at least 40rem); scroll owner: the
+document; nested scrollers: `.table-wrap` (horizontal) and the open dialog; anti-patterns: a
+fixed-height scrolling table, actions only in a hover menu, an object name in a path segment.
+
+Layout (interface drawer): side sheet - the shared `<dialog>` at the inline end, full height,
+`min(36rem, 100vw)` wide (`.dialog:has(.drawer)`): Enable or Disable, the settings list, the
+counters, the traffic chart; scroll owner: the dialog; anti-patterns: a second dialog over the
+drawer (Edit replaces its content), a browser poll of the router (the chart listens to kcc).
+
+- Network tab bar (`partials/net_tabs.html`): the admin tab styles; Interfaces, Internet,
+  Wi-Fi, Mesh, the current page marked. The navigation marks Network for the first two and
+  Wi-Fi for the others.
+- Form dialog (`partials/net_form.html`, `net_form::FormDialog`): text, number and select
+  inputs; each constraint (`required`, `maxlength`, `min`, `max`) carries its localized rule
+  in `data-kcc-invalid`, which `app.js` gives to the browser's own check, so an invalid value
+  is never sent; the server checks the same rule and answers 422 with the field error.
+- Settings dialog (`partials/net_settings.html`): `kit::setting` rows whose Edit opens the
+  setting's form dialog in place, then secondary switch buttons, each posting one change.
+- Drawer (`partials/net_interface_detail.html`): Disable is `button--danger-ghost` (it can
+  cut kcc off and asks first), Enable secondary; the counters are a `.facts` list; the
+  traffic chart has the dashboard's anatomy and ids, `app.js` mounts it when htmx loads the
+  drawer and stops listening once it leaves the page.
+- Row tables: the row header holds the id in the mono face and the description as a muted
+  caption line (`.net-table__note`); actions are ghost buttons in `.admin-actions`, each
+  `aria-describedby` the row header; Delete and Restart are `button--danger-ghost`.
+
+Page briefs (todo 37):
+
+- Interfaces. Primary action: none; each row has its own. Priorities: 1 link and state,
+  2 address and type, 3 security level. Left out on purpose: per-row counters (the drawer has
+  them), bulk actions, icons. Required content: filter; sortable interface (with its
+  description), type, link, state, address, security level; Details; Enable and Disable
+  (Disable is a management change); the drawer's description and security level with Edit,
+  type, link, state, address, MAC, MTU, default gateway, priority, counters, live traffic.
+- Internet connections. Primary action: Add connection (`Write`). Priorities: 1 the internet
+  state, 2 the connections in priority order, 3 the ping-check profiles. Left out on
+  purpose: password entry (until the secret-write prerequisite lands the page shows only
+  whether one is set), traffic (the dashboard has it). Required content: priority, name with
+  description, type, state, address; Move up and down; Settings (type, address with Edit for
+  IPoE, connect via, user name and password set or not, MTU, default route switch,
+  priority); Delete with the name typed; ping-check profiles read-only.
+- Wi-Fi. Primary action: none. Priorities: 1 access points, 2 radios, 3 devices. Left out on
+  purpose: Wi-Fi password entry (presence only, same prerequisite), band steering (the router
+  reports no state for it). Required content: radios (band, channel, width, power, country,
+  Settings); access points (SSID, security, password set or not, hidden, state, schedule,
+  segment, Settings, Enable or Disable, hide or show the name); devices (MAC, access point,
+  SSID, signal, rates) with filter, sort and pages.
+- Mesh. Primary action: none. Priorities: 1 members and status, 2 their actions. Required
+  content: name, identifier, MAC, status; Check for updates and Update firmware (`Write`);
+  Restart (`Destructive`, router name typed).
 
 ## 6. Motion & Interaction
 
@@ -546,3 +602,4 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Explorer and console actions need JavaScript | `pages/explorer.html`, `pages/console_*.html` | Preview, Run, Check and Send are htmx posts carrying the CSRF header; search and the explorer's `?path=` page work without it | Same as the menus |
 | Group tree loads on open | `pages/explorer.html` | A `<details>` opened without JavaScript stays empty; search still finds every command | Server-rendered group pages if asked |
 | Domain page changes need JavaScript | `pages/system_general.html`, `partials/kit_*.html` | Edit dialogs, Restart and their confirmations are htmx requests carrying the CSRF header; the settings read without it | Same as the menus |
+| Localized constraint messages need JavaScript | `partials/net_form.html` | Without `app.js` the browser shows its own message for a failed constraint; the server still refuses the value with the localized rule | None needed |

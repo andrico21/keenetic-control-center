@@ -1,0 +1,45 @@
+{#- One interface's drawer: its settings with Edit where the role may change them, Enable or Disable, its counters and its live traffic, read while the drawer is open. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+{% call ui::dialog_body(title) %}
+<div class="drawer">
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ message }}</p>
+  {%- else %}
+  {%- if let Some(button) = toggle %}
+  <div class="drawer__actions">
+    <button class="button {% if button.disables %}button--danger-ghost{% else %}button--secondary{% endif %}" type="button" hx-post="{{ button.href }}" hx-target="#page-outcome">{{ button.label }}</button>
+  </div>
+  {%- endif %}
+  <dl class="settings">
+    {%- for fact in facts %}
+    {{ kit::setting(fact.id(), fact.label(), fact.value(), fact.edit()) }}
+    {%- endfor %}
+  </dl>
+  <section class="drawer__section" aria-labelledby="counters-title">
+    <h3 class="drawer__title" id="counters-title">{{ t(keys::WEB_NETWORK_COUNTERS) }}</h3>
+    {%- if counters.is_empty() %}
+    <p class="panel__note">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</p>
+    {%- else %}
+    <dl class="facts">
+      {%- for counter in counters %}
+      <div class="facts__row"><dt>{{ counter.label }}</dt><dd>{{ counter.value }}</dd></div>
+      {%- endfor %}
+    </dl>
+    {%- endif %}
+  </section>
+  <section class="drawer__section traffic" aria-labelledby="traffic-title" hx-ext="sse" sse-connect="{{ stream }}">
+    <div class="panel__head">
+      <h3 class="drawer__title" id="traffic-title">{{ t(keys::WEB_NETWORK_TRAFFIC) }}</h3>
+      <span class="panel__aside">{{ t(keys::WEB_NETWORK_TRAFFIC_LIVE) }}</span>
+    </div>
+    <dl class="facts traffic__legend">
+      <div class="facts__row"><dt><span class="traffic__swatch" data-series="rx"></span>{{ t(keys::WEB_NETWORK_RECEIVED) }}</dt><dd id="traffic-rx"></dd></div>
+      <div class="facts__row"><dt><span class="traffic__swatch" data-series="tx"></span>{{ t(keys::WEB_NETWORK_SENT) }}</dt><dd id="traffic-tx"></dd></div>
+    </dl>
+    <div class="traffic__chart" id="traffic-chart" sse-swap="traffic" hx-swap="none" role="img" aria-label="{{ chart_label }}" data-units="{{ units }}"></div>
+    <p class="traffic__empty" id="traffic-empty">{{ t(keys::WEB_NETWORK_TRAFFIC_WAITING) }}</p>
+  </section>
+  {%- endif %}
+</div>
+{% endcall %}

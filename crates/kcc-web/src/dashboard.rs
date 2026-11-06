@@ -273,7 +273,7 @@ fn live_events(
 }
 
 /// A `traffic` event: the points as uPlot columns plus the newest rates as text.
-fn traffic_event(points: &[TrafficPoint], replace: bool, locale: Locale) -> Event {
+pub(crate) fn traffic_event(points: &[TrafficPoint], replace: bool, locale: Locale) -> Event {
     let latest = points.last();
     let payload = json!({
         "replace": replace,
@@ -288,7 +288,7 @@ fn traffic_event(points: &[TrafficPoint], replace: bool, locale: Locale) -> Even
 
 /// The chart axis units of `locale` as a JSON array of patterns, `{}` standing for the
 /// number.
-fn units(locale: Locale) -> String {
+pub(crate) fn units(locale: Locale) -> String {
     let patterns: Vec<String> = RATE_UNITS
         .iter()
         .map(|key| {
