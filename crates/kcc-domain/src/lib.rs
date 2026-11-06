@@ -13,9 +13,12 @@
 
 extern crate alloc;
 
+pub mod clients;
 pub mod configuration;
+pub mod dhcp;
 pub mod diagnostics;
 pub mod internet;
+pub mod segments;
 pub mod system;
 
 use alloc::sync::Arc;
@@ -58,6 +61,12 @@ pub enum DomainId {
     Configuration,
     /// Logs and network diagnostic jobs.
     Diagnostics,
+    /// Connected clients and hotspot controls.
+    Clients,
+    /// DHCP pools, leases, bindings, and neighbours.
+    Dhcp,
+    /// UI-visible network segments.
+    Segments,
 }
 
 /// One operation exposed by a domain.
@@ -179,6 +188,12 @@ pub enum DomainError {
     /// A confirmation string did not match the router name.
     #[error("factory reset confirmation does not match router name")]
     ConfirmationMismatch,
+    /// A static lease is outside the subnet of its bound pool.
+    #[error("static lease address is outside the bound DHCP pool subnet")]
+    StaticLeaseOutsidePool,
+    /// A static lease address is already assigned to another MAC.
+    #[error("static lease address is already assigned to another MAC")]
+    StaticLeaseAddressInUse,
 }
 
 /// Domain result alias.
@@ -205,5 +220,8 @@ pub const fn registry() -> &'static [DomainDescriptor] {
         internet::DESCRIPTOR,
         configuration::DESCRIPTOR,
         diagnostics::DESCRIPTOR,
+        clients::DESCRIPTOR,
+        dhcp::DESCRIPTOR,
+        segments::DESCRIPTOR,
     ]
 }

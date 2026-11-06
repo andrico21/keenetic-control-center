@@ -1,0 +1,263 @@
+//! DHCP pools, static leases, bindings, and ARP neighbours.
+#![expect(
+    clippy::missing_errors_doc,
+    clippy::missing_inline_in_public_items,
+    reason = "async reads and small domain planning functions are not useful inline candidates"
+)]
+
+mod command;
+pub mod model;
+
+use core::{
+    net::Ipv4Addr,
+    result::Result as CoreResult,
+    str::{FromStr as _, from_utf8},
+};
+
+use kcc_app::{
+    permissions::Permission,
+    workflow::{ChangeSet, CliChangeResult, WorkflowError},
+};
+use kcc_catalog::Risk;
+use kcc_rci::RciBody;
+use secrecy::ExposeSecret as _;
+use serde::de::DeserializeOwned;
+use serde_json::{Value, json};
+
+use self::model::{Binding, Neighbour, Pool, PoolConfig, StaticLease};
+use crate::{
+    ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
+    read_show,
+};
+
+/// DHCP read inventory.
+const READS: &[OperationDescriptor] = &[
+    read_operation("pools", "ip dhcp pool"),
+    read_operation("static_leases", "ip dhcp host"),
+    read_operation("bindings", "show ip dhcp bindings"),
+    read_operation("neighbours", "show ip arp"),
+];
+
+/// DHCP write inventory.
+const WRITES: &[OperationDescriptor] = &[
+    write_operation("pool", "ip dhcp pool"),
+    write_operation("static_lease", "ip dhcp host"),
+];
+
+/// DHCP domain metadata.
+pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
+    id: DomainId::Dhcp,
+    read_ops: READS,
+    write_ops: WRITES,
+    required_components: &[],
+};
+
+/// Reads DHCP pools from the running configuration text.
+pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
+    let bytes = router
+        .client
+        .download_config(kcc_rci::ConfigKind::Running)
+        .await?;
+    let text = from_utf8(bytes.expose_secret()).map_err(|_error| DomainError::InvalidResponse)?;
+    Ok(model::parse_pools(text))
+}
+
+/// Reads running static leases through `show rc ip dhcp host`.
+pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
+    decode_config_rows(
+        router
+            .client
+            .show_rc(json!({"ip":{"dhcp":{"host":{}}}}))
+            .await?,
+        "/show/rc/ip/dhcp/host",
+    )
+}
+
+/// Reads startup static leases through `show sc ip dhcp host`.
+pub async fn read_startup_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
+    decode_config_rows(
+        router
+            .client
+            .show_sc(json!({"ip":{"dhcp":{"host":{}}}}))
+            .await?,
+        "/show/sc/ip/dhcp/host",
+    )
+}
+
+/// Reads current DHCP bindings.
+pub async fn read_bindings(router: &RouterCtx) -> Result<Vec<Binding>> {
+    read_show(&router.client, &["show", "ip", "dhcp", "bindings"]).await
+}
+
+/// Reads current ARP neighbours.
+pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
+    read_show(&router.client, &["show", "ip", "arp"]).await
+}
+
+/// Plans a complete DHCP pool configuration.
+pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
+    let dns = pool.dns_servers.first().map_or_else(
+        || json!({"disable":true}),
+        |address| json!({"address1":address.to_string()}),
+    );
+    let inputs = [
+        ("ip dhcp pool", json!({"name":pool.name})),
+        (
+            "ip dhcp pool range",
+            json!({"begin":pool.range_begin.to_string(),"end":pool.range_end.to_string()}),
+        ),
+        (
+            "ip dhcp pool default-router",
+            json!({"address":pool.default_router.to_string()}),
+        ),
+        ("ip dhcp pool dns-server", dns),
+        ("ip dhcp pool lease", json!({"lease":pool.lease_seconds})),
+        ("ip dhcp pool bind", json!({"interface":pool.interface})),
+        (
+            "ip dhcp pool enable",
+            if pool.enabled {
+                json!({})
+            } else {
+                json!({"no":true})
+            },
+        ),
+    ];
+    command::plan(router, &inputs)
+}
+
+/// Plans a static lease only after validating the bound pool subnet and duplicate address.
+pub async fn plan_static_lease(
+    router: &RouterCtx,
+    mac: &str,
+    address: Ipv4Addr,
+) -> Result<ChangeOp> {
+    let pools = read_pools(router).await?;
+    let bindings = read_bindings(router).await?;
+    let leases = read_static_leases(router).await?;
+    let interfaces: Value = read_show(&router.client, &["show", "interface"]).await?;
+    let inside = pools.iter().any(|pool| {
+        pool.interface.as_deref().is_some_and(|interface| {
+            interface_subnet(&interfaces, interface)
+                .is_some_and(|(network, mask)| network == u32::from(address) & mask)
+        })
+    });
+    if !inside {
+        return Err(DomainError::StaticLeaseOutsidePool);
+    }
+    let address_text = address.to_string();
+    let assigned_elsewhere = bindings
+        .iter()
+        .map(|binding| (binding.mac.as_deref(), binding.address.as_deref()))
+        .chain(
+            leases
+                .iter()
+                .map(|lease| (lease.mac.as_deref(), lease.address.as_deref())),
+        )
+        .any(|(assigned_mac, assigned_address)| {
+            assigned_address == Some(address_text.as_str())
+                && assigned_mac.is_some_and(|value| !value.eq_ignore_ascii_case(mac))
+        });
+    if assigned_elsewhere {
+        return Err(DomainError::StaticLeaseAddressInUse);
+    }
+    command::plan(
+        router,
+        &[("ip dhcp host", json!({"host":format!("{mac} {address}")}))],
+    )
+}
+
+/// Executes a DHCP plan through the protected workflow and verifies static leases via `show rc`.
+pub async fn apply(
+    changes: &mut ChangeSet,
+    router: &RouterCtx,
+    operation: &ChangeOp,
+) -> CoreResult<CliChangeResult, WorkflowError> {
+    let request = command::request(operation).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let result = changes.apply_cli(request).await?;
+    for validated in &operation.requests {
+        if validated.path == "ip dhcp host" {
+            let expected = validated
+                .value
+                .get("host")
+                .and_then(Value::as_str)
+                .ok_or(WorkflowError::InvalidResponse)?;
+            let Some((mac, address)) = expected.split_once(' ') else {
+                return Err(WorkflowError::InvalidResponse);
+            };
+            let leases = read_static_leases(router).await.map_err(map_domain_error)?;
+            if !leases.iter().any(|lease| {
+                lease
+                    .mac
+                    .as_deref()
+                    .is_some_and(|value| value.eq_ignore_ascii_case(mac))
+                    && lease.address.as_deref() == Some(address)
+            }) {
+                return Err(WorkflowError::VerificationFailed {
+                    field: format!("static-lease/{mac}"),
+                });
+            }
+        }
+    }
+    Ok(result)
+}
+
+/// Builds a read descriptor.
+const fn read_operation(name: &'static str, path: &'static str) -> OperationDescriptor {
+    OperationDescriptor {
+        name,
+        catalog_path: path,
+        risk: Risk::Read,
+        permission: Permission::Read,
+        persists_immediately: false,
+    }
+}
+
+/// Builds a write descriptor.
+const fn write_operation(name: &'static str, path: &'static str) -> OperationDescriptor {
+    OperationDescriptor {
+        name,
+        catalog_path: path,
+        risk: Risk::Write,
+        permission: Permission::Write,
+        persists_immediately: false,
+    }
+}
+
+/// Decodes projected configuration rows.
+fn decode_config_rows<T>(body: RciBody, pointer: &str) -> Result<Vec<T>>
+where
+    T: DeserializeOwned,
+{
+    let RciBody::Json(response) = body else {
+        return Err(DomainError::InvalidResponse);
+    };
+    serde_json::from_value(
+        response
+            .value
+            .pointer(pointer)
+            .cloned()
+            .ok_or(DomainError::InvalidResponse)?,
+    )
+    .map_err(|_error| DomainError::InvalidResponse)
+}
+
+/// Returns the network and mask for an interface show row.
+fn interface_subnet(interfaces: &Value, interface: &str) -> Option<(u32, u32)> {
+    let row = interfaces.get(interface)?;
+    let address = Ipv4Addr::from_str(row.get("address")?.as_str()?).ok()?;
+    let mask = Ipv4Addr::from_str(row.get("mask")?.as_str()?).ok()?;
+    let mask_bits = u32::from(mask);
+    Some((u32::from(address) & mask_bits, mask_bits))
+}
+
+/// Maps domain read failures into workflow execution failures.
+fn map_domain_error(error: DomainError) -> WorkflowError {
+    match error {
+        DomainError::Rci(source) => WorkflowError::Rci(source),
+        DomainError::InvalidResponse
+        | DomainError::Validation { issues: _ }
+        | DomainError::ConfirmationMismatch
+        | DomainError::StaticLeaseOutsidePool
+        | DomainError::StaticLeaseAddressInUse => WorkflowError::InvalidResponse,
+    }
+}

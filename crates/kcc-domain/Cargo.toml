@@ -12,12 +12,12 @@ kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
+secrecy = "0.10.3"
 thiserror = "2.0.17"
 tokio-util = "0.7.17"
 
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
-secrecy = "0.10.3"
 tempfile = "3.27.0"
 tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread", "time"] }
 url = "2.5.8"
