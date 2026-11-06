@@ -14,11 +14,18 @@
 extern crate alloc;
 
 pub mod clients;
+pub mod components;
 pub mod configuration;
 pub mod dhcp;
 pub mod diagnostics;
 pub mod internet;
 pub mod segments;
+pub mod keendns;
+pub mod logging;
+pub mod router_users;
+pub mod schedules;
+pub mod services;
+pub mod storage;
 pub mod system;
 
 use alloc::sync::Arc;
@@ -67,6 +74,20 @@ pub enum DomainId {
     Dhcp,
     /// UI-visible network segments.
     Segments,
+    /// Router login accounts and service tags.
+    RouterUsers,
+    /// Router services and management listeners.
+    Services,
+    /// Firmware component management and update policy.
+    Components,
+    /// Attached storage inventory and maintenance.
+    Storage,
+    /// Named schedules and timed actions.
+    Schedules,
+    /// KeenDNS and remote-access controls.
+    KeenDns,
+    /// Router log reading and configuration.
+    Logging,
 }
 
 /// One operation exposed by a domain.
@@ -194,6 +215,18 @@ pub enum DomainError {
     /// A static lease address is already assigned to another MAC.
     #[error("static lease address is already assigned to another MAC")]
     StaticLeaseAddressInUse,
+    /// A protected router login would lose required access.
+    #[error("protected router account operation refused")]
+    ProtectedAccount,
+    /// A value cannot be represented as one safe router CLI token.
+    #[error("value is not a valid router CLI token")]
+    InvalidCliToken,
+    /// A destructive operation lacks explicit confirmation.
+    #[error("destructive operation requires explicit confirmation")]
+    ConfirmationRequired,
+    /// The caller lacks the operation permission or router scope.
+    #[error("permission denied for domain operation")]
+    PermissionDenied,
 }
 
 /// Domain result alias.
@@ -223,5 +256,12 @@ pub const fn registry() -> &'static [DomainDescriptor] {
         clients::DESCRIPTOR,
         dhcp::DESCRIPTOR,
         segments::DESCRIPTOR,
+        router_users::DESCRIPTOR,
+        services::DESCRIPTOR,
+        components::DESCRIPTOR,
+        storage::DESCRIPTOR,
+        schedules::DESCRIPTOR,
+        keendns::DESCRIPTOR,
+        logging::DESCRIPTOR,
     ]
 }
