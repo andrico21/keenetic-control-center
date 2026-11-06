@@ -442,3 +442,8 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Search authentication follows the plan's explicit contract: `api_key_file` is distinct from Loki's `bearer_token_file` and emits the `ApiKey` authorization scheme; Basic auth remains the alternative. Config validation permits exactly one mode.
 - Transport owns HTTP/TLS/auth and response classification only. It does not sleep, retry, count metrics, or retain `Retry-After`; Unit 2b-3 owns queueing, clock-driven backoff, retry scheduling, and counters so policy is shared consistently across Loki and search sinks.
 - Per-item response parsing returns record indices rather than copied records. The future pipeline can remove accepted/dropped records and retry only 429/5xx items without duplicating payload ownership in the transport.
+
+## Todo 31 decisions
+- Did not change kcc-migrate src: the only genuine bug the matrix exposed lives in kcc-catalog (forbidden), and a planner-side "unsupported if not buildable" fix breaks existing planner tests (`plan_json_round_trips` expects `system description` in the additive phase). Recorded as a follow-up in issues.md.
+- Live rehearsal gate order: profile `test_device` (config file, no network) -> serial allowlist (one GET) -> any write. Hermetic tests call the same `rehearse` entry point the ignored live test uses, so a reordered gate fails them.
+- Live password-hash probe creates a temporary `kccprobe` user with a source-realm md5, tries a login, repeats with the target-realm hash as a control, then `no user kccprobe`; nothing is saved; results are booleans only.

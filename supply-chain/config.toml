@@ -520,6 +520,10 @@ criteria = "safe-to-deploy"
 version = "1.2.4"
 criteria = "safe-to-deploy"
 
+[[exemptions.multer]]
+version = "3.1.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.nonzero_ext]]
 version = "0.3.0"
 criteria = "safe-to-deploy"
@@ -848,6 +852,10 @@ criteria = "safe-to-deploy"
 version = "0.6.5"
 criteria = "safe-to-deploy"
 
+[[exemptions.spin]]
+version = "0.9.9"
+criteria = "safe-to-deploy"
+
 [[exemptions.spinning_top]]
 version = "0.3.1"
 criteria = "safe-to-deploy"
@@ -1034,6 +1042,10 @@ criteria = "safe-to-deploy"
 
 [[exemptions.valuable]]
 version = "0.1.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.version_check]]
+version = "0.9.5"
 criteria = "safe-to-deploy"
 
 [[exemptions.walkdir]]
