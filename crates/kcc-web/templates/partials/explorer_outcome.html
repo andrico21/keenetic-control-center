@@ -1,40 +1,16 @@
-{#- The result of one execution, with a toast and the header's unsaved badge sent out of band. -#}
-{%- import "components.html" as ui -%}
+{#- The reply to one execution: the kit's outcome notice, the router's answer or a job panel, then the toast and the header's unsaved badge out of band. -#}
+{%- import "partials/kit_macros.html" as kit -%}
 <section class="outcome" aria-labelledby="outcome-title">
   <h3 class="visually-hidden" id="outcome-title">{{ t(keys::WEB_EXPLORER_RESULT) }}</h3>
-  <div class="notice" data-tone="{{ outcome.tone }}">
-    <p class="notice__title">{{ outcome.headline }}</p>
-    {%- if !outcome.problems.is_empty() %}
-    <ul class="issues">
-      {%- for problem in outcome.problems %}
-      <li>{{ problem }}</li>
-      {%- endfor %}
-    </ul>
-    {%- endif %}
-  </div>
-  {%- if !outcome.router_said.is_empty() %}
-  <details class="router-said" open>
-    <summary class="router-said__summary">{{ t(keys::WEB_EXPLORER_ROUTER_SAID) }}</summary>
-    <ul class="router-said__list">
-      {%- for message in outcome.router_said %}
-      <li>{{ message }}</li>
-      {%- endfor %}
-    </ul>
-  </details>
-  {%- endif %}
-  {%- if let Some(viewer) = outcome.viewer %}
+  {{ kit::report(reply.outcome) }}
+  {%- if let Some(viewer) = reply.viewer %}
   {%- include "partials/explorer_viewer.html" %}
   {%- endif %}
-  {%- if let Some(href) = outcome.download %}
+  {%- if let Some(href) = reply.download %}
   <p><a class="button button--secondary" href="{{ href }}" download>{{ t(keys::WEB_EXPLORER_DOWNLOAD) }}</a></p>
   {%- endif %}
-  {%- if let Some(job) = outcome.job %}
+  {%- if let Some(job) = reply.job %}
   {%- include "partials/explorer_job.html" %}
   {%- endif %}
 </section>
-{%- if let Some(message) = outcome.toast %}
-<div hx-swap-oob="beforeend:#toasts">{{ ui::toast("success", message) }}</div>
-{%- endif %}
-{%- if outcome.unsaved %}
-<span class="masthead__status" id="unsaved-badge" hx-swap-oob="true"><a class="badge" href="/ui/configuration">{{ t(keys::WEB_ROUTER_UNSAVED) }}</a></span>
-{%- endif %}
+{{ kit::signals(reply.outcome) }}

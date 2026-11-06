@@ -4,7 +4,7 @@
 use kcc_app::{
     permissions::{Permission, Role},
     poller::Snapshot,
-    registry::{self, ProfileSource, RegistryEntry},
+    registry::{ProfileSource, RegistryEntry},
 };
 use kcc_i18n::{bundle::MessageKey, format, keys, locale::Locale};
 use kcc_rci::capabilities::{Brand, RouterInfo, SupportTier};
@@ -14,18 +14,10 @@ use crate::{
     gauge::{Gauge, memory},
     network::{AccessPointRow, RadioRow, WanRow, access_points, internet, radios, wan_rows},
     page::RouterStatus,
+    page_kit::gate::Controls,
     telemetry::FeedState,
     traffic::number,
 };
-
-/// The router controls a viewer may use.
-#[derive(Debug, Clone, Copy, Default)]
-struct Controls {
-    /// Edit the profile.
-    edit: bool,
-    /// Save the router configuration.
-    save: bool,
-}
 
 /// What the Web UI shows about one router.
 #[derive(Debug, Clone)]
@@ -36,7 +28,7 @@ pub(crate) struct RouterView {
     status: RouterStatus,
     /// Where the profile is defined.
     source: ProfileSource,
-    /// Controls the viewer may use.
+    /// What the viewer may do on the router.
     controls: Controls,
     /// Brand wordmark.
     brand: Option<MessageKey>,
@@ -122,11 +114,7 @@ impl RouterView {
     /// Enables the controls `role` may use on this router.
     #[must_use]
     pub(crate) fn allow(mut self, role: &Role) -> Self {
-        self.controls = Controls {
-            edit: !self.config_defined()
-                && registry::authorize(role, Permission::ManageRouters, &self.id).is_ok(),
-            save: registry::authorize(role, Permission::Save, &self.id).is_ok(),
-        };
+        self.controls = Controls::new(role, &self.id);
         self
     }
 
@@ -189,14 +177,14 @@ impl RouterView {
         matches!(self.source, ProfileSource::Config)
     }
 
-    /// Whether the viewer may edit the profile.
-    pub(crate) const fn can_edit(&self) -> bool {
-        self.controls.edit
+    /// Whether the viewer may edit the profile: a Web UI profile and `ManageRouters`.
+    pub(crate) fn can_edit(&self) -> bool {
+        !self.config_defined() && self.controls.holds(Permission::ManageRouters)
     }
 
     /// Whether the viewer may save the router configuration.
-    pub(crate) const fn can_save(&self) -> bool {
-        self.controls.save
+    pub(crate) fn can_save(&self) -> bool {
+        self.controls.holds(Permission::Save)
     }
 
     /// Brand wordmark.

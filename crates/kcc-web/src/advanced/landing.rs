@@ -5,12 +5,13 @@ use askama::Template;
 use axum::{extract::State, http::HeaderMap, response::Response};
 use kcc_i18n::keys;
 
-use super::context::Caller;
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::context::Caller,
 };
 
 /// The landing page.
@@ -39,7 +40,7 @@ pub(crate) async fn page(
     user: CurrentUser,
 ) -> Response {
     let shell = Caller::new(&headers, &current, &user)
-        .shell(&state, None)
+        .shell(&state, Section::Advanced, None)
         .await;
     let Some(fleet) = state.fleet() else {
         return errors::render(&Page {

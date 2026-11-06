@@ -16,7 +16,6 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use super::{
-    context::{self, fragment_shell},
     jobs::explorer_job,
     viewer::{Rendered, Viewer},
 };
@@ -25,6 +24,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     overview::{fragment, guarded},
     page::{Localize, Shell},
+    page_kit::context::{self, fragment_shell},
 };
 
 /// The status pill of a job.

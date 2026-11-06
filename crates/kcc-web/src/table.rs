@@ -1,9 +1,17 @@
-//! Server-side table sorting.
+//! Server-side tables: sorting, filtering and pages.
 //!
 //! A sortable table reads `?sort=<column>&dir=<asc|desc>`. [`Sort::parse`] validates both
 //! against the table's own column list, the handler sorts the rows, and
 //! [`Sort::header`] gives every header cell its `aria-sort` state and the link that
 //! sorts by it. Rows are never sorted in the browser.
+//!
+//! [`rows::Table`] does all of it for typed rows ([`rows::Row`]): the filter, the sort and
+//! the page of [`pager::PAGE_ROWS`] rows, whose [`pager::Pager`] links keep the others.
+
+pub mod pager;
+pub mod rows;
+
+use url::form_urlencoded;
 
 /// Sort direction of a column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -130,6 +138,35 @@ impl Sort {
             } else {
                 "none"
             },
+        }
+    }
+
+    /// As [`Sort::header`], with the `keep` query parameters, such as a filter, carried
+    /// into the link before the sort.
+    #[inline]
+    #[must_use]
+    pub fn header_keeping(
+        self,
+        base: &str,
+        column: &'static str,
+        keep: &[(&str, &str)],
+    ) -> SortHeader {
+        let plain = self.header(base, column);
+        let mut query = form_urlencoded::Serializer::new(String::new());
+        for (name, value) in keep {
+            let _: &mut form_urlencoded::Serializer<'_, String> = query.append_pair(name, value);
+        }
+        let kept = query.finish();
+        if kept.is_empty() {
+            return plain;
+        }
+        let sorting = plain
+            .href
+            .split_once('?')
+            .map_or("", |(_, sorting)| sorting);
+        SortHeader {
+            href: format!("{base}?{kept}&{sorting}"),
+            aria_sort: plain.aria_sort,
         }
     }
 }

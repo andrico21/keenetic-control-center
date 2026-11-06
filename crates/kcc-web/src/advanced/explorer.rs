@@ -20,16 +20,20 @@ use kcc_i18n::{
 use serde::Deserialize;
 
 use super::{
-    context::{self, Caller, fragment_shell},
     detail::{self, CommandLink, Detail, Scope},
-    facts::RouterFacts,
-    lookup::{catalog_note, clip, facts_for, held, notice, problem},
+    lookup::{catalog_note, clip, facts_for, notice, problem},
 };
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::{
+        context::{self, Caller, fragment_shell},
+        facts::RouterFacts,
+        gate::Controls,
+    },
 };
 
 /// Search results shown at most.
@@ -189,16 +193,16 @@ pub(crate) async fn page(
     Form(query): Form<PageQuery>,
 ) -> Response {
     let shell = Caller::new(&headers, &current, &user)
-        .shell(&state, Some(&router))
+        .shell(&state, Section::Advanced, Some(&router))
         .await;
     let target = match context::target(&state, &user, &router).await {
         Ok(found) => found,
         Err(refusal) => return refusal.page(shell),
     };
-    let held = held(&user, &router);
+    let controls = Controls::new(user.role(), &router);
     let mut page = Page {
         shell,
-        consoles: held.contains(&Permission::RawRci),
+        consoles: controls.holds(Permission::RawRci),
         router: router.clone(),
         catalog_note: String::new(),
         problem: None,
@@ -220,7 +224,7 @@ pub(crate) async fn page(
     if !page.query.is_empty() {
         page.results = Some(results(&facts, &page.query, locale));
     }
-    let scope = Scope::new(&facts, held, locale).with_jobs(state.advanced().jobs().is_some());
+    let scope = Scope::new(&facts, controls, locale).with_jobs(state.advanced().jobs().is_some());
     page.detail = detail::detail(&scope, clip(&query.path));
     errors::render(&page)
 }
@@ -292,7 +296,7 @@ pub(crate) async fn command(
         Ok(found) => found,
         Err(response) => return *response,
     };
-    let scope = Scope::new(&facts, held(&user, &router), user.locale())
+    let scope = Scope::new(&facts, Controls::new(user.role(), &router), user.locale())
         .with_jobs(state.advanced().jobs().is_some());
     detail::detail(&scope, clip(&query.path)).map_or_else(
         || notice(user.locale(), "error", keys::WEB_EXPLORER_UNKNOWN_COMMAND),

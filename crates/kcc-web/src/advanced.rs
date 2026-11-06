@@ -16,17 +16,13 @@
 //! changes run through the change workflow (backup, conflict check, audit) and the
 //! router's answer is shown in the response viewer.
 
-mod apply;
 mod check;
 mod cli;
-mod context;
 mod deliver;
 mod detail;
 mod execute;
 mod explorer;
-mod facts;
 mod form;
-mod gate;
 mod job_stream;
 mod jobs;
 mod landing;
@@ -37,7 +33,6 @@ mod preview;
 mod rci;
 mod rci_check;
 mod request;
-mod secret;
 mod types;
 mod viewer;
 
@@ -64,8 +59,6 @@ type OutputSlot = Arc<Mutex<Option<RciBody>>>;
 
 /// The services and short-lived state of the advanced pages.
 pub(crate) struct Services {
-    /// Catalog views of the routers, detected on first use.
-    facts: facts::FactsCache,
     /// The last response too large for its page, per session and router.
     responses: Mutex<VecDeque<Stored>>,
     /// The output slots of recent explorer jobs, by job id.
@@ -88,18 +81,12 @@ struct Stored {
 
 impl Services {
     /// Services with `jobs` running background commands.
-    pub(crate) fn new(jobs: Option<Arc<JobRunner>>) -> Self {
+    pub(crate) const fn new(jobs: Option<Arc<JobRunner>>) -> Self {
         Self {
-            facts: facts::FactsCache::default(),
             responses: Mutex::new(VecDeque::new()),
             outputs: Mutex::new(VecDeque::new()),
             jobs,
         }
-    }
-
-    /// The router facts cache.
-    const fn facts(&self) -> &facts::FactsCache {
-        &self.facts
     }
 
     /// The job runner, when attached.

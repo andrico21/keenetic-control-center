@@ -38,13 +38,20 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ConfirmDialog, ConfirmForm, ListQuery, NameQuery, Pager, Tab, TabLink, Toast,
-        dominates, done_toasts, forbidden, fragment_shell, is_built_in, named, ordered, page_shell,
-        record, respond, role_label, shown_page, tabs, unavailable, valid_glob,
+        Change, ListQuery, NameQuery, Tab, TabLink, dominates, done_toasts, forbidden, is_built_in,
+        named, ordered, record, role_label, tabs, unavailable, valid_glob,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::{
+        context::{Caller, fragment_shell},
+        outcome::Toast,
+        respond,
+        typed_name::{TypedNameDialog, TypedNameForm},
+    },
+    table::pager::{Pager, shown_page},
 };
 
 /// Most router-scope globs per custom role.
@@ -275,7 +282,9 @@ pub(crate) async fn page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    let shell = page_shell(&state, &headers, &current, &user).await;
+    let shell = Caller::new(&headers, &current, &user)
+        .shell(&state, Section::Admin, None)
+        .await;
     if state.admin().is_none() {
         return unavailable(Some(shell));
     }
@@ -324,7 +333,7 @@ pub(crate) async fn create(
         Ok(Persisted::Exists) => {
             let mut page = form_dialog(&user, None, &form);
             page.name_error = tr(user.locale(), keys::WEB_ADMIN_ERROR_ROLE_EXISTS, None);
-            return invalid(&page);
+            return respond::unprocessable(&page);
         }
         Ok(Persisted::Missing | Persisted::InUse) => {
             return StatusCode::CONFLICT.into_response();
@@ -416,7 +425,7 @@ pub(crate) async fn delete(
     State(state): State<WebState>,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(form): Form<ConfirmForm>,
+    Form(form): Form<TypedNameForm>,
 ) -> Response {
     let Some(admin) = state.admin() else {
         return unavailable(None);
@@ -429,7 +438,7 @@ pub(crate) async fn delete(
     let mut confirm = confirmation(&user, &role.name);
     if !form.confirmed() {
         confirm.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_CONFIRM, None));
-        return invalid(&confirm);
+        return respond::unprocessable(&confirm);
     }
     match persist(
         &state,
@@ -441,7 +450,7 @@ pub(crate) async fn delete(
         Ok(Persisted::Done) => {}
         Ok(Persisted::InUse) => {
             confirm.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_ROLE_IN_USE, None));
-            return invalid(&confirm);
+            return respond::unprocessable(&confirm);
         }
         Ok(Persisted::Missing) => return StatusCode::NOT_FOUND.into_response(),
         Ok(Persisted::Exists) => return StatusCode::CONFLICT.into_response(),
@@ -518,7 +527,7 @@ async fn validate(
         && page.permissions_error.is_empty()
         && page.scope_error.is_empty())
     {
-        return Err(Box::new(invalid(&page)));
+        return Err(Box::new(respond::unprocessable(&page)));
     }
     let role = Role::new(name, permissions, scope);
     if !dominates(user.role(), &role) {
@@ -696,9 +705,9 @@ async fn region(
             }
         })
         .collect();
-    let (rows, pager) = Pager::paginate(all, page, Tab::Roles.href(), Vec::new());
+    let (rows, pager) = Pager::paginate(all, page, Tab::Roles.href().to_owned(), Vec::new());
     Ok(RolesRegion {
-        shell: fragment_shell(user),
+        shell: fragment_shell(user.locale()),
         rows,
         pager,
         oob,
@@ -714,7 +723,7 @@ async fn finish(
     toasts: Vec<Toast>,
 ) -> Response {
     match region(state, user, shown_page(headers), toasts, true).await {
-        Ok(region) => respond(&region, StatusCode::OK, true),
+        Ok(region) => respond::region(&region, StatusCode::OK, true),
         Err(error) => internal(&error),
     }
 }
@@ -747,7 +756,7 @@ fn dialog(
         },
     );
     RoleDialog {
-        shell: fragment_shell(user),
+        shell: fragment_shell(user.locale()),
         title,
         action: if existing.is_some() {
             "/ui/admin/roles/edit"
@@ -784,10 +793,10 @@ fn form_dialog(user: &CurrentUser, existing: Option<&str>, form: &RoleForm) -> R
 }
 
 /// The typed-name delete confirmation for `name`.
-fn confirmation(user: &CurrentUser, name: &str) -> ConfirmDialog {
-    ConfirmDialog::new(
-        fragment_shell(user),
-        "/ui/admin/roles/delete",
+fn confirmation(user: &CurrentUser, name: &str) -> TypedNameDialog {
+    TypedNameDialog::new(
+        fragment_shell(user.locale()),
+        "/ui/admin/roles/delete".to_owned(),
         name,
         (
             keys::WEB_ADMIN_ROLE_DELETE_TITLE,
@@ -799,16 +808,6 @@ fn confirmation(user: &CurrentUser, name: &str) -> ConfirmDialog {
 /// The audited parameters of a role.
 fn params(role: &Role) -> Value {
     json!({ "permissions": role.permissions, "router_scope": role.router_scope })
-}
-
-/// A dialog again with its errors, as `422`.
-fn invalid<T>(dialog: &T) -> Response
-where
-    T: Template + Localize,
-{
-    let mut response = errors::render(dialog);
-    *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
-    response
 }
 
 /// Logs `error` and answers `500`.

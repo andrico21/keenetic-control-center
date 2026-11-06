@@ -60,6 +60,7 @@ mod dashboard;
 mod gauge;
 mod network;
 mod overview;
+mod page_kit;
 mod pages;
 mod prefs;
 mod router_access;
@@ -68,6 +69,7 @@ mod router_delete;
 mod router_form;
 mod routers;
 mod save;
+mod system_general;
 mod telemetry;
 mod traffic;
 mod view;
@@ -138,6 +140,8 @@ pub struct WebState {
     admin: Option<Arc<Admin>>,
     /// Command explorer and console services.
     advanced: Arc<advanced::Services>,
+    /// The routers' catalog facts, shared by every page that validates a request.
+    facts: Arc<page_kit::facts::FactsCache>,
 }
 
 impl fmt::Debug for WebState {
@@ -198,6 +202,7 @@ impl WebState {
             fleet: None,
             admin: None,
             advanced: Arc::new(advanced::Services::new(None)),
+            facts: Arc::default(),
         }
     }
 
@@ -258,6 +263,12 @@ impl WebState {
     #[must_use]
     pub(crate) fn advanced(&self) -> &advanced::Services {
         &self.advanced
+    }
+
+    /// The routers' catalog facts.
+    #[must_use]
+    pub(crate) fn facts(&self) -> &page_kit::facts::FactsCache {
+        &self.facts
     }
 
     /// The locale used when a request does not select one.
@@ -363,6 +374,7 @@ pub fn web_router(state: WebState) -> Router {
         .route("/ui/logout", post(auth::logout))
         .merge(admin_routes())
         .merge(advanced::routes())
+        .merge(system_general::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),

@@ -2,7 +2,6 @@
 //! one command, its arguments, and its generated request form.
 
 use fluent_bundle::FluentArgs;
-use kcc_app::permissions::Permission;
 use kcc_catalog::{Catalog, Command, CommandKind, Risk};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -11,7 +10,11 @@ use kcc_i18n::{
 };
 use url::form_urlencoded::byte_serialize;
 
-use super::{check::risk_key, facts::RouterFacts, form::Form, gate, meta, types::ArgumentRow};
+use super::{check::risk_key, form::Form, meta, types::ArgumentRow};
+use crate::page_kit::{
+    facts::RouterFacts,
+    gate::{Controls, command_permissions},
+};
 
 /// One command in a result or group list.
 #[derive(Debug, Clone)]
@@ -77,8 +80,8 @@ enum Runnable {
 pub(crate) struct Scope<'call> {
     /// Router facts.
     facts: &'call RouterFacts,
-    /// Permissions the user holds on the router, in [`Permission::ALL`] order.
-    held: Vec<Permission>,
+    /// What the user may do on the router.
+    controls: Controls,
     /// Whether background commands can run.
     jobs: bool,
     /// Page locale.
@@ -86,15 +89,11 @@ pub(crate) struct Scope<'call> {
 }
 
 impl<'call> Scope<'call> {
-    /// A scope for a user holding `held` on the router of `facts`.
-    pub(crate) const fn new(
-        facts: &'call RouterFacts,
-        held: Vec<Permission>,
-        locale: Locale,
-    ) -> Self {
+    /// A scope for a user with `controls` on the router of `facts`.
+    pub(crate) const fn new(facts: &'call RouterFacts, controls: Controls, locale: Locale) -> Self {
         Self {
             facts,
-            held,
+            controls,
             jobs: false,
             locale,
         }
@@ -145,9 +144,7 @@ pub(crate) fn detail(scope: &Scope<'_>, path: &str) -> Option<Detail> {
     });
     let mut count = FluentArgs::new();
     count.set("count", command.models.len());
-    let permitted = gate::permissions(risk)
-        .iter()
-        .all(|permission| scope.held.contains(permission));
+    let permitted = scope.controls.permits(command_permissions(risk));
     Some(Detail {
         path: path.to_owned(),
         query: encode(path),

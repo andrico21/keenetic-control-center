@@ -1741,8 +1741,140 @@ pub const WEB_CONSOLE_MATCHED_RAW: MessageKey = MessageKey::new("web-console-mat
 /// `web-console-open-explorer` in `web.ftl`.
 pub const WEB_CONSOLE_OPEN_EXPLORER: MessageKey = MessageKey::new("web-console-open-explorer");
 
+/// `web-kit-confirm` in `web.ftl`.
+pub const WEB_KIT_CONFIRM: MessageKey = MessageKey::new("web-kit-confirm");
+
+/// `web-kit-confirm-write-title` in `web.ftl`.
+pub const WEB_KIT_CONFIRM_WRITE_TITLE: MessageKey = MessageKey::new("web-kit-confirm-write-title");
+
+/// `web-kit-confirm-write-text` in `web.ftl`.
+pub const WEB_KIT_CONFIRM_WRITE_TEXT: MessageKey = MessageKey::new("web-kit-confirm-write-text");
+
+/// `web-kit-confirm-management-title` in `web.ftl`.
+pub const WEB_KIT_CONFIRM_MANAGEMENT_TITLE: MessageKey =
+    MessageKey::new("web-kit-confirm-management-title");
+
+/// `web-kit-confirm-management-text` in `web.ftl`.
+pub const WEB_KIT_CONFIRM_MANAGEMENT_TEXT: MessageKey =
+    MessageKey::new("web-kit-confirm-management-text");
+
+/// `web-kit-confirm-destructive-title` in `web.ftl`.
+pub const WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE: MessageKey =
+    MessageKey::new("web-kit-confirm-destructive-title");
+
+/// `web-kit-confirm-destructive-text` in `web.ftl`.
+pub const WEB_KIT_CONFIRM_DESTRUCTIVE_TEXT: MessageKey =
+    MessageKey::new("web-kit-confirm-destructive-text");
+
+/// `web-kit-done` in `web.ftl`.
+pub const WEB_KIT_DONE: MessageKey = MessageKey::new("web-kit-done");
+
+/// `web-kit-done-unsaved` in `web.ftl`.
+pub const WEB_KIT_DONE_UNSAVED: MessageKey = MessageKey::new("web-kit-done-unsaved");
+
+/// `web-kit-done-terminal` in `web.ftl`.
+pub const WEB_KIT_DONE_TERMINAL: MessageKey = MessageKey::new("web-kit-done-terminal");
+
+/// `web-kit-invalid` in `web.ftl`.
+pub const WEB_KIT_INVALID: MessageKey = MessageKey::new("web-kit-invalid");
+
+/// `web-kit-rejected` in `web.ftl`.
+pub const WEB_KIT_REJECTED: MessageKey = MessageKey::new("web-kit-rejected");
+
+/// `web-kit-conflict` in `web.ftl`.
+pub const WEB_KIT_CONFLICT: MessageKey = MessageKey::new("web-kit-conflict");
+
+/// `web-kit-failed` in `web.ftl`.
+pub const WEB_KIT_FAILED: MessageKey = MessageKey::new("web-kit-failed");
+
+/// `web-kit-unreachable` in `web.ftl`.
+pub const WEB_KIT_UNREACHABLE: MessageKey = MessageKey::new("web-kit-unreachable");
+
+/// `web-kit-not-found` in `web.ftl`.
+pub const WEB_KIT_NOT_FOUND: MessageKey = MessageKey::new("web-kit-not-found");
+
+/// `web-kit-verification-failed` in `web.ftl`.
+pub const WEB_KIT_VERIFICATION_FAILED: MessageKey = MessageKey::new("web-kit-verification-failed");
+
+/// `web-kit-table-filter` in `web.ftl`.
+pub const WEB_KIT_TABLE_FILTER: MessageKey = MessageKey::new("web-kit-table-filter");
+
+/// `web-kit-table-clear` in `web.ftl`.
+pub const WEB_KIT_TABLE_CLEAR: MessageKey = MessageKey::new("web-kit-table-clear");
+
+/// `web-kit-table-empty` in `web.ftl`.
+pub const WEB_KIT_TABLE_EMPTY: MessageKey = MessageKey::new("web-kit-table-empty");
+
+/// `web-kit-table-no-match` in `web.ftl`.
+pub const WEB_KIT_TABLE_NO_MATCH: MessageKey = MessageKey::new("web-kit-table-no-match");
+
+/// `web-kit-table-count` in `web.ftl`.
+pub const WEB_KIT_TABLE_COUNT: MessageKey = MessageKey::new("web-kit-table-count");
+
+/// `web-kit-reveal` in `web.ftl`.
+pub const WEB_KIT_REVEAL: MessageKey = MessageKey::new("web-kit-reveal");
+
+/// `web-kit-reveal-title` in `web.ftl`.
+pub const WEB_KIT_REVEAL_TITLE: MessageKey = MessageKey::new("web-kit-reveal-title");
+
+/// `web-kit-reveal-text` in `web.ftl`.
+pub const WEB_KIT_REVEAL_TEXT: MessageKey = MessageKey::new("web-kit-reveal-text");
+
+/// `web-system-general-title` in `web.ftl`.
+pub const WEB_SYSTEM_GENERAL_TITLE: MessageKey = MessageKey::new("web-system-general-title");
+
+/// `web-system-identity` in `web.ftl`.
+pub const WEB_SYSTEM_IDENTITY: MessageKey = MessageKey::new("web-system-identity");
+
+/// `web-system-description` in `web.ftl`.
+pub const WEB_SYSTEM_DESCRIPTION: MessageKey = MessageKey::new("web-system-description");
+
+/// `web-system-domain` in `web.ftl`.
+pub const WEB_SYSTEM_DOMAIN: MessageKey = MessageKey::new("web-system-domain");
+
+/// `web-system-time` in `web.ftl`.
+pub const WEB_SYSTEM_TIME: MessageKey = MessageKey::new("web-system-time");
+
+/// `web-system-timezone` in `web.ftl`.
+pub const WEB_SYSTEM_TIMEZONE: MessageKey = MessageKey::new("web-system-timezone");
+
+/// `web-system-clock` in `web.ftl`.
+pub const WEB_SYSTEM_CLOCK: MessageKey = MessageKey::new("web-system-clock");
+
+/// `web-system-ntp` in `web.ftl`.
+pub const WEB_SYSTEM_NTP: MessageKey = MessageKey::new("web-system-ntp");
+
+/// `web-kit-not-reported` in `web.ftl`.
+pub const WEB_KIT_NOT_REPORTED: MessageKey = MessageKey::new("web-kit-not-reported");
+
+/// `web-system-hostname-title` in `web.ftl`.
+pub const WEB_SYSTEM_HOSTNAME_TITLE: MessageKey = MessageKey::new("web-system-hostname-title");
+
+/// `web-system-hostname-help` in `web.ftl`.
+pub const WEB_SYSTEM_HOSTNAME_HELP: MessageKey = MessageKey::new("web-system-hostname-help");
+
+/// `web-system-hostname-error` in `web.ftl`.
+pub const WEB_SYSTEM_HOSTNAME_ERROR: MessageKey = MessageKey::new("web-system-hostname-error");
+
+/// `web-system-description-title` in `web.ftl`.
+pub const WEB_SYSTEM_DESCRIPTION_TITLE: MessageKey =
+    MessageKey::new("web-system-description-title");
+
+/// `web-system-description-error` in `web.ftl`.
+pub const WEB_SYSTEM_DESCRIPTION_ERROR: MessageKey =
+    MessageKey::new("web-system-description-error");
+
+/// `web-system-restart-title` in `web.ftl`.
+pub const WEB_SYSTEM_RESTART_TITLE: MessageKey = MessageKey::new("web-system-restart-title");
+
+/// `web-system-restart-text` in `web.ftl`.
+pub const WEB_SYSTEM_RESTART_TEXT: MessageKey = MessageKey::new("web-system-restart-text");
+
+/// `web-system-restart` in `web.ftl`.
+pub const WEB_SYSTEM_RESTART: MessageKey = MessageKey::new("web-system-restart");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 562] = [
+pub const ALL: [MessageKey; 604] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -2305,4 +2437,46 @@ pub const ALL: [MessageKey; 562] = [
     WEB_CONSOLE_MATCHED,
     WEB_CONSOLE_MATCHED_RAW,
     WEB_CONSOLE_OPEN_EXPLORER,
+    WEB_KIT_CONFIRM,
+    WEB_KIT_CONFIRM_WRITE_TITLE,
+    WEB_KIT_CONFIRM_WRITE_TEXT,
+    WEB_KIT_CONFIRM_MANAGEMENT_TITLE,
+    WEB_KIT_CONFIRM_MANAGEMENT_TEXT,
+    WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE,
+    WEB_KIT_CONFIRM_DESTRUCTIVE_TEXT,
+    WEB_KIT_DONE,
+    WEB_KIT_DONE_UNSAVED,
+    WEB_KIT_DONE_TERMINAL,
+    WEB_KIT_INVALID,
+    WEB_KIT_REJECTED,
+    WEB_KIT_CONFLICT,
+    WEB_KIT_FAILED,
+    WEB_KIT_UNREACHABLE,
+    WEB_KIT_NOT_FOUND,
+    WEB_KIT_VERIFICATION_FAILED,
+    WEB_KIT_TABLE_FILTER,
+    WEB_KIT_TABLE_CLEAR,
+    WEB_KIT_TABLE_EMPTY,
+    WEB_KIT_TABLE_NO_MATCH,
+    WEB_KIT_TABLE_COUNT,
+    WEB_KIT_REVEAL,
+    WEB_KIT_REVEAL_TITLE,
+    WEB_KIT_REVEAL_TEXT,
+    WEB_SYSTEM_GENERAL_TITLE,
+    WEB_SYSTEM_IDENTITY,
+    WEB_SYSTEM_DESCRIPTION,
+    WEB_SYSTEM_DOMAIN,
+    WEB_SYSTEM_TIME,
+    WEB_SYSTEM_TIMEZONE,
+    WEB_SYSTEM_CLOCK,
+    WEB_SYSTEM_NTP,
+    WEB_KIT_NOT_REPORTED,
+    WEB_SYSTEM_HOSTNAME_TITLE,
+    WEB_SYSTEM_HOSTNAME_HELP,
+    WEB_SYSTEM_HOSTNAME_ERROR,
+    WEB_SYSTEM_DESCRIPTION_TITLE,
+    WEB_SYSTEM_DESCRIPTION_ERROR,
+    WEB_SYSTEM_RESTART_TITLE,
+    WEB_SYSTEM_RESTART_TEXT,
+    WEB_SYSTEM_RESTART,
 ];

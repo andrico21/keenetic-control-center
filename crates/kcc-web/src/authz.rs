@@ -106,6 +106,16 @@ impl CurrentUser {
     pub(crate) const fn set_locale(&mut self, locale: Locale) {
         self.locale = locale;
     }
+
+    /// A signed-in user for unit tests of code that takes one.
+    #[cfg(test)]
+    pub(crate) const fn signed_in(username: String, role: Role, locale: Locale) -> Self {
+        Self {
+            username,
+            role,
+            locale,
+        }
+    }
 }
 
 impl FromRequestParts<WebState> for CurrentSession {

@@ -1,6 +1,12 @@
-//! Secret request and response members: recognized by name, because the catalog carries
-//! no secret flag, and masked wherever a body or an answer is shown.
+//! Secrets on pages: write-only fields, and secret members masked in raw answers.
+//!
+//! A secret a user types travels from its form field straight into a `SecretString`; an
+//! empty field keeps the stored secret, and no page renders a stored value
+//! (`kit::secret_field` has no value parameter). The one way to see a stored secret is
+//! the audited Reveal action ([`super::reveal`]). Raw requests and answers carry no
+//! secret flag, so their secret members are recognized by name and masked.
 
+use secrecy::SecretString;
 use serde_json::Value;
 
 /// What a masked secret shows instead of its value.
@@ -41,15 +47,22 @@ pub(crate) fn mask(value: &mut Value) {
     }
 }
 
+/// The value of a write-only field: `None` when it was left empty, which keeps the stored
+/// secret; else the typed secret, moved into a `SecretString` before any other use.
+pub(crate) fn write_only(typed: String) -> Option<SecretString> {
+    (!typed.is_empty()).then(|| SecretString::from(typed))
+}
+
 #[cfg(test)]
 #[expect(
     clippy::missing_panics_doc,
     reason = "test code is not rendered API documentation"
 )]
 mod tests {
+    use secrecy::ExposeSecret as _;
     use serde_json::json;
 
-    use super::{MASK, is_secret, mask};
+    use super::{MASK, is_secret, mask, write_only};
 
     #[test]
     fn secrets_are_classified_by_name_and_masked() {
@@ -80,6 +93,18 @@ mod tests {
             value,
             json!({"interface":{"psk":MASK,"ssid":"home","peers":[{"key":MASK}]}}),
             "masked"
+        );
+    }
+
+    #[test]
+    fn an_empty_write_only_field_keeps_the_stored_secret() {
+        assert!(write_only(String::new()).is_none(), "kept");
+        assert_eq!(
+            write_only(" new pass ".to_owned())
+                .as_ref()
+                .map(|secret| secret.expose_secret().to_owned()),
+            Some(" new pass ".to_owned()),
+            "taken as typed, spaces included"
         );
     }
 }

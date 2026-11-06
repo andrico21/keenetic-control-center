@@ -1,0 +1,20 @@
+{#- The general settings, identity and time, with Edit where the role may change a value; a change sends the region again out of band. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+<div class="panels" id="general-settings"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <section class="panel" aria-labelledby="identity-title">
+    <h2 class="panel__title" id="identity-title">{{ t(keys::WEB_SYSTEM_IDENTITY) }}</h2>
+    <dl class="settings">
+      {{ kit::setting("general-hostname", t(keys::WEB_DASHBOARD_HOSTNAME), general.hostname(), edit("hostname")) }}
+      {{ kit::setting("general-description", t(keys::WEB_SYSTEM_DESCRIPTION), general.description(), edit("description")) }}
+      {{ kit::setting("general-domain", t(keys::WEB_SYSTEM_DOMAIN), general.domain(), edit("domainname")) }}
+    </dl>
+  </section>
+  <section class="panel" aria-labelledby="time-title">
+    <h2 class="panel__title" id="time-title">{{ t(keys::WEB_SYSTEM_TIME) }}</h2>
+    <dl class="settings">
+      {{ kit::setting("general-timezone", t(keys::WEB_SYSTEM_TIMEZONE), general.timezone(), edit("timezone")) }}
+      {{ kit::setting("general-clock", t(keys::WEB_SYSTEM_CLOCK), general.clock(), edit("clock")) }}
+      {{ kit::setting("general-ntp", t(keys::WEB_SYSTEM_NTP), general.ntp(), edit("ntp_server")) }}
+    </dl>
+  </section>
+</div>

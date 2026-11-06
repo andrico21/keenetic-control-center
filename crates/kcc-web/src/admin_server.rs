@@ -15,10 +15,12 @@ use tokio::task::spawn_blocking;
 
 use crate::{
     WebState,
-    admin_shared::{Tab, TabLink, Timestamp, page_shell, tabs, unavailable},
+    admin_shared::{Tab, TabLink, Timestamp, tabs, unavailable},
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::context::Caller,
 };
 
 /// One firmware line of the built-in command catalog.
@@ -68,7 +70,9 @@ pub(crate) async fn page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    let shell = page_shell(&state, &headers, &current, &user).await;
+    let shell = Caller::new(&headers, &current, &user)
+        .shell(&state, Section::Admin, None)
+        .await;
     let Some(admin) = state.admin() else {
         return unavailable(Some(shell));
     };

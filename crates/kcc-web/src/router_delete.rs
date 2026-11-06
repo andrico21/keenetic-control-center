@@ -15,8 +15,12 @@ use crate::{
     authz::CurrentUser,
     credentials, errors,
     nav::Section,
-    page::{Localize, Shell, Theme},
-    router_access::{ProfileAction, audit, managed, open},
+    page::{Localize, Shell},
+    page_kit::{
+        context::{fragment_shell, managed},
+        respond::open,
+    },
+    router_access::{ProfileAction, audit},
 };
 
 /// `GET /ui/routers/{id}/delete`: the confirmation dialog.
@@ -25,7 +29,7 @@ pub(crate) async fn delete_dialog(
     Path(id): Path<String>,
     user: CurrentUser,
 ) -> Response {
-    let shell = Shell::new(user.locale(), Theme::System);
+    let shell = fragment_shell(user.locale());
     let Some(fleet) = state.fleet() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
@@ -34,7 +38,7 @@ pub(crate) async fn delete_dialog(
             errors::render(&DeleteDialog::new(shell, id))
         }
         Ok(_) => StatusCode::FORBIDDEN.into_response(),
-        Err(refusal) => refusal.respond(shell),
+        Err(refusal) => refusal.page(shell),
     }
 }
 
@@ -44,14 +48,14 @@ pub(crate) async fn delete(
     Path(id): Path<String>,
     user: CurrentUser,
 ) -> Response {
-    let shell = Shell::new(user.locale(), Theme::System);
+    let shell = fragment_shell(user.locale());
     let Some(fleet) = state.fleet() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
     let entry = match managed(fleet, user.role(), &id).await {
         Ok(entry) if matches!(entry.source, ProfileSource::State) => entry,
         Ok(_) => return StatusCode::FORBIDDEN.into_response(),
-        Err(refusal) => return refusal.respond(shell),
+        Err(refusal) => return refusal.page(shell),
     };
     if let Err(error) = fleet.registry().delete(user.role(), &id).await {
         return errors::internal(&error, shell);

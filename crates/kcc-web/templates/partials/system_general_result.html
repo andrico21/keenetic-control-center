@@ -1,0 +1,6 @@
+{#- The answer to a general-settings change: the outcome, then the settings read back, out of band. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+{{ kit::result(outcome) }}
+{%- if let Some(region) = refreshed %}
+{{ region|safe }}
+{%- endif %}

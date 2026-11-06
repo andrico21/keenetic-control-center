@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
 {%- block title %}{{ title }}{% endblock %}
 {%- block content %}
 <div class="page form-page">
@@ -29,9 +30,9 @@
     {{ ui::field("router-url", "url", t(keys::WEB_ROUTER_URL), draft.url, errors.url, "url", "off", t(keys::WEB_ROUTER_URL_HELP)) }}
     {{ ui::field("router-login", "login", t(keys::WEB_ROUTER_LOGIN), draft.login, errors.login, "text", "off") }}
     {%- if editing %}
-    {{ ui::field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), "", errors.password, "password", "new-password", t(keys::WEB_ROUTER_PASSWORD_KEEP)) }}
+    {{ kit::secret_field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), errors.password, t(keys::WEB_ROUTER_PASSWORD_KEEP)) }}
     {%- else %}
-    {{ ui::field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), "", errors.password, "password", "new-password") }}
+    {{ kit::secret_field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), errors.password, "") }}
     {%- endif %}
     <div class="field">
       <span class="field__label">{{ t(keys::WEB_ROUTER_AUTH) }}</span>

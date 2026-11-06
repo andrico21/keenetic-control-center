@@ -24,18 +24,18 @@ use kcc_i18n::{
 use kcc_rci::{RciClient, RciPath};
 use serde_json::{Value, json};
 
-use super::{
-    OutputSlot,
-    context::{self, Execution, Target, allowed, fragment_shell},
-    lock,
-    outcome::Failure,
-    request::Request,
-};
+use super::{OutputSlot, lock, request::Request};
 use crate::{
     WebState,
     authz::CurrentUser,
     errors,
     page::{Localize, Shell},
+    page_kit::{
+        audit::Record,
+        context::{self, Target, fragment_shell},
+        gate::allowed,
+        outcome::Failure,
+    },
 };
 
 /// Prefix of the job kinds the explorer starts; `raw` jobs need `RawRci` to stop.
@@ -221,9 +221,9 @@ pub(crate) async fn cancel(
         Ok(()) => ("success", keys::WEB_EXPLORER_JOB_STOPPED, "success"),
         Err(_not_running) => ("info", keys::WEB_EXPLORER_JOB_NOT_RUNNING, "not_running"),
     };
-    Execution::new("web.explorer_job_cancel", &router, record.kind.clone())
+    Record::on_router("web.explorer_job_cancel", &router, record.kind.clone())
         .with_params(json!({ "job": record.id }))
-        .record(&state, &user, outcome)
+        .append(&state, &user, outcome)
         .await;
     errors::render(&Toast {
         shell: fragment_shell(user.locale()),

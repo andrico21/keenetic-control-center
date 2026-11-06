@@ -35,7 +35,8 @@ use crate::{
     authz::{CurrentSession, CurrentUser, PASSWORD_CHANGE_PAGE},
     errors,
     page::{Localize, Shell},
-    prefs, router_access,
+    page_kit::respond,
+    prefs,
     session::{SessionId, SessionStore},
 };
 
@@ -425,7 +426,7 @@ async fn finish_required_change(
     if let Err(error) = audit(state, user.username(), "web.password_change", "success").await {
         return internal(error);
     }
-    let mut response = router_access::open("/ui/");
+    let mut response = respond::open("/ui/");
     if let Err(error) = set_session_cookie(&mut response, state, &rotated) {
         return internal(error);
     }

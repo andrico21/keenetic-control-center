@@ -6,21 +6,29 @@
 use alloc::sync::Arc;
 
 use fluent_bundle::FluentArgs;
-use kcc_app::permissions::Permission;
+use kcc_app::{
+    permissions::Permission,
+    workflow::{BatchChangeRequest, BatchItem, CliChangeRequest, CliCommand},
+};
 use kcc_catalog::Risk;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciClient, RciError, RciResponse};
 use serde_json::Value;
 
-use super::{
-    apply::{self, Applied, Change, Plan, Refused},
-    context::{Target, allowed},
-    facts::RouterFacts,
-    gate::FAIL_SAFE_MINUTES,
-    outcome::{Failure, Outcome, rci_failure, workflow_failure},
-    viewer::Rendered,
+use super::{outcome::Reply, viewer::Rendered};
+use crate::{
+    WebState,
+    authz::CurrentUser,
+    page_kit::{
+        change::{self, Applied, Change, Plan},
+        context::Target,
+        facts::RouterFacts,
+        failure::rci_failure,
+        family::Family,
+        gate::allowed,
+        outcome::Failure,
+    },
 };
-use crate::{WebState, authz::CurrentUser};
 
 /// Who sends a request: the services, the user and the session.
 #[derive(Clone, Copy)]
@@ -75,31 +83,31 @@ impl<'call> Sender<'call> {
 impl Dispatch<'_> {
     /// Runs the read-only root object `root` through the shared client.
     // cancel-safe: a read.
-    pub(crate) async fn read_root(self, root: &Value) -> Outcome {
+    pub(crate) async fn read_root(self, root: &Value) -> Reply {
         match self.client().await {
             Ok(client) => match client.post_root(root).await {
                 Ok(body) => self.answered(&body, false),
-                Err(error) => Outcome::failed(rci_failure(self.locale(), &error)),
+                Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
-            Err(failure) => Outcome::failed(failure),
+            Err(failure) => Reply::failed(failure),
         }
     }
 
     /// Runs read-only root items as one batch through the shared client.
     // cancel-safe: reads.
-    pub(crate) async fn read_batch(self, items: Vec<Value>) -> Outcome {
+    pub(crate) async fn read_batch(self, items: Vec<Value>) -> Reply {
         match self.client().await {
             Ok(client) => match client.batch(items).await {
                 Ok(responses) => self.items(&responses, false),
-                Err(error) => Outcome::failed(rci_failure(self.locale(), &error)),
+                Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
-            Err(failure) => Outcome::failed(failure),
+            Err(failure) => Reply::failed(failure),
         }
     }
 
     /// Runs `request` against the shared client and shows its answer.
     // cancel-safe when `request` only reads.
-    pub(crate) async fn read_with<F, Fut>(self, request: F) -> Outcome
+    pub(crate) async fn read_with<F, Fut>(self, request: F) -> Reply
     where
         F: FnOnce(Arc<RciClient>) -> Fut,
         Fut: Future<Output = Result<RciBody, RciError>>,
@@ -107,39 +115,45 @@ impl Dispatch<'_> {
         match self.client().await {
             Ok(client) => match request(client).await {
                 Ok(body) => self.answered(&body, false),
-                Err(error) => Outcome::failed(rci_failure(self.locale(), &error)),
+                Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
-            Err(failure) => Outcome::failed(failure),
+            Err(failure) => Reply::failed(failure),
         }
     }
 
-    /// Applies `change` of `risk` through the change workflow, audited with `params`.
-    // NOT cancel-safe: see `apply::apply`.
-    pub(crate) async fn change(self, risk: Risk, params: Value, change: Change) -> Outcome {
-        let plan = Plan::new(self.target, self.facts, self.sender.user).with(risk, params);
-        match apply::apply(plan, change).await {
-            Ok(Applied::Batch(responses)) => self.items(&responses, true),
-            Ok(Applied::Cli(bodies)) => match bodies.as_slice() {
-                [body] => self.answered(body, true),
-                many => {
-                    let values = many.iter().map(body_value).collect();
-                    let rendered =
-                        Rendered::json(&Value::Array(values), &[], self.reveal(), self.locale());
-                    self.shown(rendered, true)
-                }
-            },
-            Ok(Applied::Delete) => self.shown(Rendered::text("", self.locale()), true),
-            Err(refused) => Outcome::failed(self.refusal(&refused)),
+    /// Applies `change` of `risk` through the change workflow.
+    // NOT cancel-safe: see `change::apply`.
+    pub(crate) async fn change(self, risk: Risk, change: Change) -> Reply {
+        let plan = Plan::new(self.target, self.facts, self.sender.user).at(risk);
+        match change::apply(plan, change).await {
+            Ok(Applied::Batch { unsaved, responses }) => self.items(&responses, unsaved),
+            Ok(Applied::Cli { unsaved, responses }) => self.lines(&responses, unsaved),
+            Ok(Applied::Terminal(responses)) => self.lines(&responses, false),
+            Ok(Applied::Done { unsaved }) => self.shown(Rendered::text("", self.locale()), unsaved),
+            Err(refused) => Reply::failed(refused.failure(Family::Commands, self.locale())),
+        }
+    }
+
+    /// The outcome of the answers to CLI lines: one shown as it came, several as a list.
+    fn lines(self, bodies: &[RciBody], unsaved: bool) -> Reply {
+        match bodies {
+            [body] => self.answered(body, unsaved),
+            many => {
+                let values = many.iter().map(body_value).collect();
+                let rendered =
+                    Rendered::json(&Value::Array(values), &[], self.reveal(), self.locale());
+                self.shown(rendered, unsaved)
+            }
         }
     }
 
     /// The outcome of one answer.
-    fn answered(self, body: &RciBody, unsaved: bool) -> Outcome {
+    fn answered(self, body: &RciBody, unsaved: bool) -> Reply {
         self.shown(Rendered::body(body, self.reveal(), self.locale()), unsaved)
     }
 
     /// The outcome of batch answers: every value shown, refused items reported.
-    fn items(self, responses: &[Result<RciResponse, RciError>], unsaved: bool) -> Outcome {
+    fn items(self, responses: &[Result<RciResponse, RciError>], unsaved: bool) -> Reply {
         let locale = self.locale();
         let mut values = Vec::with_capacity(responses.len());
         let mut statuses = Vec::new();
@@ -171,7 +185,9 @@ impl Dispatch<'_> {
                         | RciError::Decode
                         | RciError::Policy
                         | RciError::Validation
-                        | _ => rci_failure(locale, error).message().to_owned(),
+                        | _ => rci_failure(Family::Commands, locale, error)
+                            .message()
+                            .to_owned(),
                     };
                     args.set("issue", reason);
                     refused.push(tr(locale, keys::WEB_EXPLORER_ISSUE_ITEM, Some(&args)));
@@ -187,7 +203,7 @@ impl Dispatch<'_> {
             return self.shown(rendered, unsaved);
         }
         let (viewer, _full, _json) = rendered.into_parts();
-        Outcome::failed(
+        Reply::failed(
             Failure::new(tr(locale, keys::WEB_EXPLORER_REJECTED, None), "rci_error")
                 .with_router_said(refused),
         )
@@ -195,10 +211,10 @@ impl Dispatch<'_> {
     }
 
     /// The outcome showing `rendered`, keeping a truncated answer for download.
-    fn shown(self, rendered: Rendered, unsaved: bool) -> Outcome {
+    fn shown(self, rendered: Rendered, unsaved: bool) -> Reply {
         let (viewer, full, json) = rendered.into_parts();
         let truncated = viewer.truncated();
-        let outcome = Outcome::done(self.locale(), viewer, unsaved);
+        let outcome = Reply::done(self.locale(), viewer, unsaved);
         if !truncated {
             return outcome;
         }
@@ -210,19 +226,6 @@ impl Dispatch<'_> {
             json,
         );
         outcome.with_download(format!("/ui/r/{router}/explorer/response"))
-    }
-
-    /// The failure of a refused change.
-    fn refusal(self, refused: &Refused) -> Failure {
-        if refused.armed() {
-            let mut args = FluentArgs::new();
-            args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-            return Failure::new(
-                tr(self.locale(), keys::WEB_EXPLORER_ARMED, Some(&args)),
-                "fail_safe_armed",
-            );
-        }
-        workflow_failure(self.locale(), refused.error())
     }
 
     /// The router's shared client.
@@ -258,6 +261,28 @@ impl Dispatch<'_> {
     const fn locale(self) -> Locale {
         self.sender.user.locale()
     }
+}
+
+/// A raw batch of root items as the explorer and the RCI console send it: `RawRci`, no
+/// read-back, audited with the redacted `params`.
+pub(crate) fn raw_batch(items: Vec<BatchItem>, params: Value) -> Change {
+    Change::Batch(BatchChangeRequest::new(
+        items,
+        Vec::new(),
+        Permission::RawRci,
+        params,
+    ))
+}
+
+/// Raw CLI lines as the CLI console sends them: `RawRci`, no read-back, audited with the
+/// redacted `params`.
+pub(crate) fn raw_cli(commands: Vec<CliCommand>, params: Value) -> Change {
+    Change::Cli(CliChangeRequest::new(
+        commands,
+        Vec::new(),
+        Permission::RawRci,
+        params,
+    ))
 }
 
 /// The JSON of one answer; text becomes a string.

@@ -22,19 +22,25 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{
-    apply::Change,
     check::{Problem, Report, from_issues},
-    context::{self, Caller, Execution, allowed, fragment_shell},
-    deliver::Sender,
-    gate::{self, Confirmation, Gate, Prompt, Resubmit},
+    deliver::{Sender, raw_cli},
     lookup::{catalog_note, facts_for, problem},
-    outcome::Outcome,
+    outcome::Reply,
 };
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::{
+        audit::Record,
+        confirm::{Confirmation, Gate, Prompt, Resubmit},
+        context::{self, Caller, fragment_shell},
+        family::Family,
+        gate::{allowed, command_permissions},
+        respond,
+    },
 };
 
 /// Longest line read from the console.
@@ -88,7 +94,7 @@ pub(crate) async fn page(
     user: CurrentUser,
 ) -> Response {
     let shell = Caller::new(&headers, &current, &user)
-        .shell(&state, Some(&router))
+        .shell(&state, Section::Advanced, Some(&router))
         .await;
     let target = match context::target(&state, &user, &router).await {
         Ok(found) => found,
@@ -155,11 +161,11 @@ pub(crate) async fn send(
     let validated = match check(facts.catalog(), &form, authorization(&user, &router, &form)) {
         Ok(found) => found,
         Err(problems) => {
-            Execution::new("web.console_cli", &router, "unmatched".to_owned())
-                .record(&state, &user, "validation_failed")
+            Record::on_router("web.console_cli", &router, "unmatched".to_owned())
+                .append(&state, &user, "validation_failed")
                 .await;
-            return gate::retarget(
-                Outcome::invalid(locale, &problems).render(locale),
+            return respond::retarget(
+                Reply::invalid(locale, &problems).render(locale),
                 "#cli-check",
             );
         }
@@ -174,26 +180,23 @@ pub(crate) async fn send(
         "unvalidated": validated.unvalidated,
         "words": form.line.split_whitespace().count(),
     });
-    let audit = Execution::new("web.console_cli", &router, label).with_params(params.clone());
+    let audit = Record::on_router("web.console_cli", &router, label).with_params(params.clone());
     let mut needed = vec![Permission::RawRci];
-    needed.extend_from_slice(gate::permissions(risk));
+    needed.extend_from_slice(command_permissions(risk));
     if validated.unvalidated {
         needed.push(Permission::ManageRouters);
     }
     if !allowed(&user, &router, &needed) {
-        audit.record(&state, &user, "forbidden").await;
+        audit.append(&state, &user, "forbidden").await;
         return errors::response(Kind::Forbidden, fragment_shell(locale));
     }
     let confirmation = Confirmation::new(form.confirm.as_deref(), form.confirm_name.as_deref());
-    if let Gate::Ask { wrong_name } = gate::gate(risk, &confirmation, &router) {
-        let resubmit = Resubmit::new(
-            format!("/ui/r/{router}/console/cli/send"),
-            "#cli-form",
-            "#cli-result",
-        );
-        return Prompt::new(risk, &router, resubmit)
+    if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {
+        let resubmit = Resubmit::new(format!("/ui/r/{router}/console/cli/send"), "#cli-result")
+            .with_include("#cli-form");
+        return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
-            .render(locale);
+            .render(resubmit, locale);
     }
     let session = current.stream_key();
     let dispatch = Sender::new(&state, &user, &session).to(target, &facts);
@@ -204,16 +207,14 @@ pub(crate) async fn send(
             .await
     } else {
         let command = ValidatedCli::new(line, validated);
-        dispatch
-            .change(risk, params, Change::Cli(vec![command]))
-            .await
+        dispatch.change(risk, raw_cli(vec![command], params)).await
     };
-    audit.record(&state, &user, outcome.audit()).await;
+    audit.append(&state, &user, outcome.audit()).await;
     let response = outcome.render(locale);
     if risk == Risk::Read {
         response
     } else {
-        gate::close_dialog(response)
+        respond::close_dialog(response)
     }
 }
 

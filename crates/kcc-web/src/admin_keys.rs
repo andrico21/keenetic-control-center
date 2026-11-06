@@ -28,13 +28,20 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ConfirmDialog, ConfirmForm, ListQuery, NameQuery, Pager, Tab, TabLink, Timestamp,
-        Toast, dominates, done_toasts, forbidden, fragment_shell, named, page_shell, record,
-        respond, role_label, roles_for, shown_page, tabs, unavailable,
+        Change, ListQuery, NameQuery, Tab, TabLink, Timestamp, dominates, done_toasts, forbidden,
+        named, record, role_label, roles_for, tabs, unavailable,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::{
+        context::{Caller, fragment_shell},
+        outcome::Toast,
+        respond,
+        typed_name::{TypedNameDialog, TypedNameForm},
+    },
+    table::pager::{Pager, shown_page},
 };
 
 /// Longest API key name.
@@ -171,7 +178,9 @@ pub(crate) async fn page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    let shell = page_shell(&state, &headers, &current, &user).await;
+    let shell = Caller::new(&headers, &current, &user)
+        .shell(&state, Section::Admin, None)
+        .await;
     if state.admin().is_none() {
         return unavailable(Some(shell));
     }
@@ -205,11 +214,11 @@ pub(crate) async fn create(
     let mut dialog = new_key_dialog(&state, &user, form.name.clone(), &form.role);
     if !valid_name(&form.name) {
         dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_NAME, None);
-        return invalid(&dialog);
+        return respond::unprocessable(&dialog);
     }
     let Some(role) = state.role(&form.role) else {
         dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
-        return invalid(&dialog);
+        return respond::unprocessable(&dialog);
     };
     if !dominates(user.role(), &role) {
         let change = Change::refused("admin.api_key_create", &form.name, "forbidden");
@@ -223,7 +232,7 @@ pub(crate) async fn create(
         Ok(Ok(created)) => created,
         Ok(Err(ApiKeyError::DuplicateName)) => {
             dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXISTS, None);
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
         Ok(Err(error)) => return internal(&error),
         Err(error) => return internal(&error),
@@ -245,7 +254,7 @@ pub(crate) async fn create(
         Err(error) => return internal(&error),
     };
     let mut response = errors::render(&CreatedDialog {
-        shell: fragment_shell(&user),
+        shell: fragment_shell(user.locale()),
         created,
         region: refreshed,
     });
@@ -274,7 +283,7 @@ pub(crate) async fn revoke(
     State(state): State<WebState>,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(form): Form<ConfirmForm>,
+    Form(form): Form<TypedNameForm>,
 ) -> Response {
     let Some(admin) = state.admin() else {
         return unavailable(None);
@@ -286,7 +295,7 @@ pub(crate) async fn revoke(
     if !form.confirmed() {
         let mut dialog = confirmation(&user, form.name());
         dialog.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_CONFIRM, None));
-        return invalid(&dialog);
+        return respond::unprocessable(&dialog);
     }
     let store = admin.state().clone();
     let name = form.name().to_owned();
@@ -313,7 +322,7 @@ pub(crate) async fn revoke(
     .await;
     let toasts = done_toasts(user.locale(), keys::WEB_ADMIN_KEY_REVOKED, warning);
     match region(&state, &user, shown_page(&headers), toasts, true).await {
-        Ok(refreshed) => respond(&refreshed, StatusCode::OK, true),
+        Ok(refreshed) => respond::region(&refreshed, StatusCode::OK, true),
         Err(error) => internal(&error),
     }
 }
@@ -389,9 +398,9 @@ async fn region(
             name: key.name,
         })
         .collect();
-    let (rows, pager) = Pager::paginate(all, page, Tab::Keys.href(), Vec::new());
+    let (rows, pager) = Pager::paginate(all, page, Tab::Keys.href().to_owned(), Vec::new());
     Ok(KeysRegion {
-        shell: fragment_shell(user),
+        shell: fragment_shell(user.locale()),
         rows,
         pager,
         oob,
@@ -415,7 +424,7 @@ fn new_key_dialog(
     selected: &str,
 ) -> NewKeyDialog {
     NewKeyDialog {
-        shell: fragment_shell(user),
+        shell: fragment_shell(user.locale()),
         key_name,
         roles: roles_for(&state.roles(), user.role())
             .into_iter()
@@ -431,10 +440,10 @@ fn new_key_dialog(
 }
 
 /// The typed-name revoke confirmation for `name`.
-fn confirmation(user: &CurrentUser, name: &str) -> ConfirmDialog {
-    ConfirmDialog::new(
-        fragment_shell(user),
-        "/ui/admin/api-keys/revoke",
+fn confirmation(user: &CurrentUser, name: &str) -> TypedNameDialog {
+    TypedNameDialog::new(
+        fragment_shell(user.locale()),
+        "/ui/admin/api-keys/revoke".to_owned(),
         name,
         (
             keys::WEB_ADMIN_KEY_REVOKE_TITLE,
@@ -442,16 +451,6 @@ fn confirmation(user: &CurrentUser, name: &str) -> ConfirmDialog {
         ),
     )
     .with_button(keys::WEB_ADMIN_KEY_REVOKE)
-}
-
-/// A dialog again with its errors, as `422`.
-fn invalid<T>(dialog: &T) -> Response
-where
-    T: Template + Localize,
-{
-    let mut response = errors::render(dialog);
-    *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
-    response
 }
 
 /// Logs `error` and answers `500`.

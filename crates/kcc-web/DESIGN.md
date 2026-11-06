@@ -166,6 +166,15 @@ scroll owner: the document; nested scrollers: `.code` blocks only.
 Layout (advanced landing `/ui/advanced`): one table of routers with their tool links; scroll
 owner: the document.
 
+`--setting-label` (12rem) is the widest label column of a settings list.
+
+Layout (system general `/ui/r/{router}/system/general`, the domain page kit's reference):
+stacked sections - page head, router link, the outcome region (hidden while empty), the
+settings panels in the dashboard's `repeat(auto-fit, minmax(min(100%, --panel-min), 1fr))`
+grid (identity, time), then the restart panel; scroll owner: the document; anti-patterns: a
+success banner repeating its toast, settings rows whose height depends on their button, an
+Edit button for a setting the page cannot change.
+
 ## 5. Components
 
 Source anatomy: Carbon UI shell, button, text input, data table, tag, notification and modal,
@@ -295,11 +304,11 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   out of band plus `#toasts` toasts, so the page never reloads.
 - Row actions: ghost buttons in `.admin-actions` (forms are `display: contents`), each
   `aria-describedby` the row header; destructive ones are `button--danger-ghost` and open
-  the typed-name confirmation dialog (`partials/admin_confirm.html`).
+  the typed-name confirmation dialog (`partials/kit_name_confirm.html`).
 - State flags: the status pill (Active online, Disabled neutral) plus `.flag` pills for
   Locked (warning) and Password change pending (info); text always names the state.
 
-### Pager (`partials/admin_pager.html`)
+### Pager (`partials/kit_pager.html`, `table::pager::Pager`)
 - Previous and Next ghost links around "Page N of M"; shown only with more than one page
   of 50 rows; links keep the filter query.
 
@@ -376,6 +385,84 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   matched catalog command with its explorer link, "send without validation" (administrators
   only), result viewer.
 
+### Domain page kit (`src/page_kit/`)
+
+The machinery every router page shares, so a domain page (todos 36-41, 43) is a route, a
+view model, a form, a plan and one kit call. The explorer, the consoles, the router pages
+and the admin pages run on it too. One module per responsibility:
+
+| Module | Owns |
+|---|---|
+| `context` | `Caller::shell(state, section, router)`: the full-page shell with the fleet switcher (router selected); `target(state, user, router)`: the router of the route parameter (`is_profile_id`, then the role's visible profiles) or a `Refusal` (`page()`: 404, 403 or the logged 500; `status()` for fragments); `Target::context(state)`: the catalog facts and the `RouterCtx` to read and plan with; `managed()` (`ManageRouters`); `fragment_shell(locale)`. |
+| `gate` | `command_permissions(risk)` for raw commands; `operation_permissions(permission, risk)` for curated ones (management and destructive also need `Destructive`: kcc arms the fail-safe timer); `Controls::new(role, router).with_operations(&DESCRIPTOR.write_ops, catalog)`: what templates use to hide controls (`allows("hostname")`); `allowed(user, router, permissions)`: the handler re-check before acting (403). |
+| `family` | `Family::Commands` (explorer, consoles: every change asks, messages speak of commands) and `Family::Changes` (domain pages: management and destructive changes ask, messages speak of changes); `gate()` decides run or ask. |
+| `confirm` | `Confirmation` (from the form), `Gate`, `Prompt` + `Resubmit`: the dialog in `#dialog-content` (`partials/kit_confirm.html`); confirming re-posts the original request (form values by `hx-include` from the page, so a secret never passes through the dialog); management explains the fail-safe timer, destructive needs the router name typed; decided on the server every time. |
+| `typed_name` | `TypedNameForm` and `TypedNameDialog`: the typed-name delete of objects that are not routers (`partials/kit_name_confirm.html`). |
+| `action` | The kit call: `Operation::write(&DESCRIPTOR, "hostname", "web.system_hostname").open(&state, &user, &router)` resolves the router (404), re-checks the operation's permissions (audited 403) and loads the catalog; the `Action` then gives `context()`, `confirm(risk, &confirmation, resubmit)`, `abandon(reason)`, `run(risk, Change)` and `run_with(risk, work)` for domain functions such as `system::reboot`; it audits how the action ended, once. |
+| `change` | `Change::{Request, Batch, Cli, Delete}` through the leased `ChangeSet` (backup, conflict check, read-back, audit), the fail-safe timer armed around a management change; `Change::audit_params()`: catalog paths and field names only. |
+| `outcome`, `failure` | `Outcome` (tone, headline, problems, router said, toasts, unsaved badge, status, audit id), `Toast`, `Failure`; `workflow_failure`, `rci_failure` and `plan_failure` map errors in the family's words, keeping only the router's message text and naming the field a read-back did not find (`VerificationFailed`). |
+| `dialog` | `FieldDialog`: the one-field edit dialog (`partials/kit_field_dialog.html`); `show()` answers its `GET`, `invalid()` the field error as 422 in the dialog. |
+| `secret`, `reveal` | `write_only(typed)`: an empty field keeps the stored secret; `is_secret`/`mask` for raw answers; `Reveal::new(state, user, router).show(name, read)`: the separate Reveal action (`RevealSecrets`, audited either way, the value only in its dialog, `partials/kit_reveal.html`). |
+| `audit` | `Record`: one audit event per action (actor, router, target, outcome); parameters are field names (`field_names`), never values. |
+| `facts` | `FactsCache` and `RouterFacts`: the router's catalog and safety mode, cached for 600 s, so validation never contacts the router. |
+| `respond` | `Answer` (handlers return `Result<Response, Answer>` and use `?`), `open` (`HX-Redirect`), `retarget`, `in_dialog`, `close_dialog`, `unprocessable` (422), `region` (table and toasts out of band). |
+
+Tables live beside the sort helper in the public `table` module: `table::rows::Table::new(rows,
+&query, base)` filters (`?q=`, `Row::matches`), sorts (`Row::COLUMNS`, `Row::DEFAULT`,
+`Row::key`) and pages (`table::pager::PAGE_ROWS` = 50) typed rows; its sort headers keep the
+filter and its page links keep both.
+
+Markup (`partials/kit_macros.html`): `outcome_region()` (`#page-outcome`, where actions
+answer), `result(outcome)` (a failure stays in the region with the router's words; a success
+says so in its toast and empties the region), `report`, `signals` (toasts and the unsaved
+badge, out of band), `toasts`, `setting(id, label, value, dialog_url)` (one row of a settings
+list), `secret_field(id, name, label, error, help)` (no value parameter) and
+`filter(table, label)`; `partials/kit_pager.html` with a `pager` in scope.
+
+Adding a domain page (`src/system_general.rs` is the reference):
+
+1. Route function: `fn routes() -> Router<WebState>` in the page's module, merged in
+   `web_router` with one `.merge(module::routes())` line; the page under
+   `/ui/r/{router}/<section>/...` gets `Read` and the router scope from the route table.
+2. View model: the page handler builds `Caller::new(&headers, &current, &user).shell(&state,
+   Section::X, Some(&router))`, resolves `context::target`, reads the domain's typed models
+   through `Target::context`, and passes `Controls::new(role, router).with_operations(...)`
+   to the template, which shows a control only where `allows(name)`.
+3. Form: a `FieldDialog` (or the page's own dialog) for `GET .../{field}`; parse the posted
+   value at the boundary (`check`), a refusal re-renders the dialog with `invalid()`.
+4. Plan: `let action = OPERATION.open(&state, &user, &router).await?;`, then the domain's
+   planner on `action.context().await?` gives a `ChangeOp`, converted by its
+   `change_request`; a `DomainError` becomes the field error (`plan_failure`).
+5. Kit call: `action.confirm(op.risk, &confirmation, resubmit)` until confirmed, then
+   `action.run(op.risk, Change::Request(request)).await` (or `run_with` for a domain function)
+   and render the `Outcome` (`kit::result`), with the region read back out of band and the
+   dialog closed (`respond::close_dialog`).
+
+Tests per page (`tests/system_general.rs`): render per role, one successful write read back
+with the unsaved badge, one validation failure that sends nothing, one router error with the
+"router said" block, the destructive name check; the kit's own suite is `tests/page_kit.rs`.
+
+### Settings list (`kit::setting`)
+- `<dl class="settings">` inside a panel; one row per setting: label (muted), value (or
+  "Not reported", muted), and a ghost Edit button opening the setting's dialog, described
+  by its label, only where the role may change it. Rows are separated by 1px hairlines and
+  are equally tall whether they hold a button or not; below 48rem the label sits above the
+  value.
+
+### Outcome region (`kit::outcome_region`)
+- `#page-outcome`, `aria-live="polite"`, hidden while it holds nothing; actions target it.
+  Failures stay there (notice, the router's words); successes only toast.
+
+### Page brief (system general, the kit's reference page)
+
+- System general (`/ui/r/{router}/system/general`). Primary action: none; each setting has
+  its own Edit. Priorities: 1 identity (host name, description, domain name), 2 time (time
+  zone, router clock, time synchronization), 3 restart. Left out on purpose: uptime and
+  firmware (the dashboard has them), factory reset, time-zone and NTP changes (todo 40).
+  Required content: host name with Edit (`Write`), description with Edit (`Write`), domain
+  name, time zone, router clock, time synchronization or "Not reported", Restart router
+  (`Destructive`, router name typed), the outcome region.
+
 ## 6. Motion & Interaction
 
 No movement: state changes are instant. The one transition is the htmx request indicator's
@@ -406,3 +493,4 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | API key Copy needs the Clipboard API | `partials/admin_key_created.html` | Without it (or without JavaScript) the key stays selected in its read-only field for a manual copy | None needed |
 | Explorer and console actions need JavaScript | `pages/explorer.html`, `pages/console_*.html` | Preview, Run, Check and Send are htmx posts carrying the CSRF header; search and the explorer's `?path=` page work without it | Same as the menus |
 | Group tree loads on open | `pages/explorer.html` | A `<details>` opened without JavaScript stays empty; search still finds every command | Server-rendered group pages if asked |
+| Domain page changes need JavaScript | `pages/system_general.html`, `partials/kit_*.html` | Edit dialogs, Restart and their confirmations are htmx requests carrying the CSRF header; the settings read without it | Same as the menus |

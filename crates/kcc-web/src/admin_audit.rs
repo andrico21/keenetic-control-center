@@ -29,10 +29,13 @@ use url::form_urlencoded;
 
 use crate::{
     WebState,
-    admin_shared::{Change, Pager, Tab, TabLink, Timestamp, page_shell, record, tabs, unavailable},
+    admin_shared::{Change, Tab, TabLink, Timestamp, record, tabs, unavailable},
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::context::Caller,
+    table::pager::Pager,
 };
 
 /// Seconds in a day, the width of one date filter step.
@@ -227,7 +230,9 @@ pub(crate) async fn page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    let shell = page_shell(&state, &headers, &current, &user).await;
+    let shell = Caller::new(&headers, &current, &user)
+        .shell(&state, Section::Admin, None)
+        .await;
     let log = match read(&state).await {
         Some(Ok(log)) => log,
         Some(Err(error)) => return errors::internal(&error, shell),
@@ -247,7 +252,8 @@ pub(crate) async fn page(
         .and_then(|page| page.parse().ok())
         .unwrap_or(1);
     let all = matching.into_iter().map(row).collect();
-    let (rows, pager) = Pager::paginate(all, requested, Tab::Audit.href(), filter.pairs());
+    let (rows, pager) =
+        Pager::paginate(all, requested, Tab::Audit.href().to_owned(), filter.pairs());
     let date_error = |invalid: bool| {
         if invalid {
             tr(locale, keys::WEB_ADMIN_ERROR_DATE, None)

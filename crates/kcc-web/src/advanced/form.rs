@@ -8,7 +8,8 @@
 use kcc_i18n::locale::Locale;
 use serde_json::Value;
 
-use super::{secret::is_secret, types};
+use super::types;
+use crate::page_kit::secret::is_secret;
 
 /// Prefix of every generated input name.
 pub(crate) const PREFIX: &str = "a.";

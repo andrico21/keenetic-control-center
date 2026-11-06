@@ -1,25 +1,25 @@
 //! Lookups shared by the advanced handlers: the router and its catalog facts for a
-//! fragment, the user's permissions on it, and the small notices answering instead.
+//! fragment, and the small notices answering instead.
 
 use askama::Template;
 use axum::response::Response;
 use fluent_bundle::FluentArgs;
-use kcc_app::{permissions::Permission, registry};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
     locale::Locale,
 };
 
-use super::{
-    context::{self, Target, fragment_shell},
-    facts::{FactsError, RouterFacts},
-};
 use crate::{
     WebState,
     authz::CurrentUser,
     errors,
     page::{Localize, Shell},
+    page_kit::{
+        context::{self, Target, fragment_shell},
+        facts::{FactsError, RouterFacts},
+        family::Family,
+    },
 };
 
 /// Longest search query or command path read from a request.
@@ -67,14 +67,6 @@ pub(crate) async fn facts_for<'state>(
     Ok((target, facts))
 }
 
-/// The permissions `user` holds on `router`.
-pub(crate) fn held(user: &CurrentUser, router: &str) -> Vec<Permission> {
-    Permission::ALL
-        .into_iter()
-        .filter(|permission| registry::authorize(user.role(), *permission, router).is_ok())
-        .collect()
-}
-
 /// A notice fragment.
 pub(crate) fn notice(locale: Locale, tone: &'static str, message: MessageKey) -> Response {
     errors::render(&Notice {
@@ -86,10 +78,7 @@ pub(crate) fn notice(locale: Locale, tone: &'static str, message: MessageKey) ->
 
 /// The message explaining why no catalog is available.
 pub(crate) const fn problem(error: FactsError) -> MessageKey {
-    match error {
-        FactsError::Unreachable => keys::WEB_EXPLORER_UNREACHABLE,
-        FactsError::Unsupported => keys::WEB_EXPLORER_UNSUPPORTED,
-    }
+    error.message(Family::Commands)
 }
 
 /// `text` trimmed and cut to [`MAX_INPUT`] bytes at a character boundary.

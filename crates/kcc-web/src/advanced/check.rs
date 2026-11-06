@@ -4,7 +4,7 @@
 use askama::Template;
 use axum::response::Response;
 use fluent_bundle::FluentArgs;
-use kcc_catalog::{HttpMethod, Risk, ValidationIssue};
+use kcc_catalog::{Risk, ValidationIssue};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -12,10 +12,11 @@ use kcc_i18n::{
 };
 use serde_json::{Map, Value};
 
-use super::{context::fragment_shell, detail::encode};
+use super::detail::encode;
 use crate::{
     errors,
     page::{Localize, Shell},
+    page_kit::{context::fragment_shell, failure::issue_sentence},
 };
 
 /// Most items one RCI console batch may hold.
@@ -63,15 +64,6 @@ pub(crate) fn root_object(path: &str, body: Value) -> Value {
     })
 }
 
-/// The HTTP method name.
-pub(crate) const fn method_name(method: HttpMethod) -> &'static str {
-    match method {
-        HttpMethod::Get => "GET",
-        HttpMethod::Post => "POST",
-        HttpMethod::Delete | _ => "DELETE",
-    }
-}
-
 /// A localized sentence for `problem`.
 pub(crate) fn sentence(locale: Locale, problem: &Problem) -> String {
     let mut args = FluentArgs::new();
@@ -99,61 +91,6 @@ pub(crate) fn sentence(locale: Locale, problem: &Problem) -> String {
         Problem::Length => keys::WEB_EXPLORER_ISSUE_LENGTH,
     };
     tr(locale, key, Some(&args))
-}
-
-/// A localized sentence for one catalog finding.
-fn issue_sentence(locale: Locale, issue: &ValidationIssue) -> String {
-    let mut args = FluentArgs::new();
-    let key = match issue {
-        ValidationIssue::UnknownPath { path } => {
-            args.set("path", path.clone());
-            keys::WEB_EXPLORER_ISSUE_UNKNOWN_PATH
-        }
-        ValidationIssue::MethodNotAllowed { method } => {
-            args.set("method", method_name(*method));
-            keys::WEB_EXPLORER_ISSUE_METHOD
-        }
-        ValidationIssue::ExpectedObject { field } => {
-            args.set("field", display_field(field));
-            keys::WEB_EXPLORER_ISSUE_OBJECT
-        }
-        ValidationIssue::UnknownField {
-            field,
-            suggestion: Some(suggestion),
-        } => {
-            args.set("field", display_field(field));
-            args.set("suggestion", suggestion.clone());
-            keys::WEB_EXPLORER_ISSUE_SUGGESTION
-        }
-        ValidationIssue::UnknownField {
-            field,
-            suggestion: None,
-        } => {
-            args.set("field", display_field(field));
-            keys::WEB_EXPLORER_ISSUE_UNKNOWN_FIELD
-        }
-        ValidationIssue::InvalidValue { field } => {
-            args.set("field", display_field(field));
-            keys::WEB_EXPLORER_ISSUE_VALUE
-        }
-        ValidationIssue::NoPrefixUnsupported => keys::WEB_EXPLORER_ISSUE_NO,
-        ValidationIssue::InvalidCliSyntax => keys::WEB_EXPLORER_ISSUE_CLI_SYNTAX,
-        ValidationIssue::UnsupportedCliSyntax { path } => {
-            args.set("path", path.clone());
-            keys::WEB_EXPLORER_ISSUE_CLI_FORM
-        }
-        ValidationIssue::RawAuthorizationRequired | _ => keys::WEB_EXPLORER_ISSUE_RAW,
-    };
-    tr(locale, key, Some(&args))
-}
-
-/// A field path as people read it; the root of a body is shown as `/`.
-fn display_field(field: &str) -> String {
-    if field.is_empty() {
-        "/".to_owned()
-    } else {
-        field.to_owned()
-    }
 }
 
 /// The live result of a console check: valid with its risk and the explorer link of

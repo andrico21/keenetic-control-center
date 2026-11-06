@@ -12,7 +12,7 @@ use kcc_i18n::{
 use kcc_rci::{JsonPointer, Level, RciBody, RciResponse, StatusItem};
 use serde_json::Value;
 
-use super::secret::mask;
+use crate::page_kit::secret::mask;
 
 /// Lines per page of the viewer; the first page is open, the others collapsed.
 const PAGE_LINES: usize = 200;

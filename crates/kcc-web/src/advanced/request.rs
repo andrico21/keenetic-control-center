@@ -9,8 +9,8 @@ use serde_json::{Map, Value};
 use super::{
     check::{Problem, from_issues, root_object},
     form::PREFIX,
-    secret::{is_secret, mask},
 };
+use crate::page_kit::secret::{is_secret, mask};
 
 /// How a validated explorer request is sent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

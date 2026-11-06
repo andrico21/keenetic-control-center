@@ -1422,6 +1422,8 @@ h3 {
 
 .admin-actions form {
   display: contents;
+}
+
 /* todo 42: explorer */
 
 /* ---------- Command explorer, RCI and CLI consoles ---------- */
@@ -1913,4 +1915,87 @@ h3 {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2) var(--space-5);
+}
+
+/* page kit */
+
+/* ---------- Domain page kit: outcome region, settings lists, table filter ---------- */
+
+:root {
+  --setting-label: 12rem;
+}
+
+.page-outcome {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.page-outcome:not(:has(*)) {
+  display: none;
+}
+
+.settings {
+  display: grid;
+  margin: 0;
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  line-height: var(--leading-small);
+}
+
+.settings__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "label action"
+    "value action";
+  align-items: center;
+  gap: var(--space-1) var(--space-4);
+  min-block-size: calc(var(--control-height) + 2 * var(--space-3));
+  padding-block: var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+}
+
+.settings__row:last-child {
+  border-block-end: 0;
+}
+
+.settings__label {
+  grid-area: label;
+  color: var(--color-text-muted);
+}
+
+.settings__value {
+  grid-area: value;
+  min-inline-size: 0;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.settings__action {
+  grid-area: action;
+  margin: 0;
+}
+
+@media (min-width: 48rem) {
+  .settings__row {
+    grid-template-columns: minmax(8rem, var(--setting-label)) minmax(0, 1fr) auto;
+    grid-template-areas: "label value action";
+  }
+}
+
+.table-filter {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.table-filter__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.table-filter__row .field__input {
+  flex: 1 1 16rem;
+  max-inline-size: 24rem;
 }

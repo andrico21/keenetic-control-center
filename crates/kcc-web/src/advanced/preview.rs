@@ -23,7 +23,6 @@ use secrecy::ExposeSecret as _;
 
 use super::{
     check::{Problem, sentence},
-    context::{self, fragment_shell},
     explorer::PageQuery,
     lookup::{clip, facts_for, notice},
     request,
@@ -33,6 +32,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize, Shell},
+    page_kit::context::{self, fragment_shell},
 };
 
 /// Stored lines shown at most.

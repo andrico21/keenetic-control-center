@@ -37,13 +37,20 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ConfirmDialog, ConfirmForm, ListQuery, NameForm, NameQuery, Pager, Tab, TabLink,
-        Toast, dominates, forbidden, fragment_shell, named, page_shell, record, respond,
-        role_label, roles_for, shown_page, tabs, unavailable,
+        Change, ListQuery, NameForm, NameQuery, Tab, TabLink, dominates, forbidden, named, record,
+        role_label, roles_for, tabs, unavailable,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
+    nav::Section,
     page::{LocaleOption, Localize, Shell, Theme},
+    page_kit::{
+        context::{Caller, fragment_shell},
+        outcome::Toast,
+        respond,
+        typed_name::{TypedNameDialog, TypedNameForm},
+    },
+    table::pager::{Pager, shown_page},
 };
 
 /// The add-account form.
@@ -227,7 +234,9 @@ pub(crate) async fn page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    let shell = page_shell(&state, &headers, &current, &user).await;
+    let shell = Caller::new(&headers, &current, &user)
+        .shell(&state, Section::Admin, None)
+        .await;
     if state.admin().is_none() {
         return unavailable(Some(shell));
     }
@@ -244,7 +253,7 @@ pub(crate) async fn page(
 /// `GET /ui/admin/users/new`: the add-account dialog.
 pub(crate) async fn new_dialog(State(state): State<WebState>, user: CurrentUser) -> Response {
     let dialog = NewUserDialog {
-        shell: fragment_shell(&user),
+        shell: fragment_shell(user.locale()),
         username: String::new(),
         roles: options(&state, &user, "viewer"),
         languages: languages(state.default_locale()),
@@ -270,7 +279,7 @@ pub(crate) async fn create(
     let locale = user.locale();
     let language = Locale::from_tag(&form.locale).unwrap_or_else(|| state.default_locale());
     let mut dialog = NewUserDialog {
-        shell: fragment_shell(&user),
+        shell: fragment_shell(user.locale()),
         username: form.username.clone(),
         roles: options(&state, &user, &form.role),
         languages: languages(language),
@@ -280,7 +289,7 @@ pub(crate) async fn create(
     };
     let Some(role) = state.role(&form.role) else {
         dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
-        return invalid(&dialog);
+        return respond::unprocessable(&dialog);
     };
     if !dominates(user.role(), &role) {
         let change = Change::refused("admin.user_create", &form.username, "forbidden");
@@ -299,22 +308,22 @@ pub(crate) async fn create(
         Ok(Ok(())) => {}
         Ok(Err(AccountError::InvalidUsername)) => {
             dialog.username_error = tr(locale, keys::WEB_ADMIN_ERROR_USERNAME, None);
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
         Ok(Err(AccountError::DuplicateAccount)) => {
             dialog.username_error = tr(locale, keys::WEB_ADMIN_ERROR_USER_EXISTS, None);
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
         Ok(Err(AccountError::InvalidPasswordLength)) => {
             dialog.password_error = tr(locale, keys::WEB_ADMIN_ERROR_PASSWORD_LENGTH, None);
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
         Ok(Err(AccountError::PasswordEqualsUsername)) => {
             dialog.password_error = tr(locale, keys::WEB_ADMIN_ERROR_PASSWORD_USERNAME, None);
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
-        Ok(Err(error)) => return errors::internal(&error, fragment_shell(&user)),
-        Err(error) => return errors::internal(&error, fragment_shell(&user)),
+        Ok(Err(error)) => return errors::internal(&error, fragment_shell(user.locale())),
+        Err(error) => return errors::internal(&error, fragment_shell(user.locale())),
     }
     let params = json!({
         "role": role.name,
@@ -367,7 +376,7 @@ pub(crate) async fn set_role(
     let mut dialog = role_dialog_for(&state, &user, &target.username, &form.role);
     let Some(role) = state.role(&form.role) else {
         dialog.error = tr(user.locale(), keys::WEB_ADMIN_ERROR_ROLE, None);
-        return invalid(&dialog);
+        return respond::unprocessable(&dialog);
     };
     if !dominates(user.role(), &role) {
         let change = Change::refused("admin.user_role", &target.username, "forbidden");
@@ -385,7 +394,7 @@ pub(crate) async fn set_role(
             let change = Change::refused("admin.user_role", &target.username, "last_admin");
             record(&state, &user, change).await;
             dialog.error = tr(user.locale(), keys::WEB_ADMIN_ERROR_LAST_ADMIN, None);
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
         Err(Failure::Other(response)) => return *response,
     }
@@ -469,7 +478,7 @@ pub(crate) async fn delete(
     State(state): State<WebState>,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(form): Form<ConfirmForm>,
+    Form(form): Form<TypedNameForm>,
 ) -> Response {
     let Some(admin) = state.admin() else {
         return unavailable(None);
@@ -482,7 +491,7 @@ pub(crate) async fn delete(
     let mut dialog = delete_confirmation(&user, &target.username);
     if !form.confirmed() {
         dialog.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_CONFIRM, None));
-        return invalid(&dialog);
+        return respond::unprocessable(&dialog);
     }
     match administer(&state, &target.username, AccountChange::Delete).await {
         Ok(()) => {}
@@ -490,7 +499,7 @@ pub(crate) async fn delete(
             let change = Change::refused("admin.user_delete", &target.username, "last_admin");
             record(&state, &user, change).await;
             dialog.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_LAST_ADMIN, None));
-            return invalid(&dialog);
+            return respond::unprocessable(&dialog);
         }
         Err(Failure::Other(response)) => return *response,
     }
@@ -693,9 +702,9 @@ async fn region(
             }
         })
         .collect();
-    let (rows, pager) = Pager::paginate(all, page, Tab::Users.href(), Vec::new());
+    let (rows, pager) = Pager::paginate(all, page, Tab::Users.href().to_owned(), Vec::new());
     Ok(UsersRegion {
-        shell: fragment_shell(user),
+        shell: fragment_shell(user.locale()),
         rows,
         pager,
         oob,
@@ -712,7 +721,7 @@ async fn finish(
     from_dialog: bool,
 ) -> Response {
     match region(state, user, shown_page(headers), toasts, true).await {
-        Ok(region) => respond(&region, StatusCode::OK, from_dialog),
+        Ok(region) => respond::region(&region, StatusCode::OK, from_dialog),
         Err(error) => internal(&error),
     }
 }
@@ -726,7 +735,7 @@ async fn finish_with(
     status: StatusCode,
 ) -> Response {
     match region(state, user, shown_page(headers), toasts, true).await {
-        Ok(region) => respond(&region, status, false),
+        Ok(region) => respond::region(&region, status, false),
         Err(error) => internal(&error),
     }
 }
@@ -742,7 +751,7 @@ fn role_dialog_for(
     args.set("name", username.to_owned());
     RoleDialog {
         title: tr(user.locale(), keys::WEB_ADMIN_USER_ROLE_TITLE, Some(&args)),
-        shell: fragment_shell(user),
+        shell: fragment_shell(user.locale()),
         username: username.to_owned(),
         roles: options(state, user, selected),
         error: String::new(),
@@ -750,10 +759,10 @@ fn role_dialog_for(
 }
 
 /// The typed-name delete confirmation for `username`.
-fn delete_confirmation(user: &CurrentUser, username: &str) -> ConfirmDialog {
-    ConfirmDialog::new(
-        fragment_shell(user),
-        "/ui/admin/users/delete",
+fn delete_confirmation(user: &CurrentUser, username: &str) -> TypedNameDialog {
+    TypedNameDialog::new(
+        fragment_shell(user.locale()),
+        "/ui/admin/users/delete".to_owned(),
         username,
         (
             keys::WEB_ADMIN_USER_DELETE_TITLE,
@@ -777,16 +786,6 @@ fn options(state: &WebState, user: &CurrentUser, selected: &str) -> Vec<RoleOpti
 /// The language choices with `locale` selected.
 fn languages(locale: Locale) -> [LocaleOption; 6] {
     Shell::new(locale, Theme::System).locales()
-}
-
-/// A dialog again with its errors, as `422`.
-fn invalid<T>(dialog: &T) -> Response
-where
-    T: Template + Localize,
-{
-    let mut response = errors::render(dialog);
-    *response.status_mut() = StatusCode::UNPROCESSABLE_ENTITY;
-    response
 }
 
 /// Logs `error` and answers `500`.

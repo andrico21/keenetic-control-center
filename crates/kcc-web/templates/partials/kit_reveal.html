@@ -1,0 +1,22 @@
+{#- One revealed secret in a read-only field with Copy; closing the dialog empties it, so the value leaves the page. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+{%- if let Some(text) = value() %}
+<p class="dialog__text">{{ t(keys::WEB_KIT_REVEAL_TEXT) }}</p>
+<div class="field copy-field">
+  <label class="field__label" for="reveal-value">{{ title }}</label>
+  <div class="copy-field__row">
+    <input class="field__input mono copy-field__value" id="reveal-value" type="text" value="{{ text }}" readonly autocomplete="off" spellcheck="false" aria-describedby="reveal-copied">
+    <button class="button button--secondary" type="button" data-kcc-copy="reveal-value">{{ t(keys::WEB_ADMIN_KEY_COPY) }}</button>
+  </div>
+  <p class="field__help" id="reveal-copied" role="status" hidden>{{ t(keys::WEB_ADMIN_KEY_COPIED) }}</p>
+</div>
+{%- else %}
+{%- if let Some(message) = problem %}
+<p class="notice" data-tone="error">{{ message }}</p>
+{%- endif %}
+{%- endif %}
+<form class="dialog__actions" method="dialog">
+  <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_KEY_DONE) }}</button>
+</form>
+{% endcall %}

@@ -25,20 +25,27 @@ use kcc_rci::{RciError, RciPath};
 use serde_json::{Value, json};
 
 use super::{
-    apply::Change,
     check::{Report, root_object},
-    context::{self, Caller, Execution, allowed, fragment_shell},
-    deliver::{Dispatch, Sender},
-    gate::{self, Gate, Prompt, Resubmit},
+    deliver::{Dispatch, Sender, raw_batch},
     lookup::{catalog_note, facts_for, problem},
-    outcome::Outcome,
+    outcome::Reply,
     rci_check::{Checked, RciForm, check, path_segments},
 };
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
+    nav::Section,
     page::{Localize, Shell},
+    page_kit::{
+        audit::Record,
+        change::Change,
+        confirm::{Gate, Prompt, Resubmit},
+        context::{self, Caller, fragment_shell},
+        family::Family,
+        gate::{allowed, command_permissions},
+        respond,
+    },
 };
 
 /// The console page.
@@ -72,7 +79,7 @@ pub(crate) async fn page(
     user: CurrentUser,
 ) -> Response {
     let shell = Caller::new(&headers, &current, &user)
-        .shell(&state, Some(&router))
+        .shell(&state, Section::Advanced, Some(&router))
         .await;
     let target = match context::target(&state, &user, &router).await {
         Ok(found) => found,
@@ -134,11 +141,11 @@ pub(crate) async fn send(
     let checked = match check(facts.catalog(), &form) {
         Ok(found) => found,
         Err(problems) => {
-            Execution::new("web.console_rci", &router, form.label())
-                .record(&state, &user, "validation_failed")
+            Record::on_router("web.console_rci", &router, form.label())
+                .append(&state, &user, "validation_failed")
                 .await;
-            return gate::retarget(
-                Outcome::invalid(locale, &problems).render(locale),
+            return respond::retarget(
+                Reply::invalid(locale, &problems).render(locale),
                 "#rci-check",
             );
         }
@@ -146,40 +153,37 @@ pub(crate) async fn send(
     let risk = checked.risk();
     let params = json!({ "method": form.method_name(), "items": checked.count(), "fields": checked.fields() });
     let audit =
-        Execution::new("web.console_rci", &router, form.label()).with_params(params.clone());
+        Record::on_router("web.console_rci", &router, form.label()).with_params(params.clone());
     if !allowed(&user, &router, &[Permission::RawRci])
-        || !allowed(&user, &router, gate::permissions(risk))
+        || !allowed(&user, &router, command_permissions(risk))
     {
-        audit.record(&state, &user, "forbidden").await;
+        audit.append(&state, &user, "forbidden").await;
         return errors::response(Kind::Forbidden, fragment_shell(locale));
     }
     let confirmation = form.confirmation();
-    if let Gate::Ask { wrong_name } = gate::gate(risk, &confirmation, &router) {
-        let resubmit = Resubmit::new(
-            format!("/ui/r/{router}/console/rci/send"),
-            "#rci-form",
-            "#rci-result",
-        );
-        return Prompt::new(risk, &router, resubmit)
+    if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {
+        let resubmit = Resubmit::new(format!("/ui/r/{router}/console/rci/send"), "#rci-result")
+            .with_include("#rci-form");
+        return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
-            .render(locale);
+            .render(resubmit, locale);
     }
     let session = current.stream_key();
     let dispatch = Sender::new(&state, &user, &session).to(target, &facts);
     let outcome = run(dispatch, checked, params).await;
-    audit.record(&state, &user, outcome.audit()).await;
+    audit.append(&state, &user, outcome.audit()).await;
     let response = outcome.render(locale);
     if risk == Risk::Read {
         response
     } else {
-        gate::close_dialog(response)
+        respond::close_dialog(response)
     }
 }
 
 /// Sends a checked console request: reads through the shared client, everything else
 /// through the change workflow.
 // NOT cancel-safe: see `Dispatch::change`.
-async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Outcome {
+async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
     let risk = checked.risk();
     match checked {
         Checked::Path {
@@ -213,7 +217,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Outcome
                 Permission::RawRci,
                 params.clone(),
             );
-            dispatch.change(risk, params, Change::Delete(request)).await
+            dispatch.change(risk, Change::Delete(request)).await
         }
         Checked::Path {
             method: _,
@@ -227,8 +231,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Outcome
                 dispatch
                     .change(
                         risk,
-                        params,
-                        Change::Batch(vec![BatchItem::new(root, validated)]),
+                        raw_batch(vec![BatchItem::new(root, validated)], params),
                     )
                     .await
             }
@@ -244,7 +247,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Outcome
                     )
                     .await
             } else {
-                dispatch.change(risk, params, Change::Batch(items)).await
+                dispatch.change(risk, raw_batch(items, params)).await
             }
         }
     }

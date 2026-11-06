@@ -8,7 +8,10 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use url::Url;
 
-use crate::page::{Localize, Shell};
+use crate::{
+    page::{Localize, Shell},
+    page_kit::secret::write_only,
+};
 
 /// The submitted router form. The password moves into a [`SecretString`] in
 /// [`RouterForm::parse`] before any other use and is never echoed back.
@@ -198,7 +201,7 @@ impl RouterForm {
             tags: self.tags.trim().to_owned(),
             test_device: self.test_device.is_some(),
         };
-        let password = (!self.password.is_empty()).then(|| SecretString::from(self.password));
+        let password = write_only(self.password);
         let url = origin(&draft.url);
         if url.is_none() {
             errors.url = message(keys::WEB_ROUTER_ERROR_URL);

@@ -1,4 +1,5 @@
 {%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
 <div class="admin-region" id="admin-region"{% if oob %} hx-swap-oob="true"{% endif %}>
   {%- if rows.is_empty() %}
   <p class="page__text">{{ t(keys::WEB_ADMIN_KEYS_EMPTY) }}</p>
@@ -34,6 +35,6 @@
     </table>
   </div>
   {%- endif %}
-  {%- include "partials/admin_pager.html" %}
+  {%- include "partials/kit_pager.html" %}
 </div>
-{%- include "partials/admin_toasts.html" %}
+{{ kit::toasts(toasts) }}

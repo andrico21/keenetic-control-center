@@ -1,0 +1,89 @@
+{#- The domain page kit's shared markup. A template imports it beside components.html. -#}
+{%- import "components.html" as ui -%}
+
+{#- The notice of an outcome: the headline in its tone and the problems that stopped the request, then the router's own words, message text only. -#}
+{%- macro report(outcome) -%}
+<div class="notice" data-tone="{{ outcome.tone() }}">
+  <p class="notice__title">{{ outcome.headline() }}</p>
+  {%- if !outcome.problems().is_empty() %}
+  <ul class="issues">
+    {%- for problem in outcome.problems() %}
+    <li>{{ problem }}</li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</div>
+{%- if !outcome.router_said().is_empty() %}
+<details class="router-said" open>
+  <summary class="router-said__summary">{{ t(keys::WEB_EXPLORER_ROUTER_SAID) }}</summary>
+  <ul class="router-said__list">
+    {%- for message in outcome.router_said() %}
+    <li>{{ message }}</li>
+    {%- endfor %}
+  </ul>
+</details>
+{%- endif %}
+{%- endmacro -%}
+
+{#- Toasts appended to the page's live #toasts region. -#}
+{%- macro toasts(list) -%}
+{%- for toast in list %}
+<div hx-swap-oob="beforeend:#toasts">{{ ui::toast(toast.tone(), toast.message()) }}</div>
+{%- endfor %}
+{%- endmacro -%}
+
+{#- What an outcome changes outside its region: its toasts and, when the router has unsaved changes now, the header's badge. -#}
+{%- macro signals(outcome) -%}
+{{ toasts(outcome.toasts()) }}
+{%- if outcome.unsaved() %}
+<span class="masthead__status" id="unsaved-badge" hx-swap-oob="true"><a class="badge" href="/ui/configuration">{{ t(keys::WEB_ROUTER_UNSAVED) }}</a></span>
+{%- endif %}
+{%- endmacro -%}
+
+{#- The outcome of a request in a page's outcome region: a failure stays there with the router's words; a success says so only in its toast and empties the region. Its signals go out of band. -#}
+{%- macro result(outcome) -%}
+{%- if !outcome.succeeded() %}
+<section class="outcome" aria-labelledby="outcome-title">
+  <h3 class="visually-hidden" id="outcome-title">{{ t(keys::WEB_EXPLORER_RESULT) }}</h3>
+  {{ report(outcome) }}
+</section>
+{%- endif %}
+{{ signals(outcome) }}
+{%- endmacro -%}
+
+{#- One setting of a settings list: its label, its value or "not reported", and Edit, which opens the setting's dialog, when the role may change it. -#}
+{%- macro setting(row_id, label, shown, dialog_url) -%}
+<div class="settings__row">
+  <dt class="settings__label" id="{{ row_id }}">{{ label }}</dt>
+  <dd class="settings__value">{% if let Some(text) = shown %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</dd>
+  {%- if let Some(href) = dialog_url %}
+  <dd class="settings__action"><button class="button button--ghost" type="button" hx-get="{{ href }}" hx-target="#dialog-content" aria-describedby="{{ row_id }}">{{ t(keys::COMMON_EDIT) }}</button></dd>
+  {%- endif %}
+</div>
+{%- endmacro -%}
+
+{#- The region a page's actions show their outcome in. -#}
+{%- macro outcome_region() -%}
+<div class="page-outcome" id="page-outcome" aria-live="polite"></div>
+{%- endmacro -%}
+
+{#- A write-only secret field: it has no value parameter, so no page can render a stored secret; `help_text` says what leaving it empty does. -#}
+{%- macro secret_field(field_id, field_name, label_text, error_text, help_text) -%}
+{{ ui::field(field_id, field_name, label_text, "", error_text, "password", "new-password", help_text) }}
+{%- endmacro -%}
+
+{#- The filter of a table (`table::rows::Table`): a search field that keeps the sort, Clear while a filter is set, and how many rows match. -#}
+{%- macro filter(table, label_text) -%}
+<form class="table-filter" role="search" method="get" action="{{ table.base() }}">
+  <label class="field__label" for="table-filter">{{ label_text }}</label>
+  <div class="table-filter__row">
+    <input class="field__input" id="table-filter" name="q" type="search" value="{{ table.filter() }}" autocomplete="off" spellcheck="false">
+    <input type="hidden" name="sort" value="{{ table.sort().column() }}">
+    <input type="hidden" name="dir" value="{{ table.sort().direction().param() }}">
+    <button class="button button--secondary" type="submit">{{ t(keys::COMMON_APPLY) }}</button>
+    {%- if !table.filter().is_empty() %}
+    <a class="button button--ghost" href="{{ table.base() }}">{{ t(keys::WEB_KIT_TABLE_CLEAR) }}</a>
+    {%- endif %}
+  </div>
+</form>
+{%- endmacro -%}

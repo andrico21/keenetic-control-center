@@ -2,19 +2,23 @@
 //! reused for [`FACTS_TTL`] seconds, so validating a request never contacts the router.
 
 use alloc::collections::BTreeMap;
-use std::sync::Mutex;
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use kcc_app::registry::RouterRegistry;
 use kcc_catalog::{Catalog, ModelMatch};
 use kcc_domain::configuration::SafetyMode;
+use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::capabilities::SystemMode;
 
-use super::lock;
+use super::family::Family;
 
 /// Seconds detected router facts are reused before the router is asked again.
 const FACTS_TTL: u64 = 600;
 
-/// What the advanced pages know about one router.
+/// Cached facts by router id, with the Unix second they were detected.
+type Entries = BTreeMap<String, (u64, RouterFacts)>;
+
+/// What the pages know about one router.
 #[derive(Clone)]
 pub(crate) struct RouterFacts {
     /// Firmware- and model-specific command catalog.
@@ -34,11 +38,21 @@ pub(crate) enum FactsError {
     Unsupported,
 }
 
-/// Detected facts by router id, with the Unix second they were detected.
+impl FactsError {
+    /// Why the page cannot use the router, in `family`'s words.
+    pub(crate) const fn message(self, family: Family) -> MessageKey {
+        match self {
+            Self::Unreachable => family.unreachable(),
+            Self::Unsupported => keys::WEB_EXPLORER_UNSUPPORTED,
+        }
+    }
+}
+
+/// Detected facts by router id.
 #[derive(Default)]
 pub(crate) struct FactsCache {
     /// Cached entries.
-    entries: Mutex<BTreeMap<String, (u64, RouterFacts)>>,
+    entries: Mutex<Entries>,
 }
 
 impl FactsCache {
@@ -64,7 +78,7 @@ impl FactsCache {
             return Ok(facts);
         }
         let info = registry.poll_info(router).await.map_err(|error| {
-            tracing::warn!(%error, router, "explorer could not identify the router");
+            tracing::warn!(%error, router, "pages could not identify the router");
             FactsError::Unreachable
         })?;
         let catalog = Catalog::for_router(&info).map_err(|_error| FactsError::Unsupported)?;
@@ -105,4 +119,10 @@ impl RouterFacts {
             ModelMatch::Union | _ => None,
         }
     }
+}
+
+/// The cache map; a panic while holding it cannot leave an entry half-written, so a
+/// poisoned lock is used as is.
+fn lock(entries: &Mutex<Entries>) -> MutexGuard<'_, Entries> {
+    entries.lock().unwrap_or_else(PoisonError::into_inner)
 }
