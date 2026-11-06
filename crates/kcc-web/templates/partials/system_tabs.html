@@ -1,0 +1,8 @@
+{#- The system pages' tab bar; the including template has a `tabs` field (`system_pages::tabs::TabBar`). -#}
+<nav class="tabs tabs--wrap" aria-label="{{ t(keys::WEB_SYSTEM_TABS) }}">
+  <ul class="tabs__list">
+    {%- for link in tabs.links() %}
+    <li><a class="tabs__link" href="{{ link.href() }}"{% if link.current() %} aria-current="page"{% endif %}>{{ t(link.label()) }}</a></li>
+    {%- endfor %}
+  </ul>
+</nav>

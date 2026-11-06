@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(tabs.title()) }}{% endblock %}
+{%- block content %}
+<div class="page system-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(tabs.title()) }}</h1>
+    {%- if add %}
+    <div class="page-head__actions"><button class="button button--primary" type="button" hx-get="/ui/r/{{ router }}/system/users/new" hx-target="#dialog-content">{{ t(keys::WEB_SYSTEM_USERS_ADD) }}</button></div>
+    {%- endif %}
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {%- include "partials/system_tabs.html" %}
+  {{ kit::outcome_region() }}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(accounts) = region %}
+  {{ accounts|safe }}
+  {%- endif %}
+</div>
+{%- endblock %}

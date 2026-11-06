@@ -3352,8 +3352,569 @@ pub const WEB_VPN_SKIP_DNS: MessageKey = MessageKey::new("web-vpn-skip-dns");
 /// `web-vpn-skip-asc` in `web.ftl`.
 pub const WEB_VPN_SKIP_ASC: MessageKey = MessageKey::new("web-vpn-skip-asc");
 
+/// `web-system-tabs` in `web.ftl`.
+pub const WEB_SYSTEM_TABS: MessageKey = MessageKey::new("web-system-tabs");
+
+/// `web-system-users-title` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_TITLE: MessageKey = MessageKey::new("web-system-users-title");
+
+/// `web-system-services-title` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_TITLE: MessageKey = MessageKey::new("web-system-services-title");
+
+/// `web-system-read-failed` in `web.ftl`.
+pub const WEB_SYSTEM_READ_FAILED: MessageKey = MessageKey::new("web-system-read-failed");
+
+/// `web-system-actions` in `web.ftl`.
+pub const WEB_SYSTEM_ACTIONS: MessageKey = MessageKey::new("web-system-actions");
+
+/// `web-system-unchanged` in `web.ftl`.
+pub const WEB_SYSTEM_UNCHANGED: MessageKey = MessageKey::new("web-system-unchanged");
+
+/// `web-system-users-add` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_ADD: MessageKey = MessageKey::new("web-system-users-add");
+
+/// `web-system-users-add-title` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_ADD_TITLE: MessageKey = MessageKey::new("web-system-users-add-title");
+
+/// `web-system-users-tags-title` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_TAGS_TITLE: MessageKey = MessageKey::new("web-system-users-tags-title");
+
+/// `web-system-users-list` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_LIST: MessageKey = MessageKey::new("web-system-users-list");
+
+/// `web-system-users-name` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_NAME: MessageKey = MessageKey::new("web-system-users-name");
+
+/// `web-system-users-name-help` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_NAME_HELP: MessageKey = MessageKey::new("web-system-users-name-help");
+
+/// `web-system-users-name-error` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_NAME_ERROR: MessageKey = MessageKey::new("web-system-users-name-error");
+
+/// `web-system-users-name-taken` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_NAME_TAKEN: MessageKey = MessageKey::new("web-system-users-name-taken");
+
+/// `web-system-users-tags` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_TAGS: MessageKey = MessageKey::new("web-system-users-tags");
+
+/// `web-system-users-tags-error` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_TAGS_ERROR: MessageKey = MessageKey::new("web-system-users-tags-error");
+
+/// `web-system-users-no-tags` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_NO_TAGS: MessageKey = MessageKey::new("web-system-users-no-tags");
+
+/// `web-system-users-kcc-login` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_KCC_LOGIN: MessageKey = MessageKey::new("web-system-users-kcc-login");
+
+/// `web-system-users-edit-tags` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_EDIT_TAGS: MessageKey = MessageKey::new("web-system-users-edit-tags");
+
+/// `web-system-users-empty` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_EMPTY: MessageKey = MessageKey::new("web-system-users-empty");
+
+/// `web-system-users-no-password` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_NO_PASSWORD: MessageKey =
+    MessageKey::new("web-system-users-no-password");
+
+/// `web-system-users-fail-safe` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_FAIL_SAFE: MessageKey = MessageKey::new("web-system-users-fail-safe");
+
+/// `web-system-users-protected` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_PROTECTED: MessageKey = MessageKey::new("web-system-users-protected");
+
+/// `web-system-users-delete-title` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_DELETE_TITLE: MessageKey =
+    MessageKey::new("web-system-users-delete-title");
+
+/// `web-system-users-delete-text` in `web.ftl`.
+pub const WEB_SYSTEM_USERS_DELETE_TEXT: MessageKey =
+    MessageKey::new("web-system-users-delete-text");
+
+/// `web-system-services-list` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_LIST: MessageKey = MessageKey::new("web-system-services-list");
+
+/// `web-system-services-name` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_NAME: MessageKey = MessageKey::new("web-system-services-name");
+
+/// `web-system-services-state` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_STATE: MessageKey = MessageKey::new("web-system-services-state");
+
+/// `web-system-services-management` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_MANAGEMENT: MessageKey =
+    MessageKey::new("web-system-services-management");
+
+/// `web-system-services-on` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_ON: MessageKey = MessageKey::new("web-system-services-on");
+
+/// `web-system-services-off` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_OFF: MessageKey = MessageKey::new("web-system-services-off");
+
+/// `web-system-services-turn-on` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_TURN_ON: MessageKey = MessageKey::new("web-system-services-turn-on");
+
+/// `web-system-services-turn-off` in `web.ftl`.
+pub const WEB_SYSTEM_SERVICES_TURN_OFF: MessageKey =
+    MessageKey::new("web-system-services-turn-off");
+
+/// `web-system-timezone-title` in `web.ftl`.
+pub const WEB_SYSTEM_TIMEZONE_TITLE: MessageKey = MessageKey::new("web-system-timezone-title");
+
+/// `web-system-timezone-help` in `web.ftl`.
+pub const WEB_SYSTEM_TIMEZONE_HELP: MessageKey = MessageKey::new("web-system-timezone-help");
+
+/// `web-system-timezone-error` in `web.ftl`.
+pub const WEB_SYSTEM_TIMEZONE_ERROR: MessageKey = MessageKey::new("web-system-timezone-error");
+
+/// `web-system-ntp-server` in `web.ftl`.
+pub const WEB_SYSTEM_NTP_SERVER: MessageKey = MessageKey::new("web-system-ntp-server");
+
+/// `web-system-ntp-server-title` in `web.ftl`.
+pub const WEB_SYSTEM_NTP_SERVER_TITLE: MessageKey = MessageKey::new("web-system-ntp-server-title");
+
+/// `web-system-ntp-server-help` in `web.ftl`.
+pub const WEB_SYSTEM_NTP_SERVER_HELP: MessageKey = MessageKey::new("web-system-ntp-server-help");
+
+/// `web-system-ntp-server-error` in `web.ftl`.
+pub const WEB_SYSTEM_NTP_SERVER_ERROR: MessageKey = MessageKey::new("web-system-ntp-server-error");
+
+/// `web-system-reset-title` in `web.ftl`.
+pub const WEB_SYSTEM_RESET_TITLE: MessageKey = MessageKey::new("web-system-reset-title");
+
+/// `web-system-reset-text` in `web.ftl`.
+pub const WEB_SYSTEM_RESET_TEXT: MessageKey = MessageKey::new("web-system-reset-text");
+
+/// `web-system-reset` in `web.ftl`.
+pub const WEB_SYSTEM_RESET: MessageKey = MessageKey::new("web-system-reset");
+
+/// `web-system-components-title` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_TITLE: MessageKey = MessageKey::new("web-system-components-title");
+
+/// `web-system-storage-title` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_TITLE: MessageKey = MessageKey::new("web-system-storage-title");
+
+/// `web-system-job-title` in `web.ftl`.
+pub const WEB_SYSTEM_JOB_TITLE: MessageKey = MessageKey::new("web-system-job-title");
+
+/// `web-system-job-busy` in `web.ftl`.
+pub const WEB_SYSTEM_JOB_BUSY: MessageKey = MessageKey::new("web-system-job-busy");
+
+/// `web-system-components-installed` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_INSTALLED: MessageKey =
+    MessageKey::new("web-system-components-installed");
+
+/// `web-system-components-available` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_AVAILABLE: MessageKey =
+    MessageKey::new("web-system-components-available");
+
+/// `web-system-components-installing` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_INSTALLING: MessageKey =
+    MessageKey::new("web-system-components-installing");
+
+/// `web-system-components-removing` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_REMOVING: MessageKey =
+    MessageKey::new("web-system-components-removing");
+
+/// `web-system-components-install` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_INSTALL: MessageKey =
+    MessageKey::new("web-system-components-install");
+
+/// `web-system-components-remove` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_REMOVE: MessageKey =
+    MessageKey::new("web-system-components-remove");
+
+/// `web-system-components-committing` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_COMMITTING: MessageKey =
+    MessageKey::new("web-system-components-committing");
+
+/// `web-system-components-rebooting` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_REBOOTING: MessageKey =
+    MessageKey::new("web-system-components-rebooting");
+
+/// `web-system-components-back` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_BACK: MessageKey = MessageKey::new("web-system-components-back");
+
+/// `web-system-components-back-plain` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_BACK_PLAIN: MessageKey =
+    MessageKey::new("web-system-components-back-plain");
+
+/// `web-system-components-firmware` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_FIRMWARE: MessageKey =
+    MessageKey::new("web-system-components-firmware");
+
+/// `web-system-components-version` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_VERSION: MessageKey =
+    MessageKey::new("web-system-components-version");
+
+/// `web-system-components-check` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_CHECK: MessageKey = MessageKey::new("web-system-components-check");
+
+/// `web-system-components-queue` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_QUEUE: MessageKey = MessageKey::new("web-system-components-queue");
+
+/// `web-system-components-queue-empty` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_QUEUE_EMPTY: MessageKey =
+    MessageKey::new("web-system-components-queue-empty");
+
+/// `web-system-components-commit-text` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_COMMIT_TEXT: MessageKey =
+    MessageKey::new("web-system-components-commit-text");
+
+/// `web-system-components-commit` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_COMMIT: MessageKey =
+    MessageKey::new("web-system-components-commit");
+
+/// `web-system-components-commit-job` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_COMMIT_JOB: MessageKey =
+    MessageKey::new("web-system-components-commit-job");
+
+/// `web-system-components-list` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_LIST: MessageKey = MessageKey::new("web-system-components-list");
+
+/// `web-system-components-name` in `web.ftl`.
+pub const WEB_SYSTEM_COMPONENTS_NAME: MessageKey = MessageKey::new("web-system-components-name");
+
+/// `web-system-storage-media` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_MEDIA: MessageKey = MessageKey::new("web-system-storage-media");
+
+/// `web-system-storage-no-media` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_NO_MEDIA: MessageKey = MessageKey::new("web-system-storage-no-media");
+
+/// `web-system-storage-id` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_ID: MessageKey = MessageKey::new("web-system-storage-id");
+
+/// `web-system-storage-label` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_LABEL: MessageKey = MessageKey::new("web-system-storage-label");
+
+/// `web-system-storage-filesystem` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_FILESYSTEM: MessageKey =
+    MessageKey::new("web-system-storage-filesystem");
+
+/// `web-system-storage-size` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_SIZE: MessageKey = MessageKey::new("web-system-storage-size");
+
+/// `web-system-storage-free` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_FREE: MessageKey = MessageKey::new("web-system-storage-free");
+
+/// `web-system-storage-check` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_CHECK: MessageKey = MessageKey::new("web-system-storage-check");
+
+/// `web-system-storage-eject` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_EJECT: MessageKey = MessageKey::new("web-system-storage-eject");
+
+/// `web-system-storage-format` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_FORMAT: MessageKey = MessageKey::new("web-system-storage-format");
+
+/// `web-system-storage-format-title` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_FORMAT_TITLE: MessageKey =
+    MessageKey::new("web-system-storage-format-title");
+
+/// `web-system-storage-format-text` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_FORMAT_TEXT: MessageKey =
+    MessageKey::new("web-system-storage-format-text");
+
+/// `web-system-storage-usb` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_USB: MessageKey = MessageKey::new("web-system-storage-usb");
+
+/// `web-system-storage-no-usb` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_NO_USB: MessageKey = MessageKey::new("web-system-storage-no-usb");
+
+/// `web-system-storage-device` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_DEVICE: MessageKey = MessageKey::new("web-system-storage-device");
+
+/// `web-system-storage-connected` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_CONNECTED: MessageKey =
+    MessageKey::new("web-system-storage-connected");
+
+/// `web-system-storage-disconnected` in `web.ftl`.
+pub const WEB_SYSTEM_STORAGE_DISCONNECTED: MessageKey =
+    MessageKey::new("web-system-storage-disconnected");
+
+/// `web-system-schedules-title` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_TITLE: MessageKey = MessageKey::new("web-system-schedules-title");
+
+/// `web-system-keendns-title` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_TITLE: MessageKey = MessageKey::new("web-system-keendns-title");
+
+/// `web-system-schedules-add` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_ADD: MessageKey = MessageKey::new("web-system-schedules-add");
+
+/// `web-system-schedules-add-title` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_ADD_TITLE: MessageKey =
+    MessageKey::new("web-system-schedules-add-title");
+
+/// `web-system-schedules-name` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_NAME: MessageKey = MessageKey::new("web-system-schedules-name");
+
+/// `web-system-schedules-description` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_DESCRIPTION: MessageKey =
+    MessageKey::new("web-system-schedules-description");
+
+/// `web-system-schedules-word-help` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_WORD_HELP: MessageKey =
+    MessageKey::new("web-system-schedules-word-help");
+
+/// `web-system-schedules-word-error` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_WORD_ERROR: MessageKey =
+    MessageKey::new("web-system-schedules-word-error");
+
+/// `web-system-schedules-empty` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_EMPTY: MessageKey = MessageKey::new("web-system-schedules-empty");
+
+/// `web-system-schedules-active` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_ACTIVE: MessageKey = MessageKey::new("web-system-schedules-active");
+
+/// `web-system-schedules-inactive` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_INACTIVE: MessageKey =
+    MessageKey::new("web-system-schedules-inactive");
+
+/// `web-system-schedules-add-action` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_ADD_ACTION: MessageKey =
+    MessageKey::new("web-system-schedules-add-action");
+
+/// `web-system-schedules-action-title` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_ACTION_TITLE: MessageKey =
+    MessageKey::new("web-system-schedules-action-title");
+
+/// `web-system-schedules-action` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_ACTION: MessageKey = MessageKey::new("web-system-schedules-action");
+
+/// `web-system-schedules-start` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_START: MessageKey = MessageKey::new("web-system-schedules-start");
+
+/// `web-system-schedules-stop` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_STOP: MessageKey = MessageKey::new("web-system-schedules-stop");
+
+/// `web-system-schedules-time` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_TIME: MessageKey = MessageKey::new("web-system-schedules-time");
+
+/// `web-system-schedules-time-error` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_TIME_ERROR: MessageKey =
+    MessageKey::new("web-system-schedules-time-error");
+
+/// `web-system-schedules-days` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_DAYS: MessageKey = MessageKey::new("web-system-schedules-days");
+
+/// `web-system-schedules-days-error` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_DAYS_ERROR: MessageKey =
+    MessageKey::new("web-system-schedules-days-error");
+
+/// `web-system-schedules-monday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_MONDAY: MessageKey = MessageKey::new("web-system-schedules-monday");
+
+/// `web-system-schedules-tuesday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_TUESDAY: MessageKey =
+    MessageKey::new("web-system-schedules-tuesday");
+
+/// `web-system-schedules-wednesday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_WEDNESDAY: MessageKey =
+    MessageKey::new("web-system-schedules-wednesday");
+
+/// `web-system-schedules-thursday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_THURSDAY: MessageKey =
+    MessageKey::new("web-system-schedules-thursday");
+
+/// `web-system-schedules-friday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_FRIDAY: MessageKey = MessageKey::new("web-system-schedules-friday");
+
+/// `web-system-schedules-saturday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_SATURDAY: MessageKey =
+    MessageKey::new("web-system-schedules-saturday");
+
+/// `web-system-schedules-sunday` in `web.ftl`.
+pub const WEB_SYSTEM_SCHEDULES_SUNDAY: MessageKey = MessageKey::new("web-system-schedules-sunday");
+
+/// `web-system-keendns-name-title` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_NAME_TITLE: MessageKey =
+    MessageKey::new("web-system-keendns-name-title");
+
+/// `web-system-keendns-name` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_NAME: MessageKey = MessageKey::new("web-system-keendns-name");
+
+/// `web-system-keendns-none` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_NONE: MessageKey = MessageKey::new("web-system-keendns-none");
+
+/// `web-system-keendns-state` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_STATE: MessageKey = MessageKey::new("web-system-keendns-state");
+
+/// `web-system-keendns-book` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_BOOK: MessageKey = MessageKey::new("web-system-keendns-book");
+
+/// `web-system-keendns-release` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_RELEASE: MessageKey = MessageKey::new("web-system-keendns-release");
+
+/// `web-system-keendns-label` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_LABEL: MessageKey = MessageKey::new("web-system-keendns-label");
+
+/// `web-system-keendns-domain` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_DOMAIN: MessageKey = MessageKey::new("web-system-keendns-domain");
+
+/// `web-system-keendns-domain-help` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_DOMAIN_HELP: MessageKey =
+    MessageKey::new("web-system-keendns-domain-help");
+
+/// `web-system-keendns-name-error` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_NAME_ERROR: MessageKey =
+    MessageKey::new("web-system-keendns-name-error");
+
+/// `web-system-keendns-access-title` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_ACCESS_TITLE: MessageKey =
+    MessageKey::new("web-system-keendns-access-title");
+
+/// `web-system-keendns-access-text` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_ACCESS_TEXT: MessageKey =
+    MessageKey::new("web-system-keendns-access-text");
+
+/// `web-system-keendns-access-private` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_ACCESS_PRIVATE: MessageKey =
+    MessageKey::new("web-system-keendns-access-private");
+
+/// `web-system-keendns-access-public` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_ACCESS_PUBLIC: MessageKey =
+    MessageKey::new("web-system-keendns-access-public");
+
+/// `web-system-keendns-proxy-title` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_TITLE: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-title");
+
+/// `web-system-keendns-proxy-text` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_TEXT: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-text");
+
+/// `web-system-keendns-proxy-add` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_ADD: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-add");
+
+/// `web-system-keendns-proxy-name` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_NAME: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-name");
+
+/// `web-system-keendns-proxy-name-help` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_NAME_HELP: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-name-help");
+
+/// `web-system-keendns-proxy-protocol` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_PROTOCOL: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-protocol");
+
+/// `web-system-keendns-proxy-host` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_HOST: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-host");
+
+/// `web-system-keendns-proxy-port` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_PORT: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-port");
+
+/// `web-system-keendns-proxy-error` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_PROXY_ERROR: MessageKey =
+    MessageKey::new("web-system-keendns-proxy-error");
+
+/// `web-system-keendns-fail-safe` in `web.ftl`.
+pub const WEB_SYSTEM_KEENDNS_FAIL_SAFE: MessageKey =
+    MessageKey::new("web-system-keendns-fail-safe");
+
+/// `web-system-diagnostics-title` in `web.ftl`.
+pub const WEB_SYSTEM_DIAGNOSTICS_TITLE: MessageKey =
+    MessageKey::new("web-system-diagnostics-title");
+
+/// `web-system-diag-run` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_RUN: MessageKey = MessageKey::new("web-system-diag-run");
+
+/// `web-system-diag-tool` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_TOOL: MessageKey = MessageKey::new("web-system-diag-tool");
+
+/// `web-system-diag-ping` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_PING: MessageKey = MessageKey::new("web-system-diag-ping");
+
+/// `web-system-diag-traceroute` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_TRACEROUTE: MessageKey = MessageKey::new("web-system-diag-traceroute");
+
+/// `web-system-diag-arping` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_ARPING: MessageKey = MessageKey::new("web-system-diag-arping");
+
+/// `web-system-diag-iperf3` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_IPERF3: MessageKey = MessageKey::new("web-system-diag-iperf3");
+
+/// `web-system-diag-host` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_HOST: MessageKey = MessageKey::new("web-system-diag-host");
+
+/// `web-system-diag-host-help` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_HOST_HELP: MessageKey = MessageKey::new("web-system-diag-host-help");
+
+/// `web-system-diag-address` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_ADDRESS: MessageKey = MessageKey::new("web-system-diag-address");
+
+/// `web-system-diag-interface` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_INTERFACE: MessageKey = MessageKey::new("web-system-diag-interface");
+
+/// `web-system-diag-interface-help` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_INTERFACE_HELP: MessageKey =
+    MessageKey::new("web-system-diag-interface-help");
+
+/// `web-system-diag-count` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_COUNT: MessageKey = MessageKey::new("web-system-diag-count");
+
+/// `web-system-diag-max-ttl` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_MAX_TTL: MessageKey = MessageKey::new("web-system-diag-max-ttl");
+
+/// `web-system-diag-port` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_PORT: MessageKey = MessageKey::new("web-system-diag-port");
+
+/// `web-system-diag-time` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_TIME: MessageKey = MessageKey::new("web-system-diag-time");
+
+/// `web-system-diag-start` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_START: MessageKey = MessageKey::new("web-system-diag-start");
+
+/// `web-system-diag-tool-error` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_TOOL_ERROR: MessageKey = MessageKey::new("web-system-diag-tool-error");
+
+/// `web-system-diag-host-error` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_HOST_ERROR: MessageKey = MessageKey::new("web-system-diag-host-error");
+
+/// `web-system-diag-address-error` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_ADDRESS_ERROR: MessageKey =
+    MessageKey::new("web-system-diag-address-error");
+
+/// `web-system-diag-interface-error` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_INTERFACE_ERROR: MessageKey =
+    MessageKey::new("web-system-diag-interface-error");
+
+/// `web-system-diag-number-error` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_NUMBER_ERROR: MessageKey =
+    MessageKey::new("web-system-diag-number-error");
+
+/// `web-system-diag-ping-line` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_PING_LINE: MessageKey = MessageKey::new("web-system-diag-ping-line");
+
+/// `web-system-diag-ping6-line` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_PING6_LINE: MessageKey = MessageKey::new("web-system-diag-ping6-line");
+
+/// `web-system-diag-hop-line` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_HOP_LINE: MessageKey = MessageKey::new("web-system-diag-hop-line");
+
+/// `web-system-diag-arping-line` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_ARPING_LINE: MessageKey = MessageKey::new("web-system-diag-arping-line");
+
+/// `web-system-diag-iperf3-line` in `web.ftl`.
+pub const WEB_SYSTEM_DIAG_IPERF3_LINE: MessageKey = MessageKey::new("web-system-diag-iperf3-line");
+
+/// `web-system-logs-title` in `web.ftl`.
+pub const WEB_SYSTEM_LOGS_TITLE: MessageKey = MessageKey::new("web-system-logs-title");
+
+/// `web-system-logs-download` in `web.ftl`.
+pub const WEB_SYSTEM_LOGS_DOWNLOAD: MessageKey = MessageKey::new("web-system-logs-download");
+
+/// `web-system-logs-latest` in `web.ftl`.
+pub const WEB_SYSTEM_LOGS_LATEST: MessageKey = MessageKey::new("web-system-logs-latest");
+
+/// `web-system-logs-live` in `web.ftl`.
+pub const WEB_SYSTEM_LOGS_LIVE: MessageKey = MessageKey::new("web-system-logs-live");
+
+/// `web-system-logs-empty` in `web.ftl`.
+pub const WEB_SYSTEM_LOGS_EMPTY: MessageKey = MessageKey::new("web-system-logs-empty");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1093] = [
+pub static ALL: [MessageKey; 1260] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -4447,4 +5008,171 @@ pub static ALL: [MessageKey; 1093] = [
     WEB_VPN_SKIP_ADDRESS,
     WEB_VPN_SKIP_DNS,
     WEB_VPN_SKIP_ASC,
+    WEB_SYSTEM_TABS,
+    WEB_SYSTEM_USERS_TITLE,
+    WEB_SYSTEM_SERVICES_TITLE,
+    WEB_SYSTEM_READ_FAILED,
+    WEB_SYSTEM_ACTIONS,
+    WEB_SYSTEM_UNCHANGED,
+    WEB_SYSTEM_USERS_ADD,
+    WEB_SYSTEM_USERS_ADD_TITLE,
+    WEB_SYSTEM_USERS_TAGS_TITLE,
+    WEB_SYSTEM_USERS_LIST,
+    WEB_SYSTEM_USERS_NAME,
+    WEB_SYSTEM_USERS_NAME_HELP,
+    WEB_SYSTEM_USERS_NAME_ERROR,
+    WEB_SYSTEM_USERS_NAME_TAKEN,
+    WEB_SYSTEM_USERS_TAGS,
+    WEB_SYSTEM_USERS_TAGS_ERROR,
+    WEB_SYSTEM_USERS_NO_TAGS,
+    WEB_SYSTEM_USERS_KCC_LOGIN,
+    WEB_SYSTEM_USERS_EDIT_TAGS,
+    WEB_SYSTEM_USERS_EMPTY,
+    WEB_SYSTEM_USERS_NO_PASSWORD,
+    WEB_SYSTEM_USERS_FAIL_SAFE,
+    WEB_SYSTEM_USERS_PROTECTED,
+    WEB_SYSTEM_USERS_DELETE_TITLE,
+    WEB_SYSTEM_USERS_DELETE_TEXT,
+    WEB_SYSTEM_SERVICES_LIST,
+    WEB_SYSTEM_SERVICES_NAME,
+    WEB_SYSTEM_SERVICES_STATE,
+    WEB_SYSTEM_SERVICES_MANAGEMENT,
+    WEB_SYSTEM_SERVICES_ON,
+    WEB_SYSTEM_SERVICES_OFF,
+    WEB_SYSTEM_SERVICES_TURN_ON,
+    WEB_SYSTEM_SERVICES_TURN_OFF,
+    WEB_SYSTEM_TIMEZONE_TITLE,
+    WEB_SYSTEM_TIMEZONE_HELP,
+    WEB_SYSTEM_TIMEZONE_ERROR,
+    WEB_SYSTEM_NTP_SERVER,
+    WEB_SYSTEM_NTP_SERVER_TITLE,
+    WEB_SYSTEM_NTP_SERVER_HELP,
+    WEB_SYSTEM_NTP_SERVER_ERROR,
+    WEB_SYSTEM_RESET_TITLE,
+    WEB_SYSTEM_RESET_TEXT,
+    WEB_SYSTEM_RESET,
+    WEB_SYSTEM_COMPONENTS_TITLE,
+    WEB_SYSTEM_STORAGE_TITLE,
+    WEB_SYSTEM_JOB_TITLE,
+    WEB_SYSTEM_JOB_BUSY,
+    WEB_SYSTEM_COMPONENTS_INSTALLED,
+    WEB_SYSTEM_COMPONENTS_AVAILABLE,
+    WEB_SYSTEM_COMPONENTS_INSTALLING,
+    WEB_SYSTEM_COMPONENTS_REMOVING,
+    WEB_SYSTEM_COMPONENTS_INSTALL,
+    WEB_SYSTEM_COMPONENTS_REMOVE,
+    WEB_SYSTEM_COMPONENTS_COMMITTING,
+    WEB_SYSTEM_COMPONENTS_REBOOTING,
+    WEB_SYSTEM_COMPONENTS_BACK,
+    WEB_SYSTEM_COMPONENTS_BACK_PLAIN,
+    WEB_SYSTEM_COMPONENTS_FIRMWARE,
+    WEB_SYSTEM_COMPONENTS_VERSION,
+    WEB_SYSTEM_COMPONENTS_CHECK,
+    WEB_SYSTEM_COMPONENTS_QUEUE,
+    WEB_SYSTEM_COMPONENTS_QUEUE_EMPTY,
+    WEB_SYSTEM_COMPONENTS_COMMIT_TEXT,
+    WEB_SYSTEM_COMPONENTS_COMMIT,
+    WEB_SYSTEM_COMPONENTS_COMMIT_JOB,
+    WEB_SYSTEM_COMPONENTS_LIST,
+    WEB_SYSTEM_COMPONENTS_NAME,
+    WEB_SYSTEM_STORAGE_MEDIA,
+    WEB_SYSTEM_STORAGE_NO_MEDIA,
+    WEB_SYSTEM_STORAGE_ID,
+    WEB_SYSTEM_STORAGE_LABEL,
+    WEB_SYSTEM_STORAGE_FILESYSTEM,
+    WEB_SYSTEM_STORAGE_SIZE,
+    WEB_SYSTEM_STORAGE_FREE,
+    WEB_SYSTEM_STORAGE_CHECK,
+    WEB_SYSTEM_STORAGE_EJECT,
+    WEB_SYSTEM_STORAGE_FORMAT,
+    WEB_SYSTEM_STORAGE_FORMAT_TITLE,
+    WEB_SYSTEM_STORAGE_FORMAT_TEXT,
+    WEB_SYSTEM_STORAGE_USB,
+    WEB_SYSTEM_STORAGE_NO_USB,
+    WEB_SYSTEM_STORAGE_DEVICE,
+    WEB_SYSTEM_STORAGE_CONNECTED,
+    WEB_SYSTEM_STORAGE_DISCONNECTED,
+    WEB_SYSTEM_SCHEDULES_TITLE,
+    WEB_SYSTEM_KEENDNS_TITLE,
+    WEB_SYSTEM_SCHEDULES_ADD,
+    WEB_SYSTEM_SCHEDULES_ADD_TITLE,
+    WEB_SYSTEM_SCHEDULES_NAME,
+    WEB_SYSTEM_SCHEDULES_DESCRIPTION,
+    WEB_SYSTEM_SCHEDULES_WORD_HELP,
+    WEB_SYSTEM_SCHEDULES_WORD_ERROR,
+    WEB_SYSTEM_SCHEDULES_EMPTY,
+    WEB_SYSTEM_SCHEDULES_ACTIVE,
+    WEB_SYSTEM_SCHEDULES_INACTIVE,
+    WEB_SYSTEM_SCHEDULES_ADD_ACTION,
+    WEB_SYSTEM_SCHEDULES_ACTION_TITLE,
+    WEB_SYSTEM_SCHEDULES_ACTION,
+    WEB_SYSTEM_SCHEDULES_START,
+    WEB_SYSTEM_SCHEDULES_STOP,
+    WEB_SYSTEM_SCHEDULES_TIME,
+    WEB_SYSTEM_SCHEDULES_TIME_ERROR,
+    WEB_SYSTEM_SCHEDULES_DAYS,
+    WEB_SYSTEM_SCHEDULES_DAYS_ERROR,
+    WEB_SYSTEM_SCHEDULES_MONDAY,
+    WEB_SYSTEM_SCHEDULES_TUESDAY,
+    WEB_SYSTEM_SCHEDULES_WEDNESDAY,
+    WEB_SYSTEM_SCHEDULES_THURSDAY,
+    WEB_SYSTEM_SCHEDULES_FRIDAY,
+    WEB_SYSTEM_SCHEDULES_SATURDAY,
+    WEB_SYSTEM_SCHEDULES_SUNDAY,
+    WEB_SYSTEM_KEENDNS_NAME_TITLE,
+    WEB_SYSTEM_KEENDNS_NAME,
+    WEB_SYSTEM_KEENDNS_NONE,
+    WEB_SYSTEM_KEENDNS_STATE,
+    WEB_SYSTEM_KEENDNS_BOOK,
+    WEB_SYSTEM_KEENDNS_RELEASE,
+    WEB_SYSTEM_KEENDNS_LABEL,
+    WEB_SYSTEM_KEENDNS_DOMAIN,
+    WEB_SYSTEM_KEENDNS_DOMAIN_HELP,
+    WEB_SYSTEM_KEENDNS_NAME_ERROR,
+    WEB_SYSTEM_KEENDNS_ACCESS_TITLE,
+    WEB_SYSTEM_KEENDNS_ACCESS_TEXT,
+    WEB_SYSTEM_KEENDNS_ACCESS_PRIVATE,
+    WEB_SYSTEM_KEENDNS_ACCESS_PUBLIC,
+    WEB_SYSTEM_KEENDNS_PROXY_TITLE,
+    WEB_SYSTEM_KEENDNS_PROXY_TEXT,
+    WEB_SYSTEM_KEENDNS_PROXY_ADD,
+    WEB_SYSTEM_KEENDNS_PROXY_NAME,
+    WEB_SYSTEM_KEENDNS_PROXY_NAME_HELP,
+    WEB_SYSTEM_KEENDNS_PROXY_PROTOCOL,
+    WEB_SYSTEM_KEENDNS_PROXY_HOST,
+    WEB_SYSTEM_KEENDNS_PROXY_PORT,
+    WEB_SYSTEM_KEENDNS_PROXY_ERROR,
+    WEB_SYSTEM_KEENDNS_FAIL_SAFE,
+    WEB_SYSTEM_DIAGNOSTICS_TITLE,
+    WEB_SYSTEM_DIAG_RUN,
+    WEB_SYSTEM_DIAG_TOOL,
+    WEB_SYSTEM_DIAG_PING,
+    WEB_SYSTEM_DIAG_TRACEROUTE,
+    WEB_SYSTEM_DIAG_ARPING,
+    WEB_SYSTEM_DIAG_IPERF3,
+    WEB_SYSTEM_DIAG_HOST,
+    WEB_SYSTEM_DIAG_HOST_HELP,
+    WEB_SYSTEM_DIAG_ADDRESS,
+    WEB_SYSTEM_DIAG_INTERFACE,
+    WEB_SYSTEM_DIAG_INTERFACE_HELP,
+    WEB_SYSTEM_DIAG_COUNT,
+    WEB_SYSTEM_DIAG_MAX_TTL,
+    WEB_SYSTEM_DIAG_PORT,
+    WEB_SYSTEM_DIAG_TIME,
+    WEB_SYSTEM_DIAG_START,
+    WEB_SYSTEM_DIAG_TOOL_ERROR,
+    WEB_SYSTEM_DIAG_HOST_ERROR,
+    WEB_SYSTEM_DIAG_ADDRESS_ERROR,
+    WEB_SYSTEM_DIAG_INTERFACE_ERROR,
+    WEB_SYSTEM_DIAG_NUMBER_ERROR,
+    WEB_SYSTEM_DIAG_PING_LINE,
+    WEB_SYSTEM_DIAG_PING6_LINE,
+    WEB_SYSTEM_DIAG_HOP_LINE,
+    WEB_SYSTEM_DIAG_ARPING_LINE,
+    WEB_SYSTEM_DIAG_IPERF3_LINE,
+    WEB_SYSTEM_LOGS_TITLE,
+    WEB_SYSTEM_LOGS_DOWNLOAD,
+    WEB_SYSTEM_LOGS_LATEST,
+    WEB_SYSTEM_LOGS_LIVE,
+    WEB_SYSTEM_LOGS_EMPTY,
 ];

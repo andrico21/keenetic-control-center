@@ -226,8 +226,8 @@ pub fn plan_timezone(router: &RouterCtx, locality: &str) -> Result<ChangeOp> {
     plan_post(
         router,
         "system clock timezone",
-        vec!["system", "clock"],
-        json!({"timezone": locality}),
+        vec!["system", "clock", "timezone"],
+        json!({"locality": locality}),
         vec![VerificationSpec::new(
             vec!["show".to_owned(), "clock".to_owned(), "date".to_owned()],
             "/tz/locality".to_owned(),
@@ -277,7 +277,11 @@ pub fn change_request(operation: &ChangeOp) -> Result<ChangeRequest> {
         .ok_or(DomainError::InvalidResponse)?;
     let rci_path = match request.path.as_str() {
         "system hostname" | "system domainname" | "system description" => vec!["system".to_owned()],
-        "system clock timezone" => vec!["system".to_owned(), "clock".to_owned()],
+        "system clock timezone" => vec![
+            "system".to_owned(),
+            "clock".to_owned(),
+            "timezone".to_owned(),
+        ],
         "ntp server" | "ntp master" | "ntp sync-period" => vec!["ntp".to_owned()],
         _ => return Err(DomainError::InvalidResponse),
     };

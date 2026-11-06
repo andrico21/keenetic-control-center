@@ -1,0 +1,11 @@
+{#- Add a schedule: its name and an optional description, each one word for the router's CLI. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_SYSTEM_SCHEDULES_ADD_TITLE)) %}
+<form class="form" hx-post="/ui/r/{{ router }}/system/schedules" hx-target="#page-outcome">
+  {{ ui::field("schedule-name", "name", t(keys::WEB_SYSTEM_SCHEDULES_NAME), name_value, name_error, "text", "off", t(keys::WEB_SYSTEM_SCHEDULES_WORD_HELP)) }}
+  {{ ui::field("schedule-description", "description", t(keys::WEB_SYSTEM_SCHEDULES_DESCRIPTION), description_value, description_error, "text", "off", t(keys::WEB_SYSTEM_SCHEDULES_WORD_HELP)) }}
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_SYSTEM_SCHEDULES_ADD) }}</button>
+  </div>
+</form>
+{% endcall %}

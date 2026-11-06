@@ -1,0 +1,273 @@
+//! Storage at `/ui/r/{router}/system/storage`: the mounted media and the USB devices,
+//! with Eject, Check and Format where the role may use them and the router's catalog has
+//! the command.
+//!
+//! Every storage action is destructive: it needs `Destructive` and the router name typed
+//! into the kit's confirmation. The 4.3 to 5.1 catalogs have no `system partition check`
+//! or `format`, so the availability filter keeps those two hidden until a catalog has
+//! them; their routes stay, and refuse through catalog validation.
+
+use askama::Template;
+use axum::{
+    Form,
+    extract::{Path, State},
+    http::HeaderMap,
+    response::{IntoResponse as _, Response},
+};
+use kcc_domain::{RouterCtx, storage};
+use kcc_i18n::{bundle::MessageKey, format, keys, locale::Locale};
+
+use super::{
+    shared::{Visit, with_query},
+    tabs::{Tab, TabBar},
+};
+use crate::{
+    WebState,
+    authz::{CurrentSession, CurrentUser},
+    errors,
+    page::{Localize, Shell},
+    page_kit::gate::Controls,
+    table::{
+        Direction, Sort,
+        rows::{Row, SortKey, Table, TableQuery},
+    },
+};
+
+/// The page.
+#[derive(Template)]
+#[template(path = "pages/system_storage.html")]
+struct Page {
+    /// Page shell.
+    shell: Shell,
+    /// The system tabs.
+    tabs: TabBar,
+    /// Router profile id.
+    router: String,
+    /// Why the storage could not be read.
+    problem: Option<MessageKey>,
+    /// The media.
+    media: Option<Table<Medium>>,
+    /// The USB devices.
+    usb: Vec<Device>,
+    /// The maintenance actions the role may run and the catalog has.
+    controls: Controls,
+}
+
+impl Localize for Page {
+    fn shell(&self) -> &Shell {
+        &self.shell
+    }
+}
+
+impl Page {
+    /// The endpoint of `action` on `medium`.
+    fn action_url(&self, action: &str, medium: &Medium) -> String {
+        with_query(
+            &format!("/ui/r/{}/system/storage/{action}", self.router),
+            &[("media", &medium.id)],
+        )
+    }
+
+    /// Whether any maintenance action is shown.
+    fn acts(&self) -> bool {
+        ["eject", "partition_check", "partition_format"]
+            .into_iter()
+            .any(|name| self.controls.allows(name))
+    }
+}
+
+/// One mounted medium.
+#[derive(Debug, Clone)]
+struct Medium {
+    /// Router media id, such as `Media0`.
+    id: String,
+    /// Volume label.
+    label: Option<String>,
+    /// Filesystem.
+    filesystem: Option<String>,
+    /// Size in bytes.
+    size: Option<u64>,
+    /// Free bytes.
+    free: Option<u64>,
+    /// Size, as people read it.
+    size_text: Option<String>,
+    /// Free space, as people read it.
+    free_text: Option<String>,
+}
+
+impl Row for Medium {
+    const COLUMNS: &'static [&'static str] = &["id", "label", "filesystem", "size", "free"];
+    const DEFAULT: Sort = Sort::new("id", Direction::Ascending);
+
+    fn key(&self, column: &str) -> SortKey {
+        let number = |value: Option<u64>| {
+            value.map_or(SortKey::Missing, |bytes| SortKey::Number(bytes.into()))
+        };
+        let text =
+            |value: Option<&String>| value.map_or(SortKey::Missing, |found| SortKey::text(found));
+        match column {
+            "label" => text(self.label.as_ref()),
+            "filesystem" => text(self.filesystem.as_ref()),
+            "size" => number(self.size),
+            "free" => number(self.free),
+            _ => SortKey::text(&self.id),
+        }
+    }
+
+    fn matches(&self, needle: &str) -> bool {
+        [
+            Some(&self.id),
+            self.label.as_ref(),
+            self.filesystem.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        .any(|field| field.to_lowercase().contains(needle))
+    }
+}
+
+impl Medium {
+    /// Router media id.
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Volume label.
+    fn label(&self) -> Option<&str> {
+        self.label.as_deref()
+    }
+
+    /// Filesystem.
+    fn filesystem(&self) -> Option<&str> {
+        self.filesystem.as_deref()
+    }
+
+    /// Size, as people read it.
+    fn size_text(&self) -> Option<&str> {
+        self.size_text.as_deref()
+    }
+
+    /// Free space, as people read it.
+    fn free_text(&self) -> Option<&str> {
+        self.free_text.as_deref()
+    }
+}
+
+/// One USB device.
+#[derive(Debug, Clone)]
+struct Device {
+    /// Router USB id.
+    id: String,
+    /// Vendor and product.
+    name: String,
+    /// Whether it is connected.
+    connected: bool,
+}
+
+impl Device {
+    /// Router USB id.
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    /// Vendor and product.
+    fn name(&self) -> &str {
+        &self.name
+    }
+
+    /// Whether it is connected.
+    const fn connected(&self) -> bool {
+        self.connected
+    }
+}
+
+/// The media and USB devices of the router of `domain`.
+///
+/// # Errors
+///
+/// Returns the message to show when the router did not answer with its media.
+// cancel-safe: reads only.
+async fn read(
+    domain: &RouterCtx,
+    locale: Locale,
+) -> Result<(Vec<Medium>, Vec<Device>), MessageKey> {
+    let volumes = storage::read_media(domain).await.map_err(|error| {
+        tracing::warn!(%error, "router media could not be read");
+        keys::WEB_SYSTEM_READ_FAILED
+    })?;
+    let devices = storage::read_usb(domain).await.unwrap_or_default();
+    let media = volumes
+        .into_iter()
+        .filter_map(|volume| {
+            Some(Medium {
+                id: volume.id?,
+                size_text: volume.size.map(|bytes| format::bytes(locale, bytes)),
+                free_text: volume.free.map(|bytes| format::bytes(locale, bytes)),
+                label: volume.label,
+                filesystem: volume.filesystem,
+                size: volume.size,
+                free: volume.free,
+            })
+        })
+        .collect();
+    let usb = devices
+        .into_iter()
+        .filter_map(|device| {
+            let name = [device.vendor, device.product]
+                .into_iter()
+                .flatten()
+                .collect::<Vec<_>>()
+                .join(" ");
+            Some(Device {
+                id: device.id?,
+                name,
+                connected: device.connected.unwrap_or(false),
+            })
+        })
+        .collect();
+    Ok((media, usb))
+}
+
+/// `GET /ui/r/{router}/system/storage`: the media, the USB devices and the maintenance
+/// actions the role may run.
+pub(crate) async fn page(
+    State(state): State<WebState>,
+    Path(router): Path<String>,
+    headers: HeaderMap,
+    current: CurrentSession,
+    user: CurrentUser,
+    Form(query): Form<TableQuery>,
+) -> Response {
+    let (shell, reading) = match Visit::new(&headers, &current, &user)
+        .open(&state, &router)
+        .await
+    {
+        Ok(opened) => opened,
+        Err(refusal) => return refusal.into_response(),
+    };
+    let mut page = Page {
+        shell,
+        tabs: TabBar::new(router.clone(), Tab::Storage),
+        router: router.clone(),
+        problem: None,
+        media: None,
+        usb: Vec::new(),
+        controls: Controls::default(),
+    };
+    match reading {
+        Ok((facts, domain)) => {
+            page.controls = Controls::new(user.role(), &router)
+                .with_operations(storage::DESCRIPTOR.write_ops, Some(facts.catalog()));
+            match read(&domain, user.locale()).await {
+                Ok((media, usb)) => {
+                    let base = format!("/ui/r/{router}/system/storage");
+                    page.media = Some(Table::new(media, &query, base));
+                    page.usb = usb;
+                }
+                Err(message) => page.problem = Some(message),
+            }
+        }
+        Err(message) => page.problem = Some(message),
+    }
+    errors::render(&page)
+}

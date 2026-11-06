@@ -326,6 +326,7 @@ impl Services {
             credentials_dir: self.state.dir().join("router-credentials"),
             update_check: None,
         })
+        .with_jobs(Arc::clone(&self.jobs))
         .with_admin(AdminServices {
             state: self.state.clone(),
             reload: Some(auth_reload),

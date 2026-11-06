@@ -7,6 +7,7 @@
     <h1 class="page__title">{{ t(keys::WEB_SYSTEM_GENERAL_TITLE) }}</h1>
   </div>
   <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {%- include "partials/system_tabs.html" %}
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
@@ -14,12 +15,23 @@
   {%- if let Some(region) = facts %}
   {{ region|safe }}
   {%- endif %}
-  {%- if restart %}
-  <section class="panel restart" aria-labelledby="restart-title">
-    <h2 class="panel__title" id="restart-title">{{ t(keys::WEB_SYSTEM_RESTART_TITLE) }}</h2>
-    <p class="page__text">{{ t(keys::WEB_SYSTEM_RESTART_TEXT) }}</p>
-    <div><button class="button button--danger-ghost" type="button" hx-post="/ui/r/{{ router }}/system/general/reboot" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_RESTART) }}</button></div>
-  </section>
+  {%- if restart || reset %}
+  <div class="panels">
+    {%- if restart %}
+    <section class="panel restart" aria-labelledby="restart-title">
+      <h2 class="panel__title" id="restart-title">{{ t(keys::WEB_SYSTEM_RESTART_TITLE) }}</h2>
+      <p class="page__text">{{ t(keys::WEB_SYSTEM_RESTART_TEXT) }}</p>
+      <div><button class="button button--danger-ghost" type="button" hx-post="/ui/r/{{ router }}/system/general/reboot" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_RESTART) }}</button></div>
+    </section>
+    {%- endif %}
+    {%- if reset %}
+    <section class="panel" aria-labelledby="reset-title">
+      <h2 class="panel__title" id="reset-title">{{ t(keys::WEB_SYSTEM_RESET_TITLE) }}</h2>
+      <p class="page__text">{{ t(keys::WEB_SYSTEM_RESET_TEXT) }}</p>
+      <div><button class="button button--danger-ghost" type="button" hx-post="/ui/r/{{ router }}/system/general/reset" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_RESET) }}</button></div>
+    </section>
+    {%- endif %}
+  </div>
   {%- endif %}
 </div>
 {%- endblock %}

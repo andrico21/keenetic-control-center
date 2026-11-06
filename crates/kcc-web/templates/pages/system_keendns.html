@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(tabs.title()) }}{% endblock %}
+{%- block content %}
+<div class="page system-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(tabs.title()) }}</h1>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {%- include "partials/system_tabs.html" %}
+  {{ kit::outcome_region() }}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(panel) = status %}
+  {{ panel|safe }}
+  {%- endif %}
+  {%- if controls.allows("cloud_security_level") || controls.allows("proxy_upstream") %}
+  <div class="panels">
+    {%- if controls.allows("cloud_security_level") %}
+    <section class="panel" aria-labelledby="access-title">
+      <h2 class="panel__title" id="access-title">{{ t(keys::WEB_SYSTEM_KEENDNS_ACCESS_TITLE) }}</h2>
+      <p class="page__text">{{ t(keys::WEB_SYSTEM_KEENDNS_ACCESS_TEXT) }}</p>
+      <div class="admin-flags">
+        <button class="button button--secondary" type="button" hx-post="/ui/r/{{ router }}/system/keendns/access?level=private" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_KEENDNS_ACCESS_PRIVATE) }}</button>
+        <button class="button button--ghost" type="button" hx-post="/ui/r/{{ router }}/system/keendns/access?level=public" hx-target="#page-outcome">{{ t(keys::WEB_SYSTEM_KEENDNS_ACCESS_PUBLIC) }}</button>
+      </div>
+    </section>
+    {%- endif %}
+    {%- if controls.allows("proxy_upstream") %}
+    <section class="panel" aria-labelledby="proxy-title">
+      <h2 class="panel__title" id="proxy-title">{{ t(keys::WEB_SYSTEM_KEENDNS_PROXY_TITLE) }}</h2>
+      <p class="page__text">{{ t(keys::WEB_SYSTEM_KEENDNS_PROXY_TEXT) }}</p>
+      <div><button class="button button--secondary" type="button" hx-get="/ui/r/{{ router }}/system/keendns/proxy" hx-target="#dialog-content">{{ t(keys::WEB_SYSTEM_KEENDNS_PROXY_ADD) }}</button></div>
+    </section>
+    {%- endif %}
+  </div>
+  {%- endif %}
+</div>
+{%- endblock %}

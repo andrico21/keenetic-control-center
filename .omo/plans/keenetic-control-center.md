@@ -621,7 +621,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add routing, policies, NAT and firewall pages
   Recommended task executor category: visual-engineering - table-heavy UI
 
-- [ ] 39. DNS and VPN pages
+- [x] 39. DNS and VPN pages
   What to do / Must NOT do: `/r/:router/dns` (upstreams DoT/DoH/plain, filtering engine/profiles/assignments, static records, domain lists, DNS-based routes), `/r/:router/vpn` (client tunnels by type with status, create from form or WireGuard `.conf` upload (multipart, 64 KiB cap), peers editor, enable/disable; servers: PPTP/L2TP, SSTP, WireGuard server with peer list, OpenConnect, IPsec/IKEv2 virtual-ip settings; user access via router user tags link). Common contract applies.
   Closes: GAP-8, GAP-4
   Parallelization: Wave W8 | Blocked by: 25, 35 | Blocks: 51
@@ -631,7 +631,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add DNS and VPN pages
   Recommended task executor category: visual-engineering - complex forms
 
-- [ ] 40. System pages: users, services, components/firmware, storage, schedules, KeenDNS, logs, diagnostics
+- [x] 40. System pages: users, services, components/firmware, storage, schedules, KeenDNS, logs, diagnostics
   What to do / Must NOT do: `/r/:router/system/{users,services,components,storage,schedules,keendns,logs,diagnostics,general}`: router users with tag checkboxes; service toggles with management-risk dialogs for http/ssh changes; components (installed/available, queue install/remove, commit with destructive confirmation, firmware check/update with progress job and reconnect); storage (media list, eject, check, format destructive); schedules editor; KeenDNS status/name/remote-access entries; logs (live tail via SSE from the todo-21 log reader, filter, download); diagnostics (ping/traceroute/arping/iperf3 forms launching jobs with live output via SSE, cancel button); general (hostname, timezone, NTP, reboot destructive, factory reset destructive with router-name typing). Common contract applies.
   Closes: GAP-8, GAP-4
   Parallelization: Wave W8 | Blocked by: 26, 35 | Blocks: 51

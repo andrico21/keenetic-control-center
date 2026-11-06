@@ -40,6 +40,8 @@ pub(crate) struct General {
     clock: Option<String>,
     /// Time synchronization: the server and its state.
     ntp: Option<String>,
+    /// The time server, as `show ntp status` names it.
+    ntp_server: Option<String>,
 }
 
 impl General {
@@ -80,6 +82,7 @@ impl General {
                 ),
                 _ => None,
             },
+            ntp_server: ntp.server.clone(),
             ntp: match (ntp.server, ntp.status) {
                 (Some(server), Some(status)) => Some(format!("{server} ({status})")),
                 (Some(only), None) | (None, Some(only)) => Some(only),
@@ -104,8 +107,13 @@ impl General {
     }
 
     /// Time zone locality.
-    fn timezone(&self) -> Option<&str> {
+    pub(crate) fn timezone(&self) -> Option<&str> {
         self.timezone.as_deref()
+    }
+
+    /// The time server.
+    pub(crate) fn ntp_server(&self) -> Option<&str> {
+        self.ntp_server.as_deref()
     }
 
     /// The router clock.

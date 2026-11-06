@@ -1,0 +1,19 @@
+{#- The KeenDNS name and its state, with Book or Release where the role may; a change sends the panel again out of band. -#}
+<section class="panel" id="keendns-status" aria-labelledby="keendns-name-title"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2 class="panel__title" id="keendns-name-title">{{ t(keys::WEB_SYSTEM_KEENDNS_NAME_TITLE) }}</h2>
+  <dl class="settings">
+    <div class="settings__row">
+      <dt class="settings__label" id="keendns-name">{{ t(keys::WEB_SYSTEM_KEENDNS_NAME) }}</dt>
+      <dd class="settings__value">{% if let Some(full) = name() %}<span class="mono">{{ full }}</span>{% else %}<span class="muted">{{ t(keys::WEB_SYSTEM_KEENDNS_NONE) }}</span>{% endif %}</dd>
+      {%- if releases() %}
+      <dd class="settings__action"><button class="button button--danger-ghost" type="button" hx-post="/ui/r/{{ router }}/system/keendns/drop" hx-target="#page-outcome" aria-describedby="keendns-name">{{ t(keys::WEB_SYSTEM_KEENDNS_RELEASE) }}</button></dd>
+      {%- else if books() %}
+      <dd class="settings__action"><button class="button button--secondary" type="button" hx-get="/ui/r/{{ router }}/system/keendns/book" hx-target="#dialog-content" aria-describedby="keendns-name">{{ t(keys::WEB_SYSTEM_KEENDNS_BOOK) }}</button></dd>
+      {%- endif %}
+    </div>
+    <div class="settings__row">
+      <dt class="settings__label">{{ t(keys::WEB_SYSTEM_KEENDNS_STATE) }}</dt>
+      <dd class="settings__value">{% if let Some(text) = state() %}{% if booked %}<span class="status" data-status="online">{{ text }}</span>{% else %}{{ text }}{% endif %}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</dd>
+    </div>
+  </dl>
+</section>

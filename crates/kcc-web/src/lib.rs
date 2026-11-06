@@ -97,6 +97,7 @@ mod router_form;
 mod routers;
 mod save;
 mod system_general;
+mod system_pages;
 mod telemetry;
 mod traffic;
 mod view;
@@ -405,6 +406,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(clients_pages::routes())
         .merge(net_pages::routes())
         .merge(dns_vpn::routes())
+        .merge(system_pages::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),
@@ -415,7 +417,8 @@ pub fn web_router(state: WebState) -> Router {
             .route("/ui/sse/fleet", get(overview::stream))
             .route("/ui/sse/r/{router}/traffic", get(dashboard::stream))
             .merge(advanced::streams())
-            .merge(net_pages::streams()),
+            .merge(net_pages::streams())
+            .merge(system_pages::streams()),
         &state,
     );
     let public = Router::new()

@@ -87,6 +87,29 @@ async fn hostname_silent_noop_is_detectable_by_verification_spec() -> Result<(),
 }
 
 #[tokio::test]
+async fn timezone_plans_the_catalog_locality_argument() -> Result<(), Box<dyn Error>> {
+    for firmware in [Firmware::V4_3, Firmware::V5_1] {
+        let fixture = Fixture::spawn(firmware, FaultInjection::default()).await?;
+        let before = fixture.handle.request_count();
+        let operation = system::plan_timezone(&fixture.context, "Europe/Berlin")?;
+        let request = system::change_request(&operation)?;
+        assert_eq!(request.catalog_path, "system clock timezone");
+        assert_eq!(request.rci_path, ["system", "clock", "timezone"]);
+        assert_eq!(
+            request.body.redacted(),
+            &serde_json::json!({"locality": "Europe/Berlin"})
+        );
+        assert_eq!(
+            fixture.handle.request_count(),
+            before,
+            "planning sends nothing"
+        );
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn factory_reset_refusal_sends_no_request() -> Result<(), Box<dyn Error>> {
     for firmware in [Firmware::V4_3, Firmware::V5_1] {
         let profile = Profile::new(Model::Kn1811, firmware)?;

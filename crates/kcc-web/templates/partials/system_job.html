@@ -1,0 +1,11 @@
+{#- A job of a system page: its status and its lines follow the job stream; the stream closes when the job ended. -#}
+<section class="job" aria-labelledby="job-{{ id }}-title" hx-ext="sse" sse-connect="{{ stream }}" sse-close="done">
+  <div class="job__head">
+    <h3 class="job__title" id="job-{{ id }}-title">{{ t(*title) }}</h3>
+    <span class="job__status" sse-swap="status"><span class="status" data-status="running">{{ t(keys::WEB_EXPLORER_JOB_RUNNING) }}</span></span>
+    {%- if let Some(href) = cancel %}
+    <button class="button button--ghost job__stop" type="button" hx-post="{{ href }}" hx-target="#toasts" hx-swap="beforeend">{{ t(keys::WEB_EXPLORER_JOB_CANCEL) }}</button>
+    {%- endif %}
+  </div>
+  <ol class="job-lines" sse-swap="line" hx-swap="beforeend" aria-live="polite"></ol>
+</section>

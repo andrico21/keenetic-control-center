@@ -2,19 +2,21 @@
 //! page kit's reference page.
 //!
 //! It shows the host name, description and domain name, the time zone, the router clock
-//! and time synchronization; the host name and the description change through one-field
-//! dialogs, and a restart needs the router name typed. Todo 40 extends it with the rest
-//! of the system domain.
+//! and time synchronization; the host name, the description, the time zone and the time
+//! server change through one-field dialogs, and a restart or a factory reset needs the
+//! router name typed. It shares the system pages' tabs.
 //!
 //! Routes (route table: `Read`; every change re-checks its operation's permissions):
 //!
 //! - `GET /ui/r/{router}/system/general`: the page.
-//! - `GET|POST /ui/r/{router}/system/general/{hostname|description}`: the edit dialog and
-//!   the change (`Write`).
+//! - `GET|POST /ui/r/{router}/system/general/{hostname|description|timezone|ntp_server}`:
+//!   the edit dialog and the change (`Write`).
 //! - `POST /ui/r/{router}/system/general/reboot`: the restart (`Destructive`).
+//! - `POST /ui/r/{router}/system/general/reset`: the factory reset (`Destructive`).
 
 mod fields;
 mod general;
+mod reset;
 
 use askama::Template;
 use axum::{
@@ -53,6 +55,7 @@ use crate::{
         outcome::{Outcome, with_status},
         respond::{self, Answer},
     },
+    system_pages::tabs::{Tab, TabBar},
 };
 
 /// The restart, audited as `web.system_reboot`.
@@ -63,6 +66,7 @@ pub(crate) fn routes() -> Router<WebState> {
     Router::new()
         .route("/ui/r/{router}/system/general", get(page))
         .route("/ui/r/{router}/system/general/reboot", post(reboot))
+        .route("/ui/r/{router}/system/general/reset", post(reset::reset))
         .route(
             "/ui/r/{router}/system/general/{field}",
             get(edit_dialog).post(edit),
@@ -75,6 +79,8 @@ pub(crate) fn routes() -> Router<WebState> {
 struct Page {
     /// Page shell.
     shell: Shell,
+    /// The system tabs.
+    tabs: TabBar,
     /// Router profile id.
     router: String,
     /// The settings, when the router answered.
@@ -83,6 +89,8 @@ struct Page {
     problem: Option<MessageKey>,
     /// Whether the role may restart the router.
     restart: bool,
+    /// Whether the role may reset the router to its factory settings.
+    reset: bool,
 }
 
 /// The answer to a change: its outcome and, after a success, the settings read back.
@@ -127,7 +135,9 @@ pub(crate) async fn page(
     let controls = Controls::new(user.role(), &router);
     let mut page = Page {
         shell,
+        tabs: TabBar::new(router.clone(), Tab::General),
         restart: false,
+        reset: false,
         router: router.clone(),
         facts: None,
         problem: None,
@@ -137,6 +147,7 @@ pub(crate) async fn page(
             let allowed =
                 controls.with_operations(system::DESCRIPTOR.write_ops, Some(facts.catalog()));
             page.restart = allowed.allows("reboot");
+            page.reset = allowed.allows("factory_reset");
             let general = General::read(&domain).await;
             page.facts = Some(Facts::new(user.locale(), router, general).with_controls(allowed));
         }

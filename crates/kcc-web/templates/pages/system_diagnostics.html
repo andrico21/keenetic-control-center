@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(tabs.title()) }}{% endblock %}
+{%- block content %}
+<div class="page system-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(tabs.title()) }}</h1>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {%- include "partials/system_tabs.html" %}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if !jobs %}
+  <p class="notice" data-tone="info">{{ t(keys::WEB_EXPLORER_JOBS_UNAVAILABLE) }}</p>
+  {%- endif %}
+  <section class="panel" aria-labelledby="diagnostics-title">
+    <h2 class="panel__title" id="diagnostics-title">{{ t(keys::WEB_SYSTEM_DIAG_RUN) }}</h2>
+    <form class="form diagnostics-form" id="diagnostics-form" hx-post="/ui/r/{{ router }}/system/diagnostics" hx-target="#page-outcome">
+      <fieldset class="choice">
+        <legend class="field__label">{{ t(keys::WEB_SYSTEM_DIAG_TOOL) }}</legend>
+        <div class="system-checks">
+          {%- for tool in tools %}
+          <label class="choice__option"><input type="radio" name="tool" value="{{ tool.name() }}"{% if loop.first %} checked{% endif %}><span>{{ t(tool.label()) }}</span></label>
+          {%- endfor %}
+        </div>
+      </fieldset>
+      <div class="diagnostics-fields">
+        <div class="diag-field diag-field--ping diag-field--traceroute diag-field--iperf3">
+          {{ ui::field("diag-host", "host", t(keys::WEB_SYSTEM_DIAG_HOST), "", "", "text", "off", t(keys::WEB_SYSTEM_DIAG_HOST_HELP)) }}
+        </div>
+        <div class="diag-field diag-field--arping">
+          {{ ui::field("diag-address", "address", t(keys::WEB_SYSTEM_DIAG_ADDRESS), "", "", "text", "off") }}
+        </div>
+        <div class="diag-field diag-field--arping">
+          {{ ui::field("diag-interface", "interface", t(keys::WEB_SYSTEM_DIAG_INTERFACE), "", "", "text", "off", t(keys::WEB_SYSTEM_DIAG_INTERFACE_HELP)) }}
+        </div>
+        <div class="diag-field diag-field--ping diag-field--arping">
+          {{ ui::field("diag-count", "count", t(keys::WEB_SYSTEM_DIAG_COUNT), "4", "", "text", "off") }}
+        </div>
+        <div class="diag-field diag-field--traceroute">
+          {{ ui::field("diag-ttl", "max_ttl", t(keys::WEB_SYSTEM_DIAG_MAX_TTL), "", "", "text", "off") }}
+        </div>
+        <div class="diag-field diag-field--iperf3">
+          {{ ui::field("diag-port", "port", t(keys::WEB_SYSTEM_DIAG_PORT), "", "", "text", "off") }}
+        </div>
+        <div class="diag-field diag-field--iperf3">
+          {{ ui::field("diag-time", "time", t(keys::WEB_SYSTEM_DIAG_TIME), "10", "", "text", "off") }}
+        </div>
+      </div>
+      <div class="form__actions">
+        <button class="button button--primary" type="submit"{% if !jobs %} disabled{% endif %}>{{ t(keys::WEB_SYSTEM_DIAG_START) }}</button>
+      </div>
+    </form>
+  </section>
+  {{ kit::outcome_region() }}
+</div>
+{%- endblock %}

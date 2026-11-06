@@ -166,14 +166,37 @@ scroll owner: the document; nested scrollers: `.code` blocks only.
 Layout (advanced landing `/ui/advanced`): one table of routers with their tool links; scroll
 owner: the document.
 
-`--setting-label` (12rem) is the widest label column of a settings list.
+`--setting-label` (12rem) is the widest label column of a settings list. `--log-height`
+(32rem) is the tallest the system log's line list grows before it scrolls itself.
 
 Layout (system general `/ui/r/{router}/system/general`, the domain page kit's reference):
-stacked sections - page head, router link, the outcome region (hidden while empty), the
-settings panels in the dashboard's `repeat(auto-fit, minmax(min(100%, --panel-min), 1fr))`
-grid (identity, time), then the restart panel; scroll owner: the document; anti-patterns: a
-success banner repeating its toast, settings rows whose height depends on their button, an
-Edit button for a setting the page cannot change.
+stacked sections - page head, router link, the system tab bar, the outcome region (hidden
+while empty), the settings panels in the dashboard's
+`repeat(auto-fit, minmax(min(100%, --panel-min), 1fr))` grid (identity, time), then the
+restart and factory-reset panels in the same grid; scroll owner: the document;
+anti-patterns: a success banner repeating its toast, settings rows whose height depends on
+their button, an Edit button for a setting the page cannot change.
+
+Layout (system pages `/ui/r/{router}/system/{users,services,components,storage,schedules,
+keendns}`, todo 40): stacked sections - page head (title and the page's primary action),
+router link, the system tab bar (wrapping onto more rows on a phone), the outcome region, then the page's region: a filter, a `.table-wrap` table and the pager (the
+components page puts the firmware and queue panels first; KeenDNS shows panels only); the
+page grid is `minmax(0, 1fr)` so a table never widens the page; scroll owner: the
+document; nested scrollers: `.table-wrap` (horizontal, the table only); anti-patterns: a
+fixed-height scrolling table, row actions in a hover-only menu, a control for an operation
+the router's catalog lacks.
+
+Layout (system log `/ui/r/{router}/system/logs`): stacked sections - page head with
+Download, router link, tab bar, the filter, then the log view whose `.log-tail` (at most
+`--log-height`, keyboard-focusable) scrolls the lines; scroll owner: the document; nested
+scrollers: `.log-tail` (both directions, the log only); anti-patterns: polling the router
+faster than every 5 s, a second `show log` stream when the collector runs.
+
+Layout (system diagnostics `/ui/r/{router}/system/diagnostics`): stacked sections - page
+head, router link, tab bar, the diagnostic form panel (tool choice, then only that tool's
+fields in a `minmax(min(100%, 14rem), 1fr)` auto-fill grid), then the outcome region with
+the job panel; scroll owner: the document; anti-patterns: one form per tool (four primary
+buttons), output that only arrives at the end of the page.
 
 `--lan-table-min` (60rem) is the narrowest a local network table gets before its
 `.table-wrap` scrolls sideways; `--lan-field-min` (14rem) is the narrowest field of a dialog
@@ -469,11 +492,63 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 
 - System general (`/ui/r/{router}/system/general`). Primary action: none; each setting has
   its own Edit. Priorities: 1 identity (host name, description, domain name), 2 time (time
-  zone, router clock, time synchronization), 3 restart. Left out on purpose: uptime and
-  firmware (the dashboard has them), factory reset, time-zone and NTP changes (todo 40).
-  Required content: host name with Edit (`Write`), description with Edit (`Write`), domain
-  name, time zone, router clock, time synchronization or "Not reported", Restart router
-  (`Destructive`, router name typed), the outcome region.
+  zone, router clock, time synchronization), 3 restart and factory reset. Left out on
+  purpose: uptime and firmware (the dashboard has them). Required content: the system tab
+  bar, host name with Edit (`Write`), description with Edit (`Write`), domain name, time
+  zone with Edit (`Write`), router clock, time synchronization or "Not reported" with Edit of
+  the time server (`Write`), Restart router and Reset to factory settings (`Destructive`,
+  router name typed), the outcome region.
+
+### System pages (todo 40)
+
+- Tab bar (`partials/system_tabs.html`, `system_pages::tabs::TabBar`): the admin tabs'
+  anatomy (`.tabs`), one link per system page of the router, the current one marked with
+  `aria-current="page"`; every system page and the general page show it under the router
+  link. With nine tabs it wraps (`.tabs--wrap`) instead of scrolling sideways, so the
+  current page's tab is always in view on a phone.
+- Tag and day checkboxes (`.system-checks`): `.choice__option` checkboxes in an auto-fill
+  grid of 10rem columns inside a `fieldset.choice` with its legend.
+- Job panel (`partials/system_job.html`): the explorer's `.job` surface; the status pill
+  follows `status` events, `.job-lines` (an ordered list, hidden while empty) gets one
+  localized sentence per `line` event, `done` closes the event source; Stop (ghost) only for
+  jobs that can stop halfway (diagnostics, not the component commit).
+- Log view (`.log-view`, `.log-tail`, `.log-lines`): chrome surface, mono small lines that
+  wrap; the stream's `tail` event replaces the list, `lines` events append to it.
+- Diagnostic form (`.diagnostics-form`): a tool radio group, then the tool's fields; CSS
+  `:has()` hides the other tools' fields (they are ignored by the server anyway).
+
+### Page briefs (todo 40)
+
+- Router users. Primary action: Add user (management, so only roles with `ManageUsers` and
+  `Destructive`). Priorities: 1 the accounts, 2 their tags, 3 row actions. Left out on
+  purpose: passwords (write-only, the secret-safe write is not merged yet), last-login
+  facts. Required content: name with the "kcc signs in with it" flag, tags or "No tags",
+  Edit tags and Delete (not on kcc's own login), the add dialog with name, the catalog's
+  tags as checkboxes, the no-password note and the fail-safe note.
+- Services. Primary action: none; each row has Turn on or Turn off. Priorities: 1 service
+  name with the "Management access" flag, 2 state, 3 the switch. Required content: every
+  catalog service, its state pill, switches only where the role may (management services
+  also need `Destructive`).
+- Components. Primary action: none. Priorities: 1 firmware version and Check for updates,
+  2 the queued changes and Apply and restart, 3 the component table. Required content:
+  firmware or "Not reported", the queue or its empty note, the commit text, the table with
+  name, state (Installed, Available, To install, To remove) and Install/Remove, the commit
+  job panel with its phases.
+- Storage. Primary action: none. Priorities: 1 media (name, label, filesystem, size, free),
+  2 their actions, 3 USB devices. Required content: Eject, Check and Format only where the
+  catalog has them (Check and Format are hidden until a catalog does), the USB table.
+- Schedules. Primary action: Add schedule. Priorities: 1 name, 2 description, 3 state and
+  Add action. Required content: the one-word rule in the dialogs, action start or stop,
+  time, days Monday to Sunday.
+- KeenDNS. Primary action: none. Priorities: 1 the name and its state with Book or
+  Release, 2 remote access, 3 web proxy entries. Left out on purpose: the current access
+  level (the router does not report it; the text says so).
+- Log. Primary action: none (Download is secondary). Priorities: 1 the latest lines, 2 the
+  filter, 3 Download. Required content: the live note, the empty and no-match notes.
+- Diagnostics. Primary action: Start. Priorities: 1 the tool, 2 its fields, 3 the job's
+  live lines and Stop. Required content: ping (host, count), traceroute (host, maximum
+  hops), ARP ping (address, interface, count), iperf3 (host, port, duration), the
+  jobs-unavailable notice when no job runner is attached.
 
 ### Local network pages (todo 36)
 
@@ -652,3 +727,5 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Domain page changes need JavaScript | `pages/system_general.html`, `partials/kit_*.html` | Edit dialogs, Restart and their confirmations are htmx requests carrying the CSRF header; the settings read without it | Same as the menus |
 | Localized constraint messages need JavaScript | `partials/net_form.html` | Without `app.js` the browser shows its own message for a failed constraint; the server still refuses the value with the localized rule | None needed |
 | The WireGuard import needs JavaScript | `partials/dns_vpn_form.html` | The upload is an htmx `multipart/form-data` post with the CSRF header; an upload over 64 KiB comes back as 413 with the dialog, which `app.js` swaps like a 422 | Same as the menus |
+| System pages' live parts need JavaScript | `partials/system_job.html`, `pages/system_logs.html` | Job lines and new log lines arrive over server-sent events through the htmx SSE extension; without it the page shows the lines of its load and the job's panel only | Same as the menus |
+| Diagnostic fields filter by `:has()` | `pages/system_diagnostics.html` | A browser without `:has()` shows every tool's fields; the server reads only the chosen tool's | None needed |

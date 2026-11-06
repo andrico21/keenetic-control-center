@@ -1,0 +1,12 @@
+{#- Log lines sent by the live stream: the whole list, which replaces the page's, or new items appended to it. -#}
+{%- if whole %}
+<ol class="log-lines" sse-swap="lines" hx-swap="beforeend">
+  {%- for line in lines %}
+  <li class="log-lines__line">{{ line }}</li>
+  {%- endfor %}
+</ol>
+{%- else %}
+{%- for line in lines %}
+<li class="log-lines__line">{{ line }}</li>
+{%- endfor %}
+{%- endif %}

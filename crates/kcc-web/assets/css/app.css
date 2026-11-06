@@ -2364,3 +2364,99 @@ h3 {
 .domain-table .mono {
   overflow-wrap: break-word;
 }
+
+/* todo 40 */
+
+/* ---------- System pages: tabs, tables, checkboxes, jobs, log, diagnostics ---------- */
+
+:root {
+  --log-height: 32rem;
+}
+
+.system-page,
+.system-region {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.system-region {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.system-region .table-wrap {
+  position: relative;
+}
+
+.system-region .table th,
+.system-region .table td {
+  vertical-align: middle;
+}
+
+.tabs--wrap .tabs__list {
+  flex-wrap: wrap;
+  overflow-x: visible;
+}
+
+.system-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
+  gap: 0 var(--space-5);
+}
+
+.system-checks .choice__option {
+  flex-wrap: nowrap;
+}
+
+.job-lines {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-6);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  line-height: var(--leading-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.job-lines:empty {
+  display: none;
+}
+
+.log-view {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.log-tail {
+  max-block-size: var(--log-height);
+  overflow: auto;
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-chrome);
+  scrollbar-width: thin;
+}
+
+.log-lines {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  line-height: var(--leading-small);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.diagnostics-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 14rem), 1fr));
+  gap: var(--space-5);
+}
+
+.diagnostics-form:has([name="tool"][value="ping"]:checked) .diag-field:not(.diag-field--ping),
+.diagnostics-form:has([name="tool"][value="traceroute"]:checked) .diag-field:not(.diag-field--traceroute),
+.diagnostics-form:has([name="tool"][value="arping"]:checked) .diag-field:not(.diag-field--arping),
+.diagnostics-form:has([name="tool"][value="iperf3"]:checked) .diag-field:not(.diag-field--iperf3) {
+  display: none;
+}

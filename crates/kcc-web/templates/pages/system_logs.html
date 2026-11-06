@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(tabs.title()) }}{% endblock %}
+{%- block content %}
+<div class="page system-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(tabs.title()) }}</h1>
+    <div class="page-head__actions"><a class="button button--secondary" href="/ui/r/{{ router }}/system/logs/download">{{ t(keys::WEB_SYSTEM_LOGS_DOWNLOAD) }}</a></div>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {%- include "partials/system_tabs.html" %}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  <form class="table-filter" role="search" method="get" action="/ui/r/{{ router }}/system/logs">
+    <label class="field__label" for="log-filter">{{ t(keys::WEB_KIT_TABLE_FILTER) }}</label>
+    <div class="table-filter__row">
+      <input class="field__input" id="log-filter" name="q" type="search" value="{{ filter }}" autocomplete="off" spellcheck="false">
+      <button class="button button--secondary" type="submit">{{ t(keys::COMMON_APPLY) }}</button>
+      {%- if !filter.is_empty() %}
+      <a class="button button--ghost" href="/ui/r/{{ router }}/system/logs">{{ t(keys::WEB_KIT_TABLE_CLEAR) }}</a>
+      {%- endif %}
+    </div>
+  </form>
+  <section class="log-view" aria-labelledby="log-title" hx-ext="sse" sse-connect="{{ stream }}">
+    <div class="panel__head">
+      <h2 class="panel__title" id="log-title">{{ t(keys::WEB_SYSTEM_LOGS_LATEST) }}</h2>
+      <span class="panel__aside">{{ t(keys::WEB_SYSTEM_LOGS_LIVE) }}</span>
+    </div>
+    {%- if lines.is_empty() && problem.is_none() %}
+    <p class="panel__note">{% if filter.is_empty() %}{{ t(keys::WEB_SYSTEM_LOGS_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
+    {%- endif %}
+    <div class="log-tail" sse-swap="tail" tabindex="0" aria-label="{{ t(keys::WEB_SYSTEM_LOGS_LATEST) }}">
+      <ol class="log-lines" sse-swap="lines" hx-swap="beforeend">
+        {%- for line in lines %}
+        <li class="log-lines__line">{{ line }}</li>
+        {%- endfor %}
+      </ol>
+    </div>
+  </section>
+</div>
+{%- endblock %}

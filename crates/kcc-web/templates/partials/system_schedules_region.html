@@ -1,0 +1,39 @@
+{#- The router's schedules: filter, table and pager, with Add action where the role may; a change sends the region again out of band. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+<section class="system-region" id="schedules-region" aria-labelledby="schedules-title"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <h2 class="visually-hidden" id="schedules-title">{{ t(keys::WEB_SYSTEM_SCHEDULES_TITLE) }}</h2>
+  {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
+  {%- if table.rows().is_empty() %}
+  <p class="panel__note">{% if table.filter().is_empty() %}{{ t(keys::WEB_SYSTEM_SCHEDULES_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          {{ ui::sort_header(t(keys::WEB_SYSTEM_SCHEDULES_NAME), table.header("name")) }}
+          {{ ui::sort_header(t(keys::WEB_SYSTEM_SCHEDULES_DESCRIPTION), table.header("description")) }}
+          {{ ui::sort_header(t(keys::WEB_SYSTEM_SERVICES_STATE), table.header("state")) }}
+          {%- if act %}
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_SYSTEM_ACTIONS) }}</span></th>
+          {%- endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in table.rows() %}
+        <tr>
+          <th scope="row" id="schedule-{{ loop.index }}"><span class="mono">{{ row.name() }}</span></th>
+          <td>{% if let Some(text) = row.description() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
+          <td>{% match row.active() %}{% when Some(true) %}<span class="status" data-status="online">{{ t(keys::WEB_SYSTEM_SCHEDULES_ACTIVE) }}</span>{% when Some(false) %}<span class="status" data-status="unknown">{{ t(keys::WEB_SYSTEM_SCHEDULES_INACTIVE) }}</span>{% when None %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endmatch %}</td>
+          {%- if act %}
+          <td><button class="button button--ghost" type="button" hx-get="{{ action_url(row) }}" hx-target="#dialog-content" aria-describedby="schedule-{{ loop.index }}">{{ t(keys::WEB_SYSTEM_SCHEDULES_ADD_ACTION) }}</button></td>
+          {%- endif %}
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+  {%- let pager = table.pager() %}
+  {%- include "partials/kit_pager.html" %}
+</section>

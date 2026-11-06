@@ -46,7 +46,7 @@ use axum::{
 use kcc_app::jobs::JobRunner;
 use kcc_rci::RciBody;
 
-use crate::WebState;
+use crate::{WebState, system_pages::job_feed::JobFeeds};
 
 /// Sessions whose last large response is kept for download.
 const STORED_RESPONSES: usize = 8;
@@ -65,6 +65,8 @@ pub(crate) struct Services {
     outputs: Mutex<VecDeque<(String, OutputSlot)>>,
     /// Runs background commands; `None` refuses them with a notice.
     jobs: Option<Arc<JobRunner>>,
+    /// The kept progress of the jobs the system pages start.
+    feeds: JobFeeds,
 }
 
 /// One response kept for download.
@@ -86,12 +88,18 @@ impl Services {
             responses: Mutex::new(VecDeque::new()),
             outputs: Mutex::new(VecDeque::new()),
             jobs,
+            feeds: JobFeeds::new(),
         }
     }
 
     /// The job runner, when attached.
-    const fn jobs(&self) -> Option<&Arc<JobRunner>> {
+    pub(crate) const fn jobs(&self) -> Option<&Arc<JobRunner>> {
         self.jobs.as_ref()
+    }
+
+    /// The kept progress of the jobs the system pages start.
+    pub(crate) const fn feeds(&self) -> &JobFeeds {
+        &self.feeds
     }
 
     /// Keeps `body` as the downloadable response of `session` on `router`.
