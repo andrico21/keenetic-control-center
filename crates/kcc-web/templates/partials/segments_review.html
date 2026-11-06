@@ -1,0 +1,20 @@
+{#- The segment wizard's second step: what gets created; Back and Create send the checked values again. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_SEGMENTS_WIZARD_TITLE)) %}
+<p class="lan-step">{{ t(keys::WEB_SEGMENTS_STEP_REVIEW) }}</p>
+<form class="form">
+  {%- for (field, value) in pairs %}
+  <input type="hidden" name="{{ field }}" value="{{ value }}">
+  {%- endfor %}
+  <ol class="lan-steps">
+    {%- for step in steps %}
+    <li>{{ step }}</li>
+    {%- endfor %}
+  </ol>
+  <p class="dialog__text">{{ t(keys::WEB_SEGMENTS_REVIEW_TEXT) }}</p>
+  <div class="dialog__actions">
+    <button class="button button--ghost" type="button" hx-post="/ui/r/{{ router }}/segments/new" hx-target="#dialog-content">{{ t(keys::WEB_SEGMENTS_BACK) }}</button>
+    <button class="button button--primary" type="button" hx-post="/ui/r/{{ router }}/segments/create" hx-target="#page-outcome">{{ t(keys::WEB_SEGMENTS_CONFIRM) }}</button>
+  </div>
+</form>
+{% endcall %}

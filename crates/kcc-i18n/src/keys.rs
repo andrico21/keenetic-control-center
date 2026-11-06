@@ -1873,8 +1873,469 @@ pub const WEB_SYSTEM_RESTART_TEXT: MessageKey = MessageKey::new("web-system-rest
 /// `web-system-restart` in `web.ftl`.
 pub const WEB_SYSTEM_RESTART: MessageKey = MessageKey::new("web-system-restart");
 
+/// `web-clients-title` in `web.ftl`.
+pub const WEB_CLIENTS_TITLE: MessageKey = MessageKey::new("web-clients-title");
+
+/// `web-clients-tabs` in `web.ftl`.
+pub const WEB_CLIENTS_TABS: MessageKey = MessageKey::new("web-clients-tabs");
+
+/// `web-clients-landing-pages` in `web.ftl`.
+pub const WEB_CLIENTS_LANDING_PAGES: MessageKey = MessageKey::new("web-clients-landing-pages");
+
+/// `web-clients-filter-search` in `web.ftl`.
+pub const WEB_CLIENTS_FILTER_SEARCH: MessageKey = MessageKey::new("web-clients-filter-search");
+
+/// `web-clients-filter-state` in `web.ftl`.
+pub const WEB_CLIENTS_FILTER_STATE: MessageKey = MessageKey::new("web-clients-filter-state");
+
+/// `web-clients-filter-state-any` in `web.ftl`.
+pub const WEB_CLIENTS_FILTER_STATE_ANY: MessageKey =
+    MessageKey::new("web-clients-filter-state-any");
+
+/// `web-clients-filter-link` in `web.ftl`.
+pub const WEB_CLIENTS_FILTER_LINK: MessageKey = MessageKey::new("web-clients-filter-link");
+
+/// `web-clients-filter-link-any` in `web.ftl`.
+pub const WEB_CLIENTS_FILTER_LINK_ANY: MessageKey = MessageKey::new("web-clients-filter-link-any");
+
+/// `web-clients-wired` in `web.ftl`.
+pub const WEB_CLIENTS_WIRED: MessageKey = MessageKey::new("web-clients-wired");
+
+/// `web-clients-wireless` in `web.ftl`.
+pub const WEB_CLIENTS_WIRELESS: MessageKey = MessageKey::new("web-clients-wireless");
+
+/// `web-clients-online` in `web.ftl`.
+pub const WEB_CLIENTS_ONLINE: MessageKey = MessageKey::new("web-clients-online");
+
+/// `web-clients-offline` in `web.ftl`.
+pub const WEB_CLIENTS_OFFLINE: MessageKey = MessageKey::new("web-clients-offline");
+
+/// `web-clients-col-name` in `web.ftl`.
+pub const WEB_CLIENTS_COL_NAME: MessageKey = MessageKey::new("web-clients-col-name");
+
+/// `web-clients-col-state` in `web.ftl`.
+pub const WEB_CLIENTS_COL_STATE: MessageKey = MessageKey::new("web-clients-col-state");
+
+/// `web-clients-col-mac` in `web.ftl`.
+pub const WEB_CLIENTS_COL_MAC: MessageKey = MessageKey::new("web-clients-col-mac");
+
+/// `web-clients-col-ip` in `web.ftl`.
+pub const WEB_CLIENTS_COL_IP: MessageKey = MessageKey::new("web-clients-col-ip");
+
+/// `web-clients-col-interface` in `web.ftl`.
+pub const WEB_CLIENTS_COL_INTERFACE: MessageKey = MessageKey::new("web-clients-col-interface");
+
+/// `web-clients-col-signal` in `web.ftl`.
+pub const WEB_CLIENTS_COL_SIGNAL: MessageKey = MessageKey::new("web-clients-col-signal");
+
+/// `web-clients-col-traffic` in `web.ftl`.
+pub const WEB_CLIENTS_COL_TRAFFIC: MessageKey = MessageKey::new("web-clients-col-traffic");
+
+/// `web-clients-col-policy` in `web.ftl`.
+pub const WEB_CLIENTS_COL_POLICY: MessageKey = MessageKey::new("web-clients-col-policy");
+
+/// `web-clients-col-access` in `web.ftl`.
+pub const WEB_CLIENTS_COL_ACCESS: MessageKey = MessageKey::new("web-clients-col-access");
+
+/// `web-clients-col-schedule` in `web.ftl`.
+pub const WEB_CLIENTS_COL_SCHEDULE: MessageKey = MessageKey::new("web-clients-col-schedule");
+
+/// `web-clients-unnamed` in `web.ftl`.
+pub const WEB_CLIENTS_UNNAMED: MessageKey = MessageKey::new("web-clients-unnamed");
+
+/// `web-clients-unregistered` in `web.ftl`.
+pub const WEB_CLIENTS_UNREGISTERED: MessageKey = MessageKey::new("web-clients-unregistered");
+
+/// `web-clients-allowed` in `web.ftl`.
+pub const WEB_CLIENTS_ALLOWED: MessageKey = MessageKey::new("web-clients-allowed");
+
+/// `web-clients-blocked` in `web.ftl`.
+pub const WEB_CLIENTS_BLOCKED: MessageKey = MessageKey::new("web-clients-blocked");
+
+/// `web-clients-signal-value` in `web.ftl`.
+pub const WEB_CLIENTS_SIGNAL_VALUE: MessageKey = MessageKey::new("web-clients-signal-value");
+
+/// `web-clients-traffic-value` in `web.ftl`.
+pub const WEB_CLIENTS_TRAFFIC_VALUE: MessageKey = MessageKey::new("web-clients-traffic-value");
+
+/// `web-clients-actions` in `web.ftl`.
+pub const WEB_CLIENTS_ACTIONS: MessageKey = MessageKey::new("web-clients-actions");
+
+/// `web-clients-action-rename` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_RENAME: MessageKey = MessageKey::new("web-clients-action-rename");
+
+/// `web-clients-action-register` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_REGISTER: MessageKey = MessageKey::new("web-clients-action-register");
+
+/// `web-clients-action-block` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_BLOCK: MessageKey = MessageKey::new("web-clients-action-block");
+
+/// `web-clients-action-permit` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_PERMIT: MessageKey = MessageKey::new("web-clients-action-permit");
+
+/// `web-clients-action-policy` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_POLICY: MessageKey = MessageKey::new("web-clients-action-policy");
+
+/// `web-clients-action-schedule` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_SCHEDULE: MessageKey = MessageKey::new("web-clients-action-schedule");
+
+/// `web-clients-action-priority` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_PRIORITY: MessageKey = MessageKey::new("web-clients-action-priority");
+
+/// `web-clients-action-wake` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_WAKE: MessageKey = MessageKey::new("web-clients-action-wake");
+
+/// `web-clients-action-remove` in `web.ftl`.
+pub const WEB_CLIENTS_ACTION_REMOVE: MessageKey = MessageKey::new("web-clients-action-remove");
+
+/// `web-clients-name-title` in `web.ftl`.
+pub const WEB_CLIENTS_NAME_TITLE: MessageKey = MessageKey::new("web-clients-name-title");
+
+/// `web-clients-name-label` in `web.ftl`.
+pub const WEB_CLIENTS_NAME_LABEL: MessageKey = MessageKey::new("web-clients-name-label");
+
+/// `web-clients-name-help` in `web.ftl`.
+pub const WEB_CLIENTS_NAME_HELP: MessageKey = MessageKey::new("web-clients-name-help");
+
+/// `web-clients-name-error` in `web.ftl`.
+pub const WEB_CLIENTS_NAME_ERROR: MessageKey = MessageKey::new("web-clients-name-error");
+
+/// `web-clients-policy-title` in `web.ftl`.
+pub const WEB_CLIENTS_POLICY_TITLE: MessageKey = MessageKey::new("web-clients-policy-title");
+
+/// `web-clients-policy-label` in `web.ftl`.
+pub const WEB_CLIENTS_POLICY_LABEL: MessageKey = MessageKey::new("web-clients-policy-label");
+
+/// `web-clients-policy-help` in `web.ftl`.
+pub const WEB_CLIENTS_POLICY_HELP: MessageKey = MessageKey::new("web-clients-policy-help");
+
+/// `web-clients-schedule-title` in `web.ftl`.
+pub const WEB_CLIENTS_SCHEDULE_TITLE: MessageKey = MessageKey::new("web-clients-schedule-title");
+
+/// `web-clients-schedule-label` in `web.ftl`.
+pub const WEB_CLIENTS_SCHEDULE_LABEL: MessageKey = MessageKey::new("web-clients-schedule-label");
+
+/// `web-clients-schedule-help` in `web.ftl`.
+pub const WEB_CLIENTS_SCHEDULE_HELP: MessageKey = MessageKey::new("web-clients-schedule-help");
+
+/// `web-clients-object-error` in `web.ftl`.
+pub const WEB_CLIENTS_OBJECT_ERROR: MessageKey = MessageKey::new("web-clients-object-error");
+
+/// `web-clients-priority-title` in `web.ftl`.
+pub const WEB_CLIENTS_PRIORITY_TITLE: MessageKey = MessageKey::new("web-clients-priority-title");
+
+/// `web-clients-priority-label` in `web.ftl`.
+pub const WEB_CLIENTS_PRIORITY_LABEL: MessageKey = MessageKey::new("web-clients-priority-label");
+
+/// `web-clients-priority-help` in `web.ftl`.
+pub const WEB_CLIENTS_PRIORITY_HELP: MessageKey = MessageKey::new("web-clients-priority-help");
+
+/// `web-clients-priority-error` in `web.ftl`.
+pub const WEB_CLIENTS_PRIORITY_ERROR: MessageKey = MessageKey::new("web-clients-priority-error");
+
+/// `web-clients-remove-title` in `web.ftl`.
+pub const WEB_CLIENTS_REMOVE_TITLE: MessageKey = MessageKey::new("web-clients-remove-title");
+
+/// `web-clients-remove-text` in `web.ftl`.
+pub const WEB_CLIENTS_REMOVE_TEXT: MessageKey = MessageKey::new("web-clients-remove-text");
+
+/// `web-clients-read-error` in `web.ftl`.
+pub const WEB_CLIENTS_READ_ERROR: MessageKey = MessageKey::new("web-clients-read-error");
+
+/// `web-clients-missing` in `web.ftl`.
+pub const WEB_CLIENTS_MISSING: MessageKey = MessageKey::new("web-clients-missing");
+
+/// `web-clients-not-registered` in `web.ftl`.
+pub const WEB_CLIENTS_NOT_REGISTERED: MessageKey = MessageKey::new("web-clients-not-registered");
+
+/// `web-dhcp-title` in `web.ftl`.
+pub const WEB_DHCP_TITLE: MessageKey = MessageKey::new("web-dhcp-title");
+
+/// `web-dhcp-views` in `web.ftl`.
+pub const WEB_DHCP_VIEWS: MessageKey = MessageKey::new("web-dhcp-views");
+
+/// `web-dhcp-pools` in `web.ftl`.
+pub const WEB_DHCP_POOLS: MessageKey = MessageKey::new("web-dhcp-pools");
+
+/// `web-dhcp-leases` in `web.ftl`.
+pub const WEB_DHCP_LEASES: MessageKey = MessageKey::new("web-dhcp-leases");
+
+/// `web-dhcp-bindings` in `web.ftl`.
+pub const WEB_DHCP_BINDINGS: MessageKey = MessageKey::new("web-dhcp-bindings");
+
+/// `web-dhcp-arp` in `web.ftl`.
+pub const WEB_DHCP_ARP: MessageKey = MessageKey::new("web-dhcp-arp");
+
+/// `web-dhcp-pool-add` in `web.ftl`.
+pub const WEB_DHCP_POOL_ADD: MessageKey = MessageKey::new("web-dhcp-pool-add");
+
+/// `web-dhcp-lease-add` in `web.ftl`.
+pub const WEB_DHCP_LEASE_ADD: MessageKey = MessageKey::new("web-dhcp-lease-add");
+
+/// `web-dhcp-col-name` in `web.ftl`.
+pub const WEB_DHCP_COL_NAME: MessageKey = MessageKey::new("web-dhcp-col-name");
+
+/// `web-dhcp-col-range` in `web.ftl`.
+pub const WEB_DHCP_COL_RANGE: MessageKey = MessageKey::new("web-dhcp-col-range");
+
+/// `web-dhcp-col-gateway` in `web.ftl`.
+pub const WEB_DHCP_COL_GATEWAY: MessageKey = MessageKey::new("web-dhcp-col-gateway");
+
+/// `web-dhcp-col-dns` in `web.ftl`.
+pub const WEB_DHCP_COL_DNS: MessageKey = MessageKey::new("web-dhcp-col-dns");
+
+/// `web-dhcp-col-lease` in `web.ftl`.
+pub const WEB_DHCP_COL_LEASE: MessageKey = MessageKey::new("web-dhcp-col-lease");
+
+/// `web-dhcp-col-interface` in `web.ftl`.
+pub const WEB_DHCP_COL_INTERFACE: MessageKey = MessageKey::new("web-dhcp-col-interface");
+
+/// `web-dhcp-col-state` in `web.ftl`.
+pub const WEB_DHCP_COL_STATE: MessageKey = MessageKey::new("web-dhcp-col-state");
+
+/// `web-dhcp-col-device` in `web.ftl`.
+pub const WEB_DHCP_COL_DEVICE: MessageKey = MessageKey::new("web-dhcp-col-device");
+
+/// `web-dhcp-col-mac` in `web.ftl`.
+pub const WEB_DHCP_COL_MAC: MessageKey = MessageKey::new("web-dhcp-col-mac");
+
+/// `web-dhcp-col-address` in `web.ftl`.
+pub const WEB_DHCP_COL_ADDRESS: MessageKey = MessageKey::new("web-dhcp-col-address");
+
+/// `web-dhcp-col-expires` in `web.ftl`.
+pub const WEB_DHCP_COL_EXPIRES: MessageKey = MessageKey::new("web-dhcp-col-expires");
+
+/// `web-dhcp-range-value` in `web.ftl`.
+pub const WEB_DHCP_RANGE_VALUE: MessageKey = MessageKey::new("web-dhcp-range-value");
+
+/// `web-dhcp-reserve` in `web.ftl`.
+pub const WEB_DHCP_RESERVE: MessageKey = MessageKey::new("web-dhcp-reserve");
+
+/// `web-dhcp-pool-title-new` in `web.ftl`.
+pub const WEB_DHCP_POOL_TITLE_NEW: MessageKey = MessageKey::new("web-dhcp-pool-title-new");
+
+/// `web-dhcp-pool-title-edit` in `web.ftl`.
+pub const WEB_DHCP_POOL_TITLE_EDIT: MessageKey = MessageKey::new("web-dhcp-pool-title-edit");
+
+/// `web-dhcp-pool-name` in `web.ftl`.
+pub const WEB_DHCP_POOL_NAME: MessageKey = MessageKey::new("web-dhcp-pool-name");
+
+/// `web-dhcp-pool-name-help` in `web.ftl`.
+pub const WEB_DHCP_POOL_NAME_HELP: MessageKey = MessageKey::new("web-dhcp-pool-name-help");
+
+/// `web-dhcp-pool-begin` in `web.ftl`.
+pub const WEB_DHCP_POOL_BEGIN: MessageKey = MessageKey::new("web-dhcp-pool-begin");
+
+/// `web-dhcp-pool-end` in `web.ftl`.
+pub const WEB_DHCP_POOL_END: MessageKey = MessageKey::new("web-dhcp-pool-end");
+
+/// `web-dhcp-pool-gateway` in `web.ftl`.
+pub const WEB_DHCP_POOL_GATEWAY: MessageKey = MessageKey::new("web-dhcp-pool-gateway");
+
+/// `web-dhcp-pool-dns` in `web.ftl`.
+pub const WEB_DHCP_POOL_DNS: MessageKey = MessageKey::new("web-dhcp-pool-dns");
+
+/// `web-dhcp-pool-dns-help` in `web.ftl`.
+pub const WEB_DHCP_POOL_DNS_HELP: MessageKey = MessageKey::new("web-dhcp-pool-dns-help");
+
+/// `web-dhcp-pool-lease` in `web.ftl`.
+pub const WEB_DHCP_POOL_LEASE: MessageKey = MessageKey::new("web-dhcp-pool-lease");
+
+/// `web-dhcp-pool-lease-help` in `web.ftl`.
+pub const WEB_DHCP_POOL_LEASE_HELP: MessageKey = MessageKey::new("web-dhcp-pool-lease-help");
+
+/// `web-dhcp-pool-interface` in `web.ftl`.
+pub const WEB_DHCP_POOL_INTERFACE: MessageKey = MessageKey::new("web-dhcp-pool-interface");
+
+/// `web-dhcp-pool-interface-help` in `web.ftl`.
+pub const WEB_DHCP_POOL_INTERFACE_HELP: MessageKey =
+    MessageKey::new("web-dhcp-pool-interface-help");
+
+/// `web-dhcp-pool-enabled` in `web.ftl`.
+pub const WEB_DHCP_POOL_ENABLED: MessageKey = MessageKey::new("web-dhcp-pool-enabled");
+
+/// `web-dhcp-error-name` in `web.ftl`.
+pub const WEB_DHCP_ERROR_NAME: MessageKey = MessageKey::new("web-dhcp-error-name");
+
+/// `web-dhcp-error-address` in `web.ftl`.
+pub const WEB_DHCP_ERROR_ADDRESS: MessageKey = MessageKey::new("web-dhcp-error-address");
+
+/// `web-dhcp-error-order` in `web.ftl`.
+pub const WEB_DHCP_ERROR_ORDER: MessageKey = MessageKey::new("web-dhcp-error-order");
+
+/// `web-dhcp-error-lease` in `web.ftl`.
+pub const WEB_DHCP_ERROR_LEASE: MessageKey = MessageKey::new("web-dhcp-error-lease");
+
+/// `web-dhcp-error-interface` in `web.ftl`.
+pub const WEB_DHCP_ERROR_INTERFACE: MessageKey = MessageKey::new("web-dhcp-error-interface");
+
+/// `web-dhcp-lease-title` in `web.ftl`.
+pub const WEB_DHCP_LEASE_TITLE: MessageKey = MessageKey::new("web-dhcp-lease-title");
+
+/// `web-dhcp-lease-mac` in `web.ftl`.
+pub const WEB_DHCP_LEASE_MAC: MessageKey = MessageKey::new("web-dhcp-lease-mac");
+
+/// `web-dhcp-lease-mac-help` in `web.ftl`.
+pub const WEB_DHCP_LEASE_MAC_HELP: MessageKey = MessageKey::new("web-dhcp-lease-mac-help");
+
+/// `web-dhcp-lease-address` in `web.ftl`.
+pub const WEB_DHCP_LEASE_ADDRESS: MessageKey = MessageKey::new("web-dhcp-lease-address");
+
+/// `web-dhcp-lease-address-help` in `web.ftl`.
+pub const WEB_DHCP_LEASE_ADDRESS_HELP: MessageKey = MessageKey::new("web-dhcp-lease-address-help");
+
+/// `web-dhcp-error-mac` in `web.ftl`.
+pub const WEB_DHCP_ERROR_MAC: MessageKey = MessageKey::new("web-dhcp-error-mac");
+
+/// `web-dhcp-error-outside` in `web.ftl`.
+pub const WEB_DHCP_ERROR_OUTSIDE: MessageKey = MessageKey::new("web-dhcp-error-outside");
+
+/// `web-dhcp-error-in-use` in `web.ftl`.
+pub const WEB_DHCP_ERROR_IN_USE: MessageKey = MessageKey::new("web-dhcp-error-in-use");
+
+/// `web-dhcp-read-error` in `web.ftl`.
+pub const WEB_DHCP_READ_ERROR: MessageKey = MessageKey::new("web-dhcp-read-error");
+
+/// `web-segments-title` in `web.ftl`.
+pub const WEB_SEGMENTS_TITLE: MessageKey = MessageKey::new("web-segments-title");
+
+/// `web-segments-create` in `web.ftl`.
+pub const WEB_SEGMENTS_CREATE: MessageKey = MessageKey::new("web-segments-create");
+
+/// `web-segments-list-pending` in `web.ftl`.
+pub const WEB_SEGMENTS_LIST_PENDING: MessageKey = MessageKey::new("web-segments-list-pending");
+
+/// `web-segments-wizard-title` in `web.ftl`.
+pub const WEB_SEGMENTS_WIZARD_TITLE: MessageKey = MessageKey::new("web-segments-wizard-title");
+
+/// `web-segments-step-details` in `web.ftl`.
+pub const WEB_SEGMENTS_STEP_DETAILS: MessageKey = MessageKey::new("web-segments-step-details");
+
+/// `web-segments-step-review` in `web.ftl`.
+pub const WEB_SEGMENTS_STEP_REVIEW: MessageKey = MessageKey::new("web-segments-step-review");
+
+/// `web-segments-id` in `web.ftl`.
+pub const WEB_SEGMENTS_ID: MessageKey = MessageKey::new("web-segments-id");
+
+/// `web-segments-id-help` in `web.ftl`.
+pub const WEB_SEGMENTS_ID_HELP: MessageKey = MessageKey::new("web-segments-id-help");
+
+/// `web-segments-vlan` in `web.ftl`.
+pub const WEB_SEGMENTS_VLAN: MessageKey = MessageKey::new("web-segments-vlan");
+
+/// `web-segments-vlan-help` in `web.ftl`.
+pub const WEB_SEGMENTS_VLAN_HELP: MessageKey = MessageKey::new("web-segments-vlan-help");
+
+/// `web-segments-address` in `web.ftl`.
+pub const WEB_SEGMENTS_ADDRESS: MessageKey = MessageKey::new("web-segments-address");
+
+/// `web-segments-mask` in `web.ftl`.
+pub const WEB_SEGMENTS_MASK: MessageKey = MessageKey::new("web-segments-mask");
+
+/// `web-segments-mask-help` in `web.ftl`.
+pub const WEB_SEGMENTS_MASK_HELP: MessageKey = MessageKey::new("web-segments-mask-help");
+
+/// `web-segments-dhcp-begin` in `web.ftl`.
+pub const WEB_SEGMENTS_DHCP_BEGIN: MessageKey = MessageKey::new("web-segments-dhcp-begin");
+
+/// `web-segments-dhcp-end` in `web.ftl`.
+pub const WEB_SEGMENTS_DHCP_END: MessageKey = MessageKey::new("web-segments-dhcp-end");
+
+/// `web-segments-ports` in `web.ftl`.
+pub const WEB_SEGMENTS_PORTS: MessageKey = MessageKey::new("web-segments-ports");
+
+/// `web-segments-ports-help` in `web.ftl`.
+pub const WEB_SEGMENTS_PORTS_HELP: MessageKey = MessageKey::new("web-segments-ports-help");
+
+/// `web-segments-ports-none` in `web.ftl`.
+pub const WEB_SEGMENTS_PORTS_NONE: MessageKey = MessageKey::new("web-segments-ports-none");
+
+/// `web-segments-access-point` in `web.ftl`.
+pub const WEB_SEGMENTS_ACCESS_POINT: MessageKey = MessageKey::new("web-segments-access-point");
+
+/// `web-segments-access-point-none` in `web.ftl`.
+pub const WEB_SEGMENTS_ACCESS_POINT_NONE: MessageKey =
+    MessageKey::new("web-segments-access-point-none");
+
+/// `web-segments-policy` in `web.ftl`.
+pub const WEB_SEGMENTS_POLICY: MessageKey = MessageKey::new("web-segments-policy");
+
+/// `web-segments-policy-help` in `web.ftl`.
+pub const WEB_SEGMENTS_POLICY_HELP: MessageKey = MessageKey::new("web-segments-policy-help");
+
+/// `web-segments-review` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW: MessageKey = MessageKey::new("web-segments-review");
+
+/// `web-segments-back` in `web.ftl`.
+pub const WEB_SEGMENTS_BACK: MessageKey = MessageKey::new("web-segments-back");
+
+/// `web-segments-confirm` in `web.ftl`.
+pub const WEB_SEGMENTS_CONFIRM: MessageKey = MessageKey::new("web-segments-confirm");
+
+/// `web-segments-review-text` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_TEXT: MessageKey = MessageKey::new("web-segments-review-text");
+
+/// `web-segments-review-vlan` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_VLAN: MessageKey = MessageKey::new("web-segments-review-vlan");
+
+/// `web-segments-review-trunk` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_TRUNK: MessageKey = MessageKey::new("web-segments-review-trunk");
+
+/// `web-segments-review-bridge` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_BRIDGE: MessageKey = MessageKey::new("web-segments-review-bridge");
+
+/// `web-segments-review-pool` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_POOL: MessageKey = MessageKey::new("web-segments-review-pool");
+
+/// `web-segments-review-nat` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_NAT: MessageKey = MessageKey::new("web-segments-review-nat");
+
+/// `web-segments-review-hotspot` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_HOTSPOT: MessageKey = MessageKey::new("web-segments-review-hotspot");
+
+/// `web-segments-review-wifi` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_WIFI: MessageKey = MessageKey::new("web-segments-review-wifi");
+
+/// `web-segments-review-policy` in `web.ftl`.
+pub const WEB_SEGMENTS_REVIEW_POLICY: MessageKey = MessageKey::new("web-segments-review-policy");
+
+/// `web-segments-error-id` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_ID: MessageKey = MessageKey::new("web-segments-error-id");
+
+/// `web-segments-error-vlan` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_VLAN: MessageKey = MessageKey::new("web-segments-error-vlan");
+
+/// `web-segments-error-address` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_ADDRESS: MessageKey = MessageKey::new("web-segments-error-address");
+
+/// `web-segments-error-mask` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_MASK: MessageKey = MessageKey::new("web-segments-error-mask");
+
+/// `web-segments-error-range` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_RANGE: MessageKey = MessageKey::new("web-segments-error-range");
+
+/// `web-segments-error-taken` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_TAKEN: MessageKey = MessageKey::new("web-segments-error-taken");
+
+/// `web-segments-error-overlap` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_OVERLAP: MessageKey = MessageKey::new("web-segments-error-overlap");
+
+/// `web-segments-error-port` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_PORT: MessageKey = MessageKey::new("web-segments-error-port");
+
+/// `web-segments-error-access-point` in `web.ftl`.
+pub const WEB_SEGMENTS_ERROR_ACCESS_POINT: MessageKey =
+    MessageKey::new("web-segments-error-access-point");
+
+/// `web-segments-failed-step` in `web.ftl`.
+pub const WEB_SEGMENTS_FAILED_STEP: MessageKey = MessageKey::new("web-segments-failed-step");
+
+/// `web-segments-rollback-failed` in `web.ftl`.
+pub const WEB_SEGMENTS_ROLLBACK_FAILED: MessageKey =
+    MessageKey::new("web-segments-rollback-failed");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 604] = [
+pub const ALL: [MessageKey; 756] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -2479,4 +2940,156 @@ pub const ALL: [MessageKey; 604] = [
     WEB_SYSTEM_RESTART_TITLE,
     WEB_SYSTEM_RESTART_TEXT,
     WEB_SYSTEM_RESTART,
+    WEB_CLIENTS_TITLE,
+    WEB_CLIENTS_TABS,
+    WEB_CLIENTS_LANDING_PAGES,
+    WEB_CLIENTS_FILTER_SEARCH,
+    WEB_CLIENTS_FILTER_STATE,
+    WEB_CLIENTS_FILTER_STATE_ANY,
+    WEB_CLIENTS_FILTER_LINK,
+    WEB_CLIENTS_FILTER_LINK_ANY,
+    WEB_CLIENTS_WIRED,
+    WEB_CLIENTS_WIRELESS,
+    WEB_CLIENTS_ONLINE,
+    WEB_CLIENTS_OFFLINE,
+    WEB_CLIENTS_COL_NAME,
+    WEB_CLIENTS_COL_STATE,
+    WEB_CLIENTS_COL_MAC,
+    WEB_CLIENTS_COL_IP,
+    WEB_CLIENTS_COL_INTERFACE,
+    WEB_CLIENTS_COL_SIGNAL,
+    WEB_CLIENTS_COL_TRAFFIC,
+    WEB_CLIENTS_COL_POLICY,
+    WEB_CLIENTS_COL_ACCESS,
+    WEB_CLIENTS_COL_SCHEDULE,
+    WEB_CLIENTS_UNNAMED,
+    WEB_CLIENTS_UNREGISTERED,
+    WEB_CLIENTS_ALLOWED,
+    WEB_CLIENTS_BLOCKED,
+    WEB_CLIENTS_SIGNAL_VALUE,
+    WEB_CLIENTS_TRAFFIC_VALUE,
+    WEB_CLIENTS_ACTIONS,
+    WEB_CLIENTS_ACTION_RENAME,
+    WEB_CLIENTS_ACTION_REGISTER,
+    WEB_CLIENTS_ACTION_BLOCK,
+    WEB_CLIENTS_ACTION_PERMIT,
+    WEB_CLIENTS_ACTION_POLICY,
+    WEB_CLIENTS_ACTION_SCHEDULE,
+    WEB_CLIENTS_ACTION_PRIORITY,
+    WEB_CLIENTS_ACTION_WAKE,
+    WEB_CLIENTS_ACTION_REMOVE,
+    WEB_CLIENTS_NAME_TITLE,
+    WEB_CLIENTS_NAME_LABEL,
+    WEB_CLIENTS_NAME_HELP,
+    WEB_CLIENTS_NAME_ERROR,
+    WEB_CLIENTS_POLICY_TITLE,
+    WEB_CLIENTS_POLICY_LABEL,
+    WEB_CLIENTS_POLICY_HELP,
+    WEB_CLIENTS_SCHEDULE_TITLE,
+    WEB_CLIENTS_SCHEDULE_LABEL,
+    WEB_CLIENTS_SCHEDULE_HELP,
+    WEB_CLIENTS_OBJECT_ERROR,
+    WEB_CLIENTS_PRIORITY_TITLE,
+    WEB_CLIENTS_PRIORITY_LABEL,
+    WEB_CLIENTS_PRIORITY_HELP,
+    WEB_CLIENTS_PRIORITY_ERROR,
+    WEB_CLIENTS_REMOVE_TITLE,
+    WEB_CLIENTS_REMOVE_TEXT,
+    WEB_CLIENTS_READ_ERROR,
+    WEB_CLIENTS_MISSING,
+    WEB_CLIENTS_NOT_REGISTERED,
+    WEB_DHCP_TITLE,
+    WEB_DHCP_VIEWS,
+    WEB_DHCP_POOLS,
+    WEB_DHCP_LEASES,
+    WEB_DHCP_BINDINGS,
+    WEB_DHCP_ARP,
+    WEB_DHCP_POOL_ADD,
+    WEB_DHCP_LEASE_ADD,
+    WEB_DHCP_COL_NAME,
+    WEB_DHCP_COL_RANGE,
+    WEB_DHCP_COL_GATEWAY,
+    WEB_DHCP_COL_DNS,
+    WEB_DHCP_COL_LEASE,
+    WEB_DHCP_COL_INTERFACE,
+    WEB_DHCP_COL_STATE,
+    WEB_DHCP_COL_DEVICE,
+    WEB_DHCP_COL_MAC,
+    WEB_DHCP_COL_ADDRESS,
+    WEB_DHCP_COL_EXPIRES,
+    WEB_DHCP_RANGE_VALUE,
+    WEB_DHCP_RESERVE,
+    WEB_DHCP_POOL_TITLE_NEW,
+    WEB_DHCP_POOL_TITLE_EDIT,
+    WEB_DHCP_POOL_NAME,
+    WEB_DHCP_POOL_NAME_HELP,
+    WEB_DHCP_POOL_BEGIN,
+    WEB_DHCP_POOL_END,
+    WEB_DHCP_POOL_GATEWAY,
+    WEB_DHCP_POOL_DNS,
+    WEB_DHCP_POOL_DNS_HELP,
+    WEB_DHCP_POOL_LEASE,
+    WEB_DHCP_POOL_LEASE_HELP,
+    WEB_DHCP_POOL_INTERFACE,
+    WEB_DHCP_POOL_INTERFACE_HELP,
+    WEB_DHCP_POOL_ENABLED,
+    WEB_DHCP_ERROR_NAME,
+    WEB_DHCP_ERROR_ADDRESS,
+    WEB_DHCP_ERROR_ORDER,
+    WEB_DHCP_ERROR_LEASE,
+    WEB_DHCP_ERROR_INTERFACE,
+    WEB_DHCP_LEASE_TITLE,
+    WEB_DHCP_LEASE_MAC,
+    WEB_DHCP_LEASE_MAC_HELP,
+    WEB_DHCP_LEASE_ADDRESS,
+    WEB_DHCP_LEASE_ADDRESS_HELP,
+    WEB_DHCP_ERROR_MAC,
+    WEB_DHCP_ERROR_OUTSIDE,
+    WEB_DHCP_ERROR_IN_USE,
+    WEB_DHCP_READ_ERROR,
+    WEB_SEGMENTS_TITLE,
+    WEB_SEGMENTS_CREATE,
+    WEB_SEGMENTS_LIST_PENDING,
+    WEB_SEGMENTS_WIZARD_TITLE,
+    WEB_SEGMENTS_STEP_DETAILS,
+    WEB_SEGMENTS_STEP_REVIEW,
+    WEB_SEGMENTS_ID,
+    WEB_SEGMENTS_ID_HELP,
+    WEB_SEGMENTS_VLAN,
+    WEB_SEGMENTS_VLAN_HELP,
+    WEB_SEGMENTS_ADDRESS,
+    WEB_SEGMENTS_MASK,
+    WEB_SEGMENTS_MASK_HELP,
+    WEB_SEGMENTS_DHCP_BEGIN,
+    WEB_SEGMENTS_DHCP_END,
+    WEB_SEGMENTS_PORTS,
+    WEB_SEGMENTS_PORTS_HELP,
+    WEB_SEGMENTS_PORTS_NONE,
+    WEB_SEGMENTS_ACCESS_POINT,
+    WEB_SEGMENTS_ACCESS_POINT_NONE,
+    WEB_SEGMENTS_POLICY,
+    WEB_SEGMENTS_POLICY_HELP,
+    WEB_SEGMENTS_REVIEW,
+    WEB_SEGMENTS_BACK,
+    WEB_SEGMENTS_CONFIRM,
+    WEB_SEGMENTS_REVIEW_TEXT,
+    WEB_SEGMENTS_REVIEW_VLAN,
+    WEB_SEGMENTS_REVIEW_TRUNK,
+    WEB_SEGMENTS_REVIEW_BRIDGE,
+    WEB_SEGMENTS_REVIEW_POOL,
+    WEB_SEGMENTS_REVIEW_NAT,
+    WEB_SEGMENTS_REVIEW_HOTSPOT,
+    WEB_SEGMENTS_REVIEW_WIFI,
+    WEB_SEGMENTS_REVIEW_POLICY,
+    WEB_SEGMENTS_ERROR_ID,
+    WEB_SEGMENTS_ERROR_VLAN,
+    WEB_SEGMENTS_ERROR_ADDRESS,
+    WEB_SEGMENTS_ERROR_MASK,
+    WEB_SEGMENTS_ERROR_RANGE,
+    WEB_SEGMENTS_ERROR_TAKEN,
+    WEB_SEGMENTS_ERROR_OVERLAP,
+    WEB_SEGMENTS_ERROR_PORT,
+    WEB_SEGMENTS_ERROR_ACCESS_POINT,
+    WEB_SEGMENTS_FAILED_STEP,
+    WEB_SEGMENTS_ROLLBACK_FAILED,
 ];

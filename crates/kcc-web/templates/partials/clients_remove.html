@@ -1,0 +1,10 @@
+{#- Confirmation of a client removal; the outcome lands in the page's outcome region. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+<p class="dialog__text">{{ t(keys::WEB_CLIENTS_REMOVE_TEXT) }}</p>
+<form class="form" hx-post="{{ action }}" hx-target="#page-outcome">
+  <div class="dialog__actions">
+    <button class="button button--danger" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_REMOVE) }}</button>
+  </div>
+</form>
+{% endcall %}

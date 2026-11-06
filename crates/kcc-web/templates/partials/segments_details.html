@@ -1,0 +1,52 @@
+{#- The segment wizard's first step: the details; Review checks them on the server. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_SEGMENTS_WIZARD_TITLE)) %}
+<p class="lan-step">{{ t(keys::WEB_SEGMENTS_STEP_DETAILS) }}</p>
+<form class="form" hx-post="/ui/r/{{ router }}/segments/review" hx-target="#dialog-content">
+  {%- if !problem.is_empty() %}
+  <p class="notice" data-tone="error">{{ problem }}</p>
+  {%- endif %}
+  <div class="lan-fields">
+    {{ ui::field("segment-id", "id", t(keys::WEB_SEGMENTS_ID), form.id, problems.id, "text", "off", t(keys::WEB_SEGMENTS_ID_HELP)) }}
+    {{ ui::field("segment-vlan", "vlan", t(keys::WEB_SEGMENTS_VLAN), form.vlan, problems.vlan, "text", "off", t(keys::WEB_SEGMENTS_VLAN_HELP)) }}
+    {{ ui::field("segment-address", "address", t(keys::WEB_SEGMENTS_ADDRESS), form.address, problems.address) }}
+    {{ ui::field("segment-mask", "mask", t(keys::WEB_SEGMENTS_MASK), form.mask, problems.mask, "text", "off", t(keys::WEB_SEGMENTS_MASK_HELP)) }}
+    {{ ui::field("segment-begin", "begin", t(keys::WEB_SEGMENTS_DHCP_BEGIN), form.begin, "") }}
+    {{ ui::field("segment-end", "end", t(keys::WEB_SEGMENTS_DHCP_END), form.end, problems.range) }}
+  </div>
+  <fieldset class="choice lan-ports">
+    <legend class="field__label">{{ t(keys::WEB_SEGMENTS_PORTS) }}</legend>
+    {%- if known.ports().is_empty() %}
+    <p class="field__help">{{ t(keys::WEB_SEGMENTS_PORTS_NONE) }}</p>
+    {%- else %}
+    <p class="field__help">{{ t(keys::WEB_SEGMENTS_PORTS_HELP) }}</p>
+    <div class="lan-ports__list">
+      {%- for port in known.ports() %}
+      <label class="choice__option"><input type="checkbox" name="port" value="{{ port }}"{% if chosen(port) %} checked{% endif %}><span class="mono">{{ port }}</span></label>
+      {%- endfor %}
+    </div>
+    {%- endif %}
+    {%- if !problems.ports.is_empty() %}
+    <p class="field__error">{{ problems.ports }}</p>
+    {%- endif %}
+  </fieldset>
+  <div class="lan-fields">
+    <div class="field">
+      <label class="field__label" for="segment-access-point">{{ t(keys::WEB_SEGMENTS_ACCESS_POINT) }}</label>
+      <select class="field__input" id="segment-access-point" name="access_point"{% if !problems.access_point.is_empty() %} aria-invalid="true" aria-describedby="segment-access-point-error"{% endif %}>
+        <option value="">{{ t(keys::WEB_SEGMENTS_ACCESS_POINT_NONE) }}</option>
+        {%- for access_point in known.access_points() %}
+        <option value="{{ access_point }}"{% if selected(access_point) %} selected{% endif %}>{{ access_point }}</option>
+        {%- endfor %}
+      </select>
+      {%- if !problems.access_point.is_empty() %}
+      <p class="field__error" id="segment-access-point-error">{{ problems.access_point }}</p>
+      {%- endif %}
+    </div>
+    {{ ui::field("segment-policy", "policy", t(keys::WEB_SEGMENTS_POLICY), form.policy, problems.policy, "text", "off", t(keys::WEB_SEGMENTS_POLICY_HELP)) }}
+  </div>
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_SEGMENTS_REVIEW) }}</button>
+  </div>
+</form>
+{% endcall %}

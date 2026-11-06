@@ -315,3 +315,27 @@
   localize();
   document.addEventListener("htmx:afterSettle", localize);
 })();
+
+// todo 36: a table row's action menu opens above its button when it would leave the
+// viewport at the bottom.
+(() => {
+  "use strict";
+
+  document.addEventListener(
+    "toggle",
+    (event) => {
+      const menu = event.target;
+      if (!(menu instanceof HTMLElement) || !menu.classList.contains("lan-menu") || event.newState !== "open") {
+        return;
+      }
+      const invoker = document.querySelector(`[popovertarget="${CSS.escape(menu.id)}"]`);
+      const box = menu.getBoundingClientRect();
+      if (!invoker || box.bottom <= window.innerHeight) {
+        return;
+      }
+      const anchor = invoker.getBoundingClientRect();
+      menu.style.insetBlockStart = `${Math.max(8, Math.round(anchor.top - box.height - 4))}px`;
+    },
+    true,
+  );
+})();

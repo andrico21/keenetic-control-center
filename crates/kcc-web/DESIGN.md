@@ -175,6 +175,18 @@ grid (identity, time), then the restart panel; scroll owner: the document; anti-
 success banner repeating its toast, settings rows whose height depends on their button, an
 Edit button for a setting the page cannot change.
 
+`--lan-table-min` (60rem) is the narrowest a local network table gets before its
+`.table-wrap` scrolls sideways; `--lan-field-min` (14rem) is the narrowest field of a dialog
+field grid and of the clients filter.
+
+Layout (local network pages `/ui/r/{router}/{clients,dhcp,segments}`, todo 36): stacked
+sections - the family tabs (Clients, DHCP, Segments), page head (title and the view's primary
+action), router link, the DHCP view switch, the outcome region, then the region
+(`#clients-region`, `#dhcp-region`: filter, count, the table in `.table-wrap`, pager); scroll
+owner: the document; nested scrollers: `.table-wrap` (the table, sideways) and the DHCP view
+switch (sideways on a phone); anti-patterns: a fixed-height scrolling table, a row of seven
+buttons per client, a filter that a sort or page link drops.
+
 ## 5. Components
 
 Source anatomy: Carbon UI shell, button, text input, data table, tag, notification and modal,
@@ -462,6 +474,46 @@ with the unsaved badge, one validation failure that sends nothing, one router er
   Required content: host name with Edit (`Write`), description with Edit (`Write`), domain
   name, time zone, router clock, time synchronization or "Not reported", Restart router
   (`Destructive`, router name typed), the outcome region.
+
+### Local network pages (todo 36)
+
+- Family tabs (`partials/lan_tabs.html`): the admin tab markup and style for one router's
+  Clients, DHCP and Segments pages; `/ui/clients` lists every router with the same links.
+- Row action menu (`.lan-menu`): one ghost Actions button per row, described by the row
+  header, opening a `[popover]` `.menu`; items open a dialog or post a one-button form; Remove
+  is `.menu__item--danger`. `app.js` opens the menu above its button when it would leave the
+  viewport.
+- Client name cell: the name (or "Unnamed device", muted), then `.lan-flags`: the status pill
+  (Online, or Offline in the neutral tone: a remembered device is not an error) and the info
+  flag "Not registered". Blocked is an error-tone flag in the Access column.
+- DHCP view switch (`.lan-views`): flat chrome links, the view shown in the selected wash and
+  ink, never an underline.
+- Field grid (`.lan-fields`): dialog fields in `repeat(auto-fit, minmax(--lan-field-min,
+  1fr))`, each field starting at the top of its cell.
+- Wizard (`partials/segments_*.html`): a step caption (`.lan-step`), the details, then the
+  review as an ordered list (`.lan-steps`) with Back (ghost) and Create segment (primary);
+  the server checks the details again at every step.
+
+### Page briefs (todo 36)
+
+- Clients. Primary action: none at page level; each row has its Actions menu. Priorities:
+  1 who is there (name, online, registered), 2 where (MAC, IP, interface or access point,
+  signal), 3 policy, access and schedule. Left out on purpose: traffic history and charts (no
+  stored client telemetry), vendor icons, bulk actions, a separate state column. Required
+  content: search, state and connection filters, count, name, online state, Not registered,
+  MAC, IP, interface or access point, signal (or Wired), received and sent, policy, access
+  (Blocked), schedule; Rename or Register, Block or Allow access, Set policy, Set schedule,
+  Set priority, Wake up, Remove (registered devices only, confirmed).
+- DHCP. Primary action: Add pool (pools view) or Add static lease (static leases view).
+  Priorities: 1 the view's table, 2 the view switch, 3 row actions (Edit, Make static).
+  Required content: pools (name, range, gateway, DNS, lease time, interface, state, Edit),
+  static leases (device, MAC, address), active leases (device, MAC, address, interface,
+  state, time left, Make static), ARP table (device, MAC, address, interface, state); the
+  pool dialog and the static lease dialog with their field errors (outside every pool,
+  address in use).
+- Segments. Primary action: Create segment. Required content: the wizard (number, VLAN ID,
+  router address, mask, DHCP range, switch ports, access point, connection policy; the
+  review; Back, Create segment) and the note that listing and deleting arrive later.
 
 ## 6. Motion & Interaction
 

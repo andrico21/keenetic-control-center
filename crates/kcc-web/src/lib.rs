@@ -55,6 +55,7 @@ mod admin_shared;
 mod admin_users;
 
 mod assets;
+mod clients_pages;
 mod credentials;
 mod dashboard;
 mod gauge;
@@ -375,6 +376,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(admin_routes())
         .merge(advanced::routes())
         .merge(system_general::routes())
+        .merge(clients_pages::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),

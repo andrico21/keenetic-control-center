@@ -1,0 +1,14 @@
+{#- A static lease; the DHCP domain refuses an address outside every pool or in use, and the error comes back here. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_DHCP_LEASE_TITLE)) %}
+<form class="form" hx-post="{{ action }}" hx-target="#page-outcome">
+  {%- if !problem.is_empty() %}
+  <p class="notice" data-tone="error">{{ problem }}</p>
+  {%- endif %}
+  {{ ui::field("lease-mac", "mac", t(keys::WEB_DHCP_LEASE_MAC), form.mac, mac_error, "text", "off", t(keys::WEB_DHCP_LEASE_MAC_HELP)) }}
+  {{ ui::field("lease-address", "address", t(keys::WEB_DHCP_LEASE_ADDRESS), form.address, address_error, "text", "off", t(keys::WEB_DHCP_LEASE_ADDRESS_HELP)) }}
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::COMMON_APPLY) }}</button>
+  </div>
+</form>
+{% endcall %}

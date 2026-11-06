@@ -1999,3 +1999,176 @@ h3 {
   flex: 1 1 16rem;
   max-inline-size: 24rem;
 }
+
+/* todo 36 */
+
+/* ---------- Local network pages: clients, DHCP, segments ---------- */
+
+:root {
+  --lan-table-min: 60rem;
+  --lan-field-min: 14rem;
+}
+
+.lan-page,
+.lan-region {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.lan-region {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.lan-page .table-wrap {
+  position: relative;
+}
+
+.lan-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-4) var(--space-5);
+}
+
+.lan-filter .field {
+  flex: 1 1 var(--setting-label);
+  max-inline-size: var(--lan-field-min);
+}
+
+.lan-filter .lan-filter__search {
+  flex-basis: var(--lan-field-min);
+  max-inline-size: 24rem;
+}
+
+.lan-filter__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.lan-count {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.lan-table {
+  min-inline-size: var(--lan-table-min);
+}
+
+.lan-table th,
+.lan-table td {
+  padding-inline: var(--space-3);
+  vertical-align: middle;
+}
+
+.lan-table .mono {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.lan-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+  font-weight: var(--weight-regular);
+}
+
+.lan-name {
+  overflow-wrap: anywhere;
+}
+
+.lan-actions {
+  white-space: nowrap;
+  text-align: end;
+}
+
+.lan-menu .menu__item {
+  padding-inline-start: var(--space-5);
+}
+
+.lan-menu form {
+  margin: 0;
+}
+
+.menu__item--danger {
+  color: var(--color-danger-ink);
+}
+
+.lan-views__list {
+  display: flex;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  list-style: none;
+}
+
+.lan-views__link {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: var(--control-height);
+  padding: 0 var(--space-4);
+  background: var(--color-chrome);
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.lan-views__link:hover {
+  background: var(--color-hover);
+  color: var(--color-text);
+}
+
+.lan-views__link:focus-visible {
+  outline-offset: -2px;
+}
+
+.lan-views__link[aria-current="page"] {
+  background: var(--color-selected);
+  color: var(--color-selected-ink);
+  font-weight: var(--weight-semibold);
+}
+
+.lan-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--lan-field-min)), 1fr));
+  gap: var(--space-5);
+}
+
+.lan-fields .field {
+  align-content: start;
+  max-inline-size: none;
+}
+
+.lan-ports > legend {
+  padding: 0;
+}
+
+.lan-ports__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-5);
+}
+
+.lan-step {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  line-height: var(--leading-caption);
+}
+
+.lan-steps {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding-inline-start: var(--space-6);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  line-height: var(--leading-small);
+}

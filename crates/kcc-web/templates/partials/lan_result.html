@@ -1,0 +1,9 @@
+{#- The answer to a local network change: the outcome, a note about it, then the page's region read back, out of band. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+{{ kit::result(outcome) }}
+{%- if let Some(text) = note %}
+<p class="notice" data-tone="error">{{ text }}</p>
+{%- endif %}
+{%- if let Some(region) = refreshed %}
+{{ region|safe }}
+{%- endif %}

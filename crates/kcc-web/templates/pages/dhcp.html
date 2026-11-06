@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(keys::WEB_DHCP_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page lan-page">
+  {%- include "partials/lan_tabs.html" %}
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_DHCP_TITLE) }}</h1>
+    {%- if let Some((href, label)) = add %}
+    <button class="button button--primary" type="button" hx-get="{{ href }}" hx-target="#dialog-content">{{ t(**label) }}</button>
+    {%- endif %}
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  <nav class="lan-views" aria-label="{{ t(keys::WEB_DHCP_VIEWS) }}">
+    <ul class="lan-views__list">
+      {%- for view in views %}
+      <li><a class="lan-views__link" href="{{ view.href() }}"{% if view.current() %} aria-current="page"{% endif %}>{{ t(view.label()) }}</a></li>
+      {%- endfor %}
+    </ul>
+  </nav>
+  {{ kit::outcome_region() }}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(table) = region %}
+  {{ table|safe }}
+  {%- endif %}
+</div>
+{%- endblock %}
