@@ -4,12 +4,16 @@ use alloc::collections::BTreeSet;
 use core::{net::IpAddr, str::FromStr as _};
 
 use kcc_rci::{Mac, ObjectName};
+use serde::Serialize;
 use serde_json::{Map, Value, json};
 
-use crate::{Argument, ArgumentKind, Catalog, Command, CommandKind, Risk};
+use crate::{
+    Argument, ArgumentKind, Catalog, Command, CommandKind, Risk, ValidatedRequest,
+    secret_value::secret_path,
+};
 
 /// HTTP methods understood by the RCI catalog validator.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 #[non_exhaustive]
 pub enum HttpMethod {
     /// Read or poll.
@@ -38,22 +42,6 @@ pub struct RequestOptions {
     pub unvalidated: bool,
     /// Caller authorization for the raw escape hatch.
     pub authorization: RawAuthorization,
-}
-
-/// A request safe to send through the generic RCI path.
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub struct ValidatedRequest {
-    /// Space-separated catalog path.
-    pub path: String,
-    /// Allowed HTTP method.
-    pub method: HttpMethod,
-    /// Validated request body or query object.
-    pub value: Value,
-    /// Risk used for permissions and confirmation.
-    pub risk: Risk,
-    /// Whether catalog validation was deliberately bypassed and must be audited.
-    pub unvalidated: bool,
 }
 
 /// One actionable catalog validation failure.
@@ -135,13 +123,9 @@ pub(crate) fn validate_root(
         }
     }
     if issues.is_empty() {
-        Ok(ValidatedRequest {
-            path: String::new(),
-            method,
-            value: value.clone(),
-            risk,
-            unvalidated: false,
-        })
+        let mut request = ValidatedRequest::capture(catalog, "", method, value.clone(), false);
+        request.risk = risk;
+        Ok(request)
     } else {
         Err(issues)
     }
@@ -215,7 +199,10 @@ fn validate_node(
     for (field, child_value) in object {
         let nested_field = join_field(field_path, field);
         if let Some(argument) = command.and_then(|entry| entry.arguments.get(field)) {
-            if !valid_argument(argument, child_value) {
+            let secret = secret_path(command_path) || argument.kind == ArgumentKind::Password;
+            if !valid_argument(argument, child_value)
+                || (secret && !valid_secret(argument, child_value))
+            {
                 issues.push(ValidationIssue::InvalidValue {
                     field: nested_field,
                 });
@@ -280,6 +267,7 @@ pub(crate) fn argument_schema(argument: &Argument) -> Value {
         ArgumentKind::ObjectName => json!({ "type": "string", "minLength": 1, "maxLength": 64 }),
         ArgumentKind::Keyword => json!({ "type": "string", "enum": argument.values }),
         ArgumentKind::String => json!({ "type": "string" }),
+        ArgumentKind::Password => json!({ "type": "string", "writeOnly": true, "maxLength": 256 }),
     }
 }
 
@@ -307,7 +295,21 @@ fn valid_argument(argument: &Argument, value: &Value) -> bool {
                 .any(|candidate| candidate.eq_ignore_ascii_case(text))
         }),
         ArgumentKind::String => value.is_string(),
+        ArgumentKind::Password => value
+            .as_str()
+            .is_some_and(|text| text.len() <= 256 && !text.chars().any(char::is_control)),
     }
+}
+
+/// Checks actual secret bytes before any CLI encoding or network request.
+fn valid_secret(argument: &Argument, value: &Value) -> bool {
+    value.as_str().is_some_and(|text| {
+        let length = i64::try_from(text.len()).unwrap_or(i64::MAX);
+        text.len() <= 256
+            && !text.chars().any(char::is_control)
+            && argument.minimum.is_none_or(|minimum| length >= minimum)
+            && argument.maximum.is_none_or(|maximum| length <= maximum)
+    })
 }
 
 /// Accepts contiguous IPv4 masks only.

@@ -88,6 +88,7 @@ pub(crate) fn cli_value(
             | ArgumentKind::MacAddress
             | ArgumentKind::ObjectName
             | ArgumentKind::Keyword
+            | ArgumentKind::Password
             | ArgumentKind::String => Value::String((*token).to_owned()),
         };
         drop(object.insert(argument.name.clone(), value));

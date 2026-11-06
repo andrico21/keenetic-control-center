@@ -79,3 +79,18 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - R5 is partial: properties cover public requests (1..64 Unicode characters, catalog test 1..256) and fixed result/error echoes, not every result/error under random inputs. TRACE capture is a scoped current-thread subscriber, not proof of arbitrary worker-thread propagation. No deliberate mutation-testing pass was completed beyond the naturally failing scrubber regression.
 - Scope blocker for strict end-to-end zeroization: kcc-rci::RciClient::{batch,parse,parse_batch} and Session HTTP serialization allocate ordinary Value/String/Vec request buffers. They cannot be made value-zeroizing solely from the allowed app/catalog/config files. Transport changes need an explicitly assigned kcc-rci task; do not claim all transient plaintext is zeroized.
 - Architecture self-review: new modules have distinct responsibilities; no unsafe, numeric casts, unwrap/expect, new logging, or allow attributes added. Existing modified validate.rs (358 pure LOC), runtime.rs (555), workflow.rs (929) still exceed the programming-skill ceiling and need scoped extraction; secret_value.rs (239) and secrets_write.rs (244) are in the warning band. This was not completed. No final merge-ready claim is made.
+
+## [2026-11-06] Todo 42 follow-ups
+- Wire `WebState::with_jobs` in `crates/kcc/src/server.rs` (kcc was out of scope for todo 42).
+- kcc-catalog `Command` lacks since/page/source_url/interface_type/context; kcc-web reads them from `kcc_catalog::generated::FILES` (`advanced/meta.rs`). Expose them on `Command` and drop the second parse.
+- kcc-catalog has no secret flag on arguments; extraction also types `dyndns profile password` and `interface web-api password` as Keyword(values=["length"]).
+- `BackgroundHandle` exposes only the final answer (`poll` loops internally), so explorer jobs stream status changes live and the output at completion; live line output needs a per-poll API in kcc-rci.
+- `ChangeSet::apply_batch` audits `applied_unsaved` even when an item came back with an RCI error status; the web audit (`web.explorer_execute`/`web.console_rci`) records the real outcome.
+- Pre-existing design-system defect seen in QA: `.toast[data-tone]` uses the translucent status wash as its background, so in dark mode the content under a toast shows through it (E5). Fix with an opaque raised base under the wash.
+
+## [2026-11-06] Todo 44 follow-ups
+- `kcc_mcp::KccMcp` resolves identities against its startup `roles` snapshot: a custom role created or edited in the Web UI reaches the kit RBAC (outer gate) at once, but inside the handlers a new role is `Forbidden` and an edited role keeps its old definition until restart (two-router migration scope checks rely on that inner check). Needs a role-source seam in kcc-mcp (not editable in todo 44).
+- Nothing calls `api_keys::record_api_key_use`, so the API-key "Last used" column always says "Never"; kcc-mcp or a kit auth hook should record use.
+- The Web UI role cache is refreshed by Web UI role changes only; a SIGHUP reload of an externally edited `roles.json` reaches MCP RBAC but not the Web UI until restart.
+- The visual-qa dual-oracle review could not be dispatched (no oracle subagent available to this executor); captures were self-reviewed with a 390 px overflow probe, a CSP-violation listener and DOM checks.
+- Typed-name confirmations clear the typed value when it does not match.

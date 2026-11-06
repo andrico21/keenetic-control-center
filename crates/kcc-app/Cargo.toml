@@ -30,6 +30,9 @@ zeroize = "1.9.1"
 
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
+proptest = "1.9.0"
+tracing = { version = "0.1.44", default-features = false, features = ["std"] }
+tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
 tempfile = "3.27.0"
 
 [package.metadata.cargo-machete]

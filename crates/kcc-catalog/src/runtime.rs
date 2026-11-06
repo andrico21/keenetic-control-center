@@ -8,17 +8,18 @@ use core::cmp::Reverse;
 use std::sync::{LazyLock, PoisonError, RwLock};
 
 use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
-use serde::Deserialize;
+use secrecy::SecretString;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    SecretValue, ValidatedRequest,
     cli::{Synopsis, cli_value},
     generated,
     search::{SearchResult, expand, score, tokenize},
     validate::{
-        HttpMethod, RawAuthorization, RequestOptions, ValidatedRequest, ValidationIssue,
-        argument_schema, boolean_keyword_forms, child_names, method_allowed, validate_root,
-        validate_value,
+        HttpMethod, RawAuthorization, RequestOptions, ValidationIssue, argument_schema,
+        boolean_keyword_forms, child_names, method_allowed, validate_root, validate_value,
     },
 };
 
@@ -101,6 +102,8 @@ pub enum ArgumentKind {
     Keyword,
     /// Unconstrained textual catalog value.
     String,
+    /// Sensitive text that must never enter printable request projections.
+    Password,
 }
 
 /// One generated command argument.
@@ -136,7 +139,7 @@ pub struct Command {
 }
 
 /// Coarse authorization and confirmation risk.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 #[non_exhaustive]
 pub enum Risk {
     /// Read-only request.
@@ -306,6 +309,60 @@ impl Catalog {
         self.validate_with_options(path, method, value, RequestOptions::default())
     }
 
+    /// Validates one named secret argument without a caller-owned plaintext JSON copy.
+    ///
+    /// # Errors
+    ///
+    /// Returns ordinary value-free catalog issues for absent commands, unknown arguments,
+    /// or invalid secret bounds. The input is zeroized on every return path.
+    #[inline]
+    pub fn validate_secret(
+        &self,
+        path: &str,
+        name: &str,
+        secret: SecretString,
+    ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
+        let protected = SecretValue::argument(name, secret);
+        let wire = protected.expose_for_send();
+        if !wire
+            .expose_secret()
+            .get(name)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|text| {
+                !text.is_empty() && text.len() <= 256 && !text.chars().any(char::is_control)
+            })
+        {
+            return Err(vec![ValidationIssue::InvalidValue {
+                field: name.to_owned(),
+            }]);
+        }
+        let Some(argument) = self
+            .lookup(path)
+            .and_then(|command| command.arguments.get(name))
+        else {
+            return Err(vec![ValidationIssue::InvalidValue {
+                field: name.to_owned(),
+            }]);
+        };
+        let length = wire
+            .expose_secret()
+            .get(name)
+            .and_then(serde_json::Value::as_str)
+            .and_then(|text| i64::try_from(text.len()).ok())
+            .unwrap_or(i64::MAX);
+        if argument.minimum.is_some_and(|minimum| length < minimum)
+            || argument.maximum.is_some_and(|maximum| length > maximum)
+        {
+            return Err(vec![ValidationIssue::InvalidValue {
+                field: name.to_owned(),
+            }]);
+        }
+        let mut request = self.validate(path, HttpMethod::Post, wire.expose_secret())?;
+        request.value = protected.redacted().clone();
+        request.protected = protected;
+        Ok(request)
+    }
+
     /// Validates a whitespace-tokenized CLI line against the longest known command prefix.
     ///
     /// Fixed synopsis forms supply positional order, including multi-argument commands;
@@ -391,13 +448,13 @@ impl Catalog {
         let Some(command) = self.lookup(path) else {
             if options.unvalidated {
                 if options.authorization.raw_rci && options.authorization.admin_manage_routers {
-                    return Ok(ValidatedRequest {
-                        path: path.to_owned(),
+                    return Ok(ValidatedRequest::capture(
+                        self,
+                        path,
                         method,
-                        value: value.clone(),
-                        risk: Risk::Management,
-                        unvalidated: true,
-                    });
+                        value.clone(),
+                        true,
+                    ));
                 }
                 return Err(vec![ValidationIssue::RawAuthorizationRequired]);
             }
@@ -412,13 +469,13 @@ impl Catalog {
         }
         validate_value(self, command, path, value, "", &mut issues);
         if issues.is_empty() {
-            Ok(ValidatedRequest {
-                path: path.to_owned(),
+            Ok(ValidatedRequest::capture(
+                self,
+                path,
                 method,
-                value: value.clone(),
-                risk: self.risk(path).unwrap_or(Risk::Write),
-                unvalidated: false,
-            })
+                value.clone(),
+                false,
+            ))
         } else {
             Err(issues)
         }
@@ -629,6 +686,7 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
                         "MacAddress" => ArgumentKind::MacAddress,
                         "Interface" | "ObjectName" => ArgumentKind::ObjectName,
                         "Keyword" => ArgumentKind::Keyword,
+                        "Password" => ArgumentKind::Password,
                         _ => ArgumentKind::String,
                     };
                     let value = Argument {

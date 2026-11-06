@@ -1436,6 +1436,7 @@ dependencies = [
  "kcc-config",
  "kcc-rci",
  "kcc-testkit",
+ "proptest",
  "rmcp-server-kit",
  "secrecy",
  "serde",
@@ -1446,6 +1447,8 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "tracing",
+ "tracing-subscriber",
  "url",
  "zeroize",
 ]
@@ -1464,6 +1467,7 @@ dependencies = [
  "tokio",
  "tokio-util",
  "toml",
+ "zeroize",
 ]
 
 [[package]]
