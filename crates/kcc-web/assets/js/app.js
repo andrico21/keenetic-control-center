@@ -392,3 +392,18 @@
     }
   });
 })();
+
+// todo 39: an upload over its size limit is answered with 413 and the dialog showing the
+// localized size error (HX-Retarget set by the server): swap it like a 422. A 413 without
+// that header (no dialog to show) keeps htmx's default.
+(() => {
+  "use strict";
+
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    const xhr = event.detail?.xhr;
+    if (xhr?.status === 413 && xhr.getResponseHeader("HX-Retarget")) {
+      event.detail.shouldSwap = true;
+      event.detail.isError = false;
+    }
+  });
+})();

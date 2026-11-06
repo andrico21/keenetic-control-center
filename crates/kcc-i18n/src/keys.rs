@@ -2769,8 +2769,591 @@ pub const WEB_MESH_UPDATE: MessageKey = MessageKey::new("web-mesh-update");
 /// `web-mesh-restart` in `web.ftl`.
 pub const WEB_MESH_RESTART: MessageKey = MessageKey::new("web-mesh-restart");
 
+/// `web-dns-tab-servers` in `web.ftl`.
+pub const WEB_DNS_TAB_SERVERS: MessageKey = MessageKey::new("web-dns-tab-servers");
+
+/// `web-dns-tab-filtering` in `web.ftl`.
+pub const WEB_DNS_TAB_FILTERING: MessageKey = MessageKey::new("web-dns-tab-filtering");
+
+/// `web-dns-tab-records` in `web.ftl`.
+pub const WEB_DNS_TAB_RECORDS: MessageKey = MessageKey::new("web-dns-tab-records");
+
+/// `web-dns-tab-lists` in `web.ftl`.
+pub const WEB_DNS_TAB_LISTS: MessageKey = MessageKey::new("web-dns-tab-lists");
+
+/// `web-dns-tab-routes` in `web.ftl`.
+pub const WEB_DNS_TAB_ROUTES: MessageKey = MessageKey::new("web-dns-tab-routes");
+
+/// `web-vpn-tab-connections` in `web.ftl`.
+pub const WEB_VPN_TAB_CONNECTIONS: MessageKey = MessageKey::new("web-vpn-tab-connections");
+
+/// `web-vpn-tab-servers` in `web.ftl`.
+pub const WEB_VPN_TAB_SERVERS: MessageKey = MessageKey::new("web-vpn-tab-servers");
+
+/// `web-dns-server` in `web.ftl`.
+pub const WEB_DNS_SERVER: MessageKey = MessageKey::new("web-dns-server");
+
+/// `web-dns-protocol` in `web.ftl`.
+pub const WEB_DNS_PROTOCOL: MessageKey = MessageKey::new("web-dns-protocol");
+
+/// `web-dns-options` in `web.ftl`.
+pub const WEB_DNS_OPTIONS: MessageKey = MessageKey::new("web-dns-options");
+
+/// `web-dns-protocol-tls` in `web.ftl`.
+pub const WEB_DNS_PROTOCOL_TLS: MessageKey = MessageKey::new("web-dns-protocol-tls");
+
+/// `web-dns-protocol-https` in `web.ftl`.
+pub const WEB_DNS_PROTOCOL_HTTPS: MessageKey = MessageKey::new("web-dns-protocol-https");
+
+/// `web-dns-protocol-plain` in `web.ftl`.
+pub const WEB_DNS_PROTOCOL_PLAIN: MessageKey = MessageKey::new("web-dns-protocol-plain");
+
+/// `web-dns-servers-empty` in `web.ftl`.
+pub const WEB_DNS_SERVERS_EMPTY: MessageKey = MessageKey::new("web-dns-servers-empty");
+
+/// `web-dns-server-add` in `web.ftl`.
+pub const WEB_DNS_SERVER_ADD: MessageKey = MessageKey::new("web-dns-server-add");
+
+/// `web-dns-address` in `web.ftl`.
+pub const WEB_DNS_ADDRESS: MessageKey = MessageKey::new("web-dns-address");
+
+/// `web-dns-address-help` in `web.ftl`.
+pub const WEB_DNS_ADDRESS_HELP: MessageKey = MessageKey::new("web-dns-address-help");
+
+/// `web-dns-port` in `web.ftl`.
+pub const WEB_DNS_PORT: MessageKey = MessageKey::new("web-dns-port");
+
+/// `web-dns-port-help` in `web.ftl`.
+pub const WEB_DNS_PORT_HELP: MessageKey = MessageKey::new("web-dns-port-help");
+
+/// `web-dns-sni` in `web.ftl`.
+pub const WEB_DNS_SNI: MessageKey = MessageKey::new("web-dns-sni");
+
+/// `web-dns-sni-help` in `web.ftl`.
+pub const WEB_DNS_SNI_HELP: MessageKey = MessageKey::new("web-dns-sni-help");
+
+/// `web-dns-url` in `web.ftl`.
+pub const WEB_DNS_URL: MessageKey = MessageKey::new("web-dns-url");
+
+/// `web-dns-url-help` in `web.ftl`.
+pub const WEB_DNS_URL_HELP: MessageKey = MessageKey::new("web-dns-url-help");
+
+/// `web-dns-format` in `web.ftl`.
+pub const WEB_DNS_FORMAT: MessageKey = MessageKey::new("web-dns-format");
+
+/// `web-dns-format-default` in `web.ftl`.
+pub const WEB_DNS_FORMAT_DEFAULT: MessageKey = MessageKey::new("web-dns-format-default");
+
+/// `web-dns-format-dnsm` in `web.ftl`.
+pub const WEB_DNS_FORMAT_DNSM: MessageKey = MessageKey::new("web-dns-format-dnsm");
+
+/// `web-dns-format-json` in `web.ftl`.
+pub const WEB_DNS_FORMAT_JSON: MessageKey = MessageKey::new("web-dns-format-json");
+
+/// `web-dns-record-add` in `web.ftl`.
+pub const WEB_DNS_RECORD_ADD: MessageKey = MessageKey::new("web-dns-record-add");
+
+/// `web-dns-domain` in `web.ftl`.
+pub const WEB_DNS_DOMAIN: MessageKey = MessageKey::new("web-dns-domain");
+
+/// `web-dns-domain-help` in `web.ftl`.
+pub const WEB_DNS_DOMAIN_HELP: MessageKey = MessageKey::new("web-dns-domain-help");
+
+/// `web-dns-records-empty` in `web.ftl`.
+pub const WEB_DNS_RECORDS_EMPTY: MessageKey = MessageKey::new("web-dns-records-empty");
+
+/// `web-dns-list` in `web.ftl`.
+pub const WEB_DNS_LIST: MessageKey = MessageKey::new("web-dns-list");
+
+/// `web-dns-description` in `web.ftl`.
+pub const WEB_DNS_DESCRIPTION: MessageKey = MessageKey::new("web-dns-description");
+
+/// `web-dns-included` in `web.ftl`.
+pub const WEB_DNS_INCLUDED: MessageKey = MessageKey::new("web-dns-included");
+
+/// `web-dns-excluded` in `web.ftl`.
+pub const WEB_DNS_EXCLUDED: MessageKey = MessageKey::new("web-dns-excluded");
+
+/// `web-dns-lists-empty` in `web.ftl`.
+pub const WEB_DNS_LISTS_EMPTY: MessageKey = MessageKey::new("web-dns-lists-empty");
+
+/// `web-dns-list-add` in `web.ftl`.
+pub const WEB_DNS_LIST_ADD: MessageKey = MessageKey::new("web-dns-list-add");
+
+/// `web-dns-name` in `web.ftl`.
+pub const WEB_DNS_NAME: MessageKey = MessageKey::new("web-dns-name");
+
+/// `web-dns-name-help` in `web.ftl`.
+pub const WEB_DNS_NAME_HELP: MessageKey = MessageKey::new("web-dns-name-help");
+
+/// `web-dns-entry-add` in `web.ftl`.
+pub const WEB_DNS_ENTRY_ADD: MessageKey = MessageKey::new("web-dns-entry-add");
+
+/// `web-dns-entry-kind` in `web.ftl`.
+pub const WEB_DNS_ENTRY_KIND: MessageKey = MessageKey::new("web-dns-entry-kind");
+
+/// `web-dns-include` in `web.ftl`.
+pub const WEB_DNS_INCLUDE: MessageKey = MessageKey::new("web-dns-include");
+
+/// `web-dns-exclude` in `web.ftl`.
+pub const WEB_DNS_EXCLUDE: MessageKey = MessageKey::new("web-dns-exclude");
+
+/// `web-dns-entry-help` in `web.ftl`.
+pub const WEB_DNS_ENTRY_HELP: MessageKey = MessageKey::new("web-dns-entry-help");
+
+/// `web-dns-interface` in `web.ftl`.
+pub const WEB_DNS_INTERFACE: MessageKey = MessageKey::new("web-dns-interface");
+
+/// `web-dns-gateway` in `web.ftl`.
+pub const WEB_DNS_GATEWAY: MessageKey = MessageKey::new("web-dns-gateway");
+
+/// `web-dns-routes-empty` in `web.ftl`.
+pub const WEB_DNS_ROUTES_EMPTY: MessageKey = MessageKey::new("web-dns-routes-empty");
+
+/// `web-dns-route-add` in `web.ftl`.
+pub const WEB_DNS_ROUTE_ADD: MessageKey = MessageKey::new("web-dns-route-add");
+
+/// `web-dns-route-intro` in `web.ftl`.
+pub const WEB_DNS_ROUTE_INTRO: MessageKey = MessageKey::new("web-dns-route-intro");
+
+/// `web-dns-filter-settings` in `web.ftl`.
+pub const WEB_DNS_FILTER_SETTINGS: MessageKey = MessageKey::new("web-dns-filter-settings");
+
+/// `web-dns-engine` in `web.ftl`.
+pub const WEB_DNS_ENGINE: MessageKey = MessageKey::new("web-dns-engine");
+
+/// `web-dns-engine-title` in `web.ftl`.
+pub const WEB_DNS_ENGINE_TITLE: MessageKey = MessageKey::new("web-dns-engine-title");
+
+/// `web-dns-engine-public` in `web.ftl`.
+pub const WEB_DNS_ENGINE_PUBLIC: MessageKey = MessageKey::new("web-dns-engine-public");
+
+/// `web-dns-engine-nextdns` in `web.ftl`.
+pub const WEB_DNS_ENGINE_NEXTDNS: MessageKey = MessageKey::new("web-dns-engine-nextdns");
+
+/// `web-dns-engine-skydns` in `web.ftl`.
+pub const WEB_DNS_ENGINE_SKYDNS: MessageKey = MessageKey::new("web-dns-engine-skydns");
+
+/// `web-dns-engine-interceptor` in `web.ftl`.
+pub const WEB_DNS_ENGINE_INTERCEPTOR: MessageKey = MessageKey::new("web-dns-engine-interceptor");
+
+/// `web-dns-engine-opkg` in `web.ftl`.
+pub const WEB_DNS_ENGINE_OPKG: MessageKey = MessageKey::new("web-dns-engine-opkg");
+
+/// `web-dns-intercept` in `web.ftl`.
+pub const WEB_DNS_INTERCEPT: MessageKey = MessageKey::new("web-dns-intercept");
+
+/// `web-dns-intercept-on` in `web.ftl`.
+pub const WEB_DNS_INTERCEPT_ON: MessageKey = MessageKey::new("web-dns-intercept-on");
+
+/// `web-dns-intercept-off` in `web.ftl`.
+pub const WEB_DNS_INTERCEPT_OFF: MessageKey = MessageKey::new("web-dns-intercept-off");
+
+/// `web-dns-on` in `web.ftl`.
+pub const WEB_DNS_ON: MessageKey = MessageKey::new("web-dns-on");
+
+/// `web-dns-off` in `web.ftl`.
+pub const WEB_DNS_OFF: MessageKey = MessageKey::new("web-dns-off");
+
+/// `web-dns-profiles` in `web.ftl`.
+pub const WEB_DNS_PROFILES: MessageKey = MessageKey::new("web-dns-profiles");
+
+/// `web-dns-profiles-empty` in `web.ftl`.
+pub const WEB_DNS_PROFILES_EMPTY: MessageKey = MessageKey::new("web-dns-profiles-empty");
+
+/// `web-dns-profile-add` in `web.ftl`.
+pub const WEB_DNS_PROFILE_ADD: MessageKey = MessageKey::new("web-dns-profile-add");
+
+/// `web-dns-profile` in `web.ftl`.
+pub const WEB_DNS_PROFILE: MessageKey = MessageKey::new("web-dns-profile");
+
+/// `web-dns-assignments` in `web.ftl`.
+pub const WEB_DNS_ASSIGNMENTS: MessageKey = MessageKey::new("web-dns-assignments");
+
+/// `web-dns-assignments-empty` in `web.ftl`.
+pub const WEB_DNS_ASSIGNMENTS_EMPTY: MessageKey = MessageKey::new("web-dns-assignments-empty");
+
+/// `web-dns-assign-title` in `web.ftl`.
+pub const WEB_DNS_ASSIGN_TITLE: MessageKey = MessageKey::new("web-dns-assign-title");
+
+/// `web-dns-target` in `web.ftl`.
+pub const WEB_DNS_TARGET: MessageKey = MessageKey::new("web-dns-target");
+
+/// `web-dns-target-kind` in `web.ftl`.
+pub const WEB_DNS_TARGET_KIND: MessageKey = MessageKey::new("web-dns-target-kind");
+
+/// `web-dns-target-host` in `web.ftl`.
+pub const WEB_DNS_TARGET_HOST: MessageKey = MessageKey::new("web-dns-target-host");
+
+/// `web-dns-target-interface` in `web.ftl`.
+pub const WEB_DNS_TARGET_INTERFACE: MessageKey = MessageKey::new("web-dns-target-interface");
+
+/// `web-dns-host` in `web.ftl`.
+pub const WEB_DNS_HOST: MessageKey = MessageKey::new("web-dns-host");
+
+/// `web-dns-host-help` in `web.ftl`.
+pub const WEB_DNS_HOST_HELP: MessageKey = MessageKey::new("web-dns-host-help");
+
+/// `web-dns-none` in `web.ftl`.
+pub const WEB_DNS_NONE: MessageKey = MessageKey::new("web-dns-none");
+
+/// `web-dns-error-address` in `web.ftl`.
+pub const WEB_DNS_ERROR_ADDRESS: MessageKey = MessageKey::new("web-dns-error-address");
+
+/// `web-dns-error-port` in `web.ftl`.
+pub const WEB_DNS_ERROR_PORT: MessageKey = MessageKey::new("web-dns-error-port");
+
+/// `web-dns-error-domain` in `web.ftl`.
+pub const WEB_DNS_ERROR_DOMAIN: MessageKey = MessageKey::new("web-dns-error-domain");
+
+/// `web-dns-error-url` in `web.ftl`.
+pub const WEB_DNS_ERROR_URL: MessageKey = MessageKey::new("web-dns-error-url");
+
+/// `web-dns-error-name` in `web.ftl`.
+pub const WEB_DNS_ERROR_NAME: MessageKey = MessageKey::new("web-dns-error-name");
+
+/// `web-dns-error-choice` in `web.ftl`.
+pub const WEB_DNS_ERROR_CHOICE: MessageKey = MessageKey::new("web-dns-error-choice");
+
+/// `web-dns-error-mac` in `web.ftl`.
+pub const WEB_DNS_ERROR_MAC: MessageKey = MessageKey::new("web-dns-error-mac");
+
+/// `web-vpn-import-skipped` in `web.ftl`.
+pub const WEB_VPN_IMPORT_SKIPPED: MessageKey = MessageKey::new("web-vpn-import-skipped");
+
+/// `web-vpn-type-wireguard` in `web.ftl`.
+pub const WEB_VPN_TYPE_WIREGUARD: MessageKey = MessageKey::new("web-vpn-type-wireguard");
+
+/// `web-vpn-type-openvpn` in `web.ftl`.
+pub const WEB_VPN_TYPE_OPENVPN: MessageKey = MessageKey::new("web-vpn-type-openvpn");
+
+/// `web-vpn-type-ipsec` in `web.ftl`.
+pub const WEB_VPN_TYPE_IPSEC: MessageKey = MessageKey::new("web-vpn-type-ipsec");
+
+/// `web-vpn-type-l2tp` in `web.ftl`.
+pub const WEB_VPN_TYPE_L2TP: MessageKey = MessageKey::new("web-vpn-type-l2tp");
+
+/// `web-vpn-type-pptp` in `web.ftl`.
+pub const WEB_VPN_TYPE_PPTP: MessageKey = MessageKey::new("web-vpn-type-pptp");
+
+/// `web-vpn-type-sstp` in `web.ftl`.
+pub const WEB_VPN_TYPE_SSTP: MessageKey = MessageKey::new("web-vpn-type-sstp");
+
+/// `web-vpn-type-zerotier` in `web.ftl`.
+pub const WEB_VPN_TYPE_ZEROTIER: MessageKey = MessageKey::new("web-vpn-type-zerotier");
+
+/// `web-vpn-type-openconnect` in `web.ftl`.
+pub const WEB_VPN_TYPE_OPENCONNECT: MessageKey = MessageKey::new("web-vpn-type-openconnect");
+
+/// `web-vpn-type-proxy` in `web.ftl`.
+pub const WEB_VPN_TYPE_PROXY: MessageKey = MessageKey::new("web-vpn-type-proxy");
+
+/// `web-vpn-type-other` in `web.ftl`.
+pub const WEB_VPN_TYPE_OTHER: MessageKey = MessageKey::new("web-vpn-type-other");
+
+/// `web-vpn-detail-port` in `web.ftl`.
+pub const WEB_VPN_DETAIL_PORT: MessageKey = MessageKey::new("web-vpn-detail-port");
+
+/// `web-vpn-detail-peers` in `web.ftl`.
+pub const WEB_VPN_DETAIL_PEERS: MessageKey = MessageKey::new("web-vpn-detail-peers");
+
+/// `web-vpn-detail-peer` in `web.ftl`.
+pub const WEB_VPN_DETAIL_PEER: MessageKey = MessageKey::new("web-vpn-detail-peer");
+
+/// `web-vpn-detail-network` in `web.ftl`.
+pub const WEB_VPN_DETAIL_NETWORK: MessageKey = MessageKey::new("web-vpn-detail-network");
+
+/// `web-vpn-detail-protocol` in `web.ftl`.
+pub const WEB_VPN_DETAIL_PROTOCOL: MessageKey = MessageKey::new("web-vpn-detail-protocol");
+
+/// `web-vpn-name` in `web.ftl`.
+pub const WEB_VPN_NAME: MessageKey = MessageKey::new("web-vpn-name");
+
+/// `web-vpn-type` in `web.ftl`.
+pub const WEB_VPN_TYPE: MessageKey = MessageKey::new("web-vpn-type");
+
+/// `web-vpn-state` in `web.ftl`.
+pub const WEB_VPN_STATE: MessageKey = MessageKey::new("web-vpn-state");
+
+/// `web-vpn-details` in `web.ftl`.
+pub const WEB_VPN_DETAILS: MessageKey = MessageKey::new("web-vpn-details");
+
+/// `web-vpn-connections-empty` in `web.ftl`.
+pub const WEB_VPN_CONNECTIONS_EMPTY: MessageKey = MessageKey::new("web-vpn-connections-empty");
+
+/// `web-vpn-enable` in `web.ftl`.
+pub const WEB_VPN_ENABLE: MessageKey = MessageKey::new("web-vpn-enable");
+
+/// `web-vpn-disable` in `web.ftl`.
+pub const WEB_VPN_DISABLE: MessageKey = MessageKey::new("web-vpn-disable");
+
+/// `web-vpn-peers` in `web.ftl`.
+pub const WEB_VPN_PEERS: MessageKey = MessageKey::new("web-vpn-peers");
+
+/// `web-vpn-peers-title` in `web.ftl`.
+pub const WEB_VPN_PEERS_TITLE: MessageKey = MessageKey::new("web-vpn-peers-title");
+
+/// `web-vpn-back` in `web.ftl`.
+pub const WEB_VPN_BACK: MessageKey = MessageKey::new("web-vpn-back");
+
+/// `web-vpn-no-tunnel` in `web.ftl`.
+pub const WEB_VPN_NO_TUNNEL: MessageKey = MessageKey::new("web-vpn-no-tunnel");
+
+/// `web-vpn-peers-empty` in `web.ftl`.
+pub const WEB_VPN_PEERS_EMPTY: MessageKey = MessageKey::new("web-vpn-peers-empty");
+
+/// `web-vpn-peer-add` in `web.ftl`.
+pub const WEB_VPN_PEER_ADD: MessageKey = MessageKey::new("web-vpn-peer-add");
+
+/// `web-vpn-peer-title` in `web.ftl`.
+pub const WEB_VPN_PEER_TITLE: MessageKey = MessageKey::new("web-vpn-peer-title");
+
+/// `web-vpn-router-side` in `web.ftl`.
+pub const WEB_VPN_ROUTER_SIDE: MessageKey = MessageKey::new("web-vpn-router-side");
+
+/// `web-vpn-peers-note` in `web.ftl`.
+pub const WEB_VPN_PEERS_NOTE: MessageKey = MessageKey::new("web-vpn-peers-note");
+
+/// `web-vpn-router-key` in `web.ftl`.
+pub const WEB_VPN_ROUTER_KEY: MessageKey = MessageKey::new("web-vpn-router-key");
+
+/// `web-vpn-private-key` in `web.ftl`.
+pub const WEB_VPN_PRIVATE_KEY: MessageKey = MessageKey::new("web-vpn-private-key");
+
+/// `web-vpn-secret-set` in `web.ftl`.
+pub const WEB_VPN_SECRET_SET: MessageKey = MessageKey::new("web-vpn-secret-set");
+
+/// `web-vpn-secret-unset` in `web.ftl`.
+pub const WEB_VPN_SECRET_UNSET: MessageKey = MessageKey::new("web-vpn-secret-unset");
+
+/// `web-vpn-public-key` in `web.ftl`.
+pub const WEB_VPN_PUBLIC_KEY: MessageKey = MessageKey::new("web-vpn-public-key");
+
+/// `web-vpn-public-key-help` in `web.ftl`.
+pub const WEB_VPN_PUBLIC_KEY_HELP: MessageKey = MessageKey::new("web-vpn-public-key-help");
+
+/// `web-vpn-endpoint` in `web.ftl`.
+pub const WEB_VPN_ENDPOINT: MessageKey = MessageKey::new("web-vpn-endpoint");
+
+/// `web-vpn-endpoint-help` in `web.ftl`.
+pub const WEB_VPN_ENDPOINT_HELP: MessageKey = MessageKey::new("web-vpn-endpoint-help");
+
+/// `web-vpn-allowed` in `web.ftl`.
+pub const WEB_VPN_ALLOWED: MessageKey = MessageKey::new("web-vpn-allowed");
+
+/// `web-vpn-allowed-add` in `web.ftl`.
+pub const WEB_VPN_ALLOWED_ADD: MessageKey = MessageKey::new("web-vpn-allowed-add");
+
+/// `web-vpn-allowed-help` in `web.ftl`.
+pub const WEB_VPN_ALLOWED_HELP: MessageKey = MessageKey::new("web-vpn-allowed-help");
+
+/// `web-vpn-keepalive` in `web.ftl`.
+pub const WEB_VPN_KEEPALIVE: MessageKey = MessageKey::new("web-vpn-keepalive");
+
+/// `web-vpn-keepalive-help` in `web.ftl`.
+pub const WEB_VPN_KEEPALIVE_HELP: MessageKey = MessageKey::new("web-vpn-keepalive-help");
+
+/// `web-vpn-preshared` in `web.ftl`.
+pub const WEB_VPN_PRESHARED: MessageKey = MessageKey::new("web-vpn-preshared");
+
+/// `web-vpn-create` in `web.ftl`.
+pub const WEB_VPN_CREATE: MessageKey = MessageKey::new("web-vpn-create");
+
+/// `web-vpn-create-intro` in `web.ftl`.
+pub const WEB_VPN_CREATE_INTRO: MessageKey = MessageKey::new("web-vpn-create-intro");
+
+/// `web-vpn-name-help` in `web.ftl`.
+pub const WEB_VPN_NAME_HELP: MessageKey = MessageKey::new("web-vpn-name-help");
+
+/// `web-vpn-port` in `web.ftl`.
+pub const WEB_VPN_PORT: MessageKey = MessageKey::new("web-vpn-port");
+
+/// `web-vpn-port-help` in `web.ftl`.
+pub const WEB_VPN_PORT_HELP: MessageKey = MessageKey::new("web-vpn-port-help");
+
+/// `web-vpn-import` in `web.ftl`.
+pub const WEB_VPN_IMPORT: MessageKey = MessageKey::new("web-vpn-import");
+
+/// `web-vpn-import-intro` in `web.ftl`.
+pub const WEB_VPN_IMPORT_INTRO: MessageKey = MessageKey::new("web-vpn-import-intro");
+
+/// `web-vpn-import-submit` in `web.ftl`.
+pub const WEB_VPN_IMPORT_SUBMIT: MessageKey = MessageKey::new("web-vpn-import-submit");
+
+/// `web-vpn-file` in `web.ftl`.
+pub const WEB_VPN_FILE: MessageKey = MessageKey::new("web-vpn-file");
+
+/// `web-vpn-file-help` in `web.ftl`.
+pub const WEB_VPN_FILE_HELP: MessageKey = MessageKey::new("web-vpn-file-help");
+
+/// `web-vpn-on` in `web.ftl`.
+pub const WEB_VPN_ON: MessageKey = MessageKey::new("web-vpn-on");
+
+/// `web-vpn-off` in `web.ftl`.
+pub const WEB_VPN_OFF: MessageKey = MessageKey::new("web-vpn-off");
+
+/// `web-vpn-server-pptp` in `web.ftl`.
+pub const WEB_VPN_SERVER_PPTP: MessageKey = MessageKey::new("web-vpn-server-pptp");
+
+/// `web-vpn-server-sstp` in `web.ftl`.
+pub const WEB_VPN_SERVER_SSTP: MessageKey = MessageKey::new("web-vpn-server-sstp");
+
+/// `web-vpn-server-openconnect` in `web.ftl`.
+pub const WEB_VPN_SERVER_OPENCONNECT: MessageKey = MessageKey::new("web-vpn-server-openconnect");
+
+/// `web-vpn-server-ipsec` in `web.ftl`.
+pub const WEB_VPN_SERVER_IPSEC: MessageKey = MessageKey::new("web-vpn-server-ipsec");
+
+/// `web-vpn-server-wireguard` in `web.ftl`.
+pub const WEB_VPN_SERVER_WIREGUARD: MessageKey = MessageKey::new("web-vpn-server-wireguard");
+
+/// `web-vpn-server-enable` in `web.ftl`.
+pub const WEB_VPN_SERVER_ENABLE: MessageKey = MessageKey::new("web-vpn-server-enable");
+
+/// `web-vpn-server-disable` in `web.ftl`.
+pub const WEB_VPN_SERVER_DISABLE: MessageKey = MessageKey::new("web-vpn-server-disable");
+
+/// `web-vpn-server-interface` in `web.ftl`.
+pub const WEB_VPN_SERVER_INTERFACE: MessageKey = MessageKey::new("web-vpn-server-interface");
+
+/// `web-vpn-pool` in `web.ftl`.
+pub const WEB_VPN_POOL: MessageKey = MessageKey::new("web-vpn-pool");
+
+/// `web-vpn-dns` in `web.ftl`.
+pub const WEB_VPN_DNS: MessageKey = MessageKey::new("web-vpn-dns");
+
+/// `web-vpn-pool-begin` in `web.ftl`.
+pub const WEB_VPN_POOL_BEGIN: MessageKey = MessageKey::new("web-vpn-pool-begin");
+
+/// `web-vpn-pool-begin-help` in `web.ftl`.
+pub const WEB_VPN_POOL_BEGIN_HELP: MessageKey = MessageKey::new("web-vpn-pool-begin-help");
+
+/// `web-vpn-pool-size` in `web.ftl`.
+pub const WEB_VPN_POOL_SIZE: MessageKey = MessageKey::new("web-vpn-pool-size");
+
+/// `web-vpn-pool-size-help` in `web.ftl`.
+pub const WEB_VPN_POOL_SIZE_HELP: MessageKey = MessageKey::new("web-vpn-pool-size-help");
+
+/// `web-vpn-dns-primary` in `web.ftl`.
+pub const WEB_VPN_DNS_PRIMARY: MessageKey = MessageKey::new("web-vpn-dns-primary");
+
+/// `web-vpn-dns-secondary` in `web.ftl`.
+pub const WEB_VPN_DNS_SECONDARY: MessageKey = MessageKey::new("web-vpn-dns-secondary");
+
+/// `web-vpn-optional` in `web.ftl`.
+pub const WEB_VPN_OPTIONAL: MessageKey = MessageKey::new("web-vpn-optional");
+
+/// `web-vpn-map` in `web.ftl`.
+pub const WEB_VPN_MAP: MessageKey = MessageKey::new("web-vpn-map");
+
+/// `web-vpn-map-help` in `web.ftl`.
+pub const WEB_VPN_MAP_HELP: MessageKey = MessageKey::new("web-vpn-map-help");
+
+/// `web-vpn-virtual-ip` in `web.ftl`.
+pub const WEB_VPN_VIRTUAL_IP: MessageKey = MessageKey::new("web-vpn-virtual-ip");
+
+/// `web-vpn-wireguard-none` in `web.ftl`.
+pub const WEB_VPN_WIREGUARD_NONE: MessageKey = MessageKey::new("web-vpn-wireguard-none");
+
+/// `web-vpn-wireguard-note` in `web.ftl`.
+pub const WEB_VPN_WIREGUARD_NOTE: MessageKey = MessageKey::new("web-vpn-wireguard-note");
+
+/// `web-vpn-access` in `web.ftl`.
+pub const WEB_VPN_ACCESS: MessageKey = MessageKey::new("web-vpn-access");
+
+/// `web-vpn-access-note` in `web.ftl`.
+pub const WEB_VPN_ACCESS_NOTE: MessageKey = MessageKey::new("web-vpn-access-note");
+
+/// `web-vpn-access-users` in `web.ftl`.
+pub const WEB_VPN_ACCESS_USERS: MessageKey = MessageKey::new("web-vpn-access-users");
+
+/// `web-vpn-delete-title` in `web.ftl`.
+pub const WEB_VPN_DELETE_TITLE: MessageKey = MessageKey::new("web-vpn-delete-title");
+
+/// `web-vpn-delete-text` in `web.ftl`.
+pub const WEB_VPN_DELETE_TEXT: MessageKey = MessageKey::new("web-vpn-delete-text");
+
+/// `web-vpn-error-name` in `web.ftl`.
+pub const WEB_VPN_ERROR_NAME: MessageKey = MessageKey::new("web-vpn-error-name");
+
+/// `web-vpn-error-name-taken` in `web.ftl`.
+pub const WEB_VPN_ERROR_NAME_TAKEN: MessageKey = MessageKey::new("web-vpn-error-name-taken");
+
+/// `web-vpn-error-key` in `web.ftl`.
+pub const WEB_VPN_ERROR_KEY: MessageKey = MessageKey::new("web-vpn-error-key");
+
+/// `web-vpn-error-endpoint` in `web.ftl`.
+pub const WEB_VPN_ERROR_ENDPOINT: MessageKey = MessageKey::new("web-vpn-error-endpoint");
+
+/// `web-vpn-error-allowed` in `web.ftl`.
+pub const WEB_VPN_ERROR_ALLOWED: MessageKey = MessageKey::new("web-vpn-error-allowed");
+
+/// `web-vpn-error-keepalive` in `web.ftl`.
+pub const WEB_VPN_ERROR_KEEPALIVE: MessageKey = MessageKey::new("web-vpn-error-keepalive");
+
+/// `web-vpn-error-size` in `web.ftl`.
+pub const WEB_VPN_ERROR_SIZE: MessageKey = MessageKey::new("web-vpn-error-size");
+
+/// `web-vpn-error-map` in `web.ftl`.
+pub const WEB_VPN_ERROR_MAP: MessageKey = MessageKey::new("web-vpn-error-map");
+
+/// `web-vpn-error-file` in `web.ftl`.
+pub const WEB_VPN_ERROR_FILE: MessageKey = MessageKey::new("web-vpn-error-file");
+
+/// `web-vpn-error-no-file` in `web.ftl`.
+pub const WEB_VPN_ERROR_NO_FILE: MessageKey = MessageKey::new("web-vpn-error-no-file");
+
+/// `web-vpn-error-too-large` in `web.ftl`.
+pub const WEB_VPN_ERROR_TOO_LARGE: MessageKey = MessageKey::new("web-vpn-error-too-large");
+
+/// `web-vpn-conf-missing` in `web.ftl`.
+pub const WEB_VPN_CONF_MISSING: MessageKey = MessageKey::new("web-vpn-conf-missing");
+
+/// `web-vpn-conf-unknown-section` in `web.ftl`.
+pub const WEB_VPN_CONF_UNKNOWN_SECTION: MessageKey =
+    MessageKey::new("web-vpn-conf-unknown-section");
+
+/// `web-vpn-conf-unknown-field` in `web.ftl`.
+pub const WEB_VPN_CONF_UNKNOWN_FIELD: MessageKey = MessageKey::new("web-vpn-conf-unknown-field");
+
+/// `web-vpn-conf-malformed` in `web.ftl`.
+pub const WEB_VPN_CONF_MALFORMED: MessageKey = MessageKey::new("web-vpn-conf-malformed");
+
+/// `web-vpn-conf-duplicate` in `web.ftl`.
+pub const WEB_VPN_CONF_DUPLICATE: MessageKey = MessageKey::new("web-vpn-conf-duplicate");
+
+/// `web-vpn-conf-key` in `web.ftl`.
+pub const WEB_VPN_CONF_KEY: MessageKey = MessageKey::new("web-vpn-conf-key");
+
+/// `web-vpn-conf-number` in `web.ftl`.
+pub const WEB_VPN_CONF_NUMBER: MessageKey = MessageKey::new("web-vpn-conf-number");
+
+/// `web-vpn-conf-invalid` in `web.ftl`.
+pub const WEB_VPN_CONF_INVALID: MessageKey = MessageKey::new("web-vpn-conf-invalid");
+
+/// `web-vpn-conf-allowed` in `web.ftl`.
+pub const WEB_VPN_CONF_ALLOWED: MessageKey = MessageKey::new("web-vpn-conf-allowed");
+
+/// `web-vpn-conf-endpoint` in `web.ftl`.
+pub const WEB_VPN_CONF_ENDPOINT: MessageKey = MessageKey::new("web-vpn-conf-endpoint");
+
+/// `web-vpn-skip-private-key` in `web.ftl`.
+pub const WEB_VPN_SKIP_PRIVATE_KEY: MessageKey = MessageKey::new("web-vpn-skip-private-key");
+
+/// `web-vpn-skip-preshared-key` in `web.ftl`.
+pub const WEB_VPN_SKIP_PRESHARED_KEY: MessageKey = MessageKey::new("web-vpn-skip-preshared-key");
+
+/// `web-vpn-skip-address` in `web.ftl`.
+pub const WEB_VPN_SKIP_ADDRESS: MessageKey = MessageKey::new("web-vpn-skip-address");
+
+/// `web-vpn-skip-dns` in `web.ftl`.
+pub const WEB_VPN_SKIP_DNS: MessageKey = MessageKey::new("web-vpn-skip-dns");
+
+/// `web-vpn-skip-asc` in `web.ftl`.
+pub const WEB_VPN_SKIP_ASC: MessageKey = MessageKey::new("web-vpn-skip-asc");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 899] = [
+pub static ALL: [MessageKey; 1093] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -3670,4 +4253,198 @@ pub const ALL: [MessageKey; 899] = [
     WEB_MESH_CHECK,
     WEB_MESH_UPDATE,
     WEB_MESH_RESTART,
+    WEB_DNS_TAB_SERVERS,
+    WEB_DNS_TAB_FILTERING,
+    WEB_DNS_TAB_RECORDS,
+    WEB_DNS_TAB_LISTS,
+    WEB_DNS_TAB_ROUTES,
+    WEB_VPN_TAB_CONNECTIONS,
+    WEB_VPN_TAB_SERVERS,
+    WEB_DNS_SERVER,
+    WEB_DNS_PROTOCOL,
+    WEB_DNS_OPTIONS,
+    WEB_DNS_PROTOCOL_TLS,
+    WEB_DNS_PROTOCOL_HTTPS,
+    WEB_DNS_PROTOCOL_PLAIN,
+    WEB_DNS_SERVERS_EMPTY,
+    WEB_DNS_SERVER_ADD,
+    WEB_DNS_ADDRESS,
+    WEB_DNS_ADDRESS_HELP,
+    WEB_DNS_PORT,
+    WEB_DNS_PORT_HELP,
+    WEB_DNS_SNI,
+    WEB_DNS_SNI_HELP,
+    WEB_DNS_URL,
+    WEB_DNS_URL_HELP,
+    WEB_DNS_FORMAT,
+    WEB_DNS_FORMAT_DEFAULT,
+    WEB_DNS_FORMAT_DNSM,
+    WEB_DNS_FORMAT_JSON,
+    WEB_DNS_RECORD_ADD,
+    WEB_DNS_DOMAIN,
+    WEB_DNS_DOMAIN_HELP,
+    WEB_DNS_RECORDS_EMPTY,
+    WEB_DNS_LIST,
+    WEB_DNS_DESCRIPTION,
+    WEB_DNS_INCLUDED,
+    WEB_DNS_EXCLUDED,
+    WEB_DNS_LISTS_EMPTY,
+    WEB_DNS_LIST_ADD,
+    WEB_DNS_NAME,
+    WEB_DNS_NAME_HELP,
+    WEB_DNS_ENTRY_ADD,
+    WEB_DNS_ENTRY_KIND,
+    WEB_DNS_INCLUDE,
+    WEB_DNS_EXCLUDE,
+    WEB_DNS_ENTRY_HELP,
+    WEB_DNS_INTERFACE,
+    WEB_DNS_GATEWAY,
+    WEB_DNS_ROUTES_EMPTY,
+    WEB_DNS_ROUTE_ADD,
+    WEB_DNS_ROUTE_INTRO,
+    WEB_DNS_FILTER_SETTINGS,
+    WEB_DNS_ENGINE,
+    WEB_DNS_ENGINE_TITLE,
+    WEB_DNS_ENGINE_PUBLIC,
+    WEB_DNS_ENGINE_NEXTDNS,
+    WEB_DNS_ENGINE_SKYDNS,
+    WEB_DNS_ENGINE_INTERCEPTOR,
+    WEB_DNS_ENGINE_OPKG,
+    WEB_DNS_INTERCEPT,
+    WEB_DNS_INTERCEPT_ON,
+    WEB_DNS_INTERCEPT_OFF,
+    WEB_DNS_ON,
+    WEB_DNS_OFF,
+    WEB_DNS_PROFILES,
+    WEB_DNS_PROFILES_EMPTY,
+    WEB_DNS_PROFILE_ADD,
+    WEB_DNS_PROFILE,
+    WEB_DNS_ASSIGNMENTS,
+    WEB_DNS_ASSIGNMENTS_EMPTY,
+    WEB_DNS_ASSIGN_TITLE,
+    WEB_DNS_TARGET,
+    WEB_DNS_TARGET_KIND,
+    WEB_DNS_TARGET_HOST,
+    WEB_DNS_TARGET_INTERFACE,
+    WEB_DNS_HOST,
+    WEB_DNS_HOST_HELP,
+    WEB_DNS_NONE,
+    WEB_DNS_ERROR_ADDRESS,
+    WEB_DNS_ERROR_PORT,
+    WEB_DNS_ERROR_DOMAIN,
+    WEB_DNS_ERROR_URL,
+    WEB_DNS_ERROR_NAME,
+    WEB_DNS_ERROR_CHOICE,
+    WEB_DNS_ERROR_MAC,
+    WEB_VPN_IMPORT_SKIPPED,
+    WEB_VPN_TYPE_WIREGUARD,
+    WEB_VPN_TYPE_OPENVPN,
+    WEB_VPN_TYPE_IPSEC,
+    WEB_VPN_TYPE_L2TP,
+    WEB_VPN_TYPE_PPTP,
+    WEB_VPN_TYPE_SSTP,
+    WEB_VPN_TYPE_ZEROTIER,
+    WEB_VPN_TYPE_OPENCONNECT,
+    WEB_VPN_TYPE_PROXY,
+    WEB_VPN_TYPE_OTHER,
+    WEB_VPN_DETAIL_PORT,
+    WEB_VPN_DETAIL_PEERS,
+    WEB_VPN_DETAIL_PEER,
+    WEB_VPN_DETAIL_NETWORK,
+    WEB_VPN_DETAIL_PROTOCOL,
+    WEB_VPN_NAME,
+    WEB_VPN_TYPE,
+    WEB_VPN_STATE,
+    WEB_VPN_DETAILS,
+    WEB_VPN_CONNECTIONS_EMPTY,
+    WEB_VPN_ENABLE,
+    WEB_VPN_DISABLE,
+    WEB_VPN_PEERS,
+    WEB_VPN_PEERS_TITLE,
+    WEB_VPN_BACK,
+    WEB_VPN_NO_TUNNEL,
+    WEB_VPN_PEERS_EMPTY,
+    WEB_VPN_PEER_ADD,
+    WEB_VPN_PEER_TITLE,
+    WEB_VPN_ROUTER_SIDE,
+    WEB_VPN_PEERS_NOTE,
+    WEB_VPN_ROUTER_KEY,
+    WEB_VPN_PRIVATE_KEY,
+    WEB_VPN_SECRET_SET,
+    WEB_VPN_SECRET_UNSET,
+    WEB_VPN_PUBLIC_KEY,
+    WEB_VPN_PUBLIC_KEY_HELP,
+    WEB_VPN_ENDPOINT,
+    WEB_VPN_ENDPOINT_HELP,
+    WEB_VPN_ALLOWED,
+    WEB_VPN_ALLOWED_ADD,
+    WEB_VPN_ALLOWED_HELP,
+    WEB_VPN_KEEPALIVE,
+    WEB_VPN_KEEPALIVE_HELP,
+    WEB_VPN_PRESHARED,
+    WEB_VPN_CREATE,
+    WEB_VPN_CREATE_INTRO,
+    WEB_VPN_NAME_HELP,
+    WEB_VPN_PORT,
+    WEB_VPN_PORT_HELP,
+    WEB_VPN_IMPORT,
+    WEB_VPN_IMPORT_INTRO,
+    WEB_VPN_IMPORT_SUBMIT,
+    WEB_VPN_FILE,
+    WEB_VPN_FILE_HELP,
+    WEB_VPN_ON,
+    WEB_VPN_OFF,
+    WEB_VPN_SERVER_PPTP,
+    WEB_VPN_SERVER_SSTP,
+    WEB_VPN_SERVER_OPENCONNECT,
+    WEB_VPN_SERVER_IPSEC,
+    WEB_VPN_SERVER_WIREGUARD,
+    WEB_VPN_SERVER_ENABLE,
+    WEB_VPN_SERVER_DISABLE,
+    WEB_VPN_SERVER_INTERFACE,
+    WEB_VPN_POOL,
+    WEB_VPN_DNS,
+    WEB_VPN_POOL_BEGIN,
+    WEB_VPN_POOL_BEGIN_HELP,
+    WEB_VPN_POOL_SIZE,
+    WEB_VPN_POOL_SIZE_HELP,
+    WEB_VPN_DNS_PRIMARY,
+    WEB_VPN_DNS_SECONDARY,
+    WEB_VPN_OPTIONAL,
+    WEB_VPN_MAP,
+    WEB_VPN_MAP_HELP,
+    WEB_VPN_VIRTUAL_IP,
+    WEB_VPN_WIREGUARD_NONE,
+    WEB_VPN_WIREGUARD_NOTE,
+    WEB_VPN_ACCESS,
+    WEB_VPN_ACCESS_NOTE,
+    WEB_VPN_ACCESS_USERS,
+    WEB_VPN_DELETE_TITLE,
+    WEB_VPN_DELETE_TEXT,
+    WEB_VPN_ERROR_NAME,
+    WEB_VPN_ERROR_NAME_TAKEN,
+    WEB_VPN_ERROR_KEY,
+    WEB_VPN_ERROR_ENDPOINT,
+    WEB_VPN_ERROR_ALLOWED,
+    WEB_VPN_ERROR_KEEPALIVE,
+    WEB_VPN_ERROR_SIZE,
+    WEB_VPN_ERROR_MAP,
+    WEB_VPN_ERROR_FILE,
+    WEB_VPN_ERROR_NO_FILE,
+    WEB_VPN_ERROR_TOO_LARGE,
+    WEB_VPN_CONF_MISSING,
+    WEB_VPN_CONF_UNKNOWN_SECTION,
+    WEB_VPN_CONF_UNKNOWN_FIELD,
+    WEB_VPN_CONF_MALFORMED,
+    WEB_VPN_CONF_DUPLICATE,
+    WEB_VPN_CONF_KEY,
+    WEB_VPN_CONF_NUMBER,
+    WEB_VPN_CONF_INVALID,
+    WEB_VPN_CONF_ALLOWED,
+    WEB_VPN_CONF_ENDPOINT,
+    WEB_VPN_SKIP_PRIVATE_KEY,
+    WEB_VPN_SKIP_PRESHARED_KEY,
+    WEB_VPN_SKIP_ADDRESS,
+    WEB_VPN_SKIP_DNS,
+    WEB_VPN_SKIP_ASC,
 ];

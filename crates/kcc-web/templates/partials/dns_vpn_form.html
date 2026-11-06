@@ -1,0 +1,54 @@
+{#- A dialog form of the DNS and VPN pages: every input with its label, help and error. The outcome lands in the page's outcome region; errors come back into this dialog. Inputs with data-show appear only for the chosen kind (CSS :has). -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+{%- if !intro.is_empty() %}
+<p class="dialog__text">{{ intro }}</p>
+{%- endif %}
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- endif %}
+<form class="form" hx-post="{{ post_to }}" hx-target="#page-outcome"{% if multipart %} hx-encoding="multipart/form-data"{% endif %}>
+  {%- for input in inputs %}
+  {%- if input.kind == Kind::Hidden %}
+  <input type="hidden" name="{{ input.name }}" value="{{ input.value }}">
+  {%- else if input.kind == Kind::Radio %}
+  <fieldset class="choice"{% if !input.show.is_empty() %} data-show="{{ input.show }}"{% endif %}{% if !input.described_by().is_empty() %} aria-describedby="{{ input.described_by() }}"{% endif %}>
+    <legend class="field__label">{{ input.label }}</legend>
+    {%- for (choice, chosen) in input.options() %}
+    <label class="choice__option"><input type="radio" name="{{ input.name }}" value="{{ choice.value }}"{% if chosen %} checked{% endif %}><span>{{ choice.label }}</span></label>
+    {%- endfor %}
+    {%- if !input.help.is_empty() %}
+    <p class="field__help" id="{{ input.id }}-help">{{ input.help }}</p>
+    {%- endif %}
+    {%- if !input.error.is_empty() %}
+    <p class="field__error" id="{{ input.id }}-error">{{ input.error }}</p>
+    {%- endif %}
+  </fieldset>
+  {%- else %}
+  <div class="field"{% if !input.show.is_empty() %} data-show="{{ input.show }}"{% endif %}>
+    <label class="field__label" for="{{ input.id }}">{{ input.label }}</label>
+    {%- if input.kind == Kind::Select %}
+    <select class="field__input" id="{{ input.id }}" name="{{ input.name }}"{% if !input.error.is_empty() %} aria-invalid="true"{% endif %}{% if !input.described_by().is_empty() %} aria-describedby="{{ input.described_by() }}"{% endif %}>
+      {%- for (choice, chosen) in input.options() %}
+      <option value="{{ choice.value }}"{% if chosen %} selected{% endif %}>{{ choice.label }}</option>
+      {%- endfor %}
+    </select>
+    {%- else if input.kind == Kind::File %}
+    <input class="field__input field__file" id="{{ input.id }}" name="{{ input.name }}" type="file" accept=".conf,text/plain"{% if !input.error.is_empty() %} aria-invalid="true"{% endif %}{% if !input.described_by().is_empty() %} aria-describedby="{{ input.described_by() }}"{% endif %}>
+    {%- else %}
+    <input class="field__input" id="{{ input.id }}" name="{{ input.name }}" type="text" value="{{ input.value }}" autocomplete="off" spellcheck="false"{% if !input.error.is_empty() %} aria-invalid="true"{% endif %}{% if !input.described_by().is_empty() %} aria-describedby="{{ input.described_by() }}"{% endif %}>
+    {%- endif %}
+    {%- if !input.help.is_empty() %}
+    <p class="field__help" id="{{ input.id }}-help">{{ input.help }}</p>
+    {%- endif %}
+    {%- if !input.error.is_empty() %}
+    <p class="field__error" id="{{ input.id }}-error">{{ input.error }}</p>
+    {%- endif %}
+  </div>
+  {%- endif %}
+  {%- endfor %}
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ submit }}</button>
+  </div>
+</form>
+{% endcall %}

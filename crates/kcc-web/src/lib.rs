@@ -58,6 +58,7 @@ mod assets;
 mod clients_pages;
 mod credentials;
 mod dashboard;
+mod dns_vpn;
 mod gauge;
 mod net_change;
 mod net_form;
@@ -403,6 +404,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(system_general::routes())
         .merge(clients_pages::routes())
         .merge(net_pages::routes())
+        .merge(dns_vpn::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),
@@ -435,6 +437,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(bounded)
         .merge(streams)
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
+        .merge(dns_vpn::uploads(&state))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CACHE_CONTROL,
             HeaderValue::from_static(NO_STORE),

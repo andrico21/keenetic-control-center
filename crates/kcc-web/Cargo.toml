@@ -9,7 +9,7 @@ publish = false
 
 [dependencies]
 askama = { version = "0.16.1", default-features = false, features = ["derive", "std"] }
-axum = { version = "0.8.9", default-features = false, features = ["form", "http1", "tokio"] }
+axum = { version = "0.8.9", default-features = false, features = ["form", "http1", "multipart", "tokio"] }
 base64 = "0.23.1"
 fluent-bundle = "0.16.0"
 futures-util = { version = "0.3.34", default-features = false, features = ["std"] }

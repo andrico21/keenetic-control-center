@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- import "partials/dns_vpn_macros.html" as dv -%}
+{%- block title %}{{ title }}{% endblock %}
+{%- block content %}
+<div class="page domain-page">
+  <nav class="tabs" aria-label="{{ t(section_label()) }}">
+    <ul class="tabs__list">
+      {%- for link in tabs() %}
+      <li><a class="tabs__link" href="{{ link.href }}"{% if link.current %} aria-current="page"{% endif %}>{{ t(*link.label) }}</a></li>
+      {%- endfor %}
+    </ul>
+  </nav>
+  {%- if let Some(link) = back %}
+  <p class="domain-back">{{ dv::act(link, "") }}</p>
+  {%- endif %}
+  <div class="page-head">
+    <h1 class="page__title">{{ title }}</h1>
+    <div class="page-head__actions" id="page-actions">
+      {%- for action in actions %}
+      {{ dv::act(action, "") }}
+      {%- endfor %}
+    </div>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {{ kit::outcome_region() }}
+  {{ region|safe }}
+</div>
+{%- endblock %}

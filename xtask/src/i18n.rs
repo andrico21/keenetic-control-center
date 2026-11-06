@@ -444,7 +444,7 @@ where
     }
     let count = all.len().to_string();
     for piece in [
-        "\n/// Every message key, in catalog order.\npub const ALL: [MessageKey; ",
+        "\n/// Every message key, in catalog order.\npub static ALL: [MessageKey; ",
         &count,
         "] = [\n",
     ] {

@@ -570,6 +570,54 @@ Page briefs (todo 37):
 - Mesh. Primary action: none. Priorities: 1 members and status, 2 their actions. Required
   content: name, identifier, MAC, status; Check for updates and Update firmware (`Write`);
   Restart (`Destructive`, router name typed).
+### DNS and VPN pages (todo 39, `src/dns_vpn/`)
+
+Layout (DNS `/ui/r/{router}/dns[/filtering|records|lists|routes]` and VPN
+`/ui/r/{router}/vpn[/servers]`, `/ui/r/{router}/vpn/peers/{tunnel}`): stacked sections - tab
+bar, page head (title and the tab's actions, `#page-actions`), router link, the outcome
+region, then the tab region (`#domain-region`: panels in the dashboard's auto-fit grid, then
+one table in `.table-wrap` with its filter and pager); scroll owner: the document; nested
+scrollers: `.table-wrap` (horizontal, tables keep a 36rem minimum) and the tab bar list;
+anti-patterns: two tables on one tab (each tab has one filter and one pager), a fixed-height
+scrolling table, a hover-only row action.
+
+- Region (`partials/dns_vpn_region.html`, `region::Region`): a change answers with it out of
+  band, together with `#page-actions`, so a new list or profile brings its action along.
+- Row and panel actions (`partials/dns_vpn_macros.html`, `region::Act`): ghost buttons that
+  open a dialog, post hidden fields (`.inline-form`, outcome in `#page-outcome`) or link;
+  Delete is `button--danger-ghost` and asks for the object's name (kit typed-name dialog).
+- Dialog form (`partials/dns_vpn_form.html`, `form::FormDialog`): label above, help and
+  error below each input; selects and radio groups (`.choice`); inputs with `data-show`
+  appear only while the `kind` radio holds one of their values (CSS `:has`); the upload form
+  is `multipart/form-data` with a file input (`.field__file`).
+- State in tables: the status pill (Enabled online, Disabled and Unknown neutral); secrets
+  only as Set / Not set, never a value.
+
+### Page briefs (todo 39)
+
+- DNS servers. Primary action: Add server (protocol DNS over TLS, DNS over HTTPS or plain).
+  Priorities: 1 the servers the router asks, 2 protocol, 3 options. Left out on purpose:
+  latency tests, per-server statistics, Delete (the DNS domain has no removal yet).
+  Required content: server, protocol, options, the empty state naming the provider's
+  servers.
+- Filtering. Primary action: Assign profile (only with a profile). Required content:
+  filtering engine with Edit, DNS interception On/Off with its toggle, profiles with Add
+  profile, assignments (host or interface, kind, profile).
+- Static records, Domain lists, Routes by domain. Primary actions: Add record, Create list
+  (rows: Add domain), Add route (only with a list). Required content: domain and address;
+  list, description, included and excluded domains; list, interface, gateway.
+- Connections. Primary action: Import WireGuard file; secondary: Add WireGuard connection.
+  Priorities: 1 name and state, 2 type, 3 details. Required content: name, type, state pill,
+  details (port and peer count, peer, network, protocol), Enable/Disable, Peers
+  (WireGuard), Delete. The import outcome lists what the file had and kcc did not send
+  (keys, address, DNS, ASC).
+- Peers of a connection. Primary action: Add peer. Required content: Back to connections,
+  the router's public key, listen port, private key Set/Not set, then per peer: public
+  key, endpoint, allowed addresses, keepalive, preshared key Set/Not set, Edit.
+- VPN servers. No primary action. Panels: PPTP/L2TP, SSTP, OpenConnect (state, Enable or
+  Disable server, interface, client addresses with Edit, DNS servers with Edit),
+  IPsec/IKEv2 (state, virtual IP, addresses, DNS servers, Edit), WireGuard server
+  interfaces, and User access (router user tags, link to the router users page).
 
 ## 6. Motion & Interaction
 
@@ -603,3 +651,4 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Group tree loads on open | `pages/explorer.html` | A `<details>` opened without JavaScript stays empty; search still finds every command | Server-rendered group pages if asked |
 | Domain page changes need JavaScript | `pages/system_general.html`, `partials/kit_*.html` | Edit dialogs, Restart and their confirmations are htmx requests carrying the CSRF header; the settings read without it | Same as the menus |
 | Localized constraint messages need JavaScript | `partials/net_form.html` | Without `app.js` the browser shows its own message for a failed constraint; the server still refuses the value with the localized rule | None needed |
+| The WireGuard import needs JavaScript | `partials/dns_vpn_form.html` | The upload is an htmx `multipart/form-data` post with the CSRF header; an upload over 64 KiB comes back as 413 with the dialog, which `app.js` swaps like a 422 | Same as the menus |

@@ -281,6 +281,10 @@ mod tests {
             "column",
             "index",
             "issue",
+            "port",
+            "peer",
+            "network",
+            "protocol",
         ] {
             args.set(name, "x");
         }
@@ -303,7 +307,7 @@ mod tests {
         let catalogs = CATALOGS.as_ref().map_err(Clone::clone)?;
         let args = all_arguments();
         for locale in Locale::ALL {
-            for key in keys::ALL {
+            for key in keys::ALL.iter().copied() {
                 let formatted = catalogs.format_exact(locale, key, Some(&args));
                 let Some((text, errors)) = formatted else {
                     return Err(format!("{} lacks {}", locale.tag(), key.id()).into());

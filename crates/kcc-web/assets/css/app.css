@@ -2279,3 +2279,88 @@ h3 {
   font-weight: var(--weight-semibold);
   line-height: var(--leading-body);
 }
+
+/* todo 39 */
+
+/* ---------- DNS and VPN pages: tab regions, tables, panels, dialog forms ---------- */
+
+.domain-page {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.domain-back {
+  margin: 0;
+}
+
+.domain-region {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.domain-page .table-wrap {
+  position: relative;
+}
+
+.domain-table {
+  min-inline-size: 36rem;
+}
+
+.domain-table th,
+.domain-table td {
+  vertical-align: middle;
+}
+
+.table-empty,
+.table-count {
+  max-inline-size: var(--measure);
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.cell-lines {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.row-actions,
+.panel__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.row-actions {
+  flex-wrap: nowrap;
+}
+
+.panel__actions {
+  flex-wrap: wrap;
+  margin-block-start: var(--space-2);
+}
+
+.inline-form {
+  display: contents;
+}
+
+.field__file {
+  padding-block: var(--space-2);
+}
+
+/* A dialog field with data-show appears only while the `kind` radio holds one of its values. */
+.form:has(input[name="kind"][value="tls"]:checked) [data-show]:not([data-show~="tls"]),
+.form:has(input[name="kind"][value="https"]:checked) [data-show]:not([data-show~="https"]),
+.form:has(input[name="kind"][value="plain"]:checked) [data-show]:not([data-show~="plain"]),
+.form:has(input[name="kind"][value="host"]:checked) [data-show]:not([data-show~="host"]),
+.form:has(input[name="kind"][value="interface"]:checked) [data-show]:not([data-show~="interface"]) {
+  display: none;
+}
+
+/* Identifiers, addresses and keys break only when one alone is wider than its column. */
+.domain-table .mono {
+  overflow-wrap: break-word;
+}
