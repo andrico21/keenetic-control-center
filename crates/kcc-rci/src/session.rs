@@ -1,7 +1,11 @@
 //! Reactive HTTP session management for authenticated router requests.
 
 use alloc::sync::Arc;
-use core::{fmt, time::Duration};
+use core::{
+    fmt,
+    sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
+};
 use std::{
     sync::{Mutex as StdMutex, MutexGuard, OnceLock, PoisonError},
     time::Instant,
@@ -164,6 +168,10 @@ pub struct Manager {
     options: Options,
     /// Whether password credentials were supplied (token-only managers have none).
     password_configured: bool,
+    /// Explicit permission to enter passwordless factory setup.
+    bootstrap_enabled: bool,
+    /// Whether an unauthenticated probe confirmed factory setup.
+    bootstrap_active: AtomicBool,
     /// One key set bound to this manager's immutable router and credentials.
     ndw4_cache: Cache,
     /// Per-router digest nonce state.
@@ -184,6 +192,22 @@ pub struct Manager {
 pub type SessionManager = Manager;
 
 impl Manager {
+    /// Enables factory setup after an unauthenticated `/auth` returns HTTP 200.
+    /// Replace this manager after setting the first password.
+    #[inline]
+    #[must_use]
+    pub const fn with_bootstrap(mut self) -> Self {
+        self.bootstrap_enabled = true;
+        self
+    }
+
+    /// Reports whether the router confirmed passwordless setup.
+    #[inline]
+    #[must_use]
+    pub fn is_bootstrap(&self) -> bool {
+        self.bootstrap_active.load(Ordering::Acquire)
+    }
+
     /// Creates a session manager with explicit timeout settings.
     ///
     /// # Errors
@@ -225,6 +249,8 @@ impl Manager {
             credentials,
             options: Options::default(),
             password_configured: true,
+            bootstrap_enabled: false,
+            bootstrap_active: AtomicBool::new(false),
             ndw4_cache: Cache::default(),
             digest: auth_digest::State::default(),
             session: StdMutex::new(None),
@@ -303,7 +329,7 @@ impl Manager {
     /// Returns authentication or transport failures.
     // NOT cancel-safe: an interrupted handshake can leave remote state without a local cookie.
     async fn ensure_password_session(&self) -> Result<(), RciError> {
-        if self.usable_session().is_some() {
+        if self.usable_session().is_some() || self.is_bootstrap() {
             return Ok(());
         }
         let _login_guard = self.login.lock().await;
@@ -354,6 +380,16 @@ impl Manager {
             return self.digest.request(request, &self.credentials).await;
         }
         self.ensure_password_session().await?;
+        if self.is_bootstrap() {
+            let mut request = self.client.request(method, self.url(path));
+            if let Some(value) = body {
+                request = request.json(value);
+            }
+            return request
+                .send()
+                .await
+                .map_err(|error| map_reqwest_error(&error));
+        }
         let first_session = self
             .usable_session()
             .ok_or(RciError::Auth(AuthError::Rejected))?;
@@ -514,6 +550,10 @@ impl Manager {
             .await
             .map_err(|error| map_reqwest_error(&error))?;
         if challenge_response.status().is_success() {
+            if self.bootstrap_enabled && challenge_response.status() == StatusCode::OK {
+                self.bootstrap_active.store(true, Ordering::Release);
+                return Ok(LoginScheme::Existing);
+            }
             self.refresh_session(challenge_response.headers())?;
             if self.usable_session().is_some() {
                 return Ok(LoginScheme::Existing);

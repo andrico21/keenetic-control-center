@@ -14,6 +14,7 @@ use tokio_util::sync::CancellationToken;
 use crate::{
     ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
+    capabilities::RouterInfo,
     encode_query,
     observe::{RciObserver, RequestOutcome},
     outbound::{OutboundPolicy, TlsMode},
@@ -137,6 +138,91 @@ impl fmt::Debug for RciClient {
 }
 
 impl RciClient {
+    /// Clones credentials into secret storage for an explicitly authorized connection transition.
+    #[inline]
+    #[must_use]
+    pub fn credentials(&self) -> Credentials {
+        self.credentials.clone()
+    }
+
+    /// Shares the authenticated session for read-only capability collection.
+    #[inline]
+    #[must_use]
+    pub fn session_manager(&self) -> Arc<SessionManager> {
+        Arc::clone(&self.session)
+    }
+
+    /// Builds an explicitly authorized factory-setup client under the outbound policy.
+    ///
+    /// # Errors
+    /// Returns policy, transport, or invalid option errors.
+    // cancel-safe: constructing a client sends no mutation.
+    #[inline]
+    pub async fn connect_bootstrap_with(
+        router: RouterUrl,
+        credentials: Credentials,
+        options: RciClientOptions,
+    ) -> Result<Self, RciError> {
+        let mut client = Self::connect_with(router, credentials, options).await?;
+        let builder = client
+            .options
+            .outbound
+            .client_builder(&client.router, &client.options.tls, client.options.timeouts)
+            .await?;
+        client.session = Arc::new(
+            SessionManager::with_client_builder(
+                client.router.clone(),
+                client.credentials.clone(),
+                client.options.timeouts,
+                builder,
+            )?
+            .with_bootstrap(),
+        );
+        Ok(client)
+    }
+
+    /// Reconnects to a confirmed origin, preserving options and the concurrency budget.
+    ///
+    /// # Errors
+    /// Returns policy or transport errors. Authentication occurs on the first request.
+    // cancel-safe: constructing a client sends no mutation.
+    #[inline]
+    pub async fn retarget(
+        &self,
+        router: RouterUrl,
+        credentials: Option<Credentials>,
+    ) -> Result<Self, RciError> {
+        let mut client = Self::connect_with(
+            router,
+            credentials.unwrap_or_else(|| self.credentials.clone()),
+            self.options.clone(),
+        )
+        .await?;
+        client.semaphore = Arc::clone(&self.semaphore);
+        Ok(client)
+    }
+
+    /// Detects router identity through this client's authenticated session.
+    ///
+    /// # Errors
+    /// Returns authentication, transport, or response errors.
+    // cancel-safe: detection reads router state.
+    #[inline]
+    pub async fn detect(&self) -> Result<RouterInfo, RciError> {
+        RouterInfo::detect(&self.session, &self.router).await
+    }
+
+    /// Checks authentication and reports explicitly enabled factory setup.
+    ///
+    /// # Errors
+    /// Returns authentication or transport errors.
+    // cancel-safe: this probe performs no configuration writes.
+    #[inline]
+    pub async fn is_bootstrap(&self) -> Result<bool, RciError> {
+        self.session.ensure_session().await?;
+        Ok(self.session.is_bootstrap())
+    }
+
     /// Returns the validated router origin used by this client.
     #[inline]
     #[must_use]

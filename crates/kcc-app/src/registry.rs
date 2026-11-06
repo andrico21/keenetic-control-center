@@ -32,14 +32,14 @@ use kcc_rci::{
     observe::RciObserver,
     session::{HttpTimeouts, SessionManager},
 };
-use secrecy::SecretString;
+use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use tokio::sync::Mutex;
 use url::Url;
 
 use crate::{
     permissions::{Permission, Role},
-    persist::{Migration, StateDoc, StateError, StateStore},
+    persist::{Migration, StateDoc, StateError, StateStore, write_atomic},
     settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls},
 };
 
@@ -246,6 +246,77 @@ impl fmt::Debug for RouterRegistry {
 }
 
 impl RouterRegistry {
+    /// Opens an opt-in factory-setup client without changing the registered profile.
+    ///
+    /// # Errors
+    /// Returns permission, profile, credential, or connection errors.
+    // cancel-safe: opens a client without writing router or registry state.
+    pub async fn bootstrap_client(
+        &self,
+        role: &Role,
+        id: &str,
+    ) -> Result<Arc<RciClient>, RegistryError> {
+        authorize(role, Permission::Migrate, id)?;
+        let profile = self.get(id)?.profile;
+        let mut options = RciClientOptions::default();
+        options.outbound = self.outbound.clone();
+        options.tls = tls_mode(&profile.tls)?;
+        Ok(Arc::new(
+            RciClient::connect_bootstrap_with(
+                router_url(&profile)?,
+                credentials(&profile, CredentialUse::Primary)?,
+                options,
+            )
+            .await?,
+        ))
+    }
+
+    /// Publishes a freshly authenticated client and replaces its primary password atomically.
+    /// Only a leased workflow may call this transition.
+    // NOT cancel-safe: once persistence begins, the transition runs without await points.
+    pub(crate) async fn transition(
+        &self,
+        id: &str,
+        client: Arc<RciClient>,
+        replacement: Option<&Credentials>,
+    ) -> Result<(), RegistryError> {
+        let endpoint =
+            Url::parse(client.router_url().as_str()).map_err(|_error| RciError::Validation)?;
+        let mut clients = self.clients.lock().await;
+        let mut profiles = self.profiles.write().map_err(lock_error)?;
+        let mut profile = profiles
+            .get(id)
+            .cloned()
+            .ok_or_else(|| RegistryError::NotFound { id: id.to_owned() })?;
+        if let Some(credential) = replacement {
+            let parent =
+                profile
+                    .password_file
+                    .parent()
+                    .ok_or_else(|| RegistryError::InvalidProfile {
+                        reason: "credential file has no parent".to_owned(),
+                    })?;
+            let name = profile
+                .password_file
+                .file_name()
+                .and_then(|name| name.to_str())
+                .ok_or_else(|| RegistryError::InvalidProfile {
+                    reason: "credential file has no name".to_owned(),
+                })?;
+            write_atomic(parent, name, credential.password.expose_secret().as_bytes())?;
+            profile.login.clone_from(&credential.login);
+        }
+        profile.url = endpoint;
+        self.store.update::<RoutersDocument, _, _>(|document| {
+            if let Some(stored) = document.routers.iter_mut().find(|entry| entry.id == id) {
+                stored.clone_from(&profile);
+            }
+        })?;
+        drop(profiles.insert(id.to_owned(), profile));
+        drop(clients.insert(id.to_owned(), client));
+        Ok(())
+    }
+
     /// Builds a registry from immutable config profiles and mutable state profiles.
     ///
     /// # Errors

@@ -10,6 +10,7 @@
 
 extern crate alloc;
 
+pub mod apply;
 pub mod inventory;
 pub mod maps;
 pub mod planner;

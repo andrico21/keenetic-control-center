@@ -28,6 +28,7 @@ use crate::{
     components::Components,
     config_state::ConfigState,
     failsafe::{FailSafe, ScheduledReboot},
+    migration::{Fixture as MigrationFixture, State as MigrationState},
     ndw2,
     time::Clock,
     tree::{self, Selector},
@@ -62,6 +63,7 @@ const SECURITY_HEADERS: [(&str, &str); 12] = [
 ];
 
 /// A router user.
+#[derive(Clone)]
 pub(crate) struct Account {
     /// Login name.
     login: String,
@@ -185,7 +187,9 @@ pub(crate) struct Shared {
     /// `X-NDM-Product` value.
     product: String,
     /// Known users.
-    accounts: Vec<Account>,
+    accounts: Mutex<Vec<Account>>,
+    /// Credentials restored with startup configuration on reboot.
+    startup_accounts: Mutex<Vec<Account>>,
     /// Idle time after which a session is dropped.
     ttl: Duration,
     /// Time source for session expiry.
@@ -200,6 +204,8 @@ pub(crate) struct Shared {
     config: Mutex<ConfigState>,
     /// Installed, staged, and committing component state.
     components: Mutex<Components>,
+    /// Opt-in migration conditions and connectivity state.
+    migration: Mutex<MigrationState>,
     /// Fail-safe timer state.
     fail_safe: Mutex<FailSafe>,
     /// Scheduled reboot timer state.
@@ -241,6 +247,11 @@ fn empty(status: StatusCode) -> Response {
 }
 
 impl Shared {
+    /// Enables a migration scenario before the router starts serving.
+    pub(crate) fn configure_migration(&self, fixture: MigrationFixture) {
+        lock(&self.migration).configure(fixture);
+    }
+
     /// Builds the shared state with an empty session table.
     #[expect(
         clippy::too_many_arguments,
@@ -271,7 +282,8 @@ impl Shared {
             cookie_name,
             realm,
             product,
-            accounts,
+            startup_accounts: Mutex::new(accounts.clone()),
+            accounts: Mutex::new(accounts),
             ttl,
             clock,
             sessions: Mutex::new(BTreeMap::new()),
@@ -279,6 +291,7 @@ impl Shared {
             show,
             config: Mutex::new(config),
             components: Mutex::new(components),
+            migration: Mutex::new(MigrationState::default()),
             fail_safe: Mutex::new(FailSafe::default()),
             scheduled_reboot: Mutex::new(ScheduledReboot::default()),
             faults,
@@ -364,6 +377,9 @@ impl Shared {
     /// The login of the valid authenticated session in `headers`, refreshing it.
     fn authorize(&self, headers: &HeaderMap) -> Option<String> {
         self.expire_reboots();
+        if self.factory_fresh() {
+            return Some("admin".to_owned());
+        }
         let id = self.session_id(headers)?;
         let mut sessions = lock(&self.sessions);
         let session = sessions.get_mut(&id)?;
@@ -426,7 +442,8 @@ impl Shared {
         ) else {
             return false;
         };
-        let Some(account) = self.accounts.iter().find(|account| account.login == login) else {
+        let accounts = lock(&self.accounts);
+        let Some(account) = accounts.iter().find(|account| account.login == login) else {
             return false;
         };
         let mut sessions = lock(&self.sessions);
@@ -443,6 +460,7 @@ impl Shared {
             session.last_seen = self.clock.now();
         }
         drop(sessions);
+        drop(accounts);
         accepted
     }
 
@@ -470,6 +488,9 @@ impl Shared {
 
     /// Simulates a reboot by loading startup and dropping all sessions.
     fn reboot(&self) {
+        let restored_accounts = lock(&self.startup_accounts).clone();
+        *lock(&self.accounts) = restored_accounts;
+        lock(&self.migration).reboot();
         lock(&self.config).reboot();
         lock(&self.fail_safe).disarm();
         lock(&self.scheduled_reboot).disarm();
@@ -478,6 +499,10 @@ impl Shared {
 
     /// Applies a full-path CLI parser command.
     fn parse_command(&self, line: &str) -> Value {
+        let intercepted = lock(&self.migration).intercept(line);
+        if let Some(response) = intercepted {
+            return response;
+        }
         if self.reject_parse(line) {
             return tree::status("error", "injected parser failure.");
         }
@@ -488,6 +513,8 @@ impl Shared {
         let words: Vec<&str> = line.split_whitespace().collect();
         match words.as_slice() {
             ["system", "configuration", "save"] => {
+                let saved_accounts = lock(&self.accounts).clone();
+                *lock(&self.startup_accounts) = saved_accounts;
                 lock(&self.config).save();
                 tree::status("message", "saved.")
             }
@@ -542,6 +569,8 @@ impl Shared {
                 }
             }
             ["system", "configuration", "fail-safe", "commit"] => {
+                let saved_accounts = lock(&self.accounts).clone();
+                *lock(&self.startup_accounts) = saved_accounts;
                 lock(&self.config).save();
                 lock(&self.fail_safe).disarm();
                 tree::status("message", "committed.")
@@ -554,7 +583,63 @@ impl Shared {
                 lock(&self.fail_safe).disarm();
                 tree::status("message", "fail-safe disabled.")
             }
-            _ => lock(&self.config).apply(line),
+            _ => {
+                if self.silent_noop("parse") {
+                    return tree::status("message", "saved.");
+                }
+                let result = lock(&self.config).apply(line);
+                self.update_password(line, &result);
+                if kcc_rci::RciResponse::from_value(result.clone()).is_ok() {
+                    lock(&self.migration).applied(line);
+                }
+                result
+            }
+        }
+    }
+
+    /// An explicitly empty admin credential models passwordless initial setup.
+    fn factory_fresh(&self) -> bool {
+        let empty_hash = ndw2::ha1("admin", &self.realm, "");
+        lock(&self.accounts)
+            .iter()
+            .any(|account| account.login == "admin" && account.ha1 == empty_hash)
+    }
+
+    /// Mirrors a successfully parsed password into the authentication store.
+    fn update_password(&self, line: &str, result: &Value) {
+        use kcc_config::config_text::{Token, flatten, parse};
+        use kcc_rci::RciResponse;
+
+        if RciResponse::from_value(result.clone()).is_err() {
+            return;
+        }
+        let Ok(ast) = parse(line) else { return };
+        for command in flatten(&ast) {
+            if let [
+                Token::Word(user),
+                Token::Word(login),
+                Token::Word(password),
+                Token::Word(plain),
+                Token::Word(secret),
+            ] = command.tokens.as_slice()
+                && user == "user"
+                && password == "password"
+                && plain == "plain"
+            {
+                let mut accounts = lock(&self.accounts);
+                let changed = if let Some(account) =
+                    accounts.iter_mut().find(|account| account.login == *login)
+                {
+                    account.ha1 = ndw2::ha1(login, &self.realm, secret);
+                    true
+                } else {
+                    false
+                };
+                drop(accounts);
+                if changed {
+                    lock(&self.sessions).clear();
+                }
+            }
         }
     }
 
@@ -654,8 +739,13 @@ impl Shared {
 
     /// Answers one show request below `show/`, or `None` when no fixture exists.
     fn show(&self, path: &str, selector: Option<Selector<'_>>) -> Option<Value> {
+        let migration_answer = lock(&self.migration).show(path);
+        if let Some(answer) = migration_answer {
+            return Some(answer);
+        }
         let normalized_path = path.trim_end_matches('/');
         let component_answer = match normalized_path {
+            "internet/status" => Some(serde_json::json!({"internet":true})),
             "components/list" => Some(lock(&self.components).list()),
             "components/pending" => Some(lock(&self.components).pending()),
             "version" => self
@@ -838,6 +928,15 @@ async fn inject_faults(
     next: Next,
 ) -> Response {
     shared.record_request(&request);
+    shared.expire_reboots();
+    let host = request
+        .headers()
+        .get(header::HOST)
+        .and_then(|value| value.to_str().ok())
+        .unwrap_or_default();
+    if !lock(&shared.migration).available(host, shared.clock.now()) {
+        return empty(StatusCode::SERVICE_UNAVAILABLE);
+    }
     if shared.components_unavailable() {
         return empty(StatusCode::SERVICE_UNAVAILABLE);
     }
@@ -924,8 +1023,7 @@ fn read(shared: &Shared, login: &str, path: &str, query: &BTreeMap<String, Strin
     let found = match path.strip_prefix("show/") {
         Some("last-change") => Some(shared.last_change()),
         Some(rest) => shared.show(rest, selector),
-        None if path == "whoami" => shared
-            .accounts
+        None if path == "whoami" => lock(&shared.accounts)
             .iter()
             .find(|account| account.login == login)
             .map(|account| serde_json::json!({"name": account.login, "tags": account.tags})),

@@ -27,7 +27,7 @@ pub struct InventoryClient {
     /// Session used by `RouterInfo::detect`.
     session: Arc<SessionManager>,
     /// Bounded request engine used for config and optional show reads.
-    rci: RciClient,
+    rci: Arc<RciClient>,
 }
 
 impl fmt::Debug for InventoryClient {
@@ -40,6 +40,17 @@ impl fmt::Debug for InventoryClient {
 }
 
 impl InventoryClient {
+    /// Shares an existing policy-checked client and its authenticated session for inventory.
+    #[inline]
+    #[must_use]
+    pub fn from_client(client: &Arc<RciClient>) -> Self {
+        Self {
+            router: client.router_url().clone(),
+            session: client.session_manager(),
+            rci: Arc::clone(client),
+        }
+    }
+
     /// Connects the two read-only views required for complete inventory collection.
     ///
     /// # Errors
@@ -59,7 +70,7 @@ impl InventoryClient {
         Ok(Self {
             router,
             session,
-            rci,
+            rci: Arc::new(rci),
         })
     }
 }
@@ -235,7 +246,7 @@ impl TargetInventory {
         let installed_components = info.components.clone();
         let system_mode = info.system_mode.clone();
         let startup_config_md5 = startup_config.header.md5.clone();
-        let last_change_checksum = checksum_marker(running_config.header.last_change.as_deref());
+        let last_change_checksum = collect_last_change(&client.rci).await?;
         let management_interface = interfaces
             .iter()
             .find(|interface| interface.kind == "Bridge")
@@ -263,17 +274,26 @@ impl TargetInventory {
     }
 }
 
-/// Hashes a last-change marker without retaining router-specific text in a plan fingerprint.
-fn checksum_marker(marker: Option<&str>) -> String {
-    use core::fmt::Write as _;
-
-    use md5::{Digest as _, Md5};
-
-    let mut checksum = String::with_capacity(32);
-    for byte in Md5::digest(marker.unwrap_or_default().as_bytes()) {
-        let _result = write!(checksum, "{byte:02x}");
+/// Reads the live running checksum rather than relying on optional export header metadata.
+///
+/// # Errors
+/// Returns transport or malformed checksum failures.
+// cancel-safe: the show operation is read-only.
+async fn collect_last_change(client: &RciClient) -> Result<String, RciError> {
+    let path =
+        RciPath::from_segments(["show", "last-change"]).map_err(|_error| RciError::Validation)?;
+    let RciBody::Json(response) = client.get(&path, &()).await? else {
+        return Err(RciError::Decode);
+    };
+    let checksum = response
+        .value
+        .get("checksum")
+        .and_then(Value::as_str)
+        .ok_or(RciError::Decode)?;
+    if checksum.len() != 32 || !checksum.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(RciError::Decode);
     }
-    checksum
+    Ok(checksum.to_owned())
 }
 
 /// Target inventory failures.

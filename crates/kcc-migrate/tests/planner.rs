@@ -24,7 +24,7 @@ mod tests {
     use kcc_i18n::locale::Locale;
     use kcc_migrate::{
         inventory::{InventoryClient, TargetInventory, source_version},
-        planner::{Choices, MigrationMaps, MigrationPlan, PlanError, Planner},
+        planner::{Choices, MigrationMaps, PlanError, Planner},
         report::MigrationReport,
         source::SourceConfig,
     };
@@ -88,7 +88,7 @@ mod tests {
 
         assert_eq!(plan.phases.management.len(), 1);
         assert_eq!(
-            plan.phases.management[0].command,
+            plan.phases.management[0].expose_command(),
             "interface Bridge0 ip address 198.51.100.1 255.255.255.0"
         );
         assert_eq!(plan.reconnect_url.as_deref(), Some("http://192.0.2.1"));
@@ -136,9 +136,23 @@ mod tests {
         )?;
 
         let encoded = serde_json::to_string(&plan)?;
-        let decoded: MigrationPlan = serde_json::from_str(&encoded)?;
+        let decoded: serde_json::Value = serde_json::from_str(&encoded)?;
 
-        assert_eq!(decoded, plan);
+        assert_eq!(serde_json::to_value(&plan)?, decoded);
+        assert_eq!(decoded["plan_id"], plan.plan_id);
+        assert_eq!(
+            decoded["source_fingerprint"],
+            serde_json::to_value(&plan.source_fingerprint)?
+        );
+        assert_eq!(
+            decoded["target_fingerprint"],
+            serde_json::to_value(&plan.target_fingerprint)?
+        );
+        assert_eq!(decoded["phases"]["additive"][0]["command"], "<redacted>");
+        assert_eq!(
+            plan.phases.additive[0].expose_command(),
+            "system description migrated"
+        );
         Ok(())
     }
 
@@ -160,6 +174,21 @@ mod tests {
             &Choices::default(),
         )?;
         let report = MigrationReport::from_plan(&plan, Locale::En);
+
+        assert_eq!(plan.phases.additive.len(), 1);
+        assert!(
+            plan.phases.additive[0].expose_command()
+                == "interface Bridge9 web-api password ns3 encoded-secret",
+            "redaction must retain the executable secret in memory"
+        );
+        assert!(
+            !format!("{plan:?}").contains("encoded-secret"),
+            "plan Debug must not disclose executable secrets"
+        );
+        assert!(
+            !serde_json::to_string(&plan)?.contains("encoded-secret"),
+            "printable plan JSON must not disclose executable secrets"
+        );
 
         let json = report.to_json()?;
         let markdown = report.to_markdown();

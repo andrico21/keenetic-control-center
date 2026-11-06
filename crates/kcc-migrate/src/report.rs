@@ -180,9 +180,9 @@ fn report_safe_line(line: &str) -> String {
 /// Resolves embedded policy reason ids to compile-time checked Fluent keys.
 fn localized_reason(reason_key: &str, locale: Locale) -> String {
     let key = match reason_key {
-        "migration-reason-default-copy" | "migration-reason-copy-secret" => {
-            keys::MIGRATE_REASON_COPY
-        }
+        "migration-reason-default-copy"
+        | "migration-reason-copy-secret"
+        | "migration-reason-non-critical-description" => keys::MIGRATE_REASON_COPY,
         "migration-reason-remap-reference" | "migration-reason-password-realm" => {
             keys::MIGRATE_REASON_REMAP
         }

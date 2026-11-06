@@ -166,3 +166,19 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 ## Not simulated yet
 
 ndw4, token and digest auth, and full `show log` streams.
+
+## Migration scenarios (assumed)
+
+An explicitly empty admin password (`builder.user("admin", "", ...)`) models factory
+setup: `/auth` returns 200 without a cookie and reads are available until a successful
+`user admin password plain` sets the credential. Password changes update authentication
+and invalidate sessions. This behavior is assumed, not hardware-verified.
+
+`FakeRouter::with_migration(migration::Fixture)` enables optional operating-mode replies,
+unaccepted DPN/EULA documents and explicit acceptance, NS3 rejection, management movement
+between two HTTP Host values, and clock-driven loss after a configuration write. Ordinary
+fixtures retain their historical absent mode/agreement endpoints. Both listeners for an
+address transition can serve clones of the same router; the inactive host returns 503.
+Expired fail-safe timers are processed before connectivity checks, restoring running
+configuration and the original management host. All these semantics are assumed from
+the todo-53 NOT-RUN fallback, not observations of real firmware.

@@ -299,6 +299,25 @@ pub const MIGRATE_REASON_UNSUPPORTED: MessageKey = MessageKey::new("migrate-reas
 /// `migrate-reason-prune` in `migrate.ftl`.
 pub const MIGRATE_REASON_PRUNE: MessageKey = MessageKey::new("migrate-reason-prune");
 
+/// `migrate-apply-verified` in `migrate.ftl`.
+pub const MIGRATE_APPLY_VERIFIED: MessageKey = MessageKey::new("migrate-apply-verified");
+
+/// `migrate-apply-failed` in `migrate.ftl`.
+pub const MIGRATE_APPLY_FAILED: MessageKey = MessageKey::new("migrate-apply-failed");
+
+/// `migrate-apply-router-rollback` in `migrate.ftl`.
+pub const MIGRATE_APPLY_ROUTER_ROLLBACK: MessageKey =
+    MessageKey::new("migrate-apply-router-rollback");
+
+/// `migrate-apply-tier` in `migrate.ftl`.
+pub const MIGRATE_APPLY_TIER: MessageKey = MessageKey::new("migrate-apply-tier");
+
+/// `migrate-apply-agreement` in `migrate.ftl`.
+pub const MIGRATE_APPLY_AGREEMENT: MessageKey = MessageKey::new("migrate-apply-agreement");
+
+/// `migrate-apply-residual` in `migrate.ftl`.
+pub const MIGRATE_APPLY_RESIDUAL: MessageKey = MessageKey::new("migrate-apply-residual");
+
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
@@ -3914,7 +3933,7 @@ pub const WEB_SYSTEM_LOGS_LIVE: MessageKey = MessageKey::new("web-system-logs-li
 pub const WEB_SYSTEM_LOGS_EMPTY: MessageKey = MessageKey::new("web-system-logs-empty");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1260] = [
+pub static ALL: [MessageKey; 1266] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -4012,6 +4031,12 @@ pub static ALL: [MessageKey; 1260] = [
     MIGRATE_REASON_NEEDS_INPUT,
     MIGRATE_REASON_UNSUPPORTED,
     MIGRATE_REASON_PRUNE,
+    MIGRATE_APPLY_VERIFIED,
+    MIGRATE_APPLY_FAILED,
+    MIGRATE_APPLY_ROUTER_ROLLBACK,
+    MIGRATE_APPLY_TIER,
+    MIGRATE_APPLY_AGREEMENT,
+    MIGRATE_APPLY_RESIDUAL,
     WEB_NAV_DASHBOARD,
     WEB_NAV_ROUTERS,
     WEB_NAV_INTERFACES,

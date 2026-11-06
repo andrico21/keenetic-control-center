@@ -1552,8 +1552,10 @@ name = "kcc-migrate"
 version = "0.1.0"
 dependencies = [
  "askama",
+ "kcc-app",
  "kcc-catalog",
  "kcc-config",
+ "kcc-domain",
  "kcc-i18n",
  "kcc-rci",
  "kcc-testkit",
@@ -1563,9 +1565,14 @@ dependencies = [
  "secrecy",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "toml",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "zeroize",
 ]
 
 [[package]]

@@ -34,6 +34,7 @@ mod components;
 mod config_state;
 mod failsafe;
 mod fixtures;
+pub mod migration;
 pub mod model;
 pub mod ndw2;
 mod projection;
@@ -390,6 +391,14 @@ pub struct FakeRouter {
 }
 
 impl FakeRouter {
+    /// Enables opt-in migration scenarios without altering ordinary model fixtures.
+    #[inline]
+    #[must_use]
+    pub fn with_migration(self, fixture: migration::Fixture) -> Self {
+        self.shared.configure_migration(fixture);
+        self
+    }
+
     /// A builder for `profile` with defaults: model realm, profile firmware, one
     /// `admin`/`admin` user, 300 s sessions and the system clock.
     #[inline]

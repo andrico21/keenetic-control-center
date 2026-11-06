@@ -19,7 +19,10 @@ use core::{fmt, time::Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_catalog::{Catalog, HttpMethod, SecretValue, ValidatedRequest, ValidationIssue};
-use kcc_rci::{ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse};
+use kcc_rci::{
+    ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse, RouterUrl, SecretBytes,
+    auth::Credentials,
+};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -28,7 +31,10 @@ use serde_json::{Value, json};
 mod cli;
 #[path = "workflow_output.rs"]
 mod output;
+#[path = "workflow_replay.rs"]
+mod replay;
 pub use cli::{CliCommand, SecretCommandError};
+pub use replay::{ReplayCompletionError, ReplayOutcome, ReplayPolicy, ReplayResult};
 use tokio::{
     sync::Mutex,
     time::{Instant, sleep},
@@ -507,6 +513,37 @@ impl ChangeWorkflow {
         last_read: Option<LastChange>,
         force: bool,
     ) -> Result<ChangeSet, WorkflowError> {
+        self.begin_with_client(router, actor, role, last_read, force, None)
+            .await
+    }
+
+    /// Starts a migration lease, permitting explicitly requested factory setup.
+    ///
+    /// # Errors
+    /// Returns authorization, lease, authentication, or inventory failures.
+    // NOT cancel-safe: cancellation releases the acquired lease.
+    pub async fn begin_migration(
+        self: &Arc<Self>,
+        router: &str,
+        actor: Actor,
+        role: &Role,
+    ) -> Result<ChangeSet, WorkflowError> {
+        let client = self.registry.bootstrap_client(role, router).await?;
+        self.begin_with_client(router, actor, role, None, false, Some(client))
+            .await
+    }
+
+    /// Acquires the ordinary lease using a caller-selected migration client when supplied.
+    // NOT cancel-safe: cancellation releases the acquired lease.
+    async fn begin_with_client(
+        self: &Arc<Self>,
+        router: &str,
+        actor: Actor,
+        role: &Role,
+        last_read: Option<LastChange>,
+        force: bool,
+        selected: Option<Arc<RciClient>>,
+    ) -> Result<ChangeSet, WorkflowError> {
         authorize(role, Permission::Read, router).map_err(map_permission)?;
         let lease = match self.state.try_lease(router) {
             Ok(lease) => lease,
@@ -528,7 +565,11 @@ impl ChangeWorkflow {
                 .await
                 .insert(router.to_owned(), actor.id.clone()),
         );
-        let client = self.registry.client(router).await?;
+        let migration = selected.is_some();
+        let client = match selected {
+            Some(client) => client,
+            None => self.registry.client(router).await?,
+        };
         let baseline = read_last_change(&client).await?;
         if !force
             && let Some(previous) = &last_read
@@ -540,7 +581,11 @@ impl ChangeWorkflow {
                 agent: baseline.agent,
             });
         }
-        let info = self.registry.poll_info(router).await?;
+        let info = if migration {
+            client.detect().await?
+        } else {
+            self.registry.poll_info(router).await?
+        };
         let catalog =
             Catalog::for_router(&info).map_err(|_error| WorkflowError::InvalidResponse)?;
         Ok(ChangeSet {
@@ -625,6 +670,102 @@ impl Drop for ChangeSet {
 }
 
 impl ChangeSet {
+    /// Rejects any change since this lease's last successful write, including the same agent.
+    ///
+    /// # Errors
+    /// Returns a conflict or read failure without transmitting a mutation.
+    // cancel-safe: this operation only reads router state.
+    pub async fn ensure_unchanged(&self) -> Result<(), WorkflowError> {
+        let current = read_last_change(&self.client).await?;
+        if current.checksum != self.expected.checksum {
+            return Err(WorkflowError::Conflict {
+                agent: current.agent,
+            });
+        }
+        Ok(())
+    }
+
+    /// Restores the original transport and credential after router-side rollback.
+    ///
+    /// # Errors
+    /// Returns authorization, original-origin reachability, or credential persistence errors.
+    // NOT cancel-safe: registry persistence follows a successful original-client probe.
+    pub async fn restore_connection(
+        &mut self,
+        original: Arc<RciClient>,
+    ) -> Result<(), WorkflowError> {
+        authorize(&self.role, Permission::Migrate, &self.router).map_err(map_permission)?;
+        let expected = read_last_change(&original).await?;
+        let credentials = original.credentials();
+        self.workflow
+            .registry
+            .transition(&self.router, Arc::clone(&original), Some(&credentials))
+            .await?;
+        self.client = original;
+        self.expected = expected;
+        Ok(())
+    }
+
+    /// Returns the current client while this change set retains the write lease.
+    #[inline]
+    #[must_use]
+    pub fn client(&self) -> Arc<RciClient> {
+        Arc::clone(&self.client)
+    }
+
+    /// Reconnects using a confirmed origin and optional replacement primary credential.
+    ///
+    /// # Errors
+    /// Returns permission, authentication, registry persistence, or read-back errors.
+    // NOT cancel-safe: the router credential may already have changed before this transition.
+    pub async fn reconnect(
+        &mut self,
+        url: RouterUrl,
+        credentials: Option<Credentials>,
+    ) -> Result<(), WorkflowError> {
+        authorize(&self.role, Permission::Migrate, &self.router).map_err(map_permission)?;
+        let client = Arc::new(self.client.retarget(url, credentials.clone()).await?);
+        let expected = read_last_change(&client).await?;
+        self.workflow
+            .registry
+            .transition(&self.router, Arc::clone(&client), credentials.as_ref())
+            .await?;
+        self.client = client;
+        self.expected = expected;
+        Ok(())
+    }
+
+    /// Uploads startup configuration through the leased, backed-up destructive workflow.
+    ///
+    /// # Errors
+    /// Returns permission, conflict, backup, upload, or audit failures.
+    // NOT cancel-safe: a transmitted upload can replace startup configuration before cancellation.
+    pub async fn upload_startup(&mut self, bytes: &SecretBytes) -> Result<(), WorkflowError> {
+        self.prepare_cli(Permission::Destructive).await?;
+        drop(self.client.upload_startup_config(bytes).await?);
+        self.audit_cli(
+            &[],
+            "router.raw_restore_upload",
+            json!({}),
+            "startup_replaced",
+        )
+        .await
+    }
+
+    /// Replays migration commands while retaining partial results after a later failure.
+    ///
+    /// # Errors
+    ///
+    /// Returns failures before dispatch; subsequent failures remain in the returned result.
+    // NOT cancel-safe: a transmitted line may apply before cancellation.
+    pub async fn replay(
+        &mut self,
+        commands: &[CliCommand],
+        policy: ReplayPolicy,
+    ) -> Result<ReplayResult, WorkflowError> {
+        replay::run(self, commands, policy).await
+    }
+
     /// Applies one mutation after catalog validation, backup, conflict check, and read-back.
     ///
     /// # Errors

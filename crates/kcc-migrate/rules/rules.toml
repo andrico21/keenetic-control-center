@@ -166,3 +166,9 @@ match = "**"
 disposition = "conflict"
 reason_key = "migration-reason-scalar-conflict"
 condition = "scalar-conflict"
+
+[[rule]]
+id = "non-critical-interface-description"
+match = "interface * description **"
+disposition = "copy"
+reason_key = "migration-reason-non-critical-description"
