@@ -22,9 +22,9 @@
       "work_id": "keenetic-control-center-b590fef9",
       "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
       "plan_name": "keenetic-control-center",
-      "status": "active",
+      "status": "completed",
       "started_at": "2026-11-05T16:38:10.421Z",
-      "updated_at": "2026-11-05T23:22:51.965Z",
+      "updated_at": "2026-11-06T01:24:30.370Z",
       "session_ids": [
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
       ],
@@ -70,13 +70,15 @@
           "status": "running",
           "updated_at": "2026-11-05T23:22:51.965Z"
         }
-      }
+      },
+      "ended_at": "2026-11-06T01:24:30.370Z",
+      "elapsed_ms": 31579949
     }
   },
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",
   "started_at": "2026-11-05T16:38:10.421Z",
-  "status": "active",
-  "updated_at": "2026-11-05T23:22:51.965Z",
+  "status": "completed",
+  "updated_at": "2026-11-06T01:24:30.370Z",
   "session_ids": [
     "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
   ],
@@ -123,5 +125,7 @@
       "updated_at": "2026-11-05T23:22:51.965Z"
     }
   },
-  "agent": "atlas"
+  "agent": "atlas",
+  "ended_at": "2026-11-06T01:24:30.370Z",
+  "elapsed_ms": 31579949
 }
