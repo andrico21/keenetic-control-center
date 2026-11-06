@@ -9,7 +9,7 @@
     reason = "integration-test crate structure and direct fixture filesystem setup"
 )]
 
-use core::error::Error;
+use core::{error::Error, time::Duration};
 use std::sync::Arc;
 
 use kcc_app::{
@@ -455,6 +455,47 @@ async fn job_streams_typed_progress_with_latest_percentage() -> Result<(), Box<d
             break;
         }
     }
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn graceful_drain_cancels_job_without_triggering_rollback() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let runner = JobRunner::open(fixture.state.clone(), Arc::clone(&fixture.registry)).await?;
+    let (started_tx, started_rx) = oneshot::channel::<()>();
+    let (rollback_tx, rollback_rx) = oneshot::channel::<()>();
+    drop(
+        runner
+            .start(
+                "migration".to_owned(),
+                Some("router".to_owned()),
+                true,
+                async move |context| {
+                    started_tx.send(()).map_err(|()| "start observer dropped")?;
+                    context.cancellation().cancelled().await;
+                    drop(rollback_tx);
+                    Ok(())
+                },
+            )
+            .await?,
+    );
+    started_rx.await?;
+
+    let report = runner.drain(Duration::from_secs(5)).await;
+
+    assert_eq!(report.cancelled, 1);
+    assert_eq!(report.still_running, 0);
+    assert!(
+        rollback_rx.await.is_err(),
+        "drain must not request rollback"
+    );
     fixture.shutdown().await?;
     Ok(())
 }

@@ -46,9 +46,9 @@ use rmcp::{
     handler::server::{tool::ToolRouter, wrapper::Parameters},
     model::{
         CallToolResult, ContentBlock, GetPromptRequestParams, GetPromptResponse, GetPromptResult,
-        ListPromptsResult, ListResourcesResult, PaginatedRequestParams, Prompt, PromptMessage,
-        ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Resource,
-        ResourceContents, Role as McpRole, ServerCapabilities, ServerConfig,
+        ListPromptsResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams, Prompt,
+        PromptMessage, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult,
+        Resource, ResourceContents, Role as McpRole, ServerCapabilities, ServerConfig,
     },
     service::{RequestContext, RoleServer},
     tool, tool_handler, tool_router,
@@ -568,6 +568,16 @@ impl ServerHandler for KccMcp {
         )
     }
 
+    async fn list_tools(
+        &self,
+        _request: Option<PaginatedRequestParams>,
+        _context: RequestContext<RoleServer>,
+    ) -> Result<ListToolsResult, ErrorData> {
+        Ok(ListToolsResult::with_all_items(
+            self.visible_tools(current_identity().is_some()),
+        ))
+    }
+
     async fn list_resources(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -690,6 +700,19 @@ impl ServerHandler for KccMcp {
 }
 
 impl KccMcp {
+    fn visible_tools(&self, http_identity: bool) -> Vec<rmcp::model::Tool> {
+        let mut tools = self.tool_router.list_all();
+        if !http_identity {
+            tools.retain(|tool| {
+                self.tool_specs
+                    .iter()
+                    .find(|spec| spec.name == tool.name)
+                    .is_some_and(|spec| self.fallback_role.grants(spec.permission))
+            });
+        }
+        tools
+    }
+
     fn identity(&self) -> Result<McpIdentity, McpFailure> {
         let role = match current_role() {
             Some(name) => self
@@ -1667,6 +1690,14 @@ mod tests {
 
     impl Fixture {
         async fn spawn(config: McpConfig, privacy: PrivacyConfig) -> Result<Self, Box<dyn Error>> {
+            Self::spawn_with_role(config, privacy, admin_role()).await
+        }
+
+        async fn spawn_with_role(
+            config: McpConfig,
+            privacy: PrivacyConfig,
+            fallback_role: Role,
+        ) -> Result<Self, Box<dyn Error>> {
             let directory = TempDir::new()?;
             let router = FakeRouter::builder(Profile::default()).build()?;
             let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
@@ -1697,9 +1728,16 @@ mod tests {
                 ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit);
             let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
             let poller = Poller::new(Arc::clone(&registry));
-            let roles = vec![admin.clone(), lab_role()];
+            let roles = vec![admin, lab_role(), viewer_role(), operator_role()];
             let server = KccMcp::new(
-                config, privacy, registry, workflow, jobs, poller, roles, admin,
+                config,
+                privacy,
+                registry,
+                workflow,
+                jobs,
+                poller,
+                roles,
+                fallback_role,
             );
             Ok(Self {
                 directory,
@@ -1726,6 +1764,72 @@ mod tests {
 
     fn lab_role() -> Role {
         Role::new("lab".to_owned(), Permission::ALL, vec!["lab-*".to_owned()])
+    }
+
+    fn viewer_role() -> Role {
+        Role::new(
+            "viewer".to_owned(),
+            [Permission::Read],
+            vec!["*".to_owned()],
+        )
+    }
+
+    fn operator_role() -> Role {
+        Role::new(
+            "operator".to_owned(),
+            [
+                Permission::Read,
+                Permission::Write,
+                Permission::Save,
+                Permission::Migrate,
+            ],
+            vec!["*".to_owned()],
+        )
+    }
+
+    #[tokio::test]
+    async fn fallback_role_filters_stdio_tools_without_changing_http_inventory()
+    -> Result<(), Box<dyn Error>> {
+        let viewer = Fixture::spawn_with_role(
+            McpConfig::default(),
+            PrivacyConfig::default(),
+            viewer_role(),
+        )
+        .await?;
+        let viewer_tools = viewer.server.visible_tools(false);
+        assert!(viewer_tools.iter().all(|tool| {
+            tool.annotations
+                .as_ref()
+                .and_then(|annotations| annotations.read_only_hint)
+                == Some(true)
+        }));
+        assert!(
+            !viewer_tools
+                .iter()
+                .any(|tool| tool.name == "kcc_config_save")
+        );
+        assert_eq!(
+            viewer.server.visible_tools(true),
+            viewer.server.tool_router.list_all(),
+            "HTTP inventory remains unchanged for kit RBAC filtering"
+        );
+        viewer.shutdown().await?;
+
+        let operator = Fixture::spawn_with_role(
+            McpConfig::default(),
+            PrivacyConfig::default(),
+            operator_role(),
+        )
+        .await?;
+        assert!(
+            operator
+                .server
+                .visible_tools(false)
+                .iter()
+                .any(|tool| tool.name == "kcc_config_save")
+        );
+        operator.shutdown().await?;
+        Ok(())
     }
 
     #[test]

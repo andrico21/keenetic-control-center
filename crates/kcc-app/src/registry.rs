@@ -19,7 +19,11 @@ extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, str::FromStr as _};
-use std::{fs, io, path::PathBuf};
+use std::{
+    fs, io,
+    path::PathBuf,
+    sync::{PoisonError, RwLock},
+};
 
 use kcc_rci::{
     AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl, TlsMode,
@@ -35,7 +39,7 @@ use url::Url;
 use crate::{
     permissions::{Permission, Role},
     persist::{Migration, StateDoc, StateError, StateStore},
-    settings::{OutboundConfig, RouterAuth, RouterProfile, RouterTls},
+    settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls},
 };
 
 /// A state-backed router profile with optional read-only polling credentials.
@@ -202,14 +206,19 @@ pub enum RegistryError {
     /// RCI connection or authentication failed.
     #[error(transparent)]
     Rci(#[from] RciError),
+    /// The in-memory profile set is unavailable after a task panicked while updating it.
+    #[error("router profile registry lock is poisoned")]
+    ProfileLock,
 }
 
 /// Merged router registry and lazy one-client-per-profile pool.
 pub struct RouterRegistry {
     /// State store.
     store: StateStore,
-    /// Immutable config-defined profiles.
-    config: BTreeMap<String, ManagedRouterProfile>,
+    /// Reloadable config-defined profiles.
+    config: RwLock<BTreeMap<String, ManagedRouterProfile>>,
+    /// Effective profiles observed at the last local mutation or reload.
+    profiles: RwLock<BTreeMap<String, ManagedRouterProfile>>,
     /// Outbound destination policy.
     outbound: OutboundPolicy,
     /// Lazy shared clients.
@@ -218,10 +227,14 @@ pub struct RouterRegistry {
 
 impl fmt::Debug for RouterRegistry {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let config_ids = self.config.read().map_or_else(
+            |_error| Vec::new(),
+            |config| config.keys().cloned().collect(),
+        );
         formatter
             .debug_struct("RouterRegistry")
             .field("store", &self.store)
-            .field("config_ids", &self.config.keys().collect::<Vec<_>>())
+            .field("config_ids", &config_ids)
             .finish_non_exhaustive()
     }
 }
@@ -234,19 +247,12 @@ impl RouterRegistry {
     /// Returns a profile or outbound-policy validation error.
     pub fn new(
         store: StateStore,
-        config_profiles: &[RouterProfile],
+        profiles: &[RouterProfile],
         outbound: &OutboundConfig,
     ) -> Result<Self, RegistryError> {
-        let mut config = BTreeMap::new();
-        for profile in config_profiles {
-            let converted = convert_config_profile(profile)?;
-            converted.validate()?;
-            if config.insert(converted.id.clone(), converted).is_some() {
-                return Err(RegistryError::AlreadyExists {
-                    id: profile.name.clone(),
-                });
-            }
-        }
+        let config = config_profiles(profiles)?;
+        let state_profiles = read_state_profiles(&store)?;
+        let effective = merged_profiles(&config, &state_profiles);
         let networks = outbound
             .allowed_networks
             .iter()
@@ -258,7 +264,8 @@ impl RouterRegistry {
             .with_loopback(outbound.allow_loopback);
         Ok(Self {
             store,
-            config,
+            config: RwLock::new(config),
+            profiles: RwLock::new(effective),
             outbound: policy,
             clients: Mutex::new(BTreeMap::new()),
         })
@@ -270,29 +277,19 @@ impl RouterRegistry {
     ///
     /// Returns state errors when `routers.json` is unreadable.
     pub fn list(&self) -> Result<Vec<RegistryEntry>, RegistryError> {
-        let mut merged = self
-            .state_profiles()?
-            .into_iter()
-            .map(|profile| {
-                (
-                    profile.id.clone(),
-                    RegistryEntry {
-                        profile,
-                        source: ProfileSource::State,
-                    },
-                )
-            })
-            .collect::<BTreeMap<_, _>>();
-        for profile in self.config.values() {
-            drop(merged.insert(
-                profile.id.clone(),
-                RegistryEntry {
-                    profile: profile.clone(),
-                    source: ProfileSource::Config,
+        let config = self.config.read().map_err(lock_error)?;
+        let profiles = self.profiles.read().map_err(lock_error)?;
+        Ok(profiles
+            .values()
+            .map(|profile| RegistryEntry {
+                profile: profile.clone(),
+                source: if config.contains_key(&profile.id) {
+                    ProfileSource::Config
+                } else {
+                    ProfileSource::State
                 },
-            ));
-        }
-        Ok(merged.into_values().collect())
+            })
+            .collect())
     }
 
     /// Gets a merged profile.
@@ -319,10 +316,16 @@ impl RouterRegistry {
     ) -> Result<(), RegistryError> {
         authorize(role, Permission::ManageRouters, &profile.id)?;
         profile.validate()?;
-        if self.config.contains_key(&profile.id) {
+        if self
+            .config
+            .read()
+            .map_err(lock_error)?
+            .contains_key(&profile.id)
+        {
             return Err(RegistryError::AlreadyExists { id: profile.id });
         }
         let id = profile.id.clone();
+        let loaded = profile.clone();
         let inserted = self.store.update::<RoutersDocument, _, _>(|document| {
             if document.routers.iter().any(|entry| entry.id == id) {
                 false
@@ -334,6 +337,12 @@ impl RouterRegistry {
         if !inserted {
             return Err(RegistryError::AlreadyExists { id });
         }
+        drop(
+            self.profiles
+                .write()
+                .map_err(lock_error)?
+                .insert(id.clone(), loaded),
+        );
         drop(self.clients.lock().await.remove(&id));
         Ok(())
     }
@@ -350,10 +359,16 @@ impl RouterRegistry {
     ) -> Result<(), RegistryError> {
         authorize(role, Permission::ManageRouters, &profile.id)?;
         profile.validate()?;
-        if self.config.contains_key(&profile.id) {
+        if self
+            .config
+            .read()
+            .map_err(lock_error)?
+            .contains_key(&profile.id)
+        {
             return Err(RegistryError::ConfigDefined { id: profile.id });
         }
         let id = profile.id.clone();
+        let loaded = profile.clone();
         let replaced = self.store.update::<RoutersDocument, _, _>(|document| {
             match document.routers.iter_mut().find(|entry| entry.id == id) {
                 Some(entry) => {
@@ -366,6 +381,12 @@ impl RouterRegistry {
         if !replaced {
             return Err(RegistryError::NotFound { id });
         }
+        drop(
+            self.profiles
+                .write()
+                .map_err(lock_error)?
+                .insert(id.clone(), loaded),
+        );
         drop(self.clients.lock().await.remove(&id));
         Ok(())
     }
@@ -377,7 +398,7 @@ impl RouterRegistry {
     /// Returns permission, config-defined, missing, or state errors.
     pub async fn delete(&self, role: &Role, id: &str) -> Result<(), RegistryError> {
         authorize(role, Permission::ManageRouters, id)?;
-        if self.config.contains_key(id) {
+        if self.config.read().map_err(lock_error)?.contains_key(id) {
             return Err(RegistryError::ConfigDefined { id: id.to_owned() });
         }
         let removed = self.store.update::<RoutersDocument, _, _>(|document| {
@@ -388,6 +409,7 @@ impl RouterRegistry {
         if !removed {
             return Err(RegistryError::NotFound { id: id.to_owned() });
         }
+        drop(self.profiles.write().map_err(lock_error)?.remove(id));
         drop(self.clients.lock().await.remove(id));
         Ok(())
     }
@@ -469,6 +491,37 @@ impl RouterRegistry {
         &self.outbound
     }
 
+    /// Reloads config-defined and state-defined profiles, invalidating clients whose
+    /// effective profile changed or disappeared.
+    ///
+    /// # Errors
+    ///
+    /// Returns profile validation, state storage, or registry lock errors.
+    // cancel-safe: the config swap is synchronous; cancellation can only defer cache invalidation.
+    pub async fn reload(&self, config: &Config) -> Result<usize, RegistryError> {
+        let replacement = config_profiles(&config.routers)?;
+        let state_profiles = read_state_profiles(&self.store)?;
+        let previous = self.profiles.read().map_err(lock_error)?.clone();
+        let current = merged_profiles(&replacement, &state_profiles);
+        let changed = previous
+            .iter()
+            .filter_map(|(id, profile)| (current.get(id) != Some(profile)).then_some(id.clone()))
+            .chain(
+                current
+                    .keys()
+                    .filter(|id| !previous.contains_key(*id))
+                    .cloned(),
+            )
+            .collect::<Vec<_>>();
+        *self.config.write().map_err(lock_error)? = replacement;
+        *self.profiles.write().map_err(lock_error)? = current;
+        let mut clients = self.clients.lock().await;
+        for id in &changed {
+            drop(clients.remove(id));
+        }
+        Ok(changed.len())
+    }
+
     /// Detects a registered router using its read-only credentials when available.
     ///
     /// # Errors
@@ -499,15 +552,6 @@ impl RouterRegistry {
         RouterInfo::detect(&session, &router)
             .await
             .map_err(RegistryError::from)
-    }
-
-    /// Loads state profiles and rejects malformed persisted data.
-    fn state_profiles(&self) -> Result<Vec<ManagedRouterProfile>, RegistryError> {
-        let document = self.store.read::<RoutersDocument>()?.unwrap_or_default();
-        for profile in &document.routers {
-            profile.validate()?;
-        }
-        Ok(document.routers)
     }
 
     /// Opens a policy-checked session with `credentials` and detects the router.
@@ -585,6 +629,52 @@ fn convert_config_profile(profile: &RouterProfile) -> Result<ManagedRouterProfil
         test_device: profile.test_device,
         tags: profile.tags.clone(),
     })
+}
+
+/// Converts and validates all config-defined profiles.
+fn config_profiles(
+    profiles: &[RouterProfile],
+) -> Result<BTreeMap<String, ManagedRouterProfile>, RegistryError> {
+    let mut converted = BTreeMap::new();
+    for profile in profiles {
+        let entry = convert_config_profile(profile)?;
+        entry.validate()?;
+        if converted.insert(entry.id.clone(), entry).is_some() {
+            return Err(RegistryError::AlreadyExists {
+                id: profile.name.clone(),
+            });
+        }
+    }
+    Ok(converted)
+}
+
+/// Produces the effective profile map with config definitions taking precedence.
+fn merged_profiles(
+    config: &BTreeMap<String, ManagedRouterProfile>,
+    state: &[ManagedRouterProfile],
+) -> BTreeMap<String, ManagedRouterProfile> {
+    let mut merged = state
+        .iter()
+        .map(|profile| (profile.id.clone(), profile.clone()))
+        .collect::<BTreeMap<_, _>>();
+    for (id, profile) in config {
+        drop(merged.insert(id.clone(), profile.clone()));
+    }
+    merged
+}
+
+/// Reads and validates mutable profiles from the state store.
+fn read_state_profiles(store: &StateStore) -> Result<Vec<ManagedRouterProfile>, RegistryError> {
+    let document = store.read::<RoutersDocument>()?.unwrap_or_default();
+    for profile in &document.routers {
+        profile.validate()?;
+    }
+    Ok(document.routers)
+}
+
+/// Converts a poisoned profile lock into the registry's stable error surface.
+fn lock_error<T>(_error: PoisonError<T>) -> RegistryError {
+    RegistryError::ProfileLock
 }
 
 /// Reads the selected credentials.

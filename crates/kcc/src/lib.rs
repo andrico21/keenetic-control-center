@@ -8,4 +8,6 @@
     )
 )]
 
+pub mod cli;
 pub mod privileges;
+pub mod server;

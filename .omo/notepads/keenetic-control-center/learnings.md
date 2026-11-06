@@ -192,3 +192,42 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Playwright gotchas: `button[type=submit]` matches the masthead fleet-switcher "Open" button first; `file://` images do not load in `setContent` pages (embed data URLs); a `pgrep -f`/`pkill -f` pattern that appears in the tool's own command line kills the tool shell (find PIDs with `ps -eo pid,args | awk '/[v]isual_harness-/'`).
 - rustdoc: an intra-doc link `[`format`]` to a module named `format` is ambiguous with `format!`; write `[`format`](mod@format)`.
 - Visual QA without the frontend skill scripts (check-draft-guard, detect SDK not on disk): self-review of captures at 1280 light/dark and 390 phone (ru dark), CSP violation logging through `securitypolicyviolation` in an init script, and scrollWidth checks for sideways overflow.
+
+## [2026-11-06] Todo 48 first atomic unit
+- Tokio `Notify::notified()` must be pinned and `enable()`d before checking the protected active-job map; otherwise a completion between the check and first poll can be missed. The bounded drain uses `timeout_at` only as a circuit breaker, while task cleanup notifications are the synchronization event.
+- `mpsc::Sender::is_closed()` is a cheap readiness accessor, but a writer loop must call `Receiver::close()` before replying with its terminal I/O error so the caller observes liveness false immediately and deterministically.
+- Registry reload needs a stored effective config+state snapshot rather than recomputing the "previous" set from freshly read state; otherwise external state-file changes are invisible to the diff and their cached clients are not invalidated.
+- Verification: nightly workspace format check, the three focused regression tests, and `cargo clippy -p kcc-app --lib --all-features -- -D warnings` pass. LSP diagnostics timed out. The standalone no-excuse script reports false positives on existing multiline `#[expect(... reason = ...)]` attributes; compiler and Clippy accept the reasons.
+
+## [2026-11-06] Todo 48 executable unit
+- rmcp-server-kit's `ServerConfig::apply_to_mcp_config` already carries listener/TLS/origin/timeouts/trusted proxies/security defaults; application-owned auth, RBAC, readiness, Web router, rate 600, CSP override, and reload callback are chained afterwards so they win by documented builder precedence.
+- `McpServerConfig::with_extra_router` bypasses kit auth/RBAC by design. WebState owns cookie/CSRF/session authorization; the kit's extra-route limiter wraps the complete router. Hashed asset paths remain limited because exemptions are exact-path only and none are configured here.
+- Readiness uses an append-open of `<state>/.ready` plus `AuditLog::is_alive`; no secret or state payload enters the readiness JSON or logs.
+- Manual QA used the built binary: `--help` exited 0 with only serve/mcp; disabled stdio emitted a clear tracing error and exited 10; non-loopback plaintext Web UI emitted the existing config refusal and exited 1.
+- Verification passed: nightly workspace format, 11 config tests, 6 kcc unit tests, `cargo build -p kcc`, `cargo clippy -p kcc --all-targets --all-features -- -D warnings`, `cargo deny check`, `cargo audit`, `cargo vet`, `cargo machete crates xtask`, and dependency-tree inspection. LSP diagnostics timed out twice; compiler/Clippy diagnostics are clean.
+
+## [2026-11-06] Todo 48 process acceptance suite
+- rmcp 3.x HTTP initialization negotiates `2025-06-18`; the request needs `Accept: application/json, text/event-stream`, and the initialized notification omits `params`. Streamable responses may be SSE: select the first nonempty `data:` payload and trim its leading space before JSON decoding.
+- A detached stderr reader can race process exit and lose the final refusal line. Keep its JoinHandle, wait for the child, join the reader, then drain the channel before asserting stderr. The Drop path kills/reaps first and then joins.
+- The reqwest test client uses `rustls-no-provider`; tests must install the existing ring provider before building a client. Adding direct test-only `rustls` reused 0.23.46 and introduced no dependency generation.
+- Final focused evidence: `.omo/evidence/task-48-keenetic-control-center.log` contains 4/4 passing process tests. Dependency output was appended to `.omo/evidence/task-2-keenetic-control-center.log`.
+- Gate results: nightly format, focused kcc all-target Clippy, warnings-denied workspace rustdoc, allow-gate, profile-eq, i18n-check, deny, audit, vet, machete, and dependency-tree inspection pass. Workspace tests reach an unrelated concurrent fake-router change: `kcc-rci/tests/capabilities.rs:140` expects `["WifiMaster0"]` while current testkit returns `["WifiMaster0", "WifiMaster1"]`. LSP diagnostics timed out; compiler/Clippy diagnostics for the changed kcc surfaces are clean.
+
+## [2026-11-06] Todo 48 final review corrections
+- Long-lived singleton ownership must use `try_lock`, not blocking `lock`, at process startup; blocking advisory locks turn duplicate-service configuration errors into silent hangs. Stdio is a per-client transport and must not participate in the singleton lock.
+- Stdio acceptance is line-delimited JSON-RPC: retain piped stdin/stdout, write and flush each JSON line, read through a dedicated thread/channel with a deadline, close stdin to end the session, then require exit 0. Running it while HTTP serve holds the state verifies both lock semantics and the in-handler viewer fallback identity.
+- Child-process hermeticity requires explicit environment injection even when the config has an explicit state directory: master-key resolution is independently HOME/XDG based. The test fixture now passes all four paths explicitly to every child, including refusal tests.
+- Final verification appended to `.omo/evidence/task-48-keenetic-control-center.log`: 7/7 process tests and the complete workspace G0 pass. LSP diagnostics timed out twice; compiler and workspace strict Clippy are clean.
+
+## [2026-11-06] kcc-testkit prerequisite Unit 3
+- When constructor input must seed mutable fault state and also remain stored, derive the mutable values before moving the `FaultInjection` into `Shared`; accessing fields after the struct move fails ownership checking.
+- Strict Clippy requires explicit early `drop` of parser-fault mutex guards before returning a copied decision. For a `#[non_exhaustive]` token enum, `let Token::Word(word) = token else { return None; }` avoids duplicate wildcard match arms while remaining future-compatible.
+
+## [2026-11-06] kcc-testkit prerequisite Unit 4
+- Large deterministic fixtures are cheaper and safer to generate at profile load than copy into every embedded model JSON; this keeps model identity seeds reviewable while derived profiles still receive the same baseline after their removal lists apply.
+- `tree::select_show` returns a selected object entry without its key, so `show interface stat?name=ISP` must assert `rxbytes`/`txbytes` at the response root. Dynamic projection overlay preserves the generated baseline for untouched fields and replaces only mutable projected branches.
+
+## [2026-11-06] kcc-testkit prerequisite Unit 5
+- A deterministic reboot window fits naturally in the outer fault middleware: check private component state against the injectable monotonic clock before auth/body handling and return 503. Applying staged state on the first post-deadline request avoids timers and sleeps while making the transition observable.
+- Strict lints on test support modules require their own module/private-item docs; shared helpers should remain under `tests/support/mod.rs` so scenario files stay below the pure-LOC ceiling. `RciClient::show_interface` wraps the selected interface under `/show/interface`, while direct show-path selection returns the selected object root.
+- Component firmware bumping must update both title and release because capability detection parses title first and only falls back to release. Installed components are held in a `BTreeSet`, yielding deterministic comma ordering and list responses.

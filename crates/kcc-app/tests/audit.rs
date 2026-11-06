@@ -159,4 +159,21 @@ mod tests {
         );
         Ok(())
     }
+
+    #[tokio::test]
+    async fn liveness_turns_false_after_writer_failure() -> TestResult {
+        let (_temp, state) = store()?;
+        let audit = AuditLog::spawn_with_limit(&state, 1)?;
+        drop(audit.append(event(1)).await?);
+        fs::create_dir_all(state.dir().join("audit-00000000000000000001.jsonl"))?;
+
+        let result = audit.append(event(2)).await;
+
+        assert!(
+            result.is_err(),
+            "forced rotation failure reaches the caller"
+        );
+        assert!(!audit.is_alive(), "terminated writer is not ready");
+        Ok(())
+    }
 }

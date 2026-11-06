@@ -27,3 +27,9 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
 ## [2026-11-06] Todo 34 partial execution
 - The single-task directive required stopping after the first logical unit. Session storage, CSRF, web routes/templates, authorization middleware, account UI, audit wiring, and `crates/kcc-web/tests/auth.rs` remain unimplemented; todo 34 is not complete.
+
+## [2026-11-06] kcc-testkit prerequisite Unit 4 workspace compatibility
+- `cargo test --workspace --all-features` passes every suite until `kcc-rci/tests/capabilities.rs::every_model_profile_reports_brand_hw_id_and_components`, which asserts the old fake shape `radios == ["WifiMaster0"]`; Unit 4 explicitly requires both `WifiMaster0` and `WifiMaster1`. The protected downstream test was not edited. Focused `kcc-app --test poller` (1/1) and `kcc-web --test dashboard` (7/7) pass with the expanded fake.
+
+## [2026-11-06] kcc-testkit amendment final gate
+- Final workspace tests, rustdoc, format, allow-gate, and profile-eq pass. Workspace Clippy is blocked only by the out-of-scope `crates/kcc-app/tests/audit.rs:168` use of `fs::create_dir`, rejected by `clippy::create_dir` with the suggested `create_dir_all`; the orchestrator explicitly authorized only one cross-crate edit in kcc-rci, so kcc-app was not modified. Strict all-target/all-feature Clippy for kcc-testkit itself passes.

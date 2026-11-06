@@ -44,6 +44,7 @@ pub const KCC_ENV_VARS: &[&str] = &[
     "KCC_WEB_PUBLIC_URL",
     "KCC_MCP_HTTP_ENABLED",
     "KCC_MCP_STDIO_ENABLED",
+    "KCC_MCP_STDIO_ROLE",
     "KCC_MCP_READ_ONLY",
     "KCC_MCP_ALLOW_DESTRUCTIVE",
     "KCC_MCP_MAX_RESULT_BYTES",
@@ -197,6 +198,8 @@ pub struct McpConfig {
     pub http_enabled: bool,
     /// Allow `kcc mcp stdio`.
     pub stdio_enabled: bool,
+    /// Application role assigned to the fixed local `stdio` identity.
+    pub stdio_role: String,
     /// Register only read tools.
     pub read_only: bool,
     /// Allow destructive tools (they still need `confirm: true`).
@@ -213,6 +216,7 @@ impl Default for McpConfig {
         Self {
             http_enabled: true,
             stdio_enabled: false,
+            stdio_role: "viewer".to_owned(),
             read_only: false,
             allow_destructive: false,
             max_result_bytes: 32 * 1024,
@@ -889,6 +893,12 @@ where
             "mcp.stdio_enabled",
             &mut mcp.stdio_enabled,
             parse_bool,
+        )?;
+        self.apply(
+            "KCC_MCP_STDIO_ROLE",
+            "mcp.stdio_role",
+            &mut mcp.stdio_role,
+            parse_string,
         )?;
         self.apply(
             "KCC_MCP_READ_ONLY",

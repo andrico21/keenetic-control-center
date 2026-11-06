@@ -297,6 +297,13 @@ impl AuditLog {
             .await
             .map_err(|_error| AuditError::WriterUnavailable)?
     }
+
+    /// Whether the audit writer task is still accepting commands.
+    #[inline]
+    #[must_use]
+    pub fn is_alive(&self) -> bool {
+        !self.sender.is_closed()
+    }
 }
 
 /// Mutable state owned exclusively by the writer task.
@@ -322,7 +329,14 @@ async fn writer_task(mut receiver: mpsc::Receiver<Command>, mut state: WriterSta
         match command {
             Command::Append { event, reply } => {
                 let result = state.append(event);
+                let failed = result.is_err();
+                if failed {
+                    receiver.close();
+                }
                 drop(reply.send(result));
+                if failed {
+                    break;
+                }
             }
         }
     }

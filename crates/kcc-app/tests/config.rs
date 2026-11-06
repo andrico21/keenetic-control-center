@@ -94,6 +94,7 @@ password_file = "/etc/kcc/home.pw"
         assert_eq!(config.web.default_locale, "en", "default_locale");
         assert!(config.mcp.http_enabled, "http_enabled");
         assert!(!config.mcp.stdio_enabled, "stdio_enabled");
+        assert_eq!(config.mcp.stdio_role, "viewer", "stdio_role");
         assert!(!config.mcp.read_only, "read_only");
         assert!(!config.mcp.allow_destructive, "allow_destructive");
         assert_eq!(config.mcp.max_result_bytes, 32 * 1024, "max_result_bytes");
@@ -315,6 +316,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         let env = BTreeMap::from([
             ("KCC_WEB_SESSION_IDLE", "45m"),
             ("KCC_MCP_READ_ONLY", "true"),
+            ("KCC_MCP_STDIO_ROLE", "operator"),
             ("KCC_MCP_TOOLSETS", "core, network-write"),
             (
                 "KCC_OUTBOUND_ALLOWED_NETWORKS",
@@ -333,6 +335,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             "session_idle"
         );
         assert!(config.mcp.read_only, "read_only");
+        assert_eq!(config.mcp.stdio_role, "operator", "stdio_role");
         assert_eq!(config.mcp.toolsets, ["core", "network-write"], "toolsets");
         assert_eq!(
             config.outbound.allowed_networks.len(),
@@ -353,6 +356,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             fields,
             [
                 "web.session_idle",
+                "mcp.stdio_role",
                 "mcp.read_only",
                 "mcp.toolsets",
                 "outbound.allowed_networks",

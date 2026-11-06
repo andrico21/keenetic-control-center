@@ -12,7 +12,7 @@
 extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
-use core::fmt;
+use core::{fmt, time::Duration};
 use std::{
     fs, io,
     path::PathBuf,
@@ -22,7 +22,10 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use tokio::sync::{Mutex, broadcast};
+use tokio::{
+    sync::{Mutex, Notify, broadcast},
+    time::{Instant, timeout_at},
+};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -108,6 +111,16 @@ pub struct RecoveryNotice {
     pub fail_safe: Value,
     /// Whether the router reports a scheduled reboot.
     pub scheduled_reboot: bool,
+}
+
+/// Outcome of cancelling and draining active jobs during graceful shutdown.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct DrainReport {
+    /// Jobs that were active and received cancellation.
+    pub cancelled: usize,
+    /// Jobs still running when the caller-supplied timeout elapsed.
+    pub still_running: usize,
 }
 
 /// Job runner failures.
@@ -209,6 +222,8 @@ pub struct JobRunner {
     events: broadcast::Sender<JobEvent>,
     /// Recovery notices discovered on startup.
     recovery: Mutex<Vec<RecoveryNotice>>,
+    /// Signals that an active job task reached its terminal cleanup.
+    finished: Notify,
 }
 
 impl fmt::Debug for JobRunner {
@@ -240,6 +255,7 @@ impl JobRunner {
             write_jobs: Mutex::new(BTreeMap::new()),
             events,
             recovery: Mutex::new(Vec::new()),
+            finished: Notify::new(),
         });
         runner.recover().await?;
         Ok(runner)
@@ -282,6 +298,42 @@ impl JobRunner {
             .ok_or_else(|| JobError::NotFound { id: id.to_owned() })?;
         token.cancel();
         Ok(())
+    }
+
+    /// Cancels every active job and waits up to `timeout` for task cleanup.
+    ///
+    /// This does not commit or roll back router state. A fail-safe armed by a
+    /// running migration therefore remains armed for the router to resolve.
+    // cancel-safe: cancellation leaves already-cancelled jobs running toward their ordinary cleanup.
+    pub async fn drain(&self, timeout: Duration) -> DrainReport {
+        let cancelled = {
+            let active = self.active.lock().await;
+            for token in active.values() {
+                token.cancel();
+            }
+            active.len()
+        };
+        let deadline = Instant::now()
+            .checked_add(timeout)
+            .unwrap_or_else(Instant::now);
+        loop {
+            let finished = self.finished.notified();
+            tokio::pin!(finished);
+            let _: bool = finished.as_mut().enable();
+            let still_running = self.active.lock().await.len();
+            if still_running == 0 {
+                return DrainReport {
+                    cancelled,
+                    still_running,
+                };
+            }
+            if timeout_at(deadline, finished).await.is_err() {
+                return DrainReport {
+                    cancelled,
+                    still_running: self.active.lock().await.len(),
+                };
+            }
+        }
     }
 
     /// Starts a persisted job and returns its id immediately.
@@ -374,6 +426,7 @@ impl JobRunner {
                 }
             }
             drop(owner.active.lock().await.remove(&task_id));
+            owner.finished.notify_waiters();
         }));
         Ok(id)
     }
