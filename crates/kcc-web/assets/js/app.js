@@ -273,3 +273,45 @@
     window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", build);
   }
 })();
+
+// todo 44: admin pages. The Copy button beside a new API key, and <time data-kcc-time>
+// shown in the reader's time zone and page language.
+(() => {
+  "use strict";
+
+  document.addEventListener("click", (event) => {
+    const button = event.target instanceof Element ? event.target.closest("[data-kcc-copy]") : null;
+    if (!button) {
+      return;
+    }
+    const input = document.getElementById(button.getAttribute("data-kcc-copy") || "");
+    if (!(input instanceof HTMLInputElement)) {
+      return;
+    }
+    // Selected text stays copyable by hand when the clipboard is unavailable.
+    input.select();
+    navigator.clipboard?.writeText(input.value).then(
+      () => {
+        const note = document.getElementById(input.getAttribute("aria-describedby") || "");
+        if (note) {
+          note.hidden = false;
+        }
+      },
+      () => {},
+    );
+  });
+
+  const lang = document.documentElement.getAttribute("lang") || "en";
+  const local = new Intl.DateTimeFormat(lang, { dateStyle: "medium", timeStyle: "short" });
+  const localize = () => {
+    for (const time of document.querySelectorAll("time[data-kcc-time]")) {
+      const value = new Date(time.getAttribute("datetime") || "");
+      if (!Number.isNaN(value.getTime())) {
+        time.textContent = local.format(value);
+        time.removeAttribute("data-kcc-time");
+      }
+    }
+  };
+  localize();
+  document.addEventListener("htmx:afterSettle", localize);
+})();

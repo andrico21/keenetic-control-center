@@ -20,7 +20,11 @@ use kcc_app::{
     accounts::{AccountError, Authentication},
     audit::{Actor, ActorKind, AuditEvent},
 };
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::Value;
@@ -28,10 +32,10 @@ use tokio::task::spawn_blocking;
 
 use crate::{
     WebState,
-    authz::{CurrentSession, CurrentUser},
+    authz::{CurrentSession, CurrentUser, PASSWORD_CHANGE_PAGE},
     errors,
     page::{Localize, Shell},
-    prefs,
+    prefs, router_access,
     session::{SessionId, SessionStore},
 };
 
@@ -96,6 +100,8 @@ struct AccountPage {
     username: String,
     /// Whether the preceding update succeeded.
     saved: bool,
+    /// Whether the account must choose a new password before anything else.
+    password_required: bool,
     /// Uniform password-change error.
     error: String,
 }
@@ -183,7 +189,18 @@ pub(crate) async fn login(
                 state.sessions().invalidate(&id).await;
                 return internal(error);
             }
-            let mut response = Redirect::to("/ui/").into_response();
+            let landing = match password_change_required(&state, &username).await {
+                Ok(true) => {
+                    state.sessions().require_password_change(&id).await;
+                    PASSWORD_CHANGE_PAGE
+                }
+                Ok(false) => "/ui/",
+                Err(error) => {
+                    state.sessions().invalidate(&id).await;
+                    return internal(error);
+                }
+            };
+            let mut response = Redirect::to(landing).into_response();
             if let Err(error) = set_session_cookie(&mut response, &state, &id) {
                 return internal(error);
             }
@@ -227,7 +244,7 @@ pub(crate) async fn account_page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    account_response(&state, &headers, &current, &user, false, false)
+    account_response(&state, &headers, &current, &user, false, None)
 }
 
 /// `POST /ui/account/password`: verifies current password and ends other sessions.
@@ -249,14 +266,22 @@ pub(crate) async fn change_password(
     .await
     {
         Ok(Ok(value)) => value,
-        Ok(Err(AccountError::InvalidPasswordLength | AccountError::PasswordEqualsUsername)) => {
-            return account_response(&state, &headers, &current, &user, false, true);
+        Ok(Err(AccountError::InvalidPasswordLength)) => {
+            let error = Some(keys::WEB_ADMIN_ERROR_PASSWORD_LENGTH);
+            return account_response(&state, &headers, &current, &user, false, error);
+        }
+        Ok(Err(AccountError::PasswordEqualsUsername)) => {
+            let error = Some(keys::WEB_ADMIN_ERROR_PASSWORD_USERNAME);
+            return account_response(&state, &headers, &current, &user, false, error);
         }
         Ok(Err(error)) => return internal(error),
         Err(error) => return internal(error),
     };
     match authentication {
         Authentication::Authenticated { role: _, locale: _ } => {
+            if current.session().password_change_required() {
+                return finish_required_change(&state, &current, &user).await;
+            }
             state
                 .sessions()
                 .invalidate_other_user_sessions(&username, current.id())
@@ -264,7 +289,7 @@ pub(crate) async fn change_password(
             if let Err(error) = audit(&state, &username, "web.password_change", "success").await {
                 return internal(error);
             }
-            account_response(&state, &headers, &current, &user, true, false)
+            account_response(&state, &headers, &current, &user, true, None)
         }
         Authentication::Invalid
         | Authentication::Disabled
@@ -272,7 +297,8 @@ pub(crate) async fn change_password(
             if let Err(error) = audit(&state, &username, "web.password_change", "failure").await {
                 return internal(error);
             }
-            account_response(&state, &headers, &current, &user, false, true)
+            let error = Some(keys::ERRORS_AUTH_FAILED);
+            account_response(&state, &headers, &current, &user, false, error)
         }
         _ => internal("unsupported authentication result"),
     }
@@ -300,7 +326,7 @@ pub(crate) async fn change_locale(
         Err(error) => return internal(error),
     }
     user.set_locale(locale);
-    account_response(&state, &headers, &current, &user, true, false)
+    account_response(&state, &headers, &current, &user, true, None)
 }
 
 /// Renders the uniform login failure and audits only stable metadata.
@@ -356,6 +382,56 @@ async fn has_admin(state: &WebState) -> Result<bool, Box<dyn Error + Send + Sync
         .map_err(Box::<dyn Error + Send + Sync>::from)
 }
 
+/// Reads whether `username` must choose a new password, away from the async executor.
+///
+/// # Errors
+///
+/// Returns account-storage or blocking-task failures.
+async fn password_change_required(
+    state: &WebState,
+    username: &str,
+) -> Result<bool, Box<dyn Error + Send + Sync>> {
+    let accounts = Arc::clone(state.accounts());
+    let name = username.to_owned();
+    let summaries = spawn_blocking(move || accounts.list())
+        .await
+        .map_err(Box::<dyn Error + Send + Sync>::from)?
+        .map_err(Box::<dyn Error + Send + Sync>::from)?;
+    Ok(summaries
+        .iter()
+        .any(|summary| summary.username == name && summary.must_change_password))
+}
+
+/// Completes the first-login password change.
+///
+/// The restricted session is replaced by a full one under a new id, the user's other
+/// sessions end, and the browser reloads into the dashboard with the new cookie and
+/// CSRF token.
+// NOT cancel-safe: the session rotation and the audit append are not undone.
+async fn finish_required_change(
+    state: &WebState,
+    current: &CurrentSession,
+    user: &CurrentUser,
+) -> Response {
+    let rotated = match state
+        .sessions()
+        .rotate_privilege(current.id(), user.role().clone())
+        .await
+    {
+        Ok(Some((id, _session))) => id,
+        Ok(None) => return Redirect::to("/ui/login").into_response(),
+        Err(error) => return internal(error),
+    };
+    if let Err(error) = audit(state, user.username(), "web.password_change", "success").await {
+        return internal(error);
+    }
+    let mut response = router_access::open("/ui/");
+    if let Err(error) = set_session_cookie(&mut response, state, &rotated) {
+        return internal(error);
+    }
+    response
+}
+
 /// Appends one authentication event with no credential-bearing parameters.
 ///
 /// # Errors
@@ -394,7 +470,7 @@ fn account_response(
     current: &CurrentSession,
     user: &CurrentUser,
     saved: bool,
-    failed: bool,
+    error: Option<MessageKey>,
 ) -> Response {
     let shell = prefs::shell_for_locale(headers, user.locale())
         .with_csrf_token(current.session().csrf_token().to_owned());
@@ -402,11 +478,8 @@ fn account_response(
         shell,
         username: user.username().to_owned(),
         saved,
-        error: if failed {
-            tr(user.locale(), keys::ERRORS_AUTH_FAILED, None)
-        } else {
-            String::new()
-        },
+        password_required: current.session().password_change_required(),
+        error: error.map_or_else(String::new, |key| tr(user.locale(), key, None)),
     })
 }
 

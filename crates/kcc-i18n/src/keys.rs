@@ -769,8 +769,526 @@ pub const WEB_ROUTER_ERROR_CHECK: MessageKey = MessageKey::new("web-router-error
 /// `web-router-error-save` in `web.ftl`.
 pub const WEB_ROUTER_ERROR_SAVE: MessageKey = MessageKey::new("web-router-error-save");
 
+/// `web-admin-title` in `web.ftl`.
+pub const WEB_ADMIN_TITLE: MessageKey = MessageKey::new("web-admin-title");
+
+/// `web-admin-tab-users` in `web.ftl`.
+pub const WEB_ADMIN_TAB_USERS: MessageKey = MessageKey::new("web-admin-tab-users");
+
+/// `web-admin-tab-roles` in `web.ftl`.
+pub const WEB_ADMIN_TAB_ROLES: MessageKey = MessageKey::new("web-admin-tab-roles");
+
+/// `web-admin-tab-keys` in `web.ftl`.
+pub const WEB_ADMIN_TAB_KEYS: MessageKey = MessageKey::new("web-admin-tab-keys");
+
+/// `web-admin-tab-audit` in `web.ftl`.
+pub const WEB_ADMIN_TAB_AUDIT: MessageKey = MessageKey::new("web-admin-tab-audit");
+
+/// `web-admin-tab-server` in `web.ftl`.
+pub const WEB_ADMIN_TAB_SERVER: MessageKey = MessageKey::new("web-admin-tab-server");
+
+/// `web-admin-unavailable` in `web.ftl`.
+pub const WEB_ADMIN_UNAVAILABLE: MessageKey = MessageKey::new("web-admin-unavailable");
+
+/// `web-admin-actions` in `web.ftl`.
+pub const WEB_ADMIN_ACTIONS: MessageKey = MessageKey::new("web-admin-actions");
+
+/// `web-admin-pages` in `web.ftl`.
+pub const WEB_ADMIN_PAGES: MessageKey = MessageKey::new("web-admin-pages");
+
+/// `web-admin-page-previous` in `web.ftl`.
+pub const WEB_ADMIN_PAGE_PREVIOUS: MessageKey = MessageKey::new("web-admin-page-previous");
+
+/// `web-admin-page-next` in `web.ftl`.
+pub const WEB_ADMIN_PAGE_NEXT: MessageKey = MessageKey::new("web-admin-page-next");
+
+/// `web-admin-page-status` in `web.ftl`.
+pub const WEB_ADMIN_PAGE_STATUS: MessageKey = MessageKey::new("web-admin-page-status");
+
+/// `web-admin-confirm-label` in `web.ftl`.
+pub const WEB_ADMIN_CONFIRM_LABEL: MessageKey = MessageKey::new("web-admin-confirm-label");
+
+/// `web-admin-confirm-help` in `web.ftl`.
+pub const WEB_ADMIN_CONFIRM_HELP: MessageKey = MessageKey::new("web-admin-confirm-help");
+
+/// `web-admin-reload-pending` in `web.ftl`.
+pub const WEB_ADMIN_RELOAD_PENDING: MessageKey = MessageKey::new("web-admin-reload-pending");
+
+/// `web-admin-reload-failed` in `web.ftl`.
+pub const WEB_ADMIN_RELOAD_FAILED: MessageKey = MessageKey::new("web-admin-reload-failed");
+
+/// `web-admin-role-viewer` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_VIEWER: MessageKey = MessageKey::new("web-admin-role-viewer");
+
+/// `web-admin-role-operator` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_OPERATOR: MessageKey = MessageKey::new("web-admin-role-operator");
+
+/// `web-admin-role-admin` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_ADMIN: MessageKey = MessageKey::new("web-admin-role-admin");
+
+/// `web-admin-password-required` in `web.ftl`.
+pub const WEB_ADMIN_PASSWORD_REQUIRED: MessageKey = MessageKey::new("web-admin-password-required");
+
+/// `web-admin-user-add` in `web.ftl`.
+pub const WEB_ADMIN_USER_ADD: MessageKey = MessageKey::new("web-admin-user-add");
+
+/// `web-admin-user-create` in `web.ftl`.
+pub const WEB_ADMIN_USER_CREATE: MessageKey = MessageKey::new("web-admin-user-create");
+
+/// `web-admin-user-name` in `web.ftl`.
+pub const WEB_ADMIN_USER_NAME: MessageKey = MessageKey::new("web-admin-user-name");
+
+/// `web-admin-user-name-help` in `web.ftl`.
+pub const WEB_ADMIN_USER_NAME_HELP: MessageKey = MessageKey::new("web-admin-user-name-help");
+
+/// `web-admin-user-password` in `web.ftl`.
+pub const WEB_ADMIN_USER_PASSWORD: MessageKey = MessageKey::new("web-admin-user-password");
+
+/// `web-admin-user-password-help` in `web.ftl`.
+pub const WEB_ADMIN_USER_PASSWORD_HELP: MessageKey =
+    MessageKey::new("web-admin-user-password-help");
+
+/// `web-admin-user-first-sign-in` in `web.ftl`.
+pub const WEB_ADMIN_USER_FIRST_SIGN_IN: MessageKey =
+    MessageKey::new("web-admin-user-first-sign-in");
+
+/// `web-admin-user-role` in `web.ftl`.
+pub const WEB_ADMIN_USER_ROLE: MessageKey = MessageKey::new("web-admin-user-role");
+
+/// `web-admin-user-role-help` in `web.ftl`.
+pub const WEB_ADMIN_USER_ROLE_HELP: MessageKey = MessageKey::new("web-admin-user-role-help");
+
+/// `web-admin-user-state` in `web.ftl`.
+pub const WEB_ADMIN_USER_STATE: MessageKey = MessageKey::new("web-admin-user-state");
+
+/// `web-admin-user-you` in `web.ftl`.
+pub const WEB_ADMIN_USER_YOU: MessageKey = MessageKey::new("web-admin-user-you");
+
+/// `web-admin-user-active` in `web.ftl`.
+pub const WEB_ADMIN_USER_ACTIVE: MessageKey = MessageKey::new("web-admin-user-active");
+
+/// `web-admin-user-disabled-state` in `web.ftl`.
+pub const WEB_ADMIN_USER_DISABLED_STATE: MessageKey =
+    MessageKey::new("web-admin-user-disabled-state");
+
+/// `web-admin-user-locked` in `web.ftl`.
+pub const WEB_ADMIN_USER_LOCKED: MessageKey = MessageKey::new("web-admin-user-locked");
+
+/// `web-admin-user-must-change` in `web.ftl`.
+pub const WEB_ADMIN_USER_MUST_CHANGE: MessageKey = MessageKey::new("web-admin-user-must-change");
+
+/// `web-admin-user-change-role` in `web.ftl`.
+pub const WEB_ADMIN_USER_CHANGE_ROLE: MessageKey = MessageKey::new("web-admin-user-change-role");
+
+/// `web-admin-user-disable` in `web.ftl`.
+pub const WEB_ADMIN_USER_DISABLE: MessageKey = MessageKey::new("web-admin-user-disable");
+
+/// `web-admin-user-enable` in `web.ftl`.
+pub const WEB_ADMIN_USER_ENABLE: MessageKey = MessageKey::new("web-admin-user-enable");
+
+/// `web-admin-user-unlock` in `web.ftl`.
+pub const WEB_ADMIN_USER_UNLOCK: MessageKey = MessageKey::new("web-admin-user-unlock");
+
+/// `web-admin-user-role-title` in `web.ftl`.
+pub const WEB_ADMIN_USER_ROLE_TITLE: MessageKey = MessageKey::new("web-admin-user-role-title");
+
+/// `web-admin-user-delete-title` in `web.ftl`.
+pub const WEB_ADMIN_USER_DELETE_TITLE: MessageKey = MessageKey::new("web-admin-user-delete-title");
+
+/// `web-admin-user-delete-text` in `web.ftl`.
+pub const WEB_ADMIN_USER_DELETE_TEXT: MessageKey = MessageKey::new("web-admin-user-delete-text");
+
+/// `web-admin-user-created` in `web.ftl`.
+pub const WEB_ADMIN_USER_CREATED: MessageKey = MessageKey::new("web-admin-user-created");
+
+/// `web-admin-user-role-changed` in `web.ftl`.
+pub const WEB_ADMIN_USER_ROLE_CHANGED: MessageKey = MessageKey::new("web-admin-user-role-changed");
+
+/// `web-admin-user-disabled` in `web.ftl`.
+pub const WEB_ADMIN_USER_DISABLED: MessageKey = MessageKey::new("web-admin-user-disabled");
+
+/// `web-admin-user-enabled` in `web.ftl`.
+pub const WEB_ADMIN_USER_ENABLED: MessageKey = MessageKey::new("web-admin-user-enabled");
+
+/// `web-admin-user-unlocked` in `web.ftl`.
+pub const WEB_ADMIN_USER_UNLOCKED: MessageKey = MessageKey::new("web-admin-user-unlocked");
+
+/// `web-admin-user-deleted` in `web.ftl`.
+pub const WEB_ADMIN_USER_DELETED: MessageKey = MessageKey::new("web-admin-user-deleted");
+
+/// `web-admin-error-username` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_USERNAME: MessageKey = MessageKey::new("web-admin-error-username");
+
+/// `web-admin-error-user-exists` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_USER_EXISTS: MessageKey = MessageKey::new("web-admin-error-user-exists");
+
+/// `web-admin-error-password-length` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_PASSWORD_LENGTH: MessageKey =
+    MessageKey::new("web-admin-error-password-length");
+
+/// `web-admin-error-password-username` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_PASSWORD_USERNAME: MessageKey =
+    MessageKey::new("web-admin-error-password-username");
+
+/// `web-admin-error-role` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_ROLE: MessageKey = MessageKey::new("web-admin-error-role");
+
+/// `web-admin-error-last-admin` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_LAST_ADMIN: MessageKey = MessageKey::new("web-admin-error-last-admin");
+
+/// `web-admin-error-confirm` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_CONFIRM: MessageKey = MessageKey::new("web-admin-error-confirm");
+
+/// `web-admin-roles-text` in `web.ftl`.
+pub const WEB_ADMIN_ROLES_TEXT: MessageKey = MessageKey::new("web-admin-roles-text");
+
+/// `web-admin-role-add` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_ADD: MessageKey = MessageKey::new("web-admin-role-add");
+
+/// `web-admin-role-name` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_NAME: MessageKey = MessageKey::new("web-admin-role-name");
+
+/// `web-admin-role-name-help` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_NAME_HELP: MessageKey = MessageKey::new("web-admin-role-name-help");
+
+/// `web-admin-role-permissions` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_PERMISSIONS: MessageKey = MessageKey::new("web-admin-role-permissions");
+
+/// `web-admin-role-scope` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_SCOPE: MessageKey = MessageKey::new("web-admin-role-scope");
+
+/// `web-admin-role-scope-help` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_SCOPE_HELP: MessageKey = MessageKey::new("web-admin-role-scope-help");
+
+/// `web-admin-role-holders` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_HOLDERS: MessageKey = MessageKey::new("web-admin-role-holders");
+
+/// `web-admin-role-built-in` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_BUILT_IN: MessageKey = MessageKey::new("web-admin-role-built-in");
+
+/// `web-admin-role-edit-title` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_EDIT_TITLE: MessageKey = MessageKey::new("web-admin-role-edit-title");
+
+/// `web-admin-role-delete-title` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_DELETE_TITLE: MessageKey = MessageKey::new("web-admin-role-delete-title");
+
+/// `web-admin-role-delete-text` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_DELETE_TEXT: MessageKey = MessageKey::new("web-admin-role-delete-text");
+
+/// `web-admin-role-created` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_CREATED: MessageKey = MessageKey::new("web-admin-role-created");
+
+/// `web-admin-role-updated` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_UPDATED: MessageKey = MessageKey::new("web-admin-role-updated");
+
+/// `web-admin-role-deleted` in `web.ftl`.
+pub const WEB_ADMIN_ROLE_DELETED: MessageKey = MessageKey::new("web-admin-role-deleted");
+
+/// `web-admin-error-role-name` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_ROLE_NAME: MessageKey = MessageKey::new("web-admin-error-role-name");
+
+/// `web-admin-error-role-built-in` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_ROLE_BUILT_IN: MessageKey =
+    MessageKey::new("web-admin-error-role-built-in");
+
+/// `web-admin-error-role-exists` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_ROLE_EXISTS: MessageKey = MessageKey::new("web-admin-error-role-exists");
+
+/// `web-admin-error-role-in-use` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_ROLE_IN_USE: MessageKey = MessageKey::new("web-admin-error-role-in-use");
+
+/// `web-admin-error-permissions` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_PERMISSIONS: MessageKey = MessageKey::new("web-admin-error-permissions");
+
+/// `web-admin-error-scope` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_SCOPE: MessageKey = MessageKey::new("web-admin-error-scope");
+
+/// `web-admin-permission-read` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_READ: MessageKey = MessageKey::new("web-admin-permission-read");
+
+/// `web-admin-permission-write` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_WRITE: MessageKey = MessageKey::new("web-admin-permission-write");
+
+/// `web-admin-permission-save` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_SAVE: MessageKey = MessageKey::new("web-admin-permission-save");
+
+/// `web-admin-permission-destructive` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_DESTRUCTIVE: MessageKey =
+    MessageKey::new("web-admin-permission-destructive");
+
+/// `web-admin-permission-migrate` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_MIGRATE: MessageKey =
+    MessageKey::new("web-admin-permission-migrate");
+
+/// `web-admin-permission-raw-rci` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_RAW_RCI: MessageKey =
+    MessageKey::new("web-admin-permission-raw-rci");
+
+/// `web-admin-permission-reveal-secrets` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_REVEAL_SECRETS: MessageKey =
+    MessageKey::new("web-admin-permission-reveal-secrets");
+
+/// `web-admin-permission-manage-routers` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_MANAGE_ROUTERS: MessageKey =
+    MessageKey::new("web-admin-permission-manage-routers");
+
+/// `web-admin-permission-manage-users` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_MANAGE_USERS: MessageKey =
+    MessageKey::new("web-admin-permission-manage-users");
+
+/// `web-admin-permission-view-audit` in `web.ftl`.
+pub const WEB_ADMIN_PERMISSION_VIEW_AUDIT: MessageKey =
+    MessageKey::new("web-admin-permission-view-audit");
+
+/// `web-admin-server-none` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_NONE: MessageKey = MessageKey::new("web-admin-server-none");
+
+/// `web-admin-server-listener` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_LISTENER: MessageKey = MessageKey::new("web-admin-server-listener");
+
+/// `web-admin-server-tls` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_TLS: MessageKey = MessageKey::new("web-admin-server-tls");
+
+/// `web-admin-server-public-url` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_PUBLIC_URL: MessageKey = MessageKey::new("web-admin-server-public-url");
+
+/// `web-admin-server-language` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_LANGUAGE: MessageKey = MessageKey::new("web-admin-server-language");
+
+/// `web-admin-server-session-idle` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_SESSION_IDLE: MessageKey =
+    MessageKey::new("web-admin-server-session-idle");
+
+/// `web-admin-server-session-lifetime` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_SESSION_LIFETIME: MessageKey =
+    MessageKey::new("web-admin-server-session-lifetime");
+
+/// `web-admin-server-lockout-failures` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_LOCKOUT_FAILURES: MessageKey =
+    MessageKey::new("web-admin-server-lockout-failures");
+
+/// `web-admin-server-lockout` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_LOCKOUT: MessageKey = MessageKey::new("web-admin-server-lockout");
+
+/// `web-admin-server-mcp-http` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_MCP_HTTP: MessageKey = MessageKey::new("web-admin-server-mcp-http");
+
+/// `web-admin-server-mcp-stdio` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_MCP_STDIO: MessageKey = MessageKey::new("web-admin-server-mcp-stdio");
+
+/// `web-admin-server-mcp-read-only` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_MCP_READ_ONLY: MessageKey =
+    MessageKey::new("web-admin-server-mcp-read-only");
+
+/// `web-admin-server-mcp-destructive` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_MCP_DESTRUCTIVE: MessageKey =
+    MessageKey::new("web-admin-server-mcp-destructive");
+
+/// `web-admin-server-toolsets` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_TOOLSETS: MessageKey = MessageKey::new("web-admin-server-toolsets");
+
+/// `web-admin-server-routers` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_ROUTERS: MessageKey = MessageKey::new("web-admin-server-routers");
+
+/// `web-admin-server-networks` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_NETWORKS: MessageKey = MessageKey::new("web-admin-server-networks");
+
+/// `web-admin-server-backups-keep` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_BACKUPS_KEEP: MessageKey =
+    MessageKey::new("web-admin-server-backups-keep");
+
+/// `web-admin-server-backups-age` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_BACKUPS_AGE: MessageKey =
+    MessageKey::new("web-admin-server-backups-age");
+
+/// `web-admin-server-audit-retention` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_AUDIT_RETENTION: MessageKey =
+    MessageKey::new("web-admin-server-audit-retention");
+
+/// `web-admin-keys-text` in `web.ftl`.
+pub const WEB_ADMIN_KEYS_TEXT: MessageKey = MessageKey::new("web-admin-keys-text");
+
+/// `web-admin-keys-empty` in `web.ftl`.
+pub const WEB_ADMIN_KEYS_EMPTY: MessageKey = MessageKey::new("web-admin-keys-empty");
+
+/// `web-admin-key-add` in `web.ftl`.
+pub const WEB_ADMIN_KEY_ADD: MessageKey = MessageKey::new("web-admin-key-add");
+
+/// `web-admin-key-create` in `web.ftl`.
+pub const WEB_ADMIN_KEY_CREATE: MessageKey = MessageKey::new("web-admin-key-create");
+
+/// `web-admin-key-name` in `web.ftl`.
+pub const WEB_ADMIN_KEY_NAME: MessageKey = MessageKey::new("web-admin-key-name");
+
+/// `web-admin-key-name-help` in `web.ftl`.
+pub const WEB_ADMIN_KEY_NAME_HELP: MessageKey = MessageKey::new("web-admin-key-name-help");
+
+/// `web-admin-key-role` in `web.ftl`.
+pub const WEB_ADMIN_KEY_ROLE: MessageKey = MessageKey::new("web-admin-key-role");
+
+/// `web-admin-key-created-at` in `web.ftl`.
+pub const WEB_ADMIN_KEY_CREATED_AT: MessageKey = MessageKey::new("web-admin-key-created-at");
+
+/// `web-admin-key-last-used` in `web.ftl`.
+pub const WEB_ADMIN_KEY_LAST_USED: MessageKey = MessageKey::new("web-admin-key-last-used");
+
+/// `web-admin-key-never` in `web.ftl`.
+pub const WEB_ADMIN_KEY_NEVER: MessageKey = MessageKey::new("web-admin-key-never");
+
+/// `web-admin-key-created-title` in `web.ftl`.
+pub const WEB_ADMIN_KEY_CREATED_TITLE: MessageKey = MessageKey::new("web-admin-key-created-title");
+
+/// `web-admin-key-created-text` in `web.ftl`.
+pub const WEB_ADMIN_KEY_CREATED_TEXT: MessageKey = MessageKey::new("web-admin-key-created-text");
+
+/// `web-admin-key-copy` in `web.ftl`.
+pub const WEB_ADMIN_KEY_COPY: MessageKey = MessageKey::new("web-admin-key-copy");
+
+/// `web-admin-key-copied` in `web.ftl`.
+pub const WEB_ADMIN_KEY_COPIED: MessageKey = MessageKey::new("web-admin-key-copied");
+
+/// `web-admin-key-done` in `web.ftl`.
+pub const WEB_ADMIN_KEY_DONE: MessageKey = MessageKey::new("web-admin-key-done");
+
+/// `web-admin-key-revoke` in `web.ftl`.
+pub const WEB_ADMIN_KEY_REVOKE: MessageKey = MessageKey::new("web-admin-key-revoke");
+
+/// `web-admin-key-revoke-title` in `web.ftl`.
+pub const WEB_ADMIN_KEY_REVOKE_TITLE: MessageKey = MessageKey::new("web-admin-key-revoke-title");
+
+/// `web-admin-key-revoke-text` in `web.ftl`.
+pub const WEB_ADMIN_KEY_REVOKE_TEXT: MessageKey = MessageKey::new("web-admin-key-revoke-text");
+
+/// `web-admin-key-revoked` in `web.ftl`.
+pub const WEB_ADMIN_KEY_REVOKED: MessageKey = MessageKey::new("web-admin-key-revoked");
+
+/// `web-admin-error-key-name` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_KEY_NAME: MessageKey = MessageKey::new("web-admin-error-key-name");
+
+/// `web-admin-error-key-exists` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_KEY_EXISTS: MessageKey = MessageKey::new("web-admin-error-key-exists");
+
+/// `web-admin-audit-filter` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_FILTER: MessageKey = MessageKey::new("web-admin-audit-filter");
+
+/// `web-admin-audit-actor` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_ACTOR: MessageKey = MessageKey::new("web-admin-audit-actor");
+
+/// `web-admin-audit-router` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_ROUTER: MessageKey = MessageKey::new("web-admin-audit-router");
+
+/// `web-admin-audit-action` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_ACTION: MessageKey = MessageKey::new("web-admin-audit-action");
+
+/// `web-admin-audit-from` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_FROM: MessageKey = MessageKey::new("web-admin-audit-from");
+
+/// `web-admin-audit-to` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_TO: MessageKey = MessageKey::new("web-admin-audit-to");
+
+/// `web-admin-audit-apply` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_APPLY: MessageKey = MessageKey::new("web-admin-audit-apply");
+
+/// `web-admin-audit-clear` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_CLEAR: MessageKey = MessageKey::new("web-admin-audit-clear");
+
+/// `web-admin-audit-export` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_EXPORT: MessageKey = MessageKey::new("web-admin-audit-export");
+
+/// `web-admin-audit-time` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_TIME: MessageKey = MessageKey::new("web-admin-audit-time");
+
+/// `web-admin-audit-target` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_TARGET: MessageKey = MessageKey::new("web-admin-audit-target");
+
+/// `web-admin-audit-outcome` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_OUTCOME: MessageKey = MessageKey::new("web-admin-audit-outcome");
+
+/// `web-admin-audit-details` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_DETAILS: MessageKey = MessageKey::new("web-admin-audit-details");
+
+/// `web-admin-audit-params` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_PARAMS: MessageKey = MessageKey::new("web-admin-audit-params");
+
+/// `web-admin-audit-empty` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_EMPTY: MessageKey = MessageKey::new("web-admin-audit-empty");
+
+/// `web-admin-audit-intact` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_INTACT: MessageKey = MessageKey::new("web-admin-audit-intact");
+
+/// `web-admin-audit-broken` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_BROKEN: MessageKey = MessageKey::new("web-admin-audit-broken");
+
+/// `web-admin-audit-unreadable` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_UNREADABLE: MessageKey = MessageKey::new("web-admin-audit-unreadable");
+
+/// `web-admin-audit-kind-web` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_KIND_WEB: MessageKey = MessageKey::new("web-admin-audit-kind-web");
+
+/// `web-admin-audit-kind-mcp` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_KIND_MCP: MessageKey = MessageKey::new("web-admin-audit-kind-mcp");
+
+/// `web-admin-audit-kind-cli` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_KIND_CLI: MessageKey = MessageKey::new("web-admin-audit-kind-cli");
+
+/// `web-admin-audit-kind-system` in `web.ftl`.
+pub const WEB_ADMIN_AUDIT_KIND_SYSTEM: MessageKey = MessageKey::new("web-admin-audit-kind-system");
+
+/// `web-admin-error-date` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_DATE: MessageKey = MessageKey::new("web-admin-error-date");
+
+/// `web-admin-server-process` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_PROCESS: MessageKey = MessageKey::new("web-admin-server-process");
+
+/// `web-admin-server-version` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_VERSION: MessageKey = MessageKey::new("web-admin-server-version");
+
+/// `web-admin-server-started` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_STARTED: MessageKey = MessageKey::new("web-admin-server-started");
+
+/// `web-admin-server-uptime` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_UPTIME: MessageKey = MessageKey::new("web-admin-server-uptime");
+
+/// `web-admin-server-config` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_CONFIG: MessageKey = MessageKey::new("web-admin-server-config");
+
+/// `web-admin-server-config-text` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_CONFIG_TEXT: MessageKey =
+    MessageKey::new("web-admin-server-config-text");
+
+/// `web-admin-server-state` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_STATE: MessageKey = MessageKey::new("web-admin-server-state");
+
+/// `web-admin-server-state-path` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_STATE_PATH: MessageKey = MessageKey::new("web-admin-server-state-path");
+
+/// `web-admin-server-state-writable` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_STATE_WRITABLE: MessageKey =
+    MessageKey::new("web-admin-server-state-writable");
+
+/// `web-admin-server-audit-writer` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_AUDIT_WRITER: MessageKey =
+    MessageKey::new("web-admin-server-audit-writer");
+
+/// `web-admin-server-running` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_RUNNING: MessageKey = MessageKey::new("web-admin-server-running");
+
+/// `web-admin-server-stopped` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_STOPPED: MessageKey = MessageKey::new("web-admin-server-stopped");
+
+/// `web-admin-server-catalogs` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_CATALOGS: MessageKey = MessageKey::new("web-admin-server-catalogs");
+
+/// `web-admin-server-catalog-line` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_CATALOG_LINE: MessageKey =
+    MessageKey::new("web-admin-server-catalog-line");
+
+/// `web-admin-server-catalog-groups` in `web.ftl`.
+pub const WEB_ADMIN_SERVER_CATALOG_GROUPS: MessageKey =
+    MessageKey::new("web-admin-server-catalog-groups");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 253] = [
+pub const ALL: [MessageKey; 417] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -1024,4 +1542,168 @@ pub const ALL: [MessageKey; 253] = [
     WEB_ROUTER_ERROR_TLS,
     WEB_ROUTER_ERROR_CHECK,
     WEB_ROUTER_ERROR_SAVE,
+    WEB_ADMIN_TITLE,
+    WEB_ADMIN_TAB_USERS,
+    WEB_ADMIN_TAB_ROLES,
+    WEB_ADMIN_TAB_KEYS,
+    WEB_ADMIN_TAB_AUDIT,
+    WEB_ADMIN_TAB_SERVER,
+    WEB_ADMIN_UNAVAILABLE,
+    WEB_ADMIN_ACTIONS,
+    WEB_ADMIN_PAGES,
+    WEB_ADMIN_PAGE_PREVIOUS,
+    WEB_ADMIN_PAGE_NEXT,
+    WEB_ADMIN_PAGE_STATUS,
+    WEB_ADMIN_CONFIRM_LABEL,
+    WEB_ADMIN_CONFIRM_HELP,
+    WEB_ADMIN_RELOAD_PENDING,
+    WEB_ADMIN_RELOAD_FAILED,
+    WEB_ADMIN_ROLE_VIEWER,
+    WEB_ADMIN_ROLE_OPERATOR,
+    WEB_ADMIN_ROLE_ADMIN,
+    WEB_ADMIN_PASSWORD_REQUIRED,
+    WEB_ADMIN_USER_ADD,
+    WEB_ADMIN_USER_CREATE,
+    WEB_ADMIN_USER_NAME,
+    WEB_ADMIN_USER_NAME_HELP,
+    WEB_ADMIN_USER_PASSWORD,
+    WEB_ADMIN_USER_PASSWORD_HELP,
+    WEB_ADMIN_USER_FIRST_SIGN_IN,
+    WEB_ADMIN_USER_ROLE,
+    WEB_ADMIN_USER_ROLE_HELP,
+    WEB_ADMIN_USER_STATE,
+    WEB_ADMIN_USER_YOU,
+    WEB_ADMIN_USER_ACTIVE,
+    WEB_ADMIN_USER_DISABLED_STATE,
+    WEB_ADMIN_USER_LOCKED,
+    WEB_ADMIN_USER_MUST_CHANGE,
+    WEB_ADMIN_USER_CHANGE_ROLE,
+    WEB_ADMIN_USER_DISABLE,
+    WEB_ADMIN_USER_ENABLE,
+    WEB_ADMIN_USER_UNLOCK,
+    WEB_ADMIN_USER_ROLE_TITLE,
+    WEB_ADMIN_USER_DELETE_TITLE,
+    WEB_ADMIN_USER_DELETE_TEXT,
+    WEB_ADMIN_USER_CREATED,
+    WEB_ADMIN_USER_ROLE_CHANGED,
+    WEB_ADMIN_USER_DISABLED,
+    WEB_ADMIN_USER_ENABLED,
+    WEB_ADMIN_USER_UNLOCKED,
+    WEB_ADMIN_USER_DELETED,
+    WEB_ADMIN_ERROR_USERNAME,
+    WEB_ADMIN_ERROR_USER_EXISTS,
+    WEB_ADMIN_ERROR_PASSWORD_LENGTH,
+    WEB_ADMIN_ERROR_PASSWORD_USERNAME,
+    WEB_ADMIN_ERROR_ROLE,
+    WEB_ADMIN_ERROR_LAST_ADMIN,
+    WEB_ADMIN_ERROR_CONFIRM,
+    WEB_ADMIN_ROLES_TEXT,
+    WEB_ADMIN_ROLE_ADD,
+    WEB_ADMIN_ROLE_NAME,
+    WEB_ADMIN_ROLE_NAME_HELP,
+    WEB_ADMIN_ROLE_PERMISSIONS,
+    WEB_ADMIN_ROLE_SCOPE,
+    WEB_ADMIN_ROLE_SCOPE_HELP,
+    WEB_ADMIN_ROLE_HOLDERS,
+    WEB_ADMIN_ROLE_BUILT_IN,
+    WEB_ADMIN_ROLE_EDIT_TITLE,
+    WEB_ADMIN_ROLE_DELETE_TITLE,
+    WEB_ADMIN_ROLE_DELETE_TEXT,
+    WEB_ADMIN_ROLE_CREATED,
+    WEB_ADMIN_ROLE_UPDATED,
+    WEB_ADMIN_ROLE_DELETED,
+    WEB_ADMIN_ERROR_ROLE_NAME,
+    WEB_ADMIN_ERROR_ROLE_BUILT_IN,
+    WEB_ADMIN_ERROR_ROLE_EXISTS,
+    WEB_ADMIN_ERROR_ROLE_IN_USE,
+    WEB_ADMIN_ERROR_PERMISSIONS,
+    WEB_ADMIN_ERROR_SCOPE,
+    WEB_ADMIN_PERMISSION_READ,
+    WEB_ADMIN_PERMISSION_WRITE,
+    WEB_ADMIN_PERMISSION_SAVE,
+    WEB_ADMIN_PERMISSION_DESTRUCTIVE,
+    WEB_ADMIN_PERMISSION_MIGRATE,
+    WEB_ADMIN_PERMISSION_RAW_RCI,
+    WEB_ADMIN_PERMISSION_REVEAL_SECRETS,
+    WEB_ADMIN_PERMISSION_MANAGE_ROUTERS,
+    WEB_ADMIN_PERMISSION_MANAGE_USERS,
+    WEB_ADMIN_PERMISSION_VIEW_AUDIT,
+    WEB_ADMIN_SERVER_NONE,
+    WEB_ADMIN_SERVER_LISTENER,
+    WEB_ADMIN_SERVER_TLS,
+    WEB_ADMIN_SERVER_PUBLIC_URL,
+    WEB_ADMIN_SERVER_LANGUAGE,
+    WEB_ADMIN_SERVER_SESSION_IDLE,
+    WEB_ADMIN_SERVER_SESSION_LIFETIME,
+    WEB_ADMIN_SERVER_LOCKOUT_FAILURES,
+    WEB_ADMIN_SERVER_LOCKOUT,
+    WEB_ADMIN_SERVER_MCP_HTTP,
+    WEB_ADMIN_SERVER_MCP_STDIO,
+    WEB_ADMIN_SERVER_MCP_READ_ONLY,
+    WEB_ADMIN_SERVER_MCP_DESTRUCTIVE,
+    WEB_ADMIN_SERVER_TOOLSETS,
+    WEB_ADMIN_SERVER_ROUTERS,
+    WEB_ADMIN_SERVER_NETWORKS,
+    WEB_ADMIN_SERVER_BACKUPS_KEEP,
+    WEB_ADMIN_SERVER_BACKUPS_AGE,
+    WEB_ADMIN_SERVER_AUDIT_RETENTION,
+    WEB_ADMIN_KEYS_TEXT,
+    WEB_ADMIN_KEYS_EMPTY,
+    WEB_ADMIN_KEY_ADD,
+    WEB_ADMIN_KEY_CREATE,
+    WEB_ADMIN_KEY_NAME,
+    WEB_ADMIN_KEY_NAME_HELP,
+    WEB_ADMIN_KEY_ROLE,
+    WEB_ADMIN_KEY_CREATED_AT,
+    WEB_ADMIN_KEY_LAST_USED,
+    WEB_ADMIN_KEY_NEVER,
+    WEB_ADMIN_KEY_CREATED_TITLE,
+    WEB_ADMIN_KEY_CREATED_TEXT,
+    WEB_ADMIN_KEY_COPY,
+    WEB_ADMIN_KEY_COPIED,
+    WEB_ADMIN_KEY_DONE,
+    WEB_ADMIN_KEY_REVOKE,
+    WEB_ADMIN_KEY_REVOKE_TITLE,
+    WEB_ADMIN_KEY_REVOKE_TEXT,
+    WEB_ADMIN_KEY_REVOKED,
+    WEB_ADMIN_ERROR_KEY_NAME,
+    WEB_ADMIN_ERROR_KEY_EXISTS,
+    WEB_ADMIN_AUDIT_FILTER,
+    WEB_ADMIN_AUDIT_ACTOR,
+    WEB_ADMIN_AUDIT_ROUTER,
+    WEB_ADMIN_AUDIT_ACTION,
+    WEB_ADMIN_AUDIT_FROM,
+    WEB_ADMIN_AUDIT_TO,
+    WEB_ADMIN_AUDIT_APPLY,
+    WEB_ADMIN_AUDIT_CLEAR,
+    WEB_ADMIN_AUDIT_EXPORT,
+    WEB_ADMIN_AUDIT_TIME,
+    WEB_ADMIN_AUDIT_TARGET,
+    WEB_ADMIN_AUDIT_OUTCOME,
+    WEB_ADMIN_AUDIT_DETAILS,
+    WEB_ADMIN_AUDIT_PARAMS,
+    WEB_ADMIN_AUDIT_EMPTY,
+    WEB_ADMIN_AUDIT_INTACT,
+    WEB_ADMIN_AUDIT_BROKEN,
+    WEB_ADMIN_AUDIT_UNREADABLE,
+    WEB_ADMIN_AUDIT_KIND_WEB,
+    WEB_ADMIN_AUDIT_KIND_MCP,
+    WEB_ADMIN_AUDIT_KIND_CLI,
+    WEB_ADMIN_AUDIT_KIND_SYSTEM,
+    WEB_ADMIN_ERROR_DATE,
+    WEB_ADMIN_SERVER_PROCESS,
+    WEB_ADMIN_SERVER_VERSION,
+    WEB_ADMIN_SERVER_STARTED,
+    WEB_ADMIN_SERVER_UPTIME,
+    WEB_ADMIN_SERVER_CONFIG,
+    WEB_ADMIN_SERVER_CONFIG_TEXT,
+    WEB_ADMIN_SERVER_STATE,
+    WEB_ADMIN_SERVER_STATE_PATH,
+    WEB_ADMIN_SERVER_STATE_WRITABLE,
+    WEB_ADMIN_SERVER_AUDIT_WRITER,
+    WEB_ADMIN_SERVER_RUNNING,
+    WEB_ADMIN_SERVER_STOPPED,
+    WEB_ADMIN_SERVER_CATALOGS,
+    WEB_ADMIN_SERVER_CATALOG_LINE,
+    WEB_ADMIN_SERVER_CATALOG_GROUPS,
 ];

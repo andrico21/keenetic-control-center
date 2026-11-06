@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_ADMIN_TAB_SERVER) }}{% endblock %}
+{%- block content %}
+<div class="page admin-page">
+  {%- include "partials/admin_tabs.html" %}
+  <h1 class="page__title">{{ t(keys::WEB_ADMIN_TAB_SERVER) }}</h1>
+  <div class="panels admin-panels">
+    <section class="panel" aria-labelledby="server-process">
+      <h2 class="panel__title" id="server-process">{{ t(keys::WEB_ADMIN_SERVER_PROCESS) }}</h2>
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_SERVER_VERSION) }}</dt><dd class="mono">{{ version }}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_SERVER_STARTED) }}</dt><dd>{% if let Some(time) = started %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_SERVER_UPTIME) }}</dt><dd>{{ uptime }}</dd></div>
+      </dl>
+    </section>
+    <section class="panel" aria-labelledby="server-state">
+      <h2 class="panel__title" id="server-state">{{ t(keys::WEB_ADMIN_SERVER_STATE) }}</h2>
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_SERVER_STATE_PATH) }}</dt><dd class="mono admin-path">{{ state_dir }}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_SERVER_STATE_WRITABLE) }}</dt><dd>{{ writable }}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_ADMIN_SERVER_AUDIT_WRITER) }}</dt><dd>{{ audit_writer }}</dd></div>
+      </dl>
+    </section>
+    <section class="panel" aria-labelledby="server-catalogs">
+      <h2 class="panel__title" id="server-catalogs">{{ t(keys::WEB_ADMIN_SERVER_CATALOGS) }}</h2>
+      <table class="table">
+        <thead><tr><th scope="col">{{ t(keys::WEB_ADMIN_SERVER_CATALOG_LINE) }}</th><th scope="col">{{ t(keys::WEB_ADMIN_SERVER_CATALOG_GROUPS) }}</th></tr></thead>
+        <tbody>
+          {%- for line in catalogs %}
+          <tr><td class="mono">{{ line.version }}</td><td>{{ line.groups }}</td></tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </section>
+  </div>
+  <section class="panel admin-config" aria-labelledby="server-config">
+    <h2 class="panel__title" id="server-config">{{ t(keys::WEB_ADMIN_SERVER_CONFIG) }}</h2>
+    <p class="panel__note">{{ t(keys::WEB_ADMIN_SERVER_CONFIG_TEXT) }}</p>
+    <dl class="facts">
+      {%- for (label, value) in summary %}
+      <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+      {%- endfor %}
+    </dl>
+  </section>
+</div>
+{%- endblock %}

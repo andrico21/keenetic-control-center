@@ -74,6 +74,10 @@ pub struct Account {
     pub failure_count: u32,
     /// Unix timestamp through which login is locked.
     pub lockout_until: Option<u64>,
+    /// Whether the account must choose a new password before anything else. Absent in
+    /// files written before the flag existed, and omitted while false.
+    #[serde(default, skip_serializing_if = "core::ops::Not::not")]
+    pub must_change_password: bool,
 }
 
 impl Debug for Account {
@@ -87,6 +91,7 @@ impl Debug for Account {
             disabled,
             failure_count,
             lockout_until,
+            must_change_password,
         } = self;
         f.debug_struct("Account")
             .field("username", username)
@@ -96,8 +101,58 @@ impl Debug for Account {
             .field("disabled", disabled)
             .field("failure_count", failure_count)
             .field("lockout_until", lockout_until)
+            .field("must_change_password", must_change_password)
             .finish()
     }
+}
+
+/// One account without its password hash, for administration views.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct AccountSummary {
+    /// Login name.
+    pub username: String,
+    /// Granted role name.
+    pub role: String,
+    /// Preferred locale.
+    pub locale: String,
+    /// Whether login is administratively disabled.
+    pub disabled: bool,
+    /// Consecutive failed attempts.
+    pub failure_count: u32,
+    /// Unix timestamp through which login is locked.
+    pub lockout_until: Option<u64>,
+    /// Whether the next login must choose a new password.
+    pub must_change_password: bool,
+}
+
+impl From<&Account> for AccountSummary {
+    #[inline]
+    fn from(account: &Account) -> Self {
+        Self {
+            username: account.username.clone(),
+            role: account.role.clone(),
+            locale: account.locale.clone(),
+            disabled: account.disabled,
+            failure_count: account.failure_count,
+            lockout_until: account.lockout_until,
+            must_change_password: account.must_change_password,
+        }
+    }
+}
+
+/// An administrative change to one account, applied by [`AccountStore::administer`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum AccountChange {
+    /// Grants the named role.
+    Role(String),
+    /// Disables (`true`) or re-enables (`false`) login.
+    Disabled(bool),
+    /// Clears failed attempts and any lockout.
+    Unlock,
+    /// Removes the account.
+    Delete,
 }
 
 /// Accounts persisted in `users.json`.
@@ -130,6 +185,8 @@ pub struct NewAccount {
     pub locale: String,
     /// Initial administrative state.
     pub disabled: bool,
+    /// Whether the first login must choose a new password.
+    pub must_change_password: bool,
 }
 
 impl NewAccount {
@@ -144,7 +201,16 @@ impl NewAccount {
             role,
             locale: "en".to_owned(),
             disabled: false,
+            must_change_password: false,
         }
+    }
+
+    /// Requires (or not) a new password at the first login.
+    #[inline]
+    #[must_use]
+    pub const fn with_must_change_password(mut self, required: bool) -> Self {
+        self.must_change_password = required;
+        self
     }
 
     /// Sets the preferred locale.
@@ -214,6 +280,9 @@ pub enum AccountError {
     /// Username already exists.
     #[error("account already exists")]
     DuplicateAccount,
+    /// The change would leave no enabled `admin` account.
+    #[error("the last enabled administrator cannot be disabled, demoted or deleted")]
+    LastAdmin,
 }
 
 /// UI account service using the state store's locking and atomic writes.
@@ -267,6 +336,7 @@ impl AccountStore {
             disabled: new.disabled,
             failure_count: 0,
             lockout_until: None,
+            must_change_password: new.must_change_password,
         };
         self.state.update(|document: &mut UsersDocument| {
             if document
@@ -386,6 +456,7 @@ impl AccountStore {
                 account.password_hash = sealed;
                 account.failure_count = 0;
                 account.lockout_until = None;
+                account.must_change_password = false;
             }
         })?;
         Ok(authentication)
@@ -414,6 +485,80 @@ impl AccountStore {
             })
             .map_err(AccountError::from)
     }
+
+    /// Every account, without password hashes, in stored order.
+    ///
+    /// # Errors
+    ///
+    /// Returns a state error when `users.json` cannot be read.
+    #[inline]
+    pub fn list(&self) -> Result<Vec<AccountSummary>, AccountError> {
+        Ok(self
+            .state
+            .read::<UsersDocument>()?
+            .unwrap_or_default()
+            .users
+            .iter()
+            .map(AccountSummary::from)
+            .collect())
+    }
+
+    /// Applies one administrative change under the `users.json` lock and returns the
+    /// account as it was before, or `None` when no such account exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`AccountError::LastAdmin`] when the change would leave no enabled
+    /// `admin` account, or a state error.
+    #[inline]
+    pub fn administer(
+        &self,
+        username: &str,
+        change: &AccountChange,
+    ) -> Result<Option<AccountSummary>, AccountError> {
+        self.state.update(|document: &mut UsersDocument| {
+            let admins = document
+                .users
+                .iter()
+                .filter(|account| enabled_admin(&account.role, account.disabled))
+                .count();
+            let Some(account) = document
+                .users
+                .iter_mut()
+                .find(|candidate| candidate.username == username)
+            else {
+                return Ok(None);
+            };
+            let before = AccountSummary::from(&*account);
+            let remains_admin = match change {
+                AccountChange::Role(role) => enabled_admin(role, account.disabled),
+                AccountChange::Disabled(disabled) => enabled_admin(&account.role, *disabled),
+                AccountChange::Unlock => enabled_admin(&account.role, account.disabled),
+                AccountChange::Delete => false,
+            };
+            if admins == 1 && enabled_admin(&account.role, account.disabled) && !remains_admin {
+                return Err(AccountError::LastAdmin);
+            }
+            match change {
+                AccountChange::Role(role) => account.role.clone_from(role),
+                AccountChange::Disabled(disabled) => account.disabled = *disabled,
+                AccountChange::Unlock => {
+                    account.failure_count = 0;
+                    account.lockout_until = None;
+                }
+                AccountChange::Delete => document
+                    .users
+                    .retain(|candidate| candidate.username != username),
+            }
+            Ok(Some(before))
+        })?
+    }
+}
+
+/// Whether an account with `role` and `disabled` counts as an enabled administrator,
+/// the same definition [`AccountStore::has_admin`] uses.
+fn enabled_admin(role: &str, disabled: bool) -> bool {
+    role == "admin" && !disabled
 }
 
 /// Returns the exact OWASP Argon2id parameters used for password creation.

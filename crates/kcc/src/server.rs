@@ -10,7 +10,10 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::time::Duration;
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    sync::OnceLock,
+};
 
 use kcc_app::{
     accounts::{AccountStore, Clock, SystemClock},
@@ -29,7 +32,11 @@ use kcc_app::{
 use kcc_i18n::locale::Locale;
 use kcc_mcp::KccMcp;
 use kcc_web::{
-    WebState, WebStateConfig, fleet::FleetServices, session::CookieSecurity, web_router,
+    WebState, WebStateConfig,
+    admin::{AdminServices, ServerFacts, TransportReload},
+    fleet::FleetServices,
+    session::CookieSecurity,
+    web_router,
 };
 use rmcp_server_kit::{
     auth::{AuthConfig, RateLimitConfig},
@@ -111,12 +118,17 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         .with_extra_route_rate_limit(600)
         .with_security_headers(kcc_web::csp::security_headers(tls))
         .with_readiness_check(readiness);
+    let auth_reload = Arc::new(TransportReload::new(
+        services.state.clone(),
+        handler.tool_specs().to_vec(),
+    ));
     if config.web.enabled {
-        let web_state = services.web_state(&config, tls)?;
+        let web_state = services.web_state(&config, tls, Arc::clone(&auth_reload))?;
         server = server.with_extra_router(web_router(web_state));
     }
     server = with_reload(
         server,
+        auth_reload.slot(),
         path,
         Arc::clone(&services.registry),
         services.state.clone(),
@@ -266,8 +278,14 @@ impl Services {
         ))
     }
 
-    /// Builds the authenticated Web UI around the same fleet services.
-    fn web_state(&self, config: &Config, tls: bool) -> Result<WebState, ServerError> {
+    /// Builds the authenticated Web UI around the same fleet services; administration
+    /// changes reach the running MCP transport through `auth_reload`.
+    fn web_state(
+        &self,
+        config: &Config,
+        tls: bool,
+        auth_reload: Arc<TransportReload>,
+    ) -> Result<WebState, ServerError> {
         let default_locale = Locale::from_tag(&config.web.default_locale)
             .ok_or_else(|| ServerError("web.default_locale is unsupported".to_owned()))?;
         let cookie_security = if tls {
@@ -292,6 +310,11 @@ impl Services {
             workflow: Arc::clone(&self.workflow),
             credentials_dir: self.state.dir().join("router-credentials"),
             update_check: None,
+        })
+        .with_admin(AdminServices {
+            state: self.state.clone(),
+            reload: Some(auth_reload),
+            server: ServerFacts::from_config(env!("CARGO_PKG_VERSION").to_owned(), config),
         }))
     }
 }
@@ -319,23 +342,29 @@ fn readiness_check(state_dir: PathBuf, audit: AuditLog) -> ReadinessCheck {
     })
 }
 
-/// Wires Unix SIGHUP reload of API keys, RBAC, and router profiles.
+/// Stores the transport's reload handle in `slot` for the Web UI's administration
+/// pages, and wires Unix SIGHUP reload of API keys, RBAC, and router profiles.
 #[cfg(unix)]
 fn with_reload(
     config: McpServerConfig,
+    slot: Arc<OnceLock<rmcp_server_kit::transport::ReloadHandle>>,
     path: PathBuf,
     registry: Arc<RouterRegistry>,
     state: StateStore,
     tools: Vec<kcc_app::permissions::ToolSpec>,
 ) -> McpServerConfig {
     config.with_reload_callback(move |handle| {
+        if slot.set(handle).is_err() {
+            tracing::error!("the MCP transport delivered a second reload handle; keeping the first");
+        }
         drop(tokio::spawn(async move {
+            let Some(installed) = slot.get() else { return; };
             let mut signals = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup()) {
                 Ok(signals) => signals,
                 Err(error) => { tracing::error!(%error, "cannot install SIGHUP reload handler"); return; }
             };
             while signals.recv().await.is_some() {
-                if let Err(error) = reload(&handle, &path, &registry, &state, &tools).await {
+                if let Err(error) = reload(installed, &path, &registry, &state, &tools).await {
                     tracing::error!(%error, "SIGHUP reload rejected; previous configuration remains active");
                 }
             }
@@ -343,16 +372,24 @@ fn with_reload(
     })
 }
 
-/// Leaves reload unavailable on non-Unix platforms.
+/// Stores the transport's reload handle in `slot` for the Web UI's administration
+/// pages; SIGHUP reload is unavailable on non-Unix platforms.
 #[cfg(not(unix))]
 fn with_reload(
     config: McpServerConfig,
+    slot: Arc<OnceLock<rmcp_server_kit::transport::ReloadHandle>>,
     _path: PathBuf,
     _registry: Arc<RouterRegistry>,
     _state: StateStore,
     _tools: Vec<kcc_app::permissions::ToolSpec>,
 ) -> McpServerConfig {
-    config
+    config.with_reload_callback(move |handle| {
+        if slot.set(handle).is_err() {
+            tracing::error!(
+                "the MCP transport delivered a second reload handle; keeping the first"
+            );
+        }
+    })
 }
 
 /// Applies one validated reload generation.

@@ -1,0 +1,39 @@
+{%- import "components.html" as ui -%}
+<div class="admin-region" id="admin-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if rows.is_empty() %}
+  <p class="page__text">{{ t(keys::WEB_ADMIN_KEYS_EMPTY) }}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_ADMIN_KEY_NAME) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_KEY_ROLE) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_KEY_CREATED_AT) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_KEY_LAST_USED) }}</th>
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" class="mono" id="key-{{ loop.index }}">{{ row.name }}</th>
+          <td>{{ row.role }}</td>
+          <td>{% if let Some(time) = row.created %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% endif %}</td>
+          <td>{% if let Some(time) = row.last_used %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% else %}<span class="muted">{{ t(keys::WEB_ADMIN_KEY_NEVER) }}</span>{% endif %}</td>
+          <td>
+            {%- if row.revocable %}
+            <div class="admin-actions">
+              <button class="button button--danger-ghost" type="button" hx-get="{{ row.revoke_url }}" hx-target="#dialog-content" aria-describedby="key-{{ loop.index }}">{{ t(keys::WEB_ADMIN_KEY_REVOKE) }}</button>
+            </div>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+  {%- include "partials/admin_pager.html" %}
+</div>
+{%- include "partials/admin_toasts.html" %}

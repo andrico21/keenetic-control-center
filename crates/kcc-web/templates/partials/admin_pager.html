@@ -1,0 +1,11 @@
+{%- if pager.multiple() %}
+<nav class="pager" aria-label="{{ t(keys::WEB_ADMIN_PAGES) }}">
+  {%- if let Some(href) = pager.previous() %}
+  <a class="button button--ghost" href="{{ href }}">{{ t(keys::WEB_ADMIN_PAGE_PREVIOUS) }}</a>
+  {%- endif %}
+  <span class="pager__status">{{ pager.status(shell.locale()) }}</span>
+  {%- if let Some(href) = pager.next() %}
+  <a class="button button--ghost" href="{{ href }}">{{ t(keys::WEB_ADMIN_PAGE_NEXT) }}</a>
+  {%- endif %}
+</nav>
+{%- endif %}

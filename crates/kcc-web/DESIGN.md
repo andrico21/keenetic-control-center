@@ -141,6 +141,12 @@ scrolling panel, the chart inside the live region (it would be re-created on eve
 Layout (router form `/ui/routers/...`): single column, 40rem max, actions in one row that
 wraps; scroll owner: the document.
 
+Layout (admin pages `/ui/admin/*`, todo 44): stacked sections - tab bar, page head (title
+and the primary action), then the table region (or the filter form above the audit table,
+or the server panels); tables sit in `.table-wrap`, which scrolls sideways only for the
+table itself; scroll owner: the document; anti-patterns: a fixed-height scrolling table,
+tabs that hide pages the role may open, actions in a hover-only menu.
+
 ## 5. Components
 
 Source anatomy: Carbon UI shell, button, text input, data table, tag, notification and modal,
@@ -258,6 +264,57 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   editing), address, login, password (write-only; empty keeps it when editing), sign-in
   note, certificate check (verify or pin + SHA-256), tags, test-device flag, test result.
 
+### Admin tabs (`partials/admin_tabs.html`)
+- Structure: `<nav class="tabs">` with one link per admin page the role may open (Users,
+  Roles, API keys and Server need ManageUsers; Audit log needs ViewAudit);
+  `aria-current="page"` marks the page.
+- States: hover wash; current = selected wash + selected ink + weight 600, never an accent
+  underline; focus ring inset. The list scrolls sideways at 320px instead of wrapping.
+
+### Admin table region (`.admin-region`)
+- Structure: the table and its pager in `#admin-region`; changes answer with the region
+  out of band plus `#toasts` toasts, so the page never reloads.
+- Row actions: ghost buttons in `.admin-actions` (forms are `display: contents`), each
+  `aria-describedby` the row header; destructive ones are `button--danger-ghost` and open
+  the typed-name confirmation dialog (`partials/admin_confirm.html`).
+- State flags: the status pill (Active online, Disabled neutral) plus `.flag` pills for
+  Locked (warning) and Password change pending (info); text always names the state.
+
+### Pager (`partials/admin_pager.html`)
+- Previous and Next ghost links around "Page N of M"; shown only with more than one page
+  of 50 rows; links keep the filter query.
+
+### Copy field (`partials/admin_key_created.html`)
+- A read-only monospace input holding the new API key, a secondary Copy button
+  (`data-kcc-copy`, first-party handler) and a hidden `role="status"` confirmation; the
+  dialog's Done closes it and the dialog empties its content, so the key leaves the DOM.
+
+### Audit filter (`.audit-filter`)
+- A GET form: actor, router, action, from and to dates in an auto-fill grid
+  (12rem minimum per field), Apply (primary) and Clear (ghost); invalid dates show a
+  field error and are ignored.
+
+### Page briefs (todo 44)
+
+- Users. Primary action: Add user. Priorities: 1 the accounts and their state, 2 roles,
+  3 row actions. Left out on purpose: last sign-in tiles, avatars, bulk actions. Required
+  content: username (with "you"), role, Active/Disabled, Locked, Password change pending,
+  Change role, Disable/Enable, Unlock (only with counted failures), Delete; actions only on
+  accounts below the signed-in role and never on the own account.
+- Roles. Primary action: Add role. Priorities: 1 role and permissions, 2 router scope,
+  3 how many accounts and keys hold it. Required content: built-in roles (read-only, with
+  the Built-in flag), custom roles with Edit and Delete (Delete only when unused), the
+  permission checkboxes (unheld ones disabled) and the scope field.
+- API keys. Primary action: Create API key. Priorities: 1 name and role, 2 created and
+  last used, 3 Revoke. Required content: the one-time key display with Copy and Done; the
+  key is never shown again.
+- Audit log. Primary action: Apply filters; Export JSONL is secondary. Priorities: 1 the
+  hash-chain status, 2 the filters, 3 the entries newest first. Required content: time,
+  actor and its front end, action, router, target, outcome, redacted parameters.
+- Server. No primary action. Priorities: 1 version and uptime, 2 state directory health,
+  3 configuration summary and command catalogs. Left out on purpose: secrets, credential
+  paths, router logins.
+
 ## 6. Motion & Interaction
 
 No movement: state changes are instant. The one transition is the htmx request indicator's
@@ -285,3 +342,4 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Theme and language menus do nothing without JavaScript | `base.html` | The Web UI requires htmx anyway; cookies are written client-side so no state-changing endpoint exists before CSRF (todo 34) | Todo 34 may add a POST fallback |
 | The traffic chart is a canvas | `pages/dashboard.html` | uPlot draws on canvas; the chart has `role="img"` and a label, and the legend states the newest rates as text | A data table view if users ask for history values |
 | Router forms need JavaScript | `pages/router_form.html` | Every state-changing request carries the CSRF header that `app.js` adds to htmx requests | Same as the menus |
+| API key Copy needs the Clipboard API | `partials/admin_key_created.html` | Without it (or without JavaScript) the key stays selected in its read-only field for a manual copy | None needed |

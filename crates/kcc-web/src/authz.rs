@@ -2,7 +2,7 @@
 
 use axum::{
     extract::{FromRequestParts, Request, State},
-    http::{StatusCode, request::Parts},
+    http::{Method, StatusCode, request::Parts},
     middleware::Next,
     response::{IntoResponse as _, Redirect, Response},
 };
@@ -20,6 +20,17 @@ use crate::{
     prefs,
     session::{Session, SessionId, SessionStore},
 };
+
+/// The page a session must use while its account has to choose a new password.
+pub(crate) const PASSWORD_CHANGE_PAGE: &str = "/ui/account";
+
+/// Every path a session may open while its account has to choose a new password.
+const PASSWORD_CHANGE_PATHS: [&str; 4] = [
+    PASSWORD_CHANGE_PAGE,
+    "/ui/account/password",
+    "/ui/account/locale",
+    "/ui/logout",
+];
 
 /// An authenticated session inserted by [`authentication_middleware`].
 #[derive(Debug, Clone)]
@@ -153,6 +164,14 @@ pub(crate) async fn authentication_middleware(
     ) else {
         return Redirect::to("/ui/login").into_response();
     };
+    if session.password_change_required() && !PASSWORD_CHANGE_PATHS.contains(&request.uri().path())
+    {
+        return if matches!(*request.method(), Method::GET | Method::HEAD) {
+            Redirect::to(PASSWORD_CHANGE_PAGE).into_response()
+        } else {
+            StatusCode::FORBIDDEN.into_response()
+        };
+    }
     let user = CurrentUser {
         username,
         role,
@@ -215,6 +234,8 @@ struct Requirement {
 fn requirement(path: &str) -> Requirement {
     let router = router_scope(path);
     let permission = match path {
+        "/ui/admin" => Permission::Read,
+        value if value.starts_with("/ui/admin/audit") => Permission::ViewAudit,
         value if value.starts_with("/ui/admin") => Permission::ManageUsers,
         value if value.starts_with("/ui/audit") => Permission::ViewAudit,
         value if value.starts_with("/ui/migration") => Permission::Migrate,
@@ -242,4 +263,38 @@ fn router_scope(path: &str) -> Option<String> {
         return None;
     };
     (!router.is_empty()).then(|| router.to_owned())
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use kcc_app::permissions::{Permission, Role};
+
+    use super::{permits, requirement};
+
+    #[test]
+    fn admin_routes_map_to_their_permissions() {
+        for (path, permission) in [
+            ("/ui/admin", Permission::Read),
+            ("/ui/admin/users", Permission::ManageUsers),
+            ("/ui/admin/roles/new", Permission::ManageUsers),
+            ("/ui/admin/api-keys", Permission::ManageUsers),
+            ("/ui/admin/server", Permission::ManageUsers),
+            ("/ui/admin/audit", Permission::ViewAudit),
+            ("/ui/admin/audit/export", Permission::ViewAudit),
+        ] {
+            assert_eq!(requirement(path).permission, permission, "{path}");
+        }
+        let auditor = Role::new(
+            "auditor".to_owned(),
+            [Permission::Read, Permission::ViewAudit],
+            vec!["*".to_owned()],
+        );
+        assert!(permits(&auditor, "/ui/admin/audit"), "audit log");
+        assert!(permits(&auditor, "/ui/admin"), "admin landing");
+        assert!(!permits(&auditor, "/ui/admin/users"), "user management");
+    }
 }

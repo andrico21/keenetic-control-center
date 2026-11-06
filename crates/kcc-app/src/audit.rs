@@ -414,6 +414,27 @@ pub fn verify_chain(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
     verify_files(&audit_files(dir)?)
 }
 
+/// Reads every entry of the rotated files and the active file, in chain order, without
+/// verifying the chain; for showing a log whose chain [`verify_chain`] rejects.
+///
+/// # Errors
+///
+/// Returns an I/O or JSON error if a file or line cannot be read or decoded.
+#[inline]
+pub fn read_entries(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
+    let mut entries = Vec::new();
+    for path in audit_files(dir)? {
+        let file = File::open(&path).map_err(|error| io_error(&path, error))?;
+        for read_result in BufReader::new(file).lines() {
+            let line = read_result.map_err(|error| io_error(&path, error))?;
+            if !line.is_empty() {
+                entries.push(serde_json::from_str(&line).map_err(|error| json_error(&error))?);
+            }
+        }
+    }
+    Ok(entries)
+}
+
 /// Discovers rotated files in sequence order, followed by the active file.
 ///
 /// # Errors

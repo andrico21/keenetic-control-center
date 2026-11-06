@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_ADMIN_TAB_AUDIT) }}{% endblock %}
+{%- block content %}
+<div class="page admin-page">
+  {%- include "partials/admin_tabs.html" %}
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_ADMIN_TAB_AUDIT) }}</h1>
+    <a class="button button--secondary" href="{{ export }}" download>{{ t(keys::WEB_ADMIN_AUDIT_EXPORT) }}</a>
+  </div>
+  <p class="notice"{% if !intact %} data-tone="error"{% endif %} role="status">{{ chain }}</p>
+  <form class="audit-filter" method="get" action="/ui/admin/audit" aria-label="{{ t(keys::WEB_ADMIN_AUDIT_FILTER) }}">
+    {{ ui::field("audit-actor", "actor", t(keys::WEB_ADMIN_AUDIT_ACTOR), actor, "") }}
+    {{ ui::field("audit-router", "router", t(keys::WEB_ADMIN_AUDIT_ROUTER), router, "") }}
+    {{ ui::field("audit-action", "action", t(keys::WEB_ADMIN_AUDIT_ACTION), action, "") }}
+    {{ ui::field("audit-from", "from", t(keys::WEB_ADMIN_AUDIT_FROM), from, from_error, "date") }}
+    {{ ui::field("audit-to", "to", t(keys::WEB_ADMIN_AUDIT_TO), to, to_error, "date") }}
+    <div class="audit-filter__actions">
+      <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_AUDIT_APPLY) }}</button>
+      <a class="button button--ghost" href="/ui/admin/audit">{{ t(keys::WEB_ADMIN_AUDIT_CLEAR) }}</a>
+    </div>
+  </form>
+  {%- if rows.is_empty() %}
+  <p class="page__text">{{ t(keys::WEB_ADMIN_AUDIT_EMPTY) }}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table audit-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_TIME) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_ACTOR) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_ACTION) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_ROUTER) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_TARGET) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_OUTCOME) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_DETAILS) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <td class="audit-time">{% if let Some(time) = row.time %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% endif %}</td>
+          <td><span class="mono">{{ row.actor }}</span> <span class="muted">{{ t(*row.kind) }}</span></td>
+          <td class="mono">{{ row.action }}</td>
+          <td class="mono">{{ row.router }}</td>
+          <td class="mono">{{ row.target }}</td>
+          <td class="mono">{{ row.outcome }}</td>
+          <td>
+            {%- if !row.params.is_empty() %}
+            <details class="audit-params"><summary>{{ t(keys::WEB_ADMIN_AUDIT_PARAMS) }}</summary><pre class="mono">{{ row.params }}</pre></details>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+  {%- include "partials/admin_pager.html" %}
+</div>
+{%- endblock %}

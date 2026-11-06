@@ -70,6 +70,8 @@ pub struct Session {
     last_seen: u64,
     /// Per-session CSRF token.
     csrf_token: String,
+    /// Whether the account must choose a new password before using anything else.
+    password_change: bool,
 }
 
 impl fmt::Debug for Session {
@@ -82,6 +84,7 @@ impl fmt::Debug for Session {
             created_at,
             last_seen,
             csrf_token: _,
+            password_change,
         } = self;
         f.debug_struct("Session")
             .field("username", username)
@@ -90,6 +93,7 @@ impl fmt::Debug for Session {
             .field("created_at", created_at)
             .field("last_seen", last_seen)
             .field("csrf_token", &"[REDACTED]")
+            .field("password_change", password_change)
             .finish()
     }
 }
@@ -128,6 +132,13 @@ impl Session {
     #[must_use]
     pub const fn is_authenticated(&self) -> bool {
         self.username.is_some() && self.role.is_some()
+    }
+
+    /// Whether the account must choose a new password before anything else.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn password_change_required(&self) -> bool {
+        self.password_change
     }
 }
 
@@ -329,10 +340,6 @@ impl SessionStore {
     /// # Errors
     ///
     /// Returns [`SessionError::Random`] if replacement token generation fails.
-    #[expect(
-        dead_code,
-        reason = "role-management routes call this when todo 44 adds them"
-    )]
     pub(crate) async fn rotate_privilege(
         &self,
         id: &SessionId,
@@ -352,6 +359,31 @@ impl SessionStore {
         self.invalidate_other_user_sessions(&username, &replacement.0)
             .await;
         Ok(Some(replacement))
+    }
+
+    /// Limits a fresh login to the password-change page until the password changes.
+    pub(crate) async fn require_password_change(&self, id: &SessionId) {
+        if let Some(session) = self.inner.sessions.write().await.get_mut(id) {
+            session.password_change = true;
+        }
+    }
+
+    /// Ends every session of `username`, after an administrator changed the account.
+    pub(crate) async fn invalidate_user(&self, username: &str) {
+        self.inner
+            .sessions
+            .write()
+            .await
+            .retain(|_id, session| session.username.as_deref() != Some(username));
+    }
+
+    /// Ends every session holding the role `name`, after an administrator changed it.
+    pub(crate) async fn invalidate_role(&self, name: &str) {
+        self.inner
+            .sessions
+            .write()
+            .await
+            .retain(|_id, session| session.role.as_ref().is_none_or(|role| role.name != name));
     }
 
     /// Parses this listener's session cookie from request headers.
@@ -395,6 +427,7 @@ impl SessionStore {
             created_at: now,
             last_seen: now,
             csrf_token: random_token()?,
+            password_change: false,
         };
         drop(
             self.inner

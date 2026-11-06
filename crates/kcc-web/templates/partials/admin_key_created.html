@@ -1,0 +1,16 @@
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_ADMIN_KEY_CREATED_TITLE)) %}
+<p class="dialog__text">{{ t(keys::WEB_ADMIN_KEY_CREATED_TEXT) }}</p>
+<div class="field copy-field">
+  <label class="field__label" for="api-key-value">{{ created.record.name }}</label>
+  <div class="copy-field__row">
+    <input class="field__input mono copy-field__value" id="api-key-value" type="text" value="{{ plaintext() }}" readonly autocomplete="off" spellcheck="false" aria-describedby="api-key-copied">
+    <button class="button button--secondary" type="button" data-kcc-copy="api-key-value">{{ t(keys::WEB_ADMIN_KEY_COPY) }}</button>
+  </div>
+  <p class="field__help" id="api-key-copied" role="status" hidden>{{ t(keys::WEB_ADMIN_KEY_COPIED) }}</p>
+</div>
+<form class="dialog__actions" method="dialog">
+  <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_KEY_DONE) }}</button>
+</form>
+{% endcall %}
+{{ region|safe }}

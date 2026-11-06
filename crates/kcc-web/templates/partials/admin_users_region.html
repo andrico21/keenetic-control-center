@@ -1,0 +1,62 @@
+{%- import "components.html" as ui -%}
+<div class="admin-region" id="admin-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_ADMIN_USER_NAME) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_USER_ROLE) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_USER_STATE) }}</th>
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" class="mono" id="user-{{ loop.index }}">{{ row.username }}{% if row.is_self() %} <span class="muted">({{ t(keys::WEB_ADMIN_USER_YOU) }})</span>{% endif %}</th>
+          <td>{{ row.role }}</td>
+          <td>
+            <span class="admin-flags">
+              {%- if row.disabled %}
+              <span class="status" data-status="unknown">{{ t(keys::WEB_ADMIN_USER_DISABLED_STATE) }}</span>
+              {%- else %}
+              <span class="status" data-status="online">{{ t(keys::WEB_ADMIN_USER_ACTIVE) }}</span>
+              {%- endif %}
+              {%- for flag in row.flags %}
+              <span class="flag" data-tone="{{ flag.tone }}">{{ t(*flag.label) }}</span>
+              {%- endfor %}
+            </span>
+          </td>
+          <td>
+            {%- if row.manageable() %}
+            <div class="admin-actions">
+              <button class="button button--ghost" type="button" hx-get="{{ row.role_url }}" hx-target="#dialog-content" aria-describedby="user-{{ loop.index }}">{{ t(keys::WEB_ADMIN_USER_CHANGE_ROLE) }}</button>
+              {%- if row.disabled %}
+              <form method="post" action="/ui/admin/users/enable" hx-post="/ui/admin/users/enable" hx-swap="none">
+                <input type="hidden" name="name" value="{{ row.username }}">
+                <button class="button button--ghost" type="submit" aria-describedby="user-{{ loop.index }}">{{ t(keys::WEB_ADMIN_USER_ENABLE) }}</button>
+              </form>
+              {%- else %}
+              <form method="post" action="/ui/admin/users/disable" hx-post="/ui/admin/users/disable" hx-swap="none">
+                <input type="hidden" name="name" value="{{ row.username }}">
+                <button class="button button--ghost" type="submit" aria-describedby="user-{{ loop.index }}">{{ t(keys::WEB_ADMIN_USER_DISABLE) }}</button>
+              </form>
+              {%- endif %}
+              {%- if row.unlock %}
+              <form method="post" action="/ui/admin/users/unlock" hx-post="/ui/admin/users/unlock" hx-swap="none">
+                <input type="hidden" name="name" value="{{ row.username }}">
+                <button class="button button--ghost" type="submit" aria-describedby="user-{{ loop.index }}">{{ t(keys::WEB_ADMIN_USER_UNLOCK) }}</button>
+              </form>
+              {%- endif %}
+              <button class="button button--danger-ghost" type="button" hx-get="{{ row.delete_url }}" hx-target="#dialog-content" aria-describedby="user-{{ loop.index }}">{{ t(keys::COMMON_DELETE) }}</button>
+            </div>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- include "partials/admin_pager.html" %}
+</div>
+{%- include "partials/admin_toasts.html" %}

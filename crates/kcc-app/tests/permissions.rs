@@ -24,8 +24,8 @@ mod tests {
 
     use kcc_app::{
         accounts::{
-            ARGON2_ITERATIONS, ARGON2_LANES, ARGON2_MEMORY_KIB, AccountStore, Authentication,
-            Clock, NewAccount, password_params,
+            ARGON2_ITERATIONS, ARGON2_LANES, ARGON2_MEMORY_KIB, AccountChange, AccountError,
+            AccountStore, Authentication, Clock, NewAccount, password_params,
         },
         api_keys::{api_key_entries, create_api_key, expose_created_key},
         permissions::{Permission, Role, ToolSpec, built_in_roles, rbac_config},
@@ -200,4 +200,85 @@ mod tests {
     }
 
     impl Error for MissingEntry {}
+
+    #[test]
+    fn administration_keeps_one_enabled_admin_and_the_flag_stays_schema_compatible() -> TestResult {
+        let (_temp, state) = store()?;
+        let users_file = state.dir().join("users.json");
+        let accounts = AccountStore::new(
+            state,
+            MasterKey::generate()?,
+            Duration::from_secs(60),
+            Arc::new(MockClock::default()),
+        );
+        accounts.create(NewAccount::new(
+            "alice".to_owned(),
+            SecretString::from("correct horse battery staple"),
+            "admin".to_owned(),
+        ))?;
+        assert!(
+            !fs::read_to_string(&users_file)?.contains("must_change_password"),
+            "a cleared flag is not written, so older readers still accept the file"
+        );
+
+        for change in [
+            AccountChange::Disabled(true),
+            AccountChange::Role("viewer".to_owned()),
+            AccountChange::Delete,
+        ] {
+            let refused = accounts.administer("alice", &change);
+            assert!(
+                matches!(refused, Err(AccountError::LastAdmin)),
+                "{change:?}: {refused:?}"
+            );
+        }
+        accounts.create(
+            NewAccount::new(
+                "bob".to_owned(),
+                SecretString::from("another long passphrase"),
+                "admin".to_owned(),
+            )
+            .with_must_change_password(true),
+        )?;
+        let before = accounts.administer("alice", &AccountChange::Disabled(true))?;
+        assert_eq!(
+            before.map(|summary| summary.disabled),
+            Some(false),
+            "a second enabled admin allows it"
+        );
+        assert!(
+            matches!(
+                accounts.administer("bob", &AccountChange::Delete),
+                Err(AccountError::LastAdmin)
+            ),
+            "bob is now the last enabled admin"
+        );
+        assert_eq!(
+            accounts.administer("nobody", &AccountChange::Unlock)?,
+            None,
+            "missing account"
+        );
+
+        let flagged = |name: &str| -> Result<bool, Box<dyn Error>> {
+            Ok(accounts
+                .list()?
+                .into_iter()
+                .any(|summary| summary.username == name && summary.must_change_password))
+        };
+        assert!(flagged("bob")?, "created with the flag");
+        let changed = accounts.change_password(
+            "bob",
+            &SecretString::from("another long passphrase"),
+            &SecretString::from("a brand new passphrase"),
+        )?;
+        assert!(
+            matches!(
+                changed,
+                Authentication::Authenticated { role: _, locale: _ }
+            ),
+            "{changed:?}"
+        );
+        assert!(!flagged("bob")?, "a password change clears the flag");
+        Ok(())
+    }
 }

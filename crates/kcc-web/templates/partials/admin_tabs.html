@@ -1,0 +1,7 @@
+<nav class="tabs" aria-label="{{ t(keys::WEB_ADMIN_TITLE) }}">
+  <ul class="tabs__list">
+    {%- for tab in tabs %}
+    <li><a class="tabs__link" href="{{ tab.href() }}"{% if tab.current() %} aria-current="page"{% endif %}>{{ t(tab.label()) }}</a></li>
+    {%- endfor %}
+  </ul>
+</nav>

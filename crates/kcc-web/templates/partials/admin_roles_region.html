@@ -1,0 +1,38 @@
+{%- import "components.html" as ui -%}
+<div class="admin-region" id="admin-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="table-wrap">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_ADMIN_ROLE_NAME) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_ROLE_PERMISSIONS) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_ROLE_SCOPE) }}</th>
+          <th scope="col">{{ t(keys::WEB_ADMIN_ROLE_HOLDERS) }}</th>
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" id="role-{{ loop.index }}">{{ row.label }}{% if row.built_in %} <span class="flag" data-tone="info">{{ t(keys::WEB_ADMIN_ROLE_BUILT_IN) }}</span>{% endif %}</th>
+          <td>{{ row.permissions }}</td>
+          <td class="mono">{{ row.scope }}</td>
+          <td class="numeric">{{ row.holders }}</td>
+          <td>
+            {%- if row.editable %}
+            <div class="admin-actions">
+              <button class="button button--ghost" type="button" hx-get="{{ row.edit_url }}" hx-target="#dialog-content" aria-describedby="role-{{ loop.index }}">{{ t(keys::COMMON_EDIT) }}</button>
+              {%- if row.deletable %}
+              <button class="button button--danger-ghost" type="button" hx-get="{{ row.delete_url }}" hx-target="#dialog-content" aria-describedby="role-{{ loop.index }}">{{ t(keys::COMMON_DELETE) }}</button>
+              {%- endif %}
+            </div>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- include "partials/admin_pager.html" %}
+</div>
+{%- include "partials/admin_toasts.html" %}

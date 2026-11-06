@@ -15,6 +15,9 @@
 //! - Unknown paths under `/ui` render a generic, localized 404 page ([`errors`]).
 //! - [`WebState::with_fleet`] attaches the router fleet ([`fleet::FleetServices`]): the
 //!   fleet overview, the router dashboards and forms, and their live event streams.
+//! - [`WebState::with_admin`] attaches the administration services
+//!   ([`admin::AdminServices`]): users, roles, API keys, the audit log and the server
+//!   summary under `/ui/admin`.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
 // binary; rustc accepts an expect for it at crate level alone.
 #![cfg_attr(
@@ -27,6 +30,7 @@
 
 extern crate alloc;
 
+pub mod admin;
 pub mod csp;
 mod csrf;
 pub mod errors;
@@ -39,6 +43,13 @@ pub mod table;
 
 mod auth;
 mod authz;
+
+mod admin_audit;
+mod admin_keys;
+mod admin_roles;
+mod admin_server;
+mod admin_shared;
+mod admin_users;
 
 mod assets;
 mod credentials;
@@ -60,6 +71,7 @@ mod view;
 
 use alloc::sync::Arc;
 use core::{fmt, time::Duration};
+use std::sync::{PoisonError, RwLock};
 
 use axum::{
     Router,
@@ -78,6 +90,8 @@ use tower_http::{
 };
 
 use crate::{
+    admin::AdminServices,
+    admin_shared::Admin,
     fleet::{Fleet, FleetServices},
     session::{CookieSecurity, SessionStore},
     sse::StreamLimiter,
@@ -106,8 +120,8 @@ pub struct WebState {
     sessions: SessionStore,
     /// Tamper-evident audit writer.
     audit: AuditLog,
-    /// Built-in and custom roles resolved at startup.
-    roles: Arc<[Role]>,
+    /// Built-in and custom roles; the role pages replace them while running.
+    roles: Arc<RwLock<Arc<[Role]>>>,
     /// Origins accepted for browser state-changing requests.
     allowed_origins: Arc<[String]>,
     /// Cookie policy selected from the actual listener transport.
@@ -116,6 +130,8 @@ pub struct WebState {
     clock: Arc<dyn Clock>,
     /// Router fleet services, when attached with [`WebState::with_fleet`].
     fleet: Option<Arc<Fleet>>,
+    /// Administration services, when attached with [`WebState::with_admin`].
+    admin: Option<Arc<Admin>>,
 }
 
 impl fmt::Debug for WebState {
@@ -169,11 +185,12 @@ impl WebState {
             accounts: config.accounts,
             sessions,
             audit: config.audit,
-            roles: config.roles.into(),
+            roles: Arc::new(RwLock::new(config.roles.into())),
             allowed_origins: config.allowed_origins.into(),
             cookie_security: config.cookie_security,
             clock: config.clock,
             fleet: None,
+            admin: None,
         }
     }
 
@@ -191,6 +208,34 @@ impl WebState {
     #[must_use]
     pub(crate) fn fleet(&self) -> Option<&Fleet> {
         self.fleet.as_deref()
+    }
+
+    /// Attaches the administration services: the user, role, API-key, audit-log and
+    /// server pages under `/ui/admin` use them. Without it those pages show a "not
+    /// configured" notice and their changes answer `503`.
+    #[inline]
+    #[must_use]
+    pub fn with_admin(mut self, services: AdminServices) -> Self {
+        let started_at = self.clock.unix_seconds();
+        self.admin = Some(Arc::new(Admin::new(services, started_at)));
+        self
+    }
+
+    /// Administration services, when attached.
+    #[must_use]
+    pub(crate) fn admin(&self) -> Option<&Admin> {
+        self.admin.as_deref()
+    }
+
+    /// Every built-in and custom role.
+    #[must_use]
+    pub(crate) fn roles(&self) -> Arc<[Role]> {
+        Arc::clone(&self.roles.read().unwrap_or_else(PoisonError::into_inner))
+    }
+
+    /// Replaces the roles after an administrator changed them.
+    pub(crate) fn set_roles(&self, roles: Vec<Role>) {
+        *self.roles.write().unwrap_or_else(PoisonError::into_inner) = roles.into();
     }
 
     /// The locale used when a request does not select one.
@@ -231,7 +276,7 @@ impl WebState {
     /// Resolves an account's persisted role name.
     #[must_use]
     pub(crate) fn role(&self, name: &str) -> Option<Role> {
-        self.roles.iter().find(|role| role.name == name).cloned()
+        self.roles().iter().find(|role| role.name == name).cloned()
     }
 
     /// Origins accepted for state-changing browser requests.
@@ -294,6 +339,48 @@ pub fn web_router(state: WebState) -> Router {
         .route("/ui/account/password", post(auth::change_password))
         .route("/ui/account/locale", post(auth::change_locale))
         .route("/ui/logout", post(auth::logout))
+        .route("/ui/admin", get(admin_shared::landing))
+        .route(
+            "/ui/admin/users",
+            get(admin_users::page).post(admin_users::create),
+        )
+        .route("/ui/admin/users/new", get(admin_users::new_dialog))
+        .route(
+            "/ui/admin/users/role",
+            get(admin_users::role_dialog).post(admin_users::set_role),
+        )
+        .route("/ui/admin/users/disable", post(admin_users::disable))
+        .route("/ui/admin/users/enable", post(admin_users::enable))
+        .route("/ui/admin/users/unlock", post(admin_users::unlock))
+        .route(
+            "/ui/admin/users/delete",
+            get(admin_users::delete_dialog).post(admin_users::delete),
+        )
+        .route(
+            "/ui/admin/roles",
+            get(admin_roles::page).post(admin_roles::create),
+        )
+        .route("/ui/admin/roles/new", get(admin_roles::new_dialog))
+        .route(
+            "/ui/admin/roles/edit",
+            get(admin_roles::edit_dialog).post(admin_roles::update),
+        )
+        .route(
+            "/ui/admin/roles/delete",
+            get(admin_roles::delete_dialog).post(admin_roles::delete),
+        )
+        .route(
+            "/ui/admin/api-keys",
+            get(admin_keys::page).post(admin_keys::create),
+        )
+        .route("/ui/admin/api-keys/new", get(admin_keys::new_dialog))
+        .route(
+            "/ui/admin/api-keys/revoke",
+            get(admin_keys::revoke_dialog).post(admin_keys::revoke),
+        )
+        .route("/ui/admin/audit", get(admin_audit::page))
+        .route("/ui/admin/audit/export", get(admin_audit::export))
+        .route("/ui/admin/server", get(admin_server::page))
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),

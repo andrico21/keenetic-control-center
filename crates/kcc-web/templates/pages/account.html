@@ -4,6 +4,7 @@
 <div class="page auth-page">
   <h1 class="page__title">{{ t(keys::WEB_ACCOUNT_TITLE) }}</h1>
   <p class="page__text">{{ username }}</p>
+  {%- if password_required %}<p class="notice" data-tone="info">{{ t(keys::WEB_ADMIN_PASSWORD_REQUIRED) }}</p>{% endif %}
   {%- if saved %}<p class="notice" data-tone="success">{{ t(keys::WEB_ACCOUNT_SAVED) }}</p>{% endif %}
   <section class="form-section">
     <h2>{{ t(keys::WEB_CHANGE_PASSWORD) }}</h2>

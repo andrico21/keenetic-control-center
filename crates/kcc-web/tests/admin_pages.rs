@@ -1,0 +1,1044 @@
+//! Administration pages: users and roles, their privilege guards, the forced password
+//! change at the first sign-in, API keys with the MCP hot reload, the audit log and the
+//! server summary.
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "test assertions deliberately panic and are not rendered API documentation"
+)]
+mod tests {
+    extern crate alloc;
+
+    use alloc::sync::Arc;
+    use core::{
+        error::Error,
+        net::SocketAddr,
+        sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+        time::Duration,
+    };
+    use std::fs;
+
+    use axum::{
+        Router,
+        body::{Body, to_bytes},
+        http::{Method, Request, StatusCode, header},
+        response::Response,
+    };
+    use kcc_app::{
+        accounts::{AccountStore, Clock, NewAccount},
+        api_keys::api_key_entries,
+        audit::{Actor, ActorKind, AuditEvent, AuditLog},
+        permissions::{Permission, Role, RolesDocument, load_roles},
+        persist::StateStore,
+        secrets::MasterKey,
+        settings::Config,
+    };
+    use kcc_i18n::{
+        bundle::{MessageKey, tr},
+        keys,
+        locale::Locale,
+    };
+    use kcc_web::{
+        WebState, WebStateConfig,
+        admin::{AdminServices, AuthReload, ReloadError, ServerFacts, TransportReload},
+        session::CookieSecurity,
+        web_router,
+    };
+    use rmcp::ServerHandler;
+    use rmcp_server_kit::{
+        auth::AuthConfig,
+        transport::{McpServerConfig, serve_with_listener},
+    };
+    use secrecy::SecretString;
+    use tempfile::TempDir;
+    use tokio::{
+        io::{AsyncBufReadExt as _, AsyncWriteExt as _, BufReader},
+        net::{TcpListener, TcpStream},
+        sync::oneshot,
+    };
+    use tower::ServiceExt as _;
+    use url::form_urlencoded;
+
+    type TestResult = Result<(), Box<dyn Error>>;
+    const BODY_CAP: usize = 0x0010_0000;
+    const ORIGIN: &str = "http://127.0.0.1:8080";
+    const ADMIN: &str = "alice";
+    const PASSWORD: &str = "correct horse battery staple";
+
+    #[derive(Debug, Default)]
+    struct FixedClock {
+        now: AtomicU64,
+    }
+
+    impl Clock for FixedClock {
+        fn unix_seconds(&self) -> u64 {
+            self.now.load(Ordering::SeqCst)
+        }
+    }
+
+    /// Counts the reloads the pages ask for.
+    #[derive(Debug, Default)]
+    struct CountingReload {
+        keys: AtomicUsize,
+        rbac: AtomicUsize,
+    }
+
+    impl AuthReload for CountingReload {
+        fn reload_keys(&self) -> Result<(), ReloadError> {
+            let _: usize = self.keys.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+
+        fn reload_rbac(&self) -> Result<(), ReloadError> {
+            let _: usize = self.rbac.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        }
+    }
+
+    /// A signed-in browser: its session cookie and CSRF token.
+    struct Browser {
+        cookie: String,
+        csrf: String,
+    }
+
+    /// A fixture and, when requested, its transport reload bridge.
+    type Built = (Fixture, Option<Arc<TransportReload>>);
+
+    struct Fixture {
+        _directory: TempDir,
+        state: StateStore,
+        accounts: Arc<AccountStore>,
+        audit: AuditLog,
+        reload: Arc<CountingReload>,
+        router: Router,
+    }
+
+    /// How [`Fixture::build`] wires the admin services.
+    #[derive(Default)]
+    struct Options {
+        /// Reload through a [`TransportReload`] bridge.
+        transport: bool,
+        /// The configuration the server page reports.
+        config: Config,
+    }
+
+    impl Fixture {
+        /// The admin `alice` (in `locale`), the custom `roles` and the attached admin
+        /// pages, reporting reloads to [`Fixture::reload`].
+        fn new(locale: &str, roles: Vec<Role>) -> Result<Self, Box<dyn Error>> {
+            Ok(Self::build(locale, roles, &Options::default())?.0)
+        }
+
+        /// As [`Fixture::new`]; with `options.transport`, reloads go through a
+        /// [`TransportReload`] bridge (returned) instead of the counter, and the server
+        /// page reports `options.config`.
+        fn build(
+            locale: &str,
+            roles: Vec<Role>,
+            options: &Options,
+        ) -> Result<Built, Box<dyn Error>> {
+            let directory = TempDir::new()?;
+            let state = StateStore::open(&directory.path().join("state"))?;
+            if !roles.is_empty() {
+                state.update(|document: &mut RolesDocument| document.roles.extend(roles))?;
+            }
+            let clock: Arc<dyn Clock> = Arc::new(FixedClock::default());
+            let accounts = Arc::new(AccountStore::new(
+                state.clone(),
+                MasterKey::generate()?,
+                Duration::from_secs(60),
+                Arc::clone(&clock),
+            ));
+            accounts.create(
+                NewAccount::new(
+                    ADMIN.to_owned(),
+                    SecretString::from(PASSWORD),
+                    "admin".to_owned(),
+                )
+                .with_locale(locale.to_owned()),
+            )?;
+            let reload = Arc::new(CountingReload::default());
+            let transport_reload = options
+                .transport
+                .then(|| Arc::new(TransportReload::new(state.clone(), Vec::new())));
+            let audit = AuditLog::spawn(&state)?;
+            let bridge: Arc<dyn AuthReload> = match &transport_reload {
+                Some(kit) => Arc::<TransportReload>::clone(kit),
+                None => Arc::<CountingReload>::clone(&reload),
+            };
+            let web_state = WebState::new(WebStateConfig {
+                default_locale: Locale::En,
+                accounts: Arc::clone(&accounts),
+                audit: audit.clone(),
+                roles: load_roles(&state)?,
+                session_idle: Duration::from_mins(30),
+                session_absolute: Duration::from_hours(12),
+                allowed_origins: vec![ORIGIN.to_owned()],
+                cookie_security: CookieSecurity::LoopbackHttp,
+                clock,
+            })
+            .with_admin(AdminServices {
+                state: state.clone(),
+                reload: Some(bridge),
+                server: ServerFacts::from_config("9.9.9".to_owned(), &options.config),
+            });
+            let fixture = Self {
+                _directory: directory,
+                state,
+                accounts,
+                audit,
+                reload,
+                router: web_router(web_state),
+            };
+            Ok((fixture, transport_reload))
+        }
+
+        /// Adds an account that does not have to change its password.
+        fn add_user(&self, name: &str, role: &str) -> Result<(), Box<dyn Error>> {
+            self.accounts.create(NewAccount::new(
+                name.to_owned(),
+                SecretString::from(PASSWORD),
+                role.to_owned(),
+            ))?;
+            Ok(())
+        }
+
+        async fn send(&self, request: Request<Body>) -> Result<Response, Box<dyn Error>> {
+            Ok(self.router.clone().oneshot(request).await?)
+        }
+
+        async fn get(&self, path: &str, cookie: &str) -> Result<Response, Box<dyn Error>> {
+            self.send(
+                Request::get(path)
+                    .header(header::COOKIE, cookie)
+                    .body(Body::empty())?,
+            )
+            .await
+        }
+
+        async fn post(
+            &self,
+            browser: &Browser,
+            path: &str,
+            pairs: &[(&str, &str)],
+        ) -> Result<Response, Box<dyn Error>> {
+            let body = {
+                let mut serializer = form_urlencoded::Serializer::new(String::new());
+                for (name, value) in pairs {
+                    let _: &mut form_urlencoded::Serializer<'_, String> =
+                        serializer.append_pair(name, value);
+                }
+                serializer.finish()
+            };
+            self.send(
+                Request::builder()
+                    .method(Method::POST)
+                    .uri(path)
+                    .header(header::COOKIE, &browser.cookie)
+                    .header(header::ORIGIN, ORIGIN)
+                    .header("sec-fetch-site", "same-origin")
+                    .header("x-csrf-token", &browser.csrf)
+                    .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                    .body(Body::from(body))?,
+            )
+            .await
+        }
+
+        /// Signs `name` in with `password`; the CSRF token comes from `page`.
+        async fn sign_in(
+            &self,
+            name: &str,
+            password: &str,
+            page: &str,
+        ) -> Result<(Browser, Option<String>), Box<dyn Error>> {
+            let login = self.get("/ui/login", "").await?;
+            let anonymous_cookie = cookie_pair(&login)?;
+            let login_html = text(login).await?;
+            let anonymous = Browser {
+                cookie: anonymous_cookie,
+                csrf: meta_content(&login_html, "csrf-token").ok_or("login CSRF")?,
+            };
+            let response = self
+                .post(
+                    &anonymous,
+                    "/ui/login",
+                    &[("username", name), ("password", password)],
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::SEE_OTHER, "{name} signs in");
+            let location = header_text(&response, header::LOCATION);
+            let cookie = cookie_pair(&response)?;
+            let landing = self.get(page, &cookie).await?;
+            let html = text(landing).await?;
+            let csrf = meta_content(&html, "csrf-token").ok_or("page CSRF")?;
+            Ok((Browser { cookie, csrf }, location))
+        }
+
+        async fn admin(&self) -> Result<Browser, Box<dyn Error>> {
+            Ok(self.sign_in(ADMIN, PASSWORD, "/ui/admin/users").await?.0)
+        }
+
+        fn audit_log(&self) -> Result<String, Box<dyn Error>> {
+            Ok(fs::read_to_string(self.state.dir().join("audit.jsonl"))?)
+        }
+    }
+
+    /// `key` in Ukrainian.
+    fn uk(key: MessageKey) -> String {
+        tr(Locale::Uk, key, None)
+    }
+
+    fn role(name: &str, permissions: &[Permission], scope: &[&str]) -> Role {
+        Role::new(
+            name.to_owned(),
+            permissions.iter().copied(),
+            scope.iter().map(|glob| (*glob).to_owned()).collect(),
+        )
+    }
+
+    async fn text(response: Response) -> Result<String, Box<dyn Error>> {
+        let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
+        Ok(String::from_utf8(bytes.to_vec())?)
+    }
+
+    fn header_text(response: &Response, name: header::HeaderName) -> Option<String> {
+        response
+            .headers()
+            .get(name)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned)
+    }
+
+    fn cookie_pair(response: &Response) -> Result<String, Box<dyn Error>> {
+        header_text(response, header::SET_COOKIE)
+            .and_then(|value| value.split(';').next().map(str::to_owned))
+            .ok_or_else(|| "missing Set-Cookie".into())
+    }
+
+    fn meta_content(html: &str, name: &str) -> Option<String> {
+        let marker = format!("<meta name=\"{name}\" content=\"");
+        html.split_once(&marker)
+            .and_then(|(_, tail)| tail.split_once('"'))
+            .map(|(value, _)| value.to_owned())
+    }
+
+    #[tokio::test]
+    async fn the_users_page_renders_for_each_role() -> TestResult {
+        let user_admin = role(
+            "useradmin",
+            &[Permission::Read, Permission::ManageUsers],
+            &["*"],
+        );
+        let fixture = Fixture::new("en", vec![user_admin])?;
+        fixture.add_user("vera", "viewer")?;
+        fixture.add_user("una", "useradmin")?;
+        let admin = fixture.admin().await?;
+
+        let page = fixture.get("/ui/admin/users", &admin.cookie).await?;
+        assert_eq!(page.status(), StatusCode::OK, "admin page");
+        let admin_html = text(page).await?;
+        for expected in [
+            "hx-get=\"/ui/admin/users/new\"",
+            "href=\"/ui/admin/audit\"",
+            "alice <span class=\"muted\">(you)</span>",
+            "/ui/admin/users/role?name=vera",
+            "/ui/admin/users/delete?name=una",
+        ] {
+            assert!(admin_html.contains(expected), "missing {expected}");
+        }
+        assert!(
+            !admin_html.contains("/ui/admin/users/delete?name=alice"),
+            "no actions on the own account"
+        );
+
+        let (viewer, _) = fixture.sign_in("vera", PASSWORD, "/ui/").await?;
+        let refused = fixture.get("/ui/admin/users", &viewer.cookie).await?;
+        assert_eq!(refused.status(), StatusCode::FORBIDDEN, "viewer");
+        assert!(text(refused).await?.contains("Access denied"), "403 page");
+        let viewer_landing = fixture.get("/ui/admin", &viewer.cookie).await?;
+        assert_eq!(
+            viewer_landing.status(),
+            StatusCode::FORBIDDEN,
+            "viewer landing"
+        );
+
+        let (manager, _) = fixture.sign_in("una", PASSWORD, "/ui/").await?;
+        let manager_html = text(fixture.get("/ui/admin/users", &manager.cookie).await?).await?;
+        assert!(
+            manager_html.contains("/ui/admin/users/role?name=vera"),
+            "a viewer is below useradmin"
+        );
+        assert!(
+            !manager_html.contains("/ui/admin/users/role?name=alice"),
+            "an admin is above useradmin"
+        );
+        assert!(
+            !manager_html.contains("href=\"/ui/admin/audit\""),
+            "no audit tab without ViewAudit"
+        );
+        let manager_landing = fixture.get("/ui/admin", &manager.cookie).await?;
+        assert_eq!(
+            header_text(&manager_landing, header::LOCATION).as_deref(),
+            Some("/ui/admin/users"),
+            "landing opens the users page"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_created_user_must_change_the_initial_password_first() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        let admin = fixture.admin().await?;
+        let initial = "initial passphrase 42";
+
+        let created = fixture
+            .post(
+                &admin,
+                "/ui/admin/users",
+                &[
+                    ("username", "bob"),
+                    ("password", initial),
+                    ("role", "operator"),
+                    ("locale", "de"),
+                ],
+            )
+            .await?;
+        assert_eq!(created.status(), StatusCode::OK, "created");
+        assert_eq!(
+            header_text(&created, "hx-trigger-after-swap".parse()?).as_deref(),
+            Some("kcc:dialog-close"),
+            "the dialog closes"
+        );
+        let html = text(created).await?;
+        assert!(html.contains("User created."), "toast");
+        assert!(
+            html.contains("Password change pending"),
+            "flag in the table"
+        );
+        assert!(!html.contains(initial), "the password is never echoed");
+        let log = fixture.audit_log()?;
+        assert!(log.contains("\"admin.user_create\""), "audited");
+        assert!(!log.contains(initial), "no password in the audit log");
+
+        let (bob, landing) = fixture.sign_in("bob", initial, "/ui/account").await?;
+        assert_eq!(landing.as_deref(), Some("/ui/account"), "first stop");
+        let blocked = fixture.get("/ui/", &bob.cookie).await?;
+        assert_eq!(
+            header_text(&blocked, header::LOCATION).as_deref(),
+            Some("/ui/account"),
+            "every other page waits for the new password"
+        );
+        let account = text(fixture.get("/ui/account", &bob.cookie).await?).await?;
+        assert!(
+            account.contains(&tr(Locale::De, keys::WEB_ADMIN_PASSWORD_REQUIRED, None)),
+            "the notice speaks the account language"
+        );
+
+        let changed = fixture
+            .post(
+                &bob,
+                "/ui/account/password",
+                &[
+                    ("current_password", initial),
+                    ("new_password", "my own passphrase 7"),
+                ],
+            )
+            .await?;
+        assert_eq!(
+            header_text(&changed, "hx-redirect".parse()?).as_deref(),
+            Some("/ui/"),
+            "into the dashboard"
+        );
+        let rotated = cookie_pair(&changed)?;
+        assert_ne!(rotated, bob.cookie, "the session id rotates");
+        let old = fixture.get("/ui/", &bob.cookie).await?;
+        assert_eq!(
+            header_text(&old, header::LOCATION).as_deref(),
+            Some("/ui/login"),
+            "the restricted session ended"
+        );
+        let open = fixture.get("/ui/", &rotated).await?;
+        assert_eq!(open.status(), StatusCode::OK, "full access");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn invalid_users_and_roles_get_localized_field_errors() -> TestResult {
+        let fixture = Fixture::new("uk", Vec::new())?;
+        let admin = fixture.admin().await?;
+
+        let short = fixture
+            .post(
+                &admin,
+                "/ui/admin/users",
+                &[
+                    ("username", "bob"),
+                    ("password", "short"),
+                    ("role", "viewer"),
+                    ("locale", "en"),
+                ],
+            )
+            .await?;
+        assert_eq!(short.status(), StatusCode::UNPROCESSABLE_ENTITY, "short");
+        assert!(
+            text(short)
+                .await?
+                .contains(&uk(keys::WEB_ADMIN_ERROR_PASSWORD_LENGTH)),
+            "localized password policy"
+        );
+        let duplicate = fixture
+            .post(
+                &admin,
+                "/ui/admin/users",
+                &[
+                    ("username", ADMIN),
+                    ("password", "long enough passphrase"),
+                    ("role", "viewer"),
+                    ("locale", "en"),
+                ],
+            )
+            .await?;
+        assert_eq!(duplicate.status(), StatusCode::UNPROCESSABLE_ENTITY, "dup");
+        assert!(
+            text(duplicate)
+                .await?
+                .contains(&uk(keys::WEB_ADMIN_ERROR_USER_EXISTS)),
+            "duplicate account"
+        );
+
+        for (name, scope, message) in [
+            ("admin", "*", keys::WEB_ADMIN_ERROR_ROLE_BUILT_IN),
+            ("lab", "lab-[0-9]", keys::WEB_ADMIN_ERROR_SCOPE),
+            ("lab", "lab?", keys::WEB_ADMIN_ERROR_SCOPE),
+            ("lab", "", keys::WEB_ADMIN_ERROR_SCOPE),
+            ("Lab", "lab-*", keys::WEB_ADMIN_ERROR_ROLE_NAME),
+        ] {
+            let response = fixture
+                .post(
+                    &admin,
+                    "/ui/admin/roles",
+                    &[("name", name), ("scope", scope), ("read", "on")],
+                )
+                .await?;
+            assert_eq!(
+                response.status(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{name} {scope}"
+            );
+            assert!(
+                text(response).await?.contains(&uk(message)),
+                "{name} {scope}"
+            );
+        }
+        let typed = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles",
+                &[("name", "Lab"), ("scope", "lab-*"), ("write", "on")],
+            )
+            .await?;
+        let form = text(typed).await?;
+        for kept in [
+            "name=\"name\" type=\"text\" value=\"Lab\"",
+            "name=\"scope\" type=\"text\" value=\"lab-*\"",
+            "name=\"write\" value=\"on\" checked",
+        ] {
+            assert!(form.contains(kept), "the form keeps {kept}");
+        }
+        assert_eq!(fixture.reload.rbac.load(Ordering::SeqCst), 0, "no reload");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn nobody_acts_on_their_own_account_or_above_their_role() -> TestResult {
+        let user_admin = role(
+            "useradmin",
+            &[Permission::Read, Permission::ManageUsers],
+            &["*"],
+        );
+        let fixture = Fixture::new("en", vec![user_admin])?;
+        fixture.add_user("una", "useradmin")?;
+        let admin = fixture.admin().await?;
+
+        for (path, pairs) in [
+            ("/ui/admin/users/disable", vec![("name", ADMIN)]),
+            (
+                "/ui/admin/users/role",
+                vec![("name", ADMIN), ("role", "viewer")],
+            ),
+            (
+                "/ui/admin/users/delete",
+                vec![("name", ADMIN), ("confirm", ADMIN)],
+            ),
+        ] {
+            let response = fixture.post(&admin, path, &pairs).await?;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN, "self {path}");
+        }
+
+        let (manager, _) = fixture.sign_in("una", PASSWORD, "/ui/").await?;
+        let grant = fixture
+            .post(
+                &manager,
+                "/ui/admin/users",
+                &[
+                    ("username", "eve"),
+                    ("password", "long enough passphrase"),
+                    ("role", "operator"),
+                    ("locale", "en"),
+                ],
+            )
+            .await?;
+        assert_eq!(grant.status(), StatusCode::FORBIDDEN, "operator is above");
+        let raw = fixture
+            .post(
+                &manager,
+                "/ui/admin/roles",
+                &[("name", "rawer"), ("scope", "*"), ("raw_rci", "on")],
+            )
+            .await?;
+        assert_eq!(raw.status(), StatusCode::FORBIDDEN, "RawRci is not held");
+        let above = fixture
+            .post(&manager, "/ui/admin/users/disable", &[("name", ADMIN)])
+            .await?;
+        assert_eq!(above.status(), StatusCode::FORBIDDEN, "admin is above");
+        let own_role = fixture
+            .post(
+                &manager,
+                "/ui/admin/roles/edit",
+                &[("name", "useradmin"), ("scope", "*"), ("read", "on")],
+            )
+            .await?;
+        assert_eq!(own_role.status(), StatusCode::FORBIDDEN, "own role");
+        assert!(
+            fixture.audit_log()?.contains("\"forbidden\""),
+            "refusals are audited"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn the_last_enabled_admin_stays() -> TestResult {
+        let root = role("root", &Permission::ALL, &["*"]);
+        let fixture = Fixture::new("en", vec![root])?;
+        fixture.add_user("carol", "root")?;
+        let (carol, _) = fixture.sign_in("carol", PASSWORD, "/ui/").await?;
+
+        let disable = fixture
+            .post(&carol, "/ui/admin/users/disable", &[("name", ADMIN)])
+            .await?;
+        assert_eq!(
+            disable.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "disable"
+        );
+        assert!(
+            text(disable)
+                .await?
+                .contains("This is the last enabled administrator."),
+            "localized refusal toast"
+        );
+        let demote = fixture
+            .post(
+                &carol,
+                "/ui/admin/users/role",
+                &[("name", ADMIN), ("role", "viewer")],
+            )
+            .await?;
+        assert_eq!(demote.status(), StatusCode::UNPROCESSABLE_ENTITY, "demote");
+        let delete = fixture
+            .post(
+                &carol,
+                "/ui/admin/users/delete",
+                &[("name", ADMIN), ("confirm", ADMIN)],
+            )
+            .await?;
+        assert_eq!(delete.status(), StatusCode::UNPROCESSABLE_ENTITY, "delete");
+        assert!(fixture.accounts.has_admin()?, "alice is still the admin");
+
+        let mistyped = fixture
+            .post(
+                &carol,
+                "/ui/admin/users/delete",
+                &[("name", ADMIN), ("confirm", "alicia")],
+            )
+            .await?;
+        assert_eq!(mistyped.status(), StatusCode::UNPROCESSABLE_ENTITY, "typo");
+        assert!(
+            text(mistyped).await?.contains("The name does not match."),
+            "typed confirmation"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn custom_roles_reach_rbac_and_cannot_be_deleted_while_held() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        let admin = fixture.admin().await?;
+
+        let created = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles",
+                &[
+                    ("name", "lab-ops"),
+                    ("scope", "lab-*, branch-1"),
+                    ("read", "on"),
+                    ("write", "on"),
+                ],
+            )
+            .await?;
+        assert_eq!(created.status(), StatusCode::OK, "created");
+        assert!(text(created).await?.contains("Role created."), "toast");
+        assert_eq!(fixture.reload.rbac.load(Ordering::SeqCst), 1, "RBAC reload");
+        let stored = load_roles(&fixture.state)?;
+        let lab = stored
+            .iter()
+            .find(|candidate| candidate.name == "lab-ops")
+            .ok_or("lab-ops persisted")?;
+        assert_eq!(lab.router_scope, ["lab-*", "branch-1"], "globs in order");
+        assert!(
+            lab.grants(Permission::Write) && !lab.grants(Permission::Save),
+            "ticked permissions only"
+        );
+
+        let assigned = fixture
+            .post(
+                &admin,
+                "/ui/admin/users",
+                &[
+                    ("username", "dave"),
+                    ("password", "long enough passphrase"),
+                    ("role", "lab-ops"),
+                    ("locale", "en"),
+                ],
+            )
+            .await?;
+        assert_eq!(assigned.status(), StatusCode::OK, "new roles are grantable");
+        let (dave, _) = fixture
+            .sign_in("dave", "long enough passphrase", "/ui/account")
+            .await?;
+
+        let held = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles/delete",
+                &[("name", "lab-ops"), ("confirm", "lab-ops")],
+            )
+            .await?;
+        assert_eq!(held.status(), StatusCode::UNPROCESSABLE_ENTITY, "held");
+        assert!(
+            text(held)
+                .await?
+                .contains("Users or API keys hold this role."),
+            "in-use refusal"
+        );
+
+        let edited = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles/edit",
+                &[("name", "lab-ops"), ("scope", "lab-*"), ("read", "on")],
+            )
+            .await?;
+        assert_eq!(edited.status(), StatusCode::OK, "edited");
+        assert_eq!(fixture.reload.rbac.load(Ordering::SeqCst), 2, "RBAC reload");
+        let ended = fixture.get("/ui/account", &dave.cookie).await?;
+        assert_eq!(
+            header_text(&ended, header::LOCATION).as_deref(),
+            Some("/ui/login"),
+            "sessions holding the edited role end"
+        );
+        Ok(())
+    }
+
+    /// An MCP handler with rmcp's defaults: the key test needs only the transport's
+    /// authentication in front of it.
+    #[derive(Debug, Clone, Copy)]
+    struct Probe;
+
+    impl ServerHandler for Probe {}
+
+    /// The HTTP status of an MCP `initialize` request carrying `key` as bearer token.
+    async fn mcp_status(address: SocketAddr, key: &str) -> Result<u16, Box<dyn Error>> {
+        let body = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"admin-pages","version":"1.0.0"}}}"#;
+        let request = format!(
+            "POST /mcp HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {key}\r\n\
+             Content-Type: application/json\r\nAccept: application/json, text/event-stream\r\n\
+             Content-Length: {}\r\nConnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        let mut stream = TcpStream::connect(address).await?;
+        stream.write_all(request.as_bytes()).await?;
+        let mut status_line = String::new();
+        let _: usize = BufReader::new(stream).read_line(&mut status_line).await?;
+        Ok(status_line
+            .split_whitespace()
+            .nth(1)
+            .ok_or("no status code")?
+            .parse()?)
+    }
+
+    /// The `value` of the input with `id` in `html`.
+    fn input_value(html: &str, id: &str) -> Option<String> {
+        let marker = format!("id=\"{id}\" type=\"text\" value=\"");
+        html.split_once(&marker)
+            .and_then(|(_, tail)| tail.split_once('"'))
+            .map(|(value, _)| value.to_owned())
+    }
+
+    #[tokio::test]
+    async fn a_created_key_authenticates_mcp_until_it_is_revoked() -> TestResult {
+        let options = Options {
+            transport: true,
+            ..Options::default()
+        };
+        let (fixture, bridge) = Fixture::build("en", Vec::new(), &options)?;
+        let slot = bridge.ok_or("transport bridge")?.slot();
+        let (installed, handle_ready) = oneshot::channel::<()>();
+        let config = McpServerConfig::new("127.0.0.1:0", "kcc-admin-pages", "0.0.0")
+            .with_auth(AuthConfig::with_keys(api_key_entries(&fixture.state)?))
+            .with_reload_callback(move |handle| {
+                let delivered = slot.set(handle).is_ok() && installed.send(()).is_ok();
+                assert!(delivered, "one reload handle for one waiting test");
+            })
+            .validate()?;
+        let listener = TcpListener::bind("127.0.0.1:0").await?;
+        let (ready, address_ready) = oneshot::channel();
+        let server = tokio::spawn(serve_with_listener(
+            listener,
+            config,
+            || Probe,
+            Some(ready),
+            None,
+        ));
+        let address = address_ready.await?;
+        handle_ready.await?;
+        assert_eq!(
+            mcp_status(address, "no-such-key").await?,
+            401,
+            "unknown key"
+        );
+
+        let admin = fixture.admin().await?;
+        let created = fixture
+            .post(
+                &admin,
+                "/ui/admin/api-keys",
+                &[("name", "probe"), ("role", "viewer")],
+            )
+            .await?;
+        assert_eq!(created.status(), StatusCode::OK, "created");
+        assert_eq!(
+            header_text(&created, header::CACHE_CONTROL).as_deref(),
+            Some("no-store, max-age=0"),
+            "the response with the key is never stored"
+        );
+        let html = text(created).await?;
+        let key = input_value(&html, "api-key-value").ok_or("key shown once")?;
+        assert!(
+            !html.contains(&tr(Locale::En, keys::WEB_ADMIN_RELOAD_PENDING, None)),
+            "the running transport took the key"
+        );
+        assert_eq!(
+            mcp_status(address, &key).await?,
+            200,
+            "the key works at once"
+        );
+
+        let listing = text(fixture.get("/ui/admin/api-keys", &admin.cookie).await?).await?;
+        assert!(listing.contains(">probe</th>"), "listed");
+        assert!(!listing.contains(&key), "never shown again");
+        assert!(!fixture.audit_log()?.contains(&key), "never audited");
+        assert!(
+            !fs::read_to_string(fixture.state.dir().join("api_keys.json"))?.contains(&key),
+            "only the hash is stored"
+        );
+
+        let revoked = fixture
+            .post(
+                &admin,
+                "/ui/admin/api-keys/revoke",
+                &[("name", "probe"), ("confirm", "probe")],
+            )
+            .await?;
+        assert_eq!(revoked.status(), StatusCode::OK, "revoked");
+        assert_eq!(
+            mcp_status(address, &key).await?,
+            401,
+            "refused without a restart"
+        );
+        server.abort();
+        Ok(())
+    }
+
+    /// A fixture with audited changes (a web user creation, an MCP save on `lab-1`) and
+    /// the auditor `ann` (`Read` + `ViewAudit`) signed in.
+    async fn audited() -> Result<(Fixture, Browser), Box<dyn Error>> {
+        let auditor = role(
+            "auditor",
+            &[Permission::Read, Permission::ViewAudit],
+            &["*"],
+        );
+        let fixture = Fixture::new("en", vec![auditor])?;
+        fixture.add_user("ann", "auditor")?;
+        let admin = fixture.admin().await?;
+        let created = fixture
+            .post(
+                &admin,
+                "/ui/admin/users",
+                &[
+                    ("username", "bob"),
+                    ("password", "secret initial words"),
+                    ("role", "viewer"),
+                    ("locale", "en"),
+                ],
+            )
+            .await?;
+        assert_eq!(created.status(), StatusCode::OK, "a change to audit");
+        let save = AuditEvent::new(
+            0,
+            Actor::new(ActorKind::Mcp, "probe".to_owned()),
+            "router.save".to_owned(),
+        )
+        .with_router("lab-1".to_owned())
+        .with_result("success".to_owned(), "mcp-1".to_owned());
+        drop(fixture.audit.append(save).await?);
+        let (reader, _) = fixture.sign_in("ann", PASSWORD, "/ui/admin/audit").await?;
+        Ok((fixture, reader))
+    }
+
+    #[tokio::test]
+    async fn the_audit_log_is_for_view_audit_and_filters_entries() -> TestResult {
+        let (fixture, reader) = audited().await?;
+        let landing = fixture.get("/ui/admin", &reader.cookie).await?;
+        assert_eq!(
+            header_text(&landing, header::LOCATION).as_deref(),
+            Some("/ui/admin/audit"),
+            "the landing opens the audit log"
+        );
+        for refused in ["/ui/admin/users", "/ui/admin/server"] {
+            let response = fixture.get(refused, &reader.cookie).await?;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN, "{refused}");
+        }
+
+        let all = text(fixture.get("/ui/admin/audit", &reader.cookie).await?).await?;
+        assert!(all.contains("The hash chain is intact."), "verified");
+        for expected in ["admin.user_create", "web.login", "router.save"] {
+            assert!(all.contains(expected), "lists {expected}");
+        }
+        for (query, shown, hidden) in [
+            ("action=admin.", "admin.user_create", "router.save"),
+            ("router=lab-1", "router.save", "admin.user_create"),
+            ("actor=PRO", "router.save", "web.login"),
+            (
+                "from=1970-01-01&to=1970-01-01",
+                "router.save",
+                "No entries match",
+            ),
+            (
+                "from=2099-01-01",
+                "No entries match the filters.",
+                "router.save",
+            ),
+            (
+                "from=1970-13",
+                "Enter a date as YYYY-MM-DD.",
+                "No entries match",
+            ),
+        ] {
+            let path = format!("/ui/admin/audit?{query}");
+            let html = text(fixture.get(&path, &reader.cookie).await?).await?;
+            assert!(html.contains(shown), "{query} shows {shown}");
+            assert!(!html.contains(hidden), "{query} hides {hidden}");
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn the_audit_export_is_filtered_jsonl_and_tampering_shows() -> TestResult {
+        let (fixture, reader) = audited().await?;
+        let export = fixture
+            .get("/ui/admin/audit/export?action=admin.", &reader.cookie)
+            .await?;
+        assert_eq!(export.status(), StatusCode::OK, "export");
+        assert_eq!(
+            header_text(&export, header::CONTENT_TYPE).as_deref(),
+            Some("application/x-ndjson; charset=utf-8"),
+            "JSONL"
+        );
+        assert!(
+            header_text(&export, header::CONTENT_DISPOSITION)
+                .is_some_and(|value| value.starts_with("attachment;")),
+            "a download"
+        );
+        let jsonl = text(export).await?;
+        assert!(!jsonl.contains("secret initial words"), "no password");
+        let lines: Vec<serde_json::Value> = jsonl
+            .lines()
+            .map(serde_json::from_str)
+            .collect::<Result<_, _>>()?;
+        assert!(!lines.is_empty(), "entries exported");
+        assert!(
+            lines.iter().all(|line| {
+                line.get("action")
+                    .and_then(serde_json::Value::as_str)
+                    .is_some_and(|action| action.starts_with("admin."))
+            }),
+            "filtered: {jsonl}"
+        );
+        assert!(
+            fixture.audit_log()?.contains("\"admin.audit_export\""),
+            "the export is audited"
+        );
+
+        let file = fixture.state.dir().join("audit.jsonl");
+        let tampered = fs::read_to_string(&file)?.replacen("\"bob\"", "\"mallory\"", 1);
+        fs::write(&file, tampered)?;
+        let broken = text(fixture.get("/ui/admin/audit", &reader.cookie).await?).await?;
+        assert!(
+            broken.contains("The hash chain breaks at entry"),
+            "tampering shows"
+        );
+        assert!(broken.contains("mallory"), "the broken log is still listed");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn the_server_page_summarizes_the_configuration_without_secrets() -> TestResult {
+        let directory = TempDir::new()?;
+        let config_file = directory.path().join("kcc.toml");
+        fs::write(
+            &config_file,
+            "[web]\npublic_url = \"https://kcc.example.net\"\n\n[[routers]]\nname = \"lab-1\"\nurl = \"http://192.168.1.1\"\nlogin = \"admin\"\npassword_file = \"/run/secrets/router-password-file\"\n",
+        )?;
+        let options = Options {
+            transport: false,
+            config: Config::load(&config_file)?,
+        };
+        let (fixture, _) = Fixture::build("en", Vec::new(), &options)?;
+        let admin = fixture.admin().await?;
+
+        let page = fixture.get("/ui/admin/server", &admin.cookie).await?;
+        assert_eq!(page.status(), StatusCode::OK, "server page");
+        let html = text(page).await?;
+        let state_dir = fixture.state.dir().display().to_string();
+        for expected in [
+            ">9.9.9</dd>",
+            "https://kcc.example.net/",
+            "Routers in kcc.toml</dt><dd>1</dd>",
+            "Writable</dt><dd>Yes</dd>",
+            "Audit writer</dt><dd>Running</dd>",
+            ">5.1</td>",
+            state_dir.as_str(),
+        ] {
+            assert!(html.contains(expected), "missing {expected}");
+        }
+        for secret in ["router-password-file", "/run/secrets", "admin</dd>"] {
+            assert!(!html.contains(secret), "leaked {secret}");
+        }
+        Ok(())
+    }
+}

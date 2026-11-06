@@ -1,0 +1,30 @@
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_ADMIN_USER_ADD)) %}
+<form class="form" method="post" action="/ui/admin/users" hx-post="/ui/admin/users" hx-target="#dialog-content">
+  {{ ui::field("user-name", "username", t(keys::WEB_ADMIN_USER_NAME), username, username_error, "text", "off", t(keys::WEB_ADMIN_USER_NAME_HELP)) }}
+  {{ ui::field("user-password", "password", t(keys::WEB_ADMIN_USER_PASSWORD), "", password_error, "password", "new-password", t(keys::WEB_ADMIN_USER_PASSWORD_HELP)) }}
+  <div class="field">
+    <label class="field__label" for="user-role">{{ t(keys::WEB_ADMIN_USER_ROLE) }}</label>
+    <select class="field__input" id="user-role" name="role"{% if !role_error.is_empty() %} aria-invalid="true" aria-describedby="user-role-error"{% endif %}>
+      {%- for option in roles %}
+      <option value="{{ option.name }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
+      {%- endfor %}
+    </select>
+    {%- if !role_error.is_empty() %}
+    <p class="field__error" id="user-role-error">{{ role_error }}</p>
+    {%- endif %}
+  </div>
+  <div class="field">
+    <label class="field__label" for="user-locale">{{ t(keys::COMMON_LANGUAGE) }}</label>
+    <select class="field__input" id="user-locale" name="locale">
+      {%- for option in languages %}
+      <option value="{{ option.tag() }}"{% if option.current() %} selected{% endif %}>{{ t(option.label()) }}</option>
+      {%- endfor %}
+    </select>
+  </div>
+  <p class="field__help">{{ t(keys::WEB_ADMIN_USER_FIRST_SIGN_IN) }}</p>
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_USER_CREATE) }}</button>
+  </div>
+</form>
+{% endcall %}

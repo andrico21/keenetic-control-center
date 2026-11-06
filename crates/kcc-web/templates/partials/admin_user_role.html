@@ -1,0 +1,21 @@
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+<form class="form" method="post" action="/ui/admin/users/role" hx-post="/ui/admin/users/role" hx-target="#dialog-content">
+  <input type="hidden" name="name" value="{{ username }}">
+  <div class="field">
+    <label class="field__label" for="user-new-role">{{ t(keys::WEB_ADMIN_USER_ROLE) }}</label>
+    <select class="field__input" id="user-new-role" name="role" aria-describedby="user-new-role-help{% if !error.is_empty() %} user-new-role-error{% endif %}"{% if !error.is_empty() %} aria-invalid="true"{% endif %}>
+      {%- for option in roles %}
+      <option value="{{ option.name }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
+      {%- endfor %}
+    </select>
+    <p class="field__help" id="user-new-role-help">{{ t(keys::WEB_ADMIN_USER_ROLE_HELP) }}</p>
+    {%- if !error.is_empty() %}
+    <p class="field__error" id="user-new-role-error">{{ error }}</p>
+    {%- endif %}
+  </div>
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::COMMON_SAVE) }}</button>
+  </div>
+</form>
+{% endcall %}
