@@ -591,7 +591,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
 
 > Common contract for domain pages 36-40: each page lists the domain's read models in sortable/filterable server-rendered tables (pagination 50 rows), opens edit forms in `<dialog>`s, submits via htmx with CSRF, runs the write through the todo-20 `ChangeSet` (backup, validation, read-back), and renders the outcome inline: success toast + "unsaved" badge update, or a localized error with the RCI status message shown in a collapsible "router said" block (message text only, never request bodies with secrets). `Risk::Management` ops show a confirmation dialog explaining the fail-safe timer; `Risk::Destructive` ops require typing the router name. Buttons are hidden (and routes return 403) when the user lacks the permission. Secrets render as write-only fields; "Reveal" (RevealSecrets) is a separate audited action. Each page has HTTP-level tests (render per role, one successful write, one validation failure, one RCI error) and Playwright screenshots (en light desktop, uk dark phone) under `.omo/evidence/task-<N>-keenetic-control-center-*.png`.
 
-- [ ] 36. Clients, DHCP and segments pages
+- [x] 36. Clients, DHCP and segments pages
   What to do / Must NOT do: `/r/:router/clients` (online/offline filter, wired/wireless, search by name/MAC/IP, columns: name, MAC, IP, interface/AP, signal, rx/tx, policy, access, schedule; row actions rename/register, block/permit, set policy/schedule/priority, wake, remove), `/r/:router/dhcp` (pools, static leases with conflict validation, bindings), `/r/:router/segments` (list incl. VLAN, bridge, pool, NAT, Wi-Fi binding, policy; create wizard; delete with summary of what goes). Follows the common contract above.
   Closes: GAP-8, GAP-4
   Parallelization: Wave W8 | Blocked by: 23, 35 | Blocks: 51
@@ -601,7 +601,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add clients, DHCP and segments pages
   Recommended task executor category: visual-engineering - CRUD UI on the established design system
 
-- [ ] 37. Interfaces, WAN, Wi-Fi and mesh pages
+- [x] 37. Interfaces, WAN, Wi-Fi and mesh pages
   What to do / Must NOT do: `/r/:router/network` (interfaces table with link/state/address/type, details drawer with stats chart, up/down/description/security-level with the management guard dialog), `/r/:router/internet` (WAN connections: create/edit IPoE, PPPoE, L2TP, PPTP; priority ordering; ping-check profile view), `/r/:router/wifi` (radios: band, channel, width, power, country; access points: SSID, security mode, PSK write-only, hidden, enabled, schedule, segment binding; stations list with signal), `/r/:router/mesh` (members, status, reboot/update actions). Common contract applies.
   Closes: GAP-8, GAP-4
   Parallelization: Wave W8 | Blocked by: 22, 35 | Blocks: 51
