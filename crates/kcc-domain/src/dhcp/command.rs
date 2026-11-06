@@ -2,7 +2,7 @@
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
@@ -37,7 +37,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         if validated.path == "ip dhcp pool" {
             pool_name = validated.value.get("name").and_then(Value::as_str);
         }
-        commands.push(CliCommand::new(
+        commands.push(ValidatedCli::new(
             cli_line(validated, pool_name)?,
             validated.clone(),
         ));

@@ -10,7 +10,7 @@ use alloc::vec;
 use kcc_app::{
     permissions::{Permission, Role},
     registry::authorize,
-    workflow::{CliChangeRequest, CliCommand},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Map, Value, json};
@@ -184,7 +184,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
-        vec![CliCommand::new(line, request.clone())],
+        vec![ValidatedCli::new(line, request.clone())],
         Vec::new(),
         operation.permission,
         json!({"operation":request.path}),

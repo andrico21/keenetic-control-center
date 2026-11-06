@@ -1,0 +1,103 @@
+//! Wi-Fi plan validation and protected CLI rendering.
+
+use alloc::vec;
+
+use kcc_app::{
+    permissions::Permission,
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
+};
+use kcc_catalog::{HttpMethod, Risk};
+use kcc_rci::ObjectName;
+use serde_json::{Value, json};
+
+use crate::{ChangeOp, DomainError, Result, RouterCtx};
+
+/// Validates one Wi-Fi plan with optional selected-interface read-back.
+pub(super) fn plan(
+    router: &RouterCtx,
+    name: &ObjectName,
+    path: &str,
+    body: &Value,
+    expected: Option<(&str, Value)>,
+) -> Result<ChangeOp> {
+    let validated = router
+        .catalog
+        .validate(path, HttpMethod::Post, body)
+        .map_err(|issues| DomainError::Validation { issues })?;
+    let verify = expected.map_or_else(Vec::new, |(field, value)| {
+        let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
+        vec![VerificationSpec::new(
+            vec!["show".to_owned(), "interface".to_owned()],
+            format!("/{escaped_name}/{field}"),
+            value,
+        )]
+    });
+    Ok(ChangeOp::new(
+        vec![validated],
+        verify,
+        Risk::Write,
+        Permission::Write,
+        false,
+    ))
+}
+
+/// Converts a Wi-Fi plan into a protected parser request.
+pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
+    let validated = operation
+        .requests
+        .first()
+        .ok_or(DomainError::InvalidResponse)?;
+    let line = render_line(name, &validated.path, &validated.value)?;
+    Ok(CliChangeRequest::new(
+        vec![ValidatedCli::new(line, validated.clone())],
+        operation.verify.clone(),
+        operation.permission,
+        json!({"operation": validated.path, "interface": name.as_str()}),
+    ))
+}
+
+/// Renders the closed non-secret Wi-Fi command set.
+fn render_line(name: &ObjectName, path: &str, value: &Value) -> Result<String> {
+    let negative = value.get("no") == Some(&Value::Bool(true));
+    let suffix = match path {
+        "interface ssid" => format!("ssid {}", quoted(value, "ssid")?),
+        "interface encryption enable" => "encryption enable".to_owned(),
+        "interface encryption wpa2" => "encryption wpa2".to_owned(),
+        "interface encryption wpa3" => "encryption wpa3".to_owned(),
+        "interface hide-ssid" => "hide-ssid".to_owned(),
+        "interface up" => if negative { "down" } else { "up" }.to_owned(),
+        "interface schedule" => format!("schedule {}", string(value, "schedule")?),
+        "interface channel" => format!("channel {}", string(value, "channel")?),
+        "interface channel width" => format!("channel width {}", string(value, "width")?),
+        "interface power" => format!("power {}", integer(value, "power")?),
+        "interface country-code" => format!("country-code {}", quoted(value, "code")?),
+        "interface band-steering" => "band-steering".to_owned(),
+        _ => return Err(DomainError::InvalidResponse),
+    };
+    Ok(if negative && path != "interface up" {
+        format!("no interface {name} {suffix}")
+    } else {
+        format!("interface {name} {suffix}")
+    })
+}
+
+/// Extracts a string field.
+fn string<'value>(value: &'value Value, field: &str) -> Result<&'value str> {
+    value
+        .get(field)
+        .and_then(Value::as_str)
+        .ok_or(DomainError::InvalidResponse)
+}
+
+/// Quotes a string field for the CLI parser.
+fn quoted(value: &Value, field: &str) -> Result<String> {
+    serde_json::to_string(string(value, field)?).map_err(|_error| DomainError::InvalidResponse)
+}
+
+/// Extracts an integer field.
+fn integer(value: &Value, field: &str) -> Result<i64> {
+    value
+        .get(field)
+        .and_then(Value::as_i64)
+        .ok_or(DomainError::InvalidResponse)
+}

@@ -4,7 +4,7 @@ use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand, WorkflowError},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
@@ -37,7 +37,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let commands = operation
         .requests
         .iter()
-        .map(|request| Ok(CliCommand::new(cli_line(request)?, request.clone())))
+        .map(|request| Ok(ValidatedCli::new(cli_line(request)?, request.clone())))
         .collect::<Result<Vec<_>>>()?;
     Ok(CliChangeRequest::new(
         commands,
@@ -163,6 +163,10 @@ fn map_domain_error(error: DomainError) -> WorkflowError {
         | DomainError::Validation { issues: _ }
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool
-        | DomainError::StaticLeaseAddressInUse => WorkflowError::InvalidResponse,
+        | DomainError::StaticLeaseAddressInUse
+        | DomainError::ProtectedAccount
+        | DomainError::InvalidCliToken
+        | DomainError::ConfirmationRequired
+        | DomainError::PermissionDenied => WorkflowError::InvalidResponse,
     }
 }

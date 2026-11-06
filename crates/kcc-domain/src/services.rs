@@ -10,7 +10,7 @@ use alloc::{collections::BTreeMap, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::RciBody;
@@ -243,7 +243,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .ok_or(DomainError::InvalidResponse)?;
     let line = command_line(request);
     Ok(CliChangeRequest::new(
-        vec![CliCommand::new(line, request.clone())],
+        vec![ValidatedCli::new(line, request.clone())],
         Vec::new(),
         operation.permission,
         json!({"operation":request.path}),

@@ -9,7 +9,7 @@ use alloc::{collections::BTreeMap, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde::{Deserialize, Serialize};
@@ -250,7 +250,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             ),
             _ => return Err(DomainError::InvalidResponse),
         };
-        commands.push(CliCommand::new(line, request.clone()));
+        commands.push(ValidatedCli::new(line, request.clone()));
     }
     Ok(CliChangeRequest::new(
         commands,

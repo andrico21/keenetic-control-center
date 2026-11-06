@@ -125,6 +125,13 @@ impl fmt::Debug for RciClient {
 }
 
 impl RciClient {
+    /// Returns the validated router origin used by this client.
+    #[inline]
+    #[must_use]
+    pub const fn router_url(&self) -> &RouterUrl {
+        &self.router
+    }
+
     /// Connects to a router with default limits and policy.
     ///
     /// # Errors

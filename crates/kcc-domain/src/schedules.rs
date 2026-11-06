@@ -10,7 +10,7 @@ use alloc::{collections::BTreeMap, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde::{Deserialize, Serialize};
@@ -173,7 +173,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .get("name")
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)?;
-    let mut commands = vec![CliCommand::new(format!("schedule {name}"), first.clone())];
+    let mut commands = vec![ValidatedCli::new(format!("schedule {name}"), first.clone())];
     for request in operation.requests.iter().skip(1) {
         let line = match request.path.as_str() {
             "schedule description" => format!(
@@ -209,7 +209,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             ),
             _ => return Err(DomainError::InvalidResponse),
         };
-        commands.push(CliCommand::new(line, request.clone()));
+        commands.push(ValidatedCli::new(line, request.clone()));
     }
     Ok(CliChangeRequest::new(
         commands,

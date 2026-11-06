@@ -9,7 +9,7 @@ use alloc::{collections::BTreeMap, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::RciBody;
@@ -177,7 +177,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)?;
     let deleting = first.value.get("no").and_then(Value::as_bool) == Some(true);
-    let mut commands = vec![CliCommand::new(
+    let mut commands = vec![ValidatedCli::new(
         if deleting {
             format!("no user {name}")
         } else {
@@ -196,7 +196,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         } else {
             ""
         };
-        commands.push(CliCommand::new(
+        commands.push(ValidatedCli::new(
             format!("{prefix}user {name} tag {tag}"),
             request.clone(),
         ));

@@ -4,7 +4,7 @@ use core::{result::Result as CoreResult, str::from_utf8};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliCommand, WorkflowError},
+    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::ConfigKind;
@@ -306,7 +306,7 @@ pub(super) async fn apply(
         Direction::Create => definition.create.clone(),
         Direction::Delete => definition.delete.clone(),
     };
-    let mut commands = vec![CliCommand::new(line, validated)];
+    let mut commands = vec![ValidatedCli::new(line, validated)];
     if matches!(direction, Direction::Delete)
         && definition.cleanup_owned
         && let Some(context) = &definition.cleanup_context
@@ -322,7 +322,7 @@ pub(super) async fn apply(
                 &json!({"name":name,"no":true}),
             )
             .map_err(|_issues| WorkflowError::InvalidResponse)?;
-        commands.push(CliCommand::new(format!("no {context}"), cleanup));
+        commands.push(ValidatedCli::new(format!("no {context}"), cleanup));
     }
     let request = CliChangeRequest::new(
         commands,

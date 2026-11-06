@@ -19,17 +19,21 @@ pub mod configuration;
 pub mod dhcp;
 pub mod diagnostics;
 pub mod dns;
+pub mod interfaces;
 pub mod internet;
-pub mod segments;
 pub mod keendns;
 pub mod logging;
+pub mod mesh;
 pub mod router_users;
 pub mod schedules;
+pub mod segments;
 pub mod services;
 pub mod storage;
 pub mod system;
 pub mod vpn_clients;
 pub mod vpn_servers;
+pub mod wan;
+pub mod wifi;
 
 use alloc::sync::Arc;
 use core::result::Result as CoreResult;
@@ -97,6 +101,14 @@ pub enum DomainId {
     VpnClients,
     /// VPN server configuration and service state.
     VpnServers,
+    /// Physical and logical router interfaces.
+    Interfaces,
+    /// Internet connection interfaces.
+    Wan,
+    /// Wireless access points, radios, and stations.
+    Wifi,
+    /// Mesh members and maintenance actions.
+    Mesh,
 }
 
 /// One operation exposed by a domain.
@@ -275,5 +287,9 @@ pub const fn registry() -> &'static [DomainDescriptor] {
         dns::DESCRIPTOR,
         vpn_clients::DESCRIPTOR,
         vpn_servers::DESCRIPTOR,
+        interfaces::DESCRIPTOR,
+        wan::DESCRIPTOR,
+        wifi::DESCRIPTOR,
+        mesh::DESCRIPTOR,
     ]
 }

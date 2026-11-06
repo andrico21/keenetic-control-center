@@ -60,6 +60,13 @@ impl RouterUrl {
     pub fn as_str(&self) -> &str {
         &self.0
     }
+
+    /// Returns the validated origin host.
+    #[inline]
+    #[must_use]
+    pub fn host(&self) -> Option<String> {
+        Url::parse(&self.0).ok()?.host_str().map(str::to_owned)
+    }
 }
 
 impl FromStr for RouterUrl {

@@ -258,6 +258,10 @@ fn map_domain_error(error: DomainError) -> WorkflowError {
         | DomainError::Validation { issues: _ }
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool
-        | DomainError::StaticLeaseAddressInUse => WorkflowError::InvalidResponse,
+        | DomainError::StaticLeaseAddressInUse
+        | DomainError::ProtectedAccount
+        | DomainError::InvalidCliToken
+        | DomainError::ConfirmationRequired
+        | DomainError::PermissionDenied => WorkflowError::InvalidResponse,
     }
 }
