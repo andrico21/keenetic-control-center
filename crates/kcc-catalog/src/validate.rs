@@ -260,6 +260,7 @@ pub(crate) fn argument_schema(argument: &Argument) -> Value {
         }
         ArgumentKind::IpAddress => json!({ "type": "string", "format": "ip-address" }),
         ArgumentKind::IpMask => json!({ "type": "string", "format": "ipv4-netmask" }),
+        ArgumentKind::IpAddressMask => json!({ "type": "string", "format": "ip-prefix" }),
         ArgumentKind::MacAddress => json!({
             "type": "string",
             "pattern": "^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$"
@@ -282,6 +283,7 @@ fn valid_argument(argument: &Argument, value: &Value) -> bool {
             .as_str()
             .is_some_and(|text| IpAddr::from_str(text).is_ok()),
         ArgumentKind::IpMask => value.as_str().is_some_and(valid_mask),
+        ArgumentKind::IpAddressMask => value.as_str().is_some_and(valid_address_mask),
         ArgumentKind::MacAddress => value
             .as_str()
             .is_some_and(|text| Mac::from_str(text).is_ok()),
@@ -310,6 +312,24 @@ fn valid_secret(argument: &Argument, value: &Value) -> bool {
             && argument.minimum.is_none_or(|minimum| length >= minimum)
             && argument.maximum.is_none_or(|maximum| length <= maximum)
     })
+}
+
+/// Checks an IP address and its in-family prefix length.
+fn valid_address_mask(text: &str) -> bool {
+    let Some((address_text, prefix_text)) = text.split_once('/') else {
+        return false;
+    };
+    let Ok(address) = IpAddr::from_str(address_text) else {
+        return false;
+    };
+    let Ok(prefix) = u8::from_str(prefix_text) else {
+        return false;
+    };
+    prefix
+        <= match address {
+            IpAddr::V4(_) => 32,
+            IpAddr::V6(_) => 128,
+        }
 }
 
 /// Accepts contiguous IPv4 masks only.

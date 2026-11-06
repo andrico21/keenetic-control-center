@@ -1,0 +1,312 @@
+{
+  "version": "5.1",
+  "group": "media",
+  "commands": [
+    {
+      "path": "media initialize",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "5.01",
+      "page": 463,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "media"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "initialize"
+          },
+          {
+            "node": "Argument",
+            "value": "preset"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        },
+        "preset": {
+          "type": "Keyword",
+          "values": [
+            "default",
+            "ext4",
+            "ntfs"
+          ]
+        }
+      }
+    },
+    {
+      "path": "media partition check",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "5.01",
+      "page": 464,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "media"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "partition"
+          },
+          {
+            "node": "Argument",
+            "value": "partition"
+          },
+          {
+            "node": "Keyword",
+            "value": "check"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        },
+        "partition": {
+          "type": "String"
+        }
+      }
+    },
+    {
+      "path": "media partition format",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "5.01",
+      "page": 465,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "media"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "partition"
+          },
+          {
+            "node": "Argument",
+            "value": "partition"
+          },
+          {
+            "node": "Keyword",
+            "value": "format"
+          },
+          {
+            "node": "Argument",
+            "value": "type"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        },
+        "partition": {
+          "type": "String"
+        },
+        "type": {
+          "type": "Keyword",
+          "values": [
+            "exfat",
+            "ext4",
+            "ntfs",
+            "swap",
+            "vfat"
+          ]
+        }
+      }
+    },
+    {
+      "path": "media partition mount",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3610",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-4110"
+      ],
+      "since": "5.01",
+      "page": 465,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Action",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": false,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "media"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "partition"
+          },
+          {
+            "node": "Argument",
+            "value": "partition"
+          },
+          {
+            "node": "Keyword",
+            "value": "mount"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "media"
+          },
+          {
+            "node": "Argument",
+            "value": "name"
+          },
+          {
+            "node": "Keyword",
+            "value": "partition"
+          },
+          {
+            "node": "Argument",
+            "value": "partition"
+          },
+          {
+            "node": "Keyword",
+            "value": "mount"
+          }
+        ]
+      },
+      "arguments": {
+        "name": {
+          "type": "String"
+        },
+        "partition": {
+          "type": "String"
+        }
+      }
+    }
+  ]
+}

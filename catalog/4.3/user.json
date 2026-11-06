@@ -444,7 +444,7 @@
       },
       "arguments": {
         "password": {
-          "type": "String"
+          "type": "Password"
         }
       }
     },
@@ -600,11 +600,17 @@
             "ftp",
             "http",
             "http-proxy",
+            "ipsec-l2tp",
+            "opt",
             "printers",
             "readonly",
-            "service.",
-            "tunnels.",
-            "vpn-dlna"
+            "sftp",
+            "sstp",
+            "torrent",
+            "vpn",
+            "vpn-dlna",
+            "vpn-oc",
+            "webdav"
           ]
         }
       }

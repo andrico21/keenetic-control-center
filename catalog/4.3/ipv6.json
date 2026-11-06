@@ -108,10 +108,7 @@
       },
       "arguments": {
         "prefix": {
-          "type": "Keyword",
-          "values": [
-            "Prefix"
-          ]
+          "type": "IpAddressMask"
         }
       }
     },
@@ -267,10 +264,7 @@
           ]
         },
         "domain": {
-          "type": "Keyword",
-          "values": [
-            "is"
-          ]
+          "type": "String"
         },
         "interface": {
           "type": "Interface"
@@ -538,11 +532,7 @@
           "type": "Interface"
         },
         "prefix": {
-          "type": "Keyword",
-          "values": [
-            "Prefix",
-            "default"
-          ]
+          "type": "IpAddressMask"
         }
       }
     },
@@ -1030,8 +1020,7 @@
         "address2": {
           "type": "Keyword",
           "values": [
-            "IPv6-address",
-            "disable"
+            "IPv6-address"
           ]
         }
       }

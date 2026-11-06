@@ -1583,10 +1583,7 @@
           "type": "String"
         },
         "version": {
-          "type": "Keyword",
-          "values": [
-            "is"
-          ]
+          "type": "String"
         }
       }
     },
@@ -1929,10 +1926,7 @@
           "type": "String"
         },
         "version": {
-          "type": "Keyword",
-          "values": [
-            "is"
-          ]
+          "type": "String"
         }
       }
     },
@@ -2490,7 +2484,10 @@
         "detail": {
           "type": "Keyword",
           "values": [
-            "0"
+            "0",
+            "1",
+            "2",
+            "3"
           ]
         },
         "name": {
@@ -3274,7 +3271,6 @@
           "values": [
             "active",
             "dfs",
-            "interface.",
             "load",
             "radar",
             "valid"
@@ -3286,7 +3282,9 @@
         "detail": {
           "type": "Keyword",
           "values": [
-            "0"
+            "0",
+            "1",
+            "2"
           ]
         },
         "name": {
@@ -4261,11 +4259,7 @@
             "6",
             "7",
             "8",
-            "9",
-            "minute.",
-            "minutes.",
-            "second.",
-            "seconds."
+            "9"
           ]
         },
         "mac": {
@@ -4814,10 +4808,7 @@
       },
       "arguments": {
         "policy": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -4933,8 +4924,7 @@
           "type": "Keyword",
           "values": [
             "ascending",
-            "descending",
-            "order."
+            "descending"
           ]
         },
         "table": {
@@ -5384,8 +5374,7 @@
           "type": "Keyword",
           "values": [
             "ascending",
-            "descending",
-            "order."
+            "descending"
           ]
         },
         "table": {
@@ -5658,7 +5647,25 @@
         "name": {
           "type": "Keyword",
           "values": [
-            "SYS"
+            "ACT_ACK",
+            "DSL",
+            "FN",
+            "FW_UPD",
+            "LTE",
+            "SYS",
+            "USB_1",
+            "USB_2",
+            "WAN",
+            "WLAN",
+            "WLAN5",
+            "WPS5_1",
+            "WPS5_2",
+            "WPS5_3",
+            "WPS5_4",
+            "WPS_1",
+            "WPS_2",
+            "WPS_3",
+            "WPS_4"
           ]
         }
       }
@@ -5738,7 +5745,25 @@
         "name": {
           "type": "Keyword",
           "values": [
-            "SYS"
+            "ACT_ACK",
+            "DSL",
+            "FN",
+            "FW_UPD",
+            "LTE",
+            "SYS",
+            "USB_1",
+            "USB_2",
+            "WAN",
+            "WLAN",
+            "WLAN5",
+            "WPS5_1",
+            "WPS5_2",
+            "WPS5_3",
+            "WPS5_4",
+            "WPS_1",
+            "WPS_2",
+            "WPS_3",
+            "WPS_4"
           ]
         }
       }

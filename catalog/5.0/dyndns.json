@@ -233,10 +233,7 @@
       },
       "arguments": {
         "password": {
-          "type": "Keyword",
-          "values": [
-            "length"
-          ]
+          "type": "Password"
         }
       }
     },
@@ -378,8 +375,16 @@
         "type": {
           "type": "Keyword",
           "values": [
-            "4",
-            "dyndns"
+            "anydns",
+            "custom",
+            "desec",
+            "dnshome",
+            "dnsomatic",
+            "duckdns",
+            "dyndns",
+            "dyndnsfree",
+            "noip",
+            "opendns"
           ]
         }
       }

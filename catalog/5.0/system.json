@@ -193,14 +193,18 @@
         "handler": {
           "type": "Keyword",
           "values": [
+            "DlnaDirectoryFullRescan",
+            "DlnaDirectoryRescan",
             "FactoryReset",
+            "OpkgRunScript",
             "Reboot",
+            "TorrentAltSpeedToggle",
+            "UnmountAll",
             "WifiGuestApToggle",
             "WifiToggle",
             "WpsStartAllMainAp",
             "WpsStartMainAp",
-            "WpsStartMainAp5",
-            "defaults."
+            "WpsStartMainAp5"
           ]
         }
       }
@@ -273,7 +277,10 @@
         "template": {
           "type": "Keyword",
           "values": [
-            "default"
+            "default",
+            "hostname",
+            "hwid",
+            "product"
           ]
         }
       }
@@ -1433,14 +1440,18 @@
         "control": {
           "type": "Keyword",
           "values": [
+            "BackupWan",
+            "OpkgLedControl",
+            "SelectedSchedule",
+            "SelectedWan",
             "UpdatesAvailable"
           ]
         },
         "led": {
           "type": "Keyword",
           "values": [
-            "OpkgLedControl",
-            "command."
+            "FN_1",
+            "FN_2"
           ]
         }
       }
@@ -1538,10 +1549,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -2443,10 +2451,7 @@
           "type": "Integer"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -2834,10 +2839,7 @@
           ]
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },

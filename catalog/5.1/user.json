@@ -38,7 +38,7 @@
         "KN-4910"
       ],
       "since": "2.00",
-      "page": 788,
+      "page": 805,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -105,7 +105,7 @@
         "KN-4110"
       ],
       "since": "3.04",
-      "page": 789,
+      "page": 805,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -179,7 +179,7 @@
         "KN-4910"
       ],
       "since": "4.03",
-      "page": 790,
+      "page": 806,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,
@@ -238,7 +238,7 @@
         "KN-4910"
       ],
       "since": "4.03",
-      "page": 790,
+      "page": 806,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -320,7 +320,7 @@
         "KN-4910"
       ],
       "since": "4.03",
-      "page": 791,
+      "page": 807,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -402,7 +402,7 @@
         "KN-4910"
       ],
       "since": "4.03",
-      "page": 791,
+      "page": 808,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -444,7 +444,7 @@
       },
       "arguments": {
         "password": {
-          "type": "String"
+          "type": "Password"
         }
       }
     },
@@ -484,7 +484,7 @@
         "KN-4910"
       ],
       "since": "4.03",
-      "page": 792,
+      "page": 808,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -551,7 +551,7 @@
         "KN-4910"
       ],
       "since": "2.00",
-      "page": 793,
+      "page": 809,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -600,13 +600,18 @@
             "ftp",
             "http",
             "http-proxy",
+            "ipsec-l2tp",
             "manager",
+            "opt",
             "printers",
             "readonly",
-            "rights.",
-            "service.",
-            "tunnels.",
-            "vpn-dlna"
+            "sftp",
+            "sstp",
+            "torrent",
+            "vpn",
+            "vpn-dlna",
+            "vpn-oc",
+            "webdav"
           ]
         }
       }

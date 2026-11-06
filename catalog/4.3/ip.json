@@ -1285,6 +1285,7 @@
         "type": {
           "type": "Keyword",
           "values": [
+            "hex",
             "ip"
           ]
         }
@@ -1908,11 +1909,15 @@
         "number": {
           "type": "Keyword",
           "values": [
+            "121",
+            "249",
             "26",
             "4",
             "42",
             "44",
-            "6"
+            "6",
+            "ascii",
+            "ip"
           ]
         }
       }
@@ -2557,10 +2562,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },
@@ -3637,7 +3639,16 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "protected",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "ip host",
@@ -4310,10 +4321,7 @@
           ]
         },
         "policy": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -4460,16 +4468,10 @@
           "type": "MacAddress"
         },
         "policy": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -4764,10 +4766,7 @@
           "type": "Interface"
         },
         "policy": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -6151,7 +6150,15 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "ip http proxy ssl redirect",
@@ -6594,7 +6601,16 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "protected",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "ip http ssl acme debug",
@@ -7526,7 +7542,15 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "ip http x-frame-options",
@@ -7805,10 +7829,7 @@
           "type": "IpAddress"
         },
         "domain": {
-          "type": "Keyword",
-          "values": [
-            "is"
-          ]
+          "type": "String"
         },
         "interface": {
           "type": "Interface"
@@ -8451,10 +8472,7 @@
       },
       "arguments": {
         "name": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -8693,10 +8711,7 @@
       },
       "arguments": {
         "gateway": {
-          "type": "Keyword",
-          "values": [
-            "becomes"
-          ]
+          "type": "IpAddress"
         },
         "interface": {
           "type": "Interface"
@@ -8705,10 +8720,7 @@
           "type": "Integer"
         },
         "prefix": {
-          "type": "Keyword",
-          "values": [
-            "Prefix"
-          ]
+          "type": "IpAddressMask"
         }
       }
     },
@@ -9369,19 +9381,13 @@
       },
       "arguments": {
         "gateway": {
-          "type": "Keyword",
-          "values": [
-            "becomes"
-          ]
+          "type": "IpAddress"
         },
         "host": {
           "type": "IpAddress"
         },
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "ip"
-          ]
+          "type": "Interface"
         },
         "mask": {
           "type": "IpMask"
@@ -9666,22 +9672,13 @@
       },
       "arguments": {
         "gateway": {
-          "type": "Keyword",
-          "values": [
-            "becomes",
-            "implementation.",
-            "metric",
-            "reject"
-          ]
+          "type": "IpAddress"
         },
         "host": {
           "type": "IpAddress"
         },
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "ip"
-          ]
+          "type": "Interface"
         },
         "mask": {
           "type": "IpMask"
@@ -10099,11 +10096,10 @@
         "cipher": {
           "type": "Keyword",
           "values": [
-            "AES1256-CTR.",
-            "AES128-CTR.",
-            "ChaCha20-Poly1305.",
             "aes128-ctr",
+            "aes128-gcm@openssh.com",
             "aes256-ctr",
+            "aes256-gcm@openssh.com",
             "chacha20-poly1305@openssh.com"
           ]
         }
@@ -10171,7 +10167,14 @@
         "keygen": {
           "type": "Keyword",
           "values": [
-            "default"
+            "default",
+            "ecdsa-nistp256",
+            "ecdsa-nistp384",
+            "ecdsa-nistp521",
+            "ed25519",
+            "rsa-1024",
+            "rsa-2048",
+            "rsa-4096"
           ]
         }
       }
@@ -10425,7 +10428,16 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "protected",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "ip ssh session timeout",
@@ -11258,10 +11270,7 @@
           "type": "Integer"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -11575,7 +11584,16 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "protected",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "ip telnet session max-count",
@@ -11883,10 +11901,7 @@
           "type": "Integer"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         },
         "upstream-rate": {
           "type": "Integer"

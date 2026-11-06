@@ -94,6 +94,8 @@ pub enum ArgumentKind {
     IpAddress,
     /// IPv4 netmask.
     IpMask,
+    /// IPv4 or IPv6 address with a prefix length.
+    IpAddressMask,
     /// MAC address.
     MacAddress,
     /// RCI object/interface name.
@@ -683,6 +685,7 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
                         "Integer" => ArgumentKind::Integer,
                         "IpAddress" | "Ipv6Address" => ArgumentKind::IpAddress,
                         "IpMask" | "Mask" => ArgumentKind::IpMask,
+                        "IpAddressMask" => ArgumentKind::IpAddressMask,
                         "MacAddress" => ArgumentKind::MacAddress,
                         "Interface" | "ObjectName" => ArgumentKind::ObjectName,
                         "Keyword" => ArgumentKind::Keyword,

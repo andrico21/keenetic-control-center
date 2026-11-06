@@ -38,7 +38,7 @@
         "KN-4910"
       ],
       "since": "2.00",
-      "page": 147,
+      "page": 148,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -125,7 +125,7 @@
         "KN-4910"
       ],
       "since": "2.00",
-      "page": 148,
+      "page": 149,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -199,7 +199,7 @@
         "KN-4910"
       ],
       "since": "2.00",
-      "page": 149,
+      "page": 150,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -233,10 +233,7 @@
       },
       "arguments": {
         "password": {
-          "type": "Keyword",
-          "values": [
-            "length"
-          ]
+          "type": "Password"
         }
       }
     },
@@ -276,7 +273,7 @@
         "KN-4910"
       ],
       "since": "2.03",
-      "page": 149,
+      "page": 150,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -342,7 +339,7 @@
         "KN-4910"
       ],
       "since": "2.00",
-      "page": 150,
+      "page": 151,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -378,8 +375,16 @@
         "type": {
           "type": "Keyword",
           "values": [
-            "4",
-            "dyndns"
+            "anydns",
+            "custom",
+            "desec",
+            "dnshome",
+            "dnsomatic",
+            "duckdns",
+            "dyndns",
+            "dyndnsfree",
+            "noip",
+            "opendns"
           ]
         }
       }
@@ -420,7 +425,7 @@
         "KN-4910"
       ],
       "since": "2.03",
-      "page": 151,
+      "page": 152,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -501,46 +506,6 @@
           {
             "node": "Keyword",
             "value": "update-interval"
-          },
-          {
-            "node": "Keyword",
-            "value": "8"
-          },
-          {
-            "node": "Keyword",
-            "value": "https://www.anydns.info"
-          },
-          {
-            "node": "Keyword",
-            "value": "9"
-          },
-          {
-            "node": "Keyword",
-            "value": "https://www.dnshome.de"
-          },
-          {
-            "node": "Keyword",
-            "value": "10"
-          },
-          {
-            "node": "Keyword",
-            "value": "https://www.duckdns.org"
-          },
-          {
-            "node": "Keyword",
-            "value": "11"
-          },
-          {
-            "node": "Keyword",
-            "value": "https://www.dyndnsfree.de"
-          },
-          {
-            "node": "Keyword",
-            "value": "12"
-          },
-          {
-            "node": "Keyword",
-            "value": "https://desec.io"
           }
         ]
       },
@@ -595,7 +560,7 @@
         "KN-4910"
       ],
       "since": "2.05",
-      "page": 152,
+      "page": 153,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,

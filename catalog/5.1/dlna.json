@@ -26,7 +26,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 124,
+      "page": 125,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -65,7 +65,7 @@
         "KN-4110"
       ],
       "since": "2.11",
-      "page": 124,
+      "page": 125,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -133,7 +133,7 @@
         "KN-4110"
       ],
       "since": "2.06",
-      "page": 125,
+      "page": 126,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -268,7 +268,7 @@
         "KN-4110"
       ],
       "since": "2.12",
-      "page": 126,
+      "page": 127,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -330,7 +330,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 127,
+      "page": 128,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -369,10 +369,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },
@@ -400,7 +397,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 128,
+      "page": 129,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -512,7 +509,7 @@
         "KN-4110"
       ],
       "since": "2.11",
-      "page": 129,
+      "page": 130,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -555,13 +552,18 @@
         "key": {
           "type": "Keyword",
           "values": [
-            "class"
+            "album",
+            "class",
+            "date",
+            "title",
+            "track"
           ]
         },
         "order": {
           "type": "Keyword",
           "values": [
-            "ascending"
+            "ascending",
+            "descending"
           ]
         }
       }

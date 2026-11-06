@@ -79,7 +79,91 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "public"
+          ]
+        }
+      }
+    },
+    {
+      "path": "cloud webui cdn",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "5.01",
+      "page": 63,
+      "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
+      "kind": "Setting",
+      "prefix_no": false,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": true,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "cloud"
+          },
+          {
+            "node": "Keyword",
+            "value": "webui"
+          },
+          {
+            "node": "Keyword",
+            "value": "cdn"
+          },
+          {
+            "node": "Argument",
+            "value": "mode"
+          }
+        ]
+      },
+      "arguments": {
+        "mode": {
+          "type": "Keyword",
+          "values": [
+            "auto",
+            "disable",
+            "non-local"
+          ]
+        }
+      }
     }
   ]
 }

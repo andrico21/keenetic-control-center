@@ -822,10 +822,7 @@
           "type": "String"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },

@@ -204,8 +204,7 @@
         "id": {
           "type": "Keyword",
           "values": [
-            "Keyword",
-            "no-content"
+            "id"
           ]
         }
       }

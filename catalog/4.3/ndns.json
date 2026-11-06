@@ -163,7 +163,8 @@
           "type": "Keyword",
           "values": [
             "auto",
-            "cloud"
+            "cloud",
+            "direct"
           ]
         },
         "access6": {
@@ -488,7 +489,8 @@
           "type": "Keyword",
           "values": [
             "auto",
-            "cloud"
+            "cloud",
+            "direct"
           ]
         },
         "access6": {

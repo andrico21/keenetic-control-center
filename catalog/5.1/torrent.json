@@ -26,7 +26,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 779,
+      "page": 796,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -65,7 +65,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 780,
+      "page": 796,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -127,7 +127,7 @@
         "KN-4110"
       ],
       "since": "4.03",
-      "page": 780,
+      "page": 797,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -193,7 +193,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 781,
+      "page": 797,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,
@@ -244,7 +244,7 @@
         "KN-4110"
       ],
       "since": "3.01",
-      "page": 782,
+      "page": 798,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -278,10 +278,7 @@
       },
       "arguments": {
         "policy": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -309,7 +306,7 @@
         "KN-4110"
       ],
       "since": "2.10",
-      "page": 782,
+      "page": 798,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -347,7 +344,7 @@
         "KN-4110"
       ],
       "since": "2.00",
-      "page": 783,
+      "page": 799,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,

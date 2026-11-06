@@ -26,7 +26,7 @@
         "KN-4110"
       ],
       "since": "3.07",
-      "page": 458,
+      "page": 462,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -65,7 +65,7 @@
         "KN-4110"
       ],
       "since": "3.07",
-      "page": 459,
+      "page": 462,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -127,7 +127,7 @@
         "KN-4110"
       ],
       "since": "3.07",
-      "page": 459,
+      "page": 463,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,

@@ -724,8 +724,7 @@
         "negotiation-mode": {
           "type": "Keyword",
           "values": [
-            "main",
-            "peers."
+            "main"
           ]
         }
       }
@@ -1213,7 +1212,6 @@
           "type": "Keyword",
           "values": [
             "md5",
-            "messages.",
             "sha1",
             "sha256",
             "sha384",
@@ -1558,7 +1556,6 @@
         "auth": {
           "type": "Keyword",
           "values": [
-            "now.",
             "pre-share"
           ]
         }
@@ -1636,7 +1633,6 @@
         "auth": {
           "type": "Keyword",
           "values": [
-            "now.",
             "pre-share"
           ]
         }
@@ -2052,6 +2048,7 @@
         "mode": {
           "type": "Keyword",
           "values": [
+            "transport",
             "tunnel"
           ]
         }
@@ -2427,7 +2424,7 @@
       },
       "arguments": {
         "password": {
-          "type": "String"
+          "type": "Password"
         }
       }
     },
@@ -3017,8 +3014,7 @@
             "esp-null-hmac",
             "esp-sha1-hmac",
             "esp-sha256-hmac",
-            "esp-sha512-hmac",
-            "transformation."
+            "esp-sha512-hmac"
           ]
         }
       }
@@ -5640,10 +5636,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },

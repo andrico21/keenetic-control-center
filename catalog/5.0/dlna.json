@@ -369,10 +369,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },
@@ -555,13 +552,18 @@
         "key": {
           "type": "Keyword",
           "values": [
-            "class"
+            "album",
+            "class",
+            "date",
+            "title",
+            "track"
           ]
         },
         "order": {
           "type": "Keyword",
           "values": [
-            "ascending"
+            "ascending",
+            "descending"
           ]
         }
       }

@@ -941,7 +941,7 @@
       },
       "arguments": {
         "password": {
-          "type": "String"
+          "type": "Password"
         }
       }
     },
@@ -1246,7 +1246,8 @@
         "template": {
           "type": "Keyword",
           "values": [
-            "mac4"
+            "mac4",
+            "mac6"
           ]
         }
       }
@@ -1762,7 +1763,6 @@
           "type": "Keyword",
           "values": [
             "auto",
-            "automatically.",
             "number"
           ]
         }
@@ -1967,7 +1967,10 @@
           "type": "Keyword",
           "values": [
             "20",
-            "40-above"
+            "40-above",
+            "40-above/80",
+            "40-below",
+            "40-below/80"
           ]
         }
       }
@@ -2405,7 +2408,7 @@
           "type": "MacAddress"
         },
         "password": {
-          "type": "String"
+          "type": "Password"
         },
         "username": {
           "type": "String"
@@ -4092,7 +4095,8 @@
         "annex": {
           "type": "Keyword",
           "values": [
-            "B,"
+            "B",
+            "N"
           ]
         }
       }
@@ -8704,7 +8708,6 @@
           "type": "Keyword",
           "values": [
             "both",
-            "both.",
             "egress",
             "ingress"
           ]
@@ -9870,8 +9873,13 @@
         "level": {
           "type": "Keyword",
           "values": [
+            "high",
             "normal",
-            "weak"
+            "normal-pfs",
+            "priority",
+            "strong",
+            "weak",
+            "weak-pfs"
           ]
         }
       }
@@ -10820,8 +10828,7 @@
         "block": {
           "type": "Keyword",
           "values": [
-            "IPv6",
-            "auto"
+            "IPv6"
           ]
         }
       }
@@ -10928,10 +10935,7 @@
       },
       "arguments": {
         "prefix": {
-          "type": "Keyword",
-          "values": [
-            "Prefix"
-          ]
+          "type": "IpAddressMask"
         }
       }
     },
@@ -11031,10 +11035,7 @@
         "suffix": {
           "type": "Keyword",
           "values": [
-            "Suffix",
-            "address.",
-            "eui64",
-            "random"
+            "Suffix"
           ]
         }
       }
@@ -11233,10 +11234,7 @@
       },
       "arguments": {
         "prefix": {
-          "type": "Keyword",
-          "values": [
-            "Prefix"
-          ]
+          "type": "IpAddressMask"
         }
       }
     },
@@ -11931,6 +11929,7 @@
         "type": {
           "type": "Keyword",
           "values": [
+            "deny",
             "none",
             "permit"
           ]
@@ -12090,7 +12089,6 @@
         "name": {
           "type": "Keyword",
           "values": [
-            "interface.",
             "lan",
             "wan",
             "wlan5"
@@ -12450,7 +12448,9 @@
         "type": {
           "type": "Keyword",
           "values": [
-            "auto"
+            "auto",
+            "mdi",
+            "sfp"
           ]
         }
       }
@@ -14297,10 +14297,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "is"
-          ]
+          "type": "Interface"
         }
       }
     },
@@ -15764,10 +15761,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -15845,7 +15839,16 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "protected",
+            "public"
+          ]
+        }
+      }
     },
     {
       "path": "interface sfp init-timeout",
@@ -15969,7 +15972,13 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "auto"
+            "1000base-x",
+            "1000base-x/an",
+            "2500base-x",
+            "2500base-x/an",
+            "auto",
+            "fallback",
+            "sgmii/an"
           ]
         }
       }
@@ -16028,7 +16037,9 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "auto"
+            "accept",
+            "auto",
+            "ignore"
           ]
         }
       }
@@ -17317,10 +17328,7 @@
       },
       "arguments": {
         "phone": {
-          "type": "Keyword",
-          "values": [
-            "numbers"
-          ]
+          "type": "String"
         },
         "trigger": {
           "type": "Keyword",
@@ -17801,10 +17809,7 @@
           "type": "Integer"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         },
         "upstream-rate": {
           "type": "Integer"
@@ -19781,10 +19786,7 @@
       },
       "arguments": {
         "password": {
-          "type": "Keyword",
-          "values": [
-            "length"
-          ]
+          "type": "Password"
         }
       }
     },
@@ -21270,7 +21272,6 @@
         "direction": {
           "type": "Keyword",
           "values": [
-            "peer.",
             "receive",
             "send"
           ]

@@ -552,10 +552,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },
@@ -731,10 +728,7 @@
           "type": "Integer"
         },
         "interval": {
-          "type": "Keyword",
-          "values": [
-            "there"
-          ]
+          "type": "Integer"
         }
       }
     },

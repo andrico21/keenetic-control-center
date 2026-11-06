@@ -278,10 +278,7 @@
       },
       "arguments": {
         "policy": {
-          "type": "Keyword",
-          "values": [
-            "Policy"
-          ]
+          "type": "ObjectName"
         }
       }
     },

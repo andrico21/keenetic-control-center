@@ -26,7 +26,7 @@
         "KN-4110"
       ],
       "since": "2.05",
-      "page": 534,
+      "page": 541,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -88,7 +88,7 @@
         "KN-4110"
       ],
       "since": "2.05",
-      "page": 534,
+      "page": 541,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -168,7 +168,7 @@
         "KN-4110"
       ],
       "since": "2.05",
-      "page": 535,
+      "page": 542,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -229,8 +229,8 @@
         "KN-3812",
         "KN-4110"
       ],
-      "since": "536",
-      "page": 536,
+      "since": "5.1",
+      "page": 543,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -300,7 +300,7 @@
         "KN-4110"
       ],
       "since": "4.03",
-      "page": 537,
+      "page": 543,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -390,7 +390,7 @@
         "KN-4110"
       ],
       "since": "5.1",
-      "page": 537,
+      "page": 544,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,

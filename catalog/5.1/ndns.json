@@ -38,7 +38,7 @@
         "KN-4910"
       ],
       "since": "2.07",
-      "page": 497,
+      "page": 503,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -89,7 +89,7 @@
         "KN-4910"
       ],
       "since": "2.07",
-      "page": 497,
+      "page": 504,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,
@@ -163,7 +163,8 @@
           "type": "Keyword",
           "values": [
             "auto",
-            "cloud"
+            "cloud",
+            "direct"
           ]
         },
         "access6": {
@@ -222,7 +223,7 @@
         "KN-4910"
       ],
       "since": "2.07",
-      "page": 500,
+      "page": 506,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -292,7 +293,7 @@
         "KN-4910"
       ],
       "since": "2.07",
-      "page": 501,
+      "page": 507,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,
@@ -369,7 +370,7 @@
         "KN-4910"
       ],
       "since": "2.08",
-      "page": 501,
+      "page": 508,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -431,7 +432,7 @@
         "KN-4910"
       ],
       "since": "2.07",
-      "page": 502,
+      "page": 509,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": false,
@@ -487,13 +488,17 @@
         "access": {
           "type": "Keyword",
           "values": [
-            "for"
+            "auto",
+            "cloud",
+            "direct"
           ]
         },
         "access6": {
           "type": "Keyword",
           "values": [
-            "auto"
+            "auto",
+            "cloud",
+            "direct"
           ]
         }
       }

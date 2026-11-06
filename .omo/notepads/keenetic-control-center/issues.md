@@ -207,3 +207,18 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
 ## 2026-11-06: cargo vet fixed (orchestrator)
 - Exemptions for multer 3.1.0, spin 0.9.9, version_check 0.9.5 added; `cargo vet` -> "Vetting Succeeded (59 fully audited, 22 partially audited, 283 exempted)". `imports.lock` gained two publisher/wildcard audit entries that cargo vet itself fetched (encoding_rs, multiversion_no_op). Merge gates for every later todo must run `cargo vet` (it was skipped for todo 39/40).
+
+## 2026-11-07: Todo 41 follow-ups (configuration and backups page)
+- Backup retention is NOT enforced anywhere: `BackupStore::retain` has no caller and `BackupRetention` (`#[non_exhaustive]`, no constructor) cannot be built outside kcc-app, so kcc-web cannot apply it. The page shows the `kcc.toml` retention as configuration. Owner: kcc-app (apply retention after `ensure_backup`'s create, or add a constructor/`From<BackupsConfig>`).
+- `kcc serve`: browser POSTs are refused by the kit's Origin check unless `[server] allowed_origins` lists the Web UI origin; server.rs should pass `config.web_allowed_origins()` to the kit (pre-existing; found while running the todo-41 QA against the real binary).
+- `config_page::restore::WIZARD_SERVED` must become `true` (and `migrate_restore_url`'s query names must match) when todo 43 merges; the config_pages test fails while they disagree.
+- Raw restore: no live progress (the request waits 25 s, then the audit log has the end); reconnect uses the router's current URL, so a backup that changes the management address ends in "the router did not answer"; real firmware that rewrites config text fails the exact MD5 verification (todo-30 contract). Backups without a firmware header are refused for raw restore (wizard only).
+- `BackupStore` same-second name collision (see learnings) is a kcc-app bug: the store should create names exclusively.
+- Visual QA was self-reviewed (no oracle subagent; frontend draft-guard/detect scripts not on disk): 36 captures, 0 CSP violations, 0 px overflow (`task-41-keenetic-control-center-playwright.log` holds the per-item verdicts).
+- `FleetServices` gained the public field `backups` (struct-literal construction breaks): updated server.rs and two test fixtures; reconcile with todo 43 if it adds a backup seam of its own.
+
+## 2026-11-07: catalog cache incident and tcat merge (orchestrator)
+- Cause: the first tcat commit (9fe2909) tracked the symlink `catalog/.cache -> /home/andrico/keenetic-control-center/catalog/.cache`; `.gitignore` had `/catalog/.cache/` (trailing slash does not match a symlink), so `git add catalog` in the worktree staged it. The trial squash merge then replaced main's real (ignored) cache directory with a self-referencing symlink and the cached manuals were lost.
+- Recovery: `cargo xtask catalog fetch --version {4.3,5.0,5.1}` + `catalog extract` rebuilt `catalog/.cache` (623 MB). 4.3 and 5.0 PDFs match `sources.lock` hashes; ALL 31 5.1 PDFs differ from the hashes recorded on 2026-11-05 (Keenetic updated the 5.1 manual). Rebuilding `catalog build --version 5.1` from the new PDFs yields a catalog byte-identical to the audited one, so `sources.lock` keeps the 11-05 hashes (only `fetch_date` moved). The xtask tests that read `catalog/.cache/5.1/kn-1811.txt` pass on the new text.
+- Prevention: `.gitignore` now ignores `/catalog/.cache` (no trailing slash) and the tcat branch untracks the symlink. Worktrees must never `git add catalog` blindly; stage explicit paths. A worktree cache symlink must point to a path that is not replaced by a merge.
+- Todo 61 added to the plan: CLI validation of context-leaf lines (found by todo 31's matrix).

@@ -38,7 +38,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 538,
+      "page": 545,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -125,7 +125,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 539,
+      "page": 546,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -209,7 +209,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 540,
+      "page": 546,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -283,7 +283,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 540,
+      "page": 547,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -357,7 +357,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 541,
+      "page": 548,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,
@@ -382,7 +382,10 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "icmp"
+            "connect",
+            "icmp",
+            "tls",
+            "uri"
           ]
         }
       }
@@ -423,7 +426,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 542,
+      "page": 548,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -485,7 +488,7 @@
         "KN-4110"
       ],
       "since": "2.04",
-      "page": 542,
+      "page": 549,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -551,7 +554,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 543,
+      "page": 550,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -625,7 +628,7 @@
         "KN-4910"
       ],
       "since": "2.04",
-      "page": 544,
+      "page": 550,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": false,
@@ -688,7 +691,7 @@
         "KN-4910"
       ],
       "since": "4.00",
-      "page": 544,
+      "page": 551,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -724,14 +727,6 @@
               "node": "Argument",
               "value": "uri"
             }
-          },
-          {
-            "node": "Keyword",
-            "value": "20"
-          },
-          {
-            "node": "Keyword",
-            "value": "https://en.wikipedia.org/wiki/Uniform_Resource_Identifier"
           }
         ]
       },
@@ -739,8 +734,7 @@
         "uri": {
           "type": "Keyword",
           "values": [
-            "Hostname",
-            "host."
+            "Hostname"
           ]
         }
       }

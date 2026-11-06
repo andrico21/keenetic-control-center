@@ -85,6 +85,7 @@ pub(crate) fn cli_value(
                 .map_or_else(|_error| Value::String((*token).to_owned()), Value::from),
             ArgumentKind::IpAddress
             | ArgumentKind::IpMask
+            | ArgumentKind::IpAddressMask
             | ArgumentKind::MacAddress
             | ArgumentKind::ObjectName
             | ArgumentKind::Keyword

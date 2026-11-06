@@ -139,8 +139,6 @@
         "protocol": {
           "type": "Keyword",
           "values": [
-            "added.",
-            "interface",
             "tcp",
             "udp"
           ]
@@ -226,10 +224,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },

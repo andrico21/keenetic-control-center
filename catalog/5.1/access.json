@@ -95,12 +95,10 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "folder.",
             "forbidden",
             "inherited",
             "read",
             "read/write",
-            "recursive",
             "write"
           ]
         },

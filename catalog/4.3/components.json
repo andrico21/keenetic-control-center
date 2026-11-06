@@ -133,6 +133,8 @@
         "channel": {
           "type": "Keyword",
           "values": [
+            "draft",
+            "preview",
             "stable"
           ]
         }
@@ -290,10 +292,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },

@@ -2272,6 +2272,9 @@
         "mode": {
           "type": "Keyword",
           "values": [
+            "duplicate",
+            "expand",
+            "overwrite",
             "replace"
           ]
         }
@@ -3629,10 +3632,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -3801,8 +3801,6 @@
           "type": "Keyword",
           "values": [
             "inband",
-            "messages.",
-            "requests.",
             "rfc2833",
             "sip-info"
           ]
@@ -4128,10 +4126,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -4254,10 +4249,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -4315,10 +4307,7 @@
       },
       "arguments": {
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       }
     },
@@ -4501,10 +4490,7 @@
       },
       "arguments": {
         "keepalive": {
-          "type": "Keyword",
-          "values": [
-            "messages."
-          ]
+          "type": "Integer"
         }
       }
     },
@@ -4795,7 +4781,7 @@
       },
       "arguments": {
         "password": {
-          "type": "String"
+          "type": "Password"
         }
       }
     },
@@ -5369,7 +5355,10 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "disable"
+            "always",
+            "disable",
+            "optional",
+            "required"
           ]
         }
       }
@@ -5488,7 +5477,8 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "sip-tls"
+            "sip-tls",
+            "sips"
           ]
         }
       }
@@ -5549,7 +5539,12 @@
         "transport": {
           "type": "Keyword",
           "values": [
-            "udp"
+            "tcp",
+            "tcp6",
+            "tls",
+            "tls6",
+            "udp",
+            "udp6"
           ]
         }
       }

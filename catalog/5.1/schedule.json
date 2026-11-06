@@ -38,7 +38,7 @@
         "KN-4910"
       ],
       "since": "2.06",
-      "page": 551,
+      "page": 557,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -117,7 +117,7 @@
         "KN-4910"
       ],
       "since": "2.06",
-      "page": 551,
+      "page": 558,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -240,7 +240,7 @@
         "KN-4910"
       ],
       "since": "2.06",
-      "page": 552,
+      "page": 559,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Action",
       "prefix_no": true,
@@ -303,7 +303,7 @@
         "KN-4110"
       ],
       "since": "2.08",
-      "page": 553,
+      "page": 559,
       "source_url": "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manual_kn-1011.pdf",
       "kind": "Setting",
       "prefix_no": true,
@@ -339,7 +339,6 @@
         "action": {
           "type": "Keyword",
           "values": [
-            "event.",
             "start",
             "stop"
           ]

@@ -1032,6 +1032,13 @@ pub static FILES: &[(&str, &str)] = &[
         )),
     ),
     (
+        "catalog/5.1/media.json",
+        include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../catalog/5.1/media.json"
+        )),
+    ),
+    (
         "catalog/5.1/mkdir.json",
         include_str!(concat!(
             env!("CARGO_MANIFEST_DIR"),

@@ -31,3 +31,7 @@ mod cli_tests;
 mod secret_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod typing_tests;
+#[cfg(test)]
+mod untyped_arguments_tests;

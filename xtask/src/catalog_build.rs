@@ -22,6 +22,15 @@ const MAX_FILE_BYTES: u64 = 900_000;
 /// Minimum accepted synopsis coverage, represented as an integer percentage.
 const MIN_COVERAGE_PERCENT: usize = 98;
 
+/// A synopsis argument intentionally left without a generated type.
+#[derive(Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd)]
+struct UntypedArgument {
+    /// Full command path.
+    path: String,
+    /// Synopsis argument name.
+    name: String,
+}
+
 /// One bookmark emitted by `catalog extract`.
 #[derive(Debug, Deserialize)]
 struct Bookmark {
@@ -118,6 +127,8 @@ enum ValueType {
     MacAddress,
     /// Interface name.
     Interface,
+    /// Named configuration object.
+    ObjectName,
     /// Filename.
     Filename,
     /// Secret password.
@@ -213,8 +224,9 @@ where
     let mut reference_leaf_count = 0;
     let mut reference_synopsis_count = 0;
     let mut hashes = BTreeMap::new();
+    let allowlist = load_untyped_allowlist(root)?;
     for entry in entries {
-        let parsed = parse_model(root, entry)?;
+        let parsed = parse_model(root, entry, &allowlist)?;
         if entry.model == "KN-1811" {
             reference_leaf_count = parsed.leaf_count;
             reference_synopsis_count = parsed.synopsis_count;
@@ -277,7 +289,11 @@ where
 /// # Errors
 ///
 /// Returns an input or JSON parse error when the extracted model files are unavailable or malformed.
-fn parse_model(root: &Path, entry: &Entry) -> Result<ModelCatalog, GateError> {
+fn parse_model(
+    root: &Path,
+    entry: &Entry,
+    untyped_allowlist: &BTreeSet<UntypedArgument>,
+) -> Result<ModelCatalog, GateError> {
     let stem = entry.model.to_lowercase();
     let base = catalog::cache_dir(root).join(&entry.version);
     let text_path = base.join(format!("{stem}.txt"));
@@ -290,7 +306,23 @@ fn parse_model(root: &Path, entry: &Entry) -> Result<ModelCatalog, GateError> {
             format!("cannot parse {}: {source}", outline_path.display()),
         )
     })?;
-    parse_bookmarks(&text, &bookmarks, entry)
+    parse_bookmarks(&text, &bookmarks, entry, untyped_allowlist)
+}
+
+/// Loads the exact legacy exceptions to synopsis argument typing.
+///
+/// # Errors
+///
+/// Returns an input or JSON parse error when the committed allowlist is unavailable or malformed.
+fn load_untyped_allowlist(root: &Path) -> Result<BTreeSet<UntypedArgument>, GateError> {
+    let path = root.join("catalog/untyped-arguments.json");
+    let text = read_text(&path)?;
+    serde_json::from_str(&text).map_err(|source| {
+        command_error(
+            "catalog build",
+            format!("cannot parse {}: {source}", path.display()),
+        )
+    })
 }
 
 /// Reads UTF-8 input with a path-aware error.
@@ -314,6 +346,7 @@ fn parse_bookmarks(
     text: &str,
     bookmarks: &[Bookmark],
     entry: &Entry,
+    untyped_allowlist: &BTreeSet<UntypedArgument>,
 ) -> Result<ModelCatalog, GateError> {
     let lines: Vec<&str> = text.lines().collect();
     let command_bookmarks: Vec<&Bookmark> = bookmarks
@@ -359,7 +392,15 @@ fn parse_bookmarks(
         let is_leaf =
             bookmark.level >= 3 || bookmark.title.starts_with("C.") && has_synopsis(section);
         let is_group = bookmark.level == 2 || bookmark.title == "C.1 nvox";
-        let command = parse_section(path, bookmark.page, section, entry, is_leaf, is_group);
+        let command = parse_section(
+            path,
+            bookmark.page,
+            section,
+            entry,
+            is_leaf,
+            is_group,
+            untyped_allowlist,
+        );
         if is_leaf {
             leaf_count = leaf_count.saturating_add(1);
             if command.synopsis.is_some() {
@@ -422,6 +463,7 @@ fn parse_section(
     entry: &Entry,
     is_leaf: bool,
     is_group: bool,
+    untyped_allowlist: &BTreeSet<UntypedArgument>,
 ) -> Command {
     let prefix_no = field_value(lines, "Prefix no").is_some_and(|value| value == "Yes");
     let change_settings = field_value(lines, "Change settings").is_some_and(|value| value == "Yes");
@@ -449,14 +491,31 @@ fn parse_section(
         .as_deref()
         .map(argument_names)
         .unwrap_or_default();
-    let arguments = parse_arguments(lines, &argument_names);
+    let mut arguments = parse_arguments(lines, &argument_names);
+    if path.ends_with("security-level") && arguments.is_empty() {
+        let levels = synopsis
+            .as_ref()
+            .map(security_levels)
+            .unwrap_or_default();
+        if !levels.is_empty() {
+            drop(arguments.insert("level".to_owned(), ValueType::Keyword(levels)));
+        }
+    }
     let mut parse_warnings = Vec::new();
     if is_leaf && synopsis.is_none() {
         parse_warnings.push("missing or truncated Synopsis".to_owned());
     }
     for name in &argument_names {
         if !arguments.contains_key(name) {
-            parse_warnings.push(format!("argument {name} has no recognized type"));
+            let exception = UntypedArgument {
+                path: path.clone(),
+                name: name.clone(),
+            };
+            if untyped_allowlist.contains(&exception) {
+                parse_warnings.push(format!("argument {name} has no recognized type"));
+            } else {
+                drop(arguments.insert(name.clone(), inferred_value_type(name)));
+            }
         }
     }
     let since = first_history_version(lines).unwrap_or_else(|| entry.version.clone());
@@ -746,31 +805,45 @@ fn parse_arguments(lines: &[&str], expected: &BTreeSet<String>) -> BTreeMap<Stri
         })
         .unwrap_or(lines.len());
     let mut result = BTreeMap::new();
-    let mut current_keyword: Option<String> = None;
+    let mut current_keyword: Option<(String, usize)> = None;
     let table = lines.get(start.saturating_add(1)..end).unwrap_or_default();
     for line in table {
         let columns = split_columns(line);
-        if columns.is_empty()
-            || columns.first().is_some_and(|value| *value == "Argument")
-            || is_page_furniture(line.trim())
+        if columns
+            .first()
+            .is_some_and(|value| matches!(*value, "Argument" | "Arguments"))
         {
+            if let Some(column) = line.find("Value")
+                && let Some((_, value_column)) = &mut current_keyword
+            {
+                *value_column = column;
+            }
             continue;
         }
-        if let Some((name, value)) = argument_row(line, expected) {
-            let parsed = parse_value_type(value);
+        if columns.is_empty() || is_page_furniture(line.trim()) {
+            continue;
+        }
+        if let Some((name, value, value_column)) = argument_row(line, expected) {
+            if result.contains_key(name) {
+                continue;
+            }
+            let parsed = parse_value_type(name, value);
             if matches!(parsed, ValueType::Keyword(_)) {
-                current_keyword = Some(name.to_owned());
+                current_keyword = Some((name.to_owned(), value_column));
             } else {
                 current_keyword = None;
             }
             drop(result.insert(name.to_owned(), parsed));
-        } else if let (Some(name), Some(literal)) = (&current_keyword, columns.first())
-            && is_literal(literal)
+        } else if let (Some((name, value_column)), Some(literals)) =
+            (&current_keyword, columns.first())
+            && leading_spaces(line).abs_diff(*value_column) <= 8
+            && argument_row(line, expected)
+                .is_none_or(|(candidate, _, _)| candidate == name && !result.contains_key(candidate))
             && let Some(ValueType::Keyword(values)) = result.get_mut(name)
         {
-            let _inserted = values.insert((*literal).to_owned());
+            values.extend(keyword_literals(literals));
         } else {
-            current_keyword = None;
+            drop(columns);
         }
     }
     result
@@ -780,7 +853,7 @@ fn parse_arguments(lines: &[&str], expected: &BTreeSet<String>) -> BTreeMap<Stri
 fn argument_row<'text>(
     line: &'text str,
     expected: &'text BTreeSet<String>,
-) -> Option<(&'text str, &'text str)> {
+) -> Option<(&'text str, &'text str, usize)> {
     let trimmed = line.trim();
     let name = expected
         .iter()
@@ -790,7 +863,15 @@ fn argument_row<'text>(
                 .is_some_and(|rest| rest.chars().next().is_some_and(char::is_whitespace))
         })
         .max_by_key(|candidate| candidate.len())?;
-    let rest = trimmed.strip_prefix(name.as_str())?.trim_start();
+    let name_column = line.find(name.as_str())?;
+    if name_column > 32 {
+        return None;
+    }
+    let after_name = trimmed.strip_prefix(name.as_str())?;
+    let rest = after_name.trim_start();
+    let value_column = leading_spaces(line)
+        .saturating_add(name.len())
+        .saturating_add(after_name.len().saturating_sub(rest.len()));
     let value = [
         "IP address/mask",
         "MAC address",
@@ -806,7 +887,12 @@ fn argument_row<'text>(
     .into_iter()
     .find(|candidate| rest.starts_with(candidate))
     .or_else(|| rest.split_whitespace().next())?;
-    Some((name, value))
+    Some((name, value, value_column))
+}
+
+/// Returns the value-column offset of a layout-preserving table row.
+fn leading_spaces(line: &str) -> usize {
+    line.len().saturating_sub(line.trim_start().len())
 }
 
 /// Splits a layout-preserving table row on runs of at least two spaces.
@@ -819,28 +905,104 @@ fn split_columns(line: &str) -> Vec<&str> {
 }
 
 /// Maps one table value cell into the closed type set.
-fn parse_value_type(value: &str) -> ValueType {
-    match value {
-        "String" => ValueType::String,
-        "Integer" => ValueType::Integer,
-        "IP address" => ValueType::IpAddress,
-        "IP-mask" => ValueType::IpMask,
-        "IP address/mask" => ValueType::IpAddressMask,
-        "MAC address" => ValueType::MacAddress,
-        "Interface" => ValueType::Interface,
-        "Filename" => ValueType::Filename,
-        "Password" => ValueType::Password,
-        "Boolean" => ValueType::Boolean,
-        literal => ValueType::Keyword(BTreeSet::from([literal.to_owned()])),
+fn parse_value_type(name: &str, value: &str) -> ValueType {
+    match (name, value) {
+        ("password", "String") | (_, "Password") => ValueType::Password,
+        (_, "String") => ValueType::String,
+        (_, "Integer") => ValueType::Integer,
+        (_, "IP address") => ValueType::IpAddress,
+        (_, "IP-mask") => ValueType::IpMask,
+        (_, "IP address/mask") => ValueType::IpAddressMask,
+        (_, "MAC address") => ValueType::MacAddress,
+        (_, "Interface") => ValueType::Interface,
+        (_, "Policy" | "Schedule") => ValueType::ObjectName,
+        (_, "Filename") => ValueType::Filename,
+        (_, "Boolean") => ValueType::Boolean,
+        (_, "Keyword") => ValueType::Keyword(BTreeSet::from([name.to_owned()])),
+        (_, ambiguous @ "Prefix") => match name {
+            "address" | "gateway" | "host" | "network" | "to-address" => ValueType::IpAddress,
+            "mask" => ValueType::IpMask,
+            "prefix" => ValueType::IpAddressMask,
+            "interface" | "to-interface" => ValueType::Interface,
+            _ => ValueType::Keyword(BTreeSet::from([ambiguous.to_owned()])),
+        },
+        (_, literals) => ValueType::Keyword(keyword_literals(literals)),
     }
+}
+
+/// Conservatively types a synopsis argument when its manual table row is absent or unreadable.
+fn inferred_value_type(name: &str) -> ValueType {
+    if name.contains("interface") {
+        ValueType::Interface
+    } else if matches!(
+        name,
+        "count"
+            | "days"
+            | "group"
+            | "hours"
+            | "interval"
+            | "metric"
+            | "minutes"
+            | "pause"
+            | "pcp"
+            | "priority"
+            | "proceed"
+            | "seconds"
+            | "vga-clamp"
+    ) {
+        ValueType::Integer
+    } else {
+        ValueType::String
+    }
+}
+
+/// Collects request keywords represented only as security-level synopsis alternatives.
+fn security_levels(grammar: &Grammar) -> BTreeSet<String> {
+    match grammar {
+        Grammar::Sequence(nodes) | Grammar::Alternative(nodes) => {
+            nodes.iter().flat_map(security_levels).collect()
+        }
+        Grammar::Optional(node) | Grammar::Group(node) => security_levels(node),
+        Grammar::Keyword(value) if matches!(value.as_str(), "public" | "private" | "protected") => {
+            BTreeSet::from([value.clone()])
+        }
+        Grammar::Argument(_) | Grammar::Keyword(_) => BTreeSet::new(),
+    }
+}
+
+/// Parses comma-separated keyword alternatives from one value cell.
+fn keyword_literals(value: &str) -> BTreeSet<String> {
+    value
+        .split(',')
+        .map(str::trim)
+        .filter(|literal| is_literal(literal))
+        .map(str::to_owned)
+        .collect()
 }
 
 /// Conservative literal check for continuation rows in keyword tables.
 fn is_literal(value: &str) -> bool {
     !value.is_empty()
         && value.len() <= 64
+        && !value.ends_with(['.', ',', ';', ':'])
+        && !matches!(
+            value.to_ascii_lowercase().as_str(),
+            "a"
+                | "an"
+                | "are"
+                | "becomes"
+                | "for"
+                | "is"
+                | "length"
+                | "of"
+                | "the"
+                | "there"
+                | "to"
+                | "with"
+        )
         && value.chars().all(|character| {
-            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '/' | '.')
+            character.is_ascii_alphanumeric()
+                || matches!(character, '-' | '_' | '/' | '.' | '@')
         })
 }
 
@@ -1103,7 +1265,10 @@ mod tests {
     use core::error::Error;
     use std::{fs, path::Path};
 
-    use super::{CommandKind, ValueType, argument_names, parse_model, parse_synopsis};
+    use super::{
+        Command, CommandKind, ValueType, argument_names, load_untyped_allowlist, parse_model,
+        parse_synopsis,
+    };
     use crate::catalog::{Lock, lock_path};
 
     #[test]
@@ -1134,7 +1299,8 @@ mod tests {
             .iter()
             .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
             .ok_or("missing KN-1811 5.1 lock entry")?;
-        let parsed = parse_model(root, entry)?;
+        let allowlist = load_untyped_allowlist(root)?;
+        let parsed = parse_model(root, entry, &allowlist)?;
         assert!(
             parsed.synopsis_count.saturating_mul(100) >= parsed.leaf_count.saturating_mul(98),
             "98% synopsis gate"
@@ -1208,6 +1374,216 @@ mod tests {
             "stored fields do not reproduce 13 consecutive source words"
         );
         Ok(())
+    }
+
+    #[test]
+    fn ambiguous_argument_rows_use_semantic_types() -> Result<(), Box<dyn Error>> {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or("xtask manifest has no parent")?;
+        let lock = Lock::load(&lock_path(root))?;
+        let entry = lock
+            .entries
+            .iter()
+            .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
+            .ok_or("missing KN-1811 5.1 lock entry")?;
+        let allowlist = load_untyped_allowlist(root)?;
+        let parsed = parse_model(root, entry, &allowlist)?;
+
+        let ip_route = parsed
+            .commands
+            .iter()
+            .find(|command| command.path == "ip route")
+            .ok_or("missing ip route")?;
+        assert!(
+            matches!(
+                ip_route.arguments.get("gateway"),
+                Some(ValueType::IpAddress)
+            ),
+            "ip route gateway is an address"
+        );
+        assert!(
+            matches!(
+                ip_route.arguments.get("interface"),
+                Some(ValueType::Interface)
+            ),
+            "ip route interface is an interface"
+        );
+
+        let ipv6_route = parsed
+            .commands
+            .iter()
+            .find(|command| command.path == "ipv6 route")
+            .ok_or("missing ipv6 route")?;
+        assert!(
+            matches!(
+                ipv6_route.arguments.get("prefix"),
+                Some(ValueType::IpAddressMask)
+            ),
+            "ipv6 route prefix is an address with a prefix length"
+        );
+
+        for (path, argument) in [
+            ("ip policy", "name"),
+            ("ip hotspot host", "policy"),
+            ("ip hotspot host", "schedule"),
+            ("interface schedule", "schedule"),
+        ] {
+            let command = parsed
+                .commands
+                .iter()
+                .find(|command| command.path == path)
+                .ok_or("missing object-name command")?;
+            assert!(
+                matches!(command.arguments.get(argument), Some(ValueType::ObjectName)),
+                "{path} {argument} is an object name"
+            );
+        }
+
+        let security_level = parsed
+            .commands
+            .iter()
+            .find(|command| command.path == "interface security-level")
+            .ok_or("missing interface security-level")?;
+        assert!(
+            matches!(security_level.arguments.get("level"), Some(ValueType::Keyword(values)) if values == &BTreeSet::from(["private".to_owned(), "protected".to_owned(), "public".to_owned()])),
+            "security-level alternatives remain request keywords"
+        );
+
+        for path in ["dyndns profile password", "interface web-api password"] {
+            let command = parsed
+                .commands
+                .iter()
+                .find(|command| command.path == path)
+                .ok_or("missing password command")?;
+            assert!(
+                matches!(command.arguments.get("password"), Some(ValueType::Password)),
+                "{path} password is secret material"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn value_column_keywords_retain_documented_literals() -> Result<(), Box<dyn Error>> {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .ok_or("xtask manifest has no parent")?;
+        let lock = Lock::load(&lock_path(root))?;
+        let entry = lock
+            .entries
+            .iter()
+            .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
+            .ok_or("missing KN-1811 5.1 lock entry")?;
+        let allowlist = load_untyped_allowlist(root)?;
+        let parsed = parse_model(root, entry, &allowlist)?;
+
+        for (path, argument, expected) in expected_keyword_literals() {
+            let command = parsed
+                .commands
+                .iter()
+                .find(|command| command.path == path)
+                .ok_or("missing keyword command")?;
+            assert_keyword_literals(command, argument, expected)?;
+        }
+        Ok(())
+    }
+
+    fn assert_keyword_literals(
+        command: &Command,
+        argument: &str,
+        expected: &[&str],
+    ) -> Result<(), Box<dyn Error>> {
+        let Some(ValueType::Keyword(actual)) = command.arguments.get(argument) else {
+            return Err(format!("{} {argument} is not a keyword", command.path).into());
+        };
+        let missing = expected
+            .iter()
+            .filter(|literal| !actual.iter().any(|value| value == **literal))
+            .copied()
+            .collect::<Vec<_>>();
+        assert!(
+            missing.is_empty(),
+            "{} {argument} lost documented literals {missing:?}; actual {actual:?}",
+            command.path
+        );
+        Ok(())
+    }
+
+    fn expected_keyword_literals() -> [(&'static str, &'static str, &'static [&'static str]); 11] {
+        [
+            (
+                "user tag",
+                "tag",
+                &[
+                    "afp", "cifs", "cli", "ftp", "http", "http-proxy", "manager", "printers",
+                    "readonly", "vpn-dlna",
+                ],
+            ),
+            (
+                "crypto ike proposal integrity",
+                "integrity",
+                &["md5", "sha1", "sha256", "sha384", "sha512"],
+            ),
+            (
+                "crypto ipsec transform-set hmac",
+                "hmac",
+                &[
+                    "esp-md5-hmac", "esp-null-hmac", "esp-sha1-hmac", "esp-sha256-hmac",
+                    "esp-sha512-hmac",
+                ],
+            ),
+            (
+                "ip ssh cipher",
+                "cipher",
+                &[
+                    "aes128-ctr", "aes256-ctr", "chacha20-poly1305@openssh.com",
+                ],
+            ),
+            ("interface channel", "channel", &["auto", "number"]),
+            (
+                "ip ftp client-charset",
+                "charset",
+                &[
+                    "cp-037", "cp-1026", "cp-1250", "cp-1251", "cp-1252", "cp-1253",
+                    "cp-1254", "cp-1255", "cp-1256", "cp-1257", "cp-1258", "cp-424",
+                    "cp-437", "cp-500", "cp-737", "cp-775", "cp-850", "cp-852", "cp-855",
+                    "cp-856", "cp-857", "cp-860", "cp-861", "cp-862", "cp-863", "cp-864",
+                    "cp-865", "cp-866", "cp-869", "cp-874", "iso-8859-1", "iso-8859-10",
+                    "iso-8859-11", "iso-8859-12", "iso-8859-13", "iso-8859-14", "iso-8859-15",
+                    "iso-8859-16", "iso-8859-2", "iso-8859-3", "iso-8859-4", "iso-8859-5",
+                    "iso-8859-6", "iso-8859-7", "iso-8859-8", "iso-8859-9", "koi8-r", "koi8-u",
+                    "kz-1048", "mac-celtic", "mac-centeuro", "mac-croatian", "mac-cyrillic",
+                    "mac-gaelic", "mac-greek", "mac-icelandic", "mac-inuit", "mac-roman",
+                    "mac-romanian", "mac-turkish", "mac-ukrainian", "nextstep", "utf-16",
+                    "utf-16be", "utf-16le", "utf-32", "utf-32be", "utf-32le", "utf-8",
+                ],
+            ),
+            (
+                "show ip route",
+                "direction",
+                &["ascending", "descending"],
+            ),
+            (
+                "system button",
+                "handler",
+                &[
+                    "FactoryReset", "Reboot", "WifiGuestApToggle", "WifiToggle", "WpsStartAllMainAp",
+                    "WpsStartMainAp", "WpsStartMainAp5",
+                ],
+            ),
+            (
+                "nvox sip dtmf-mode",
+                "mode",
+                &["inband", "rfc2833", "sip-info"],
+            ),
+            (
+                "dns-proxy filter engine",
+                "engine",
+                &["interceptor", "nextdns", "opkg", "public", "skydns"],
+            ),
+            ("torrent io-priority", "io-priority", &["low", "normal"]),
+        ]
     }
 
     #[test]

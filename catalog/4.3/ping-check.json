@@ -382,7 +382,10 @@
         "mode": {
           "type": "Keyword",
           "values": [
-            "icmp"
+            "connect",
+            "icmp",
+            "tls",
+            "uri"
           ]
         }
       }
@@ -731,8 +734,7 @@
         "uri": {
           "type": "Keyword",
           "values": [
-            "Hostname",
-            "host."
+            "Hostname"
           ]
         }
       }

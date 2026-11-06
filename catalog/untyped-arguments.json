@@ -1,0 +1,30 @@
+[
+  {
+    "path": "access-list rule",
+    "name": "new-index"
+  },
+  {
+    "path": "interface channel auto-rescan",
+    "name": "hh"
+  },
+  {
+    "path": "interface channel auto-rescan",
+    "name": "mm"
+  },
+  {
+    "path": "nvox sip forward-if-busy",
+    "name": "{number"
+  },
+  {
+    "path": "show upnp pinhole",
+    "name": "interface"
+  },
+  {
+    "path": "tools ping",
+    "name": "source-address"
+  },
+  {
+    "path": "tools ping6",
+    "name": "source-address"
+  }
+]

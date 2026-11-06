@@ -80,10 +80,7 @@
       },
       "arguments": {
         "interface": {
-          "type": "Keyword",
-          "values": [
-            "[Tab]"
-          ]
+          "type": "Interface"
         }
       }
     },
@@ -246,7 +243,16 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "level": {
+          "type": "Keyword",
+          "values": [
+            "private",
+            "protected",
+            "public"
+          ]
+        }
+      }
     }
   ]
 }

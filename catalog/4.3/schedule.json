@@ -340,7 +340,6 @@
         "action": {
           "type": "Keyword",
           "values": [
-            "event.",
             "start",
             "stop"
           ]

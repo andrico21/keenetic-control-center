@@ -625,6 +625,8 @@
         "dst-port-operator": {
           "type": "Keyword",
           "values": [
+            "eq",
+            "gt",
             "lt"
           ]
         },
@@ -643,6 +645,8 @@
         "src-port-operator": {
           "type": "Keyword",
           "values": [
+            "eq",
+            "gt",
             "lt"
           ]
         }
@@ -1126,6 +1130,8 @@
         "dst-port-operator": {
           "type": "Keyword",
           "values": [
+            "eq",
+            "gt",
             "lt"
           ]
         },
@@ -1144,6 +1150,8 @@
         "src-port-operator": {
           "type": "Keyword",
           "values": [
+            "eq",
+            "gt",
             "lt"
           ]
         }
@@ -1300,10 +1308,7 @@
           "type": "Integer"
         },
         "schedule": {
-          "type": "Keyword",
-          "values": [
-            "Schedule"
-          ]
+          "type": "ObjectName"
         }
       },
       "parse_warnings": [
