@@ -10,6 +10,8 @@ publish = false
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+base64 = "0.23.1"
+secrecy = "0.10.3"
 serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.145"
 secrecy = "0.10.3"

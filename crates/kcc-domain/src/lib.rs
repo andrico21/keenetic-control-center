@@ -18,6 +18,7 @@ pub mod components;
 pub mod configuration;
 pub mod dhcp;
 pub mod diagnostics;
+pub mod dns;
 pub mod internet;
 pub mod segments;
 pub mod keendns;
@@ -27,6 +28,8 @@ pub mod schedules;
 pub mod services;
 pub mod storage;
 pub mod system;
+pub mod vpn_clients;
+pub mod vpn_servers;
 
 use alloc::sync::Arc;
 use core::result::Result as CoreResult;
@@ -88,6 +91,12 @@ pub enum DomainId {
     KeenDns,
     /// Router log reading and configuration.
     Logging,
+    /// DNS proxy, resolvers, records, and domain lists.
+    Dns,
+    /// VPN client tunnels and imports.
+    VpnClients,
+    /// VPN server configuration and service state.
+    VpnServers,
 }
 
 /// One operation exposed by a domain.
@@ -263,5 +272,8 @@ pub const fn registry() -> &'static [DomainDescriptor] {
         schedules::DESCRIPTOR,
         keendns::DESCRIPTOR,
         logging::DESCRIPTOR,
+        dns::DESCRIPTOR,
+        vpn_clients::DESCRIPTOR,
+        vpn_servers::DESCRIPTOR,
     ]
 }
