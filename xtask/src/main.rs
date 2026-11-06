@@ -15,6 +15,7 @@ mod failure;
 mod i18n;
 mod lint_completeness;
 mod manifest;
+mod metric_docs;
 mod profile_eq;
 
 use std::{
@@ -71,6 +72,9 @@ enum Task {
         #[arg(long)]
         assets_dir: Option<PathBuf>,
     },
+    /// Regenerate `docs/METRICS.md` from the kcc-telemetry metric catalogue.
+    #[command(name = "gen-metric-docs")]
+    GenMetricDocs,
 }
 
 /// One `catalog` subcommand.
@@ -145,6 +149,7 @@ where
         Task::I18nGen => i18n::generate(&root, out),
         Task::I18nCheck { locales_dir } => i18n::check(&root, locales_dir.as_deref(), out),
         Task::AssetsCheck { assets_dir } => assets::run(&root, assets_dir.as_deref(), out),
+        Task::GenMetricDocs => metric_docs::generate(&root, out),
     }
 }
 

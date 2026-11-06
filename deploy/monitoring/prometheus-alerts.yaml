@@ -1,0 +1,80 @@
+# Prometheus alert rules for kcc (Keenetic Control Center).
+# Metric reference: docs/METRICS.md. Unit tests: prometheus-alerts.test.yaml
+# (`promtool test rules deploy/monitoring/prometheus-alerts.test.yaml`).
+groups:
+  - name: keenetic
+    rules:
+      - alert: KeeneticRouterDown
+        expr: keenetic_up == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Router {{ $labels.router }} is down or not polled"
+          description: "kcc has had no fresh data from {{ $labels.router }} for 5 minutes."
+      - alert: KeeneticInternetUnreachable
+        expr: keenetic_internet_reachable{check="internet"} == 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Router {{ $labels.router }} reports no Internet access"
+          description: "The router's Internet check has failed for 5 minutes."
+      - alert: KeeneticHighCpu
+        expr: keenetic_cpu_load_ratio > 0.9
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Router {{ $labels.router }} CPU load above 90%"
+          description: "CPU load has stayed above 90% for 15 minutes."
+      - alert: KeeneticLowMemory
+        expr: keenetic_memory_free_bytes / keenetic_memory_total_bytes < 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Router {{ $labels.router }} has less than 10% free memory"
+          description: "Free memory has stayed below 10% for 15 minutes."
+      - alert: KeeneticConntrackNearlyFull
+        expr: keenetic_conntrack_entries / keenetic_conntrack_max > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Router {{ $labels.router }} connection table above 90%"
+          description: "New connections may be dropped when the table fills up."
+      - alert: KeeneticInterfaceErrors
+        expr: >-
+          sum by (router, interface) (rate(keenetic_interface_receive_errors_total[5m]))
+          + sum by (router, interface) (rate(keenetic_interface_transmit_errors_total[5m]))
+          > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Interface {{ $labels.interface }} on {{ $labels.router }} reports errors"
+          description: "More than 1 receive or transmit error per second for 10 minutes."
+      - alert: KeeneticFailsafeArmed
+        expr: keenetic_failsafe_armed == 1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Configuration fail-safe armed on {{ $labels.router }}"
+          description: "The fail-safe timer has been armed for 15 minutes; the router reverts the configuration when it fires."
+      - alert: KeeneticConfigUnsaved
+        expr: keenetic_config_unsaved == 1
+        for: 24h
+        labels:
+          severity: info
+        annotations:
+          summary: "Unsaved configuration on {{ $labels.router }}"
+          description: "The running configuration has differed from the saved one for 24 hours; a reboot would lose the changes."
+      - alert: KccLogSinkDropping
+        expr: sum by (sink, reason) (increase(kcc_log_records_dropped_total[10m])) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Log sink {{ $labels.sink }} is dropping router log records"
+          description: "kcc dropped router log records ({{ $labels.reason }}) in the last 10 minutes."

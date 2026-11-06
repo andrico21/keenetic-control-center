@@ -26,6 +26,10 @@ pub(super) fn enrich(show: &mut Value, model: Model) {
         ),
         ("ip/nat", nat_rows()),
         (
+            "internet/status",
+            json!({"enabled":true,"reliable":true,"internet":true,"gateway-accessible":true,"dns-accessible":true,"host-accessible":true,"captive-accessible":false}),
+        ),
+        (
             "dns-proxy",
             json!({"cache-size":1024_u16,"rebind-protect":true,"tls":{"upstream":[]},"https":{"upstream":[]}}),
         ),

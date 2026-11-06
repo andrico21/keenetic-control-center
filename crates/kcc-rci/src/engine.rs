@@ -15,6 +15,7 @@ use crate::{
     ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
     encode_query,
+    observe::{RciObserver, RequestOutcome},
     outbound::{OutboundPolicy, TlsMode},
     session::{HttpTimeouts, RequestKind, SessionManager},
 };
@@ -63,6 +64,8 @@ pub struct RciClientOptions {
     pub response_bytes: usize,
     /// Stop batch submission after the first per-item error.
     pub stop_on_error: bool,
+    /// Optional request and login observer (self-metrics).
+    pub observer: Option<Arc<dyn RciObserver>>,
 }
 
 impl Default for RciClientOptions {
@@ -75,6 +78,7 @@ impl Default for RciClientOptions {
             concurrency: 2,
             response_bytes: RESPONSE_BYTES,
             stop_on_error: false,
+            observer: None,
         }
     }
 }
@@ -85,6 +89,14 @@ impl RciClientOptions {
     #[must_use]
     pub fn with_outbound(mut self, outbound: OutboundPolicy) -> Self {
         self.outbound = outbound;
+        self
+    }
+
+    /// Attaches a request and login observer.
+    #[inline]
+    #[must_use]
+    pub fn with_observer(mut self, observer: Arc<dyn RciObserver>) -> Self {
+        self.observer = Some(observer);
         self
     }
 
@@ -167,7 +179,8 @@ impl RciClient {
             credentials.clone(),
             options.timeouts,
             builder,
-        )?;
+        )?
+        .with_observer(options.observer.clone());
         Ok(Self {
             router,
             credentials,
@@ -495,8 +508,15 @@ impl RciClient {
             .acquire()
             .await
             .map_err(|_closed| RciError::Transport)?;
-        let response = self.session.request(method, path, body, kind).await?;
-        decode_response(response, self.options.response_bytes).await
+        let started = time::Instant::now();
+        let result = match self.session.request(method, path, body, kind).await {
+            Ok(response) => decode_response(response, self.options.response_bytes).await,
+            Err(error) => Err(error),
+        };
+        if let Some(observer) = &self.options.observer {
+            observer.request(RequestOutcome::of(&result), started.elapsed());
+        }
+        result
     }
 }
 

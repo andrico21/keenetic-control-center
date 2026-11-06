@@ -24,6 +24,7 @@ pub mod capabilities;
 pub mod engine;
 pub mod ndw4_keys;
 mod ndw4_reply;
+pub mod observe;
 pub mod outbound;
 pub mod session;
 pub mod version;

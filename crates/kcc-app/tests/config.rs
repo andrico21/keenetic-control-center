@@ -18,7 +18,7 @@ mod tests {
     use std::{env, path::PathBuf};
 
     use kcc_app::settings::{
-        Config, ConfigError, KCC_ENV_VARS, RouterAuth, RouterTls, default_state_dir,
+        ClientLabel, Config, ConfigError, KCC_ENV_VARS, RouterAuth, RouterTls, default_state_dir,
     };
     use url::Url;
 
@@ -277,6 +277,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             "audit",
             "cli",
             "privacy",
+            "metrics",
         ];
         for section in sections {
             expect_parse_error(&format!("[{section}]\nbogus_key = 1\n"), "bogus_key")?;
@@ -308,6 +309,74 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             "routers.home.login",
         )?;
         expect_invalid(&ROUTER.replace("\"home\"", "\"../x\""), "routers.name")
+    }
+
+    /// `[metrics]` defaults are off, loopback, pseudonymous and within the IS-13 floors;
+    /// every unsafe or overloading value is refused naming its field.
+    #[test]
+    fn metrics_section_defaults_and_limits() -> TestResult {
+        let config = Config::from_toml_str("")?;
+        let metrics = &config.metrics;
+        assert!(!metrics.enabled, "metrics off by default");
+        assert_eq!(metrics.bind.to_string(), "127.0.0.1:9090", "bind");
+        assert!(!metrics.allow_non_loopback, "allow_non_loopback");
+        assert_eq!(metrics.interval, Duration::from_secs(30), "interval");
+        assert_eq!(
+            metrics.heavy_interval,
+            Duration::from_secs(120),
+            "heavy_interval"
+        );
+        assert!(!metrics.per_client, "no per-client series by default");
+        assert_eq!(metrics.per_client_max, 256, "per_client_max");
+        assert_eq!(
+            metrics.per_client_label,
+            ClientLabel::Pseudonym,
+            "per_client_label"
+        );
+        expect_invalid("[metrics]\ninterval = \"14s\"\n", "metrics.interval")?;
+        expect_invalid(
+            "[metrics]\nheavy_interval = \"59s\"\n",
+            "metrics.heavy_interval",
+        )?;
+        expect_invalid("[metrics]\nbind = \"127.0.0.1:443\"\n", "metrics.bind")?;
+        expect_invalid("[metrics]\nbind = \"0.0.0.0:9090\"\n", "metrics.bind")?;
+        expect_invalid("[metrics]\nper_client_max = 0\n", "metrics.per_client_max")?;
+        expect_invalid(
+            "[observability]\nmetrics_enabled = true\n[metrics]\nenabled = true\n",
+            "observability.metrics_enabled",
+        )?;
+        expect_parse_error("[metrics]\nper_client_label = \"ip\"\n", "ip")?;
+        let open = Config::from_toml_str(
+            "[metrics]\nenabled = true\nbind = \"0.0.0.0:9090\"\nallow_non_loopback = true\nper_client_label = \"mac\"\n",
+        )?;
+        open.validate()?;
+        assert_eq!(open.metrics.per_client_label, ClientLabel::Mac, "mac label");
+        Ok(())
+    }
+
+    /// `KCC_METRICS_*` overrides replace the `[metrics]` values.
+    #[test]
+    fn kcc_metrics_env_overrides_apply() -> TestResult {
+        let env = BTreeMap::from([
+            ("KCC_METRICS_ENABLED", "1"),
+            ("KCC_METRICS_BIND", "127.0.0.1:19090"),
+            ("KCC_METRICS_INTERVAL", "45s"),
+            ("KCC_METRICS_PER_CLIENT", "true"),
+            ("KCC_METRICS_PER_CLIENT_MAX", "3"),
+            ("KCC_METRICS_PER_CLIENT_LABEL", "name"),
+        ]);
+        let mut config = Config::from_toml_str("")?;
+        drop(config.apply_kcc_env_overrides_with(|var| {
+            Ok(env.get(var).map(|value| (*value).to_owned()))
+        })?);
+        config.validate()?;
+        assert!(config.metrics.enabled, "enabled");
+        assert_eq!(config.metrics.bind.port(), 19090, "bind");
+        assert_eq!(config.metrics.interval, Duration::from_secs(45), "interval");
+        assert!(config.metrics.per_client, "per_client");
+        assert_eq!(config.metrics.per_client_max, 3, "per_client_max");
+        assert_eq!(config.metrics.per_client_label, ClientLabel::Name, "label");
+        Ok(())
     }
 
     /// `KCC_*` overrides replace values and are reported.

@@ -26,6 +26,7 @@ use crate::{
     auth_ndw4::{Cache, Exchange},
     auth_options::{Mode, Options},
     auth_token,
+    observe::{LoginScheme, RciObserver},
 };
 
 /// Default interval for keeping a session active while long-lived work needs it.
@@ -171,6 +172,8 @@ pub struct Manager {
     session: StdMutex<Option<Session>>,
     /// Serializes only authentication exchanges.
     login: Mutex<()>,
+    /// Optional login observer (self-metrics).
+    observer: Option<Arc<dyn RciObserver>>,
 }
 
 /// Public protocol name for the single-flight router session manager.
@@ -226,7 +229,16 @@ impl Manager {
             digest: auth_digest::State::default(),
             session: StdMutex::new(None),
             login: Mutex::new(()),
+            observer: None,
         })
+    }
+
+    /// Reports every login exchange of this manager to `observer`.
+    #[inline]
+    #[must_use]
+    pub fn with_observer(mut self, observer: Option<Arc<dyn RciObserver>>) -> Self {
+        self.observer = observer;
+        self
     }
 
     /// Creates a manager with 5 s connect and 30 s read timeouts.
@@ -481,6 +493,20 @@ impl Manager {
     // NOT cancel-safe: cancellation after POST /auth can authenticate remotely without installing
     // the local cookie; a later exchange replaces it.
     async fn authenticate(&self) -> Result<(), RciError> {
+        let result = self.exchange().await;
+        if let Some(observer) = &self.observer {
+            observer.authentication(result.as_ref().ok().copied(), result.is_ok());
+        }
+        result.map(drop)
+    }
+
+    /// Runs the challenge-response exchange and names the scheme that succeeded.
+    ///
+    /// # Errors
+    ///
+    /// Returns typed authentication, transport, or HTTP status failures.
+    // NOT cancel-safe: see `authenticate`.
+    async fn exchange(&self) -> Result<LoginScheme, RciError> {
         let challenge_response = self
             .client
             .get(self.url("/auth"))
@@ -490,7 +516,7 @@ impl Manager {
         if challenge_response.status().is_success() {
             self.refresh_session(challenge_response.headers())?;
             if self.usable_session().is_some() {
-                return Ok(());
+                return Ok(LoginScheme::Existing);
             }
         }
         if challenge_response.status() != StatusCode::UNAUTHORIZED {
@@ -528,7 +554,7 @@ impl Manager {
                     .authenticate(challenge, &challenge_response)
                     .await?;
                 *lock(&self.session) = Some(session);
-                return Ok(());
+                return Ok(LoginScheme::Ndw4);
             }
             if self.options.mode == Mode::Ndw4 || authenticate.schemes().iter().any(|scheme| matches!(scheme, Scheme::Unknown(unknown) if unknown.name.eq_ignore_ascii_case("x-ndw4-interactive"))) {
                 return Err(RciError::Auth(AuthError::Unsupported));
@@ -573,7 +599,7 @@ impl Manager {
             });
         }
         *lock(&self.session) = Some(pending.into());
-        Ok(())
+        Ok(LoginScheme::Ndw2)
     }
 
     /// Re-authenticates only if no concurrent request has already replaced the failed cookie.

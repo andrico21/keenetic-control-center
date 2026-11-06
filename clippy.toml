@@ -22,6 +22,8 @@ allowed-duplicate-crates = [ # each unavoidable duplicate, with a reason comment
     "rand_core", # =0.9.5: rand 0.9.5 / rand_chacha 0.9.0 -> governor 0.10.4 -> rmcp-server-kit
     "syn", # =2.0.119: asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit
     "synstructure", # =0.13.2: asn1-rs-derive 0.6.0 -> asn1-rs 0.7.2 -> x509-parser 0.18.1 -> rmcp-server-kit
+    "thiserror", # =1.0.69: protobuf 3.7.2 -> prometheus 0.14.0 -> rmcp-server-kit `metrics` and kcc-telemetry
+    "thiserror-impl", # =1.0.69: thiserror 1.0.69 -> protobuf 3.7.2 -> prometheus 0.14.0
     "tower-http", # =0.6.11: reqwest 0.13.5 -> rmcp-server-kit; 0.7.1 is the kit's direct dependency
     "windows-sys", # =0.52.0: ring 0.17.14 -> rustls 0.23 -> rmcp-server-kit (Windows-only)
 ]

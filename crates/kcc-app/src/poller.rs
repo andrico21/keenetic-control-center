@@ -10,6 +10,8 @@
 
 extern crate alloc;
 
+mod extended;
+
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -56,6 +58,47 @@ pub struct Snapshot {
     pub interface_stats: Value,
     /// Unix timestamp in seconds when this snapshot completed.
     pub fetched_at: u64,
+    /// `show internet status`, refreshed on the light cadence while a metrics
+    /// subscription is active; `Null` otherwise.
+    pub internet_status: Value,
+    /// `show interface stat` of every interface in state `up`, keyed by interface id and
+    /// refreshed on the light cadence while a metrics subscription is active; an empty
+    /// object otherwise.
+    pub interface_counters: Value,
+    /// `show ip hotspot`, refreshed on the heavy cadence.
+    pub hotspot: Value,
+    /// `show ip dhcp bindings`, heavy cadence, metrics subscription only; `Null` otherwise.
+    pub dhcp_bindings: Value,
+    /// `show media`, heavy cadence, metrics subscription only; `Null` otherwise.
+    pub media: Value,
+    /// `show mws member`, heavy cadence, metrics subscription only; `Null` otherwise.
+    pub mesh_members: Value,
+    /// Cached firmware-update flag recorded through [`Poller::record_update_available`];
+    /// never read from the router by the poller.
+    pub update_available: Option<bool>,
+    /// Age of the heavy items (and `info`) when this snapshot was published.
+    pub heavy_age: Duration,
+    /// Wall time this polling round took.
+    pub poll_duration: Duration,
+}
+
+/// Cadence of a permanent metrics subscription (see [`Poller::subscribe_metrics`]).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct MetricsCadence {
+    /// Light-item refresh period.
+    pub light: Duration,
+    /// Heavy-item refresh period.
+    pub heavy: Duration,
+}
+
+impl MetricsCadence {
+    /// Creates a cadence from the `[metrics] interval` and `heavy_interval`.
+    #[inline]
+    #[must_use]
+    pub const fn new(light: Duration, heavy: Duration) -> Self {
+        Self { light, heavy }
+    }
 }
 
 /// Poller failures surfaced to subscribers.
@@ -131,6 +174,10 @@ pub struct Poller {
     channels: Mutex<BTreeMap<String, watch::Sender<Option<PollResult>>>>,
     /// Completed light polling rounds per router.
     light_rounds: Mutex<BTreeMap<String, u64>>,
+    /// Permanent metrics subscriptions.
+    metrics: Mutex<BTreeMap<String, MetricsCadence>>,
+    /// Cached firmware-update flags.
+    update_flags: Mutex<BTreeMap<String, bool>>,
     /// Poll timing.
     intervals: PollIntervals,
 }
@@ -161,6 +208,8 @@ impl Poller {
             registry,
             channels: Mutex::new(BTreeMap::new()),
             light_rounds: Mutex::new(BTreeMap::new()),
+            metrics: Mutex::new(BTreeMap::new()),
+            update_flags: Mutex::new(BTreeMap::new()),
             intervals,
         })
     }
@@ -182,6 +231,43 @@ impl Poller {
         receiver
     }
 
+    /// Registers a permanent metrics subscription for `router` and subscribes to it.
+    ///
+    /// The router's single polling task then never idles out, refreshes the light items
+    /// every `cadence.light` and the heavy items every `cadence.heavy` (or faster while UI
+    /// subscribers want the default cadence), and also fetches the metrics-only items
+    /// ([`Snapshot::internet_status`], [`Snapshot::interface_counters`],
+    /// [`Snapshot::dhcp_bindings`], [`Snapshot::media`], [`Snapshot::mesh_members`]).
+    /// The caller holds the returned receiver for the lifetime of the subscription: it is
+    /// counted as the metrics subscriber, not as a UI subscriber.
+    // cancel-safe: the registration is a map insert; subscribing only starts a read-only task.
+    pub async fn subscribe_metrics(
+        self: &Arc<Self>,
+        router: &str,
+        cadence: MetricsCadence,
+    ) -> watch::Receiver<Option<PollResult>> {
+        let _previous: Option<MetricsCadence> =
+            self.metrics.lock().await.insert(router.to_owned(), cadence);
+        self.subscribe(router).await
+    }
+
+    /// Removes the permanent metrics subscription of `router`; the polling task then
+    /// idles out as usual once no UI subscriber is left.
+    // cancel-safe: a single map removal.
+    pub async fn unsubscribe_metrics(&self, router: &str) {
+        let _removed: Option<MetricsCadence> = self.metrics.lock().await.remove(router);
+    }
+
+    /// Records the cached firmware-update flag published in [`Snapshot::update_available`].
+    // cancel-safe: a single map insert.
+    pub async fn record_update_available(&self, router: &str, available: bool) {
+        let _previous: Option<bool> = self
+            .update_flags
+            .lock()
+            .await
+            .insert(router.to_owned(), available);
+    }
+
     /// Returns completed light polling rounds for observability and cadence tests.
     pub async fn light_rounds(&self, router: &str) -> u64 {
         self.light_rounds
@@ -194,7 +280,7 @@ impl Poller {
 
     /// Runs one router loop until it has stayed idle for the configured timeout.
     async fn run(self: Arc<Self>, router: String) {
-        let mut heavy_snapshot: Option<(Value, u64, Instant)> = None;
+        let mut heavy: Option<extended::HeavyItems> = None;
         let mut idle_since = None;
         loop {
             let sender = {
@@ -204,7 +290,9 @@ impl Poller {
             let Some(sender) = sender else {
                 return;
             };
-            if sender.receiver_count() == 0 {
+            let metrics = self.metrics.lock().await.get(&router).copied();
+            let receivers = sender.receiver_count();
+            if receivers == 0 && metrics.is_none() {
                 let since = idle_since.get_or_insert_with(Instant::now);
                 if since.elapsed() >= self.intervals.idle {
                     drop(self.channels.lock().await.remove(&router));
@@ -214,14 +302,19 @@ impl Poller {
                 continue;
             }
             idle_since = None;
-            let result = self.fetch(&router, &mut heavy_snapshot).await;
+            let round = extended::round(
+                &self.intervals,
+                metrics,
+                receivers > usize::from(metrics.is_some()),
+            );
+            let result = self.fetch(&router, &mut heavy, round).await;
             if result.is_ok() {
                 let mut rounds = self.light_rounds.lock().await;
                 let count = rounds.entry(router.clone()).or_default();
                 *count = count.saturating_add(1);
             }
             let delay = if result.is_ok() {
-                self.intervals.light
+                round.light
             } else {
                 self.intervals.error
             };
@@ -234,10 +327,19 @@ impl Poller {
     async fn fetch(
         &self,
         router: &str,
-        heavy_snapshot: &mut Option<(Value, u64, Instant)>,
+        heavy: &mut Option<extended::HeavyItems>,
+        round: extended::Round,
     ) -> PollResult {
+        let started = Instant::now();
         let client = self.registry.poll_client(router).await?;
-        let info = self.registry.poll_info(router).await?;
+        let refresh_heavy = heavy.as_ref().is_none_or(|items| {
+            items.fetched.elapsed() >= round.heavy || items.extended != round.extended
+        });
+        if refresh_heavy {
+            *heavy =
+                Some(extended::fetch_heavy(&self.registry, router, &client, round.extended).await?);
+        }
+        let items = heavy.as_ref().ok_or(PollError::Request)?;
         let system = show_json(&client, &["show", "system"])
             .await
             .unwrap_or(Value::Null);
@@ -248,34 +350,42 @@ impl Poller {
             .await
             .unwrap_or(Value::Null);
         let last_change = show_json(&client, &["show", "last-change"]).await?;
-        let refresh_heavy = heavy_snapshot
-            .as_ref()
-            .is_none_or(|(_, _, fetched)| fetched.elapsed() >= self.intervals.heavy);
-        if refresh_heavy {
-            let interfaces = show_json(&client, &["show", "interface"])
-                .await
-                .unwrap_or(Value::Null);
-            let hotspot = show_json(&client, &["show", "ip", "hotspot"])
-                .await
-                .unwrap_or_else(|_| json!({}));
-            let count = count_clients(&hotspot);
-            *heavy_snapshot = Some((interfaces, count, Instant::now()));
-        }
-        let (interfaces_summary, clients_count, _) =
-            heavy_snapshot.as_ref().ok_or(PollError::Request)?;
-        let interface_stats = wan_stats(&client, interfaces_summary).await;
+        let (internet_status, interfaces_summary, interface_stats, interface_counters) =
+            if round.extended {
+                let status = show_json(&client, &["show", "internet", "status"])
+                    .await
+                    .unwrap_or(Value::Null);
+                let interfaces = show_json(&client, &["show", "interface"])
+                    .await
+                    .unwrap_or(Value::Null);
+                let counters = extended::up_interface_counters(&client, &interfaces).await;
+                let wan = extended::wan_subset(&counters, &wan_interface_ids(&interfaces));
+                (status, interfaces, wan, counters)
+            } else {
+                let wan = wan_stats(&client, &items.interfaces).await;
+                (Value::Null, items.interfaces.clone(), wan, json!({}))
+            };
         Ok(Snapshot {
-            info,
+            info: items.info.clone(),
             system,
             internet,
-            interfaces_summary: interfaces_summary.clone(),
-            clients_count: *clients_count,
+            clients_count: count_clients(&items.hotspot),
+            interfaces_summary,
             wifi_summary,
             last_change,
             interface_stats,
             fetched_at: SystemTime::now()
                 .duration_since(UNIX_EPOCH)
                 .map_or(0, |elapsed| elapsed.as_secs()),
+            internet_status,
+            interface_counters,
+            hotspot: items.hotspot.clone(),
+            dhcp_bindings: items.dhcp_bindings.clone(),
+            media: items.media.clone(),
+            mesh_members: items.mesh_members.clone(),
+            update_available: self.update_flags.lock().await.get(router).copied(),
+            heavy_age: items.fetched.elapsed(),
+            poll_duration: started.elapsed(),
         })
     }
 }

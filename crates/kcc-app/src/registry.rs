@@ -29,6 +29,7 @@ use kcc_rci::{
     AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl, TlsMode,
     auth::Credentials,
     capabilities::RouterInfo,
+    observe::RciObserver,
     session::{HttpTimeouts, SessionManager},
 };
 use secrecy::SecretString;
@@ -223,7 +224,12 @@ pub struct RouterRegistry {
     outbound: OutboundPolicy,
     /// Lazy shared clients.
     clients: Mutex<BTreeMap<String, Arc<RciClient>>>,
+    /// Per-router request and login observers (self-metrics).
+    observers: Option<RciObserverFactory>,
 }
+
+/// Builds the request and login observer of one router id (self-metrics).
+pub type RciObserverFactory = Arc<dyn Fn(&str) -> Arc<dyn RciObserver> + Send + Sync>;
 
 impl fmt::Debug for RouterRegistry {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -268,7 +274,20 @@ impl RouterRegistry {
             profiles: RwLock::new(effective),
             outbound: policy,
             clients: Mutex::new(BTreeMap::new()),
+            observers: None,
         })
+    }
+
+    /// Attaches an observer to every client and detection session created from now on.
+    #[must_use]
+    pub fn with_rci_observers(mut self, factory: RciObserverFactory) -> Self {
+        self.observers = Some(factory);
+        self
+    }
+
+    /// The observer of router `id`, when a factory is attached.
+    fn observer(&self, id: &str) -> Option<Arc<dyn RciObserver>> {
+        self.observers.as_ref().map(|factory| factory(id))
     }
 
     /// Lists merged profiles, with config definitions taking precedence on id collisions.
@@ -547,7 +566,8 @@ impl RouterRegistry {
             credentials(&profile, selected)?,
             HttpTimeouts::default(),
             builder,
-        )?;
+        )?
+        .with_observer(self.observer(id));
         session.ensure_session().await?;
         RouterInfo::detect(&session, &router)
             .await
@@ -588,6 +608,7 @@ impl RouterRegistry {
         let mut options = RciClientOptions::default();
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
+        options.observer = self.observer(&profile.id);
         RciClient::connect_with(
             router_url(profile)?,
             credentials(profile, credential_use)?,

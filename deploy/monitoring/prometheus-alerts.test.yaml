@@ -1,0 +1,147 @@
+# promtool unit tests for prometheus-alerts.yaml:
+#   promtool test rules deploy/monitoring/prometheus-alerts.test.yaml
+rule_files:
+  - prometheus-alerts.yaml
+evaluation_interval: 1m
+tests:
+  - name: router down fires after 5 minutes, not before
+    interval: 1m
+    input_series:
+      - series: 'keenetic_up{router="home"}'
+        values: '1 0x10'
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: KeeneticRouterDown
+        exp_alerts: []
+      - eval_time: 7m
+        alertname: KeeneticRouterDown
+        exp_alerts:
+          - exp_labels: {severity: critical, router: home}
+            exp_annotations:
+              summary: "Router home is down or not polled"
+              description: "kcc has had no fresh data from home for 5 minutes."
+  - name: internet unreachable for 5 minutes
+    interval: 1m
+    input_series:
+      - series: 'keenetic_internet_reachable{router="home",check="internet"}'
+        values: '0x10'
+      - series: 'keenetic_internet_reachable{router="home",check="captive"}'
+        values: '0x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: KeeneticInternetUnreachable
+        exp_alerts:
+          - exp_labels: {severity: critical, router: home, check: internet}
+            exp_annotations:
+              summary: "Router home reports no Internet access"
+              description: "The router's Internet check has failed for 5 minutes."
+  - name: CPU above 90% for 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'keenetic_cpu_load_ratio{router="home"}'
+        values: '0.95x20'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: KeeneticHighCpu
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: KeeneticHighCpu
+        exp_alerts:
+          - exp_labels: {severity: warning, router: home}
+            exp_annotations:
+              summary: "Router home CPU load above 90%"
+              description: "CPU load has stayed above 90% for 15 minutes."
+  - name: free memory below 10% for 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'keenetic_memory_free_bytes{router="home"}'
+        values: '20000000x20'
+      - series: 'keenetic_memory_total_bytes{router="home"}'
+        values: '268435456x20'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: KeeneticLowMemory
+        exp_alerts:
+          - exp_labels: {severity: warning, router: home}
+            exp_annotations:
+              summary: "Router home has less than 10% free memory"
+              description: "Free memory has stayed below 10% for 15 minutes."
+  - name: conntrack above 90%
+    interval: 1m
+    input_series:
+      - series: 'keenetic_conntrack_entries{router="home"}'
+        values: '30000x10'
+      - series: 'keenetic_conntrack_max{router="home"}'
+        values: '32768x10'
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: KeeneticConntrackNearlyFull
+        exp_alerts:
+          - exp_labels: {severity: warning, router: home}
+            exp_annotations:
+              summary: "Router home connection table above 90%"
+              description: "New connections may be dropped when the table fills up."
+  - name: interface error rate above 1/s for 10 minutes
+    interval: 1m
+    input_series:
+      - series: 'keenetic_interface_receive_errors_total{router="home",interface="ISP"}'
+        values: '0+120x20'
+      - series: 'keenetic_interface_transmit_errors_total{router="home",interface="ISP"}'
+        values: '0+0x20'
+      - series: 'keenetic_interface_receive_errors_total{router="home",interface="Bridge0"}'
+        values: '0+0x20'
+      - series: 'keenetic_interface_transmit_errors_total{router="home",interface="Bridge0"}'
+        values: '0+0x20'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: KeeneticInterfaceErrors
+        exp_alerts:
+          - exp_labels: {severity: warning, router: home, interface: ISP}
+            exp_annotations:
+              summary: "Interface ISP on home reports errors"
+              description: "More than 1 receive or transmit error per second for 10 minutes."
+  - name: fail-safe armed for 15 minutes
+    interval: 1m
+    input_series:
+      - series: 'keenetic_failsafe_armed{router="home"}'
+        values: '1x20'
+    alert_rule_test:
+      - eval_time: 16m
+        alertname: KeeneticFailsafeArmed
+        exp_alerts:
+          - exp_labels: {severity: warning, router: home}
+            exp_annotations:
+              summary: "Configuration fail-safe armed on home"
+              description: "The fail-safe timer has been armed for 15 minutes; the router reverts the configuration when it fires."
+  - name: configuration unsaved for 24 hours
+    interval: 1m
+    input_series:
+      - series: 'keenetic_config_unsaved{router="home"}'
+        values: '1x1560'
+    alert_rule_test:
+      - eval_time: 12h
+        alertname: KeeneticConfigUnsaved
+        exp_alerts: []
+      - eval_time: 25h
+        alertname: KeeneticConfigUnsaved
+        exp_alerts:
+          - exp_labels: {severity: info, router: home}
+            exp_annotations:
+              summary: "Unsaved configuration on home"
+              description: "The running configuration has differed from the saved one for 24 hours; a reboot would lose the changes."
+  - name: log sink dropping records
+    interval: 1m
+    input_series:
+      - series: 'kcc_log_records_dropped_total{sink="loki",reason="overflow"}'
+        values: '0 0 5 10 10 10'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: KccLogSinkDropping
+        exp_alerts: []
+      - eval_time: 4m
+        alertname: KccLogSinkDropping
+        exp_alerts:
+          - exp_labels: {severity: warning, sink: loki, reason: overflow}
+            exp_annotations:
+              summary: "Log sink loki is dropping router log records"
+              description: "kcc dropped router log records (overflow) in the last 10 minutes."

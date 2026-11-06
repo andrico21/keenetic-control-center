@@ -31,6 +31,7 @@ use kcc_app::{
 };
 use kcc_i18n::locale::Locale;
 use kcc_mcp::KccMcp;
+use kcc_telemetry::metrics::{instrumentation::SelfMetrics, service::MetricsExporter};
 use kcc_web::{
     WebState, WebStateConfig,
     admin::{AdminServices, ServerFacts, TransportReload},
@@ -40,6 +41,7 @@ use kcc_web::{
 };
 use rmcp_server_kit::{
     auth::{AuthConfig, RateLimitConfig},
+    metrics::McpMetrics,
     observability::init_tracing_from_config_strict,
     rbac::RbacPolicy,
     transport::{McpServerConfig, ReadinessCheck, serve, serve_stdio},
@@ -134,6 +136,8 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         services.state.clone(),
         handler.tool_specs().to_vec(),
     );
+    let (with_exporter, _exporter) = with_metrics(server, &config, &services).await?;
+    server = with_exporter;
     let serve_result = serve(server.validate().map_err(error)?, move || handler.clone()).await;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
@@ -208,15 +212,25 @@ struct Services {
     roles: Vec<Role>,
     /// Shared wall clock.
     clock: Arc<dyn Clock>,
+    /// Self-metrics, when `[metrics] enabled`.
+    metrics: Option<Arc<SelfMetrics>>,
 }
 
 impl Services {
     /// Opens state and constructs each singleton service.
     // cancel-safe: startup performs local state opens and read-only router recovery inspection.
     async fn open(config: &Config, state: StateStore) -> Result<Self, ServerError> {
-        let registry = Arc::new(
-            RouterRegistry::new(state.clone(), &config.routers, &config.outbound).map_err(error)?,
-        );
+        let metrics = if config.metrics.enabled {
+            Some(SelfMetrics::new(env!("CARGO_PKG_VERSION")).map_err(error)?)
+        } else {
+            None
+        };
+        let mut profiles =
+            RouterRegistry::new(state.clone(), &config.routers, &config.outbound).map_err(error)?;
+        if let Some(self_metrics) = &metrics {
+            profiles = profiles.with_rci_observers(self_metrics.rci_observers());
+        }
+        let registry = Arc::new(profiles);
         let poller = Poller::new(Arc::clone(&registry));
         let audit = AuditLog::spawn(&state).map_err(error)?;
         let roles = load_roles(&state).map_err(error)?;
@@ -246,6 +260,7 @@ impl Services {
             workflow,
             roles,
             clock,
+            metrics,
         })
     }
 
@@ -411,6 +426,42 @@ async fn reload(
     handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, tools)));
     tracing::info!(invalidated, "configuration reloaded from SIGHUP");
     Ok(())
+}
+
+/// Serves `/metrics` from the shared poller's cache when `[metrics] enabled`.
+///
+/// The kit listener is plaintext and unauthenticated by design; `Config::validate` already
+/// refused ports below 1024 and a non-loopback bind without `allow_non_loopback`.
+// cancel-safe: registers local poller subscriptions only; no router request is awaited.
+async fn with_metrics(
+    server: McpServerConfig,
+    config: &Config,
+    services: &Services,
+) -> Result<(McpServerConfig, Option<MetricsExporter>), ServerError> {
+    let Some(self_metrics) = services.metrics.clone() else {
+        return Ok((server, None));
+    };
+    if !config.metrics.bind.ip().is_loopback() {
+        tracing::warn!(bind = %config.metrics.bind, "unauthenticated metrics listener bound beyond loopback");
+    }
+    let kit = Arc::new(McpMetrics::new().map_err(error)?);
+    let exporter = MetricsExporter::new(
+        Arc::clone(&services.poller),
+        &config.metrics,
+        Arc::clone(&self_metrics),
+    )
+    .map_err(error)?;
+    exporter.register(&kit.registry).map_err(error)?;
+    for entry in services.registry.list().map_err(error)? {
+        exporter.watch(&entry.profile.id).await;
+    }
+    drop(self_metrics.track_jobs(Arc::clone(&services.jobs)));
+    Ok((
+        server
+            .with_metrics(config.metrics.bind.to_string())
+            .with_metrics_handle(kit),
+        Some(exporter),
+    ))
 }
 
 /// Converts a display-safe service error into the binary error surface.

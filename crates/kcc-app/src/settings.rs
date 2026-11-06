@@ -59,6 +59,14 @@ pub const KCC_ENV_VARS: &[&str] = &[
     "KCC_CLI_ROLE",
     "KCC_CLI_ROUTER_SCOPE",
     "KCC_PRIVACY_REDACT_CLIENTS_IN_MCP",
+    "KCC_METRICS_ENABLED",
+    "KCC_METRICS_BIND",
+    "KCC_METRICS_ALLOW_NON_LOOPBACK",
+    "KCC_METRICS_INTERVAL",
+    "KCC_METRICS_HEAVY_INTERVAL",
+    "KCC_METRICS_PER_CLIENT",
+    "KCC_METRICS_PER_CLIENT_MAX",
+    "KCC_METRICS_PER_CLIENT_LABEL",
 ];
 
 /// Directory name used under the platform state and config directories.
@@ -142,6 +150,8 @@ pub struct Config {
     pub cli: CliConfig,
     /// `[privacy]`: data minimization switches.
     pub privacy: PrivacyConfig,
+    /// `[metrics]`: the Prometheus exporter.
+    pub metrics: MetricsConfig,
     /// `[[routers]]`: config-defined router profiles (read-only in the UI).
     pub routers: Vec<RouterProfile>,
 }
@@ -333,6 +343,104 @@ pub struct PrivacyConfig {
     pub redact_clients_in_mcp: bool,
 }
 
+/// Shortest allowed `[metrics] interval` (IS-13 light cadence floor).
+pub const METRICS_MIN_INTERVAL: Duration = Duration::from_secs(15);
+/// Shortest allowed `[metrics] heavy_interval` (IS-13 heavy cadence floor).
+pub const METRICS_MIN_HEAVY_INTERVAL: Duration = Duration::from_secs(60);
+
+/// `[metrics]` section: the Prometheus exporter.
+///
+/// The exporter listener is plaintext and unauthenticated by design (the kit's `/metrics`
+/// listener), so it binds loopback unless `allow_non_loopback = true`.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+#[non_exhaustive]
+pub struct MetricsConfig {
+    /// Serve `/metrics`.
+    pub enabled: bool,
+    /// Listener address of the unauthenticated `/metrics` endpoint.
+    pub bind: SocketAddr,
+    /// Permit a non-loopback `bind`.
+    pub allow_non_loopback: bool,
+    /// Light-item refresh period of the shared poller's metrics subscription.
+    #[serde(with = "humantime_serde")]
+    pub interval: Duration,
+    /// Heavy-item refresh period of the shared poller's metrics subscription.
+    #[serde(with = "humantime_serde")]
+    pub heavy_interval: Duration,
+    /// Export per-client series.
+    pub per_client: bool,
+    /// Per-router cap on exported clients; overflow is counted, not exported.
+    pub per_client_max: u32,
+    /// How clients are labelled in per-client series.
+    pub per_client_label: ClientLabel,
+}
+
+impl Default for MetricsConfig {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            bind: SocketAddr::from(([127, 0, 0, 1], 9090)),
+            allow_non_loopback: false,
+            interval: Duration::from_secs(30),
+            heavy_interval: Duration::from_secs(120),
+            per_client: false,
+            per_client_max: 256,
+            per_client_label: ClientLabel::Pseudonym,
+        }
+    }
+}
+
+impl MetricsConfig {
+    /// Checks the IS-13 cadence floors, the listener port and the loopback rule.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Invalid`] naming the field.
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.interval < METRICS_MIN_INTERVAL {
+            return Err(invalid("metrics.interval", "must be at least 15s"));
+        }
+        if self.heavy_interval < METRICS_MIN_HEAVY_INTERVAL || self.heavy_interval < self.interval {
+            return Err(invalid(
+                "metrics.heavy_interval",
+                "must be at least 60s and at least metrics.interval",
+            ));
+        }
+        if self.bind.port() < 1024 {
+            return Err(invalid(
+                "metrics.bind",
+                "port must be at least 1024; this service never binds privileged ports",
+            ));
+        }
+        if !self.bind.ip().is_loopback() && !self.allow_non_loopback {
+            return Err(invalid(
+                "metrics.bind",
+                "the metrics listener is unauthenticated; a non-loopback bind needs allow_non_loopback = true",
+            ));
+        }
+        if self.per_client_max == 0 {
+            return Err(invalid("metrics.per_client_max", "must be at least 1"));
+        }
+        Ok(())
+    }
+}
+
+/// `per_client_label` of `[metrics]`.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum ClientLabel {
+    /// The router's client name.
+    Name,
+    /// A stable per-process pseudonym.
+    #[default]
+    Pseudonym,
+    /// The raw MAC address.
+    Mac,
+}
+
 /// One `[[routers]]` entry.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -496,6 +604,7 @@ impl Config {
         env.mcp(&mut self.mcp)?;
         env.outbound(&mut self.outbound)?;
         env.rest(self)?;
+        env.metrics(&mut self.metrics)?;
         Ok(env.report)
     }
 
@@ -532,6 +641,13 @@ impl Config {
                     "port must be at least 1024; this service never binds privileged ports",
                 ));
             }
+        }
+        self.metrics.validate()?;
+        if self.metrics.enabled && self.observability.metrics_enabled {
+            return Err(invalid(
+                "observability.metrics_enabled",
+                "conflicts with [metrics] enabled; configure the exporter in [metrics] only",
+            ));
         }
         if self.web.login_max_failures == 0 {
             return Err(invalid("web.login_max_failures", "must be at least 1"));
@@ -1005,6 +1121,67 @@ where
             "privacy.redact_clients_in_mcp",
             &mut config.privacy.redact_clients_in_mcp,
             parse_bool,
+        )
+    }
+
+    /// `[metrics]` overrides.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Env`] for an unusable value.
+    fn metrics(&mut self, metrics: &mut MetricsConfig) -> Result<(), ConfigError> {
+        self.apply(
+            "KCC_METRICS_ENABLED",
+            "metrics.enabled",
+            &mut metrics.enabled,
+            parse_bool,
+        )?;
+        self.apply(
+            "KCC_METRICS_BIND",
+            "metrics.bind",
+            &mut metrics.bind,
+            |raw| raw.parse::<SocketAddr>().map_err(|error| error.to_string()),
+        )?;
+        self.apply(
+            "KCC_METRICS_ALLOW_NON_LOOPBACK",
+            "metrics.allow_non_loopback",
+            &mut metrics.allow_non_loopback,
+            parse_bool,
+        )?;
+        self.apply(
+            "KCC_METRICS_INTERVAL",
+            "metrics.interval",
+            &mut metrics.interval,
+            parse_duration,
+        )?;
+        self.apply(
+            "KCC_METRICS_HEAVY_INTERVAL",
+            "metrics.heavy_interval",
+            &mut metrics.heavy_interval,
+            parse_duration,
+        )?;
+        self.apply(
+            "KCC_METRICS_PER_CLIENT",
+            "metrics.per_client",
+            &mut metrics.per_client,
+            parse_bool,
+        )?;
+        self.apply(
+            "KCC_METRICS_PER_CLIENT_MAX",
+            "metrics.per_client_max",
+            &mut metrics.per_client_max,
+            parse_number,
+        )?;
+        self.apply(
+            "KCC_METRICS_PER_CLIENT_LABEL",
+            "metrics.per_client_label",
+            &mut metrics.per_client_label,
+            |raw| match raw {
+                "name" => Ok(ClientLabel::Name),
+                "pseudonym" => Ok(ClientLabel::Pseudonym),
+                "mac" => Ok(ClientLabel::Mac),
+                _ => Err("expected name, pseudonym or mac".to_owned()),
+            },
         )
     }
 }
