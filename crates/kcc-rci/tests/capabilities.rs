@@ -143,7 +143,7 @@ async fn every_model_profile_reports_brand_hw_id_and_components() -> TestResult 
                 .iter()
                 .map(|radio| radio.id.as_str())
                 .collect::<Vec<_>>(),
-            ["WifiMaster0"]
+            ["WifiMaster0", "WifiMaster1"]
         );
     }
     Ok(())

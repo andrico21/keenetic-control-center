@@ -505,4 +505,192 @@ mod tests {
         handle.shutdown().await?;
         Ok(())
     }
+
+    /// CLI mutations are observable through ordinary show and running/startup projections.
+    #[tokio::test]
+    async fn cli_mutations_project_through_show_surfaces() -> TestResult {
+        let (fake, app) = ultra()?;
+        let cookie = login(&app, fake.realm()).await?;
+        let commands = [
+            "known host blocked 02:00:00:00:00:99",
+            "ip hotspot host 02:00:00:00:00:99 deny",
+            "ip hotspot host 02:00:00:00:00:99 policy Policy9",
+            "ip dhcp host 02:00:00:00:00:98 192.0.2.98",
+            "ip route 198.51.100.0 255.255.255.0 192.0.2.254",
+            "ip static tcp ISP 443 192.0.2.44 8443",
+            "ip nat ISP",
+            "access-list test permit tcp",
+            "service ssh",
+            "user operator password plain top-secret-password",
+            "user operator tag cli",
+            "dns-proxy tls upstream 192.0.2.53 853 sni dns.example.invalid",
+            "dns-proxy https upstream https://dns.example.invalid/dns-query",
+            "interface WifiMaster0/AccessPoint0 ssid changed-ssid",
+            "interface WifiMaster0/AccessPoint0 authentication wpa-psk plain-text-psk",
+        ];
+        for command in commands {
+            let body = json!({"parse":command}).to_string();
+            let reply = send(&app, Method::POST, "/rci/", Some(&cookie), Body::from(body)).await?;
+            assert_eq!(reply.status, StatusCode::OK, "{command}");
+            assert_eq!(
+                reply.json()?.pointer("/status/0/status"),
+                Some(&json!("message")),
+                "{command}"
+            );
+        }
+
+        let hotspot = send(
+            &app,
+            Method::GET,
+            "/rci/show/ip/hotspot",
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?
+        .json()?;
+        assert!(
+            hotspot
+                .as_array()
+                .is_some_and(|rows| rows.iter().any(|row| {
+                    row.get("mac") == Some(&json!("02:00:00:00:00:99"))
+                        && row.get("name") == Some(&json!("blocked"))
+                        && row.get("registered") == Some(&json!(true))
+                        && row.get("access") == Some(&json!("deny"))
+                        && row.get("policy") == Some(&json!("Policy9"))
+                }))
+        );
+        let bindings = send(
+            &app,
+            Method::GET,
+            "/rci/show/ip/dhcp/bindings",
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?
+        .json()?;
+        assert!(bindings.to_string().contains("192.0.2.98"));
+        let routes = send(
+            &app,
+            Method::GET,
+            "/rci/show/ip/route",
+            Some(&cookie),
+            Body::empty(),
+        )
+        .await?
+        .json()?;
+        assert!(routes.to_string().contains("198.51.100.0"));
+
+        assert_projected_configuration(&app, &cookie).await?;
+        Ok(())
+    }
+
+    /// Checks mutable running projections and startup isolation.
+    async fn assert_projected_configuration(app: &Router, cookie: &str) -> TestResult {
+        let requested = json!({"show":{"rc":{
+            "ip":{"dhcp":{"host":{}},"route":{},"static":{},"nat":{}},
+            "dns-proxy":{},"user":{},"service":{},"access-list":{},"interface":{}
+        }}});
+        let running = send(
+            app,
+            Method::POST,
+            "/rci/",
+            Some(cookie),
+            Body::from(requested.to_string()),
+        )
+        .await?
+        .json()?;
+        let serialized = running.to_string();
+        for expected in [
+            "192.0.2.98",
+            "198.51.100.0",
+            "8443",
+            "operator",
+            "dns.example.invalid",
+            "changed-ssid",
+        ] {
+            assert!(
+                serialized.contains(expected),
+                "missing {expected}: {running}"
+            );
+        }
+        assert!(!serialized.contains("top-secret-password"));
+        assert!(!serialized.contains("plain-text-psk"));
+        assert_eq!(
+            running
+                .pointer("/show/rc/interface/WifiMaster0~1AccessPoint0/authentication/wpa-psk/ns3"),
+            Some(&json!(true))
+        );
+
+        let startup_request = json!({"show":{"sc":{"ip":{"dhcp":{"host":{}}}}}});
+        let startup = send(
+            app,
+            Method::POST,
+            "/rci/",
+            Some(cookie),
+            Body::from(startup_request.to_string()),
+        )
+        .await?
+        .json()?;
+        assert_eq!(startup.pointer("/show/sc/ip/dhcp/host"), Some(&json!([])));
+        Ok(())
+    }
+
+    /// WireGuard show projection exposes peer operation while redacting all secret values.
+    #[tokio::test]
+    async fn wireguard_projection_never_returns_secret_keys() -> TestResult {
+        let (fake, app) = ultra()?;
+        let cookie = login(&app, fake.realm()).await?;
+        let private_key = "private-key-material";
+        let preshared_key = "preshared-key-material";
+        let commands = [
+            "interface Wireguard0",
+            &format!("interface Wireguard0 wireguard private-key {private_key}"),
+            "interface Wireguard0 wireguard listen-port 51820",
+            "interface Wireguard0 wireguard peer peer-public-key",
+            "interface Wireguard0 wireguard peer peer-public-key endpoint 198.51.100.44 51820",
+            "interface Wireguard0 wireguard peer peer-public-key allow-ips 192.0.2.0 255.255.255.0",
+            "interface Wireguard0 wireguard peer peer-public-key keepalive-interval 25",
+            &format!(
+                "interface Wireguard0 wireguard peer peer-public-key preshared-key {preshared_key}"
+            ),
+        ];
+        for command in commands {
+            let reply = send(
+                &app,
+                Method::POST,
+                "/rci/",
+                Some(&cookie),
+                Body::from(json!({"parse":command}).to_string()),
+            )
+            .await?;
+            assert_eq!(
+                reply.json()?.pointer("/status/0/status"),
+                Some(&json!("message"))
+            );
+        }
+
+        let shown = send(
+            &app,
+            Method::POST,
+            "/rci/show/interface",
+            Some(&cookie),
+            Body::from(json!({"name":"Wireguard0"}).to_string()),
+        )
+        .await?
+        .json()?;
+        let serialized = shown.to_string();
+        assert_eq!(shown.pointer("/type"), Some(&json!("Wireguard")), "{shown}");
+        assert_eq!(shown.pointer("/listen-port"), Some(&json!("51820")));
+        assert_eq!(
+            shown.pointer("/peers/peer-public-key/keepalive-interval"),
+            Some(&json!(["25"]))
+        );
+        assert_eq!(
+            shown.pointer("/peers/peer-public-key/preshared-key/present"),
+            Some(&json!(true))
+        );
+        assert!(!serialized.contains(private_key));
+        assert!(!serialized.contains(preshared_key));
+        Ok(())
+    }
 }

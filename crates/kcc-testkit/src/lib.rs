@@ -29,11 +29,14 @@ pub mod auth_fixture;
 mod auth_fixture_digest;
 mod auth_fixture_ndw4;
 pub mod capture;
+mod cli_engine;
+mod components;
 mod config_state;
 mod failsafe;
 mod fixtures;
 pub mod model;
 pub mod ndw2;
+mod projection;
 mod server;
 pub mod time;
 mod tree;
@@ -42,7 +45,7 @@ use alloc::{collections::BTreeSet, sync::Arc};
 use core::{error::Error, fmt, net::SocketAddr, time::Duration};
 use std::io;
 
-use axum::http::HeaderValue;
+use axum::http::{HeaderValue, Method};
 use kcc_config::config_text::ParseError;
 use serde_json::Value;
 use tokio::{net::TcpListener, sync::oneshot, task::JoinHandle};
@@ -80,6 +83,10 @@ pub struct FaultInjection {
     session_drop_after_requests: Option<u64>,
     /// Refuse attempts to take the management bridge down.
     refuse_management_bridge_down: bool,
+    /// Parser substring and bounded number of matching failures.
+    fail_parse_matching: Option<(String, usize)>,
+    /// Whether one single-route removal wipes every static IPv4 route.
+    route_wipe_on_remove: bool,
 }
 
 impl FaultInjection {
@@ -124,6 +131,60 @@ impl FaultInjection {
     pub const fn refuse_management_bridge_down(mut self, enabled: bool) -> Self {
         self.refuse_management_bridge_down = enabled;
         self
+    }
+
+    /// Makes the next `times` parser lines containing `substring` return an RCI error.
+    #[inline]
+    #[must_use]
+    pub fn fail_parse_matching<S>(mut self, substring: S, times: usize) -> Self
+    where
+        S: Into<String>,
+    {
+        self.fail_parse_matching = Some((substring.into(), times));
+        self
+    }
+
+    /// Arms the simulated incident where one `no ip route` wipes all static routes.
+    #[inline]
+    #[must_use]
+    pub const fn route_wipe_on_remove(mut self, enabled: bool) -> Self {
+        self.route_wipe_on_remove = enabled;
+        self
+    }
+}
+
+/// Sanitized metadata for one request observed by a fake router.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct RequestRecord {
+    /// HTTP method.
+    method: Method,
+    /// URI path without a query string.
+    path: String,
+    /// Query pairs sorted by key and value.
+    query: Vec<(String, String)>,
+}
+
+impl RequestRecord {
+    /// Returns the HTTP method.
+    #[inline]
+    #[must_use]
+    pub const fn method(&self) -> &Method {
+        &self.method
+    }
+
+    /// Returns the URI path without a query string.
+    #[inline]
+    #[must_use]
+    pub fn path(&self) -> &str {
+        &self.path
+    }
+
+    /// Returns sorted query pairs.
+    #[inline]
+    #[must_use]
+    pub fn query(&self) -> &[(String, String)] {
+        &self.query
     }
 }
 
@@ -454,6 +515,43 @@ impl Handle {
         self.router
             .as_ref()
             .map_or(0, |shared| shared.request_count())
+    }
+
+    /// Returns sanitized metadata for every request observed by the server.
+    #[inline]
+    #[must_use]
+    pub fn request_log(&self) -> Vec<RequestRecord> {
+        self.router
+            .as_ref()
+            .map_or_else(Vec::new, |shared| shared.request_log())
+    }
+
+    /// Returns a snapshot of the independent JSON settings tree.
+    #[inline]
+    #[must_use]
+    pub fn settings_snapshot(&self) -> Value {
+        self.router.as_ref().map_or_else(
+            || Value::Object(serde_json::Map::new()),
+            |shared| shared.settings(),
+        )
+    }
+
+    /// Returns canonical running configuration text.
+    #[inline]
+    #[must_use]
+    pub fn running_config_text(&self) -> String {
+        self.router
+            .as_ref()
+            .map_or_else(String::new, |shared| shared.config_text(false))
+    }
+
+    /// Returns canonical startup configuration text.
+    #[inline]
+    #[must_use]
+    pub fn startup_config_text(&self) -> String {
+        self.router
+            .as_ref()
+            .map_or_else(String::new, |shared| shared.config_text(true))
     }
 
     /// Stops the server and waits for it to finish.

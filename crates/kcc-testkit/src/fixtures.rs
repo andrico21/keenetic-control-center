@@ -1,9 +1,9 @@
 //! Seed fixtures compiled into the crate, one set per model.
 //!
-//! Each model has a 5.1 seed: `fixtures/<hw_id>/settings.json` (the settings tree) and
-//! `fixtures/<hw_id>/show.json` (show responses keyed by RCI path below `show/`). The
-//! 4.3 and 5.0 profiles start from the same seed and drop the JSON pointers listed in
-//! `fixtures/derived/<line>.json`.
+//! Each model has a 5.1 seed. Older profiles remove documented JSON pointers, then all
+//! profiles receive deterministic synthetic domain fixtures.
+
+mod synthetic;
 
 use serde_json::{Map, Value};
 
@@ -12,11 +12,10 @@ use crate::{
     tree,
 };
 
-/// The initial settings tree and the show responses keyed by the path below `show/`
-/// (e.g. `clock/date`) of one profile.
+/// Initial settings, show responses, and startup configuration of one profile.
 pub(crate) type Fixtures = (Value, Map<String, Value>, &'static str);
 
-/// The `(settings, show)` seed texts of a model.
+/// Returns model-specific settings and show seed texts.
 const fn seed(model: Model) -> (&'static str, &'static str) {
     match model {
         Model::Kn1811 => (
@@ -38,7 +37,7 @@ const fn seed(model: Model) -> (&'static str, &'static str) {
     }
 }
 
-/// Startup configuration seed of a model.
+/// Returns the startup configuration seed of a model.
 const fn startup(model: Model) -> &'static str {
     match model {
         Model::Kn1811 => include_str!("../fixtures/KN-1811/startup-config.txt"),
@@ -48,7 +47,7 @@ const fn startup(model: Model) -> &'static str {
     }
 }
 
-/// The removal list of a documentation-derived firmware line.
+/// Returns the removal list of a documentation-derived firmware line.
 const fn derived(firmware: Firmware) -> Option<&'static str> {
     match firmware {
         Firmware::V4_3 => Some(include_str!("../fixtures/derived/4.3.json")),
@@ -57,7 +56,7 @@ const fn derived(firmware: Firmware) -> Option<&'static str> {
     }
 }
 
-/// Removes every pointer listed under `key` in `removals` from `target`.
+/// Removes every pointer listed under `key` from `target`.
 fn strip(target: &mut Value, removals: &Value, key: &str) {
     for pointer in removals
         .get(key)
@@ -70,11 +69,11 @@ fn strip(target: &mut Value, removals: &Value, key: &str) {
     }
 }
 
-/// Loads the fixtures of `profile`, reporting `title` and `release` in `show version`.
+/// Loads one profile and applies firmware removals plus synthetic domain fixtures.
 ///
 /// # Errors
 ///
-/// A parse error of an embedded fixture.
+/// Returns a parse error when an embedded fixture is malformed.
 pub(crate) fn load(
     profile: Profile,
     title: &str,
@@ -92,6 +91,7 @@ pub(crate) fn load(
         drop(version.insert("title".to_owned(), Value::from(title)));
         drop(version.insert("release".to_owned(), Value::from(release)));
     }
+    synthetic::enrich(&mut show, profile.model());
     let show_map = match show {
         Value::Object(map) => map,
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) | Value::Array(_) => {
@@ -111,10 +111,12 @@ pub(crate) fn load(
 mod tests {
     use core::error::Error;
 
+    use serde_json::Value;
+
     use super::load;
     use crate::model::{Firmware, Model, Profile};
 
-    /// Every profile loads; derived lines lose `ipv6 access-list`, 5.1 keeps it.
+    /// Every profile loads and derived lines lose their unsupported ACL.
     #[test]
     fn every_profile_loads() -> Result<(), Box<dyn Error>> {
         for model in Model::ALL {
@@ -124,7 +126,7 @@ mod tests {
                 assert_eq!(has_acl, firmware == Firmware::V5_1, "{model} {firmware}");
                 assert_eq!(
                     show.get("version").and_then(|version| version.get("hw_id")),
-                    Some(&serde_json::Value::from(model.hw_id()))
+                    Some(&Value::from(model.hw_id()))
                 );
                 assert!(startup.contains("192.0.2.1"));
             }

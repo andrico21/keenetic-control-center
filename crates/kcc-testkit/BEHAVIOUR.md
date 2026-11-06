@@ -82,6 +82,21 @@ Sources:
 | `{"show": {"rc": ..}}` and `{"show": {"sc": ..}}` fill the request shape from the JSON settings tree | R-RCI |
 | `GET /rci/whoami` returns `{"name": <login>, "tags": [..]}` | R-RCI names `whoami` as readonly; shape **assumed** |
 
+All profiles add the same deterministic synthetic baseline after model-specific seed loading
+and older-firmware removals. The baseline is **assumed** and contains:
+
+- six `show ip hotspot` clients spanning wired/wireless and registered/unregistered states,
+  matching DHCP bindings, ARP neighbours and wireless associations;
+- `Bridge0` with `192.0.2.1`, Internet-facing `ISP`, 2.4/5 GHz `WifiMaster0`/`WifiMaster1`,
+  access points, and numeric `show interface stat` counters keyed by interface id;
+- policy, IPv4/IPv6 route, DNS proxy, media, USB, schedule, KeenDNS, mesh-member and UPnP
+  redirect answers;
+- 480 synthetic `show ip nat` rows whose compact JSON exceeds 100 KiB for pagination tests.
+
+`show interface bands` and `show system mode` remain absent and return 404. Dynamic AST
+projections for hotspot, DHCP bindings, routes, DNS proxy and interfaces layer over these
+fixtures; fixture values remain the baseline for unmodified rows and fields.
+
 ## CLI configuration files and parser
 
 - The JSON settings tree and CLI configuration ASTs are deliberately independent stores.
@@ -121,11 +136,26 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `tools ping` returns a per-instance background process id and running state. POST-only
   show/process behavior is **assumed (R-CLI documentation, not live-verified - see
   `spikes/live-router/RESULT.md`)**.
-- `components install` stages and `components commit` simulates a reboot. **assumed
-  (R-CLI documentation, not live-verified).**
+- `components install <name>` and `components remove <name>` stage additions/removals,
+  visible through `show components list` and `show components pending`. `components commit`
+  clears every session immediately and opens a five-second temporary-unreachable window:
+  every HTTP request receives 503 until the injectable `Clock` reaches the deadline. The
+  first request after expiry atomically applies the staged set, bumps the final firmware
+  title/release build (`5.1.3` -> `5.1.4`, `5.01.C.3.0-0` -> `5.01.C.4.0-0`), and updates
+  `show version` `ndw.components`. **assumed (R-CLI documentation, not live-verified).**
 - `FaultInjection` is per fake-router instance: acknowledged silent no-op paths, HTTP 500
   after N requests, latency, session drop after N requests, and refusal to disable
   management `Bridge0`. No mutable state is shared between separately built instances.
+- `FaultInjection::fail_parse_matching(substring, times)` rejects only the next `times`
+  matching parser lines with an RCI error status before mutation; unrelated and later
+  parser requests succeed. **assumed**
+- `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route`
+  remove every running static IPv4 route and return `cleared all routes.`; the fault then
+  disarms. **assumed (simulates the R-MCP2 incident)**
+- `Handle::request_log()` records only method, path, and sorted query pairs. It never
+  records headers, cookies, authorization values, or request bodies. `settings_snapshot`,
+  `running_config_text`, and `startup_config_text` expose independent store snapshots for
+  workflow assertions. **assumed test observability API**
 
 ## Other assumed protocol details
 

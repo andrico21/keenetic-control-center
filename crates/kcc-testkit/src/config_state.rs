@@ -2,9 +2,11 @@
 
 use core::fmt::Write as _;
 
-use kcc_config::config_text::{Ast, ConfigHeader, Node, ParseError, Token, parse, print};
+use kcc_config::config_text::{Ast, ConfigHeader, ParseError, Token, parse, print};
 use md5::{Digest as _, Md5};
 use serde_json::{Value, json};
+
+use crate::{cli_engine, projection};
 
 /// Mutable CLI configuration state owned by one fake-router instance.
 #[derive(Clone, Debug)]
@@ -94,133 +96,42 @@ impl ConfigState {
 
     /// Applies one supported full-path CLI line to running configuration.
     pub(crate) fn apply(&mut self, line: &str) -> Value {
-        let Ok(parsed) = parse(line) else {
-            return unknown(line);
-        };
-        let Some(node) = parsed.nodes.first() else {
-            return unknown(line);
-        };
-        let words = words(&node.tokens);
-        match words.as_slice() {
-            [no, interface, name] if no == "no" && interface == "interface" => {
-                self.running
-                    .nodes
-                    .retain(|candidate| !is_interface(candidate, name));
-                message("removed.")
-            }
-            [interface, name] if interface == "interface" => {
-                let _: Option<&mut Node> = ensure_interface(&mut self.running, name);
-                message("created.")
-            }
-            [interface, name, description, value]
-                if interface == "interface" && description == "description" =>
-            {
-                set_interface_child(
-                    &mut self.running,
-                    name,
-                    &[Token::Word(description.clone()), Token::Word(value.clone())],
-                );
-                message("saved.")
-            }
-            [no, interface, name, description]
-                if no == "no" && interface == "interface" && description == "description" =>
-            {
-                remove_interface_child(&mut self.running, name, description);
-                message("removed.")
-            }
-            [interface, name, ip, address, value, mask]
-                if interface == "interface" && ip == "ip" && address == "address" =>
-            {
-                set_interface_child(
-                    &mut self.running,
-                    name,
-                    &[
-                        Token::Word(ip.clone()),
-                        Token::Word(address.clone()),
-                        Token::Word(value.clone()),
-                        Token::Word(mask.clone()),
-                    ],
-                );
-                message("saved.")
-            }
-            _ => unknown(line),
+        if cli_engine::apply(&mut self.running, line) {
+            message("saved.")
+        } else {
+            unknown(line)
         }
     }
-}
 
-/// Returns ordinary token text; NS3 is represented as its two CLI words.
-fn words(tokens: &[Token]) -> Vec<String> {
-    let mut result = Vec::new();
-    for token in tokens {
-        match token {
-            Token::Word(word) => result.push(word.clone()),
-            Token::Ns3(blob) => {
-                result.push("ns3".to_owned());
-                result.push(blob.clone());
-            }
-            _ => {}
-        }
+    /// Removes every configured static IPv4 route.
+    pub(crate) fn clear_static_routes(&mut self) {
+        self.running.nodes.retain(|node| {
+            let words: Vec<&str> = node
+                .tokens
+                .iter()
+                .filter_map(|token| {
+                    let Token::Word(word) = token else {
+                        return None;
+                    };
+                    Some(word.as_str())
+                })
+                .collect();
+            !matches!(words.as_slice(), ["ip", "route", ..])
+        });
     }
-    result
-}
 
-/// Finds an interface context by name.
-fn is_interface(node: &Node, name: &str) -> bool {
-    matches!(
-        node.tokens.as_slice(),
-        [Token::Word(command), Token::Word(candidate)] if command == "interface" && candidate == name
-    )
-}
-
-/// Returns an existing interface context or creates it.
-fn ensure_interface<'ast>(ast: &'ast mut Ast, name: &str) -> Option<&'ast mut Node> {
-    if !ast.nodes.iter().any(|node| is_interface(node, name)) {
-        let synthesized = parse(&format!("interface {name}\n"))
-            .ok()
-            .and_then(|mut parsed| parsed.nodes.pop());
-        if let Some(node) = synthesized {
-            ast.nodes.push(node);
-        }
-    }
-    ast.nodes.iter_mut().find(|node| is_interface(node, name))
-}
-
-/// Replaces a single-valued child command under an interface.
-fn set_interface_child(ast: &mut Ast, name: &str, tokens: &[Token]) {
-    let command_name = tokens.first().and_then(|token| match token {
-        Token::Word(word) => Some(word.clone()),
-        Token::Ns3(_) | _ => None,
-    });
-    let Some(interface) = ensure_interface(ast, name) else {
-        return;
-    };
-    if let Some(command) = command_name {
-        interface
-            .children
-            .retain(|child| child.tokens.first() != Some(&Token::Word(command.clone())));
-    }
-    let line = words(tokens)
-        .into_iter()
-        .map(|word| {
-            if word.chars().any(char::is_whitespace) {
-                format!("\"{}\"", word.replace('\\', "\\\\").replace('"', "\\\""))
-            } else {
-                word
-            }
+    /// Projects mutable running or startup configuration into a secret-safe JSON tree.
+    pub(crate) fn projection(&self, startup: bool) -> Value {
+        projection::configuration(if startup {
+            &self.startup
+        } else {
+            &self.running
         })
-        .collect::<Vec<_>>()
-        .join(" ");
-    if let Some(node) = parse(&line).ok().and_then(|mut parsed| parsed.nodes.pop()) {
-        interface.children.push(node);
     }
-}
 
-/// Removes a child command under an interface.
-fn remove_interface_child(ast: &mut Ast, name: &str, command: &str) {
-    if let Some(interface) = ast.nodes.iter_mut().find(|node| is_interface(node, name)) {
-        interface
-            .children
-            .retain(|child| child.tokens.first() != Some(&Token::Word(command.to_owned())));
+    /// Projects one ordinary show answer from running configuration and an optional fixture.
+    pub(crate) fn show(&self, path: &str, fixture: Option<&Value>) -> Option<Value> {
+        projection::show(&self.running, path, fixture)
     }
 }
 

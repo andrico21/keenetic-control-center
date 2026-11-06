@@ -24,7 +24,8 @@ use tokio::time::sleep;
 use zeroize::Zeroizing;
 
 use crate::{
-    FaultInjection,
+    FaultInjection, RequestRecord,
+    components::Components,
     config_state::ConfigState,
     failsafe::{FailSafe, ScheduledReboot},
     ndw2,
@@ -165,6 +166,15 @@ struct Process {
     remaining: u8,
 }
 
+/// Mutable bounded parser-failure state.
+#[derive(Debug)]
+struct ParseFault {
+    /// Substring selecting parser lines to reject.
+    substring: String,
+    /// Number of matching lines still rejected.
+    remaining: usize,
+}
+
 /// Everything the handlers share.
 #[derive(Debug)]
 pub(crate) struct Shared {
@@ -188,12 +198,20 @@ pub(crate) struct Shared {
     show: Map<String, Value>,
     /// Independent running/startup CLI configuration.
     config: Mutex<ConfigState>,
+    /// Installed, staged, and committing component state.
+    components: Mutex<Components>,
     /// Fail-safe timer state.
     fail_safe: Mutex<FailSafe>,
     /// Scheduled reboot timer state.
     scheduled_reboot: Mutex<ScheduledReboot>,
     /// Per-instance fault injection controls.
     faults: FaultInjection,
+    /// Mutable bounded parser-failure state.
+    parse_fault: Mutex<Option<ParseFault>>,
+    /// Whether the route-wipe incident is still armed.
+    route_wipe_armed: Mutex<bool>,
+    /// Sanitized request metadata in arrival order.
+    request_log: Mutex<Vec<RequestRecord>>,
     /// Number of requests observed by the fault middleware.
     request_count: AtomicU64,
     /// Next background process identifier.
@@ -240,6 +258,15 @@ impl Shared {
         config: ConfigState,
         faults: FaultInjection,
     ) -> Self {
+        let parse_fault = faults
+            .fail_parse_matching
+            .as_ref()
+            .map(|(substring, remaining)| ParseFault {
+                substring: substring.clone(),
+                remaining: *remaining,
+            });
+        let route_wipe_armed = faults.route_wipe_on_remove;
+        let components = Components::new(show.get("version"));
         Self {
             cookie_name,
             realm,
@@ -251,9 +278,13 @@ impl Shared {
             settings: Mutex::new(settings),
             show,
             config: Mutex::new(config),
+            components: Mutex::new(components),
             fail_safe: Mutex::new(FailSafe::default()),
             scheduled_reboot: Mutex::new(ScheduledReboot::default()),
             faults,
+            parse_fault: Mutex::new(parse_fault),
+            route_wipe_armed: Mutex::new(route_wipe_armed),
+            request_log: Mutex::new(Vec::new()),
             request_count: AtomicU64::new(0),
             process_id: AtomicU64::new(1),
             processes: Mutex::new(BTreeMap::new()),
@@ -284,6 +315,33 @@ impl Shared {
     /// Number of requests observed by the fault middleware.
     pub(crate) fn request_count(&self) -> u64 {
         self.request_count.load(Ordering::SeqCst)
+    }
+
+    /// Returns sanitized request metadata in arrival order.
+    pub(crate) fn request_log(&self) -> Vec<RequestRecord> {
+        lock(&self.request_log).clone()
+    }
+
+    /// Records method, path, and sorted query pairs without headers or bodies.
+    fn record_request(&self, request: &Request) {
+        let mut query: Vec<(String, String)> = request
+            .uri()
+            .query()
+            .into_iter()
+            .flat_map(|value| value.split('&'))
+            .map(|pair| {
+                pair.split_once('=').map_or_else(
+                    || (pair.to_owned(), String::new()),
+                    |(key, value)| (key.to_owned(), value.to_owned()),
+                )
+            })
+            .collect();
+        query.sort();
+        lock(&self.request_log).push(RequestRecord {
+            method: request.method().clone(),
+            path: request.uri().path().to_owned(),
+            query,
+        });
     }
 
     /// The session id carried in this server's cookie, if any.
@@ -405,6 +463,11 @@ impl Shared {
         }
     }
 
+    /// Returns whether component commit currently makes the router unreachable.
+    fn components_unavailable(&self) -> bool {
+        lock(&self.components).unavailable(self.clock.now())
+    }
+
     /// Simulates a reboot by loading startup and dropping all sessions.
     fn reboot(&self) {
         lock(&self.config).reboot();
@@ -415,6 +478,13 @@ impl Shared {
 
     /// Applies a full-path CLI parser command.
     fn parse_command(&self, line: &str) -> Value {
+        if self.reject_parse(line) {
+            return tree::status("error", "injected parser failure.");
+        }
+        if line.starts_with("no ip route ") && self.take_route_wipe() {
+            lock(&self.config).clear_static_routes();
+            return tree::status("message", "cleared all routes.");
+        }
         let words: Vec<&str> = line.split_whitespace().collect();
         match words.as_slice() {
             ["system", "configuration", "save"] => {
@@ -435,9 +505,17 @@ impl Shared {
                 lock(&self.scheduled_reboot).disarm();
                 tree::status("message", "scheduled reboot cancelled.")
             }
-            ["components", "install", _] => tree::status("message", "component staged."),
+            ["components", "install", name] => {
+                lock(&self.components).install(name);
+                tree::status("message", "component staged.")
+            }
+            ["components", "remove", name] => {
+                lock(&self.components).remove(name);
+                tree::status("message", "component staged.")
+            }
             ["components", "commit"] => {
                 self.reboot();
+                lock(&self.components).commit(self.clock.now());
                 tree::status("message", "components committed; rebooting.")
             }
             ["interface", "Bridge0", "down"] if self.faults.refuse_management_bridge_down => {
@@ -480,8 +558,29 @@ impl Shared {
         }
     }
 
+    /// Consumes one matching bounded parser failure.
+    fn reject_parse(&self, line: &str) -> bool {
+        let mut fault = lock(&self.parse_fault);
+        let rejected = fault
+            .as_mut()
+            .is_some_and(|state| state.remaining > 0 && line.contains(&state.substring));
+        if rejected && let Some(state) = fault.as_mut() {
+            state.remaining = state.remaining.saturating_sub(1);
+        }
+        drop(fault);
+        rejected
+    }
+
+    /// Consumes the one-shot route-wipe incident fault.
+    fn take_route_wipe(&self) -> bool {
+        let mut armed = lock(&self.route_wipe_armed);
+        let active = *armed;
+        *armed = false;
+        active
+    }
+
     /// Returns generated configuration text for one store.
-    fn config_text(&self, startup: bool) -> String {
+    pub(crate) fn config_text(&self, startup: bool) -> String {
         let config = lock(&self.config);
         if startup {
             config.startup_text()
@@ -555,7 +654,24 @@ impl Shared {
 
     /// Answers one show request below `show/`, or `None` when no fixture exists.
     fn show(&self, path: &str, selector: Option<Selector<'_>>) -> Option<Value> {
-        tree::select_show(self.show.get(path.trim_end_matches('/'))?, selector)
+        let normalized_path = path.trim_end_matches('/');
+        let component_answer = match normalized_path {
+            "components/list" => Some(lock(&self.components).list()),
+            "components/pending" => Some(lock(&self.components).pending()),
+            "version" => self
+                .show
+                .get("version")
+                .map(|fixture| lock(&self.components).version(fixture)),
+            _ => None,
+        };
+        if let Some(answer) = component_answer {
+            return tree::select_show(&answer, selector);
+        }
+        let fixture = self.show.get(normalized_path);
+        let answer = lock(&self.config)
+            .show(normalized_path, fixture)
+            .or_else(|| fixture.cloned())?;
+        tree::select_show(&answer, selector)
     }
 
     /// Answers the value of a `{"show": ..}` member of a root POST.
@@ -563,7 +679,10 @@ impl Shared {
         let mut answer = Map::new();
         for (key, sub) in request.as_object().into_iter().flatten() {
             if key == "rc" || key == "sc" {
-                drop(answer.insert(key.clone(), tree::read_through(settings, sub)));
+                let fixture = tree::read_through(settings, sub);
+                let projected = lock(&self.config).projection(key == "sc");
+                let dynamic = tree::read_through(&projected, sub);
+                drop(answer.insert(key.clone(), merge_json(fixture, dynamic)));
                 continue;
             }
             let mut segments = vec![key.as_str()];
@@ -653,6 +772,23 @@ impl Shared {
     }
 }
 
+/// Recursively overlays dynamic configuration fields onto settings-tree fields.
+fn merge_json(mut fixture: Value, dynamic: Value) -> Value {
+    match (&mut fixture, dynamic) {
+        (Value::Object(target), Value::Object(source)) => {
+            for (key, value) in source {
+                let merged = match target.remove(&key) {
+                    Some(old) => merge_json(old, value),
+                    None => value,
+                };
+                drop(target.insert(key, merged));
+            }
+            fixture
+        }
+        (_, replacement) => replacement,
+    }
+}
+
 /// Splits an RCI path into its non-empty segments.
 fn segments(path: &str) -> Vec<&str> {
     path.split('/')
@@ -701,6 +837,10 @@ async fn inject_faults(
     request: Request,
     next: Next,
 ) -> Response {
+    shared.record_request(&request);
+    if shared.components_unavailable() {
+        return empty(StatusCode::SERVICE_UNAVAILABLE);
+    }
     if !shared.faults.latency.is_zero() {
         sleep(shared.faults.latency).await;
     }
