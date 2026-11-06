@@ -146,6 +146,25 @@ and the primary action), then the table region (or the filter form above the aud
 or the server panels); tables sit in `.table-wrap`, which scrolls sideways only for the
 table itself; scroll owner: the document; anti-patterns: a fixed-height scrolling table,
 tabs that hide pages the role may open, actions in a hover-only menu.
+`--aside-width` (22rem) is the command explorer's search and group column; `--area-min`
+(12rem) the RCI console body's minimum height.
+
+Layout (command explorer `/ui/r/{router}/explorer`): list-detail - DOM and reading order
+follow the brief's priorities (search and results, the command detail, the group tree);
+from 64rem the search and the tree share a `minmax(16rem, --aside-width)` column (grid areas
+`find`/`groups`) beside the detail, below that they stack in DOM order so a phone reaches the
+selected command before the 58 groups; scroll owner: the document; nested scrollers: only
+`.code` blocks and the arguments table (horizontal) and the native `<details>` of groups
+and response pages; anti-patterns: a fixed-height scrolling result list, a sticky detail
+column, rendering every catalog command up front (groups load their commands when opened,
+50 per page).
+
+Layout (RCI and CLI consoles `/ui/r/{router}/console/{rci,cli}`): single column, 60rem max,
+method and path side by side from 48rem, then the body, the live check and the result;
+scroll owner: the document; nested scrollers: `.code` blocks only.
+
+Layout (advanced landing `/ui/advanced`): one table of routers with their tool links; scroll
+owner: the document.
 
 ## 5. Components
 
@@ -314,6 +333,48 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 - Server. No primary action. Priorities: 1 version and uptime, 2 state directory health,
   3 configuration summary and command catalogs. Left out on purpose: secrets, credential
   paths, router logins.
+### Command explorer and consoles (todo 42)
+
+- Command list (`.command-list`, `.command-link`): rows separated by hairlines; the path in
+  the mono face, the kind as a muted caption. A link opens the detail in place (htmx) and
+  keeps the address bookmarkable (`?path=`).
+- Group tree (`.tree`): native `<details>`; the commands of a group load when it opens, 50
+  per page with Previous/Next.
+- Command detail (`.command`): mono title, risk flag, facts list (kind, `no` form, interface
+  type, since-version, CLI context, models in a `<details>`), manual links, arguments table,
+  then the generated form: one input per argument, keyword selects, checkboxes for boolean
+  keywords and the `no` form, secrets as empty password inputs, sub-commands as collapsed
+  `<details>` fieldsets indented by depth.
+- Code block (`.code`): chrome surface, mono small text, horizontal scroll for long lines,
+  keyboard-focusable.
+- Response viewer (`.viewer`): status messages first as flags by level (message info,
+  warning, error), then the answer in pages of 200 lines, the first open and the rest
+  collapsed; above 256 KiB the rest is a download.
+- Outcome (`.outcome`): notice headline (success or error) with the validation problems,
+  then the "router said" block (`.router-said`, chrome surface, mono messages) and the
+  viewer; a success also sends a toast and the header's unsaved badge out of band.
+- Job panel (`.job`): chrome surface with title, live status pill (`running`, `done`,
+  `failed`) and Stop; the final answer replaces the waiting note.
+- Confirmation (`ui::dialog_body`): writes confirm, management changes explain the fail-safe
+  timer, destructive commands require the router name typed; the confirm button posts the
+  original form again.
+
+### Page briefs (todo 42)
+
+- Command explorer. Primary action: Run (read) or Run command (change), only when the role
+  holds the command's permission. Secondary: Preview request, Show how the router stores
+  this. Priorities: 1 search, 2 the selected command and its form, 3 the group tree. Left out
+  on purpose: command descriptions copied from the manual (the PDF link carries them),
+  per-command icons, a recent-commands list. Required content: search box, results with
+  kind, groups with counts and paging, path, kind, risk, background, `no` form, interface
+  type, since-version, CLI context, models, manual page link, model manual link, arguments
+  with types and keywords, the generated form, preview (method, endpoint, JSON, masked
+  secrets, validation), stored lines, result viewer, job panel, console links (RawRci).
+- RCI console. Primary action: Send. Secondary: Check. Required content: method, catalog
+  path, JSON body (batch at the root), live validation result, result viewer.
+- CLI console. Primary action: Run. Secondary: Check. Required content: CLI line, the
+  matched catalog command with its explorer link, "send without validation" (administrators
+  only), result viewer.
 
 ## 6. Motion & Interaction
 
@@ -343,3 +404,5 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | The traffic chart is a canvas | `pages/dashboard.html` | uPlot draws on canvas; the chart has `role="img"` and a label, and the legend states the newest rates as text | A data table view if users ask for history values |
 | Router forms need JavaScript | `pages/router_form.html` | Every state-changing request carries the CSRF header that `app.js` adds to htmx requests | Same as the menus |
 | API key Copy needs the Clipboard API | `partials/admin_key_created.html` | Without it (or without JavaScript) the key stays selected in its read-only field for a manual copy | None needed |
+| Explorer and console actions need JavaScript | `pages/explorer.html`, `pages/console_*.html` | Preview, Run, Check and Send are htmx posts carrying the CSRF header; search and the explorer's `?path=` page work without it | Same as the menus |
+| Group tree loads on open | `pages/explorer.html` | A `<details>` opened without JavaScript stays empty; search still finds every command | Server-rendered group pages if asked |

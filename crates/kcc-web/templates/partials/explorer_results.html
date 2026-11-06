@@ -1,0 +1,15 @@
+{#- Search results; the explorer page includes it and the live search re-sends it. -#}
+{%- import "partials/explorer_macros.html" as ex -%}
+<p class="explorer__summary">{{ results.summary }}</p>
+{%- if results.items.is_empty() %}
+<p class="panel__note">{{ t(keys::WEB_EXPLORER_RESULTS_NONE) }}</p>
+{%- else %}
+<ul class="command-list">
+  {%- for item in results.items %}
+  {{ ex::command_item(router, item) }}
+  {%- endfor %}
+</ul>
+{%- if results.more %}
+<p class="panel__note">{{ t(keys::WEB_EXPLORER_RESULTS_MORE) }}</p>
+{%- endif %}
+{%- endif %}

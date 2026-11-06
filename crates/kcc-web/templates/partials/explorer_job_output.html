@@ -1,0 +1,6 @@
+{#- The final answer of a background command, sent by the job stream. -#}
+{%- if let Some(viewer) = viewer %}
+{%- include "partials/explorer_viewer.html" %}
+{%- else %}
+<p class="panel__note">{{ t(*note) }}</p>
+{%- endif %}

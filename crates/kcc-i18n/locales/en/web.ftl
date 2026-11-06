@@ -326,3 +326,165 @@ web-admin-server-stopped = Stopped
 web-admin-server-catalogs = Command catalogs
 web-admin-server-catalog-line = Firmware line
 web-admin-server-catalog-groups = Command groups
+# todo 42
+web-explorer-title = Command explorer
+web-explorer-catalog = Command catalog { $version } for { $model }
+web-explorer-catalog-union = Command catalog { $version }, all models
+web-explorer-search-label = Search commands
+web-explorer-search-empty = Type a word to search the catalog.
+web-explorer-results =
+    { $count ->
+        [one] { $count } command
+       *[other] { $count } commands
+    }
+web-explorer-results-none = No command matches. Try another word or open a group.
+web-explorer-results-more = More commands match. Add words to narrow the search.
+web-explorer-groups = Command groups
+web-explorer-page-of = Page { $page } of { $pages }
+web-explorer-page-previous = Previous
+web-explorer-page-next = Next
+web-explorer-select = Search for a command or open a group, then pick a command to see its details and its form.
+web-explorer-unknown-command = The router's catalog has no such command.
+web-explorer-unreachable = The router did not answer, so kcc cannot select its command catalog. Check the connection and reload.
+web-explorer-unsupported = The router's firmware is older than the oldest documented catalog (4.3).
+web-explorer-kind = Kind
+web-explorer-kind-setting = Setting
+web-explorer-kind-show = Show
+web-explorer-kind-action = Action
+web-explorer-risk = Risk
+web-explorer-risk-read = Read-only
+web-explorer-risk-write = Configuration change
+web-explorer-risk-management = Management change
+web-explorer-risk-destructive = Destructive
+web-explorer-background = runs in the background
+web-explorer-no-form = "no" form
+web-explorer-interface-type = Interface type
+web-explorer-since = Since firmware
+web-explorer-context = CLI context
+web-explorer-models = Models
+web-explorer-models-count =
+    { $count ->
+        [one] { $count } model
+       *[other] { $count } models
+    }
+web-explorer-manual-page = Official manual, page { $page } (PDF)
+web-explorer-manual-model = Manual for { $model } (PDF)
+web-explorer-arguments = Arguments
+web-explorer-arguments-none = This command takes no arguments.
+web-explorer-argument = Argument
+web-explorer-type = Type
+web-explorer-values = Keywords
+web-explorer-type-integer = Integer
+web-explorer-type-range = Integer from { $min } to { $max }
+web-explorer-type-min = Integer, at least { $min }
+web-explorer-type-max = Integer, at most { $max }
+web-explorer-type-address = IP address
+web-explorer-type-mask = IPv4 netmask, such as 255.255.255.0
+web-explorer-type-mac = MAC address, such as 02:00:00:00:00:01
+web-explorer-type-object = Interface or object name, up to 64 characters
+web-explorer-type-keyword = One of the listed keywords
+web-explorer-type-text = Text
+web-explorer-type-flag = Sends the keyword when checked
+web-explorer-type-secret = Secret: sent to the router, never shown or logged
+web-explorer-form-no = Sends the command's "no" form, which removes or disables the setting.
+web-explorer-form-no-label = Use the "no" form
+web-explorer-form-clipped = Deeper sub-commands are left out. Open them from the groups.
+web-explorer-not-set = Not set
+web-explorer-read-only-note = Your role can preview this command but not run it.
+web-explorer-preview = Preview request
+web-explorer-execute = Run command
+web-explorer-run = Run
+web-explorer-stored = Show how the router stores this
+web-explorer-preview-title = Request preview
+web-explorer-valid = The request passes catalog validation.
+web-explorer-invalid = The request was not sent: it does not pass catalog validation.
+web-explorer-method = Method
+web-explorer-endpoint = Endpoint
+web-explorer-masked = Secret values are masked.
+web-explorer-stored-title = Lines in the running configuration
+web-explorer-stored-none = The running configuration has no line for this command.
+web-explorer-stored-more =
+    { $count ->
+        [one] { $count } more line is not shown.
+       *[other] { $count } more lines are not shown.
+    }
+web-explorer-stored-note = Secrets are redacted.
+web-explorer-result = Result
+web-explorer-done = Command completed.
+web-explorer-done-unsaved = Command completed. The change is applied and not saved yet.
+web-explorer-rejected = The router refused the request.
+web-explorer-router-said = Router said
+web-explorer-conflict = Another session changed the router since this page loaded. Reload and check before running the command again.
+web-explorer-failed = The command could not be run. Try again.
+web-explorer-not-found = The router does not have this resource.
+web-explorer-armed = The router stopped answering during a management change. Its fail-safe timer restores the saved configuration within { $minutes } minutes.
+web-explorer-download = Download the full response
+web-explorer-truncated = The response is larger than this page shows. Download it to see all of it.
+web-explorer-empty-response = The router returned an empty response.
+web-explorer-level-message = Message
+web-explorer-level-warning = Warning
+web-explorer-level-error = Error
+web-explorer-lines = Lines { $first }-{ $last }
+web-explorer-confirm = Run command
+web-explorer-confirm-name = Router name
+web-explorer-confirm-name-error = The name does not match. Type { $router } exactly.
+web-explorer-confirm-write-title = Run this command?
+web-explorer-confirm-write-text = The command changes the running configuration of { $router }. kcc backs up the saved configuration first. The change stays unsaved until you save it.
+web-explorer-confirm-management-title = Change how kcc reaches the router?
+web-explorer-confirm-management-text = This command can cut kcc off from { $router }. kcc arms the router's fail-safe timer for { $minutes } minutes before running it: if the router stops answering, it restores the saved configuration when the timer runs out. If the router still answers, kcc disarms the timer and the change stays unsaved.
+web-explorer-confirm-destructive-title = Run a destructive command?
+web-explorer-confirm-destructive-text = This command can erase data or restart { $router }, and it cannot be undone. Type the router name to confirm.
+web-explorer-job-title = Background command
+web-explorer-job-started = The command runs in the background.
+web-explorer-job-running = Running
+web-explorer-job-completed = Completed
+web-explorer-job-cancelled-label = Stopped
+web-explorer-job-failed = Failed
+web-explorer-job-cancel = Stop
+web-explorer-job-stopped = The command was stopped.
+web-explorer-job-not-running = The command is no longer running.
+web-explorer-job-cancelled = The command was stopped before it finished.
+web-explorer-job-failed-text = The command did not finish. Check the router and try again.
+web-explorer-job-waiting = The output appears when the router finishes the command.
+web-explorer-jobs-unavailable = Background commands need the job service, which is not configured.
+web-explorer-issue-unknown-path = Unknown command: { $path }
+web-explorer-issue-method = This command does not accept { $method } requests.
+web-explorer-issue-object = { $field }: expected an object with named fields, not a list or a single value.
+web-explorer-issue-unknown-field = { $field }: unknown field.
+web-explorer-issue-suggestion = { $field }: unknown field. Did you mean { $suggestion }?
+web-explorer-issue-value = { $field }: invalid value.
+web-explorer-issue-no = This command has no "no" form.
+web-explorer-issue-cli-syntax = Enter one command without quotes, backslashes, ";" or "|", with one word per argument.
+web-explorer-issue-cli-form = The manual gives { $path } more than one form. Use the command explorer form instead.
+web-explorer-issue-raw = Unknown command. Only administrators can send it, with "Send without catalog validation".
+web-explorer-issue-json = The body is not valid JSON (line { $line }, column { $column }).
+web-explorer-issue-item = Item { $index }: { $issue }
+web-explorer-issue-root = The root endpoint takes POST with an object, or a list of objects as one batch.
+web-explorer-issue-batch = A batch holds 1 to { $count } objects.
+web-explorer-issue-segment = { $path } cannot be part of a URL. Send it with POST to the root endpoint.
+web-explorer-issue-length = The request is empty or too long.
+web-explorer-landing-empty = No routers to open.
+web-explorer-router = Router
+web-explorer-tools = Tools
+web-console-rci-title = RCI console
+web-console-cli-title = CLI console
+web-console-method = Method
+web-console-path = Command path
+web-console-path-help = A space-separated catalog path, such as ip hotspot host. Leave it empty to send to the root endpoint.
+web-console-body = Body (JSON)
+web-console-body-help = An object. At the root endpoint, a list of objects is sent as one batch.
+web-console-check = Check
+web-console-send = Send
+web-console-valid =
+    { $count ->
+        [one] The request passes catalog validation.
+       *[other] All { $count } requests pass catalog validation.
+    }
+web-console-line = Command line
+web-console-line-help = One command as typed in the router CLI. kcc maps it to its catalog command and sends it with parse.
+web-console-unvalidated = Send without catalog validation
+web-console-unvalidated-help = Administrators only. Use it for commands the catalog does not know; the request is audited.
+web-console-run = Run
+web-console-matched = Catalog command: { $path }
+web-console-matched-raw = Not in the catalog. It is sent without validation.
+web-console-open-explorer = Open in the command explorer

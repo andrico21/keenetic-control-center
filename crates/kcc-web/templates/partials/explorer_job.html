@@ -1,0 +1,11 @@
+{#- A background command: its status follows the job stream, its answer arrives when it ends. -#}
+<section class="job" aria-labelledby="{{ job.id() }}-title" hx-ext="sse" sse-connect="{{ job.stream() }}" sse-close="done">
+  <div class="job__head">
+    <h4 class="job__title" id="{{ job.id() }}-title">{{ t(keys::WEB_EXPLORER_JOB_TITLE) }}</h4>
+    <span class="job__status" sse-swap="status"><span class="status" data-status="running">{{ t(keys::WEB_EXPLORER_JOB_RUNNING) }}</span></span>
+    {%- if let Some(href) = job.cancel() %}
+    <button class="button button--ghost job__stop" type="button" hx-post="{{ href }}" hx-target="#toasts" hx-swap="beforeend">{{ t(keys::WEB_EXPLORER_JOB_CANCEL) }}</button>
+    {%- endif %}
+  </div>
+  <div class="job__output" sse-swap="output"><p class="panel__note">{{ t(keys::WEB_EXPLORER_JOB_WAITING) }}</p></div>
+</section>

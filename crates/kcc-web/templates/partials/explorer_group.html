@@ -1,0 +1,18 @@
+{#- One page of a group's commands, loaded when its tree node opens. -#}
+{%- import "partials/explorer_macros.html" as ex -%}
+<ul class="command-list">
+  {%- for item in items %}
+  {{ ex::command_item(router, item) }}
+  {%- endfor %}
+</ul>
+{%- if !position.is_empty() %}
+<p class="pager">
+  {%- if let Some(page) = previous %}
+  <button class="button button--ghost" type="button" hx-get="/ui/r/{{ router }}/explorer/group?prefix={{ prefix }}&page={{ page }}" hx-target="closest .tree__items">{{ t(keys::WEB_EXPLORER_PAGE_PREVIOUS) }}</button>
+  {%- endif %}
+  <span class="pager__position">{{ position }}</span>
+  {%- if let Some(page) = next %}
+  <button class="button button--ghost" type="button" hx-get="/ui/r/{{ router }}/explorer/group?prefix={{ prefix }}&page={{ page }}" hx-target="closest .tree__items">{{ t(keys::WEB_EXPLORER_PAGE_NEXT) }}</button>
+  {%- endif %}
+</p>
+{%- endif %}

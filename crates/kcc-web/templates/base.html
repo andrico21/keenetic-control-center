@@ -40,9 +40,9 @@
       {%- if let Some(status) = shell.router_status() %}
       <span class="masthead__status" id="router-status"><span class="status" data-status="{{ status.value() }}">{{ t(status.label()) }}</span></span>
       {%- endif %}
-      {%- if shell.unsaved_changes() > 0 %}
-      <a class="badge" href="/ui/configuration">{{ t_count(keys::WEB_UNSAVED_CHANGES, shell.unsaved_changes()) }}</a>
-      {%- endif %}
+      <span class="masthead__status" id="unsaved-badge">
+      {%- if shell.unsaved_changes() > 0 %}<a class="badge" href="/ui/configuration">{{ t_count(keys::WEB_UNSAVED_CHANGES, shell.unsaved_changes()) }}</a>{% endif -%}
+      </span>
     </div>
     <div class="masthead__prefs">
       <button class="button button--ghost menu-button" type="button" popovertarget="locale-menu"><span class="visually-hidden">{{ t(keys::COMMON_LANGUAGE) }}: </span>{{ t(shell.locale_label()) }}</button>

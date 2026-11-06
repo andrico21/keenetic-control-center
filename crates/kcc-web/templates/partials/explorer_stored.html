@@ -1,0 +1,14 @@
+{#- The running-configuration lines of one command, secrets redacted. -#}
+<section class="stored" aria-labelledby="stored-title">
+  <h3 class="explorer__heading" id="stored-title">{{ t(keys::WEB_EXPLORER_STORED_TITLE) }}</h3>
+  {%- if lines.is_empty() %}
+  <p class="panel__note">{{ t(keys::WEB_EXPLORER_STORED_NONE) }}</p>
+  {%- else %}
+  <pre class="code" tabindex="0"><code>{% for line in lines %}{{ line }}{% if !loop.last %}
+{% endif %}{% endfor %}</code></pre>
+  {%- if !more.is_empty() %}
+  <p class="panel__note">{{ more }}</p>
+  {%- endif %}
+  <p class="panel__note">{{ t(keys::WEB_EXPLORER_STORED_NOTE) }}</p>
+  {%- endif %}
+</section>

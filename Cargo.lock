@@ -1627,6 +1627,8 @@ dependencies = [
  "humantime",
  "kcc-app",
  "kcc-catalog",
+ "kcc-config",
+ "kcc-domain",
  "kcc-i18n",
  "kcc-rci",
  "kcc-testkit",

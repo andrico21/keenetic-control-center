@@ -1287,8 +1287,462 @@ pub const WEB_ADMIN_SERVER_CATALOG_LINE: MessageKey =
 pub const WEB_ADMIN_SERVER_CATALOG_GROUPS: MessageKey =
     MessageKey::new("web-admin-server-catalog-groups");
 
+/// `web-explorer-title` in `web.ftl`.
+pub const WEB_EXPLORER_TITLE: MessageKey = MessageKey::new("web-explorer-title");
+
+/// `web-explorer-catalog` in `web.ftl`.
+pub const WEB_EXPLORER_CATALOG: MessageKey = MessageKey::new("web-explorer-catalog");
+
+/// `web-explorer-catalog-union` in `web.ftl`.
+pub const WEB_EXPLORER_CATALOG_UNION: MessageKey = MessageKey::new("web-explorer-catalog-union");
+
+/// `web-explorer-search-label` in `web.ftl`.
+pub const WEB_EXPLORER_SEARCH_LABEL: MessageKey = MessageKey::new("web-explorer-search-label");
+
+/// `web-explorer-search-empty` in `web.ftl`.
+pub const WEB_EXPLORER_SEARCH_EMPTY: MessageKey = MessageKey::new("web-explorer-search-empty");
+
+/// `web-explorer-results` in `web.ftl`.
+pub const WEB_EXPLORER_RESULTS: MessageKey = MessageKey::new("web-explorer-results");
+
+/// `web-explorer-results-none` in `web.ftl`.
+pub const WEB_EXPLORER_RESULTS_NONE: MessageKey = MessageKey::new("web-explorer-results-none");
+
+/// `web-explorer-results-more` in `web.ftl`.
+pub const WEB_EXPLORER_RESULTS_MORE: MessageKey = MessageKey::new("web-explorer-results-more");
+
+/// `web-explorer-groups` in `web.ftl`.
+pub const WEB_EXPLORER_GROUPS: MessageKey = MessageKey::new("web-explorer-groups");
+
+/// `web-explorer-page-of` in `web.ftl`.
+pub const WEB_EXPLORER_PAGE_OF: MessageKey = MessageKey::new("web-explorer-page-of");
+
+/// `web-explorer-page-previous` in `web.ftl`.
+pub const WEB_EXPLORER_PAGE_PREVIOUS: MessageKey = MessageKey::new("web-explorer-page-previous");
+
+/// `web-explorer-page-next` in `web.ftl`.
+pub const WEB_EXPLORER_PAGE_NEXT: MessageKey = MessageKey::new("web-explorer-page-next");
+
+/// `web-explorer-select` in `web.ftl`.
+pub const WEB_EXPLORER_SELECT: MessageKey = MessageKey::new("web-explorer-select");
+
+/// `web-explorer-unknown-command` in `web.ftl`.
+pub const WEB_EXPLORER_UNKNOWN_COMMAND: MessageKey =
+    MessageKey::new("web-explorer-unknown-command");
+
+/// `web-explorer-unreachable` in `web.ftl`.
+pub const WEB_EXPLORER_UNREACHABLE: MessageKey = MessageKey::new("web-explorer-unreachable");
+
+/// `web-explorer-unsupported` in `web.ftl`.
+pub const WEB_EXPLORER_UNSUPPORTED: MessageKey = MessageKey::new("web-explorer-unsupported");
+
+/// `web-explorer-kind` in `web.ftl`.
+pub const WEB_EXPLORER_KIND: MessageKey = MessageKey::new("web-explorer-kind");
+
+/// `web-explorer-kind-setting` in `web.ftl`.
+pub const WEB_EXPLORER_KIND_SETTING: MessageKey = MessageKey::new("web-explorer-kind-setting");
+
+/// `web-explorer-kind-show` in `web.ftl`.
+pub const WEB_EXPLORER_KIND_SHOW: MessageKey = MessageKey::new("web-explorer-kind-show");
+
+/// `web-explorer-kind-action` in `web.ftl`.
+pub const WEB_EXPLORER_KIND_ACTION: MessageKey = MessageKey::new("web-explorer-kind-action");
+
+/// `web-explorer-risk` in `web.ftl`.
+pub const WEB_EXPLORER_RISK: MessageKey = MessageKey::new("web-explorer-risk");
+
+/// `web-explorer-risk-read` in `web.ftl`.
+pub const WEB_EXPLORER_RISK_READ: MessageKey = MessageKey::new("web-explorer-risk-read");
+
+/// `web-explorer-risk-write` in `web.ftl`.
+pub const WEB_EXPLORER_RISK_WRITE: MessageKey = MessageKey::new("web-explorer-risk-write");
+
+/// `web-explorer-risk-management` in `web.ftl`.
+pub const WEB_EXPLORER_RISK_MANAGEMENT: MessageKey =
+    MessageKey::new("web-explorer-risk-management");
+
+/// `web-explorer-risk-destructive` in `web.ftl`.
+pub const WEB_EXPLORER_RISK_DESTRUCTIVE: MessageKey =
+    MessageKey::new("web-explorer-risk-destructive");
+
+/// `web-explorer-background` in `web.ftl`.
+pub const WEB_EXPLORER_BACKGROUND: MessageKey = MessageKey::new("web-explorer-background");
+
+/// `web-explorer-no-form` in `web.ftl`.
+pub const WEB_EXPLORER_NO_FORM: MessageKey = MessageKey::new("web-explorer-no-form");
+
+/// `web-explorer-interface-type` in `web.ftl`.
+pub const WEB_EXPLORER_INTERFACE_TYPE: MessageKey = MessageKey::new("web-explorer-interface-type");
+
+/// `web-explorer-since` in `web.ftl`.
+pub const WEB_EXPLORER_SINCE: MessageKey = MessageKey::new("web-explorer-since");
+
+/// `web-explorer-context` in `web.ftl`.
+pub const WEB_EXPLORER_CONTEXT: MessageKey = MessageKey::new("web-explorer-context");
+
+/// `web-explorer-models` in `web.ftl`.
+pub const WEB_EXPLORER_MODELS: MessageKey = MessageKey::new("web-explorer-models");
+
+/// `web-explorer-models-count` in `web.ftl`.
+pub const WEB_EXPLORER_MODELS_COUNT: MessageKey = MessageKey::new("web-explorer-models-count");
+
+/// `web-explorer-manual-page` in `web.ftl`.
+pub const WEB_EXPLORER_MANUAL_PAGE: MessageKey = MessageKey::new("web-explorer-manual-page");
+
+/// `web-explorer-manual-model` in `web.ftl`.
+pub const WEB_EXPLORER_MANUAL_MODEL: MessageKey = MessageKey::new("web-explorer-manual-model");
+
+/// `web-explorer-arguments` in `web.ftl`.
+pub const WEB_EXPLORER_ARGUMENTS: MessageKey = MessageKey::new("web-explorer-arguments");
+
+/// `web-explorer-arguments-none` in `web.ftl`.
+pub const WEB_EXPLORER_ARGUMENTS_NONE: MessageKey = MessageKey::new("web-explorer-arguments-none");
+
+/// `web-explorer-argument` in `web.ftl`.
+pub const WEB_EXPLORER_ARGUMENT: MessageKey = MessageKey::new("web-explorer-argument");
+
+/// `web-explorer-type` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE: MessageKey = MessageKey::new("web-explorer-type");
+
+/// `web-explorer-values` in `web.ftl`.
+pub const WEB_EXPLORER_VALUES: MessageKey = MessageKey::new("web-explorer-values");
+
+/// `web-explorer-type-integer` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_INTEGER: MessageKey = MessageKey::new("web-explorer-type-integer");
+
+/// `web-explorer-type-range` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_RANGE: MessageKey = MessageKey::new("web-explorer-type-range");
+
+/// `web-explorer-type-min` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_MIN: MessageKey = MessageKey::new("web-explorer-type-min");
+
+/// `web-explorer-type-max` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_MAX: MessageKey = MessageKey::new("web-explorer-type-max");
+
+/// `web-explorer-type-address` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_ADDRESS: MessageKey = MessageKey::new("web-explorer-type-address");
+
+/// `web-explorer-type-mask` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_MASK: MessageKey = MessageKey::new("web-explorer-type-mask");
+
+/// `web-explorer-type-mac` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_MAC: MessageKey = MessageKey::new("web-explorer-type-mac");
+
+/// `web-explorer-type-object` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_OBJECT: MessageKey = MessageKey::new("web-explorer-type-object");
+
+/// `web-explorer-type-keyword` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_KEYWORD: MessageKey = MessageKey::new("web-explorer-type-keyword");
+
+/// `web-explorer-type-text` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_TEXT: MessageKey = MessageKey::new("web-explorer-type-text");
+
+/// `web-explorer-type-flag` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_FLAG: MessageKey = MessageKey::new("web-explorer-type-flag");
+
+/// `web-explorer-type-secret` in `web.ftl`.
+pub const WEB_EXPLORER_TYPE_SECRET: MessageKey = MessageKey::new("web-explorer-type-secret");
+
+/// `web-explorer-form-no` in `web.ftl`.
+pub const WEB_EXPLORER_FORM_NO: MessageKey = MessageKey::new("web-explorer-form-no");
+
+/// `web-explorer-form-no-label` in `web.ftl`.
+pub const WEB_EXPLORER_FORM_NO_LABEL: MessageKey = MessageKey::new("web-explorer-form-no-label");
+
+/// `web-explorer-form-clipped` in `web.ftl`.
+pub const WEB_EXPLORER_FORM_CLIPPED: MessageKey = MessageKey::new("web-explorer-form-clipped");
+
+/// `web-explorer-not-set` in `web.ftl`.
+pub const WEB_EXPLORER_NOT_SET: MessageKey = MessageKey::new("web-explorer-not-set");
+
+/// `web-explorer-read-only-note` in `web.ftl`.
+pub const WEB_EXPLORER_READ_ONLY_NOTE: MessageKey = MessageKey::new("web-explorer-read-only-note");
+
+/// `web-explorer-preview` in `web.ftl`.
+pub const WEB_EXPLORER_PREVIEW: MessageKey = MessageKey::new("web-explorer-preview");
+
+/// `web-explorer-execute` in `web.ftl`.
+pub const WEB_EXPLORER_EXECUTE: MessageKey = MessageKey::new("web-explorer-execute");
+
+/// `web-explorer-run` in `web.ftl`.
+pub const WEB_EXPLORER_RUN: MessageKey = MessageKey::new("web-explorer-run");
+
+/// `web-explorer-stored` in `web.ftl`.
+pub const WEB_EXPLORER_STORED: MessageKey = MessageKey::new("web-explorer-stored");
+
+/// `web-explorer-preview-title` in `web.ftl`.
+pub const WEB_EXPLORER_PREVIEW_TITLE: MessageKey = MessageKey::new("web-explorer-preview-title");
+
+/// `web-explorer-valid` in `web.ftl`.
+pub const WEB_EXPLORER_VALID: MessageKey = MessageKey::new("web-explorer-valid");
+
+/// `web-explorer-invalid` in `web.ftl`.
+pub const WEB_EXPLORER_INVALID: MessageKey = MessageKey::new("web-explorer-invalid");
+
+/// `web-explorer-method` in `web.ftl`.
+pub const WEB_EXPLORER_METHOD: MessageKey = MessageKey::new("web-explorer-method");
+
+/// `web-explorer-endpoint` in `web.ftl`.
+pub const WEB_EXPLORER_ENDPOINT: MessageKey = MessageKey::new("web-explorer-endpoint");
+
+/// `web-explorer-masked` in `web.ftl`.
+pub const WEB_EXPLORER_MASKED: MessageKey = MessageKey::new("web-explorer-masked");
+
+/// `web-explorer-stored-title` in `web.ftl`.
+pub const WEB_EXPLORER_STORED_TITLE: MessageKey = MessageKey::new("web-explorer-stored-title");
+
+/// `web-explorer-stored-none` in `web.ftl`.
+pub const WEB_EXPLORER_STORED_NONE: MessageKey = MessageKey::new("web-explorer-stored-none");
+
+/// `web-explorer-stored-more` in `web.ftl`.
+pub const WEB_EXPLORER_STORED_MORE: MessageKey = MessageKey::new("web-explorer-stored-more");
+
+/// `web-explorer-stored-note` in `web.ftl`.
+pub const WEB_EXPLORER_STORED_NOTE: MessageKey = MessageKey::new("web-explorer-stored-note");
+
+/// `web-explorer-result` in `web.ftl`.
+pub const WEB_EXPLORER_RESULT: MessageKey = MessageKey::new("web-explorer-result");
+
+/// `web-explorer-done` in `web.ftl`.
+pub const WEB_EXPLORER_DONE: MessageKey = MessageKey::new("web-explorer-done");
+
+/// `web-explorer-done-unsaved` in `web.ftl`.
+pub const WEB_EXPLORER_DONE_UNSAVED: MessageKey = MessageKey::new("web-explorer-done-unsaved");
+
+/// `web-explorer-rejected` in `web.ftl`.
+pub const WEB_EXPLORER_REJECTED: MessageKey = MessageKey::new("web-explorer-rejected");
+
+/// `web-explorer-router-said` in `web.ftl`.
+pub const WEB_EXPLORER_ROUTER_SAID: MessageKey = MessageKey::new("web-explorer-router-said");
+
+/// `web-explorer-conflict` in `web.ftl`.
+pub const WEB_EXPLORER_CONFLICT: MessageKey = MessageKey::new("web-explorer-conflict");
+
+/// `web-explorer-failed` in `web.ftl`.
+pub const WEB_EXPLORER_FAILED: MessageKey = MessageKey::new("web-explorer-failed");
+
+/// `web-explorer-not-found` in `web.ftl`.
+pub const WEB_EXPLORER_NOT_FOUND: MessageKey = MessageKey::new("web-explorer-not-found");
+
+/// `web-explorer-armed` in `web.ftl`.
+pub const WEB_EXPLORER_ARMED: MessageKey = MessageKey::new("web-explorer-armed");
+
+/// `web-explorer-download` in `web.ftl`.
+pub const WEB_EXPLORER_DOWNLOAD: MessageKey = MessageKey::new("web-explorer-download");
+
+/// `web-explorer-truncated` in `web.ftl`.
+pub const WEB_EXPLORER_TRUNCATED: MessageKey = MessageKey::new("web-explorer-truncated");
+
+/// `web-explorer-empty-response` in `web.ftl`.
+pub const WEB_EXPLORER_EMPTY_RESPONSE: MessageKey = MessageKey::new("web-explorer-empty-response");
+
+/// `web-explorer-level-message` in `web.ftl`.
+pub const WEB_EXPLORER_LEVEL_MESSAGE: MessageKey = MessageKey::new("web-explorer-level-message");
+
+/// `web-explorer-level-warning` in `web.ftl`.
+pub const WEB_EXPLORER_LEVEL_WARNING: MessageKey = MessageKey::new("web-explorer-level-warning");
+
+/// `web-explorer-level-error` in `web.ftl`.
+pub const WEB_EXPLORER_LEVEL_ERROR: MessageKey = MessageKey::new("web-explorer-level-error");
+
+/// `web-explorer-lines` in `web.ftl`.
+pub const WEB_EXPLORER_LINES: MessageKey = MessageKey::new("web-explorer-lines");
+
+/// `web-explorer-confirm` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM: MessageKey = MessageKey::new("web-explorer-confirm");
+
+/// `web-explorer-confirm-name` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_NAME: MessageKey = MessageKey::new("web-explorer-confirm-name");
+
+/// `web-explorer-confirm-name-error` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_NAME_ERROR: MessageKey =
+    MessageKey::new("web-explorer-confirm-name-error");
+
+/// `web-explorer-confirm-write-title` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_WRITE_TITLE: MessageKey =
+    MessageKey::new("web-explorer-confirm-write-title");
+
+/// `web-explorer-confirm-write-text` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_WRITE_TEXT: MessageKey =
+    MessageKey::new("web-explorer-confirm-write-text");
+
+/// `web-explorer-confirm-management-title` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_MANAGEMENT_TITLE: MessageKey =
+    MessageKey::new("web-explorer-confirm-management-title");
+
+/// `web-explorer-confirm-management-text` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_MANAGEMENT_TEXT: MessageKey =
+    MessageKey::new("web-explorer-confirm-management-text");
+
+/// `web-explorer-confirm-destructive-title` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TITLE: MessageKey =
+    MessageKey::new("web-explorer-confirm-destructive-title");
+
+/// `web-explorer-confirm-destructive-text` in `web.ftl`.
+pub const WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TEXT: MessageKey =
+    MessageKey::new("web-explorer-confirm-destructive-text");
+
+/// `web-explorer-job-title` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_TITLE: MessageKey = MessageKey::new("web-explorer-job-title");
+
+/// `web-explorer-job-started` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_STARTED: MessageKey = MessageKey::new("web-explorer-job-started");
+
+/// `web-explorer-job-running` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_RUNNING: MessageKey = MessageKey::new("web-explorer-job-running");
+
+/// `web-explorer-job-completed` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_COMPLETED: MessageKey = MessageKey::new("web-explorer-job-completed");
+
+/// `web-explorer-job-cancelled-label` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_CANCELLED_LABEL: MessageKey =
+    MessageKey::new("web-explorer-job-cancelled-label");
+
+/// `web-explorer-job-failed` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_FAILED: MessageKey = MessageKey::new("web-explorer-job-failed");
+
+/// `web-explorer-job-cancel` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_CANCEL: MessageKey = MessageKey::new("web-explorer-job-cancel");
+
+/// `web-explorer-job-stopped` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_STOPPED: MessageKey = MessageKey::new("web-explorer-job-stopped");
+
+/// `web-explorer-job-not-running` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_NOT_RUNNING: MessageKey =
+    MessageKey::new("web-explorer-job-not-running");
+
+/// `web-explorer-job-cancelled` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_CANCELLED: MessageKey = MessageKey::new("web-explorer-job-cancelled");
+
+/// `web-explorer-job-failed-text` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_FAILED_TEXT: MessageKey =
+    MessageKey::new("web-explorer-job-failed-text");
+
+/// `web-explorer-job-waiting` in `web.ftl`.
+pub const WEB_EXPLORER_JOB_WAITING: MessageKey = MessageKey::new("web-explorer-job-waiting");
+
+/// `web-explorer-jobs-unavailable` in `web.ftl`.
+pub const WEB_EXPLORER_JOBS_UNAVAILABLE: MessageKey =
+    MessageKey::new("web-explorer-jobs-unavailable");
+
+/// `web-explorer-issue-unknown-path` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_UNKNOWN_PATH: MessageKey =
+    MessageKey::new("web-explorer-issue-unknown-path");
+
+/// `web-explorer-issue-method` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_METHOD: MessageKey = MessageKey::new("web-explorer-issue-method");
+
+/// `web-explorer-issue-object` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_OBJECT: MessageKey = MessageKey::new("web-explorer-issue-object");
+
+/// `web-explorer-issue-unknown-field` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_UNKNOWN_FIELD: MessageKey =
+    MessageKey::new("web-explorer-issue-unknown-field");
+
+/// `web-explorer-issue-suggestion` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_SUGGESTION: MessageKey =
+    MessageKey::new("web-explorer-issue-suggestion");
+
+/// `web-explorer-issue-value` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_VALUE: MessageKey = MessageKey::new("web-explorer-issue-value");
+
+/// `web-explorer-issue-no` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_NO: MessageKey = MessageKey::new("web-explorer-issue-no");
+
+/// `web-explorer-issue-cli-syntax` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_CLI_SYNTAX: MessageKey =
+    MessageKey::new("web-explorer-issue-cli-syntax");
+
+/// `web-explorer-issue-cli-form` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_CLI_FORM: MessageKey = MessageKey::new("web-explorer-issue-cli-form");
+
+/// `web-explorer-issue-raw` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_RAW: MessageKey = MessageKey::new("web-explorer-issue-raw");
+
+/// `web-explorer-issue-json` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_JSON: MessageKey = MessageKey::new("web-explorer-issue-json");
+
+/// `web-explorer-issue-item` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_ITEM: MessageKey = MessageKey::new("web-explorer-issue-item");
+
+/// `web-explorer-issue-root` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_ROOT: MessageKey = MessageKey::new("web-explorer-issue-root");
+
+/// `web-explorer-issue-batch` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_BATCH: MessageKey = MessageKey::new("web-explorer-issue-batch");
+
+/// `web-explorer-issue-segment` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_SEGMENT: MessageKey = MessageKey::new("web-explorer-issue-segment");
+
+/// `web-explorer-issue-length` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_LENGTH: MessageKey = MessageKey::new("web-explorer-issue-length");
+
+/// `web-explorer-landing-empty` in `web.ftl`.
+pub const WEB_EXPLORER_LANDING_EMPTY: MessageKey = MessageKey::new("web-explorer-landing-empty");
+
+/// `web-explorer-router` in `web.ftl`.
+pub const WEB_EXPLORER_ROUTER: MessageKey = MessageKey::new("web-explorer-router");
+
+/// `web-explorer-tools` in `web.ftl`.
+pub const WEB_EXPLORER_TOOLS: MessageKey = MessageKey::new("web-explorer-tools");
+
+/// `web-console-rci-title` in `web.ftl`.
+pub const WEB_CONSOLE_RCI_TITLE: MessageKey = MessageKey::new("web-console-rci-title");
+
+/// `web-console-cli-title` in `web.ftl`.
+pub const WEB_CONSOLE_CLI_TITLE: MessageKey = MessageKey::new("web-console-cli-title");
+
+/// `web-console-method` in `web.ftl`.
+pub const WEB_CONSOLE_METHOD: MessageKey = MessageKey::new("web-console-method");
+
+/// `web-console-path` in `web.ftl`.
+pub const WEB_CONSOLE_PATH: MessageKey = MessageKey::new("web-console-path");
+
+/// `web-console-path-help` in `web.ftl`.
+pub const WEB_CONSOLE_PATH_HELP: MessageKey = MessageKey::new("web-console-path-help");
+
+/// `web-console-body` in `web.ftl`.
+pub const WEB_CONSOLE_BODY: MessageKey = MessageKey::new("web-console-body");
+
+/// `web-console-body-help` in `web.ftl`.
+pub const WEB_CONSOLE_BODY_HELP: MessageKey = MessageKey::new("web-console-body-help");
+
+/// `web-console-check` in `web.ftl`.
+pub const WEB_CONSOLE_CHECK: MessageKey = MessageKey::new("web-console-check");
+
+/// `web-console-send` in `web.ftl`.
+pub const WEB_CONSOLE_SEND: MessageKey = MessageKey::new("web-console-send");
+
+/// `web-console-valid` in `web.ftl`.
+pub const WEB_CONSOLE_VALID: MessageKey = MessageKey::new("web-console-valid");
+
+/// `web-console-line` in `web.ftl`.
+pub const WEB_CONSOLE_LINE: MessageKey = MessageKey::new("web-console-line");
+
+/// `web-console-line-help` in `web.ftl`.
+pub const WEB_CONSOLE_LINE_HELP: MessageKey = MessageKey::new("web-console-line-help");
+
+/// `web-console-unvalidated` in `web.ftl`.
+pub const WEB_CONSOLE_UNVALIDATED: MessageKey = MessageKey::new("web-console-unvalidated");
+
+/// `web-console-unvalidated-help` in `web.ftl`.
+pub const WEB_CONSOLE_UNVALIDATED_HELP: MessageKey =
+    MessageKey::new("web-console-unvalidated-help");
+
+/// `web-console-run` in `web.ftl`.
+pub const WEB_CONSOLE_RUN: MessageKey = MessageKey::new("web-console-run");
+
+/// `web-console-matched` in `web.ftl`.
+pub const WEB_CONSOLE_MATCHED: MessageKey = MessageKey::new("web-console-matched");
+
+/// `web-console-matched-raw` in `web.ftl`.
+pub const WEB_CONSOLE_MATCHED_RAW: MessageKey = MessageKey::new("web-console-matched-raw");
+
+/// `web-console-open-explorer` in `web.ftl`.
+pub const WEB_CONSOLE_OPEN_EXPLORER: MessageKey = MessageKey::new("web-console-open-explorer");
+
 /// Every message key, in catalog order.
-pub const ALL: [MessageKey; 417] = [
+pub const ALL: [MessageKey; 562] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -1706,4 +2160,149 @@ pub const ALL: [MessageKey; 417] = [
     WEB_ADMIN_SERVER_CATALOGS,
     WEB_ADMIN_SERVER_CATALOG_LINE,
     WEB_ADMIN_SERVER_CATALOG_GROUPS,
+    WEB_EXPLORER_TITLE,
+    WEB_EXPLORER_CATALOG,
+    WEB_EXPLORER_CATALOG_UNION,
+    WEB_EXPLORER_SEARCH_LABEL,
+    WEB_EXPLORER_SEARCH_EMPTY,
+    WEB_EXPLORER_RESULTS,
+    WEB_EXPLORER_RESULTS_NONE,
+    WEB_EXPLORER_RESULTS_MORE,
+    WEB_EXPLORER_GROUPS,
+    WEB_EXPLORER_PAGE_OF,
+    WEB_EXPLORER_PAGE_PREVIOUS,
+    WEB_EXPLORER_PAGE_NEXT,
+    WEB_EXPLORER_SELECT,
+    WEB_EXPLORER_UNKNOWN_COMMAND,
+    WEB_EXPLORER_UNREACHABLE,
+    WEB_EXPLORER_UNSUPPORTED,
+    WEB_EXPLORER_KIND,
+    WEB_EXPLORER_KIND_SETTING,
+    WEB_EXPLORER_KIND_SHOW,
+    WEB_EXPLORER_KIND_ACTION,
+    WEB_EXPLORER_RISK,
+    WEB_EXPLORER_RISK_READ,
+    WEB_EXPLORER_RISK_WRITE,
+    WEB_EXPLORER_RISK_MANAGEMENT,
+    WEB_EXPLORER_RISK_DESTRUCTIVE,
+    WEB_EXPLORER_BACKGROUND,
+    WEB_EXPLORER_NO_FORM,
+    WEB_EXPLORER_INTERFACE_TYPE,
+    WEB_EXPLORER_SINCE,
+    WEB_EXPLORER_CONTEXT,
+    WEB_EXPLORER_MODELS,
+    WEB_EXPLORER_MODELS_COUNT,
+    WEB_EXPLORER_MANUAL_PAGE,
+    WEB_EXPLORER_MANUAL_MODEL,
+    WEB_EXPLORER_ARGUMENTS,
+    WEB_EXPLORER_ARGUMENTS_NONE,
+    WEB_EXPLORER_ARGUMENT,
+    WEB_EXPLORER_TYPE,
+    WEB_EXPLORER_VALUES,
+    WEB_EXPLORER_TYPE_INTEGER,
+    WEB_EXPLORER_TYPE_RANGE,
+    WEB_EXPLORER_TYPE_MIN,
+    WEB_EXPLORER_TYPE_MAX,
+    WEB_EXPLORER_TYPE_ADDRESS,
+    WEB_EXPLORER_TYPE_MASK,
+    WEB_EXPLORER_TYPE_MAC,
+    WEB_EXPLORER_TYPE_OBJECT,
+    WEB_EXPLORER_TYPE_KEYWORD,
+    WEB_EXPLORER_TYPE_TEXT,
+    WEB_EXPLORER_TYPE_FLAG,
+    WEB_EXPLORER_TYPE_SECRET,
+    WEB_EXPLORER_FORM_NO,
+    WEB_EXPLORER_FORM_NO_LABEL,
+    WEB_EXPLORER_FORM_CLIPPED,
+    WEB_EXPLORER_NOT_SET,
+    WEB_EXPLORER_READ_ONLY_NOTE,
+    WEB_EXPLORER_PREVIEW,
+    WEB_EXPLORER_EXECUTE,
+    WEB_EXPLORER_RUN,
+    WEB_EXPLORER_STORED,
+    WEB_EXPLORER_PREVIEW_TITLE,
+    WEB_EXPLORER_VALID,
+    WEB_EXPLORER_INVALID,
+    WEB_EXPLORER_METHOD,
+    WEB_EXPLORER_ENDPOINT,
+    WEB_EXPLORER_MASKED,
+    WEB_EXPLORER_STORED_TITLE,
+    WEB_EXPLORER_STORED_NONE,
+    WEB_EXPLORER_STORED_MORE,
+    WEB_EXPLORER_STORED_NOTE,
+    WEB_EXPLORER_RESULT,
+    WEB_EXPLORER_DONE,
+    WEB_EXPLORER_DONE_UNSAVED,
+    WEB_EXPLORER_REJECTED,
+    WEB_EXPLORER_ROUTER_SAID,
+    WEB_EXPLORER_CONFLICT,
+    WEB_EXPLORER_FAILED,
+    WEB_EXPLORER_NOT_FOUND,
+    WEB_EXPLORER_ARMED,
+    WEB_EXPLORER_DOWNLOAD,
+    WEB_EXPLORER_TRUNCATED,
+    WEB_EXPLORER_EMPTY_RESPONSE,
+    WEB_EXPLORER_LEVEL_MESSAGE,
+    WEB_EXPLORER_LEVEL_WARNING,
+    WEB_EXPLORER_LEVEL_ERROR,
+    WEB_EXPLORER_LINES,
+    WEB_EXPLORER_CONFIRM,
+    WEB_EXPLORER_CONFIRM_NAME,
+    WEB_EXPLORER_CONFIRM_NAME_ERROR,
+    WEB_EXPLORER_CONFIRM_WRITE_TITLE,
+    WEB_EXPLORER_CONFIRM_WRITE_TEXT,
+    WEB_EXPLORER_CONFIRM_MANAGEMENT_TITLE,
+    WEB_EXPLORER_CONFIRM_MANAGEMENT_TEXT,
+    WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TITLE,
+    WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TEXT,
+    WEB_EXPLORER_JOB_TITLE,
+    WEB_EXPLORER_JOB_STARTED,
+    WEB_EXPLORER_JOB_RUNNING,
+    WEB_EXPLORER_JOB_COMPLETED,
+    WEB_EXPLORER_JOB_CANCELLED_LABEL,
+    WEB_EXPLORER_JOB_FAILED,
+    WEB_EXPLORER_JOB_CANCEL,
+    WEB_EXPLORER_JOB_STOPPED,
+    WEB_EXPLORER_JOB_NOT_RUNNING,
+    WEB_EXPLORER_JOB_CANCELLED,
+    WEB_EXPLORER_JOB_FAILED_TEXT,
+    WEB_EXPLORER_JOB_WAITING,
+    WEB_EXPLORER_JOBS_UNAVAILABLE,
+    WEB_EXPLORER_ISSUE_UNKNOWN_PATH,
+    WEB_EXPLORER_ISSUE_METHOD,
+    WEB_EXPLORER_ISSUE_OBJECT,
+    WEB_EXPLORER_ISSUE_UNKNOWN_FIELD,
+    WEB_EXPLORER_ISSUE_SUGGESTION,
+    WEB_EXPLORER_ISSUE_VALUE,
+    WEB_EXPLORER_ISSUE_NO,
+    WEB_EXPLORER_ISSUE_CLI_SYNTAX,
+    WEB_EXPLORER_ISSUE_CLI_FORM,
+    WEB_EXPLORER_ISSUE_RAW,
+    WEB_EXPLORER_ISSUE_JSON,
+    WEB_EXPLORER_ISSUE_ITEM,
+    WEB_EXPLORER_ISSUE_ROOT,
+    WEB_EXPLORER_ISSUE_BATCH,
+    WEB_EXPLORER_ISSUE_SEGMENT,
+    WEB_EXPLORER_ISSUE_LENGTH,
+    WEB_EXPLORER_LANDING_EMPTY,
+    WEB_EXPLORER_ROUTER,
+    WEB_EXPLORER_TOOLS,
+    WEB_CONSOLE_RCI_TITLE,
+    WEB_CONSOLE_CLI_TITLE,
+    WEB_CONSOLE_METHOD,
+    WEB_CONSOLE_PATH,
+    WEB_CONSOLE_PATH_HELP,
+    WEB_CONSOLE_BODY,
+    WEB_CONSOLE_BODY_HELP,
+    WEB_CONSOLE_CHECK,
+    WEB_CONSOLE_SEND,
+    WEB_CONSOLE_VALID,
+    WEB_CONSOLE_LINE,
+    WEB_CONSOLE_LINE_HELP,
+    WEB_CONSOLE_UNVALIDATED,
+    WEB_CONSOLE_UNVALIDATED_HELP,
+    WEB_CONSOLE_RUN,
+    WEB_CONSOLE_MATCHED,
+    WEB_CONSOLE_MATCHED_RAW,
+    WEB_CONSOLE_OPEN_EXPLORER,
 ];

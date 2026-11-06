@@ -1,0 +1,22 @@
+{#- The exact request the explorer form would send; nothing is sent. -#}
+<section class="preview" aria-labelledby="preview-title">
+  <h3 class="explorer__heading" id="preview-title">{{ t(keys::WEB_EXPLORER_PREVIEW_TITLE) }}</h3>
+  {%- if problems.is_empty() %}
+  <p class="notice" data-tone="success">{{ t(keys::WEB_EXPLORER_VALID) }}</p>
+  <dl class="facts preview__facts">
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_METHOD) }}</dt><dd class="mono">{{ method }}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_ENDPOINT) }}</dt><dd class="mono">{{ endpoint }}</dd></div>
+  </dl>
+  <pre class="code" tabindex="0"><code>{{ payload }}</code></pre>
+  <p class="panel__note">{{ t(keys::WEB_EXPLORER_MASKED) }}</p>
+  {%- else %}
+  <div class="notice" data-tone="error">
+    <p class="notice__title">{{ t(keys::WEB_EXPLORER_INVALID) }}</p>
+    <ul class="issues">
+      {%- for problem in problems %}
+      <li>{{ problem }}</li>
+      {%- endfor %}
+    </ul>
+  </div>
+  {%- endif %}
+</section>

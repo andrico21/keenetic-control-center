@@ -1,0 +1,24 @@
+{#- The response viewer: status messages by level, then the answer in pages; later pages start collapsed. -#}
+<div class="viewer">
+  {%- if !viewer.statuses().is_empty() %}
+  <ul class="status-list">
+    {%- for status in viewer.statuses() %}
+    <li class="status-list__item"><span class="flag" data-tone="{{ status.tone() }}">{{ t(status.level()) }}</span> <span class="status-list__message">{{ status.message() }}</span> <span class="status-list__source">{{ status.source() }}{% if !status.pointer().is_empty() %} {{ status.pointer() }}{% endif %}</span></li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- if viewer.empty() %}
+  <p class="panel__note">{{ t(keys::WEB_EXPLORER_EMPTY_RESPONSE) }}</p>
+  {%- else %}
+  {%- for chunk in viewer.chunks() %}
+  {%- if chunk.open() %}
+  <pre class="code" tabindex="0"><code>{{ chunk.text() }}</code></pre>
+  {%- else %}
+  <details class="viewer__page"><summary class="viewer__summary">{{ chunk.label() }}</summary><pre class="code" tabindex="0"><code>{{ chunk.text() }}</code></pre></details>
+  {%- endif %}
+  {%- endfor %}
+  {%- if viewer.truncated() %}
+  <p class="panel__note">{{ t(keys::WEB_EXPLORER_TRUNCATED) }}</p>
+  {%- endif %}
+  {%- endif %}
+</div>

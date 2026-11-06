@@ -260,7 +260,27 @@ mod tests {
     fn all_arguments() -> FluentArgs<'static> {
         let mut args = FluentArgs::new();
         for name in [
-            "user", "name", "url", "model", "version", "path", "field", "value",
+            "user",
+            "name",
+            "url",
+            "model",
+            "version",
+            "path",
+            "field",
+            "value",
+            "page",
+            "pages",
+            "min",
+            "max",
+            "first",
+            "last",
+            "router",
+            "method",
+            "suggestion",
+            "line",
+            "column",
+            "index",
+            "issue",
         ] {
             args.set(name, "x");
         }

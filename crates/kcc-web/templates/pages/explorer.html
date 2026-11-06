@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_EXPLORER_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page explorer-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_EXPLORER_TITLE) }}</h1>
+    {%- if consoles %}
+    <div class="page-head__actions">
+      <a class="button button--ghost" href="/ui/r/{{ router }}/console/rci">{{ t(keys::WEB_CONSOLE_RCI_TITLE) }}</a>
+      <a class="button button--ghost" href="/ui/r/{{ router }}/console/cli">{{ t(keys::WEB_CONSOLE_CLI_TITLE) }}</a>
+    </div>
+    {%- endif %}
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a>{% if !catalog_note.is_empty() %} <span>{{ catalog_note }}</span>{% endif %}</p>
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- else %}
+  <div class="explorer">
+    <div class="explorer__find">
+      <form class="explorer__search" role="search" method="get" action="/ui/r/{{ router }}/explorer">
+        <label class="field__label" for="explorer-q">{{ t(keys::WEB_EXPLORER_SEARCH_LABEL) }}</label>
+        <input class="field__input" id="explorer-q" name="q" type="search" value="{{ query }}" autocomplete="off" spellcheck="false" hx-get="/ui/r/{{ router }}/explorer/search" hx-trigger="input changed delay:300ms, search" hx-target="#explorer-results" hx-sync="this:replace">
+      </form>
+      <div class="explorer__results" id="explorer-results" aria-live="polite">
+        {%- if let Some(results) = results %}
+        {%- include "partials/explorer_results.html" %}
+        {%- endif %}
+      </div>
+    </div>
+    <div class="explorer__main" id="explorer-detail">
+      {%- if let Some(detail) = detail %}
+      {%- include "partials/explorer_command.html" %}
+      {%- else %}
+      <p class="explorer__empty">{{ t(keys::WEB_EXPLORER_SELECT) }}</p>
+      {%- endif %}
+    </div>
+    <nav class="explorer__groups" aria-labelledby="explorer-groups-title">
+      <h2 class="explorer__heading" id="explorer-groups-title">{{ t(keys::WEB_EXPLORER_GROUPS) }}</h2>
+      <ul class="tree">
+        {%- for group in groups %}
+        <li><details class="tree__group" hx-get="/ui/r/{{ router }}/explorer/group?prefix={{ group.query }}" hx-trigger="toggle once" hx-target="find .tree__items"><summary class="tree__summary"><span class="mono">{{ group.word }}</span> <span class="tree__count">{{ group.count }}</span></summary><div class="tree__items"></div></details></li>
+        {%- endfor %}
+      </ul>
+    </nav>
+  </div>
+  {%- endif %}
+</div>
+{%- endblock %}

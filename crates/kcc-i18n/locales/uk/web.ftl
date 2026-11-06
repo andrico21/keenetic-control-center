@@ -328,3 +328,173 @@ web-admin-server-stopped = Зупинено
 web-admin-server-catalogs = Каталоги команд
 web-admin-server-catalog-line = Лінійка прошивки
 web-admin-server-catalog-groups = Групи команд
+# todo 42
+web-explorer-title = Оглядач команд
+web-explorer-catalog = Каталог команд { $version } для { $model }
+web-explorer-catalog-union = Каталог команд { $version }, усі моделі
+web-explorer-search-label = Пошук команд
+web-explorer-search-empty = Введіть слово, щоб знайти команду в каталозі.
+web-explorer-results =
+    { $count ->
+        [one] { $count } команда
+        [few] { $count } команди
+        [many] { $count } команд
+       *[other] { $count } команди
+    }
+web-explorer-results-none = Команд не знайдено. Спробуйте інше слово або відкрийте групу.
+web-explorer-results-more = Знайдено більше команд. Уточніть запит.
+web-explorer-groups = Групи команд
+web-explorer-page-of = Сторінка { $page } з { $pages }
+web-explorer-page-previous = Назад
+web-explorer-page-next = Далі
+web-explorer-select = Знайдіть команду або відкрийте групу, потім виберіть команду, щоб побачити її опис і форму.
+web-explorer-unknown-command = У каталозі роутера немає такої команди.
+web-explorer-unreachable = Роутер не відповів, тому kcc не може вибрати його каталог команд. Перевірте підключення та оновіть сторінку.
+web-explorer-unsupported = Прошивка роутера старіша за найраніший задокументований каталог (4.3).
+web-explorer-kind = Тип
+web-explorer-kind-setting = Налаштування
+web-explorer-kind-show = Перегляд
+web-explorer-kind-action = Дія
+web-explorer-risk = Ризик
+web-explorer-risk-read = Лише читання
+web-explorer-risk-write = Зміна конфігурації
+web-explorer-risk-management = Зміна керування
+web-explorer-risk-destructive = Незворотна дія
+web-explorer-background = виконується у фоні
+web-explorer-no-form = Форма «no»
+web-explorer-interface-type = Тип інтерфейсу
+web-explorer-since = З версії прошивки
+web-explorer-context = Контекст CLI
+web-explorer-models = Моделі
+web-explorer-models-count =
+    { $count ->
+        [one] { $count } модель
+        [few] { $count } моделі
+        [many] { $count } моделей
+       *[other] { $count } моделі
+    }
+web-explorer-manual-page = Офіційний посібник, сторінка { $page } (PDF)
+web-explorer-manual-model = Посібник для { $model } (PDF)
+web-explorer-arguments = Аргументи
+web-explorer-arguments-none = Ця команда не має аргументів.
+web-explorer-argument = Аргумент
+web-explorer-type = Тип
+web-explorer-values = Ключові слова
+web-explorer-type-integer = Ціле число
+web-explorer-type-range = Ціле число від { $min } до { $max }
+web-explorer-type-min = Ціле число, не менше { $min }
+web-explorer-type-max = Ціле число, не більше { $max }
+web-explorer-type-address = IP-адреса
+web-explorer-type-mask = Маска IPv4, наприклад 255.255.255.0
+web-explorer-type-mac = MAC-адреса, наприклад 02:00:00:00:00:01
+web-explorer-type-object = Ім'я інтерфейсу або об'єкта, до 64 символів
+web-explorer-type-keyword = Одне з наведених ключових слів
+web-explorer-type-text = Текст
+web-explorer-type-flag = Якщо позначено, надсилається ключове слово
+web-explorer-type-secret = Секрет: надсилається на роутер, але ніколи не показується й не записується в журнали
+web-explorer-form-no = Надсилає форму команди «no», яка видаляє або вимикає налаштування.
+web-explorer-form-no-label = Використати форму «no»
+web-explorer-form-clipped = Глибші підкоманди не показано. Відкрийте їх із груп.
+web-explorer-not-set = Не задано
+web-explorer-read-only-note = Ваша роль дозволяє переглянути запит цієї команди, але не виконати її.
+web-explorer-preview = Попередній перегляд запиту
+web-explorer-execute = Виконати команду
+web-explorer-run = Виконати
+web-explorer-stored = Як роутер зберігає цю команду
+web-explorer-preview-title = Попередній перегляд запиту
+web-explorer-valid = Запит проходить перевірку за каталогом.
+web-explorer-invalid = Запит не надіслано: він не проходить перевірку за каталогом.
+web-explorer-method = Метод
+web-explorer-endpoint = Адреса
+web-explorer-masked = Значення секретів приховано.
+web-explorer-stored-title = Рядки в поточній конфігурації
+web-explorer-stored-none = У поточній конфігурації немає рядків цієї команди.
+web-explorer-stored-more =
+    { $count ->
+        [one] Ще { $count } рядок не показано.
+        [few] Ще { $count } рядки не показано.
+        [many] Ще { $count } рядків не показано.
+       *[other] Ще { $count } рядка не показано.
+    }
+web-explorer-stored-note = Секрети приховано.
+web-explorer-result = Результат
+web-explorer-done = Команду виконано.
+web-explorer-done-unsaved = Команду виконано. Зміну застосовано, але ще не збережено.
+web-explorer-rejected = Роутер відхилив запит.
+web-explorer-router-said = Відповідь роутера
+web-explorer-conflict = Роутер змінили з іншого сеансу після завантаження сторінки. Оновіть її та перевірте зміни, перш ніж знову виконувати команду.
+web-explorer-failed = Не вдалося виконати команду. Повторіть спробу.
+web-explorer-not-found = Роутер не має такого ресурсу.
+web-explorer-armed = Роутер перестав відповідати під час зміни керування. Його таймер fail-safe відновить збережену конфігурацію протягом { $minutes } хв.
+web-explorer-download = Завантажити відповідь повністю
+web-explorer-truncated = Відповідь більша, ніж уміщується на сторінці. Завантажте її, щоб побачити повністю.
+web-explorer-empty-response = Роутер повернув порожню відповідь.
+web-explorer-level-message = Повідомлення
+web-explorer-level-warning = Попередження
+web-explorer-level-error = Помилка
+web-explorer-lines = Рядки { $first }-{ $last }
+web-explorer-confirm = Виконати команду
+web-explorer-confirm-name = Ім'я роутера
+web-explorer-confirm-name-error = Ім'я не збігається. Введіть { $router } точно.
+web-explorer-confirm-write-title = Виконати цю команду?
+web-explorer-confirm-write-text = Команда змінить поточну конфігурацію роутера { $router }. Спершу kcc створить резервну копію збереженої конфігурації. Зміна залишиться незбереженою, доки ви її не збережете.
+web-explorer-confirm-management-title = Змінити доступ kcc до роутера?
+web-explorer-confirm-management-text = Ця команда може відключити kcc від роутера { $router }. Перед виконанням kcc вмикає на роутері таймер fail-safe на { $minutes } хв.: якщо роутер перестане відповідати, після спливання таймера він відновить збережену конфігурацію. Якщо роутер і далі відповідає, kcc вимикає таймер, а зміна залишається незбереженою.
+web-explorer-confirm-destructive-title = Виконати незворотну команду?
+web-explorer-confirm-destructive-text = Ця команда може видалити дані або перезавантажити роутер { $router }, і її неможливо скасувати. Щоб підтвердити, введіть ім'я роутера.
+web-explorer-job-title = Фонова команда
+web-explorer-job-started = Команда виконується у фоні.
+web-explorer-job-running = Виконується
+web-explorer-job-completed = Завершено
+web-explorer-job-cancelled-label = Зупинено
+web-explorer-job-failed = Помилка
+web-explorer-job-cancel = Зупинити
+web-explorer-job-stopped = Команду зупинено.
+web-explorer-job-not-running = Команда вже не виконується.
+web-explorer-job-cancelled = Команду зупинено до завершення.
+web-explorer-job-failed-text = Команда не завершилася. Перевірте роутер і повторіть спробу.
+web-explorer-job-waiting = Результат з'явиться, коли роутер завершить команду.
+web-explorer-jobs-unavailable = Для фонових команд потрібна служба завдань, але її не налаштовано.
+web-explorer-issue-unknown-path = Невідома команда: { $path }
+web-explorer-issue-method = Ця команда не приймає запити { $method }.
+web-explorer-issue-object = { $field }: очікується об'єкт з іменованими полями, а не список чи окреме значення.
+web-explorer-issue-unknown-field = { $field }: невідоме поле.
+web-explorer-issue-suggestion = { $field }: невідоме поле. Можливо, малося на увазі { $suggestion }?
+web-explorer-issue-value = { $field }: неприпустиме значення.
+web-explorer-issue-no = Ця команда не має форми «no».
+web-explorer-issue-cli-syntax = Введіть одну команду без лапок, зворотної скісної риски, «;» і «|», по одному слову на аргумент.
+web-explorer-issue-cli-form = Посібник описує кілька форм команди { $path }. Скористайтеся формою оглядача команд.
+web-explorer-issue-raw = Невідома команда. Надіслати її може лише адміністратор, позначивши «Надіслати без перевірки за каталогом».
+web-explorer-issue-json = Тіло запиту не є коректним JSON (рядок { $line }, позиція { $column }).
+web-explorer-issue-item = Елемент { $index }: { $issue }
+web-explorer-issue-root = Коренева адреса приймає POST з об'єктом або зі списком об'єктів як один пакет.
+web-explorer-issue-batch = У пакеті має бути від 1 до { $count } об'єктів.
+web-explorer-issue-segment = { $path } не можна вказати в URL. Надішліть запит методом POST на кореневу адресу.
+web-explorer-issue-length = Запит порожній або задовгий.
+web-explorer-landing-empty = Немає доступних роутерів.
+web-explorer-router = Роутер
+web-explorer-tools = Інструменти
+web-console-rci-title = Консоль RCI
+web-console-cli-title = Консоль CLI
+web-console-method = Метод
+web-console-path = Шлях команди
+web-console-path-help = Шлях з каталогу через пробіл, наприклад ip hotspot host. Залиште порожнім, щоб надіслати запит на кореневу адресу.
+web-console-body = Тіло запиту (JSON)
+web-console-body-help = Об'єкт. На кореневу адресу список об'єктів надсилається одним пакетом.
+web-console-check = Перевірити
+web-console-send = Надіслати
+web-console-valid =
+    { $count ->
+        [one] Запит проходить перевірку за каталогом.
+        [few] Усі { $count } запити проходять перевірку за каталогом.
+        [many] Усі { $count } запитів проходять перевірку за каталогом.
+       *[other] Усі { $count } запиту проходять перевірку за каталогом.
+    }
+web-console-line = Командний рядок
+web-console-line-help = Одна команда в тому вигляді, у якому її вводять у CLI роутера. kcc зіставляє її з командою каталогу й надсилає через parse.
+web-console-unvalidated = Надіслати без перевірки за каталогом
+web-console-unvalidated-help = Лише для адміністраторів. Використовуйте для команд, яких немає в каталозі; запит записується в журнал аудиту.
+web-console-run = Виконати
+web-console-matched = Команда каталогу: { $path }
+web-console-matched-raw = Немає в каталозі. Надсилається без перевірки.
+web-console-open-explorer = Відкрити в оглядачі команд

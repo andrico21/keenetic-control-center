@@ -243,6 +243,7 @@ fn requirement(path: &str) -> Requirement {
         value if value.starts_with("/ui/advanced") => Permission::RawRci,
         value if value.starts_with("/ui/routers") => Permission::ManageRouters,
         value if router.is_some() && value.ends_with("/save") => Permission::Save,
+        value if router_section(value) == Some("console") => Permission::RawRci,
         _ => Permission::Read,
     };
     Requirement { permission, router }
@@ -263,6 +264,21 @@ fn router_scope(path: &str) -> Option<String> {
         return None;
     };
     (!router.is_empty()).then(|| router.to_owned())
+}
+
+/// The route family after the router id in `/ui/r/{router}/{section}/...`, such as
+/// `explorer` (route table: `Read`; executions re-check their risk) or `console`.
+fn router_section(path: &str) -> Option<&str> {
+    let mut segments = path.trim_start_matches('/').split('/');
+    let (Some("ui"), Some("r"), Some(_router), Some(section)) = (
+        segments.next(),
+        segments.next(),
+        segments.next(),
+        segments.next(),
+    ) else {
+        return None;
+    };
+    Some(section)
 }
 
 #[cfg(test)]

@@ -328,3 +328,173 @@ web-admin-server-stopped = Спынены
 web-admin-server-catalogs = Каталогі каманд
 web-admin-server-catalog-line = Лінейка прашыўкі
 web-admin-server-catalog-groups = Групы каманд
+# todo 42
+web-explorer-title = Аглядальнік каманд
+web-explorer-catalog = Каталог каманд { $version } для { $model }
+web-explorer-catalog-union = Каталог каманд { $version }, усе мадэлі
+web-explorer-search-label = Пошук каманд
+web-explorer-search-empty = Увядзіце слова, каб знайсці каманду ў каталогу.
+web-explorer-results =
+    { $count ->
+        [one] { $count } каманда
+        [few] { $count } каманды
+        [many] { $count } каманд
+       *[other] { $count } каманды
+    }
+web-explorer-results-none = Каманд не знойдзена. Паспрабуйце іншае слова або адкрыйце групу.
+web-explorer-results-more = Знойдзена больш каманд. Удакладніце запыт.
+web-explorer-groups = Групы каманд
+web-explorer-page-of = Старонка { $page } з { $pages }
+web-explorer-page-previous = Назад
+web-explorer-page-next = Далей
+web-explorer-select = Знайдзіце каманду або адкрыйце групу, потым выберыце каманду, каб убачыць яе апісанне і форму.
+web-explorer-unknown-command = У каталогу роўтара няма такой каманды.
+web-explorer-unreachable = Роўтар не адказаў, таму kcc не можа выбраць яго каталог каманд. Праверце падключэнне і абнавіце старонку.
+web-explorer-unsupported = Прашыўка роўтара старэйшая за самы ранні задакументаваны каталог (4.3).
+web-explorer-kind = Тып
+web-explorer-kind-setting = Налада
+web-explorer-kind-show = Прагляд
+web-explorer-kind-action = Дзеянне
+web-explorer-risk = Рызыка
+web-explorer-risk-read = Толькі чытанне
+web-explorer-risk-write = Змяненне канфігурацыі
+web-explorer-risk-management = Змяненне кіравання
+web-explorer-risk-destructive = Незваротнае дзеянне
+web-explorer-background = выконваецца ў фоне
+web-explorer-no-form = Форма «no»
+web-explorer-interface-type = Тып інтэрфейсу
+web-explorer-since = З версіі прашыўкі
+web-explorer-context = Кантэкст CLI
+web-explorer-models = Мадэлі
+web-explorer-models-count =
+    { $count ->
+        [one] { $count } мадэль
+        [few] { $count } мадэлі
+        [many] { $count } мадэлей
+       *[other] { $count } мадэлі
+    }
+web-explorer-manual-page = Афіцыйнае кіраўніцтва, старонка { $page } (PDF)
+web-explorer-manual-model = Кіраўніцтва для { $model } (PDF)
+web-explorer-arguments = Аргументы
+web-explorer-arguments-none = У гэтай каманды няма аргументаў.
+web-explorer-argument = Аргумент
+web-explorer-type = Тып
+web-explorer-values = Ключавыя словы
+web-explorer-type-integer = Цэлы лік
+web-explorer-type-range = Цэлы лік ад { $min } да { $max }
+web-explorer-type-min = Цэлы лік, не менш за { $min }
+web-explorer-type-max = Цэлы лік, не больш за { $max }
+web-explorer-type-address = IP-адрас
+web-explorer-type-mask = Маска IPv4, напрыклад 255.255.255.0
+web-explorer-type-mac = MAC-адрас, напрыклад 02:00:00:00:00:01
+web-explorer-type-object = Імя інтэрфейсу або аб'екта, да 64 знакаў
+web-explorer-type-keyword = Адно з пералічаных ключавых слоў
+web-explorer-type-text = Тэкст
+web-explorer-type-flag = Калі адзначана, адпраўляецца ключавое слова
+web-explorer-type-secret = Сакрэт: адпраўляецца на роўтар, але ніколі не паказваецца і не запісваецца ў журналы
+web-explorer-form-no = Адпраўляе форму каманды «no», якая выдаляе або адключае наладу.
+web-explorer-form-no-label = Выкарыстаць форму «no»
+web-explorer-form-clipped = Больш глыбокія падкаманды не паказаны. Адкрыйце іх з груп.
+web-explorer-not-set = Не зададзена
+web-explorer-read-only-note = Ваша роля дазваляе праглядзець запыт гэтай каманды, але не выканаць яе.
+web-explorer-preview = Папярэдні прагляд запыту
+web-explorer-execute = Выканаць каманду
+web-explorer-run = Выканаць
+web-explorer-stored = Як роўтар захоўвае гэтую каманду
+web-explorer-preview-title = Папярэдні прагляд запыту
+web-explorer-valid = Запыт праходзіць праверку па каталогу.
+web-explorer-invalid = Запыт не адпраўлены: ён не праходзіць праверку па каталогу.
+web-explorer-method = Метад
+web-explorer-endpoint = Адрас
+web-explorer-masked = Значэнні сакрэтаў схаваныя.
+web-explorer-stored-title = Радкі ў бягучай канфігурацыі
+web-explorer-stored-none = У бягучай канфігурацыі няма радкоў гэтай каманды.
+web-explorer-stored-more =
+    { $count ->
+        [one] Яшчэ { $count } радок не паказаны.
+        [few] Яшчэ { $count } радкі не паказаны.
+        [many] Яшчэ { $count } радкоў не паказана.
+       *[other] Яшчэ { $count } радка не паказана.
+    }
+web-explorer-stored-note = Сакрэты схаваныя.
+web-explorer-result = Вынік
+web-explorer-done = Каманда выканана.
+web-explorer-done-unsaved = Каманда выканана. Змяненне ўжыта, але яшчэ не захавана.
+web-explorer-rejected = Роўтар адхіліў запыт.
+web-explorer-router-said = Адказ роўтара
+web-explorer-conflict = Роўтар змянілі з іншага сеанса пасля загрузкі старонкі. Абнавіце яе і праверце змены, перш чым зноў выконваць каманду.
+web-explorer-failed = Не ўдалося выканаць каманду. Паспрабуйце яшчэ раз.
+web-explorer-not-found = У роўтара няма такога рэсурсу.
+web-explorer-armed = Роўтар перастаў адказваць падчас змянення кіравання. Яго таймер fail-safe адновіць захаваную канфігурацыю на працягу { $minutes } хв.
+web-explorer-download = Спампаваць адказ цалкам
+web-explorer-truncated = Адказ большы, чым змяшчаецца на старонцы. Спампуйце яго, каб убачыць цалкам.
+web-explorer-empty-response = Роўтар вярнуў пусты адказ.
+web-explorer-level-message = Паведамленне
+web-explorer-level-warning = Папярэджанне
+web-explorer-level-error = Памылка
+web-explorer-lines = Радкі { $first }-{ $last }
+web-explorer-confirm = Выканаць каманду
+web-explorer-confirm-name = Імя роўтара
+web-explorer-confirm-name-error = Імя не супадае. Увядзіце { $router } дакладна.
+web-explorer-confirm-write-title = Выканаць гэтую каманду?
+web-explorer-confirm-write-text = Каманда зменіць бягучую канфігурацыю роўтара { $router }. Спачатку kcc зробіць рэзервовую копію захаванай канфігурацыі. Змяненне застанецца незахаваным, пакуль вы яго не захаваеце.
+web-explorer-confirm-management-title = Змяніць доступ kcc да роўтара?
+web-explorer-confirm-management-text = Гэтая каманда можа адключыць kcc ад роўтара { $router }. Перад выкананнем kcc уключае на роўтары таймер fail-safe на { $minutes } хв.: калі роўтар перастане адказваць, пасля заканчэння таймера ён адновіць захаваную канфігурацыю. Калі роўтар працягвае адказваць, kcc выключае таймер, а змяненне застаецца незахаваным.
+web-explorer-confirm-destructive-title = Выканаць незваротную каманду?
+web-explorer-confirm-destructive-text = Гэтая каманда можа выдаліць даныя або перазагрузіць роўтар { $router }, і яе нельга адмяніць. Каб пацвердзіць, увядзіце імя роўтара.
+web-explorer-job-title = Фонавая каманда
+web-explorer-job-started = Каманда выконваецца ў фоне.
+web-explorer-job-running = Выконваецца
+web-explorer-job-completed = Завершана
+web-explorer-job-cancelled-label = Спынена
+web-explorer-job-failed = Памылка
+web-explorer-job-cancel = Спыніць
+web-explorer-job-stopped = Каманда спынена.
+web-explorer-job-not-running = Каманда ўжо не выконваецца.
+web-explorer-job-cancelled = Каманда спынена да завяршэння.
+web-explorer-job-failed-text = Каманда не завяршылася. Праверце роўтар і паспрабуйце яшчэ раз.
+web-explorer-job-waiting = Вынік з'явіцца, калі роўтар завершыць каманду.
+web-explorer-jobs-unavailable = Для фонавых каманд патрэбна служба заданняў, але яна не наладжана.
+web-explorer-issue-unknown-path = Невядомая каманда: { $path }
+web-explorer-issue-method = Гэтая каманда не прымае запыты { $method }.
+web-explorer-issue-object = { $field }: чакаецца аб'ект з іменаванымі палямі, а не спіс ці асобнае значэнне.
+web-explorer-issue-unknown-field = { $field }: невядомае поле.
+web-explorer-issue-suggestion = { $field }: невядомае поле. Магчыма, мелася на ўвазе { $suggestion }?
+web-explorer-issue-value = { $field }: недапушчальнае значэнне.
+web-explorer-issue-no = У гэтай каманды няма формы «no».
+web-explorer-issue-cli-syntax = Увядзіце адну каманду без двукоссяў, адваротнай касой рысы, «;» і «|», па адным слове на аргумент.
+web-explorer-issue-cli-form = Кіраўніцтва апісвае некалькі форм каманды { $path }. Скарыстайцеся формай аглядальніка каманд.
+web-explorer-issue-raw = Невядомая каманда. Адправіць яе можа толькі адміністратар, адзначыўшы «Адправіць без праверкі па каталогу».
+web-explorer-issue-json = Цела запыту не з'яўляецца карэктным JSON (радок { $line }, пазіцыя { $column }).
+web-explorer-issue-item = Элемент { $index }: { $issue }
+web-explorer-issue-root = Каранёвы адрас прымае POST з аб'ектам або са спісам аб'ектаў як адзін пакет.
+web-explorer-issue-batch = У пакеце павінна быць ад 1 да { $count } аб'ектаў.
+web-explorer-issue-segment = { $path } нельга ўказаць у URL. Адпраўце запыт метадам POST на каранёвы адрас.
+web-explorer-issue-length = Запыт пусты або занадта доўгі.
+web-explorer-landing-empty = Няма даступных роўтараў.
+web-explorer-router = Роўтар
+web-explorer-tools = Інструменты
+web-console-rci-title = Кансоль RCI
+web-console-cli-title = Кансоль CLI
+web-console-method = Метад
+web-console-path = Шлях каманды
+web-console-path-help = Шлях з каталога праз прабел, напрыклад ip hotspot host. Пакіньце пустым, каб адправіць запыт на каранёвы адрас.
+web-console-body = Цела запыту (JSON)
+web-console-body-help = Аб'ект. На каранёвы адрас спіс аб'ектаў адпраўляецца адным пакетам.
+web-console-check = Праверыць
+web-console-send = Адправіць
+web-console-valid =
+    { $count ->
+        [one] Запыт праходзіць праверку па каталогу.
+        [few] Усе { $count } запыты праходзяць праверку па каталогу.
+        [many] Усе { $count } запытаў праходзяць праверку па каталогу.
+       *[other] Усе { $count } запыту праходзяць праверку па каталогу.
+    }
+web-console-line = Камандны радок
+web-console-line-help = Адна каманда ў тым выглядзе, у якім яе ўводзяць у CLI роўтара. kcc супастаўляе яе з камандай каталога і адпраўляе праз parse.
+web-console-unvalidated = Адправіць без праверкі па каталогу
+web-console-unvalidated-help = Толькі для адміністратараў. Выкарыстоўвайце для каманд, якіх няма ў каталогу; запыт запісваецца ў журнал аўдыту.
+web-console-run = Выканаць
+web-console-matched = Каманда каталога: { $path }
+web-console-matched-raw = Няма ў каталогу. Адпраўляецца без праверкі.
+web-console-open-explorer = Адкрыць у аглядальніку каманд

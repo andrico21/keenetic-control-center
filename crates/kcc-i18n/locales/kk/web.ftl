@@ -326,3 +326,165 @@ web-admin-server-stopped = Тоқтатылған
 web-admin-server-catalogs = Командалар каталогтары
 web-admin-server-catalog-line = Микробағдарлама желісі
 web-admin-server-catalog-groups = Командалар топтары
+# todo 42
+web-explorer-title = Командалар шолғышы
+web-explorer-catalog = { $model } үшін { $version } командалар каталогы
+web-explorer-catalog-union = { $version } командалар каталогы, барлық модельдер
+web-explorer-search-label = Командаларды іздеу
+web-explorer-search-empty = Каталогтан іздеу үшін сөз енгізіңіз.
+web-explorer-results =
+    { $count ->
+        [one] { $count } команда
+       *[other] { $count } команда
+    }
+web-explorer-results-none = Сәйкес команда жоқ. Басқа сөзді қолданып көріңіз немесе топты ашыңыз.
+web-explorer-results-more = Тағы командалар сәйкес келеді. Іздеуді нақтылау үшін сөз қосыңыз.
+web-explorer-groups = Команда топтары
+web-explorer-page-of = { $pages } беттің { $page }-беті
+web-explorer-page-previous = Артқа
+web-explorer-page-next = Келесі
+web-explorer-select = Команданы іздеңіз немесе топты ашыңыз, содан кейін сипаттамасы мен пішінін көру үшін команданы таңдаңыз.
+web-explorer-unknown-command = Роутер каталогында мұндай команда жоқ.
+web-explorer-unreachable = Роутер жауап бермеді, сондықтан kcc оның командалар каталогын таңдай алмайды. Қосылымды тексеріп, бетті жаңартыңыз.
+web-explorer-unsupported = Роутердің микробағдарламасы ең ерте құжатталған каталогтан (4.3) ескі.
+web-explorer-kind = Түрі
+web-explorer-kind-setting = Баптау
+web-explorer-kind-show = Қарау
+web-explorer-kind-action = Әрекет
+web-explorer-risk = Тәуекел
+web-explorer-risk-read = Тек оқу
+web-explorer-risk-write = Конфигурацияны өзгерту
+web-explorer-risk-management = Басқару қолжетімділігін өзгерту
+web-explorer-risk-destructive = Қайтарылмайтын әрекет
+web-explorer-background = фонда орындалады
+web-explorer-no-form = «no» пішіні
+web-explorer-interface-type = Интерфейс түрі
+web-explorer-since = Микробағдарлама нұсқасынан бастап
+web-explorer-context = CLI контексі
+web-explorer-models = Модельдер
+web-explorer-models-count =
+    { $count ->
+        [one] { $count } модель
+       *[other] { $count } модель
+    }
+web-explorer-manual-page = Ресми нұсқаулық, { $page }-бет (PDF)
+web-explorer-manual-model = { $model } нұсқаулығы (PDF)
+web-explorer-arguments = Аргументтер
+web-explorer-arguments-none = Бұл команданың аргументтері жоқ.
+web-explorer-argument = Аргумент
+web-explorer-type = Түрі
+web-explorer-values = Кілт сөздер
+web-explorer-type-integer = Бүтін сан
+web-explorer-type-range = { $min } мен { $max } аралығындағы бүтін сан
+web-explorer-type-min = Кемінде { $min } бүтін сан
+web-explorer-type-max = Ең көбі { $max } бүтін сан
+web-explorer-type-address = IP мекенжайы
+web-explorer-type-mask = IPv4 маскасы, мысалы 255.255.255.0
+web-explorer-type-mac = MAC мекенжайы, мысалы 02:00:00:00:00:01
+web-explorer-type-object = Интерфейс немесе нысан атауы, 64 таңбаға дейін
+web-explorer-type-keyword = Тізімдегі кілт сөздердің бірі
+web-explorer-type-text = Мәтін
+web-explorer-type-flag = Белгіленсе, кілт сөз жіберіледі
+web-explorer-type-secret = Құпия: роутерге жіберіледі, бірақ ешқашан көрсетілмейді және журналға жазылмайды
+web-explorer-form-no = Баптауды жоятын немесе өшіретін команданың «no» пішінін жібереді.
+web-explorer-form-no-label = «no» пішінін қолдану
+web-explorer-form-clipped = Тереңірек ішкі командалар көрсетілмеді. Оларды топтардан ашыңыз.
+web-explorer-not-set = Орнатылмаған
+web-explorer-read-only-note = Рөліңіз бұл команданың сұрауын алдын ала қарауға мүмкіндік береді, бірақ орындауға емес.
+web-explorer-preview = Сұрауды алдын ала қарау
+web-explorer-execute = Команданы орындау
+web-explorer-run = Орындау
+web-explorer-stored = Роутер бұл команданы қалай сақтайды
+web-explorer-preview-title = Сұрауды алдын ала қарау
+web-explorer-valid = Сұрау каталог бойынша тексерістен өтеді.
+web-explorer-invalid = Сұрау жіберілмеді: ол каталог бойынша тексерістен өтпейді.
+web-explorer-method = Әдіс
+web-explorer-endpoint = Мекенжай
+web-explorer-masked = Құпия мәндер жасырылған.
+web-explorer-stored-title = Ағымдағы конфигурациядағы жолдар
+web-explorer-stored-none = Ағымдағы конфигурацияда бұл команданың жолы жоқ.
+web-explorer-stored-more =
+    { $count ->
+        [one] Тағы { $count } жол көрсетілмеді.
+       *[other] Тағы { $count } жол көрсетілмеді.
+    }
+web-explorer-stored-note = Құпиялар жасырылған.
+web-explorer-result = Нәтиже
+web-explorer-done = Команда орындалды.
+web-explorer-done-unsaved = Команда орындалды. Өзгеріс қолданылды, бірақ әлі сақталмады.
+web-explorer-rejected = Роутер сұрауды қабылдамады.
+web-explorer-router-said = Роутер жауабы
+web-explorer-conflict = Бет жүктелгеннен кейін роутерді басқа сеанс өзгертті. Команданы қайта орындамас бұрын бетті жаңартып, өзгерістерді тексеріңіз.
+web-explorer-failed = Команданы орындау мүмкін болмады. Қайталап көріңіз.
+web-explorer-not-found = Роутерде мұндай ресурс жоқ.
+web-explorer-armed = Басқару қолжетімділігін өзгерту кезінде роутер жауап беруді тоқтатты. Оның fail-safe таймері сақталған конфигурацияны { $minutes } минут ішінде қалпына келтіреді.
+web-explorer-download = Жауапты толық жүктеп алу
+web-explorer-truncated = Жауап бетке сыйғаннан үлкен. Толық көру үшін оны жүктеп алыңыз.
+web-explorer-empty-response = Роутер бос жауап қайтарды.
+web-explorer-level-message = Хабарлама
+web-explorer-level-warning = Ескерту
+web-explorer-level-error = Қате
+web-explorer-lines = { $first }-{ $last } жолдар
+web-explorer-confirm = Команданы орындау
+web-explorer-confirm-name = Роутер атауы
+web-explorer-confirm-name-error = Атау сәйкес келмейді. { $router } атауын дәл енгізіңіз.
+web-explorer-confirm-write-title = Осы команданы орындау керек пе?
+web-explorer-confirm-write-text = Команда { $router } роутерінің ағымдағы конфигурациясын өзгертеді. Алдымен kcc сақталған конфигурацияның сақтық көшірмесін жасайды. Өзгерісті сақтамайынша ол сақталмаған күйде қалады.
+web-explorer-confirm-management-title = kcc-тің роутерге қолжетімділігін өзгерту керек пе?
+web-explorer-confirm-management-text = Бұл команда kcc-ті { $router } роутерінен ажыратуы мүмкін. Орындау алдында kcc роутердің fail-safe таймерін { $minutes } минутқа қосады: роутер жауап беруді тоқтатса, таймер біткенде ол сақталған конфигурацияны қалпына келтіреді. Роутер жауап беруін жалғастырса, kcc таймерді өшіреді, ал өзгеріс сақталмаған күйде қалады.
+web-explorer-confirm-destructive-title = Қайтарылмайтын команданы орындау керек пе?
+web-explorer-confirm-destructive-text = Бұл команда деректерді жоюы немесе { $router } роутерін қайта іске қосуы мүмкін және оны болдырмау мүмкін емес. Растау үшін роутер атауын енгізіңіз.
+web-explorer-job-title = Фондық команда
+web-explorer-job-started = Команда фонда орындалуда.
+web-explorer-job-running = Орындалуда
+web-explorer-job-completed = Аяқталды
+web-explorer-job-cancelled-label = Тоқтатылды
+web-explorer-job-failed = Сәтсіз
+web-explorer-job-cancel = Тоқтату
+web-explorer-job-stopped = Команда тоқтатылды.
+web-explorer-job-not-running = Команда енді орындалмайды.
+web-explorer-job-cancelled = Команда аяқталмай тұрып тоқтатылды.
+web-explorer-job-failed-text = Команда аяқталмады. Роутерді тексеріп, қайталап көріңіз.
+web-explorer-job-waiting = Роутер команданы аяқтағанда нәтиже пайда болады.
+web-explorer-jobs-unavailable = Фондық командаларға тапсырмалар қызметі қажет, бірақ ол бапталмаған.
+web-explorer-issue-unknown-path = Белгісіз команда: { $path }
+web-explorer-issue-method = Бұл команда { $method } сұрауларын қабылдамайды.
+web-explorer-issue-object = { $field }: тізім немесе жеке мән емес, аталған өрістері бар нысан күтіледі.
+web-explorer-issue-unknown-field = { $field }: белгісіз өріс.
+web-explorer-issue-suggestion = { $field }: белгісіз өріс. { $suggestion } деп айтқыңыз келді ме?
+web-explorer-issue-value = { $field }: жарамсыз мән.
+web-explorer-issue-no = Бұл команданың «no» пішіні жоқ.
+web-explorer-issue-cli-syntax = Тырнақшасыз, кері қиғаш сызықсыз, «;» және «|» таңбаларынсыз бір команда енгізіңіз, әр аргументке бір сөзден.
+web-explorer-issue-cli-form = Нұсқаулық { $path } командасының бірнеше пішінін сипаттайды. Оның орнына командалар шолғышының пішінін қолданыңыз.
+web-explorer-issue-raw = Белгісіз команда. Оны тек әкімші «Каталог бойынша тексерусіз жіберу» белгісімен жібере алады.
+web-explorer-issue-json = Сұрау денесі жарамды JSON емес ({ $line }-жол, { $column }-баған).
+web-explorer-issue-item = { $index }-элемент: { $issue }
+web-explorer-issue-root = Түбір мекенжайы нысанмен немесе бір топтама ретінде нысандар тізімімен POST қабылдайды.
+web-explorer-issue-batch = Топтамада 1-ден { $count }-ге дейін нысан болады.
+web-explorer-issue-segment = { $path } URL бөлігі бола алмайды. Оны түбір мекенжайына POST әдісімен жіберіңіз.
+web-explorer-issue-length = Сұрау бос немесе тым ұзын.
+web-explorer-landing-empty = Ашуға болатын роутерлер жоқ.
+web-explorer-router = Роутер
+web-explorer-tools = Құралдар
+web-console-rci-title = RCI консолі
+web-console-cli-title = CLI консолі
+web-console-method = Әдіс
+web-console-path = Команда жолы
+web-console-path-help = Каталогтағы жол, сөздері бос орынмен бөлінеді, мысалы ip hotspot host. Түбір мекенжайына жіберу үшін бос қалдырыңыз.
+web-console-body = Сұрау денесі (JSON)
+web-console-body-help = Нысан. Түбір мекенжайына нысандар тізімі бір топтама ретінде жіберіледі.
+web-console-check = Тексеру
+web-console-send = Жіберу
+web-console-valid =
+    { $count ->
+        [one] Сұрау каталог бойынша тексерістен өтеді.
+       *[other] Барлық { $count } сұрау каталог бойынша тексерістен өтеді.
+    }
+web-console-line = Пәрмен жолы
+web-console-line-help = Роутер CLI-інде енгізілетіндей бір команда. kcc оны каталог командасымен сәйкестендіріп, parse арқылы жібереді.
+web-console-unvalidated = Каталог бойынша тексерусіз жіберу
+web-console-unvalidated-help = Тек әкімшілерге. Каталогта жоқ командалар үшін қолданыңыз; сұрау аудит журналына жазылады.
+web-console-run = Орындау
+web-console-matched = Каталог командасы: { $path }
+web-console-matched-raw = Каталогта жоқ. Тексерусіз жіберіледі.
+web-console-open-explorer = Командалар шолғышында ашу

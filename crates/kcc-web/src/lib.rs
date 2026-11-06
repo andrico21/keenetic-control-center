@@ -18,6 +18,8 @@
 //! - [`WebState::with_admin`] attaches the administration services
 //!   ([`admin::AdminServices`]): users, roles, API keys, the audit log and the server
 //!   summary under `/ui/admin`.
+//! - [`WebState::with_jobs`] attaches the job runner that runs the command explorer's
+//!   background commands.
 // `dead_code_pub_in_binary` fires on the public API only in the lib unit-test
 // binary; rustc accepts an expect for it at crate level alone.
 #![cfg_attr(
@@ -41,6 +43,7 @@ pub mod session;
 pub mod sse;
 pub mod table;
 
+mod advanced;
 mod auth;
 mod authz;
 
@@ -82,6 +85,7 @@ use axum::{
 use kcc_app::{
     accounts::{AccountStore, Clock},
     audit::AuditLog,
+    jobs::JobRunner,
     permissions::Role,
 };
 use kcc_i18n::locale::Locale;
@@ -132,6 +136,8 @@ pub struct WebState {
     fleet: Option<Arc<Fleet>>,
     /// Administration services, when attached with [`WebState::with_admin`].
     admin: Option<Arc<Admin>>,
+    /// Command explorer and console services.
+    advanced: Arc<advanced::Services>,
 }
 
 impl fmt::Debug for WebState {
@@ -191,6 +197,7 @@ impl WebState {
             clock: config.clock,
             fleet: None,
             admin: None,
+            advanced: Arc::new(advanced::Services::new(None)),
         }
     }
 
@@ -201,6 +208,15 @@ impl WebState {
     #[must_use]
     pub fn with_fleet(mut self, services: FleetServices) -> Self {
         self.fleet = Some(Arc::new(Fleet::new(services, Arc::clone(&self.clock))));
+        self
+    }
+
+    /// Attaches the job runner: commands the catalog marks as background work run as
+    /// its jobs, followed live in the explorer. Without it the explorer refuses them.
+    #[inline]
+    #[must_use]
+    pub fn with_jobs(mut self, jobs: Arc<JobRunner>) -> Self {
+        self.advanced = Arc::new(advanced::Services::new(Some(jobs)));
         self
     }
 
@@ -236,6 +252,12 @@ impl WebState {
     /// Replaces the roles after an administrator changed them.
     pub(crate) fn set_roles(&self, roles: Vec<Role>) {
         *self.roles.write().unwrap_or_else(PoisonError::into_inner) = roles.into();
+    }
+
+    /// Command explorer and console services.
+    #[must_use]
+    pub(crate) fn advanced(&self) -> &advanced::Services {
+        &self.advanced
     }
 
     /// The locale used when a request does not select one.
@@ -339,6 +361,49 @@ pub fn web_router(state: WebState) -> Router {
         .route("/ui/account/password", post(auth::change_password))
         .route("/ui/account/locale", post(auth::change_locale))
         .route("/ui/logout", post(auth::logout))
+        .merge(admin_routes())
+        .merge(advanced::routes())
+        .route(
+            "/ui/{*rest}",
+            get(pages::section).fallback(pages::not_found),
+        );
+    let protected = protect(pages, &state);
+    let streams = protect(
+        Router::new()
+            .route("/ui/sse/fleet", get(overview::stream))
+            .route("/ui/sse/r/{router}/traffic", get(dashboard::stream))
+            .merge(advanced::streams()),
+        &state,
+    );
+    let public = Router::new()
+        .route(assets::ROUTE, get(assets::serve))
+        .route("/ui/login", get(auth::login_page).post(auth::login))
+        .route_layer(middleware::from_fn_with_state(
+            state.clone(),
+            csrf::middleware,
+        ));
+    let bounded =
+        Router::new()
+            .merge(public)
+            .merge(protected)
+            .layer(TimeoutLayer::with_status_code(
+                StatusCode::REQUEST_TIMEOUT,
+                REQUEST_TIMEOUT,
+            ));
+    Router::new()
+        .merge(bounded)
+        .merge(streams)
+        .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
+        .layer(SetResponseHeaderLayer::if_not_present(
+            header::CACHE_CONTROL,
+            HeaderValue::from_static(NO_STORE),
+        ))
+        .with_state(state)
+}
+
+/// The administration routes under `/ui/admin`: users, roles, API keys, audit and server.
+fn admin_routes() -> Router<WebState> {
+    Router::new()
         .route("/ui/admin", get(admin_shared::landing))
         .route(
             "/ui/admin/users",
@@ -381,41 +446,6 @@ pub fn web_router(state: WebState) -> Router {
         .route("/ui/admin/audit", get(admin_audit::page))
         .route("/ui/admin/audit/export", get(admin_audit::export))
         .route("/ui/admin/server", get(admin_server::page))
-        .route(
-            "/ui/{*rest}",
-            get(pages::section).fallback(pages::not_found),
-        );
-    let protected = protect(pages, &state);
-    let streams = protect(
-        Router::new()
-            .route("/ui/sse/fleet", get(overview::stream))
-            .route("/ui/sse/r/{router}/traffic", get(dashboard::stream)),
-        &state,
-    );
-    let public = Router::new()
-        .route(assets::ROUTE, get(assets::serve))
-        .route("/ui/login", get(auth::login_page).post(auth::login))
-        .route_layer(middleware::from_fn_with_state(
-            state.clone(),
-            csrf::middleware,
-        ));
-    let bounded =
-        Router::new()
-            .merge(public)
-            .merge(protected)
-            .layer(TimeoutLayer::with_status_code(
-                StatusCode::REQUEST_TIMEOUT,
-                REQUEST_TIMEOUT,
-            ));
-    Router::new()
-        .merge(bounded)
-        .merge(streams)
-        .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
-        .layer(SetResponseHeaderLayer::if_not_present(
-            header::CACHE_CONTROL,
-            HeaderValue::from_static(NO_STORE),
-        ))
-        .with_state(state)
 }
 
 /// Adds the CSRF, authentication and route-table authorization layers to `routes`.

@@ -16,6 +16,8 @@ futures-util = { version = "0.3.34", default-features = false, features = ["std"
 humantime = "2.4.0"
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
+kcc-config = { version = "0.1.0", path = "../kcc-config" }
+kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 rand = "0.10.3"

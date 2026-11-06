@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_CONSOLE_CLI_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page console-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_CONSOLE_CLI_TITLE) }}</h1>
+    <div class="page-head__actions">
+      <a class="button button--ghost" href="/ui/r/{{ router }}/explorer">{{ t(keys::WEB_EXPLORER_TITLE) }}</a>
+      <a class="button button--ghost" href="/ui/r/{{ router }}/console/rci">{{ t(keys::WEB_CONSOLE_RCI_TITLE) }}</a>
+    </div>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a>{% if !catalog_note.is_empty() %} <span>{{ catalog_note }}</span>{% endif %}</p>
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- else %}
+  <form class="form console-form" id="cli-form" hx-post="/ui/r/{{ router }}/console/cli/send" hx-target="#cli-result">
+    <div class="field console-form__line">
+      <label class="field__label" for="cli-line">{{ t(keys::WEB_CONSOLE_LINE) }}</label>
+      <input class="field__input mono" id="cli-line" name="line" type="text" value="" autocomplete="off" spellcheck="false" aria-describedby="cli-line-help" hx-post="/ui/r/{{ router }}/console/cli/check" hx-trigger="input changed delay:400ms" hx-include="#cli-form" hx-target="#cli-check">
+      <p class="field__help" id="cli-line-help">{{ t(keys::WEB_CONSOLE_LINE_HELP) }}</p>
+    </div>
+    {%- if can_escape %}
+    <div class="check">
+      <input class="check__input" type="checkbox" id="cli-unvalidated" name="unvalidated" value="on" aria-describedby="cli-unvalidated-help" hx-post="/ui/r/{{ router }}/console/cli/check" hx-trigger="change" hx-include="#cli-form" hx-target="#cli-check">
+      <label class="check__label" for="cli-unvalidated">{{ t(keys::WEB_CONSOLE_UNVALIDATED) }}</label>
+      <p class="field__help" id="cli-unvalidated-help">{{ t(keys::WEB_CONSOLE_UNVALIDATED_HELP) }}</p>
+    </div>
+    {%- endif %}
+    <div class="console-check" id="cli-check" aria-live="polite"></div>
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">{{ t(keys::WEB_CONSOLE_RUN) }}</button>
+      <button class="button button--secondary" type="button" hx-post="/ui/r/{{ router }}/console/cli/check" hx-include="closest form" hx-target="#cli-check">{{ t(keys::WEB_CONSOLE_CHECK) }}</button>
+    </div>
+  </form>
+  <div class="console-result" id="cli-result" aria-live="polite"></div>
+  {%- endif %}
+</div>
+{%- endblock %}

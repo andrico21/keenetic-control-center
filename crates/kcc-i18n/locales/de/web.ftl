@@ -326,3 +326,165 @@ web-admin-server-stopped = Angehalten
 web-admin-server-catalogs = Befehlskataloge
 web-admin-server-catalog-line = Firmware-Linie
 web-admin-server-catalog-groups = Befehlsgruppen
+# todo 42
+web-explorer-title = Befehls-Explorer
+web-explorer-catalog = Befehlskatalog { $version } für { $model }
+web-explorer-catalog-union = Befehlskatalog { $version }, alle Modelle
+web-explorer-search-label = Befehle suchen
+web-explorer-search-empty = Geben Sie ein Wort ein, um den Katalog zu durchsuchen.
+web-explorer-results =
+    { $count ->
+        [one] { $count } Befehl
+       *[other] { $count } Befehle
+    }
+web-explorer-results-none = Kein Befehl passt. Versuchen Sie ein anderes Wort oder öffnen Sie eine Gruppe.
+web-explorer-results-more = Es passen weitere Befehle. Ergänzen Sie Wörter, um die Suche einzugrenzen.
+web-explorer-groups = Befehlsgruppen
+web-explorer-page-of = Seite { $page } von { $pages }
+web-explorer-page-previous = Zurück
+web-explorer-page-next = Weiter
+web-explorer-select = Suchen Sie einen Befehl oder öffnen Sie eine Gruppe und wählen Sie dann einen Befehl, um seine Details und sein Formular zu sehen.
+web-explorer-unknown-command = Der Katalog des Routers kennt diesen Befehl nicht.
+web-explorer-unreachable = Der Router hat nicht geantwortet, daher kann kcc seinen Befehlskatalog nicht wählen. Prüfen Sie die Verbindung und laden Sie die Seite neu.
+web-explorer-unsupported = Die Firmware des Routers ist älter als der älteste dokumentierte Katalog (4.3).
+web-explorer-kind = Art
+web-explorer-kind-setting = Einstellung
+web-explorer-kind-show = Anzeige
+web-explorer-kind-action = Aktion
+web-explorer-risk = Risiko
+web-explorer-risk-read = Nur lesen
+web-explorer-risk-write = Konfigurationsänderung
+web-explorer-risk-management = Änderung des Verwaltungszugangs
+web-explorer-risk-destructive = Unumkehrbar
+web-explorer-background = läuft im Hintergrund
+web-explorer-no-form = „no“-Form
+web-explorer-interface-type = Schnittstellentyp
+web-explorer-since = Seit Firmware
+web-explorer-context = CLI-Kontext
+web-explorer-models = Modelle
+web-explorer-models-count =
+    { $count ->
+        [one] { $count } Modell
+       *[other] { $count } Modelle
+    }
+web-explorer-manual-page = Offizielles Handbuch, Seite { $page } (PDF)
+web-explorer-manual-model = Handbuch für { $model } (PDF)
+web-explorer-arguments = Argumente
+web-explorer-arguments-none = Dieser Befehl hat keine Argumente.
+web-explorer-argument = Argument
+web-explorer-type = Typ
+web-explorer-values = Schlüsselwörter
+web-explorer-type-integer = Ganzzahl
+web-explorer-type-range = Ganzzahl von { $min } bis { $max }
+web-explorer-type-min = Ganzzahl, mindestens { $min }
+web-explorer-type-max = Ganzzahl, höchstens { $max }
+web-explorer-type-address = IP-Adresse
+web-explorer-type-mask = IPv4-Netzmaske, etwa 255.255.255.0
+web-explorer-type-mac = MAC-Adresse, etwa 02:00:00:00:00:01
+web-explorer-type-object = Schnittstellen- oder Objektname, bis zu 64 Zeichen
+web-explorer-type-keyword = Eines der aufgeführten Schlüsselwörter
+web-explorer-type-text = Text
+web-explorer-type-flag = Sendet das Schlüsselwort, wenn markiert
+web-explorer-type-secret = Geheimnis: wird an den Router gesendet, aber nie angezeigt oder protokolliert
+web-explorer-form-no = Sendet die „no“-Form des Befehls, die die Einstellung entfernt oder deaktiviert.
+web-explorer-form-no-label = „no“-Form verwenden
+web-explorer-form-clipped = Tiefere Unterbefehle werden nicht angezeigt. Öffnen Sie sie über die Gruppen.
+web-explorer-not-set = Nicht gesetzt
+web-explorer-read-only-note = Ihre Rolle kann diesen Befehl in der Vorschau ansehen, aber nicht ausführen.
+web-explorer-preview = Anfrage-Vorschau
+web-explorer-execute = Befehl ausführen
+web-explorer-run = Ausführen
+web-explorer-stored = So speichert der Router diesen Befehl
+web-explorer-preview-title = Anfrage-Vorschau
+web-explorer-valid = Die Anfrage besteht die Katalogprüfung.
+web-explorer-invalid = Die Anfrage wurde nicht gesendet: Sie besteht die Katalogprüfung nicht.
+web-explorer-method = Methode
+web-explorer-endpoint = Endpunkt
+web-explorer-masked = Geheime Werte sind maskiert.
+web-explorer-stored-title = Zeilen in der laufenden Konfiguration
+web-explorer-stored-none = Die laufende Konfiguration enthält keine Zeile für diesen Befehl.
+web-explorer-stored-more =
+    { $count ->
+        [one] { $count } weitere Zeile wird nicht angezeigt.
+       *[other] { $count } weitere Zeilen werden nicht angezeigt.
+    }
+web-explorer-stored-note = Geheimnisse sind geschwärzt.
+web-explorer-result = Ergebnis
+web-explorer-done = Befehl ausgeführt.
+web-explorer-done-unsaved = Befehl ausgeführt. Die Änderung ist angewendet, aber noch nicht gespeichert.
+web-explorer-rejected = Der Router hat die Anfrage abgelehnt.
+web-explorer-router-said = Antwort des Routers
+web-explorer-conflict = Seit dem Laden dieser Seite hat eine andere Sitzung den Router geändert. Laden Sie neu und prüfen Sie, bevor Sie den Befehl erneut ausführen.
+web-explorer-failed = Der Befehl konnte nicht ausgeführt werden. Versuchen Sie es erneut.
+web-explorer-not-found = Der Router hat diese Ressource nicht.
+web-explorer-armed = Der Router hat während einer Änderung des Verwaltungszugangs nicht mehr geantwortet. Sein Fail-safe-Timer stellt die gespeicherte Konfiguration innerhalb von { $minutes } Minuten wieder her.
+web-explorer-download = Vollständige Antwort herunterladen
+web-explorer-truncated = Die Antwort ist größer, als diese Seite zeigt. Laden Sie sie herunter, um alles zu sehen.
+web-explorer-empty-response = Der Router hat eine leere Antwort geliefert.
+web-explorer-level-message = Meldung
+web-explorer-level-warning = Warnung
+web-explorer-level-error = Fehler
+web-explorer-lines = Zeilen { $first }-{ $last }
+web-explorer-confirm = Befehl ausführen
+web-explorer-confirm-name = Router-Name
+web-explorer-confirm-name-error = Der Name stimmt nicht überein. Geben Sie { $router } genau ein.
+web-explorer-confirm-write-title = Diesen Befehl ausführen?
+web-explorer-confirm-write-text = Der Befehl ändert die laufende Konfiguration von { $router }. kcc sichert zuerst die gespeicherte Konfiguration. Die Änderung bleibt ungespeichert, bis Sie sie speichern.
+web-explorer-confirm-management-title = Den Zugang von kcc zum Router ändern?
+web-explorer-confirm-management-text = Dieser Befehl kann kcc von { $router } trennen. kcc schaltet vorher den Fail-safe-Timer des Routers für { $minutes } Minuten ein: Antwortet der Router nicht mehr, stellt er nach Ablauf die gespeicherte Konfiguration wieder her. Antwortet der Router weiterhin, schaltet kcc den Timer ab und die Änderung bleibt ungespeichert.
+web-explorer-confirm-destructive-title = Unumkehrbaren Befehl ausführen?
+web-explorer-confirm-destructive-text = Dieser Befehl kann Daten löschen oder { $router } neu starten und lässt sich nicht rückgängig machen. Geben Sie zur Bestätigung den Router-Namen ein.
+web-explorer-job-title = Hintergrundbefehl
+web-explorer-job-started = Der Befehl läuft im Hintergrund.
+web-explorer-job-running = Läuft
+web-explorer-job-completed = Abgeschlossen
+web-explorer-job-cancelled-label = Gestoppt
+web-explorer-job-failed = Fehlgeschlagen
+web-explorer-job-cancel = Stoppen
+web-explorer-job-stopped = Der Befehl wurde gestoppt.
+web-explorer-job-not-running = Der Befehl läuft nicht mehr.
+web-explorer-job-cancelled = Der Befehl wurde vor dem Ende gestoppt.
+web-explorer-job-failed-text = Der Befehl wurde nicht beendet. Prüfen Sie den Router und versuchen Sie es erneut.
+web-explorer-job-waiting = Die Ausgabe erscheint, wenn der Router den Befehl beendet hat.
+web-explorer-jobs-unavailable = Hintergrundbefehle benötigen den Auftragsdienst, der nicht eingerichtet ist.
+web-explorer-issue-unknown-path = Unbekannter Befehl: { $path }
+web-explorer-issue-method = Dieser Befehl akzeptiert keine { $method }-Anfragen.
+web-explorer-issue-object = { $field }: Erwartet wird ein Objekt mit benannten Feldern, keine Liste und kein Einzelwert.
+web-explorer-issue-unknown-field = { $field }: unbekanntes Feld.
+web-explorer-issue-suggestion = { $field }: unbekanntes Feld. Meinten Sie { $suggestion }?
+web-explorer-issue-value = { $field }: ungültiger Wert.
+web-explorer-issue-no = Dieser Befehl hat keine „no“-Form.
+web-explorer-issue-cli-syntax = Geben Sie einen Befehl ohne Anführungszeichen, Backslashes, „;“ oder „|“ ein, mit einem Wort pro Argument.
+web-explorer-issue-cli-form = Das Handbuch beschreibt mehrere Formen von { $path }. Verwenden Sie stattdessen das Formular des Befehls-Explorers.
+web-explorer-issue-raw = Unbekannter Befehl. Nur Administratoren können ihn senden, mit „Ohne Katalogprüfung senden“.
+web-explorer-issue-json = Der Inhalt ist kein gültiges JSON (Zeile { $line }, Spalte { $column }).
+web-explorer-issue-item = Element { $index }: { $issue }
+web-explorer-issue-root = Der Wurzel-Endpunkt nimmt POST mit einem Objekt an oder mit einer Liste von Objekten als ein Stapel.
+web-explorer-issue-batch = Ein Stapel enthält 1 bis { $count } Objekte.
+web-explorer-issue-segment = { $path } kann nicht Teil einer URL sein. Senden Sie es mit POST an den Wurzel-Endpunkt.
+web-explorer-issue-length = Die Anfrage ist leer oder zu lang.
+web-explorer-landing-empty = Keine Router zum Öffnen.
+web-explorer-router = Router
+web-explorer-tools = Werkzeuge
+web-console-rci-title = RCI-Konsole
+web-console-cli-title = CLI-Konsole
+web-console-method = Methode
+web-console-path = Befehlspfad
+web-console-path-help = Ein durch Leerzeichen getrennter Katalogpfad wie ip hotspot host. Leer lassen, um an den Wurzel-Endpunkt zu senden.
+web-console-body = Inhalt (JSON)
+web-console-body-help = Ein Objekt. Am Wurzel-Endpunkt wird eine Liste von Objekten als ein Stapel gesendet.
+web-console-check = Prüfen
+web-console-send = Senden
+web-console-valid =
+    { $count ->
+        [one] Die Anfrage besteht die Katalogprüfung.
+       *[other] Alle { $count } Anfragen bestehen die Katalogprüfung.
+    }
+web-console-line = Befehlszeile
+web-console-line-help = Ein Befehl, wie er in der Router-CLI eingegeben wird. kcc ordnet ihn seinem Katalogbefehl zu und sendet ihn mit parse.
+web-console-unvalidated = Ohne Katalogprüfung senden
+web-console-unvalidated-help = Nur für Administratoren. Für Befehle, die der Katalog nicht kennt; die Anfrage wird protokolliert.
+web-console-run = Ausführen
+web-console-matched = Katalogbefehl: { $path }
+web-console-matched-raw = Nicht im Katalog. Wird ohne Prüfung gesendet.
+web-console-open-explorer = Im Befehls-Explorer öffnen

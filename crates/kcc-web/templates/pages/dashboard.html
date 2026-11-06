@@ -8,9 +8,12 @@
 <div class="page dashboard" hx-ext="sse" sse-connect="{{ stream }}">
   <div class="page-head">
     <h1 class="page__title">{{ router.id() }}</h1>
-    {%- if router.can_edit() %}
-    <a class="button button--secondary" href="/ui/routers/{{ router.id() }}/edit">{{ t(keys::WEB_ROUTER_EDIT) }}</a>
-    {%- endif %}
+    <div class="page-head__actions">
+      <a class="button button--ghost" href="/ui/r/{{ router.id() }}/explorer">{{ t(keys::WEB_EXPLORER_TITLE) }}</a>
+      {%- if router.can_edit() %}
+      <a class="button button--secondary" href="/ui/routers/{{ router.id() }}/edit">{{ t(keys::WEB_ROUTER_EDIT) }}</a>
+      {%- endif %}
+    </div>
   </div>
   {%- if router.brand().is_some() || router.model().is_some() || router.serial().is_some() %}
   <p class="identity">

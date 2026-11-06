@@ -1,0 +1,17 @@
+{#- The live validation result of a console request; nothing is sent. -#}
+<div class="notice" data-tone="{% if problems.is_empty() %}success{% else %}error{% endif %}">
+  <p class="notice__title">{{ summary }}</p>
+  {%- if let Some(level) = risk %}
+  <p>{{ t(keys::WEB_EXPLORER_RISK) }}: {{ t(**level) }}</p>
+  {%- endif %}
+  {%- if !problems.is_empty() %}
+  <ul class="issues">
+    {%- for problem in problems %}
+    <li>{{ problem }}</li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- if let Some(href) = explore %}
+  <p><a href="{{ href }}">{{ t(keys::WEB_CONSOLE_OPEN_EXPLORER) }}</a></p>
+  {%- endif %}
+</div>

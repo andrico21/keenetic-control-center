@@ -1,0 +1,84 @@
+{#- The detail and generated form of one command; the explorer page includes it and the command links re-send it. -#}
+{%- import "partials/explorer_macros.html" as ex -%}
+<article class="command" aria-labelledby="command-title">
+  <div class="command__head">
+    <h2 class="command__title" id="command-title">{{ detail.path() }}</h2>
+    <span class="flag" data-tone="info">{{ t(detail.risk()) }}</span>
+  </div>
+  <dl class="facts command__facts">
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_KIND) }}</dt><dd>{{ t(detail.kind()) }}{% if detail.background() %}, {{ t(keys::WEB_EXPLORER_BACKGROUND) }}{% endif %}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_NO_FORM) }}</dt><dd>{% if detail.negatable() %}{{ t(keys::COMMON_YES) }}{% else %}{{ t(keys::COMMON_NO) }}{% endif %}</dd></div>
+    {%- if let Some(kind) = detail.interface_type() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_INTERFACE_TYPE) }}</dt><dd>{{ kind }}</dd></div>
+    {%- endif %}
+    {%- if let Some(since) = detail.since() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_SINCE) }}</dt><dd class="mono">{{ since }}</dd></div>
+    {%- endif %}
+    {%- if let Some(context) = detail.context() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_CONTEXT) }}</dt><dd class="mono">{{ context }}</dd></div>
+    {%- endif %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_MODELS) }}</dt><dd><details class="models"><summary class="models__summary">{{ detail.models_label() }}</summary><p class="models__list mono">{% for model in detail.models() %}{{ model }}{% if !loop.last %}, {% endif %}{% endfor %}</p></details></dd></div>
+  </dl>
+  {%- if detail.manual().is_some() || detail.model_manual().is_some() %}
+  <p class="command__links">
+    {%- if let Some((href, label)) = detail.manual() %}
+    <a href="{{ href }}" rel="noopener noreferrer" target="_blank">{{ label }}</a>
+    {%- endif %}
+    {%- if let Some((href, label)) = detail.model_manual() %}
+    <a href="{{ href }}" rel="noopener noreferrer" target="_blank">{{ label }}</a>
+    {%- endif %}
+  </p>
+  {%- endif %}
+  <h3 class="explorer__heading">{{ t(keys::WEB_EXPLORER_ARGUMENTS) }}</h3>
+  {%- if detail.arguments().is_empty() %}
+  <p class="panel__note">{{ t(keys::WEB_EXPLORER_ARGUMENTS_NONE) }}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr><th scope="col">{{ t(keys::WEB_EXPLORER_ARGUMENT) }}</th><th scope="col">{{ t(keys::WEB_EXPLORER_TYPE) }}</th><th scope="col">{{ t(keys::WEB_EXPLORER_VALUES) }}</th></tr></thead>
+      <tbody>
+        {%- for argument in detail.arguments() %}
+        <tr><td class="mono">{{ argument.name() }}</td><td>{{ argument.kind() }}</td><td class="mono">{{ argument.values() }}</td></tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+  <form class="form command-form" id="explorer-form" hx-post="/ui/r/{{ router }}/explorer/execute" hx-target="#explorer-result">
+    <input type="hidden" name="path" value="{{ detail.path() }}">
+    {%- if let Some(group) = detail.form().own() %}
+    {%- for field in group.fields() %}
+    {{ ex::input(field) }}
+    {%- endfor %}
+    {%- endif %}
+    {%- for group in detail.form().nested() %}
+    <details class="subcommand" data-depth="{{ group.depth() }}">
+      <summary class="subcommand__summary">{{ group.title() }}</summary>
+      <fieldset class="subcommand__fields">
+        <legend class="visually-hidden">{{ group.title() }}</legend>
+        {%- for field in group.fields() %}
+        {{ ex::input(field) }}
+        {%- endfor %}
+      </fieldset>
+    </details>
+    {%- endfor %}
+    {%- if detail.form().clipped() %}
+    <p class="panel__note">{{ t(keys::WEB_EXPLORER_FORM_CLIPPED) }}</p>
+    {%- endif %}
+    {%- if detail.jobs_missing() %}
+    <p class="notice" data-tone="neutral">{{ t(keys::WEB_EXPLORER_JOBS_UNAVAILABLE) }}</p>
+    {%- else if !detail.can_execute() %}
+    <p class="panel__note">{{ t(keys::WEB_EXPLORER_READ_ONLY_NOTE) }}</p>
+    {%- endif %}
+    <div class="form__actions">
+      {%- if detail.can_execute() %}
+      <button class="button button--primary" type="submit">{{ t(detail.execute_label()) }}</button>
+      {%- endif %}
+      <button class="button button--secondary" type="button" hx-post="/ui/r/{{ router }}/explorer/preview" hx-include="closest form" hx-target="#explorer-preview">{{ t(keys::WEB_EXPLORER_PREVIEW) }}</button>
+      <button class="button button--ghost" type="button" hx-get="/ui/r/{{ router }}/explorer/stored?path={{ detail.query() }}" hx-target="#explorer-stored">{{ t(keys::WEB_EXPLORER_STORED) }}</button>
+    </div>
+  </form>
+  <div class="explorer__out" id="explorer-preview" aria-live="polite"></div>
+  <div class="explorer__out" id="explorer-stored" aria-live="polite"></div>
+  <div class="explorer__out" id="explorer-result" aria-live="polite"></div>
+</article>

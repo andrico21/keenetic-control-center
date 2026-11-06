@@ -651,7 +651,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add configuration, fail-safe and backups page with diff viewer
   Recommended task executor category: visual-engineering - diff viewer and file flows
 
-- [ ] 42. Advanced: command explorer, RCI console, CLI console
+- [x] 42. Advanced: command explorer, RCI console, CLI console
   What to do / Must NOT do: `/r/:router/explorer`: catalog search box (htmx live results), group tree browser, command detail (path, kind, official PDF page link, arguments with types/keywords, `no` support, interface type, since-version, models, link to the official PDF for the model) and an auto-generated form from `to_json_schema` (typed inputs, keyword selects, `no` checkbox, nested sub-commands as fieldsets), "Preview request" (shows the exact JSON and method), "Execute" (Show/readonly -> Read permission; Setting/Action -> RawRci permission + confirmation; background detected -> job with live output), response viewer (pretty JSON, status messages highlighted, large responses paginated/collapsed, text responses in `<pre>`). `/r/:router/console/rci` (admin, RawRci): JSON editor textarea with method/path, validation result before send, batch support. `/r/:router/console/cli` (admin, RawRci): CLI line input sent as `parse`, validated by mapping the line to a catalog path (first tokens) and rejecting unknown commands. All executions go through `ChangeSet` (backup + audit) when not read-only. Common contract applies.
   Closes: GAP-8, GAP-3
   Parallelization: Wave W8 | Blocked by: 14, 35 | Blocks: 51
@@ -671,7 +671,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add the migration wizard
   Recommended task executor category: visual-engineering - multi-step wizard with live progress
 
-- [ ] 44. Admin pages: users, roles, API keys, audit log, server info
+- [x] 44. Admin pages: users, roles, API keys, audit log, server info
   What to do / Must NOT do: `/admin/users` (ManageUsers: create with initial password + forced change on first login, set role, disable, reset lockout, delete except self), `/admin/roles` (custom roles: permission checkboxes, router scope globs), `/admin/api-keys` (create shows plaintext once in a copy-only field, list name/role/created/last-used, revoke; changes hot-reload the MCP auth via the kit reload handle), `/admin/audit` (ViewAudit: filters by actor/router/action/time, chain verification status, JSONL export), `/admin/server` (version, uptime, config summary without secrets, state dir health, catalog versions loaded). Common contract applies.
   Closes: GAP-8, GAP-7
   Parallelization: Wave W9 | Blocked by: 19, 34, 48 | Blocks: 51
