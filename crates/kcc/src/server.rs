@@ -19,7 +19,7 @@ use kcc_app::{
     accounts::{AccountStore, Clock, SystemClock},
     api_keys::api_key_entries,
     audit::AuditLog,
-    backups::BackupStore,
+    backups::{BackupRetention, BackupStore},
     jobs::JobRunner,
     permissions::{Role, load_roles, rbac_config},
     persist::StateStore,
@@ -246,7 +246,9 @@ impl Services {
             config.web.lockout,
             Arc::clone(&clock),
         ));
-        let backups = Arc::new(BackupStore::new(state.clone(), backup_key));
+        let backups = Arc::new(BackupStore::new(state.clone(), backup_key).with_retention(
+            BackupRetention::new(config.backups.max_age, config.backups.keep_last),
+        ));
         let workflow = ChangeWorkflow::new(
             state.clone(),
             Arc::clone(&registry),

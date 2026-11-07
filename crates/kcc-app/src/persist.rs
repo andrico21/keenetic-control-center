@@ -437,6 +437,35 @@ pub(crate) fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), S
     sync_dir(dir)
 }
 
+/// Writes `bytes` durably to a new `dir/name` without replacing an existing file.
+///
+/// Returns `false` when the target already exists. The caller serializes users of the
+/// fixed temporary name with its domain lock.
+///
+/// # Errors
+///
+/// [`StateError::Io`].
+pub(crate) fn write_exclusive(dir: &Path, name: &str, bytes: &[u8]) -> Result<bool, StateError> {
+    let target = dir.join(name);
+    let temp = dir.join(format!(".{name}.tmp"));
+    remove_if_present(&temp)?;
+    let mut file = create_private_file(&temp)?;
+    file.write_all(bytes)
+        .and_then(|()| file.sync_all())
+        .map_err(|error| io_error(&temp, error))?;
+    drop(file);
+    let linked = fs::hard_link(&temp, &target);
+    fs::remove_file(&temp).map_err(|error| io_error(&temp, error))?;
+    match linked {
+        Ok(()) => {
+            sync_dir(dir)?;
+            Ok(true)
+        }
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => Ok(false),
+        Err(error) => Err(io_error(&target, error)),
+    }
+}
+
 /// Removes `path`, treating "already gone" as success.
 ///
 /// # Errors
