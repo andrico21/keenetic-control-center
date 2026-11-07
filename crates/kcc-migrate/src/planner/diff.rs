@@ -25,12 +25,12 @@ pub(super) fn is_management_line(line: &str, management_interface: Option<&str>)
 }
 
 /// Computes a lowercase MD5 string.
-pub(super) fn digest_text(text: &str) -> String {
+pub(crate) fn digest_text(text: &str) -> String {
     hex_digest(Md5::digest(text.as_bytes()).as_slice())
 }
 
 /// Hashes a normalized set with unambiguous line separators.
-pub(super) fn digest_lines(lines: &BTreeSet<String>) -> String {
+pub(crate) fn digest_lines(lines: &BTreeSet<String>) -> String {
     let mut digest = Md5::new();
     for (index, line) in lines.iter().enumerate() {
         if index != 0 {
@@ -42,7 +42,7 @@ pub(super) fn digest_lines(lines: &BTreeSet<String>) -> String {
 }
 
 /// Derives the identity without assembling another plaintext copy of the commands.
-pub(super) fn plan_id(
+pub(crate) fn plan_id(
     source: &ConfigFingerprint,
     target: &ConfigFingerprint,
     phases: &PlanPhases,

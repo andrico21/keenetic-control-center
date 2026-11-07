@@ -1,0 +1,113 @@
+# Preset settings groups. Patterns match complete flattened CLI lines.
+# `*` matches one word, a suffix `*` matches a word prefix, and `**` matches
+# zero or more words. A dependency naming another group includes that group;
+# other dependencies pull matching definitions referenced by selected lines.
+
+[[group]]
+id = "dns-secure"
+title_key = "migration-preset-group-dns-secure"
+include = [
+    "dns-proxy tls upstream **",
+    "dns-proxy https upstream **",
+    "dns-proxy filter **",
+    "dns-proxy intercept **",
+    "dns-proxy rebind-protect **",
+    "dns-proxy max-ttl **",
+]
+depends_on = []
+secret_handling = "preserve-encrypted"
+
+[[group]]
+id = "dns-records-routing"
+title_key = "migration-preset-group-dns-records-routing"
+include = ["ip host **", "object-group fqdn **", "dns-proxy route **"]
+depends_on = ["object-group fqdn **", "ip policy **", "interface * **"]
+secret_handling = "none"
+
+[[group]]
+id = "policies"
+title_key = "migration-preset-group-policies"
+include = ["ip policy **"]
+depends_on = ["interface * **"]
+secret_handling = "none"
+
+[[group]]
+id = "static-routes"
+title_key = "migration-preset-group-static-routes"
+include = ["ip route **", "ipv6 route **"]
+depends_on = ["interface * **", "ip policy **"]
+secret_handling = "none"
+
+[[group]]
+id = "firewall"
+title_key = "migration-preset-group-firewall"
+include = [
+    "access-list **",
+    "interface * ip access-group **",
+]
+depends_on = ["interface * **"]
+secret_handling = "none"
+
+[[group]]
+id = "vpn-clients"
+title_key = "migration-preset-group-vpn-clients"
+include = [
+    "interface * wireguard **",
+    "interface * openvpn **",
+    "interface * ipsec **",
+    "interface * zerotier **",
+    "interface * openconnect **",
+    "interface * proxy **",
+    "interface L2TP* **",
+    "interface PPTP* **",
+    "interface SSTP* **",
+    "crypto **",
+]
+depends_on = ["interface * **", "ip policy **"]
+secret_handling = "regenerate-wireguard"
+
+[[group]]
+id = "wifi"
+title_key = "migration-preset-group-wifi"
+include = [
+    "interface WifiMaster* ssid **",
+    "interface WifiMaster* authentication **",
+    "interface WifiMaster* encryption **",
+    "interface WifiMaster* hide-ssid **",
+    "interface WifiMaster* schedule **",
+    "interface WifiMaster* up",
+]
+depends_on = []
+secret_handling = "preserve-encrypted"
+
+[[group]]
+id = "system-baseline"
+title_key = "migration-preset-group-system-baseline"
+include = [
+    "system clock timezone **",
+    "ntp **",
+    "system log server **",
+    "service ssh **",
+    "service telnet **",
+    "service upnp **",
+    "service ntp **",
+    "ip ssh security-level **",
+    "ip telnet security-level **",
+    "ip http security-level **",
+]
+depends_on = []
+secret_handling = "preserve-encrypted"
+
+[[group]]
+id = "router-users"
+title_key = "migration-preset-group-router-users"
+include = ["user **"]
+depends_on = []
+secret_handling = "preserve-encrypted"
+
+[[group]]
+id = "schedules"
+title_key = "migration-preset-group-schedules"
+include = ["schedule **"]
+depends_on = []
+secret_handling = "none"

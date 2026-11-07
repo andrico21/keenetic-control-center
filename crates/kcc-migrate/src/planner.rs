@@ -13,7 +13,8 @@ mod types;
 
 use alloc::collections::BTreeSet;
 
-use diff::{digest_lines, digest_text, is_management_line, plan_id};
+use diff::is_management_line;
+pub(crate) use diff::{digest_lines, digest_text, plan_id};
 use kcc_config::config_text::{Ast, flatten};
 use secrecy::SecretString;
 

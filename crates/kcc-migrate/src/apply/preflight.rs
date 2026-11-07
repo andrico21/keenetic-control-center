@@ -111,6 +111,10 @@ pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError
         .management_password
         .as_ref()
         .map(|password| Credentials::new(original.credentials().login, password.clone()));
+    let report = ApplyReport {
+        warnings: request.options.initial_warnings.clone(),
+        ..ApplyReport::default()
+    };
     Ok(Applier {
         changes,
         plan: request.plan,
@@ -121,7 +125,7 @@ pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError
         options: request.options,
         credential,
         armed_at,
-        report: ApplyReport::default(),
+        report,
     })
 }
 
@@ -228,6 +232,16 @@ async fn source_bytes(
                 .map_err(|_error| ApplyError::Source)
         }
         ApplySource::File(bytes) => Ok(bytes.clone()),
+        ApplySource::Preset {
+            bytes,
+            source_router,
+        } => {
+            if let Some(router) = source_router {
+                authorize(&request.role, Permission::Migrate, router)
+                    .map_err(|_error| ApplyError::Workflow)?;
+            }
+            Ok(bytes.clone())
+        }
         ApplySource::Backup {
             store,
             router,

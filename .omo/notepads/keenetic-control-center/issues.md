@@ -234,6 +234,9 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 ## 2026-11-07: Todo 24 Unit 1 verification limits
 
 ## 2026-11-07: Todo 58 final verification limits
+
+## 2026-11-07 todo 55 final verification limit
+- `cargo test --workspace --all-features --no-fail-fast` completed the workspace with one failing target: `kcc --test serve`, where `serve_exposes_health_web_and_viewer_filtered_mcp` and `disabled_http_mcp_still_serves_web_without_tools` timed out on `/mcp`. The isolated rerun failed the same two requests after a long rebuild. This is the intermittent MCP timeout explicitly called out in the todo assignment; all other workspace suites and doctests passed. No timing threshold or assertion was changed.
 - LSP diagnostics timed out for all changed Rust files. Strict workspace Clippy, compiler tests, and warnings-denied rustdoc are clean and are the diagnostic authority.
 - The first full workspace test invocation had two unrelated `crates/kcc/tests/serve.rs` MCP request timeouts; the isolated suite immediately passed 7/7. This is recorded as a pre-existing timing flake, not hidden as a clean first run.
 - Live hardware key generation, exact public-key shape, and firmware-specific DNS behavior are not claimed; acceptance uses the real workflow against fake 5.1/4.3.9 profiles. No clear NS3 blob or 44-character WireGuard key remains in the repository scanner surface.
@@ -276,3 +279,17 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - The first full G0 attempt exposed an obsolete embedded-save test setup (planner now excludes that command) and hit the shell time limit during later web tests. The test now independently exercises preflight with a tampered plan. Final full G0 was rerun after final catalog module extraction and passed, with no remaining test failure.
 - LSP timed out after 30 seconds; no clean LSP result is claimed. Rust compiler, workspace strict Clippy, rustdoc, format and gates are the verification evidence.
 - A temporary diagnostic printed an encoded runtime-generated dummy NS3 fixture while isolating the matrix failure; that diagnostic was removed before final verification. No real secret or router data was used.
+
+## [2026-11-07] Intermittent serve MCP timeout investigation notes
+- Concurrent cargo jobs made cold builds slow and wall timings noisy; causal conclusions used like-for-like four-hog runs, process user CPU, and per-request timing rather than build elapsed time.
+- `cargo vet` passed but retained its existing warning that unnecessary exemptions could be pruned. No unrelated policy cleanup was performed.
+- Per task direction, compiler and strict Clippy were the diagnostic authority instead of LSP; focused `cargo check` and full workspace Clippy were clean.
+
+## 2026-11-07: Todo 46 verification notes
+- `cargo test -p kcc --test serve` (2 MCP-over-HTTP tests) timed out at the 5 s client timeout in the parallel workspace run and in one parallel rerun on a 4-core host with load average ~4-5; it passed 1/1 isolated and 3/3 with `--test-threads=1`. Matches the known intermittent serve timeout under load (separate task).
+- `cargo test --manifest-path xtask/Cargo.toml`: 3 `catalog_build` tests need `catalog/.cache/5.1/kn-1811.txt`, absent in worktrees (not created per protocol); unrelated to todo 46.
+- Fake-router facts: `system description`/`system hostname` writes are not reflected in `running_config_text()` or `show last-change` unsaved (the fake models them in settings only); interface descriptions are, so migration tests seed the source with `kcc_interfaces_write description` + `kcc_config_save`.
+- `tokio::select!` expands to `%` (clippy `modulo_arithmetic`) when dev features unify; the apply follower uses `poll_fn` and polls the event stream before the oneshot verdict, otherwise buffered progress events are lost when the job already finished.
+
+## 2026-11-07: serve MCP timeout root cause (orchestrator)
+- `kcc --test serve` timed out intermittently (reqwest TimedOut on /mcp, 5 s client budget) in four earlier gates. Cause: `rmcp-server-kit` verifies one Argon2id hash per configured API-key slot on EVERY authenticated request; with two keys and an unoptimised dev build that is ~14 s of CPU under load. Fix (commit after 1ce73c9): `[profile.dev.package.argon2]` and `[profile.dev.package.blake2]` `opt-level = 3`. Serve suite: 15-22 s -> ~1.1 s, 4/4 green at load average 7.8; the tflake agent's 30/30 under four CPU hogs is in `.omo/evidence/task-flaky-serve-keenetic-control-center.log`. Production (release) builds were never affected. Per-request Argon2 verification in release builds is a performance follow-up for rmcp-server-kit (a verified-key cache), not changed here.

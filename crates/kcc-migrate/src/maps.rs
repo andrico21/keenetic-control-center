@@ -16,6 +16,15 @@ pub struct MapEntry {
     pub target: Option<String>,
 }
 
+impl MapEntry {
+    /// Creates one explicit mapping decision.
+    #[inline]
+    #[must_use]
+    pub const fn new(source: String, target: Option<String>) -> Self {
+        Self { source, target }
+    }
+}
+
 /// Physical-port mapping proposal.
 #[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
 #[non_exhaustive]

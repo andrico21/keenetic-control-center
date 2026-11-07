@@ -41,9 +41,19 @@ use tokio::sync::oneshot;
     reason = "the task specifies ApplyError and matching public apply types"
 )]
 pub use types::{
-    ApplyError, ApplyOptions, ApplyReport, ApplyRequest, ApplySource, Clock, StopPolicy,
-    SystemClock,
+    ApplyError, ApplyOptions, ApplyReport, ApplyRequest, ApplySource, ApplyWarning, Clock,
+    StopPolicy, SystemClock, WireGuardPublicKey,
 };
+
+/// Checks whether the migration applier can construct a protected request for `line`.
+///
+/// This is the planner's buildability boundary: catalog path presence alone is not enough for
+/// context-leaf syntax that [`kcc_catalog::Catalog::validate_cli`] cannot represent yet.
+#[inline]
+#[must_use]
+pub(crate) fn supports_line(catalog: &kcc_catalog::Catalog, line: &str) -> bool {
+    command::build(catalog, line).is_ok()
+}
 
 use crate::planner::MigrationPlan;
 

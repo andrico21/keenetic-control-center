@@ -11,7 +11,7 @@ use crate::{
     rules::{ClassifiedItem, Disposition, RuleError},
 };
 
-/// The three editable mapping domains consumed by the planner.
+/// Editable mapping domains consumed by migration and preset planners.
 #[derive(Clone, Debug, Default)]
 #[non_exhaustive]
 pub struct MigrationMaps {
@@ -21,6 +21,8 @@ pub struct MigrationMaps {
     pub radios: RadioMap,
     /// Logical-interface mappings.
     pub interfaces: InterfaceMap,
+    /// Named policy mappings used by DNS routes and policy references.
+    pub policies: BTreeMap<String, String>,
 }
 
 /// Operator decisions that are not object mappings.
@@ -35,6 +37,8 @@ pub struct Choices {
     pub prune_lines: BTreeSet<String>,
     /// Operator-confirmed URL expected after management changes.
     pub reconnect_url: Option<String>,
+    /// Explicit acknowledgement for documentation-only target firmware.
+    pub ack_documentation_tier: bool,
 }
 
 impl Choices {
@@ -43,6 +47,14 @@ impl Choices {
     #[must_use]
     pub fn with_reconnect_url(mut self, reconnect_url: String) -> Self {
         self.reconnect_url = Some(reconnect_url);
+        self
+    }
+
+    /// Acknowledges a documentation-only target firmware tier.
+    #[inline]
+    #[must_use]
+    pub const fn with_documentation_tier_acknowledgement(mut self) -> Self {
+        self.ack_documentation_tier = true;
         self
     }
 }

@@ -14,6 +14,7 @@ pub mod apply;
 pub mod inventory;
 pub mod maps;
 pub mod planner;
+pub mod presets;
 pub mod report;
 pub mod rules;
 pub mod source;
