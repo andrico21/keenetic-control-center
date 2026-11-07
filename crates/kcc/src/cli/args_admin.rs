@@ -19,11 +19,11 @@ pub enum UserCommand {
         #[arg(long, default_value = "en")]
         locale: String,
     },
-    /// Change an account password; the new one comes from `--password-file`.
+    /// Change an account password; another account is administratively reset.
     Passwd {
         /// Login name.
         username: String,
-        /// File holding the current password (else a prompt).
+        /// File holding the current password for one's own account (else a prompt).
         #[arg(long, value_name = "PATH")]
         current_password_file: Option<PathBuf>,
     },

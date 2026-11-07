@@ -60,9 +60,13 @@ impl From<AccountError> for Failure {
         let exit = match error {
             AccountError::InvalidUsername
             | AccountError::InvalidPasswordLength
+            | AccountError::InvalidPasswordCharacters
             | AccountError::PasswordEqualsUsername => Exit::Validation,
             AccountError::DuplicateAccount => Exit::Conflict,
-            AccountError::LastAdmin => Exit::Policy,
+            AccountError::LastAdmin
+            | AccountError::PermissionDenied
+            | AccountError::SelfResetRequiresCurrentPassword
+            | AccountError::AdminResetRequiresAdmin => Exit::Policy,
             AccountError::State(_)
             | AccountError::Crypto(_)
             | AccountError::PasswordHash

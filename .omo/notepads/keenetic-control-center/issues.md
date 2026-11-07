@@ -299,3 +299,36 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - `user passwd` needs the current password: kcc-app has no admin password reset (only `AccountStore::change_password`). An admin reset needs an additive kcc-app seam.
 - `AuditLog::spawn` takes the audit lock only while recovering the chain tail; a CLI write while `kcc serve` (or another CLI) appends can fork the hash chain. Needs a cross-process append lock in kcc-app (pre-existing design, now reachable through the CLI).
 - `migrate apply` re-plans from the same inputs and compares `plan_id` with the plan file (plans are not deserializable by design); `migrate finish` commits/rolls back the router's fail-safe timer, not a persisted applier.
+
+## 2026-11-07: Todo 60 gaps and verification notes
+- `cargo test --manifest-path xtask/Cargo.toml`: 29 pass, 3 `catalog_build` tests fail only because `catalog/.cache/5.1/kn-1811.txt` is absent in worktrees (not created per protocol).
+- Not built: MCP `maps` are accepted but the CLI has no mapping flags (default maps; unmapped objects make the plan blocked -> use `--exclude`); no CLI test of the interactive TTY finish prompt (tests run without a terminal); `preset finish` from another process has no positive test (a CLI run always finishes in-process; MCP runs finish through `kcc_migration_finish`); MCP capture from a file source is not offered (router or backup only); transient MCP presets and preset-apply migration records live in memory and are lost on restart (the armed router timer still rolls back).
+- Captures read the source STARTUP configuration (same as migration), so unsaved running changes on the source are not copied.
+- LSP not used (times out); compiler and strict Clippy are the diagnostic authority.
+
+## 2026-11-07: Todo 62(c) CLI domain writes: gaps found (follow-ups, not fixed here)
+- kcc-domain `firewall::change::apply` verifies a binding (`interface .. ip access-group`) against `access_lists`, so `firewall bind` (and MCP `binding`) applies on the fake and then fails verification with exit 6.
+- kcc-domain DNS `FqdnInclude`/`FqdnExclude` bodies carry `name`, which the 5.1 catalog refuses for `object-group fqdn include|exclude` (exit 4 "name: unknown field"); same for MCP `fqdn_group` with an address.
+- kcc-domain `dhcp::plan_pool` without DNS servers sends `{"disable":true}`, which the 5.1 catalog refuses; the CLI requires `--dns` and `--interface` instead of inventing defaults.
+- `vpn-server password <profile login>` (and todo-47 `router-users passwd`) changes the password kcc logs in with; the next request fails authentication (exit 3). Only `router_users::plan_delete` protects the profile login.
+- CLI `JobRunner::open` (diagnostics, component commit, and todo-47 `migrate apply`) marks every persisted Running job Interrupted, including a job a concurrent `kcc serve` is running on the same state dir.
+- Fake router gaps that limit read-back tests: no `show system mode` (so `config keep-alive` is only tested as the router's refusal), no `ip hotspot default-policy`, `crypto ike policy`, `system partition *` on KN-1811 5.1, `mws`, `components auto-update`; `show rc` does not project `ip host`/`object-group`.
+- Mutation check: `dom_lan::dhcp_writes` opened with `Permission::Read` made `gate::viewer_writes_exit_10_and_send_nothing` fail (exit 4 after router contact instead of 10); restored byte for byte (`.omo/evidence/task-62b-mutation-keenetic-control-center.log`).
+
+## 2026-11-07: Todo 59 gaps (follow-ups)
+- Presets keep their own run claim map (`Arc<Wizards>`), separate from the migration wizard's: a preset apply and a migration apply to the same router are kept apart only by the JobRunner one-write-job-per-router rule and the ChangeSet lease, not by the wizard claim.
+- New-preset drafts are memory-only (32 max, 1 h): a restart loses a source that was read but not yet saved as a preset.
+- Phone (390 px): the presets list and the review table scroll sideways inside `.table-wrap` with no scroll cue (visual-QA A9/A10 FAIL on 2 of 14 phone pages; DESIGN.md debt row). The fix belongs to the shared `.table-wrap`/`.wizard-review` pattern, which the migration review shares.
+- Pre-existing, seen in the todo-59 QA: the app-wide type scale is below the HIG sizes at 390 px (body 16 px, labels and help 12 px); the shared confirm dialog sets one inline `style` through app.js CSSOM (not CSP-blocked).
+- No sort, filter or pager on the presets list or the runs lists; the review shows a conflict reason only when the engine reports a conflict.
+- The visual-QA verdict is a self-review (no read-only reviewer available to the executor); the detect SDK did not run; not every page was captured in both themes and both widths; the mid-apply Stop and the documentation-tier acknowledgement were not captured.
+- `presets_page/options.rs` is 260 pure LOC (just over the ~250 guide), left whole.
+
+## 2026-11-07: Todo 38 gaps (follow-ups)
+- kcc-catalog `valid_mask` rejects 0.0.0.0, so the firewall page cannot add a rule matching any address, and an existing "any" rule (shown as Any) cannot be removed through it: the catalog refuses the plan and nothing is sent.
+- kcc-domain firewall: `render` drops the protocol, `port eq` and `disable`, and the remove/property verification checks only the last token. kcc-catalog: `access-list rule` has parse_warnings (synopsis not loaded, `new-index` untyped), and `validate_cli` refuses `access-list permit|deny|rule` (UnsupportedCliSyntax) and `ip route` (InvalidCliSyntax) on 4.3.9 and 5.1.3. The Web page works around both; the MCP and CLI firewall paths still use the domain renderer.
+- No catalog contains `ipv6 access-list`, so IPv6 lists are always the explorer note; the read-only IPv6 listing is untested against a router that has them.
+- The policies page offers create, description (one word: the domain joins tokens), an interface with its order, taking it off, multipath and delete; the domain's `ip policy route`, `rate-limit` and `standalone` are not offered.
+- Fake router assumptions the tests rely on: `show ip policy` holds only Policy0 (the page merges `show rc ip policy`); permit/deny identity is the first two words and permits collapse to one per policy (tests use distinct rules); the new ACL rule behaviour is assumed from R-CLI 3.3.4 and was never live-verified.
+- Visual QA: no oracle reviewer was available to the executor (only explore/librarian), so the visual-qa gate is NOT met and the verdict is NEEDS HUMAN REVIEW. Shared-kit follow-ups seen on these pages and on the network page alike: tables at 14 px on a 390 px phone (C1), sort-header links 24 px tall (D1), row menus stay popovers on phones and address fields set no `inputmode` (J2), `.table-wrap` has no sideways-scroll cue (A10, DESIGN.md debt row), and the masthead language switch fails the 320 px stress reflow on every page. Only en and uk were captured; de, ru, be and kk strings were not looked at.
+- Correction to the domain-renderer gap above: the CLI has no firewall write commands yet (todo 47 gaps). On master the MCP firewall write tools (`kcc-mcp/src/domains/write/filtering.rs`) call `firewall::change::plan_*` and the domain renderer, so they are the path still affected.

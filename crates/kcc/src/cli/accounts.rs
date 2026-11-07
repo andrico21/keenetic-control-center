@@ -121,23 +121,35 @@ async fn passwd(ctx: &Ctx, username: &str, current_password_file: Option<&Path>)
     let services = ctx.services()?;
     let accounts = ctx.accounts()?;
     let out = ctx.out();
-    let current = read_secret(
-        current_password_file,
-        &out.tr(keys::CLI_PROMPT_CURRENT_PASSWORD, &[("user", username)]),
-    )?;
     let new = read_secret(
         ctx.globals().password_file(),
         &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", username)]),
     )?;
-    let result = accounts.change_password(username, &current, &new)?;
-    let outcome = if matches!(result, Authentication::Authenticated { role: _, locale: _ }) {
-        "success"
+    let own_account = ctx.principal().account_name() == username;
+    let changed = if own_account {
+        let current = read_secret(
+            current_password_file,
+            &out.tr(keys::CLI_PROMPT_CURRENT_PASSWORD, &[("user", username)]),
+        )?;
+        matches!(
+            accounts.change_password(username, &current, &new)?,
+            Authentication::Authenticated { role: _, locale: _ }
+        )
     } else {
-        "denied"
+        accounts.reset_password(
+            (ctx.principal().account_name(), ctx.principal().role()),
+            username,
+            &new,
+        )?
     };
+    let outcome = if changed { "success" } else { "denied" };
     ctx.audit(
         &services,
-        "cli.user_passwd",
+        if own_account {
+            "cli.user_passwd"
+        } else {
+            "cli.user_password_reset"
+        },
         None,
         json!({ "username": username }),
         outcome,

@@ -17,9 +17,12 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    permissions::Role,
     persist::{Migration, StateDoc, StateError, StateStore},
     secrets::{CryptoError, MasterKey, SealedSecret},
 };
+
+mod reset;
 
 /// Required Argon2id memory in KiB.
 pub const ARGON2_MEMORY_KIB: u32 = 19_456;
@@ -277,12 +280,24 @@ pub enum AccountError {
     /// Password equals the username.
     #[error("password must not equal username")]
     PasswordEqualsUsername,
+    /// Password contains control characters.
+    #[error("password must not contain control characters")]
+    InvalidPasswordCharacters,
     /// Username already exists.
     #[error("account already exists")]
     DuplicateAccount,
     /// The change would leave no enabled `admin` account.
     #[error("the last enabled administrator cannot be disabled, demoted or deleted")]
     LastAdmin,
+    /// The acting role does not grant account administration.
+    #[error("account administration permission denied")]
+    PermissionDenied,
+    /// Administrative reset cannot replace the actor's current-password flow.
+    #[error("an administrator must use the current-password flow for their own account")]
+    SelfResetRequiresCurrentPassword,
+    /// Only another enabled administrator may reset an administrator account.
+    #[error("an administrator password can be reset only by another enabled administrator")]
+    AdminResetRequiresAdmin,
 }
 
 /// UI account service using the state store's locking and atomic writes.
@@ -460,6 +475,28 @@ impl AccountStore {
             }
         })?;
         Ok(authentication)
+    }
+
+    /// Replaces another account's password under the account-administration permission.
+    ///
+    /// The target must change the reset password after authentication. Resetting one's own
+    /// password remains exclusively available through [`Self::change_password`], and an
+    /// administrator account may be reset only by a different enabled administrator.
+    ///
+    /// Returns `false` when the target account does not exist.
+    ///
+    /// # Errors
+    ///
+    /// Returns a permission or last-administrator policy error, password-policy, hashing,
+    /// encryption, or state error.
+    #[inline]
+    pub fn reset_password(
+        &self,
+        actor: (&str, &Role),
+        username: &str,
+        new_password: &SecretString,
+    ) -> Result<bool, AccountError> {
+        reset::password(self, actor, username, new_password)
     }
 
     /// Updates the preferred locale of an existing account.
@@ -649,6 +686,9 @@ fn validate_password(username: &str, password: &SecretString) -> Result<(), Acco
     }
     if plaintext == username {
         return Err(AccountError::PasswordEqualsUsername);
+    }
+    if plaintext.chars().any(char::is_control) {
+        return Err(AccountError::InvalidPasswordCharacters);
     }
     Ok(())
 }

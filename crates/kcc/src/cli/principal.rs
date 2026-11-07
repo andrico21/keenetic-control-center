@@ -54,6 +54,16 @@ impl Principal {
         Actor::new(ActorKind::Cli, self.id.clone())
     }
 
+    /// Account name associated with this operating-system principal.
+    pub(crate) fn account_name(&self) -> &str {
+        self.id.strip_prefix("cli:").unwrap_or("unknown")
+    }
+
+    /// Configured application role of this principal.
+    pub(crate) const fn role(&self) -> &Role {
+        &self.role
+    }
+
     /// Whether `router` lies inside both the role's and the CLI's router scope.
     pub(crate) fn sees(&self, router: &str) -> bool {
         scope_matches(&self.role.router_scope, router) && scope_matches(&self.scope, router)

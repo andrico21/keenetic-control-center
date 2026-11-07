@@ -17,6 +17,10 @@ use tokio::sync::{mpsc, oneshot};
 
 use crate::persist::{StateError, StateStore, io_error, open_private_append_file};
 
+mod append_lock;
+
+use append_lock::acquire_append_lock;
+
 /// Default audit rotation threshold: 50 MiB.
 pub const DEFAULT_ROTATE_BYTES: u64 = 50 * 1024 * 1024;
 /// Active audit file name.
@@ -203,6 +207,9 @@ pub enum AuditError {
         /// Rejected parameter key.
         key: String,
     },
+    /// Another process held the audit append lock beyond the bounded retry window.
+    #[error("audit append lock remained busy")]
+    AppendLockTimeout,
 }
 
 /// A cloneable handle to the one audit writer task.
@@ -255,7 +262,6 @@ impl AuditLog {
     /// Returns an I/O, parse, or chain error while recovering the chain tail.
     #[inline]
     pub fn spawn_with_limit(store: &StateStore, rotate_bytes: u64) -> Result<Self, AuditError> {
-        let _lock = store.lock(AUDIT_FILE_NAME)?;
         let files = audit_files(store.dir())?;
         let verified = verify_files(&files)?;
         let (next_seq, previous_hash) = verified.last().map_or_else(
@@ -266,6 +272,7 @@ impl AuditLog {
         let file = open_private_append_file(&path)?;
         let (sender, receiver) = mpsc::channel(128);
         let state = WriterState {
+            store: store.clone(),
             dir: store.dir().to_owned(),
             file,
             current_bytes: fs::metadata(&path).map_or(0, |metadata| metadata.len()),
@@ -309,6 +316,8 @@ impl AuditLog {
 /// Mutable state owned exclusively by the writer task.
 #[derive(Debug)]
 struct WriterState {
+    /// State store used to coordinate appenders in other processes.
+    store: StateStore,
     /// Audit directory.
     dir: PathBuf,
     /// Active append handle.
@@ -328,7 +337,7 @@ async fn writer_task(mut receiver: mpsc::Receiver<Command>, mut state: WriterSta
     while let Some(command) = receiver.recv().await {
         match command {
             Command::Append { event, reply } => {
-                let result = state.append(event);
+                let result = state.append(event).await;
                 let failed = result.is_err();
                 if failed {
                     receiver.close();
@@ -348,7 +357,19 @@ impl WriterState {
     /// # Errors
     ///
     /// Returns serialization, I/O, or rotation errors.
-    fn append(&mut self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
+    async fn append(&mut self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
+        let _lock = acquire_append_lock(&self.store).await?;
+        let files = audit_files(&self.dir)?;
+        let verified = verify_files(&files)?;
+        let (next_seq, previous_hash) = verified.last().map_or_else(
+            || (1, GENESIS_HASH.to_owned()),
+            |entry| (entry.seq.saturating_add(1), entry.hash.clone()),
+        );
+        let active = self.dir.join(AUDIT_FILE_NAME);
+        self.file = open_private_append_file(&active)?;
+        self.current_bytes = fs::metadata(&active).map_or(0, |metadata| metadata.len());
+        self.next_seq = next_seq;
+        self.previous_hash = previous_hash;
         let mut entry = AuditEntry {
             ts: event.ts,
             seq: self.next_seq,
