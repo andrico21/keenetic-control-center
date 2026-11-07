@@ -1,51 +1,40 @@
-//! Minimal command tree for server transports.
+//! The `kcc` command-line interface.
+//!
+//! Every invocation acts as `cli:<OS username>` with the `[cli] role` and optional
+//! `[cli] router_scope` globs, through the same `kcc-app` permission checks, change
+//! workflow and audit log as the Web UI and MCP.
 
-use std::path::PathBuf;
-
-use clap::{Parser, Subcommand};
-
-/// Keenetic Control Center.
-#[derive(Debug, Parser)]
-#[command(version, about)]
-#[non_exhaustive]
-pub struct Cli {
-    /// Command to run.
-    #[command(subcommand)]
-    pub command: Command,
-}
-
-/// Commands available before the complete todo-47 CLI lands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum Command {
-    /// Run the HTTP MCP server and optional Web UI.
-    Serve {
-        /// Path to `kcc.toml`.
-        #[arg(long)]
-        config: Option<PathBuf>,
-    },
-    /// Run an MCP transport.
-    #[command(subcommand)]
-    Mcp(McpCommand),
-}
-
-/// MCP transport commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum McpCommand {
-    /// Run MCP over the local process's stdin and stdout.
-    Stdio {
-        /// Path to `kcc.toml`.
-        #[arg(long)]
-        config: Option<PathBuf>,
-    },
-}
-
-impl Cli {
-    /// Parses process arguments according to the command schema.
-    #[inline]
-    #[must_use]
-    pub fn parse_process() -> Self {
-        Self::parse()
-    }
-}
+mod accounts;
+mod api_keys;
+pub mod args;
+pub mod args_admin;
+pub mod args_domains;
+pub mod args_domains_net;
+pub mod args_domains_wire;
+pub mod args_fleet;
+pub mod args_migrate;
+mod change;
+mod context;
+mod dom_core;
+mod dom_net;
+mod dom_routes;
+mod dom_wifi;
+mod dom_wire;
+mod domains;
+pub mod entry;
+mod exit;
+mod exit_from;
+mod files;
+mod fleet;
+mod issues;
+mod migrate;
+mod migrate_apply;
+mod migrate_plan;
+mod output;
+mod persist;
+mod principal;
+mod rci;
+mod redact;
+mod routers;
+mod secret;
+mod tls;

@@ -1,0 +1,238 @@
+//! Web UI accounts, MCP API keys, first-run administration and the audit log.
+
+use std::{
+    io::{self, Write as _},
+    path::Path,
+};
+
+use kcc_app::{
+    accounts::{AccountChange, Authentication, NewAccount},
+    permissions::{Permission, load_roles},
+};
+use kcc_i18n::keys;
+use rmcp_server_kit::auth::generate_api_key;
+use secrecy::{ExposeSecret as _, SecretString};
+use serde_json::json;
+use zeroize::Zeroizing;
+
+use super::{
+    args_admin::{AdminCommand, UserCommand},
+    context::Ctx,
+    exit::{Exit, Failure, Outcome},
+    secret::read_secret,
+};
+
+/// Runs a `user` command.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+// NOT cancel-safe: changes write local state.
+pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
+    ctx.principal().require(Permission::ManageUsers)?;
+    let services = ctx.services()?;
+    let accounts = ctx.accounts()?;
+    let out = ctx.out();
+    match command {
+        UserCommand::Add {
+            username,
+            role,
+            locale,
+        } => {
+            known_role(ctx, &role)?;
+            let password = read_secret(
+                ctx.globals().password_file(),
+                &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", &username)]),
+            )?;
+            accounts
+                .create(NewAccount::new(username.clone(), password, role).with_locale(locale))?;
+            ctx.audit(
+                &services,
+                "cli.user_add",
+                None,
+                json!({ "username": username }),
+                "success",
+            )
+            .await;
+            out.emit(
+                &json!({ "username": username, "added": true }),
+                &out.tr(keys::CLI_USER_ADDED, &[("user", &username)]),
+            )
+        }
+        UserCommand::Passwd {
+            username,
+            current_password_file,
+        } => passwd(ctx, &username, current_password_file.as_deref()).await,
+        UserCommand::List => {
+            let list = accounts.list()?;
+            let rows = list
+                .iter()
+                .map(|account| {
+                    vec![
+                        account.username.clone(),
+                        account.role.clone(),
+                        yes(ctx, account.disabled),
+                    ]
+                })
+                .collect::<Vec<_>>();
+            let document = json!({ "users": list.iter().map(|account| json!({ "username": account.username, "role": account.role, "locale": account.locale, "disabled": account.disabled })).collect::<Vec<_>>() });
+            out.table(
+                &document,
+                &[
+                    keys::CLI_COL_USER,
+                    keys::CLI_COL_ROLE,
+                    keys::CLI_COL_DISABLED,
+                ],
+                &rows,
+            )
+        }
+        UserCommand::Disable { username, enable } => {
+            let found = accounts.administer(&username, &AccountChange::Disabled(!enable))?;
+            if found.is_none() {
+                return Err(Failure::message(
+                    Exit::Usage,
+                    keys::CLI_NOT_FOUND,
+                    &[("name", &username)],
+                ));
+            }
+            ctx.audit(
+                &services,
+                "cli.user_disable",
+                None,
+                json!({ "username": username, "disabled": !enable }),
+                "success",
+            )
+            .await;
+            out.emit(
+                &json!({ "username": username, "disabled": !enable }),
+                &out.tr(keys::CLI_APPLIED, &[]),
+            )
+        }
+    }
+}
+
+/// Changes a Web UI account password after checking the current one.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+// NOT cancel-safe: the password change writes local state.
+async fn passwd(ctx: &Ctx, username: &str, current_password_file: Option<&Path>) -> Outcome {
+    let services = ctx.services()?;
+    let accounts = ctx.accounts()?;
+    let out = ctx.out();
+    let current = read_secret(
+        current_password_file,
+        &out.tr(keys::CLI_PROMPT_CURRENT_PASSWORD, &[("user", username)]),
+    )?;
+    let new = read_secret(
+        ctx.globals().password_file(),
+        &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", username)]),
+    )?;
+    let result = accounts.change_password(username, &current, &new)?;
+    let outcome = if matches!(result, Authentication::Authenticated { role: _, locale: _ }) {
+        "success"
+    } else {
+        "denied"
+    };
+    ctx.audit(
+        &services,
+        "cli.user_passwd",
+        None,
+        json!({ "username": username }),
+        outcome,
+    )
+    .await;
+    if outcome == "denied" {
+        return Err(Failure::message(
+            Exit::Auth,
+            keys::CLI_PASSWORD_REJECTED,
+            &[],
+        ));
+    }
+    out.emit(
+        &json!({ "username": username, "changed": true }),
+        &out.tr(keys::CLI_PASSWORD_CHANGED, &[("user", username)]),
+    )
+}
+
+/// Runs an `admin` command.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+// NOT cancel-safe: creates the account.
+pub(crate) async fn admin(ctx: &Ctx, command: AdminCommand) -> Outcome {
+    let AdminCommand::Init { username } = command;
+    ctx.principal().require(Permission::ManageUsers)?;
+    let services = ctx.services()?;
+    let accounts = ctx.accounts()?;
+    if accounts.has_admin()? {
+        return Err(Failure::message(
+            Exit::Conflict,
+            keys::CLI_ADMIN_EXISTS,
+            &[],
+        ));
+    }
+    let (token, _hash) =
+        generate_api_key().map_err(|error| Failure::text(Exit::Generic, &error))?;
+    let password = SecretString::from(token);
+    accounts.create(
+        NewAccount::new(username.clone(), password.clone(), "admin".to_owned())
+            .with_must_change_password(true),
+    )?;
+    ctx.audit(
+        &services,
+        "cli.admin_init",
+        None,
+        json!({ "username": username }),
+        "success",
+    )
+    .await;
+    let out = ctx.out();
+    let mut stdout = io::stdout().lock();
+    if out.json() {
+        let document = Zeroizing::new(
+            json!({ "username": username, "password": password.expose_secret() }).to_string(),
+        );
+        writeln!(stdout, "{}", document.as_str())?;
+    } else {
+        writeln!(
+            stdout,
+            "{}",
+            out.tr(keys::CLI_ADMIN_CREATED, &[("user", &username)])
+        )?;
+        writeln!(stdout, "{}", password.expose_secret())?;
+    }
+    stdout.flush()?;
+    Ok(())
+}
+
+/// Requires `role` to name a built-in or custom role.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+pub(crate) fn known_role(ctx: &Ctx, role: &str) -> Outcome {
+    if load_roles(ctx.state())?
+        .iter()
+        .any(|known| known.name == role)
+    {
+        Ok(())
+    } else {
+        Err(Failure::message(
+            Exit::Usage,
+            keys::CLI_NOT_FOUND,
+            &[("name", role)],
+        ))
+    }
+}
+
+/// Localized yes or nothing.
+fn yes(ctx: &Ctx, value: bool) -> String {
+    if value {
+        ctx.out().tr(keys::CLI_YES, &[])
+    } else {
+        String::new()
+    }
+}

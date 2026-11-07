@@ -31,7 +31,7 @@ mod tests {
         let main = fs::read_to_string(Path::new(env!("CARGO_MANIFEST_DIR")).join("src/main.rs"))
             .expect("main source is readable");
         let body = main
-            .split_once("fn main() {")
+            .split_once("fn main() -> ExitCode {")
             .map(|(_, body)| body.trim_start())
             .expect("main function exists");
         assert!(

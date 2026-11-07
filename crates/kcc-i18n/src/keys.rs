@@ -29,6 +29,192 @@ pub const CLI_DRY_RUN: MessageKey = MessageKey::new("cli-dry-run");
 /// `cli-changes-applied` in `cli.ftl`.
 pub const CLI_CHANGES_APPLIED: MessageKey = MessageKey::new("cli-changes-applied");
 
+/// `cli-router-updated` in `cli.ftl`.
+pub const CLI_ROUTER_UPDATED: MessageKey = MessageKey::new("cli-router-updated");
+
+/// `cli-router-required` in `cli.ftl`.
+pub const CLI_ROUTER_REQUIRED: MessageKey = MessageKey::new("cli-router-required");
+
+/// `cli-error-generic` in `cli.ftl`.
+pub const CLI_ERROR_GENERIC: MessageKey = MessageKey::new("cli-error-generic");
+
+/// `cli-error-usage` in `cli.ftl`.
+pub const CLI_ERROR_USAGE: MessageKey = MessageKey::new("cli-error-usage");
+
+/// `cli-error-auth` in `cli.ftl`.
+pub const CLI_ERROR_AUTH: MessageKey = MessageKey::new("cli-error-auth");
+
+/// `cli-error-validation` in `cli.ftl`.
+pub const CLI_ERROR_VALIDATION: MessageKey = MessageKey::new("cli-error-validation");
+
+/// `cli-error-conflict` in `cli.ftl`.
+pub const CLI_ERROR_CONFLICT: MessageKey = MessageKey::new("cli-error-conflict");
+
+/// `cli-error-router` in `cli.ftl`.
+pub const CLI_ERROR_ROUTER: MessageKey = MessageKey::new("cli-error-router");
+
+/// `cli-error-partial` in `cli.ftl`.
+pub const CLI_ERROR_PARTIAL: MessageKey = MessageKey::new("cli-error-partial");
+
+/// `cli-error-policy` in `cli.ftl`.
+pub const CLI_ERROR_POLICY: MessageKey = MessageKey::new("cli-error-policy");
+
+/// `cli-refused` in `cli.ftl`.
+pub const CLI_REFUSED: MessageKey = MessageKey::new("cli-refused");
+
+/// `cli-secret-missing` in `cli.ftl`.
+pub const CLI_SECRET_MISSING: MessageKey = MessageKey::new("cli-secret-missing");
+
+/// `cli-confirm-ask` in `cli.ftl`.
+pub const CLI_CONFIRM_ASK: MessageKey = MessageKey::new("cli-confirm-ask");
+
+/// `cli-confirm-type` in `cli.ftl`.
+pub const CLI_CONFIRM_TYPE: MessageKey = MessageKey::new("cli-confirm-type");
+
+/// `cli-confirm-missing` in `cli.ftl`.
+pub const CLI_CONFIRM_MISSING: MessageKey = MessageKey::new("cli-confirm-missing");
+
+/// `cli-failsafe-left` in `cli.ftl`.
+pub const CLI_FAILSAFE_LEFT: MessageKey = MessageKey::new("cli-failsafe-left");
+
+/// `cli-col-id` in `cli.ftl`.
+pub const CLI_COL_ID: MessageKey = MessageKey::new("cli-col-id");
+
+/// `cli-col-url` in `cli.ftl`.
+pub const CLI_COL_URL: MessageKey = MessageKey::new("cli-col-url");
+
+/// `cli-col-login` in `cli.ftl`.
+pub const CLI_COL_LOGIN: MessageKey = MessageKey::new("cli-col-login");
+
+/// `cli-col-source` in `cli.ftl`.
+pub const CLI_COL_SOURCE: MessageKey = MessageKey::new("cli-col-source");
+
+/// `cli-col-tags` in `cli.ftl`.
+pub const CLI_COL_TAGS: MessageKey = MessageKey::new("cli-col-tags");
+
+/// `cli-col-name` in `cli.ftl`.
+pub const CLI_COL_NAME: MessageKey = MessageKey::new("cli-col-name");
+
+/// `cli-col-reason` in `cli.ftl`.
+pub const CLI_COL_REASON: MessageKey = MessageKey::new("cli-col-reason");
+
+/// `cli-col-created` in `cli.ftl`.
+pub const CLI_COL_CREATED: MessageKey = MessageKey::new("cli-col-created");
+
+/// `cli-col-user` in `cli.ftl`.
+pub const CLI_COL_USER: MessageKey = MessageKey::new("cli-col-user");
+
+/// `cli-col-role` in `cli.ftl`.
+pub const CLI_COL_ROLE: MessageKey = MessageKey::new("cli-col-role");
+
+/// `cli-col-disabled` in `cli.ftl`.
+pub const CLI_COL_DISABLED: MessageKey = MessageKey::new("cli-col-disabled");
+
+/// `cli-col-mac` in `cli.ftl`.
+pub const CLI_COL_MAC: MessageKey = MessageKey::new("cli-col-mac");
+
+/// `cli-col-address` in `cli.ftl`.
+pub const CLI_COL_ADDRESS: MessageKey = MessageKey::new("cli-col-address");
+
+/// `cli-col-interface` in `cli.ftl`.
+pub const CLI_COL_INTERFACE: MessageKey = MessageKey::new("cli-col-interface");
+
+/// `cli-col-access` in `cli.ftl`.
+pub const CLI_COL_ACCESS: MessageKey = MessageKey::new("cli-col-access");
+
+/// `cli-tier-hardware` in `cli.ftl`.
+pub const CLI_TIER_HARDWARE: MessageKey = MessageKey::new("cli-tier-hardware");
+
+/// `cli-tier-documentation` in `cli.ftl`.
+pub const CLI_TIER_DOCUMENTATION: MessageKey = MessageKey::new("cli-tier-documentation");
+
+/// `cli-tier-unsupported` in `cli.ftl`.
+pub const CLI_TIER_UNSUPPORTED: MessageKey = MessageKey::new("cli-tier-unsupported");
+
+/// `cli-info-model` in `cli.ftl`.
+pub const CLI_INFO_MODEL: MessageKey = MessageKey::new("cli-info-model");
+
+/// `cli-info-firmware` in `cli.ftl`.
+pub const CLI_INFO_FIRMWARE: MessageKey = MessageKey::new("cli-info-firmware");
+
+/// `cli-info-tier` in `cli.ftl`.
+pub const CLI_INFO_TIER: MessageKey = MessageKey::new("cli-info-tier");
+
+/// `cli-prompt-router-password` in `cli.ftl`.
+pub const CLI_PROMPT_ROUTER_PASSWORD: MessageKey = MessageKey::new("cli-prompt-router-password");
+
+/// `cli-prompt-new-password` in `cli.ftl`.
+pub const CLI_PROMPT_NEW_PASSWORD: MessageKey = MessageKey::new("cli-prompt-new-password");
+
+/// `cli-prompt-current-password` in `cli.ftl`.
+pub const CLI_PROMPT_CURRENT_PASSWORD: MessageKey = MessageKey::new("cli-prompt-current-password");
+
+/// `cli-applied` in `cli.ftl`.
+pub const CLI_APPLIED: MessageKey = MessageKey::new("cli-applied");
+
+/// `cli-saved` in `cli.ftl`.
+pub const CLI_SAVED: MessageKey = MessageKey::new("cli-saved");
+
+/// `cli-config-unsaved` in `cli.ftl`.
+pub const CLI_CONFIG_UNSAVED: MessageKey = MessageKey::new("cli-config-unsaved");
+
+/// `cli-config-agent` in `cli.ftl`.
+pub const CLI_CONFIG_AGENT: MessageKey = MessageKey::new("cli-config-agent");
+
+/// `cli-config-failsafe` in `cli.ftl`.
+pub const CLI_CONFIG_FAILSAFE: MessageKey = MessageKey::new("cli-config-failsafe");
+
+/// `cli-deleted` in `cli.ftl`.
+pub const CLI_DELETED: MessageKey = MessageKey::new("cli-deleted");
+
+/// `cli-yes` in `cli.ftl`.
+pub const CLI_YES: MessageKey = MessageKey::new("cli-yes");
+
+/// `cli-no` in `cli.ftl`.
+pub const CLI_NO: MessageKey = MessageKey::new("cli-no");
+
+/// `cli-user-added` in `cli.ftl`.
+pub const CLI_USER_ADDED: MessageKey = MessageKey::new("cli-user-added");
+
+/// `cli-password-rejected` in `cli.ftl`.
+pub const CLI_PASSWORD_REJECTED: MessageKey = MessageKey::new("cli-password-rejected");
+
+/// `cli-password-changed` in `cli.ftl`.
+pub const CLI_PASSWORD_CHANGED: MessageKey = MessageKey::new("cli-password-changed");
+
+/// `cli-not-found` in `cli.ftl`.
+pub const CLI_NOT_FOUND: MessageKey = MessageKey::new("cli-not-found");
+
+/// `cli-key-once` in `cli.ftl`.
+pub const CLI_KEY_ONCE: MessageKey = MessageKey::new("cli-key-once");
+
+/// `cli-admin-exists` in `cli.ftl`.
+pub const CLI_ADMIN_EXISTS: MessageKey = MessageKey::new("cli-admin-exists");
+
+/// `cli-admin-created` in `cli.ftl`.
+pub const CLI_ADMIN_CREATED: MessageKey = MessageKey::new("cli-admin-created");
+
+/// `cli-audit-valid` in `cli.ftl`.
+pub const CLI_AUDIT_VALID: MessageKey = MessageKey::new("cli-audit-valid");
+
+/// `cli-audit-broken` in `cli.ftl`.
+pub const CLI_AUDIT_BROKEN: MessageKey = MessageKey::new("cli-audit-broken");
+
+/// `cli-tls-written` in `cli.ftl`.
+pub const CLI_TLS_WRITTEN: MessageKey = MessageKey::new("cli-tls-written");
+
+/// `cli-plan-written` in `cli.ftl`.
+pub const CLI_PLAN_WRITTEN: MessageKey = MessageKey::new("cli-plan-written");
+
+/// `cli-plan-changed` in `cli.ftl`.
+pub const CLI_PLAN_CHANGED: MessageKey = MessageKey::new("cli-plan-changed");
+
+/// `cli-plan-blocked` in `cli.ftl`.
+pub const CLI_PLAN_BLOCKED: MessageKey = MessageKey::new("cli-plan-blocked");
+
+/// `cli-migrate-kept` in `cli.ftl`.
+pub const CLI_MIGRATE_KEPT: MessageKey = MessageKey::new("cli-migrate-kept");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -4957,7 +5143,7 @@ pub const WEB_MIGRATE_FAILURE_VALIDATION: MessageKey =
     MessageKey::new("web-migrate-failure-validation");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1583] = [
+pub static ALL: [MessageKey; 1645] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -4967,6 +5153,68 @@ pub static ALL: [MessageKey; 1583] = [
     CLI_CONFIG_WRITTEN,
     CLI_DRY_RUN,
     CLI_CHANGES_APPLIED,
+    CLI_ROUTER_UPDATED,
+    CLI_ROUTER_REQUIRED,
+    CLI_ERROR_GENERIC,
+    CLI_ERROR_USAGE,
+    CLI_ERROR_AUTH,
+    CLI_ERROR_VALIDATION,
+    CLI_ERROR_CONFLICT,
+    CLI_ERROR_ROUTER,
+    CLI_ERROR_PARTIAL,
+    CLI_ERROR_POLICY,
+    CLI_REFUSED,
+    CLI_SECRET_MISSING,
+    CLI_CONFIRM_ASK,
+    CLI_CONFIRM_TYPE,
+    CLI_CONFIRM_MISSING,
+    CLI_FAILSAFE_LEFT,
+    CLI_COL_ID,
+    CLI_COL_URL,
+    CLI_COL_LOGIN,
+    CLI_COL_SOURCE,
+    CLI_COL_TAGS,
+    CLI_COL_NAME,
+    CLI_COL_REASON,
+    CLI_COL_CREATED,
+    CLI_COL_USER,
+    CLI_COL_ROLE,
+    CLI_COL_DISABLED,
+    CLI_COL_MAC,
+    CLI_COL_ADDRESS,
+    CLI_COL_INTERFACE,
+    CLI_COL_ACCESS,
+    CLI_TIER_HARDWARE,
+    CLI_TIER_DOCUMENTATION,
+    CLI_TIER_UNSUPPORTED,
+    CLI_INFO_MODEL,
+    CLI_INFO_FIRMWARE,
+    CLI_INFO_TIER,
+    CLI_PROMPT_ROUTER_PASSWORD,
+    CLI_PROMPT_NEW_PASSWORD,
+    CLI_PROMPT_CURRENT_PASSWORD,
+    CLI_APPLIED,
+    CLI_SAVED,
+    CLI_CONFIG_UNSAVED,
+    CLI_CONFIG_AGENT,
+    CLI_CONFIG_FAILSAFE,
+    CLI_DELETED,
+    CLI_YES,
+    CLI_NO,
+    CLI_USER_ADDED,
+    CLI_PASSWORD_REJECTED,
+    CLI_PASSWORD_CHANGED,
+    CLI_NOT_FOUND,
+    CLI_KEY_ONCE,
+    CLI_ADMIN_EXISTS,
+    CLI_ADMIN_CREATED,
+    CLI_AUDIT_VALID,
+    CLI_AUDIT_BROKEN,
+    CLI_TLS_WRITTEN,
+    CLI_PLAN_WRITTEN,
+    CLI_PLAN_CHANGED,
+    CLI_PLAN_BLOCKED,
+    CLI_MIGRATE_KEPT,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

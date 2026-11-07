@@ -180,6 +180,10 @@ criteria = "safe-to-deploy"
 version = "4.6.7"
 criteria = "safe-to-deploy"
 
+[[exemptions.clap_complete]]
+version = "4.6.11"
+criteria = "safe-to-deploy"
+
 [[exemptions.clap_derive]]
 version = "4.6.7"
 criteria = "safe-to-deploy"
@@ -564,6 +568,10 @@ criteria = "safe-to-deploy"
 version = "0.6.1"
 criteria = "safe-to-deploy"
 
+[[exemptions.pem]]
+version = "4.0.0"
+criteria = "safe-to-deploy"
+
 [[exemptions.phc]]
 version = "0.6.1"
 criteria = "safe-to-deploy"
@@ -662,7 +670,7 @@ criteria = "safe-to-deploy"
 
 [[exemptions.rcgen]]
 version = "0.14.10"
-criteria = "safe-to-run"
+criteria = "safe-to-deploy"
 
 [[exemptions.redox_syscall]]
 version = "0.5.18"
@@ -702,6 +710,14 @@ criteria = "safe-to-deploy"
 
 [[exemptions.rmcp-server-kit]]
 version = "3.21.1"
+criteria = "safe-to-deploy"
+
+[[exemptions.rpassword]]
+version = "7.5.4"
+criteria = "safe-to-deploy"
+
+[[exemptions.rtoolbox]]
+version = "0.0.6"
 criteria = "safe-to-deploy"
 
 [[exemptions.rustc-hash]]
@@ -1182,7 +1198,7 @@ criteria = "safe-to-deploy"
 
 [[exemptions.yasna]]
 version = "0.6.0"
-criteria = "safe-to-run"
+criteria = "safe-to-deploy"
 
 [[exemptions.yoke]]
 version = "0.8.4"

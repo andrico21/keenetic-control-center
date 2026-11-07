@@ -1,48 +1,38 @@
 //! Keenetic Control Center command-line entry point.
 
+use std::{
+    io::{self, Write as _},
+    process::ExitCode,
+};
+
+use kcc::cli::{args::Cli, entry};
+use tokio::runtime::Builder;
+
 #[expect(
     clippy::absolute_paths,
-    clippy::print_stderr,
-    reason = "the pre-logging privilege refusal must use only explicit stderr and exit APIs"
+    reason = "the privilege floor stays textually first and fully qualified for the source guard"
 )]
-fn main() {
+fn main() -> ExitCode {
     if let Err(error) = kcc::privileges::enforce() {
-        eprintln!("{error}");
-        std::process::exit(77);
+        drop(writeln!(io::stderr(), "{error}"));
+        return ExitCode::from(77);
     }
-    let cli = kcc::cli::Cli::parse_process();
-    let runtime = match tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-    {
+    let cli = match Cli::try_parse_process() {
+        Ok(cli) => cli,
+        Err(error) => {
+            drop(error.print());
+            return ExitCode::from(u8::try_from(error.exit_code()).unwrap_or(2));
+        }
+    };
+    let runtime = match Builder::new_multi_thread().enable_all().build() {
         Ok(runtime) => runtime,
         Err(error) => {
-            use std::io::Write as _;
             drop(writeln!(
-                std::io::stderr(),
+                io::stderr(),
                 "cannot start async runtime: {error}"
             ));
-            std::process::exit(1);
+            return ExitCode::from(1);
         }
     };
-    let result = runtime.block_on(async move {
-        match cli.command {
-            kcc::cli::Command::Serve { config } => kcc::server::run_serve(config).await,
-            kcc::cli::Command::Mcp(kcc::cli::McpCommand::Stdio { config }) => {
-                kcc::server::run_stdio(config).await
-            }
-            kcc::cli::Command::Mcp(_) | _ => Err(kcc::server::ServerError::unsupported_command()),
-        }
-    });
-    let outcome = match result {
-        Ok(outcome) => outcome,
-        Err(error) => {
-            use std::io::Write as _;
-            drop(writeln!(std::io::stderr(), "{error}"));
-            kcc::server::Outcome::Failed
-        }
-    };
-    if outcome != kcc::server::Outcome::Ok {
-        std::process::exit(i32::from(outcome.code()));
-    }
+    ExitCode::from(runtime.block_on(entry::run(cli)))
 }
