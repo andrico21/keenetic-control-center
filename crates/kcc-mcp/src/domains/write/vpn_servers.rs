@@ -123,7 +123,14 @@ pub(super) async fn servers(server: &KccMcp, arguments: Value) -> Result<Value, 
         }
         "password" => {
             let user = object(input.name.as_deref())?;
-            let planned = server_secrets::plan_password(&opened.2, &user, secret(input.secret)?);
+            let login = server
+                .registry
+                .get(opened.1.as_str())
+                .map_err(|_error| McpFailure::Internal)?
+                .profile
+                .login;
+            let planned =
+                server_secrets::plan_password(&opened.2, &user, &login, secret(input.secret)?);
             apply_cli(
                 server,
                 &opened,

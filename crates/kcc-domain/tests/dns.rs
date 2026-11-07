@@ -71,6 +71,43 @@ async fn doh_upstream_is_applied_and_read_back() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
+#[tokio::test]
+async fn fqdn_include_uses_the_group_context_and_applies() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn().await?;
+    let group = dns::plan_change(
+        &fixture.context,
+        &DnsChange::FqdnGroup {
+            name: "Blocked".to_owned(),
+        },
+    )?;
+    let include = dns::plan_change(
+        &fixture.context,
+        &DnsChange::FqdnInclude {
+            name: "Blocked".to_owned(),
+            address: "example.test".to_owned(),
+        },
+    )?;
+    let mut changes = fixture
+        .workflow
+        .begin(
+            "router",
+            Actor::new(ActorKind::Cli, "test".to_owned()),
+            &admin_role(),
+            None,
+            false,
+        )
+        .await?;
+
+    drop(changes.apply_cli(dns::change_request(&group)?).await?);
+    drop(changes.apply_cli(dns::change_request(&include)?).await?);
+
+    let running = fixture.handle.running_config_text();
+    assert!(running.contains("object-group fqdn Blocked"), "{running}");
+    assert!(running.contains("include example.test"), "{running}");
+    drop(changes);
+    fixture.shutdown().await
+}
+
 struct Fixture {
     directory: TempDir,
     handle: kcc_testkit::Handle,

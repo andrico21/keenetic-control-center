@@ -23,6 +23,7 @@ cli-error-conflict = Konflikt mit dem aktuellen Zustand (Router belegt, von jema
 cli-error-router = Der Router ist nicht erreichbar oder hat einen Fehler gemeldet.
 cli-error-partial = Einige Elemente des Stapels sind fehlgeschlagen.
 cli-error-policy = Durch eine Richtlinie abgelehnt.
+cli-profile-login-protected = Ändern Sie dieses Passwort am Router und aktualisieren Sie dann das Profil mit `kcc router edit --new-password`.
 cli-refused = Die CLI-Rolle oder der Router-Bereich erlaubt dies auf { $router } nicht.
 cli-secret-missing = Kein Geheimnis angegeben: Verwenden Sie --password-file, die Variable KCC_PASSWORD oder ein Terminal.
 cli-confirm-ask = Diese Änderung auf { $router } anwenden? Geben Sie yes ein, um fortzufahren:

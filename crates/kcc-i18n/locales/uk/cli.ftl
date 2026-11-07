@@ -25,6 +25,7 @@ cli-error-conflict = Конфлікт із поточним станом (роу
 cli-error-router = Роутер недоступний або повідомив про помилку.
 cli-error-partial = Частина елементів пакета завершилася помилкою.
 cli-error-policy = Відхилено політикою.
+cli-profile-login-protected = Змініть цей пароль на роутері, а потім оновіть профіль командою `kcc router edit --new-password`.
 cli-refused = Роль CLI або область роутерів не дозволяє цього на { $router }.
 cli-secret-missing = Секрет не задано: використайте --password-file, змінну KCC_PASSWORD або запустіть у терміналі.
 cli-confirm-ask = Застосувати цю зміну до { $router }? Введіть yes, щоб продовжити:

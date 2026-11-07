@@ -7,7 +7,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest},
 };
-use kcc_domain::{ChangeOp, RouterCtx};
+use kcc_domain::{ChangeOp, DomainError, RouterCtx};
 use kcc_i18n::{bundle::MessageKey, keys};
 use serde::Serialize;
 use serde_json::Value;
@@ -112,6 +112,30 @@ impl<'ctx> Session<'ctx> {
     pub(crate) async fn open(ctx: &'ctx Ctx, permission: Permission) -> Outcome<Self> {
         let services = ctx.services()?;
         let target = ctx.target(&services, &[permission]).await?;
+        Ok(Self {
+            ctx,
+            services,
+            target,
+        })
+    }
+
+    /// Refuses a password change of the selected profile login before connecting.
+    ///
+    /// # Errors
+    ///
+    /// Returns the policy refusal, registry failure, or connection failure.
+    pub(crate) async fn open_for_account_password(
+        ctx: &'ctx Ctx,
+        permission: Permission,
+        account: &str,
+    ) -> Outcome<Self> {
+        let services = ctx.services()?;
+        let id = ctx.router_id(&services)?;
+        let profile = services.registry().get(&id)?.profile;
+        if account == profile.login {
+            return Err(DomainError::ProtectedAccount.into());
+        }
+        let target = ctx.target_named(&services, id, &[permission]).await?;
         Ok(Self {
             ctx,
             services,

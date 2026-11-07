@@ -23,6 +23,7 @@ cli-error-conflict = The action conflicts with the current state (router busy, c
 cli-error-router = The router could not be reached or reported an error.
 cli-error-partial = Some items of the batch failed.
 cli-error-policy = Refused by policy.
+cli-profile-login-protected = Change this password on the router, then update the profile with `kcc router edit --new-password`.
 cli-refused = The CLI role or router scope does not allow this on { $router }.
 cli-secret-missing = No secret given: use --password-file, the KCC_PASSWORD variable, or run on a terminal.
 cli-confirm-ask = Apply this change to { $router }? Type yes to continue:

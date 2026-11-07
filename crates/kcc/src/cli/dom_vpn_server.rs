@@ -60,10 +60,16 @@ async fn secrets(ctx: &Ctx, command: VpnServerSecretCommand) -> Outcome {
                 .await
         }
         VpnServerSecretCommand::Password { user } => {
-            let session = Session::open(ctx, Permission::ManageUsers).await?;
+            let session =
+                Session::open_for_account_password(ctx, Permission::ManageUsers, &user).await?;
             let account = object(&user)?;
             let password = new_secret(ctx, &user)?;
-            let operation = server_secrets::plan_password(session.router(), &account, password)?;
+            let operation = server_secrets::plan_password(
+                session.router(),
+                &account,
+                &session.profile_login()?,
+                password,
+            )?;
             session
                 .cli(&operation, server_secrets::password_request(&operation)?)
                 .await

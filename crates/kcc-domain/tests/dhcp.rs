@@ -91,6 +91,29 @@ async fn valid_static_lease_is_verified_through_running_config() -> Result<(), B
     Ok(())
 }
 
+#[tokio::test]
+async fn pool_without_dns_or_interface_validates_and_applies() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn().await?;
+    let pool = dhcp::model::PoolConfig::new(
+        "Pool24".to_owned(),
+        Ipv4Addr::new(192, 0, 2, 130),
+        Ipv4Addr::new(192, 0, 2, 150),
+    );
+    let operation = dhcp::plan_pool(&fixture.context, &pool)?;
+    let mut changes = fixture.changes().await?;
+
+    drop(dhcp::apply(&mut changes, &fixture.context, &operation).await?);
+
+    assert!(
+        fixture
+            .handle
+            .running_config_text()
+            .contains("ip dhcp pool Pool24")
+    );
+    drop(changes);
+    fixture.shutdown().await
+}
+
 struct Fixture {
     directory: TempDir,
     handle: kcc_testkit::Handle,

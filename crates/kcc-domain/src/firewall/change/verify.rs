@@ -94,21 +94,29 @@ impl Verification {
     }
 
     pub(super) async fn verify(&self, router: &RouterCtx) -> Result<()> {
-        let rules = read::configured_rules(router).await?;
         let verified = match self {
-            Self::Add { list, rule } => contains(&rules, list, rule),
-            Self::Remove { list, rule } => !contains(&rules, list, rule),
+            Self::Add { list, rule } => {
+                contains(&read::configured_rules(router).await?, list, rule)
+            }
+            Self::Remove { list, rule } => {
+                !contains(&read::configured_rules(router).await?, list, rule)
+            }
             Self::Property {
                 list,
                 before,
                 property,
-            } => property_holds(&rules, list, before, property),
+            } => property_holds(
+                &read::configured_rules(router).await?,
+                list,
+                before,
+                property,
+            ),
             Self::Binding {
-                interface: _,
-                list: _,
-                direction: _,
-                present: _,
-            } => true,
+                interface,
+                list,
+                direction,
+                present,
+            } => read::has_binding(router, interface, list, *direction).await? == *present,
         };
         if verified {
             Ok(())

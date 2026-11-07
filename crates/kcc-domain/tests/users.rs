@@ -49,6 +49,15 @@ async fn protected_account_refusals_send_no_router_request() -> TestResult {
         router_users::plan_delete(fixture.context(), DEFAULT_LOGIN, DEFAULT_LOGIN),
         Err(DomainError::ProtectedAccount)
     ));
+    assert!(matches!(
+        router_users::plan_password(
+            fixture.context(),
+            DEFAULT_LOGIN,
+            DEFAULT_LOGIN,
+            SecretString::from("replacement"),
+        ),
+        Err(DomainError::ProtectedAccount)
+    ));
     assert_eq!(fixture.handle().request_count(), before);
     fixture.shutdown().await
 }
@@ -63,6 +72,7 @@ async fn password_write_hashes_and_never_exposes_plaintext() -> TestResult {
     let operation = router_users::plan_password(
         fixture.context(),
         "operator",
+        DEFAULT_LOGIN,
         SecretString::from(secret.to_owned()),
     )?;
     assert!(!format!("{operation:?}").contains(secret));
@@ -102,6 +112,7 @@ async fn password_control_character_is_refused_before_router_request() -> TestRe
     let result = router_users::plan_password(
         fixture.context(),
         DEFAULT_LOGIN,
+        "operator",
         SecretString::from("bad\npassword".to_owned()),
     );
 

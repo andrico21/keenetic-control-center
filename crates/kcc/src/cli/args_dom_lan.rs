@@ -55,12 +55,12 @@ pub enum DhcpWriteCommand {
         end: Ipv4Addr,
         /// Interface the pool serves, e.g. `Bridge0`.
         #[arg(long)]
-        interface: String,
+        interface: Option<String>,
         /// Advertised default router (default: the first address).
         #[arg(long)]
         gateway: Option<Ipv4Addr>,
         /// Advertised DNS server; repeat for several.
-        #[arg(long = "dns", required = true)]
+        #[arg(long = "dns")]
         dns: Vec<Ipv4Addr>,
         /// Lease time in seconds.
         #[arg(long, default_value_t = 86_400)]

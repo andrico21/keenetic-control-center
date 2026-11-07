@@ -109,3 +109,21 @@ async fn vpn_credentials_come_from_the_password_file_only() -> TestResult {
     assert_eq!(missing.code, 2_i32, "no secret source: {missing:?}");
     lab.shutdown().await
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn profile_login_password_changes_are_refused_without_router_requests() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let password = lab.env.write("replacement.secret", PASSWORD)?;
+    let file = password.to_str().ok_or("non-UTF-8 path")?;
+
+    for args in [
+        &["--password-file", file, "router-users", "passwd", "admin"][..],
+        &["--password-file", file, "vpn-server", "password", "admin"][..],
+    ] {
+        let before = lab.fake.request_count();
+        let run = lab.run(args)?;
+        assert_eq!(run.code, 10_i32, "kcc {args:?}: {run:?}");
+        assert_eq!(lab.fake.request_count(), before, "kcc {args:?}");
+    }
+    lab.shutdown().await
+}

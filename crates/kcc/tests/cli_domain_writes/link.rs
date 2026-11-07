@@ -16,10 +16,15 @@ async fn dns_upstream_record_and_group_are_written_and_read_back() -> TestResult
     ])?);
     drop(lab.json(&["dns", "static-host", "nas.lan", "192.0.2.40"])?);
     drop(lab.json(&["dns", "fqdn-group", "media"])?);
+    drop(lab.json(&["dns", "fqdn-group", "media", "--include", "stream.example"])?);
     let config = lab.json(&["dns", "config"])?.to_string();
     assert!(config.contains("dns.example"), "{config}");
     let running = lab.fake.running_config_text();
-    for expected in ["ip host nas.lan 192.0.2.40", "object-group fqdn media"] {
+    for expected in [
+        "ip host nas.lan 192.0.2.40",
+        "object-group fqdn media",
+        "include stream.example",
+    ] {
         assert!(running.contains(expected), "{expected} missing: {running}");
     }
     lab.shutdown().await

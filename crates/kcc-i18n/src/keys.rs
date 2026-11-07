@@ -59,6 +59,9 @@ pub const CLI_ERROR_PARTIAL: MessageKey = MessageKey::new("cli-error-partial");
 /// `cli-error-policy` in `cli.ftl`.
 pub const CLI_ERROR_POLICY: MessageKey = MessageKey::new("cli-error-policy");
 
+/// `cli-profile-login-protected` in `cli.ftl`.
+pub const CLI_PROFILE_LOGIN_PROTECTED: MessageKey = MessageKey::new("cli-profile-login-protected");
+
 /// `cli-refused` in `cli.ftl`.
 pub const CLI_REFUSED: MessageKey = MessageKey::new("cli-refused");
 
@@ -6338,7 +6341,7 @@ pub const WEB_PRESETS_DOWNLOADS: MessageKey = MessageKey::new("web-presets-downl
 pub const WEB_PRESETS_GROUP_EMPTY: MessageKey = MessageKey::new("web-presets-group-empty");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2022] = [
+pub static ALL: [MessageKey; 2023] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6358,6 +6361,7 @@ pub static ALL: [MessageKey; 2022] = [
     CLI_ERROR_ROUTER,
     CLI_ERROR_PARTIAL,
     CLI_ERROR_POLICY,
+    CLI_PROFILE_LOGIN_PROTECTED,
     CLI_REFUSED,
     CLI_SECRET_MISSING,
     CLI_CONFIRM_ASK,

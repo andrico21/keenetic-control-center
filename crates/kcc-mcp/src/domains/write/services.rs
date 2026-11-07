@@ -196,7 +196,15 @@ pub(super) async fn router_users(server: &KccMcp, arguments: Value) -> Result<Va
             text(input.value.as_deref())?,
             needed(input.enabled)?,
         ),
-        "set_password" => router_users::plan_password(ctx, name, secret(input.secret)?),
+        "set_password" => {
+            let login = server
+                .registry
+                .get(router.as_str())
+                .map_err(|_error| McpFailure::Internal)?
+                .profile
+                .login;
+            router_users::plan_password(ctx, name, &login, secret(input.secret)?)
+        }
         _ => {
             let login = server
                 .registry

@@ -94,9 +94,10 @@ impl<'router> RevealSecrets<'router> {
 pub fn plan_password(
     router: &RouterCtx,
     user: &ObjectName,
+    profile_login: &str,
     password: SecretString,
 ) -> Result<ChangeOp> {
-    router_users::plan_password(router, user.as_str(), password)
+    router_users::plan_password(router, user.as_str(), profile_login, password)
 }
 
 /// Converts a server-account password plan to its protected workflow request.

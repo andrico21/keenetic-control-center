@@ -22,10 +22,16 @@ use crate::{ChangeOp, DomainError, Result, RouterCtx};
 /// Validates a typed DNS change against the selected router catalog.
 pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
     let (path, body) = catalog_input(change);
-    let validated = router
+    let mut validated = router
         .catalog
         .validate(path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
+    if let DnsChange::FqdnInclude { name, address: _ } | DnsChange::FqdnExclude { name, address: _ } =
+        change
+        && let Some(fields) = validated.value.as_object_mut()
+    {
+        drop(fields.insert("name".to_owned(), Value::String(name.clone())));
+    }
     let verify = match change {
         DnsChange::HttpsUpstream(upstream) => vec![VerificationSpec::new(
             vec!["show".to_owned(), "dns-proxy".to_owned()],
@@ -167,14 +173,12 @@ fn catalog_input(change: &DnsChange) -> (&'static str, Value) {
             "object-group fqdn description",
             json!({"name":name,"description":description}),
         ),
-        DnsChange::FqdnInclude { name, address } => (
-            "object-group fqdn include",
-            json!({"name":name,"address":address}),
-        ),
-        DnsChange::FqdnExclude { name, address } => (
-            "object-group fqdn exclude",
-            json!({"name":name,"address":address}),
-        ),
+        DnsChange::FqdnInclude { name: _, address } => {
+            ("object-group fqdn include", json!({"address":address}))
+        }
+        DnsChange::FqdnExclude { name: _, address } => {
+            ("object-group fqdn exclude", json!({"address":address}))
+        }
         DnsChange::NextDnsHost { host, token } => {
             ("nextdns assign", json!({"host":host,"token":token}))
         }

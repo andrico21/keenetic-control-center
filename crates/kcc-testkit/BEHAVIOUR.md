@@ -91,6 +91,8 @@ and older-firmware removals. The baseline is **assumed** and contains:
   access points, and numeric `show interface stat` counters keyed by interface id;
 - policy, IPv4/IPv6 route, DNS proxy, media, USB, schedule, KeenDNS, mesh-member and UPnP
   redirect answers;
+- `show rc interface <name>` projects `ip access-group <acl> in|out` bindings from the
+  mutable configuration. **assumed**
 - 480 synthetic `show ip nat` rows whose compact JSON exceeds 100 KiB for pagination tests.
 
 `show interface bands` and `show system mode` remain absent and return 404. Dynamic AST

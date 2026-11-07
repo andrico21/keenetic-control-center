@@ -96,11 +96,7 @@ pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
 
 /// Plans a complete DHCP pool configuration.
 pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
-    let dns = pool.dns_servers.first().map_or_else(
-        || json!({"disable":true}),
-        |address| json!({"address1":address.to_string()}),
-    );
-    let inputs = [
+    let mut inputs = vec![
         ("ip dhcp pool", json!({"name":pool.name})),
         (
             "ip dhcp pool range",
@@ -110,9 +106,7 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
             "ip dhcp pool default-router",
             json!({"address":pool.default_router.to_string()}),
         ),
-        ("ip dhcp pool dns-server", dns),
         ("ip dhcp pool lease", json!({"lease":pool.lease_seconds})),
-        ("ip dhcp pool bind", json!({"interface":pool.interface})),
         (
             "ip dhcp pool enable",
             if pool.enabled {
@@ -122,6 +116,15 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
             },
         ),
     ];
+    if let Some(address) = pool.dns_servers.first() {
+        inputs.push((
+            "ip dhcp pool dns-server",
+            json!({"address1":address.to_string()}),
+        ));
+    }
+    if !pool.interface.is_empty() {
+        inputs.push(("ip dhcp pool bind", json!({"interface":pool.interface})));
+    }
     command::plan(router, &inputs)
 }
 

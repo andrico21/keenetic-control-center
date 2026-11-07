@@ -232,6 +232,9 @@ impl From<DomainError> for Failure {
             DomainError::Validation { issues } => {
                 return Self::new(Exit::Validation, Detail::Issues(issues));
             }
+            DomainError::ProtectedAccount => {
+                return Self::message(Exit::Policy, keys::CLI_PROFILE_LOGIN_PROTECTED, &[]);
+            }
             DomainError::PermissionDenied | DomainError::ConfirmationRequired => Exit::Policy,
             DomainError::InvalidResponse
             | DomainError::SafetyAbort
@@ -239,7 +242,6 @@ impl From<DomainError> for Failure {
             DomainError::ConfirmationMismatch
             | DomainError::StaticLeaseOutsidePool
             | DomainError::StaticLeaseAddressInUse
-            | DomainError::ProtectedAccount
             | DomainError::InvalidCliToken
             | _ => Exit::Validation,
         };

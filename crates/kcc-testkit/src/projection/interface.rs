@@ -32,6 +32,17 @@ pub(super) fn interfaces(command_lines: &[Vec<String>]) -> Value {
             [state] if matches!(state.as_str(), "up" | "down") => {
                 drop(fields.insert("state".to_owned(), Value::String(state.clone())));
             }
+            [ip, access_group, acl, direction] if ip == "ip" && access_group == "access-group" => {
+                let bindings = fields
+                    .entry("ip".to_owned())
+                    .or_insert_with(|| json!({"access-group":[]}));
+                if let Some(rows) = bindings
+                    .get_mut("access-group")
+                    .and_then(Value::as_array_mut)
+                {
+                    rows.push(json!({"acl":acl,"direction":direction}));
+                }
+            }
             [authentication, wpa_psk, marker]
                 if authentication == "authentication"
                     && wpa_psk == "wpa-psk"

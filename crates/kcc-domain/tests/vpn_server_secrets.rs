@@ -58,7 +58,12 @@ mod tests {
         let fixture = Fixture::spawn().await?;
         let name = ObjectName::try_from("vpn-user".to_owned())?;
         let secret = "server fixture credential";
-        let plan = secrets::plan_password(fixture.context(), &name, SecretString::from(secret))?;
+        let plan = secrets::plan_password(
+            fixture.context(),
+            &name,
+            "admin",
+            SecretString::from(secret),
+        )?;
         let mut changes = fixture.changes().await?;
         drop(changes.apply_cli(secrets::password_request(&plan)?).await?);
         let key_name = ObjectName::try_from("server-key".to_owned())?;

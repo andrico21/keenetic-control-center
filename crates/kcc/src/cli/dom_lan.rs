@@ -104,12 +104,14 @@ async fn dhcp_writes(ctx: &Ctx, command: DhcpWriteCommand) -> Outcome {
         state,
     } = command;
     let session = Session::open(ctx, Permission::Write).await?;
-    let pool = PoolConfig::new(name, begin, end)
+    let mut pool = PoolConfig::new(name, begin, end)
         .with_default_router(gateway.unwrap_or(begin))
         .with_dns_servers(dns)
         .with_lease_seconds(lease_seconds)
-        .with_interface(interface)
         .with_enabled(state.enabled());
+    if let Some(value) = interface {
+        pool = pool.with_interface(value);
+    }
     let operation = dhcp::plan_pool(session.router(), &pool)?;
     session
         .change(Gate::of(&operation), async |changes, context| {

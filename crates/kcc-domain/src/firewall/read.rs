@@ -17,7 +17,7 @@ use alloc::collections::BTreeMap;
 use kcc_rci::RciBody;
 use serde_json::{Value, json};
 
-use super::model::{Action, ConfiguredRule, Protocol, Rule, UpnpRedirect};
+use super::model::{Action, ConfiguredRule, Direction, Protocol, Rule, UpnpRedirect};
 use crate::{DomainError, Result, RouterCtx, read_show};
 
 /// Reads named IPv4 access lists from the running configuration.
@@ -40,6 +40,35 @@ pub async fn configured_rules(router: &RouterCtx) -> Result<BTreeMap<String, Vec
         .iter()
         .map(|(name, rows)| Ok((name.clone(), parse_list(rows)?)))
         .collect()
+}
+
+/// Reads whether one interface carries the named access list in the requested direction.
+pub(crate) async fn has_binding(
+    router: &RouterCtx,
+    interface: &str,
+    acl: &str,
+    direction: Direction,
+) -> Result<bool> {
+    let RciBody::Json(response) = router
+        .client
+        .show_rc(json!({"interface":{interface:{"ip":{"access-group":{}}}}}))
+        .await?
+    else {
+        return Err(DomainError::InvalidResponse);
+    };
+    Ok(response
+        .value
+        .pointer(&format!(
+            "/interface/{}/ip/access-group",
+            interface.replace('~', "~0").replace('/', "~1")
+        ))
+        .and_then(Value::as_array)
+        .is_some_and(|bindings| {
+            bindings.iter().any(|binding| {
+                binding.get("acl").and_then(Value::as_str) == Some(acl)
+                    && binding.get("direction").and_then(Value::as_str) == Some(direction.name())
+            })
+        }))
 }
 
 fn parse_list(value: &Value) -> Result<Vec<ConfiguredRule>> {

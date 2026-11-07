@@ -160,8 +160,16 @@ pub fn plan_tag(router: &RouterCtx, name: &str, tag: &str, enabled: bool) -> Res
 }
 
 /// Plans a plaintext password write whose printable plan retains only a redacted projection.
-pub fn plan_password(router: &RouterCtx, name: &str, password: SecretString) -> Result<ChangeOp> {
+pub fn plan_password(
+    router: &RouterCtx,
+    name: &str,
+    profile_login: &str,
+    password: SecretString,
+) -> Result<ChangeOp> {
     validate_token(name)?;
+    if name == profile_login {
+        return Err(DomainError::ProtectedAccount);
+    }
     let user = validate(router, "user", &json!({"name":name}))?;
     let validated_password = router
         .catalog

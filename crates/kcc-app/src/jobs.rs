@@ -33,6 +33,10 @@ use crate::{
     registry::{RegistryError, RouterRegistry},
 };
 
+mod job_ownership;
+
+use job_ownership::JobOwnership;
+
 /// Job lifecycle status persisted on disk.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -224,6 +228,8 @@ pub struct JobRunner {
     recovery: Mutex<Vec<RecoveryNotice>>,
     /// Signals that an active job task reached its terminal cleanup.
     finished: Notify,
+    /// Cross-process ownership of running jobs.
+    ownership: JobOwnership,
 }
 
 impl fmt::Debug for JobRunner {
@@ -248,6 +254,7 @@ impl JobRunner {
         registry: Arc<RouterRegistry>,
     ) -> Result<Arc<Self>, JobError> {
         let (events, _receiver) = broadcast::channel(128);
+        let ownership = JobOwnership::new(state.clone());
         let runner = Arc::new(Self {
             state,
             registry,
@@ -256,6 +263,7 @@ impl JobRunner {
             events,
             recovery: Mutex::new(Vec::new()),
             finished: Notify::new(),
+            ownership,
         });
         runner.recover().await?;
         Ok(runner)
@@ -368,6 +376,7 @@ impl JobRunner {
             drop(write_jobs.insert(target.clone(), id.clone()));
         }
         let cancellation = CancellationToken::new();
+        self.ownership.claim(&id).await?;
         drop(
             self.active
                 .lock()
@@ -375,7 +384,7 @@ impl JobRunner {
                 .insert(id.clone(), cancellation.clone()),
         );
         let now = unix_seconds();
-        self.persist(&JobRecord {
+        if let Err(error) = self.persist(&JobRecord {
             id: id.clone(),
             kind,
             router: router.clone(),
@@ -385,7 +394,14 @@ impl JobRunner {
             created_at: now,
             updated_at: now,
             message: None,
-        })?;
+        }) {
+            self.ownership.release(&id).await;
+            drop(self.active.lock().await.remove(&id));
+            if write && let Some(target) = &router {
+                drop(self.write_jobs.lock().await.remove(target));
+            }
+            return Err(error);
+        }
         let owner = Arc::clone(self);
         let task_id = id.clone();
         drop(tokio::spawn(async move {
@@ -426,6 +442,7 @@ impl JobRunner {
                 }
             }
             drop(owner.active.lock().await.remove(&task_id));
+            owner.ownership.release(&task_id).await;
             owner.finished.notify_waiters();
         }));
         Ok(id)
@@ -438,6 +455,9 @@ impl JobRunner {
                 continue;
             };
             if record.status != JobStatus::Running {
+                continue;
+            }
+            if self.ownership.is_held(&record.id)? {
                 continue;
             }
             record.status = JobStatus::Interrupted;

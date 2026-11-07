@@ -31,6 +31,31 @@ async fn dhcp_pool_is_written_and_read_back() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dhcp_pool_without_dns_or_interface_is_written() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let applied = lab.json(&[
+        "dhcp",
+        "pool",
+        "Pool24",
+        "--begin",
+        "192.0.2.130",
+        "--end",
+        "192.0.2.150",
+    ])?;
+    assert_eq!(
+        applied.get("applied"),
+        Some(&Value::Bool(true)),
+        "{applied}"
+    );
+    assert!(
+        lab.fake
+            .running_config_text()
+            .contains("ip dhcp pool Pool24")
+    );
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn segment_is_created_listed_and_deleted() -> TestResult {
     let lab = Lab::spawn("").await?;
     let running = lab.fake.running_config_text();

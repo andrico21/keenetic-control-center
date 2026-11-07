@@ -32,7 +32,21 @@ pub(crate) async fn router_users(ctx: &Ctx, command: RouterUsersCommand) -> Outc
     } else {
         Permission::ManageUsers
     };
-    let session = Session::open(ctx, permission).await?;
+    let protected = match &command {
+        RouterUsersCommand::Passwd { name } => Some(name.as_str()),
+        RouterUsersCommand::List
+        | RouterUsersCommand::Add { name: _, tags: _ }
+        | RouterUsersCommand::Tag {
+            name: _,
+            tag: _,
+            state: _,
+        }
+        | RouterUsersCommand::Delete { name: _ } => None,
+    };
+    let session = match protected {
+        Some(account) => Session::open_for_account_password(ctx, permission, account).await?,
+        None => Session::open(ctx, permission).await?,
+    };
     let router = session.router();
     let operation = match command {
         RouterUsersCommand::List => return session.show(&router_users::read_users(router).await?),
@@ -45,7 +59,7 @@ pub(crate) async fn router_users(ctx: &Ctx, command: RouterUsersCommand) -> Outc
         }
         RouterUsersCommand::Passwd { name } => {
             let password = new_secret(ctx, &name)?;
-            router_users::plan_password(router, &name, password)?
+            router_users::plan_password(router, &name, &session.profile_login()?, password)?
         }
         RouterUsersCommand::Delete { name } => {
             router_users::plan_delete(router, &name, &session.profile_login()?)?
