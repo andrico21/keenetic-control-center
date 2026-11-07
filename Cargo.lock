@@ -1419,6 +1419,7 @@ dependencies = [
  "kcc-app",
  "kcc-i18n",
  "kcc-mcp",
+ "kcc-migrate",
  "kcc-rci",
  "kcc-telemetry",
  "kcc-testkit",
@@ -1434,6 +1435,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-subscriber",
+ "url",
  "wait-timeout",
  "zeroize",
 ]

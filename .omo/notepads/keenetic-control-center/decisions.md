@@ -444,6 +444,14 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Per-item response parsing returns record indices rather than copied records. The future pipeline can remove accepted/dropped records and retry only 429/5xx items without duplicating payload ownership in the transport.
 
 ## Todo 31 decisions
+## 2026-11-07 todo 55 atomic unit 2b.3a
+- `Retry-After` belongs to the transport error as response metadata, while waiting/retry remains in the shared pipeline policy. Response bodies and destination error text remain discarded to avoid secret or untrusted-text propagation.
+- The retry clock is an injectable trait rather than direct sleeps in policy tests. Production uses Tokio time; tests record requested waits and complete immediately, making the 429 contract event-driven and deterministic.
+- This atomic slice intentionally stops before queue/batch worker ownership. `send_loki` is the first policy consumer; the next slice should move it behind the per-sink bounded worker and add equivalent Elasticsearch outcome handling rather than duplicate scheduling logic.
+
+## 2026-11-07 todo 55 atomic unit 2b.3b-queue
+- Queue capacity is a global `[logs]` setting applied independently to every sink; queue construction takes `NonZeroUsize`, so the validated non-zero invariant remains type-encoded inside telemetry.
+- Overflow accounting happens synchronously with eviction at the queue owner. This prevents a worker or transport layer from having to infer which records disappeared and keeps transport policy free of metrics ownership.
 - Did not change kcc-migrate src: the only genuine bug the matrix exposed lives in kcc-catalog (forbidden), and a planner-side "unsupported if not buildable" fix breaks existing planner tests (`plan_json_round_trips` expects `system description` in the additive phase). Recorded as a follow-up in issues.md.
 - Live rehearsal gate order: profile `test_device` (config file, no network) -> serial allowlist (one GET) -> any write. Hermetic tests call the same `rehearse` entry point the ignored live test uses, so a reordered gate fails them.
 - Live password-hash probe creates a temporary `kccprobe` user with a source-realm md5, tries a login, repeats with the target-realm hash as a control, then `no user kccprobe`; nothing is saved; results are booleans only.
@@ -469,3 +477,50 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - What the diff viewer and the redacted download remove: kcc-config's secret registry (`secrets::redact`) plus EVERY `ns3` token (registered or not) replaced by the plain word `<redacted>`, so neither contains `ns3 `. The redacted download also drops the stale `Md5 checksum` header and adds `! $$$ kcc-redacted: true`; uploads with that header are refused. The diff compares SHA-256 digests of each flattened command's complete text (secrets included, the text only in a `SecretString`) and shows only the changed lines, redacted: a changed secret shows as a changed line with `<redacted>` on both sides. Myers shortest edit script (order-aware, moves show as removed + added) up to 1000 edits; beyond that a multiset comparison with a note.
 - Raw restore: pre-checks before any question or request: backup parses, its header model (kcc-migrate `SourceConfig::hw_id`) equals the router's `RouterFacts::hw_id`, its firmware is named. Then a detached task (the request waits 25 s, then answers "running"; the task appends the web audit record itself): plan the router's own running config onto itself (empty plan, so the planner asks nothing), `Applier::prepare` (Migrate auth, lease, fresh backup, drift, recovery timer), `RawRestore::new(applier, true).restore(backup bytes)` (upload, reboot, reconnect at the current URL, router MD5 check). Planning the backup itself was rejected: every scalar that differs from the running config is a planner Conflict (PlanBlocked).
 - Shared code touched: `system_pages.rs` `mod shared` -> `pub(crate) mod shared` (answer/rendered/shown_query/with_query reused); `tests/explorer_pages/support.rs` attaches the backups and adds role+account `outsider` (every permission, scope `lab-*`) for 403-by-scope tests; `tests/dashboard.rs` passes `backups: None`. kcc-web now depends on kcc-migrate.
+
+## 2026-11-07: Todo 41 final state (worktree wt/t41, uncommitted; commit `feat(web): add configuration, fail-safe and backups page with diff viewer`)
+- Routes and permissions (route table in `authz.rs`: `/ui/configuration*` -> Write, router paths ending in `/save` -> Save, other router paths -> Read + scope; every action re-checks its own permissions in the handler and audits refusals):
+
+  | Route | Route table | Handler | Audit action |
+  |---|---|---|---|
+  | `GET /ui/configuration` | Write | - | - |
+  | `GET /ui/r/{router}/config[?q,sort,dir,page]` | Read + scope | - | - |
+  | `GET /ui/r/{router}/config/diff?from=&to=running\|<backup>&view=unified\|split` | Read + scope | - | - |
+  | `POST .../config/save` | Save | kit op `save` (Save) | `web.config_save` |
+  | `POST .../config/commit` | Read | kit op `fail_safe_commit` (Save), only while armed | `web.config_commit` (`not_armed`) |
+  | `POST .../config/rollback` | Read | kit op `fail_safe_rollback` (Destructive) + router name typed, only while armed, terminal CLI | `web.config_rollback` |
+  | `POST .../config/backups` | Read | Write | `web.config_backup_create` |
+  | `GET .../config/upload`, `POST .../config/backups/upload` (1 MiB + 16 KiB framing) | Read | Write | `web.config_backup_upload` |
+  | `GET .../config/backups/download?name=[&full=yes]` | Read | Read; Read + RevealSecrets for `full=yes` | `web.config_backup_download` (`variant` full/redacted) |
+  | `POST .../config/backups/delete?name=` | Read | Destructive + router name typed | `web.config_backup_delete` |
+  | `POST .../config/backups/raw-restore?name=` | Read | Destructive + Migrate + router name typed, same hw_id and a named firmware checked before asking | `web.config_raw_restore` |
+- Redaction rules (unchanged from the first entry): the diff and the redacted download apply kcc-config `secrets::redact` and replace EVERY `ns3` token with `<redacted>`; the redacted download drops `Md5 checksum` and adds `! $$$ kcc-redacted: true`, and an upload carrying that mark is refused; the diff compares SHA-256 digests of each command's full text, so a changed secret shows as a changed line with `<redacted>` on both sides; audit params hold names, variants and field names only.
+- Wizard seam (unchanged): `config_page::restore::migrate_restore_url(router, backup)` = `/ui/migrate?source=backup&router=<id>&backup=<file>&target=<id>` is the only link into the wizard, shown only while `config_page::restore::WIZARD_SERVED` is `true` (now `false`, the page shows "not available yet" to Migrate roles). Todo 43 flips it and aligns the query names; `tests/config_pages/restore.rs::the_wizard_link_follows_the_served_routes` fails while the flag and the served `/ui/migrate` disagree. Backups for the wizard come from `FleetServices::backups` (`BackupServices`).
+- Same-second backups: instead of refusing ("taken"), `config_page::store::keep` stores a second backup for the same reason in the same second as a copy, reason `<reason>--2` up to `--9` (`COPIES`), chosen under the page's static mutex by probing `BackupStore::get` for `<second>-<copy>.txt` (Ok/Malformed/Crypto = taken, NotFound = free). `BackupRow::new` strips a trailing `--<u8>`, so copies list as their reason; `store::REASON_ROOM = 45` (the store's 48 less `--9`) bounds the upload slug (38). `--` cannot be part of a page reason (slugs collapse hyphen runs; `manual`/`pre-change`/`upload` have none). `Taken` remains only past nine copies in one second.
+
+## 2026-11-07: Todo 43 migration wizard (worktree wt/t43, `crates/kcc-web/src/migrate_wizard/`)
+- Routes (route table: `/ui/migrate*` -> `Migrate`, was `/ui/migration`; nav `Section::Migration` -> `/ui/migrate`; every handler also checks the record's owner (others get 404) and `Migrate` on every router the record names (403)); lib.rs diff = `mod migrate_wizard;` + `.merge(migrate_wizard::routes::router(&state))` after `.merge(dns_vpn::uploads(&state))` (the router carries its own `protect`, timeout, 1 MiB body limit and the SSE route outside the timeout):
+
+  | Route | Step | Extra permission / audit action |
+  |---|---|---|
+  | `GET /ui/migrate[?mode=restore&router=&backup=]`, alias `?source=backup&router=&backup=[&target=<router>]` | landing, restore offer | - |
+  | `POST /ui/migrate` (`mode=migrate|restore`) | start | `web.migrate_start` |
+  | `GET /ui/migrate/{id}`, `POST .../back` | current step / earlier step | - |
+  | `POST .../source` (multipart) | 1 | `web.migrate_source` |
+  | `POST .../target`, `.../target/continue` | 2 | `web.migrate_target` (forbidden/refused/chosen), `web.migrate_ack_documentation_tier` (missing/acknowledged) |
+  | `POST .../mapping` | 3 | `web.migrate_mapping` |
+  | `POST .../review` (autosave), `.../review/continue` | 4 | `web.migrate_review` |
+  | `POST .../inputs` | 5 | `web.migrate_inputs` |
+  | `GET .../download/{plan.json,report.json,report.md,report.html}` | 6, 9 | - |
+  | `POST .../apply` (dialog, then `confirm=yes`) | 6 -> 7 | Migrate+Write+Save+Destructive; `web.migrate_apply` (forbidden/busy/changed/unreachable/refused/started), `web.migrate_apply_end` (verified/failed) |
+  | `GET .../events[?view=countdown]` (SSE) | 7, 8 | - |
+  | `POST .../stop`, `.../results` | 7 | `web.migrate_stop` (stopping/not_running) |
+  | `POST .../commit`, `.../rollback` (router name typed), `.../{replan,retry,close}` | 8 -> 9 | commit: the apply's permissions; rollback: Migrate+Destructive; `web.migrate_commit`, `web.migrate_rollback` (forbidden/failed/done) |
+- State layout `<state>/migrations/<id>/` (dirs 0700, files 0600, temp+fsync+rename): `wizard.json` (record: step, source kind/router/backup name/file name, target, ack, maps, excluded/overwrite indices, components, reconnect URL, agreement texts, user names with a typed password, plan id, job, end counts and failure name; never a secret), `source.sealed` and `passwords.sealed` (XChaCha20-Poly1305 with the backup store's `MasterKey`, owner names `migration:<id>:source|passwords`, so neither opens as a backup nor under another migration), `report.json` and `plan.json` (redacted, kept at apply). Id = `<unix>-<16 hex>`.
+- Step -> API: 1 registry client `download_config(Startup)` / multipart file / `BackupStore::get`, then `SourceConfig::from_bytes`; 2 `RouterRegistry::bootstrap_client` + `TargetInventory::collect` + `show dpn|eula list|document`; 3 `PortMap`/`RadioMap`/`InterfaceMap`; 4 `RuleEngine::embedded().classify`; 5 needs + `Planner::plan`; 6 `MigrationReport::from_plan`; 7 `Applier::start` + `JobRunner::subscribe` (follower) + the oneshot (settler); 8 `Applier::commit`/`rollback`; 9 the kept report.
+- One active apply per target: `Wizards::claim` (in-memory target -> migration id) from Apply until commit, rollback, close or a failure before any change; the JobRunner's one-write-job-per-router rule and the ChangeSet lease stand behind it.
+- Requests on one migration run one at a time: `Visit::open` takes the session's `OwnedMutexGuard` turn BEFORE it loads the record (a record loaded before the turn could overwrite the settler's end).
+- Live progress: `Live` keeps every sent line in a `watch` channel, so each SSE connection (a reload) replays from the start; the stream ends only when the follower copied the job's terminal event AND the settler recorded the end (else the last lines could be lost). Countdown = conservative estimate: last activity (line event or end) + safety seconds - 60 s (the engine renews at least once a minute while it works and once at its end); no router polling during an apply.
+- Restore contract: `/ui/migrate?mode=restore&router=<id>&backup=<name>` (stable); todo 41's `migrate_restore_url` shape `?source=backup&router=<id>&backup=<file>&target=<id>` is accepted as an alias when `target` is absent or equals `router`, so at merge only `config_page::restore::WIZARD_SERVED = true` is needed.
+- kcc-app seams (additive, public): `BackupStore::key()`, `ChangeWorkflow::backups()`, `ChangeWorkflow::state()`. The wizard reads backups through `fleet.workflow().backups()`; todo 41's `FleetServices::backups` holds the same `Arc<BackupStore>`, either works after the merge. kcc-web depends on kcc-migrate (todo 41 adds the same line).
+- New key `web-migrate-failure-validation` (six locales): `ApplyError::Validation` (the catalog cannot check a planned line, plan row 61) says nothing was sent, the router is unchanged, and to leave such settings out in the review.

@@ -1,0 +1,13 @@
+! $$$ Model: Keenetic Giga
+! $$$ Version: 4.3.6
+interface Bridge0
+ mac address 02:00:00:00:00:01
+!
+interface Bridge1
+ description Guest
+ ip address 198.51.100.65 255.255.255.192
+!
+ip host nas.home 198.51.100.10
+known host printer 02:00:00:00:00:10
+system led power indicator
+ndns booking name migrated-giga

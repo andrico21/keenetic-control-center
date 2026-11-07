@@ -1,0 +1,17 @@
+{
+  "dispositions": {
+    "copy": 6,
+    "remap": 1
+  },
+  "phases": {
+    "additive": 4,
+    "management": 1,
+    "prune": 0
+  },
+  "resolved_inputs": [
+    "password:operator",
+    "reconnect-url"
+  ],
+  "source": "KN-1811-5.1",
+  "target": "NC-3013-5.1"
+}

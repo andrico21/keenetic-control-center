@@ -1,0 +1,17 @@
+{
+  "dispositions": {
+    "copy": 10,
+    "remap": 1
+  },
+  "phases": {
+    "additive": 8,
+    "management": 1,
+    "prune": 0
+  },
+  "resolved_inputs": [
+    "password:operator",
+    "reconnect-url"
+  ],
+  "source": "KN-1811-5.1-vpn",
+  "target": "KN-1811-5.1"
+}

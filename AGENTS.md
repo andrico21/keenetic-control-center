@@ -76,6 +76,9 @@ Models: `KN-1811`, `KN-1010`, `KN-3810`, `NC-3013`.
 - `KCC_LIVE_ALLOW_SERIAL`: comma-separated router serials. Every live test reads the
   serial via `show identification` and refuses any router not listed.
 - `KCC_LIVE_ALLOW_REBOOT=1`: only for probes that may reboot a test router.
+- `KCC_LIVE_TARGET_CONFIG`: path of a `kcc.toml` whose `[[routers]]` entry for `KCC_LIVE_TARGET_URL`
+  has `test_device = true`; the live migration rehearsal checks it before contacting the router.
+- `KCC_LIVE_COMMIT=1`: the live migration rehearsal commits instead of its default rollback.
 
 A missing variable makes the live test log `live-skip:<reason>` through `tracing` and
 return `Ok(())`. It never passes silently.

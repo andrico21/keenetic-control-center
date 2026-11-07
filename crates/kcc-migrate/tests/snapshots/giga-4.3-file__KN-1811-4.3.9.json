@@ -1,0 +1,15 @@
+{
+  "dispositions": {
+    "copy": 4,
+    "skip-hardware": 1,
+    "skip-identity": 2
+  },
+  "phases": {
+    "additive": 4,
+    "management": 0,
+    "prune": 0
+  },
+  "resolved_inputs": [],
+  "source": "giga-4.3-file",
+  "target": "KN-1811-4.3.9"
+}
