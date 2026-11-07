@@ -1,0 +1,48 @@
+# Quadlet unit for `systemctl --user` (rootless Podman >= 4.4). Install as
+# ~/.config/containers/systemd/kcc.container, then:
+#
+#   systemctl --user daemon-reload && systemctl --user start kcc
+#
+# Prerequisites (subuid/subgid, lingering, secrets, the seccomp profile and the config
+# directory) are in deploy/podman/README.md. The container never runs as root, holds no
+# capability and always runs under the traced seccomp allowlist.
+
+[Unit]
+Description=Keenetic Control Center (rootless Podman)
+Documentation=https://github.com/andrico21/keenetic-control-center/blob/main/deploy/podman/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+ContainerName=kcc
+Image=ghcr.io/andrico21/keenetic-control-center:latest
+User=65532:65532
+ReadOnly=true
+DropCapability=ALL
+NoNewPrivileges=true
+SeccompProfile=%h/.config/kcc/seccomp-kcc.json
+Secret=kcc-master-key,target=/run/secrets/kcc-master-key,uid=65532,gid=65532,mode=0400
+Secret=kcc-tls-cert,target=/run/secrets/kcc-tls-cert,uid=65532,gid=65532,mode=0400
+Secret=kcc-tls-key,target=/run/secrets/kcc-tls-key,uid=65532,gid=65532,mode=0400
+Secret=kcc-router-home,target=/run/secrets/kcc-router-home,uid=65532,gid=65532,mode=0400
+Volume=kcc-state:/var/lib/kcc:U,Z
+Volume=%h/.config/kcc/etc:/etc/kcc:ro,Z
+PublishPort=127.0.0.1:8443:8443
+# Optional metrics, host loopback only ([metrics] bind = "0.0.0.0:9090" inside):
+#PublishPort=127.0.0.1:9090:9090
+PodmanArgs=--memory=256m --memory-swap=256m --pids-limit=128
+# Exec form on purpose: the plain-string form becomes CMD-SHELL, which needs /bin/sh, and
+# distroless has no shell, so that healthcheck would fail forever.
+HealthCmd=["/kcc","healthcheck","--config","/etc/kcc/kcc.toml"]
+HealthInterval=30s
+HealthTimeout=10s
+HealthStartPeriod=20s
+HealthRetries=3
+StopTimeout=40
+
+[Service]
+Restart=on-failure
+TimeoutStartSec=120
+
+[Install]
+WantedBy=default.target

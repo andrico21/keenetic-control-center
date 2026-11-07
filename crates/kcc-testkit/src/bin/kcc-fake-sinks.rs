@@ -1,0 +1,82 @@
+//! `kcc-fake-sinks`: serves a [`FakeLoki`] and a [`FakeElasticsearch`] on loopback.
+//!
+//! Prints `loki <url>` and `elasticsearch <url>` on stdout once both listen, then reports
+//! every change of the captured request counts as a `sink requests` line on stderr until
+//! Ctrl-C. `deploy/podman/e2e.sh` reads both streams.
+
+extern crate alloc;
+
+use alloc::sync::Arc;
+use core::{error::Error, time::Duration};
+use std::{
+    io::{self, Write as _},
+    process::ExitCode,
+};
+
+use kcc_testkit::{fake_elasticsearch::FakeElasticsearch, fake_loki::FakeLoki};
+use tokio::{runtime::Builder, signal, time};
+
+/// How often the captured request counts are compared.
+const REPORT_EVERY: Duration = Duration::from_millis(250);
+
+/// Logs the captured request counts whenever they change, until aborted or until it holds
+/// the last handle.
+// cancel-safe: holds no state outside the two shared handles.
+async fn report(loki: Arc<FakeLoki>, search: Arc<FakeElasticsearch>) {
+    let mut reported = (0_usize, 0_usize);
+    let mut ticks = time::interval(REPORT_EVERY);
+    while Arc::strong_count(&loki) > 1 {
+        let _tick: time::Instant = ticks.tick().await;
+        let now = (loki.requests().len(), search.requests().len());
+        if now != reported {
+            reported = now;
+            tracing::info!(loki = now.0, elasticsearch = now.1, "sink requests");
+        }
+    }
+}
+
+/// Starts both sinks, prints their URLs and reports request counts until Ctrl-C.
+///
+/// # Errors
+///
+/// Binding, stdout or shutdown errors.
+// NOT cancel-safe: runs until the shutdown signal; meant as the top-level task.
+async fn serve() -> Result<(), Box<dyn Error>> {
+    let loki = Arc::new(FakeLoki::spawn().await?);
+    let search = Arc::new(FakeElasticsearch::spawn().await?);
+    {
+        let mut stdout = io::stdout().lock();
+        writeln!(stdout, "loki {}", loki.url())?;
+        writeln!(stdout, "elasticsearch {}", search.url())?;
+        stdout.flush()?;
+    }
+    let reporter = tokio::spawn(report(Arc::clone(&loki), Arc::clone(&search)));
+    let stopped = signal::ctrl_c().await;
+    reporter.abort();
+    drop(reporter.await);
+    stopped?;
+    match (Arc::try_unwrap(loki), Arc::try_unwrap(search)) {
+        (Ok(loki_server), Ok(search_server)) => {
+            loki_server.shutdown().await?;
+            search_server.shutdown().await?;
+            Ok(())
+        }
+        _ => Err("a sink handle is still shared after the reporter stopped".into()),
+    }
+}
+
+fn main() -> ExitCode {
+    tracing_subscriber::fmt().with_writer(io::stderr).init();
+    let outcome = Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .map_err(Box::<dyn Error>::from)
+        .and_then(|runtime| runtime.block_on(serve()));
+    match outcome {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            tracing::error!(%error, "kcc-fake-sinks failed");
+            ExitCode::FAILURE
+        }
+    }
+}

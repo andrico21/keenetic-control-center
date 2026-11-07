@@ -5,7 +5,7 @@ use std::{fs, io, path::PathBuf, process::ExitCode};
 
 use clap::Parser;
 use kcc_testkit::{
-    DEFAULT_LOGIN, FakeRouter,
+    DEFAULT_LOGIN, FakeRouter, migration,
     model::{Firmware, Model, Profile},
 };
 use tokio::{net::TcpListener, runtime::Builder, signal};
@@ -30,6 +30,13 @@ struct Args {
     /// Login of the user.
     #[arg(long, default_value = DEFAULT_LOGIN)]
     login: String,
+    /// Operating mode reported by `show system mode` (e.g. `router`, which a migration
+    /// target needs); absent keeps the historical 404.
+    #[arg(long)]
+    mode: Option<String>,
+    /// Number of synthetic `show log` records present at startup (for log forwarding).
+    #[arg(long, default_value_t = 0)]
+    seed_log: u64,
 }
 
 /// Serves `router` on `bind` until Ctrl-C.
@@ -64,9 +71,20 @@ fn run(args: Args) -> Result<(), Box<dyn Error>> {
     let raw = Zeroizing::new(fs::read_to_string(&args.password_file)?);
     let password = Zeroizing::new(raw.trim_end_matches(['\r', '\n']).to_owned());
     let profile = Profile::new(args.model, args.firmware)?;
-    let router = FakeRouter::builder(profile)
+    let mut router = FakeRouter::builder(profile)
         .user(args.login, password.as_str(), ["cli", "http-proxy"])
         .build()?;
+    if let Some(mode) = args.mode {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode);
+        router = router.with_migration(scenario);
+    }
+    for id in 1..=args.seed_log {
+        router.insert_log(
+            id,
+            serde_json::json!({"message":{"label":"I","message":format!("[Jan 01 00:00:{:02}] kcc-fake-router record {id}", id.min(59))}}),
+        );
+    }
     Builder::new_multi_thread()
         .enable_all()
         .build()?

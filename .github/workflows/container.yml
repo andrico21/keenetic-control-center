@@ -1,0 +1,133 @@
+name: Container
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: every job reads the repository; only `push` (tags only) writes packages.
+permissions:
+  contents: read
+
+env:
+  IMAGE: ghcr.io/andrico21/keenetic-control-center
+  PROMETHEUS_VERSION: 3.16.0
+
+# Action pins: actions/checkout v7.0.1, dtolnay/rust-toolchain (master, `toolchain:`
+# selects the compiler), actions/upload-artifact v7.0.2, actions/download-artifact v8.0.2.
+jobs:
+  image:
+    name: Build and e2e (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-24.04
+            arch: amd64
+            prometheus_sha256: 68727009472a2c02e1ff7f062fd5b3e637285bffc8fc2d340c76fb449d6e0f34
+          # aarch64 is verified only here: the seccomp trace runs on x86_64.
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+            prometheus_sha256: fd8571b8162f4020232d886f17340bcf92e1722985ae3b4c1d096157826c0fbe
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
+        with:
+          toolchain: 1.99.1
+      - name: Install strace, podman and promtool
+        env:
+          PROMETHEUS_SHA256: ${{ matrix.prometheus_sha256 }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends strace podman passt uidmap
+          tarball="prometheus-${PROMETHEUS_VERSION}.linux-${ARCH}.tar.gz"
+          curl -fsSLo "${RUNNER_TEMP}/${tarball}" \
+            "https://github.com/prometheus/prometheus/releases/download/v${PROMETHEUS_VERSION}/${tarball}"
+          echo "${PROMETHEUS_SHA256}  ${RUNNER_TEMP}/${tarball}" | sha256sum -c -
+          tar -xzf "${RUNNER_TEMP}/${tarball}" -C "${RUNNER_TEMP}"
+          echo "${RUNNER_TEMP}/prometheus-${PROMETHEUS_VERSION}.linux-${ARCH}" >> "${GITHUB_PATH}"
+      - name: Rootless Podman
+        run: |
+          podman info --format '{{.Host.Security.Rootless}}' | grep -qx true
+          podman --version
+      - name: Build the image
+        env:
+          VCS_REF: ${{ github.sha }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          podman build --format docker --platform "linux/${ARCH}" \
+            --build-arg VCS_REF="${VCS_REF}" \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t kcc:test .
+      - name: Static-link check
+        run: |
+          podman create --name kcc-extract kcc:test
+          podman cp kcc-extract:/kcc "${RUNNER_TEMP}/kcc-musl"
+          podman rm kcc-extract
+          if grep -qa 'ld-linux\|ld-musl' "${RUNNER_TEMP}/kcc-musl"; then
+            echo "kcc is dynamically linked" >&2
+            exit 1
+          fi
+      - name: Root is refused (exit 77)
+        run: |
+          code=0
+          podman run --rm --user 0 kcc:test --version || code=$?
+          test "${code}" = 77
+      - name: Container e2e under the seccomp profile
+        run: bash deploy/podman/e2e.sh --container --image kcc:test
+      - name: Seccomp drift report (fresh trace vs committed profile)
+        if: matrix.arch == 'amd64'
+        continue-on-error: true
+        run: |
+          cargo xtask seccomp trace --binary "${RUNNER_TEMP}/kcc-musl"
+          cargo xtask seccomp gen --check
+      - name: Export the image
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          ARCH: ${{ matrix.arch }}
+        run: podman save --format oci-archive -o "${RUNNER_TEMP}/kcc-${ARCH}.tar" kcc:test
+      - name: Upload the image
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: kcc-${{ matrix.arch }}
+          path: ${{ runner.temp }}/kcc-${{ matrix.arch }}.tar
+          retention-days: 1
+
+  push:
+    name: Push the multi-arch image
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: image
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: kcc-*
+          path: ${{ runner.temp }}/images
+          merge-multiple: true
+      - name: Push
+        env:
+          TAG: ${{ github.ref_name }}
+          REGISTRY_USER: ${{ github.actor }}
+          REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          printf '%s' "${REGISTRY_TOKEN}" | podman login ghcr.io -u "${REGISTRY_USER}" --password-stdin
+          podman manifest create "${IMAGE}:${TAG}"
+          for arch in amd64 arm64; do
+            podman manifest add "${IMAGE}:${TAG}" "oci-archive:${RUNNER_TEMP}/images/kcc-${arch}.tar"
+          done
+          podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:${TAG}"
+          podman manifest push --all "${IMAGE}:${TAG}" "docker://${IMAGE}:latest"
+          podman logout ghcr.io

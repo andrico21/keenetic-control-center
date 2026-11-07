@@ -17,6 +17,9 @@ mod lint_completeness;
 mod manifest;
 mod metric_docs;
 mod profile_eq;
+mod seccomp;
+mod seccomp_gen;
+mod seccomp_groups;
 mod tool_docs;
 
 use std::{
@@ -79,6 +82,34 @@ enum Task {
     /// Regenerate `docs/MCP_TOOLS.md` from the kcc-mcp tool registry.
     #[command(name = "gen-tool-docs")]
     GenToolDocs,
+    /// Derive the container seccomp allowlist by tracing the static musl binary.
+    #[command(subcommand)]
+    Seccomp(SeccompTask),
+}
+
+/// One `seccomp` subcommand.
+#[derive(Debug, Clone, Subcommand)]
+enum SeccompTask {
+    /// Run the musl `kcc` natively under `strace -f` while `deploy/podman/e2e.sh` drives
+    /// every I/O path (needs `strace`).
+    Trace {
+        /// The static binary (default `<target>/<arch>-unknown-linux-musl/release/kcc`).
+        #[arg(long)]
+        binary: Option<PathBuf>,
+        /// Trace directory (default `<target>/seccomp-trace`), emptied first.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// Union the traces and the runtime exec prologue into
+    /// `deploy/podman/seccomp-kcc.json`; an unmapped syscall fails.
+    Gen {
+        /// Trace directory (default `<target>/seccomp-trace`).
+        #[arg(long)]
+        traces: Option<PathBuf>,
+        /// Compare with the committed profile instead of writing it.
+        #[arg(long)]
+        check: bool,
+    },
 }
 
 /// One `catalog` subcommand.
@@ -155,6 +186,12 @@ where
         Task::AssetsCheck { assets_dir } => assets::run(&root, assets_dir.as_deref(), out),
         Task::GenMetricDocs => metric_docs::generate(&root, out),
         Task::GenToolDocs => tool_docs::generate(&root, out),
+        Task::Seccomp(SeccompTask::Trace { binary, out: dir }) => {
+            seccomp::trace(&root, binary.as_deref(), dir.as_deref(), out)
+        }
+        Task::Seccomp(SeccompTask::Gen { traces, check }) => {
+            seccomp_gen::generate(&root, traces.as_deref(), *check, out)
+        }
     }
 }
 

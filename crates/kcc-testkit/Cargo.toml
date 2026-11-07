@@ -12,6 +12,11 @@ path = "src/bin/kcc-fake-router.rs"
 test = false
 
 [[bin]]
+name = "kcc-fake-sinks"
+path = "src/bin/kcc-fake-sinks.rs"
+test = false
+
+[[bin]]
 name = "kcc-capture"
 path = "src/bin/kcc-capture.rs"
 test = false
