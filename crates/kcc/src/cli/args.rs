@@ -13,6 +13,7 @@ use super::{
     args_domains::DomainCommand,
     args_fleet::{BackupCommand, CatalogCommand, ConfigCommand, RciCommand, RouterCommand},
     args_migrate::MigrateCommand,
+    preset::args::{CopyCommand, PresetCommand},
 };
 
 /// Keenetic Control Center: manage Keenetic and Netcraze routers.
@@ -76,6 +77,11 @@ pub enum Command {
     /// Configuration migration onto the router.
     #[command(subcommand)]
     Migrate(MigrateCommand),
+    /// Settings presets captured from one router and applied to another.
+    #[command(subcommand)]
+    Preset(PresetCommand),
+    /// Copy settings groups from a router, backup or file onto another router.
+    Copy(CopyCommand),
     /// Web UI accounts.
     #[command(subcommand)]
     User(UserCommand),

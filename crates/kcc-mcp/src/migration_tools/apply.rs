@@ -146,7 +146,7 @@ pub(crate) async fn apply(
 
 /// Forwards the job's events as progress notifications until the apply phase ends;
 /// buffered events are forwarded before the verdict is taken.
-async fn follow(
+pub(crate) async fn follow(
     job: &str,
     events: &mut broadcast::Receiver<JobEvent>,
     mut done: oneshot::Receiver<Result<Applier, ApplyError>>,

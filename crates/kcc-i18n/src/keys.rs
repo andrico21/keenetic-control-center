@@ -215,6 +215,45 @@ pub const CLI_PLAN_BLOCKED: MessageKey = MessageKey::new("cli-plan-blocked");
 /// `cli-migrate-kept` in `cli.ftl`.
 pub const CLI_MIGRATE_KEPT: MessageKey = MessageKey::new("cli-migrate-kept");
 
+/// `cli-col-groups` in `cli.ftl`.
+pub const CLI_COL_GROUPS: MessageKey = MessageKey::new("cli-col-groups");
+
+/// `cli-col-firmware` in `cli.ftl`.
+pub const CLI_COL_FIRMWARE: MessageKey = MessageKey::new("cli-col-firmware");
+
+/// `cli-preset-captured` in `cli.ftl`.
+pub const CLI_PRESET_CAPTURED: MessageKey = MessageKey::new("cli-preset-captured");
+
+/// `cli-preset-deleted` in `cli.ftl`.
+pub const CLI_PRESET_DELETED: MessageKey = MessageKey::new("cli-preset-deleted");
+
+/// `cli-preset-plan` in `cli.ftl`.
+pub const CLI_PRESET_PLAN: MessageKey = MessageKey::new("cli-preset-plan");
+
+/// `cli-preset-blocked` in `cli.ftl`.
+pub const CLI_PRESET_BLOCKED: MessageKey = MessageKey::new("cli-preset-blocked");
+
+/// `cli-preset-target-older` in `cli.ftl`.
+pub const CLI_PRESET_TARGET_OLDER: MessageKey = MessageKey::new("cli-preset-target-older");
+
+/// `cli-preset-finish-required` in `cli.ftl`.
+pub const CLI_PRESET_FINISH_REQUIRED: MessageKey = MessageKey::new("cli-preset-finish-required");
+
+/// `cli-preset-finish-ask` in `cli.ftl`.
+pub const CLI_PRESET_FINISH_ASK: MessageKey = MessageKey::new("cli-preset-finish-ask");
+
+/// `cli-preset-finish-left` in `cli.ftl`.
+pub const CLI_PRESET_FINISH_LEFT: MessageKey = MessageKey::new("cli-preset-finish-left");
+
+/// `cli-preset-finished` in `cli.ftl`.
+pub const CLI_PRESET_FINISHED: MessageKey = MessageKey::new("cli-preset-finished");
+
+/// `cli-preset-not-run` in `cli.ftl`.
+pub const CLI_PRESET_NOT_RUN: MessageKey = MessageKey::new("cli-preset-not-run");
+
+/// `cli-preset-run` in `cli.ftl`.
+pub const CLI_PRESET_RUN: MessageKey = MessageKey::new("cli-preset-run");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6290,7 +6329,7 @@ pub const WEB_PRESETS_DOWNLOADS: MessageKey = MessageKey::new("web-presets-downl
 pub const WEB_PRESETS_GROUP_EMPTY: MessageKey = MessageKey::new("web-presets-group-empty");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2006] = [
+pub static ALL: [MessageKey; 2019] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6362,6 +6401,19 @@ pub static ALL: [MessageKey; 2006] = [
     CLI_PLAN_CHANGED,
     CLI_PLAN_BLOCKED,
     CLI_MIGRATE_KEPT,
+    CLI_COL_GROUPS,
+    CLI_COL_FIRMWARE,
+    CLI_PRESET_CAPTURED,
+    CLI_PRESET_DELETED,
+    CLI_PRESET_PLAN,
+    CLI_PRESET_BLOCKED,
+    CLI_PRESET_TARGET_OLDER,
+    CLI_PRESET_FINISH_REQUIRED,
+    CLI_PRESET_FINISH_ASK,
+    CLI_PRESET_FINISH_LEFT,
+    CLI_PRESET_FINISHED,
+    CLI_PRESET_NOT_RUN,
+    CLI_PRESET_RUN,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

@@ -21,6 +21,10 @@ const TOOLSETS: &[(&str, &str)] = &[
         "System changes, diagnostics, router users, services, components, storage, schedules, logging and backups.",
     ),
     ("migration", "Configuration migration between routers."),
+    (
+        "presets",
+        "Settings presets: capture settings groups from a router or backup and apply them to another router.",
+    ),
     ("raw", "Catalog-validated raw RCI and CLI access."),
 ];
 

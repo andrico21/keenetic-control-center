@@ -31,6 +31,7 @@ use kcc_app::{
 };
 use kcc_i18n::locale::Locale;
 use kcc_mcp::KccMcp;
+use kcc_migrate::presets::store::PresetStore;
 use kcc_telemetry::{
     logs::runtime::Service as LogService,
     metrics::{instrumentation::SelfMetrics, service::MetricsExporter},
@@ -334,7 +335,11 @@ impl Services {
             self.roles.clone(),
             role,
         )
-        .with_audit(self.audit.clone()))
+        .with_audit(self.audit.clone())
+        .with_presets(PresetStore::new(
+            self.state.clone(),
+            MasterKey::load(&master_key_path().map_err(error)?).map_err(error)?,
+        )))
     }
 
     /// Builds the authenticated Web UI around the same fleet services; administration

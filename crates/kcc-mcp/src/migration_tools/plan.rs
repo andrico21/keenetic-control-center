@@ -79,7 +79,7 @@ fn map_inventory(error: InventoryError) -> McpFailure {
 }
 
 /// Collects the read-only inventory of `target` for `source_firmware`.
-async fn collect(
+pub(crate) async fn collect(
     server: &KccMcp,
     identity: &McpIdentity,
     target: &RouterId,

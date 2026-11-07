@@ -3,7 +3,7 @@
 use kcc_app::{permissions::Permission, settings::McpConfig};
 use serde_json::{Value, json};
 
-use crate::{config_tools, domains, migration_tools};
+use crate::{config_tools, domains, migration_tools, preset_tools};
 
 /// One registered tool as clients and the coarse RBAC gate see it.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -165,6 +165,7 @@ pub fn tools() -> Vec<ToolDescription> {
     all.extend(config_tools::routes::descriptions());
     all.extend(domains::table::descriptions());
     all.extend(migration_tools::routes::descriptions());
+    all.extend(preset_tools::routes::descriptions());
     all
 }
 

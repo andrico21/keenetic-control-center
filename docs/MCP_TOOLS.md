@@ -109,6 +109,17 @@ Configuration migration between routers.
 | `kcc_migration_finish` | migrate | no | yes | - | Commit or roll back an applied migration |
 | `kcc_migration_report` | migrate | yes | no | - | Read a migration's plan counts, items, and apply outcome |
 
+## Toolset `presets` (4 tools)
+
+Settings presets: capture settings groups from a router or backup and apply them to another router.
+
+| Tool | Permission | Read-only | Destructive | Operations | Description |
+|---|---|---|---|---|---|
+| `kcc_preset_list` | read | yes | no | - | List settings presets or read one by id, secrets redacted |
+| `kcc_preset_capture` | migrate | no | no | - | Capture settings groups from a router or backup as a stored or transient preset |
+| `kcc_preset_delete` | migrate | no | no | - | Delete a stored preset or forget a transient one |
+| `kcc_preset_apply` | migrate | no | yes | - | Plan (dry run) or apply a preset onto a router under the router safety timer |
+
 ## Toolset `raw` (4 tools)
 
 Catalog-validated raw RCI and CLI access.
@@ -120,4 +131,4 @@ Catalog-validated raw RCI and CLI access.
 | `kcc_rci_batch` | raw_rci | no | yes | - | Apply catalog-validated root RCI mutations without saving |
 | `kcc_cli_parse` | raw_rci | no | yes | - | Validate and apply one router CLI line without saving |
 
-Total: 64 tools.
+Total: 68 tools.

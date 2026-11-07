@@ -182,6 +182,22 @@ impl PresetStore {
         })
     }
 
+    /// Opens one preset with its protected command values for the preset applier only.
+    ///
+    /// Requires `Migrate` on the persisted source scope. The returned preset carries secret
+    /// values; callers pass it to [`super::apply::request`] and never display it.
+    ///
+    /// # Errors
+    ///
+    /// Returns permission, missing-record, decryption, malformed-record, or I/O errors.
+    #[inline]
+    pub fn load_for_apply(&self, role: &Role, id: &str) -> Result<Preset, PresetError> {
+        validate_id(id)?;
+        let record = read_record(self.path(id))?;
+        authorize_source(role, record.source_router.as_deref())?;
+        self.open(id, &record)
+    }
+
     /// Deletes one preset after checking its persisted source scope.
     ///
     /// # Errors

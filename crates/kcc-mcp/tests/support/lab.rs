@@ -21,6 +21,7 @@ use kcc_app::{
     workflow::ChangeWorkflow,
 };
 use kcc_mcp::KccMcp;
+use kcc_migrate::presets::store::PresetStore;
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle};
 use rmcp::{
     ClientHandler, ServiceExt as _,
@@ -130,6 +131,7 @@ impl Lab {
         let audit = AuditLog::spawn(&state)?;
         let workflow =
             ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
+        let presets = PresetStore::new(state.clone(), MasterKey::from_bytes([6_u8; 32]));
         let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
         let poller = Poller::new(Arc::clone(&registry));
         let mut config = McpConfig::default();
@@ -140,6 +142,7 @@ impl Lab {
             "dns",
             "system-admin",
             "migration",
+            "presets",
             "raw",
         ]
         .map(str::to_owned)
@@ -155,7 +158,8 @@ impl Lab {
             vec![admin(), lab_only()],
             role,
         )
-        .with_audit(audit);
+        .with_audit(audit)
+        .with_presets(presets);
         let (server_io, client_io) = duplex(1 << 20);
         drop(tokio::spawn(async move {
             if let Ok(running) = server.serve(server_io).await {

@@ -1,0 +1,77 @@
+//! `kcc_preset_list` and `kcc_preset_delete`.
+
+use kcc_app::permissions::Permission;
+use schemars::JsonSchema;
+use serde::Deserialize;
+use serde_json::{Value, json};
+
+use super::state::{map_preset, view};
+use crate::{
+    KccMcp, McpFailure,
+    support::{route::parse, validate::valid_text},
+};
+
+/// Arguments of `kcc_preset_list`.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ListInput {
+    /// One preset (stored or transient) by id; omit to list every visible preset.
+    #[serde(default)]
+    id: Option<String>,
+}
+
+/// Arguments of `kcc_preset_delete`.
+#[derive(Debug, Deserialize, JsonSchema)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct DeleteInput {
+    /// Stored or transient preset id.
+    id: String,
+}
+
+/// Lists presets whose source router the caller may read, or shows one; always redacted.
+pub(crate) async fn list(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
+    let input: ListInput = parse(arguments)?;
+    let identity = server.identity()?;
+    if !identity.role.grants(Permission::Read) {
+        return Err(McpFailure::Forbidden);
+    }
+    let presets = &server.presets;
+    if let Some(id) = input.id {
+        valid_text(&id, 96)?;
+        if let Some(preset) = presets.transient(&identity.name, &id).await? {
+            return Ok(view(&preset, true));
+        }
+        let stored = presets
+            .store()?
+            .get(&identity.role, &id)
+            .map_err(|error| map_preset(&error))?;
+        return Ok(view(&stored, false));
+    }
+    let mut views = presets
+        .store()?
+        .list(&identity.role)
+        .map_err(|error| map_preset(&error))?
+        .iter()
+        .map(|preset| view(preset, false))
+        .collect::<Vec<_>>();
+    views.extend(presets.transient_views(&identity.name).await);
+    Ok(json!({ "presets": views }))
+}
+
+/// Deletes a stored preset, or forgets a transient one.
+pub(crate) async fn delete(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
+    let input: DeleteInput = parse(arguments)?;
+    valid_text(&input.id, 96)?;
+    let identity = server.identity()?;
+    if !identity.role.grants(Permission::Migrate) {
+        return Err(McpFailure::Forbidden);
+    }
+    let presets = &server.presets;
+    if !presets.forget(&identity.name, &input.id).await? {
+        presets
+            .store()?
+            .delete(&identity.role, &input.id)
+            .map_err(|error| map_preset(&error))?;
+    }
+    Ok(json!({ "id": input.id, "deleted": true }))
+}

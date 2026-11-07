@@ -32,6 +32,7 @@ mod migrate_apply;
 mod migrate_plan;
 mod output;
 mod persist;
+pub mod preset;
 mod principal;
 mod rci;
 mod redact;

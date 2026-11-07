@@ -28,6 +28,7 @@ mod domains;
 mod generic;
 mod handler;
 mod migration_tools;
+mod preset_tools;
 mod prompts;
 pub mod registry;
 mod support;
@@ -49,7 +50,9 @@ use kcc_app::{
 };
 use rmcp::handler::server::tool::ToolRouter;
 
-use crate::{migration_tools::state::Migrations, support::validate::valid_host};
+use crate::{
+    migration_tools::state::Migrations, preset_tools::state::Presets, support::validate::valid_host,
+};
 
 /// A validated router profile id used by shared multi-router authorization.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -175,6 +178,7 @@ pub struct KccMcp {
     pseudonyms: Arc<Mutex<BTreeMap<String, String>>>,
     audit: Option<AuditLog>,
     migrations: Arc<Migrations>,
+    presets: Arc<Presets>,
 }
 
 impl fmt::Debug for KccMcp {

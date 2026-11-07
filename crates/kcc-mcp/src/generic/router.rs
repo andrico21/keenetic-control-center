@@ -12,6 +12,7 @@ use kcc_app::{
     settings::{McpConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
 };
+use kcc_migrate::presets::store::PresetStore;
 use rmcp::{handler::server::wrapper::Parameters, model::CallToolResult, tool, tool_router};
 use rmcp_server_kit::rbac::RbacConfig;
 
@@ -20,7 +21,8 @@ use super::{
     rci::{self, CliInput, RciBatchInput, RciReadInput, RciWriteInput},
 };
 use crate::{
-    KccMcp, config_tools, domains, migration_tools,
+    KccMcp, config_tools, domains, migration_tools, preset_tools,
+    preset_tools::state::Presets,
     registry::definitions::{enabled, tools},
     support::shape::finish,
 };
@@ -46,6 +48,7 @@ impl KccMcp {
             .into_iter()
             .chain(config_tools::routes::routes())
             .chain(migration_tools::routes::routes())
+            .chain(preset_tools::routes::routes())
         {
             tool_router.add_route(route);
         }
@@ -79,6 +82,7 @@ impl KccMcp {
             pseudonyms: Arc::new(Mutex::new(BTreeMap::new())),
             audit: None,
             migrations: Arc::default(),
+            presets: Arc::default(),
         }
     }
 
@@ -87,6 +91,14 @@ impl KccMcp {
     #[must_use]
     pub fn with_audit(mut self, audit: AuditLog) -> Self {
         self.audit = Some(audit);
+        self
+    }
+
+    /// Attaches the encrypted preset store used by the `presets` toolset.
+    #[inline]
+    #[must_use]
+    pub fn with_presets(mut self, store: PresetStore) -> Self {
+        self.presets = Arc::new(Presets::new(store));
         self
     }
 

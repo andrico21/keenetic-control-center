@@ -241,6 +241,23 @@ impl Ctx {
         permissions: &[Permission],
     ) -> Outcome<Target> {
         let id = self.router_id(services)?;
+        self.target_named(services, id, permissions).await
+    }
+
+    /// Authorizes `permissions` on router `id`, then connects to it.
+    ///
+    /// Refusals are audited and happen before any router request.
+    ///
+    /// # Errors
+    ///
+    /// Returns the policy refusal, or connection and detection failures.
+    // cancel-safe: connecting and detection only read router state.
+    pub(crate) async fn target_named(
+        &self,
+        services: &Services,
+        id: String,
+        permissions: &[Permission],
+    ) -> Outcome<Target> {
         let role = match self.principal.authorize(permissions, &[id.as_str()]) {
             Ok(role) => role,
             Err(failure) => {

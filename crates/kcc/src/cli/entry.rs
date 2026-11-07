@@ -12,7 +12,7 @@ use super::{
     exit::{Exit, Failure, Outcome},
     fleet, migrate,
     output::Out,
-    persist, rci, routers, tls,
+    persist, preset, rci, routers, tls,
 };
 use crate::server;
 
@@ -43,6 +43,8 @@ pub async fn run(cli: Cli) -> u8 {
         | Command::Config(_)
         | Command::Backup(_)
         | Command::Migrate(_)
+        | Command::Preset(_)
+        | Command::Copy(_)
         | Command::User(_)
         | Command::Apikey(_)
         | Command::Admin(_)
@@ -81,6 +83,8 @@ async fn dispatch(command: Command, globals: Globals, out: Out) -> Outcome {
         Command::Config(sub) => persist::config(&Ctx::open(globals, out)?, sub).await,
         Command::Backup(sub) => persist::backup(&Ctx::open(globals, out)?, sub).await,
         Command::Migrate(sub) => migrate::run(&Ctx::open(globals, out)?, sub).await,
+        Command::Preset(sub) => preset::commands::run(&Ctx::open(globals, out)?, sub).await,
+        Command::Copy(args) => preset::copy::run(&Ctx::open(globals, out)?, args).await,
         Command::User(sub) => accounts::user(&Ctx::open(globals, out)?, sub).await,
         Command::Apikey(sub) => api_keys::api_key(&Ctx::open(globals, out)?, sub).await,
         Command::Admin(sub) => accounts::admin(&Ctx::open(globals, out)?, sub).await,
