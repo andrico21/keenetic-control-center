@@ -1,6 +1,6 @@
 //! What the apply does when it cannot go on: a setting the router refuses stops it and
 //! the rollback (the router name typed) restores the router; a setting kcc cannot send
-//! yet stops it before any change.
+//! is left out before apply.
 
 #[cfg(test)]
 #[expect(
@@ -10,14 +10,14 @@
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
-    use axum::http::StatusCode;
     use kcc_i18n::keys;
     use kcc_testkit::FaultInjection;
 
     use crate::{
         en,
-        flow::{apply, moved, seed_source, to_preview, to_review},
-        support::{Fixture, TestResult, header_text, text},
+        flow::{apply, form_values, moved, seed_source, to_preview, to_review},
+        start,
+        support::{Fixture, TestResult, text},
     };
 
     #[tokio::test]
@@ -98,36 +98,72 @@ mod tests {
         Ok(())
     }
 
-    /// Pins the gap plan row 61 closes.
-    ///
-    /// The planner copies a setting inside an interface section that the catalog cannot
-    /// check yet, so the engine refuses the plan before any change. Once the catalog
-    /// checks such lines, this setting applies and the test needs another setting kcc
-    /// cannot send, or goes.
+    /// An unsupported setting is visible at review but absent from preview and apply.
     #[tokio::test]
-    async fn a_setting_kcc_cannot_send_yet_stops_the_apply_before_any_change() -> TestResult {
-        let fixture = Fixture::new().await?;
-        seed_source(&fixture).await?;
-        let source = fixture.registry().client("giga").await?;
-        for line in [
-            "interface Bridge19 security-level protected",
-            "system configuration save",
-        ] {
-            drop(source.parse(line).await?);
-        }
-        let target = fixture.handle("ultra")?;
-        let (running, saved) = (target.running_config_text(), target.startup_config_text());
+    async fn a_setting_kcc_cannot_send_is_listed_as_unsupported_and_never_reaches_the_router()
+    -> TestResult {
+        let unsupported = "future command value";
+        let faults = FaultInjection::default().fail_parse_matching(unsupported, 1);
+        let fixture = Fixture::with_target_faults(faults).await?;
         let admin = fixture.login("admin").await?;
-        let page = to_review(&fixture, &admin).await?;
-        to_preview(&fixture, &admin, &page).await?;
-        let refused = apply(&fixture, &admin, &page).await?;
-        assert!(
-            refused.contains(&en(keys::WEB_MIGRATE_FAILURE_VALIDATION))
-                && !refused.contains("event: line"),
-            "nothing was sent, and the step says why: {refused}"
+        let page = start(&fixture, &admin).await?;
+        let source = format!(
+            "! $$$ Model: Keenetic Giga\n! $$$ Version: 5.1.0\ninterface Bridge19\n description migrated-office\n!\n{unsupported}\n"
         );
-        assert_eq!(target.running_config_text(), running, "running unchanged");
-        assert_eq!(target.startup_config_text(), saved, "startup unchanged");
+        moved(
+            &fixture
+                .post_source(
+                    &format!("{page}/source"),
+                    &admin,
+                    &[("kind", "file")],
+                    Some(&source),
+                )
+                .await?,
+            &page,
+        )?;
+        moved(
+            &fixture
+                .post(&format!("{page}/target"), &admin, &[("router", "ultra")])
+                .await?,
+            &page,
+        )?;
+        moved(
+            &fixture
+                .post(&format!("{page}/target/continue"), &admin, &[])
+                .await?,
+            &page,
+        )?;
+        let maps = text(fixture.get(&page, &admin).await?).await?;
+        let fields = form_values(&maps);
+        let pairs = fields
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.as_str()))
+            .collect::<Vec<_>>();
+        moved(
+            &fixture
+                .post(&format!("{page}/mapping"), &admin, &pairs)
+                .await?,
+            &page,
+        )?;
+        let review = text(fixture.get(&page, &admin).await?).await?;
+        assert!(
+            review.contains(unsupported)
+                && review.contains("data-fate=\"unsupported\"")
+                && review.contains(&en(keys::WEB_MIGRATE_FATE_UNSUPPORTED)),
+            "review identifies the unsupported setting: {review}"
+        );
+        to_preview(&fixture, &admin, &page).await?;
+        let preview = text(fixture.get(&page, &admin).await?).await?;
+        assert!(
+            !preview.contains(unsupported)
+                && preview.contains("interface Bridge19 description migrated-office"),
+            "preview excludes the unsupported setting but keeps the normal one: {preview}"
+        );
+        let applied = apply(&fixture, &admin, &page).await?;
+        assert!(
+            applied.contains(&en(keys::MIGRATE_APPLY_VERIFIED)),
+            "the supported plan completes: {applied}"
+        );
         moved(
             &fixture
                 .post(&format!("{page}/results"), &admin, &[])
@@ -136,23 +172,32 @@ mod tests {
         )?;
         let results = text(fixture.get(&page, &admin).await?).await?;
         assert!(
-            results.contains(&format!("hx-post=\"{page}/retry\""))
-                && !results.contains(&format!("hx-post=\"{page}/rollback\"")),
-            "back to the preview; nothing to roll back: {results}"
+            results.contains(&format!("hx-post=\"{page}/commit\"")),
+            "the verified apply can commit: {results}"
         );
-        let retried = fixture.post(&format!("{page}/retry"), &admin, &[]).await?;
-        moved(&retried, &page)?;
-        let preview = fixture.get(&page, &admin).await?;
-        assert_eq!(preview.status(), StatusCode::OK, "the preview");
+        moved(
+            &fixture.post(&format!("{page}/commit"), &admin, &[]).await?,
+            &page,
+        )?;
+        let report = text(fixture.get(&page, &admin).await?).await?;
         assert!(
-            text(preview)
-                .await?
-                .contains(&en(keys::WEB_MIGRATE_PREVIEW_TITLE)),
-            "the preview again"
+            report.contains(&en(keys::WEB_MIGRATE_FINISH_COMMITTED)),
+            "the migration finishes committed: {report}"
+        );
+        let target = fixture.handle("ultra")?;
+        let running = target.running_config_text();
+        assert!(
+            !running.contains(unsupported) && running.contains("description migrated-office"),
+            "the unsupported setting never reaches the target and the normal setting does: {running}"
         );
         assert!(
-            header_text(&retried, "hx-redirect").is_some(),
-            "the browser opens it"
+            target.request_log().iter().all(|request| {
+                !request.path().contains(unsupported)
+                    && request.query().iter().all(|(name, value)| {
+                        !name.contains(unsupported) && !value.contains(unsupported)
+                    })
+            }),
+            "the sanitized target request log contains no unsupported setting"
         );
         Ok(())
     }

@@ -10,6 +10,14 @@ use super::tokens::starts_with;
 
 /// Replaces plaintext secret tokens before AST insertion.
 pub(super) fn protect_secrets(tokens: &mut [Token], command: &[String]) -> bool {
+    if starts_with(command, &["interface"])
+        && command.get(2).is_some_and(|word| word == "wireguard")
+        && tokens
+            .last()
+            .is_some_and(|token| matches!(token, Token::Ns3(_)))
+    {
+        return true;
+    }
     if starts_with(command, &["crypto", "ike", "key"]) {
         let Some(slot) = tokens.get_mut(4) else {
             return false;

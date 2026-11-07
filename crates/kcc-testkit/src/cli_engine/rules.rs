@@ -37,6 +37,7 @@ const INTERFACE_RULES: &[LeafRule] = &[
     leaf(&["inherit"], 2, None, 2),
     leaf(&["switchport"], 2, None, 2),
     leaf(&["wireguard", "private-key"], 2, Some(3), 2),
+    leaf(&["wireguard", "private-key", "ns3"], 4, Some(4), 2),
     leaf(&["wireguard", "obfs-key"], 3, Some(4), 2),
     leaf(&["wireguard", "listen-port"], 3, Some(3), 2),
     leaf(&["wireguard", "peer"], 3, Some(3), 3),
@@ -154,38 +155,39 @@ fn classify_top_level(command: &[String]) -> Option<Shape> {
             exact_removal: false,
         });
     }
-    let identity_words = if starts_with(command, &["ip", "dhcp", "host"]) && command.len() == 5 {
-        4
-    } else if starts_with(command, &["ip", "hotspot", "host"]) && command.len() >= 5 {
-        command.len().min(6)
-    } else if starts_with(command, &["ip", "hotspot", "policy"]) && command.len() >= 4 {
-        command.len().min(5)
-    } else if starts_with(command, &["ip", "nat"]) && command.len() == 3 {
-        3
-    } else if starts_with(command, &["service"]) && command.len() == 2 {
-        2
-    } else if starts_with(command, &["ip", "http"])
-        || starts_with(command, &["ip", "ssh"])
-        || starts_with(command, &["ip", "telnet"])
-    {
-        command.len().saturating_sub(1)
-    } else if starts_with(command, &["dns-proxy", "tls", "upstream"])
-        || starts_with(command, &["dns-proxy", "https", "upstream"])
-        || starts_with(command, &["ip", "host"])
-        || starts_with(command, &["ip", "name-server"])
-        || starts_with(command, &["object-group", "fqdn"])
-        || starts_with(command, &["ndns"])
-        || starts_with(command, &["system", "log"])
-        || starts_with(command, &["components", "install"])
-        || starts_with(command, &["components", "remove"])
-        || starts_with(command, &["ipv6", "route"])
-        || starts_with(command, &["ip", "static"])
-        || starts_with(command, &["ip", "route"])
-    {
-        command.len()
-    } else {
-        return None;
-    };
+    let identity_words =
+        if starts_with(command, &["ip", "dhcp", "host"]) && matches!(command.len(), 4 | 5) {
+            4
+        } else if starts_with(command, &["ip", "hotspot", "host"]) && command.len() >= 5 {
+            command.len().min(6)
+        } else if starts_with(command, &["ip", "hotspot", "policy"]) && command.len() >= 4 {
+            command.len().min(5)
+        } else if starts_with(command, &["ip", "nat"]) && command.len() == 3 {
+            3
+        } else if starts_with(command, &["service"]) && command.len() == 2 {
+            2
+        } else if starts_with(command, &["ip", "http"])
+            || starts_with(command, &["ip", "ssh"])
+            || starts_with(command, &["ip", "telnet"])
+        {
+            command.len().saturating_sub(1)
+        } else if starts_with(command, &["dns-proxy", "tls", "upstream"])
+            || starts_with(command, &["dns-proxy", "https", "upstream"])
+            || starts_with(command, &["ip", "host"])
+            || starts_with(command, &["ip", "name-server"])
+            || starts_with(command, &["object-group", "fqdn"])
+            || starts_with(command, &["ndns"])
+            || starts_with(command, &["system", "log"])
+            || starts_with(command, &["components", "install"])
+            || starts_with(command, &["components", "remove"])
+            || starts_with(command, &["ipv6", "route"])
+            || starts_with(command, &["ip", "static"])
+            || starts_with(command, &["ip", "route"])
+        {
+            command.len()
+        } else {
+            return None;
+        };
     Some(Shape {
         context_words: 0,
         identity_words,

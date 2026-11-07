@@ -1,147 +1,153 @@
-//! Conservative CLI conversion using ordered generated synopsis facts.
+//! Typed CLI matching against finite generated synopsis forms.
 
-use core::{mem::take, slice};
+use alloc::collections::BTreeMap;
+use core::cmp::Reverse;
 
-use serde::{Deserialize, de::IgnoredAny};
 use serde_json::{Map, Value};
 
-use crate::{ArgumentKind, Command, ValidationIssue};
+pub(crate) use crate::cli_grammar::Synopsis;
+use crate::{
+    ArgumentKind, Catalog, Command, HttpMethod, Risk, ValidatedRequest, ValidationIssue,
+    cli_grammar::{Form, command_forms},
+};
 
-/// Ordered grammar emitted by the catalog generator, retained without flattening alternatives.
-#[derive(Debug, Deserialize)]
-#[serde(tag = "node", content = "value")]
-pub(crate) enum Synopsis {
-    /// Ordered nodes.
-    Sequence(Vec<Self>),
-    /// Optional input, not supported by the fixed-form parser.
-    Optional(IgnoredAny),
-    /// Parenthesized context or grammar group.
-    Group(Box<Self>),
-    /// Alternative forms, not supported by the fixed-form parser.
-    Alternative(IgnoredAny),
-    /// Named positional argument.
-    Argument(String),
-    /// Literal CLI word.
-    Keyword(String),
-}
-
-/// Converts a fixed manual form to the object consumed by the ordinary value validator.
+/// Resolves context instances and validates all arguments before capturing the leaf request.
 ///
 /// # Errors
-///
-/// Returns syntax issues when the line cannot be mapped confidently; scalar type errors
-/// are checked by the caller through the ordinary JSON request validator.
-pub(crate) fn cli_value(
-    command: &Command,
-    synopsis: Option<&Synopsis>,
+/// Returns value-free syntax or scalar issues; known paths never become raw requests.
+pub(crate) fn validate(
+    catalog: &Catalog,
+    synopses: &BTreeMap<String, Synopsis>,
     tokens: &[&str],
-) -> Result<Value, Vec<ValidationIssue>> {
+) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
     let negative = tokens.first() == Some(&"no");
-    if negative && !command.prefix_no {
-        return Err(vec![ValidationIssue::NoPrefixUnsupported]);
-    }
-    let unsupported = || {
-        vec![ValidationIssue::UnsupportedCliSyntax {
-            path: command.path.clone(),
-        }]
-    };
-    let forms = synopsis.and_then(fixed_forms).ok_or_else(unsupported)?;
-    let form = forms.get(usize::from(negative)).ok_or_else(unsupported)?;
-    let mut nodes = form.iter();
-    for word in command.path.split_whitespace() {
-        if !matches!(nodes.next(), Some(Synopsis::Keyword(keyword)) if keyword == word) {
-            return Err(unsupported());
+    let words = tokens.strip_prefix(&["no"]).unwrap_or(tokens);
+    let mut candidates = catalog
+        .commands()
+        .filter(|command| {
+            let mut actual = words.iter();
+            command
+                .path
+                .split_whitespace()
+                .all(|word| actual.by_ref().any(|token| *token == word))
+        })
+        .collect::<Vec<_>>();
+    candidates.sort_by_key(|command| Reverse(command.path.split_whitespace().count()));
+    let mut issue = vec![ValidationIssue::InvalidCliSyntax];
+    for command in candidates {
+        if negative && !command.prefix_no {
+            return Err(vec![ValidationIssue::NoPrefixUnsupported]);
         }
-    }
-    let mut arguments = Vec::new();
-    for node in nodes {
-        if negative {
-            return Err(unsupported());
-        }
-        let Synopsis::Argument(name) = node else {
-            return Err(unsupported());
+        let Some(forms) = command_forms(synopses, &command.path, negative) else {
+            issue = vec![ValidationIssue::UnsupportedCliSyntax {
+                path: command.path.clone(),
+            }];
+            continue;
         };
-        let argument = command.arguments.get(name).ok_or_else(unsupported)?;
-        if arguments.contains(&argument) {
-            return Err(unsupported());
-        }
-        arguments.push(argument);
-    }
-    let values = tokens.iter().skip(
-        command
-            .path
-            .split_whitespace()
-            .count()
-            .saturating_add(usize::from(negative)),
-    );
-    if values.len() != arguments.len() {
-        return Err(vec![ValidationIssue::InvalidCliSyntax]);
-    }
-    let mut object = Map::new();
-    for (argument, token) in arguments.into_iter().zip(values) {
-        let value = match argument.kind {
-            ArgumentKind::Integer => token
-                .parse::<i64>()
-                .map_or_else(|_error| Value::String((*token).to_owned()), Value::from),
-            ArgumentKind::IpAddress
-            | ArgumentKind::IpMask
-            | ArgumentKind::IpAddressMask
-            | ArgumentKind::MacAddress
-            | ArgumentKind::ObjectName
-            | ArgumentKind::Keyword
-            | ArgumentKind::Password
-            | ArgumentKind::String => Value::String((*token).to_owned()),
-        };
-        drop(object.insert(argument.name.clone(), value));
-    }
-    if negative {
-        drop(object.insert("no".to_owned(), Value::Bool(true)));
-    }
-    Ok(Value::Object(object))
-}
-
-/// Retains fixed positive/negative forms separated by the generator's context groups.
-///
-/// The generator joins synopsis lines and strips `no`; only a repeated, identical
-/// context with two fixed forms can recover that boundary. Other grammar is rejected.
-fn fixed_forms(synopsis: &Synopsis) -> Option<Vec<Vec<&Synopsis>>> {
-    let nodes = match synopsis {
-        Synopsis::Sequence(nodes) => nodes.as_slice(),
-        Synopsis::Keyword(_)
-        | Synopsis::Argument(_)
-        | Synopsis::Group(_)
-        | Synopsis::Optional(_)
-        | Synopsis::Alternative(_) => slice::from_ref(synopsis),
-    };
-    let mut forms = Vec::new();
-    let mut current = Vec::new();
-    let mut context = None;
-    for node in nodes {
-        match node {
-            Synopsis::Group(inner) => {
-                let Synopsis::Keyword(word) = inner.as_ref() else {
-                    return None;
-                };
-                if context.is_some_and(|previous| previous != word) {
-                    return None;
-                }
-                context = Some(word);
-                if !current.is_empty() {
-                    forms.push(take(&mut current));
-                }
-                if word != "config" {
-                    current.push(inner.as_ref());
+        let variable_destructive =
+            catalog.risk(&command.path) == Some(Risk::Destructive) && forms.len() > 1;
+        let mut matched = false;
+        for form in &forms {
+            if let Some(result) = match_form(catalog, form, words) {
+                matched = true;
+                match result {
+                    Ok(mut value) => {
+                        if variable_destructive {
+                            return Err(vec![ValidationIssue::UnsupportedCliSyntax {
+                                path: command.path.clone(),
+                            }]);
+                        }
+                        if negative {
+                            drop(value.insert("no".to_owned(), Value::Bool(true)));
+                        }
+                        return catalog.validate(
+                            &command.path,
+                            HttpMethod::Post,
+                            &Value::Object(value),
+                        );
+                    }
+                    Err(issues) => issue = issues,
                 }
             }
-            Synopsis::Keyword(_)
-            | Synopsis::Argument(_)
-            | Synopsis::Optional(_)
-            | Synopsis::Alternative(_) => current.push(node),
-            Synopsis::Sequence(_) => return None,
+        }
+        if matched {
+            return Err(issue);
         }
     }
-    if !current.is_empty() {
-        forms.push(current);
+    Err(issue)
+}
+
+/// Matches exact syntax first, then checks each context's scalar object independently.
+fn match_form(
+    catalog: &Catalog,
+    form: &Form<'_>,
+    tokens: &[&str],
+) -> Option<Result<Map<String, Value>, Vec<ValidationIssue>>> {
+    if form.len() != tokens.len()
+        || !form
+            .iter()
+            .zip(tokens)
+            .all(|((_, node), token)| match node {
+                Synopsis::Keyword(word) => word == token,
+                Synopsis::Argument(_) => true,
+                Synopsis::Sequence(_)
+                | Synopsis::Optional(_)
+                | Synopsis::Group(_)
+                | Synopsis::Alternative(_) => false,
+            })
+    {
+        return None;
     }
-    (forms.len() <= 2).then_some(forms)
+    let mut objects = BTreeMap::<&str, Map<String, Value>>::new();
+    for ((path, node), token) in form.iter().zip(tokens) {
+        let command = catalog.lookup(path)?;
+        let object = objects.entry(path).or_default();
+        let matched_argument = match node {
+            Synopsis::Argument(name) => Some(command.arguments.get(name)?),
+            Synopsis::Keyword(word) => command.arguments.values().find(|argument| {
+                argument.kind == ArgumentKind::Keyword && argument.values.contains(word)
+            }),
+            Synopsis::Sequence(_)
+            | Synopsis::Optional(_)
+            | Synopsis::Group(_)
+            | Synopsis::Alternative(_) => return None,
+        };
+        if let Some(argument) = matched_argument {
+            let value = match argument.kind {
+                ArgumentKind::Integer => token
+                    .parse::<i64>()
+                    .map_or_else(|_error| Value::String((*token).to_owned()), Value::from),
+                ArgumentKind::IpAddress
+                | ArgumentKind::IpMask
+                | ArgumentKind::IpAddressMask
+                | ArgumentKind::MacAddress
+                | ArgumentKind::ObjectName
+                | ArgumentKind::Keyword
+                | ArgumentKind::Password
+                | ArgumentKind::String => Value::String((*token).to_owned()),
+            };
+            if object.insert(argument.name.clone(), value).is_some() {
+                return Some(Err(vec![ValidationIssue::UnsupportedCliSyntax {
+                    path: command.path.clone(),
+                }]));
+            }
+        }
+    }
+    for (path, object) in &objects {
+        if let Err(issues) =
+            catalog.validate(path, HttpMethod::Post, &Value::Object(object.clone()))
+        {
+            return Some(Err(issues));
+        }
+    }
+    let (leaf, _) = form.last()?;
+    Some(Ok(objects.remove(leaf)?))
+}
+
+/// Retains the raw escape only when no literal catalog prefix is known.
+pub(crate) fn known_prefix(catalog: &Catalog, words: &[&str]) -> bool {
+    catalog.commands().any(|command: &Command| {
+        let prefix = command.path.split_whitespace().collect::<Vec<_>>();
+        words.starts_with(&prefix)
+    })
 }

@@ -1,170 +1,25 @@
 //! Lazy catalog loading and router-specific command views.
 
-use alloc::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
-use core::cmp::Reverse;
-use std::sync::{LazyLock, PoisonError, RwLock};
+mod data;
+mod query;
+mod schema;
+
+use alloc::{collections::BTreeSet, sync::Arc};
+use std::sync::{PoisonError, RwLock};
 
 use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
 use secrecy::SecretString;
-use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
+use self::data::{BACKGROUND_PATHS, CatalogData, DESTRUCTIVE_PATHS, data};
 use crate::{
-    SecretValue, ValidatedRequest,
-    cli::{Synopsis, cli_value},
-    generated,
-    search::{SearchResult, expand, score, tokenize},
+    CatalogError, CatalogVersion, Command, CommandKind, ModelMatch, Risk, SecretValue,
+    ValidatedRequest, cli,
+    search::SearchResult,
     validate::{
-        HttpMethod, RawAuthorization, RequestOptions, ValidationIssue, argument_schema,
-        boolean_keyword_forms, child_names, method_allowed, validate_root, validate_value,
+        HttpMethod, RawAuthorization, RequestOptions, ValidationIssue, method_allowed,
+        validate_root, validate_value,
     },
 };
-
-/// A generated catalog line.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-#[non_exhaustive]
-pub enum CatalogVersion {
-    /// KeeneticOS 4.3.
-    V4_3,
-    /// KeeneticOS 5.0.
-    V5_0,
-    /// KeeneticOS 5.1.
-    V5_1,
-}
-
-impl CatalogVersion {
-    /// Returns the generated directory name.
-    #[inline]
-    #[must_use]
-    pub const fn as_str(self) -> &'static str {
-        match self {
-            Self::V4_3 => "4.3",
-            Self::V5_0 => "5.0",
-            Self::V5_1 => "5.1",
-        }
-    }
-
-    /// Selects the newest documented line not newer than `firmware`.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`CatalogError::UnsupportedFirmware`] for firmware older than 4.3.
-    fn for_firmware(firmware: FirmwareVersion) -> Result<Self, CatalogError> {
-        match firmware.line() {
-            line if line >= (5, 1) => Ok(Self::V5_1),
-            line if line >= (5, 0) => Ok(Self::V5_0),
-            line if line >= (4, 3) => Ok(Self::V4_3),
-            _ => Err(CatalogError::UnsupportedFirmware),
-        }
-    }
-}
-
-/// How the hardware model was matched to generated manuals.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum ModelMatch {
-    /// Commands are limited to one model's manuals.
-    Exact(String),
-    /// No manual exists for the model, so all models in the selected version are combined.
-    Union,
-}
-
-/// Catalog command category.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum CommandKind {
-    /// Persistent or running configuration.
-    Setting,
-    /// Read-oriented `show` command.
-    Show,
-    /// Immediate operation.
-    Action,
-}
-
-/// One argument's validation category.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum ArgumentKind {
-    /// Signed integer, optionally bounded.
-    Integer,
-    /// IPv4 or IPv6 address.
-    IpAddress,
-    /// IPv4 netmask.
-    IpMask,
-    /// IPv4 or IPv6 address with a prefix length.
-    IpAddressMask,
-    /// MAC address.
-    MacAddress,
-    /// RCI object/interface name.
-    ObjectName,
-    /// One of a fixed set of words.
-    Keyword,
-    /// Unconstrained textual catalog value.
-    String,
-    /// Sensitive text that must never enter printable request projections.
-    Password,
-}
-
-/// One generated command argument.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct Argument {
-    /// Argument name used as a JSON member.
-    pub name: String,
-    /// Validation category.
-    pub kind: ArgumentKind,
-    /// Accepted keyword values.
-    pub values: Vec<String>,
-    /// Inclusive integer lower bound, when generated.
-    pub minimum: Option<i64>,
-    /// Inclusive integer upper bound, when generated.
-    pub maximum: Option<i64>,
-}
-
-/// One generated command available in a catalog view.
-#[derive(Clone, Debug, Eq, PartialEq)]
-#[non_exhaustive]
-pub struct Command {
-    /// Space-separated CLI path.
-    pub path: String,
-    /// Models whose manuals contain the command.
-    pub models: BTreeSet<String>,
-    /// Command category.
-    pub kind: CommandKind,
-    /// Whether the CLI `no` prefix is supported.
-    pub prefix_no: bool,
-    /// Named request arguments.
-    pub arguments: BTreeMap<String, Argument>,
-}
-
-/// Coarse authorization and confirmation risk.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
-#[non_exhaustive]
-pub enum Risk {
-    /// Read-only request.
-    Read,
-    /// Ordinary configuration mutation.
-    Write,
-    /// Connectivity or account management mutation.
-    Management,
-    /// Data-loss, reboot, or irreversible operation.
-    Destructive,
-}
-
-/// Catalog construction errors.
-#[derive(Clone, Copy, Debug, Error, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum CatalogError {
-    /// Firmware is absent or older than the oldest generated line.
-    #[error("firmware is older than the 4.3 catalog")]
-    UnsupportedFirmware,
-    /// A committed generated artifact could not be decoded.
-    #[error("generated catalog data is invalid")]
-    InvalidGeneratedCatalog,
-}
 
 /// A firmware- and model-specific command catalog.
 #[derive(Clone, Debug)]
@@ -367,11 +222,10 @@ impl Catalog {
 
     /// Validates a whitespace-tokenized CLI line against the longest known command prefix.
     ///
-    /// Fixed synopsis forms supply positional order, including multi-argument commands;
-    /// the alphabetic argument map never supplies order. Optional/alternative grammar,
-    /// missing or warning-bearing synopses, quoting, escaping, and multiple lines are
-    /// rejected rather than guessed. Each argument consumes exactly one token, including
-    /// strings. The `no` prefix selects a separately documented fixed negative form.
+    /// Generated forms supply positional order and omitted parent contexts, including
+    /// optional and alternative grammar. Missing or warning-bearing synopses, quoting,
+    /// escaping, and multiple lines are rejected. Each argument consumes one token.
+    /// The `no` prefix selects a separately documented negative form.
     /// Scalar checks and risk classification are shared with [`Self::validate`].
     ///
     /// A line with no known command prefix uses [`Self::validate_with_options`]'s raw
@@ -393,7 +247,10 @@ impl Catalog {
     ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
         if line.chars().any(|character| {
             character.is_control() && character != '\t'
-                || matches!(character, '\'' | '"' | '\\' | ';' | '|')
+                || matches!(
+                    character,
+                    '\'' | '"' | '\\' | ';' | '|' | '&' | '$' | '`' | '<' | '>'
+                )
         }) {
             return Err(vec![ValidationIssue::InvalidCliSyntax]);
         }
@@ -402,23 +259,10 @@ impl Catalog {
         if words.is_empty() {
             return Err(vec![ValidationIssue::InvalidCliSyntax]);
         }
-        let mut path = String::new();
-        let mut longest = None;
-        for word in words {
-            if !path.is_empty() {
-                path.push(' ');
-            }
-            path.push_str(word);
-            if let Some(command) = self.lookup(&path) {
-                longest = Some(command);
-            }
-        }
-        match longest {
-            Some(command) => {
-                let value = cli_value(command, self.data.synopses.get(&command.path), &tokens)?;
-                self.validate(&command.path, HttpMethod::Post, &value)
-            }
-            None => self.validate_with_options(
+        if cli::known_prefix(self, words) {
+            cli::validate(self, &self.data.synopses, &tokens)
+        } else {
+            self.validate_with_options(
                 line,
                 HttpMethod::Post,
                 &serde_json::json!({ "command": line }),
@@ -426,7 +270,7 @@ impl Catalog {
                     unvalidated: true,
                     authorization,
                 },
-            ),
+            )
         }
     }
 
@@ -487,252 +331,15 @@ impl Catalog {
     #[inline]
     #[must_use]
     pub fn to_json_schema(&self, path: &str) -> Option<serde_json::Value> {
-        let command = self.lookup(path)?;
-        let mut properties = serde_json::Map::new();
-        for (name, argument) in &command.arguments {
-            let _old = properties.insert(name.clone(), argument_schema(argument));
-            for keyword in boolean_keyword_forms(argument) {
-                let _previous =
-                    properties.insert(keyword.to_owned(), serde_json::json!({ "type": "boolean" }));
-            }
-        }
-        for child in child_names(self, path) {
-            let child_path = format!("{path} {child}");
-            if let Some(schema) = self.to_json_schema(&child_path) {
-                let _old = properties.insert(child, schema);
-            }
-        }
-        if command.prefix_no {
-            let _old = properties.insert("no".to_owned(), serde_json::json!({ "const": true }));
-        }
-        Some(serde_json::json!({
-            "$schema": "https://json-schema.org/draft/2020-12/schema",
-            "type": "object",
-            "properties": properties,
-            "additionalProperties": false
-        }))
+        schema::generate(self, path)
     }
 
     /// Searches visible command paths and argument names with prefix-weighted token matching.
     #[inline]
     #[must_use]
     pub fn search(&self, query: &str, limit: usize) -> Vec<SearchResult<'_>> {
-        if limit == 0 {
-            return Vec::new();
-        }
-        let query_tokens = tokenize(query);
-        if query_tokens.is_empty() {
-            return Vec::new();
-        }
-        let expanded = expand(&query_tokens);
-        let mut results = self
-            .commands()
-            .filter_map(|command| {
-                score(command, &query_tokens, &expanded)
-                    .filter(|value| *value > 0)
-                    .map(|value| SearchResult {
-                        command,
-                        score: value,
-                    })
-            })
-            .collect::<Vec<_>>();
-        results.sort_by_key(|result| (Reverse(result.score), result.command.path.as_str()));
-        results.truncate(limit);
-        results
+        query::search(self, query, limit)
     }
-}
-
-/// Parsed data shared by all router views of one firmware line.
-#[derive(Debug)]
-struct CatalogData {
-    /// Firmware line represented by this decoded data set.
-    version: CatalogVersion,
-    /// Commands keyed by their space-separated catalog path.
-    commands: BTreeMap<String, Command>,
-    /// Ordered manual grammar retained for conservative CLI parsing.
-    synopses: BTreeMap<String, Synopsis>,
-    /// Hardware models represented by the decoded command shards.
-    models: BTreeSet<String>,
-}
-
-/// Generated shard envelope.
-#[derive(Deserialize)]
-struct Shard {
-    /// Commands contained in this generated shard.
-    commands: Vec<RawCommand>,
-}
-
-/// Generated command fields consumed at runtime.
-#[derive(Deserialize)]
-struct RawCommand {
-    /// Space-separated command path.
-    path: String,
-    /// Models whose manuals contain the command.
-    models: BTreeSet<String>,
-    /// First firmware line containing the command.
-    since: String,
-    /// Generated command category.
-    kind: CommandKind,
-    /// Whether the command supports the CLI `no` prefix.
-    prefix_no: bool,
-    /// Generated arguments keyed by request member name.
-    arguments: BTreeMap<String, RawArgument>,
-    /// Ordered CLI grammar, absent for undocumented command groups.
-    synopsis: Option<Synopsis>,
-    /// Incomplete manual extraction prevents confident CLI validation.
-    #[serde(default)]
-    parse_warnings: Vec<String>,
-}
-
-/// Generated argument fields consumed at runtime.
-#[derive(Deserialize)]
-struct RawArgument {
-    /// Generated argument type name.
-    #[serde(rename = "type")]
-    kind: String,
-    /// Accepted keyword values.
-    #[serde(default)]
-    values: Vec<String>,
-    /// Inclusive generated minimum.
-    #[serde(default, alias = "min")]
-    minimum: Option<i64>,
-    /// Inclusive generated maximum.
-    #[serde(default, alias = "max")]
-    maximum: Option<i64>,
-}
-
-/// Lazily decoded 4.3 data.
-static V4_3: LazyLock<Result<CatalogData, CatalogError>> =
-    LazyLock::new(|| load(CatalogVersion::V4_3));
-/// Lazily decoded 5.0 data.
-static V5_0: LazyLock<Result<CatalogData, CatalogError>> =
-    LazyLock::new(|| load(CatalogVersion::V5_0));
-/// Lazily decoded 5.1 data.
-static V5_1: LazyLock<Result<CatalogData, CatalogError>> =
-    LazyLock::new(|| load(CatalogVersion::V5_1));
-
-/// Overlay paths whose responses represent cancellable background work.
-const BACKGROUND_PATHS: &[&str] = &[
-    "tools ping",
-    "tools ping6",
-    "tools traceroute",
-    "tools arping",
-    "tools iperf3",
-    "components list",
-    "ussd send",
-    "show log",
-    "mws log",
-];
-
-/// Overlay paths that can erase data, reboot, or irreversibly mutate components.
-const DESTRUCTIVE_PATHS: &[&str] = &[
-    "system reboot",
-    "system configuration factory-reset",
-    "system configuration fail-safe rollback",
-    "components commit",
-    "erase",
-    "copy",
-    "media * format",
-    "mws member reboot",
-    "system eject",
-    "interface * esim profile delete",
-];
-
-/// Gets one lazily parsed data set.
-///
-/// # Errors
-///
-/// Returns [`CatalogError::InvalidGeneratedCatalog`] when embedded JSON is malformed.
-fn data(version: CatalogVersion) -> Result<&'static CatalogData, CatalogError> {
-    match version {
-        CatalogVersion::V4_3 => V4_3.as_ref().map_err(Clone::clone),
-        CatalogVersion::V5_0 => V5_0.as_ref().map_err(Clone::clone),
-        CatalogVersion::V5_1 => V5_1.as_ref().map_err(Clone::clone),
-    }
-}
-
-/// Parses all generated command shards for one version.
-///
-/// # Errors
-///
-/// Returns [`CatalogError::InvalidGeneratedCatalog`] when an embedded shard is malformed.
-fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
-    let prefix = format!("catalog/{}/", version.as_str());
-    let mut commands = BTreeMap::new();
-    let mut synopses = BTreeMap::new();
-    let mut models = BTreeSet::new();
-    for (relative_path, contents) in generated::FILES {
-        if !relative_path.starts_with(&prefix) || relative_path.ends_with("/index.json") {
-            continue;
-        }
-        let shard: Shard = serde_json::from_str(contents)
-            .map_err(|_error| CatalogError::InvalidGeneratedCatalog)?;
-        for raw in shard.commands {
-            if since_line(&raw.since).is_some_and(|line| line > version_line(version)) {
-                continue;
-            }
-            models.extend(raw.models.iter().cloned());
-            if raw.parse_warnings.is_empty()
-                && let Some(synopsis) = raw.synopsis
-            {
-                drop(synopses.insert(raw.path.clone(), synopsis));
-            }
-            let arguments = raw
-                .arguments
-                .into_iter()
-                .map(|(name, argument)| {
-                    let kind = match argument.kind.as_str() {
-                        "Integer" => ArgumentKind::Integer,
-                        "IpAddress" | "Ipv6Address" => ArgumentKind::IpAddress,
-                        "IpMask" | "Mask" => ArgumentKind::IpMask,
-                        "IpAddressMask" => ArgumentKind::IpAddressMask,
-                        "MacAddress" => ArgumentKind::MacAddress,
-                        "Interface" | "ObjectName" => ArgumentKind::ObjectName,
-                        "Keyword" => ArgumentKind::Keyword,
-                        "Password" => ArgumentKind::Password,
-                        _ => ArgumentKind::String,
-                    };
-                    let value = Argument {
-                        name: name.clone(),
-                        kind,
-                        values: argument.values,
-                        minimum: argument.minimum,
-                        maximum: argument.maximum,
-                    };
-                    (name, value)
-                })
-                .collect();
-            let command = Command {
-                path: raw.path.clone(),
-                models: raw.models,
-                kind: raw.kind,
-                prefix_no: raw.prefix_no,
-                arguments,
-            };
-            drop(commands.insert(raw.path, command));
-        }
-    }
-    Ok(CatalogData {
-        version,
-        commands,
-        synopses,
-        models,
-    })
-}
-
-/// Returns the firmware line represented by a generated catalog directory.
-const fn version_line(version: CatalogVersion) -> (u16, u16) {
-    match version {
-        CatalogVersion::V4_3 => (4, 3),
-        CatalogVersion::V5_0 => (5, 0),
-        CatalogVersion::V5_1 => (5, 1),
-    }
-}
-
-/// Parses the major/minor availability line from generated `since` text.
-fn since_line(since: &str) -> Option<(u16, u16)> {
-    let (major, minor) = since.split_once('.')?;
-    Some((major.parse().ok()?, minor.parse().ok()?))
 }
 
 /// Matches overlay `*` segments without treating them as arbitrary substrings.

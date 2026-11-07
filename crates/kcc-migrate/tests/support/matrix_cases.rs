@@ -16,10 +16,7 @@ pub(crate) enum Source {
     Ultra51,
     /// Saved 4.3-era Giga startup configuration.
     Giga43File,
-    /// Live `KN-1811` on 5.1 with a WireGuard interface and an extra segment.
-    ///
-    /// Policy, DHCP-pool and WireGuard key lines are absent: the applier cannot replay them
-    /// yet (catalog CLI validation rejects context leaf commands; see the notepad issue).
+    /// Live `KN-1811` on 5.1 with WireGuard, segments, policies and DHCP.
     Ultra51Vpn,
 }
 
@@ -68,6 +65,26 @@ impl Source {
                 "interface Bridge2 ip address 198.51.100.129 255.255.255.192".to_owned(),
                 "interface Wireguard0 description Office".to_owned(),
                 "interface Wireguard0 ip address 203.0.113.2 255.255.255.0".to_owned(),
+                "interface Bridge2 security-level private".to_owned(),
+                "interface Wireguard0 wireguard listen-port 51820".to_owned(),
+                format!(
+                    "interface Wireguard0 wireguard private-key {}=",
+                    "A".repeat(43)
+                ),
+                format!("interface Wireguard0 wireguard peer {}=", "B".repeat(43)),
+                format!(
+                    "interface Wireguard0 wireguard peer {}= keepalive-interval 25",
+                    "B".repeat(43)
+                ),
+                "ip policy office description Office".to_owned(),
+                "ip policy office permit global Wireguard0 order 10".to_owned(),
+                "ip dhcp pool iot range 198.51.100.130 198.51.100.150".to_owned(),
+                "ip dhcp pool iot bind Bridge2".to_owned(),
+                "ip dhcp pool iot default-router 198.51.100.129".to_owned(),
+                "ip route 203.0.114.0 255.255.255.0 203.0.113.1".to_owned(),
+                "ip nat Bridge2".to_owned(),
+                "ip name-server 192.0.2.53".to_owned(),
+                "ip dhcp host workstation".to_owned(),
             ]);
         }
         lines

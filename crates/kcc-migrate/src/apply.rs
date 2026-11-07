@@ -12,7 +12,7 @@
 
 mod agreements;
 mod bootstrap;
-mod command;
+pub(crate) mod command;
 mod components;
 mod dispatch;
 mod drift;

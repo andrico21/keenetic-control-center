@@ -26,6 +26,7 @@ mod tests {
         inventory::{InventoryClient, TargetInventory, source_version},
         planner::{Choices, MigrationMaps, PlanError, Planner},
         report::MigrationReport,
+        rules::Disposition,
         source::SourceConfig,
     };
     use kcc_rci::{RouterUrl, auth::Credentials};
@@ -175,12 +176,8 @@ mod tests {
         )?;
         let report = MigrationReport::from_plan(&plan, Locale::En);
 
-        assert_eq!(plan.phases.additive.len(), 1);
-        assert!(
-            plan.phases.additive[0].expose_command()
-                == "interface Bridge9 web-api password ns3 encoded-secret",
-            "redaction must retain the executable secret in memory"
-        );
+        assert_eq!(plan.phases.additive.len(), 0);
+        assert_eq!(plan.items[0].disposition, Disposition::Unsupported);
         assert!(
             !format!("{plan:?}").contains("encoded-secret"),
             "plan Debug must not disclose executable secrets"

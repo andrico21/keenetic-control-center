@@ -20,7 +20,7 @@ use super::ApplyError;
 ///
 /// # Errors
 /// Returns a value-free error for unsupported syntax or invalid arguments.
-pub(super) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyError> {
+pub(crate) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyError> {
     let ast = parse(line).map_err(|_error| ApplyError::Validation)?;
     let lines = flatten(&ast);
     let [command] = lines.as_slice() else {
@@ -82,8 +82,12 @@ pub(super) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyEr
         ["dpn", "accept"] => ("dpn accept", json!({})),
         ["eula", "accept"] => ("eula accept", json!({})),
         _ => {
+            let plaintext = validation_text(&command.tokens)?;
+            let validation_line = plaintext
+                .as_ref()
+                .map_or(line, |secret| secret.expose_secret());
             let validated = catalog
-                .validate_cli(line, RawAuthorization::default())
+                .validate_cli(validation_line, RawAuthorization::default())
                 .map_err(|_issues| ApplyError::Validation)?;
             return Ok(CliCommand::secret(
                 validated,
@@ -102,6 +106,32 @@ pub(super) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyEr
         validated,
         SecretString::from(line.to_owned()),
     ))
+}
+
+/// Decodes NS3 words for catalog checking without changing transmitted bytes.
+///
+/// # Errors
+/// Refuses decoded whitespace because the raw catalog boundary accepts single tokens only.
+fn validation_text(tokens: &[Token]) -> Result<Option<SecretString>, ApplyError> {
+    if !tokens.iter().any(|token| matches!(token, Token::Ns3(_))) {
+        return Ok(None);
+    }
+    let mut output = Zeroizing::new(String::new());
+    for token in tokens {
+        let word = match token {
+            Token::Word(word) => SecretString::from(word.clone()),
+            Token::Ns3(blob) => ns3::decode(blob).map_err(|_error| ApplyError::Validation)?,
+            _ => return Err(ApplyError::Validation),
+        };
+        if word.expose_secret().chars().any(char::is_whitespace) {
+            return Err(ApplyError::Validation);
+        }
+        if !output.is_empty() {
+            output.push(' ');
+        }
+        output.push_str(word.expose_secret());
+    }
+    Ok(Some(SecretString::from(take(&mut *output))))
 }
 
 /// Decodes the final argument only into explicit secret storage.

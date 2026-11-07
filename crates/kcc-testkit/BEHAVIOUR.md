@@ -163,6 +163,10 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
   insertion into the running AST; `show interface` reports presence only. Omitting
   the private key retains the existing router-generation simulation. **assumed
   (documentation-derived, not verified against hardware)**.
+- Replaying an already encoded WireGuard secret preserves its NS3 token. The
+  parser also accepts the catalog's name-only `ip dhcp host <host>` form as a
+  stored declaration. Both extensions are **assumed**, exercised by the migration
+  matrix rather than verified against hardware.
 - Interface IPsec PSKs, named IKE keys, and IPsec profile PSKs/XAuth passwords
   use NS3 storage in the fake. IKE identity selectors remain non-secret arguments;
   replacement uses the key name. These CLI shapes and storage choices are **assumed**.

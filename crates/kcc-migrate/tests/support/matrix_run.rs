@@ -111,6 +111,9 @@ pub(crate) async fn run(source: Source, target: Target) -> Result<Outcome, Box<d
     };
     let (plan, resolved) = resolve_plan(&parsed, &inventory, &fixture.url)?;
     let unsupported = count(&plan, "unsupported");
+    if source == Source::Ultra51Vpn && unsupported != 0 {
+        return Err("VPN source contains unsupported lines".into());
+    }
     let snapshot = snapshot(source, target, &plan, resolved)?;
     let expected = plan
         .phases

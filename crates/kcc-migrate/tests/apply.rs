@@ -35,11 +35,9 @@ mod verification;
 mod tests {
     use core::error::Error;
 
-    use kcc_migrate::{
-        apply::{Applier, ApplyError},
-        planner::Choices,
-    };
+    use kcc_migrate::apply::{Applier, ApplyError};
     use kcc_testkit::{FaultInjection, model::Profile};
+    use secrecy::SecretString;
 
     use super::support::Fixture;
 
@@ -125,13 +123,14 @@ mod tests {
     #[tokio::test]
     async fn replay_refuses_embedded_save_before_any_write() -> Result<(), Box<dyn Error>> {
         let fixture = Fixture::spawn(Profile::default(), FaultInjection::default()).await?;
-        let request = fixture
-            .plan_text(
-                "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\nsystem configuration save\n"
-                    .to_owned(),
-                &Choices::default(),
-            )
-            .await?;
+        let mut request = fixture.request(1).await?;
+        let line = request
+            .plan
+            .phases
+            .additive
+            .first_mut()
+            .ok_or("missing fixture line")?;
+        line.command = SecretString::from("system configuration save".to_owned());
         assert!(matches!(
             Applier::prepare(request).await,
             Err(ApplyError::Validation)

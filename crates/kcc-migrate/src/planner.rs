@@ -5,13 +5,16 @@
     reason = "preserve the public planner facade after type extraction"
 )]
 
+mod buildability;
+#[cfg(test)]
+mod buildability_tests;
 mod diff;
 mod types;
 
 use alloc::collections::BTreeSet;
 
 use diff::{digest_lines, digest_text, is_management_line, plan_id};
-use kcc_config::config_text::flatten;
+use kcc_config::config_text::{Ast, flatten};
 use secrecy::SecretString;
 
 pub use self::types::{
@@ -19,6 +22,7 @@ pub use self::types::{
     PlannedLine,
 };
 use crate::{
+    apply::command,
     inventory::TargetInventory,
     rules::{ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleEngine},
     source::SourceConfig,
@@ -56,11 +60,12 @@ impl Planner {
             &target.installed_components,
             target.realm.as_deref(),
         );
-        let classified = RuleEngine::embedded()?.classify(
+        let mut classified = RuleEngine::embedded()?.classify(
             &source.ast,
             classification_target,
             &classification_choices,
         )?;
+        buildability::retain_supported(&mut classified, &target.catalog);
         let blocked = classified
             .iter()
             .filter(|item| {
@@ -74,17 +79,14 @@ impl Planner {
         if !blocked.is_empty() {
             return Err(PlanError::PlanBlocked { items: blocked });
         }
-        let target_normalized = flatten(&target.running_config)
-            .iter()
-            .map(ToString::to_string)
-            .collect::<BTreeSet<_>>();
-        let source_normalized = flatten(&source.ast)
-            .iter()
-            .map(ToString::to_string)
-            .collect::<BTreeSet<_>>();
+        let target_normalized = normalized_lines(&target.running_config);
+        let source_normalized = normalized_lines(&source.ast);
         let mut phases = execution_phases(&classified, &target_normalized, target);
         for (offset, line) in choices.prune_lines.iter().enumerate() {
-            if target_normalized.contains(line) && !source_normalized.contains(line) {
+            if target_normalized.contains(line)
+                && !source_normalized.contains(line)
+                && command::build(&target.catalog, &format!("no {line}")).is_ok()
+            {
                 phases.prune.push(PlannedLine {
                     non_critical: false,
                     source_index: classified.len().saturating_add(offset),
@@ -143,6 +145,11 @@ impl Planner {
             items: classified.iter().map(PlanItem::from).collect(),
         })
     }
+}
+
+/// Collects canonical command lines for idempotence and drift fingerprints.
+fn normalized_lines(ast: &Ast) -> BTreeSet<String> {
+    flatten(ast).iter().map(ToString::to_string).collect()
 }
 
 /// Partitions executable outputs without copying secret text into ordinary strings.
