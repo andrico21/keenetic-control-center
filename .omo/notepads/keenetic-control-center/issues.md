@@ -232,6 +232,11 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - `cargo vet` in W: "3 unvetted dependencies: multer:3.1.0, spin:0.9.9, version_check:0.9.5". The base 089d6b6 predates master 47a63fc "chore(supply-chain): exempt multer, spin and version_check"; multer comes via axum (kcc-testkit/kcc-web), not via the todo-31 dev-deps. supply-chain/ is outside todo 31's file scope; vet goes green once the branch sits on master (re-run `cargo vet` after the merge).
 
 ## 2026-11-07: Todo 24 Unit 1 verification limits
+
+## 2026-11-07: Todo 58 final verification limits
+- LSP diagnostics timed out for all changed Rust files. Strict workspace Clippy, compiler tests, and warnings-denied rustdoc are clean and are the diagnostic authority.
+- The first full workspace test invocation had two unrelated `crates/kcc/tests/serve.rs` MCP request timeouts; the isolated suite immediately passed 7/7. This is recorded as a pre-existing timing flake, not hidden as a clean first run.
+- Live hardware key generation, exact public-key shape, and firmware-specific DNS behavior are not claimed; acceptance uses the real workflow against fake 5.1/4.3.9 profiles. No clear NS3 blob or 44-character WireGuard key remains in the repository scanner surface.
 - LSP diagnostics for `/home/andrico/kcc-wt/t24/crates/kcc-domain` timed out twice. The package compiler, strict all-target/all-feature Clippy, build, format check, and focused integration tests are green.
 - The standalone programming-skill checker reports false positives for existing multiline `#[expect(... reason = ...)]` attributes in `tests/routing.rs` and `tests/support/mod.rs`; rustc and Clippy accept the explicit reasons.
 - A repository-wide textual `Command::new` guard finds four pre-existing test-only matches outside kcc-domain. New routing product code aliases `CliCommand as ValidatedCli`; it introduces no `Command::new` text.

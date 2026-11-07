@@ -19,12 +19,16 @@ pub mod configuration;
 pub mod dhcp;
 pub mod diagnostics;
 pub mod dns;
+pub mod firewall;
 pub mod interfaces;
 pub mod internet;
 pub mod keendns;
 pub mod logging;
 pub mod mesh;
+pub mod nat;
+pub mod policies;
 pub mod router_users;
+pub mod routing;
 pub mod schedules;
 pub mod segments;
 pub mod services;
@@ -38,7 +42,10 @@ pub mod wifi;
 use alloc::sync::Arc;
 use core::result::Result as CoreResult;
 
-use kcc_app::{permissions::Permission, workflow::VerificationSpec};
+use kcc_app::{
+    permissions::Permission,
+    workflow::{VerificationSpec, WorkflowError},
+};
 use kcc_catalog::{Catalog, Risk, ValidatedRequest, ValidationIssue};
 use kcc_rci::{RciBody, RciClient, RciError, RciPath};
 use serde::de::DeserializeOwned;
@@ -83,6 +90,14 @@ pub enum DomainId {
     Segments,
     /// Router login accounts and service tags.
     RouterUsers,
+    /// Static routes and routing-table views.
+    Routing,
+    /// Connection policies and their routing rules.
+    Policies,
+    /// NAT interfaces, forwarding rules, and runtime translations.
+    Nat,
+    /// Access lists, interface bindings, and UPnP redirects.
+    Firewall,
     /// Router services and management listeners.
     Services,
     /// Firmware component management and update policy.
@@ -248,6 +263,15 @@ pub enum DomainError {
     /// The caller lacks the operation permission or router scope.
     #[error("permission denied for domain operation")]
     PermissionDenied,
+    /// Protected workflow execution failed.
+    #[error(transparent)]
+    Workflow(#[from] WorkflowError),
+    /// A single-route operation produced a router-wide clearing status.
+    #[error("route operation aborted because the router reported a broad clear")]
+    SafetyAbort,
+    /// Route removal did not decrease the fresh route count by exactly one.
+    #[error("route removal verification failed")]
+    RouteCountMismatch,
 }
 
 /// Domain result alias.
@@ -278,6 +302,10 @@ pub const fn registry() -> &'static [DomainDescriptor] {
         dhcp::DESCRIPTOR,
         segments::DESCRIPTOR,
         router_users::DESCRIPTOR,
+        routing::descriptor::DESCRIPTOR,
+        policies::descriptor::DESCRIPTOR,
+        nat::descriptor::DESCRIPTOR,
+        firewall::descriptor::DESCRIPTOR,
         services::DESCRIPTOR,
         components::DESCRIPTOR,
         storage::DESCRIPTOR,

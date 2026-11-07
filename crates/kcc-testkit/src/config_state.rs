@@ -103,8 +103,8 @@ impl ConfigState {
         }
     }
 
-    /// Removes every configured static IPv4 route.
-    pub(crate) fn clear_static_routes(&mut self) {
+    /// Removes every configured static route in one command family.
+    pub(crate) fn clear_static_routes(&mut self, family: &[&str]) {
         self.running.nodes.retain(|node| {
             let words: Vec<&str> = node
                 .tokens
@@ -116,7 +116,7 @@ impl ConfigState {
                     Some(word.as_str())
                 })
                 .collect();
-            !matches!(words.as_slice(), ["ip", "route", ..])
+            !words.starts_with(family)
         });
     }
 

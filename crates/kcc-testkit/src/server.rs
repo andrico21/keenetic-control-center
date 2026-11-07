@@ -506,9 +506,8 @@ impl Shared {
         if self.reject_parse(line) {
             return tree::status("error", "injected parser failure.");
         }
-        if line.starts_with("no ip route ") && self.take_route_wipe() {
-            lock(&self.config).clear_static_routes();
-            return tree::status("message", "cleared all routes.");
+        if let Some(response) = self.wipe_routes(line) {
+            return response;
         }
         let words: Vec<&str> = line.split_whitespace().collect();
         match words.as_slice() {
@@ -662,6 +661,26 @@ impl Shared {
         let active = *armed;
         *armed = false;
         active
+    }
+
+    /// Consumes the route-wipe fault only for a single-route removal.
+    fn take_route_wipe_for(&self, line: &str) -> bool {
+        (line.starts_with("no ip route ") || line.starts_with("no ipv6 route "))
+            && self.take_route_wipe()
+    }
+
+    /// Applies the simulated broad clear for one route family.
+    fn wipe_routes(&self, line: &str) -> Option<Value> {
+        if !self.take_route_wipe_for(line) {
+            return None;
+        }
+        let family = if line.starts_with("no ip route ") {
+            &["ip", "route"][..]
+        } else {
+            &["ipv6", "route"][..]
+        };
+        lock(&self.config).clear_static_routes(family);
+        Some(tree::status("message", "cleared all routes."))
     }
 
     /// Returns generated configuration text for one store.
@@ -1006,6 +1025,7 @@ async fn method_not_allowed() -> StatusCode {
 fn query_selector(query: &BTreeMap<String, String>) -> Option<Selector<'_>> {
     let pairs: Vec<(&str, &str)> = query
         .iter()
+        .filter(|(key, _value)| matches!(key.as_str(), "name" | "mac"))
         .map(|(key, value)| (key.as_str(), value.as_str()))
         .collect();
     tree::selector(&pairs)
@@ -1029,10 +1049,37 @@ fn read(shared: &Shared, login: &str, path: &str, query: &BTreeMap<String, Strin
             .map(|account| serde_json::json!({"name": account.login, "tags": account.tags})),
         None => tree::get(&lock(&shared.settings), &segments(path), selector),
     };
-    found.map_or_else(
+    let paged = found.map(|value| paginate_show(path, query, value));
+    paged.map_or_else(
         || empty(StatusCode::NOT_FOUND),
         |value| Json(value).into_response(),
     )
+}
+
+/// Applies the documented `offset`/`limit` window to large show arrays.
+fn paginate_show(path: &str, query: &BTreeMap<String, String>, answer: Value) -> Value {
+    if path.trim_end_matches('/') != "show/ip/nat"
+        || (!query.contains_key("offset") && !query.contains_key("limit"))
+    {
+        return answer;
+    }
+    let offset = query
+        .get("offset")
+        .and_then(|text| text.parse::<usize>().ok())
+        .unwrap_or(0);
+    let limit = query
+        .get("limit")
+        .and_then(|text| text.parse::<usize>().ok())
+        .unwrap_or(200)
+        .min(200);
+    match answer {
+        Value::Array(rows) => Value::Array(rows.into_iter().skip(offset).take(limit).collect()),
+        other @ (Value::Null
+        | Value::Bool(_)
+        | Value::Number(_)
+        | Value::String(_)
+        | Value::Object(_)) => other,
+    }
 }
 
 /// `GET /rci/`: the whole settings tree.

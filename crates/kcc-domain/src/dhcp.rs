@@ -262,6 +262,9 @@ fn map_domain_error(error: DomainError) -> WorkflowError {
         | DomainError::ProtectedAccount
         | DomainError::InvalidCliToken
         | DomainError::ConfirmationRequired
-        | DomainError::PermissionDenied => WorkflowError::InvalidResponse,
+        | DomainError::PermissionDenied
+        | DomainError::SafetyAbort
+        | DomainError::RouteCountMismatch => WorkflowError::InvalidResponse,
+        DomainError::Workflow(source) => source,
     }
 }

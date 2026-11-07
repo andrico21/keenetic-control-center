@@ -32,7 +32,7 @@ use kcc_rci::{
     capabilities::RouterInfo,
 };
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle,
     model::Profile,
     time::{Clock, MockClock},
 };
@@ -114,17 +114,22 @@ pub(crate) struct Fixture {
 impl Fixture {
     /// Starts the default fake-router profile.
     pub(crate) async fn spawn() -> TestResult<Self> {
-        Self::spawn_with_clock(None).await
+        Self::spawn_with(None, FaultInjection::default()).await
+    }
+
+    /// Starts the default profile with selected fake-router faults.
+    pub(crate) async fn spawn_with_faults(faults: FaultInjection) -> TestResult<Self> {
+        Self::spawn_with(None, faults).await
     }
 
     /// Starts the default profile with a deterministic clock.
     pub(crate) async fn spawn_clocked() -> TestResult<Self> {
-        Self::spawn_with_clock(Some(Arc::new(MockClock::new()))).await
+        Self::spawn_with(Some(Arc::new(MockClock::new())), FaultInjection::default()).await
     }
 
     /// Starts the fixture with an optional injected fake-router clock.
-    async fn spawn_with_clock(clock: Option<Arc<MockClock>>) -> TestResult<Self> {
-        let base_builder = FakeRouter::builder(Profile::default());
+    async fn spawn_with(clock: Option<Arc<MockClock>>, faults: FaultInjection) -> TestResult<Self> {
+        let base_builder = FakeRouter::builder(Profile::default()).faults(faults);
         let configured_builder = match &clock {
             Some(source) => {
                 let injected: Arc<dyn Clock> = Arc::<MockClock>::clone(source);

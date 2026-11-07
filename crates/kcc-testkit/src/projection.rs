@@ -25,17 +25,27 @@ pub(super) fn configuration(ast: &Ast) -> Value {
     );
     insert_path(
         &mut root,
+        &["ipv6", "route"],
+        command_rows(&command_lines, &["ipv6", "route"]),
+    );
+    insert_path(
+        &mut root,
         &["ip", "static"],
         command_rows(&command_lines, &["ip", "static"]),
     );
     insert_path(&mut root, &["ip", "nat"], nat_rows(&command_lines));
+    insert_path(
+        &mut root,
+        &["ip", "policy"],
+        grouped_rows(&command_lines, &["ip", "policy"]),
+    );
     insert_path(&mut root, &["dns-proxy"], dns_proxy(&command_lines));
     insert_path(&mut root, &["user"], users(&command_lines));
     insert_path(&mut root, &["service"], services(&command_lines));
     insert_path(
         &mut root,
         &["access-list"],
-        grouped_rows(&command_lines, "access-list"),
+        grouped_rows(&command_lines, &["access-list"]),
     );
     insert_path(&mut root, &["interface"], interfaces(&command_lines));
     Value::Object(root)
@@ -48,6 +58,10 @@ pub(super) fn show(ast: &Ast, path: &str, fixture: Option<&Value>) -> Option<Val
         "ip/hotspot" => Some(hotspot(&command_lines, fixture)),
         "ip/dhcp/bindings" => Some(append_rows(fixture, dhcp_hosts(&command_lines))),
         "ip/route" => Some(append_rows(fixture, route_rows(&command_lines))),
+        "ipv6/route" => Some(append_rows(
+            fixture,
+            route_rows_for(&command_lines, &["ipv6", "route"]),
+        )),
         "dns-proxy" => Some(overlay(
             fixture.cloned().unwrap_or_else(empty_object),
             dns_proxy(&command_lines),
@@ -147,9 +161,9 @@ fn nat_rows(command_lines: &[Vec<String>]) -> Value {
 }
 
 /// Projects named command contexts.
-fn grouped_rows(command_lines: &[Vec<String>], prefix: &str) -> Value {
+fn grouped_rows(command_lines: &[Vec<String>], prefix: &[&str]) -> Value {
     let mut groups = Map::new();
-    for words in matching(command_lines, &[prefix]) {
+    for words in matching(command_lines, prefix) {
         let Some((name, command)) = words.split_first() else {
             continue;
         };
@@ -198,8 +212,13 @@ fn hotspot(command_lines: &[Vec<String>], fixture: Option<&Value>) -> Value {
 
 /// Projects static routes into route-table rows.
 fn route_rows(command_lines: &[Vec<String>]) -> Value {
+    route_rows_for(command_lines, &["ip", "route"])
+}
+
+/// Projects one static route family into routing-table rows.
+fn route_rows_for(command_lines: &[Vec<String>], prefix: &[&str]) -> Value {
     Value::Array(
-        matching(command_lines, &["ip", "route"])
+        matching(command_lines, prefix)
             .map(|words| json!({"static":true,"command":words}))
             .collect(),
     )

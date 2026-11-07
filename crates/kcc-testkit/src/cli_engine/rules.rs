@@ -74,7 +74,7 @@ const POLICY_RULES: &[LeafRule] = &[
     leaf(&["permit"], 2, None, 2),
     leaf(&["multipath"], 1, None, 1),
     leaf(&["route"], 2, None, 2),
-    leaf(&["rate-limit"], 2, None, 1),
+    leaf(&["rate-limit"], 3, None, 3),
     leaf(&["standalone"], 1, Some(1), 1),
 ];
 

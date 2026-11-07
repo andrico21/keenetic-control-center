@@ -86,7 +86,7 @@ pub struct FaultInjection {
     refuse_management_bridge_down: bool,
     /// Parser substring and bounded number of matching failures.
     fail_parse_matching: Option<(String, usize)>,
-    /// Whether one single-route removal wipes every static IPv4 route.
+    /// Whether one single-route removal wipes every static route in that address family.
     route_wipe_on_remove: bool,
 }
 
@@ -145,7 +145,7 @@ impl FaultInjection {
         self
     }
 
-    /// Arms the simulated incident where one `no ip route` wipes all static routes.
+    /// Arms the simulated incident where one route removal wipes its static route family.
     #[inline]
     #[must_use]
     pub const fn route_wipe_on_remove(mut self, enabled: bool) -> Self {

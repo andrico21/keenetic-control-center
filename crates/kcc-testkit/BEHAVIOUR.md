@@ -101,6 +101,8 @@ fixtures; fixture values remain the baseline for unmodified rows and fields.
 
 - The JSON settings tree and CLI configuration ASTs are deliberately independent stores.
   A write to one does not propagate to the other. Tests must not infer propagation.
+- `show rc ip policy` projects policy contexts and their child commands from the running
+  configuration AST for curated-domain write verification. **assumed**
 - Every profile seeds running and startup `kcc-config` ASTs from
   `fixtures/<hw_id>/startup-config.txt`. Seed addresses are documentation ranges.
 - `GET /ci/running-config.txt` and `GET /ci/startup-config.txt` print canonical AST text
@@ -149,9 +151,9 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `FaultInjection::fail_parse_matching(substring, times)` rejects only the next `times`
   matching parser lines with an RCI error status before mutation; unrelated and later
   parser requests succeed. **assumed**
-- `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route`
-  remove every running static IPv4 route and return `cleared all routes.`; the fault then
-  disarms. **assumed (simulates the R-MCP2 incident)**
+- `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route` or
+  `no ipv6 route` remove every running static route in that address family and return
+  `cleared all routes.`; the fault then disarms. **assumed (simulates the R-MCP2 incident)**
 - `Handle::request_log()` records only method, path, and sorted query pairs. It never
   records headers, cookies, authorization values, or request bodies. `settings_snapshot`,
   `running_config_text`, and `startup_config_text` expose independent store snapshots for
