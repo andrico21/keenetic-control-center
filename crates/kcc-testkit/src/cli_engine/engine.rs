@@ -125,9 +125,10 @@ fn mutate_nodes(
             node.tokens.get(..identity.len()) == Some(identity)
         }
     };
+    let position = nodes.iter().position(matches);
     nodes.retain(|node| !matches(node));
     if !negated && let Some(node) = node_from_tokens(tokens) {
-        nodes.push(node);
+        nodes.insert(position.unwrap_or(nodes.len()), node);
     }
 }
 

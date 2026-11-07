@@ -36,6 +36,7 @@ mod failsafe;
 pub mod fake_elasticsearch;
 pub mod fake_loki;
 mod fixtures;
+pub mod live_matrix;
 pub mod migration;
 pub mod model;
 pub mod ndw2;

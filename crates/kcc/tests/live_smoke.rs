@@ -16,15 +16,24 @@
 )]
 
 use core::error::Error;
-use std::{env, fs, io};
+use std::{env, fs, io, path::PathBuf};
 
 use kcc_rci::{RciError, RouterUrl, capabilities::RouterInfo};
-use kcc_testkit::capture::{connect, read_all, verify_serial};
+use kcc_testkit::{
+    capture::{connect, read_all, verify_serial},
+    live_matrix::{self, Outcome, Run, Suite},
+};
 use secrecy::SecretString;
 use zeroize::Zeroizing;
 
 /// Fallible test result.
 type TestResult = Result<(), Box<dyn Error>>;
+
+/// The task-51 firmware matrix in the workspace evidence directory.
+fn matrix_path() -> PathBuf {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../.omo/evidence/task-51-keenetic-control-center.json")
+}
 
 /// The live environment contract.
 struct LiveEnv {
@@ -71,6 +80,7 @@ async fn live_read_only_smoke() -> TestResult {
         Ok(live) => live,
         Err(reason) => {
             tracing::warn!("live-skip:{reason}");
+            live_matrix::record_skip(&matrix_path(), "live_smoke", reason)?;
             return Ok(());
         }
     };
@@ -111,5 +121,10 @@ async fn live_read_only_smoke() -> TestResult {
     }
     assert!(!captured.is_empty(), "every captured path was read");
     assert!(failed.is_empty(), "RCI errors on: {failed:?}");
+    live_matrix::record(
+        &matrix_path(),
+        &Run::observed(&serial, &info),
+        Suite::new("live_smoke", Outcome::Pass, ""),
+    )?;
     Ok(())
 }

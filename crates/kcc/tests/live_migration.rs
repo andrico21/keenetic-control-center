@@ -35,6 +35,7 @@ mod rehearsal;
 use core::error::Error;
 use std::{env, fs, io, path::PathBuf};
 
+use kcc_testkit::live_matrix::record_skip;
 use secrecy::SecretString;
 use zeroize::Zeroizing;
 
@@ -148,7 +149,9 @@ async fn live_migration_rehearsal() -> TestResult {
         Ok(live) => rehearse(live, false).await,
         Err(reason) => {
             tracing::warn!("live-skip:{reason}");
-            Ok(())
+            let matrix = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+                .join("../../.omo/evidence/task-51-keenetic-control-center.json");
+            Ok(record_skip(&matrix, "live_migration", reason)?)
         }
     }
 }

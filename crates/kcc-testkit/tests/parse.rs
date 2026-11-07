@@ -173,6 +173,44 @@ mod tests {
         Ok(())
     }
 
+    /// A router prints its running configuration from the object model in a fixed order, so
+    /// setting a field to a new value and back yields the byte-identical configuration.
+    #[tokio::test]
+    async fn restoring_a_field_restores_the_byte_identical_running_config() -> TestResult {
+        let fake = FakeRouter::builder(Profile::default()).build()?;
+        let app = fake.router();
+        let cookie = login(&app, fake.realm()).await?;
+        let running = async || {
+            request(
+                &app,
+                Method::GET,
+                "/ci/running-config.txt",
+                Some(&cookie),
+                Body::empty(),
+            )
+            .await
+            .map(|(_, text)| text)
+        };
+        let before = running().await?;
+        for line in [
+            "interface Bridge0 description probe",
+            "interface Bridge0 description \"Home network\"",
+        ] {
+            drop(
+                request(
+                    &app,
+                    Method::POST,
+                    "/rci/",
+                    Some(&cookie),
+                    Body::from(json!({"parse": line}).to_string()),
+                )
+                .await?,
+            );
+        }
+        assert_eq!(running().await?, before);
+        Ok(())
+    }
+
     #[tokio::test]
     async fn upload_takes_effect_after_reboot() -> TestResult {
         let fake = FakeRouter::builder(Profile::default()).build()?;
