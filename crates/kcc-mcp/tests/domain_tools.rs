@@ -117,6 +117,49 @@ mod tests {
         lab.stop().await
     }
 
+    /// Firewall writes round-trip one full rule identity through the domain path.
+    #[tokio::test]
+    async fn firewall_rule_add_and_remove_round_trip_through_domain_read_back() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let rule = json!({
+            "host":"lab-1",
+            "op":"rule",
+            "acl":"McpAcl",
+            "verdict":"deny",
+            "protocol":"udp",
+            "source":"0.0.0.0",
+            "destination":"198.51.100.20",
+            "port":5_353_u16
+        });
+
+        let added = lab.call("kcc_firewall_write", rule.clone(), false).await?;
+        assert_eq!(added.value()?.get("unsaved"), Some(&json!(true)));
+        let after_add = lab.router("lab-1")?.running_config_text();
+        assert!(
+            after_add.contains(
+                "deny udp 0.0.0.0 255.255.255.255 198.51.100.20 255.255.255.255 port eq 5353"
+            ),
+            "{after_add}"
+        );
+
+        let mut remove = rule;
+        drop(
+            remove
+                .as_object_mut()
+                .ok_or("rule is not an object")?
+                .insert("remove".to_owned(), json!(true)),
+        );
+        let removed = lab.call("kcc_firewall_write", remove, false).await?;
+        assert_eq!(removed.value()?.get("unsaved"), Some(&json!(true)));
+        let after_remove = lab.router("lab-1")?.running_config_text();
+        assert!(!after_remove.contains("deny udp 0.0.0.0"));
+        lab.stop().await
+    }
+
     /// A diagnostic job started with a progress token reports progress until it ends.
     #[tokio::test]
     async fn diagnostic_job_streams_progress() -> TestResult {

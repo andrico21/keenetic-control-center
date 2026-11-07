@@ -44,6 +44,51 @@ fn domain_command_bodies_use_realistic_generated_types() {
     }
 }
 
+#[test]
+#[expect(
+    clippy::expect_used,
+    clippy::missing_panics_doc,
+    reason = "test fixtures and assertions are expected to be valid"
+)]
+fn any_address_and_zero_mask_are_valid_without_loosening_mask_checks() {
+    let catalog = Catalog::for_firmware_and_model(
+        FirmwareVersion::from_str("5.1.0").expect("test firmware is valid"),
+        Some("KN-1811"),
+    )
+    .expect("generated catalog is valid");
+    for path in ["access-list permit", "access-list deny"] {
+        let valid = json!({
+            "source":"0.0.0.0",
+            "source-mask":"0.0.0.0",
+            "destination":"0.0.0.0",
+            "destination-mask":"0.0.0.0"
+        });
+        assert!(
+            catalog.validate(path, HttpMethod::Post, &valid).is_ok(),
+            "{path}"
+        );
+        for mask in ["255.0.255.0", "0.0.0.1"] {
+            let invalid = json!({"source":"0.0.0.0","source-mask":mask});
+            assert!(
+                catalog.validate(path, HttpMethod::Post, &invalid).is_err(),
+                "{path} {mask}"
+            );
+        }
+    }
+    for prefix in ["0.0.0.0/0", "0.0.0.0/32"] {
+        assert!(
+            catalog
+                .validate(
+                    "ipv6 route",
+                    HttpMethod::Post,
+                    &json!({"prefix":prefix,"gateway":"192.0.2.1"})
+                )
+                .is_ok(),
+            "{prefix}"
+        );
+    }
+}
+
 type Case = (&'static str, Value, Value);
 
 /// Builds routing, policy, host, DHCP, and access-list validation cases.

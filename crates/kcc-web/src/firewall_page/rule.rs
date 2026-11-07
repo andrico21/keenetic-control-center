@@ -206,7 +206,9 @@ impl Parsed {
         rule.source_mask.clone_from(&self.source.mask);
         rule.destination_mask.clone_from(&self.destination.mask);
         rule.source_port = self.source.port;
+        rule.source_end_port = None;
         rule.destination_port = self.destination.port;
+        rule.destination_end_port = None;
         rule
     }
 }

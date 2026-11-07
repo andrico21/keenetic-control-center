@@ -82,8 +82,12 @@ pub struct Rule {
     pub destination_mask: String,
     /// Optional exact source port.
     pub source_port: Option<u16>,
+    /// Optional source range end; requires `source_port` as the range start.
+    pub source_end_port: Option<u16>,
     /// Optional exact destination port.
     pub destination_port: Option<u16>,
+    /// Optional destination range end; requires `destination_port` as the range start.
+    pub destination_end_port: Option<u16>,
 }
 
 impl Rule {
@@ -99,7 +103,9 @@ impl Rule {
             destination: destination.to_owned(),
             destination_mask: "255.255.255.255".to_owned(),
             source_port: None,
+            source_end_port: None,
             destination_port: None,
+            destination_end_port: None,
         }
     }
 
@@ -108,6 +114,16 @@ impl Rule {
     #[must_use]
     pub const fn with_source_port(mut self, port: u16) -> Self {
         self.source_port = Some(port);
+        self.source_end_port = None;
+        self
+    }
+
+    /// Constrains the source port to an inclusive range.
+    #[inline]
+    #[must_use]
+    pub const fn with_source_port_range(mut self, start: u16, end: u16) -> Self {
+        self.source_port = Some(start);
+        self.source_end_port = Some(end);
         self
     }
 
@@ -116,6 +132,62 @@ impl Rule {
     #[must_use]
     pub const fn with_destination_port(mut self, port: u16) -> Self {
         self.destination_port = Some(port);
+        self.destination_end_port = None;
+        self
+    }
+
+    /// Constrains the destination port to an inclusive range.
+    #[inline]
+    #[must_use]
+    pub const fn with_destination_port_range(mut self, start: u16, end: u16) -> Self {
+        self.destination_port = Some(start);
+        self.destination_end_port = Some(end);
+        self
+    }
+}
+
+/// Full identity of one configured access-list rule.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct ConfiguredRule {
+    /// Permit/deny rule fields.
+    pub rule: Rule,
+    /// Position in the access list, counted from zero.
+    pub index: usize,
+    /// Whether the rule is disabled.
+    pub disabled: bool,
+    /// Optional schedule attached to the rule.
+    pub schedule: Option<String>,
+    /// Optional human-readable description.
+    pub description: Option<String>,
+}
+
+impl ConfiguredRule {
+    /// Creates a configured rule without properties.
+    #[inline]
+    #[must_use]
+    pub const fn new(rule: Rule, index: usize) -> Self {
+        Self {
+            rule,
+            index,
+            disabled: false,
+            schedule: None,
+            description: None,
+        }
+    }
+
+    /// Sets the configured state and optional metadata.
+    #[inline]
+    #[must_use]
+    pub fn with_properties(
+        mut self,
+        disabled: bool,
+        schedule: Option<&str>,
+        description: Option<&str>,
+    ) -> Self {
+        self.disabled = disabled;
+        self.schedule = schedule.map(str::to_owned);
+        self.description = description.map(str::to_owned);
         self
     }
 }

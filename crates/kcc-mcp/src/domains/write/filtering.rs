@@ -1,9 +1,9 @@
 //! `kcc_nat_write` and `kcc_firewall_write`.
 
 use kcc_domain::{
-    ChangeOp, DomainError, RouterCtx,
+    DomainError, RouterCtx,
     firewall::{
-        change::{self as firewall_change, RuleProperty},
+        change as firewall_change,
         model::{Action, Direction, Protocol as RuleProtocol, Rule},
     },
     nat::{
@@ -182,7 +182,7 @@ pub(super) async fn nat(server: &KccMcp, arguments: Value) -> Result<Value, McpF
 fn plan_firewall(
     ctx: &RouterCtx,
     input: &FirewallInput,
-) -> Result<Result<ChangeOp, DomainError>, McpFailure> {
+) -> Result<Result<firewall_change::Plan, DomainError>, McpFailure> {
     let acl = text(Some(&input.acl))?;
     if input.op == "binding" {
         let direction = if input.outbound {
@@ -198,14 +198,8 @@ fn plan_firewall(
             !input.remove,
         ));
     }
-    if let Some(index) = input.index {
-        let property = match input.description.as_deref() {
-            Some(description) => RuleProperty::Description(text(Some(description))?),
-            None => RuleProperty::Disable,
-        };
-        return Ok(firewall_change::plan_rule_property(
-            ctx, acl, index, property,
-        ));
+    if input.index.is_some() || input.description.is_some() {
+        return Err(McpFailure::InvalidArguments);
     }
     let protocol = match needed(input.protocol)? {
         Transport::Tcp => RuleProtocol::Tcp,
@@ -243,7 +237,7 @@ pub(super) async fn firewall(server: &KccMcp, arguments: Value) -> Result<Value,
     )
     .await?;
     let operation = plan_firewall(&opened.2, &input)?.map_err(map_domain)?;
-    confirm_risk(server, operation.risk, input.confirm)?;
+    confirm_risk(server, operation.operation().risk, input.confirm)?;
     let mut changes = begin(server, &opened).await?;
     let result = firewall_change::apply(&mut changes, &opened.2, &operation)
         .await

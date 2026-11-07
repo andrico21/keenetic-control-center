@@ -264,7 +264,9 @@ fn map_domain_error(error: DomainError) -> WorkflowError {
         | DomainError::ConfirmationRequired
         | DomainError::PermissionDenied
         | DomainError::SafetyAbort
-        | DomainError::RouteCountMismatch => WorkflowError::InvalidResponse,
+        | DomainError::RouteCountMismatch
+        | DomainError::FirewallRuleAbsent
+        | DomainError::FirewallVerificationFailed => WorkflowError::InvalidResponse,
         DomainError::Workflow(source) => source,
     }
 }

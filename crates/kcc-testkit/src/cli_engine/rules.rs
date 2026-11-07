@@ -80,13 +80,23 @@ const POLICY_RULES: &[LeafRule] = &[
 
 /// Access-list context shapes.
 const ACCESS_LIST_RULES: &[LeafRule] = &[
-    leaf(&["permit"], 2, None, 2),
-    leaf(&["deny"], 2, None, 2),
+    exact(&["permit"], 2),
+    exact(&["deny"], 2),
     leaf(&["rule"], 2, None, 2),
     leaf(&["description"], 2, Some(2), 1),
     leaf(&["disable"], 1, Some(2), 1),
     leaf(&["schedule"], 2, Some(2), 1),
 ];
+
+/// Builds one exact-removal leaf rule.
+const fn exact(prefix: &'static [&'static str], minimum: usize) -> LeafRule {
+    LeafRule {
+        prefix,
+        minimum,
+        maximum: None,
+        identity_words: usize::MAX,
+    }
+}
 
 /// Schedule context shapes.
 const SCHEDULE_RULES: &[LeafRule] = &[
@@ -139,7 +149,7 @@ pub(super) fn classify(command: &[String]) -> Option<Shape> {
             return Some(Shape {
                 context_words,
                 identity_words: rule.identity_words,
-                exact_removal: false,
+                exact_removal: rule.identity_words == usize::MAX,
             });
         }
     }

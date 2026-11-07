@@ -166,6 +166,8 @@ pub struct RequestRecord {
     path: String,
     /// Query pairs sorted by key and value.
     query: Vec<(String, String)>,
+    /// Non-secret CLI line submitted through the root parser.
+    command: Option<String>,
 }
 
 impl RequestRecord {
@@ -188,6 +190,13 @@ impl RequestRecord {
     #[must_use]
     pub fn query(&self) -> &[(String, String)] {
         &self.query
+    }
+
+    /// Returns the parser line when it contains no secret-bearing command field.
+    #[inline]
+    #[must_use]
+    pub fn command(&self) -> Option<&str> {
+        self.command.as_deref()
     }
 }
 

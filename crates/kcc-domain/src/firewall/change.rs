@@ -1,4 +1,4 @@
-//! Catalog-validated firewall planning and fresh-read execution.
+//! Catalog-validated firewall planning and protected execution.
 #![expect(
     clippy::missing_errors_doc,
     clippy::missing_inline_in_public_items,
@@ -8,32 +8,55 @@
     not(test),
     expect(
         clippy::missing_docs_in_private_items,
-        reason = "private render helpers are narrowly named"
+        reason = "private validation and body assembly helpers are narrowly named"
     )
 )]
+
+mod render;
+mod verify;
 
 use alloc::{format, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli},
+    workflow::{ChangeSet, CliChangeRequest, CliChangeResult},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Map, Value, json};
 
-use super::{
-    model::{Direction, Rule},
-    read,
-};
+use self::verify::{OwnedRuleProperty, Verification};
+use super::model::{ConfiguredRule, Direction, Rule};
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
 
+/// A catalog-validated firewall operation with its full-identity read-back contract.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub struct Plan {
+    operation: ChangeOp,
+    verification: Verification,
+}
+
+impl Plan {
+    /// Returns the validated generic operation metadata.
+    #[inline]
+    #[must_use]
+    pub const fn operation(&self) -> &ChangeOp {
+        &self.operation
+    }
+}
+
+/// Converts a validated firewall change into protected CLI workflow input.
+pub fn request(change: &Plan) -> Result<CliChangeRequest> {
+    render::request(&change.operation, &change.verification)
+}
+
 /// Plans adding one access-list rule.
-pub fn plan_add_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<ChangeOp> {
+pub fn plan_add_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<Plan> {
     plan_rule(router, name, rule, false)
 }
 
 /// Plans removing exactly one access-list rule.
-pub fn plan_remove_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<ChangeOp> {
+pub fn plan_remove_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<Plan> {
     plan_rule(router, name, rule, true)
 }
 
@@ -41,27 +64,58 @@ pub fn plan_remove_rule(router: &RouterCtx, name: &str, rule: &Rule) -> Result<C
 pub fn plan_rule_property(
     router: &RouterCtx,
     name: &str,
-    index: u32,
+    rule: &ConfiguredRule,
     property: RuleProperty<'_>,
-) -> Result<ChangeOp> {
+) -> Result<Plan> {
+    let index = u32::try_from(rule.index).map_err(|_error| DomainError::InvalidResponse)?;
     let body = match property {
-        RuleProperty::Description(value) => json!({"index":index,"description":value}),
-        RuleProperty::Disable => json!({"index":index}),
-        RuleProperty::Schedule(value) => json!({"index":index,"schedule":value}),
+        RuleProperty::Description(Some(value)) => json!({"index":index,"description":value}),
+        RuleProperty::Description(None) | RuleProperty::Schedule(None) => {
+            json!({"index":index,"no":true})
+        }
+        RuleProperty::Disable(enabled) => {
+            if enabled {
+                json!({"index":index})
+            } else {
+                json!({"index":index,"no":true})
+            }
+        }
+        RuleProperty::Schedule(Some(value)) => json!({"index":index,"schedule":value}),
+        RuleProperty::Order(position) => json!({"index":index,"order":position}),
     };
-    contextual(router, name, "access-list rule", &body)
+    Ok(Plan {
+        operation: contextual(router, name, "access-list rule", &body)?,
+        verification: Verification::Property {
+            list: name.to_owned(),
+            before: rule.clone(),
+            property: property.owned(),
+        },
+    })
 }
 
 /// Rule metadata property.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum RuleProperty<'value> {
-    /// Human-readable rule description.
-    Description(&'value str),
-    /// Disable the indexed rule.
-    Disable,
-    /// Apply a named schedule.
-    Schedule(&'value str),
+    /// Optional human-readable rule description.
+    Description(Option<&'value str>),
+    /// Whether the indexed rule is disabled.
+    Disable(bool),
+    /// Optional named schedule.
+    Schedule(Option<&'value str>),
+    /// New rule position, counted from zero.
+    Order(usize),
+}
+
+impl RuleProperty<'_> {
+    fn owned(self) -> OwnedRuleProperty {
+        match self {
+            Self::Description(value) => OwnedRuleProperty::Description(value.map(str::to_owned)),
+            Self::Disable(value) => OwnedRuleProperty::Disable(value),
+            Self::Schedule(value) => OwnedRuleProperty::Schedule(value.map(str::to_owned)),
+            Self::Order(value) => OwnedRuleProperty::Order(value),
+        }
+    }
 }
 
 /// Plans binding an IPv4 access list to an interface.
@@ -71,7 +125,7 @@ pub fn plan_bind(
     acl: &str,
     direction: Direction,
     enabled: bool,
-) -> Result<ChangeOp> {
+) -> Result<Plan> {
     let context = validate(router, "interface", &json!({"name":interface}))?;
     let mut body = json!({"acl":acl,"direction":direction.name()});
     if !enabled {
@@ -82,62 +136,94 @@ pub fn plan_bind(
         );
     }
     let leaf = validate(router, "interface ip access-group", &body)?;
-    Ok(operation(vec![context, leaf]))
+    Ok(Plan {
+        operation: operation(vec![context, leaf]),
+        verification: Verification::Binding {
+            interface: interface.to_owned(),
+            list: acl.to_owned(),
+            direction,
+            present: enabled,
+        },
+    })
 }
 
-/// Applies a firewall plan and verifies its positive CLI line in a fresh running configuration.
+/// Applies a firewall plan and verifies the full identity in a fresh running config.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
-    operation: &ChangeOp,
+    change: &Plan,
 ) -> Result<CliChangeResult> {
-    let line = render(operation)?;
-    let validated = operation
-        .requests
-        .last()
-        .ok_or(DomainError::InvalidResponse)?;
-    let result = changes
-        .apply_cli(CliChangeRequest::new(
-            vec![ValidatedCli::new(line.clone(), validated.clone())],
-            Vec::new(),
-            operation.permission,
-            json!({"domain":"firewall"}),
-        ))
-        .await?;
-    let running = read::access_lists(router).await?;
-    let present = running.to_string().contains(
-        line.trim_start_matches("no ")
-            .split_whitespace()
-            .last()
-            .ok_or(DomainError::InvalidResponse)?,
-    );
-    let removing = line.starts_with("no ");
-    if present == removing {
-        return Err(DomainError::InvalidResponse);
-    }
+    change.verification.preflight(router).await?;
+    let result = changes.apply_cli(request(change)?).await?;
+    change.verification.verify(router).await?;
     Ok(result)
 }
 
-fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: bool) -> Result<ChangeOp> {
+fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: bool) -> Result<Plan> {
     let mut body = json!({"source":rule.source,"source-mask":rule.source_mask,"destination":rule.destination,"destination-mask":rule.destination_mask});
     let fields = body.as_object_mut().ok_or(DomainError::InvalidResponse)?;
-    if let Some(port) = rule.source_port {
-        insert(fields, "src-port-operator", json!("eq"));
-        insert(fields, "source-port", json!(port));
-    }
-    if let Some(port) = rule.destination_port {
-        insert(fields, "dst-port-operator", json!("eq"));
-        insert(fields, "destination-port", json!(port));
-    }
+    insert_port(fields, "source", rule.source_port, rule.source_end_port)?;
+    insert_port(
+        fields,
+        "destination",
+        rule.destination_port,
+        rule.destination_end_port,
+    )?;
     if remove {
         insert(fields, "no", json!(true));
     }
-    contextual(
+    let operation = contextual(
         router,
         name,
         &format!("access-list {}", rule.action.name()),
         &body,
-    )
+    )?;
+    let verification = if remove {
+        Verification::Remove {
+            list: name.to_owned(),
+            rule: rule.clone(),
+        }
+    } else {
+        Verification::Add {
+            list: name.to_owned(),
+            rule: rule.clone(),
+        }
+    };
+    Ok(Plan {
+        operation,
+        verification,
+    })
+}
+
+fn insert_port(
+    fields: &mut Map<String, Value>,
+    side: &str,
+    start: Option<u16>,
+    end: Option<u16>,
+) -> Result<()> {
+    let (port, end_port, operator) = match side {
+        "source" => ("source-port", "source-end-port", "src-port-operator"),
+        "destination" => (
+            "destination-port",
+            "destination-end-port",
+            "dst-port-operator",
+        ),
+        _ => return Err(DomainError::InvalidResponse),
+    };
+    match (start, end) {
+        (None, None) => Ok(()),
+        (Some(value), None) => {
+            insert(fields, operator, json!("eq"));
+            insert(fields, port, json!(value));
+            Ok(())
+        }
+        (Some(first), Some(last)) if first <= last => {
+            insert(fields, port, json!(first));
+            insert(fields, end_port, json!(last));
+            Ok(())
+        }
+        (None | Some(_), Some(_)) => Err(DomainError::InvalidResponse),
+    }
 }
 
 fn contextual(router: &RouterCtx, name: &str, path: &str, body: &Value) -> Result<ChangeOp> {
@@ -153,63 +239,9 @@ fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedReq
         .validate(path, HttpMethod::Post, body)
         .map_err(|issues| DomainError::Validation { issues })
 }
+
 const fn operation(requests: Vec<ValidatedRequest>) -> ChangeOp {
     ChangeOp::new(requests, Vec::new(), Risk::Write, Permission::Write, false)
-}
-
-fn render(operation: &ChangeOp) -> Result<String> {
-    let [context, leaf] = operation.requests.as_slice() else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let name = context
-        .value
-        .get("name")
-        .and_then(Value::as_str)
-        .ok_or(DomainError::InvalidResponse)?;
-    let mut words = if context.path == "interface" {
-        vec![
-            "interface".to_owned(),
-            name.to_owned(),
-            "ip".to_owned(),
-            "access-group".to_owned(),
-        ]
-    } else {
-        vec![
-            "access-list".to_owned(),
-            name.to_owned(),
-            leaf.path
-                .strip_prefix("access-list ")
-                .ok_or(DomainError::InvalidResponse)?
-                .to_owned(),
-        ]
-    };
-    for field in [
-        "source",
-        "source-mask",
-        "source-port",
-        "destination",
-        "destination-mask",
-        "destination-port",
-        "index",
-        "description",
-        "schedule",
-        "acl",
-        "direction",
-    ] {
-        if let Some(value) = leaf.value.get(field) {
-            words.push(
-                value
-                    .as_str()
-                    .map_or_else(|| value.to_string(), ToOwned::to_owned),
-            );
-        }
-    }
-    let line = words.join(" ");
-    Ok(if leaf.value.get("no") == Some(&Value::Bool(true)) {
-        format!("no {line}")
-    } else {
-        line
-    })
 }
 
 fn insert(fields: &mut Map<String, Value>, name: &str, value: Value) {

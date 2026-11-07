@@ -16,13 +16,13 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use super::{
     checks::description,
     lines,
-    rule_actions::{Named, filtered, finish, located},
+    rule_actions::{Named, configured, filtered, finish, located},
     run::{Expect, Planned, Sender},
 };
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::Params,
+    net_change::{Params, missing},
     net_form::{Choice, FormDialog, Input},
     page_kit::{action::Operation, respond::Answer},
     system_pages::shared::{merged, value, with_query},
@@ -89,9 +89,10 @@ pub(crate) async fn describe(
         }
     };
     let domain = opened.context().await?;
-    let (action, firewall, _entry) = located(opened, &domain, &named).await?;
-    let planned = lines::description(&domain, named.list(), (named.index(), text.as_deref())).map(
-        |request| {
+    let (action, firewall, entry) = located(opened, &domain, &named).await?;
+    let identity = configured(&entry).map_err(|_error| missing())?;
+    let planned =
+        lines::description(&domain, named.list(), (&identity, text.as_deref())).map(|request| {
             let expect = Expect::Property {
                 list: named.list().to_owned(),
                 index: named.index(),
@@ -99,8 +100,7 @@ pub(crate) async fn describe(
                 value: text.clone(),
             };
             Planned::new(request, expect, filtered(&firewall, named.list()))
-        },
-    );
+        });
     let path = format!("/ui/r/{router}/firewall/rule/description");
     finish(
         action,
@@ -169,10 +169,11 @@ pub(crate) async fn schedule(
         let message = tr(locale, keys::WEB_ROUTING_ERROR_CHOICE, None);
         return Err(dialog.with_error("schedule", message).invalid().into());
     }
-    let (action, firewall, _entry) = located(opened, &domain, &named).await?;
+    let (action, firewall, entry) = located(opened, &domain, &named).await?;
+    let identity = configured(&entry).map_err(|_error| missing())?;
     let picked = Some(chosen).filter(|name| !name.is_empty());
     let planned =
-        lines::schedule(&domain, named.list(), (named.index(), picked.as_deref())).map(|request| {
+        lines::schedule(&domain, named.list(), (&identity, picked.as_deref())).map(|request| {
             let expect = Expect::Property {
                 list: named.list().to_owned(),
                 index: named.index(),

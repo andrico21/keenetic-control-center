@@ -272,6 +272,12 @@ pub enum DomainError {
     /// Route removal did not decrease the fresh route count by exactly one.
     #[error("route removal verification failed")]
     RouteCountMismatch,
+    /// The requested access-list rule was absent before a removal attempt.
+    #[error("firewall rule is absent")]
+    FirewallRuleAbsent,
+    /// A fresh running configuration did not contain the expected full rule identity.
+    #[error("firewall rule verification failed")]
+    FirewallVerificationFailed,
 }
 
 /// Domain result alias.

@@ -16,7 +16,7 @@ use alloc::sync::Arc;
 
 use kcc_catalog::Catalog;
 use kcc_domain::{
-    RouterCtx,
+    DomainError, RouterCtx,
     firewall::{
         change,
         descriptor::DESCRIPTOR,
@@ -82,6 +82,65 @@ async fn ipv6_access_lists_are_not_offered_on_firmware_4_3_9() -> TestResult {
             .available_writes(&context.catalog)
             .any(|operation| operation.catalog_path == "ipv6 access-list")
     );
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn removal_uses_full_protocol_and_port_identity() -> TestResult {
+    let fixture = Fixture::spawn().await?;
+    let tcp = Rule::new(Action::Permit, Protocol::Tcp, "192.0.2.10", "198.51.100.20")
+        .with_destination_port(443);
+    let udp = Rule::new(Action::Permit, Protocol::Udp, "192.0.2.10", "198.51.100.20")
+        .with_destination_port(443);
+    let tcp_other_port = Rule::new(Action::Permit, Protocol::Tcp, "192.0.2.10", "198.51.100.20")
+        .with_destination_port(8443);
+    let mut changes = fixture.changes().await?;
+    for rule in [&tcp, &udp, &tcp_other_port] {
+        let planned = change::plan_add_rule(fixture.context(), "WebAcl", rule)?;
+        drop(change::apply(&mut changes, fixture.context(), &planned).await?);
+    }
+
+    let remove = change::plan_remove_rule(fixture.context(), "WebAcl", &tcp)?;
+    drop(change::apply(&mut changes, fixture.context(), &remove).await?);
+
+    let rules = read::configured_rules(fixture.context()).await?;
+    let remaining = rules.get("WebAcl").ok_or("missing WebAcl")?;
+    assert!(!remaining.iter().any(|configured| configured.rule == tcp));
+    assert!(remaining.iter().any(|configured| configured.rule == udp));
+    assert!(
+        remaining
+            .iter()
+            .any(|configured| configured.rule == tcp_other_port)
+    );
+    drop(changes);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn absent_removal_returns_typed_error_without_a_write_request() -> TestResult {
+    let fixture = Fixture::spawn().await?;
+    let absent = Rule::new(Action::Deny, Protocol::Icmp, "0.0.0.0", "0.0.0.0");
+    let planned = change::plan_remove_rule(fixture.context(), "AbsentAcl", &absent)?;
+    let before = fixture.handle().request_log().len();
+    let mut changes = fixture.changes().await?;
+
+    let error = match change::apply(&mut changes, fixture.context(), &planned).await {
+        Ok(_result) => return Err("absent rule was accepted".into()),
+        Err(found) => found,
+    };
+
+    assert!(matches!(error, DomainError::FirewallRuleAbsent));
+    let requests = fixture.handle().request_log();
+    assert!(
+        requests
+            .get(before..)
+            .ok_or("request log became shorter")?
+            .iter()
+            .all(|request| request.command().is_none())
+    );
+    drop(changes);
     fixture.shutdown().await?;
     Ok(())
 }

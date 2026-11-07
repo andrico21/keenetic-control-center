@@ -2,9 +2,11 @@
 
 use kcc_app::permissions::Permission;
 use kcc_domain::{
+    DomainError,
     firewall::{
         change::{self as firewall_change, RuleProperty},
         model::{Action, Direction, Protocol, Rule},
+        read as firewall_read,
     },
     schedules::{self, ActionTime, ScheduleAction},
     storage::{self, MaintenanceAction, MaintenanceRequest},
@@ -85,15 +87,22 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
             acl,
             index,
             description,
-            disable: _,
+            disable,
             schedule,
         } => {
+            let position =
+                usize::try_from(index).map_err(|_error| DomainError::FirewallRuleAbsent)?;
+            let rules = firewall_read::configured_rules(router).await?;
+            let rule = rules
+                .get(&acl)
+                .and_then(|entries| entries.get(position))
+                .ok_or(DomainError::FirewallRuleAbsent)?;
             let property = match (description.as_deref(), schedule.as_deref()) {
-                (Some(text), _) => RuleProperty::Description(text),
-                (None, Some(name)) => RuleProperty::Schedule(name),
-                (None, None) => RuleProperty::Disable,
+                (Some(text), _) => RuleProperty::Description(Some(text)),
+                (None, Some(name)) => RuleProperty::Schedule(Some(name)),
+                (None, None) => RuleProperty::Disable(disable),
             };
-            firewall_change::plan_rule_property(router, &acl, index, property)?
+            firewall_change::plan_rule_property(router, &acl, rule, property)?
         }
         FirewallWriteCommand::Bind {
             acl,
@@ -109,7 +118,7 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
         }
     };
     session
-        .change(Gate::of(&operation), async |changes, context| {
+        .change(Gate::of(operation.operation()), async |changes, context| {
             Ok(applied(
                 firewall_change::apply(changes, context, &operation)
                     .await?

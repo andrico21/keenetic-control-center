@@ -339,7 +339,9 @@ fn valid_mask(text: &str) -> bool {
     };
     let bits = u32::from(address);
     let inverted = !bits;
-    inverted == 0 || inverted.checked_add(1).is_some_and(u32::is_power_of_two)
+    inverted == u32::MAX
+        || inverted == 0
+        || inverted.checked_add(1).is_some_and(u32::is_power_of_two)
 }
 
 /// Returns keyword values that RCI also accepts as `{ "keyword": true }`.

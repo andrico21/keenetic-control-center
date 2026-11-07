@@ -377,7 +377,25 @@ impl Shared {
             method: request.method().clone(),
             path: request.uri().path().to_owned(),
             query,
+            command: None,
         });
+    }
+
+    /// Attaches a non-secret parser line to its request record.
+    fn record_command(&self, line: &str) {
+        let secret = [
+            " password ",
+            "private-key",
+            "preshared-key",
+            "wpa-psk",
+            "xauth-password",
+            "obfs-key",
+        ]
+        .iter()
+        .any(|marker| line.contains(marker));
+        if let Some(record) = lock(&self.request_log).last_mut() {
+            record.command = (!secret).then(|| line.to_owned());
+        }
     }
 
     /// The session id carried in this server's cookie, if any.
@@ -889,6 +907,7 @@ impl Shared {
         if pointer.is_empty()
             && let Some(line) = body.get("parse").and_then(Value::as_str)
         {
+            self.record_command(line);
             return self.parse_command(line);
         }
         if pointer.is_empty()

@@ -160,10 +160,11 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route` or
   `no ipv6 route` remove every running static route in that address family and return
   `cleared all routes.`; the fault then disarms. **assumed (simulates the R-MCP2 incident)**
-- `Handle::request_log()` records only method, path, and sorted query pairs. It never
-  records headers, cookies, authorization values, or request bodies. `settings_snapshot`,
-  `running_config_text`, and `startup_config_text` expose independent store snapshots for
-  workflow assertions. **assumed test observability API**
+- `Handle::request_log()` records method, path, sorted query pairs, and non-secret root
+  parser lines. Parser lines containing password or key command fields are omitted; headers,
+  cookies, authorization values, and other request bodies are never retained.
+  `settings_snapshot`, `running_config_text`, and `startup_config_text` expose independent
+  store snapshots for workflow assertions. **assumed test observability API**
 
 ## Other assumed protocol details
 

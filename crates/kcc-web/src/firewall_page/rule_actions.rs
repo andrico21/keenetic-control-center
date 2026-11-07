@@ -11,7 +11,10 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_domain::{DomainError, RouterCtx, firewall::descriptor::DESCRIPTOR};
+use kcc_domain::{
+    DomainError, RouterCtx,
+    firewall::{descriptor::DESCRIPTOR, model::ConfiguredRule},
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -280,8 +283,9 @@ pub(crate) async fn switch(
     };
     let opened = STATE.open(&state, &user, &router).await?;
     let domain = opened.context().await?;
-    let (action, firewall, _entry) = located(opened, &domain, &named).await?;
-    let planned = lines::state(&domain, named.list(), (named.index(), enabled)).map(|request| {
+    let (action, firewall, entry) = located(opened, &domain, &named).await?;
+    let identity = configured(&entry).map_err(|_error| missing())?;
+    let planned = lines::state(&domain, named.list(), (&identity, enabled)).map(|request| {
         let expect = Expect::Disabled {
             list: named.list().to_owned(),
             index: named.index(),
@@ -292,6 +296,23 @@ pub(crate) async fn switch(
     let path = format!("/ui/r/{router}/firewall/rule/state");
     let sender = Sender::new(&user, &headers, (&path, &pairs));
     finish(action, &domain, planned, sender).await
+}
+
+/// Converts a fresh Web snapshot entry to the domain's full rule identity.
+///
+/// # Errors
+/// Returns an invalid-response error when the stored rule has no typed identity.
+pub(crate) fn configured(entry: &Entry) -> Result<ConfiguredRule, DomainError> {
+    let rule = entry
+        .rule()
+        .parsed()
+        .ok_or(DomainError::InvalidResponse)?
+        .domain();
+    Ok(ConfiguredRule::new(rule, entry.index()).with_properties(
+        entry.disabled(),
+        entry.schedule(),
+        entry.description(),
+    ))
 }
 
 /// Submits `planned`, or answers why it could not be planned.

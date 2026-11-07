@@ -42,6 +42,71 @@ async fn firewall_rule_is_added_and_removed_and_read_back() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn firewall_rule_disable_is_applied_and_read_back() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    drop(lab.json(&[
+        "firewall",
+        "rule",
+        "WebAcl",
+        "--protocol",
+        "tcp",
+        "--source",
+        "192.0.2.10",
+        "--destination",
+        "198.51.100.20",
+    ])?);
+
+    drop(lab.json(&[
+        "firewall",
+        "rule-property",
+        "WebAcl",
+        "--index",
+        "0",
+        "--disable",
+    ])?);
+
+    let lists = lab.json(&["firewall", "access-lists"])?;
+    let web_acl = lists.get("WebAcl").ok_or("missing WebAcl")?;
+    assert!(
+        web_acl
+            .as_array()
+            .ok_or("WebAcl is not an array")?
+            .iter()
+            .any(|row| row.get("command") == Some(&serde_json::json!(["rule", "0", "disable"]))),
+        "disabled rule was not read back: {web_acl}"
+    );
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn absent_firewall_rule_property_exits_validation_without_a_write_request() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let before = lab.fake.request_log().len();
+
+    let run = lab.run(&[
+        "firewall",
+        "rule-property",
+        "AbsentAcl",
+        "--index",
+        "0",
+        "--disable",
+    ])?;
+
+    assert_eq!(run.code, 4_i32, "{run:?}");
+    assert!(run.stderr.contains("firewall rule is absent"), "{run:?}");
+    let requests = lab.fake.request_log();
+    assert!(
+        requests
+            .get(before..)
+            .ok_or("request log became shorter")?
+            .iter()
+            .all(|request| request.command().is_none()),
+        "absent rule sent a write request: {requests:?}"
+    );
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn management_port_needs_yes_and_runs_inside_the_fail_safe_bracket() -> TestResult {
     let lab = Lab::spawn("").await?;
     let unconfirmed = lab.run(&["services", "port", "telnet", "2323"])?;
