@@ -9,6 +9,13 @@ opt-level = 3
 [profile.dev.package.blake2]
 opt-level = 3
 
+# Release binaries (todo 49). `panic = "abort"` is deliberately not set: tokio
+# isolates a panicking task only when the panic unwinds.
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
 [workspace.package]
 edition = "2024"
 rust-version = "1.99.1"

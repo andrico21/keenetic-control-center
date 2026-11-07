@@ -721,7 +721,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(server): assemble web UI and MCP on rmcp-server-kit; add stdio mode
   Recommended task executor category: deep-low - integration of all services on the kit transport
 
-- [ ] 49. Release builds (binaries)
+- [x] 49. Release builds (binaries)
   What to do / Must NOT do: `.github/workflows/release.yml` on tags `v*`: matrix `x86_64-unknown-linux-musl` and `aarch64-unknown-linux-musl` (built with `cargo-zigbuild` on ubuntu), `aarch64-apple-darwin` (macos-14), `x86_64-pc-windows-msvc` (windows-latest); `cargo build --release --locked -p kcc`; archives (`.tar.gz`/`.zip`) with LICENSE files, README, sample `kcc.example.toml`; `SHA256SUMS`; GitHub release upload. The container image, its workflow and the Podman deployment belong to todo 57 (separate workflow file, so the two todos never edit the same file). Release profile: `lto = "thin"`, `codegen-units = 1`, `strip = "symbols"`, `panic = "abort"` is NOT used (keep unwind for tokio task isolation). macOS/Windows legs are verified only by the first CI run after the owner pushes the repository; until then the handoff lists them as unverified. Must NOT push images or releases outside tag events.
   Closes: GAP-12
   Parallelization: Wave W10 | Blocked by: 2, 5, 47, 48 | Blocks: F1-F4

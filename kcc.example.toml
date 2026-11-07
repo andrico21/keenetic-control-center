@@ -1,0 +1,162 @@
+# Sample kcc.toml. Every value below is the built-in default, so this file
+# behaves exactly like having no config file at all. Uncomment or change what
+# you need. Unknown tables and keys are rejected at startup.
+#
+# Default location: `kcc.toml` in the platform config directory
+# (`~/.config/kcc` on Linux, `~/Library/Application Support/kcc` on macOS,
+# `%APPDATA%\kcc` on Windows), or pass `--config <PATH>`.
+#
+# Environment overrides: `KCC_<SECTION>_<FIELD>` for kcc sections (for example
+# `KCC_WEB_ENABLED=false`), `RMCP_SERVER_KIT__*` for `[server]` and
+# `[observability]`. Secrets are never written here: routers and log sinks
+# reference files that hold them.
+
+# HTTP listener shared by the Web UI and MCP over HTTP (rmcp-server-kit).
+# Only the commonly changed keys are shown; see the rmcp-server-kit
+# documentation for the rest of this section.
+[server]
+listen_addr = "127.0.0.1"
+listen_port = 8443
+# TLS certificate and key (PEM); `kcc tls self-signed --host <name>` writes a pair.
+# tls_cert_path = "/etc/kcc/kcc-cert.pem"
+# tls_key_path = "/etc/kcc/kcc-key.pem"
+# Reverse proxies whose forwarded headers are trusted (default: none).
+# trusted_proxies = ["127.0.0.1"]
+
+# Logging (rmcp-server-kit). Use the [metrics] section below for Prometheus,
+# not `metrics_enabled` here.
+[observability]
+log_level = "info,rmcp=warn,rmcp_server_kit=info"
+# "pretty" or "json".
+log_format = "pretty"
+
+[web]
+# Serve the Web UI.
+enabled = true
+# Session ends after this much inactivity.
+session_idle = "30m"
+# Session ends this long after login regardless of activity.
+session_absolute = "12h"
+# Failed logins before the account is locked.
+login_max_failures = 5
+# How long a locked account stays locked.
+lockout = "15m"
+# Locale for users who have not chosen one: en, ru, uk, de, be or kk.
+default_locale = "en"
+# Externally reachable base URL when behind a reverse proxy (default: unset).
+# A non-loopback listener needs TLS, or an https public_url plus trusted_proxies.
+# public_url = "https://kcc.example.net"
+
+[mcp]
+# Serve MCP over Streamable HTTP (API key required).
+http_enabled = true
+# Allow `kcc mcp stdio`.
+stdio_enabled = false
+# Application role of the local stdio identity.
+stdio_role = "viewer"
+# Register only read tools.
+read_only = false
+# Allow destructive tools (they still need `confirm: true`).
+allow_destructive = false
+# Cap on the JSON text of one tool result, in bytes.
+max_result_bytes = 32768
+# Tool groups registered by the MCP server.
+toolsets = ["core"]
+
+[outbound]
+# Networks router addresses must fall into. The default is empty, which admits
+# no network: list the networks your routers live in, for example
+# allowed_networks = ["192.168.0.0/16", "10.0.0.0/8", "fd00::/8"]
+allowed_networks = []
+# Host name suffixes routers may be addressed by, e.g. [".keenetic.pro"].
+allowed_suffixes = []
+# Allow loopback router addresses (test setups only).
+allow_loopback = false
+
+[state]
+# State directory (default: unset, meaning the platform state directory:
+# `~/.local/state/kcc` on Linux, `%LOCALAPPDATA%\kcc` on Windows).
+# dir = "/var/lib/kcc"
+
+[backups]
+# Backups kept per router.
+keep_last = 50
+# Backups older than this are pruned.
+max_age = "180d"
+
+[audit]
+# Audit entries older than this are pruned.
+retention = "365d"
+
+[cli]
+# Role ad-hoc CLI runs act as.
+role = "admin"
+# Router name globs the CLI may touch; empty means all.
+router_scope = []
+
+[privacy]
+# Pseudonymize client MACs, host names and addresses in MCP results.
+redact_clients_in_mcp = false
+
+# Prometheus exporter. The listener is plaintext and unauthenticated.
+[metrics]
+enabled = false
+bind = "127.0.0.1:9090"
+# Required for a non-loopback bind.
+allow_non_loopback = false
+# Light-item refresh period (minimum 15s).
+interval = "30s"
+# Heavy-item refresh period (minimum 60s, and at least `interval`).
+heavy_interval = "120s"
+# Export per-client series.
+per_client = false
+# Per-router cap on exported clients.
+per_client_max = 256
+# Client label in per-client series: "name", "pseudonym" or "mac".
+per_client_label = "pseudonym"
+
+# Router log collection and forwarding.
+[logs]
+enabled = false
+# Router profile ids to collect; empty selects every router.
+routers = []
+# "stream" (falls back to polling after repeated failures) or "poll".
+mode = "stream"
+# Delay between reads from a background stream (minimum 5s).
+stream_interval = "5s"
+# Delay between one-shot snapshot reads (minimum 5s).
+poll_interval = "30s"
+# Replace MAC addresses in messages before forwarding.
+redact_macs = false
+# Maximum pending records retained for each sink.
+queue_max = 10000
+
+# Log sinks (default: none). Credentials always come from files.
+# [[logs.sinks]]
+# kind = "loki"
+# url = "https://loki.example.net"
+# tenant = "home"
+# basic_auth_user = "kcc"
+# password_file = "/etc/kcc/loki.pw"
+# compress = false
+#
+# [[logs.sinks]]
+# kind = "elasticsearch"
+# url = "https://search.example.net:9200"
+# flavor = "elasticsearch"   # or "opensearch"
+# api_key_file = "/etc/kcc/es.key"
+#
+# [[logs.sinks]]
+# kind = "stdout"
+
+# Config-defined router profiles (default: none; read-only in the UI). Routers
+# added with `kcc router add` live in the state directory instead.
+# [[routers]]
+# name = "home"
+# url = "https://192.168.1.1"
+# login = "admin"
+# password_file = "/etc/kcc/home.pw"   # or token_file with auth = "token"
+# auth = "auto"                        # auto, ndw2, ndw4, token or digest
+# tls = "verify"                       # or { pin_sha256 = "<64 hex digits>" }
+# test_device = false
+# tags = ["home"]
