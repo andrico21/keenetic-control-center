@@ -1,5 +1,5 @@
 //! The Web UI over one fake router, with the job runner attached and a signed-in account
-//! per built-in role, for the command explorer and console tests.
+//! per built-in role, plus `outsider`, who holds every permission on `lab-*` routers only.
 #![expect(
     clippy::missing_errors_doc,
     reason = "test support is not rendered API documentation; every error fails the test"
@@ -22,12 +22,12 @@ use kcc_app::{
     audit::{AuditEntry, AuditLog, verify_chain},
     backups::BackupStore,
     jobs::JobRunner,
-    permissions::{Role, built_in_roles},
+    permissions::{Permission, Role, built_in_roles},
     persist::StateStore,
     poller::Poller,
     registry::{ManagedRouterProfile, RouterRegistry},
     secrets::MasterKey,
-    settings::OutboundConfig,
+    settings::{BackupsConfig, OutboundConfig},
     workflow::ChangeWorkflow,
 };
 use kcc_i18n::locale::Locale;
@@ -35,7 +35,10 @@ use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, model::Profile,
 };
 use kcc_web::{
-    WebState, WebStateConfig, fleet::FleetServices, session::CookieSecurity, web_router,
+    WebState, WebStateConfig,
+    fleet::{BackupServices, FleetServices},
+    session::CookieSecurity,
+    web_router,
 };
 use secrecy::SecretString;
 use tempfile::TempDir;
@@ -104,7 +107,7 @@ impl Fixture {
             Duration::from_secs(60),
             Arc::clone(&clock),
         ));
-        for role in ["viewer", "operator", "admin"] {
+        for role in ["viewer", "operator", "admin", "outsider"] {
             accounts.create(NewAccount::new(
                 role.to_owned(),
                 SecretString::from(PASSWORD),
@@ -145,14 +148,25 @@ impl Fixture {
             state.clone(),
             MasterKey::from_bytes([7_u8; 32]),
         ));
-        let workflow =
-            ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
+        let workflow = ChangeWorkflow::new(
+            state.clone(),
+            Arc::clone(&registry),
+            Arc::clone(&backups),
+            audit.clone(),
+        );
         let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
         let web = WebState::new(WebStateConfig {
             default_locale: Locale::En,
             accounts,
             audit,
-            roles: Vec::from(built_in_roles()),
+            roles: built_in_roles()
+                .into_iter()
+                .chain([Role::new(
+                    "outsider".to_owned(),
+                    Permission::ALL,
+                    vec!["lab-*".to_owned()],
+                )])
+                .collect(),
             session_idle: Duration::from_secs(3_600),
             session_absolute: Duration::from_secs(36_000),
             allowed_origins: vec![ORIGIN.to_owned()],
@@ -165,6 +179,7 @@ impl Fixture {
             workflow,
             credentials_dir: directory.path().join("credentials"),
             update_check: None,
+            backups: Some(BackupServices::new(backups, BackupsConfig::default())),
         })
         .with_jobs(jobs);
         Ok(Self {

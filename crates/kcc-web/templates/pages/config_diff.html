@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_CONFIG_COMPARE_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page config-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_CONFIG_COMPARE_TITLE) }}</h1>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a><a href="/ui/r/{{ router }}/config">{{ t(keys::WEB_CONFIG_TITLE) }}</a></p>
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(message) = note %}
+  <p class="notice" data-tone="neutral" role="note">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(found) = changes %}
+  <section class="config-diff" aria-labelledby="config-diff-title">
+    <h2 class="config-diff__title" id="config-diff-title">{{ heading() }}</h2>
+    <dl class="facts config-diff__counts">
+      <div class="facts__row"><dt>{{ t(keys::WEB_CONFIG_DIFF_REMOVED_LINES) }}</dt><dd>{{ count(found.removed()) }}</dd></div>
+      <div class="facts__row"><dt>{{ t(keys::WEB_CONFIG_DIFF_ADDED_LINES) }}</dt><dd>{{ count(found.added()) }}</dd></div>
+    </dl>
+    {%- if !found.ordered() %}
+    <p class="notice" data-tone="info">{{ t(keys::WEB_CONFIG_DIFF_UNORDERED) }}</p>
+    {%- endif %}
+    {%- if found.is_empty() %}
+    <p class="notice" data-tone="neutral">{{ t(keys::WEB_CONFIG_DIFF_SAME) }}</p>
+    {%- else if split %}
+    <div class="table-wrap config-diff__wrap">
+      <table class="table config-diff__table">
+        <thead><tr><th scope="col">{{ t(keys::WEB_CONFIG_DIFF_BEFORE) }}</th><th scope="col">{{ t(keys::WEB_CONFIG_DIFF_AFTER) }}</th></tr></thead>
+        {%- for hunk in found.hunks() %}
+        <tbody class="config-diff__group">
+          {%- for (left, right) in hunk.rows() %}
+          <tr>
+            {%- if let Some(text) = left %}
+            <td class="config-diff__cell" data-change="removed"><span class="visually-hidden">{{ t(keys::WEB_CONFIG_DIFF_REMOVED) }}</span><code class="config-diff__code">{{ text }}</code></td>
+            {%- else %}
+            <td class="config-diff__cell"></td>
+            {%- endif %}
+            {%- if let Some(text) = right %}
+            <td class="config-diff__cell" data-change="added"><span class="visually-hidden">{{ t(keys::WEB_CONFIG_DIFF_ADDED) }}</span><code class="config-diff__code">{{ text }}</code></td>
+            {%- else %}
+            <td class="config-diff__cell"></td>
+            {%- endif %}
+          </tr>
+          {%- endfor %}
+        </tbody>
+        {%- endfor %}
+      </table>
+    </div>
+    {%- else %}
+    <ol class="config-diff__hunks">
+      {%- for hunk in found.hunks() %}
+      <li class="config-diff__hunk">
+        <ul class="config-diff__lines">
+          {%- for line in hunk.removed() %}
+          <li class="config-diff__line" data-change="removed"><span class="config-diff__mark" aria-hidden="true">-</span><span class="visually-hidden">{{ t(keys::WEB_CONFIG_DIFF_REMOVED) }}</span><code class="config-diff__code">{{ line }}</code></li>
+          {%- endfor %}
+          {%- for line in hunk.added() %}
+          <li class="config-diff__line" data-change="added"><span class="config-diff__mark" aria-hidden="true">+</span><span class="visually-hidden">{{ t(keys::WEB_CONFIG_DIFF_ADDED) }}</span><code class="config-diff__code">{{ line }}</code></li>
+          {%- endfor %}
+        </ul>
+      </li>
+      {%- endfor %}
+    </ol>
+    {%- endif %}
+  </section>
+  {%- endif %}
+  {%- if let Some(form) = form %}
+  {{ form|safe }}
+  {%- endif %}
+</div>
+{%- endblock %}

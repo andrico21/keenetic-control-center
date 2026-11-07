@@ -53,7 +53,7 @@ mod schedule_forms;
 mod schedules;
 mod service_toggle;
 mod services;
-mod shared;
+pub(crate) mod shared;
 mod storage;
 mod storage_actions;
 pub(crate) mod tabs;

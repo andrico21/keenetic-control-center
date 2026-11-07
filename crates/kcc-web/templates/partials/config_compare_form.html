@@ -1,0 +1,33 @@
+{#- Two configurations to compare: a GET form to the diff page, so it works without JavaScript and its result can be bookmarked. Nothing to compare without a backup. -#}
+{%- if !choices.is_empty() %}
+<form class="config-compare" method="get" action="/ui/r/{{ router }}/config/diff" aria-labelledby="config-compare-title">
+  <h2 class="config-compare__title" id="config-compare-title">{{ t(*title) }}</h2>
+  <div class="config-compare__fields">
+    <div class="field">
+      <label class="field__label" for="compare-from">{{ t(keys::WEB_CONFIG_COMPARE_FROM) }}</label>
+      <select class="field__input" id="compare-from" name="from">
+        {%- for choice in choices %}
+        <option value="{{ choice.value() }}"{% if is_from(choice.value()) %} selected{% endif %}>{{ choice.label() }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label class="field__label" for="compare-to">{{ t(keys::WEB_CONFIG_COMPARE_TO) }}</label>
+      <select class="field__input" id="compare-to" name="to">
+        <option value="running"{% if is_to("running") %} selected{% endif %}>{{ t(keys::WEB_CONFIG_RUNNING) }}</option>
+        {%- for choice in choices %}
+        <option value="{{ choice.value() }}"{% if is_to(choice.value()) %} selected{% endif %}>{{ choice.label() }}</option>
+        {%- endfor %}
+      </select>
+    </div>
+    <fieldset class="choice config-compare__view">
+      <legend class="field__label">{{ t(keys::WEB_CONFIG_VIEW) }}</legend>
+      <label class="choice__option"><input type="radio" name="view" value="unified"{% if !split %} checked{% endif %}><span>{{ t(keys::WEB_CONFIG_VIEW_UNIFIED) }}</span></label>
+      <label class="choice__option"><input type="radio" name="view" value="split"{% if split %} checked{% endif %}><span>{{ t(keys::WEB_CONFIG_VIEW_SPLIT) }}</span></label>
+    </fieldset>
+  </div>
+  <div class="form__actions">
+    <button class="button button--secondary" type="submit">{{ t(keys::WEB_CONFIG_COMPARE) }}</button>
+  </div>
+</form>
+{%- endif %}

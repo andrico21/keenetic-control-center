@@ -15,9 +15,11 @@ use std::{
 
 use kcc_app::{
     accounts::Clock,
+    backups::BackupStore,
     permissions::{Permission, Role},
     poller::Poller,
     registry::{self, RegistryEntry, RouterRegistry},
+    settings::BackupsConfig,
     workflow::ChangeWorkflow,
 };
 use tokio::task::spawn_blocking;
@@ -75,6 +77,39 @@ pub struct FleetServices {
     pub credentials_dir: PathBuf,
     /// Firmware-update check; `None` shows the update status as unknown.
     pub update_check: Option<Arc<dyn UpdateCheck>>,
+    /// The routers' encrypted configuration backups; `None` leaves the configuration page
+    /// without its backups.
+    pub backups: Option<BackupServices>,
+}
+
+/// The encrypted configuration backups the configuration page lists and creates, and the
+/// retention `kcc.toml` sets for them.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+pub struct BackupServices {
+    /// The store the change workflow writes its automatic backups to.
+    store: Arc<BackupStore>,
+    /// The `[backups]` retention.
+    retention: BackupsConfig,
+}
+
+impl BackupServices {
+    /// The backups in `store`, kept as `retention` says.
+    #[inline]
+    #[must_use]
+    pub const fn new(store: Arc<BackupStore>, retention: BackupsConfig) -> Self {
+        Self { store, retention }
+    }
+
+    /// The encrypted backup store.
+    pub(crate) const fn store(&self) -> &Arc<BackupStore> {
+        &self.store
+    }
+
+    /// The retention `kcc.toml` sets.
+    pub(crate) const fn retention(&self) -> BackupsConfig {
+        self.retention
+    }
 }
 
 impl fmt::Debug for FleetServices {
@@ -100,6 +135,8 @@ pub(crate) struct Fleet {
     telemetry: Telemetry,
     /// Cached firmware-update checks.
     updates: UpdateCache,
+    /// Encrypted configuration backups.
+    backups: Option<BackupServices>,
 }
 
 impl Fleet {
@@ -115,7 +152,13 @@ impl Fleet {
             registry: services.registry,
             workflow: services.workflow,
             credentials_dir: services.credentials_dir,
+            backups: services.backups,
         }
+    }
+
+    /// Encrypted configuration backups, when attached.
+    pub(crate) const fn backups(&self) -> Option<&BackupServices> {
+        self.backups.as_ref()
     }
 
     /// Router profiles and clients.

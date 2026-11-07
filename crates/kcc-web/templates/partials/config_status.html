@@ -1,0 +1,48 @@
+{#- Unsaved changes and the fail-safe timer of one router (`#config-status`), replaced out of band after Save and Keep changes. One primary action: Save while nothing is armed, Keep changes while the timer runs. -#}
+<div class="panels config-status" id="config-status"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <section class="panel" aria-labelledby="config-changes-title">
+    <h2 class="panel__title" id="config-changes-title">{{ t(keys::WEB_CONFIG_CHANGES_TITLE) }}</h2>
+    {%- if let Some(message) = problem %}
+    <p class="notice" data-tone="error">{{ t(**message) }}</p>
+    {%- endif %}
+    {%- if let Some(state) = facts %}
+    {%- if state.unsaved() %}
+    <p class="config-state"><span class="flag">{{ t(keys::WEB_ROUTER_UNSAVED) }}</span></p>
+    <p class="panel__note">{{ t(keys::WEB_CONFIG_UNSAVED_TEXT) }}</p>
+    {%- else %}
+    <p class="config-state"><span class="status" data-status="online">{{ t(keys::WEB_CONFIG_SAVED) }}</span></p>
+    <p class="panel__note">{{ t(keys::WEB_CONFIG_SAVED_TEXT) }}</p>
+    {%- endif %}
+    {%- if let Some(text) = changed_text() %}
+    <p class="panel__note">{{ text }}</p>
+    {%- endif %}
+    {%- if may_save() && state.unsaved() && !state.armed() %}
+    <div class="panel__actions"><button class="button button--primary" type="button" hx-post="/ui/r/{{ router }}/config/save" hx-target="#page-outcome">{{ t(keys::WEB_CONFIG_SAVE) }}</button></div>
+    {%- endif %}
+    {%- endif %}
+  </section>
+  <section class="panel" aria-labelledby="config-timer-title">
+    <h2 class="panel__title" id="config-timer-title">{{ t(keys::WEB_CONFIG_TIMER_TITLE) }}</h2>
+    {%- if let Some(state) = facts %}
+    {%- if state.armed() %}
+    <p class="config-state"><span class="flag">{{ t(keys::WEB_CONFIG_ARMED) }}</span><span class="config-state__note">{{ timer_text() }}</span></p>
+    <p class="panel__note">{{ t(keys::WEB_CONFIG_ARMED_TEXT) }}</p>
+    {%- if may_commit() || may_roll_back() %}
+    <div class="panel__actions">
+      {%- if may_commit() %}
+      <button class="button button--primary" type="button" hx-post="/ui/r/{{ router }}/config/commit" hx-target="#page-outcome">{{ t(keys::WEB_CONFIG_COMMIT) }}</button>
+      {%- endif %}
+      {%- if may_roll_back() %}
+      <button class="button button--danger-ghost" type="button" hx-post="/ui/r/{{ router }}/config/rollback" hx-target="#page-outcome">{{ t(keys::WEB_CONFIG_ROLLBACK) }}</button>
+      {%- endif %}
+    </div>
+    {%- endif %}
+    {%- else %}
+    <p class="config-state"><span class="status" data-status="unknown">{{ t(keys::WEB_CONFIG_NOT_ARMED_LABEL) }}</span></p>
+    <p class="panel__note">{{ t(keys::WEB_CONFIG_TIMER_TEXT) }}</p>
+    {%- endif %}
+    {%- else %}
+    <p class="panel__note">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</p>
+    {%- endif %}
+  </section>
+</div>

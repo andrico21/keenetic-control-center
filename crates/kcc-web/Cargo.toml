@@ -19,6 +19,7 @@ kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
+kcc-migrate = { version = "0.1.0", path = "../kcc-migrate" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 rand = "0.10.3"
 rmcp-server-kit = "3.21.1"

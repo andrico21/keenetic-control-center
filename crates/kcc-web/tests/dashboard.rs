@@ -186,6 +186,7 @@ mod tests {
                 workflow,
                 credentials_dir: directory.path().join("credentials"),
                 update_check: None,
+                backups: None,
             });
             Ok(Self {
                 directory,

@@ -2460,3 +2460,180 @@ h3 {
 .diagnostics-form:has([name="tool"][value="iperf3"]:checked) .diag-field:not(.diag-field--iperf3) {
   display: none;
 }
+
+/* todo 41 */
+
+/* ---------- Configuration and backups page: state panels, backups table, comparison ---------- */
+
+.config-page,
+.config-backups,
+.config-diff {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.config-state {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
+}
+
+.config-state__note {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+  font-variant-numeric: tabular-nums;
+}
+
+.config-backups {
+  display: grid;
+  gap: var(--space-5);
+  margin-block-start: var(--space-7);
+}
+
+.config-backups .table-wrap {
+  position: relative;
+}
+
+.backups-table {
+  min-inline-size: 36rem;
+}
+
+.backups-table th,
+.backups-table td {
+  vertical-align: middle;
+}
+
+.backups-table__time,
+.backups-table__age {
+  display: block;
+}
+
+.backups-table__age {
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  font-weight: var(--weight-regular);
+  letter-spacing: var(--tracking-caption);
+  line-height: var(--leading-caption);
+}
+
+.backups-actions {
+  white-space: nowrap;
+  text-align: end;
+}
+
+.backups-actions > * + * {
+  margin-inline-start: var(--space-2);
+}
+
+.backups-menu a.menu__item {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.backups-menu .menu__item--danger {
+  color: var(--color-danger-ink);
+}
+
+.config-compare {
+  display: grid;
+  gap: var(--space-5);
+  padding-block-start: var(--space-6);
+  border-block-start: 1px solid var(--color-border);
+}
+
+.config-compare__title,
+.config-diff__title {
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-h3);
+  overflow-wrap: anywhere;
+}
+
+.config-compare__fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 18rem), 1fr));
+  gap: var(--space-5);
+  align-items: start;
+}
+
+.config-compare__fields > *,
+.config-compare .field {
+  grid-template-columns: minmax(0, 1fr);
+  min-inline-size: 0;
+}
+
+.config-compare .field__input {
+  inline-size: 100%;
+}
+
+.config-diff {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.config-diff__counts {
+  max-inline-size: 24rem;
+}
+
+.config-diff__hunks,
+.config-diff__lines {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.config-diff__hunks {
+  gap: var(--space-4);
+}
+
+.config-diff__line,
+.config-diff__cell {
+  font-family: var(--font-mono);
+  font-size: var(--text-small);
+  line-height: var(--leading-small);
+}
+
+.config-diff__line {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+}
+
+.config-diff__mark {
+  flex: none;
+  inline-size: 1ch;
+  font-weight: var(--weight-semibold);
+}
+
+.config-diff__code {
+  min-inline-size: 0;
+  font-size: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.config-diff [data-change="removed"] {
+  background: var(--color-danger-wash);
+  color: var(--color-danger-ink);
+}
+
+.config-diff [data-change="added"] {
+  background: var(--color-success-wash);
+  color: var(--color-success-ink);
+}
+
+.config-diff__table {
+  min-inline-size: 36rem;
+  table-layout: fixed;
+}
+
+.config-diff__table tbody + tbody {
+  border-block-start: var(--space-3) solid var(--color-canvas);
+}
+
+.table .config-diff__cell {
+  padding: var(--space-2) var(--space-4);
+  vertical-align: top;
+}

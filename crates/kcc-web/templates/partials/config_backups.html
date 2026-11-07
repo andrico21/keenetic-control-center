@@ -1,0 +1,81 @@
+{#- The backups of one router (`#config-backups`), replaced out of band after a backup is created, stored or deleted: the retention, Create and Upload, the table with each row's actions, and the comparison form. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+<section class="config-backups" id="config-backups" aria-labelledby="config-backups-title"{% if oob %} hx-swap-oob="true"{% endif %}>
+  <div class="page-head">
+    <h2 id="config-backups-title">{{ t(keys::WEB_CONFIG_BACKUPS_TITLE) }}</h2>
+    {%- if may_create() %}
+    <div class="page-head__actions">
+      <button class="button button--secondary" type="button" hx-post="/ui/r/{{ router }}/config/backups" hx-target="#page-outcome">{{ t(keys::WEB_CONFIG_CREATE) }}</button>
+      <button class="button button--ghost" type="button" hx-get="/ui/r/{{ router }}/config/upload" hx-target="#dialog-content">{{ t(keys::WEB_CONFIG_UPLOAD) }}</button>
+    </div>
+    {%- endif %}
+  </div>
+  {%- if !retention.is_empty() %}
+  <p class="page__text">{{ retention }}</p>
+  {%- endif %}
+  {%- if let Some(message) = problem %}
+  <p class="notice" data-tone="error">{{ t(**message) }}</p>
+  {%- endif %}
+  {%- if let Some(table) = table %}
+  {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
+  {%- if table.rows().is_empty() %}
+  <p class="panel__note">{% if table.filter().is_empty() %}{{ t(keys::WEB_CONFIG_BACKUPS_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table backups-table">
+      <thead>
+        <tr>
+          {{ ui::sort_header(t(keys::WEB_CONFIG_CREATED), table.header("created")) }}
+          {{ ui::sort_header(t(keys::WEB_CONFIG_KIND), table.header("kind")) }}
+          {{ ui::sort_header(t(keys::WEB_CONFIG_REASON), table.header("reason")) }}
+          <th scope="col" class="numeric">{{ t(keys::WEB_CONFIG_SIZE) }}</th>
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_CONFIG_ACTIONS) }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in table.rows() %}
+        <tr>
+          <th scope="row" id="backup-{{ loop.index }}"><time class="backups-table__time" datetime="{{ row.created_iso() }}" data-kcc-time>{{ row.created_text() }}</time><span class="backups-table__age">{{ row.age() }}</span></th>
+          <td>{{ row.kind() }}</td>
+          <td>{% if row.reason_raw() %}<span class="mono">{{ row.reason() }}</span>{% else %}{{ row.reason() }}{% endif %}</td>
+          <td class="numeric">{{ size(row) }}</td>
+          <td class="backups-actions">
+            {%- if may_reveal() %}
+            <a class="button button--ghost" href="{{ download_full(row) }}" download aria-describedby="backup-{{ loop.index }}">{{ t(keys::WEB_CONFIG_DOWNLOAD) }}</a>
+            {%- else %}
+            <a class="button button--ghost" href="{{ download_redacted(row) }}" download aria-describedby="backup-{{ loop.index }}">{{ t(keys::WEB_CONFIG_DOWNLOAD_REDACTED) }}</a>
+            {%- endif %}
+            <button class="button button--ghost" type="button" popovertarget="backup-menu-{{ loop.index }}" aria-describedby="backup-{{ loop.index }}">{{ t(keys::WEB_CONFIG_ACTIONS) }}</button>
+            <div class="menu lan-menu backups-menu" id="backup-menu-{{ loop.index }}" popover>
+              <ul class="menu__list">
+                {%- if may_reveal() %}
+                <li><a class="menu__item" href="{{ download_redacted(row) }}" download>{{ t(keys::WEB_CONFIG_DOWNLOAD_REDACTED) }}</a></li>
+                {%- endif %}
+                <li><a class="menu__item" href="{{ compare_running(row) }}">{{ t(keys::WEB_CONFIG_COMPARE_RUNNING) }}</a></li>
+                {%- if may_use_wizard() %}
+                <li><a class="menu__item" href="{{ wizard(row) }}">{{ t(keys::WEB_CONFIG_RESTORE_WIZARD) }}</a></li>
+                {%- endif %}
+                {%- if may_restore_raw() %}
+                <li><button class="menu__item menu__item--danger" type="button" popovertarget="backup-menu-{{ loop.index }}" popovertargetaction="hide" hx-post="{{ act("raw-restore", row) }}" hx-target="#page-outcome">{{ t(keys::WEB_CONFIG_RAW_RESTORE) }}</button></li>
+                {%- endif %}
+                {%- if may_delete() %}
+                <li><button class="menu__item menu__item--danger" type="button" popovertarget="backup-menu-{{ loop.index }}" popovertargetaction="hide" hx-post="{{ act("delete", row) }}" hx-target="#page-outcome">{{ t(keys::COMMON_DELETE) }}</button></li>
+                {%- endif %}
+              </ul>
+            </div>
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+  {%- let pager = table.pager() %}
+  {%- include "partials/kit_pager.html" %}
+  {%- endif %}
+  {%- if wizard_missing() %}
+  <p class="notice" data-tone="neutral" role="note">{{ t(keys::WEB_CONFIG_WIZARD_MISSING) }}</p>
+  {%- endif %}
+  {{ compare|safe }}
+</section>

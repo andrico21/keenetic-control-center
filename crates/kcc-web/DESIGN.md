@@ -729,3 +729,72 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | The WireGuard import needs JavaScript | `partials/dns_vpn_form.html` | The upload is an htmx `multipart/form-data` post with the CSRF header; an upload over 64 KiB comes back as 413 with the dialog, which `app.js` swaps like a 422 | Same as the menus |
 | System pages' live parts need JavaScript | `partials/system_job.html`, `pages/system_logs.html` | Job lines and new log lines arrive over server-sent events through the htmx SSE extension; without it the page shows the lines of its load and the job's panel only | Same as the menus |
 | Diagnostic fields filter by `:has()` | `pages/system_diagnostics.html` | A browser without `:has()` shows every tool's fields; the server reads only the chosen tool's | None needed |
+
+## Configuration and backups page (todo 41, `src/config_page/`)
+
+Layout (configuration `/ui/r/{router}/config`): stacked sections - page head, router link,
+the outcome region, the state panels (`#config-status`: Changes and Fail-safe timer in the
+dashboard's `repeat(auto-fit, minmax(min(100%, --panel-min), 1fr))` grid), then the backups
+section (`#config-backups`: head with Create backup and Upload from file, the retention
+sentence, the filter, the table in `.table-wrap`, the pager, then the comparison form);
+the page grid is `minmax(0, 1fr)` so the table never widens the page; scroll owner: the
+document; nested scrollers: `.table-wrap` (horizontal, the table keeps a 36rem minimum)
+and the open row menu; anti-patterns: a fixed-height scrolling table, a row of six buttons
+per backup, a client-side diff.
+
+Layout (comparison `/ui/r/{router}/config/diff`): stacked sections - page head, router and
+page links, the outcome of the comparison (heading naming both sides, removed and added
+counts, then the changed lines unified as one list or side by side in a two-column table),
+then the comparison form to change the sides or the view; scroll owner: the document;
+nested scrollers: the side-by-side table's `.table-wrap` (horizontal); anti-patterns:
+unchanged lines between the changes, a secret value anywhere on the page.
+
+- State panels (`partials/config_status.html`): Changes shows Saved (status pill, online
+  tone) or Unsaved changes (warning flag), who changed it last, and Save while nothing is
+  armed; Fail-safe timer shows Not armed (neutral pill) or Armed (warning flag) with the
+  time left and Keep changes (the primary action then) and Roll back (danger ghost). Each
+  state is text first; colour only repeats it.
+- Backups table (`partials/config_backups.html`): the row header is the creation time
+  (`<time data-kcc-time>`, localized by `app.js`, UTC text without JavaScript) with the age
+  under it; Kind, Reason (a file name in the mono face), Size (end-aligned); the row ends
+  with Download (with secrets for `RevealSecrets`, else without) and an Actions menu
+  (`.menu.lan-menu.backups-menu`, the clients page's popover): Download without secrets,
+  Compare with running, Restore with the wizard (once served), Raw restore and Delete
+  (danger items, both ask for the router name).
+- Comparison form (`partials/config_compare_form.html`): a GET form (From backup, To running
+  configuration or backup, View one list or side by side), so it works without
+  JavaScript and its result can be bookmarked.
+- Changed lines (`.config-diff__line`, `.config-diff__cell`): mono small text that wraps; a
+  removed line on the danger wash with a `-` glyph, an added one on the success wash with
+  `+`, each with a visually hidden "Removed:" or "Added:"; side by side, removed lines sit
+  left of the added lines of the same run, runs separated by a canvas gap.
+- Confirmation (`partials/config_confirm.html`): the kit's destructive confirmation with
+  this page's own words, the router name typed; confirming re-posts the action.
+- Upload dialog (`partials/config_upload.html`): one file input (`.field__file`) with its
+  1 MiB help; a refused file comes back in the dialog with the reason (not text, the line
+  that does not parse, a checksum mismatch, no commands, a redacted copy, too large).
+
+Page briefs (todo 41):
+
+- Configuration and backups. Primary action: Save while the running configuration has
+  unsaved changes and no fail-safe timer runs; Keep changes while it runs; none otherwise
+  (Create backup is secondary). Priorities: 1 unsaved state and the fail-safe timer, 2 the
+  backups and their actions, 3 comparing two configurations. Left out on purpose: backup
+  contents on the page (only the comparison shows lines, redacted), stat tiles, a per-row
+  restore preview. Required content: Saved or Unsaved changes, who changed last, Save
+  (`Save`), Armed or Not armed with the time left, Keep changes (`Save`), Roll back
+  (`Destructive`, router name typed), the retention set in `kcc.toml`, Create backup and
+  Upload from file (`Write`), the filter, created time and age, kind, reason, size,
+  Download (without secrets for everyone, with them for `RevealSecrets`), Compare with
+  running, Restore with the wizard (`Migrate`; until the wizard is merged a note says it
+  is not available), Raw restore (`Destructive` and `Migrate`), Delete (`Destructive`,
+  router name typed), the comparison form.
+- Comparison. Primary action: none (Compare is secondary). Priorities: 1 the changed
+  lines, 2 what was compared and the counts, 3 the form. Required content: both sides
+  named, lines removed and added, the unordered note past 1000 edits, the no-difference
+  note.
+
+| Item | Location | Why accepted | Owner / Exit |
+|---|---|---|---|
+| Configuration actions need JavaScript | `pages/config.html`, `partials/config_*.html` | Save, Keep changes, Roll back, Create, Upload, Delete and Raw restore are htmx requests carrying the CSRF header; the page, the downloads and the comparison work without it | Same as the menus |
+| A raw restore answers after 25 seconds at most | `src/config_page/restore.rs` | The restore restarts the router and continues as its own task; the page says so and the audit log records how it ended | A job panel for raw restores if users ask |

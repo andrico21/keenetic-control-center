@@ -1,0 +1,18 @@
+{#- A startup-configuration file stored as a backup: the outcome lands in the page's outcome region, a file error comes back here. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(t(keys::WEB_CONFIG_UPLOAD_TITLE)) %}
+<form class="form" hx-post="/ui/r/{{ router }}/config/backups/upload" hx-encoding="multipart/form-data" hx-target="#page-outcome">
+  <p class="dialog__text">{{ t(keys::WEB_CONFIG_UPLOAD_TEXT) }}</p>
+  <div class="field">
+    <label class="field__label" for="backup-file">{{ t(keys::WEB_CONFIG_UPLOAD_FILE) }}</label>
+    <input class="field__input field__file" id="backup-file" name="file" type="file" accept=".txt,text/plain" required{% if error.is_empty() %} aria-describedby="backup-file-help"{% else %} aria-invalid="true" aria-describedby="backup-file-error backup-file-help"{% endif %}>
+    <p class="field__help" id="backup-file-help">{{ t(keys::WEB_CONFIG_UPLOAD_HELP) }}</p>
+    {%- if !error.is_empty() %}
+    <p class="field__error" id="backup-file-error">{{ error }}</p>
+    {%- endif %}
+  </div>
+  <div class="dialog__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_CONFIG_UPLOAD_SUBMIT) }}</button>
+  </div>
+</form>
+{% endcall %}

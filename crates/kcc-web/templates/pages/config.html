@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(keys::WEB_CONFIG_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page config-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_CONFIG_TITLE) }}</h1>
+  </div>
+  <p class="identity"><a href="/ui/r/{{ router }}">{{ router }}</a></p>
+  {{ kit::outcome_region() }}
+  {{ status|safe }}
+  {{ backups|safe }}
+</div>
+{%- endblock %}

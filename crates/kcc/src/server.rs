@@ -35,7 +35,7 @@ use kcc_telemetry::metrics::{instrumentation::SelfMetrics, service::MetricsExpor
 use kcc_web::{
     WebState, WebStateConfig,
     admin::{AdminServices, ServerFacts, TransportReload},
-    fleet::FleetServices,
+    fleet::{BackupServices, FleetServices},
     session::CookieSecurity,
     web_router,
 };
@@ -208,6 +208,8 @@ struct Services {
     accounts: Arc<AccountStore>,
     /// Protected router change workflow.
     workflow: Arc<ChangeWorkflow>,
+    /// Encrypted startup-configuration backups, shared with the workflow.
+    backups: Arc<BackupStore>,
     /// Built-in and custom application roles.
     roles: Vec<Role>,
     /// Shared wall clock.
@@ -245,8 +247,12 @@ impl Services {
             Arc::clone(&clock),
         ));
         let backups = Arc::new(BackupStore::new(state.clone(), backup_key));
-        let workflow =
-            ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
+        let workflow = ChangeWorkflow::new(
+            state.clone(),
+            Arc::clone(&registry),
+            Arc::clone(&backups),
+            audit.clone(),
+        );
         let jobs = JobRunner::open(state.clone(), Arc::clone(&registry))
             .await
             .map_err(error)?;
@@ -258,6 +264,7 @@ impl Services {
             audit,
             accounts,
             workflow,
+            backups,
             roles,
             clock,
             metrics,
@@ -325,6 +332,10 @@ impl Services {
             workflow: Arc::clone(&self.workflow),
             credentials_dir: self.state.dir().join("router-credentials"),
             update_check: None,
+            backups: Some(BackupServices::new(
+                Arc::clone(&self.backups),
+                config.backups,
+            )),
         })
         .with_jobs(Arc::clone(&self.jobs))
         .with_admin(AdminServices {

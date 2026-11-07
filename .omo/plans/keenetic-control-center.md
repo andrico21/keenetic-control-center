@@ -641,7 +641,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add system, components, storage, logs and diagnostics pages
   Recommended task executor category: visual-engineering - many small pages with jobs/SSE
 
-- [ ] 41. Configuration and backups page
+- [x] 41. Configuration and backups page
   What to do / Must NOT do: `/r/:router/config`: unsaved state + Save; fail-safe status (armed, time left) with commit/rollback actions (Destructive for rollback); backups list (auto/manual, reason, size, age) with create, download (requires RevealSecrets because the file contains ns3 secrets; otherwise download a redacted variant), delete, retention info; diff viewer (backup vs backup, backup vs running) rendered server-side as side-by-side or unified with secrets redacted; restore actions: "Restore this backup" launches the migration engine with source = backup and target = same router (plan review in the wizard, todo 43), and same-model raw restore (admin + Destructive). Upload a startup-config file to store as a backup (1 MiB cap, must parse). Common contract applies.
   Closes: GAP-8, GAP-5
   Parallelization: Wave W9 | Blocked by: 20, 30, 35 | Blocks: 51

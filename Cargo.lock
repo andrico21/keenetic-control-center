@@ -1669,6 +1669,7 @@ dependencies = [
  "kcc-config",
  "kcc-domain",
  "kcc-i18n",
+ "kcc-migrate",
  "kcc-rci",
  "kcc-testkit",
  "rand 0.10.3",

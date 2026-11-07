@@ -3932,8 +3932,313 @@ pub const WEB_SYSTEM_LOGS_LIVE: MessageKey = MessageKey::new("web-system-logs-li
 /// `web-system-logs-empty` in `web.ftl`.
 pub const WEB_SYSTEM_LOGS_EMPTY: MessageKey = MessageKey::new("web-system-logs-empty");
 
+/// `web-config-title` in `web.ftl`.
+pub const WEB_CONFIG_TITLE: MessageKey = MessageKey::new("web-config-title");
+
+/// `web-config-changes-title` in `web.ftl`.
+pub const WEB_CONFIG_CHANGES_TITLE: MessageKey = MessageKey::new("web-config-changes-title");
+
+/// `web-config-saved` in `web.ftl`.
+pub const WEB_CONFIG_SAVED: MessageKey = MessageKey::new("web-config-saved");
+
+/// `web-config-saved-text` in `web.ftl`.
+pub const WEB_CONFIG_SAVED_TEXT: MessageKey = MessageKey::new("web-config-saved-text");
+
+/// `web-config-unsaved-text` in `web.ftl`.
+pub const WEB_CONFIG_UNSAVED_TEXT: MessageKey = MessageKey::new("web-config-unsaved-text");
+
+/// `web-config-changed-by` in `web.ftl`.
+pub const WEB_CONFIG_CHANGED_BY: MessageKey = MessageKey::new("web-config-changed-by");
+
+/// `web-config-save` in `web.ftl`.
+pub const WEB_CONFIG_SAVE: MessageKey = MessageKey::new("web-config-save");
+
+/// `web-config-status-failed` in `web.ftl`.
+pub const WEB_CONFIG_STATUS_FAILED: MessageKey = MessageKey::new("web-config-status-failed");
+
+/// `web-config-timer-title` in `web.ftl`.
+pub const WEB_CONFIG_TIMER_TITLE: MessageKey = MessageKey::new("web-config-timer-title");
+
+/// `web-config-armed` in `web.ftl`.
+pub const WEB_CONFIG_ARMED: MessageKey = MessageKey::new("web-config-armed");
+
+/// `web-config-not-armed-label` in `web.ftl`.
+pub const WEB_CONFIG_NOT_ARMED_LABEL: MessageKey = MessageKey::new("web-config-not-armed-label");
+
+/// `web-config-timer-left` in `web.ftl`.
+pub const WEB_CONFIG_TIMER_LEFT: MessageKey = MessageKey::new("web-config-timer-left");
+
+/// `web-config-timer-left-unknown` in `web.ftl`.
+pub const WEB_CONFIG_TIMER_LEFT_UNKNOWN: MessageKey =
+    MessageKey::new("web-config-timer-left-unknown");
+
+/// `web-config-armed-text` in `web.ftl`.
+pub const WEB_CONFIG_ARMED_TEXT: MessageKey = MessageKey::new("web-config-armed-text");
+
+/// `web-config-timer-text` in `web.ftl`.
+pub const WEB_CONFIG_TIMER_TEXT: MessageKey = MessageKey::new("web-config-timer-text");
+
+/// `web-config-commit` in `web.ftl`.
+pub const WEB_CONFIG_COMMIT: MessageKey = MessageKey::new("web-config-commit");
+
+/// `web-config-rollback` in `web.ftl`.
+pub const WEB_CONFIG_ROLLBACK: MessageKey = MessageKey::new("web-config-rollback");
+
+/// `web-config-rollback-title` in `web.ftl`.
+pub const WEB_CONFIG_ROLLBACK_TITLE: MessageKey = MessageKey::new("web-config-rollback-title");
+
+/// `web-config-rollback-text` in `web.ftl`.
+pub const WEB_CONFIG_ROLLBACK_TEXT: MessageKey = MessageKey::new("web-config-rollback-text");
+
+/// `web-config-not-armed` in `web.ftl`.
+pub const WEB_CONFIG_NOT_ARMED: MessageKey = MessageKey::new("web-config-not-armed");
+
+/// `web-config-backups-title` in `web.ftl`.
+pub const WEB_CONFIG_BACKUPS_TITLE: MessageKey = MessageKey::new("web-config-backups-title");
+
+/// `web-config-retention` in `web.ftl`.
+pub const WEB_CONFIG_RETENTION: MessageKey = MessageKey::new("web-config-retention");
+
+/// `web-config-create` in `web.ftl`.
+pub const WEB_CONFIG_CREATE: MessageKey = MessageKey::new("web-config-create");
+
+/// `web-config-upload` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD: MessageKey = MessageKey::new("web-config-upload");
+
+/// `web-config-backups-empty` in `web.ftl`.
+pub const WEB_CONFIG_BACKUPS_EMPTY: MessageKey = MessageKey::new("web-config-backups-empty");
+
+/// `web-config-no-store` in `web.ftl`.
+pub const WEB_CONFIG_NO_STORE: MessageKey = MessageKey::new("web-config-no-store");
+
+/// `web-config-store-failed` in `web.ftl`.
+pub const WEB_CONFIG_STORE_FAILED: MessageKey = MessageKey::new("web-config-store-failed");
+
+/// `web-config-created` in `web.ftl`.
+pub const WEB_CONFIG_CREATED: MessageKey = MessageKey::new("web-config-created");
+
+/// `web-config-kind` in `web.ftl`.
+pub const WEB_CONFIG_KIND: MessageKey = MessageKey::new("web-config-kind");
+
+/// `web-config-reason` in `web.ftl`.
+pub const WEB_CONFIG_REASON: MessageKey = MessageKey::new("web-config-reason");
+
+/// `web-config-size` in `web.ftl`.
+pub const WEB_CONFIG_SIZE: MessageKey = MessageKey::new("web-config-size");
+
+/// `web-config-actions` in `web.ftl`.
+pub const WEB_CONFIG_ACTIONS: MessageKey = MessageKey::new("web-config-actions");
+
+/// `web-config-kind-automatic` in `web.ftl`.
+pub const WEB_CONFIG_KIND_AUTOMATIC: MessageKey = MessageKey::new("web-config-kind-automatic");
+
+/// `web-config-kind-manual` in `web.ftl`.
+pub const WEB_CONFIG_KIND_MANUAL: MessageKey = MessageKey::new("web-config-kind-manual");
+
+/// `web-config-kind-uploaded` in `web.ftl`.
+pub const WEB_CONFIG_KIND_UPLOADED: MessageKey = MessageKey::new("web-config-kind-uploaded");
+
+/// `web-config-reason-change` in `web.ftl`.
+pub const WEB_CONFIG_REASON_CHANGE: MessageKey = MessageKey::new("web-config-reason-change");
+
+/// `web-config-reason-manual` in `web.ftl`.
+pub const WEB_CONFIG_REASON_MANUAL: MessageKey = MessageKey::new("web-config-reason-manual");
+
+/// `web-config-reason-upload` in `web.ftl`.
+pub const WEB_CONFIG_REASON_UPLOAD: MessageKey = MessageKey::new("web-config-reason-upload");
+
+/// `web-config-age` in `web.ftl`.
+pub const WEB_CONFIG_AGE: MessageKey = MessageKey::new("web-config-age");
+
+/// `web-config-download` in `web.ftl`.
+pub const WEB_CONFIG_DOWNLOAD: MessageKey = MessageKey::new("web-config-download");
+
+/// `web-config-download-redacted` in `web.ftl`.
+pub const WEB_CONFIG_DOWNLOAD_REDACTED: MessageKey =
+    MessageKey::new("web-config-download-redacted");
+
+/// `web-config-compare-running` in `web.ftl`.
+pub const WEB_CONFIG_COMPARE_RUNNING: MessageKey = MessageKey::new("web-config-compare-running");
+
+/// `web-config-restore-wizard` in `web.ftl`.
+pub const WEB_CONFIG_RESTORE_WIZARD: MessageKey = MessageKey::new("web-config-restore-wizard");
+
+/// `web-config-raw-restore` in `web.ftl`.
+pub const WEB_CONFIG_RAW_RESTORE: MessageKey = MessageKey::new("web-config-raw-restore");
+
+/// `web-config-wizard-missing` in `web.ftl`.
+pub const WEB_CONFIG_WIZARD_MISSING: MessageKey = MessageKey::new("web-config-wizard-missing");
+
+/// `web-config-backup-created` in `web.ftl`.
+pub const WEB_CONFIG_BACKUP_CREATED: MessageKey = MessageKey::new("web-config-backup-created");
+
+/// `web-config-backup-stored` in `web.ftl`.
+pub const WEB_CONFIG_BACKUP_STORED: MessageKey = MessageKey::new("web-config-backup-stored");
+
+/// `web-config-backup-deleted` in `web.ftl`.
+pub const WEB_CONFIG_BACKUP_DELETED: MessageKey = MessageKey::new("web-config-backup-deleted");
+
+/// `web-config-backup-taken` in `web.ftl`.
+pub const WEB_CONFIG_BACKUP_TAKEN: MessageKey = MessageKey::new("web-config-backup-taken");
+
+/// `web-config-not-text` in `web.ftl`.
+pub const WEB_CONFIG_NOT_TEXT: MessageKey = MessageKey::new("web-config-not-text");
+
+/// `web-config-delete-title` in `web.ftl`.
+pub const WEB_CONFIG_DELETE_TITLE: MessageKey = MessageKey::new("web-config-delete-title");
+
+/// `web-config-delete-text` in `web.ftl`.
+pub const WEB_CONFIG_DELETE_TEXT: MessageKey = MessageKey::new("web-config-delete-text");
+
+/// `web-config-upload-title` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_TITLE: MessageKey = MessageKey::new("web-config-upload-title");
+
+/// `web-config-upload-text` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_TEXT: MessageKey = MessageKey::new("web-config-upload-text");
+
+/// `web-config-upload-file` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_FILE: MessageKey = MessageKey::new("web-config-upload-file");
+
+/// `web-config-upload-help` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_HELP: MessageKey = MessageKey::new("web-config-upload-help");
+
+/// `web-config-upload-submit` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_SUBMIT: MessageKey = MessageKey::new("web-config-upload-submit");
+
+/// `web-config-upload-missing` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_MISSING: MessageKey = MessageKey::new("web-config-upload-missing");
+
+/// `web-config-upload-too-large` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_TOO_LARGE: MessageKey = MessageKey::new("web-config-upload-too-large");
+
+/// `web-config-upload-not-text` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_NOT_TEXT: MessageKey = MessageKey::new("web-config-upload-not-text");
+
+/// `web-config-upload-parse` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_PARSE: MessageKey = MessageKey::new("web-config-upload-parse");
+
+/// `web-config-upload-checksum` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_CHECKSUM: MessageKey = MessageKey::new("web-config-upload-checksum");
+
+/// `web-config-upload-empty` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_EMPTY: MessageKey = MessageKey::new("web-config-upload-empty");
+
+/// `web-config-upload-redacted` in `web.ftl`.
+pub const WEB_CONFIG_UPLOAD_REDACTED: MessageKey = MessageKey::new("web-config-upload-redacted");
+
+/// `web-config-compare-title` in `web.ftl`.
+pub const WEB_CONFIG_COMPARE_TITLE: MessageKey = MessageKey::new("web-config-compare-title");
+
+/// `web-config-compare-from` in `web.ftl`.
+pub const WEB_CONFIG_COMPARE_FROM: MessageKey = MessageKey::new("web-config-compare-from");
+
+/// `web-config-compare-to` in `web.ftl`.
+pub const WEB_CONFIG_COMPARE_TO: MessageKey = MessageKey::new("web-config-compare-to");
+
+/// `web-config-running` in `web.ftl`.
+pub const WEB_CONFIG_RUNNING: MessageKey = MessageKey::new("web-config-running");
+
+/// `web-config-view` in `web.ftl`.
+pub const WEB_CONFIG_VIEW: MessageKey = MessageKey::new("web-config-view");
+
+/// `web-config-view-unified` in `web.ftl`.
+pub const WEB_CONFIG_VIEW_UNIFIED: MessageKey = MessageKey::new("web-config-view-unified");
+
+/// `web-config-view-split` in `web.ftl`.
+pub const WEB_CONFIG_VIEW_SPLIT: MessageKey = MessageKey::new("web-config-view-split");
+
+/// `web-config-compare` in `web.ftl`.
+pub const WEB_CONFIG_COMPARE: MessageKey = MessageKey::new("web-config-compare");
+
+/// `web-config-diff-between` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_BETWEEN: MessageKey = MessageKey::new("web-config-diff-between");
+
+/// `web-config-diff-removed` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_REMOVED: MessageKey = MessageKey::new("web-config-diff-removed");
+
+/// `web-config-diff-added` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_ADDED: MessageKey = MessageKey::new("web-config-diff-added");
+
+/// `web-config-diff-removed-lines` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_REMOVED_LINES: MessageKey =
+    MessageKey::new("web-config-diff-removed-lines");
+
+/// `web-config-diff-added-lines` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_ADDED_LINES: MessageKey = MessageKey::new("web-config-diff-added-lines");
+
+/// `web-config-diff-before` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_BEFORE: MessageKey = MessageKey::new("web-config-diff-before");
+
+/// `web-config-diff-after` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_AFTER: MessageKey = MessageKey::new("web-config-diff-after");
+
+/// `web-config-diff-same` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_SAME: MessageKey = MessageKey::new("web-config-diff-same");
+
+/// `web-config-diff-unordered` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_UNORDERED: MessageKey = MessageKey::new("web-config-diff-unordered");
+
+/// `web-config-diff-missing` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_MISSING: MessageKey = MessageKey::new("web-config-diff-missing");
+
+/// `web-config-diff-unreadable` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_UNREADABLE: MessageKey = MessageKey::new("web-config-diff-unreadable");
+
+/// `web-config-diff-choose` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_CHOOSE: MessageKey = MessageKey::new("web-config-diff-choose");
+
+/// `web-config-diff-no-backups` in `web.ftl`.
+pub const WEB_CONFIG_DIFF_NO_BACKUPS: MessageKey = MessageKey::new("web-config-diff-no-backups");
+
+/// `web-config-raw-title` in `web.ftl`.
+pub const WEB_CONFIG_RAW_TITLE: MessageKey = MessageKey::new("web-config-raw-title");
+
+/// `web-config-raw-text` in `web.ftl`.
+pub const WEB_CONFIG_RAW_TEXT: MessageKey = MessageKey::new("web-config-raw-text");
+
+/// `web-config-raw-done` in `web.ftl`.
+pub const WEB_CONFIG_RAW_DONE: MessageKey = MessageKey::new("web-config-raw-done");
+
+/// `web-config-raw-pending` in `web.ftl`.
+pub const WEB_CONFIG_RAW_PENDING: MessageKey = MessageKey::new("web-config-raw-pending");
+
+/// `web-config-raw-model` in `web.ftl`.
+pub const WEB_CONFIG_RAW_MODEL: MessageKey = MessageKey::new("web-config-raw-model");
+
+/// `web-config-raw-model-unknown` in `web.ftl`.
+pub const WEB_CONFIG_RAW_MODEL_UNKNOWN: MessageKey =
+    MessageKey::new("web-config-raw-model-unknown");
+
+/// `web-config-raw-firmware-unknown` in `web.ftl`.
+pub const WEB_CONFIG_RAW_FIRMWARE_UNKNOWN: MessageKey =
+    MessageKey::new("web-config-raw-firmware-unknown");
+
+/// `web-config-raw-unreadable` in `web.ftl`.
+pub const WEB_CONFIG_RAW_UNREADABLE: MessageKey = MessageKey::new("web-config-raw-unreadable");
+
+/// `web-config-raw-wizard` in `web.ftl`.
+pub const WEB_CONFIG_RAW_WIZARD: MessageKey = MessageKey::new("web-config-raw-wizard");
+
+/// `web-config-raw-hardware` in `web.ftl`.
+pub const WEB_CONFIG_RAW_HARDWARE: MessageKey = MessageKey::new("web-config-raw-hardware");
+
+/// `web-config-raw-firmware` in `web.ftl`.
+pub const WEB_CONFIG_RAW_FIRMWARE: MessageKey = MessageKey::new("web-config-raw-firmware");
+
+/// `web-config-raw-unverified` in `web.ftl`.
+pub const WEB_CONFIG_RAW_UNVERIFIED: MessageKey = MessageKey::new("web-config-raw-unverified");
+
+/// `web-config-raw-lost` in `web.ftl`.
+pub const WEB_CONFIG_RAW_LOST: MessageKey = MessageKey::new("web-config-raw-lost");
+
+/// `web-config-raw-failed` in `web.ftl`.
+pub const WEB_CONFIG_RAW_FAILED: MessageKey = MessageKey::new("web-config-raw-failed");
+
+/// `web-config-compare-again` in `web.ftl`.
+pub const WEB_CONFIG_COMPARE_AGAIN: MessageKey = MessageKey::new("web-config-compare-again");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1266] = [
+pub static ALL: [MessageKey; 1366] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -5200,4 +5505,104 @@ pub static ALL: [MessageKey; 1266] = [
     WEB_SYSTEM_LOGS_LATEST,
     WEB_SYSTEM_LOGS_LIVE,
     WEB_SYSTEM_LOGS_EMPTY,
+    WEB_CONFIG_TITLE,
+    WEB_CONFIG_CHANGES_TITLE,
+    WEB_CONFIG_SAVED,
+    WEB_CONFIG_SAVED_TEXT,
+    WEB_CONFIG_UNSAVED_TEXT,
+    WEB_CONFIG_CHANGED_BY,
+    WEB_CONFIG_SAVE,
+    WEB_CONFIG_STATUS_FAILED,
+    WEB_CONFIG_TIMER_TITLE,
+    WEB_CONFIG_ARMED,
+    WEB_CONFIG_NOT_ARMED_LABEL,
+    WEB_CONFIG_TIMER_LEFT,
+    WEB_CONFIG_TIMER_LEFT_UNKNOWN,
+    WEB_CONFIG_ARMED_TEXT,
+    WEB_CONFIG_TIMER_TEXT,
+    WEB_CONFIG_COMMIT,
+    WEB_CONFIG_ROLLBACK,
+    WEB_CONFIG_ROLLBACK_TITLE,
+    WEB_CONFIG_ROLLBACK_TEXT,
+    WEB_CONFIG_NOT_ARMED,
+    WEB_CONFIG_BACKUPS_TITLE,
+    WEB_CONFIG_RETENTION,
+    WEB_CONFIG_CREATE,
+    WEB_CONFIG_UPLOAD,
+    WEB_CONFIG_BACKUPS_EMPTY,
+    WEB_CONFIG_NO_STORE,
+    WEB_CONFIG_STORE_FAILED,
+    WEB_CONFIG_CREATED,
+    WEB_CONFIG_KIND,
+    WEB_CONFIG_REASON,
+    WEB_CONFIG_SIZE,
+    WEB_CONFIG_ACTIONS,
+    WEB_CONFIG_KIND_AUTOMATIC,
+    WEB_CONFIG_KIND_MANUAL,
+    WEB_CONFIG_KIND_UPLOADED,
+    WEB_CONFIG_REASON_CHANGE,
+    WEB_CONFIG_REASON_MANUAL,
+    WEB_CONFIG_REASON_UPLOAD,
+    WEB_CONFIG_AGE,
+    WEB_CONFIG_DOWNLOAD,
+    WEB_CONFIG_DOWNLOAD_REDACTED,
+    WEB_CONFIG_COMPARE_RUNNING,
+    WEB_CONFIG_RESTORE_WIZARD,
+    WEB_CONFIG_RAW_RESTORE,
+    WEB_CONFIG_WIZARD_MISSING,
+    WEB_CONFIG_BACKUP_CREATED,
+    WEB_CONFIG_BACKUP_STORED,
+    WEB_CONFIG_BACKUP_DELETED,
+    WEB_CONFIG_BACKUP_TAKEN,
+    WEB_CONFIG_NOT_TEXT,
+    WEB_CONFIG_DELETE_TITLE,
+    WEB_CONFIG_DELETE_TEXT,
+    WEB_CONFIG_UPLOAD_TITLE,
+    WEB_CONFIG_UPLOAD_TEXT,
+    WEB_CONFIG_UPLOAD_FILE,
+    WEB_CONFIG_UPLOAD_HELP,
+    WEB_CONFIG_UPLOAD_SUBMIT,
+    WEB_CONFIG_UPLOAD_MISSING,
+    WEB_CONFIG_UPLOAD_TOO_LARGE,
+    WEB_CONFIG_UPLOAD_NOT_TEXT,
+    WEB_CONFIG_UPLOAD_PARSE,
+    WEB_CONFIG_UPLOAD_CHECKSUM,
+    WEB_CONFIG_UPLOAD_EMPTY,
+    WEB_CONFIG_UPLOAD_REDACTED,
+    WEB_CONFIG_COMPARE_TITLE,
+    WEB_CONFIG_COMPARE_FROM,
+    WEB_CONFIG_COMPARE_TO,
+    WEB_CONFIG_RUNNING,
+    WEB_CONFIG_VIEW,
+    WEB_CONFIG_VIEW_UNIFIED,
+    WEB_CONFIG_VIEW_SPLIT,
+    WEB_CONFIG_COMPARE,
+    WEB_CONFIG_DIFF_BETWEEN,
+    WEB_CONFIG_DIFF_REMOVED,
+    WEB_CONFIG_DIFF_ADDED,
+    WEB_CONFIG_DIFF_REMOVED_LINES,
+    WEB_CONFIG_DIFF_ADDED_LINES,
+    WEB_CONFIG_DIFF_BEFORE,
+    WEB_CONFIG_DIFF_AFTER,
+    WEB_CONFIG_DIFF_SAME,
+    WEB_CONFIG_DIFF_UNORDERED,
+    WEB_CONFIG_DIFF_MISSING,
+    WEB_CONFIG_DIFF_UNREADABLE,
+    WEB_CONFIG_DIFF_CHOOSE,
+    WEB_CONFIG_DIFF_NO_BACKUPS,
+    WEB_CONFIG_RAW_TITLE,
+    WEB_CONFIG_RAW_TEXT,
+    WEB_CONFIG_RAW_DONE,
+    WEB_CONFIG_RAW_PENDING,
+    WEB_CONFIG_RAW_MODEL,
+    WEB_CONFIG_RAW_MODEL_UNKNOWN,
+    WEB_CONFIG_RAW_FIRMWARE_UNKNOWN,
+    WEB_CONFIG_RAW_UNREADABLE,
+    WEB_CONFIG_RAW_WIZARD,
+    WEB_CONFIG_RAW_HARDWARE,
+    WEB_CONFIG_RAW_FIRMWARE,
+    WEB_CONFIG_RAW_UNVERIFIED,
+    WEB_CONFIG_RAW_LOST,
+    WEB_CONFIG_RAW_FAILED,
+    WEB_CONFIG_COMPARE_AGAIN,
 ];
