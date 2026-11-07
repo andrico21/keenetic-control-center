@@ -1,0 +1,57 @@
+{#- Step 6: the plan as the router gets it, the counts and the downloads; Apply asks first, then starts the job. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_PREVIEW_TITLE) }}</h2>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+<p class="page__text">{{ t(keys::WEB_MIGRATE_PREVIEW_TEXT) }}</p>
+<dl class="facts wizard-counts">
+  {%- for (label, value) in facts %}
+  <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+  {%- endfor %}
+</dl>
+{%- if !components.is_empty() %}
+<section class="wizard-phase" aria-labelledby="phase-components-title">
+  <h3 class="wizard-phase__title" id="phase-components-title">{{ t(keys::WEB_MIGRATE_PHASE_COMPONENTS) }}</h3>
+  <p class="page__text">{{ t(keys::WEB_MIGRATE_PHASE_COMPONENTS_TEXT) }}</p>
+  <ul class="wizard-lines">
+    {%- for name in components %}
+    <li class="mono">{{ name }}</li>
+    {%- endfor %}
+  </ul>
+</section>
+{%- endif %}
+{%- if phases.is_empty() %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_PREVIEW_EMPTY) }}</p>
+{%- endif %}
+{%- for phase in phases %}
+<section class="wizard-phase" aria-labelledby="phase-{{ loop.index }}-title">
+  <h3 class="wizard-phase__title" id="phase-{{ loop.index }}-title">{{ phase.title }}</h3>
+  <ol class="wizard-commands">
+    {%- for (line, text) in phase.lines %}
+    <li class="wizard-commands__item"><span class="wizard-commands__line">{{ line }}</span> <code class="wizard-line">{{ text }}</code></li>
+    {%- endfor %}
+  </ol>
+</section>
+{%- endfor %}
+{%- if let Some(url) = reconnect %}
+<p class="page__text">{{ t(keys::WEB_MIGRATE_PREVIEW_RECONNECT) }} <span class="mono">{{ url }}</span></p>
+{%- endif %}
+<section class="wizard-downloads" aria-labelledby="downloads-title">
+  <h3 class="wizard-phase__title" id="downloads-title">{{ t(keys::WEB_MIGRATE_DOWNLOADS) }}</h3>
+  <ul class="wizard-downloads__list">
+    <li><a href="/ui/migrate/{{ id }}/download/plan.json" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_PLAN) }}</a></li>
+    <li><a href="/ui/migrate/{{ id }}/download/report.md" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_MARKDOWN) }}</a></li>
+    <li><a href="/ui/migrate/{{ id }}/download/report.html" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_HTML) }}</a></li>
+  </ul>
+</section>
+{%- if !error.is_empty() %}
+<p class="notice" data-tone="error">{{ error }}</p>
+{%- endif %}
+{%- if may_apply %}
+<div class="form__actions">
+  <button class="button button--primary" type="button" hx-post="/ui/migrate/{{ id }}/apply" hx-target="#dialog-content">{{ t(keys::WEB_MIGRATE_APPLY) }}</button>
+</div>
+{%- else %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_APPLY_FORBIDDEN) }}</p>
+{%- endif %}
+{%- endif %}

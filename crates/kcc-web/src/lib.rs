@@ -61,6 +61,7 @@ mod credentials;
 mod dashboard;
 mod dns_vpn;
 mod gauge;
+mod migrate_wizard;
 mod net_change;
 mod net_form;
 mod net_interface_actions;
@@ -443,6 +444,7 @@ pub fn web_router(state: WebState) -> Router {
         .layer(RequestBodyLimitLayer::new(BODY_LIMIT))
         .merge(dns_vpn::uploads(&state))
         .merge(config_page::wiring::routes(&state))
+        .merge(migrate_wizard::routes::router(&state))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CACHE_CONTROL,
             HeaderValue::from_static(NO_STORE),

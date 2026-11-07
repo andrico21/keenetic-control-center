@@ -1314,3 +1314,244 @@ web-config-raw-unverified = Роўтар прыняў копію, але яго 
 web-config-raw-lost = Роўтар не адказаў пасля перазагрузкі. Праверце яго, перш чым нешта змяняць.
 web-config-raw-failed = Не ўдалося аднавіць рэзервовую копію. Падрабязнасці ў журнале аўдыту.
 web-config-compare-again = Параўнаць іншыя канфігурацыі
+web-migrate-all = Усе пераносы
+web-migrate-steps-label = Крокі пераносу
+web-migrate-step-source = Крыніца
+web-migrate-step-target = Мэтавы роўтар
+web-migrate-step-mapping = Інвентар і супастаўленне
+web-migrate-step-review = Праверка
+web-migrate-step-inputs = Увод даных
+web-migrate-step-preview = Прагляд плана
+web-migrate-step-apply = Ужыванне
+web-migrate-step-results = Вынік
+web-migrate-step-report = Справаздача
+web-migrate-continue = Працягнуць
+web-migrate-intro = Перанясіце канфігурацыю роўтара, файла startup-config або захаванай рэзервовай копіі на іншы роўтар. Да кроку ўжывання на роўтарах нічога не мяняецца, а роўтар захоўвае захаваную канфігурацыю, пакуль вы не пацвердзіце змены.
+web-migrate-restore-title = Аднаўленне рэзервовай копіі
+web-migrate-restore-offer = Аднавіць рэзервовую копію { $name } роўтара { $router } па правераным плане пераносу. Роўтар захоўвае захаваную канфігурацыю, пакуль вы не пацвердзіце змены.
+web-migrate-restore-start = Пачаць аднаўленне
+web-migrate-restore-invalid = Гэтую рэзервовую копію нельга аднавіць: роўтара або копіі няма, копія не з'яўляецца канфігурацыяй роўтара або вам нельга пераносіць канфігурацыю гэтага роўтара.
+web-migrate-kind-migration = Перанос
+web-migrate-kind-restore = Аднаўленне
+web-migrate-list-title = Вашы пераносы
+web-migrate-list-empty = Вы яшчэ не пачыналі перанос.
+web-migrate-list-started = Пачаты
+web-migrate-list-kind = Від
+web-migrate-list-step = Крок
+web-migrate-list-open = Адкрыць
+web-migrate-summary-source = Крыніца
+web-migrate-source-is-router = Роўтар { $router }
+web-migrate-source-is-file = Файл { $name }
+web-migrate-source-is-backup = Рэзервовая копія { $name } роўтара { $router }
+web-migrate-source-title = Выберыце крыніцу
+web-migrate-source-text = kcc адзін раз чытае загрузачную канфігурацыю і захоўвае яе зашыфраванай да канца пераносу.
+web-migrate-source-kind = Адкуль узяць канфігурацыю?
+web-migrate-source-router = З роўтара са спіса
+web-migrate-source-file = З файла startup-config
+web-migrate-source-backup = З захаванай рэзервовай копіі
+web-migrate-source-router-label = Роўтар
+web-migrate-source-no-routers = Няма роўтараў, канфігурацыю якіх вам можна пераносіць.
+web-migrate-source-file-label = Файл
+web-migrate-source-file-help = Файл startup-config.txt, захаваны з роўтара, не больш за 1 МіБ.
+web-migrate-source-backup-label = Рэзервовая копія
+web-migrate-source-no-backups = Няма захаваных рэзервовых копій роўтараў, канфігурацыю якіх вам можна пераносіць.
+web-migrate-source-backup-option = { $value } ({ $name })
+web-migrate-source-error-kind = Выберыце, адкуль узяць канфігурацыю.
+web-migrate-source-error-router = Выберыце роўтар, канфігурацыю якога вам можна пераносіць.
+web-migrate-source-error-read = Роўтар не даслаў канфігурацыю. Паспрабуйце яшчэ раз або загрузіце яго файл startup-config.
+web-migrate-source-error-file = Выберыце файл startup-config.
+web-migrate-source-error-large = Файл большы за 1 МіБ.
+web-migrate-source-error-parse = Гэта не канфігурацыя роўтара, або яе кантрольная сума не супадае з тэкстам.
+web-migrate-source-error-backup = Выберыце захаваную рэзервовую копію роўтара, канфігурацыю якога вам можна пераносіць.
+web-migrate-target-title = Выберыце мэтавы роўтар
+web-migrate-target-text = kcc чытае інвентар і канфігурацыю роўтара; да кроку ўжывання на ім нічога не мяняецца.
+web-migrate-target-none = Няма іншага роўтара, на які вам можна пераносіць канфігурацыю.
+web-migrate-target-restore = Рэзервовая копія аднаўляецца на роўтар { $router }, з якога яна знята.
+web-migrate-target-firmware = Версія прашыўкі крыніцы
+web-migrate-target-firmware-help = У крыніцы не пазначана версія прашыўкі. Увядзіце версію, на якой яна працавала, напрыклад 4.3.6.
+web-migrate-target-check = Прачытаць роўтар
+web-migrate-target-report = Што паведамляе роўтар
+web-migrate-target-error-router = Выберыце роўтар, на які вам можна пераносіць канфігурацыю.
+web-migrate-target-error-same = Выберыце роўтар, адрозны ад крыніцы.
+web-migrate-target-error-firmware = Увядзіце версію прашыўкі, напрыклад 4.3.6.
+web-migrate-tier = Узровень падтрымкі
+web-migrate-mode = Рэжым работы
+web-migrate-mode-router = Роўтар
+web-migrate-mode-extender = Рэтранслятар
+web-migrate-mode-ap = Кропка доступу
+web-migrate-mode-repeater = Узмацняльнік
+web-migrate-warning-none = Папярэджанняў няма: роўтар працуе ў рэжыме роўтара, прыняў свае пагадненні, мае патрэбныя крыніцы кампаненты і не захоўвае ўласных налад звыш налад крыніцы.
+web-migrate-warning-tier = Гэтая лінейка прашывак падтрымліваецца толькі па афіцыйнай дакументацыі і не правяралася на рэальных прыладах.
+web-migrate-warning-mode = Роўтар не ў рэжыме роўтара, таму ў яго няма таймера адкату: kcc замест яго прызначае перазагрузку па раскладзе, якая верне захаваную канфігурацыю, калі вы не пацвердзіце змены.
+web-migrate-warning-agreement = Роўтар просіць прыняць { $name }. Вы прачытаеце і прымеце яго тэкст на кроку ўводу даных.
+web-migrate-warning-components = На роўтары няма кампанентаў, патрэбных наладам крыніцы: { $value }. На кроку ўводу даных вы вырашыце, ці ўсталюе іх kcc загадзя.
+web-migrate-warning-leftovers =
+    { $count ->
+        [one] Роўтар не чысты: { $count } яго ўласная налада адсутнічае ў крыніцы і застанецца пасля пераносу.
+        [few] Роўтар не чысты: { $count } яго ўласныя налады адсутнічаюць у крыніцы і застануцца пасля пераносу.
+        [many] Роўтар не чысты: { $count } яго ўласных налад адсутнічаюць у крыніцы і застануцца пасля пераносу.
+       *[other] Роўтар не чысты: { $count } яго ўласнай налады адсутнічаюць у крыніцы і застануцца пасля пераносу.
+    }
+web-migrate-leftovers-show = Налады, якія застануцца
+web-migrate-agreement-dpn = паведамленне пра апрацоўку даных
+web-migrate-agreement-eula = ліцэнзійнае пагадненне (EULA)
+web-migrate-ack-tier = Я разумею, што гэтая лінейка прашывак не праверана на прыладах; перанесці ўсё роўна.
+web-migrate-ack-required = Пацвердзіце паведамленне пра прашыўку, каб працягнуць.
+web-migrate-problem-source = Не ўдалося прачытаць канфігурацыю крыніцы. Выберыце крыніцу зноў.
+web-migrate-problem-firmware-required = У крыніцы не пазначана версія прашыўкі. Увядзіце версію, на якой яна працавала.
+web-migrate-problem-firmware-older = На роўтары прашыўка { $version }, старэйшая за прашыўку крыніцы { $value }. kcc не пераносіць канфігурацыю на старэйшую прашыўку: спачатку абнавіце роўтар.
+web-migrate-problem-unsupported = На роўтары прашыўка, старэйшая за 4.3, або невядомая kcc, таму перанос на яго немагчымы.
+web-migrate-problem-unreachable = Роўтар не адказаў. Праверце, што kcc да яго дастае, і паспрабуйце яшчэ раз.
+web-migrate-mapping-title = Інвентар і супастаўленне
+web-migrate-mapping-text = Кожная перанесеная налада называе парты, радыёмодулі і інтэрфейсы так, як яны супастаўлены тут. Аб'ект крыніцы без супастаўлення захоўвае сваё імя.
+web-migrate-map-hardware-unknown = Крыніца з'яўляецца файлам, таму яе абсталяванне невядомае: парты і радыёмодулі захоўваюць свае імёны там, дзе яны ёсць на роўтары.
+web-migrate-ports = Парты
+web-migrate-ports-none = У крыніцы няма партоў.
+web-migrate-radios = Радыёмодулі Wi-Fi
+web-migrate-radios-none = У крыніцы няма радыёмодуляў Wi-Fi.
+web-migrate-interfaces = Інтэрфейсы
+web-migrate-interfaces-none = У крыніцы няма іншых інтэрфейсаў.
+web-migrate-map-source = Крыніца
+web-migrate-map-target = На роўтары
+web-migrate-map-rename = Імя на роўтары
+web-migrate-map-unmapped = Пакінуць імя крыніцы
+web-migrate-map-error-unknown = Выберыце адзін з аб'ектаў роўтара.
+web-migrate-map-error-taken = { $name } ужо выбраны вышэй.
+web-migrate-map-error-band = У { $name } няма агульнага дыяпазону з радыёмодулем крыніцы.
+web-migrate-map-error-name = Выкарыстоўвайце ад 1 да 64 лацінскіх літар, лічбаў і сімвалаў / _ . -, пачынаючы з літары.
+web-migrate-map-error-kind = { $name } на роўтары з'яўляецца інтэрфейсам іншага віду.
+web-migrate-role-wan = WAN
+web-migrate-role-lan = LAN { $index }
+web-migrate-role-sfp = SFP
+web-migrate-role-dsl = DSL
+web-migrate-band-2-4 = 2,4 ГГц
+web-migrate-band-5 = 5 ГГц
+web-migrate-band-6 = 6 ГГц
+web-migrate-fate-all = Усе
+web-migrate-fate-migrated = Пераносіцца
+web-migrate-fate-conflict = Адрозніваецца ад роўтара
+web-migrate-fate-input = Патрэбны ўвод
+web-migrate-fate-skipped = Прапускаецца
+web-migrate-fate-unsupported = Не падтрымліваецца
+web-migrate-fate-excluded = Выключана
+web-migrate-reason-conflict = У роўтара іншае значэнне гэтай налады. Выберыце, якое застанецца.
+web-migrate-reason-conflict-source = Значэнне крыніцы заменіць значэнне роўтара.
+web-migrate-reason-conflict-router = Роўтар захавае сваё значэнне.
+web-migrate-reason-password = Хэш пароля { $name } прывязаны да realm крыніцы і не працуе на гэтым роўтары. Увядзіце пароль на кроку ўводу даных.
+web-migrate-reason-password-set = { $name } атрымае ўведзены вамі пароль.
+web-migrate-reason-component = Патрэбны кампанент { $name }, якога няма на роўтары. На кроку ўводу даных выберыце, ці ўсталюе яго kcc загадзя.
+web-migrate-review-title = Праверце налады
+web-migrate-review-text = Усе налады крыніцы і тое, што з імі будзе. Выключыце непатрэбныя; калі ў роўтара іншае значэнне, выберыце, якое застанецца. Выбар захоўваецца адразу.
+web-migrate-review-filters = Паказаць налады
+web-migrate-review-line = Радок
+web-migrate-review-setting = Налада
+web-migrate-review-fate = Што адбудзецца
+web-migrate-review-choice = Ваш выбар
+web-migrate-review-include = Перанесці
+web-migrate-review-resolve = Якое значэнне застанецца
+web-migrate-review-use-source = Значэнне крыніцы
+web-migrate-review-keep-router = Значэнне роўтара
+web-migrate-review-unresolved =
+    { $count ->
+        [one] { $count } налада адрозніваецца ад значэння роўтара. Выберыце, якое значэнне застанецца.
+        [few] { $count } налады адрозніваюцца ад значэнняў роўтара. Выберыце, якія значэнні застануцца.
+        [many] { $count } налад адрозніваюцца ад значэнняў роўтара. Выберыце, якія значэнні застануцца.
+       *[other] { $count } налады адрозніваюцца ад значэнняў роўтара. Выберыце, якія значэнні застануцца.
+    }
+web-migrate-inputs-title = Увод даных
+web-migrate-inputs-none = Плану не патрэбныя даныя. Перайдзіце да прагляду.
+web-migrate-inputs-blocked = Гэтыя налады яшчэ не даюць пабудаваць план:
+web-migrate-inputs-blocked-item = Радок { $line }: { $value }
+web-migrate-inputs-passwords = Паролі
+web-migrate-inputs-passwords-text = Хэшы пароляў гэтых карыстальнікаў прывязаныя да realm крыніцы. Увядзіце кожны пароль; kcc перадасць яго роўтару і захоўвае яго зашыфраваным да канца пераносу.
+web-migrate-inputs-password-help = Увядзіце пароль карыстальніка.
+web-migrate-inputs-password-keep = Пароль зададзены. Пакіньце поле пустым, каб захаваць яго.
+web-migrate-inputs-password-missing = Увядзіце пароль гэтага карыстальніка.
+web-migrate-inputs-password-invalid = Выкарыстоўвайце не больш за 256 сімвалаў, без кіроўных сімвалаў.
+web-migrate-inputs-components = Кампаненты для папярэдняга ўсталявання
+web-migrate-inputs-components-text = kcc усталюе выбраныя кампаненты і перазагрузіць роўтар, перш чым мяняць штосьці яшчэ; потым вы зноў праверыце план з усталяванымі кампанентамі.
+web-migrate-inputs-component-needed =
+    { $count ->
+        [one] патрэбны { $count } наладзе
+        [few] патрэбны { $count } наладам
+        [many] патрэбны { $count } наладам
+       *[other] патрэбны { $count } налады
+    }
+web-migrate-inputs-component-missing = Спачатку ўсталюйце { $value } або выключыце налады, якім ён патрэбны, на кроку праверкі.
+web-migrate-inputs-reconnect = Падключэнне да роўтара пасля пераносу
+web-migrate-inputs-reconnect-label = Адрас роўтара пасля пераносу
+web-migrate-inputs-reconnect-help = План мяняе тое, як kcc падключаецца да роўтара. Пасля гэтых змен kcc падключыцца па гэтым адрасе, напрыклад http://192.0.2.1.
+web-migrate-inputs-reconnect-error = Увядзіце адрас роўтара, напрыклад http://192.0.2.1, без імя карыстальніка і шляху.
+web-migrate-inputs-accept = Я прымаю гэты тэкст.
+web-migrate-inputs-accept-required = Каб працягнуць, прыміце пагадненні роўтара.
+web-migrate-inputs-preview = Прагледзець план
+web-migrate-problem-plan = Не ўдалося пабудаваць план. Вярніцеся і праверце налады і ўведзеныя даныя.
+web-migrate-preview-title = Прагляд плана
+web-migrate-preview-text = Каманды, якія kcc адправіць роўтару, па парадку. Спачатку kcc захавае рэзервовую копію канфігурацыі роўтара і адправіць каманды пад таймерам адкату; нічога не захоўваецца, пакуль вы не пацвердзіце змены.
+web-migrate-preview-empty = На роўтары ўжо ёсць усе перанесеныя налады: kcc не адправіць ніводнай каманды.
+web-migrate-preview-reconnect = Пасля змены падключэння kcc падключаецца да роўтара па адрасе
+web-migrate-phase-components = Кампаненты, якія ўсталёўваюцца загадзя
+web-migrate-phase-components-text = kcc усталюе гэтыя кампаненты і перазагрузіць роўтар, потым папросіць вас зноў праверыць план.
+web-migrate-phase-additive = Налады, якія дадаюцца
+web-migrate-phase-prune = Налады, якія выдаляюцца
+web-migrate-phase-management = Змены падключэння, адпраўляюцца апошнімі
+web-migrate-count-settings = Налад у крыніцы
+web-migrate-count-commands = Каманд да адпраўкі
+web-migrate-count-present = Ужо ёсць на роўтары
+web-migrate-count-left-out = Выключана або прапушчана
+web-migrate-count-stay = Уласных налад роўтара застанецца
+web-migrate-downloads = План і справаздача
+web-migrate-download-plan = План (JSON)
+web-migrate-download-markdown = Справаздача (Markdown)
+web-migrate-download-html = Справаздача (HTML)
+web-migrate-apply = Ужыць перанос
+web-migrate-apply-forbidden = Ужыванне ўключае таймер адкату роўтара, для чаго акрамя правоў Migrate, Write і Save патрэбнае права Destructive на гэтым роўтары. Звярніцеся да адміністратара.
+web-migrate-finish-committed = Перанос завершаны: роўтар захаваў перанесеную канфігурацыю.
+web-migrate-finish-rolled-back = Перанос адкочаны: роўтар працуе з канфігурацыяй, захаванай да яго.
+web-migrate-finish-closed = Перанос завершаны без змен, якія трэба было б захаваць на роўтары.
+web-migrate-failure-replan = Кампаненты ўсталяваны, роўтар перазапушчаны. Праверце план зноў: цяпер ён ахоплівае налады, якім яны былі патрэбныя.
+web-migrate-failure-drift = Роўтар або крыніца змяніліся пасля пабудовы плана. Праверце прагляд плана зноў.
+web-migrate-failure-same = Крыніца і мэта з'яўляюцца адным і тым жа роўтарам.
+web-migrate-failure-source = Не ўдалося зноў прачытаць крыніцу. Праверце, што зыходны роўтар адказвае, або выберыце файл ці рэзервовую копію.
+web-migrate-failure-input = Не хапае ўведзеных даных, або яны не супадаюць з планам. Праверце крок уводу даных.
+web-migrate-failure-stopped = Роўтар адхіліў наладу, таму kcc спыніўся перад наступнай. Адкаціце змены, каб вярнуць захаваную канфігурацыю.
+web-migrate-failure-verification = Роўтар прыняў налады, але іх паўторнае чытанне або праверка яго стану не прайшлі. Адкаціце змены або дачакайцеся, пакуль роўтар сам адновіцца па таймеры.
+web-migrate-failure-unreachable = Роўтар перастаў адказваць. Ён сам адновіць захаваную канфігурацыю, калі скончыцца таймер адкату.
+web-migrate-failure-cancelled = Вы спынілі перанос. Адкаціце змены, каб вярнуць захаваную канфігурацыю.
+web-migrate-apply-no-jobs = У гэтым kcc не запушчаны выканаўца заданняў, таму ён не можа ўжываць пераносы.
+web-migrate-apply-confirm-title = Ужыць перанос на { $router }?
+web-migrate-apply-confirm-text = kcc захавае рэзервовую копію канфігурацыі { $router }, уключыць яго таймер адкату на { $minutes } хв і адправіць запланаваныя каманды. Нічога не захоўваецца, пакуль вы не выбераце захаванне; калі kcc перастане звязвацца з роўтарам, роўтар адновіць захаваную канфігурацыю пасля заканчэння таймера.
+web-migrate-apply-busy = На гэты роўтар ужо ўжываецца іншы перанос. Дачакайцеся яго захавання або адкату.
+web-migrate-apply-changed = Роўтар змяніўся пасля прагляду, таму змяніўся і план. Праверце план ніжэй і ўжыце зноў.
+web-migrate-results-open = Паглядзець вынік
+web-migrate-outcome-applied = Ужыта
+web-migrate-outcome-rejected = Адхілена
+web-migrate-outcome-unknown = Няма адказу
+web-migrate-run-percent = Адпраўлена { $count }%
+web-migrate-run-interrupted = kcc перазапусціўся падчас пераносу. Роўтар сам адновіць захаваную канфігурацыю, калі скончыцца таймер адкату.
+web-migrate-timer =
+    { $count ->
+        [one] Калі kcc перастане звязвацца з роўтарам, той сам адновіць захаваную канфігурацыю прыкладна праз { $count } хвіліну.
+        [few] Калі kcc перастане звязвацца з роўтарам, той сам адновіць захаваную канфігурацыю прыкладна праз { $count } хвіліны.
+        [many] Калі kcc перастане звязвацца з роўтарам, той сам адновіць захаваную канфігурацыю прыкладна праз { $count } хвілін.
+       *[other] Калі kcc перастане звязвацца з роўтарам, той сам адновіць захаваную канфігурацыю прыкладна праз { $count } хвіліны.
+    }
+web-migrate-timer-over = Таймер адкату скончыўся: калі змены не былі захаваны, роўтар аднавіў захаваную канфігурацыю.
+web-migrate-stopping = Спыненне: kcc больш не адпраўляе налады.
+web-migrate-run-title = Ужыванне пераносу
+web-migrate-run-text = kcc захаваў рэзервовую копію канфігурацыі роўтара, уключыў яго таймер адкату і адпраўляе налады па адной. Можна пайсці з гэтай старонкі: перанос працягнецца, а пры вяртанні будзе відаць яго ход.
+web-migrate-run-progress = Ход пераносу
+web-migrate-count-applied = Налад прынята роўтарам
+web-migrate-count-refused = Налад адхілена роўтарам
+web-migrate-results-title = Вынік
+web-migrate-commit = Захаваць
+web-migrate-replan = Праверыць план зноў
+web-migrate-retry = Вярнуцца да прагляду
+web-migrate-close = Завяршыць
+web-migrate-rollback-forbidden = Для адкату патрэбнае права Destructive. Калі ніхто не захавае змены, роўтар сам адновіць захаваную канфігурацыю, калі скончыцца таймер адкату.
+web-migrate-rollback-title = Адкаціць перанос на { $router }?
+web-migrate-rollback-text = kcc адновіць канфігурацыю, якую { $router } захаваў да пераносу; роўтар можа перазапусціцца. Увядзіце імя роўтара для пацвярджэння.
+web-migrate-report-title = Справаздача
+web-migrate-report-finished = Завершаны
+web-migrate-download-json = Справаздача (JSON)
+web-migrate-failure-validation = kcc пакуль не можа праверыць адну з запланаваных каманд па каталогу каманд роўтара, таму нічога не адправіў: роўтар не зменены. Вярніцеся да кроку «Праверка», выключыце налады, якія kcc не можа адправіць (звычайна ўнутры раздзелаў інтэрфейсу, пула DHCP або палітыкі), і ўжыйце перанос зноў.

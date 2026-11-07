@@ -798,3 +798,92 @@ Page briefs (todo 41):
 |---|---|---|---|
 | Configuration actions need JavaScript | `pages/config.html`, `partials/config_*.html` | Save, Keep changes, Roll back, Create, Upload, Delete and Raw restore are htmx requests carrying the CSRF header; the page, the downloads and the comparison work without it | Same as the menus |
 | A raw restore answers after 25 seconds at most | `src/config_page/restore.rs` | The restore restarts the router and continues as its own task; the page says so and the audit log records how it ended | A job panel for raw restores if users ask |
+## Migration wizard (todo 43, `src/migrate_wizard/`)
+
+Layout (`/ui/migrate`): stacked sections - page head (title and Start migration), the
+intro, the outcome region, the restore offer panel (only when the configuration page's
+link asks for one), then "Your migrations" (a `.table-wrap` table); scroll owner: the
+document; nested scrollers: `.table-wrap` (horizontal, the table only); anti-patterns: a
+migration list that shows another account's migrations, a restore offer that skips the
+reviewed plan.
+
+Layout (`/ui/migrate/{id}`): stacked sections - page head (title), the "All migrations"
+link, the step list, the source and target summary, the outcome region, the step panel
+(`#wizard-step`, opened by a hairline), then Back while choices can still change; scroll
+owner: the document; nested scrollers: `.table-wrap` (maps and review tables, horizontal)
+and `.wizard-agreement__text` (an agreement's text, at most `--wizard-scroll`,
+keyboard-focusable); anti-patterns: a fixed-height scrolling step panel, a step list that
+hides where the user is, a live line list with its own scroll box (it grows with the
+document), status colour outside pills, notices and warnings.
+
+Tokens: `--wizard-mark` (1.5rem) is the step list's number box; `--wizard-scroll` (16rem)
+the tallest an agreement's text grows before it scrolls itself; `--wizard-review-min`
+(44rem) the narrowest the review table gets before its `.table-wrap` scrolls sideways.
+
+- Step list (`.wizard-steps`): "Step N of 9" caption, then an ordered list of the nine
+  steps, each a chrome box with a number box and its label. Done: the number box filled
+  with the neutral wash; current: the selected wash and ink, weight 600, the number box
+  outlined, `aria-current="step"`; to do: muted. Below 48rem the labels are visually
+  hidden (kept for assistive technology; the caption and the step's `h2` name the
+  current one), so the nine number boxes fit one row at 390px.
+- Step panel (`#wizard-step`): one `h2` per step; a submit that fails answers the panel
+  alone (422, swapped in place); a submit that moves on sends the browser to the
+  migration's page (`HX-Redirect`), which shows the next step. Confirmed requests that
+  fail answer into the panel and close the dialog.
+- Source form (`.wizard-source`): kind radios, then only the chosen kind's field (router
+  select, file input, backup select grouped by router), CSS `:has()`.
+- Target report (`.wizard-report`): chrome surface with the facts (model, firmware,
+  support tier, mode), the warnings (`.wizard-warning`, warning or error wash, text names
+  the problem), the settings that stay (`<details>`), the agreements' texts, the tier
+  acknowledgement checkbox and Continue; older target firmware shows the error and no way
+  on.
+- Map tables (`.wizard-map`): source object in the row header (mono), the router's object
+  in a select (ports, radios by band) or a text field (interface names); a refused row
+  keeps its value with `aria-invalid` and the field error.
+- Review table: filter links (`.wizard-filters`, the selected wash for the current one,
+  never an underline) with counts, then line, the setting (redacted, mono, the router's
+  form after an arrow), the fate pill (`.wizard-fate`: success = migrated/applied,
+  warning = differs/no answer, info = needs input, danger = refused, neutral = skipped,
+  unsupported, left out) with its reason, and the choice (Migrate checkbox, or which
+  value stays); choices save as they change; the kit pager.
+- Inputs: write-only password fields per user (the kit secret field), component consent
+  checkboxes with how many settings need each, the reconnect address field, each
+  agreement's text with its acceptance checkbox.
+- Preview: counts (`.facts`), the components installed first, the phases with their
+  ordered commands (`.wizard-commands`: source line number, redacted command), the
+  reconnect address, the downloads (plan JSON, report Markdown and HTML), Apply (asks in
+  the dialog with the fail-safe minutes).
+- Apply (`.job.wizard-run`): the job surface with Stop (ghost) while it runs (hidden once
+  the end arrived, CSS `:has()`), the neutral
+  progress bar and "N% sent", the heartbeat sentence (how long the router's fail-safe
+  timer still runs, every 10 s), the sent lines (`.wizard-run__line`: line number, the
+  redacted command, the outcome pill) appended as they arrive, then the end notice with
+  Review the result. A reload replays every line from the start.
+- Results: the result notice, the applied and refused counts, the countdown sentence
+  while changes wait, then the buttons: Commit (primary, verified only), Review the plan
+  again, Back to the preview, Roll back (`button--danger-ghost`, the router name typed in
+  the dialog), Finish.
+- Report: how it finished, when, the counts, the report downloads, All migrations.
+
+### Page briefs (todo 43)
+
+- Migrations. Primary action: Start migration (Start restore when the link offers one;
+  Start migration is then secondary). Priorities: 1 the restore offer when present, 2
+  start, 3 the user's migrations. Left out on purpose: other accounts' migrations,
+  progress tiles. Required content: intro, the restore offer (backup name, router) or
+  why it cannot be offered, the list (started, kind, source, target, step) or its empty
+  note.
+- Wizard, every step. Primary action: the step's own (Continue, Read the router, Preview
+  the plan, Apply the migration, Review the result, Commit); Back is ghost. Priorities: 1
+  the step's question or result, 2 its form or list, 3 where the migration is (step list,
+  summary). Left out on purpose: a per-step subtitle beyond the one-line explanation,
+  icons, a progress percentage across the wizard. Required content per step: (1) kind,
+  router, file, backup; (2) target select, source firmware when needed, the target facts,
+  warnings, settings that stay, agreements, the tier acknowledgement, the older-firmware
+  refusal; (3) port, radio and interface maps; (4) filters with counts, every setting with
+  line, redacted text, fate, reason and choice, pager; (5) passwords, components,
+  reconnect address, agreements, the blocked settings; (6) counts, components, phases
+  with commands, reconnect address, downloads, Apply or why not; (7) Stop, progress,
+  heartbeat, sent lines with outcomes, the end with Review the result; (8) result,
+  counts, countdown, Commit / Roll back / Review the plan again / Back to the preview /
+  Finish; (9) how it finished, when, counts, downloads.

@@ -1,0 +1,181 @@
+//! Step 6: the plan as the router will get it.
+//!
+//! The commands in their order and phases (additions, removals, connection changes
+//! last), the counts, the components installed first, and the plan and report to
+//! download.
+
+use askama::Template;
+use kcc_app::permissions::Permission;
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    format, keys,
+    locale::Locale,
+};
+use kcc_migrate::planner::PlannedLine;
+
+use super::{
+    access::Visit,
+    plan::{Built, Classified},
+    reasons::Fate,
+    target::problem_text,
+};
+use crate::{
+    page::{Localize, Shell},
+    page_kit::{context::fragment_shell, gate::allowed},
+};
+
+/// What the apply needs on the target: the replay, the backup and the fail-safe timer.
+pub(super) const APPLY: [Permission; 4] = [
+    Permission::Migrate,
+    Permission::Write,
+    Permission::Save,
+    Permission::Destructive,
+];
+
+/// The step's panel.
+#[derive(Template)]
+#[template(path = "partials/migrate_preview.html")]
+pub(super) struct Panel {
+    /// Locale carrier.
+    shell: Shell,
+    /// Migration id.
+    id: String,
+    /// The counts.
+    facts: Vec<(String, String)>,
+    /// The phases with their commands.
+    phases: Vec<Phase>,
+    /// Components installed before the plan.
+    components: Vec<String>,
+    /// The URL kcc reaches the router at after the connection changes.
+    reconnect: Option<String>,
+    /// Whether the role may apply the plan.
+    may_apply: bool,
+    /// Why the plan cannot be shown.
+    problem: String,
+    /// Why the apply did not start.
+    error: String,
+}
+
+impl Localize for Panel {
+    fn shell(&self) -> &Shell {
+        &self.shell
+    }
+}
+
+/// One phase of the plan.
+struct Phase {
+    /// Its title.
+    title: String,
+    /// Its commands, redacted, with their line in the source.
+    lines: Vec<(usize, String)>,
+}
+
+impl Panel {
+    /// The preview with the reason the apply did not start.
+    pub(super) fn refusing(mut self, error: String) -> Self {
+        self.error = error;
+        self
+    }
+
+    /// The preview of `visit`'s plan.
+    // cancel-safe: reads only.
+    pub(super) async fn new(visit: &Visit<'_>) -> Self {
+        let services = visit.services();
+        let locale = services.user().locale();
+        let record = visit.record();
+        let target = record.target().unwrap_or_default();
+        let mut panel = Self {
+            shell: fragment_shell(locale),
+            id: record.id().to_owned(),
+            facts: Vec::new(),
+            phases: Vec::new(),
+            components: record.components().iter().cloned().collect(),
+            reconnect: record.reconnect_url().map(str::to_owned),
+            may_apply: allowed(services.user(), target, &APPLY),
+            problem: String::new(),
+            error: String::new(),
+        };
+        let analysis = match visit.analysis().await {
+            Ok(found) => found,
+            Err(problem) => {
+                panel.problem = problem_text(&problem, locale);
+                return panel;
+            }
+        };
+        let passwords = visit.passwords().unwrap_or_default();
+        let (Ok(classified), Ok(built)) = (
+            Classified::new(&analysis, record, &passwords),
+            Built::new(&analysis, record, &passwords),
+        ) else {
+            panel.problem = tr(locale, keys::WEB_MIGRATE_PROBLEM_PLAN, None);
+            return panel;
+        };
+        let plan = built.plan();
+        let text = |line: &PlannedLine| {
+            built
+                .original(line.source_index)
+                .and_then(|index| classified.items().get(index))
+                .map_or_else(
+                    || (0, line.display.clone()),
+                    |item| {
+                        (
+                            item.line_no,
+                            item.after.clone().unwrap_or_else(|| item.before.clone()),
+                        )
+                    },
+                )
+        };
+        for (title, lines) in [
+            (keys::WEB_MIGRATE_PHASE_ADDITIVE, &plan.phases.additive),
+            (keys::WEB_MIGRATE_PHASE_PRUNE, &plan.phases.prune),
+            (keys::WEB_MIGRATE_PHASE_MANAGEMENT, &plan.phases.management),
+        ] {
+            if !lines.is_empty() {
+                panel.phases.push(Phase {
+                    title: tr(locale, title, None),
+                    lines: lines.iter().map(text).collect(),
+                });
+            }
+        }
+        let sent = plan
+            .phases
+            .additive
+            .len()
+            .saturating_add(plan.phases.prune.len())
+            .saturating_add(plan.phases.management.len());
+        let fates = classified
+            .items()
+            .iter()
+            .map(|item| {
+                let index = item.source_index;
+                let excluded = record.excluded().contains(&index);
+                Fate::of(item, classified.conflicts(index) && !excluded, excluded)
+            })
+            .collect::<Vec<_>>();
+        let migrated = fates
+            .iter()
+            .filter(|fate| matches!(fate, Fate::Migrated | Fate::Conflict))
+            .count();
+        let left_out = fates.len().saturating_sub(migrated);
+        panel.facts = [
+            (keys::WEB_MIGRATE_COUNT_SETTINGS, fates.len()),
+            (keys::WEB_MIGRATE_COUNT_COMMANDS, sent),
+            (
+                keys::WEB_MIGRATE_COUNT_PRESENT,
+                migrated.saturating_sub(sent),
+            ),
+            (keys::WEB_MIGRATE_COUNT_LEFT_OUT, left_out),
+            (keys::WEB_MIGRATE_COUNT_STAY, plan.residual.len()),
+        ]
+        .into_iter()
+        .map(|(key, count)| fact(locale, key, count))
+        .collect();
+        panel
+    }
+}
+
+/// A count labelled `key`.
+fn fact(locale: Locale, key: MessageKey, count: usize) -> (String, String) {
+    let value = u64::try_from(count).unwrap_or(u64::MAX);
+    (tr(locale, key, None), format::integer(locale, value))
+}

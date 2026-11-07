@@ -1,0 +1,28 @@
+{#- Step 8: the result and the final choice; the countdown follows the router's fail-safe timer while changes wait. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_RESULTS_TITLE) }}</h2>
+<div class="notice" data-tone="{{ tone }}">
+  <p class="notice__title">{{ message }}</p>
+</div>
+{%- if !facts.is_empty() %}
+<dl class="facts wizard-counts">
+  {%- for (label, value) in facts %}
+  <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+  {%- endfor %}
+</dl>
+{%- endif %}
+{%- if pending %}
+<p class="wizard-run__heartbeat" hx-ext="sse" sse-connect="/ui/migrate/{{ id }}/events?view=countdown" sse-swap="heartbeat" sse-close="done" aria-live="polite"></p>
+{%- endif %}
+{%- if !error.is_empty() %}
+<p class="notice" data-tone="error">{{ error }}</p>
+{%- endif %}
+{%- if !actions.is_empty() %}
+<div class="form__actions wizard-finish">
+  {%- for act in actions %}
+  <button class="button button--{{ act.style }}" type="button" hx-post="/ui/migrate/{{ id }}/{{ act.way }}" hx-target="{{ act.target }}">{{ act.label }}</button>
+  {%- endfor %}
+</div>
+{%- endif %}
+{%- if rollback_forbidden %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_ROLLBACK_FORBIDDEN) }}</p>
+{%- endif %}

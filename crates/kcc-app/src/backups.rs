@@ -114,6 +114,15 @@ impl BackupStore {
         Self { state, key }
     }
 
+    /// The key sealing the backups. A front end keeping its own encrypted state beside
+    /// them (the Web UI migration wizard) seals with it under owner names of its own, so
+    /// its ciphertexts never open as a backup and no backup opens as one of them.
+    #[inline]
+    #[must_use]
+    pub const fn key(&self) -> &MasterKey {
+        &self.key
+    }
+
     /// Stores encrypted startup configuration and returns its metadata.
     ///
     /// # Errors

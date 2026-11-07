@@ -68,7 +68,7 @@ impl Section {
             Self::System => "system",
             Self::Configuration => "configuration",
             Self::Advanced => "advanced",
-            Self::Migration => "migration",
+            Self::Migration => "migrate",
             Self::Admin => "admin",
         }
     }
@@ -89,7 +89,7 @@ impl Section {
             Self::System => "/ui/system",
             Self::Configuration => "/ui/configuration",
             Self::Advanced => "/ui/advanced",
-            Self::Migration => "/ui/migration",
+            Self::Migration => "/ui/migrate",
             Self::Admin => "/ui/admin",
         }
     }

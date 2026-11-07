@@ -4237,8 +4237,727 @@ pub const WEB_CONFIG_RAW_FAILED: MessageKey = MessageKey::new("web-config-raw-fa
 /// `web-config-compare-again` in `web.ftl`.
 pub const WEB_CONFIG_COMPARE_AGAIN: MessageKey = MessageKey::new("web-config-compare-again");
 
+/// `web-migrate-all` in `web.ftl`.
+pub const WEB_MIGRATE_ALL: MessageKey = MessageKey::new("web-migrate-all");
+
+/// `web-migrate-steps-label` in `web.ftl`.
+pub const WEB_MIGRATE_STEPS_LABEL: MessageKey = MessageKey::new("web-migrate-steps-label");
+
+/// `web-migrate-step-source` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_SOURCE: MessageKey = MessageKey::new("web-migrate-step-source");
+
+/// `web-migrate-step-target` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_TARGET: MessageKey = MessageKey::new("web-migrate-step-target");
+
+/// `web-migrate-step-mapping` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_MAPPING: MessageKey = MessageKey::new("web-migrate-step-mapping");
+
+/// `web-migrate-step-review` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_REVIEW: MessageKey = MessageKey::new("web-migrate-step-review");
+
+/// `web-migrate-step-inputs` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_INPUTS: MessageKey = MessageKey::new("web-migrate-step-inputs");
+
+/// `web-migrate-step-preview` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_PREVIEW: MessageKey = MessageKey::new("web-migrate-step-preview");
+
+/// `web-migrate-step-apply` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_APPLY: MessageKey = MessageKey::new("web-migrate-step-apply");
+
+/// `web-migrate-step-results` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_RESULTS: MessageKey = MessageKey::new("web-migrate-step-results");
+
+/// `web-migrate-step-report` in `web.ftl`.
+pub const WEB_MIGRATE_STEP_REPORT: MessageKey = MessageKey::new("web-migrate-step-report");
+
+/// `web-migrate-continue` in `web.ftl`.
+pub const WEB_MIGRATE_CONTINUE: MessageKey = MessageKey::new("web-migrate-continue");
+
+/// `web-migrate-intro` in `web.ftl`.
+pub const WEB_MIGRATE_INTRO: MessageKey = MessageKey::new("web-migrate-intro");
+
+/// `web-migrate-restore-title` in `web.ftl`.
+pub const WEB_MIGRATE_RESTORE_TITLE: MessageKey = MessageKey::new("web-migrate-restore-title");
+
+/// `web-migrate-restore-offer` in `web.ftl`.
+pub const WEB_MIGRATE_RESTORE_OFFER: MessageKey = MessageKey::new("web-migrate-restore-offer");
+
+/// `web-migrate-restore-start` in `web.ftl`.
+pub const WEB_MIGRATE_RESTORE_START: MessageKey = MessageKey::new("web-migrate-restore-start");
+
+/// `web-migrate-restore-invalid` in `web.ftl`.
+pub const WEB_MIGRATE_RESTORE_INVALID: MessageKey = MessageKey::new("web-migrate-restore-invalid");
+
+/// `web-migrate-kind-migration` in `web.ftl`.
+pub const WEB_MIGRATE_KIND_MIGRATION: MessageKey = MessageKey::new("web-migrate-kind-migration");
+
+/// `web-migrate-kind-restore` in `web.ftl`.
+pub const WEB_MIGRATE_KIND_RESTORE: MessageKey = MessageKey::new("web-migrate-kind-restore");
+
+/// `web-migrate-list-title` in `web.ftl`.
+pub const WEB_MIGRATE_LIST_TITLE: MessageKey = MessageKey::new("web-migrate-list-title");
+
+/// `web-migrate-list-empty` in `web.ftl`.
+pub const WEB_MIGRATE_LIST_EMPTY: MessageKey = MessageKey::new("web-migrate-list-empty");
+
+/// `web-migrate-list-started` in `web.ftl`.
+pub const WEB_MIGRATE_LIST_STARTED: MessageKey = MessageKey::new("web-migrate-list-started");
+
+/// `web-migrate-list-kind` in `web.ftl`.
+pub const WEB_MIGRATE_LIST_KIND: MessageKey = MessageKey::new("web-migrate-list-kind");
+
+/// `web-migrate-list-step` in `web.ftl`.
+pub const WEB_MIGRATE_LIST_STEP: MessageKey = MessageKey::new("web-migrate-list-step");
+
+/// `web-migrate-list-open` in `web.ftl`.
+pub const WEB_MIGRATE_LIST_OPEN: MessageKey = MessageKey::new("web-migrate-list-open");
+
+/// `web-migrate-summary-source` in `web.ftl`.
+pub const WEB_MIGRATE_SUMMARY_SOURCE: MessageKey = MessageKey::new("web-migrate-summary-source");
+
+/// `web-migrate-source-is-router` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_IS_ROUTER: MessageKey =
+    MessageKey::new("web-migrate-source-is-router");
+
+/// `web-migrate-source-is-file` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_IS_FILE: MessageKey = MessageKey::new("web-migrate-source-is-file");
+
+/// `web-migrate-source-is-backup` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_IS_BACKUP: MessageKey =
+    MessageKey::new("web-migrate-source-is-backup");
+
+/// `web-migrate-source-title` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_TITLE: MessageKey = MessageKey::new("web-migrate-source-title");
+
+/// `web-migrate-source-text` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_TEXT: MessageKey = MessageKey::new("web-migrate-source-text");
+
+/// `web-migrate-source-kind` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_KIND: MessageKey = MessageKey::new("web-migrate-source-kind");
+
+/// `web-migrate-source-router` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ROUTER: MessageKey = MessageKey::new("web-migrate-source-router");
+
+/// `web-migrate-source-file` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_FILE: MessageKey = MessageKey::new("web-migrate-source-file");
+
+/// `web-migrate-source-backup` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_BACKUP: MessageKey = MessageKey::new("web-migrate-source-backup");
+
+/// `web-migrate-source-router-label` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ROUTER_LABEL: MessageKey =
+    MessageKey::new("web-migrate-source-router-label");
+
+/// `web-migrate-source-no-routers` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_NO_ROUTERS: MessageKey =
+    MessageKey::new("web-migrate-source-no-routers");
+
+/// `web-migrate-source-file-label` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_FILE_LABEL: MessageKey =
+    MessageKey::new("web-migrate-source-file-label");
+
+/// `web-migrate-source-file-help` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_FILE_HELP: MessageKey =
+    MessageKey::new("web-migrate-source-file-help");
+
+/// `web-migrate-source-backup-label` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_BACKUP_LABEL: MessageKey =
+    MessageKey::new("web-migrate-source-backup-label");
+
+/// `web-migrate-source-no-backups` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_NO_BACKUPS: MessageKey =
+    MessageKey::new("web-migrate-source-no-backups");
+
+/// `web-migrate-source-backup-option` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_BACKUP_OPTION: MessageKey =
+    MessageKey::new("web-migrate-source-backup-option");
+
+/// `web-migrate-source-error-kind` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_KIND: MessageKey =
+    MessageKey::new("web-migrate-source-error-kind");
+
+/// `web-migrate-source-error-router` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_ROUTER: MessageKey =
+    MessageKey::new("web-migrate-source-error-router");
+
+/// `web-migrate-source-error-read` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_READ: MessageKey =
+    MessageKey::new("web-migrate-source-error-read");
+
+/// `web-migrate-source-error-file` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_FILE: MessageKey =
+    MessageKey::new("web-migrate-source-error-file");
+
+/// `web-migrate-source-error-large` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_LARGE: MessageKey =
+    MessageKey::new("web-migrate-source-error-large");
+
+/// `web-migrate-source-error-parse` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_PARSE: MessageKey =
+    MessageKey::new("web-migrate-source-error-parse");
+
+/// `web-migrate-source-error-backup` in `web.ftl`.
+pub const WEB_MIGRATE_SOURCE_ERROR_BACKUP: MessageKey =
+    MessageKey::new("web-migrate-source-error-backup");
+
+/// `web-migrate-target-title` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_TITLE: MessageKey = MessageKey::new("web-migrate-target-title");
+
+/// `web-migrate-target-text` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_TEXT: MessageKey = MessageKey::new("web-migrate-target-text");
+
+/// `web-migrate-target-none` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_NONE: MessageKey = MessageKey::new("web-migrate-target-none");
+
+/// `web-migrate-target-restore` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_RESTORE: MessageKey = MessageKey::new("web-migrate-target-restore");
+
+/// `web-migrate-target-firmware` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_FIRMWARE: MessageKey = MessageKey::new("web-migrate-target-firmware");
+
+/// `web-migrate-target-firmware-help` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_FIRMWARE_HELP: MessageKey =
+    MessageKey::new("web-migrate-target-firmware-help");
+
+/// `web-migrate-target-check` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_CHECK: MessageKey = MessageKey::new("web-migrate-target-check");
+
+/// `web-migrate-target-report` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_REPORT: MessageKey = MessageKey::new("web-migrate-target-report");
+
+/// `web-migrate-target-error-router` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_ERROR_ROUTER: MessageKey =
+    MessageKey::new("web-migrate-target-error-router");
+
+/// `web-migrate-target-error-same` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_ERROR_SAME: MessageKey =
+    MessageKey::new("web-migrate-target-error-same");
+
+/// `web-migrate-target-error-firmware` in `web.ftl`.
+pub const WEB_MIGRATE_TARGET_ERROR_FIRMWARE: MessageKey =
+    MessageKey::new("web-migrate-target-error-firmware");
+
+/// `web-migrate-tier` in `web.ftl`.
+pub const WEB_MIGRATE_TIER: MessageKey = MessageKey::new("web-migrate-tier");
+
+/// `web-migrate-mode` in `web.ftl`.
+pub const WEB_MIGRATE_MODE: MessageKey = MessageKey::new("web-migrate-mode");
+
+/// `web-migrate-mode-router` in `web.ftl`.
+pub const WEB_MIGRATE_MODE_ROUTER: MessageKey = MessageKey::new("web-migrate-mode-router");
+
+/// `web-migrate-mode-extender` in `web.ftl`.
+pub const WEB_MIGRATE_MODE_EXTENDER: MessageKey = MessageKey::new("web-migrate-mode-extender");
+
+/// `web-migrate-mode-ap` in `web.ftl`.
+pub const WEB_MIGRATE_MODE_AP: MessageKey = MessageKey::new("web-migrate-mode-ap");
+
+/// `web-migrate-mode-repeater` in `web.ftl`.
+pub const WEB_MIGRATE_MODE_REPEATER: MessageKey = MessageKey::new("web-migrate-mode-repeater");
+
+/// `web-migrate-warning-none` in `web.ftl`.
+pub const WEB_MIGRATE_WARNING_NONE: MessageKey = MessageKey::new("web-migrate-warning-none");
+
+/// `web-migrate-warning-tier` in `web.ftl`.
+pub const WEB_MIGRATE_WARNING_TIER: MessageKey = MessageKey::new("web-migrate-warning-tier");
+
+/// `web-migrate-warning-mode` in `web.ftl`.
+pub const WEB_MIGRATE_WARNING_MODE: MessageKey = MessageKey::new("web-migrate-warning-mode");
+
+/// `web-migrate-warning-agreement` in `web.ftl`.
+pub const WEB_MIGRATE_WARNING_AGREEMENT: MessageKey =
+    MessageKey::new("web-migrate-warning-agreement");
+
+/// `web-migrate-warning-components` in `web.ftl`.
+pub const WEB_MIGRATE_WARNING_COMPONENTS: MessageKey =
+    MessageKey::new("web-migrate-warning-components");
+
+/// `web-migrate-warning-leftovers` in `web.ftl`.
+pub const WEB_MIGRATE_WARNING_LEFTOVERS: MessageKey =
+    MessageKey::new("web-migrate-warning-leftovers");
+
+/// `web-migrate-leftovers-show` in `web.ftl`.
+pub const WEB_MIGRATE_LEFTOVERS_SHOW: MessageKey = MessageKey::new("web-migrate-leftovers-show");
+
+/// `web-migrate-agreement-dpn` in `web.ftl`.
+pub const WEB_MIGRATE_AGREEMENT_DPN: MessageKey = MessageKey::new("web-migrate-agreement-dpn");
+
+/// `web-migrate-agreement-eula` in `web.ftl`.
+pub const WEB_MIGRATE_AGREEMENT_EULA: MessageKey = MessageKey::new("web-migrate-agreement-eula");
+
+/// `web-migrate-ack-tier` in `web.ftl`.
+pub const WEB_MIGRATE_ACK_TIER: MessageKey = MessageKey::new("web-migrate-ack-tier");
+
+/// `web-migrate-ack-required` in `web.ftl`.
+pub const WEB_MIGRATE_ACK_REQUIRED: MessageKey = MessageKey::new("web-migrate-ack-required");
+
+/// `web-migrate-problem-source` in `web.ftl`.
+pub const WEB_MIGRATE_PROBLEM_SOURCE: MessageKey = MessageKey::new("web-migrate-problem-source");
+
+/// `web-migrate-problem-firmware-required` in `web.ftl`.
+pub const WEB_MIGRATE_PROBLEM_FIRMWARE_REQUIRED: MessageKey =
+    MessageKey::new("web-migrate-problem-firmware-required");
+
+/// `web-migrate-problem-firmware-older` in `web.ftl`.
+pub const WEB_MIGRATE_PROBLEM_FIRMWARE_OLDER: MessageKey =
+    MessageKey::new("web-migrate-problem-firmware-older");
+
+/// `web-migrate-problem-unsupported` in `web.ftl`.
+pub const WEB_MIGRATE_PROBLEM_UNSUPPORTED: MessageKey =
+    MessageKey::new("web-migrate-problem-unsupported");
+
+/// `web-migrate-problem-unreachable` in `web.ftl`.
+pub const WEB_MIGRATE_PROBLEM_UNREACHABLE: MessageKey =
+    MessageKey::new("web-migrate-problem-unreachable");
+
+/// `web-migrate-mapping-title` in `web.ftl`.
+pub const WEB_MIGRATE_MAPPING_TITLE: MessageKey = MessageKey::new("web-migrate-mapping-title");
+
+/// `web-migrate-mapping-text` in `web.ftl`.
+pub const WEB_MIGRATE_MAPPING_TEXT: MessageKey = MessageKey::new("web-migrate-mapping-text");
+
+/// `web-migrate-map-hardware-unknown` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_HARDWARE_UNKNOWN: MessageKey =
+    MessageKey::new("web-migrate-map-hardware-unknown");
+
+/// `web-migrate-ports` in `web.ftl`.
+pub const WEB_MIGRATE_PORTS: MessageKey = MessageKey::new("web-migrate-ports");
+
+/// `web-migrate-ports-none` in `web.ftl`.
+pub const WEB_MIGRATE_PORTS_NONE: MessageKey = MessageKey::new("web-migrate-ports-none");
+
+/// `web-migrate-radios` in `web.ftl`.
+pub const WEB_MIGRATE_RADIOS: MessageKey = MessageKey::new("web-migrate-radios");
+
+/// `web-migrate-radios-none` in `web.ftl`.
+pub const WEB_MIGRATE_RADIOS_NONE: MessageKey = MessageKey::new("web-migrate-radios-none");
+
+/// `web-migrate-interfaces` in `web.ftl`.
+pub const WEB_MIGRATE_INTERFACES: MessageKey = MessageKey::new("web-migrate-interfaces");
+
+/// `web-migrate-interfaces-none` in `web.ftl`.
+pub const WEB_MIGRATE_INTERFACES_NONE: MessageKey = MessageKey::new("web-migrate-interfaces-none");
+
+/// `web-migrate-map-source` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_SOURCE: MessageKey = MessageKey::new("web-migrate-map-source");
+
+/// `web-migrate-map-target` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_TARGET: MessageKey = MessageKey::new("web-migrate-map-target");
+
+/// `web-migrate-map-rename` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_RENAME: MessageKey = MessageKey::new("web-migrate-map-rename");
+
+/// `web-migrate-map-unmapped` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_UNMAPPED: MessageKey = MessageKey::new("web-migrate-map-unmapped");
+
+/// `web-migrate-map-error-unknown` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_ERROR_UNKNOWN: MessageKey =
+    MessageKey::new("web-migrate-map-error-unknown");
+
+/// `web-migrate-map-error-taken` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_ERROR_TAKEN: MessageKey = MessageKey::new("web-migrate-map-error-taken");
+
+/// `web-migrate-map-error-band` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_ERROR_BAND: MessageKey = MessageKey::new("web-migrate-map-error-band");
+
+/// `web-migrate-map-error-name` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_ERROR_NAME: MessageKey = MessageKey::new("web-migrate-map-error-name");
+
+/// `web-migrate-map-error-kind` in `web.ftl`.
+pub const WEB_MIGRATE_MAP_ERROR_KIND: MessageKey = MessageKey::new("web-migrate-map-error-kind");
+
+/// `web-migrate-role-wan` in `web.ftl`.
+pub const WEB_MIGRATE_ROLE_WAN: MessageKey = MessageKey::new("web-migrate-role-wan");
+
+/// `web-migrate-role-lan` in `web.ftl`.
+pub const WEB_MIGRATE_ROLE_LAN: MessageKey = MessageKey::new("web-migrate-role-lan");
+
+/// `web-migrate-role-sfp` in `web.ftl`.
+pub const WEB_MIGRATE_ROLE_SFP: MessageKey = MessageKey::new("web-migrate-role-sfp");
+
+/// `web-migrate-role-dsl` in `web.ftl`.
+pub const WEB_MIGRATE_ROLE_DSL: MessageKey = MessageKey::new("web-migrate-role-dsl");
+
+/// `web-migrate-band-2-4` in `web.ftl`.
+pub const WEB_MIGRATE_BAND_2_4: MessageKey = MessageKey::new("web-migrate-band-2-4");
+
+/// `web-migrate-band-5` in `web.ftl`.
+pub const WEB_MIGRATE_BAND_5: MessageKey = MessageKey::new("web-migrate-band-5");
+
+/// `web-migrate-band-6` in `web.ftl`.
+pub const WEB_MIGRATE_BAND_6: MessageKey = MessageKey::new("web-migrate-band-6");
+
+/// `web-migrate-fate-all` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_ALL: MessageKey = MessageKey::new("web-migrate-fate-all");
+
+/// `web-migrate-fate-migrated` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_MIGRATED: MessageKey = MessageKey::new("web-migrate-fate-migrated");
+
+/// `web-migrate-fate-conflict` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_CONFLICT: MessageKey = MessageKey::new("web-migrate-fate-conflict");
+
+/// `web-migrate-fate-input` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_INPUT: MessageKey = MessageKey::new("web-migrate-fate-input");
+
+/// `web-migrate-fate-skipped` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_SKIPPED: MessageKey = MessageKey::new("web-migrate-fate-skipped");
+
+/// `web-migrate-fate-unsupported` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_UNSUPPORTED: MessageKey =
+    MessageKey::new("web-migrate-fate-unsupported");
+
+/// `web-migrate-fate-excluded` in `web.ftl`.
+pub const WEB_MIGRATE_FATE_EXCLUDED: MessageKey = MessageKey::new("web-migrate-fate-excluded");
+
+/// `web-migrate-reason-conflict` in `web.ftl`.
+pub const WEB_MIGRATE_REASON_CONFLICT: MessageKey = MessageKey::new("web-migrate-reason-conflict");
+
+/// `web-migrate-reason-conflict-source` in `web.ftl`.
+pub const WEB_MIGRATE_REASON_CONFLICT_SOURCE: MessageKey =
+    MessageKey::new("web-migrate-reason-conflict-source");
+
+/// `web-migrate-reason-conflict-router` in `web.ftl`.
+pub const WEB_MIGRATE_REASON_CONFLICT_ROUTER: MessageKey =
+    MessageKey::new("web-migrate-reason-conflict-router");
+
+/// `web-migrate-reason-password` in `web.ftl`.
+pub const WEB_MIGRATE_REASON_PASSWORD: MessageKey = MessageKey::new("web-migrate-reason-password");
+
+/// `web-migrate-reason-password-set` in `web.ftl`.
+pub const WEB_MIGRATE_REASON_PASSWORD_SET: MessageKey =
+    MessageKey::new("web-migrate-reason-password-set");
+
+/// `web-migrate-reason-component` in `web.ftl`.
+pub const WEB_MIGRATE_REASON_COMPONENT: MessageKey =
+    MessageKey::new("web-migrate-reason-component");
+
+/// `web-migrate-review-title` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_TITLE: MessageKey = MessageKey::new("web-migrate-review-title");
+
+/// `web-migrate-review-text` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_TEXT: MessageKey = MessageKey::new("web-migrate-review-text");
+
+/// `web-migrate-review-filters` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_FILTERS: MessageKey = MessageKey::new("web-migrate-review-filters");
+
+/// `web-migrate-review-line` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_LINE: MessageKey = MessageKey::new("web-migrate-review-line");
+
+/// `web-migrate-review-setting` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_SETTING: MessageKey = MessageKey::new("web-migrate-review-setting");
+
+/// `web-migrate-review-fate` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_FATE: MessageKey = MessageKey::new("web-migrate-review-fate");
+
+/// `web-migrate-review-choice` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_CHOICE: MessageKey = MessageKey::new("web-migrate-review-choice");
+
+/// `web-migrate-review-include` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_INCLUDE: MessageKey = MessageKey::new("web-migrate-review-include");
+
+/// `web-migrate-review-resolve` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_RESOLVE: MessageKey = MessageKey::new("web-migrate-review-resolve");
+
+/// `web-migrate-review-use-source` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_USE_SOURCE: MessageKey =
+    MessageKey::new("web-migrate-review-use-source");
+
+/// `web-migrate-review-keep-router` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_KEEP_ROUTER: MessageKey =
+    MessageKey::new("web-migrate-review-keep-router");
+
+/// `web-migrate-review-unresolved` in `web.ftl`.
+pub const WEB_MIGRATE_REVIEW_UNRESOLVED: MessageKey =
+    MessageKey::new("web-migrate-review-unresolved");
+
+/// `web-migrate-inputs-title` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_TITLE: MessageKey = MessageKey::new("web-migrate-inputs-title");
+
+/// `web-migrate-inputs-none` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_NONE: MessageKey = MessageKey::new("web-migrate-inputs-none");
+
+/// `web-migrate-inputs-blocked` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_BLOCKED: MessageKey = MessageKey::new("web-migrate-inputs-blocked");
+
+/// `web-migrate-inputs-blocked-item` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_BLOCKED_ITEM: MessageKey =
+    MessageKey::new("web-migrate-inputs-blocked-item");
+
+/// `web-migrate-inputs-passwords` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORDS: MessageKey =
+    MessageKey::new("web-migrate-inputs-passwords");
+
+/// `web-migrate-inputs-passwords-text` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORDS_TEXT: MessageKey =
+    MessageKey::new("web-migrate-inputs-passwords-text");
+
+/// `web-migrate-inputs-password-help` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORD_HELP: MessageKey =
+    MessageKey::new("web-migrate-inputs-password-help");
+
+/// `web-migrate-inputs-password-keep` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORD_KEEP: MessageKey =
+    MessageKey::new("web-migrate-inputs-password-keep");
+
+/// `web-migrate-inputs-password-missing` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORD_MISSING: MessageKey =
+    MessageKey::new("web-migrate-inputs-password-missing");
+
+/// `web-migrate-inputs-password-invalid` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORD_INVALID: MessageKey =
+    MessageKey::new("web-migrate-inputs-password-invalid");
+
+/// `web-migrate-inputs-components` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_COMPONENTS: MessageKey =
+    MessageKey::new("web-migrate-inputs-components");
+
+/// `web-migrate-inputs-components-text` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_COMPONENTS_TEXT: MessageKey =
+    MessageKey::new("web-migrate-inputs-components-text");
+
+/// `web-migrate-inputs-component-needed` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_COMPONENT_NEEDED: MessageKey =
+    MessageKey::new("web-migrate-inputs-component-needed");
+
+/// `web-migrate-inputs-component-missing` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_COMPONENT_MISSING: MessageKey =
+    MessageKey::new("web-migrate-inputs-component-missing");
+
+/// `web-migrate-inputs-reconnect` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_RECONNECT: MessageKey =
+    MessageKey::new("web-migrate-inputs-reconnect");
+
+/// `web-migrate-inputs-reconnect-label` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_RECONNECT_LABEL: MessageKey =
+    MessageKey::new("web-migrate-inputs-reconnect-label");
+
+/// `web-migrate-inputs-reconnect-help` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_RECONNECT_HELP: MessageKey =
+    MessageKey::new("web-migrate-inputs-reconnect-help");
+
+/// `web-migrate-inputs-reconnect-error` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_RECONNECT_ERROR: MessageKey =
+    MessageKey::new("web-migrate-inputs-reconnect-error");
+
+/// `web-migrate-inputs-accept` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_ACCEPT: MessageKey = MessageKey::new("web-migrate-inputs-accept");
+
+/// `web-migrate-inputs-accept-required` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_ACCEPT_REQUIRED: MessageKey =
+    MessageKey::new("web-migrate-inputs-accept-required");
+
+/// `web-migrate-inputs-preview` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PREVIEW: MessageKey = MessageKey::new("web-migrate-inputs-preview");
+
+/// `web-migrate-problem-plan` in `web.ftl`.
+pub const WEB_MIGRATE_PROBLEM_PLAN: MessageKey = MessageKey::new("web-migrate-problem-plan");
+
+/// `web-migrate-preview-title` in `web.ftl`.
+pub const WEB_MIGRATE_PREVIEW_TITLE: MessageKey = MessageKey::new("web-migrate-preview-title");
+
+/// `web-migrate-preview-text` in `web.ftl`.
+pub const WEB_MIGRATE_PREVIEW_TEXT: MessageKey = MessageKey::new("web-migrate-preview-text");
+
+/// `web-migrate-preview-empty` in `web.ftl`.
+pub const WEB_MIGRATE_PREVIEW_EMPTY: MessageKey = MessageKey::new("web-migrate-preview-empty");
+
+/// `web-migrate-preview-reconnect` in `web.ftl`.
+pub const WEB_MIGRATE_PREVIEW_RECONNECT: MessageKey =
+    MessageKey::new("web-migrate-preview-reconnect");
+
+/// `web-migrate-phase-components` in `web.ftl`.
+pub const WEB_MIGRATE_PHASE_COMPONENTS: MessageKey =
+    MessageKey::new("web-migrate-phase-components");
+
+/// `web-migrate-phase-components-text` in `web.ftl`.
+pub const WEB_MIGRATE_PHASE_COMPONENTS_TEXT: MessageKey =
+    MessageKey::new("web-migrate-phase-components-text");
+
+/// `web-migrate-phase-additive` in `web.ftl`.
+pub const WEB_MIGRATE_PHASE_ADDITIVE: MessageKey = MessageKey::new("web-migrate-phase-additive");
+
+/// `web-migrate-phase-prune` in `web.ftl`.
+pub const WEB_MIGRATE_PHASE_PRUNE: MessageKey = MessageKey::new("web-migrate-phase-prune");
+
+/// `web-migrate-phase-management` in `web.ftl`.
+pub const WEB_MIGRATE_PHASE_MANAGEMENT: MessageKey =
+    MessageKey::new("web-migrate-phase-management");
+
+/// `web-migrate-count-settings` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_SETTINGS: MessageKey = MessageKey::new("web-migrate-count-settings");
+
+/// `web-migrate-count-commands` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_COMMANDS: MessageKey = MessageKey::new("web-migrate-count-commands");
+
+/// `web-migrate-count-present` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_PRESENT: MessageKey = MessageKey::new("web-migrate-count-present");
+
+/// `web-migrate-count-left-out` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_LEFT_OUT: MessageKey = MessageKey::new("web-migrate-count-left-out");
+
+/// `web-migrate-count-stay` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_STAY: MessageKey = MessageKey::new("web-migrate-count-stay");
+
+/// `web-migrate-downloads` in `web.ftl`.
+pub const WEB_MIGRATE_DOWNLOADS: MessageKey = MessageKey::new("web-migrate-downloads");
+
+/// `web-migrate-download-plan` in `web.ftl`.
+pub const WEB_MIGRATE_DOWNLOAD_PLAN: MessageKey = MessageKey::new("web-migrate-download-plan");
+
+/// `web-migrate-download-markdown` in `web.ftl`.
+pub const WEB_MIGRATE_DOWNLOAD_MARKDOWN: MessageKey =
+    MessageKey::new("web-migrate-download-markdown");
+
+/// `web-migrate-download-html` in `web.ftl`.
+pub const WEB_MIGRATE_DOWNLOAD_HTML: MessageKey = MessageKey::new("web-migrate-download-html");
+
+/// `web-migrate-apply` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY: MessageKey = MessageKey::new("web-migrate-apply");
+
+/// `web-migrate-apply-forbidden` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY_FORBIDDEN: MessageKey = MessageKey::new("web-migrate-apply-forbidden");
+
+/// `web-migrate-finish-committed` in `web.ftl`.
+pub const WEB_MIGRATE_FINISH_COMMITTED: MessageKey =
+    MessageKey::new("web-migrate-finish-committed");
+
+/// `web-migrate-finish-rolled-back` in `web.ftl`.
+pub const WEB_MIGRATE_FINISH_ROLLED_BACK: MessageKey =
+    MessageKey::new("web-migrate-finish-rolled-back");
+
+/// `web-migrate-finish-closed` in `web.ftl`.
+pub const WEB_MIGRATE_FINISH_CLOSED: MessageKey = MessageKey::new("web-migrate-finish-closed");
+
+/// `web-migrate-failure-replan` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_REPLAN: MessageKey = MessageKey::new("web-migrate-failure-replan");
+
+/// `web-migrate-failure-drift` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_DRIFT: MessageKey = MessageKey::new("web-migrate-failure-drift");
+
+/// `web-migrate-failure-same` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_SAME: MessageKey = MessageKey::new("web-migrate-failure-same");
+
+/// `web-migrate-failure-source` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_SOURCE: MessageKey = MessageKey::new("web-migrate-failure-source");
+
+/// `web-migrate-failure-input` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_INPUT: MessageKey = MessageKey::new("web-migrate-failure-input");
+
+/// `web-migrate-failure-stopped` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_STOPPED: MessageKey = MessageKey::new("web-migrate-failure-stopped");
+
+/// `web-migrate-failure-verification` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_VERIFICATION: MessageKey =
+    MessageKey::new("web-migrate-failure-verification");
+
+/// `web-migrate-failure-unreachable` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_UNREACHABLE: MessageKey =
+    MessageKey::new("web-migrate-failure-unreachable");
+
+/// `web-migrate-failure-cancelled` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_CANCELLED: MessageKey =
+    MessageKey::new("web-migrate-failure-cancelled");
+
+/// `web-migrate-apply-no-jobs` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY_NO_JOBS: MessageKey = MessageKey::new("web-migrate-apply-no-jobs");
+
+/// `web-migrate-apply-confirm-title` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY_CONFIRM_TITLE: MessageKey =
+    MessageKey::new("web-migrate-apply-confirm-title");
+
+/// `web-migrate-apply-confirm-text` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY_CONFIRM_TEXT: MessageKey =
+    MessageKey::new("web-migrate-apply-confirm-text");
+
+/// `web-migrate-apply-busy` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY_BUSY: MessageKey = MessageKey::new("web-migrate-apply-busy");
+
+/// `web-migrate-apply-changed` in `web.ftl`.
+pub const WEB_MIGRATE_APPLY_CHANGED: MessageKey = MessageKey::new("web-migrate-apply-changed");
+
+/// `web-migrate-results-open` in `web.ftl`.
+pub const WEB_MIGRATE_RESULTS_OPEN: MessageKey = MessageKey::new("web-migrate-results-open");
+
+/// `web-migrate-outcome-applied` in `web.ftl`.
+pub const WEB_MIGRATE_OUTCOME_APPLIED: MessageKey = MessageKey::new("web-migrate-outcome-applied");
+
+/// `web-migrate-outcome-rejected` in `web.ftl`.
+pub const WEB_MIGRATE_OUTCOME_REJECTED: MessageKey =
+    MessageKey::new("web-migrate-outcome-rejected");
+
+/// `web-migrate-outcome-unknown` in `web.ftl`.
+pub const WEB_MIGRATE_OUTCOME_UNKNOWN: MessageKey = MessageKey::new("web-migrate-outcome-unknown");
+
+/// `web-migrate-run-percent` in `web.ftl`.
+pub const WEB_MIGRATE_RUN_PERCENT: MessageKey = MessageKey::new("web-migrate-run-percent");
+
+/// `web-migrate-run-interrupted` in `web.ftl`.
+pub const WEB_MIGRATE_RUN_INTERRUPTED: MessageKey = MessageKey::new("web-migrate-run-interrupted");
+
+/// `web-migrate-timer` in `web.ftl`.
+pub const WEB_MIGRATE_TIMER: MessageKey = MessageKey::new("web-migrate-timer");
+
+/// `web-migrate-timer-over` in `web.ftl`.
+pub const WEB_MIGRATE_TIMER_OVER: MessageKey = MessageKey::new("web-migrate-timer-over");
+
+/// `web-migrate-stopping` in `web.ftl`.
+pub const WEB_MIGRATE_STOPPING: MessageKey = MessageKey::new("web-migrate-stopping");
+
+/// `web-migrate-run-title` in `web.ftl`.
+pub const WEB_MIGRATE_RUN_TITLE: MessageKey = MessageKey::new("web-migrate-run-title");
+
+/// `web-migrate-run-text` in `web.ftl`.
+pub const WEB_MIGRATE_RUN_TEXT: MessageKey = MessageKey::new("web-migrate-run-text");
+
+/// `web-migrate-run-progress` in `web.ftl`.
+pub const WEB_MIGRATE_RUN_PROGRESS: MessageKey = MessageKey::new("web-migrate-run-progress");
+
+/// `web-migrate-count-applied` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_APPLIED: MessageKey = MessageKey::new("web-migrate-count-applied");
+
+/// `web-migrate-count-refused` in `web.ftl`.
+pub const WEB_MIGRATE_COUNT_REFUSED: MessageKey = MessageKey::new("web-migrate-count-refused");
+
+/// `web-migrate-results-title` in `web.ftl`.
+pub const WEB_MIGRATE_RESULTS_TITLE: MessageKey = MessageKey::new("web-migrate-results-title");
+
+/// `web-migrate-commit` in `web.ftl`.
+pub const WEB_MIGRATE_COMMIT: MessageKey = MessageKey::new("web-migrate-commit");
+
+/// `web-migrate-replan` in `web.ftl`.
+pub const WEB_MIGRATE_REPLAN: MessageKey = MessageKey::new("web-migrate-replan");
+
+/// `web-migrate-retry` in `web.ftl`.
+pub const WEB_MIGRATE_RETRY: MessageKey = MessageKey::new("web-migrate-retry");
+
+/// `web-migrate-close` in `web.ftl`.
+pub const WEB_MIGRATE_CLOSE: MessageKey = MessageKey::new("web-migrate-close");
+
+/// `web-migrate-rollback-forbidden` in `web.ftl`.
+pub const WEB_MIGRATE_ROLLBACK_FORBIDDEN: MessageKey =
+    MessageKey::new("web-migrate-rollback-forbidden");
+
+/// `web-migrate-rollback-title` in `web.ftl`.
+pub const WEB_MIGRATE_ROLLBACK_TITLE: MessageKey = MessageKey::new("web-migrate-rollback-title");
+
+/// `web-migrate-rollback-text` in `web.ftl`.
+pub const WEB_MIGRATE_ROLLBACK_TEXT: MessageKey = MessageKey::new("web-migrate-rollback-text");
+
+/// `web-migrate-report-title` in `web.ftl`.
+pub const WEB_MIGRATE_REPORT_TITLE: MessageKey = MessageKey::new("web-migrate-report-title");
+
+/// `web-migrate-report-finished` in `web.ftl`.
+pub const WEB_MIGRATE_REPORT_FINISHED: MessageKey = MessageKey::new("web-migrate-report-finished");
+
+/// `web-migrate-download-json` in `web.ftl`.
+pub const WEB_MIGRATE_DOWNLOAD_JSON: MessageKey = MessageKey::new("web-migrate-download-json");
+
+/// `web-migrate-failure-validation` in `web.ftl`.
+pub const WEB_MIGRATE_FAILURE_VALIDATION: MessageKey =
+    MessageKey::new("web-migrate-failure-validation");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1366] = [
+pub static ALL: [MessageKey; 1583] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -5605,4 +6324,221 @@ pub static ALL: [MessageKey; 1366] = [
     WEB_CONFIG_RAW_LOST,
     WEB_CONFIG_RAW_FAILED,
     WEB_CONFIG_COMPARE_AGAIN,
+    WEB_MIGRATE_ALL,
+    WEB_MIGRATE_STEPS_LABEL,
+    WEB_MIGRATE_STEP_SOURCE,
+    WEB_MIGRATE_STEP_TARGET,
+    WEB_MIGRATE_STEP_MAPPING,
+    WEB_MIGRATE_STEP_REVIEW,
+    WEB_MIGRATE_STEP_INPUTS,
+    WEB_MIGRATE_STEP_PREVIEW,
+    WEB_MIGRATE_STEP_APPLY,
+    WEB_MIGRATE_STEP_RESULTS,
+    WEB_MIGRATE_STEP_REPORT,
+    WEB_MIGRATE_CONTINUE,
+    WEB_MIGRATE_INTRO,
+    WEB_MIGRATE_RESTORE_TITLE,
+    WEB_MIGRATE_RESTORE_OFFER,
+    WEB_MIGRATE_RESTORE_START,
+    WEB_MIGRATE_RESTORE_INVALID,
+    WEB_MIGRATE_KIND_MIGRATION,
+    WEB_MIGRATE_KIND_RESTORE,
+    WEB_MIGRATE_LIST_TITLE,
+    WEB_MIGRATE_LIST_EMPTY,
+    WEB_MIGRATE_LIST_STARTED,
+    WEB_MIGRATE_LIST_KIND,
+    WEB_MIGRATE_LIST_STEP,
+    WEB_MIGRATE_LIST_OPEN,
+    WEB_MIGRATE_SUMMARY_SOURCE,
+    WEB_MIGRATE_SOURCE_IS_ROUTER,
+    WEB_MIGRATE_SOURCE_IS_FILE,
+    WEB_MIGRATE_SOURCE_IS_BACKUP,
+    WEB_MIGRATE_SOURCE_TITLE,
+    WEB_MIGRATE_SOURCE_TEXT,
+    WEB_MIGRATE_SOURCE_KIND,
+    WEB_MIGRATE_SOURCE_ROUTER,
+    WEB_MIGRATE_SOURCE_FILE,
+    WEB_MIGRATE_SOURCE_BACKUP,
+    WEB_MIGRATE_SOURCE_ROUTER_LABEL,
+    WEB_MIGRATE_SOURCE_NO_ROUTERS,
+    WEB_MIGRATE_SOURCE_FILE_LABEL,
+    WEB_MIGRATE_SOURCE_FILE_HELP,
+    WEB_MIGRATE_SOURCE_BACKUP_LABEL,
+    WEB_MIGRATE_SOURCE_NO_BACKUPS,
+    WEB_MIGRATE_SOURCE_BACKUP_OPTION,
+    WEB_MIGRATE_SOURCE_ERROR_KIND,
+    WEB_MIGRATE_SOURCE_ERROR_ROUTER,
+    WEB_MIGRATE_SOURCE_ERROR_READ,
+    WEB_MIGRATE_SOURCE_ERROR_FILE,
+    WEB_MIGRATE_SOURCE_ERROR_LARGE,
+    WEB_MIGRATE_SOURCE_ERROR_PARSE,
+    WEB_MIGRATE_SOURCE_ERROR_BACKUP,
+    WEB_MIGRATE_TARGET_TITLE,
+    WEB_MIGRATE_TARGET_TEXT,
+    WEB_MIGRATE_TARGET_NONE,
+    WEB_MIGRATE_TARGET_RESTORE,
+    WEB_MIGRATE_TARGET_FIRMWARE,
+    WEB_MIGRATE_TARGET_FIRMWARE_HELP,
+    WEB_MIGRATE_TARGET_CHECK,
+    WEB_MIGRATE_TARGET_REPORT,
+    WEB_MIGRATE_TARGET_ERROR_ROUTER,
+    WEB_MIGRATE_TARGET_ERROR_SAME,
+    WEB_MIGRATE_TARGET_ERROR_FIRMWARE,
+    WEB_MIGRATE_TIER,
+    WEB_MIGRATE_MODE,
+    WEB_MIGRATE_MODE_ROUTER,
+    WEB_MIGRATE_MODE_EXTENDER,
+    WEB_MIGRATE_MODE_AP,
+    WEB_MIGRATE_MODE_REPEATER,
+    WEB_MIGRATE_WARNING_NONE,
+    WEB_MIGRATE_WARNING_TIER,
+    WEB_MIGRATE_WARNING_MODE,
+    WEB_MIGRATE_WARNING_AGREEMENT,
+    WEB_MIGRATE_WARNING_COMPONENTS,
+    WEB_MIGRATE_WARNING_LEFTOVERS,
+    WEB_MIGRATE_LEFTOVERS_SHOW,
+    WEB_MIGRATE_AGREEMENT_DPN,
+    WEB_MIGRATE_AGREEMENT_EULA,
+    WEB_MIGRATE_ACK_TIER,
+    WEB_MIGRATE_ACK_REQUIRED,
+    WEB_MIGRATE_PROBLEM_SOURCE,
+    WEB_MIGRATE_PROBLEM_FIRMWARE_REQUIRED,
+    WEB_MIGRATE_PROBLEM_FIRMWARE_OLDER,
+    WEB_MIGRATE_PROBLEM_UNSUPPORTED,
+    WEB_MIGRATE_PROBLEM_UNREACHABLE,
+    WEB_MIGRATE_MAPPING_TITLE,
+    WEB_MIGRATE_MAPPING_TEXT,
+    WEB_MIGRATE_MAP_HARDWARE_UNKNOWN,
+    WEB_MIGRATE_PORTS,
+    WEB_MIGRATE_PORTS_NONE,
+    WEB_MIGRATE_RADIOS,
+    WEB_MIGRATE_RADIOS_NONE,
+    WEB_MIGRATE_INTERFACES,
+    WEB_MIGRATE_INTERFACES_NONE,
+    WEB_MIGRATE_MAP_SOURCE,
+    WEB_MIGRATE_MAP_TARGET,
+    WEB_MIGRATE_MAP_RENAME,
+    WEB_MIGRATE_MAP_UNMAPPED,
+    WEB_MIGRATE_MAP_ERROR_UNKNOWN,
+    WEB_MIGRATE_MAP_ERROR_TAKEN,
+    WEB_MIGRATE_MAP_ERROR_BAND,
+    WEB_MIGRATE_MAP_ERROR_NAME,
+    WEB_MIGRATE_MAP_ERROR_KIND,
+    WEB_MIGRATE_ROLE_WAN,
+    WEB_MIGRATE_ROLE_LAN,
+    WEB_MIGRATE_ROLE_SFP,
+    WEB_MIGRATE_ROLE_DSL,
+    WEB_MIGRATE_BAND_2_4,
+    WEB_MIGRATE_BAND_5,
+    WEB_MIGRATE_BAND_6,
+    WEB_MIGRATE_FATE_ALL,
+    WEB_MIGRATE_FATE_MIGRATED,
+    WEB_MIGRATE_FATE_CONFLICT,
+    WEB_MIGRATE_FATE_INPUT,
+    WEB_MIGRATE_FATE_SKIPPED,
+    WEB_MIGRATE_FATE_UNSUPPORTED,
+    WEB_MIGRATE_FATE_EXCLUDED,
+    WEB_MIGRATE_REASON_CONFLICT,
+    WEB_MIGRATE_REASON_CONFLICT_SOURCE,
+    WEB_MIGRATE_REASON_CONFLICT_ROUTER,
+    WEB_MIGRATE_REASON_PASSWORD,
+    WEB_MIGRATE_REASON_PASSWORD_SET,
+    WEB_MIGRATE_REASON_COMPONENT,
+    WEB_MIGRATE_REVIEW_TITLE,
+    WEB_MIGRATE_REVIEW_TEXT,
+    WEB_MIGRATE_REVIEW_FILTERS,
+    WEB_MIGRATE_REVIEW_LINE,
+    WEB_MIGRATE_REVIEW_SETTING,
+    WEB_MIGRATE_REVIEW_FATE,
+    WEB_MIGRATE_REVIEW_CHOICE,
+    WEB_MIGRATE_REVIEW_INCLUDE,
+    WEB_MIGRATE_REVIEW_RESOLVE,
+    WEB_MIGRATE_REVIEW_USE_SOURCE,
+    WEB_MIGRATE_REVIEW_KEEP_ROUTER,
+    WEB_MIGRATE_REVIEW_UNRESOLVED,
+    WEB_MIGRATE_INPUTS_TITLE,
+    WEB_MIGRATE_INPUTS_NONE,
+    WEB_MIGRATE_INPUTS_BLOCKED,
+    WEB_MIGRATE_INPUTS_BLOCKED_ITEM,
+    WEB_MIGRATE_INPUTS_PASSWORDS,
+    WEB_MIGRATE_INPUTS_PASSWORDS_TEXT,
+    WEB_MIGRATE_INPUTS_PASSWORD_HELP,
+    WEB_MIGRATE_INPUTS_PASSWORD_KEEP,
+    WEB_MIGRATE_INPUTS_PASSWORD_MISSING,
+    WEB_MIGRATE_INPUTS_PASSWORD_INVALID,
+    WEB_MIGRATE_INPUTS_COMPONENTS,
+    WEB_MIGRATE_INPUTS_COMPONENTS_TEXT,
+    WEB_MIGRATE_INPUTS_COMPONENT_NEEDED,
+    WEB_MIGRATE_INPUTS_COMPONENT_MISSING,
+    WEB_MIGRATE_INPUTS_RECONNECT,
+    WEB_MIGRATE_INPUTS_RECONNECT_LABEL,
+    WEB_MIGRATE_INPUTS_RECONNECT_HELP,
+    WEB_MIGRATE_INPUTS_RECONNECT_ERROR,
+    WEB_MIGRATE_INPUTS_ACCEPT,
+    WEB_MIGRATE_INPUTS_ACCEPT_REQUIRED,
+    WEB_MIGRATE_INPUTS_PREVIEW,
+    WEB_MIGRATE_PROBLEM_PLAN,
+    WEB_MIGRATE_PREVIEW_TITLE,
+    WEB_MIGRATE_PREVIEW_TEXT,
+    WEB_MIGRATE_PREVIEW_EMPTY,
+    WEB_MIGRATE_PREVIEW_RECONNECT,
+    WEB_MIGRATE_PHASE_COMPONENTS,
+    WEB_MIGRATE_PHASE_COMPONENTS_TEXT,
+    WEB_MIGRATE_PHASE_ADDITIVE,
+    WEB_MIGRATE_PHASE_PRUNE,
+    WEB_MIGRATE_PHASE_MANAGEMENT,
+    WEB_MIGRATE_COUNT_SETTINGS,
+    WEB_MIGRATE_COUNT_COMMANDS,
+    WEB_MIGRATE_COUNT_PRESENT,
+    WEB_MIGRATE_COUNT_LEFT_OUT,
+    WEB_MIGRATE_COUNT_STAY,
+    WEB_MIGRATE_DOWNLOADS,
+    WEB_MIGRATE_DOWNLOAD_PLAN,
+    WEB_MIGRATE_DOWNLOAD_MARKDOWN,
+    WEB_MIGRATE_DOWNLOAD_HTML,
+    WEB_MIGRATE_APPLY,
+    WEB_MIGRATE_APPLY_FORBIDDEN,
+    WEB_MIGRATE_FINISH_COMMITTED,
+    WEB_MIGRATE_FINISH_ROLLED_BACK,
+    WEB_MIGRATE_FINISH_CLOSED,
+    WEB_MIGRATE_FAILURE_REPLAN,
+    WEB_MIGRATE_FAILURE_DRIFT,
+    WEB_MIGRATE_FAILURE_SAME,
+    WEB_MIGRATE_FAILURE_SOURCE,
+    WEB_MIGRATE_FAILURE_INPUT,
+    WEB_MIGRATE_FAILURE_STOPPED,
+    WEB_MIGRATE_FAILURE_VERIFICATION,
+    WEB_MIGRATE_FAILURE_UNREACHABLE,
+    WEB_MIGRATE_FAILURE_CANCELLED,
+    WEB_MIGRATE_APPLY_NO_JOBS,
+    WEB_MIGRATE_APPLY_CONFIRM_TITLE,
+    WEB_MIGRATE_APPLY_CONFIRM_TEXT,
+    WEB_MIGRATE_APPLY_BUSY,
+    WEB_MIGRATE_APPLY_CHANGED,
+    WEB_MIGRATE_RESULTS_OPEN,
+    WEB_MIGRATE_OUTCOME_APPLIED,
+    WEB_MIGRATE_OUTCOME_REJECTED,
+    WEB_MIGRATE_OUTCOME_UNKNOWN,
+    WEB_MIGRATE_RUN_PERCENT,
+    WEB_MIGRATE_RUN_INTERRUPTED,
+    WEB_MIGRATE_TIMER,
+    WEB_MIGRATE_TIMER_OVER,
+    WEB_MIGRATE_STOPPING,
+    WEB_MIGRATE_RUN_TITLE,
+    WEB_MIGRATE_RUN_TEXT,
+    WEB_MIGRATE_RUN_PROGRESS,
+    WEB_MIGRATE_COUNT_APPLIED,
+    WEB_MIGRATE_COUNT_REFUSED,
+    WEB_MIGRATE_RESULTS_TITLE,
+    WEB_MIGRATE_COMMIT,
+    WEB_MIGRATE_REPLAN,
+    WEB_MIGRATE_RETRY,
+    WEB_MIGRATE_CLOSE,
+    WEB_MIGRATE_ROLLBACK_FORBIDDEN,
+    WEB_MIGRATE_ROLLBACK_TITLE,
+    WEB_MIGRATE_ROLLBACK_TEXT,
+    WEB_MIGRATE_REPORT_TITLE,
+    WEB_MIGRATE_REPORT_FINISHED,
+    WEB_MIGRATE_DOWNLOAD_JSON,
+    WEB_MIGRATE_FAILURE_VALIDATION,
 ];

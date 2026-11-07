@@ -1314,3 +1314,244 @@ web-config-raw-unverified = Роутер прийняв копію, але йо�
 web-config-raw-lost = Роутер не відповів після перезавантаження. Перевірте його, перш ніж щось змінювати.
 web-config-raw-failed = Не вдалося відновити резервну копію. Подробиці в журналі аудиту.
 web-config-compare-again = Порівняти інші конфігурації
+web-migrate-all = Усі перенесення
+web-migrate-steps-label = Кроки перенесення
+web-migrate-step-source = Джерело
+web-migrate-step-target = Цільовий роутер
+web-migrate-step-mapping = Інвентар і зіставлення
+web-migrate-step-review = Перевірка
+web-migrate-step-inputs = Введення даних
+web-migrate-step-preview = Перегляд плану
+web-migrate-step-apply = Застосування
+web-migrate-step-results = Результат
+web-migrate-step-report = Звіт
+web-migrate-continue = Продовжити
+web-migrate-intro = Перенесіть конфігурацію роутера, файлу startup-config або збереженої резервної копії на інший роутер. До кроку застосування на роутерах нічого не змінюється, а роутер зберігає збережену конфігурацію, доки ви не підтвердите зміни.
+web-migrate-restore-title = Відновлення резервної копії
+web-migrate-restore-offer = Відновити резервну копію { $name } роутера { $router } за перевіреним планом перенесення. Роутер зберігає збережену конфігурацію, доки ви не підтвердите зміни.
+web-migrate-restore-start = Почати відновлення
+web-migrate-restore-invalid = Цю резервну копію не можна відновити: роутера або копії немає, копія не є конфігурацією роутера або вам не можна переносити конфігурацію цього роутера.
+web-migrate-kind-migration = Перенесення
+web-migrate-kind-restore = Відновлення
+web-migrate-list-title = Ваші перенесення
+web-migrate-list-empty = Ви ще не починали перенесення.
+web-migrate-list-started = Розпочато
+web-migrate-list-kind = Вид
+web-migrate-list-step = Крок
+web-migrate-list-open = Відкрити
+web-migrate-summary-source = Джерело
+web-migrate-source-is-router = Роутер { $router }
+web-migrate-source-is-file = Файл { $name }
+web-migrate-source-is-backup = Резервна копія { $name } роутера { $router }
+web-migrate-source-title = Виберіть джерело
+web-migrate-source-text = kcc один раз читає завантажувальну конфігурацію і зберігає її зашифрованою до кінця перенесення.
+web-migrate-source-kind = Звідки взяти конфігурацію?
+web-migrate-source-router = З роутера зі списку
+web-migrate-source-file = З файлу startup-config
+web-migrate-source-backup = Зі збереженої резервної копії
+web-migrate-source-router-label = Роутер
+web-migrate-source-no-routers = Немає роутерів, конфігурацію яких вам можна переносити.
+web-migrate-source-file-label = Файл
+web-migrate-source-file-help = Файл startup-config.txt, збережений з роутера, не більше 1 МіБ.
+web-migrate-source-backup-label = Резервна копія
+web-migrate-source-no-backups = Немає збережених резервних копій роутерів, конфігурацію яких вам можна переносити.
+web-migrate-source-backup-option = { $value } ({ $name })
+web-migrate-source-error-kind = Виберіть, звідки взяти конфігурацію.
+web-migrate-source-error-router = Виберіть роутер, конфігурацію якого вам можна переносити.
+web-migrate-source-error-read = Роутер не надіслав конфігурацію. Спробуйте ще раз або завантажте його файл startup-config.
+web-migrate-source-error-file = Виберіть файл startup-config.
+web-migrate-source-error-large = Файл більший за 1 МіБ.
+web-migrate-source-error-parse = Це не конфігурація роутера, або її контрольна сума не збігається з текстом.
+web-migrate-source-error-backup = Виберіть збережену резервну копію роутера, конфігурацію якого вам можна переносити.
+web-migrate-target-title = Виберіть цільовий роутер
+web-migrate-target-text = kcc читає інвентар і конфігурацію роутера; до кроку застосування на ньому нічого не змінюється.
+web-migrate-target-none = Немає іншого роутера, на який вам можна переносити конфігурацію.
+web-migrate-target-restore = Резервна копія відновлюється на роутер { $router }, з якого її знято.
+web-migrate-target-firmware = Версія прошивки джерела
+web-migrate-target-firmware-help = У джерелі не вказано версію прошивки. Введіть версію, на якій він працював, наприклад 4.3.6.
+web-migrate-target-check = Прочитати роутер
+web-migrate-target-report = Що повідомляє роутер
+web-migrate-target-error-router = Виберіть роутер, на який вам можна переносити конфігурацію.
+web-migrate-target-error-same = Виберіть роутер, відмінний від джерела.
+web-migrate-target-error-firmware = Введіть версію прошивки, наприклад 4.3.6.
+web-migrate-tier = Рівень підтримки
+web-migrate-mode = Режим роботи
+web-migrate-mode-router = Роутер
+web-migrate-mode-extender = Ретранслятор
+web-migrate-mode-ap = Точка доступу
+web-migrate-mode-repeater = Підсилювач
+web-migrate-warning-none = Попереджень немає: роутер працює в режимі роутера, прийняв свої угоди, має потрібні джерелу компоненти і не зберігає власних налаштувань понад налаштування джерела.
+web-migrate-warning-tier = Ця лінійка прошивок підтримується лише за офіційною документацією і не перевірялася на реальних пристроях.
+web-migrate-warning-mode = Роутер не в режимі роутера, тому в нього немає таймера відкату: kcc натомість призначає перезавантаження за розкладом, яке поверне збережену конфігурацію, якщо ви не підтвердите зміни.
+web-migrate-warning-agreement = Роутер просить прийняти { $name }. Ви прочитаєте і приймете його текст на кроці введення даних.
+web-migrate-warning-components = На роутері немає компонентів, потрібних налаштуванням джерела: { $value }. На кроці введення даних ви вирішите, чи встановить їх kcc заздалегідь.
+web-migrate-warning-leftovers =
+    { $count ->
+        [one] Роутер не чистий: { $count } його власне налаштування відсутнє в джерелі й залишиться після перенесення.
+        [few] Роутер не чистий: { $count } його власні налаштування відсутні в джерелі й залишаться після перенесення.
+        [many] Роутер не чистий: { $count } його власних налаштувань відсутні в джерелі й залишаться після перенесення.
+       *[other] Роутер не чистий: { $count } його власного налаштування відсутні в джерелі й залишаться після перенесення.
+    }
+web-migrate-leftovers-show = Налаштування, що залишаться
+web-migrate-agreement-dpn = повідомлення про обробку даних
+web-migrate-agreement-eula = ліцензійну угоду (EULA)
+web-migrate-ack-tier = Я розумію, що цю лінійку прошивок не перевірено на пристроях; перенести все одно.
+web-migrate-ack-required = Підтвердьте повідомлення про прошивку, щоб продовжити.
+web-migrate-problem-source = Не вдалося прочитати конфігурацію джерела. Виберіть джерело знову.
+web-migrate-problem-firmware-required = У джерелі не вказано версію прошивки. Введіть версію, на якій він працював.
+web-migrate-problem-firmware-older = На роутері прошивка { $version }, старіша за прошивку джерела { $value }. kcc не переносить конфігурацію на старішу прошивку: спершу оновіть роутер.
+web-migrate-problem-unsupported = На роутері прошивка, старіша за 4.3, або невідома kcc, тому перенесення на нього неможливе.
+web-migrate-problem-unreachable = Роутер не відповів. Перевірте, що kcc до нього дістається, і спробуйте ще раз.
+web-migrate-mapping-title = Інвентар і зіставлення
+web-migrate-mapping-text = Кожне перенесене налаштування називає порти, радіомодулі та інтерфейси так, як їх зіставлено тут. Об'єкт джерела без зіставлення зберігає своє ім'я.
+web-migrate-map-hardware-unknown = Джерело є файлом, тому його обладнання невідоме: порти й радіомодулі зберігають свої імена там, де вони є на роутері.
+web-migrate-ports = Порти
+web-migrate-ports-none = У джерелі немає портів.
+web-migrate-radios = Радіомодулі Wi-Fi
+web-migrate-radios-none = У джерелі немає радіомодулів Wi-Fi.
+web-migrate-interfaces = Інтерфейси
+web-migrate-interfaces-none = У джерелі немає інших інтерфейсів.
+web-migrate-map-source = Джерело
+web-migrate-map-target = На роутері
+web-migrate-map-rename = Ім'я на роутері
+web-migrate-map-unmapped = Залишити ім'я джерела
+web-migrate-map-error-unknown = Виберіть один з об'єктів роутера.
+web-migrate-map-error-taken = { $name } уже вибрано вище.
+web-migrate-map-error-band = У { $name } немає спільного діапазону з радіомодулем джерела.
+web-migrate-map-error-name = Використовуйте від 1 до 64 латинських літер, цифр і символів / _ . -, починаючи з літери.
+web-migrate-map-error-kind = { $name } на роутері є інтерфейсом іншого виду.
+web-migrate-role-wan = WAN
+web-migrate-role-lan = LAN { $index }
+web-migrate-role-sfp = SFP
+web-migrate-role-dsl = DSL
+web-migrate-band-2-4 = 2,4 ГГц
+web-migrate-band-5 = 5 ГГц
+web-migrate-band-6 = 6 ГГц
+web-migrate-fate-all = Усі
+web-migrate-fate-migrated = Переноситься
+web-migrate-fate-conflict = Відрізняється від роутера
+web-migrate-fate-input = Потрібне введення
+web-migrate-fate-skipped = Пропускається
+web-migrate-fate-unsupported = Не підтримується
+web-migrate-fate-excluded = Виключено
+web-migrate-reason-conflict = У роутера інше значення цього налаштування. Виберіть, яке залишиться.
+web-migrate-reason-conflict-source = Значення джерела замінить значення роутера.
+web-migrate-reason-conflict-router = Роутер збереже своє значення.
+web-migrate-reason-password = Хеш пароля { $name } прив'язаний до realm джерела і не працює на цьому роутері. Введіть пароль на кроці введення даних.
+web-migrate-reason-password-set = { $name } отримає введений вами пароль.
+web-migrate-reason-component = Потрібен компонент { $name }, якого немає на роутері. На кроці введення даних виберіть, чи встановить його kcc заздалегідь.
+web-migrate-review-title = Перевірте налаштування
+web-migrate-review-text = Усі налаштування джерела і те, що з ними буде. Виключіть непотрібні; якщо в роутера інше значення, виберіть, яке залишиться. Вибір зберігається одразу.
+web-migrate-review-filters = Показати налаштування
+web-migrate-review-line = Рядок
+web-migrate-review-setting = Налаштування
+web-migrate-review-fate = Що станеться
+web-migrate-review-choice = Ваш вибір
+web-migrate-review-include = Перенести
+web-migrate-review-resolve = Яке значення залишиться
+web-migrate-review-use-source = Значення джерела
+web-migrate-review-keep-router = Значення роутера
+web-migrate-review-unresolved =
+    { $count ->
+        [one] { $count } налаштування відрізняється від значення роутера. Виберіть, яке значення залишиться.
+        [few] { $count } налаштування відрізняються від значень роутера. Виберіть, які значення залишаться.
+        [many] { $count } налаштувань відрізняються від значень роутера. Виберіть, які значення залишаться.
+       *[other] { $count } налаштування відрізняються від значень роутера. Виберіть, які значення залишаться.
+    }
+web-migrate-inputs-title = Введення даних
+web-migrate-inputs-none = Плану не потрібні дані. Перейдіть до перегляду.
+web-migrate-inputs-blocked = Ці налаштування ще не дають побудувати план:
+web-migrate-inputs-blocked-item = Рядок { $line }: { $value }
+web-migrate-inputs-passwords = Паролі
+web-migrate-inputs-passwords-text = Хеші паролів цих користувачів прив'язані до realm джерела. Введіть кожен пароль; kcc передасть його роутеру і зберігає його зашифрованим до кінця перенесення.
+web-migrate-inputs-password-help = Введіть пароль користувача.
+web-migrate-inputs-password-keep = Пароль задано. Залиште поле порожнім, щоб зберегти його.
+web-migrate-inputs-password-missing = Введіть пароль цього користувача.
+web-migrate-inputs-password-invalid = Використовуйте не більше 256 символів, без керівних символів.
+web-migrate-inputs-components = Компоненти для попереднього встановлення
+web-migrate-inputs-components-text = kcc встановить вибрані компоненти й перезавантажить роутер, перш ніж змінювати щось інше; потім ви знову перевірите план зі встановленими компонентами.
+web-migrate-inputs-component-needed =
+    { $count ->
+        [one] потрібен { $count } налаштуванню
+        [few] потрібен { $count } налаштуванням
+        [many] потрібен { $count } налаштуванням
+       *[other] потрібен { $count } налаштування
+    }
+web-migrate-inputs-component-missing = Спершу встановіть { $value } або виключіть налаштування, яким він потрібен, на кроці перевірки.
+web-migrate-inputs-reconnect = Підключення до роутера після перенесення
+web-migrate-inputs-reconnect-label = Адреса роутера після перенесення
+web-migrate-inputs-reconnect-help = План змінює те, як kcc підключається до роутера. Після цих змін kcc підключиться за цією адресою, наприклад http://192.0.2.1.
+web-migrate-inputs-reconnect-error = Введіть адресу роутера, наприклад http://192.0.2.1, без імені користувача і шляху.
+web-migrate-inputs-accept = Я приймаю цей текст.
+web-migrate-inputs-accept-required = Щоб продовжити, прийміть угоди роутера.
+web-migrate-inputs-preview = Переглянути план
+web-migrate-problem-plan = Не вдалося побудувати план. Поверніться і перевірте налаштування та введені дані.
+web-migrate-preview-title = Перегляд плану
+web-migrate-preview-text = Команди, які kcc надішле роутеру, по порядку. Спершу kcc збереже резервну копію конфігурації роутера і надішле команди під таймером відкату; нічого не зберігається, доки ви не підтвердите зміни.
+web-migrate-preview-empty = На роутері вже є всі перенесені налаштування: kcc не надішле жодної команди.
+web-migrate-preview-reconnect = Після зміни підключення kcc підключається до роутера за адресою
+web-migrate-phase-components = Компоненти, що встановлюються заздалегідь
+web-migrate-phase-components-text = kcc встановить ці компоненти й перезавантажить роутер, потім попросить вас знову перевірити план.
+web-migrate-phase-additive = Налаштування, що додаються
+web-migrate-phase-prune = Налаштування, що видаляються
+web-migrate-phase-management = Зміни підключення, надсилаються останніми
+web-migrate-count-settings = Налаштувань у джерелі
+web-migrate-count-commands = Команд до надсилання
+web-migrate-count-present = Уже є на роутері
+web-migrate-count-left-out = Виключено або пропущено
+web-migrate-count-stay = Власних налаштувань роутера залишиться
+web-migrate-downloads = План і звіт
+web-migrate-download-plan = План (JSON)
+web-migrate-download-markdown = Звіт (Markdown)
+web-migrate-download-html = Звіт (HTML)
+web-migrate-apply = Застосувати перенесення
+web-migrate-apply-forbidden = Застосування вмикає таймер відкату роутера, для чого крім прав Migrate, Write і Save потрібне право Destructive на цьому роутері. Зверніться до адміністратора.
+web-migrate-finish-committed = Перенесення завершено: роутер зберіг перенесену конфігурацію.
+web-migrate-finish-rolled-back = Перенесення відкочено: роутер працює з конфігурацією, збереженою до нього.
+web-migrate-finish-closed = Перенесення завершено без змін, які треба було б зберегти на роутері.
+web-migrate-failure-replan = Компоненти встановлено, роутер перезавантажено. Перевірте план знову: тепер він охоплює налаштування, яким вони були потрібні.
+web-migrate-failure-drift = Роутер або джерело змінилися після побудови плану. Перевірте план знову.
+web-migrate-failure-same = Джерело і ціль є тим самим роутером.
+web-migrate-failure-source = Не вдалося знову прочитати джерело. Перевірте, що вихідний роутер відповідає, або виберіть файл чи резервну копію.
+web-migrate-failure-input = Бракує введених даних, або вони не збігаються з планом. Перевірте крок введення даних.
+web-migrate-failure-stopped = Роутер відхилив налаштування, тому kcc зупинився перед наступним. Відкотіть зміни, щоб повернути збережену конфігурацію.
+web-migrate-failure-verification = Роутер прийняв налаштування, але їх повторне читання або перевірка його стану не пройшли. Відкотіть зміни або дочекайтеся, доки роутер сам відновиться за таймером.
+web-migrate-failure-unreachable = Роутер перестав відповідати. Він сам відновить збережену конфігурацію, коли спливе таймер відкату.
+web-migrate-failure-cancelled = Ви зупинили перенесення. Відкотіть зміни, щоб повернути збережену конфігурацію.
+web-migrate-apply-no-jobs = У цьому kcc не запущено виконавця завдань, тому він не може застосовувати перенесення.
+web-migrate-apply-confirm-title = Застосувати перенесення на { $router }?
+web-migrate-apply-confirm-text = kcc збереже резервну копію конфігурації { $router }, увімкне його таймер відкату на { $minutes } хв і надішле заплановані команди. Нічого не зберігається, доки ви не виберете збереження; якщо kcc перестане зв'язуватися з роутером, роутер відновить збережену конфігурацію, коли спливе таймер.
+web-migrate-apply-busy = На цей роутер уже застосовується інше перенесення. Дочекайтеся його збереження або відкату.
+web-migrate-apply-changed = Роутер змінився після перегляду, тому змінився і план. Перевірте план нижче і застосуйте знову.
+web-migrate-results-open = Переглянути результат
+web-migrate-outcome-applied = Застосовано
+web-migrate-outcome-rejected = Відхилено
+web-migrate-outcome-unknown = Немає відповіді
+web-migrate-run-percent = Надіслано { $count }%
+web-migrate-run-interrupted = kcc перезапустився під час перенесення. Роутер сам відновить збережену конфігурацію, коли спливе таймер відкату.
+web-migrate-timer =
+    { $count ->
+        [one] Якщо kcc перестане зв'язуватися з роутером, той сам відновить збережену конфігурацію приблизно через { $count } хвилину.
+        [few] Якщо kcc перестане зв'язуватися з роутером, той сам відновить збережену конфігурацію приблизно через { $count } хвилини.
+        [many] Якщо kcc перестане зв'язуватися з роутером, той сам відновить збережену конфігурацію приблизно через { $count } хвилин.
+       *[other] Якщо kcc перестане зв'язуватися з роутером, той сам відновить збережену конфігурацію приблизно через { $count } хвилини.
+    }
+web-migrate-timer-over = Таймер відкату сплив: якщо зміни не було збережено, роутер відновив збережену конфігурацію.
+web-migrate-stopping = Зупинка: kcc більше не надсилає налаштування.
+web-migrate-run-title = Застосування перенесення
+web-migrate-run-text = kcc зберіг резервну копію конфігурації роутера, увімкнув його таймер відкату і надсилає налаштування по одному. Можна піти з цієї сторінки: перенесення триватиме, а після повернення буде видно його хід.
+web-migrate-run-progress = Хід перенесення
+web-migrate-count-applied = Налаштувань прийнято роутером
+web-migrate-count-refused = Налаштувань відхилено роутером
+web-migrate-results-title = Результат
+web-migrate-commit = Зберегти
+web-migrate-replan = Перевірити план знову
+web-migrate-retry = Повернутися до перегляду
+web-migrate-close = Завершити
+web-migrate-rollback-forbidden = Для відкату потрібне право Destructive. Якщо ніхто не збереже зміни, роутер сам відновить збережену конфігурацію, коли спливе таймер відкату.
+web-migrate-rollback-title = Відкотити перенесення на { $router }?
+web-migrate-rollback-text = kcc відновить конфігурацію, яку { $router } зберіг до перенесення; роутер може перезавантажитися. Введіть ім'я роутера для підтвердження.
+web-migrate-report-title = Звіт
+web-migrate-report-finished = Завершено
+web-migrate-download-json = Звіт (JSON)
+web-migrate-failure-validation = kcc поки не може перевірити одну із запланованих команд за каталогом команд роутера, тому нічого не надіслав: роутер не змінено. Поверніться до кроку «Перевірка», виключіть налаштування, які kcc не може надіслати (зазвичай усередині розділів інтерфейсу, пулу DHCP або політики), і застосуйте перенесення знову.

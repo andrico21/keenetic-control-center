@@ -623,6 +623,22 @@ impl ChangeWorkflow {
         authorize(role, Permission::Migrate, source).map_err(map_permission)?;
         authorize(role, Permission::Migrate, target).map_err(map_permission)
     }
+
+    /// The encrypted backup store this workflow writes its automatic backups to; a
+    /// migration reads its stored backup sources from it.
+    #[inline]
+    #[must_use]
+    pub const fn backups(&self) -> &Arc<BackupStore> {
+        &self.backups
+    }
+
+    /// The state directory owner holding this workflow's leases; front ends keep their
+    /// own per-router records beside them.
+    #[inline]
+    #[must_use]
+    pub const fn state(&self) -> &StateStore {
+        &self.state
+    }
 }
 
 /// One router's leased sequence of writes.

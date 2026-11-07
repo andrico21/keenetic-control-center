@@ -50,10 +50,9 @@ const WIZARD: &str = "/ui/migrate";
 
 /// Whether this build serves the migration wizard at [`WIZARD`].
 ///
-/// The wizard is built in parallel (todo 43): set this when it is merged.
-/// `tests/config_pages` probes the route and fails while the two disagree; until then the
-/// page says that restoring through the wizard is not available yet.
-pub(crate) const WIZARD_SERVED: bool = false;
+/// `tests/config_pages` probes the route and fails while the two disagree; when this is
+/// `false` the page says that restoring through the wizard is not available.
+pub(crate) const WIZARD_SERVED: bool = true;
 
 /// How long the request waits for a raw restore; the restore goes on after that.
 const RAW_WAIT: Duration = Duration::from_secs(25);

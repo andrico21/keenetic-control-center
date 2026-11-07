@@ -1,0 +1,156 @@
+//! Steps 4 to 6: the review, the inputs and the preview of the plan.
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+mod tests {
+    use axum::http::StatusCode;
+    use kcc_i18n::keys;
+
+    use crate::{
+        en,
+        flow::{
+            NEW_PASSWORD, SOURCE_PASSWORD, indices, seed_source, to_preview, to_review, value_of,
+        },
+        redirected,
+        secrets::{absent, source_hash},
+        support::{Fixture, TestResult, header_text, text},
+    };
+
+    #[tokio::test]
+    async fn the_review_waits_for_conflicts_and_the_inputs_for_passwords() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed_source(&fixture).await?;
+        let hash = source_hash(&fixture)?;
+        let admin = fixture.login("admin").await?;
+        let page = to_review(&fixture, &admin).await?;
+        let review = text(fixture.get(&page, &admin).await?).await?;
+        for expected in [
+            "interface Bridge19 description migrated-office".to_owned(),
+            en(keys::WEB_MIGRATE_FATE_CONFLICT),
+            en(keys::WEB_MIGRATE_FATE_INPUT),
+        ] {
+            assert!(review.contains(&expected), "{expected} in {review}");
+        }
+        assert!(!review.contains(&hash), "the password hash is redacted");
+        let refused = fixture
+            .post(&format!("{page}/review/continue"), &admin, &[])
+            .await?;
+        assert_eq!(
+            refused.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "unresolved"
+        );
+        let conflict = indices(&review, "name=\"resolve-")
+            .pop()
+            .ok_or("a conflict")?;
+        let field = format!("resolve-{conflict}");
+        let saved = fixture
+            .post(
+                &format!("{page}/review"),
+                &admin,
+                &[("shown", &conflict), (&field, "source")],
+            )
+            .await?;
+        assert_eq!(
+            saved.status(),
+            StatusCode::NO_CONTENT,
+            "saved as it changes"
+        );
+        let reviewed = fixture
+            .post(&format!("{page}/review/continue"), &admin, &[])
+            .await?;
+        assert_eq!(redirected(&reviewed)?, page, "on to the inputs");
+        let inputs = text(fixture.get(&page, &admin).await?).await?;
+        assert!(
+            inputs.contains("name=\"password-0\"") && inputs.contains("type=\"password\""),
+            "a write-only password field: {inputs}"
+        );
+        let reconnect = value_of(&inputs, "name=\"reconnect_url\"").ok_or("reconnect field")?;
+        let missing = fixture
+            .post(
+                &format!("{page}/inputs"),
+                &admin,
+                &[("reconnect_url", &reconnect)],
+            )
+            .await?;
+        assert_eq!(
+            missing.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "refused"
+        );
+        assert!(
+            text(missing)
+                .await?
+                .contains(&en(keys::WEB_MIGRATE_INPUTS_PASSWORD_MISSING)),
+            "says why"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn the_preview_orders_the_plan_and_no_file_holds_a_secret() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed_source(&fixture).await?;
+        let hash = source_hash(&fixture)?;
+        let admin = fixture.login("admin").await?;
+        let page = to_review(&fixture, &admin).await?;
+        to_preview(&fixture, &admin, &page).await?;
+        let preview = text(fixture.get(&page, &admin).await?).await?;
+        for expected in [
+            "interface Bridge19 description migrated-office".to_owned(),
+            "interface Bridge0 description office-network".to_owned(),
+            en(keys::WEB_MIGRATE_PHASE_MANAGEMENT),
+            en(keys::WEB_MIGRATE_APPLY),
+        ] {
+            assert!(preview.contains(&expected), "{expected} in {preview}");
+        }
+        for file in ["plan.json", "report.json", "report.md", "report.html"] {
+            let response = fixture
+                .get(&format!("{page}/download/{file}"), &admin)
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK, "{file}");
+            assert!(
+                header_text(&response, "content-disposition")
+                    .is_some_and(|value| value.starts_with("attachment")),
+                "{file} downloads"
+            );
+            let body = text(response).await?;
+            for secret in [NEW_PASSWORD, SOURCE_PASSWORD, hash.as_str()] {
+                assert!(!body.contains(secret), "{file} holds a secret");
+            }
+        }
+        absent(
+            &fixture.state_dir(),
+            &[NEW_PASSWORD, SOURCE_PASSWORD, &hash],
+        )?;
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn a_reload_or_a_new_session_resumes_at_the_current_step() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed_source(&fixture).await?;
+        let admin = fixture.login("admin").await?;
+        let page = to_review(&fixture, &admin).await?;
+        to_preview(&fixture, &admin, &page).await?;
+        let current = "data-state=\"current\" aria-current=\"step\"><span class=\"wizard-steps__number\">6</span>";
+        let first = text(fixture.get(&page, &admin).await?).await?;
+        assert!(first.contains(current), "at the preview: {first}");
+        let again = fixture.login("admin").await?;
+        let resumed = text(fixture.get(&page, &again).await?).await?;
+        assert!(resumed.contains(current), "a new session resumes it");
+        assert!(
+            resumed.contains(&en(keys::WEB_MIGRATE_PREVIEW_TITLE)),
+            "with the preview"
+        );
+        let stranger = fixture.login("operator").await?;
+        let hidden = fixture.get(&page, &stranger).await?;
+        assert_eq!(hidden.status(), StatusCode::NOT_FOUND, "another account's");
+        Ok(())
+    }
+}

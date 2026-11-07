@@ -1,0 +1,66 @@
+{#- Step 4: every source setting, its fate and why; Migrate boxes and value choices save as they change, Continue checks that every conflict has a choice. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_REVIEW_TITLE) }}</h2>
+<p class="page__text">{{ t(keys::WEB_MIGRATE_REVIEW_TEXT) }}</p>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+<nav class="wizard-filters" aria-label="{{ t(keys::WEB_MIGRATE_REVIEW_FILTERS) }}">
+  <ul class="wizard-filters__list">
+    {%- for filter in filters %}
+    <li><a class="wizard-filters__link" href="{{ filter.href }}"{% if filter.current %} aria-current="page"{% endif %}>{{ filter.label }}</a></li>
+    {%- endfor %}
+  </ul>
+</nav>
+{%- if !error.is_empty() %}
+<p class="notice" data-tone="error">{{ error }}</p>
+{%- endif %}
+<form class="wizard-review" id="review-form" hx-post="/ui/migrate/{{ id }}/review" hx-trigger="change" hx-swap="none">
+  {%- if rows.is_empty() %}
+  <p class="table-empty">{{ t(keys::WEB_KIT_TABLE_EMPTY) }}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table wizard-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_LINE) }}</th>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_SETTING) }}</th>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_FATE) }}</th>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_CHOICE) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" class="mono" id="item-{{ row.index }}">{{ row.line }}</th>
+          <td>
+            <code class="wizard-line">{{ row.before }}</code>
+            {%- if !row.after.is_empty() %}
+            <code class="wizard-line wizard-line--after">{{ row.after }}</code>
+            {%- endif %}
+          </td>
+          <td><span class="wizard-fate" data-fate="{{ row.fate }}">{{ row.label }}</span><p class="wizard-reason">{{ row.reason }}</p></td>
+          <td>
+            <input type="hidden" name="shown" value="{{ row.index }}">
+            {%- if row.includes() %}
+            <label class="choice__option"><input type="checkbox" name="include" value="{{ row.index }}"{% if row.included() %} checked{% endif %} aria-describedby="item-{{ row.index }}"><span>{{ t(keys::WEB_MIGRATE_REVIEW_INCLUDE) }}</span></label>
+            {%- endif %}
+            {%- if row.resolves() %}
+            <fieldset class="choice wizard-resolve" aria-describedby="item-{{ row.index }}">
+              <legend class="visually-hidden">{{ t(keys::WEB_MIGRATE_REVIEW_RESOLVE) }}</legend>
+              <label class="choice__option"><input type="radio" name="resolve-{{ row.index }}" value="source"{% if row.chose("source") %} checked{% endif %}><span>{{ t(keys::WEB_MIGRATE_REVIEW_USE_SOURCE) }}</span></label>
+              <label class="choice__option"><input type="radio" name="resolve-{{ row.index }}" value="router"{% if row.chose("router") %} checked{% endif %}><span>{{ t(keys::WEB_MIGRATE_REVIEW_KEEP_ROUTER) }}</span></label>
+            </fieldset>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+</form>
+{%- include "partials/kit_pager.html" %}
+<div class="form__actions">
+  <button class="button button--primary" type="button" hx-post="/ui/migrate/{{ id }}/review/continue" hx-include="#review-form" hx-target="#wizard-step">{{ t(keys::WEB_MIGRATE_CONTINUE) }}</button>
+</div>
+{%- endif %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(keys::MIGRATE_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page wizard-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::MIGRATE_TITLE) }}</h1>
+    <form class="page-head__actions" hx-post="/ui/migrate" hx-target="#page-outcome">
+      <input type="hidden" name="mode" value="migrate">
+      <button class="button {% if restore.is_some() %}button--secondary{% else %}button--primary{% endif %}" type="submit">{{ t(keys::MIGRATE_START) }}</button>
+    </form>
+  </div>
+  <p class="page__text">{{ t(keys::WEB_MIGRATE_INTRO) }}</p>
+  {{ kit::outcome_region() }}
+  {%- if restore_refused %}
+  <p class="notice" data-tone="error">{{ t(keys::WEB_MIGRATE_RESTORE_INVALID) }}</p>
+  {%- endif %}
+  {%- if let Some(offer) = restore %}
+  <section class="panel wizard-offer" aria-labelledby="restore-title">
+    <h2 class="panel__title" id="restore-title">{{ t(keys::WEB_MIGRATE_RESTORE_TITLE) }}</h2>
+    <p class="page__text">{{ offer.text }}</p>
+    <form hx-post="/ui/migrate" hx-target="#page-outcome">
+      <input type="hidden" name="mode" value="restore">
+      <input type="hidden" name="router" value="{{ offer.router }}">
+      <input type="hidden" name="backup" value="{{ offer.backup }}">
+      <button class="button button--primary" type="submit">{{ t(keys::WEB_MIGRATE_RESTORE_START) }}</button>
+    </form>
+  </section>
+  {%- endif %}
+  <section class="wizard-list" aria-labelledby="migrations-title">
+    <h2 class="wizard-list__title" id="migrations-title">{{ t(keys::WEB_MIGRATE_LIST_TITLE) }}</h2>
+    {%- if rows.is_empty() %}
+    <p class="table-empty">{{ t(keys::WEB_MIGRATE_LIST_EMPTY) }}</p>
+    {%- else %}
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">{{ t(keys::WEB_MIGRATE_LIST_STARTED) }}</th>
+            <th scope="col">{{ t(keys::WEB_MIGRATE_LIST_KIND) }}</th>
+            <th scope="col">{{ t(keys::WEB_MIGRATE_SUMMARY_SOURCE) }}</th>
+            <th scope="col">{{ t(keys::MIGRATE_TARGET) }}</th>
+            <th scope="col">{{ t(keys::WEB_MIGRATE_LIST_STEP) }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {%- for row in rows %}
+          <tr>
+            <th scope="row"><a href="{{ row.href }}">{% if let Some(time) = row.started %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% else %}{{ t(keys::WEB_MIGRATE_LIST_OPEN) }}{% endif %}</a></th>
+            <td>{{ row.kind }}</td>
+            <td>{{ row.source }}</td>
+            <td class="mono">{{ row.target }}</td>
+            <td>{{ row.step }}</td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+</div>
+{%- endblock %}

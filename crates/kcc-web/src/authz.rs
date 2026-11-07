@@ -248,7 +248,7 @@ fn requirement(path: &str) -> Requirement {
         value if value.starts_with("/ui/admin/audit") => Permission::ViewAudit,
         value if value.starts_with("/ui/admin") => Permission::ManageUsers,
         value if value.starts_with("/ui/audit") => Permission::ViewAudit,
-        value if value.starts_with("/ui/migration") => Permission::Migrate,
+        value if value.starts_with("/ui/migrate") => Permission::Migrate,
         value if value.starts_with("/ui/configuration") => Permission::Write,
         value if value.starts_with("/ui/advanced") => Permission::RawRci,
         value if value.starts_with("/ui/routers") => Permission::ManageRouters,

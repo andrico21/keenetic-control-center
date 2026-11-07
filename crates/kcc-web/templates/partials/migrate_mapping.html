@@ -1,0 +1,100 @@
+{#- Step 3: both inventories and the maps: ports and radios in selects of the target's own, interface names in text fields. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_MAPPING_TITLE) }}</h2>
+<p class="page__text">{{ t(keys::WEB_MIGRATE_MAPPING_TEXT) }}</p>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+{%- if !hardware_known %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_MAP_HARDWARE_UNKNOWN) }}</p>
+{%- endif %}
+<form class="form wizard-form" hx-post="/ui/migrate/{{ id }}/mapping" hx-target="#wizard-step">
+  <section class="wizard-map" aria-labelledby="map-ports-title">
+    <h3 class="wizard-map__title" id="map-ports-title">{{ t(keys::WEB_MIGRATE_PORTS) }}</h3>
+    {%- if ports.is_empty() %}
+    <p class="table-empty">{{ t(keys::WEB_MIGRATE_PORTS_NONE) }}</p>
+    {%- else %}
+    <div class="table-wrap">
+      <table class="table wizard-table">
+        <thead><tr><th scope="col">{{ t(keys::WEB_MIGRATE_MAP_SOURCE) }}</th><th scope="col">{{ t(keys::WEB_MIGRATE_MAP_TARGET) }}</th></tr></thead>
+        <tbody>
+          {%- for row in ports %}
+          <tr>
+            <th scope="row" class="mono" id="{{ row.field }}-source">{{ row.caption }}</th>
+            <td>
+              <select class="field__input" name="{{ row.field }}" aria-labelledby="{{ row.field }}-source"{% if !row.error.is_empty() %} aria-invalid="true" aria-describedby="{{ row.field }}-error"{% endif %}>
+                <option value=""{% if row.value.is_empty() %} selected{% endif %}>{{ t(keys::WEB_MIGRATE_MAP_UNMAPPED) }}</option>
+                {%- for (value, label) in port_options %}
+                <option value="{{ value }}"{% if row.chosen(value) %} selected{% endif %}>{{ label }}</option>
+                {%- endfor %}
+              </select>
+              {%- if !row.error.is_empty() %}
+              <p class="field__error" id="{{ row.field }}-error">{{ row.error }}</p>
+              {%- endif %}
+            </td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+  <section class="wizard-map" aria-labelledby="map-radios-title">
+    <h3 class="wizard-map__title" id="map-radios-title">{{ t(keys::WEB_MIGRATE_RADIOS) }}</h3>
+    {%- if radios.is_empty() %}
+    <p class="table-empty">{{ t(keys::WEB_MIGRATE_RADIOS_NONE) }}</p>
+    {%- else %}
+    <div class="table-wrap">
+      <table class="table wizard-table">
+        <thead><tr><th scope="col">{{ t(keys::WEB_MIGRATE_MAP_SOURCE) }}</th><th scope="col">{{ t(keys::WEB_MIGRATE_MAP_TARGET) }}</th></tr></thead>
+        <tbody>
+          {%- for row in radios %}
+          <tr>
+            <th scope="row" class="mono" id="{{ row.field }}-source">{{ row.caption }}</th>
+            <td>
+              <select class="field__input" name="{{ row.field }}" aria-labelledby="{{ row.field }}-source"{% if !row.error.is_empty() %} aria-invalid="true" aria-describedby="{{ row.field }}-error"{% endif %}>
+                <option value=""{% if row.value.is_empty() %} selected{% endif %}>{{ t(keys::WEB_MIGRATE_MAP_UNMAPPED) }}</option>
+                {%- for (value, label) in radio_options %}
+                <option value="{{ value }}"{% if row.chosen(value) %} selected{% endif %}>{{ label }}</option>
+                {%- endfor %}
+              </select>
+              {%- if !row.error.is_empty() %}
+              <p class="field__error" id="{{ row.field }}-error">{{ row.error }}</p>
+              {%- endif %}
+            </td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+  <section class="wizard-map" aria-labelledby="map-interfaces-title">
+    <h3 class="wizard-map__title" id="map-interfaces-title">{{ t(keys::WEB_MIGRATE_INTERFACES) }}</h3>
+    {%- if interfaces.is_empty() %}
+    <p class="table-empty">{{ t(keys::WEB_MIGRATE_INTERFACES_NONE) }}</p>
+    {%- else %}
+    <div class="table-wrap">
+      <table class="table wizard-table">
+        <thead><tr><th scope="col">{{ t(keys::WEB_MIGRATE_MAP_SOURCE) }}</th><th scope="col">{{ t(keys::WEB_MIGRATE_MAP_RENAME) }}</th></tr></thead>
+        <tbody>
+          {%- for row in interfaces %}
+          <tr>
+            <th scope="row" class="mono" id="{{ row.field }}-source">{{ row.caption }}</th>
+            <td>
+              <input class="field__input mono" name="{{ row.field }}" type="text" value="{{ row.value }}" autocomplete="off" spellcheck="false" maxlength="64" aria-labelledby="{{ row.field }}-source"{% if !row.error.is_empty() %} aria-invalid="true" aria-describedby="{{ row.field }}-error"{% endif %}>
+              {%- if !row.error.is_empty() %}
+              <p class="field__error" id="{{ row.field }}-error">{{ row.error }}</p>
+              {%- endif %}
+            </td>
+          </tr>
+          {%- endfor %}
+        </tbody>
+      </table>
+    </div>
+    {%- endif %}
+  </section>
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_MIGRATE_CONTINUE) }}</button>
+  </div>
+</form>
+{%- endif %}

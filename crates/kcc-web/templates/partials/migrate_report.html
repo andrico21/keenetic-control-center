@@ -1,0 +1,25 @@
+{#- Step 9: how the migration finished and the report of the plan it applied. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_REPORT_TITLE) }}</h2>
+<div class="notice" data-tone="{{ tone }}">
+  <p class="notice__title">{{ message }}</p>
+</div>
+<dl class="facts wizard-counts">
+  {%- if let Some(time) = finished %}
+  <div class="facts__row"><dt>{{ t(keys::WEB_MIGRATE_REPORT_FINISHED) }}</dt><dd><time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time></dd></div>
+  {%- endif %}
+  {%- for (label, value) in facts %}
+  <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+  {%- endfor %}
+</dl>
+{%- if downloads %}
+<section class="wizard-downloads" aria-labelledby="report-downloads-title">
+  <h3 class="wizard-phase__title" id="report-downloads-title">{{ t(keys::WEB_MIGRATE_DOWNLOADS) }}</h3>
+  <ul class="wizard-downloads__list">
+    <li><a href="/ui/migrate/{{ id }}/download/report.html" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_HTML) }}</a></li>
+    <li><a href="/ui/migrate/{{ id }}/download/report.md" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_MARKDOWN) }}</a></li>
+    <li><a href="/ui/migrate/{{ id }}/download/report.json" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_JSON) }}</a></li>
+    <li><a href="/ui/migrate/{{ id }}/download/plan.json" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_PLAN) }}</a></li>
+  </ul>
+</section>
+{%- endif %}
+<p class="page__text"><a href="/ui/migrate">{{ t(keys::WEB_MIGRATE_ALL) }}</a></p>
