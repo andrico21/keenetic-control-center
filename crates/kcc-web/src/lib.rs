@@ -60,8 +60,10 @@ mod config_page;
 mod credentials;
 mod dashboard;
 mod dns_vpn;
+mod firewall_page;
 mod gauge;
 mod migrate_wizard;
+mod nat_page;
 mod net_change;
 mod net_form;
 mod net_interface_actions;
@@ -97,6 +99,7 @@ mod router_check;
 mod router_delete;
 mod router_form;
 mod routers;
+mod routing_page;
 mod save;
 mod system_general;
 mod system_pages;
@@ -409,6 +412,9 @@ pub fn web_router(state: WebState) -> Router {
         .merge(net_pages::routes())
         .merge(dns_vpn::routes())
         .merge(system_pages::routes())
+        .merge(routing_page::wiring::routes())
+        .merge(nat_page::wiring::routes())
+        .merge(firewall_page::wiring::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),

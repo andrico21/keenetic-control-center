@@ -1,0 +1,271 @@
+//! Forward a port: the dialog, its checks, the plan and the read-back.
+//!
+//! A rule names a protocol (or none for every protocol), the incoming interface, an
+//! external port or range (or none for every port), the device to forward to (an IPv4
+//! address or the MAC address of a registered device) and the port there.
+
+use core::{net::Ipv4Addr, str::FromStr as _};
+
+use axum::{
+    Form,
+    extract::{Path, State},
+    http::HeaderMap,
+    response::Response,
+};
+use kcc_catalog::Risk;
+use kcc_domain::{
+    ChangeOp, DomainError, RouterCtx,
+    nat::{change, descriptor::DESCRIPTOR, read},
+};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
+use kcc_rci::Mac;
+
+use super::{
+    forwards::{Forward, PROTOCOLS, forwards, has_ports},
+    views::{RulesRegion, rules_region},
+};
+use crate::{
+    WebState,
+    authz::CurrentUser,
+    clients_pages::rendered,
+    net_change::Params,
+    net_form::{Choice, FormDialog, Input},
+    page_kit::{
+        action::{Action, Operation},
+        change::Applied,
+        failure::plan_failure,
+        family::Family,
+        outcome::Outcome,
+        respond::Answer,
+    },
+    routing_page::{
+        frame::{interface_names, workflow_error},
+        reply::{answer, unread},
+    },
+    system_pages::shared::shown_query,
+};
+
+/// A rule added, audited as `web.nat_forward_add`.
+const ADD: Operation = Operation::write(&DESCRIPTOR, "forward", "web.nat_forward_add");
+
+/// `GET /ui/r/{router}/nat/forward/new`: the Forward a port dialog.
+///
+/// # Errors
+///
+/// Answers what the kit answers when the router or the permission is missing.
+pub(crate) async fn dialog(
+    State(state): State<WebState>,
+    Path(router): Path<String>,
+    user: CurrentUser,
+) -> Result<Response, Answer> {
+    let action = ADD.open(&state, &user, &router).await?;
+    let domain = action.context().await?;
+    let names = interface_names(&domain).await;
+    Ok(form(action.locale(), &router, &Params::default(), &names).show())
+}
+
+/// `POST /ui/r/{router}/nat/forward/new`: checks the rule, adds it and reads it back.
+///
+/// # Errors
+///
+/// Answers the dialog with its field errors (422), and what the kit answers when the
+/// router or the permission is missing.
+pub(crate) async fn add(
+    State(state): State<WebState>,
+    Path(router): Path<String>,
+    headers: HeaderMap,
+    user: CurrentUser,
+    Form(pairs): Form<Vec<(String, String)>>,
+) -> Result<Response, Answer> {
+    let action = ADD.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let domain = action.context().await?;
+    let names = interface_names(&domain).await;
+    let values = Params::new(Vec::new(), pairs);
+    let refuse = |field: &str, message: String| {
+        form(locale, &router, &values, &names)
+            .with_error(field, message)
+            .invalid()
+    };
+    let checked = check(&values, &names).and_then(|rule| {
+        rule.domain_rule()
+            .map(|planned| (rule, planned))
+            .ok_or(("target", keys::WEB_NAT_ERROR_TARGET))
+    });
+    let (rule, planned) = match checked {
+        Ok(found) => found,
+        Err((field, key)) => {
+            action.abandon("validation_failed").await;
+            return Err(refuse(field, tr(locale, key, None)).into());
+        }
+    };
+    let known = match read::running_forwards(&domain).await {
+        Ok(found) => found,
+        Err(_error) => return Ok(unread(action, keys::WEB_KIT_UNREACHABLE).await),
+    };
+    if forwards(&known).contains(&rule) {
+        action.abandon("validation_failed").await;
+        let message = tr(locale, keys::WEB_ROUTING_ERROR_DUPLICATE, None);
+        return Err(refuse("port", message).into());
+    }
+    match change::plan_add_forward(&domain, &planned) {
+        Ok(op) => Ok(run(action, &domain, op, &headers).await),
+        Err(error) => {
+            action.abandon("validation_failed").await;
+            let failure = plan_failure(Family::Changes, locale, &error);
+            Err(refuse("target", failure.message().to_owned()).into())
+        }
+    }
+}
+
+/// Applies the NAT change `op`, read back by the NAT domain, and answers with the outcome
+/// and the rules read back.
+// NOT cancel-safe: see `Action::run_with`.
+pub(crate) async fn run(
+    action: Action<'_>,
+    domain: &RouterCtx,
+    op: ChangeOp,
+    headers: &HeaderMap,
+) -> Response {
+    let locale = action.locale();
+    let router = action.router();
+    let outcome = applied(action, op).await;
+    let refreshed = if outcome.succeeded() {
+        rules_region(domain, (router, &shown_query(headers)), (true, locale))
+            .await
+            .ok()
+            .map(RulesRegion::out_of_band)
+            .and_then(|region| rendered(&region))
+    } else {
+        None
+    };
+    answer(outcome, refreshed, locale)
+}
+
+/// Runs the NAT change `op` through the NAT domain's read-back.
+// NOT cancel-safe: see `Action::run_with`.
+pub(crate) async fn applied(action: Action<'_>, op: ChangeOp) -> Outcome {
+    action
+        .run_with(Risk::Write, async |changes, context| {
+            change::apply(changes, context, &op)
+                .await
+                .map(|result| Applied::Cli {
+                    unsaved: result.unsaved,
+                    responses: result.responses,
+                })
+                .map_err(workflow_error)
+        })
+        .await
+}
+
+/// The failure of a plan the NAT domain refused, in `locale`.
+pub(crate) fn refused(locale: Locale, error: &DomainError) -> Outcome {
+    Outcome::failed(plan_failure(Family::Changes, locale, error))
+}
+
+/// The rule the dialog describes.
+///
+/// # Errors
+///
+/// Returns the field to correct and why.
+fn check(values: &Params, names: &[String]) -> Result<Forward, (&'static str, MessageKey)> {
+    let text = |name: &str| values.text(name).trim().to_owned();
+    let protocol = Some(text("protocol")).filter(|value| !value.is_empty());
+    if protocol
+        .as_deref()
+        .is_some_and(|name| !PROTOCOLS.iter().any(|(known, _)| *known == name))
+    {
+        return Err(("protocol", keys::WEB_ROUTING_ERROR_CHOICE));
+    }
+    let interface = text("interface");
+    if !names.contains(&interface) {
+        return Err(("interface", keys::WEB_ROUTING_ERROR_CHOICE));
+    }
+    let port = number(&text("port")).map_err(|key| ("port", key))?;
+    let end_port = number(&text("end_port")).map_err(|key| ("end_port", key))?;
+    let to_port = number(&text("to_port")).map_err(|key| ("to_port", key))?;
+    let given = port.is_some() || end_port.is_some() || to_port.is_some();
+    if given && !has_ports(protocol.as_deref()) {
+        return Err(("port", keys::WEB_NAT_ERROR_PORTS));
+    }
+    if port.is_none() && (end_port.is_some() || to_port.is_some()) {
+        return Err(("port", keys::WEB_NAT_ERROR_NEEDS_PORT));
+    }
+    if end_port.is_some_and(|last| port.is_some_and(|first| last <= first)) {
+        return Err(("end_port", keys::WEB_NAT_ERROR_RANGE));
+    }
+    if end_port.is_some() && to_port.is_some() {
+        return Err(("to_port", keys::WEB_NAT_ERROR_TARGET_PORT));
+    }
+    let target = text("target");
+    if target.parse::<Ipv4Addr>().is_err() && Mac::from_str(&target).is_err() {
+        return Err(("target", keys::WEB_NAT_ERROR_TARGET));
+    }
+    Ok(Forward::new(
+        (protocol, interface),
+        (port, end_port),
+        (target, to_port),
+    ))
+}
+
+/// An optional port from 1 to 65535.
+///
+/// # Errors
+///
+/// Returns the port rule.
+fn number(text: &str) -> Result<Option<u16>, MessageKey> {
+    if text.is_empty() {
+        return Ok(None);
+    }
+    match text.parse::<u16>() {
+        Ok(port) if port > 0 => Ok(Some(port)),
+        Ok(_) | Err(_) => Err(keys::WEB_ROUTING_ERROR_PORT),
+    }
+}
+
+/// The Forward a port dialog on `router` with `values` and the router's interface `names`.
+fn form(locale: Locale, router: &str, values: &Params, names: &[String]) -> FormDialog {
+    let value = |name: &str| values.text(name).to_owned();
+    let mut protocols = vec![Choice::keyed("", keys::WEB_NAT_ANY, locale)];
+    protocols.extend(
+        PROTOCOLS
+            .iter()
+            .map(|(name, label)| Choice::keyed(name, *label, locale)),
+    );
+    let interfaces = names.iter().map(|name| Choice::plain(name)).collect();
+    let port = |name: &'static str, label: MessageKey| {
+        Input::new(name, label, value(name))
+            .number(1, i64::from(u16::MAX))
+            .optional()
+            .rule(keys::WEB_ROUTING_ERROR_PORT)
+    };
+    let title = tr(locale, keys::WEB_NAT_ADD, None);
+    FormDialog::new(locale, title, format!("/ui/r/{router}/nat/forward/new"))
+        .with_submit(keys::WEB_NAT_ADD)
+        .with_input(
+            Input::new("protocol", keys::WEB_NAT_FIELD_PROTOCOL, value("protocol"))
+                .optional()
+                .select(protocols),
+        )
+        .with_input(
+            Input::new("interface", keys::WEB_NAT_COL_INTERFACE, value("interface"))
+                .select(interfaces),
+        )
+        .with_input(port("port", keys::WEB_NAT_FIELD_PORT).help(keys::WEB_NAT_HELP_PORT))
+        .with_input(
+            port("end_port", keys::WEB_NAT_FIELD_END_PORT).help(keys::WEB_NAT_HELP_END_PORT),
+        )
+        .with_input(
+            Input::new("target", keys::WEB_NAT_FIELD_TARGET, value("target"))
+                .max_chars(17)
+                .help(keys::WEB_NAT_HELP_TARGET)
+                .rule(keys::WEB_NAT_ERROR_TARGET),
+        )
+        .with_input(
+            port("to_port", keys::WEB_NAT_FIELD_TARGET_PORT).help(keys::WEB_NAT_HELP_TARGET_PORT),
+        )
+}

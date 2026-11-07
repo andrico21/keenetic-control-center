@@ -103,6 +103,12 @@ fixtures; fixture values remain the baseline for unmodified rows and fields.
   A write to one does not propagate to the other. Tests must not infer propagation.
 - `show rc ip policy` projects policy contexts and their child commands from the running
   configuration AST for curated-domain write verification. **assumed**
+- `access-list <name> rule <index> disable|description <text>|schedule <name>` stores one
+  line per rule and property (the `no` form removes that property only), and `access-list
+  <name> rule <index> order <new-index>` moves the rule among the list's permit and deny
+  lines instead of storing a line, renumbering the property lines with it; an unknown list
+  or an out-of-range position changes nothing. **assumed (R-CLI documentation 3.3.4, not
+  live-verified)**
 - Every profile seeds running and startup `kcc-config` ASTs from
   `fixtures/<hw_id>/startup-config.txt`. Seed addresses are documentation ranges.
 - `GET /ci/running-config.txt` and `GET /ci/startup-config.txt` print canonical AST text

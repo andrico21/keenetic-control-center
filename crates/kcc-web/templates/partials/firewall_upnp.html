@@ -1,0 +1,37 @@
+{#- The UPnP redirects devices opened themselves: filter, read-only table, pager. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+<div class="lan-region routing-region" id="routing-region">
+  <p class="page__text">{{ t(keys::WEB_FIREWALL_UPNP_TEXT) }}</p>
+  {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
+  {%- if table.rows().is_empty() %}
+  <p class="page__text">{% if table.filter().is_empty() %}{{ t(keys::WEB_FIREWALL_UPNP_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table routing-table">
+      <thead>
+        <tr>
+          {{ ui::sort_header(t(keys::WEB_FIREWALL_COL_EXTERNAL_PORT), table.header("external")) }}
+          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_PROTOCOL), table.header("protocol")) }}
+          {{ ui::sort_header(t(keys::WEB_FIREWALL_COL_INTERNAL), table.header("internal")) }}
+          {{ ui::sort_header(t(keys::WEB_FIREWALL_COL_INTERNAL_PORT), table.header("internal_port")) }}
+          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_DESCRIPTION), table.header("description")) }}
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in table.rows() %}
+        <tr>
+          <th scope="row" class="numeric">{% if let Some(port) = row.external_port() %}{{ port }}{% endif %}</th>
+          <td>{{ protocol(row) }}</td>
+          <td class="mono">{% if let Some(text) = row.internal_address() %}{{ text }}{% endif %}</td>
+          <td class="numeric">{% if let Some(port) = row.internal_port() %}{{ port }}{% endif %}</td>
+          <td>{% if let Some(text) = row.description() %}{{ text }}{% endif %}</td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- let pager = table.pager() %}
+  {%- include "partials/kit_pager.html" %}
+  {%- endif %}
+</div>

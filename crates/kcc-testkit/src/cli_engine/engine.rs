@@ -38,6 +38,9 @@ pub(crate) fn apply(ast: &mut Ast, line: &str) -> bool {
     if apply_known_host(ast, positive_words, negated) {
         return true;
     }
+    if super::acl_rules::apply(ast, positive_words, negated) {
+        return true;
+    }
     let Some(shape) = classify(positive_words) else {
         return false;
     };

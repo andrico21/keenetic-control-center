@@ -887,3 +887,91 @@ the tallest an agreement's text grows before it scrolls itself; `--wizard-review
   heartbeat, sent lines with outcomes, the end with Review the result; (8) result,
   counts, countdown, Commit / Roll back / Review the plan again / Back to the preview /
   Finish; (9) how it finished, when, counts, downloads.
+
+## Routing, port forwarding and firewall pages (todo 38, `src/routing_page/`, `src/nat_page/`, `src/firewall_page/`)
+
+Layout (static routes `/ui/r/{router}/routing[/ipv6]`, routing table
+`/ui/r/{router}/routing/table[/ipv6]`, connection policies `/ui/r/{router}/routing/policies`,
+port forwarding `/ui/r/{router}/nat[/interfaces|/sessions]`, firewall interfaces and UPnP
+`/ui/r/{router}/firewall/{interfaces|upnp}`): stacked sections - the family tabs (Static
+routes, Routing table, Connection policies, Port forwarding, Firewall; they wrap on a
+phone), page head (title and the view's primary action), router link, the view switch
+(`.lan-views`: IPv4 and IPv6; Rules, NAT interfaces and Active connections; Access lists,
+Interfaces and UPnP), the outcome region (hidden while empty), then the region
+`#routing-region` (filter, one table in `.table-wrap`, pager); scroll owner: the document;
+nested scrollers: `.table-wrap` (horizontal, the table keeps `--routing-table-min`), the view
+switch (sideways on a phone) and an open row menu; anti-patterns: two sortable tables on one
+view, a fixed-height scrolling table, a hover-only row action, an object name in a path
+segment.
+
+Layout (firewall access lists `/ui/r/{router}/firewall`): stacked sections - tabs, head (Add
+rule), router link, view switch, outcome region, then one section per list
+(`.firewall-list`: the list name with Add rule and Apply to interface, where the list applies
+as info flags, then its rules in the router's order in a `.table-wrap` table), then the IPv6
+section (the read-only IPv6 lists, or the note with the command explorer link); scroll owner:
+the document; nested scrollers: each `.table-wrap` (horizontal); anti-patterns: sorting or
+paging rules (their order is what the router checks), drag-and-drop ordering, an action on a
+rule that does not name its position and stored words.
+
+Tokens: `--routing-table-min` (40rem) is the narrowest a table of these pages gets before its
+`.table-wrap` scrolls sideways; the active connections table keeps 56rem.
+
+- Family tabs (`partials/routing_tabs.html`, `routing_page::frame::Tab`): the admin tab
+  styles in the wrapping variant (`.tabs--wrap`); the navigation marks Routing for the first
+  three and Firewall for port forwarding and the firewall.
+- Route-wipe banner (`.routing-guard` in `partials/routing_result.html`): a `role="alert"`
+  section in the outcome region, in place of the outcome's notice, after the router answered
+  one route's removal by clearing every route. When every route it had before is back: the
+  warning wash, "The router cleared every route. kcc put them back.", the count sentence
+  ending "Nothing was lost:", the restored routes as stored commands in the mono face, and
+  that the route asked for is still there. When some are missing: the danger wash and the
+  missing routes. Tone by wash only, never an edge stripe; text says the state first.
+- Removal confirmation (`partials/routing_confirm.html`): title naming the object, what the
+  removal does, one danger button; the answer lands in the outcome region.
+- Policy interfaces (`.routing-permits`): an ordered list in the policy's row, each interface
+  with its order and a ghost Remove described by the policy and the interface.
+- Rule actions (`.firewall-rules__actions`): Move up and Move down as ghost buttons (absent at
+  the ends of the list), then the row's Actions menu (Enable or Disable, Description,
+  Schedule, Remove in the danger tone); every control is described by the list and the rule's
+  position.
+- Active connections pager: Previous and Next by the router's pages of 200 and "Connections
+  201 to 400"; the filter form keeps the page, and the note under it says that sorting and the
+  filter apply to the page shown.
+
+Page briefs (todo 38):
+
+- Static routes. Primary action: Add route (`Write`). Priorities: 1 destination, 2 gateway and
+  interface, 3 metric. Left out on purpose: learned routes (the routing table has them),
+  per-route statistics, a bulk delete. Required content: the IPv4/IPv6 switch, filter,
+  destination, gateway, interface, metric (IPv4), Remove (asks first; runs through the
+  route-wipe guard, whose banner reports a router-wide clear), the add dialog (network and mask
+  or prefix, gateway, interface, metric), the empty state pointing at the routing table.
+- Routing table. Primary action: none. Priorities: 1 destination, 2 gateway and interface,
+  3 metric and source. Required content: the IPv4/IPv6 switch, filter, sortable columns, the
+  Static marker for configured routes.
+- Connection policies. Primary action: Add policy (`Write`). Priorities: 1 name, 2 interfaces in
+  order, 3 multipath and description. Required content: filter, name, description, the
+  interfaces with their order and Remove, multipath state, the Actions menu (Description, Add
+  interface with its order, Turn multipath on or off, Delete with the name typed).
+- Port forwarding. Primary action: Forward a port (rules), Add NAT interface (NAT interfaces),
+  none for active connections. Required content: rules (external ports, protocol, incoming
+  interface, forward to, target port, Remove or the command explorer note for rules the NAT
+  domain cannot express), translated interfaces with Remove, active connections (source,
+  destination, translated address, protocol, interface, state, received, sent) in router
+  pages of 200 with Previous and Next.
+- Firewall. Primary action: Add rule (`Write`; a change to a list applied to the interface kcc
+  reaches the router through asks first and runs inside the fail-safe timer, which needs
+  `Destructive`). Priorities: 1 each list's rules in order, 2 where the list applies, 3 the IPv6
+  lists or their note. Left out on purpose: drag-and-drop ordering, sorting or paging rules,
+  traffic counters. Required content: per list its name, where it applies (interface and
+  direction), Add rule and Apply to interface; per rule its position, action, protocol, source
+  and destination (Any, an address, a network/prefix, a port), description, schedule, state,
+  Move up and Move down, Enable or Disable, Description, Schedule, Remove; the IPv6 lists read
+  only or the note linking the command explorer; the Interfaces view (interface, direction,
+  list, Remove); the UPnP view, read only.
+
+| Item | Location | Why accepted | Owner / Exit |
+|---|---|---|---|
+| Routing, port forwarding and firewall changes need JavaScript | `pages/routing.html`, `partials/routing_*.html`, `partials/nat_*.html`, `partials/firewall_*.html` | Dialogs, removals, moves and switches are htmx requests carrying the CSRF header; the tables, filters, sorting and pages work without it | Same as the menus |
+| Tables of these pages scroll sideways on a phone with no edge fade or shadow | `.table-wrap` around `.routing-table` in `partials/routing_*.html`, `partials/nat_*.html`, `partials/firewall_*.html` | The shared `.table-wrap` has no scroll cue on any page, and a cue for this family alone would make tables differ between pages; a column cut at the edge is the only hint, and where a column ends right at the edge (active connections at 390 px) nothing shows that more follows | The page kit, for every `.table-wrap` at once |
+| Connection states and route sources show the router's own words (established, boot) | State column of `partials/nat_sessions.html`, Source column of `partials/routing_table.html` | The firmware documents no list of these values, so a translation would be a guess that can name the wrong state; the DHCP leases page shows lease states the same way | The page kit and the domains, once the firmware documents the values |

@@ -1,0 +1,32 @@
+{#- The answer to a routing, port forwarding or firewall change: the outcome, or the route-wipe guard's banner in its place, then the view's region read back, out of band. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- if let Some(banner) = guard %}
+<section class="routing-guard" role="alert" aria-labelledby="routing-guard-title" data-tone="{{ banner.tone() }}">
+  <h2 class="routing-guard__title" id="routing-guard-title">{% if banner.complete() %}{{ t(keys::WEB_ROUTING_GUARD_TITLE) }}{% else %}{{ t(keys::WEB_ROUTING_GUARD_FAILED_TITLE) }}{% endif %}</h2>
+  {%- if banner.complete() %}
+  <p class="routing-guard__text">{{ t_count(keys::WEB_ROUTING_GUARD_TEXT, banner.count()) }}</p>
+  <ul class="routing-guard__routes">
+    {%- for route in banner.restored() %}
+    <li class="mono">{{ route }}</li>
+    {%- endfor %}
+  </ul>
+  <p class="routing-guard__text">{{ t(keys::WEB_ROUTING_GUARD_KEPT) }}</p>
+  {%- else %}
+  <p class="routing-guard__text">{{ t(keys::WEB_ROUTING_GUARD_FAILED_TEXT) }}</p>
+  <ul class="routing-guard__routes">
+    {%- for route in banner.missing() %}
+    <li class="mono">{{ route }}</li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+</section>
+{{ kit::signals(outcome) }}
+{%- if banner.unsaved() %}
+<span class="masthead__status" id="unsaved-badge" hx-swap-oob="true"><a class="badge" href="/ui/configuration">{{ t(keys::WEB_ROUTER_UNSAVED) }}</a></span>
+{%- endif %}
+{%- else %}
+{{ kit::result(outcome) }}
+{%- endif %}
+{%- if let Some(region) = refreshed %}
+{{ region|safe }}
+{%- endif %}

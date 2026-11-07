@@ -611,7 +611,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | feat(web): add interfaces, internet, Wi-Fi and mesh pages
   Recommended task executor category: visual-engineering - forms and guarded actions
 
-- [ ] 38. Routing, policies, port forwarding and firewall pages
+- [x] 38. Routing, policies, port forwarding and firewall pages
   What to do / Must NOT do: `/r/:router/routing` (static routes v4/v6 table + add/remove, routing table view, connection policies list/edit incl. interface order and multipath), `/r/:router/nat` (port forwarding rules add/remove with protocol/port range/target host or IP, NAT interfaces), `/r/:router/firewall` (ACLs per interface and direction, rule ordering by drag-free up/down buttons, enable/disable, description, schedule; IPv6 ACLs only when the catalog view has them, otherwise a note linking to the command explorer). Common contract applies; the route-wipe guard result (`SafetyAbort`) is displayed prominently.
   Closes: GAP-8, GAP-4
   Parallelization: Wave W8 | Blocked by: 24, 35 | Blocks: 51
@@ -860,6 +860,16 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   QA scenarios: happy - `cargo test -p kcc-app --test audit_multiprocess --test accounts_reset && cargo test -p kcc --test cli 2>&1 | tee .omo/evidence/task-62-keenetic-control-center.log`; failure - a viewer CLI write exits 10 and sends nothing, appended.
   Commit: Y | feat(cli,app): lock audit appends across processes, reset passwords as admin and expose all domain writes
   Recommended task executor category: unspecified-high - patterned CLI surface plus two small kcc-app seams
+
+- [ ] 63. Firewall domain fidelity and verification (found by todo 38)
+  What to do / Must NOT do: Todo 38's Web page found defects in the todo-24 firewall domain that the MCP firewall write tools (todo 46) and the CLI (rows 47/62) still use: (1) `kcc_domain::firewall::change::render` drops the protocol, `port eq <n>` and `disable` from the rendered `access-list` rule line, so the executed line is not the validated request; (2) removal and property verification (`plan_remove_rule`, `plan_rule_property`) check only the LAST token of the line instead of the full rule identity (action, protocol, source/destination, ports, schedule): a wrong rule can be removed or a changed rule accepted as verified; (3) kcc-catalog `valid_mask` rejects `0.0.0.0`, so a rule matching any address cannot be added, and an existing "any" rule cannot be removed (the plan is refused and nothing is sent): fix the validation so `0.0.0.0/0` and `0.0.0.0` with mask `0.0.0.0` are accepted where the manual's Type column says IP address/mask; (4) the Web page works around catalog `access-list rule`/`permit|deny` parse warnings (`validate_cli` UnsupportedCliSyntax on 4.3.9/5.1.3 because the synopsis is not loaded and `new-index` is untyped): make the domain path use the same validated, fully-rendered request the page builds (single source of truth) and add a regression test that the rendered line equals the CLI line for every rule field combination (permit/deny x protocol x src/dst x port eq/range x disable x schedule); (5) policies: the page offers only part of `ip policy` (`route`, `rate-limit`, `standalone` missing) - expose them in the domain-backed page only if the domain verifies them. Must NOT change the Web page behaviour that already passes `cargo test -p kcc-web --test routing_pages`.
+  Closes: GAP-4
+  Parallelization: Wave W10 | Blocked by: 38, 46 | Blocks: 50, 51
+  References: notepad issues.md "Todo 38 gaps (follow-ups)"; todo 24 domain code `crates/kcc-domain/src/firewall/**`; `crates/kcc-web/src/firewall_page/**`; `crates/kcc-mcp/src/domains/write/filtering.rs`.
+  Acceptance criteria: G0 green; a table-driven firewall test shows the executed CLI line (fake router request log) equals the validated rule for every field combination; removing a rule that differs from another only in protocol/port removes exactly the intended one (and verification fails when the wrong one disappeared); an any-address rule can be added and removed; routing_pages tests unchanged and green; MCP firewall write tool test covers one rule add/remove with read-back.
+  QA scenarios: happy - `cargo test -p kcc-domain --test firewall && cargo test -p kcc-web --test routing_pages 2>&1 | tee .omo/evidence/task-63-keenetic-control-center.log`; failure - removal of an absent rule returns a typed error and sends nothing, appended.
+  Commit: Y | fix(domain,catalog): render and verify firewall rules by full identity and accept any-address masks
+  Recommended task executor category: deep-low - safety-relevant domain correctness
 
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.

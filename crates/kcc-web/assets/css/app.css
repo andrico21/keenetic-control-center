@@ -3081,3 +3081,158 @@ h3 {
 .wizard-back {
   justify-self: start;
 }
+
+/* todo 38 */
+
+/* ---------- Routing, port forwarding and firewall pages ---------- */
+
+.routing-region {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-5);
+}
+
+.routing-table {
+  --routing-table-min: 40rem;
+  min-inline-size: var(--routing-table-min);
+}
+
+.routing-table--narrow {
+  min-inline-size: 0;
+}
+
+.routing-table th,
+.routing-table td {
+  vertical-align: middle;
+}
+
+.routing-table .mono {
+  overflow-wrap: normal;
+  white-space: nowrap;
+}
+
+.routing-permits {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.routing-permits__item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.routing-guard {
+  display: grid;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-warning-wash);
+  color: var(--color-warning-ink);
+}
+
+.routing-guard[data-tone="error"] {
+  background: var(--color-danger-wash);
+  color: var(--color-danger-ink);
+}
+
+.routing-guard__title {
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-h3);
+}
+
+.routing-guard__text {
+  max-inline-size: var(--measure);
+}
+
+.routing-guard__routes {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-6);
+  overflow-wrap: anywhere;
+}
+
+.firewall-lists {
+  gap: var(--space-7);
+}
+
+.firewall-list {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-4);
+}
+
+.firewall-list__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-5);
+}
+
+.firewall-list__title {
+  font-size: var(--text-h3);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-h3);
+  overflow-wrap: anywhere;
+}
+
+.firewall-list__subtitle {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+}
+
+.firewall-list__actions,
+.firewall-list__applied,
+.firewall-rules__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.firewall-rules__actions {
+  flex-wrap: nowrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.firewall-ipv6 {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding-inline-start: var(--space-6);
+  overflow-wrap: anywhere;
+}
+
+.nat-sessions {
+  min-inline-size: 56rem;
+}
+
+.firewall-rules__note {
+  display: block;
+  color: var(--color-text-muted);
+  font-size: var(--text-caption);
+  letter-spacing: var(--tracking-caption);
+  line-height: var(--leading-caption);
+}
+
+.nat-sessions thead th:nth-child(n + 7) {
+  text-align: end;
+}
+
+.routing-region .page__text,
+.routing-region .notice {
+  overflow-wrap: anywhere;
+  text-wrap: pretty;
+}
+
+.firewall-list__applied .flag {
+  padding-block: var(--space-2);
+  overflow-wrap: anywhere;
+}

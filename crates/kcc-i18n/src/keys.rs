@@ -5142,8 +5142,618 @@ pub const WEB_MIGRATE_DOWNLOAD_JSON: MessageKey = MessageKey::new("web-migrate-d
 pub const WEB_MIGRATE_FAILURE_VALIDATION: MessageKey =
     MessageKey::new("web-migrate-failure-validation");
 
+/// `web-routing-tabs` in `web.ftl`.
+pub const WEB_ROUTING_TABS: MessageKey = MessageKey::new("web-routing-tabs");
+
+/// `web-routing-static-title` in `web.ftl`.
+pub const WEB_ROUTING_STATIC_TITLE: MessageKey = MessageKey::new("web-routing-static-title");
+
+/// `web-routing-table-title` in `web.ftl`.
+pub const WEB_ROUTING_TABLE_TITLE: MessageKey = MessageKey::new("web-routing-table-title");
+
+/// `web-routing-policies-title` in `web.ftl`.
+pub const WEB_ROUTING_POLICIES_TITLE: MessageKey = MessageKey::new("web-routing-policies-title");
+
+/// `web-routing-family` in `web.ftl`.
+pub const WEB_ROUTING_FAMILY: MessageKey = MessageKey::new("web-routing-family");
+
+/// `web-routing-ipv4` in `web.ftl`.
+pub const WEB_ROUTING_IPV4: MessageKey = MessageKey::new("web-routing-ipv4");
+
+/// `web-routing-ipv6` in `web.ftl`.
+pub const WEB_ROUTING_IPV6: MessageKey = MessageKey::new("web-routing-ipv6");
+
+/// `web-routing-add` in `web.ftl`.
+pub const WEB_ROUTING_ADD: MessageKey = MessageKey::new("web-routing-add");
+
+/// `web-routing-remove` in `web.ftl`.
+pub const WEB_ROUTING_REMOVE: MessageKey = MessageKey::new("web-routing-remove");
+
+/// `web-routing-col-destination` in `web.ftl`.
+pub const WEB_ROUTING_COL_DESTINATION: MessageKey = MessageKey::new("web-routing-col-destination");
+
+/// `web-routing-col-gateway` in `web.ftl`.
+pub const WEB_ROUTING_COL_GATEWAY: MessageKey = MessageKey::new("web-routing-col-gateway");
+
+/// `web-routing-col-interface` in `web.ftl`.
+pub const WEB_ROUTING_COL_INTERFACE: MessageKey = MessageKey::new("web-routing-col-interface");
+
+/// `web-routing-col-metric` in `web.ftl`.
+pub const WEB_ROUTING_COL_METRIC: MessageKey = MessageKey::new("web-routing-col-metric");
+
+/// `web-routing-col-source` in `web.ftl`.
+pub const WEB_ROUTING_COL_SOURCE: MessageKey = MessageKey::new("web-routing-col-source");
+
+/// `web-routing-col-name` in `web.ftl`.
+pub const WEB_ROUTING_COL_NAME: MessageKey = MessageKey::new("web-routing-col-name");
+
+/// `web-routing-col-description` in `web.ftl`.
+pub const WEB_ROUTING_COL_DESCRIPTION: MessageKey = MessageKey::new("web-routing-col-description");
+
+/// `web-routing-col-protocol` in `web.ftl`.
+pub const WEB_ROUTING_COL_PROTOCOL: MessageKey = MessageKey::new("web-routing-col-protocol");
+
+/// `web-routing-source-static` in `web.ftl`.
+pub const WEB_ROUTING_SOURCE_STATIC: MessageKey = MessageKey::new("web-routing-source-static");
+
+/// `web-routing-static-empty` in `web.ftl`.
+pub const WEB_ROUTING_STATIC_EMPTY: MessageKey = MessageKey::new("web-routing-static-empty");
+
+/// `web-routing-table-empty` in `web.ftl`.
+pub const WEB_ROUTING_TABLE_EMPTY: MessageKey = MessageKey::new("web-routing-table-empty");
+
+/// `web-routing-add-title` in `web.ftl`.
+pub const WEB_ROUTING_ADD_TITLE: MessageKey = MessageKey::new("web-routing-add-title");
+
+/// `web-routing-add-title-v6` in `web.ftl`.
+pub const WEB_ROUTING_ADD_TITLE_V6: MessageKey = MessageKey::new("web-routing-add-title-v6");
+
+/// `web-routing-field-network` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_NETWORK: MessageKey = MessageKey::new("web-routing-field-network");
+
+/// `web-routing-field-mask` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_MASK: MessageKey = MessageKey::new("web-routing-field-mask");
+
+/// `web-routing-field-prefix` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_PREFIX: MessageKey = MessageKey::new("web-routing-field-prefix");
+
+/// `web-routing-field-gateway` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_GATEWAY: MessageKey = MessageKey::new("web-routing-field-gateway");
+
+/// `web-routing-field-interface` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_INTERFACE: MessageKey = MessageKey::new("web-routing-field-interface");
+
+/// `web-routing-field-metric` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_METRIC: MessageKey = MessageKey::new("web-routing-field-metric");
+
+/// `web-routing-help-network` in `web.ftl`.
+pub const WEB_ROUTING_HELP_NETWORK: MessageKey = MessageKey::new("web-routing-help-network");
+
+/// `web-routing-help-mask` in `web.ftl`.
+pub const WEB_ROUTING_HELP_MASK: MessageKey = MessageKey::new("web-routing-help-mask");
+
+/// `web-routing-help-prefix` in `web.ftl`.
+pub const WEB_ROUTING_HELP_PREFIX: MessageKey = MessageKey::new("web-routing-help-prefix");
+
+/// `web-routing-help-gateway` in `web.ftl`.
+pub const WEB_ROUTING_HELP_GATEWAY: MessageKey = MessageKey::new("web-routing-help-gateway");
+
+/// `web-routing-help-metric` in `web.ftl`.
+pub const WEB_ROUTING_HELP_METRIC: MessageKey = MessageKey::new("web-routing-help-metric");
+
+/// `web-routing-no-interface` in `web.ftl`.
+pub const WEB_ROUTING_NO_INTERFACE: MessageKey = MessageKey::new("web-routing-no-interface");
+
+/// `web-routing-error-ipv4` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_IPV4: MessageKey = MessageKey::new("web-routing-error-ipv4");
+
+/// `web-routing-error-ipv6` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_IPV6: MessageKey = MessageKey::new("web-routing-error-ipv6");
+
+/// `web-routing-error-mask` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_MASK: MessageKey = MessageKey::new("web-routing-error-mask");
+
+/// `web-routing-error-prefix` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_PREFIX: MessageKey = MessageKey::new("web-routing-error-prefix");
+
+/// `web-routing-error-via` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_VIA: MessageKey = MessageKey::new("web-routing-error-via");
+
+/// `web-routing-error-number` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_NUMBER: MessageKey = MessageKey::new("web-routing-error-number");
+
+/// `web-routing-error-port` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_PORT: MessageKey = MessageKey::new("web-routing-error-port");
+
+/// `web-routing-error-name` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_NAME: MessageKey = MessageKey::new("web-routing-error-name");
+
+/// `web-routing-error-word` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_WORD: MessageKey = MessageKey::new("web-routing-error-word");
+
+/// `web-routing-error-duplicate` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_DUPLICATE: MessageKey = MessageKey::new("web-routing-error-duplicate");
+
+/// `web-routing-error-choice` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_CHOICE: MessageKey = MessageKey::new("web-routing-error-choice");
+
+/// `web-routing-gone` in `web.ftl`.
+pub const WEB_ROUTING_GONE: MessageKey = MessageKey::new("web-routing-gone");
+
+/// `web-routing-remove-title` in `web.ftl`.
+pub const WEB_ROUTING_REMOVE_TITLE: MessageKey = MessageKey::new("web-routing-remove-title");
+
+/// `web-routing-remove-text` in `web.ftl`.
+pub const WEB_ROUTING_REMOVE_TEXT: MessageKey = MessageKey::new("web-routing-remove-text");
+
+/// `web-routing-count-mismatch` in `web.ftl`.
+pub const WEB_ROUTING_COUNT_MISMATCH: MessageKey = MessageKey::new("web-routing-count-mismatch");
+
+/// `web-routing-guard-title` in `web.ftl`.
+pub const WEB_ROUTING_GUARD_TITLE: MessageKey = MessageKey::new("web-routing-guard-title");
+
+/// `web-routing-guard-text` in `web.ftl`.
+pub const WEB_ROUTING_GUARD_TEXT: MessageKey = MessageKey::new("web-routing-guard-text");
+
+/// `web-routing-guard-kept` in `web.ftl`.
+pub const WEB_ROUTING_GUARD_KEPT: MessageKey = MessageKey::new("web-routing-guard-kept");
+
+/// `web-routing-guard-failed-title` in `web.ftl`.
+pub const WEB_ROUTING_GUARD_FAILED_TITLE: MessageKey =
+    MessageKey::new("web-routing-guard-failed-title");
+
+/// `web-routing-guard-failed-text` in `web.ftl`.
+pub const WEB_ROUTING_GUARD_FAILED_TEXT: MessageKey =
+    MessageKey::new("web-routing-guard-failed-text");
+
+/// `web-routing-protocol-tcp` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_TCP: MessageKey = MessageKey::new("web-routing-protocol-tcp");
+
+/// `web-routing-protocol-udp` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_UDP: MessageKey = MessageKey::new("web-routing-protocol-udp");
+
+/// `web-routing-protocol-tcpudp` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_TCPUDP: MessageKey = MessageKey::new("web-routing-protocol-tcpudp");
+
+/// `web-routing-protocol-icmp` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_ICMP: MessageKey = MessageKey::new("web-routing-protocol-icmp");
+
+/// `web-routing-protocol-esp` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_ESP: MessageKey = MessageKey::new("web-routing-protocol-esp");
+
+/// `web-routing-protocol-gre` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_GRE: MessageKey = MessageKey::new("web-routing-protocol-gre");
+
+/// `web-routing-protocol-ipip` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_IPIP: MessageKey = MessageKey::new("web-routing-protocol-ipip");
+
+/// `web-routing-protocol-ip` in `web.ftl`.
+pub const WEB_ROUTING_PROTOCOL_IP: MessageKey = MessageKey::new("web-routing-protocol-ip");
+
+/// `web-routing-policy-add` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_ADD: MessageKey = MessageKey::new("web-routing-policy-add");
+
+/// `web-routing-col-interfaces` in `web.ftl`.
+pub const WEB_ROUTING_COL_INTERFACES: MessageKey = MessageKey::new("web-routing-col-interfaces");
+
+/// `web-routing-col-multipath` in `web.ftl`.
+pub const WEB_ROUTING_COL_MULTIPATH: MessageKey = MessageKey::new("web-routing-col-multipath");
+
+/// `web-routing-policies-empty` in `web.ftl`.
+pub const WEB_ROUTING_POLICIES_EMPTY: MessageKey = MessageKey::new("web-routing-policies-empty");
+
+/// `web-routing-policy-no-interfaces` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_NO_INTERFACES: MessageKey =
+    MessageKey::new("web-routing-policy-no-interfaces");
+
+/// `web-routing-policy-order` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_ORDER: MessageKey = MessageKey::new("web-routing-policy-order");
+
+/// `web-routing-policy-add-title` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_ADD_TITLE: MessageKey =
+    MessageKey::new("web-routing-policy-add-title");
+
+/// `web-routing-field-policy` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_POLICY: MessageKey = MessageKey::new("web-routing-field-policy");
+
+/// `web-routing-help-policy` in `web.ftl`.
+pub const WEB_ROUTING_HELP_POLICY: MessageKey = MessageKey::new("web-routing-help-policy");
+
+/// `web-routing-field-description` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_DESCRIPTION: MessageKey =
+    MessageKey::new("web-routing-field-description");
+
+/// `web-routing-help-word` in `web.ftl`.
+pub const WEB_ROUTING_HELP_WORD: MessageKey = MessageKey::new("web-routing-help-word");
+
+/// `web-routing-error-policy-exists` in `web.ftl`.
+pub const WEB_ROUTING_ERROR_POLICY_EXISTS: MessageKey =
+    MessageKey::new("web-routing-error-policy-exists");
+
+/// `web-routing-policy-description-title` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_DESCRIPTION_TITLE: MessageKey =
+    MessageKey::new("web-routing-policy-description-title");
+
+/// `web-routing-policy-description` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_DESCRIPTION: MessageKey =
+    MessageKey::new("web-routing-policy-description");
+
+/// `web-routing-policy-permit` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_PERMIT: MessageKey = MessageKey::new("web-routing-policy-permit");
+
+/// `web-routing-policy-permit-title` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_PERMIT_TITLE: MessageKey =
+    MessageKey::new("web-routing-policy-permit-title");
+
+/// `web-routing-policy-permit-text` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_PERMIT_TEXT: MessageKey =
+    MessageKey::new("web-routing-policy-permit-text");
+
+/// `web-routing-field-order` in `web.ftl`.
+pub const WEB_ROUTING_FIELD_ORDER: MessageKey = MessageKey::new("web-routing-field-order");
+
+/// `web-routing-help-order` in `web.ftl`.
+pub const WEB_ROUTING_HELP_ORDER: MessageKey = MessageKey::new("web-routing-help-order");
+
+/// `web-routing-multipath-on` in `web.ftl`.
+pub const WEB_ROUTING_MULTIPATH_ON: MessageKey = MessageKey::new("web-routing-multipath-on");
+
+/// `web-routing-multipath-off` in `web.ftl`.
+pub const WEB_ROUTING_MULTIPATH_OFF: MessageKey = MessageKey::new("web-routing-multipath-off");
+
+/// `web-routing-policy-delete-title` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_DELETE_TITLE: MessageKey =
+    MessageKey::new("web-routing-policy-delete-title");
+
+/// `web-routing-policy-delete-text` in `web.ftl`.
+pub const WEB_ROUTING_POLICY_DELETE_TEXT: MessageKey =
+    MessageKey::new("web-routing-policy-delete-text");
+
+/// `web-nat-title` in `web.ftl`.
+pub const WEB_NAT_TITLE: MessageKey = MessageKey::new("web-nat-title");
+
+/// `web-nat-views` in `web.ftl`.
+pub const WEB_NAT_VIEWS: MessageKey = MessageKey::new("web-nat-views");
+
+/// `web-nat-rules` in `web.ftl`.
+pub const WEB_NAT_RULES: MessageKey = MessageKey::new("web-nat-rules");
+
+/// `web-nat-interfaces` in `web.ftl`.
+pub const WEB_NAT_INTERFACES: MessageKey = MessageKey::new("web-nat-interfaces");
+
+/// `web-nat-sessions` in `web.ftl`.
+pub const WEB_NAT_SESSIONS: MessageKey = MessageKey::new("web-nat-sessions");
+
+/// `web-nat-add` in `web.ftl`.
+pub const WEB_NAT_ADD: MessageKey = MessageKey::new("web-nat-add");
+
+/// `web-nat-col-interface` in `web.ftl`.
+pub const WEB_NAT_COL_INTERFACE: MessageKey = MessageKey::new("web-nat-col-interface");
+
+/// `web-nat-col-ports` in `web.ftl`.
+pub const WEB_NAT_COL_PORTS: MessageKey = MessageKey::new("web-nat-col-ports");
+
+/// `web-nat-col-target` in `web.ftl`.
+pub const WEB_NAT_COL_TARGET: MessageKey = MessageKey::new("web-nat-col-target");
+
+/// `web-nat-col-target-port` in `web.ftl`.
+pub const WEB_NAT_COL_TARGET_PORT: MessageKey = MessageKey::new("web-nat-col-target-port");
+
+/// `web-nat-any` in `web.ftl`.
+pub const WEB_NAT_ANY: MessageKey = MessageKey::new("web-nat-any");
+
+/// `web-nat-same-port` in `web.ftl`.
+pub const WEB_NAT_SAME_PORT: MessageKey = MessageKey::new("web-nat-same-port");
+
+/// `web-nat-port-range` in `web.ftl`.
+pub const WEB_NAT_PORT_RANGE: MessageKey = MessageKey::new("web-nat-port-range");
+
+/// `web-nat-rules-empty` in `web.ftl`.
+pub const WEB_NAT_RULES_EMPTY: MessageKey = MessageKey::new("web-nat-rules-empty");
+
+/// `web-nat-explorer-only` in `web.ftl`.
+pub const WEB_NAT_EXPLORER_ONLY: MessageKey = MessageKey::new("web-nat-explorer-only");
+
+/// `web-nat-field-protocol` in `web.ftl`.
+pub const WEB_NAT_FIELD_PROTOCOL: MessageKey = MessageKey::new("web-nat-field-protocol");
+
+/// `web-nat-field-port` in `web.ftl`.
+pub const WEB_NAT_FIELD_PORT: MessageKey = MessageKey::new("web-nat-field-port");
+
+/// `web-nat-field-end-port` in `web.ftl`.
+pub const WEB_NAT_FIELD_END_PORT: MessageKey = MessageKey::new("web-nat-field-end-port");
+
+/// `web-nat-field-target` in `web.ftl`.
+pub const WEB_NAT_FIELD_TARGET: MessageKey = MessageKey::new("web-nat-field-target");
+
+/// `web-nat-field-target-port` in `web.ftl`.
+pub const WEB_NAT_FIELD_TARGET_PORT: MessageKey = MessageKey::new("web-nat-field-target-port");
+
+/// `web-nat-help-port` in `web.ftl`.
+pub const WEB_NAT_HELP_PORT: MessageKey = MessageKey::new("web-nat-help-port");
+
+/// `web-nat-help-end-port` in `web.ftl`.
+pub const WEB_NAT_HELP_END_PORT: MessageKey = MessageKey::new("web-nat-help-end-port");
+
+/// `web-nat-help-target` in `web.ftl`.
+pub const WEB_NAT_HELP_TARGET: MessageKey = MessageKey::new("web-nat-help-target");
+
+/// `web-nat-help-target-port` in `web.ftl`.
+pub const WEB_NAT_HELP_TARGET_PORT: MessageKey = MessageKey::new("web-nat-help-target-port");
+
+/// `web-nat-error-range` in `web.ftl`.
+pub const WEB_NAT_ERROR_RANGE: MessageKey = MessageKey::new("web-nat-error-range");
+
+/// `web-nat-error-target` in `web.ftl`.
+pub const WEB_NAT_ERROR_TARGET: MessageKey = MessageKey::new("web-nat-error-target");
+
+/// `web-nat-error-ports` in `web.ftl`.
+pub const WEB_NAT_ERROR_PORTS: MessageKey = MessageKey::new("web-nat-error-ports");
+
+/// `web-nat-error-needs-port` in `web.ftl`.
+pub const WEB_NAT_ERROR_NEEDS_PORT: MessageKey = MessageKey::new("web-nat-error-needs-port");
+
+/// `web-nat-error-target-port` in `web.ftl`.
+pub const WEB_NAT_ERROR_TARGET_PORT: MessageKey = MessageKey::new("web-nat-error-target-port");
+
+/// `web-nat-remove-title` in `web.ftl`.
+pub const WEB_NAT_REMOVE_TITLE: MessageKey = MessageKey::new("web-nat-remove-title");
+
+/// `web-nat-remove-text` in `web.ftl`.
+pub const WEB_NAT_REMOVE_TEXT: MessageKey = MessageKey::new("web-nat-remove-text");
+
+/// `web-nat-interface-add` in `web.ftl`.
+pub const WEB_NAT_INTERFACE_ADD: MessageKey = MessageKey::new("web-nat-interface-add");
+
+/// `web-nat-interface-add-title` in `web.ftl`.
+pub const WEB_NAT_INTERFACE_ADD_TITLE: MessageKey = MessageKey::new("web-nat-interface-add-title");
+
+/// `web-nat-interface-add-text` in `web.ftl`.
+pub const WEB_NAT_INTERFACE_ADD_TEXT: MessageKey = MessageKey::new("web-nat-interface-add-text");
+
+/// `web-nat-interfaces-empty` in `web.ftl`.
+pub const WEB_NAT_INTERFACES_EMPTY: MessageKey = MessageKey::new("web-nat-interfaces-empty");
+
+/// `web-nat-interface-remove-title` in `web.ftl`.
+pub const WEB_NAT_INTERFACE_REMOVE_TITLE: MessageKey =
+    MessageKey::new("web-nat-interface-remove-title");
+
+/// `web-nat-interface-remove-text` in `web.ftl`.
+pub const WEB_NAT_INTERFACE_REMOVE_TEXT: MessageKey =
+    MessageKey::new("web-nat-interface-remove-text");
+
+/// `web-nat-col-source` in `web.ftl`.
+pub const WEB_NAT_COL_SOURCE: MessageKey = MessageKey::new("web-nat-col-source");
+
+/// `web-nat-col-destination` in `web.ftl`.
+pub const WEB_NAT_COL_DESTINATION: MessageKey = MessageKey::new("web-nat-col-destination");
+
+/// `web-nat-col-translated` in `web.ftl`.
+pub const WEB_NAT_COL_TRANSLATED: MessageKey = MessageKey::new("web-nat-col-translated");
+
+/// `web-nat-col-state` in `web.ftl`.
+pub const WEB_NAT_COL_STATE: MessageKey = MessageKey::new("web-nat-col-state");
+
+/// `web-nat-col-received` in `web.ftl`.
+pub const WEB_NAT_COL_RECEIVED: MessageKey = MessageKey::new("web-nat-col-received");
+
+/// `web-nat-col-sent` in `web.ftl`.
+pub const WEB_NAT_COL_SENT: MessageKey = MessageKey::new("web-nat-col-sent");
+
+/// `web-nat-sessions-empty` in `web.ftl`.
+pub const WEB_NAT_SESSIONS_EMPTY: MessageKey = MessageKey::new("web-nat-sessions-empty");
+
+/// `web-nat-sessions-status` in `web.ftl`.
+pub const WEB_NAT_SESSIONS_STATUS: MessageKey = MessageKey::new("web-nat-sessions-status");
+
+/// `web-nat-sessions-note` in `web.ftl`.
+pub const WEB_NAT_SESSIONS_NOTE: MessageKey = MessageKey::new("web-nat-sessions-note");
+
+/// `web-firewall-title` in `web.ftl`.
+pub const WEB_FIREWALL_TITLE: MessageKey = MessageKey::new("web-firewall-title");
+
+/// `web-firewall-views` in `web.ftl`.
+pub const WEB_FIREWALL_VIEWS: MessageKey = MessageKey::new("web-firewall-views");
+
+/// `web-firewall-lists` in `web.ftl`.
+pub const WEB_FIREWALL_LISTS: MessageKey = MessageKey::new("web-firewall-lists");
+
+/// `web-firewall-bindings` in `web.ftl`.
+pub const WEB_FIREWALL_BINDINGS: MessageKey = MessageKey::new("web-firewall-bindings");
+
+/// `web-firewall-upnp` in `web.ftl`.
+pub const WEB_FIREWALL_UPNP: MessageKey = MessageKey::new("web-firewall-upnp");
+
+/// `web-firewall-add` in `web.ftl`.
+pub const WEB_FIREWALL_ADD: MessageKey = MessageKey::new("web-firewall-add");
+
+/// `web-firewall-applied` in `web.ftl`.
+pub const WEB_FIREWALL_APPLIED: MessageKey = MessageKey::new("web-firewall-applied");
+
+/// `web-firewall-binding` in `web.ftl`.
+pub const WEB_FIREWALL_BINDING: MessageKey = MessageKey::new("web-firewall-binding");
+
+/// `web-firewall-direction-in` in `web.ftl`.
+pub const WEB_FIREWALL_DIRECTION_IN: MessageKey = MessageKey::new("web-firewall-direction-in");
+
+/// `web-firewall-direction-out` in `web.ftl`.
+pub const WEB_FIREWALL_DIRECTION_OUT: MessageKey = MessageKey::new("web-firewall-direction-out");
+
+/// `web-firewall-not-applied` in `web.ftl`.
+pub const WEB_FIREWALL_NOT_APPLIED: MessageKey = MessageKey::new("web-firewall-not-applied");
+
+/// `web-firewall-col-position` in `web.ftl`.
+pub const WEB_FIREWALL_COL_POSITION: MessageKey = MessageKey::new("web-firewall-col-position");
+
+/// `web-firewall-col-action` in `web.ftl`.
+pub const WEB_FIREWALL_COL_ACTION: MessageKey = MessageKey::new("web-firewall-col-action");
+
+/// `web-firewall-col-schedule` in `web.ftl`.
+pub const WEB_FIREWALL_COL_SCHEDULE: MessageKey = MessageKey::new("web-firewall-col-schedule");
+
+/// `web-firewall-action-permit` in `web.ftl`.
+pub const WEB_FIREWALL_ACTION_PERMIT: MessageKey = MessageKey::new("web-firewall-action-permit");
+
+/// `web-firewall-action-deny` in `web.ftl`.
+pub const WEB_FIREWALL_ACTION_DENY: MessageKey = MessageKey::new("web-firewall-action-deny");
+
+/// `web-firewall-any-address` in `web.ftl`.
+pub const WEB_FIREWALL_ANY_ADDRESS: MessageKey = MessageKey::new("web-firewall-any-address");
+
+/// `web-firewall-port` in `web.ftl`.
+pub const WEB_FIREWALL_PORT: MessageKey = MessageKey::new("web-firewall-port");
+
+/// `web-firewall-move-up` in `web.ftl`.
+pub const WEB_FIREWALL_MOVE_UP: MessageKey = MessageKey::new("web-firewall-move-up");
+
+/// `web-firewall-move-down` in `web.ftl`.
+pub const WEB_FIREWALL_MOVE_DOWN: MessageKey = MessageKey::new("web-firewall-move-down");
+
+/// `web-firewall-disable` in `web.ftl`.
+pub const WEB_FIREWALL_DISABLE: MessageKey = MessageKey::new("web-firewall-disable");
+
+/// `web-firewall-enable` in `web.ftl`.
+pub const WEB_FIREWALL_ENABLE: MessageKey = MessageKey::new("web-firewall-enable");
+
+/// `web-firewall-schedule` in `web.ftl`.
+pub const WEB_FIREWALL_SCHEDULE: MessageKey = MessageKey::new("web-firewall-schedule");
+
+/// `web-firewall-lists-empty` in `web.ftl`.
+pub const WEB_FIREWALL_LISTS_EMPTY: MessageKey = MessageKey::new("web-firewall-lists-empty");
+
+/// `web-firewall-rules-empty` in `web.ftl`.
+pub const WEB_FIREWALL_RULES_EMPTY: MessageKey = MessageKey::new("web-firewall-rules-empty");
+
+/// `web-firewall-field-list` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_LIST: MessageKey = MessageKey::new("web-firewall-field-list");
+
+/// `web-firewall-help-list` in `web.ftl`.
+pub const WEB_FIREWALL_HELP_LIST: MessageKey = MessageKey::new("web-firewall-help-list");
+
+/// `web-firewall-field-action` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_ACTION: MessageKey = MessageKey::new("web-firewall-field-action");
+
+/// `web-firewall-field-source` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_SOURCE: MessageKey = MessageKey::new("web-firewall-field-source");
+
+/// `web-firewall-field-source-mask` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_SOURCE_MASK: MessageKey =
+    MessageKey::new("web-firewall-field-source-mask");
+
+/// `web-firewall-field-source-port` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_SOURCE_PORT: MessageKey =
+    MessageKey::new("web-firewall-field-source-port");
+
+/// `web-firewall-field-destination` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_DESTINATION: MessageKey =
+    MessageKey::new("web-firewall-field-destination");
+
+/// `web-firewall-field-destination-mask` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_DESTINATION_MASK: MessageKey =
+    MessageKey::new("web-firewall-field-destination-mask");
+
+/// `web-firewall-field-destination-port` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_DESTINATION_PORT: MessageKey =
+    MessageKey::new("web-firewall-field-destination-port");
+
+/// `web-firewall-help-address` in `web.ftl`.
+pub const WEB_FIREWALL_HELP_ADDRESS: MessageKey = MessageKey::new("web-firewall-help-address");
+
+/// `web-firewall-help-port` in `web.ftl`.
+pub const WEB_FIREWALL_HELP_PORT: MessageKey = MessageKey::new("web-firewall-help-port");
+
+/// `web-firewall-error-description` in `web.ftl`.
+pub const WEB_FIREWALL_ERROR_DESCRIPTION: MessageKey =
+    MessageKey::new("web-firewall-error-description");
+
+/// `web-firewall-description-title` in `web.ftl`.
+pub const WEB_FIREWALL_DESCRIPTION_TITLE: MessageKey =
+    MessageKey::new("web-firewall-description-title");
+
+/// `web-firewall-help-description` in `web.ftl`.
+pub const WEB_FIREWALL_HELP_DESCRIPTION: MessageKey =
+    MessageKey::new("web-firewall-help-description");
+
+/// `web-firewall-schedule-title` in `web.ftl`.
+pub const WEB_FIREWALL_SCHEDULE_TITLE: MessageKey = MessageKey::new("web-firewall-schedule-title");
+
+/// `web-firewall-no-schedule` in `web.ftl`.
+pub const WEB_FIREWALL_NO_SCHEDULE: MessageKey = MessageKey::new("web-firewall-no-schedule");
+
+/// `web-firewall-help-schedule` in `web.ftl`.
+pub const WEB_FIREWALL_HELP_SCHEDULE: MessageKey = MessageKey::new("web-firewall-help-schedule");
+
+/// `web-firewall-remove-title` in `web.ftl`.
+pub const WEB_FIREWALL_REMOVE_TITLE: MessageKey = MessageKey::new("web-firewall-remove-title");
+
+/// `web-firewall-remove-text` in `web.ftl`.
+pub const WEB_FIREWALL_REMOVE_TEXT: MessageKey = MessageKey::new("web-firewall-remove-text");
+
+/// `web-firewall-bind` in `web.ftl`.
+pub const WEB_FIREWALL_BIND: MessageKey = MessageKey::new("web-firewall-bind");
+
+/// `web-firewall-bind-title` in `web.ftl`.
+pub const WEB_FIREWALL_BIND_TITLE: MessageKey = MessageKey::new("web-firewall-bind-title");
+
+/// `web-firewall-field-direction` in `web.ftl`.
+pub const WEB_FIREWALL_FIELD_DIRECTION: MessageKey =
+    MessageKey::new("web-firewall-field-direction");
+
+/// `web-firewall-help-direction` in `web.ftl`.
+pub const WEB_FIREWALL_HELP_DIRECTION: MessageKey = MessageKey::new("web-firewall-help-direction");
+
+/// `web-firewall-error-no-lists` in `web.ftl`.
+pub const WEB_FIREWALL_ERROR_NO_LISTS: MessageKey = MessageKey::new("web-firewall-error-no-lists");
+
+/// `web-firewall-col-list` in `web.ftl`.
+pub const WEB_FIREWALL_COL_LIST: MessageKey = MessageKey::new("web-firewall-col-list");
+
+/// `web-firewall-col-direction` in `web.ftl`.
+pub const WEB_FIREWALL_COL_DIRECTION: MessageKey = MessageKey::new("web-firewall-col-direction");
+
+/// `web-firewall-bindings-empty` in `web.ftl`.
+pub const WEB_FIREWALL_BINDINGS_EMPTY: MessageKey = MessageKey::new("web-firewall-bindings-empty");
+
+/// `web-firewall-unbind-title` in `web.ftl`.
+pub const WEB_FIREWALL_UNBIND_TITLE: MessageKey = MessageKey::new("web-firewall-unbind-title");
+
+/// `web-firewall-unbind-text` in `web.ftl`.
+pub const WEB_FIREWALL_UNBIND_TEXT: MessageKey = MessageKey::new("web-firewall-unbind-text");
+
+/// `web-firewall-ipv6-title` in `web.ftl`.
+pub const WEB_FIREWALL_IPV6_TITLE: MessageKey = MessageKey::new("web-firewall-ipv6-title");
+
+/// `web-firewall-ipv6-missing` in `web.ftl`.
+pub const WEB_FIREWALL_IPV6_MISSING: MessageKey = MessageKey::new("web-firewall-ipv6-missing");
+
+/// `web-firewall-ipv6-readonly` in `web.ftl`.
+pub const WEB_FIREWALL_IPV6_READONLY: MessageKey = MessageKey::new("web-firewall-ipv6-readonly");
+
+/// `web-firewall-ipv6-empty` in `web.ftl`.
+pub const WEB_FIREWALL_IPV6_EMPTY: MessageKey = MessageKey::new("web-firewall-ipv6-empty");
+
+/// `web-firewall-explorer` in `web.ftl`.
+pub const WEB_FIREWALL_EXPLORER: MessageKey = MessageKey::new("web-firewall-explorer");
+
+/// `web-firewall-upnp-text` in `web.ftl`.
+pub const WEB_FIREWALL_UPNP_TEXT: MessageKey = MessageKey::new("web-firewall-upnp-text");
+
+/// `web-firewall-col-external-port` in `web.ftl`.
+pub const WEB_FIREWALL_COL_EXTERNAL_PORT: MessageKey =
+    MessageKey::new("web-firewall-col-external-port");
+
+/// `web-firewall-col-internal` in `web.ftl`.
+pub const WEB_FIREWALL_COL_INTERNAL: MessageKey = MessageKey::new("web-firewall-col-internal");
+
+/// `web-firewall-col-internal-port` in `web.ftl`.
+pub const WEB_FIREWALL_COL_INTERNAL_PORT: MessageKey =
+    MessageKey::new("web-firewall-col-internal-port");
+
+/// `web-firewall-upnp-empty` in `web.ftl`.
+pub const WEB_FIREWALL_UPNP_EMPTY: MessageKey = MessageKey::new("web-firewall-upnp-empty");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1645] = [
+pub static ALL: [MessageKey; 1840] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6789,4 +7399,199 @@ pub static ALL: [MessageKey; 1645] = [
     WEB_MIGRATE_REPORT_FINISHED,
     WEB_MIGRATE_DOWNLOAD_JSON,
     WEB_MIGRATE_FAILURE_VALIDATION,
+    WEB_ROUTING_TABS,
+    WEB_ROUTING_STATIC_TITLE,
+    WEB_ROUTING_TABLE_TITLE,
+    WEB_ROUTING_POLICIES_TITLE,
+    WEB_ROUTING_FAMILY,
+    WEB_ROUTING_IPV4,
+    WEB_ROUTING_IPV6,
+    WEB_ROUTING_ADD,
+    WEB_ROUTING_REMOVE,
+    WEB_ROUTING_COL_DESTINATION,
+    WEB_ROUTING_COL_GATEWAY,
+    WEB_ROUTING_COL_INTERFACE,
+    WEB_ROUTING_COL_METRIC,
+    WEB_ROUTING_COL_SOURCE,
+    WEB_ROUTING_COL_NAME,
+    WEB_ROUTING_COL_DESCRIPTION,
+    WEB_ROUTING_COL_PROTOCOL,
+    WEB_ROUTING_SOURCE_STATIC,
+    WEB_ROUTING_STATIC_EMPTY,
+    WEB_ROUTING_TABLE_EMPTY,
+    WEB_ROUTING_ADD_TITLE,
+    WEB_ROUTING_ADD_TITLE_V6,
+    WEB_ROUTING_FIELD_NETWORK,
+    WEB_ROUTING_FIELD_MASK,
+    WEB_ROUTING_FIELD_PREFIX,
+    WEB_ROUTING_FIELD_GATEWAY,
+    WEB_ROUTING_FIELD_INTERFACE,
+    WEB_ROUTING_FIELD_METRIC,
+    WEB_ROUTING_HELP_NETWORK,
+    WEB_ROUTING_HELP_MASK,
+    WEB_ROUTING_HELP_PREFIX,
+    WEB_ROUTING_HELP_GATEWAY,
+    WEB_ROUTING_HELP_METRIC,
+    WEB_ROUTING_NO_INTERFACE,
+    WEB_ROUTING_ERROR_IPV4,
+    WEB_ROUTING_ERROR_IPV6,
+    WEB_ROUTING_ERROR_MASK,
+    WEB_ROUTING_ERROR_PREFIX,
+    WEB_ROUTING_ERROR_VIA,
+    WEB_ROUTING_ERROR_NUMBER,
+    WEB_ROUTING_ERROR_PORT,
+    WEB_ROUTING_ERROR_NAME,
+    WEB_ROUTING_ERROR_WORD,
+    WEB_ROUTING_ERROR_DUPLICATE,
+    WEB_ROUTING_ERROR_CHOICE,
+    WEB_ROUTING_GONE,
+    WEB_ROUTING_REMOVE_TITLE,
+    WEB_ROUTING_REMOVE_TEXT,
+    WEB_ROUTING_COUNT_MISMATCH,
+    WEB_ROUTING_GUARD_TITLE,
+    WEB_ROUTING_GUARD_TEXT,
+    WEB_ROUTING_GUARD_KEPT,
+    WEB_ROUTING_GUARD_FAILED_TITLE,
+    WEB_ROUTING_GUARD_FAILED_TEXT,
+    WEB_ROUTING_PROTOCOL_TCP,
+    WEB_ROUTING_PROTOCOL_UDP,
+    WEB_ROUTING_PROTOCOL_TCPUDP,
+    WEB_ROUTING_PROTOCOL_ICMP,
+    WEB_ROUTING_PROTOCOL_ESP,
+    WEB_ROUTING_PROTOCOL_GRE,
+    WEB_ROUTING_PROTOCOL_IPIP,
+    WEB_ROUTING_PROTOCOL_IP,
+    WEB_ROUTING_POLICY_ADD,
+    WEB_ROUTING_COL_INTERFACES,
+    WEB_ROUTING_COL_MULTIPATH,
+    WEB_ROUTING_POLICIES_EMPTY,
+    WEB_ROUTING_POLICY_NO_INTERFACES,
+    WEB_ROUTING_POLICY_ORDER,
+    WEB_ROUTING_POLICY_ADD_TITLE,
+    WEB_ROUTING_FIELD_POLICY,
+    WEB_ROUTING_HELP_POLICY,
+    WEB_ROUTING_FIELD_DESCRIPTION,
+    WEB_ROUTING_HELP_WORD,
+    WEB_ROUTING_ERROR_POLICY_EXISTS,
+    WEB_ROUTING_POLICY_DESCRIPTION_TITLE,
+    WEB_ROUTING_POLICY_DESCRIPTION,
+    WEB_ROUTING_POLICY_PERMIT,
+    WEB_ROUTING_POLICY_PERMIT_TITLE,
+    WEB_ROUTING_POLICY_PERMIT_TEXT,
+    WEB_ROUTING_FIELD_ORDER,
+    WEB_ROUTING_HELP_ORDER,
+    WEB_ROUTING_MULTIPATH_ON,
+    WEB_ROUTING_MULTIPATH_OFF,
+    WEB_ROUTING_POLICY_DELETE_TITLE,
+    WEB_ROUTING_POLICY_DELETE_TEXT,
+    WEB_NAT_TITLE,
+    WEB_NAT_VIEWS,
+    WEB_NAT_RULES,
+    WEB_NAT_INTERFACES,
+    WEB_NAT_SESSIONS,
+    WEB_NAT_ADD,
+    WEB_NAT_COL_INTERFACE,
+    WEB_NAT_COL_PORTS,
+    WEB_NAT_COL_TARGET,
+    WEB_NAT_COL_TARGET_PORT,
+    WEB_NAT_ANY,
+    WEB_NAT_SAME_PORT,
+    WEB_NAT_PORT_RANGE,
+    WEB_NAT_RULES_EMPTY,
+    WEB_NAT_EXPLORER_ONLY,
+    WEB_NAT_FIELD_PROTOCOL,
+    WEB_NAT_FIELD_PORT,
+    WEB_NAT_FIELD_END_PORT,
+    WEB_NAT_FIELD_TARGET,
+    WEB_NAT_FIELD_TARGET_PORT,
+    WEB_NAT_HELP_PORT,
+    WEB_NAT_HELP_END_PORT,
+    WEB_NAT_HELP_TARGET,
+    WEB_NAT_HELP_TARGET_PORT,
+    WEB_NAT_ERROR_RANGE,
+    WEB_NAT_ERROR_TARGET,
+    WEB_NAT_ERROR_PORTS,
+    WEB_NAT_ERROR_NEEDS_PORT,
+    WEB_NAT_ERROR_TARGET_PORT,
+    WEB_NAT_REMOVE_TITLE,
+    WEB_NAT_REMOVE_TEXT,
+    WEB_NAT_INTERFACE_ADD,
+    WEB_NAT_INTERFACE_ADD_TITLE,
+    WEB_NAT_INTERFACE_ADD_TEXT,
+    WEB_NAT_INTERFACES_EMPTY,
+    WEB_NAT_INTERFACE_REMOVE_TITLE,
+    WEB_NAT_INTERFACE_REMOVE_TEXT,
+    WEB_NAT_COL_SOURCE,
+    WEB_NAT_COL_DESTINATION,
+    WEB_NAT_COL_TRANSLATED,
+    WEB_NAT_COL_STATE,
+    WEB_NAT_COL_RECEIVED,
+    WEB_NAT_COL_SENT,
+    WEB_NAT_SESSIONS_EMPTY,
+    WEB_NAT_SESSIONS_STATUS,
+    WEB_NAT_SESSIONS_NOTE,
+    WEB_FIREWALL_TITLE,
+    WEB_FIREWALL_VIEWS,
+    WEB_FIREWALL_LISTS,
+    WEB_FIREWALL_BINDINGS,
+    WEB_FIREWALL_UPNP,
+    WEB_FIREWALL_ADD,
+    WEB_FIREWALL_APPLIED,
+    WEB_FIREWALL_BINDING,
+    WEB_FIREWALL_DIRECTION_IN,
+    WEB_FIREWALL_DIRECTION_OUT,
+    WEB_FIREWALL_NOT_APPLIED,
+    WEB_FIREWALL_COL_POSITION,
+    WEB_FIREWALL_COL_ACTION,
+    WEB_FIREWALL_COL_SCHEDULE,
+    WEB_FIREWALL_ACTION_PERMIT,
+    WEB_FIREWALL_ACTION_DENY,
+    WEB_FIREWALL_ANY_ADDRESS,
+    WEB_FIREWALL_PORT,
+    WEB_FIREWALL_MOVE_UP,
+    WEB_FIREWALL_MOVE_DOWN,
+    WEB_FIREWALL_DISABLE,
+    WEB_FIREWALL_ENABLE,
+    WEB_FIREWALL_SCHEDULE,
+    WEB_FIREWALL_LISTS_EMPTY,
+    WEB_FIREWALL_RULES_EMPTY,
+    WEB_FIREWALL_FIELD_LIST,
+    WEB_FIREWALL_HELP_LIST,
+    WEB_FIREWALL_FIELD_ACTION,
+    WEB_FIREWALL_FIELD_SOURCE,
+    WEB_FIREWALL_FIELD_SOURCE_MASK,
+    WEB_FIREWALL_FIELD_SOURCE_PORT,
+    WEB_FIREWALL_FIELD_DESTINATION,
+    WEB_FIREWALL_FIELD_DESTINATION_MASK,
+    WEB_FIREWALL_FIELD_DESTINATION_PORT,
+    WEB_FIREWALL_HELP_ADDRESS,
+    WEB_FIREWALL_HELP_PORT,
+    WEB_FIREWALL_ERROR_DESCRIPTION,
+    WEB_FIREWALL_DESCRIPTION_TITLE,
+    WEB_FIREWALL_HELP_DESCRIPTION,
+    WEB_FIREWALL_SCHEDULE_TITLE,
+    WEB_FIREWALL_NO_SCHEDULE,
+    WEB_FIREWALL_HELP_SCHEDULE,
+    WEB_FIREWALL_REMOVE_TITLE,
+    WEB_FIREWALL_REMOVE_TEXT,
+    WEB_FIREWALL_BIND,
+    WEB_FIREWALL_BIND_TITLE,
+    WEB_FIREWALL_FIELD_DIRECTION,
+    WEB_FIREWALL_HELP_DIRECTION,
+    WEB_FIREWALL_ERROR_NO_LISTS,
+    WEB_FIREWALL_COL_LIST,
+    WEB_FIREWALL_COL_DIRECTION,
+    WEB_FIREWALL_BINDINGS_EMPTY,
+    WEB_FIREWALL_UNBIND_TITLE,
+    WEB_FIREWALL_UNBIND_TEXT,
+    WEB_FIREWALL_IPV6_TITLE,
+    WEB_FIREWALL_IPV6_MISSING,
+    WEB_FIREWALL_IPV6_READONLY,
+    WEB_FIREWALL_IPV6_EMPTY,
+    WEB_FIREWALL_EXPLORER,
+    WEB_FIREWALL_UPNP_TEXT,
+    WEB_FIREWALL_COL_EXTERNAL_PORT,
+    WEB_FIREWALL_COL_INTERNAL,
+    WEB_FIREWALL_COL_INTERNAL_PORT,
+    WEB_FIREWALL_UPNP_EMPTY,
 ];
