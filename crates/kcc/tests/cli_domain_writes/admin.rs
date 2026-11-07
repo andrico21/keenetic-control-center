@@ -1,0 +1,120 @@
+//! Firewall, service, storage, schedule and KeenDNS writes.
+
+use kcc_app::audit::read_entries;
+
+use super::{lab::Lab, support::TestResult};
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn firewall_rule_is_added_and_removed_and_read_back() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    drop(lab.json(&[
+        "firewall",
+        "rule",
+        "WebAcl",
+        "--protocol",
+        "tcp",
+        "--source",
+        "192.0.2.10",
+        "--destination",
+        "198.51.100.20",
+        "--port",
+        "443",
+    ])?);
+    let lists = lab.json(&["firewall", "access-lists"])?;
+    assert!(lists.to_string().contains("198.51.100.20"), "{lists}");
+    drop(lab.json(&[
+        "firewall",
+        "rule",
+        "WebAcl",
+        "--protocol",
+        "tcp",
+        "--source",
+        "192.0.2.10",
+        "--destination",
+        "198.51.100.20",
+        "--port",
+        "443",
+        "--remove",
+    ])?);
+    let after = lab.json(&["firewall", "access-lists"])?;
+    assert!(!after.to_string().contains("198.51.100.20"), "{after}");
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn management_port_needs_yes_and_runs_inside_the_fail_safe_bracket() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let unconfirmed = lab.run(&["services", "port", "telnet", "2323"])?;
+    assert_eq!(unconfirmed.code, 10_i32, "{unconfirmed:?}");
+    let refused = read_entries(&lab.env.state_dir())?;
+    assert_eq!(refused.len(), 0, "{refused:?}");
+    drop(lab.json(&["--yes", "services", "port", "telnet", "2323"])?);
+    let running = lab.fake.running_config_text();
+    assert!(running.contains("ip telnet port 2323"), "{running}");
+    let entries = read_entries(&lab.env.state_dir())?;
+    let lines = format!("{entries:?}");
+    assert!(
+        lines.contains("system reboot"),
+        "no fail-safe bracket: {lines}"
+    );
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn partition_check_is_refused_by_a_catalog_without_it() -> TestResult {
+    // KN-1811 firmware 5.1 has no `system partition check`: the plan fails validation
+    // (exit 4) and nothing reaches the workflow.
+    let lab = Lab::spawn("").await?;
+    let run = lab.run(&["--confirm-destructive", "lab-1", "storage", "check", "sda1"])?;
+    assert_eq!(run.code, 4_i32, "{run:?}");
+    let entries = read_entries(&lab.env.state_dir())?;
+    assert_eq!(entries.len(), 0, "{entries:?}");
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn schedule_action_is_written_and_read_back() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    drop(lab.json(&["schedules", "create", "night"])?);
+    drop(lab.json(&[
+        "schedules",
+        "action",
+        "night",
+        "start",
+        "--minute",
+        "30",
+        "--hour",
+        "22",
+        "--days",
+        "127",
+    ])?);
+    let running = lab.fake.running_config_text();
+    assert!(running.contains("action start 30 22 127"), "{running}");
+    lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn keendns_proxy_upstream_is_a_management_change() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let args = [
+        "keendns",
+        "proxy-upstream",
+        "nas",
+        "--protocol",
+        "http",
+        "--host",
+        "192.0.2.40",
+        "--port",
+        "8080",
+    ];
+    assert_eq!(lab.run(&args)?.code, 10_i32);
+    let mut confirmed = vec!["--yes"];
+    confirmed.extend(args);
+    drop(lab.json(&confirmed)?);
+    let running = lab.fake.running_config_text();
+    assert!(
+        running.contains("upstream http 192.0.2.40 8080"),
+        "{running}"
+    );
+    lab.shutdown().await
+}

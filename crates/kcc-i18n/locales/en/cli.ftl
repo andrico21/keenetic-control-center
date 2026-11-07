@@ -88,3 +88,7 @@ cli-preset-finish-left = No choice was made: the fail-safe timer stays armed and
 cli-preset-finished = Run { $name } on { $router } finished: { $value }.
 cli-preset-not-run = { $name } is not a preset or migration run.
 cli-preset-run = Run { $name } started on { $router }.
+
+cli-job-completed = Job { $name } completed.
+cli-job-failed = Job { $name } did not complete.
+cli-name-taken = { $name } already exists; choose another name.

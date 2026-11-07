@@ -5,6 +5,19 @@ use core::net::Ipv4Addr;
 use clap::{Subcommand, ValueEnum};
 
 use super::{
+    args_dom_admin::{
+        FirewallWriteCommand, KeenDnsWriteCommand, SchedulesWriteCommand, ServicesWriteCommand,
+        StorageWriteCommand,
+    },
+    args_dom_dns::DnsWriteCommand,
+    args_dom_family::Family,
+    args_dom_jobs::{ComponentsWriteCommand, DiagnosticsWriteCommand},
+    args_dom_lan::{
+        ClientsWriteCommand, DhcpWriteCommand, PoliciesWriteCommand, SegmentsWriteCommand,
+    },
+    args_dom_link::{InterfacesWriteCommand, MeshWriteCommand, WanWriteCommand, WifiWriteCommand},
+    args_dom_vpn::{VpnSecretCommand, VpnWriteCommand},
+    args_dom_vpn_server::{VpnServerSecretCommand, VpnServerWriteCommand},
     args_domains_net::{
         ComponentsCommand, FirewallCommand, NatCommand, PoliciesCommand, RouterUsersCommand,
         RoutesCommand, SchedulesCommand, ServicesCommand, StorageCommand,
@@ -27,16 +40,16 @@ pub enum DomainCommand {
     Internet(InternetCommand),
     /// Router log and diagnostics.
     #[command(subcommand)]
-    Diagnostics(DiagnosticsCommand),
+    Diagnostics(Family<DiagnosticsCommand, DiagnosticsWriteCommand>),
     /// Connected and registered clients.
     #[command(subcommand)]
-    Clients(ClientsCommand),
+    Clients(Family<ClientsCommand, ClientsWriteCommand>),
     /// DHCP pools, leases, bindings and neighbours.
     #[command(subcommand)]
-    Dhcp(DhcpCommand),
+    Dhcp(Family<DhcpCommand, DhcpWriteCommand>),
     /// Network segments.
     #[command(subcommand)]
-    Segments(SegmentsCommand),
+    Segments(Family<SegmentsCommand, SegmentsWriteCommand>),
     /// Router login accounts.
     #[command(subcommand, name = "router-users")]
     RouterUsers(RouterUsersCommand),
@@ -45,52 +58,52 @@ pub enum DomainCommand {
     Routes(RoutesCommand),
     /// Connection policies.
     #[command(subcommand)]
-    Policies(PoliciesCommand),
+    Policies(Family<PoliciesCommand, PoliciesWriteCommand>),
     /// NAT and port forwarding.
     #[command(subcommand)]
     Nat(NatCommand),
     /// Access lists and UPnP.
     #[command(subcommand)]
-    Firewall(FirewallCommand),
+    Firewall(Family<FirewallCommand, FirewallWriteCommand>),
     /// Router services.
     #[command(subcommand)]
-    Services(ServicesCommand),
+    Services(Family<ServicesCommand, ServicesWriteCommand>),
     /// Firmware components.
     #[command(subcommand)]
-    Components(ComponentsCommand),
+    Components(Family<ComponentsCommand, ComponentsWriteCommand>),
     /// Attached storage.
     #[command(subcommand)]
-    Storage(StorageCommand),
+    Storage(Family<StorageCommand, StorageWriteCommand>),
     /// Schedules.
     #[command(subcommand)]
-    Schedules(SchedulesCommand),
+    Schedules(Family<SchedulesCommand, SchedulesWriteCommand>),
     /// KeenDNS and remote access.
     #[command(subcommand)]
-    Keendns(KeenDnsCommand),
+    Keendns(Family<KeenDnsCommand, KeenDnsWriteCommand>),
     /// Router log reading and configuration.
     #[command(subcommand)]
     Log(LogCommand),
     /// DNS proxy.
     #[command(subcommand)]
-    Dns(DnsCommand),
+    Dns(Family<DnsCommand, DnsWriteCommand>),
     /// VPN client connections.
     #[command(subcommand)]
-    Vpn(VpnCommand),
+    Vpn(Family<VpnCommand, Family<VpnWriteCommand, VpnSecretCommand>>),
     /// VPN servers.
     #[command(subcommand, name = "vpn-server")]
-    VpnServer(VpnServerCommand),
+    VpnServer(Family<VpnServerCommand, Family<VpnServerWriteCommand, VpnServerSecretCommand>>),
     /// Interfaces.
     #[command(subcommand)]
-    Interfaces(InterfacesCommand),
+    Interfaces(Family<InterfacesCommand, InterfacesWriteCommand>),
     /// Internet connections.
     #[command(subcommand)]
-    Wan(WanCommand),
+    Wan(Family<WanCommand, WanWriteCommand>),
     /// Wi-Fi access points, radios and stations.
     #[command(subcommand)]
-    Wifi(WifiCommand),
+    Wifi(Family<WifiCommand, WifiWriteCommand>),
     /// Mesh members.
     #[command(subcommand)]
-    Mesh(MeshCommand),
+    Mesh(Family<MeshCommand, MeshWriteCommand>),
 }
 
 /// An on or off switch.

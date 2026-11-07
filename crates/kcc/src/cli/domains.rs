@@ -16,7 +16,8 @@ use super::{
     args_domains::DomainCommand,
     change::{Gate, applied, run as run_change},
     context::{Ctx, Services, Target},
-    dom_core, dom_net, dom_routes, dom_wifi, dom_wire,
+    dom_admin, dom_core, dom_dns, dom_jobs, dom_lan, dom_link, dom_mgmt, dom_net, dom_policies,
+    dom_routes, dom_vpn, dom_vpn_server, dom_wire,
     exit::Outcome,
 };
 
@@ -30,19 +31,19 @@ pub(crate) async fn run(ctx: &Ctx, command: DomainCommand) -> Outcome {
     match command {
         DomainCommand::System(sub) => dom_core::system(ctx, sub).await,
         DomainCommand::Internet(sub) => dom_core::internet(ctx, sub).await,
-        DomainCommand::Diagnostics(sub) => dom_core::diagnostics(ctx, sub).await,
-        DomainCommand::Clients(sub) => dom_core::clients(ctx, sub).await,
-        DomainCommand::Dhcp(sub) => dom_core::dhcp(ctx, sub).await,
-        DomainCommand::Segments(sub) => dom_core::segments(ctx, sub).await,
+        DomainCommand::Diagnostics(sub) => dom_jobs::diagnostics(ctx, sub).await,
+        DomainCommand::Clients(sub) => dom_lan::clients(ctx, sub).await,
+        DomainCommand::Dhcp(sub) => dom_lan::dhcp(ctx, sub).await,
+        DomainCommand::Segments(sub) => dom_lan::segments(ctx, sub).await,
         DomainCommand::RouterUsers(sub) => dom_net::router_users(ctx, sub).await,
         DomainCommand::Routes(sub) => dom_routes::routes(ctx, sub).await,
-        DomainCommand::Policies(sub) => dom_net::policies(ctx, sub).await,
+        DomainCommand::Policies(sub) => dom_policies::policies(ctx, sub).await,
         DomainCommand::Nat(sub) => dom_routes::nat(ctx, sub).await,
-        DomainCommand::Firewall(sub) => dom_net::firewall(ctx, sub).await,
-        DomainCommand::Services(sub) => dom_net::services(ctx, sub).await,
-        DomainCommand::Components(sub) => dom_net::components(ctx, sub).await,
-        DomainCommand::Storage(sub) => dom_net::storage(ctx, sub).await,
-        DomainCommand::Schedules(sub) => dom_net::schedules(ctx, sub).await,
+        DomainCommand::Firewall(sub) => dom_admin::firewall(ctx, sub).await,
+        DomainCommand::Services(sub) => dom_mgmt::services(ctx, sub).await,
+        DomainCommand::Components(sub) => dom_jobs::components(ctx, sub).await,
+        DomainCommand::Storage(sub) => dom_admin::storage(ctx, sub).await,
+        DomainCommand::Schedules(sub) => dom_admin::schedules(ctx, sub).await,
         other @ (DomainCommand::Keendns(_)
         | DomainCommand::Log(_)
         | DomainCommand::Dns(_)
@@ -63,15 +64,15 @@ pub(crate) async fn run(ctx: &Ctx, command: DomainCommand) -> Outcome {
 // NOT cancel-safe: changes may apply before cancellation.
 async fn run_wire(ctx: &Ctx, command: DomainCommand) -> Outcome {
     match command {
-        DomainCommand::Keendns(sub) => dom_wire::keendns(ctx, sub).await,
+        DomainCommand::Keendns(sub) => dom_mgmt::keendns(ctx, sub).await,
         DomainCommand::Log(sub) => dom_wire::log(ctx, sub).await,
-        DomainCommand::Dns(sub) => dom_wire::dns(ctx, sub).await,
-        DomainCommand::Vpn(sub) => dom_wire::vpn(ctx, sub).await,
-        DomainCommand::VpnServer(sub) => dom_wire::vpn_server(ctx, sub).await,
-        DomainCommand::Interfaces(sub) => dom_wire::interfaces(ctx, sub).await,
-        DomainCommand::Wan(sub) => dom_wire::wan(ctx, sub).await,
-        DomainCommand::Wifi(sub) => dom_wifi::wifi(ctx, sub).await,
-        DomainCommand::Mesh(sub) => dom_wire::mesh(ctx, sub).await,
+        DomainCommand::Dns(sub) => dom_dns::dns(ctx, sub).await,
+        DomainCommand::Vpn(sub) => dom_vpn::vpn(ctx, sub).await,
+        DomainCommand::VpnServer(sub) => dom_vpn_server::vpn_server(ctx, sub).await,
+        DomainCommand::Interfaces(sub) => dom_link::interfaces(ctx, sub).await,
+        DomainCommand::Wan(sub) => dom_link::wan(ctx, sub).await,
+        DomainCommand::Wifi(sub) => dom_link::wifi(ctx, sub).await,
+        DomainCommand::Mesh(sub) => dom_link::mesh(ctx, sub).await,
         DomainCommand::System(_)
         | DomainCommand::Internet(_)
         | DomainCommand::Diagnostics(_)

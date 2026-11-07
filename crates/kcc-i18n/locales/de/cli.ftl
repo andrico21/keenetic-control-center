@@ -88,3 +88,7 @@ cli-preset-finish-left = Keine Auswahl: Der Fail-Safe-Timer bleibt aktiv und ste
 cli-preset-finished = Lauf { $name } auf { $router } beendet: { $value }.
 cli-preset-not-run = { $name } ist kein Vorlagen- oder Migrationslauf.
 cli-preset-run = Lauf { $name } auf { $router } gestartet.
+
+cli-job-completed = Auftrag { $name } abgeschlossen.
+cli-job-failed = Auftrag { $name } wurde nicht abgeschlossen.
+cli-name-taken = { $name } existiert bereits; wählen Sie einen anderen Namen.

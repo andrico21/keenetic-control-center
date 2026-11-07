@@ -88,3 +88,7 @@ cli-preset-finish-left = Таңдау жасалмады: қорғау тайм�
 cli-preset-finished = { $router } құрылғысындағы { $name } іске қосуы аяқталды: { $value }.
 cli-preset-not-run = { $name } пресет немесе көшіру іске қосуы емес.
 cli-preset-run = { $name } іске қосуы { $router } құрылғысында басталды.
+
+cli-job-completed = { $name } тапсырмасы аяқталды.
+cli-job-failed = { $name } тапсырмасы аяқталмады.
+cli-name-taken = { $name } бұрыннан бар; басқа атау таңдаңыз.

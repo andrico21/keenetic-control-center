@@ -90,3 +90,7 @@ cli-preset-finish-left = Выбар не зроблены: таймер абар
 cli-preset-finished = Запуск { $name } на { $router } завершаны: { $value }.
 cli-preset-not-run = { $name } не з'яўляецца запускам прэсэта ці міграцыі.
 cli-preset-run = Запуск { $name } пачаты на { $router }.
+
+cli-job-completed = Заданне { $name } завершана.
+cli-job-failed = Заданне { $name } не завяршылася.
+cli-name-taken = { $name } ужо існуе; выберыце іншую назву.

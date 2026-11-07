@@ -90,3 +90,7 @@ cli-preset-finish-left = Выбор не сделан: таймер защиты
 cli-preset-finished = Запуск { $name } на { $router } завершён: { $value }.
 cli-preset-not-run = { $name } не является запуском пресета или миграции.
 cli-preset-run = Запуск { $name } начат на { $router }.
+
+cli-job-completed = Задание { $name } завершено.
+cli-job-failed = Задание { $name } не завершилось.
+cli-name-taken = { $name } уже существует; выберите другое имя.

@@ -10,6 +10,8 @@ use clap_complete::Shell;
 
 use super::{
     args_admin::{AdminCommand, ApiKeyCommand, AuditCommand, TlsCommand, UserCommand},
+    args_dom_family::Family,
+    args_dom_jobs::ConfigWriteCommand,
     args_domains::DomainCommand,
     args_fleet::{BackupCommand, CatalogCommand, ConfigCommand, RciCommand, RouterCommand},
     args_migrate::MigrateCommand,
@@ -70,7 +72,7 @@ pub enum Command {
     Catalog(CatalogCommand),
     /// Saving, fail-safe timer and change state.
     #[command(subcommand)]
-    Config(ConfigCommand),
+    Config(Family<ConfigCommand, ConfigWriteCommand>),
     /// Encrypted startup-configuration backups.
     #[command(subcommand)]
     Backup(BackupCommand),

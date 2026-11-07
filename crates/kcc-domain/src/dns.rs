@@ -128,6 +128,22 @@ pub struct TlsUpstream {
     pub domain: Option<String>,
 }
 
+impl TlsUpstream {
+    /// Creates a DNS-over-TLS upstream at `address` with no optional settings.
+    #[inline]
+    #[must_use]
+    pub fn new(address: &str) -> Self {
+        Self {
+            address: address.to_owned(),
+            port: None,
+            server_name: None,
+            spki_hash: None,
+            interface: None,
+            domain: None,
+        }
+    }
+}
+
 /// DNS-over-HTTPS upstream settings.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
@@ -201,6 +217,20 @@ pub struct DnsRoute {
     pub gateway: Option<String>,
     /// Egress interface.
     pub interface: Option<String>,
+}
+
+impl DnsRoute {
+    /// Creates a DNS-based route for the FQDN object group `group` with no gateway or
+    /// interface.
+    #[inline]
+    #[must_use]
+    pub fn new(group: &str) -> Self {
+        Self {
+            group: group.to_owned(),
+            gateway: None,
+            interface: None,
+        }
+    }
 }
 
 /// One typed DNS configuration mutation.

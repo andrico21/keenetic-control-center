@@ -254,6 +254,15 @@ pub const CLI_PRESET_NOT_RUN: MessageKey = MessageKey::new("cli-preset-not-run")
 /// `cli-preset-run` in `cli.ftl`.
 pub const CLI_PRESET_RUN: MessageKey = MessageKey::new("cli-preset-run");
 
+/// `cli-job-completed` in `cli.ftl`.
+pub const CLI_JOB_COMPLETED: MessageKey = MessageKey::new("cli-job-completed");
+
+/// `cli-job-failed` in `cli.ftl`.
+pub const CLI_JOB_FAILED: MessageKey = MessageKey::new("cli-job-failed");
+
+/// `cli-name-taken` in `cli.ftl`.
+pub const CLI_NAME_TAKEN: MessageKey = MessageKey::new("cli-name-taken");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6329,7 +6338,7 @@ pub const WEB_PRESETS_DOWNLOADS: MessageKey = MessageKey::new("web-presets-downl
 pub const WEB_PRESETS_GROUP_EMPTY: MessageKey = MessageKey::new("web-presets-group-empty");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2019] = [
+pub static ALL: [MessageKey; 2022] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6414,6 +6423,9 @@ pub static ALL: [MessageKey; 2019] = [
     CLI_PRESET_FINISHED,
     CLI_PRESET_NOT_RUN,
     CLI_PRESET_RUN,
+    CLI_JOB_COMPLETED,
+    CLI_JOB_FAILED,
+    CLI_NAME_TAKEN,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,
