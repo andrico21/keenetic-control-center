@@ -1,0 +1,17 @@
+//! Unit tests of the MCP core: registration, gates, shaping, and argument fuzzing.
+#![expect(
+    clippy::absolute_paths,
+    clippy::assertions_on_result_states,
+    clippy::default_trait_access,
+    clippy::expect_used,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::std_instead_of_alloc,
+    reason = "test fixtures use direct filesystem setup and assertions rather than public API documentation"
+)]
+#![expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+
+mod fixture;
+mod gates;
+mod random;
+mod strategies;

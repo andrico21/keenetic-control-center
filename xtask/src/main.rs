@@ -17,6 +17,7 @@ mod lint_completeness;
 mod manifest;
 mod metric_docs;
 mod profile_eq;
+mod tool_docs;
 
 use std::{
     io::{self, Write as _},
@@ -75,6 +76,9 @@ enum Task {
     /// Regenerate `docs/METRICS.md` from the kcc-telemetry metric catalogue.
     #[command(name = "gen-metric-docs")]
     GenMetricDocs,
+    /// Regenerate `docs/MCP_TOOLS.md` from the kcc-mcp tool registry.
+    #[command(name = "gen-tool-docs")]
+    GenToolDocs,
 }
 
 /// One `catalog` subcommand.
@@ -150,6 +154,7 @@ where
         Task::I18nCheck { locales_dir } => i18n::check(&root, locales_dir.as_deref(), out),
         Task::AssetsCheck { assets_dir } => assets::run(&root, assets_dir.as_deref(), out),
         Task::GenMetricDocs => metric_docs::generate(&root, out),
+        Task::GenToolDocs => tool_docs::generate(&root, out),
     }
 }
 

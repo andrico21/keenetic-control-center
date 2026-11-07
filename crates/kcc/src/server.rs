@@ -333,7 +333,8 @@ impl Services {
             Arc::clone(&self.poller),
             self.roles.clone(),
             role,
-        ))
+        )
+        .with_audit(self.audit.clone()))
     }
 
     /// Builds the authenticated Web UI around the same fleet services; administration
