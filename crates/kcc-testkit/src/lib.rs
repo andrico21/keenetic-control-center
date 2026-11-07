@@ -33,6 +33,8 @@ mod cli_engine;
 mod components;
 mod config_state;
 mod failsafe;
+pub mod fake_elasticsearch;
+pub mod fake_loki;
 mod fixtures;
 pub mod migration;
 pub mod model;
@@ -502,6 +504,19 @@ impl FakeRouter {
     pub fn request_count(&self) -> u64 {
         self.shared.request_count()
     }
+
+    /// Inserts or replaces one router log record for subsequent snapshot or stream reads.
+    #[inline]
+    pub fn insert_log(&self, id: u64, record: Value) {
+        self.shared.insert_log(id, record);
+    }
+
+    /// Returns the number of background `show log` streams started.
+    #[inline]
+    #[must_use]
+    pub fn log_streams(&self) -> u64 {
+        self.shared.log_streams()
+    }
 }
 
 /// A running server; dropping it also stops the server.
@@ -524,6 +539,23 @@ impl Handle {
         self.router
             .as_ref()
             .map_or(0, |shared| shared.request_count())
+    }
+
+    /// Inserts or replaces one router log record for subsequent snapshot or stream reads.
+    #[inline]
+    pub fn insert_log(&self, id: u64, record: Value) {
+        if let Some(shared) = &self.router {
+            shared.insert_log(id, record);
+        }
+    }
+
+    /// Returns the number of background `show log` streams started.
+    #[inline]
+    #[must_use]
+    pub fn log_streams(&self) -> u64 {
+        self.router
+            .as_ref()
+            .map_or(0, |shared| shared.log_streams())
     }
 
     /// Returns sanitized metadata for every request observed by the server.

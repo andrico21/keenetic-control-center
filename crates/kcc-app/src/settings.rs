@@ -67,6 +67,13 @@ pub const KCC_ENV_VARS: &[&str] = &[
     "KCC_METRICS_PER_CLIENT",
     "KCC_METRICS_PER_CLIENT_MAX",
     "KCC_METRICS_PER_CLIENT_LABEL",
+    "KCC_LOGS_ENABLED",
+    "KCC_LOGS_ROUTERS",
+    "KCC_LOGS_MODE",
+    "KCC_LOGS_STREAM_INTERVAL",
+    "KCC_LOGS_POLL_INTERVAL",
+    "KCC_LOGS_REDACT_MACS",
+    "KCC_LOGS_QUEUE_MAX",
 ];
 
 /// Directory name used under the platform state and config directories.
@@ -152,6 +159,8 @@ pub struct Config {
     pub privacy: PrivacyConfig,
     /// `[metrics]`: the Prometheus exporter.
     pub metrics: MetricsConfig,
+    /// `[logs]`: router log collection and forwarding.
+    pub logs: LogsConfig,
     /// `[[routers]]`: config-defined router profiles (read-only in the UI).
     pub routers: Vec<RouterProfile>,
 }
@@ -441,6 +450,228 @@ pub enum ClientLabel {
     Mac,
 }
 
+/// Shortest allowed interval between background log-stream polls.
+pub const LOG_STREAM_MIN_INTERVAL: Duration = Duration::from_secs(5);
+/// Shortest allowed interval between snapshot log polls.
+pub const LOG_POLL_MIN_INTERVAL: Duration = Duration::from_secs(5);
+/// Default maximum number of pending records retained by each log sink.
+pub const LOG_QUEUE_MAX: usize = 10_000;
+
+/// `[logs]` section: router log collection and forwarding.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields, default)]
+#[non_exhaustive]
+pub struct LogsConfig {
+    /// Collect router logs.
+    pub enabled: bool,
+    /// Router profile ids to collect; empty selects every router.
+    pub routers: Vec<String>,
+    /// Preferred collection mechanism.
+    pub mode: LogMode,
+    /// Delay between reads from a background stream.
+    #[serde(with = "humantime_serde")]
+    pub stream_interval: Duration,
+    /// Delay between one-shot snapshot reads.
+    #[serde(with = "humantime_serde")]
+    pub poll_interval: Duration,
+    /// Replace MAC addresses in messages before fan-out.
+    pub redact_macs: bool,
+    /// Maximum pending records retained independently for each sink.
+    pub queue_max: usize,
+    /// Forwarding destinations.
+    pub sinks: Vec<LogSinkConfig>,
+}
+
+impl Default for LogsConfig {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            routers: Vec::new(),
+            mode: LogMode::Stream,
+            stream_interval: LOG_STREAM_MIN_INTERVAL,
+            poll_interval: Duration::from_secs(30),
+            redact_macs: false,
+            queue_max: LOG_QUEUE_MAX,
+            sinks: Vec::new(),
+        }
+    }
+}
+
+impl LogsConfig {
+    /// Checks cadence floors, router ids, and sink transport settings.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Invalid`] naming the rejected field.
+    fn validate(&self) -> Result<(), ConfigError> {
+        if self.stream_interval < LOG_STREAM_MIN_INTERVAL {
+            return Err(invalid("logs.stream_interval", "must be at least 5s"));
+        }
+        if self.poll_interval < LOG_POLL_MIN_INTERVAL {
+            return Err(invalid("logs.poll_interval", "must be at least 5s"));
+        }
+        if self.routers.iter().any(|router| !is_valid_name(router)) {
+            return Err(invalid(
+                "logs.routers",
+                "every router must be a valid profile id",
+            ));
+        }
+        if self.queue_max == 0 {
+            return Err(invalid("logs.queue_max", "must be at least 1"));
+        }
+        for (index, sink) in self.sinks.iter().enumerate() {
+            sink.validate(index)?;
+        }
+        Ok(())
+    }
+}
+
+/// Router log collection mechanism.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum LogMode {
+    /// Prefer a background stream and fall back after repeated start failures.
+    #[default]
+    Stream,
+    /// Read bounded snapshots periodically.
+    Poll,
+}
+
+/// One `[[logs.sinks]]` destination.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase", deny_unknown_fields)]
+#[non_exhaustive]
+pub enum LogSinkConfig {
+    /// Grafana Loki push endpoint.
+    Loki {
+        /// Base URL; the collector appends `/loki/api/v1/push`.
+        url: Url,
+        /// Optional Loki tenant header.
+        tenant: Option<String>,
+        /// Optional HTTP Basic user.
+        basic_auth_user: Option<String>,
+        /// File containing the HTTP Basic password.
+        password_file: Option<PathBuf>,
+        /// File containing a bearer token.
+        bearer_token_file: Option<PathBuf>,
+        /// PEM CA certificate file.
+        ca_file: Option<PathBuf>,
+        /// Compress request bodies with gzip.
+        #[serde(default)]
+        compress: bool,
+    },
+    /// Elasticsearch or `OpenSearch` bulk endpoint.
+    Elasticsearch {
+        /// Base URL; the collector appends `/_bulk`.
+        url: Url,
+        /// Bulk API flavor.
+        #[serde(default)]
+        flavor: SearchFlavor,
+        /// Optional target override.
+        target: Option<String>,
+        /// Optional HTTP Basic user.
+        basic_auth_user: Option<String>,
+        /// File containing the HTTP Basic password.
+        password_file: Option<PathBuf>,
+        /// File containing an Elasticsearch/OpenSearch API key.
+        api_key_file: Option<PathBuf>,
+        /// PEM CA certificate file.
+        ca_file: Option<PathBuf>,
+        /// Compress request bodies with gzip.
+        #[serde(default)]
+        compress: bool,
+    },
+    /// One JSON object per line on standard output.
+    Stdout,
+}
+
+impl LogSinkConfig {
+    /// Checks one sink boundary.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Invalid`] naming the rejected sink field.
+    fn validate(&self, index: usize) -> Result<(), ConfigError> {
+        let (url, user, password, token, auth_reason) = match self {
+            Self::Loki {
+                url,
+                basic_auth_user,
+                password_file,
+                bearer_token_file,
+                tenant: _,
+                ca_file: _,
+                compress: _,
+            } => (
+                url,
+                basic_auth_user,
+                password_file,
+                bearer_token_file,
+                "set basic_auth_user with password_file, or bearer_token_file, or neither",
+            ),
+            Self::Elasticsearch {
+                url,
+                basic_auth_user,
+                password_file,
+                api_key_file,
+                flavor: _,
+                target: _,
+                ca_file: _,
+                compress: _,
+            } => (
+                url,
+                basic_auth_user,
+                password_file,
+                api_key_file,
+                "set basic_auth_user with password_file, or api_key_file, or neither",
+            ),
+            Self::Stdout => return Ok(()),
+        };
+        let field = |name: &str| format!("logs.sinks.{index}.{name}");
+        let loopback = match url.host() {
+            Some(url::Host::Ipv4(address)) => address.is_loopback(),
+            Some(url::Host::Ipv6(address)) => address.is_loopback(),
+            Some(url::Host::Domain(domain)) => domain.eq_ignore_ascii_case("localhost"),
+            None => false,
+        };
+        if url.scheme() != "https" && !(url.scheme() == "http" && loopback) {
+            return Err(invalid(
+                field("url"),
+                "must use https; http is accepted only for a loopback test sink",
+            ));
+        }
+        if url.cannot_be_a_base()
+            || url.query().is_some()
+            || url.fragment().is_some()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err(invalid(
+                field("url"),
+                "must be a base URL without credentials, query, or fragment",
+            ));
+        }
+        match (user, password, token) {
+            (Some(name), Some(_), None) if !name.is_empty() => Ok(()),
+            (None, None, Some(_) | None) => Ok(()),
+            _ => Err(invalid(field("password_file"), auth_reason)),
+        }
+    }
+}
+
+/// Bulk API dialect used by an Elasticsearch sink.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+#[non_exhaustive]
+pub enum SearchFlavor {
+    /// Elasticsearch data-stream defaults.
+    #[default]
+    Elasticsearch,
+    /// `OpenSearch` dated-index defaults.
+    Opensearch,
+}
+
 /// One `[[routers]]` entry.
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -605,6 +836,7 @@ impl Config {
         env.outbound(&mut self.outbound)?;
         env.rest(self)?;
         env.metrics(&mut self.metrics)?;
+        env.logs(&mut self.logs)?;
         Ok(env.report)
     }
 
@@ -643,6 +875,7 @@ impl Config {
             }
         }
         self.metrics.validate()?;
+        self.logs.validate()?;
         if self.metrics.enabled && self.observability.metrics_enabled {
             return Err(invalid(
                 "observability.metrics_enabled",
@@ -1182,6 +1415,60 @@ where
                 "mac" => Ok(ClientLabel::Mac),
                 _ => Err("expected name, pseudonym or mac".to_owned()),
             },
+        )
+    }
+
+    /// `[logs]` overrides.
+    ///
+    /// # Errors
+    ///
+    /// [`ConfigError::Env`] for an unusable value.
+    fn logs(&mut self, logs: &mut LogsConfig) -> Result<(), ConfigError> {
+        self.apply(
+            "KCC_LOGS_ENABLED",
+            "logs.enabled",
+            &mut logs.enabled,
+            parse_bool,
+        )?;
+        self.apply(
+            "KCC_LOGS_ROUTERS",
+            "logs.routers",
+            &mut logs.routers,
+            |raw| Ok(split_list(raw)),
+        )?;
+        self.apply(
+            "KCC_LOGS_MODE",
+            "logs.mode",
+            &mut logs.mode,
+            |raw| match raw {
+                "stream" => Ok(LogMode::Stream),
+                "poll" => Ok(LogMode::Poll),
+                _ => Err("expected stream or poll".to_owned()),
+            },
+        )?;
+        self.apply(
+            "KCC_LOGS_STREAM_INTERVAL",
+            "logs.stream_interval",
+            &mut logs.stream_interval,
+            parse_duration,
+        )?;
+        self.apply(
+            "KCC_LOGS_POLL_INTERVAL",
+            "logs.poll_interval",
+            &mut logs.poll_interval,
+            parse_duration,
+        )?;
+        self.apply(
+            "KCC_LOGS_REDACT_MACS",
+            "logs.redact_macs",
+            &mut logs.redact_macs,
+            parse_bool,
+        )?;
+        self.apply(
+            "KCC_LOGS_QUEUE_MAX",
+            "logs.queue_max",
+            &mut logs.queue_max,
+            |raw| raw.parse::<usize>().map_err(|error| error.to_string()),
         )
     }
 }

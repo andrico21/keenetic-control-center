@@ -15,10 +15,14 @@ mod tests {
 
     use alloc::collections::{BTreeMap, BTreeSet};
     use core::{cell::RefCell, error::Error, time::Duration};
-    use std::{env, path::PathBuf};
+    use std::{
+        env,
+        path::{Path, PathBuf},
+    };
 
     use kcc_app::settings::{
-        ClientLabel, Config, ConfigError, KCC_ENV_VARS, RouterAuth, RouterTls, default_state_dir,
+        ClientLabel, Config, ConfigError, KCC_ENV_VARS, LogMode, LogSinkConfig, RouterAuth,
+        RouterTls, SearchFlavor, default_state_dir,
     };
     use url::Url;
 
@@ -119,6 +123,19 @@ password_file = "/etc/kcc/home.pw"
             "redact_clients_in_mcp"
         );
         assert!(config.routers.is_empty(), "routers");
+        Ok(())
+    }
+
+    #[test]
+    fn logs_defaults_are_disabled_and_bounded() -> TestResult {
+        let config = Config::from_toml_str("")?;
+        assert!(!config.logs.enabled, "logs off by default");
+        assert_eq!(config.logs.mode, LogMode::Stream, "stream mode default");
+        assert_eq!(config.logs.stream_interval, Duration::from_secs(5));
+        assert_eq!(config.logs.poll_interval, Duration::from_secs(30));
+        assert_eq!(config.logs.queue_max, 10_000);
+        assert!(config.logs.routers.is_empty(), "all routers by default");
+        assert!(config.logs.sinks.is_empty(), "no sinks by default");
         Ok(())
     }
 
@@ -278,6 +295,7 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
             "cli",
             "privacy",
             "metrics",
+            "logs",
         ];
         for section in sections {
             expect_parse_error(&format!("[{section}]\nbogus_key = 1\n"), "bogus_key")?;
@@ -376,6 +394,116 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         assert!(config.metrics.per_client, "per_client");
         assert_eq!(config.metrics.per_client_max, 3, "per_client_max");
         assert_eq!(config.metrics.per_client_label, ClientLabel::Name, "label");
+        Ok(())
+    }
+
+    #[test]
+    fn logs_section_parses_and_validates_sink_boundaries() -> TestResult {
+        let config = Config::from_toml_str(
+            r#"
+[logs]
+enabled = true
+routers = ["home"]
+mode = "poll"
+stream_interval = "6s"
+poll_interval = "45s"
+redact_macs = true
+queue_max = 321
+
+[[logs.sinks]]
+kind = "loki"
+url = "http://127.0.0.1:3100"
+tenant = "lab"
+basic_auth_user = "collector"
+password_file = "/run/secrets/loki"
+compress = true
+
+[[logs.sinks]]
+kind = "elasticsearch"
+url = "https://search.example.net/base/"
+flavor = "opensearch"
+api_key_file = "/run/secrets/search"
+ca_file = "/etc/kcc/search-ca.pem"
+
+[[logs.sinks]]
+kind = "stdout"
+"#,
+        )?;
+        config.validate()?;
+        assert_eq!(config.logs.mode, LogMode::Poll);
+        assert!(config.logs.redact_macs);
+        assert_eq!(config.logs.queue_max, 321);
+        let [
+            LogSinkConfig::Loki {
+                password_file,
+                url: _,
+                tenant: _,
+                basic_auth_user: _,
+                bearer_token_file: _,
+                ca_file: _,
+                compress: _,
+            },
+            LogSinkConfig::Elasticsearch {
+                flavor,
+                api_key_file,
+                url: _,
+                target: _,
+                basic_auth_user: _,
+                password_file: _,
+                ca_file: _,
+                compress: _,
+            },
+            LogSinkConfig::Stdout,
+        ] = config.logs.sinks.as_slice()
+        else {
+            return Err("unexpected sink variants".into());
+        };
+        assert_eq!(
+            password_file.as_deref(),
+            Some(Path::new("/run/secrets/loki"))
+        );
+        assert_eq!(*flavor, SearchFlavor::Opensearch);
+        assert_eq!(
+            api_key_file.as_deref(),
+            Some(Path::new("/run/secrets/search"))
+        );
+
+        expect_invalid("[logs]\nstream_interval = \"4s\"\n", "logs.stream_interval")?;
+        expect_invalid("[logs]\npoll_interval = \"4s\"\n", "logs.poll_interval")?;
+        expect_invalid("[logs]\nqueue_max = 0\n", "logs.queue_max")?;
+        expect_invalid(
+            "[[logs.sinks]]\nkind = \"loki\"\nurl = \"http://192.0.2.1:3100\"\n",
+            "logs.sinks.0.url",
+        )?;
+        expect_invalid(
+            "[[logs.sinks]]\nkind = \"loki\"\nurl = \"https://logs.example\"\nbasic_auth_user = \"u\"\npassword_file = \"/p\"\nbearer_token_file = \"/t\"\n",
+            "logs.sinks.0.password_file",
+        )
+    }
+
+    #[test]
+    fn kcc_logs_env_overrides_apply() -> TestResult {
+        let env = BTreeMap::from([
+            ("KCC_LOGS_ENABLED", "1"),
+            ("KCC_LOGS_ROUTERS", "home,lab"),
+            ("KCC_LOGS_MODE", "poll"),
+            ("KCC_LOGS_STREAM_INTERVAL", "7s"),
+            ("KCC_LOGS_POLL_INTERVAL", "35s"),
+            ("KCC_LOGS_REDACT_MACS", "true"),
+            ("KCC_LOGS_QUEUE_MAX", "654"),
+        ]);
+        let mut config = Config::from_toml_str("")?;
+        drop(config.apply_kcc_env_overrides_with(|var| {
+            Ok(env.get(var).map(|value| (*value).to_owned()))
+        })?);
+        config.validate()?;
+        assert!(config.logs.enabled);
+        assert_eq!(config.logs.routers, ["home", "lab"]);
+        assert_eq!(config.logs.mode, LogMode::Poll);
+        assert_eq!(config.logs.stream_interval, Duration::from_secs(7));
+        assert_eq!(config.logs.poll_interval, Duration::from_secs(35));
+        assert!(config.logs.redact_macs);
+        assert_eq!(config.logs.queue_max, 654);
         Ok(())
     }
 

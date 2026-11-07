@@ -635,6 +635,19 @@ impl fmt::Debug for BackgroundHandle {
 }
 
 impl BackgroundHandle {
+    /// Reads the next response from the background process without waiting for completion.
+    ///
+    /// # Errors
+    ///
+    /// Returns authentication, transport, HTTP, size, or response-processing errors.
+    // cancel-safe: GET is read-only and partial response bytes are local state.
+    #[inline]
+    pub async fn next(&self) -> Result<RciBody, RciError> {
+        let path = format!("/rci/{}?id={}", self.path, self.process_id);
+        let response = self.session.get(&path).await?;
+        decode_response(response, self.response_bytes).await
+    }
+
     /// Overrides the default one-second poll interval.
     #[inline]
     #[must_use]

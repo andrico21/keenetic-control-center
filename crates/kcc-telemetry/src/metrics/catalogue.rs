@@ -408,6 +408,27 @@ pub const FAMILIES: &[Family] = &[
         SelfMetric,
     ),
     family(
+        "kcc_log_records_received_total",
+        Counter,
+        "Router log records accepted by the collector.",
+        ROUTER,
+        SelfMetric,
+    ),
+    family(
+        "kcc_log_records_forwarded_total",
+        Counter,
+        "Router log records accepted by a configured sink.",
+        &["sink"],
+        SelfMetric,
+    ),
+    family(
+        "kcc_log_retries_total",
+        Counter,
+        "Log sink delivery retries.",
+        &["sink"],
+        SelfMetric,
+    ),
+    family(
         "kcc_log_records_dropped_total",
         Counter,
         "Router log records a log sink dropped, by sink and reason.",

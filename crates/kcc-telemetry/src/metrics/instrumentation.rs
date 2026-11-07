@@ -37,6 +37,12 @@ pub struct SelfMetrics {
     web_sessions: IntGauge,
     /// `kcc_log_records_dropped_total{sink,reason}` (log pipeline).
     log_dropped: IntCounterVec,
+    /// `kcc_log_records_received_total{router}`.
+    log_received: IntCounterVec,
+    /// `kcc_log_records_forwarded_total{sink}`.
+    log_forwarded: IntCounterVec,
+    /// `kcc_log_retries_total{sink}`.
+    log_retries: IntCounterVec,
 }
 
 /// Catalogue options for `name`.
@@ -65,6 +71,9 @@ impl SelfMetrics {
         let (jobs, job_labels) = opts("kcc_jobs")?;
         let (sessions, _) = opts("kcc_web_sessions")?;
         let (log_dropped, log_labels) = opts("kcc_log_records_dropped_total")?;
+        let (log_received, received_labels) = opts("kcc_log_records_received_total")?;
+        let (log_forwarded, forwarded_labels) = opts("kcc_log_records_forwarded_total")?;
+        let (log_retries, retry_labels) = opts("kcc_log_retries_total")?;
         let metrics = Self {
             build_info: IntGaugeVec::new(build, build_labels)?,
             requests: IntCounterVec::new(requests, request_labels)?,
@@ -77,6 +86,9 @@ impl SelfMetrics {
             jobs: IntGaugeVec::new(jobs, job_labels)?,
             web_sessions: IntGauge::with_opts(sessions)?,
             log_dropped: IntCounterVec::new(log_dropped, log_labels)?,
+            log_received: IntCounterVec::new(log_received, received_labels)?,
+            log_forwarded: IntCounterVec::new(log_forwarded, forwarded_labels)?,
+            log_retries: IntCounterVec::new(log_retries, retry_labels)?,
         };
         metrics
             .build_info
@@ -100,6 +112,9 @@ impl SelfMetrics {
         registry.register(Box::new(self.jobs.clone()))?;
         registry.register(Box::new(self.web_sessions.clone()))?;
         registry.register(Box::new(self.log_dropped.clone()))?;
+        registry.register(Box::new(self.log_received.clone()))?;
+        registry.register(Box::new(self.log_forwarded.clone()))?;
+        registry.register(Box::new(self.log_retries.clone()))?;
         Ok(())
     }
 
@@ -131,6 +146,30 @@ impl SelfMetrics {
             .get_metric_with_label_values(&[sink, reason])
         {
             counter.inc_by(records);
+        }
+    }
+
+    /// Counts one accepted router log record.
+    #[inline]
+    pub fn log_record_received(&self, router: &str) {
+        if let Ok(counter) = self.log_received.get_metric_with_label_values(&[router]) {
+            counter.inc();
+        }
+    }
+
+    /// Counts records accepted by one sink.
+    #[inline]
+    pub fn log_records_forwarded(&self, sink: &str, records: u64) {
+        if let Ok(counter) = self.log_forwarded.get_metric_with_label_values(&[sink]) {
+            counter.inc_by(records);
+        }
+    }
+
+    /// Counts one delivery retry for a sink.
+    #[inline]
+    pub fn log_retry(&self, sink: &str) {
+        if let Ok(counter) = self.log_retries.get_metric_with_label_values(&[sink]) {
+            counter.inc();
         }
     }
 

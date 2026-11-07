@@ -108,6 +108,8 @@ struct Login(String);
 /// One supported simulated background-process kind.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum ProcessKind {
+    /// Router system log.
+    Log,
     /// IPv4 ping.
     Ping,
     /// IPv6 ping.
@@ -124,6 +126,7 @@ impl ProcessKind {
     /// Parses the resource path of a supported process kind.
     fn from_path(path: &str) -> Option<Self> {
         match path {
+            "show/log" => Some(Self::Log),
             "tools/ping" => Some(Self::Ping),
             "tools/ping6" => Some(Self::Ping6),
             "tools/traceroute" => Some(Self::Traceroute),
@@ -136,6 +139,7 @@ impl ProcessKind {
     /// Stable process kind name returned on the wire.
     const fn name(self) -> &'static str {
         match self {
+            Self::Log => "log",
             Self::Ping => "ping",
             Self::Ping6 => "ping6",
             Self::Traceroute => "traceroute",
@@ -147,6 +151,7 @@ impl ProcessKind {
     /// Deterministic completed reply for this process kind.
     fn reply(self) -> Value {
         match self {
+            Self::Log => Value::Null,
             Self::Ping => serde_json::json!([1, 2, 3]),
             Self::Ping6 => serde_json::json!(["2001:db8::1", "2001:db8::1"]),
             Self::Traceroute => serde_json::json!([
@@ -166,6 +171,8 @@ struct Process {
     kind: ProcessKind,
     /// Remaining continued polls before completion.
     remaining: u8,
+    /// Highest router log id delivered to this process.
+    log_cursor: u64,
 }
 
 /// Mutable bounded parser-failure state.
@@ -226,6 +233,10 @@ pub(crate) struct Shared {
     processes: Mutex<BTreeMap<String, Process>>,
     /// Number of background processes stopped through DELETE.
     stopped_processes: AtomicU64,
+    /// Injectable router log records by numeric id.
+    logs: Mutex<BTreeMap<u64, Value>>,
+    /// Number of background log streams started.
+    log_streams: AtomicU64,
 }
 
 /// Locks `mutex`, recovering the data if a previous holder panicked.
@@ -302,6 +313,8 @@ impl Shared {
             process_id: AtomicU64::new(1),
             processes: Mutex::new(BTreeMap::new()),
             stopped_processes: AtomicU64::new(0),
+            logs: Mutex::new(BTreeMap::new()),
+            log_streams: AtomicU64::new(0),
         }
     }
 
@@ -333,6 +346,16 @@ impl Shared {
     /// Returns sanitized request metadata in arrival order.
     pub(crate) fn request_log(&self) -> Vec<RequestRecord> {
         lock(&self.request_log).clone()
+    }
+
+    /// Inserts or replaces one injectable router log record.
+    pub(crate) fn insert_log(&self, id: u64, record: Value) {
+        drop(lock(&self.logs).insert(id, record));
+    }
+
+    /// Number of background `show log` streams started.
+    pub(crate) fn log_streams(&self) -> u64 {
+        self.log_streams.load(Ordering::SeqCst)
     }
 
     /// Records method, path, and sorted query pairs without headers or bodies.
@@ -714,8 +737,17 @@ impl Shared {
     /// Allocates a simulated background-process response.
     fn start_process(&self, kind: ProcessKind) -> Value {
         let id = self.process_id.fetch_add(1, Ordering::SeqCst);
-        let _: Option<Process> =
-            lock(&self.processes).insert(id.to_string(), Process { kind, remaining: 3 });
+        if kind == ProcessKind::Log {
+            let _: u64 = self.log_streams.fetch_add(1, Ordering::SeqCst);
+        }
+        let _: Option<Process> = lock(&self.processes).insert(
+            id.to_string(),
+            Process {
+                kind,
+                remaining: 3,
+                log_cursor: 0,
+            },
+        );
         serde_json::json!({"process":{"id":id.to_string(),"status":"running","kind":kind.name()}})
     }
 
@@ -725,6 +757,19 @@ impl Shared {
         let process = processes.get_mut(id)?;
         if process.kind != kind {
             return None;
+        }
+        if kind == ProcessKind::Log {
+            let logs = lock(&self.logs);
+            let records: Map<String, Value> = logs
+                .range(process.log_cursor.saturating_add(1)..)
+                .map(|(&log_id, record)| (log_id.to_string(), record.clone()))
+                .collect();
+            if let Some((&last, _)) = logs.last_key_value() {
+                process.log_cursor = last;
+            }
+            drop(logs);
+            drop(processes);
+            return Some(serde_json::json!({"continued":true,"log":records}));
         }
         if process.remaining == 0 {
             let _: Option<Process> = processes.remove(id);
@@ -754,6 +799,19 @@ impl Shared {
             let _: u64 = self.stopped_processes.fetch_add(1, Ordering::SeqCst);
         }
         removed
+    }
+
+    /// Returns at most `max_lines` newest router log records.
+    fn log_snapshot(&self, max_lines: usize) -> Value {
+        let logs = lock(&self.logs);
+        let skip = logs.len().saturating_sub(max_lines);
+        let records: Map<String, Value> = logs
+            .iter()
+            .skip(skip)
+            .map(|(&id, record)| (id.to_string(), record.clone()))
+            .collect();
+        drop(logs);
+        serde_json::json!({"log":records})
     }
 
     /// Answers one show request below `show/`, or `None` when no fixture exists.
@@ -1122,7 +1180,21 @@ async fn rci_post(
     };
     if path.starts_with("show/") || path == "whoami" {
         if path == "show/log" {
-            return "router log text".into_response();
+            let once = parsed.get("once").and_then(Value::as_bool).unwrap_or(true);
+            let max_lines = parsed
+                .get("max-lines")
+                .and_then(Value::as_u64)
+                .and_then(|value| usize::try_from(value).ok())
+                .unwrap_or(200);
+            return if once {
+                if lock(&shared.logs).is_empty() {
+                    "router log text".into_response()
+                } else {
+                    Json(shared.log_snapshot(max_lines)).into_response()
+                }
+            } else {
+                Json(shared.start_process(ProcessKind::Log)).into_response()
+            };
         }
         let mut params = query;
         for (key, value) in parsed.as_object().into_iter().flatten() {

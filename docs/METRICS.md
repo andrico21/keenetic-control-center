@@ -68,4 +68,7 @@ ports below 1024 are refused.
 | `kcc_poller_errors_total` | counter | `router` | self-metric | Failed polling rounds. |
 | `kcc_jobs` | gauge | `kind`, `state` | self-metric | Running jobs, and jobs finished since start, by kind and state. |
 | `kcc_web_sessions` | gauge | - | self-metric | Active Web UI sessions. |
+| `kcc_log_records_received_total` | counter | `router` | self-metric | Router log records accepted by the collector. |
+| `kcc_log_records_forwarded_total` | counter | `sink` | self-metric | Router log records accepted by a configured sink. |
+| `kcc_log_retries_total` | counter | `sink` | self-metric | Log sink delivery retries. |
 | `kcc_log_records_dropped_total` | counter | `sink`, `reason` | self-metric | Router log records a log sink dropped, by sink and reason. |

@@ -1617,15 +1617,23 @@ dependencies = [
 name = "kcc-telemetry"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "flate2",
  "kcc-app",
  "kcc-rci",
  "kcc-testkit",
  "prometheus",
+ "reqwest",
+ "rustls",
+ "secrecy",
+ "serde",
  "serde_json",
  "tempfile",
  "thiserror 2.0.21",
  "tokio",
+ "tokio-util",
  "tracing",
+ "tracing-subscriber",
  "url",
 ]
 

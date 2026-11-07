@@ -11,4 +11,5 @@
 
 extern crate alloc;
 
+pub mod logs;
 pub mod metrics;

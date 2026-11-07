@@ -31,7 +31,10 @@ use kcc_app::{
 };
 use kcc_i18n::locale::Locale;
 use kcc_mcp::KccMcp;
-use kcc_telemetry::metrics::{instrumentation::SelfMetrics, service::MetricsExporter};
+use kcc_telemetry::{
+    logs::runtime::Service as LogService,
+    metrics::{instrumentation::SelfMetrics, service::MetricsExporter},
+};
 use kcc_web::{
     WebState, WebStateConfig,
     admin::{AdminServices, ServerFacts, TransportReload},
@@ -103,7 +106,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             state_dir.display()
         ))
     })?;
-    let services = Services::open(&config, state).await?;
+    let mut services = Services::open(&config, state).await?;
     let handler = services.handler(&config, config.mcp.http_enabled)?;
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state).map_err(error)?)
@@ -146,6 +149,9 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         "jobs drained; any armed router fail-safe remains armed for rollback"
     );
     serve_result.map_err(error)?;
+    if let Some(logs) = services.logs.take() {
+        logs.shutdown().await;
+    }
     Ok(Outcome::Ok)
 }
 
@@ -216,13 +222,15 @@ struct Services {
     clock: Arc<dyn Clock>,
     /// Self-metrics, when `[metrics] enabled`.
     metrics: Option<Arc<SelfMetrics>>,
+    /// Router log collectors and sink workers, when `[logs] enabled`.
+    logs: Option<LogService>,
 }
 
 impl Services {
     /// Opens state and constructs each singleton service.
     // cancel-safe: startup performs local state opens and read-only router recovery inspection.
     async fn open(config: &Config, state: StateStore) -> Result<Self, ServerError> {
-        let metrics = if config.metrics.enabled {
+        let metrics = if config.metrics.enabled || config.logs.enabled {
             Some(SelfMetrics::new(env!("CARGO_PKG_VERSION")).map_err(error)?)
         } else {
             None
@@ -258,6 +266,31 @@ impl Services {
         let jobs = JobRunner::open(state.clone(), Arc::clone(&registry))
             .await
             .map_err(error)?;
+        let logs = if config.logs.enabled {
+            let self_metrics = metrics
+                .clone()
+                .ok_or_else(|| ServerError("log metrics are unavailable".to_owned()))?;
+            let mut routers = Vec::new();
+            for entry in registry.list().map_err(error)? {
+                if config.logs.routers.is_empty()
+                    || config
+                        .logs
+                        .routers
+                        .iter()
+                        .any(|router| router == &entry.profile.id)
+                {
+                    let client = registry.client(&entry.profile.id).await.map_err(error)?;
+                    routers.push((entry.profile.id, client));
+                }
+            }
+            Some(
+                LogService::start(routers, &config.logs, self_metrics)
+                    .await
+                    .map_err(error)?,
+            )
+        } else {
+            None
+        };
         Ok(Self {
             state,
             registry,
@@ -270,6 +303,7 @@ impl Services {
             roles,
             clock,
             metrics,
+            logs,
         })
     }
 
@@ -452,6 +486,9 @@ async fn with_metrics(
     config: &Config,
     services: &Services,
 ) -> Result<(McpServerConfig, Option<MetricsExporter>), ServerError> {
+    if !config.metrics.enabled {
+        return Ok((server, None));
+    }
     let Some(self_metrics) = services.metrics.clone() else {
         return Ok((server, None));
     };
