@@ -3,6 +3,12 @@ resolver = "3"
 members = ["crates/*"]
 exclude = ["xtask"]
 
+[profile.dev.package.argon2]
+opt-level = 3
+
+[profile.dev.package.blake2]
+opt-level = 3
+
 [workspace.package]
 edition = "2024"
 rust-version = "1.99.1"
