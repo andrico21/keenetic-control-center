@@ -4,7 +4,13 @@
     clippy::missing_inline_in_public_items,
     reason = "async multi-step workflow operations and planning functions are not inline candidates"
 )]
+#![expect(
+    clippy::pub_use,
+    reason = "segment discovery types are part of the segments public facade"
+)]
 
+pub mod discovery;
+mod ownership;
 mod step;
 
 use core::{net::Ipv4Addr, result::Result as CoreResult};
@@ -14,12 +20,14 @@ use kcc_app::{
     workflow::{ChangeSet, WorkflowError},
 };
 use kcc_catalog::Risk;
+use serde::{Deserialize, Serialize};
 
+pub use self::discovery::{DeleteSummary, SegmentView, VlanId};
 use self::step::{Direction, Step, steps};
 use crate::{ChangeOp, DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx};
 
 /// Complete input for one UI-visible network segment.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
 #[non_exhaustive]
 pub struct SegmentSpec {
     /// Stable numeric suffix used by generated object names.
@@ -131,18 +139,26 @@ const WRITES: &[OperationDescriptor] = &[
 /// Segments domain metadata.
 pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
     id: DomainId::Segments,
-    read_ops: &[],
+    read_ops: &[OperationDescriptor {
+        name: "read_segments",
+        catalog_path: "show rc",
+        risk: Risk::Read,
+        permission: Permission::Read,
+        persists_immediately: false,
+    }],
     write_ops: WRITES,
     required_components: &[],
 };
 
 /// Plans all validated create requests in execution order.
 pub fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
+    ownership::validate(segment)?;
     step::plan(router, &steps(segment), Direction::Create)
 }
 
 /// Plans all validated delete requests in reverse execution order.
 pub fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
+    ownership::validate(segment)?;
     step::plan(router, &steps(segment), Direction::Delete)
 }
 
@@ -152,6 +168,7 @@ pub async fn create(
     router: &RouterCtx,
     segment: &SegmentSpec,
 ) -> CoreResult<CreatedSegment, SegmentError> {
+    let ownership = discovery::prepare(router, segment).await?;
     let mut definitions = steps(segment);
     step::record_baseline(router, &mut definitions)
         .await
@@ -179,8 +196,56 @@ pub async fn create(
             });
         }
         applied.push(definition);
+        if definition.name() == "vlan-subinterface"
+            && let Err(source) = ownership::persist(changes, router, segment.id, &ownership).await
+        {
+            step::apply(changes, router, definition, Direction::Delete)
+                .await
+                .map_err(|rollback| SegmentError::RollbackFailed {
+                    step: "ownership".to_owned(),
+                    rollback_step: definition.name().to_owned(),
+                    source: Box::new(rollback),
+                })?;
+            return Err(SegmentError::StepFailed {
+                step: "ownership".to_owned(),
+                source: Box::new(source),
+            });
+        }
     }
     Ok(CreatedSegment { steps: definitions })
+}
+
+/// Reads complete and partial segments with persisted creation ownership.
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "read_segments is the requested public domain API"
+)]
+pub async fn read_segments(router: &RouterCtx) -> Result<Vec<SegmentView>> {
+    discovery::read(router).await
+}
+
+/// Deletes only the shared step definition belonging to an unchanged discovered segment.
+pub async fn delete_discovered(
+    changes: &mut ChangeSet,
+    router: &RouterCtx,
+    segment: &SegmentView,
+) -> CoreResult<DeleteSummary, SegmentError> {
+    let current = read_segments(router).await?;
+    let found = current
+        .iter()
+        .find(|view| view.id == segment.id && view.same_ownership(segment))
+        .ok_or(crate::DomainError::InvalidResponse)?;
+    let summary = found.delete_summary();
+    ownership::check_delete(router, found).await?;
+    delete(
+        changes,
+        router,
+        CreatedSegment {
+            steps: found.steps(),
+        },
+    )
+    .await?;
+    Ok(summary)
 }
 
 /// Deletes one segment by executing the same step definition in reverse order.

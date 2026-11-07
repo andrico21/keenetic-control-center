@@ -6,7 +6,16 @@
 )]
 
 mod change;
+mod import;
+mod import_fields;
+mod read;
+mod render;
+pub mod secrets;
 pub mod wireguard;
+#[path = "vpn_clients/wireguard/fields.rs"]
+mod wireguard_fields;
+#[path = "vpn_clients/wireguard/parser.rs"]
+mod wireguard_parser;
 
 use alloc::collections::BTreeMap;
 use core::result::Result as CoreResult;
@@ -309,12 +318,12 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// Reads and classifies all supported VPN client interfaces without secret values.
 pub async fn read_clients(router: &RouterCtx) -> Result<Vec<VpnClientStatus>> {
     let value: Value = read_show(&router.client, &["show", "interface"]).await?;
-    Ok(change::decode_clients(&value))
+    Ok(read::decode_clients(&value))
 }
 
 /// Parses a standard WireGuard configuration before any router request.
 pub fn parse_wireguard_config(text: &str) -> CoreResult<WireGuardConfig, WireGuardParseError> {
-    wireguard::parse(text)
+    wireguard_parser::parse(text)
 }
 
 /// Plans a non-secret catalog-validated VPN client mutation.
@@ -322,13 +331,13 @@ pub fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result<Chang
     change::plan(router, change)
 }
 
-/// Maps an imported WireGuard configuration to non-secret router operations.
+/// Plans imported private and peer keys through protected requests, generating a key when absent.
 pub fn plan_wireguard_import(
     router: &RouterCtx,
     name: &str,
     config: &WireGuardConfig,
 ) -> Result<ChangeOp> {
-    change::plan_import(router, name, config)
+    import::plan(router, name, config)
 }
 
 /// Converts a VPN client plan to protected workflow input.

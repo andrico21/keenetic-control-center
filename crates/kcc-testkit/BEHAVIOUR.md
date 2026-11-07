@@ -159,6 +159,14 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 
 ## Other assumed protocol details
 
+- Imported WireGuard private keys and peer preshared keys are encoded as NS3 before
+  insertion into the running AST; `show interface` reports presence only. Omitting
+  the private key retains the existing router-generation simulation. **assumed
+  (documentation-derived, not verified against hardware)**.
+- Interface IPsec PSKs, named IKE keys, and IPsec profile PSKs/XAuth passwords
+  use NS3 storage in the fake. IKE identity selectors remain non-secret arguments;
+  replacement uses the key name. These CLI shapes and storage choices are **assumed**.
+
 - POST-only `show log` and `show ipsec` behavior remains **assumed (R-CLI documentation,
   not live-verified - see `spikes/live-router/RESULT.md`)** and is not yet a full stream
   emulation.

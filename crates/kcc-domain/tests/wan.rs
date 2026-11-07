@@ -11,10 +11,10 @@
 )]
 
 use core::{error::Error, net::Ipv4Addr, str::FromStr as _};
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use kcc_app::{
-    audit::{Actor, ActorKind, AuditLog},
+    audit::{AUDIT_FILE_NAME, Actor, ActorKind, AuditLog},
     backups::BackupStore,
     permissions::{Permission, Role},
     persist::StateStore,
@@ -34,6 +34,10 @@ use secrecy::SecretString;
 use serde_json::json;
 use tempfile::TempDir;
 use url::Url;
+
+mod support;
+
+use crate::support::TraceCapture;
 
 #[test]
 fn connection_decode_replaces_credentials_with_presence() -> Result<(), Box<dyn Error>> {
@@ -111,6 +115,84 @@ async fn fake_router_reads_ipoe_without_authentication_values() -> Result<(), Bo
     Ok(())
 }
 
+#[tokio::test]
+async fn ppp_password_write_is_encoded_and_read_as_presence_only() -> Result<(), Box<dyn Error>> {
+    let trace = TraceCapture::install();
+    let fixture = Fixture::spawn().await?;
+    let name = ObjectName::try_from("PPPoE9".to_owned())?;
+    let mut changes = fixture.changes().await?;
+    let create = wan::plan_create(&fixture.context, &name)?;
+    drop(
+        changes
+            .apply_cli(wan::change_request(&name, &create)?)
+            .await?,
+    );
+    let secret = "ppp password with \"quotes\"";
+    let operation = wan::plan_password(
+        &fixture.context,
+        &name,
+        SecretString::from(secret.to_owned()),
+    )?;
+    assert!(!format!("{operation:?}").contains(secret));
+    assert!(!serde_json::to_string(&operation.requests)?.contains(secret));
+    let request = wan::change_request(&name, &operation)?;
+    assert!(!format!("{request:?}").contains(secret));
+    assert!(!serde_json::to_string(&request)?.contains(secret));
+
+    let result = changes.apply_cli(request).await?;
+    let connections = wan::read_connections(&fixture.context).await?;
+
+    assert!(!format!("{result:?}").contains(secret));
+    assert!(!serde_json::to_string(&result)?.contains(secret));
+    assert!(!format!("{connections:?}").contains(secret));
+    assert!(!serde_json::to_string(&connections)?.contains(secret));
+    assert!(
+        connections
+            .get("PPPoE9")
+            .is_some_and(|view| view.password_present)
+    );
+    assert!(
+        fixture
+            .handle
+            .running_config_text()
+            .contains("password ns3")
+    );
+    assert!(!fixture.handle.running_config_text().contains(secret));
+    assert!(!format!("{:?}", fixture.handle.request_log()).contains(secret));
+    let audit = fs::read(fixture.directory.path().join("state").join(AUDIT_FILE_NAME))?;
+    assert!(!String::from_utf8(audit)?.contains(secret));
+    assert!(
+        !trace
+            .text()
+            .map_err(|error| error.to_string())?
+            .contains(secret)
+    );
+    drop(changes);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn ppp_password_control_character_is_refused_before_router_request()
+-> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn().await?;
+    let name = ObjectName::try_from("PPPoE9".to_owned())?;
+    let before = fixture.handle.request_count();
+    let secret = "bad\npassword";
+
+    let result = wan::plan_password(
+        &fixture.context,
+        &name,
+        SecretString::from(secret.to_owned()),
+    );
+
+    let error = result.err().ok_or("control character was accepted")?;
+    assert!(!format!("{error:?}").contains(secret));
+    assert_eq!(fixture.handle.request_count(), before);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 struct Fixture {
     directory: TempDir,
     handle: kcc_testkit::Handle,
@@ -126,7 +208,7 @@ impl Fixture {
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         let directory = TempDir::new()?;
         let password = directory.path().join("password");
-        std::fs::write(&password, DEFAULT_PASSWORD)?;
+        fs::write(&password, DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;

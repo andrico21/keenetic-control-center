@@ -11,10 +11,10 @@
 )]
 
 use core::{error::Error, str::FromStr as _};
-use std::sync::Arc;
+use std::{fs, sync::Arc};
 
 use kcc_app::{
-    audit::{Actor, ActorKind, AuditLog},
+    audit::{AUDIT_FILE_NAME, Actor, ActorKind, AuditLog},
     backups::BackupStore,
     permissions::{Permission, Role},
     persist::StateStore,
@@ -33,6 +33,10 @@ use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, m
 use secrecy::SecretString;
 use tempfile::TempDir;
 use url::Url;
+
+mod support;
+
+use crate::support::TraceCapture;
 
 #[tokio::test]
 async fn ssid_change_is_verified_and_slash_read_uses_post() -> Result<(), Box<dyn Error>> {
@@ -89,6 +93,68 @@ async fn radios_and_stations_are_typed_from_show_data() -> Result<(), Box<dyn Er
     Ok(())
 }
 
+#[tokio::test]
+async fn wpa_psk_write_is_encoded_and_absent_from_public_surfaces() -> Result<(), Box<dyn Error>> {
+    let trace = TraceCapture::install();
+    let fixture = Fixture::spawn().await?;
+    let name = ObjectName::try_from("WifiMaster0/AccessPoint0".to_owned())?;
+    let secret = "wireless passphrase with \"quotes\"";
+    let operation = wifi::plan_wpa_psk(
+        &fixture.context,
+        &name,
+        SecretString::from(secret.to_owned()),
+    )?;
+    assert!(!format!("{operation:?}").contains(secret));
+    assert!(!serde_json::to_string(&operation.requests)?.contains(secret));
+    let request = wifi::change_request(&name, &operation)?;
+    assert!(!format!("{request:?}").contains(secret));
+    assert!(!serde_json::to_string(&request)?.contains(secret));
+    let mut changes = fixture.changes().await?;
+
+    let result = changes.apply_cli(request).await?;
+    let access_point = wifi::read_access_point(&fixture.context, &name).await?;
+
+    assert!(!format!("{result:?}").contains(secret));
+    assert!(!serde_json::to_string(&result)?.contains(secret));
+    assert!(!format!("{access_point:?}").contains(secret));
+    assert!(!serde_json::to_string(&access_point)?.contains(secret));
+    assert!(fixture.handle.running_config_text().contains("wpa-psk ns3"));
+    assert!(!fixture.handle.running_config_text().contains(secret));
+    assert!(!format!("{:?}", fixture.handle.request_log()).contains(secret));
+    let audit = fs::read(fixture.directory.path().join("state").join(AUDIT_FILE_NAME))?;
+    assert!(!String::from_utf8(audit)?.contains(secret));
+    assert!(
+        !trace
+            .text()
+            .map_err(|error| error.to_string())?
+            .contains(secret)
+    );
+    drop(changes);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test]
+async fn wpa_psk_control_character_is_refused_before_router_request() -> Result<(), Box<dyn Error>>
+{
+    let fixture = Fixture::spawn().await?;
+    let name = ObjectName::try_from("WifiMaster0/AccessPoint0".to_owned())?;
+    let before = fixture.handle.request_count();
+    let secret = "bad\npassphrase";
+
+    let result = wifi::plan_wpa_psk(
+        &fixture.context,
+        &name,
+        SecretString::from(secret.to_owned()),
+    );
+
+    let error = result.err().ok_or("control character was accepted")?;
+    assert!(!format!("{error:?}").contains(secret));
+    assert_eq!(fixture.handle.request_count(), before);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 #[test]
 fn ns3_verification_checks_presence_and_length_without_decoding() {
     let plausible = "A".repeat(24);
@@ -120,7 +186,7 @@ impl Fixture {
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         let directory = TempDir::new()?;
         let password = directory.path().join("password");
-        std::fs::write(&password, DEFAULT_PASSWORD)?;
+        fs::write(&password, DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;

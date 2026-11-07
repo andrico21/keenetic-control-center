@@ -10,10 +10,11 @@ use core::net::Ipv4Addr;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_rci::ObjectName;
+use secrecy::SecretString;
 use serde_json::{Value, json};
 
 use crate::{
@@ -58,6 +59,7 @@ const WRITES: &[OperationDescriptor] = &[
     write_operation("address_static", "interface ip address"),
     write_operation("address_dhcp", "interface ip address dhcp"),
     write_operation("identity", "interface authentication identity"),
+    write_operation("password", "interface authentication password"),
     write_operation("connect_via", "interface connect"),
     write_operation("priority", "interface ip global"),
     write_operation("mtu", "interface ip mtu"),
@@ -146,6 +148,33 @@ pub fn plan_identity(router: &RouterCtx, name: &ObjectName, identity: &str) -> R
     )
 }
 
+/// Plans a PPP authentication password while retaining plaintext only in protected storage.
+pub fn plan_password(
+    router: &RouterCtx,
+    name: &ObjectName,
+    password: SecretString,
+) -> Result<ChangeOp> {
+    let validated = router
+        .catalog
+        .validate_secret("interface authentication password", "password", password)
+        .map_err(|issues| DomainError::Validation { issues })?;
+    let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
+    Ok(ChangeOp::new(
+        vec![validated],
+        vec![VerificationSpec::presence(
+            vec!["show".to_owned(), "interface".to_owned()],
+            format!("/{escaped_name}/authentication/password/ns3"),
+            PresencePredicate::MarkerOrLengthRange {
+                minimum: 24,
+                maximum: 256,
+            },
+        )],
+        Risk::Write,
+        Permission::Write,
+        false,
+    ))
+}
+
 /// Plans the underlying interface used by a tunneled connection.
 pub fn plan_connect_via(
     router: &RouterCtx,
@@ -214,6 +243,19 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let value = &validated.value;
+    if validated.path == "interface authentication password" {
+        let command = ValidatedCli::from_template(
+            validated.clone(),
+            &format!("interface {name} authentication password {{/password}}"),
+        )
+        .map_err(|_error| DomainError::InvalidResponse)?;
+        return Ok(CliChangeRequest::new(
+            vec![command],
+            operation.verify.clone(),
+            operation.permission,
+            json!({"operation": validated.path, "interface": name.as_str()}),
+        ));
+    }
     let line = match validated.path.as_str() {
         "interface" if value.get("no") == Some(&Value::Bool(true)) => {
             format!("no interface {name}")

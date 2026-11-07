@@ -9,7 +9,11 @@
 )]
 
 use core::{error::Error, str::FromStr as _};
-use std::sync::Arc;
+use std::{
+    io::{self, Write},
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use kcc_app::{
     audit::{Actor, ActorKind, AuditLog},
@@ -34,10 +38,62 @@ use kcc_testkit::{
 };
 use secrecy::SecretString;
 use tempfile::TempDir;
+use tracing::{Level, subscriber::DefaultGuard};
 use url::Url;
 
 /// Integration-test result.
 pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
+
+/// TRACE-level byte capture retained for secret-boundary assertions.
+pub(crate) struct TraceCapture {
+    bytes: Arc<Mutex<Vec<u8>>>,
+    _guard: DefaultGuard,
+}
+
+impl TraceCapture {
+    /// Installs an in-memory subscriber for the current test scope.
+    pub(crate) fn install() -> Self {
+        let bytes = Arc::new(Mutex::new(Vec::new()));
+        let sink = TraceWriter(Arc::clone(&bytes));
+        let subscriber = tracing_subscriber::fmt()
+            .with_max_level(Level::TRACE)
+            .with_ansi(false)
+            .with_writer(move || sink.clone())
+            .finish();
+        Self {
+            bytes,
+            _guard: tracing::subscriber::set_default(subscriber),
+        }
+    }
+
+    /// Returns captured UTF-8 output after flushing each tracing event.
+    pub(crate) fn text(&self) -> TestResult<String> {
+        let bytes = self
+            .bytes
+            .lock()
+            .map_err(|_error| "trace capture poisoned")?
+            .clone();
+        Ok(String::from_utf8(bytes)?)
+    }
+}
+
+/// Cloneable writer used by the tracing formatter.
+#[derive(Clone)]
+struct TraceWriter(Arc<Mutex<Vec<u8>>>);
+
+impl Write for TraceWriter {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0
+            .lock()
+            .map_err(|_error| io::Error::other("trace capture poisoned"))?
+            .extend_from_slice(buf);
+        Ok(buf.len())
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
 
 /// One running fake router and protected workflow.
 pub(crate) struct Fixture {
@@ -157,6 +213,11 @@ impl Fixture {
     /// Returns the fake-router observation handle.
     pub(crate) const fn handle(&self) -> &Handle {
         &self.handle
+    }
+
+    /// Returns the isolated state directory for audit-boundary assertions.
+    pub(crate) fn state_dir(&self) -> PathBuf {
+        self.directory.path().join("state")
     }
 
     /// Returns the router registry shared with job tests.

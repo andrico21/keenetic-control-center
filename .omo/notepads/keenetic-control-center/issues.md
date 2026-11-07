@@ -260,3 +260,7 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Visual QA was self-reviewed: no oracle reviewer subagent for this executor; the frontend draft-guard and detect scripts are not on disk. Verdict table in `task-43-keenetic-control-center.log`.
 - Merge with todo 41: set `config_page::restore::WIZARD_SERVED = true` (its link shape is accepted as an alias); both todos add `kcc-migrate` to kcc-web's Cargo.toml and Cargo.lock; todo 41 adds `FleetServices::backups` (struct literal in `tests/migration_wizard/support.rs` then needs `backups: None` or the store).
 - G1 not run: no new external dependency (kcc-migrate is a workspace crate).
+
+## 2026-11-07: Todo 24 Unit 2 verification limits
+- LSP diagnostics for the policies directory and then `policies/change/apply.rs` timed out; the required compiler, strict Clippy, build, format, and focused integration-test checks are green.
+- The full todo-24 G0/evidence command was intentionally not run in this atomic unit because NAT and firewall tests do not exist yet. Policies have no direct live-hardware validation; command shapes and availability are catalog-backed, and read-back behavior is verified against the documented `assumed` fake-router projection.

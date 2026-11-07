@@ -9,10 +9,11 @@ use alloc::{collections::BTreeMap, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::RciBody;
+use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -87,6 +88,12 @@ const WRITES: &[OperationDescriptor] = &[
         Risk::Management,
         Permission::ManageUsers,
     ),
+    operation(
+        "set_password",
+        "user password plain",
+        Risk::Management,
+        Permission::ManageUsers,
+    ),
     operation("delete", "user", Risk::Management, Permission::ManageUsers),
 ];
 
@@ -152,6 +159,30 @@ pub fn plan_tag(router: &RouterCtx, name: &str, tag: &str, enabled: bool) -> Res
     ]))
 }
 
+/// Plans a plaintext password write whose printable plan retains only a redacted projection.
+pub fn plan_password(router: &RouterCtx, name: &str, password: SecretString) -> Result<ChangeOp> {
+    validate_token(name)?;
+    let user = validate(router, "user", &json!({"name":name}))?;
+    let validated_password = router
+        .catalog
+        .validate_secret("user password plain", "password", password)
+        .map_err(|issues| DomainError::Validation { issues })?;
+    Ok(ChangeOp::new(
+        vec![user, validated_password],
+        vec![VerificationSpec::presence(
+            vec!["show".to_owned(), "rc".to_owned(), "user".to_owned()],
+            "/0/password/md5".to_owned(),
+            PresencePredicate::LengthRange {
+                minimum: 32,
+                maximum: 32,
+            },
+        )],
+        Risk::Management,
+        Permission::ManageUsers,
+        false,
+    ))
+}
+
 /// Plans deletion unless the account is the login used by the active router profile.
 pub fn plan_delete(router: &RouterCtx, name: &str, profile_login: &str) -> Result<ChangeOp> {
     validate_token(name)?;
@@ -186,6 +217,16 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         first.clone(),
     )];
     for request in operation.requests.iter().skip(1) {
+        if request.path == "user password plain" {
+            commands.push(
+                ValidatedCli::from_template(
+                    request.clone(),
+                    &format!("user {name} password plain {{/password}}"),
+                )
+                .map_err(|_error| DomainError::InvalidResponse)?,
+            );
+            continue;
+        }
         let tag = request
             .value
             .get("tag")
@@ -203,7 +244,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     }
     Ok(CliChangeRequest::new(
         commands,
-        Vec::new(),
+        operation.verify.clone(),
         operation.permission,
         json!({"operation":"router_user","login":name}),
     ))

@@ -96,7 +96,7 @@ impl ConfigState {
 
     /// Applies one supported full-path CLI line to running configuration.
     pub(crate) fn apply(&mut self, line: &str) -> Value {
-        if cli_engine::apply(&mut self.running, line) {
+        if cli_engine::engine::apply(&mut self.running, line) {
             message("saved.")
         } else {
             unknown(line)

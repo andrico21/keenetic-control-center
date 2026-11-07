@@ -33,7 +33,7 @@ mod cli;
 mod output;
 #[path = "workflow_replay.rs"]
 mod replay;
-pub use cli::{CliCommand, SecretCommandError};
+pub use cli::command::{CliCommand, SecretCommandError};
 pub use replay::{ReplayCompletionError, ReplayOutcome, ReplayPolicy, ReplayResult};
 use tokio::{
     sync::Mutex,
@@ -117,6 +117,13 @@ pub enum PresencePredicate {
         /// Inclusive lower bound.
         minimum: usize,
         /// Inclusive upper bound.
+        maximum: usize,
+    },
+    /// A true presence marker, or a string with an inclusive byte-length range.
+    MarkerOrLengthRange {
+        /// Inclusive lower bound when the router returns a string.
+        minimum: usize,
+        /// Inclusive upper bound when the router returns a string.
         maximum: usize,
     },
 }
@@ -1263,6 +1270,12 @@ async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), Workf
         Some(PresencePredicate::LengthRange { minimum, maximum }) => field
             .and_then(Value::as_str)
             .is_some_and(|text| (minimum..=maximum).contains(&text.len())),
+        Some(PresencePredicate::MarkerOrLengthRange { minimum, maximum }) => {
+            field == Some(&Value::Bool(true))
+                || field
+                    .and_then(Value::as_str)
+                    .is_some_and(|text| (minimum..=maximum).contains(&text.len()))
+        }
     };
     if !matches {
         return Err(WorkflowError::VerificationFailed {

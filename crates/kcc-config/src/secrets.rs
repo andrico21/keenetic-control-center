@@ -65,7 +65,9 @@ fn secret_word_index(words: &[&str]) -> Option<usize> {
         _ => (0, words),
     };
     match command {
-        ["authentication", "wpa-psk" | "password", rest @ ..] => {
+        ["authentication", "wpa-psk" | "password", rest @ ..]
+        | ["wireguard", "obfs-key", rest @ ..]
+        | ["wireguard", "peer", _, "obfs-key", rest @ ..] => {
             secret_after_kind(argument_index(offset, command, rest), rest)
         }
         ["iapp", "key", rest @ ..] => secret_after_kind(offset.saturating_add(2), rest),
@@ -145,6 +147,7 @@ mod tests {
             "ipsec preshared-key epsilon\n",
             "wireguard private-key zeta\n",
             "wireguard peer peer0 preshared-key eta\n",
+            "interface Wireguard0\n wireguard obfs-key obfuscated-interface\n wireguard peer peer0 obfs-key obfuscated-peer\n!\n",
             "crypto ike key theta\n",
             "user admin password md5 iota\n",
             "user admin password nt kappa\n",
@@ -167,10 +170,10 @@ mod tests {
             .into_iter()
             .map(|line| line.to_string())
             .collect();
-        assert_eq!(lines.len(), 18, "all commands remain present");
+        assert_eq!(lines.len(), 20, "all commands remain present");
         assert_eq!(
             lines.iter().filter(|line| line.contains(REDACTED)).count(),
-            17,
+            19,
             "every registered secret is replaced: {lines:?}"
         );
         assert_eq!(
@@ -178,8 +181,25 @@ mod tests {
             Some("system description visible")
         );
         for secret in [
-            "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota", "kappa",
-            "lambda", "mu", "nu", "xi", "omicron", "pi", "rho",
+            "alpha",
+            "beta",
+            "gamma",
+            "delta",
+            "epsilon",
+            "zeta",
+            "eta",
+            "theta",
+            "iota",
+            "kappa",
+            "lambda",
+            "mu",
+            "nu",
+            "xi",
+            "omicron",
+            "pi",
+            "rho",
+            "obfuscated-interface",
+            "obfuscated-peer",
         ] {
             assert!(
                 lines

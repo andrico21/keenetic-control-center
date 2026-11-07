@@ -4,10 +4,11 @@ use alloc::vec;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_rci::ObjectName;
+use secrecy::SecretString;
 use serde_json::{Value, json};
 
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
@@ -41,12 +42,54 @@ pub(super) fn plan(
     ))
 }
 
+/// Validates one secret Wi-Fi argument and verifies only its protected representation.
+pub(super) fn plan_secret(
+    router: &RouterCtx,
+    name: &ObjectName,
+    path: &str,
+    argument: &str,
+    secret: SecretString,
+) -> Result<ChangeOp> {
+    let validated = router
+        .catalog
+        .validate_secret(path, argument, secret)
+        .map_err(|issues| DomainError::Validation { issues })?;
+    let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
+    Ok(ChangeOp::new(
+        vec![validated],
+        vec![VerificationSpec::presence(
+            vec!["show".to_owned(), "interface".to_owned()],
+            format!("/{escaped_name}/authentication/wpa-psk/ns3"),
+            PresencePredicate::MarkerOrLengthRange {
+                minimum: 24,
+                maximum: 256,
+            },
+        )],
+        Risk::Write,
+        Permission::Write,
+        false,
+    ))
+}
+
 /// Converts a Wi-Fi plan into a protected parser request.
 pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests
         .first()
         .ok_or(DomainError::InvalidResponse)?;
+    if validated.path == "interface authentication wpa-psk" {
+        let command = ValidatedCli::from_template(
+            validated.clone(),
+            &format!("interface {name} authentication wpa-psk {{/psk}}"),
+        )
+        .map_err(|_error| DomainError::InvalidResponse)?;
+        return Ok(CliChangeRequest::new(
+            vec![command],
+            operation.verify.clone(),
+            operation.permission,
+            json!({"operation": validated.path, "interface": name.as_str()}),
+        ));
+    }
     let line = render_line(name, &validated.path, &validated.value)?;
     Ok(CliChangeRequest::new(
         vec![ValidatedCli::new(line, validated.clone())],

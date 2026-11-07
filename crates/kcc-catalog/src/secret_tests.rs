@@ -66,3 +66,46 @@ fn nested_secret_is_redacted() -> Result<(), Box<dyn Error>> {
     );
     Ok(())
 }
+
+/// Both obfuscation-key commands protect String-typed catalog arguments.
+#[test]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "test assertions define the ownership contract"
+)]
+fn obfuscation_keys_are_redacted() -> Result<(), Box<dyn Error>> {
+    let catalog =
+        Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, Some("KN-1811"))?;
+    for path in [
+        "interface wireguard obfs-key",
+        "interface wireguard peer obfs-key",
+    ] {
+        let request = catalog
+            .validate(
+                path,
+                HttpMethod::Post,
+                &json!({"obfs-key":"obfuscation-fixture"}),
+            )
+            .map_err(|_issues| "fixture refused")?;
+        assert_eq!(request.value, json!({"obfs-key":"<redacted>"}));
+        assert!(!format!("{request:?}").contains("obfuscation-fixture"));
+        assert_eq!(
+            request
+                .protected_value()
+                .scrub_text("echo obfuscation-fixture"),
+            "echo <redacted>"
+        );
+        assert!(
+            request
+                .expose_for_send()
+                .expose_secret()
+                .get("obfs-key")
+                .and_then(Value::as_str)
+                == Some("obfuscation-fixture"),
+            "wire accessor must preserve the secret"
+        );
+    }
+    Ok(())
+}

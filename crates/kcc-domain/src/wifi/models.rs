@@ -2,12 +2,11 @@
 
 use alloc::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 /// Wi-Fi access point.
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
+#[derive(Clone, Debug, Default, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct AccessPoint {
     /// Stable interface identifier.
@@ -24,6 +23,45 @@ pub struct AccessPoint {
     /// Unmodelled non-secret fields.
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Internal access-point response that owns authentication only until it is discarded.
+#[derive(Default, Deserialize)]
+#[serde(default)]
+struct WireAccessPoint {
+    /// Stable interface identifier.
+    id: Option<String>,
+    /// Broadcast network name.
+    ssid: Option<String>,
+    /// Administrative state.
+    state: Option<String>,
+    /// Whether SSID broadcast is hidden.
+    #[serde(rename = "hide-ssid")]
+    hide_ssid: Option<bool>,
+    /// Assigned schedule.
+    schedule: Option<String>,
+    /// Authentication material discarded at the read boundary.
+    authentication: Option<Value>,
+    /// Unmodelled non-authentication fields.
+    #[serde(flatten)]
+    extra: BTreeMap<String, Value>,
+}
+
+impl<'de> Deserialize<'de> for AccessPoint {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let wire = WireAccessPoint::deserialize(deserializer)?;
+        Ok(Self {
+            id: wire.id,
+            ssid: wire.ssid,
+            state: wire.state,
+            hide_ssid: wire.hide_ssid,
+            schedule: wire.schedule,
+            extra: wire.extra,
+        })
+    }
 }
 
 /// Wi-Fi radio with band derived from `show interface`.

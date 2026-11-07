@@ -12,7 +12,10 @@
     )
 )]
 
-use alloc::{format, vec};
+mod render;
+pub mod secrets;
+
+use alloc::vec;
 
 use kcc_app::{
     permissions::Permission,
@@ -176,6 +179,14 @@ const WRITES: &[OperationDescriptor] = &[
     operation("openconnect_interface", "oc-server interface"),
     operation("openconnect_pool", "oc-server pool-range"),
     operation("ipsec_virtual_ip", "crypto map virtual-ip enable"),
+    operation("ike_psk", "crypto ike key"),
+    OperationDescriptor {
+        name: "password",
+        catalog_path: "user password plain",
+        risk: Risk::Management,
+        permission: Permission::ManageUsers,
+        persists_immediately: false,
+    },
 ];
 
 /// VPN server domain metadata.
@@ -232,7 +243,7 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
 
 /// Plans one non-secret catalog-validated VPN server mutation.
 pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<ChangeOp> {
-    let (path, body, line) = input(change);
+    let (path, body, line) = render::input(change);
     let mut validated = router
         .catalog
         .validate(path, HttpMethod::Post, &body)
@@ -287,210 +298,6 @@ where
 {
     let selected = value?;
     serde_json::from_value(selected.clone()).ok()
-}
-
-#[expect(
-    clippy::too_many_lines,
-    reason = "one exhaustive match keeps every non-secret server operation visibly mapped to its catalog path"
-)]
-fn input(change: &VpnServerChange) -> (&'static str, Value, String) {
-    match change {
-        VpnServerChange::Service { service, enabled } => service_toggle(*service, *enabled),
-        VpnServerChange::VpnInterface { interface } => leaf(
-            "vpn-server interface",
-            json!({"interface":interface}),
-            format!("vpn-server interface {interface}"),
-        ),
-        VpnServerChange::VpnPool { begin, size } => pool("vpn-server", begin, *size),
-        VpnServerChange::VpnDns { primary, secondary } => {
-            dns("vpn-server", primary, secondary.as_deref())
-        }
-        VpnServerChange::SstpInterface { interface } => leaf(
-            "sstp-server interface",
-            json!({"interface":interface}),
-            format!("sstp-server interface {interface}"),
-        ),
-        VpnServerChange::SstpPool { begin, size } => pool("sstp-server", begin, *size),
-        VpnServerChange::SstpDns { primary, secondary } => {
-            dns("sstp-server", primary, secondary.as_deref())
-        }
-        VpnServerChange::WireGuardInterface { interface, enabled } => leaf(
-            "wireguard-server interface",
-            if *enabled {
-                json!({"interface":interface})
-            } else {
-                json!({"interface":interface,"no":true})
-            },
-            if *enabled {
-                format!("wireguard-server interface {interface}")
-            } else {
-                format!("no wireguard-server interface {interface}")
-            },
-        ),
-        VpnServerChange::OpenConnectInterface { interface } => leaf(
-            "oc-server interface",
-            json!({"interface":interface}),
-            format!("oc-server interface {interface}"),
-        ),
-        VpnServerChange::OpenConnectPool { begin, size } => pool("oc-server", begin, *size),
-        VpnServerChange::OpenConnectRoute { address, mask } => leaf(
-            "oc-server route",
-            json!({"address":address,"mask":mask}),
-            format!("oc-server route {address} {mask}"),
-        ),
-        VpnServerChange::OpenConnectDns { primary, secondary } => {
-            dns("oc-server", primary, secondary.as_deref())
-        }
-        VpnServerChange::IpsecMap { name } => leaf(
-            "crypto map",
-            json!({"name":name}),
-            format!("crypto map {name}"),
-        ),
-        VpnServerChange::IpsecVirtualIp { name, enabled } => map_leaf(
-            "crypto map virtual-ip enable",
-            name,
-            if *enabled {
-                json!({})
-            } else {
-                json!({"no":true})
-            },
-            if *enabled {
-                "virtual-ip enable".to_owned()
-            } else {
-                "no virtual-ip enable".to_owned()
-            },
-        ),
-        VpnServerChange::IpsecVirtualIpPool {
-            name,
-            begin,
-            end,
-            size,
-        } => {
-            let body = match (end, size) {
-                (Some(pool_end), None) => json!({"begin":begin,"end":pool_end}),
-                (None, Some(pool_size)) => json!({"begin":begin,"size":pool_size}),
-                (None, None) | (Some(_), Some(_)) => json!({"invalid":true}),
-            };
-            let suffix = end.as_ref().map_or_else(
-                || size.map_or_else(String::new, |pool_size| format!(" {pool_size}")),
-                |pool_end| format!(" {pool_end}"),
-            );
-            map_leaf(
-                "crypto map virtual-ip range",
-                name,
-                body,
-                format!("virtual-ip range {begin}{suffix}"),
-            )
-        }
-        VpnServerChange::IpsecVirtualIpDns {
-            name,
-            primary,
-            secondary,
-        } => map_leaf(
-            "crypto map virtual-ip dns-servers",
-            name,
-            optional_second("dns1", primary, "dns2", secondary.as_deref()),
-            secondary.as_ref().map_or_else(
-                || format!("virtual-ip dns-servers {primary}"),
-                |second_dns| format!("virtual-ip dns-servers {primary} {second_dns}"),
-            ),
-        ),
-    }
-}
-
-fn service_toggle(service: VpnServerService, enabled: bool) -> (&'static str, Value, String) {
-    let name = match service {
-        VpnServerService::Vpn => "vpn-server",
-        VpnServerService::Sstp => "sstp-server",
-        VpnServerService::Ipsec => "ipsec",
-        VpnServerService::OpenConnect => "oc-server",
-    };
-    let path = match service {
-        VpnServerService::Vpn => "service vpn-server",
-        VpnServerService::Sstp => "service sstp-server",
-        VpnServerService::Ipsec => "service ipsec",
-        VpnServerService::OpenConnect => "service oc-server",
-    };
-    leaf(
-        path,
-        if enabled {
-            json!({})
-        } else {
-            json!({"no":true})
-        },
-        if enabled {
-            format!("service {name}")
-        } else {
-            format!("no service {name}")
-        },
-    )
-}
-
-fn pool(prefix: &'static str, begin: &str, size: Option<u16>) -> (&'static str, Value, String) {
-    let path = match prefix {
-        "vpn-server" => "vpn-server pool-range",
-        "sstp-server" => "sstp-server pool-range",
-        "oc-server" => "oc-server pool-range",
-        _ => "",
-    };
-    leaf(
-        path,
-        size.map_or_else(
-            || json!({"begin":begin}),
-            |pool_size| json!({"begin":begin,"size":pool_size}),
-        ),
-        size.map_or_else(
-            || format!("{prefix} pool-range {begin}"),
-            |pool_size| format!("{prefix} pool-range {begin} {pool_size}"),
-        ),
-    )
-}
-
-fn dns(
-    prefix: &'static str,
-    primary: &str,
-    secondary: Option<&str>,
-) -> (&'static str, Value, String) {
-    let path = match prefix {
-        "vpn-server" => "vpn-server dns-servers",
-        "sstp-server" => "sstp-server dns-servers",
-        "oc-server" => "oc-server dns-servers",
-        _ => "",
-    };
-    leaf(
-        path,
-        optional_second("dns1", primary, "dns2", secondary),
-        secondary.map_or_else(
-            || format!("{prefix} dns-servers {primary}"),
-            |second_dns| format!("{prefix} dns-servers {primary} {second_dns}"),
-        ),
-    )
-}
-
-fn optional_second(first: &str, value: &str, second: &str, optional: Option<&str>) -> Value {
-    let mut body = serde_json::Map::new();
-    drop(body.insert(first.to_owned(), Value::String(value.to_owned())));
-    if let Some(optional_value) = optional {
-        drop(body.insert(second.to_owned(), Value::String(optional_value.to_owned())));
-    }
-    Value::Object(body)
-}
-
-#[expect(
-    clippy::needless_pass_by_value,
-    reason = "the generated suffix is a temporary owned string incorporated into the final CLI line"
-)]
-fn map_leaf(
-    path: &'static str,
-    name: &str,
-    body: Value,
-    suffix: String,
-) -> (&'static str, Value, String) {
-    leaf(path, body, format!("crypto map {name} {suffix}"))
-}
-
-const fn leaf(path: &'static str, body: Value, line: String) -> (&'static str, Value, String) {
-    (path, body, line)
 }
 
 const fn operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {

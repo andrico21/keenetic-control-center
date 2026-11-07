@@ -234,6 +234,7 @@ pub(crate) fn secret_path(path: &str) -> bool {
                 | "wpa-psk"
                 | "preshared-key"
                 | "private-key"
+                | "obfs-key"
                 | "radiussecret"
                 | "uamsecret"
                 | "macpasswd"

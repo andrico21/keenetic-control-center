@@ -7,6 +7,9 @@ use serde_json::{Map, Value, json};
 
 use super::matching;
 
+/// Synthetic encoded marker with plausible NS3 length and no recoverable secret material.
+const NS3_PRESENCE: &str = "000000000000000000000000";
+
 /// Projects configured interfaces and WireGuard peer details.
 pub(super) fn interfaces(command_lines: &[Vec<String>]) -> Value {
     let mut result = Map::new();
@@ -36,6 +39,22 @@ pub(super) fn interfaces(command_lines: &[Vec<String>]) -> Value {
             {
                 drop(fields.insert("authentication".to_owned(), json!({"wpa-psk":{"ns3":true}})));
             }
+            [authentication, password, marker]
+                if authentication == "authentication"
+                    && password == "password"
+                    && marker == "ns3" =>
+            {
+                if let Some(kind) = ["PPPoE", "L2TP", "PPTP"]
+                    .into_iter()
+                    .find(|kind| name.starts_with(kind))
+                {
+                    drop(fields.insert("type".to_owned(), Value::String(kind.to_owned())));
+                }
+                drop(fields.insert(
+                    "authentication".to_owned(),
+                    json!({"password":{"ns3":NS3_PRESENCE}}),
+                ));
+            }
             [wireguard, private_key]
                 if wireguard == "wireguard" && private_key == "private-key" =>
             {
@@ -53,6 +72,10 @@ pub(super) fn interfaces(command_lines: &[Vec<String>]) -> Value {
             {
                 wireguard_identity(fields, name);
                 drop(fields.insert("listen-port".to_owned(), Value::String(port.clone())));
+            }
+            [wireguard, obfs_key, _] if wireguard == "wireguard" && obfs_key == "obfs-key" => {
+                wireguard_identity(fields, name);
+                drop(fields.insert("obfs-key".to_owned(), json!({"present":true})));
             }
             [wireguard, peer, key, tail @ ..] if wireguard == "wireguard" && peer == "peer" => {
                 wireguard_identity(fields, name);
@@ -101,8 +124,8 @@ fn peer_field(fields: &mut Map<String, Value>, key: &str, tail: &[String]) {
                 Value::Array(values.iter().cloned().map(Value::String).collect()),
             ));
         }
-        [field, ..] if field == "preshared-key" => {
-            drop(peer.insert("preshared-key".to_owned(), json!({"present":true})));
+        [field, ..] if matches!(field.as_str(), "preshared-key" | "obfs-key") => {
+            drop(peer.insert(field.clone(), json!({"present":true})));
         }
         _ => {}
     }

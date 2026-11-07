@@ -10,6 +10,7 @@ use alloc::collections::BTreeMap;
 use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
 use kcc_catalog::Risk;
 use kcc_rci::ObjectName;
+use secrecy::SecretString;
 use serde_json::{Value, json};
 
 use crate::{
@@ -53,6 +54,7 @@ const READS: &[OperationDescriptor] = &[
 /// Wi-Fi write inventory.
 const WRITES: &[OperationDescriptor] = &[
     write_operation("ssid", "interface ssid"),
+    write_operation("wpa_psk", "interface authentication wpa-psk"),
     write_operation("encryption_enable", "interface encryption enable"),
     write_operation("encryption_wpa2", "interface encryption wpa2"),
     write_operation("encryption_wpa3", "interface encryption wpa3"),
@@ -129,6 +131,11 @@ pub fn plan_ssid(router: &RouterCtx, name: &ObjectName, ssid: &str) -> Result<Ch
         &json!({"ssid": ssid}),
         Some(("ssid", Value::String(ssid.to_owned()))),
     )
+}
+
+/// Plans a WPA pre-shared key while retaining plaintext only in protected storage.
+pub fn plan_wpa_psk(router: &RouterCtx, name: &ObjectName, psk: SecretString) -> Result<ChangeOp> {
+    plan::plan_secret(router, name, "interface authentication wpa-psk", "psk", psk)
 }
 
 /// Plans access-point encryption without handling PSK material.
