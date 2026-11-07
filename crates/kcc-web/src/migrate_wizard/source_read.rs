@@ -29,7 +29,7 @@ use crate::{
 
 /// What the form sent.
 #[derive(Default)]
-pub(super) struct Submitted {
+pub(crate) struct Submitted {
     /// `router`, `file` or `backup`.
     kind: String,
     /// The router select.
@@ -41,7 +41,7 @@ pub(super) struct Submitted {
 }
 
 /// A source the form chose and read.
-pub(super) struct Chosen {
+pub(crate) struct Chosen {
     /// Where it came from.
     source: Source,
     /// Its text.
@@ -49,7 +49,7 @@ pub(super) struct Chosen {
 }
 
 /// Answers a body over the route's limit with the size error beside the file input.
-pub(super) async fn limit(request: Request, next: Next) -> Response {
+pub(crate) async fn limit(request: Request, next: Next) -> Response {
     let locale = request
         .extensions()
         .get::<CurrentUser>()
@@ -102,7 +102,7 @@ impl Localize for Feedback {
 ///
 /// Returns the message of an unreadable or too large body.
 // cancel-safe: reads the request body only.
-pub(super) async fn read(mut fields: Multipart) -> Result<Submitted, MessageKey> {
+pub(crate) async fn read(mut fields: Multipart) -> Result<Submitted, MessageKey> {
     let mut found = Submitted::default();
     while let Some(field) = fields.next_field().await.map_err(|error| unread(&error))? {
         let name = field.name().map(str::to_owned);
@@ -242,14 +242,14 @@ async fn from_router(services: Services<'_>, router: &str) -> Result<Chosen, (Fi
 
 impl Chosen {
     /// Where the source came from and its text.
-    pub(super) fn into_parts(self) -> (Source, SecretString) {
+    pub(crate) fn into_parts(self) -> (Source, SecretString) {
         (self.source, self.text)
     }
 }
 
 /// The kind `form` chose and the source it read.
 // cancel-safe: reads only.
-pub(super) async fn choose(
+pub(crate) async fn choose(
     services: Services<'_>,
     form: Submitted,
 ) -> (&'static str, Result<Chosen, (Field, MessageKey)>) {

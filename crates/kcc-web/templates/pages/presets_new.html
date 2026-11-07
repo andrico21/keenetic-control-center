@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{%- block title %}{{ t(keys::WEB_PRESETS_NEW) }}{% endblock %}
+{%- block content %}
+<div class="page wizard-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_PRESETS_NEW) }}</h1>
+  </div>
+  <p class="identity"><a href="/ui/presets">{{ t(keys::WEB_PRESETS_ALL) }}</a></p>
+  <section class="wizard-step" id="wizard-step" aria-labelledby="wizard-step-title">
+    {{ panel|safe }}
+  </section>
+</div>
+{%- endblock %}

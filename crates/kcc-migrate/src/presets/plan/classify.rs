@@ -140,14 +140,12 @@ fn realm_password_user<'line>(
     .then_some(user)
 }
 
-/// Converts a realm-bound hash line into a protected plaintext-password command.
+/// Converts a realm-bound hash line (`user <name> password <kind> <hash>`) into a
+/// protected plaintext-password command.
 fn replace_password(line: &mut CliLine, password: &str) {
-    if let [_, _, Token::Word(kind), secret, ..] = line.tokens.as_mut_slice() {
+    if let [_, _, _, Token::Word(kind), secret, ..] = line.tokens.as_mut_slice() {
         "plain".clone_into(kind);
-        match secret {
-            Token::Word(value) | Token::Ns3(value) => password.clone_into(value),
-            _ => {}
-        }
+        *secret = Token::Word(password.to_owned());
     }
 }
 

@@ -98,7 +98,7 @@ pub(super) enum Mode {
 /// Where the source configuration came from; its text is sealed beside the record.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
-pub(super) enum Source {
+pub(crate) enum Source {
     /// A router of the fleet, read when the step was submitted.
     Router {
         /// Router profile id.
@@ -120,7 +120,7 @@ pub(super) enum Source {
 
 impl Source {
     /// The router whose scope the source needs, when it has one.
-    pub(super) fn router(&self) -> Option<&str> {
+    pub(crate) fn router(&self) -> Option<&str> {
         match self {
             Self::Router { router } | Self::Backup { router, name: _ } => Some(router),
             Self::File { name: _ } => None,

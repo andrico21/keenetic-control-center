@@ -1,0 +1,14 @@
+{#- The captured settings of the chosen groups, redacted; swapped in place as the choice of groups changes. -#}
+<section class="presets-captured" id="presets-captured" aria-labelledby="presets-captured-title">
+  <h3 class="wizard-phase__title" id="presets-captured-title">{{ t(keys::WEB_PRESETS_CAPTURED_TITLE) }}</h3>
+  {%- if lines.is_empty() %}
+  <p class="table-empty" role="status">{{ t(keys::WEB_PRESETS_CAPTURED_EMPTY) }}</p>
+  {%- else %}
+  <p class="presets-captured__total" role="status">{{ total }}</p>
+  <ol class="wizard-lines presets-lines">
+    {%- for line in lines %}
+    <li><code class="wizard-line">{{ line }}</code></li>
+    {%- endfor %}
+  </ol>
+  {%- endif %}
+</section>

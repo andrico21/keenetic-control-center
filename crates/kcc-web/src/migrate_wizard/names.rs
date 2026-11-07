@@ -37,7 +37,7 @@ pub(super) fn is_radio(name: &str) -> bool {
 
 /// Whether `name` can name an interface: 1 to 64 Latin letters, digits and `/_.-`,
 /// starting with a letter.
-pub(super) fn valid_name(name: &str) -> bool {
+pub(crate) fn valid_name(name: &str) -> bool {
     (1..=64).contains(&name.len())
         && name.starts_with(|first: char| first.is_ascii_alphabetic())
         && name
@@ -46,7 +46,7 @@ pub(super) fn valid_name(name: &str) -> bool {
 }
 
 /// The interface kind a name implies, as the engine infers it for target interfaces.
-pub(super) fn interface_kind(name: &str) -> &'static str {
+pub(crate) fn interface_kind(name: &str) -> &'static str {
     [
         "Bridge",
         "Vlan",

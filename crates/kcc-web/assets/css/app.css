@@ -3236,3 +3236,61 @@ h3 {
   padding-block: var(--space-2);
   overflow-wrap: anywhere;
 }
+
+/* ---------- Presets and copying settings (todo 59) ---------- */
+
+.presets-table {
+  position: relative;
+}
+
+.presets-table__actions {
+  white-space: nowrap;
+}
+
+.presets-table__actions .button + .button {
+  margin-inline-start: var(--space-2);
+}
+
+.presets-facts {
+  max-inline-size: 40rem;
+}
+
+.presets-groups {
+  --presets-group-min: 20rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--presets-group-min)), 1fr));
+  align-items: start;
+  gap: var(--space-2) var(--space-6);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.presets-groups > legend {
+  margin-block-end: var(--space-3);
+}
+
+.presets-group__count {
+  color: var(--color-text-muted);
+  font-weight: var(--weight-regular);
+  font-variant-numeric: tabular-nums;
+}
+
+.presets-captured {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--space-3);
+  min-inline-size: 0;
+}
+
+.presets-captured__total {
+  color: var(--color-text-muted);
+  font-size: var(--text-small);
+  letter-spacing: var(--tracking-small);
+}
+
+.presets-mode .choice__option {
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  padding-block: var(--space-3);
+}

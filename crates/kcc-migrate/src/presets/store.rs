@@ -197,6 +197,22 @@ impl PresetStore {
         fs::remove_file(self.path(id)).map_err(map_io)
     }
 
+    /// Gets one preset with its command secrets to plan and apply it, never to show it.
+    ///
+    /// Needs `Migrate` and the preset's source scope, like [`delete`](Self::delete); the
+    /// secrets travel only to the target router through the protected applier.
+    ///
+    /// # Errors
+    ///
+    /// Returns permission, missing-record, decryption, malformed-record, or I/O errors.
+    #[inline]
+    pub fn get_for_apply(&self, role: &Role, id: &str) -> Result<Preset, PresetError> {
+        validate_id(id)?;
+        let record = read_record(self.path(id))?;
+        authorize_source(role, record.source_router.as_deref())?;
+        self.open(id, &record)
+    }
+
     /// Encrypts and atomically replaces one preset record.
     ///
     /// # Errors

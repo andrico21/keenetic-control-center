@@ -1,0 +1,38 @@
+{#- Step 1 of a copy: the source router and the settings groups; kcc reads the router once and keeps only the chosen groups' settings, sealed. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_PRESETS_SOURCE_TITLE) }}</h2>
+<p class="page__text">{{ t(keys::WEB_PRESETS_SOURCE_TEXT) }}</p>
+<form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/source" hx-target="#wizard-step">
+  <div class="wizard-fields">
+    <div class="field">
+      <label class="field__label" for="copy-router">{{ t(keys::MIGRATE_SOURCE) }}</label>
+      {%- if routers.is_empty() %}
+      <p class="field__help">{{ t(keys::WEB_MIGRATE_SOURCE_NO_ROUTERS) }}</p>
+      {%- else %}
+      <select class="field__input" id="copy-router" name="router"{% if !router_error.is_empty() %} aria-invalid="true" aria-describedby="copy-router-error"{% endif %}>
+        {%- for (router, selected) in routers %}
+        <option value="{{ router }}"{% if *selected %} selected{% endif %}>{{ router }}</option>
+        {%- endfor %}
+      </select>
+      {%- endif %}
+      {%- if !router_error.is_empty() %}
+      <p class="field__error" id="copy-router-error">{{ router_error }}</p>
+      {%- endif %}
+    </div>
+  </div>
+  <fieldset class="presets-groups"{% if !groups_error.is_empty() %} aria-describedby="copy-groups-error"{% endif %}>
+    <legend class="field__label">{{ t(keys::WEB_PRESETS_GROUPS) }}</legend>
+    {%- for (group, title, text, checked) in groups %}
+    <div class="check presets-group">
+      <input class="check__input" type="checkbox" id="copy-group-{{ group }}" name="group" value="{{ group }}"{% if *checked %} checked{% endif %} aria-describedby="copy-group-{{ group }}-text">
+      <label class="check__label" for="copy-group-{{ group }}">{{ title }}</label>
+      <p class="field__help presets-group__text" id="copy-group-{{ group }}-text">{{ text }}</p>
+    </div>
+    {%- endfor %}
+    {%- if !groups_error.is_empty() %}
+    <p class="field__error" id="copy-groups-error">{{ groups_error }}</p>
+    {%- endif %}
+  </fieldset>
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_MIGRATE_TARGET_CHECK) }}</button>
+  </div>
+</form>

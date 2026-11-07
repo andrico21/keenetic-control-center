@@ -5,6 +5,9 @@
 //! the record, which only names where it came from. The form is `multipart/form-data`
 //! because of the file; the route's body limit is 1 MiB, and a larger upload is answered
 //! with the localized size error beside the file input.
+//!
+//! A new preset (`/ui/presets/new`) asks for its source with the same panel, posted to
+//! its own route.
 
 use alloc::sync::Arc;
 
@@ -45,11 +48,13 @@ use crate::{
 /// The step's panel.
 #[derive(Template)]
 #[template(path = "partials/migrate_source.html")]
-pub(super) struct Panel {
+pub(crate) struct Panel {
     /// Locale carrier.
     shell: Shell,
-    /// Migration id.
-    id: String,
+    /// Where the form posts.
+    action: String,
+    /// The panel's title and the sentence under it.
+    words: (MessageKey, MessageKey),
     /// The chosen kind: `router`, `file` or `backup`.
     kind: &'static str,
     /// Routers the user may migrate from.
@@ -99,7 +104,7 @@ struct Errors {
 
 /// Which field a refusal belongs to.
 #[derive(Clone, Copy)]
-pub(super) enum Field {
+pub(crate) enum Field {
     /// The kind choice.
     Kind,
     /// The router select.
@@ -114,6 +119,24 @@ impl Panel {
     /// The panel of migration `id`, with `source` chosen.
     // cancel-safe: reads only.
     pub(super) async fn new(services: Services<'_>, id: &str, source: Option<&Source>) -> Self {
+        Self::posting(services, format!("/ui/migrate/{id}/source"), source).await
+    }
+
+    /// The panel posting to `action` with the `(title, text)` words of a new preset.
+    // cancel-safe: reads only.
+    pub(crate) async fn for_preset(
+        services: Services<'_>,
+        action: String,
+        words: (MessageKey, MessageKey),
+    ) -> Self {
+        let mut panel = Self::posting(services, action, None).await;
+        panel.words = words;
+        panel
+    }
+
+    /// The panel posting to `action`, with `source` chosen.
+    // cancel-safe: reads only.
+    async fn posting(services: Services<'_>, action: String, source: Option<&Source>) -> Self {
         let locale = services.user().locale();
         let chosen = |value: &str| match source {
             Some(Source::Router { router }) => router == value,
@@ -164,7 +187,11 @@ impl Panel {
             .collect();
         Self {
             shell: fragment_shell(locale),
-            id: id.to_owned(),
+            action,
+            words: (
+                keys::WEB_MIGRATE_SOURCE_TITLE,
+                keys::WEB_MIGRATE_SOURCE_TEXT,
+            ),
             kind: match source {
                 Some(Source::File { name: _ }) => "file",
                 Some(Source::Backup { router: _, name: _ }) => "backup",
@@ -184,7 +211,7 @@ impl Panel {
     }
 
     /// The panel with `message` beside `field`, the kind `kind` chosen.
-    fn refusing(mut self, kind: &'static str, field: Field, message: String) -> Self {
+    pub(crate) fn refusing(mut self, kind: &'static str, field: Field, message: String) -> Self {
         self.kind = kind;
         let slot = match field {
             Field::Kind => &mut self.errors.kind,
@@ -256,7 +283,7 @@ pub(super) async fn submit(
 }
 
 /// The panel refusing the submit with `message` beside `field`, as 422.
-fn refuse(
+pub(crate) fn refuse(
     panel: Panel,
     kind: &'static str,
     field: Field,

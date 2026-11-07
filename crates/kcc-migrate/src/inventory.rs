@@ -148,7 +148,7 @@ pub struct InitialSetupState {
 }
 
 /// Complete read-only migration target inventory.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 #[expect(
     clippy::module_name_repetitions,

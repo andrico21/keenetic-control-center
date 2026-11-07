@@ -6,6 +6,9 @@
 //! ended and its end is recorded; without an apply kcc runs (kcc restarted meanwhile) the
 //! recorded end comes at once. `?view=countdown` sends the heartbeat only, for the
 //! results step, and `done` once the timer ran out.
+//!
+//! [`Feed`] is the stream itself; the presets' apply runs follow their applies with it
+//! too, each wizard naming its own recorded end.
 
 use alloc::sync::Arc;
 use core::{pin::pin, time::Duration};
@@ -33,7 +36,6 @@ use super::{
     beats,
     live::{Live, Progress},
     service::Wizards,
-    store::Store,
 };
 use crate::{
     WebState,
@@ -46,38 +48,58 @@ const HEARTBEAT: Duration = Duration::from_secs(10);
 
 /// The stream's view.
 #[derive(Debug, Default, Deserialize)]
-pub(super) struct View {
+pub(crate) struct View {
     /// `countdown` for the heartbeat only.
     #[serde(default)]
     view: Option<String>,
 }
 
-/// What a stream knows of its migration.
-struct Source {
+impl View {
+    /// Whether the stream sends the heartbeat only.
+    pub(crate) fn countdown(&self) -> bool {
+        self.view.as_deref() == Some("countdown")
+    }
+}
+
+/// The `end` and `done` events from a wizard's recorded end.
+pub(crate) type Ending = Box<dyn Fn() -> [Event; 2] + Send>;
+
+/// What a stream knows of the apply it follows.
+pub(crate) struct Feed {
     /// The apply, when kcc runs it.
     live: Option<Arc<Live>>,
-    /// The migrations directory, to read the recorded end.
-    store: Store,
-    /// Migration id.
-    id: String,
     /// When the apply started, and the fail-safe timer's length in seconds.
     timer: (u64, u64),
     /// The listener's locale.
     locale: Locale,
     /// The Web UI, for the time.
     state: WebState,
+    /// The recorded end, read when the stream ends.
+    ending: Ending,
 }
 
-impl Source {
-    /// The `end` and `done` events from the recorded end.
-    fn ending(&self) -> [Event; 2] {
-        let ended = self
-            .store
-            .load(&self.id)
-            .ok()
-            .flatten()
-            .and_then(|record| record.run()?.ended().cloned());
-        beats::end(self.locale, self.id.clone(), ended.as_ref())
+impl Feed {
+    /// The stream in `locale` of an apply: `live` while kcc runs it, under the fail-safe
+    /// `timer` (its start and length in seconds), ending with what `ending` reads.
+    pub(crate) fn new(
+        state: &WebState,
+        locale: Locale,
+        (live, timer): (Option<Arc<Live>>, (u64, u64)),
+        ending: Ending,
+    ) -> Self {
+        Self {
+            live,
+            timer,
+            locale,
+            state: state.clone(),
+            ending,
+        }
+    }
+
+    /// The stream's events from the start of the apply; the heartbeat only when
+    /// `countdown`.
+    pub(crate) fn stream(self, countdown: bool) -> BoxStream<'static, Event> {
+        Cursor::new(self, countdown).stream()
     }
 }
 
@@ -104,23 +126,29 @@ pub(super) async fn events(
     let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
-    let source = Source {
-        live: visit.session().live(),
-        store: services.store(),
-        timer: (run.started_at(), run.safety_seconds()),
-        id,
-        locale: user.locale(),
-        state: state.clone(),
-    };
+    let store = services.store();
+    let locale = user.locale();
+    let ending: Ending = Box::new(move || {
+        let ended = store
+            .load(&id)
+            .ok()
+            .flatten()
+            .and_then(|record| record.run()?.ended().cloned());
+        beats::end(locale, &id, ended.as_ref())
+    });
+    let apply = (
+        visit.session().live(),
+        (run.started_at(), run.safety_seconds()),
+    );
     drop(visit);
-    let countdown = view.view.as_deref() == Some("countdown");
-    guarded(Cursor::new(source, countdown).stream(), permit).into_response()
+    let feed = Feed::new(&state, locale, apply, ending);
+    guarded(feed.stream(view.countdown()), permit).into_response()
 }
 
 /// Where a stream is.
 struct Cursor {
-    /// The migration.
-    source: Source,
+    /// The apply it follows.
+    source: Feed,
     /// Its progress, when kcc runs it.
     progress: Option<watch::Receiver<Progress>>,
     /// Settings sent so far.
@@ -133,7 +161,7 @@ struct Cursor {
 
 impl Cursor {
     /// A stream of `source` from its start.
-    fn new(source: Source, countdown: bool) -> Self {
+    fn new(source: Feed, countdown: bool) -> Self {
         let mut ticks = interval(HEARTBEAT);
         ticks.set_missed_tick_behavior(MissedTickBehavior::Delay);
         Self {
@@ -205,7 +233,7 @@ impl Cursor {
             return (out, ticking);
         }
         let Some(progress) = snapshot else {
-            out.extend(source.ending());
+            out.extend((source.ending)());
             return (out, false);
         };
         for sent in progress.sent().iter().skip(self.sent) {
@@ -219,7 +247,7 @@ impl Cursor {
         self.sent = progress.sent().len();
         out.push(beats::bar(locale, progress.percent()));
         if progress.finished() {
-            out.extend(source.ending());
+            out.extend((source.ending)());
             return (out, false);
         }
         (out, true)

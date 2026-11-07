@@ -1,7 +1,7 @@
-{#- Step 1: where the configuration comes from. Only the chosen kind's field shows (CSS :has); the server reads only that one. -#}
-<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_SOURCE_TITLE) }}</h2>
-<p class="page__text">{{ t(keys::WEB_MIGRATE_SOURCE_TEXT) }}</p>
-<form class="form wizard-form wizard-source" hx-post="/ui/migrate/{{ id }}/source" hx-encoding="multipart/form-data" hx-target="#wizard-step">
+{#- Step 1 (and a new preset's source): where the configuration comes from. Only the chosen kind's field shows (CSS :has); the server reads only that one. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(*words.0) }}</h2>
+<p class="page__text">{{ t(*words.1) }}</p>
+<form class="form wizard-form wizard-source" hx-post="{{ action }}" hx-encoding="multipart/form-data" hx-target="#wizard-step">
   <fieldset class="choice">
     <legend class="field__label">{{ t(keys::WEB_MIGRATE_SOURCE_KIND) }}</legend>
     <label class="choice__option"><input type="radio" name="kind" value="router"{% if kind == "router" %} checked{% endif %}><span>{{ t(keys::WEB_MIGRATE_SOURCE_ROUTER) }}</span></label>

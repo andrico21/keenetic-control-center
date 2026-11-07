@@ -5752,8 +5752,545 @@ pub const WEB_FIREWALL_COL_INTERNAL_PORT: MessageKey =
 /// `web-firewall-upnp-empty` in `web.ftl`.
 pub const WEB_FIREWALL_UPNP_EMPTY: MessageKey = MessageKey::new("web-firewall-upnp-empty");
 
+/// `web-nav-presets` in `web.ftl`.
+pub const WEB_NAV_PRESETS: MessageKey = MessageKey::new("web-nav-presets");
+
+/// `migration-preset-group-dns-secure` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_DNS_SECURE: MessageKey =
+    MessageKey::new("migration-preset-group-dns-secure");
+
+/// `migration-preset-group-dns-records-routing` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_DNS_RECORDS_ROUTING: MessageKey =
+    MessageKey::new("migration-preset-group-dns-records-routing");
+
+/// `migration-preset-group-policies` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_POLICIES: MessageKey =
+    MessageKey::new("migration-preset-group-policies");
+
+/// `migration-preset-group-static-routes` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_STATIC_ROUTES: MessageKey =
+    MessageKey::new("migration-preset-group-static-routes");
+
+/// `migration-preset-group-firewall` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_FIREWALL: MessageKey =
+    MessageKey::new("migration-preset-group-firewall");
+
+/// `migration-preset-group-vpn-clients` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_VPN_CLIENTS: MessageKey =
+    MessageKey::new("migration-preset-group-vpn-clients");
+
+/// `migration-preset-group-wifi` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_WIFI: MessageKey = MessageKey::new("migration-preset-group-wifi");
+
+/// `migration-preset-group-system-baseline` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_SYSTEM_BASELINE: MessageKey =
+    MessageKey::new("migration-preset-group-system-baseline");
+
+/// `migration-preset-group-router-users` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_ROUTER_USERS: MessageKey =
+    MessageKey::new("migration-preset-group-router-users");
+
+/// `migration-preset-group-schedules` in `web.ftl`.
+pub const MIGRATION_PRESET_GROUP_SCHEDULES: MessageKey =
+    MessageKey::new("migration-preset-group-schedules");
+
+/// `web-presets-group-dns-secure-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_DNS_SECURE_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-dns-secure-text");
+
+/// `web-presets-group-dns-records-routing-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_DNS_RECORDS_ROUTING_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-dns-records-routing-text");
+
+/// `web-presets-group-policies-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_POLICIES_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-policies-text");
+
+/// `web-presets-group-static-routes-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_STATIC_ROUTES_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-static-routes-text");
+
+/// `web-presets-group-firewall-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_FIREWALL_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-firewall-text");
+
+/// `web-presets-group-vpn-clients-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_VPN_CLIENTS_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-vpn-clients-text");
+
+/// `web-presets-group-wifi-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_WIFI_TEXT: MessageKey = MessageKey::new("web-presets-group-wifi-text");
+
+/// `web-presets-group-system-baseline-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_SYSTEM_BASELINE_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-system-baseline-text");
+
+/// `web-presets-group-router-users-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_ROUTER_USERS_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-router-users-text");
+
+/// `web-presets-group-schedules-text` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_SCHEDULES_TEXT: MessageKey =
+    MessageKey::new("web-presets-group-schedules-text");
+
+/// `web-presets-title` in `web.ftl`.
+pub const WEB_PRESETS_TITLE: MessageKey = MessageKey::new("web-presets-title");
+
+/// `web-presets-intro` in `web.ftl`.
+pub const WEB_PRESETS_INTRO: MessageKey = MessageKey::new("web-presets-intro");
+
+/// `web-presets-new` in `web.ftl`.
+pub const WEB_PRESETS_NEW: MessageKey = MessageKey::new("web-presets-new");
+
+/// `web-presets-copy` in `web.ftl`.
+pub const WEB_PRESETS_COPY: MessageKey = MessageKey::new("web-presets-copy");
+
+/// `web-presets-empty` in `web.ftl`.
+pub const WEB_PRESETS_EMPTY: MessageKey = MessageKey::new("web-presets-empty");
+
+/// `web-presets-col-name` in `web.ftl`.
+pub const WEB_PRESETS_COL_NAME: MessageKey = MessageKey::new("web-presets-col-name");
+
+/// `web-presets-col-groups` in `web.ftl`.
+pub const WEB_PRESETS_COL_GROUPS: MessageKey = MessageKey::new("web-presets-col-groups");
+
+/// `web-presets-col-source` in `web.ftl`.
+pub const WEB_PRESETS_COL_SOURCE: MessageKey = MessageKey::new("web-presets-col-source");
+
+/// `web-presets-col-captured` in `web.ftl`.
+pub const WEB_PRESETS_COL_CAPTURED: MessageKey = MessageKey::new("web-presets-col-captured");
+
+/// `web-presets-col-creator` in `web.ftl`.
+pub const WEB_PRESETS_COL_CREATOR: MessageKey = MessageKey::new("web-presets-col-creator");
+
+/// `web-presets-col-actions` in `web.ftl`.
+pub const WEB_PRESETS_COL_ACTIONS: MessageKey = MessageKey::new("web-presets-col-actions");
+
+/// `web-presets-apply` in `web.ftl`.
+pub const WEB_PRESETS_APPLY: MessageKey = MessageKey::new("web-presets-apply");
+
+/// `web-presets-delete` in `web.ftl`.
+pub const WEB_PRESETS_DELETE: MessageKey = MessageKey::new("web-presets-delete");
+
+/// `web-presets-source-router` in `web.ftl`.
+pub const WEB_PRESETS_SOURCE_ROUTER: MessageKey = MessageKey::new("web-presets-source-router");
+
+/// `web-presets-source-backup` in `web.ftl`.
+pub const WEB_PRESETS_SOURCE_BACKUP: MessageKey = MessageKey::new("web-presets-source-backup");
+
+/// `web-presets-source-file` in `web.ftl`.
+pub const WEB_PRESETS_SOURCE_FILE: MessageKey = MessageKey::new("web-presets-source-file");
+
+/// `web-presets-delete-title` in `web.ftl`.
+pub const WEB_PRESETS_DELETE_TITLE: MessageKey = MessageKey::new("web-presets-delete-title");
+
+/// `web-presets-delete-text` in `web.ftl`.
+pub const WEB_PRESETS_DELETE_TEXT: MessageKey = MessageKey::new("web-presets-delete-text");
+
+/// `web-presets-all` in `web.ftl`.
+pub const WEB_PRESETS_ALL: MessageKey = MessageKey::new("web-presets-all");
+
+/// `web-presets-new-source-text` in `web.ftl`.
+pub const WEB_PRESETS_NEW_SOURCE_TEXT: MessageKey = MessageKey::new("web-presets-new-source-text");
+
+/// `web-presets-firmware-missing` in `web.ftl`.
+pub const WEB_PRESETS_FIRMWARE_MISSING: MessageKey =
+    MessageKey::new("web-presets-firmware-missing");
+
+/// `web-presets-compose-title` in `web.ftl`.
+pub const WEB_PRESETS_COMPOSE_TITLE: MessageKey = MessageKey::new("web-presets-compose-title");
+
+/// `web-presets-compose-text` in `web.ftl`.
+pub const WEB_PRESETS_COMPOSE_TEXT: MessageKey = MessageKey::new("web-presets-compose-text");
+
+/// `web-presets-groups` in `web.ftl`.
+pub const WEB_PRESETS_GROUPS: MessageKey = MessageKey::new("web-presets-groups");
+
+/// `web-presets-group-count` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_COUNT: MessageKey = MessageKey::new("web-presets-group-count");
+
+/// `web-presets-captured-title` in `web.ftl`.
+pub const WEB_PRESETS_CAPTURED_TITLE: MessageKey = MessageKey::new("web-presets-captured-title");
+
+/// `web-presets-captured-empty` in `web.ftl`.
+pub const WEB_PRESETS_CAPTURED_EMPTY: MessageKey = MessageKey::new("web-presets-captured-empty");
+
+/// `web-presets-name` in `web.ftl`.
+pub const WEB_PRESETS_NAME: MessageKey = MessageKey::new("web-presets-name");
+
+/// `web-presets-name-help` in `web.ftl`.
+pub const WEB_PRESETS_NAME_HELP: MessageKey = MessageKey::new("web-presets-name-help");
+
+/// `web-presets-description` in `web.ftl`.
+pub const WEB_PRESETS_DESCRIPTION: MessageKey = MessageKey::new("web-presets-description");
+
+/// `web-presets-description-help` in `web.ftl`.
+pub const WEB_PRESETS_DESCRIPTION_HELP: MessageKey =
+    MessageKey::new("web-presets-description-help");
+
+/// `web-presets-save` in `web.ftl`.
+pub const WEB_PRESETS_SAVE: MessageKey = MessageKey::new("web-presets-save");
+
+/// `web-presets-error-name` in `web.ftl`.
+pub const WEB_PRESETS_ERROR_NAME: MessageKey = MessageKey::new("web-presets-error-name");
+
+/// `web-presets-error-description` in `web.ftl`.
+pub const WEB_PRESETS_ERROR_DESCRIPTION: MessageKey =
+    MessageKey::new("web-presets-error-description");
+
+/// `web-presets-error-groups` in `web.ftl`.
+pub const WEB_PRESETS_ERROR_GROUPS: MessageKey = MessageKey::new("web-presets-error-groups");
+
+/// `web-presets-draft-gone` in `web.ftl`.
+pub const WEB_PRESETS_DRAFT_GONE: MessageKey = MessageKey::new("web-presets-draft-gone");
+
+/// `web-presets-detail-source` in `web.ftl`.
+pub const WEB_PRESETS_DETAIL_SOURCE: MessageKey = MessageKey::new("web-presets-detail-source");
+
+/// `web-presets-detail-captured` in `web.ftl`.
+pub const WEB_PRESETS_DETAIL_CAPTURED: MessageKey = MessageKey::new("web-presets-detail-captured");
+
+/// `web-presets-detail-creator` in `web.ftl`.
+pub const WEB_PRESETS_DETAIL_CREATOR: MessageKey = MessageKey::new("web-presets-detail-creator");
+
+/// `web-presets-detail-description` in `web.ftl`.
+pub const WEB_PRESETS_DETAIL_DESCRIPTION: MessageKey =
+    MessageKey::new("web-presets-detail-description");
+
+/// `web-presets-detail-groups` in `web.ftl`.
+pub const WEB_PRESETS_DETAIL_GROUPS: MessageKey = MessageKey::new("web-presets-detail-groups");
+
+/// `web-presets-reveal` in `web.ftl`.
+pub const WEB_PRESETS_REVEAL: MessageKey = MessageKey::new("web-presets-reveal");
+
+/// `web-presets-reveal-title` in `web.ftl`.
+pub const WEB_PRESETS_REVEAL_TITLE: MessageKey = MessageKey::new("web-presets-reveal-title");
+
+/// `web-presets-reveal-text` in `web.ftl`.
+pub const WEB_PRESETS_REVEAL_TEXT: MessageKey = MessageKey::new("web-presets-reveal-text");
+
+/// `web-presets-reveal-none` in `web.ftl`.
+pub const WEB_PRESETS_REVEAL_NONE: MessageKey = MessageKey::new("web-presets-reveal-none");
+
+/// `web-presets-copy-intro` in `web.ftl`.
+pub const WEB_PRESETS_COPY_INTRO: MessageKey = MessageKey::new("web-presets-copy-intro");
+
+/// `web-presets-copy-start` in `web.ftl`.
+pub const WEB_PRESETS_COPY_START: MessageKey = MessageKey::new("web-presets-copy-start");
+
+/// `web-presets-apply-title` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_TITLE: MessageKey = MessageKey::new("web-presets-apply-title");
+
+/// `web-presets-apply-intro` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_INTRO: MessageKey = MessageKey::new("web-presets-apply-intro");
+
+/// `web-presets-apply-start` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_START: MessageKey = MessageKey::new("web-presets-apply-start");
+
+/// `web-presets-runs-title` in `web.ftl`.
+pub const WEB_PRESETS_RUNS_TITLE: MessageKey = MessageKey::new("web-presets-runs-title");
+
+/// `web-presets-runs-empty` in `web.ftl`.
+pub const WEB_PRESETS_RUNS_EMPTY: MessageKey = MessageKey::new("web-presets-runs-empty");
+
+/// `web-presets-runs-started` in `web.ftl`.
+pub const WEB_PRESETS_RUNS_STARTED: MessageKey = MessageKey::new("web-presets-runs-started");
+
+/// `web-presets-runs-settings` in `web.ftl`.
+pub const WEB_PRESETS_RUNS_SETTINGS: MessageKey = MessageKey::new("web-presets-runs-settings");
+
+/// `web-presets-runs-step` in `web.ftl`.
+pub const WEB_PRESETS_RUNS_STEP: MessageKey = MessageKey::new("web-presets-runs-step");
+
+/// `web-presets-run-copy` in `web.ftl`.
+pub const WEB_PRESETS_RUN_COPY: MessageKey = MessageKey::new("web-presets-run-copy");
+
+/// `web-presets-run-copy-new` in `web.ftl`.
+pub const WEB_PRESETS_RUN_COPY_NEW: MessageKey = MessageKey::new("web-presets-run-copy-new");
+
+/// `web-presets-wizard-copy` in `web.ftl`.
+pub const WEB_PRESETS_WIZARD_COPY: MessageKey = MessageKey::new("web-presets-wizard-copy");
+
+/// `web-presets-wizard-apply` in `web.ftl`.
+pub const WEB_PRESETS_WIZARD_APPLY: MessageKey = MessageKey::new("web-presets-wizard-apply");
+
+/// `web-presets-steps-label` in `web.ftl`.
+pub const WEB_PRESETS_STEPS_LABEL: MessageKey = MessageKey::new("web-presets-steps-label");
+
+/// `web-presets-step-source` in `web.ftl`.
+pub const WEB_PRESETS_STEP_SOURCE: MessageKey = MessageKey::new("web-presets-step-source");
+
+/// `web-presets-step-target` in `web.ftl`.
+pub const WEB_PRESETS_STEP_TARGET: MessageKey = MessageKey::new("web-presets-step-target");
+
+/// `web-presets-step-options` in `web.ftl`.
+pub const WEB_PRESETS_STEP_OPTIONS: MessageKey = MessageKey::new("web-presets-step-options");
+
+/// `web-presets-step-review` in `web.ftl`.
+pub const WEB_PRESETS_STEP_REVIEW: MessageKey = MessageKey::new("web-presets-step-review");
+
+/// `web-presets-step-inputs` in `web.ftl`.
+pub const WEB_PRESETS_STEP_INPUTS: MessageKey = MessageKey::new("web-presets-step-inputs");
+
+/// `web-presets-step-preview` in `web.ftl`.
+pub const WEB_PRESETS_STEP_PREVIEW: MessageKey = MessageKey::new("web-presets-step-preview");
+
+/// `web-presets-step-apply` in `web.ftl`.
+pub const WEB_PRESETS_STEP_APPLY: MessageKey = MessageKey::new("web-presets-step-apply");
+
+/// `web-presets-step-results` in `web.ftl`.
+pub const WEB_PRESETS_STEP_RESULTS: MessageKey = MessageKey::new("web-presets-step-results");
+
+/// `web-presets-step-report` in `web.ftl`.
+pub const WEB_PRESETS_STEP_REPORT: MessageKey = MessageKey::new("web-presets-step-report");
+
+/// `web-presets-summary-settings` in `web.ftl`.
+pub const WEB_PRESETS_SUMMARY_SETTINGS: MessageKey =
+    MessageKey::new("web-presets-summary-settings");
+
+/// `web-presets-source-title` in `web.ftl`.
+pub const WEB_PRESETS_SOURCE_TITLE: MessageKey = MessageKey::new("web-presets-source-title");
+
+/// `web-presets-source-text` in `web.ftl`.
+pub const WEB_PRESETS_SOURCE_TEXT: MessageKey = MessageKey::new("web-presets-source-text");
+
+/// `web-presets-warning-none` in `web.ftl`.
+pub const WEB_PRESETS_WARNING_NONE: MessageKey = MessageKey::new("web-presets-warning-none");
+
+/// `web-presets-ack-tier` in `web.ftl`.
+pub const WEB_PRESETS_ACK_TIER: MessageKey = MessageKey::new("web-presets-ack-tier");
+
+/// `web-presets-problem-firmware-older` in `web.ftl`.
+pub const WEB_PRESETS_PROBLEM_FIRMWARE_OLDER: MessageKey =
+    MessageKey::new("web-presets-problem-firmware-older");
+
+/// `web-presets-problem-unsupported` in `web.ftl`.
+pub const WEB_PRESETS_PROBLEM_UNSUPPORTED: MessageKey =
+    MessageKey::new("web-presets-problem-unsupported");
+
+/// `web-presets-problem-settings` in `web.ftl`.
+pub const WEB_PRESETS_PROBLEM_SETTINGS: MessageKey =
+    MessageKey::new("web-presets-problem-settings");
+
+/// `web-presets-options-title` in `web.ftl`.
+pub const WEB_PRESETS_OPTIONS_TITLE: MessageKey = MessageKey::new("web-presets-options-title");
+
+/// `web-presets-options-text` in `web.ftl`.
+pub const WEB_PRESETS_OPTIONS_TEXT: MessageKey = MessageKey::new("web-presets-options-text");
+
+/// `web-presets-mode` in `web.ftl`.
+pub const WEB_PRESETS_MODE: MessageKey = MessageKey::new("web-presets-mode");
+
+/// `web-presets-mode-merge` in `web.ftl`.
+pub const WEB_PRESETS_MODE_MERGE: MessageKey = MessageKey::new("web-presets-mode-merge");
+
+/// `web-presets-mode-mirror` in `web.ftl`.
+pub const WEB_PRESETS_MODE_MIRROR: MessageKey = MessageKey::new("web-presets-mode-mirror");
+
+/// `web-presets-wireguard` in `web.ftl`.
+pub const WEB_PRESETS_WIREGUARD: MessageKey = MessageKey::new("web-presets-wireguard");
+
+/// `web-presets-wireguard-regenerate` in `web.ftl`.
+pub const WEB_PRESETS_WIREGUARD_REGENERATE: MessageKey =
+    MessageKey::new("web-presets-wireguard-regenerate");
+
+/// `web-presets-wireguard-help` in `web.ftl`.
+pub const WEB_PRESETS_WIREGUARD_HELP: MessageKey = MessageKey::new("web-presets-wireguard-help");
+
+/// `web-presets-wireguard-shared` in `web.ftl`.
+pub const WEB_PRESETS_WIREGUARD_SHARED: MessageKey =
+    MessageKey::new("web-presets-wireguard-shared");
+
+/// `web-presets-renames` in `web.ftl`.
+pub const WEB_PRESETS_RENAMES: MessageKey = MessageKey::new("web-presets-renames");
+
+/// `web-presets-renames-text` in `web.ftl`.
+pub const WEB_PRESETS_RENAMES_TEXT: MessageKey = MessageKey::new("web-presets-renames-text");
+
+/// `web-presets-rename-interfaces` in `web.ftl`.
+pub const WEB_PRESETS_RENAME_INTERFACES: MessageKey =
+    MessageKey::new("web-presets-rename-interfaces");
+
+/// `web-presets-rename-policies` in `web.ftl`.
+pub const WEB_PRESETS_RENAME_POLICIES: MessageKey = MessageKey::new("web-presets-rename-policies");
+
+/// `web-presets-rename-source` in `web.ftl`.
+pub const WEB_PRESETS_RENAME_SOURCE: MessageKey = MessageKey::new("web-presets-rename-source");
+
+/// `web-presets-rename-target` in `web.ftl`.
+pub const WEB_PRESETS_RENAME_TARGET: MessageKey = MessageKey::new("web-presets-rename-target");
+
+/// `web-presets-rename-none` in `web.ftl`.
+pub const WEB_PRESETS_RENAME_NONE: MessageKey = MessageKey::new("web-presets-rename-none");
+
+/// `web-presets-review-title` in `web.ftl`.
+pub const WEB_PRESETS_REVIEW_TITLE: MessageKey = MessageKey::new("web-presets-review-title");
+
+/// `web-presets-review-text` in `web.ftl`.
+pub const WEB_PRESETS_REVIEW_TEXT: MessageKey = MessageKey::new("web-presets-review-text");
+
+/// `web-presets-review-number` in `web.ftl`.
+pub const WEB_PRESETS_REVIEW_NUMBER: MessageKey = MessageKey::new("web-presets-review-number");
+
+/// `web-presets-review-include` in `web.ftl`.
+pub const WEB_PRESETS_REVIEW_INCLUDE: MessageKey = MessageKey::new("web-presets-review-include");
+
+/// `web-presets-fate-send` in `web.ftl`.
+pub const WEB_PRESETS_FATE_SEND: MessageKey = MessageKey::new("web-presets-fate-send");
+
+/// `web-presets-fate-present` in `web.ftl`.
+pub const WEB_PRESETS_FATE_PRESENT: MessageKey = MessageKey::new("web-presets-fate-present");
+
+/// `web-presets-fate-remove` in `web.ftl`.
+pub const WEB_PRESETS_FATE_REMOVE: MessageKey = MessageKey::new("web-presets-fate-remove");
+
+/// `web-presets-reason-add` in `web.ftl`.
+pub const WEB_PRESETS_REASON_ADD: MessageKey = MessageKey::new("web-presets-reason-add");
+
+/// `web-presets-reason-renamed` in `web.ftl`.
+pub const WEB_PRESETS_REASON_RENAMED: MessageKey = MessageKey::new("web-presets-reason-renamed");
+
+/// `web-presets-reason-present` in `web.ftl`.
+pub const WEB_PRESETS_REASON_PRESENT: MessageKey = MessageKey::new("web-presets-reason-present");
+
+/// `web-presets-reason-mirror` in `web.ftl`.
+pub const WEB_PRESETS_REASON_MIRROR: MessageKey = MessageKey::new("web-presets-reason-mirror");
+
+/// `web-presets-reason-unsupported` in `web.ftl`.
+pub const WEB_PRESETS_REASON_UNSUPPORTED: MessageKey =
+    MessageKey::new("web-presets-reason-unsupported");
+
+/// `web-presets-reason-password` in `web.ftl`.
+pub const WEB_PRESETS_REASON_PASSWORD: MessageKey = MessageKey::new("web-presets-reason-password");
+
+/// `web-presets-reason-mapping` in `web.ftl`.
+pub const WEB_PRESETS_REASON_MAPPING: MessageKey = MessageKey::new("web-presets-reason-mapping");
+
+/// `web-presets-reason-conflict` in `web.ftl`.
+pub const WEB_PRESETS_REASON_CONFLICT: MessageKey = MessageKey::new("web-presets-reason-conflict");
+
+/// `web-presets-reason-wireguard-new` in `web.ftl`.
+pub const WEB_PRESETS_REASON_WIREGUARD_NEW: MessageKey =
+    MessageKey::new("web-presets-reason-wireguard-new");
+
+/// `web-presets-reason-wireguard-kept` in `web.ftl`.
+pub const WEB_PRESETS_REASON_WIREGUARD_KEPT: MessageKey =
+    MessageKey::new("web-presets-reason-wireguard-kept");
+
+/// `web-presets-reason-excluded` in `web.ftl`.
+pub const WEB_PRESETS_REASON_EXCLUDED: MessageKey = MessageKey::new("web-presets-reason-excluded");
+
+/// `web-presets-inputs-passwords-text` in `web.ftl`.
+pub const WEB_PRESETS_INPUTS_PASSWORDS_TEXT: MessageKey =
+    MessageKey::new("web-presets-inputs-passwords-text");
+
+/// `web-presets-preview-text` in `web.ftl`.
+pub const WEB_PRESETS_PREVIEW_TEXT: MessageKey = MessageKey::new("web-presets-preview-text");
+
+/// `web-presets-preview-nothing` in `web.ftl`.
+pub const WEB_PRESETS_PREVIEW_NOTHING: MessageKey = MessageKey::new("web-presets-preview-nothing");
+
+/// `web-presets-count-settings` in `web.ftl`.
+pub const WEB_PRESETS_COUNT_SETTINGS: MessageKey = MessageKey::new("web-presets-count-settings");
+
+/// `web-presets-apply-button` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_BUTTON: MessageKey = MessageKey::new("web-presets-apply-button");
+
+/// `web-presets-apply-forbidden` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_FORBIDDEN: MessageKey = MessageKey::new("web-presets-apply-forbidden");
+
+/// `web-presets-apply-confirm-title` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_CONFIRM_TITLE: MessageKey =
+    MessageKey::new("web-presets-apply-confirm-title");
+
+/// `web-presets-apply-confirm-text` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_CONFIRM_TEXT: MessageKey =
+    MessageKey::new("web-presets-apply-confirm-text");
+
+/// `web-presets-apply-busy` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_BUSY: MessageKey = MessageKey::new("web-presets-apply-busy");
+
+/// `web-presets-apply-changed` in `web.ftl`.
+pub const WEB_PRESETS_APPLY_CHANGED: MessageKey = MessageKey::new("web-presets-apply-changed");
+
+/// `web-presets-run-title` in `web.ftl`.
+pub const WEB_PRESETS_RUN_TITLE: MessageKey = MessageKey::new("web-presets-run-title");
+
+/// `web-presets-run-text` in `web.ftl`.
+pub const WEB_PRESETS_RUN_TEXT: MessageKey = MessageKey::new("web-presets-run-text");
+
+/// `web-presets-applied` in `web.ftl`.
+pub const WEB_PRESETS_APPLIED: MessageKey = MessageKey::new("web-presets-applied");
+
+/// `web-presets-run-interrupted` in `web.ftl`.
+pub const WEB_PRESETS_RUN_INTERRUPTED: MessageKey = MessageKey::new("web-presets-run-interrupted");
+
+/// `web-presets-failure-cancelled` in `web.ftl`.
+pub const WEB_PRESETS_FAILURE_CANCELLED: MessageKey =
+    MessageKey::new("web-presets-failure-cancelled");
+
+/// `web-presets-failure-failed` in `web.ftl`.
+pub const WEB_PRESETS_FAILURE_FAILED: MessageKey = MessageKey::new("web-presets-failure-failed");
+
+/// `web-presets-failure-settings` in `web.ftl`.
+pub const WEB_PRESETS_FAILURE_SETTINGS: MessageKey =
+    MessageKey::new("web-presets-failure-settings");
+
+/// `web-presets-results-text` in `web.ftl`.
+pub const WEB_PRESETS_RESULTS_TEXT: MessageKey = MessageKey::new("web-presets-results-text");
+
+/// `web-presets-keep` in `web.ftl`.
+pub const WEB_PRESETS_KEEP: MessageKey = MessageKey::new("web-presets-keep");
+
+/// `web-presets-save-router` in `web.ftl`.
+pub const WEB_PRESETS_SAVE_ROUTER: MessageKey = MessageKey::new("web-presets-save-router");
+
+/// `web-presets-rollback-forbidden` in `web.ftl`.
+pub const WEB_PRESETS_ROLLBACK_FORBIDDEN: MessageKey =
+    MessageKey::new("web-presets-rollback-forbidden");
+
+/// `web-presets-rollback-title` in `web.ftl`.
+pub const WEB_PRESETS_ROLLBACK_TITLE: MessageKey = MessageKey::new("web-presets-rollback-title");
+
+/// `web-presets-rollback-text` in `web.ftl`.
+pub const WEB_PRESETS_ROLLBACK_TEXT: MessageKey = MessageKey::new("web-presets-rollback-text");
+
+/// `web-presets-finish-kept` in `web.ftl`.
+pub const WEB_PRESETS_FINISH_KEPT: MessageKey = MessageKey::new("web-presets-finish-kept");
+
+/// `web-presets-finish-saved` in `web.ftl`.
+pub const WEB_PRESETS_FINISH_SAVED: MessageKey = MessageKey::new("web-presets-finish-saved");
+
+/// `web-presets-finish-rolled-back` in `web.ftl`.
+pub const WEB_PRESETS_FINISH_ROLLED_BACK: MessageKey =
+    MessageKey::new("web-presets-finish-rolled-back");
+
+/// `web-presets-finish-closed` in `web.ftl`.
+pub const WEB_PRESETS_FINISH_CLOSED: MessageKey = MessageKey::new("web-presets-finish-closed");
+
+/// `web-presets-keys-title` in `web.ftl`.
+pub const WEB_PRESETS_KEYS_TITLE: MessageKey = MessageKey::new("web-presets-keys-title");
+
+/// `web-presets-keys-text` in `web.ftl`.
+pub const WEB_PRESETS_KEYS_TEXT: MessageKey = MessageKey::new("web-presets-keys-text");
+
+/// `web-presets-keys-interface` in `web.ftl`.
+pub const WEB_PRESETS_KEYS_INTERFACE: MessageKey = MessageKey::new("web-presets-keys-interface");
+
+/// `web-presets-keys-key` in `web.ftl`.
+pub const WEB_PRESETS_KEYS_KEY: MessageKey = MessageKey::new("web-presets-keys-key");
+
+/// `web-presets-keys-kept` in `web.ftl`.
+pub const WEB_PRESETS_KEYS_KEPT: MessageKey = MessageKey::new("web-presets-keys-kept");
+
+/// `web-presets-downloads` in `web.ftl`.
+pub const WEB_PRESETS_DOWNLOADS: MessageKey = MessageKey::new("web-presets-downloads");
+
+/// `web-presets-group-empty` in `web.ftl`.
+pub const WEB_PRESETS_GROUP_EMPTY: MessageKey = MessageKey::new("web-presets-group-empty");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 1840] = [
+pub static ALL: [MessageKey; 2006] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -7594,4 +8131,170 @@ pub static ALL: [MessageKey; 1840] = [
     WEB_FIREWALL_COL_INTERNAL,
     WEB_FIREWALL_COL_INTERNAL_PORT,
     WEB_FIREWALL_UPNP_EMPTY,
+    WEB_NAV_PRESETS,
+    MIGRATION_PRESET_GROUP_DNS_SECURE,
+    MIGRATION_PRESET_GROUP_DNS_RECORDS_ROUTING,
+    MIGRATION_PRESET_GROUP_POLICIES,
+    MIGRATION_PRESET_GROUP_STATIC_ROUTES,
+    MIGRATION_PRESET_GROUP_FIREWALL,
+    MIGRATION_PRESET_GROUP_VPN_CLIENTS,
+    MIGRATION_PRESET_GROUP_WIFI,
+    MIGRATION_PRESET_GROUP_SYSTEM_BASELINE,
+    MIGRATION_PRESET_GROUP_ROUTER_USERS,
+    MIGRATION_PRESET_GROUP_SCHEDULES,
+    WEB_PRESETS_GROUP_DNS_SECURE_TEXT,
+    WEB_PRESETS_GROUP_DNS_RECORDS_ROUTING_TEXT,
+    WEB_PRESETS_GROUP_POLICIES_TEXT,
+    WEB_PRESETS_GROUP_STATIC_ROUTES_TEXT,
+    WEB_PRESETS_GROUP_FIREWALL_TEXT,
+    WEB_PRESETS_GROUP_VPN_CLIENTS_TEXT,
+    WEB_PRESETS_GROUP_WIFI_TEXT,
+    WEB_PRESETS_GROUP_SYSTEM_BASELINE_TEXT,
+    WEB_PRESETS_GROUP_ROUTER_USERS_TEXT,
+    WEB_PRESETS_GROUP_SCHEDULES_TEXT,
+    WEB_PRESETS_TITLE,
+    WEB_PRESETS_INTRO,
+    WEB_PRESETS_NEW,
+    WEB_PRESETS_COPY,
+    WEB_PRESETS_EMPTY,
+    WEB_PRESETS_COL_NAME,
+    WEB_PRESETS_COL_GROUPS,
+    WEB_PRESETS_COL_SOURCE,
+    WEB_PRESETS_COL_CAPTURED,
+    WEB_PRESETS_COL_CREATOR,
+    WEB_PRESETS_COL_ACTIONS,
+    WEB_PRESETS_APPLY,
+    WEB_PRESETS_DELETE,
+    WEB_PRESETS_SOURCE_ROUTER,
+    WEB_PRESETS_SOURCE_BACKUP,
+    WEB_PRESETS_SOURCE_FILE,
+    WEB_PRESETS_DELETE_TITLE,
+    WEB_PRESETS_DELETE_TEXT,
+    WEB_PRESETS_ALL,
+    WEB_PRESETS_NEW_SOURCE_TEXT,
+    WEB_PRESETS_FIRMWARE_MISSING,
+    WEB_PRESETS_COMPOSE_TITLE,
+    WEB_PRESETS_COMPOSE_TEXT,
+    WEB_PRESETS_GROUPS,
+    WEB_PRESETS_GROUP_COUNT,
+    WEB_PRESETS_CAPTURED_TITLE,
+    WEB_PRESETS_CAPTURED_EMPTY,
+    WEB_PRESETS_NAME,
+    WEB_PRESETS_NAME_HELP,
+    WEB_PRESETS_DESCRIPTION,
+    WEB_PRESETS_DESCRIPTION_HELP,
+    WEB_PRESETS_SAVE,
+    WEB_PRESETS_ERROR_NAME,
+    WEB_PRESETS_ERROR_DESCRIPTION,
+    WEB_PRESETS_ERROR_GROUPS,
+    WEB_PRESETS_DRAFT_GONE,
+    WEB_PRESETS_DETAIL_SOURCE,
+    WEB_PRESETS_DETAIL_CAPTURED,
+    WEB_PRESETS_DETAIL_CREATOR,
+    WEB_PRESETS_DETAIL_DESCRIPTION,
+    WEB_PRESETS_DETAIL_GROUPS,
+    WEB_PRESETS_REVEAL,
+    WEB_PRESETS_REVEAL_TITLE,
+    WEB_PRESETS_REVEAL_TEXT,
+    WEB_PRESETS_REVEAL_NONE,
+    WEB_PRESETS_COPY_INTRO,
+    WEB_PRESETS_COPY_START,
+    WEB_PRESETS_APPLY_TITLE,
+    WEB_PRESETS_APPLY_INTRO,
+    WEB_PRESETS_APPLY_START,
+    WEB_PRESETS_RUNS_TITLE,
+    WEB_PRESETS_RUNS_EMPTY,
+    WEB_PRESETS_RUNS_STARTED,
+    WEB_PRESETS_RUNS_SETTINGS,
+    WEB_PRESETS_RUNS_STEP,
+    WEB_PRESETS_RUN_COPY,
+    WEB_PRESETS_RUN_COPY_NEW,
+    WEB_PRESETS_WIZARD_COPY,
+    WEB_PRESETS_WIZARD_APPLY,
+    WEB_PRESETS_STEPS_LABEL,
+    WEB_PRESETS_STEP_SOURCE,
+    WEB_PRESETS_STEP_TARGET,
+    WEB_PRESETS_STEP_OPTIONS,
+    WEB_PRESETS_STEP_REVIEW,
+    WEB_PRESETS_STEP_INPUTS,
+    WEB_PRESETS_STEP_PREVIEW,
+    WEB_PRESETS_STEP_APPLY,
+    WEB_PRESETS_STEP_RESULTS,
+    WEB_PRESETS_STEP_REPORT,
+    WEB_PRESETS_SUMMARY_SETTINGS,
+    WEB_PRESETS_SOURCE_TITLE,
+    WEB_PRESETS_SOURCE_TEXT,
+    WEB_PRESETS_WARNING_NONE,
+    WEB_PRESETS_ACK_TIER,
+    WEB_PRESETS_PROBLEM_FIRMWARE_OLDER,
+    WEB_PRESETS_PROBLEM_UNSUPPORTED,
+    WEB_PRESETS_PROBLEM_SETTINGS,
+    WEB_PRESETS_OPTIONS_TITLE,
+    WEB_PRESETS_OPTIONS_TEXT,
+    WEB_PRESETS_MODE,
+    WEB_PRESETS_MODE_MERGE,
+    WEB_PRESETS_MODE_MIRROR,
+    WEB_PRESETS_WIREGUARD,
+    WEB_PRESETS_WIREGUARD_REGENERATE,
+    WEB_PRESETS_WIREGUARD_HELP,
+    WEB_PRESETS_WIREGUARD_SHARED,
+    WEB_PRESETS_RENAMES,
+    WEB_PRESETS_RENAMES_TEXT,
+    WEB_PRESETS_RENAME_INTERFACES,
+    WEB_PRESETS_RENAME_POLICIES,
+    WEB_PRESETS_RENAME_SOURCE,
+    WEB_PRESETS_RENAME_TARGET,
+    WEB_PRESETS_RENAME_NONE,
+    WEB_PRESETS_REVIEW_TITLE,
+    WEB_PRESETS_REVIEW_TEXT,
+    WEB_PRESETS_REVIEW_NUMBER,
+    WEB_PRESETS_REVIEW_INCLUDE,
+    WEB_PRESETS_FATE_SEND,
+    WEB_PRESETS_FATE_PRESENT,
+    WEB_PRESETS_FATE_REMOVE,
+    WEB_PRESETS_REASON_ADD,
+    WEB_PRESETS_REASON_RENAMED,
+    WEB_PRESETS_REASON_PRESENT,
+    WEB_PRESETS_REASON_MIRROR,
+    WEB_PRESETS_REASON_UNSUPPORTED,
+    WEB_PRESETS_REASON_PASSWORD,
+    WEB_PRESETS_REASON_MAPPING,
+    WEB_PRESETS_REASON_CONFLICT,
+    WEB_PRESETS_REASON_WIREGUARD_NEW,
+    WEB_PRESETS_REASON_WIREGUARD_KEPT,
+    WEB_PRESETS_REASON_EXCLUDED,
+    WEB_PRESETS_INPUTS_PASSWORDS_TEXT,
+    WEB_PRESETS_PREVIEW_TEXT,
+    WEB_PRESETS_PREVIEW_NOTHING,
+    WEB_PRESETS_COUNT_SETTINGS,
+    WEB_PRESETS_APPLY_BUTTON,
+    WEB_PRESETS_APPLY_FORBIDDEN,
+    WEB_PRESETS_APPLY_CONFIRM_TITLE,
+    WEB_PRESETS_APPLY_CONFIRM_TEXT,
+    WEB_PRESETS_APPLY_BUSY,
+    WEB_PRESETS_APPLY_CHANGED,
+    WEB_PRESETS_RUN_TITLE,
+    WEB_PRESETS_RUN_TEXT,
+    WEB_PRESETS_APPLIED,
+    WEB_PRESETS_RUN_INTERRUPTED,
+    WEB_PRESETS_FAILURE_CANCELLED,
+    WEB_PRESETS_FAILURE_FAILED,
+    WEB_PRESETS_FAILURE_SETTINGS,
+    WEB_PRESETS_RESULTS_TEXT,
+    WEB_PRESETS_KEEP,
+    WEB_PRESETS_SAVE_ROUTER,
+    WEB_PRESETS_ROLLBACK_FORBIDDEN,
+    WEB_PRESETS_ROLLBACK_TITLE,
+    WEB_PRESETS_ROLLBACK_TEXT,
+    WEB_PRESETS_FINISH_KEPT,
+    WEB_PRESETS_FINISH_SAVED,
+    WEB_PRESETS_FINISH_ROLLED_BACK,
+    WEB_PRESETS_FINISH_CLOSED,
+    WEB_PRESETS_KEYS_TITLE,
+    WEB_PRESETS_KEYS_TEXT,
+    WEB_PRESETS_KEYS_INTERFACE,
+    WEB_PRESETS_KEYS_KEY,
+    WEB_PRESETS_KEYS_KEPT,
+    WEB_PRESETS_DOWNLOADS,
+    WEB_PRESETS_GROUP_EMPTY,
 ];

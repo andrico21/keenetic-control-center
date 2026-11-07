@@ -1,0 +1,56 @@
+{#- Step 4: every setting of the plan, its fate and why; Apply boxes save as they change. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_PRESETS_REVIEW_TITLE) }}</h2>
+<p class="page__text">{{ t(keys::WEB_PRESETS_REVIEW_TEXT) }}</p>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+<nav class="wizard-filters" aria-label="{{ t(keys::WEB_MIGRATE_REVIEW_FILTERS) }}">
+  <ul class="wizard-filters__list">
+    {%- for (href, label, current) in filters %}
+    <li><a class="wizard-filters__link" href="{{ href }}"{% if *current %} aria-current="page"{% endif %}>{{ label }}</a></li>
+    {%- endfor %}
+  </ul>
+</nav>
+<form class="wizard-review" id="review-form" hx-post="/ui/presets/runs/{{ id }}/review" hx-trigger="change" hx-swap="none">
+  {%- if rows.is_empty() %}
+  <p class="table-empty">{{ t(keys::WEB_KIT_TABLE_EMPTY) }}</p>
+  {%- else %}
+  <div class="table-wrap">
+    <table class="table wizard-table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_PRESETS_REVIEW_NUMBER) }}</th>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_SETTING) }}</th>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_FATE) }}</th>
+          <th scope="col">{{ t(keys::WEB_MIGRATE_REVIEW_CHOICE) }}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" class="mono" id="item-{{ row.index }}">{{ row.index + 1 }}</th>
+          <td>
+            <code class="wizard-line">{{ row.before }}</code>
+            {%- if !row.after.is_empty() %}
+            <code class="wizard-line wizard-line--after">{{ row.after }}</code>
+            {%- endif %}
+          </td>
+          <td><span class="wizard-fate" data-fate="{{ row.tone }}">{{ row.label }}</span><p class="wizard-reason">{{ row.reason }}</p></td>
+          <td>
+            {%- if row.include.is_some() %}
+            <input type="hidden" name="shown" value="{{ row.index }}">
+            <label class="choice__option"><input type="checkbox" name="include" value="{{ row.index }}"{% if row.include == Some(true) %} checked{% endif %} aria-describedby="item-{{ row.index }}"><span>{{ t(keys::WEB_PRESETS_REVIEW_INCLUDE) }}</span></label>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+</form>
+{%- include "partials/kit_pager.html" %}
+<div class="form__actions">
+  <button class="button button--primary" type="button" hx-post="/ui/presets/runs/{{ id }}/review/continue" hx-include="#review-form" hx-target="#wizard-step">{{ t(keys::WEB_MIGRATE_CONTINUE) }}</button>
+</div>
+{%- endif %}

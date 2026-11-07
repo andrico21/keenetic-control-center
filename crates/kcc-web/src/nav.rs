@@ -30,13 +30,15 @@ pub enum Section {
     Advanced,
     /// Configuration migration between routers.
     Migration,
+    /// Settings presets and copying settings between routers.
+    Presets,
     /// Accounts, roles and audit log.
     Admin,
 }
 
 impl Section {
     /// Every section, in navigation order.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Dashboard,
         Self::Clients,
         Self::Network,
@@ -49,6 +51,7 @@ impl Section {
         Self::Configuration,
         Self::Advanced,
         Self::Migration,
+        Self::Presets,
         Self::Admin,
     ];
 
@@ -69,6 +72,7 @@ impl Section {
             Self::Configuration => "configuration",
             Self::Advanced => "advanced",
             Self::Migration => "migrate",
+            Self::Presets => "presets",
             Self::Admin => "admin",
         }
     }
@@ -90,6 +94,7 @@ impl Section {
             Self::Configuration => "/ui/configuration",
             Self::Advanced => "/ui/advanced",
             Self::Migration => "/ui/migrate",
+            Self::Presets => "/ui/presets",
             Self::Admin => "/ui/admin",
         }
     }
@@ -111,6 +116,7 @@ impl Section {
             Self::Configuration => keys::WEB_NAV_CONFIGURATION,
             Self::Advanced => keys::WEB_NAV_ADVANCED,
             Self::Migration => keys::WEB_NAV_MIGRATION,
+            Self::Presets => keys::WEB_NAV_PRESETS,
             Self::Admin => keys::WEB_NAV_ADMIN,
         }
     }

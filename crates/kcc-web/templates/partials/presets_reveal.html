@@ -1,0 +1,17 @@
+{#- One Reveal: the lines carrying a secret value, in plaintext, selectable; closing the dialog empties it, so the values leave the page. -#}
+{%- import "components.html" as ui -%}
+{% call ui::dialog_body(title) %}
+{%- if lines.is_empty() %}
+<p class="dialog__text">{{ t(keys::WEB_PRESETS_REVEAL_NONE) }}</p>
+{%- else %}
+<p class="dialog__text">{{ t(keys::WEB_PRESETS_REVEAL_TEXT) }}</p>
+<ol class="wizard-lines presets-lines presets-reveal">
+  {%- for line in shown() %}
+  <li><code class="wizard-line">{{ line }}</code></li>
+  {%- endfor %}
+</ol>
+{%- endif %}
+<form class="dialog__actions" method="dialog">
+  <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_KEY_DONE) }}</button>
+</form>
+{% endcall %}

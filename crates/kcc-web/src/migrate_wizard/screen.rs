@@ -131,7 +131,7 @@ pub(super) const fn title(mode: Mode) -> MessageKey {
 }
 
 /// How `source` is named in the summary and the migration list.
-pub(super) fn source_text(source: &Source, locale: Locale) -> String {
+pub(crate) fn source_text(source: &Source, locale: Locale) -> String {
     let mut args = FluentArgs::new();
     let key = match source {
         Source::Router { router } => {

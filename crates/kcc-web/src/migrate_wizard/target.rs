@@ -253,7 +253,7 @@ pub(super) async fn choose(
 }
 
 /// The sentence explaining `problem`.
-pub(super) fn problem_text(problem: &Problem, locale: Locale) -> String {
+pub(crate) fn problem_text(problem: &Problem, locale: Locale) -> String {
     match problem {
         Problem::Source => tr(locale, keys::WEB_MIGRATE_PROBLEM_SOURCE, None),
         Problem::FirmwareRequired => tr(locale, keys::WEB_MIGRATE_PROBLEM_FIRMWARE_REQUIRED, None),

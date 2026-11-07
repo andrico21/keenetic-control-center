@@ -7,10 +7,10 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_migrate::apply::{ApplyError, ApplyReport};
 use serde::{Deserialize, Serialize};
 
-/// The apply job of a migration.
+/// The apply job of a migration (or of a preset run).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Run {
+pub(crate) struct Run {
     /// The job's id.
     job: String,
     /// Unix time it started.
@@ -25,7 +25,7 @@ pub(super) struct Run {
 /// How an apply job ended.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Ended {
+pub(crate) struct Ended {
     /// Unix time it ended.
     at: u64,
     /// Whether the read-back and health checks passed.
@@ -67,7 +67,7 @@ impl Finish {
 
 impl Run {
     /// A job `job` started at `started_at` under a timer of `safety_seconds`.
-    pub(super) const fn new(job: String, started_at: u64, safety_seconds: u64) -> Self {
+    pub(crate) const fn new(job: String, started_at: u64, safety_seconds: u64) -> Self {
         Self {
             job,
             started_at,
@@ -77,28 +77,28 @@ impl Run {
     }
 
     /// The job's id.
-    pub(super) fn job(&self) -> &str {
+    pub(crate) fn job(&self) -> &str {
         &self.job
     }
 
     /// Unix time it started.
-    pub(super) const fn started_at(&self) -> u64 {
+    pub(crate) const fn started_at(&self) -> u64 {
         self.started_at
     }
 
     /// The fail-safe timer's length, in seconds.
-    pub(super) const fn safety_seconds(&self) -> u64 {
+    pub(crate) const fn safety_seconds(&self) -> u64 {
         self.safety_seconds
     }
 
     /// How it ended, once it did.
-    pub(super) const fn ended(&self) -> Option<&Ended> {
+    pub(crate) const fn ended(&self) -> Option<&Ended> {
         self.ended.as_ref()
     }
 
     /// Records how it ended at `at`: the engine's report, or the error it failed with
     /// before it made one.
-    pub(super) fn end(&mut self, at: u64, outcome: Result<&ApplyReport, ApplyError>) {
+    pub(crate) fn end(&mut self, at: u64, outcome: Result<&ApplyReport, ApplyError>) {
         self.ended = Some(match outcome {
             Ok(report) => Ended {
                 at,
@@ -120,28 +120,28 @@ impl Run {
 
 impl Ended {
     /// Whether the read-back and health checks passed.
-    pub(super) const fn verified(&self) -> bool {
+    pub(crate) const fn verified(&self) -> bool {
         self.verified
     }
 
     /// The engine's failure name.
-    pub(super) fn failure(&self) -> Option<&str> {
+    pub(crate) fn failure(&self) -> Option<&str> {
         self.failure.as_deref()
     }
 
     /// Settings the router took.
-    pub(super) const fn applied(&self) -> usize {
+    pub(crate) const fn applied(&self) -> usize {
         self.applied
     }
 
     /// Settings the router refused.
-    pub(super) const fn failed(&self) -> usize {
+    pub(crate) const fn failed(&self) -> usize {
         self.failed
     }
 }
 
 /// The stable name of `failure`, as the engine serializes it.
-pub(super) fn failure_name(failure: ApplyError) -> String {
+pub(crate) fn failure_name(failure: ApplyError) -> String {
     serde_json::to_value(failure)
         .ok()
         .and_then(|value| value.as_str().map(str::to_owned))

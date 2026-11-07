@@ -415,7 +415,7 @@ impl Shell {
     /// Every navigation link, marking the current section.
     #[inline]
     #[must_use]
-    pub fn nav(&self) -> [NavLink; 13] {
+    pub fn nav(&self) -> [NavLink; 14] {
         Section::ALL.map(|section| NavLink {
             section,
             current: self.section == Some(section),

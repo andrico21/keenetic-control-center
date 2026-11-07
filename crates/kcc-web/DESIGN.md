@@ -975,3 +975,89 @@ Page briefs (todo 38):
 | Routing, port forwarding and firewall changes need JavaScript | `pages/routing.html`, `partials/routing_*.html`, `partials/nat_*.html`, `partials/firewall_*.html` | Dialogs, removals, moves and switches are htmx requests carrying the CSRF header; the tables, filters, sorting and pages work without it | Same as the menus |
 | Tables of these pages scroll sideways on a phone with no edge fade or shadow | `.table-wrap` around `.routing-table` in `partials/routing_*.html`, `partials/nat_*.html`, `partials/firewall_*.html` | The shared `.table-wrap` has no scroll cue on any page, and a cue for this family alone would make tables differ between pages; a column cut at the edge is the only hint, and where a column ends right at the edge (active connections at 390 px) nothing shows that more follows | The page kit, for every `.table-wrap` at once |
 | Connection states and route sources show the router's own words (established, boot) | State column of `partials/nat_sessions.html`, Source column of `partials/routing_table.html` | The firmware documents no list of these values, so a translation would be a guess that can name the wrong state; the DHCP leases page shows lease states the same way | The page kit and the domains, once the firmware documents the values |
+## Presets and copying settings (todo 59, `src/presets_page/`)
+
+The navigation gains Presets (`/ui/presets`) after Migration: the shell now has 14 links.
+
+Layout (`/ui/presets`): stacked sections - page head (title, Copy settings and New preset
+with `Migrate`), the intro, the outcome region, then the presets table in `.table-wrap
+.presets-table` (positioned, so its visually hidden actions header stays inside the
+sideways scroller); scroll owner: the document; nested scrollers: `.table-wrap`
+(horizontal, the table only); anti-patterns: a card per preset, row actions in a
+hover-only menu, controls for a role without `Migrate`.
+
+Layout (`/ui/presets/new`, `/ui/presets/new/{draft}`): the wizard's single column - page
+head, All presets, then `#wizard-step` with the migration wizard's source panel (kind
+radios and only the chosen kind's field), then the groups panel: source facts, the group
+checkboxes in a `repeat(auto-fill, minmax(min(100%, --presets-group-min), 1fr))` grid, the
+captured settings (`#presets-captured`, swapped in place when a checkbox changes), name,
+description and Save; scroll owner: the document; anti-patterns: a scrolling box for the
+captured lines, a preview with a secret value.
+
+Layout (`/ui/presets/{id}`): page head (name; Delete, Reveal secrets, Apply), All presets,
+the facts, then one section per group (title with its count, the redacted lines); scroll
+owner: the document.
+
+Layout (`/ui/copy`, `/ui/presets/{id}/apply`, `/ui/presets/runs/{run}`): the migration
+wizard's layouts and classes (`.wizard-steps`, `#wizard-step`, `.wizard-run`,
+`.wizard-fate`, `.wizard-commands`), nine steps: source (fixed for a preset), target,
+options, review, inputs, preview, apply, results, report.
+
+Token: `--presets-group-min` (20rem, set on `.presets-groups`) is the narrowest a
+settings-group checkbox column gets.
+
+- Group checkboxes (`.presets-groups`, `.presets-group`): the kit's `.check` with the group
+  name, its count (`.presets-group__count`, muted, tabular numerals) and its description
+  as the field help.
+- Captured settings (`.presets-captured`): an `h3`, the count as a `role="status"` line,
+  then the lines (`.wizard-lines`, mono, redacted).
+- Options: Merge or Mirror radios (`.choice`); the WireGuard checkbox (new keys, on by
+  default) with the shared-key warning (`.wizard-warning`) always visible beside it; the
+  names on the router in two `.wizard-map` tables (interfaces, policies), an empty field
+  keeping the name.
+- Review: the migration review's table; fates Sent (success pill), Already there,
+  Not supported, Left out (neutral), Removed and Differs from the router (warning), Needs
+  input (info); Apply checkboxes save as they change.
+- Preview: counts, the ordered commands per phase (added, removed) with secret values
+  redacted, Reveal secrets (`RevealSecrets`, audited, the plaintext only in its dialog)
+  and Apply (asks in the dialog with the fail-safe minutes).
+- Results: Keep unsaved (primary), Save on the router (secondary), Roll back
+  (`button--danger-ghost`, the router name typed), Back to the preview and Finish when
+  nothing waits; the countdown while the settings wait.
+- Report: how it finished, the counts, the new WireGuard public keys (interface and key,
+  mono) to register on the VPN servers, the kept-key warnings, the Markdown and JSON
+  report.
+
+### Page briefs (todo 59)
+
+- Presets. Primary action: New preset (`Migrate`); Copy settings is secondary.
+  Priorities: 1 the presets (name, groups), 2 where each came from and when, 3 Apply and
+  Delete. Left out on purpose: line counts per row, stat tiles, a per-row preview.
+  Required content: intro, name (link), groups, source (model, firmware, router, backup or
+  file), captured time, creator, Apply and Delete (`Migrate` on the source router), the
+  empty note.
+- New preset. Primary action: Continue, then Save the preset. Priorities: 1 the groups
+  and their counts, 2 the redacted captured settings, 3 name and description. Required
+  content: kind, router, file, backup; source facts (source, model, firmware); every
+  group with its count and description; the captured lines; name; description; the
+  errors.
+- Preset. Primary action: Apply (`Migrate`), in the page head beside Delete and Reveal
+  secrets. Priorities: 1 where it came from (source, captured, creator, description), 2
+  the settings per group. Required content: name, source, captured, creator,
+  description, each group with its count and redacted lines, Reveal secrets
+  (`RevealSecrets`), Delete (typed name).
+- Apply and copy runs. Primary action: the step's own (Read the router, Continue, Preview
+  the plan, Apply the settings, Review the result, Keep unsaved); Back is ghost. Required
+  content per step: (1, copy) source router and groups; (2) target, facts, warnings, the
+  tier acknowledgement, the older-firmware refusal; (3) Merge or Mirror, WireGuard keys
+  with the shared-key warning, interface and policy names; (4) filters with counts, every
+  setting with number, redacted text, fate, reason and Apply; (5) passwords; (6) counts,
+  phases with commands, Reveal, Apply or why not; (7) Stop, progress, heartbeat, sent
+  lines, the end; (8) result, counts, countdown, Keep unsaved / Save / Roll back /
+  Back to the preview / Finish; (9) how it finished, when, counts, public keys, reports.
+
+| Item | Location | Why accepted | Owner / Exit |
+|---|---|---|---|
+| Presets actions need JavaScript | `pages/presets_*.html`, `partials/presets_*.html` | Every change (save, delete, apply, the wizard's steps, Reveal) is an htmx request carrying the CSRF header; the lists, the preset page, the run pages and the report downloads work without it | Same as the menus |
+| The captured settings update needs JavaScript | `partials/presets_compose.html` | Without htmx the captured lines stay as first shown; Save still captures exactly the checked groups | None needed |
+| The presets list and the review table scroll sideways on a phone | `pages/presets_list.html`, `partials/presets_review.html` | Both use the shared `.table-wrap` pattern (the review is the migration review's `.wizard-review` table, at least `--wizard-review-min`); at 390 px the list's Created by, Apply and Delete and the review's Fate and Apply sit past the right edge with no scroll cue; the preset page repeats Apply and Delete | A stacked phone layout or a scroll cue shared by every `.table-wrap` table |

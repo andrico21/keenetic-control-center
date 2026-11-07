@@ -1,0 +1,41 @@
+{#- Step 6: the commands as the router gets them, in order, secret values redacted; Reveal (RevealSecrets) and Apply each ask in the dialog. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_PREVIEW_TITLE) }}</h2>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+<p class="page__text">{{ t(keys::WEB_PRESETS_PREVIEW_TEXT) }}</p>
+<dl class="facts wizard-counts">
+  {%- for (label, value) in facts %}
+  <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+  {%- endfor %}
+</dl>
+{%- if phases.is_empty() %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_PRESETS_PREVIEW_NOTHING) }}</p>
+{%- endif %}
+{%- for (title, lines) in phases %}
+<section class="wizard-phase" aria-labelledby="phase-{{ loop.index }}-title">
+  <h3 class="wizard-phase__title" id="phase-{{ loop.index }}-title">{{ title }}</h3>
+  <ol class="wizard-commands">
+    {%- for (number, text) in lines %}
+    <li class="wizard-commands__item"><span class="wizard-commands__line">{{ number }}</span> <code class="wizard-line">{{ text }}</code></li>
+    {%- endfor %}
+  </ol>
+</section>
+{%- endfor %}
+{%- if !error.is_empty() %}
+<p class="notice" data-tone="error">{{ error }}</p>
+{%- endif %}
+{%- if !may_apply %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_PRESETS_APPLY_FORBIDDEN) }}</p>
+{%- endif %}
+{%- if may_apply || may_reveal %}
+<div class="form__actions">
+  {%- if may_reveal %}
+  <button class="button button--secondary" type="button" hx-post="/ui/presets/runs/{{ id }}/reveal" hx-target="#dialog-content">{{ t(keys::WEB_PRESETS_REVEAL) }}</button>
+  {%- endif %}
+  {%- if may_apply %}
+  <button class="button button--primary" type="button" hx-post="/ui/presets/runs/{{ id }}/apply" hx-target="#dialog-content">{{ t(keys::WEB_PRESETS_APPLY_BUTTON) }}</button>
+  {%- endif %}
+</div>
+{%- endif %}
+{%- endif %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ name }}{% endblock %}
+{%- block content %}
+<div class="page presets-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ name }}</h1>
+    {%- if may_change %}
+    <div class="page-head__actions">
+      <button class="button button--danger-ghost" type="button" hx-get="/ui/presets/{{ id }}/delete" hx-target="#dialog-content">{{ t(keys::WEB_PRESETS_DELETE) }}</button>
+      {%- if may_reveal %}
+      <button class="button button--secondary" type="button" hx-post="/ui/presets/{{ id }}/reveal" hx-target="#dialog-content">{{ t(keys::WEB_PRESETS_REVEAL) }}</button>
+      {%- endif %}
+      <a class="button button--primary" href="/ui/presets/{{ id }}/apply">{{ t(keys::WEB_PRESETS_APPLY) }}</a>
+    </div>
+    {%- endif %}
+  </div>
+  <p class="identity"><a href="/ui/presets">{{ t(keys::WEB_PRESETS_ALL) }}</a></p>
+  {{ kit::outcome_region() }}
+  <dl class="facts presets-facts">
+    <div class="facts__row"><dt>{{ t(keys::WEB_PRESETS_DETAIL_SOURCE) }}</dt><dd>{{ source }}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_PRESETS_DETAIL_CAPTURED) }}</dt><dd>{% if let Some(time) = captured %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% endif %}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_PRESETS_DETAIL_CREATOR) }}</dt><dd>{{ creator }}</dd></div>
+    {%- if !description.is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_PRESETS_DETAIL_DESCRIPTION) }}</dt><dd>{{ description }}</dd></div>
+    {%- endif %}
+  </dl>
+  <h2 class="presets-groups__title">{{ t(keys::WEB_PRESETS_DETAIL_GROUPS) }}</h2>
+  {%- for group in groups %}
+  <section class="wizard-phase presets-group-lines" aria-labelledby="group-{{ group.id }}-title">
+    <h3 class="wizard-phase__title" id="group-{{ group.id }}-title">{{ group.title }} <span class="presets-group__count">{{ group.count }}</span></h3>
+    {%- if group.lines.is_empty() %}
+    <p class="table-empty">{{ t(keys::WEB_PRESETS_GROUP_EMPTY) }}</p>
+    {%- else %}
+    <ol class="wizard-lines presets-lines">
+      {%- for line in group.lines %}
+      <li><code class="wizard-line">{{ line }}</code></li>
+      {%- endfor %}
+    </ol>
+    {%- endif %}
+  </section>
+  {%- endfor %}
+</div>
+{%- endblock %}

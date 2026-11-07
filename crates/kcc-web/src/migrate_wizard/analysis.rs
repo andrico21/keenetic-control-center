@@ -30,7 +30,7 @@ const REDACTED: &str = "<redacted>";
 
 /// Why the analysis could not be made.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum Problem {
+pub(crate) enum Problem {
     /// The source configuration cannot be read.
     Source,
     /// The source names no firmware, and none was typed in.
@@ -179,7 +179,7 @@ impl Analysis {
 }
 
 /// `line` with every encoded secret replaced, as the review shows it.
-pub(super) fn shown_line(mut line: CliLine) -> String {
+pub(crate) fn shown_line(mut line: CliLine) -> String {
     for token in &mut line.tokens {
         if let Token::Ns3(payload) = token {
             REDACTED.clone_into(payload);
@@ -193,12 +193,12 @@ pub(super) fn shown_line(mut line: CliLine) -> String {
 /// # Errors
 ///
 /// Returns [`Problem::Source`] when it does not parse or its checksum does not match.
-pub(super) fn parse_source(text: &SecretString) -> Result<SourceConfig, Problem> {
+pub(crate) fn parse_source(text: &SecretString) -> Result<SourceConfig, Problem> {
     SourceConfig::from_bytes(text.expose_secret().as_bytes()).map_err(|_error| Problem::Source)
 }
 
 /// The problem an inventory failure means.
-fn inventory_problem(error: &InventoryError) -> Problem {
+pub(crate) fn inventory_problem(error: &InventoryError) -> Problem {
     match error {
         InventoryError::SourceVersionRequired => Problem::FirmwareRequired,
         InventoryError::TargetFirmwareOlder {

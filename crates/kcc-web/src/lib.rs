@@ -94,6 +94,7 @@ mod overview;
 mod page_kit;
 mod pages;
 mod prefs;
+mod presets_page;
 mod router_access;
 mod router_check;
 mod router_delete;
@@ -451,6 +452,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(dns_vpn::uploads(&state))
         .merge(config_page::wiring::routes(&state))
         .merge(migrate_wizard::routes::router(&state))
+        .merge(presets_page::routes::router(&state))
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CACHE_CONTROL,
             HeaderValue::from_static(NO_STORE),

@@ -172,6 +172,17 @@ impl Applier {
         finish::commit(self).await
     }
 
+    /// Explicitly keeps verified changes running without saving them: the recovery timer
+    /// is disarmed and the startup configuration stays as it was.
+    ///
+    /// # Errors
+    /// Refuses unverified applies and reports conflicts or disarm failures.
+    // NOT cancel-safe: a transmitted disarm may keep the changes before cancellation.
+    #[inline]
+    pub async fn keep_unsaved(&mut self) -> Result<(), ApplyError> {
+        finish::keep_unsaved(self).await
+    }
+
     /// Explicitly restores startup state and checks its pre-apply identity.
     ///
     /// # Errors

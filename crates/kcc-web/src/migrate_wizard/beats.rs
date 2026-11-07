@@ -1,5 +1,7 @@
 //! The events of the live stream: the heartbeat with the fail-safe countdown, the share
 //! sent, each sent setting with the router's answer, and the end with the way on.
+//!
+//! The presets' apply runs send the same events.
 
 use askama::Template;
 use axum::response::sse::Event;
@@ -89,7 +91,7 @@ impl Localize for Line {
 #[derive(Template)]
 #[template(
     ext = "html",
-    source = "<div class=\"notice\" data-tone=\"{{ tone }}\"><p class=\"notice__title\">{{ message }}</p></div><form class=\"form__actions\" hx-post=\"/ui/migrate/{{ id }}/results\" hx-target=\"#wizard-step\"><button class=\"button button--primary\" type=\"submit\">{{ t(keys::WEB_MIGRATE_RESULTS_OPEN) }}</button></form>"
+    source = "<div class=\"notice\" data-tone=\"{{ tone }}\"><p class=\"notice__title\">{{ message }}</p></div><form class=\"form__actions\" hx-post=\"{{ action }}\" hx-target=\"#wizard-step\"><button class=\"button button--primary\" type=\"submit\">{{ t(keys::WEB_MIGRATE_RESULTS_OPEN) }}</button></form>"
 )]
 struct End {
     /// Locale carrier.
@@ -98,8 +100,8 @@ struct End {
     tone: &'static str,
     /// The result.
     message: String,
-    /// Migration id.
-    id: String,
+    /// Where Review the result posts: the wizard's results step.
+    action: String,
 }
 
 impl Localize for End {
@@ -166,7 +168,7 @@ pub(super) fn line(locale: Locale, (number, text): (usize, String), outcome: Out
 
 /// The `end` of migration `id` as `ended` records it, and the `done` that closes the
 /// stream.
-pub(super) fn end(locale: Locale, id: String, ended: Option<&Ended>) -> [Event; 2] {
+pub(super) fn end(locale: Locale, id: &str, ended: Option<&Ended>) -> [Event; 2] {
     let (tone, key) = match ended {
         Some(found) if found.verified() => ("success", keys::MIGRATE_APPLY_VERIFIED),
         Some(found) => (
@@ -177,8 +179,18 @@ pub(super) fn end(locale: Locale, id: String, ended: Option<&Ended>) -> [Event; 
         ),
         None => ("error", keys::WEB_MIGRATE_RUN_INTERRUPTED),
     };
-    let shell = fragment_shell(locale);
     let message = tr(locale, key, None);
+    closing(locale, format!("/ui/migrate/{id}/results"), (tone, message))
+}
+
+/// The `end` saying `message` in the notice `tone`, with Review the result posting to
+/// `action`, and the `done` that closes the stream.
+pub(crate) fn closing(
+    locale: Locale,
+    action: String,
+    (tone, message): (&'static str, String),
+) -> [Event; 2] {
+    let shell = fragment_shell(locale);
     [
         fragment(
             "end",
@@ -186,7 +198,7 @@ pub(super) fn end(locale: Locale, id: String, ended: Option<&Ended>) -> [Event; 
                 shell,
                 tone,
                 message,
-                id,
+                action,
             },
         ),
         done(),

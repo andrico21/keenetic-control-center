@@ -28,9 +28,9 @@ use crate::{
     page_kit::context::{Refusal, lookup},
 };
 
-/// The services a migration request uses.
+/// The services a migration (or a preset run) request uses.
 #[derive(Clone, Copy)]
-pub(super) struct Services<'call> {
+pub(crate) struct Services<'call> {
     /// The signed-in user.
     user: &'call CurrentUser,
     /// Router fleet services.
@@ -43,40 +43,40 @@ impl<'call> Services<'call> {
     /// # Errors
     ///
     /// Returns [`Refusal::Unavailable`] when the fleet is not attached.
-    pub(super) fn of(state: &'call WebState, user: &'call CurrentUser) -> Result<Self, Refusal> {
+    pub(crate) fn of(state: &'call WebState, user: &'call CurrentUser) -> Result<Self, Refusal> {
         let fleet = state.fleet().ok_or(Refusal::Unavailable)?;
         Ok(Self { user, fleet })
     }
 
     /// The signed-in user.
-    pub(super) const fn user(self) -> &'call CurrentUser {
+    pub(crate) const fn user(self) -> &'call CurrentUser {
         self.user
     }
 
     /// Router fleet services.
-    pub(super) const fn fleet(self) -> &'call Fleet {
+    pub(crate) const fn fleet(self) -> &'call Fleet {
         self.fleet
     }
 
     /// The migrations directory.
-    pub(super) fn store(self) -> Store {
+    pub(crate) fn store(self) -> Store {
         Store::new(self.fleet.workflow().state().dir())
     }
 
     /// The key sealing the migrations' secrets: the backups' key.
-    pub(super) fn key(self) -> &'call MasterKey {
+    pub(crate) fn key(self) -> &'call MasterKey {
         self.fleet.workflow().backups().key()
     }
 
     /// Whether the user may migrate with `router`.
-    pub(super) fn may_migrate(self, router: &str) -> bool {
+    pub(crate) fn may_migrate(self, router: &str) -> bool {
         registry::authorize(self.user.role(), Permission::Migrate, router).is_ok()
     }
 
     /// Whether `router` names a profile the user may migrate with and sees; checked
     /// before any request to it.
     // cancel-safe: reads only.
-    pub(super) async fn permits(self, router: &str) -> bool {
+    pub(crate) async fn permits(self, router: &str) -> bool {
         is_profile_id(router)
             && self.may_migrate(router)
             && matches!(
@@ -261,7 +261,7 @@ impl<'call> Visit<'call> {
         let Some(Source::Router { router }) = self.record.source() else {
             return None;
         };
-        if let Some(kept) = self.session.hardware(router) {
+        if let Some(kept) = self.session.inventory(router) {
             return Some(kept);
         }
         let client = self.services.fleet().registry().client(router).await.ok()?;
@@ -269,7 +269,7 @@ impl<'call> Visit<'call> {
         match TargetInventory::collect(&InventoryClient::from_client(&client), firmware).await {
             Ok(inventory) => {
                 let kept = Arc::new(inventory);
-                self.session.keep_hardware(router, Arc::clone(&kept));
+                self.session.keep_inventory(router, Arc::clone(&kept));
                 Some(kept)
             }
             Err(error) => {

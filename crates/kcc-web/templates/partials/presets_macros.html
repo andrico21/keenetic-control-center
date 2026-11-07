@@ -1,0 +1,28 @@
+{#- The presets' shared markup. -#}
+
+{#- One table of names under the heading `title` (element id `heading`), as the migration's maps: each name of the settings and its name on the router. -#}
+{%- macro names(heading, title, rows) -%}
+{%- if !rows.is_empty() %}
+<section class="wizard-map" aria-labelledby="{{ heading }}">
+  <h3 class="wizard-map__title" id="{{ heading }}">{{ title }}</h3>
+  <div class="table-wrap">
+    <table class="table wizard-table">
+      <thead><tr><th scope="col">{{ t(keys::WEB_PRESETS_RENAME_SOURCE) }}</th><th scope="col">{{ t(keys::WEB_PRESETS_RENAME_TARGET) }}</th></tr></thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" class="mono" id="{{ row.field }}-source">{{ row.source }}</th>
+          <td>
+            <input class="field__input mono" name="{{ row.field }}" type="text" value="{{ row.value }}" autocomplete="off" spellcheck="false" maxlength="64" aria-labelledby="{{ row.field }}-source"{% if !row.error.is_empty() %} aria-invalid="true" aria-describedby="{{ row.field }}-error"{% endif %}>
+            {%- if !row.error.is_empty() %}
+            <p class="field__error" id="{{ row.field }}-error">{{ row.error }}</p>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{%- endif %}
+{%- endmacro -%}

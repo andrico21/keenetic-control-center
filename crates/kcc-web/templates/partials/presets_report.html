@@ -1,0 +1,40 @@
+{#- Step 9: how the run finished, the new WireGuard public keys to register on the VPN servers, and the report. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_REPORT_TITLE) }}</h2>
+<div class="notice" data-tone="{{ tone }}">
+  <p class="notice__title">{{ message }}</p>
+</div>
+<dl class="facts wizard-counts">
+  {%- if let Some(time) = finished %}
+  <div class="facts__row"><dt>{{ t(keys::WEB_MIGRATE_REPORT_FINISHED) }}</dt><dd><time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time></dd></div>
+  {%- endif %}
+  {%- for (label, value) in facts %}
+  <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+  {%- endfor %}
+</dl>
+{%- for warning in kept %}
+<p class="wizard-warning" data-tone="warning">{{ warning }}</p>
+{%- endfor %}
+{%- if !keys.is_empty() %}
+<section class="wizard-phase" aria-labelledby="report-keys-title">
+  <h3 class="wizard-phase__title" id="report-keys-title">{{ t(keys::WEB_PRESETS_KEYS_TITLE) }}</h3>
+  <p class="page__text">{{ t(keys::WEB_PRESETS_KEYS_TEXT) }}</p>
+  <div class="table-wrap presets-keys">
+    <table class="table">
+      <thead><tr><th scope="col">{{ t(keys::WEB_PRESETS_KEYS_INTERFACE) }}</th><th scope="col">{{ t(keys::WEB_PRESETS_KEYS_KEY) }}</th></tr></thead>
+      <tbody>
+        {%- for (interface, key) in keys %}
+        <tr><th scope="row" class="mono">{{ interface }}</th><td><code class="wizard-line">{{ key }}</code></td></tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{%- endif %}
+<section class="wizard-downloads" aria-labelledby="report-downloads-title">
+  <h3 class="wizard-phase__title" id="report-downloads-title">{{ t(keys::WEB_PRESETS_DOWNLOADS) }}</h3>
+  <ul class="wizard-downloads__list">
+    <li><a href="/ui/presets/runs/{{ id }}/download/report.md" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_MARKDOWN) }}</a></li>
+    <li><a href="/ui/presets/runs/{{ id }}/download/report.json" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_JSON) }}</a></li>
+  </ul>
+</section>
+<p class="page__text"><a href="/ui/presets">{{ t(keys::WEB_PRESETS_ALL) }}</a></p>

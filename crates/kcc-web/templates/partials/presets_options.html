@@ -1,0 +1,39 @@
+{#- Step 3: Merge or Mirror, new WireGuard keys or the captured ones, and the names on the router; an empty name keeps the settings' name. -#}
+{%- import "partials/presets_macros.html" as presets -%}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_PRESETS_OPTIONS_TITLE) }}</h2>
+<p class="page__text">{{ t(keys::WEB_PRESETS_OPTIONS_TEXT) }}</p>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+<form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/options" hx-target="#wizard-step">
+  <fieldset class="choice presets-mode">
+    <legend class="field__label">{{ t(keys::WEB_PRESETS_MODE) }}</legend>
+    <label class="choice__option"><input type="radio" name="mode" value="merge"{% if mode == "merge" %} checked{% endif %}><span>{{ t(keys::WEB_PRESETS_MODE_MERGE) }}</span></label>
+    <label class="choice__option"><input type="radio" name="mode" value="mirror"{% if mode == "mirror" %} checked{% endif %}><span>{{ t(keys::WEB_PRESETS_MODE_MIRROR) }}</span></label>
+  </fieldset>
+  {%- if has_keys %}
+  <section class="wizard-inputs" aria-labelledby="options-keys-title">
+    <h3 class="wizard-inputs__title" id="options-keys-title">{{ t(keys::WEB_PRESETS_WIREGUARD) }}</h3>
+    <div class="check">
+      <input class="check__input" type="checkbox" id="options-regenerate" name="regenerate" value="yes"{% if regenerate %} checked{% endif %} aria-describedby="options-regenerate-help options-regenerate-warning">
+      <label class="check__label" for="options-regenerate">{{ t(keys::WEB_PRESETS_WIREGUARD_REGENERATE) }}</label>
+      <p class="field__help" id="options-regenerate-help">{{ t(keys::WEB_PRESETS_WIREGUARD_HELP) }}</p>
+    </div>
+    <p class="wizard-warning" data-tone="warning" id="options-regenerate-warning">{{ t(keys::WEB_PRESETS_WIREGUARD_SHARED) }}</p>
+  </section>
+  {%- endif %}
+  <section class="wizard-inputs" aria-labelledby="options-names-title">
+    <h3 class="wizard-inputs__title" id="options-names-title">{{ t(keys::WEB_PRESETS_RENAMES) }}</h3>
+    {%- if interfaces.is_empty() && policies.is_empty() %}
+    <p class="table-empty">{{ t(keys::WEB_PRESETS_RENAME_NONE) }}</p>
+    {%- else %}
+    <p class="page__text">{{ t(keys::WEB_PRESETS_RENAMES_TEXT) }}</p>
+    {%- endif %}
+  </section>
+  {{- presets::names("options-interfaces-title", t(keys::WEB_PRESETS_RENAME_INTERFACES), interfaces) }}
+  {{- presets::names("options-policies-title", t(keys::WEB_PRESETS_RENAME_POLICIES), policies) }}
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_MIGRATE_CONTINUE) }}</button>
+  </div>
+</form>
+{%- endif %}

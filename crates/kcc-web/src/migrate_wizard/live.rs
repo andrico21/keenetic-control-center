@@ -15,7 +15,7 @@ use tokio::sync::{
 
 /// What the router answered to one setting.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Outcome {
+pub(crate) enum Outcome {
     /// It took the setting.
     Applied,
     /// It refused the setting.
@@ -26,7 +26,7 @@ pub(super) enum Outcome {
 
 impl Outcome {
     /// The outcome's name in data attributes.
-    pub(super) const fn slug(self) -> &'static str {
+    pub(crate) const fn slug(self) -> &'static str {
         match self {
             Self::Applied => "applied",
             Self::Rejected => "rejected",
@@ -37,7 +37,7 @@ impl Outcome {
 
 /// One setting the job sent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) struct Sent {
+pub(crate) struct Sent {
     /// Its index in the planned source.
     index: usize,
     /// What the router answered.
@@ -46,19 +46,19 @@ pub(super) struct Sent {
 
 impl Sent {
     /// Its index in the planned source.
-    pub(super) const fn index(self) -> usize {
+    pub(crate) const fn index(self) -> usize {
         self.index
     }
 
     /// What the router answered.
-    pub(super) const fn outcome(self) -> Outcome {
+    pub(crate) const fn outcome(self) -> Outcome {
         self.outcome
     }
 }
 
 /// The apply's progress so far.
 #[derive(Debug, Clone, Default)]
-pub(super) struct Progress {
+pub(crate) struct Progress {
     /// Percent done.
     percent: u8,
     /// Every setting sent, in order.
@@ -76,33 +76,33 @@ pub(super) struct Progress {
 
 impl Progress {
     /// Percent done.
-    pub(super) const fn percent(&self) -> u8 {
+    pub(crate) const fn percent(&self) -> u8 {
         self.percent
     }
 
     /// Every setting sent, in order.
-    pub(super) fn sent(&self) -> &[Sent] {
+    pub(crate) fn sent(&self) -> &[Sent] {
         &self.sent
     }
 
     /// Unix time kcc last worked on the router.
-    pub(super) const fn active_at(&self) -> u64 {
+    pub(crate) const fn active_at(&self) -> u64 {
         self.active_at
     }
 
     /// Whether every event is copied and the end recorded: nothing more will come.
-    pub(super) const fn finished(&self) -> bool {
+    pub(crate) const fn finished(&self) -> bool {
         self.followed && self.settled
     }
 
     /// Whether the job still runs.
-    pub(super) const fn running(&self) -> bool {
+    pub(crate) const fn running(&self) -> bool {
         self.status.is_none()
     }
 }
 
 /// One running or finished apply.
-pub(super) struct Live {
+pub(crate) struct Live {
     /// The progress, written by the follower and the settler.
     progress: watch::Sender<Progress>,
     /// The applier, once the job handed it back; taken by commit or rollback.
@@ -113,7 +113,7 @@ pub(super) struct Live {
 
 impl Live {
     /// An apply started at `started_at` sending the settings of `texts`.
-    pub(super) fn new(started_at: u64, texts: BTreeMap<usize, (usize, String)>) -> Arc<Self> {
+    pub(crate) fn new(started_at: u64, texts: BTreeMap<usize, (usize, String)>) -> Arc<Self> {
         let (progress, _receiver) = watch::channel(Progress {
             active_at: started_at,
             ..Progress::default()
@@ -126,22 +126,22 @@ impl Live {
     }
 
     /// The progress, from the start.
-    pub(super) fn watch(&self) -> watch::Receiver<Progress> {
+    pub(crate) fn watch(&self) -> watch::Receiver<Progress> {
         self.progress.subscribe()
     }
 
     /// The source line and redacted text of planned setting `index`.
-    pub(super) fn text(&self, index: usize) -> Option<&(usize, String)> {
+    pub(crate) fn text(&self, index: usize) -> Option<&(usize, String)> {
         self.texts.get(&index)
     }
 
     /// The applier slot.
-    pub(super) async fn applier(&self) -> AsyncGuard<'_, Option<Applier>> {
+    pub(crate) async fn applier(&self) -> AsyncGuard<'_, Option<Applier>> {
         self.applier.lock().await
     }
 
     /// Hands back `applier` and marks the end, at unix time `at`, recorded.
-    pub(super) async fn settle(&self, applier: Option<Applier>, at: u64) {
+    pub(crate) async fn settle(&self, applier: Option<Applier>, at: u64) {
         *self.applier.lock().await = applier;
         self.progress.send_modify(|progress| {
             progress.settled = true;
@@ -152,7 +152,7 @@ impl Live {
     /// Copies the progress of job `id` from `events`, a subscription taken before the job
     /// started, until it ends; `now` tells the time.
     // cancel-safe: only local state changes.
-    pub(super) async fn follow<C>(&self, mut events: Receiver<JobEvent>, id: &str, now: C)
+    pub(crate) async fn follow<C>(&self, mut events: Receiver<JobEvent>, id: &str, now: C)
     where
         C: Fn() -> u64,
     {

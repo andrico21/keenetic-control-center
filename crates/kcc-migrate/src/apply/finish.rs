@@ -74,6 +74,38 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
     Ok(())
 }
 
+/// Disarms recovery for a verified, unfinished apply and persists nothing.
+///
+/// # Errors
+/// Returns invalid lifecycle, conflict, or disarm failures.
+// NOT cancel-safe: the disarm can reach the router before the caller receives its result.
+pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError> {
+    if !applier.report.verified || applier.report.finished {
+        return Err(ApplyError::Verification);
+    }
+    applier
+        .changes
+        .ensure_unchanged()
+        .await
+        .map_err(|_error| ApplyError::Drift)?;
+    let client = applier.changes.client();
+    let catalog = Catalog::for_router(
+        &client
+            .detect()
+            .await
+            .map_err(|_error| ApplyError::Unreachable)?,
+    )
+    .map_err(|_error| ApplyError::Validation)?;
+    let ctx = RouterCtx::new(Arc::clone(&client), catalog);
+    drop(
+        SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
+            .await
+            .map_err(|_error| ApplyError::Workflow)?,
+    );
+    applier.report.finished = true;
+    Ok(())
+}
+
 /// Requests explicit router rollback, then checks original startup identity.
 ///
 /// # Errors

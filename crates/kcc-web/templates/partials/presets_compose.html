@@ -1,0 +1,37 @@
+{#- A new preset's groups: each with how many settings of the source it takes, the captured settings of the chosen ones (redacted, updated as the choice changes), then the name, the description and Save. -#}
+{%- import "components.html" as ui -%}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_PRESETS_COMPOSE_TITLE) }}</h2>
+{%- if id.is_empty() %}
+<p class="notice" data-tone="error">{{ t(keys::WEB_PRESETS_DRAFT_GONE) }}</p>
+<p class="page__text"><a href="/ui/presets/new">{{ t(keys::WEB_PRESETS_NEW) }}</a></p>
+{%- else %}
+<p class="page__text">{{ t(keys::WEB_PRESETS_COMPOSE_TEXT) }}</p>
+<dl class="facts wizard-summary">
+  <div class="facts__row"><dt>{{ t(keys::WEB_PRESETS_DETAIL_SOURCE) }}</dt><dd>{{ source }}</dd></div>
+  <div class="facts__row"><dt>{{ t(keys::DOMAINS_MODEL) }}</dt><dd>{{ facts.0 }}</dd></div>
+  <div class="facts__row"><dt>{{ t(keys::DOMAINS_FIRMWARE) }}</dt><dd>{{ facts.1 }}</dd></div>
+</dl>
+<form class="form wizard-form presets-compose" hx-post="/ui/presets/new/{{ id }}" hx-target="#wizard-step">
+  <fieldset class="presets-groups" hx-post="/ui/presets/new/{{ id }}/preview" hx-trigger="change" hx-target="#presets-captured" hx-swap="outerHTML"{% if !groups_error.is_empty() %} aria-describedby="presets-groups-error"{% endif %}>
+    <legend class="field__label">{{ t(keys::WEB_PRESETS_GROUPS) }}</legend>
+    {%- for group in groups %}
+    <div class="check presets-group">
+      <input class="check__input" type="checkbox" id="group-{{ group.id }}" name="group" value="{{ group.id }}"{% if group.checked %} checked{% endif %} aria-describedby="group-{{ group.id }}-text">
+      <label class="check__label" for="group-{{ group.id }}">{{ group.title }} <span class="presets-group__count">{{ group.count }}</span></label>
+      <p class="field__help presets-group__text" id="group-{{ group.id }}-text">{{ group.text }}</p>
+    </div>
+    {%- endfor %}
+    {%- if !groups_error.is_empty() %}
+    <p class="field__error" id="presets-groups-error">{{ groups_error }}</p>
+    {%- endif %}
+  </fieldset>
+  {%- include "partials/presets_captured.html" %}
+  <div class="wizard-fields">
+    {{ ui::field("preset-name", "name", t(keys::WEB_PRESETS_NAME), named.0, named.1, "text", "off", t(keys::WEB_PRESETS_NAME_HELP)) }}
+    {{ ui::field("preset-description", "description", t(keys::WEB_PRESETS_DESCRIPTION), described.0, described.1, "text", "off", t(keys::WEB_PRESETS_DESCRIPTION_HELP)) }}
+  </div>
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_PRESETS_SAVE) }}</button>
+  </div>
+</form>
+{%- endif %}

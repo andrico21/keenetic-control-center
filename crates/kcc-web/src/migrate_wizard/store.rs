@@ -9,6 +9,10 @@
 //!
 //! On unix the directories are `0700` and the files `0600`; every file is written to a
 //! temporary name, synced and renamed into place.
+//!
+//! The presets' apply runs (`crate::presets_page`) keep their own record beside these
+//! files under its own name (`Store::save_named`), so neither wizard opens the other's
+//! runs, and seal a copied (transient) preset as [`Sealed::Preset`].
 
 use std::{
     fs::{self, DirBuilder, OpenOptions},
@@ -18,6 +22,7 @@ use std::{
 
 use kcc_app::secrets::{CryptoError, MasterKey, SealedSecret};
 use secrecy::SecretString;
+use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
 use super::{ids::is_id, record::Record};
@@ -27,11 +32,13 @@ const RECORD: &str = "wizard.json";
 
 /// A sealed part of a migration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Sealed {
+pub(crate) enum Sealed {
     /// The source startup configuration.
     Source,
     /// The typed passwords, as a JSON object of user names.
     Passwords,
+    /// A copy run's transient preset: the copied settings, never stored as a preset.
+    Preset,
 }
 
 impl Sealed {
@@ -40,6 +47,7 @@ impl Sealed {
         match self {
             Self::Source => "source.sealed",
             Self::Passwords => "passwords.sealed",
+            Self::Preset => "preset.sealed",
         }
     }
 
@@ -48,6 +56,7 @@ impl Sealed {
         match self {
             Self::Source => format!("migration:{id}:source"),
             Self::Passwords => format!("migration:{id}:passwords"),
+            Self::Preset => format!("preset-run:{id}:preset"),
         }
     }
 }
@@ -73,7 +82,7 @@ impl Kept {
 
 /// Why a migration's files could not be used.
 #[derive(Debug, Error)]
-pub(super) enum StoreError {
+pub(crate) enum StoreError {
     /// A file or directory could not be read or written.
     #[error("migration state I/O failed: {0}")]
     Io(#[from] io::Error),
@@ -87,14 +96,14 @@ pub(super) enum StoreError {
 
 /// The migrations directory of one state directory.
 #[derive(Debug, Clone)]
-pub(super) struct Store {
+pub(crate) struct Store {
     /// `<state>/migrations`.
     root: PathBuf,
 }
 
 impl Store {
     /// The migrations directory below `state_dir`.
-    pub(super) fn new(state_dir: &Path) -> Self {
+    pub(crate) fn new(state_dir: &Path) -> Self {
         Self {
             root: state_dir.join("migrations"),
         }
@@ -106,14 +115,9 @@ impl Store {
     ///
     /// Returns read failures and malformed records.
     pub(super) fn load(&self, id: &str) -> Result<Option<Record>, StoreError> {
-        if !is_id(id) {
-            return Ok(None);
-        }
-        let Some(bytes) = read(&self.root.join(id).join(RECORD))? else {
+        let Some(record) = self.load_named::<Record>(id, RECORD)? else {
             return Ok(None);
         };
-        let record: Record =
-            serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed)?;
         Ok((record.current() && record.id() == id).then_some(record))
     }
 
@@ -123,10 +127,7 @@ impl Store {
     ///
     /// Returns write failures.
     pub(super) fn save(&self, record: &Record) -> Result<(), StoreError> {
-        let mut bytes =
-            serde_json::to_vec_pretty(record).map_err(|_error| StoreError::Malformed)?;
-        bytes.push(b'\n');
-        self.write(record.id(), RECORD, &bytes)
+        self.save_named(record.id(), RECORD, record)
     }
 
     /// Every readable record of `owner`, newest first.
@@ -166,7 +167,7 @@ impl Store {
     /// # Errors
     ///
     /// Returns sealing and write failures.
-    pub(super) fn seal(
+    pub(crate) fn seal(
         &self,
         key: &MasterKey,
         id: &str,
@@ -184,7 +185,7 @@ impl Store {
     /// # Errors
     ///
     /// Returns read, format and opening failures.
-    pub(super) fn open(
+    pub(crate) fn open(
         &self,
         key: &MasterKey,
         id: &str,
@@ -196,6 +197,74 @@ impl Store {
         let sealed: SealedSecret =
             serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed)?;
         Ok(Some(key.open(&part.owner(id), &sealed)?))
+    }
+
+    /// Writes `value` as JSON to `file` of run `id`, creating its directory: the record
+    /// of another wizard, kept beside these files under its own name.
+    ///
+    /// # Errors
+    ///
+    /// Returns serialization and write failures.
+    pub(crate) fn save_named<T>(&self, id: &str, file: &str, value: &T) -> Result<(), StoreError>
+    where
+        T: Serialize,
+    {
+        let mut bytes = serde_json::to_vec_pretty(value).map_err(|_error| StoreError::Malformed)?;
+        bytes.push(b'\n');
+        self.write(id, file, &bytes)
+    }
+
+    /// The JSON `file` of run `id`, when it exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns read failures and a file that does not parse as `T`.
+    pub(crate) fn load_named<T>(&self, id: &str, file: &str) -> Result<Option<T>, StoreError>
+    where
+        T: DeserializeOwned,
+    {
+        if !is_id(id) {
+            return Ok(None);
+        }
+        read(&self.root.join(id).join(file))?
+            .map(|bytes| serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed))
+            .transpose()
+    }
+
+    /// The ids of every directory below the migrations directory, of either wizard.
+    ///
+    /// # Errors
+    ///
+    /// Returns directory read failures.
+    pub(crate) fn ids(&self) -> Result<Vec<String>, StoreError> {
+        let entries = match fs::read_dir(&self.root) {
+            Ok(entries) => entries,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) => return Err(error.into()),
+        };
+        let mut ids = Vec::new();
+        for entry in entries {
+            if let Some(id) = entry?.file_name().to_str().filter(|name| is_id(name)) {
+                ids.push(id.to_owned());
+            }
+        }
+        Ok(ids)
+    }
+
+    /// Deletes `part` of run `id`, when it was sealed.
+    ///
+    /// # Errors
+    ///
+    /// Returns removal failures other than a missing file.
+    pub(crate) fn discard(&self, id: &str, part: Sealed) -> Result<(), StoreError> {
+        if !is_id(id) {
+            return Err(StoreError::Malformed);
+        }
+        match fs::remove_file(self.root.join(id).join(part.file())) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.into()),
+        }
     }
 
     /// Keeps the redacted `text` as `file` of migration `id`.
@@ -270,68 +339,5 @@ fn read(path: &Path) -> Result<Option<Vec<u8>>, StoreError> {
 }
 
 #[cfg(test)]
-#[expect(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    reason = "test code is not rendered API documentation"
-)]
-#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
-mod tests {
-    use core::error::Error;
-    use std::fs;
-
-    use kcc_app::secrets::MasterKey;
-    use secrecy::{ExposeSecret as _, SecretString};
-    use tempfile::TempDir;
-
-    use super::{Sealed, Store};
-    use crate::migrate_wizard::record::Record;
-
-    #[test]
-    fn records_round_trip_and_sealed_parts_stay_bound_to_their_migration()
-    -> Result<(), Box<dyn Error>> {
-        let directory = TempDir::new()?;
-        let store = Store::new(directory.path());
-        let key = MasterKey::from_bytes([9_u8; 32]);
-        let id = "1700000000-0001020304050607";
-        let record = Record::new(id.to_owned(), "admin".to_owned(), 5);
-        store.save(&record)?;
-        let loaded = store.load(id)?.ok_or("record")?;
-        assert_eq!(loaded.owner(), "admin", "round trip");
-        assert!(store.load("../escape")?.is_none(), "ids are checked");
-        let secret = SecretString::from("interface Bridge0\n".to_owned());
-        store.seal(&key, id, Sealed::Source, &secret)?;
-        let written = fs::read_to_string(
-            directory
-                .path()
-                .join("migrations")
-                .join(id)
-                .join("source.sealed"),
-        )?;
-        assert!(!written.contains("Bridge0"), "sealed on disk");
-        let opened = store.open(&key, id, Sealed::Source)?.ok_or("sealed")?;
-        assert_eq!(opened.expose_secret(), secret.expose_secret(), "opens");
-        let other = "1700000000-0001020304050608";
-        fs::create_dir_all(directory.path().join("migrations").join(other))?;
-        let copied = fs::copy(
-            directory
-                .path()
-                .join("migrations")
-                .join(id)
-                .join("source.sealed"),
-            directory
-                .path()
-                .join("migrations")
-                .join(other)
-                .join("source.sealed"),
-        )?;
-        assert!(copied > 0, "the sealed part was copied");
-        assert!(
-            store.open(&key, other, Sealed::Source).is_err(),
-            "a copied part does not open under another migration"
-        );
-        assert_eq!(store.list("admin")?.len(), 1, "listed by owner");
-        assert!(store.list("someone")?.is_empty(), "never another owner's");
-        Ok(())
-    }
-}
+#[path = "store_tests.rs"]
+mod tests;

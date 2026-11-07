@@ -125,6 +125,16 @@ impl MasterKey {
         }
     }
 
+    /// An independent copy of this key for another store that shares it, such as the
+    /// settings presets beside the backups; zeroized on drop like the original.
+    #[inline]
+    #[must_use]
+    pub fn duplicate(&self) -> Self {
+        Self {
+            bytes: Zeroizing::new(*self.bytes),
+        }
+    }
+
     /// Generates a key from the OS RNG.
     ///
     /// # Errors

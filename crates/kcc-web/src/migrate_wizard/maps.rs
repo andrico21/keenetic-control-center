@@ -243,7 +243,7 @@ pub(super) fn pairs(entries: &[MapEntry]) -> Vec<(String, Option<String>)> {
 }
 
 /// One of the engine's maps from `(source, target)` pairs.
-pub(super) fn map_of<M>(pairs: Vec<(String, Option<String>)>) -> M
+pub(crate) fn map_of<M>(pairs: Vec<(String, Option<String>)>) -> M
 where
     M: DeserializeOwned + Default,
 {

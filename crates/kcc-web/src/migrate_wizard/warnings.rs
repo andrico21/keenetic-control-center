@@ -247,7 +247,7 @@ fn model(analysis: &Analysis) -> String {
 }
 
 /// The localized operating mode.
-fn mode_text(mode: &SystemMode, locale: Locale) -> String {
+pub(crate) fn mode_text(mode: &SystemMode, locale: Locale) -> String {
     match mode {
         SystemMode::Router => tr(locale, keys::WEB_MIGRATE_MODE_ROUTER, None),
         SystemMode::Extender => tr(locale, keys::WEB_MIGRATE_MODE_EXTENDER, None),

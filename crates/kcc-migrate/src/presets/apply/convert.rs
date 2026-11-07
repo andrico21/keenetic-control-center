@@ -104,10 +104,15 @@ fn wireguard_command(
         .expose_secret()
         .split_whitespace()
         .collect::<Vec<_>>();
-    let [interface, name, wireguard, private_key, _secret] = words.as_slice() else {
+    let [interface, name, wireguard, private_key, key @ ..] = words.as_slice() else {
         return (command, "preset-add".to_owned());
     };
-    if *interface != "interface" || *wireguard != "wireguard" || *private_key != "private-key" {
+    let captured = matches!(key, [_] | ["ns3", _]);
+    if *interface != "interface"
+        || *wireguard != "wireguard"
+        || *private_key != "private-key"
+        || !captured
+    {
         return (command, "preset-add".to_owned());
     }
     if options.regenerate_wireguard_keys {

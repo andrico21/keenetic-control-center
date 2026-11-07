@@ -17,7 +17,6 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use rand::{TryRng as _, rngs::SysRng};
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::json;
@@ -25,7 +24,7 @@ use serde_json::json;
 use super::{
     access::Services,
     analysis::parse_source,
-    ids::new_id,
+    ids::fresh_id,
     kinds::Mode,
     record::Record,
     screen::{self, source_text},
@@ -269,14 +268,6 @@ async fn offered(
         .ok()?;
     parse_source(&text).ok().map(drop)?;
     Some((router.to_owned(), backup.to_owned(), text))
-}
-
-/// A new migration id started at `now`, or `None` when the operating system's random
-/// generator fails.
-fn fresh_id(now: u64) -> Option<String> {
-    let mut random = [0_u8; 8];
-    SysRng.try_fill_bytes(&mut random).ok()?;
-    Some(new_id(now, random))
 }
 
 /// The list row of `record`.

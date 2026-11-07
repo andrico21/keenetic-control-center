@@ -1,0 +1,40 @@
+{#- Step 5: the passwords the plan needs (write-only), then the plan is built and its preview opens. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_INPUTS_TITLE) }}</h2>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- else %}
+{%- if passwords.is_empty() %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_INPUTS_NONE) }}</p>
+{%- endif %}
+{%- if !blocked.is_empty() %}
+<div class="notice" data-tone="error">
+  <p class="notice__title">{{ t(keys::WEB_MIGRATE_INPUTS_BLOCKED) }}</p>
+  <ul class="issues">
+    {%- for reason in blocked %}
+    <li>{{ reason }}</li>
+    {%- endfor %}
+  </ul>
+</div>
+{%- endif %}
+<form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/inputs" hx-target="#wizard-step">
+  {%- if !passwords.is_empty() %}
+  <section class="wizard-inputs" aria-labelledby="inputs-passwords-title">
+    <h3 class="wizard-inputs__title" id="inputs-passwords-title">{{ t(keys::WEB_MIGRATE_INPUTS_PASSWORDS) }}</h3>
+    <p class="page__text">{{ t(keys::WEB_PRESETS_INPUTS_PASSWORDS_TEXT) }}</p>
+    <div class="wizard-fields">
+      {%- for (user, field, stored, error) in passwords %}
+      {%- if *stored %}
+      {{ kit::secret_field(field, field, user, error, t(keys::WEB_MIGRATE_INPUTS_PASSWORD_KEEP)) }}
+      {%- else %}
+      {{ kit::secret_field(field, field, user, error, t(keys::WEB_MIGRATE_INPUTS_PASSWORD_HELP)) }}
+      {%- endif %}
+      {%- endfor %}
+    </div>
+  </section>
+  {%- endif %}
+  <div class="form__actions">
+    <button class="button button--primary" type="submit">{{ t(keys::WEB_MIGRATE_INPUTS_PREVIEW) }}</button>
+  </div>
+</form>
+{%- endif %}

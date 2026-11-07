@@ -14,7 +14,7 @@ use crate::{
 
 /// The confirmation sent back.
 #[derive(Debug, Default, Deserialize)]
-pub(super) struct Confirm {
+pub(crate) struct Confirm {
     /// `yes` from the dialog's confirm button.
     #[serde(default)]
     confirm: Option<String>,
@@ -25,18 +25,18 @@ pub(super) struct Confirm {
 
 impl Confirm {
     /// Whether the dialog's confirm button sent the form.
-    pub(super) fn confirmed(&self) -> bool {
+    pub(crate) fn confirmed(&self) -> bool {
         self.confirm.as_deref() == Some("yes")
     }
 
     /// The typed router name, trimmed.
-    pub(super) fn name(&self) -> Option<&str> {
+    pub(crate) fn name(&self) -> Option<&str> {
         self.confirm_name.as_deref().map(str::trim)
     }
 }
 
 /// The dialog's words: its title, the explanation and the confirm button.
-pub(super) struct Words {
+pub(crate) struct Words {
     /// The title.
     title: String,
     /// The explanation.
@@ -47,7 +47,7 @@ pub(super) struct Words {
 
 impl Words {
     /// The words `title`, `text` and `confirm`.
-    pub(super) const fn new(title: String, text: String, confirm: String) -> Self {
+    pub(crate) const fn new(title: String, text: String, confirm: String) -> Self {
         Self {
             title,
             text,
@@ -59,7 +59,7 @@ impl Words {
 /// The wizard's confirmation dialog.
 #[derive(Template)]
 #[template(path = "partials/migrate_confirm.html")]
-pub(super) struct Dialog {
+pub(crate) struct Dialog {
     /// Locale carrier.
     shell: Shell,
     /// The words.
@@ -80,7 +80,7 @@ impl Localize for Dialog {
 
 impl Dialog {
     /// A dialog with `words`, confirming to `action`.
-    pub(super) const fn new(locale: Locale, words: Words, action: String) -> Self {
+    pub(crate) const fn new(locale: Locale, words: Words, action: String) -> Self {
         Self {
             shell: fragment_shell(locale),
             words,
@@ -91,7 +91,7 @@ impl Dialog {
     }
 
     /// The dialog asking for the router name, with `error` when one was typed wrong.
-    pub(super) fn with_name(self, error: String) -> Self {
+    pub(crate) fn with_name(self, error: String) -> Self {
         Self {
             needs_name: true,
             name_error: error,
@@ -100,14 +100,14 @@ impl Dialog {
     }
 
     /// The dialog, in the shared `<dialog>`.
-    pub(super) fn show(&self) -> Response {
+    pub(crate) fn show(&self) -> Response {
         respond::in_dialog(errors::render(self))
     }
 }
 
 /// `panel` as the step's answer to a confirmed request that failed (422): shown in the
 /// step, whatever the request targeted, with the dialog closed.
-pub(super) fn refused<T>(panel: &T) -> Response
+pub(crate) fn refused<T>(panel: &T) -> Response
 where
     T: Template + Localize,
 {

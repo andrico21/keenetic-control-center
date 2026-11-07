@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- block title %}{{ t(keys::WEB_PRESETS_TITLE) }}{% endblock %}
+{%- block content %}
+<div class="page presets-page">
+  <div class="page-head">
+    <h1 class="page__title">{{ t(keys::WEB_PRESETS_TITLE) }}</h1>
+    {%- if may_create %}
+    <div class="page-head__actions">
+      <a class="button button--secondary" href="/ui/copy">{{ t(keys::WEB_PRESETS_COPY) }}</a>
+      <a class="button button--primary" href="/ui/presets/new">{{ t(keys::WEB_PRESETS_NEW) }}</a>
+    </div>
+    {%- endif %}
+  </div>
+  <p class="page__text">{{ t(keys::WEB_PRESETS_INTRO) }}</p>
+  {{ kit::outcome_region() }}
+  {%- if rows.is_empty() %}
+  <p class="table-empty">{{ t(keys::WEB_PRESETS_EMPTY) }}</p>
+  {%- else %}
+  <div class="table-wrap presets-table">
+    <table class="table">
+      <thead>
+        <tr>
+          <th scope="col">{{ t(keys::WEB_PRESETS_COL_NAME) }}</th>
+          <th scope="col">{{ t(keys::WEB_PRESETS_COL_GROUPS) }}</th>
+          <th scope="col">{{ t(keys::WEB_PRESETS_COL_SOURCE) }}</th>
+          <th scope="col">{{ t(keys::WEB_PRESETS_COL_CAPTURED) }}</th>
+          <th scope="col">{{ t(keys::WEB_PRESETS_COL_CREATOR) }}</th>
+          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_PRESETS_COL_ACTIONS) }}</span></th>
+        </tr>
+      </thead>
+      <tbody>
+        {%- for row in rows %}
+        <tr>
+          <th scope="row" id="preset-{{ row.id }}"><a href="/ui/presets/{{ row.id }}">{{ row.name }}</a></th>
+          <td>{{ row.groups }}</td>
+          <td>{{ row.source }}</td>
+          <td>{% if let Some(time) = row.captured %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% endif %}</td>
+          <td>{{ row.creator }}</td>
+          <td class="presets-table__actions">
+            {%- if row.may_change %}
+            <a class="button button--ghost" href="/ui/presets/{{ row.id }}/apply" aria-describedby="preset-{{ row.id }}">{{ t(keys::WEB_PRESETS_APPLY) }}</a>
+            <button class="button button--danger-ghost" type="button" hx-get="/ui/presets/{{ row.id }}/delete" hx-target="#dialog-content" aria-describedby="preset-{{ row.id }}">{{ t(keys::WEB_PRESETS_DELETE) }}</button>
+            {%- endif %}
+          </td>
+        </tr>
+        {%- endfor %}
+      </tbody>
+    </table>
+  </div>
+  {%- endif %}
+</div>
+{%- endblock %}

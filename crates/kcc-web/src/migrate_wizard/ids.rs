@@ -1,15 +1,26 @@
-//! Migration ids: the directory name of each migration, unique and path-safe.
+//! Migration ids: the directory name of each migration, unique and path-safe. The
+//! presets' apply runs and saved presets take ids of the same form.
+
+use rand::{TryRng as _, rngs::SysRng};
 
 /// Whether `id` can be a migration id: what [`new_id`] makes.
-pub(super) fn is_id(id: &str) -> bool {
+pub(crate) fn is_id(id: &str) -> bool {
     (12..=40).contains(&id.len())
         && id
             .bytes()
             .all(|byte| byte.is_ascii_digit() || matches!(byte, b'a'..=b'f' | b'-'))
 }
 
+/// A new id started at `now`, or `None` when the operating system's random generator
+/// fails.
+pub(crate) fn fresh_id(now: u64) -> Option<String> {
+    let mut random = [0_u8; 8];
+    SysRng.try_fill_bytes(&mut random).ok()?;
+    Some(new_id(now, random))
+}
+
 /// A new migration id: the start time and eight random bytes.
-pub(super) fn new_id(now: u64, random: [u8; 8]) -> String {
+pub(crate) fn new_id(now: u64, random: [u8; 8]) -> String {
     let suffix = random
         .iter()
         .map(|byte| format!("{byte:02x}"))

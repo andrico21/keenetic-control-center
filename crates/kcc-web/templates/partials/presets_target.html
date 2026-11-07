@@ -1,0 +1,63 @@
+{#- Step 2: the target router, its identity and its warnings; continuing needs the acknowledgement of a documentation-based firmware tier, and older firmware than the settings' is refused. -#}
+<h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_TARGET_TITLE) }}</h2>
+<p class="page__text">{{ t(keys::WEB_MIGRATE_TARGET_TEXT) }}</p>
+<form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/target" hx-target="#wizard-step">
+  <div class="wizard-fields">
+    <div class="field">
+      <label class="field__label" for="target-router">{{ t(keys::MIGRATE_TARGET) }}</label>
+      {%- if routers.is_empty() %}
+      <p class="field__help">{{ t(keys::WEB_MIGRATE_TARGET_NONE) }}</p>
+      {%- else %}
+      <select class="field__input" id="target-router" name="router"{% if !router_error.is_empty() %} aria-invalid="true" aria-describedby="target-router-error"{% endif %}>
+        {%- for (router, selected) in routers %}
+        <option value="{{ router }}"{% if *selected %} selected{% endif %}>{{ router }}</option>
+        {%- endfor %}
+      </select>
+      {%- endif %}
+      {%- if !router_error.is_empty() %}
+      <p class="field__error" id="target-router-error">{{ router_error }}</p>
+      {%- endif %}
+    </div>
+  </div>
+  <div class="form__actions">
+    <button class="button {% if report.is_some() %}button--secondary{% else %}button--primary{% endif %}" type="submit">{{ t(keys::WEB_MIGRATE_TARGET_CHECK) }}</button>
+  </div>
+</form>
+{%- if !problem.is_empty() %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- endif %}
+{%- if let Some(found) = report %}
+<section class="wizard-report" aria-labelledby="target-report-title">
+  <h3 class="wizard-report__title" id="target-report-title">{{ t(keys::WEB_MIGRATE_TARGET_REPORT) }}</h3>
+  <dl class="facts">
+    {%- for (label, value) in found.facts %}
+    <div class="facts__row"><dt>{{ label }}</dt><dd>{{ value }}</dd></div>
+    {%- endfor %}
+  </dl>
+  {%- if found.warnings.is_empty() %}
+  <p class="notice" data-tone="success">{{ t(keys::WEB_PRESETS_WARNING_NONE) }}</p>
+  {%- else %}
+  <ul class="wizard-warnings">
+    {%- for (tone, text) in found.warnings %}
+    <li class="wizard-warning" data-tone="{{ tone }}">{{ text }}</li>
+    {%- endfor %}
+  </ul>
+  {%- endif %}
+  {%- if !found.unsupported %}
+  <form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/target/continue" hx-target="#wizard-step">
+    {%- if found.needs_ack %}
+    <div class="check">
+      <input class="check__input" type="checkbox" id="target-acknowledge" name="acknowledge" value="yes"{% if acknowledged %} checked{% endif %}{% if !ack_error.is_empty() %} aria-invalid="true" aria-describedby="target-acknowledge-error"{% endif %}>
+      <label class="check__label" for="target-acknowledge">{{ t(keys::WEB_PRESETS_ACK_TIER) }}</label>
+      {%- if !ack_error.is_empty() %}
+      <p class="field__error" id="target-acknowledge-error">{{ ack_error }}</p>
+      {%- endif %}
+    </div>
+    {%- endif %}
+    <div class="form__actions">
+      <button class="button button--primary" type="submit">{{ t(keys::WEB_MIGRATE_CONTINUE) }}</button>
+    </div>
+  </form>
+  {%- endif %}
+</section>
+{%- endif %}
