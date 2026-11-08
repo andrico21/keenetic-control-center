@@ -1,19 +1,21 @@
 //! Authenticated RCI requests, bounded batching, background work, and configuration files.
 
+pub mod background;
+
 use alloc::{collections::BTreeSet, sync::Arc};
-use core::{fmt, mem::take, time::Duration};
+use core::{fmt, mem::take};
 use std::sync::{Mutex as StdMutex, MutexGuard, PoisonError};
 
-use reqwest::{Method, Response, StatusCode, multipart};
+use reqwest::{Method, Response, StatusCode, header::HeaderMap, multipart};
 use secrecy::{ExposeSecret as _, SecretSlice};
 use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::{sync::Semaphore, time};
-use tokio_util::sync::CancellationToken;
 
 use crate::{
     ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
+    budget::Budget,
     capabilities::RouterInfo,
     encode_query,
     observe::{RciObserver, RequestOutcome},
@@ -61,6 +63,8 @@ pub struct RciClientOptions {
     pub tls: TlsMode,
     /// Maximum concurrent requests to this router.
     pub concurrency: usize,
+    /// Registry-owned budget shared across all clients of the same router id.
+    pub budget: Option<Budget>,
     /// Maximum accepted response bytes.
     pub response_bytes: usize,
     /// Stop batch submission after the first per-item error.
@@ -77,6 +81,7 @@ impl Default for RciClientOptions {
             outbound: OutboundPolicy::default(),
             tls: TlsMode::Verify,
             concurrency: 2,
+            budget: None,
             response_bytes: RESPONSE_BYTES,
             stop_on_error: false,
             observer: None,
@@ -138,6 +143,26 @@ impl fmt::Debug for RciClient {
 }
 
 impl RciClient {
+    /// Reads unauthenticated challenge headers through the admitted router transport.
+    ///
+    /// # Errors
+    /// Returns transport, policy or timeout failures.
+    // cancel-safe: the read-only probe releases its permit when cancelled.
+    #[inline]
+    pub async fn auth_headers(&self) -> Result<HeaderMap, RciError> {
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|_closed| RciError::Transport)?;
+        Ok(self
+            .session
+            .probe_auth(&self.router)
+            .await?
+            .headers()
+            .clone())
+    }
+
     /// Clones credentials into secret storage for an explicitly authorized connection transition.
     #[inline]
     #[must_use]
@@ -209,6 +234,11 @@ impl RciClient {
     // cancel-safe: detection reads router state.
     #[inline]
     pub async fn detect(&self) -> Result<RouterInfo, RciError> {
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
+            .map_err(|_closed| RciError::Transport)?;
         RouterInfo::detect(&self.session, &self.router).await
     }
 
@@ -271,7 +301,10 @@ impl RciClient {
             router,
             credentials,
             session: Arc::new(session),
-            semaphore: Arc::new(Semaphore::new(options.concurrency)),
+            semaphore: options.budget.as_ref().map_or_else(
+                || Arc::new(Semaphore::new(options.concurrency)),
+                Budget::semaphore,
+            ),
             options,
             post_only_show: StdMutex::new(BTreeSet::new()),
         })
@@ -485,32 +518,7 @@ impl RciClient {
     // NOT cancel-safe: cancellation after the POST can start remote work without returning its id.
     #[inline]
     pub async fn start(&self, path: RciPath, body: &Value) -> Result<BackgroundHandle, RciError> {
-        let builder = self
-            .options
-            .outbound
-            .client_builder(&self.router, &self.options.tls, self.options.timeouts)
-            .await?;
-        let session = Arc::new(SessionManager::with_client_builder(
-            self.router.clone(),
-            self.credentials.clone(),
-            self.options.timeouts,
-            builder,
-        )?);
-        let response = session.post(&format!("/rci/{path}"), body).await?;
-        let value = response_json(response, self.options.response_bytes).await?;
-        let process_id = value
-            .pointer("/process/id")
-            .and_then(Value::as_str)
-            .ok_or(RciError::Decode)?
-            .to_owned();
-        Ok(BackgroundHandle {
-            session,
-            path,
-            process_id,
-            response_bytes: self.options.response_bytes,
-            poll_interval: Duration::from_secs(1),
-            deadline: Duration::from_secs(300),
-        })
+        background::start(self, path, body).await
     }
 
     /// Downloads a startup or running configuration into zeroizing storage.
@@ -606,132 +614,8 @@ impl RciClient {
     }
 }
 
-/// A dedicated-session handle for one router background process.
-pub struct BackgroundHandle {
-    /// Session isolated from the main request engine.
-    session: Arc<SessionManager>,
-    /// Process resource path.
-    path: RciPath,
-    /// Router process identifier.
-    process_id: String,
-    /// Response cap.
-    response_bytes: usize,
-    /// Delay between continued responses.
-    poll_interval: Duration,
-    /// Overall polling deadline.
-    deadline: Duration,
-}
-
-impl fmt::Debug for BackgroundHandle {
-    #[inline]
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BackgroundHandle")
-            .field("path", &self.path)
-            .field("process_id", &self.process_id)
-            .field("poll_interval", &self.poll_interval)
-            .field("deadline", &self.deadline)
-            .finish_non_exhaustive()
-    }
-}
-
-impl BackgroundHandle {
-    /// Reads the next response from the background process without waiting for completion.
-    ///
-    /// # Errors
-    ///
-    /// Returns authentication, transport, HTTP, size, or response-processing errors.
-    // cancel-safe: GET is read-only and partial response bytes are local state.
-    #[inline]
-    pub async fn next(&self) -> Result<RciBody, RciError> {
-        let path = format!("/rci/{}?id={}", self.path, self.process_id);
-        let response = self.session.get(&path).await?;
-        decode_response(response, self.response_bytes).await
-    }
-
-    /// Overrides the default one-second poll interval.
-    #[inline]
-    #[must_use]
-    pub const fn with_poll_interval(mut self, interval: Duration) -> Self {
-        self.poll_interval = interval;
-        self
-    }
-
-    /// Overrides the overall polling deadline.
-    #[inline]
-    #[must_use]
-    pub const fn with_deadline(mut self, deadline: Duration) -> Self {
-        self.deadline = deadline;
-        self
-    }
-
-    /// Polls until the router omits or clears `continued`, stopping first on cancellation.
-    ///
-    /// # Errors
-    ///
-    /// Returns timeout, cancellation cleanup, request, or response-processing errors.
-    ///
-    /// # Cancel safety
-    ///
-    /// Cancellation through `token` sends DELETE before returning. Dropping this future directly
-    /// is not cancel-safe because asynchronous cleanup cannot run from `Drop`.
-    #[inline]
-    #[expect(
-        clippy::integer_division_remainder_used,
-        reason = "tokio::select macro expansion contains internal remainder arithmetic"
-    )]
-    pub async fn poll(&self, token: &CancellationToken) -> Result<RciBody, RciError> {
-        let operation = async {
-            loop {
-                let path = format!("/rci/{}?id={}", self.path, self.process_id);
-                let response = self.session.get(&path).await?;
-                let decoded = decode_response(response, self.response_bytes).await?;
-                let continued = match &decoded {
-                    RciBody::Json(json) => json
-                        .value
-                        .get("continued")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false),
-                    RciBody::Text(_) => false,
-                };
-                if !continued {
-                    return Ok(decoded);
-                }
-                time::sleep(self.poll_interval).await;
-            }
-        };
-        tokio::select! {
-            () = token.cancelled() => {
-                drop(self.stop().await?);
-                Err(RciError::Timeout)
-            }
-            result = time::timeout(self.deadline, operation) => {
-                match result {
-                    Ok(value) => value,
-                    Err(_elapsed) => {
-                        drop(self.stop().await?);
-                        Err(RciError::Timeout)
-                    }
-                }
-            }
-        }
-    }
-
-    /// Stops the remote process with DELETE.
-    ///
-    /// # Errors
-    ///
-    /// Returns request or response-processing errors.
-    // NOT cancel-safe: cancellation after transmission may leave an uncertain stop result.
-    #[inline]
-    pub async fn stop(&self) -> Result<RciBody, RciError> {
-        let path = format!("/rci/{}?id={}", self.path, self.process_id);
-        let response = self
-            .session
-            .request::<()>(Method::DELETE, &path, None, RequestKind::NonRetryable)
-            .await?;
-        decode_response(response, self.response_bytes).await
-    }
-}
+/// A dedicated-session handle sharing its parent client's request budget.
+pub type BackgroundHandle = background::Handle;
 
 /// Serializes a query onto one validated RCI resource path.
 ///

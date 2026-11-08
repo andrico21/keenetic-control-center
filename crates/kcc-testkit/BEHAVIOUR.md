@@ -145,6 +145,11 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 
 ## Uploads, processes and injected faults
 
+- `Handle::max_concurrent()` reports the peak number of simultaneously handled HTTP
+  requests since that fake router started, including authentication, background requests,
+  and injected latency. A cancellation-safe guard decrements the active count on handler
+  exit. This is server-side test instrumentation, not a firmware behavior assumption.
+
 - `PUT /fui/startup-config.txt` parses and replaces startup config; running changes only
   after `system reboot`. **assumed (R-RCI/R-FORUM-UPLOAD documentation, not live-verified).**
 - `tools ping` returns a per-instance background process id and running state. POST-only

@@ -9,10 +9,9 @@ use kcc_rci::{
     ConfigKind, OutboundPolicy, RciBody, RciClient, RciClientOptions, RciError, RciPath, RouterUrl,
     auth::Credentials,
     capabilities::{RouterInfo, SystemMode},
-    session::{HttpTimeouts, SessionManager},
     version::{FirmwareVersion, FirmwareVersionError},
 };
-use reqwest::{StatusCode, header, redirect::Policy};
+use reqwest::header;
 use serde_json::Value;
 use thiserror::Error;
 
@@ -24,8 +23,6 @@ use thiserror::Error;
 pub struct InventoryClient {
     /// Router origin retained for identity and realm probes.
     router: RouterUrl,
-    /// Session used by `RouterInfo::detect`.
-    session: Arc<SessionManager>,
     /// Bounded request engine used for config and optional show reads.
     rci: Arc<RciClient>,
 }
@@ -46,7 +43,6 @@ impl InventoryClient {
     pub fn from_client(client: &Arc<RciClient>) -> Self {
         Self {
             router: client.router_url().clone(),
-            session: client.session_manager(),
             rci: Arc::clone(client),
         }
     }
@@ -59,17 +55,11 @@ impl InventoryClient {
     // NOT cancel-safe: cancellation may abandon DNS resolution but sends no mutation.
     #[inline]
     pub async fn connect(router: RouterUrl, credentials: Credentials) -> Result<Self, RciError> {
-        let session = Arc::new(SessionManager::new(
-            router.clone(),
-            credentials.clone(),
-            HttpTimeouts::default(),
-        )?);
         let options = RciClientOptions::default()
             .with_outbound(OutboundPolicy::default().with_loopback(true));
         let rci = RciClient::connect_with(router.clone(), credentials, options).await?;
         Ok(Self {
             router,
-            session,
             rci: Arc::new(rci),
         })
     }
@@ -208,7 +198,7 @@ impl TargetInventory {
         source_firmware: Option<FirmwareVersion>,
     ) -> Result<Self, InventoryError> {
         let required_source = source_firmware.ok_or(InventoryError::SourceVersionRequired)?;
-        let info = RouterInfo::detect(&client.session, &client.router).await?;
+        let info = client.rci.detect().await?;
         let target_firmware = info.firmware.ok_or(InventoryError::UnsupportedFirmware)?;
         if target_firmware.line() < (4, 3) {
             return Err(InventoryError::UnsupportedFirmware);
@@ -241,7 +231,7 @@ impl TargetInventory {
             eula: optional_show(&client.rci, ["show", "eula", "list"]).await?,
             easyconfig: optional_show(&client.rci, ["easyconfig", "status"]).await?,
         };
-        let realm = probe_realm(&client.router).await?;
+        let realm = probe_realm(&client.rci).await?;
         let fail_safe_available = matches!(info.system_mode, Some(SystemMode::Router));
         let installed_components = info.components.clone();
         let system_mode = info.system_mode.clone();
@@ -517,27 +507,16 @@ fn component_names(value: &Value) -> BTreeSet<String> {
 /// # Errors
 ///
 /// Returns transport failures when the challenge cannot be fetched.
-async fn probe_realm(router: &RouterUrl) -> Result<Option<String>, InventoryError> {
-    let response = reqwest::Client::builder()
-        .redirect(Policy::none())
-        .build()
-        .map_err(|_error| RciError::Transport)?
-        .get(format!("{}/auth", router.as_str().trim_end_matches('/')))
-        .send()
-        .await
-        .map_err(|_error| RciError::Transport)?;
-    if response.status() != StatusCode::UNAUTHORIZED && !response.status().is_success() {
-        return Ok(None);
-    }
-    if let Some(value) = response
-        .headers()
+// cancel-safe: the read-only probe uses the client's admission permit.
+async fn probe_realm(client: &RciClient) -> Result<Option<String>, InventoryError> {
+    let headers = client.auth_headers().await?;
+    if let Some(value) = headers
         .get("x-ndm-realm")
         .and_then(|value| value.to_str().ok())
     {
         return Ok(Some(value.to_owned()));
     }
-    Ok(response
-        .headers()
+    Ok(headers
         .get_all(header::WWW_AUTHENTICATE)
         .iter()
         .filter_map(|value| value.to_str().ok())

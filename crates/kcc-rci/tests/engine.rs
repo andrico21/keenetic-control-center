@@ -13,7 +13,7 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::collections::BTreeMap;
 use core::{
     error::Error,
     net::{IpAddr, SocketAddr},
@@ -21,9 +21,6 @@ use core::{
     time::Duration,
 };
 
-use axum::body::Body;
-use hyper::{Request, body::Incoming, server::conn::http1::Builder, service::service_fn};
-use hyper_util::rt::TokioIo;
 use kcc_rci::{
     ObjectName, RciError, RciPath, RouterUrl,
     auth::Credentials,
@@ -32,87 +29,15 @@ use kcc_rci::{
     session::{HttpTimeouts, SessionManager},
 };
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
-use rustls::crypto::ring::default_provider;
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Value, json};
-use sha2::{Digest as _, Sha256};
-use tokio::{net::TcpListener, task::JoinHandle};
-use tokio_rustls::TlsAcceptor;
 use tokio_util::sync::CancellationToken;
-use tower::ServiceExt as _;
-use x509_parser::prelude::{FromDer as _, X509Certificate};
 
-type TestResult = Result<(), Box<dyn Error>>;
+#[path = "support/tls_fixture.rs"]
+mod tls_fixture;
+use tls_fixture::TlsFixture;
 
-struct TlsFixture {
-    address: SocketAddr,
-    fingerprint: [u8; 32],
-    cancel: CancellationToken,
-    task: JoinHandle<()>,
-}
-
-impl TlsFixture {
-    async fn spawn() -> Result<Self, Box<dyn Error>> {
-        let fake = FakeRouter::builder(Profile::default()).build()?;
-        let app = fake.router();
-        let rcgen::CertifiedKey { cert, signing_key } =
-            rcgen::generate_simple_self_signed(["router.test".to_owned()])?;
-        let certificate = cert.der().clone();
-        let (_remaining, parsed) = X509Certificate::from_der(certificate.as_ref())?;
-        let fingerprint = Sha256::digest(parsed.public_key().raw).into();
-        let config = rustls::ServerConfig::builder_with_provider(Arc::new(default_provider()))
-            .with_safe_default_protocol_versions()?
-            .with_no_client_auth()
-            .with_single_cert(
-                vec![certificate],
-                rustls::pki_types::PrivatePkcs8KeyDer::from(signing_key.serialize_der()).into(),
-            )?;
-        let acceptor = TlsAcceptor::from(Arc::new(config));
-        let listener = TcpListener::bind("127.0.0.1:0").await?;
-        let address = listener.local_addr()?;
-        let cancel = CancellationToken::new();
-        let stopped = cancel.clone();
-        let task = tokio::spawn(async move {
-            while let Ok((stream, _peer)) = listener.accept().await {
-                if stopped.is_cancelled() {
-                    break;
-                }
-                let connection_acceptor = acceptor.clone();
-                let connection_router = app.clone();
-                drop(tokio::spawn(async move {
-                    let Ok(tls) = connection_acceptor.accept(stream).await else {
-                        return;
-                    };
-                    let service = service_fn(move |request: Request<Incoming>| {
-                        let request_router = connection_router.clone();
-                        async move { request_router.oneshot(request.map(Body::new)).await }
-                    });
-                    drop(
-                        Builder::new()
-                            .serve_connection(TokioIo::new(tls), service)
-                            .await,
-                    );
-                }));
-            }
-        });
-        Ok(Self {
-            address,
-            fingerprint,
-            cancel,
-            task,
-        })
-    }
-
-    async fn shutdown(self) -> Result<(), Box<dyn Error>> {
-        self.cancel.cancel();
-        self.task.abort();
-        match self.task.await {
-            Err(error) if error.is_cancelled() => Ok(()),
-            Ok(()) => Ok(()),
-            Err(error) => Err(Box::new(error)),
-        }
-    }
-}
+type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
 
 fn credentials() -> Credentials {
     Credentials::new(
@@ -284,14 +209,15 @@ async fn response_cap_rejects_an_oversized_text_body() -> TestResult {
 #[tokio::test]
 async fn pinned_tls_accepts_the_right_spki_and_rejects_the_wrong_one() -> TestResult {
     let fixture = TlsFixture::spawn().await?;
-    let router = format!("https://router.test:{}", fixture.address.port()).parse::<RouterUrl>()?;
+    let router =
+        format!("https://router.test:{}", fixture.address().port()).parse::<RouterUrl>()?;
     let policy = OutboundPolicy::default().with_loopback(true);
     let timeouts = HttpTimeouts::default();
-    let resolved = [fixture.address];
+    let resolved = [fixture.address()];
 
     let right_builder = policy.client_builder_for_resolved(
         &router,
-        &TlsMode::PinSha256(fixture.fingerprint),
+        &TlsMode::PinSha256(fixture.fingerprint()),
         timeouts,
         &resolved,
     )?;
@@ -313,6 +239,6 @@ async fn pinned_tls_accepts_the_right_spki_and_rejects_the_wrong_one() -> TestRe
         SessionManager::with_client_builder(router, credentials(), timeouts, wrong_builder)?;
     assert!(matches!(wrong.get("/auth").await, Err(RciError::Transport)));
 
-    fixture.shutdown().await?;
+    fixture.shutdown().await;
     Ok(())
 }

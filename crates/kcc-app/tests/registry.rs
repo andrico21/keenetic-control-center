@@ -18,6 +18,9 @@ use kcc_app::{
 };
 use tempfile::TempDir;
 
+#[path = "registry/inflight.rs"]
+mod inflight;
+
 #[tokio::test]
 async fn reload_replaces_changed_config_profile() -> Result<(), Box<dyn Error>> {
     let directory = TempDir::new()?;

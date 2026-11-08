@@ -13,6 +13,11 @@
 
 extern crate alloc;
 
+#[path = "support/tls_fixture.rs"]
+mod tls_fixture;
+#[path = "capabilities/transport.rs"]
+mod transport;
+
 use alloc::collections::BTreeSet;
 use core::{cmp::Ordering, error::Error, net::SocketAddr};
 

@@ -20,6 +20,7 @@ mod auth_digest;
 mod auth_ndw4;
 pub mod auth_options;
 mod auth_token;
+pub mod budget;
 pub mod capabilities;
 pub mod engine;
 pub mod ndw4_keys;

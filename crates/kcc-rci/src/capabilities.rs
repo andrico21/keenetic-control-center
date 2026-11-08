@@ -1,9 +1,8 @@
 //! Router identity, firmware, component, rights, and inventory detection.
 
 use alloc::collections::{BTreeMap, BTreeSet};
-use core::time::Duration;
 
-use reqwest::{Client, Response, StatusCode, header, redirect::Policy};
+use reqwest::{Response, StatusCode, header};
 use serde::{Deserialize, Deserializer, de::Error as _};
 use serde_json::{Map, Value};
 
@@ -37,9 +36,6 @@ pub const NETCRAZE_ALIASES: &[(&str, &str)] = &[
 
 /// Maximum accepted size of one detection response body.
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
-
-/// Timeout for the unauthenticated `/auth` scheme probe.
-const AUTH_PROBE_TIMEOUT: Duration = Duration::from_secs(10);
 
 /// The router brand.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
@@ -354,8 +350,8 @@ pub struct RouterInfo {
 impl RouterInfo {
     /// Detects identity and capabilities through an authenticated session.
     ///
-    /// `router` must be the origin `client` talks to; it is used for the unauthenticated
-    /// `/auth` scheme probe. Only `show version` is required: any other path answered 404,
+    /// `router` must equal the origin bound to `client`; other origins are refused before
+    /// the `/auth` scheme probe. Only `show version` is required: any other path answered 404,
     /// 405, or with an RCI error status is recorded as `None`.
     ///
     /// # Errors
@@ -365,7 +361,7 @@ impl RouterInfo {
     // cancel-safe: every request is a read.
     #[inline]
     pub async fn detect(client: &SessionManager, router: &RouterUrl) -> Result<Self, RciError> {
-        let auth_schemes = probe_auth_schemes(router).await?;
+        let auth_schemes = probe_auth_schemes(client, router).await?;
         let version: ShowVersion = decode(
             read_optional(client, "/rci/show/version")
                 .await?
@@ -510,23 +506,11 @@ pub fn keenetic_family(hw_id: &str) -> Option<&str> {
 ///
 /// Returns transport or timeout failures.
 // cancel-safe: the probe is a read.
-async fn probe_auth_schemes(router: &RouterUrl) -> Result<Vec<AuthSchemeKind>, RciError> {
-    let client = Client::builder()
-        .redirect(Policy::none())
-        .timeout(AUTH_PROBE_TIMEOUT)
-        .build()
-        .map_err(|_error| RciError::Transport)?;
-    let response = client
-        .get(format!("{}/auth", router.as_str().trim_end_matches('/')))
-        .send()
-        .await
-        .map_err(|error| {
-            if error.is_timeout() {
-                RciError::Timeout
-            } else {
-                RciError::Transport
-            }
-        })?;
+async fn probe_auth_schemes(
+    client: &SessionManager,
+    router: &RouterUrl,
+) -> Result<Vec<AuthSchemeKind>, RciError> {
+    let response = client.probe_auth(router).await?;
     if response.status() != StatusCode::UNAUTHORIZED {
         return Ok(Vec::new());
     }

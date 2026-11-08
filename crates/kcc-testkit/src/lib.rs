@@ -36,6 +36,7 @@ mod failsafe;
 pub mod fake_elasticsearch;
 pub mod fake_loki;
 mod fixtures;
+mod inflight;
 pub mod live_matrix;
 pub mod migration;
 pub mod model;
@@ -542,6 +543,15 @@ pub struct Handle {
 }
 
 impl Handle {
+    /// Returns peak simultaneous HTTP handlers, including injected latency and authentication.
+    #[inline]
+    #[must_use]
+    pub fn max_concurrent(&self) -> usize {
+        self.router
+            .as_ref()
+            .map_or(0, |shared| shared.max_concurrent())
+    }
+
     /// Returns the number of HTTP requests observed by this router.
     #[inline]
     #[must_use]

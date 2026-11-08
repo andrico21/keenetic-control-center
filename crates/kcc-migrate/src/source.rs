@@ -5,10 +5,7 @@ use core::{fmt, fmt::Write as _, str, str::FromStr as _};
 use kcc_config::config_text::{Ast, ConfigHeader, ParseError, parse};
 use kcc_rci::{
     ConfigKind, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl,
-    auth::Credentials,
-    capabilities::RouterInfo,
-    session::{HttpTimeouts, SessionManager},
-    version::FirmwareVersion,
+    auth::Credentials, capabilities::RouterInfo, version::FirmwareVersion,
 };
 use md5::{Digest as _, Md5};
 use thiserror::Error;
@@ -130,19 +127,12 @@ impl SourceConfig {
     // cancel-safe: every router operation is a read.
     #[inline]
     pub async fn from_live(profile: &LiveRouterProfile) -> Result<Self, SourceError> {
-        let session = SessionManager::new(
-            profile.router.clone(),
-            profile.credentials.clone(),
-            HttpTimeouts::default(),
-        )?;
-        let info = RouterInfo::detect(&session, &profile.router)
-            .await
-            .map_err(auth_fallback)?;
         let options = RciClientOptions::default()
             .with_outbound(OutboundPolicy::default().with_loopback(true));
         let client =
             RciClient::connect_with(profile.router.clone(), profile.credentials.clone(), options)
                 .await?;
+        let info = client.detect().await.map_err(auth_fallback)?;
         let bytes = client
             .download_config(ConfigKind::Startup)
             .await

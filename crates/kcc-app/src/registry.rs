@@ -17,6 +17,8 @@
 
 extern crate alloc;
 
+mod budgets;
+
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, str::FromStr as _};
 use std::{
@@ -27,10 +29,7 @@ use std::{
 
 use kcc_rci::{
     AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl, TlsMode,
-    auth::Credentials,
-    capabilities::RouterInfo,
-    observe::RciObserver,
-    session::{HttpTimeouts, SessionManager},
+    auth::Credentials, capabilities::RouterInfo, observe::RciObserver,
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
@@ -224,6 +223,8 @@ pub struct RouterRegistry {
     outbound: OutboundPolicy,
     /// Lazy shared clients.
     clients: Mutex<BTreeMap<String, Arc<RciClient>>>,
+    /// Router budgets retained across client cache invalidation.
+    budgets: budgets::Budgets,
     /// Per-router request and login observers (self-metrics).
     observers: Option<RciObserverFactory>,
 }
@@ -261,6 +262,7 @@ impl RouterRegistry {
         let mut options = RciClientOptions::default();
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
+        options.budget = Some(self.budgets.get(id).await);
         Ok(Arc::new(
             RciClient::connect_bootstrap_with(
                 router_url(&profile)?,
@@ -345,6 +347,7 @@ impl RouterRegistry {
             profiles: RwLock::new(effective),
             outbound: policy,
             clients: Mutex::new(BTreeMap::new()),
+            budgets: budgets::Budgets::default(),
             observers: None,
         })
     }
@@ -619,28 +622,9 @@ impl RouterRegistry {
     /// Returns profile, credential, authentication, detection, or policy errors.
     // cancel-safe: every router operation is a read.
     pub async fn poll_info(&self, id: &str) -> Result<RouterInfo, RegistryError> {
-        let profile = self.get(id)?.profile;
-        profile.validate()?;
-        let selected = if profile.read_login.is_some() {
-            CredentialUse::ReadOnly
-        } else {
-            CredentialUse::Primary
-        };
-        let router = router_url(&profile)?;
-        let tls = tls_mode(&profile.tls)?;
-        let builder = self
-            .outbound
-            .client_builder(&router, &tls, HttpTimeouts::default())
-            .await?;
-        let session = SessionManager::with_client_builder(
-            router.clone(),
-            credentials(&profile, selected)?,
-            HttpTimeouts::default(),
-            builder,
-        )?
-        .with_observer(self.observer(id));
-        session.ensure_session().await?;
-        RouterInfo::detect(&session, &router)
+        self.poll_client(id)
+            .await?
+            .detect()
             .await
             .map_err(RegistryError::from)
     }
@@ -652,20 +636,13 @@ impl RouterRegistry {
         profile: &ManagedRouterProfile,
         credentials: Credentials,
     ) -> Result<RouterInfo, RegistryError> {
-        let router = router_url(profile)?;
-        let tls = tls_mode(&profile.tls)?;
-        let builder = self
-            .outbound
-            .client_builder(&router, &tls, HttpTimeouts::default())
-            .await?;
-        let session = SessionManager::with_client_builder(
-            router.clone(),
-            credentials,
-            HttpTimeouts::default(),
-            builder,
-        )?;
-        session.ensure_session().await?;
-        RouterInfo::detect(&session, &router)
+        let mut options = RciClientOptions::default();
+        options.outbound = self.outbound.clone();
+        options.tls = tls_mode(&profile.tls)?;
+        options.budget = Some(self.budgets.get(&profile.id).await);
+        RciClient::connect_with(router_url(profile)?, credentials, options)
+            .await?
+            .detect()
             .await
             .map_err(RegistryError::from)
     }
@@ -680,6 +657,7 @@ impl RouterRegistry {
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.observer = self.observer(&profile.id);
+        options.budget = Some(self.budgets.get(&profile.id).await);
         RciClient::connect_with(
             router_url(profile)?,
             credentials(profile, credential_use)?,

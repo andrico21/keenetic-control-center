@@ -1,5 +1,7 @@
 //! Reactive HTTP session management for authenticated router requests.
 
+mod transport;
+
 use alloc::sync::Arc;
 use core::{
     fmt,
@@ -7,7 +9,7 @@ use core::{
     time::Duration,
 };
 use std::{
-    sync::{Mutex as StdMutex, MutexGuard, OnceLock, PoisonError},
+    sync::{Mutex as StdMutex, MutexGuard, PoisonError},
     time::Instant,
 };
 
@@ -17,12 +19,12 @@ use reqwest::{
     multipart::Form,
     redirect::Policy,
 };
-use rustls::crypto::{CryptoProvider, ring::default_provider};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
 use tokio::{sync::Mutex, task::JoinHandle, time};
 use zeroize::Zeroizing;
 
+use self::transport::install_ring_provider;
 use crate::{
     AuthError, RciError, RouterUrl,
     auth::{Credentials, Scheme, WwwAuthenticate, ndw2_response},
@@ -192,6 +194,15 @@ pub struct Manager {
 pub type SessionManager = Manager;
 
 impl Manager {
+    /// Probes authentication through this session's transport and bound origin.
+    ///
+    /// # Errors
+    /// Returns policy, transport or timeout failures.
+    // cancel-safe: the unauthenticated GET changes no local session state.
+    pub(crate) async fn probe_auth(&self, router: &RouterUrl) -> Result<Response, RciError> {
+        transport::probe_auth(self, router).await
+    }
+
     /// Enables factory setup after an unauthenticated `/auth` returns HTTP 200.
     /// Replace this manager after setting the first password.
     #[inline]
@@ -779,28 +790,6 @@ impl From<ParsedCookie> for Session {
             expires_at,
         }
     }
-}
-
-/// Installs rustls ring once, accepting a provider installed by another crate.
-///
-/// # Errors
-///
-/// Returns [`RciError::Transport`] when no process-wide provider can be installed or found.
-fn install_ring_provider() -> Result<(), RciError> {
-    static INSTALL: OnceLock<Result<(), ()>> = OnceLock::new();
-    INSTALL
-        .get_or_init(|| {
-            default_provider()
-                .install_default()
-                .map_err(|_provider| ())
-                .or_else(|()| {
-                    CryptoProvider::get_default()
-                        .is_some()
-                        .then_some(())
-                        .ok_or(())
-                })
-        })
-        .map_err(|()| RciError::Transport)
 }
 
 /// Parses the matching `Set-Cookie` header and its `Max-Age`.

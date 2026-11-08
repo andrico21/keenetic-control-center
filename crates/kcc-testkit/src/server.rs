@@ -28,6 +28,7 @@ use crate::{
     components::Components,
     config_state::ConfigState,
     failsafe::{FailSafe, ScheduledReboot},
+    inflight::Counter,
     migration::{Fixture as MigrationFixture, State as MigrationState},
     ndw2,
     time::Clock,
@@ -227,6 +228,8 @@ pub(crate) struct Shared {
     request_log: Mutex<Vec<RequestRecord>>,
     /// Number of requests observed by the fault middleware.
     request_count: AtomicU64,
+    /// Active and peak HTTP handler overlap.
+    inflight: Counter,
     /// Next background process identifier.
     process_id: AtomicU64,
     /// Running background processes by identifier.
@@ -310,6 +313,7 @@ impl Shared {
             route_wipe_armed: Mutex::new(route_wipe_armed),
             request_log: Mutex::new(Vec::new()),
             request_count: AtomicU64::new(0),
+            inflight: Counter::default(),
             process_id: AtomicU64::new(1),
             processes: Mutex::new(BTreeMap::new()),
             stopped_processes: AtomicU64::new(0),
@@ -341,6 +345,11 @@ impl Shared {
     /// Number of requests observed by the fault middleware.
     pub(crate) fn request_count(&self) -> u64 {
         self.request_count.load(Ordering::SeqCst)
+    }
+
+    /// Peak simultaneous handlers, including time spent in injected latency.
+    pub(crate) fn max_concurrent(&self) -> usize {
+        self.inflight.maximum()
     }
 
     /// Returns sanitized request metadata in arrival order.
@@ -1065,6 +1074,7 @@ async fn inject_faults(
     next: Next,
 ) -> Response {
     shared.record_request(&request);
+    let _inflight = shared.inflight.enter();
     shared.expire_reboots();
     let host = request
         .headers()
