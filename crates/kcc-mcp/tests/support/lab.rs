@@ -80,13 +80,17 @@ impl Reply {
 }
 
 /// Routers, services, and one connected MCP client session.
+#[expect(
+    clippy::field_scoped_visibility_modifiers,
+    reason = "resource tests drive resources/list and resources/read on the same session"
+)]
 pub(crate) struct Lab {
     /// Temporary state.
     directory: TempDir,
     /// Router handles by profile id.
     routers: Vec<(String, Handle)>,
     /// The client session.
-    client: RunningService<RoleClient, Recorder>,
+    pub(crate) client: RunningService<RoleClient, Recorder>,
     /// Progress notifications received.
     progress: mpsc::UnboundedReceiver<ProgressNotificationParam>,
 }

@@ -273,7 +273,7 @@ pub(crate) fn argument_schema(argument: &Argument) -> Value {
 }
 
 /// Checks a scalar against its generated argument type.
-fn valid_argument(argument: &Argument, value: &Value) -> bool {
+pub(crate) fn valid_argument(argument: &Argument, value: &Value) -> bool {
     match argument.kind {
         ArgumentKind::Integer => value.as_i64().is_some_and(|number| {
             argument.minimum.is_none_or(|minimum| number >= minimum)
@@ -304,7 +304,7 @@ fn valid_argument(argument: &Argument, value: &Value) -> bool {
 }
 
 /// Checks actual secret bytes before any CLI encoding or network request.
-fn valid_secret(argument: &Argument, value: &Value) -> bool {
+pub(crate) fn valid_secret(argument: &Argument, value: &Value) -> bool {
     value.as_str().is_some_and(|text| {
         let length = i64::try_from(text.len()).unwrap_or(i64::MAX);
         text.len() <= 256

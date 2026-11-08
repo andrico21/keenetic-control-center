@@ -39,3 +39,5 @@ mod tests;
 mod typing_tests;
 #[cfg(test)]
 mod untyped_arguments_tests;
+#[cfg(test)]
+mod validate_boundary_tests;

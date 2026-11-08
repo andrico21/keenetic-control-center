@@ -375,3 +375,14 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 - G1 fully green on clean checkout 0104b5b (46/46 exit 0). Verdict APPROVE with follow-ups.
 - H1 (reproduced): RouterInfo::detect -> probe_auth_schemes (kcc-rci/src/capabilities.rs:513) uses a bare reqwest client: ignores TlsMode pin and OutboundPolicy; detect fails with Transport for every pin-sha256 TLS router.
 - cargo mutants auth/validate/permissions: 196 mutants, 59 caught, 36 missed, 101 unviable; survivors in catalog validate.rs (bounds, password/secret checks) and rci ndw4/digest guards. Details: .omo/evidence/F2-keenetic-control-center.md
+
+## [2026-11-08] Todo 71 follow-ups (write-only secret fields)
+- kcc-domain: `router_users::plan_password` verifies `show rc user` `/0/password/md5`, the FIRST account, not the changed one: with several accounts the read-back can pass on another account's digest or fail although the write worked. The web tests use one account per router; fix in the domain (select the account by name).
+- kcc-testkit: no IPsec client shape and no SSTP type in `show interface`, so the IPsec profile PSK/XAuth and the SSTP password are covered by kcc-domain tests plus the web 404 path; the web end-to-end covers L2TP/IPsec (password, IPsec key) and PPPoE.
+- kcc-testkit: `wireguard peer KEY` has a 3-word replacement identity, so sending a peer again drops its endpoint, allowed IPs and preshared key; real firmware is believed to keep them (UNVERIFIED, live check todo 51). The peer dialog always resends the peer line; the "empty keeps the key" test asserts the audited operations instead of the fake's config.
+- No WireGuard obfuscation-key editor outside the import: `vpn_clients::DESCRIPTOR` has no write op for `interface wireguard obfs-key`, so the kit can neither gate nor audit it; add the op first.
+- No Reveal for these secrets: kcc-domain has no read of a stored Wi-Fi PSK or WAN password, and `RevealSecrets::read_stored` returns the encoded (ns3) form; `page_kit::reveal` stays unused (`expect(dead_code)` kept).
+- The Add connection dialog takes no PPP password (set it from the connection's settings after creating it); the IPsec server's IKE key name is typed (no read of the server's key name).
+- DESIGN.md is append-only for parallel work: the todo 37/40 briefs still say password entry is left out; the appended "Write-only secret fields (todo 71)" section supersedes them.
+- Visual QA self-reviewed (no oracle subagent for this executor); pre-existing: dark toasts show the table through, phone tables scroll sideways without a cue.
+- G1 not run: the new kcc-web dev-dependency `tracing-subscriber` is already in the lock graph (kcc-domain) but `cargo vet`/`deny` were not re-run.
