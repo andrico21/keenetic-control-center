@@ -1412,11 +1412,3 @@ url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/5.1/en/cli_manu
 status = 404
 absent = true
 fetch_date = "2026-11-06"
-
-[[entries]]
-version = "9.9"
-model = "KN-1811"
-url = "https://storage.googleapis.com/docs.help.keenetic.com/cli/9.9/en/cli_manual_kn-1811.pdf"
-status = 404
-absent = true
-fetch_date = "2026-11-05"

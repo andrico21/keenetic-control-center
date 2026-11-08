@@ -20,8 +20,9 @@ env:
 
 # Action pins: actions/checkout v7.0.1, dtolnay/rust-toolchain (master, the
 # `toolchain:` input selects the compiler), Swatinem/rust-cache v2.9.2,
-# taiki-e/install-action v2. Refresh by hand or through Dependabot (which is
-# told to leave rust-toolchain alone, see .github/dependabot.yml).
+# taiki-e/install-action v2 (shellcheck 0.11.0); actionlint v1.7.12 through
+# `go install`. Refresh by hand or through Dependabot (which is told to leave
+# rust-toolchain alone, see .github/dependabot.yml).
 jobs:
   fmt:
     name: Rustfmt
@@ -182,8 +183,16 @@ jobs:
       - run: cargo xtask lint-completeness
       - run: cargo xtask allow-gate
       - run: cargo xtask profile-eq
-      # TODO(todos 32/33): add `cargo xtask i18n-check` and
-      # `cargo xtask assets-check` once those subcommands exist.
+      - run: cargo xtask i18n-check
+      - run: cargo xtask assets-check
+      - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
+        with:
+          tool: shellcheck@0.11.0
+      - run: shellcheck deploy/podman/*.sh scripts/*.sh scripts/live/*.sh
+      # install-action has no actionlint manifest; `go install` of the tagged
+      # module is verified against the Go checksum database (sum.golang.org).
+      - run: go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+      - run: '"$(go env GOPATH)/bin/actionlint" .github/workflows/*.yml'
 
   xtask:
     name: xtask (clippy, test, deny)

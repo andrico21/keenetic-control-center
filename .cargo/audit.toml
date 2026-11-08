@@ -6,9 +6,10 @@
 [advisories]
 ignore = []
 
-# cargo-deny keeps its hashed advisory-db clones under ~/.cargo/advisory-db, and
-# cargo-audit refuses to clone into that non-empty directory, so it gets its own.
+# No `path` here: cargo-audit does not expand `~` in this file and would clone into
+# a literal `./~` directory inside the checkout. It uses its default location
+# ($CARGO_HOME/advisory-db). Where that directory already holds an older
+# cargo-deny clone, pass an absolute `--db` (scripts/ci-local.sh does).
 [database]
-path = "~/.cargo/audit-advisory-db"
 fetch = true
 stale = false

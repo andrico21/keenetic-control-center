@@ -358,3 +358,20 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Product quirks found while writing (not fixed, docs state them): `[server] allowed_origins` must list the Web UI origin or every browser POST gets 403 (reproduced with curl against `kcc serve`: 403 without, 401 credential error with it); `[[logs.sinks]] kind = "stdout"` silently accepts unknown keys (serde internally tagged unit variant), so the completeness test cannot probe it; `kcc migrate inventory` without a source fails ("source firmware version must be supplied explicitly") and was left out of the docs; host-name and time-zone writes still end `VerificationFailed` on the fake (exit 6).
 - [server] `auth`, `security_headers`, `extra_route_rate_limit` are replaced by kcc in server.rs; CONFIG.md documents them as accepted but without effect; `[server] stdio_enabled`, `public_url`, `[observability] metrics_bind` are unused by kcc.
 - Row-64 fixes (firewall bind verification, DNS FQDN bodies, DHCP pool without DNS, profile-login password protection, job recovery on CLI start) are documented as current limitations in README; update README "Limitations" when row 64 merges.
+
+## 2026-11-08: F1 plan-compliance audit (reviewer F1, tree 0104b5b)
+- F1 VERDICT: REJECT. Per-todo REJECTs: 5, 13, 18, 21, 35, 36, 37, 44, 45, 50, 54, 55, 58. Full table, grep results and suggested rows 65-81 in `.omo/evidence/F1-keenetic-control-center.md`.
+- New, not previously recorded here: `cargo test --manifest-path xtask/Cargo.toml` fails on a clean checkout (3 catalog_build tests need the gitignored catalog/.cache), so the CI `xtask` job is red; the CI `gates` job still has the TODO instead of `i18n-check`/`assets-check`; the MCP resource-scoping test and the todo-58 interrupted-transient-copy state scan test do not exist; 38 i18n keys appear unreferenced; `catalog/sources.lock` keeps the 9.9 failure-QA entry; the ledger has no entries for todos 5, 8, 9, 10, 11, 13, 16, 19, 32, 56.
+
+## F4 ideal-state fidelity (2026-11-08): REJECT, 5 IS rows FAIL
+- IS-3: services/KeenDNS/schedules/logging/storage/router-users/VPN-servers/mesh/WAN/NTP typed writes go through apply_cli with an empty verify list on Web/MCP/CLI; clients default-policy/interface-policy skip verify (no mac). Repro: silent_noop_path("parse") -> outcome ok.
+- IS-4: catalog persists_immediately (system country) is dropped by kcc-catalog; no surface labels it.
+- IS-7: signed-in language switch only applies after re-login (F3 D1, confirmed in source).
+- IS-10: RouterInfo::detect probe_auth_schemes uses a bare reqwest client, so a PinSha256 HTTPS router fails detection (repro) and the probe skips the policy's pinned resolution.
+- IS-13: poll_client with read_login has its own semaphore; background processes bypass it; 4 in flight reproduced.
+Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
+
+## F2 code quality review (2026-11-08)
+- G1 fully green on clean checkout 0104b5b (46/46 exit 0). Verdict APPROVE with follow-ups.
+- H1 (reproduced): RouterInfo::detect -> probe_auth_schemes (kcc-rci/src/capabilities.rs:513) uses a bare reqwest client: ignores TlsMode pin and OutboundPolicy; detect fails with Transport for every pin-sha256 TLS router.
+- cargo mutants auth/validate/permissions: 196 mutants, 59 caught, 36 missed, 101 unviable; survivors in catalog validate.rs (bounds, password/secret checks) and rci ndw4/digest guards. Details: .omo/evidence/F2-keenetic-control-center.md

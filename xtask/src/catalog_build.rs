@@ -493,10 +493,7 @@ fn parse_section(
         .unwrap_or_default();
     let mut arguments = parse_arguments(lines, &argument_names);
     if path.ends_with("security-level") && arguments.is_empty() {
-        let levels = synopsis
-            .as_ref()
-            .map(security_levels)
-            .unwrap_or_default();
+        let levels = synopsis.as_ref().map(security_levels).unwrap_or_default();
         if !levels.is_empty() {
             drop(arguments.insert("level".to_owned(), ValueType::Keyword(levels)));
         }
@@ -837,8 +834,9 @@ fn parse_arguments(lines: &[&str], expected: &BTreeSet<String>) -> BTreeMap<Stri
         } else if let (Some((name, value_column)), Some(literals)) =
             (&current_keyword, columns.first())
             && leading_spaces(line).abs_diff(*value_column) <= 8
-            && argument_row(line, expected)
-                .is_none_or(|(candidate, _, _)| candidate == name && !result.contains_key(candidate))
+            && argument_row(line, expected).is_none_or(|(candidate, _, _)| {
+                candidate == name && !result.contains_key(candidate)
+            })
             && let Some(ValueType::Keyword(values)) = result.get_mut(name)
         {
             values.extend(keyword_literals(literals));
@@ -987,8 +985,7 @@ fn is_literal(value: &str) -> bool {
         && !value.ends_with(['.', ',', ';', ':'])
         && !matches!(
             value.to_ascii_lowercase().as_str(),
-            "a"
-                | "an"
+            "a" | "an"
                 | "are"
                 | "becomes"
                 | "for"
@@ -1001,8 +998,7 @@ fn is_literal(value: &str) -> bool {
                 | "with"
         )
         && value.chars().all(|character| {
-            character.is_ascii_alphanumeric()
-                || matches!(character, '-' | '_' | '/' | '.' | '@')
+            character.is_ascii_alphanumeric() || matches!(character, '-' | '_' | '/' | '.' | '@')
         })
 }
 
@@ -1260,335 +1256,14 @@ fn command_error(program: &str, detail: String) -> GateError {
     reason = "test code is not rendered API documentation"
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
-mod tests {
-    use alloc::collections::BTreeSet;
-    use core::error::Error;
-    use std::{fs, path::Path};
-
-    use super::{
-        Command, CommandKind, ValueType, argument_names, load_untyped_allowlist, parse_model,
-        parse_synopsis,
-    };
-    use crate::catalog::{Lock, lock_path};
-
-    #[test]
-    fn synopsis_parser_recognizes_arguments_and_nested_grammar() {
-        let text = "ip static [ \u{2039}protocol\u{203a} ] ( \u{2039}interface\u{203a} | ( \u{2039}address\u{203a} \u{2039}mask\u{203a} ) )";
-        let names = argument_names(text);
-        assert_eq!(
-            names,
-            BTreeSet::from([
-                "address".to_owned(),
-                "interface".to_owned(),
-                "mask".to_owned(),
-                "protocol".to_owned(),
-            ]),
-            "argument markers"
-        );
-        assert!(parse_synopsis(text).is_some(), "nested grammar parses");
-    }
-
-    #[test]
-    fn kn_1811_spot_checks_and_copyright_boundary() -> Result<(), Box<dyn Error>> {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .ok_or("xtask manifest has no parent")?;
-        let lock = Lock::load(&lock_path(root))?;
-        let entry = lock
-            .entries
-            .iter()
-            .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
-            .ok_or("missing KN-1811 5.1 lock entry")?;
-        let allowlist = load_untyped_allowlist(root)?;
-        let parsed = parse_model(root, entry, &allowlist)?;
-        assert!(
-            parsed.synopsis_count.saturating_mul(100) >= parsed.leaf_count.saturating_mul(98),
-            "98% synopsis gate"
-        );
-        let ip_static = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "ip static")
-            .ok_or("missing ip static")?;
-        assert_eq!(
-            ip_static.arguments.keys().cloned().collect::<BTreeSet<_>>(),
-            BTreeSet::from([
-                "address".to_owned(),
-                "end-port".to_owned(),
-                "interface".to_owned(),
-                "mask".to_owned(),
-                "port".to_owned(),
-                "protocol".to_owned(),
-                "to-address".to_owned(),
-                "to-host".to_owned(),
-                "to-interface".to_owned(),
-                "to-port".to_owned(),
-            ]),
-            "ip static argument set"
-        );
-        assert!(ip_static.prefix_no, "ip static prefix no");
-        assert!(ip_static.multiple_input, "ip static multiple input");
-
-        let fail_safe = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "system configuration fail-safe timer")
-            .ok_or("missing fail-safe timer")?;
-        assert!(fail_safe.prefix_no, "fail-safe prefix no");
-        assert!(
-            matches!(
-                fail_safe.arguments.get("interval"),
-                Some(ValueType::Integer)
-            ),
-            "interval integer"
-        );
-        assert!(
-            matches!(fail_safe.arguments.get("action"), Some(ValueType::Keyword(values)) if values == &BTreeSet::from(["reboot".to_owned()])),
-            "action reboot keyword"
-        );
-        let show = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "show running-config")
-            .ok_or("missing show")?;
-        assert!(matches!(show.kind, CommandKind::Show), "show kind");
-        let wireguard = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "interface wireguard private-key")
-            .ok_or("missing wireguard private key")?;
-        assert_eq!(
-            wireguard.interface_type.as_deref(),
-            Some("Wireguard"),
-            "interface type"
-        );
-
-        let source = fs::read_to_string(root.join("catalog/.cache/5.1/kn-1811.txt"))?;
-        let source_words: Vec<&str> = source.split_whitespace().collect();
-        let serialized = serde_json::to_string(&parsed.commands)?;
-        let stored_words: BTreeSet<&str> = serialized.split_whitespace().collect();
-        assert!(
-            !source_words
-                .windows(13)
-                .any(|window| window.iter().all(|word| stored_words.contains(word))),
-            "stored fields do not reproduce 13 consecutive source words"
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn ambiguous_argument_rows_use_semantic_types() -> Result<(), Box<dyn Error>> {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .ok_or("xtask manifest has no parent")?;
-        let lock = Lock::load(&lock_path(root))?;
-        let entry = lock
-            .entries
-            .iter()
-            .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
-            .ok_or("missing KN-1811 5.1 lock entry")?;
-        let allowlist = load_untyped_allowlist(root)?;
-        let parsed = parse_model(root, entry, &allowlist)?;
-
-        let ip_route = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "ip route")
-            .ok_or("missing ip route")?;
-        assert!(
-            matches!(
-                ip_route.arguments.get("gateway"),
-                Some(ValueType::IpAddress)
-            ),
-            "ip route gateway is an address"
-        );
-        assert!(
-            matches!(
-                ip_route.arguments.get("interface"),
-                Some(ValueType::Interface)
-            ),
-            "ip route interface is an interface"
-        );
-
-        let ipv6_route = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "ipv6 route")
-            .ok_or("missing ipv6 route")?;
-        assert!(
-            matches!(
-                ipv6_route.arguments.get("prefix"),
-                Some(ValueType::IpAddressMask)
-            ),
-            "ipv6 route prefix is an address with a prefix length"
-        );
-
-        for (path, argument) in [
-            ("ip policy", "name"),
-            ("ip hotspot host", "policy"),
-            ("ip hotspot host", "schedule"),
-            ("interface schedule", "schedule"),
-        ] {
-            let command = parsed
-                .commands
-                .iter()
-                .find(|command| command.path == path)
-                .ok_or("missing object-name command")?;
-            assert!(
-                matches!(command.arguments.get(argument), Some(ValueType::ObjectName)),
-                "{path} {argument} is an object name"
-            );
-        }
-
-        let security_level = parsed
-            .commands
-            .iter()
-            .find(|command| command.path == "interface security-level")
-            .ok_or("missing interface security-level")?;
-        assert!(
-            matches!(security_level.arguments.get("level"), Some(ValueType::Keyword(values)) if values == &BTreeSet::from(["private".to_owned(), "protected".to_owned(), "public".to_owned()])),
-            "security-level alternatives remain request keywords"
-        );
-
-        for path in ["dyndns profile password", "interface web-api password"] {
-            let command = parsed
-                .commands
-                .iter()
-                .find(|command| command.path == path)
-                .ok_or("missing password command")?;
-            assert!(
-                matches!(command.arguments.get("password"), Some(ValueType::Password)),
-                "{path} password is secret material"
-            );
-        }
-        Ok(())
-    }
-
-    #[test]
-    fn value_column_keywords_retain_documented_literals() -> Result<(), Box<dyn Error>> {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .ok_or("xtask manifest has no parent")?;
-        let lock = Lock::load(&lock_path(root))?;
-        let entry = lock
-            .entries
-            .iter()
-            .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
-            .ok_or("missing KN-1811 5.1 lock entry")?;
-        let allowlist = load_untyped_allowlist(root)?;
-        let parsed = parse_model(root, entry, &allowlist)?;
-
-        for (path, argument, expected) in expected_keyword_literals() {
-            let command = parsed
-                .commands
-                .iter()
-                .find(|command| command.path == path)
-                .ok_or("missing keyword command")?;
-            assert_keyword_literals(command, argument, expected)?;
-        }
-        Ok(())
-    }
-
-    fn assert_keyword_literals(
-        command: &Command,
-        argument: &str,
-        expected: &[&str],
-    ) -> Result<(), Box<dyn Error>> {
-        let Some(ValueType::Keyword(actual)) = command.arguments.get(argument) else {
-            return Err(format!("{} {argument} is not a keyword", command.path).into());
-        };
-        let missing = expected
-            .iter()
-            .filter(|literal| !actual.iter().any(|value| value == **literal))
-            .copied()
-            .collect::<Vec<_>>();
-        assert!(
-            missing.is_empty(),
-            "{} {argument} lost documented literals {missing:?}; actual {actual:?}",
-            command.path
-        );
-        Ok(())
-    }
-
-    fn expected_keyword_literals() -> [(&'static str, &'static str, &'static [&'static str]); 11] {
-        [
-            (
-                "user tag",
-                "tag",
-                &[
-                    "afp", "cifs", "cli", "ftp", "http", "http-proxy", "manager", "printers",
-                    "readonly", "vpn-dlna",
-                ],
-            ),
-            (
-                "crypto ike proposal integrity",
-                "integrity",
-                &["md5", "sha1", "sha256", "sha384", "sha512"],
-            ),
-            (
-                "crypto ipsec transform-set hmac",
-                "hmac",
-                &[
-                    "esp-md5-hmac", "esp-null-hmac", "esp-sha1-hmac", "esp-sha256-hmac",
-                    "esp-sha512-hmac",
-                ],
-            ),
-            (
-                "ip ssh cipher",
-                "cipher",
-                &[
-                    "aes128-ctr", "aes256-ctr", "chacha20-poly1305@openssh.com",
-                ],
-            ),
-            ("interface channel", "channel", &["auto", "number"]),
-            (
-                "ip ftp client-charset",
-                "charset",
-                &[
-                    "cp-037", "cp-1026", "cp-1250", "cp-1251", "cp-1252", "cp-1253",
-                    "cp-1254", "cp-1255", "cp-1256", "cp-1257", "cp-1258", "cp-424",
-                    "cp-437", "cp-500", "cp-737", "cp-775", "cp-850", "cp-852", "cp-855",
-                    "cp-856", "cp-857", "cp-860", "cp-861", "cp-862", "cp-863", "cp-864",
-                    "cp-865", "cp-866", "cp-869", "cp-874", "iso-8859-1", "iso-8859-10",
-                    "iso-8859-11", "iso-8859-12", "iso-8859-13", "iso-8859-14", "iso-8859-15",
-                    "iso-8859-16", "iso-8859-2", "iso-8859-3", "iso-8859-4", "iso-8859-5",
-                    "iso-8859-6", "iso-8859-7", "iso-8859-8", "iso-8859-9", "koi8-r", "koi8-u",
-                    "kz-1048", "mac-celtic", "mac-centeuro", "mac-croatian", "mac-cyrillic",
-                    "mac-gaelic", "mac-greek", "mac-icelandic", "mac-inuit", "mac-roman",
-                    "mac-romanian", "mac-turkish", "mac-ukrainian", "nextstep", "utf-16",
-                    "utf-16be", "utf-16le", "utf-32", "utf-32be", "utf-32le", "utf-8",
-                ],
-            ),
-            (
-                "show ip route",
-                "direction",
-                &["ascending", "descending"],
-            ),
-            (
-                "system button",
-                "handler",
-                &[
-                    "FactoryReset", "Reboot", "WifiGuestApToggle", "WifiToggle", "WpsStartAllMainAp",
-                    "WpsStartMainAp", "WpsStartMainAp5",
-                ],
-            ),
-            (
-                "nvox sip dtmf-mode",
-                "mode",
-                &["inband", "rfc2833", "sip-info"],
-            ),
-            (
-                "dns-proxy filter engine",
-                "engine",
-                &["interceptor", "nextdns", "opkg", "public", "skydns"],
-            ),
-            ("torrent io-priority", "io-priority", &["low", "normal"]),
-        ]
-    }
-
-    #[test]
-    fn truncated_synopsis_is_a_warning() {
-        let grammar = parse_synopsis("ip route [ \u{2039}address\u{203a}");
-        assert!(grammar.is_none(), "unclosed optional is rejected");
-    }
-}
+mod committed_tests;
+#[cfg(test)]
+mod expected;
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+mod tests;

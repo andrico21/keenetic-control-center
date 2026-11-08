@@ -183,12 +183,12 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 ## Limitations
 
 - No firmware line has live hardware evidence yet; see [docs/FIRMWARE.md](docs/FIRMWARE.md).
-- Some writes are known to fail verification or be refused on 5.1 and need fixes:
-  firewall `bind`, DNS FQDN group entries with an address, a DHCP pool without DNS
-  servers, and changing the password of the router account kcc itself logs in with.
-- A CLI command that starts a job (diagnostics, component commit, migration apply) marks
-  every running job in the state directory as interrupted, including one a concurrent
-  `kcc serve` is running.
+- kcc refuses to change the password of the router account it logs in with and sends
+  nothing to the router. Change that password on the router, then run
+  `kcc router edit <id> --new-password`.
+- An API key created with `kcc apikey create` reaches a running `kcc serve` only after
+  `SIGHUP` (Unix) or a restart; keys created on the Web UI administration page apply
+  at once.
 - OpenVPN credentials can't be written (the 5.1 catalog has no command for them); IPv6
   access lists are read-only (no catalog has `ipv6 access-list`).
 - MCP migration plans, transient MCP presets and unsaved preset drafts in the Web UI live

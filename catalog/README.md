@@ -15,6 +15,23 @@ Regenerate a firmware catalog with:
 cargo xtask catalog build --version 5.1
 ```
 
+## Tests
+
+`cargo test --manifest-path xtask/Cargo.toml` needs no network or cache: hermetic guards
+check the committed `<version>/*.json` shards (documented keyword literals, semantic
+argument types, structural spot facts, the 98% synopsis gate and the 12-word string cap),
+and the parser is tested on small inline facts-only fixtures.
+
+The parser tests over the extracted KN-1811 5.1 manual (including the 13-consecutive-word
+copyright check against the source text) are `#[ignore]`d because `catalog/.cache` is
+gitignored and fetched from the network. Maintainers with the cache run them with:
+
+```text
+cargo xtask catalog fetch --version 5.1
+cargo xtask catalog extract
+cargo test --manifest-path xtask/Cargo.toml -- --ignored
+```
+
 Official PDFs follow this model-specific URL shape:
 `https://storage.googleapis.com/docs.help.keenetic.com/cli/<version>/en/cli_manual_<model>.pdf`.
 The exact URL for every available model is in `sources.lock`.

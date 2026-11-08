@@ -35,7 +35,9 @@ step deny
 cargo deny check
 
 step audit
-cargo audit
+# Own database directory: an older cargo-deny may have left a non-git clone at
+# cargo-audit's default $CARGO_HOME/advisory-db. CI runners start empty.
+cargo audit --db "${CARGO_HOME:-$HOME/.cargo}/audit-advisory-db"
 
 step vet
 cargo vet --locked
@@ -50,6 +52,10 @@ step gates
 cargo xtask lint-completeness
 cargo xtask allow-gate
 cargo xtask profile-eq
+cargo xtask i18n-check
+cargo xtask assets-check
+shellcheck deploy/podman/*.sh scripts/*.sh scripts/live/*.sh
+actionlint .github/workflows/*.yml
 
 step xtask
 cargo clippy --manifest-path xtask/Cargo.toml --all-targets --all-features -- -D warnings
