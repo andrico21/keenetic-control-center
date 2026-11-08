@@ -192,3 +192,6 @@ async fn serve_exposes_router_metrics_on_the_kit_listener() -> TestResult {
     router.shutdown().await?;
     Ok(())
 }
+
+#[path = "metrics_serve/runtime.rs"]
+mod runtime;

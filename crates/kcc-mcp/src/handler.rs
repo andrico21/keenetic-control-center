@@ -4,11 +4,13 @@ use kcc_app::{permissions::Permission, registry::authorize};
 use kcc_i18n::{bundle::tr, locale::Locale};
 use rmcp::{
     ErrorData, ServerHandler,
+    handler::server::tool::ToolCallContext,
     model::{
-        GetPromptRequestParams, GetPromptResponse, GetPromptResult, ListPromptsResult,
-        ListResourcesResult, ListToolsResult, PaginatedRequestParams, Prompt, PromptMessage,
-        ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Resource,
-        ResourceContents, Role as McpRole, ServerCapabilities, ServerConfig,
+        CallToolRequestParams, CallToolResponse, GetPromptRequestParams, GetPromptResponse,
+        GetPromptResult, ListPromptsResult, ListResourcesResult, ListToolsResult,
+        PaginatedRequestParams, Prompt, PromptMessage, ReadResourceRequestParams,
+        ReadResourceResponse, ReadResourceResult, Resource, ResourceContents, Role as McpRole,
+        ServerCapabilities, ServerConfig,
     },
     service::{RequestContext, RoleServer},
     tool_handler,
@@ -42,6 +44,17 @@ impl ServerHandler for KccMcp {
                 .enable_prompts()
                 .build(),
         )
+    }
+
+    async fn call_tool(
+        &self,
+        request: CallToolRequestParams,
+        context: RequestContext<RoleServer>,
+    ) -> Result<CallToolResponse, ErrorData> {
+        self.record_key_use().await;
+        self.tool_router
+            .call(ToolCallContext::new(self, request, context))
+            .await
     }
 
     async fn list_tools(

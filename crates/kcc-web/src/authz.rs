@@ -168,9 +168,13 @@ pub(crate) async fn authentication_middleware(
     let Some(session) = state.sessions().get(&id).await else {
         return Redirect::to("/ui/login").into_response();
     };
+    // The role's live definition, so a role reduced or removed since sign-in (in the Web
+    // UI or by a SIGHUP reload) binds this request.
     let (Some(username), Some(role)) = (
         session.username().map(str::to_owned),
-        session.role().cloned(),
+        session
+            .role()
+            .and_then(|signed_in| state.role(&signed_in.name)),
     ) else {
         return Redirect::to("/ui/login").into_response();
     };

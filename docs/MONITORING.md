@@ -20,6 +20,13 @@ poller's cache, refreshed every `interval` (light items) and `heavy_interval` (h
 items). Data older than three intervals is dropped and `keenetic_up` becomes 0.
 Per-client series are off by default and capped by `per_client_max`.
 
+The exporter follows the router registry: a router added or removed while kcc runs (Web
+UI, or `kcc router add|remove` followed by `SIGHUP`) is scraped or dropped without a
+restart. `keenetic_firmware_update_available` appears once kcc has checked the router
+for newer firmware (`components check-update`, at most every six hours per router, only
+while its polls succeed). `kcc_web_sessions` counts signed-in Web UI sessions, sampled
+every 15 seconds.
+
 Every metric family, with its labels, is listed in [METRICS.md](METRICS.md), generated
 from the registry by `cargo xtask gen-metric-docs`; a test fails when it is stale.
 
@@ -50,7 +57,9 @@ loopback only; see [deploy/podman/README.md](../deploy/podman/README.md).
 Router log collection is disabled by default. Enable `[logs]` and configure one or more
 `[[logs.sinks]]` entries to forward the single collector stream owned for each selected
 router. Loki receives bounded `job`, `router`, and `level` labels; process, component, and
-record id remain structured metadata to avoid unbounded label cardinality.
+record id remain structured metadata to avoid unbounded label cardinality. The Web UI log
+page of a collected router follows the same stream (the latest 200 records, then new
+ones), so log viewers add no router requests.
 
 For Elasticsearch, install an index template matching `logs-keenetic.syslog-*` and enable
 data-stream mode before using the default `logs-keenetic.syslog-default` target. The

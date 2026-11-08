@@ -126,7 +126,7 @@ pub(crate) async fn page(
         with_query(&base, &[("q", &filter)])
     };
     let (lines, problem) = match reading {
-        Ok((_, domain)) => match source().tail(domain).await {
+        Ok((_, domain)) => match source(&state, &router).tail(domain).await {
             Ok(found) => (matching(found, &filter), None),
             Err(error) => {
                 tracing::warn!(%error, "router log could not be read");
@@ -167,7 +167,7 @@ pub(crate) async fn stream(
     };
     let filter = filter_of(&query);
     let locale = user.locale();
-    let log = source();
+    let log = source(&state, &router);
     let seen = log.tail(domain.clone()).await.unwrap_or_default();
     let opening = view(matching(seen.clone(), &filter), true, locale);
     let follow = log
@@ -206,7 +206,7 @@ pub(crate) async fn download(
     };
     let record = Record::on_router("web.log_download", &router, "show log".to_owned());
     let read = match target.context(&state).await {
-        Ok((_, domain)) => source().tail(domain).await.ok(),
+        Ok((_, domain)) => source(&state, &router).tail(domain).await.ok(),
         Err(_unreachable) => None,
     };
     let Some(lines) = read else {

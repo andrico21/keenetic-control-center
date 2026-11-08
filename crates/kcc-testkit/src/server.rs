@@ -28,6 +28,7 @@ use crate::{
     components::Components,
     config_state::ConfigState,
     failsafe::{FailSafe, ScheduledReboot},
+    firmware_update::FirmwareUpdate,
     inflight::Counter,
     migration::{Fixture as MigrationFixture, State as MigrationState},
     ndw2,
@@ -244,6 +245,8 @@ pub(crate) struct Shared {
     logs: Mutex<BTreeMap<u64, Value>>,
     /// Number of background log streams started.
     log_streams: AtomicU64,
+    /// Opt-in `components check-update` answer.
+    firmware_update: Mutex<Option<FirmwareUpdate>>,
 }
 
 /// Locks `mutex`, recovering the data if a previous holder panicked.
@@ -268,6 +271,25 @@ impl Shared {
     /// Enables a migration scenario before the router starts serving.
     pub(crate) fn configure_migration(&self, fixture: MigrationFixture) {
         lock(&self.migration).configure(fixture);
+    }
+
+    /// Makes `components check-update` report `update`.
+    pub(crate) fn configure_firmware_update(&self, update: FirmwareUpdate) {
+        *lock(&self.firmware_update) = Some(update);
+    }
+
+    /// The configured answer to `components check-update [force]`, if any.
+    fn check_update(&self, words: &[&str]) -> Option<Value> {
+        matches!(
+            words,
+            ["components", "check-update"] | ["components", "check-update", "force"]
+        )
+        .then(|| {
+            lock(&self.firmware_update)
+                .as_ref()
+                .map(FirmwareUpdate::answer)
+        })
+        .flatten()
     }
 
     /// Builds the shared state with an empty session table.
@@ -323,6 +345,7 @@ impl Shared {
             stopped_processes: AtomicU64::new(0),
             logs: Mutex::new(BTreeMap::new()),
             log_streams: AtomicU64::new(0),
+            firmware_update: Mutex::new(None),
         }
     }
 
@@ -557,6 +580,9 @@ impl Shared {
             return response;
         }
         let words: Vec<&str> = line.split_whitespace().collect();
+        if let Some(answer) = self.check_update(&words) {
+            return answer;
+        }
         match words.as_slice() {
             ["system", "configuration", "save"] => {
                 let saved_accounts = lock(&self.accounts).clone();

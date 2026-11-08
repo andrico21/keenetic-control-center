@@ -14,8 +14,9 @@ use std::sync::OnceLock;
 
 use kcc_app::{
     api_keys::api_key_entries,
-    permissions::{ToolSpec, load_roles, rbac_config},
+    permissions::{Role, ToolSpec, load_roles, rbac_config},
     persist::StateStore,
+    role_source::RoleSource,
     settings::Config,
 };
 use kcc_i18n::{
@@ -23,7 +24,7 @@ use kcc_i18n::{
     format, keys,
     locale::Locale,
 };
-use rmcp_server_kit::{rbac::RbacPolicy, transport::ReloadHandle};
+use rmcp_server_kit::{auth::ApiKeyEntry, rbac::RbacPolicy, transport::ReloadHandle};
 
 use crate::page::{Shell, Theme};
 
@@ -67,6 +68,8 @@ pub struct TransportReload {
     state: StateStore,
     /// Every registered MCP tool, for the per-role tool allowlists.
     tools: Vec<ToolSpec>,
+    /// The role set the MCP handlers and the Web UI authorize against.
+    roles: Option<RoleSource>,
 }
 
 impl fmt::Debug for TransportReload {
@@ -89,7 +92,50 @@ impl TransportReload {
             slot: Arc::new(OnceLock::new()),
             state,
             tools,
+            roles: None,
         }
+    }
+
+    /// Also replaces `roles` whenever roles are installed, so the MCP handlers' own
+    /// permission and scope checks follow the transport's RBAC.
+    #[inline]
+    #[must_use]
+    pub fn with_role_source(mut self, roles: RoleSource) -> Self {
+        self.roles = Some(roles);
+        self
+    }
+
+    /// The state directory the keys and roles are read from.
+    #[inline]
+    #[must_use]
+    pub const fn state(&self) -> &StateStore {
+        &self.state
+    }
+
+    /// Installs `keys` in the running transport.
+    ///
+    /// # Errors
+    ///
+    /// [`ReloadError::NotReady`] before the transport started; [`ReloadError::Failed`]
+    /// when the kit refuses the keys. The previous keys stay active.
+    #[inline]
+    pub fn install_keys(&self, keys: Vec<ApiKeyEntry>) -> Result<(), ReloadError> {
+        self.handle()?.try_reload_auth_keys(keys).map_err(failed)
+    }
+
+    /// Installs `roles`: the transport's RBAC policy, then the shared role source.
+    ///
+    /// # Errors
+    ///
+    /// [`ReloadError::NotReady`] before the transport started; nothing changes then.
+    #[inline]
+    pub fn install_roles(&self, roles: Vec<Role>) -> Result<(), ReloadError> {
+        let handle = self.handle()?;
+        handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, &self.tools)));
+        if let Some(source) = &self.roles {
+            source.replace(roles);
+        }
+        Ok(())
     }
 
     /// The cell the transport's reload callback fills with its handle.
@@ -112,17 +158,14 @@ impl TransportReload {
 impl AuthReload for TransportReload {
     #[inline]
     fn reload_keys(&self) -> Result<(), ReloadError> {
-        let handle = self.handle()?;
-        let keys = api_key_entries(&self.state).map_err(failed)?;
-        handle.try_reload_auth_keys(keys).map_err(failed)
+        let _ready: &ReloadHandle = self.handle()?;
+        self.install_keys(api_key_entries(&self.state).map_err(failed)?)
     }
 
     #[inline]
     fn reload_rbac(&self) -> Result<(), ReloadError> {
-        let handle = self.handle()?;
-        let roles = load_roles(&self.state).map_err(failed)?;
-        handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, &self.tools)));
-        Ok(())
+        let _ready: &ReloadHandle = self.handle()?;
+        self.install_roles(load_roles(&self.state).map_err(failed)?)
     }
 }
 

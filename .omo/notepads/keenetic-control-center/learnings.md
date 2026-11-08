@@ -245,6 +245,10 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Keyword literals may contain mixed alphanumerics and `@` (for example SSH ciphers), while demonstrable prose is safely excluded by sentence punctuation and a narrow stop-word set. The 5.1 KN-1811 regression guard pins required subsets for 11 high-risk command arguments rather than copying whole generated inventories.
 - Corrected regeneration remains above the gate for every line: 4.3 = 1058 commands at 853/854 (99%), 5.0 = 1089 at 880/881 (99%), 5.1 = 1125 at 912/913 (99%). The master-to-regenerated audit is recorded in `.omo/evidence/catalog-regeneration-diff-report.txt`; restored literals include user tags, HMAC/integrity algorithms, SSH ciphers, charsets, route direction, button handlers, DTMF modes, filter engines, and torrent priorities, while sentence artifacts are removed and manual type-column fixes remain.
 
+- Merge repair: FleetServices test fixtures must construct `Arc<CredentialStore>` from the shared `StateStore` and a run-time-generated test `MasterKey`.
+- Startup credential migration auditing now lives in `server_migrations.rs`; it preserves one system audit event per non-current migration while keeping `Services::open` below the line limit.
+- Verification passed nightly format, workspace strict Clippy, and all 6 `kcc-web` integration tests; LSP diagnostics timed out twice, so compiler/Clippy diagnostics were used.
+
 - Row 67/69 integration: parser fault and migration interception belongs in a child helper so the main command dispatcher remains below Clippy's 100-line limit.
 - `SafetyNet::arm` owns fail-safe activation read-back; interface guards preserve their compatibility predicate by recognizing `VerificationFailed` for `/fail-safe/active`.
 - The fail-safe regression must prove arm-before-read-back ordering and that no risky interface command follows a failed activation check.

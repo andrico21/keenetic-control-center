@@ -258,14 +258,36 @@ impl Poller {
         let _removed: Option<MetricsCadence> = self.metrics.lock().await.remove(router);
     }
 
-    /// Records the cached firmware-update flag published in [`Snapshot::update_available`].
-    // cancel-safe: a single map insert.
+    /// Records the cached firmware-update flag published in [`Snapshot::update_available`]
+    /// and applies it to the snapshot already published, so subscribers see it before the
+    /// next round.
+    // cancel-safe: a map insert, then an in-place update of the published value.
     pub async fn record_update_available(&self, router: &str, available: bool) {
         let _previous: Option<bool> = self
             .update_flags
             .lock()
             .await
             .insert(router.to_owned(), available);
+        if let Some(sender) = self.channels.lock().await.get(router) {
+            let _modified: bool = sender.send_if_modified(|published| match published {
+                Some(Ok(snapshot)) if snapshot.update_available != Some(available) => {
+                    snapshot.update_available = Some(available);
+                    true
+                }
+                Some(_) | None => false,
+            });
+        }
+    }
+
+    /// The latest result published for `router`, without subscribing: `None` when no
+    /// polling task follows the router or its first round has not completed.
+    // cancel-safe: one map read.
+    pub async fn latest(&self, router: &str) -> Option<PollResult> {
+        self.channels
+            .lock()
+            .await
+            .get(router)
+            .and_then(|sender| sender.borrow().clone())
     }
 
     /// Returns completed light polling rounds for observability and cadence tests.

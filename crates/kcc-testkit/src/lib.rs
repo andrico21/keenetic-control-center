@@ -35,6 +35,7 @@ mod config_state;
 mod failsafe;
 pub mod fake_elasticsearch;
 pub mod fake_loki;
+pub mod firmware_update;
 mod fixtures;
 mod inflight;
 pub mod live_matrix;
@@ -421,6 +422,15 @@ impl FakeRouter {
     #[must_use]
     pub fn with_migration(self, fixture: migration::Fixture) -> Self {
         self.shared.configure_migration(fixture);
+        self
+    }
+
+    /// Answers `components check-update` with `update` (by default the command is
+    /// unknown to the fake).
+    #[inline]
+    #[must_use]
+    pub fn with_firmware_update(self, update: firmware_update::FirmwareUpdate) -> Self {
+        self.shared.configure_firmware_update(update);
         self
     }
 

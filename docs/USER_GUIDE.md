@@ -45,8 +45,10 @@ credentials and encrypted backups cannot be opened.
 A router's dashboard (`/ui/r/<router>`) shows host name, firmware, memory, internet and
 WAN link state, WAN connections, radios and access points, the WAN traffic chart (the
 last 30 minutes, kept in memory), the unsaved-changes banner with Save, and the
-support-tier notice for documentation-based firmware. Firmware updates show "Not
-checked": no update check is wired yet.
+support-tier notice for documentation-based firmware. The firmware line says "Update
+available" or "Up to date" once kcc has asked the router (`components check-update`, in
+the background, at most every six hours per router and only while the router answers
+its polls); until then it says "Not checked".
 
 ## Clients
 
@@ -143,7 +145,9 @@ types other than WireGuard have no create form, and VPN credentials have no form
 - **Schedules**: create schedules and their actions.
 - **KeenDNS**: book or drop a name, set the access level, add proxy entries. The
   current access level and proxy entries aren't readable.
-- **Log**: the router log, live, with search and download.
+- **Log**: the router log, live, with search and download. With `[logs] enabled` the
+  page follows the router's log collector, so viewers add no router requests; otherwise
+  each viewer reads the router at most every 5 seconds.
 - **Diagnostics**: ping and traceroute as background jobs with live output and Stop.
 
 ## Configuration and backups
@@ -201,7 +205,7 @@ change workflow; answers are masked unless you hold RevealSecrets.
 - **Roles**: custom roles with permissions and router-name globs (for example `lab-*`).
   You can grant only roles whose permissions you hold yourself.
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
-  used" column always says Never: key use isn't recorded yet.
+  used" column shows the last MCP tool call with the key, recorded at most once a minute.
 - **Audit log**: search, filter and export the hash-chained audit log (ViewAudit).
 - **Server**: the running configuration summary and catalog versions.
 

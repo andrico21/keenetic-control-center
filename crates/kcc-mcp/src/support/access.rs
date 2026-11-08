@@ -30,18 +30,33 @@ impl KccMcp {
     /// Resolves the caller to a configured role, or the stdio fallback role.
     pub(crate) fn identity(&self) -> Result<McpIdentity, McpFailure> {
         let role = match current_role() {
-            Some(name) => self
-                .roles
-                .iter()
-                .find(|role| role.name == name)
-                .cloned()
-                .ok_or(McpFailure::Forbidden)?,
+            Some(name) => self.roles.find(&name).ok_or(McpFailure::Forbidden)?,
             None => self.fallback_role.clone(),
         };
         Ok(McpIdentity::new(
             current_identity().unwrap_or_else(|| "stdio".to_owned()),
             role,
         ))
+    }
+
+    /// Records the use of the caller's API key, at most once a minute per key; stdio
+    /// sessions and calls without a recorder record nothing.
+    // cancel-safe: the state write runs on a blocking thread that completes even if this
+    // future is dropped.
+    pub(crate) async fn record_key_use(&self) {
+        let (Some(recorder), Some(_role), Some(key)) =
+            (&self.key_use, current_role(), current_identity())
+        else {
+            return;
+        };
+        let Some(due) = recorder.note(&key) else {
+            return;
+        };
+        match tokio::task::spawn_blocking(move || due.persist()).await {
+            Ok(Ok(_known)) => {}
+            Ok(Err(error)) => tracing::warn!(%error, "API key use could not be recorded"),
+            Err(error) => tracing::warn!(%error, "API key use recording task failed"),
+        }
     }
 
     /// Validates `host` and authorizes `permission` on it for the caller.

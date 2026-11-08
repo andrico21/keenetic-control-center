@@ -7,6 +7,7 @@ pub mod parser;
 pub mod pipeline;
 mod pipeline_delivery;
 pub mod queue;
+pub mod readers;
 pub mod redact;
 pub mod retry;
 pub mod runtime;

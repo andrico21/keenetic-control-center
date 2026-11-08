@@ -46,6 +46,7 @@ mod jobs;
 mod keendns;
 mod keendns_access;
 mod keendns_forms;
+mod log_collector;
 mod log_source;
 mod logs;
 mod schedule_actions;

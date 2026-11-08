@@ -37,6 +37,7 @@ pub mod csp;
 mod csrf;
 pub mod errors;
 pub mod fleet;
+pub mod fleet_updates;
 pub mod nav;
 pub mod page;
 pub mod session;
@@ -109,7 +110,6 @@ mod view;
 
 use alloc::sync::Arc;
 use core::{fmt, time::Duration};
-use std::sync::{PoisonError, RwLock};
 
 use axum::{
     Router,
@@ -122,8 +122,10 @@ use kcc_app::{
     audit::AuditLog,
     jobs::JobRunner,
     permissions::Role,
+    role_source::RoleSource,
 };
 use kcc_i18n::locale::Locale;
+use kcc_telemetry::logs::readers::LogFeeds;
 use tower_http::{
     limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer,
 };
@@ -159,8 +161,8 @@ pub struct WebState {
     sessions: SessionStore,
     /// Tamper-evident audit writer.
     audit: AuditLog,
-    /// Built-in and custom roles; the role pages replace them while running.
-    roles: Arc<RwLock<Arc<[Role]>>>,
+    /// Built-in and custom roles; the role pages and reloads replace them while running.
+    roles: RoleSource,
     /// Origins accepted for browser state-changing requests.
     allowed_origins: Arc<[String]>,
     /// Cookie policy selected from the actual listener transport.
@@ -175,6 +177,8 @@ pub struct WebState {
     advanced: Arc<advanced::Services>,
     /// The routers' catalog facts, shared by every page that validates a request.
     facts: Arc<page_kit::facts::FactsCache>,
+    /// The router log collectors the log page follows instead of polling.
+    log_feeds: LogFeeds,
 }
 
 impl fmt::Debug for WebState {
@@ -228,7 +232,7 @@ impl WebState {
             accounts: config.accounts,
             sessions,
             audit: config.audit,
-            roles: Arc::new(RwLock::new(config.roles.into())),
+            roles: RoleSource::new(config.roles),
             allowed_origins: config.allowed_origins.into(),
             cookie_security: config.cookie_security,
             clock: config.clock,
@@ -236,7 +240,34 @@ impl WebState {
             admin: None,
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
+            log_feeds: LogFeeds::default(),
         }
+    }
+
+    /// Shares `roles` with the other front ends: a role change in the Web UI then
+    /// reaches every holder of the source at once, and a reload of the source reaches the
+    /// Web UI's next request.
+    #[inline]
+    #[must_use]
+    pub fn with_role_source(mut self, roles: RoleSource) -> Self {
+        self.roles = roles;
+        self
+    }
+
+    /// Lets the log page follow the routers' log collectors (`[logs] enabled`) instead of
+    /// reading the router per viewer.
+    #[inline]
+    #[must_use]
+    pub fn with_log_feeds(mut self, feeds: LogFeeds) -> Self {
+        self.log_feeds = feeds;
+        self
+    }
+
+    /// The number of signed-in sessions that have not expired.
+    // cancel-safe: one read of the session map.
+    #[inline]
+    pub async fn active_sessions(&self) -> usize {
+        self.sessions.active().await
     }
 
     /// Attaches the router fleet: the overview, router dashboards and forms, and their
@@ -284,12 +315,18 @@ impl WebState {
     /// Every built-in and custom role.
     #[must_use]
     pub(crate) fn roles(&self) -> Arc<[Role]> {
-        Arc::clone(&self.roles.read().unwrap_or_else(PoisonError::into_inner))
+        self.roles.current()
     }
 
     /// Replaces the roles after an administrator changed them.
     pub(crate) fn set_roles(&self, roles: Vec<Role>) {
-        *self.roles.write().unwrap_or_else(PoisonError::into_inner) = roles.into();
+        self.roles.replace(roles);
+    }
+
+    /// The router log collectors.
+    #[must_use]
+    pub(crate) const fn log_feeds(&self) -> &LogFeeds {
+        &self.log_feeds
     }
 
     /// Command explorer and console services.
@@ -342,7 +379,7 @@ impl WebState {
     /// Resolves an account's persisted role name.
     #[must_use]
     pub(crate) fn role(&self, name: &str) -> Option<Role> {
-        self.roles().iter().find(|role| role.name == name).cloned()
+        self.roles.find(name)
     }
 
     /// Origins accepted for state-changing browser requests.

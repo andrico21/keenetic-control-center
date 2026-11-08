@@ -16,7 +16,13 @@ use tokio::{
 };
 use tokio_util::sync::CancellationToken;
 
-use super::{dedupe::Window, parser, redact, types::LogRecord};
+use super::{
+    dedupe::Window,
+    parser,
+    readers::{LogFeed, Recent, remember},
+    redact,
+    types::LogRecord,
+};
 
 /// Maximum records requested from one router read.
 const MAX_LINES: u32 = 200;
@@ -50,6 +56,8 @@ pub enum LogError {
 pub struct LogCollector {
     /// Subscriber sender.
     records: broadcast::Sender<LogRecord>,
+    /// The latest records, for readers that subscribe later.
+    recent: Recent,
     /// Cooperative task cancellation.
     cancellation: CancellationToken,
     /// Collection task.
@@ -77,6 +85,7 @@ impl LogCollector {
         }
         let path = RciPath::from_segments(["show", "log"]).map_err(|_error| LogError::Path)?;
         let (records, _) = broadcast::channel(1024);
+        let recent = Recent::default();
         let cancellation = CancellationToken::new();
         let task = tokio::spawn(run(Collection {
             router: router.to_owned(),
@@ -87,10 +96,12 @@ impl LogCollector {
             poll_interval: config.poll_interval,
             redact_macs: config.redact_macs,
             records: records.clone(),
+            recent: Arc::clone(&recent),
             cancellation: cancellation.child_token(),
         }));
         Ok(Self {
             records,
+            recent,
             cancellation,
             task: Some(task),
         })
@@ -101,6 +112,13 @@ impl LogCollector {
     #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<LogRecord> {
         self.records.subscribe()
+    }
+
+    /// A reader's view of this collector: its latest records and new ones as they come.
+    #[inline]
+    #[must_use]
+    pub fn feed(&self) -> LogFeed {
+        LogFeed::new(&self.records, Arc::clone(&self.recent))
     }
 
     /// Stops collection and waits for remote stream cleanup.
@@ -147,6 +165,8 @@ struct Collection {
     poll_interval: Duration,
     /// Subscriber sender.
     records: broadcast::Sender<LogRecord>,
+    /// The latest records, kept before each record is sent.
+    recent: Recent,
     /// Redact hardware addresses before fan-out.
     redact_macs: bool,
     /// Cooperative shutdown.
@@ -276,6 +296,7 @@ fn emit(collection: &Collection, dedupe: &mut Window, value: &Value) {
             if collection.redact_macs {
                 record.message = redact::macs(&record.message);
             }
+            remember(&collection.recent, &record);
             drop(collection.records.send(record));
         }
     }

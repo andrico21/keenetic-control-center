@@ -17,6 +17,8 @@ pub mod failure;
 pub mod instrumentation;
 mod interfaces;
 mod json;
+pub mod registry_follow;
 pub mod service;
 mod sink;
 mod system;
+pub mod web_sessions;

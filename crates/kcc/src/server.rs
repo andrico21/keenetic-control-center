@@ -10,22 +10,21 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::time::Duration;
-use std::{
-    path::{Path, PathBuf},
-    sync::OnceLock,
-};
+use std::path::{Path, PathBuf};
 
 use kcc_app::{
     accounts::{AccountStore, Clock, SystemClock},
+    api_key_use::KeyUseRecorder,
     api_keys::api_key_entries,
     audit::AuditLog,
     backups::{BackupRetention, BackupStore},
-    credentials::{CredentialStore, MigrationState},
+    credentials::CredentialStore,
     jobs::JobRunner,
-    permissions::{Role, load_roles, rbac_config},
+    permissions::load_roles,
     persist::StateStore,
     poller::Poller,
     registry::RouterRegistry,
+    role_source::RoleSource,
     secrets::{MasterKey, master_key_path},
     settings::{Config, default_config_dir},
     workflow::ChangeWorkflow,
@@ -35,12 +34,15 @@ use kcc_mcp::KccMcp;
 use kcc_migrate::presets::store::PresetStore;
 use kcc_telemetry::{
     logs::runtime::Service as LogService,
-    metrics::{instrumentation::SelfMetrics, service::MetricsExporter},
+    metrics::{
+        instrumentation::SelfMetrics, registry_follow::follow_registry, service::MetricsExporter,
+    },
 };
 use kcc_web::{
     WebState, WebStateConfig,
     admin::{AdminServices, ServerFacts, TransportReload},
     fleet::{BackupServices, FleetServices},
+    fleet_updates::ComponentsUpdateCheck,
     session::CookieSecurity,
     web_router,
 };
@@ -126,24 +128,29 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         .with_security_headers(kcc_web::csp::security_headers(tls))
         .with_readiness_check(readiness);
     let mut server_with_origins = crate::server_origins::apply(server, &config).map_err(error)?;
-    let auth_reload = Arc::new(TransportReload::new(
-        services.state.clone(),
-        handler.tool_specs().to_vec(),
-    ));
-    if config.web.enabled {
+    let auth_reload = Arc::new(
+        TransportReload::new(services.state.clone(), handler.tool_specs().to_vec())
+            .with_role_source(services.roles.clone()),
+    );
+    let _updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
+    let _sessions = if config.web.enabled {
         let web_state = services.web_state(&config, tls, Arc::clone(&auth_reload))?;
+        let sessions = services
+            .metrics
+            .clone()
+            .map(|metrics| crate::server_tasks::track_sessions(web_state.clone(), metrics));
         server_with_origins = server_with_origins.with_extra_router(web_router(web_state));
-    }
+        sessions
+    } else {
+        None
+    };
     server_with_origins = with_reload(
         server_with_origins,
-        auth_reload.slot(),
+        Arc::clone(&auth_reload),
         path,
         Arc::clone(&services.registry),
-        services.state.clone(),
-        handler.tool_specs().to_vec(),
     );
-    let (configured_server, _exporter) =
-        with_metrics(server_with_origins, &config, &services).await?;
+    let (configured_server, _exporter) = with_metrics(server_with_origins, &config, &services)?;
     let serve_result = serve(configured_server.validate().map_err(error)?, move || {
         handler.clone()
     })
@@ -222,10 +229,12 @@ struct Services {
     workflow: Arc<ChangeWorkflow>,
     /// Encrypted startup-configuration backups, shared with the workflow.
     backups: Arc<BackupStore>,
-    /// Built-in and custom application roles.
-    roles: Vec<Role>,
+    /// Built-in and custom application roles, shared by MCP, the Web UI and reloads.
+    roles: RoleSource,
     /// Shared wall clock.
     clock: Arc<dyn Clock>,
+    /// Cached firmware-update checks.
+    updates: Arc<ComponentsUpdateCheck>,
     /// Self-metrics, when `[metrics] enabled`.
     metrics: Option<Arc<SelfMetrics>>,
     /// Router log collectors and sink workers, when `[logs] enabled`.
@@ -254,25 +263,10 @@ impl Services {
         let registry = Arc::new(profiles);
         let poller = Poller::new(Arc::clone(&registry));
         let audit = AuditLog::spawn(&state).map_err(error)?;
-        for (router, migration) in migrations {
-            if !matches!(migration, MigrationState::Current) {
-                let timestamp = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map_or(0, |elapsed| elapsed.as_secs());
-                let event = kcc_app::audit::AuditEvent::new(
-                    timestamp,
-                    kcc_app::audit::Actor::new(
-                        kcc_app::audit::ActorKind::System,
-                        "system".to_owned(),
-                    ),
-                    "router.credential_migrated".to_owned(),
-                )
-                .with_router(router)
-                .with_result("success".to_owned(), format!("startup-{timestamp}"));
-                drop(audit.append(event).await.map_err(error)?);
-            }
-        }
-        let roles = load_roles(&state).map_err(error)?;
+        crate::server_migrations::append_credential_events(&audit, migrations)
+            .await
+            .map_err(error)?;
+        let roles = RoleSource::new(load_roles(&state).map_err(error)?);
         let accounts_key = master_key.duplicate();
         let backup_key = MasterKey::load(&key_path).map_err(error)?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
@@ -319,6 +313,11 @@ impl Services {
         } else {
             None
         };
+        let updates = Arc::new(ComponentsUpdateCheck::new(
+            Arc::clone(&registry),
+            Arc::clone(&poller),
+            Arc::clone(&clock),
+        ));
         Ok(Self {
             state,
             registry,
@@ -330,6 +329,7 @@ impl Services {
             backups,
             roles,
             clock,
+            updates,
             metrics,
             logs,
         })
@@ -341,17 +341,12 @@ impl Services {
         if !enabled {
             mcp.toolsets.clear();
         }
-        let role = self
-            .roles
-            .iter()
-            .find(|role| role.name == config.mcp.stdio_role)
-            .cloned()
-            .ok_or_else(|| {
-                ServerError(format!(
-                    "configured stdio role {:?} does not exist",
-                    config.mcp.stdio_role
-                ))
-            })?;
+        let role = self.roles.find(&config.mcp.stdio_role).ok_or_else(|| {
+            ServerError(format!(
+                "configured stdio role {:?} does not exist",
+                config.mcp.stdio_role
+            ))
+        })?;
         Ok(KccMcp::new(
             mcp,
             config.privacy,
@@ -359,9 +354,14 @@ impl Services {
             Arc::clone(&self.workflow),
             Arc::clone(&self.jobs),
             Arc::clone(&self.poller),
-            self.roles.clone(),
+            self.roles.current().to_vec(),
             role,
         )
+        .with_role_source(self.roles.clone())
+        .with_key_use(Arc::new(KeyUseRecorder::new(
+            self.state.clone(),
+            Arc::clone(&self.clock),
+        )))
         .with_audit(self.audit.clone())
         .with_presets(PresetStore::new(
             self.state.clone(),
@@ -379,6 +379,8 @@ impl Services {
     ) -> Result<WebState, ServerError> {
         let default_locale = Locale::from_tag(&config.web.default_locale)
             .ok_or_else(|| ServerError("web.default_locale is unsupported".to_owned()))?;
+        let update_check: Arc<dyn kcc_web::fleet::UpdateCheck> =
+            Arc::<ComponentsUpdateCheck>::clone(&self.updates);
         let cookie_security = if tls {
             CookieSecurity::Tls
         } else {
@@ -388,13 +390,20 @@ impl Services {
             default_locale,
             accounts: Arc::clone(&self.accounts),
             audit: self.audit.clone(),
-            roles: self.roles.clone(),
+            roles: self.roles.current().to_vec(),
             session_idle: config.web.session_idle,
             session_absolute: config.web.session_absolute,
             allowed_origins: config.web_allowed_origins().map_err(error)?,
             cookie_security,
             clock: Arc::clone(&self.clock),
         })
+        .with_role_source(self.roles.clone())
+        .with_log_feeds(
+            self.logs
+                .as_ref()
+                .map(LogService::feeds)
+                .unwrap_or_default(),
+        )
         .with_fleet(FleetServices {
             registry: Arc::clone(&self.registry),
             poller: Arc::clone(&self.poller),
@@ -403,7 +412,7 @@ impl Services {
                 self.state.clone(),
                 MasterKey::load(&master_key_path().map_err(error)?).map_err(error)?,
             )),
-            update_check: None,
+            update_check: Some(update_check),
             backups: Some(BackupServices::new(
                 Arc::clone(&self.backups),
                 config.backups,
@@ -441,29 +450,30 @@ fn readiness_check(state_dir: PathBuf, audit: AuditLog) -> ReadinessCheck {
     })
 }
 
-/// Stores the transport's reload handle in `slot` for the Web UI's administration
-/// pages, and wires Unix SIGHUP reload of API keys, RBAC, and router profiles.
+/// Stores the transport's reload handle in `auth`'s slot for the Web UI's administration
+/// pages, and wires Unix SIGHUP reload.
+///
+/// A SIGHUP reloads the API keys, the roles (MCP RBAC, the MCP handlers and the Web UI),
+/// and the router profiles.
 #[cfg(unix)]
 fn with_reload(
     config: McpServerConfig,
-    slot: Arc<OnceLock<rmcp_server_kit::transport::ReloadHandle>>,
+    auth: Arc<TransportReload>,
     path: PathBuf,
     registry: Arc<RouterRegistry>,
-    state: StateStore,
-    tools: Vec<kcc_app::permissions::ToolSpec>,
 ) -> McpServerConfig {
+    let slot = auth.slot();
     config.with_reload_callback(move |handle| {
         if slot.set(handle).is_err() {
             tracing::error!("the MCP transport delivered a second reload handle; keeping the first");
         }
         drop(tokio::spawn(async move {
-            let Some(installed) = slot.get() else { return; };
             let mut signals = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup()) {
                 Ok(signals) => signals,
                 Err(error) => { tracing::error!(%error, "cannot install SIGHUP reload handler"); return; }
             };
             while signals.recv().await.is_some() {
-                if let Err(error) = reload(installed, &path, &registry, &state, &tools).await {
+                if let Err(error) = reload(&auth, &path, &registry).await {
                     tracing::error!(%error, "SIGHUP reload rejected; previous configuration remains active");
                 }
             }
@@ -476,12 +486,11 @@ fn with_reload(
 #[cfg(not(unix))]
 fn with_reload(
     config: McpServerConfig,
-    slot: Arc<OnceLock<rmcp_server_kit::transport::ReloadHandle>>,
+    auth: Arc<TransportReload>,
     _path: PathBuf,
     _registry: Arc<RouterRegistry>,
-    _state: StateStore,
-    _tools: Vec<kcc_app::permissions::ToolSpec>,
 ) -> McpServerConfig {
+    let slot = auth.slot();
     config.with_reload_callback(move |handle| {
         if slot.set(handle).is_err() {
             tracing::error!(
@@ -494,20 +503,18 @@ fn with_reload(
 /// Applies one validated reload generation.
 #[cfg(unix)]
 async fn reload(
-    handle: &rmcp_server_kit::transport::ReloadHandle,
+    auth: &TransportReload,
     path: &Path,
     registry: &RouterRegistry,
-    state: &StateStore,
-    tools: &[kcc_app::permissions::ToolSpec],
 ) -> Result<(), ServerError> {
     let mut config = Config::load(path).map_err(error)?;
     drop(config.apply_env_overrides().map_err(error)?);
     config.validate().map_err(error)?;
-    let roles = load_roles(state).map_err(error)?;
-    let keys = api_key_entries(state).map_err(error)?;
+    let roles = load_roles(auth.state()).map_err(error)?;
+    let keys = api_key_entries(auth.state()).map_err(error)?;
     let invalidated = registry.reload(&config).await.map_err(error)?;
-    handle.try_reload_auth_keys(keys).map_err(error)?;
-    handle.reload_rbac(RbacPolicy::new(&rbac_config(&roles, tools)));
+    auth.install_keys(keys).map_err(error)?;
+    auth.install_roles(roles).map_err(error)?;
     tracing::info!(invalidated, "configuration reloaded from SIGHUP");
     Ok(())
 }
@@ -516,12 +523,12 @@ async fn reload(
 ///
 /// The kit listener is plaintext and unauthenticated by design; `Config::validate` already
 /// refused ports below 1024 and a non-loopback bind without `allow_non_loopback`.
-// cancel-safe: registers local poller subscriptions only; no router request is awaited.
-async fn with_metrics(
+// cancel-safe: synchronous; the registry follower registers the poller subscriptions.
+fn with_metrics(
     server: McpServerConfig,
     config: &Config,
     services: &Services,
-) -> Result<(McpServerConfig, Option<MetricsExporter>), ServerError> {
+) -> Result<(McpServerConfig, Option<Arc<MetricsExporter>>), ServerError> {
     if !config.metrics.enabled {
         return Ok((server, None));
     }
@@ -532,16 +539,19 @@ async fn with_metrics(
         tracing::warn!(bind = %config.metrics.bind, "unauthenticated metrics listener bound beyond loopback");
     }
     let kit = Arc::new(McpMetrics::new().map_err(error)?);
-    let exporter = MetricsExporter::new(
-        Arc::clone(&services.poller),
-        &config.metrics,
-        Arc::clone(&self_metrics),
-    )
-    .map_err(error)?;
+    let exporter = Arc::new(
+        MetricsExporter::new(
+            Arc::clone(&services.poller),
+            &config.metrics,
+            Arc::clone(&self_metrics),
+        )
+        .map_err(error)?,
+    );
     exporter.register(&kit.registry).map_err(error)?;
-    for entry in services.registry.list().map_err(error)? {
-        exporter.watch(&entry.profile.id).await;
-    }
+    drop(follow_registry(
+        Arc::clone(&exporter),
+        Arc::clone(&services.registry),
+    ));
     drop(self_metrics.track_jobs(Arc::clone(&services.jobs)));
     Ok((
         server

@@ -4,11 +4,13 @@ use alloc::{collections::BTreeMap, sync::Arc};
 use std::sync::Mutex;
 
 use kcc_app::{
+    api_key_use::KeyUseRecorder,
     audit::AuditLog,
     jobs::JobRunner,
     permissions::{Role, ToolSpec, rbac_config},
     poller::Poller,
     registry::RouterRegistry,
+    role_source::RoleSource,
     settings::{McpConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
 };
@@ -75,8 +77,9 @@ impl KccMcp {
             workflow,
             jobs,
             poller,
-            roles: roles.into(),
+            roles: RoleSource::new(roles),
             fallback_role,
+            key_use: None,
             tool_router,
             tool_specs: tool_specs.into(),
             pseudonyms: Arc::new(Mutex::new(BTreeMap::new())),
@@ -91,6 +94,25 @@ impl KccMcp {
     #[must_use]
     pub fn with_audit(mut self, audit: AuditLog) -> Self {
         self.audit = Some(audit);
+        self
+    }
+
+    /// Authorizes against `roles`, shared with the Web UI and the reloads, instead of the
+    /// roles given to [`KccMcp::new`]: a role edited or reduced elsewhere binds the next
+    /// call.
+    #[inline]
+    #[must_use]
+    pub fn with_role_source(mut self, roles: RoleSource) -> Self {
+        self.roles = roles;
+        self
+    }
+
+    /// Records the last use of the API key behind each authenticated tool call through
+    /// `recorder` (throttled per key).
+    #[inline]
+    #[must_use]
+    pub fn with_key_use(mut self, recorder: Arc<KeyUseRecorder>) -> Self {
+        self.key_use = Some(recorder);
         self
     }
 
@@ -113,7 +135,7 @@ impl KccMcp {
     #[inline]
     #[must_use]
     pub fn rbac_config(&self) -> RbacConfig {
-        rbac_config(&self.roles, &self.tool_specs)
+        rbac_config(&self.roles.current(), &self.tool_specs)
     }
 
     #[tool(

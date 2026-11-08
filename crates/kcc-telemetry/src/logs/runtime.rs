@@ -10,6 +10,7 @@ use tokio::{sync::broadcast, task::JoinHandle};
 
 use super::{
     pipeline::{ForwarderError, LogForwarder},
+    readers::LogFeeds,
     service::{LogCollector, LogError},
     types::LogRecord,
 };
@@ -92,6 +93,18 @@ impl Service {
     #[must_use]
     pub fn subscribe(&self, router: &str) -> Option<broadcast::Receiver<LogRecord>> {
         self.collectors.get(router).map(LogCollector::subscribe)
+    }
+
+    /// The reader feeds of every running collector.
+    #[inline]
+    #[must_use]
+    pub fn feeds(&self) -> LogFeeds {
+        LogFeeds::new(
+            self.collectors
+                .iter()
+                .map(|(router, collector)| (router.clone(), collector.feed()))
+                .collect(),
+        )
     }
 
     /// Stops router streams, relays, and sink workers.

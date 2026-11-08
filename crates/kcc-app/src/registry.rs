@@ -33,7 +33,7 @@ use kcc_rci::{
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
+use tokio::sync::{Mutex, watch};
 use url::Url;
 
 use crate::{
@@ -233,6 +233,8 @@ pub struct RouterRegistry {
     observers: Option<RciObserverFactory>,
     /// Encrypted credentials managed below the state root.
     credentials: Option<Arc<CredentialStore>>,
+    /// Generation counter bumped after every change of the profile set.
+    changes: watch::Sender<u64>,
 }
 
 /// Builds the request and login observer of one router id (self-metrics).
@@ -363,6 +365,7 @@ impl RouterRegistry {
             budgets: budgets::Budgets::default(),
             observers: None,
             credentials: None,
+            changes: watch::Sender::new(0),
         })
     }
 
@@ -371,6 +374,20 @@ impl RouterRegistry {
     pub fn with_credentials(mut self, credentials: Arc<CredentialStore>) -> Self {
         self.credentials = Some(credentials);
         self
+    }
+
+    /// Follows changes of the profile set (create, update, delete, reload): the value is a
+    /// generation counter bumped after each change, so a receiver re-reads
+    /// [`RouterRegistry::list`] whenever it changes.
+    #[must_use]
+    pub fn subscribe_changes(&self) -> watch::Receiver<u64> {
+        self.changes.subscribe()
+    }
+
+    /// Tells every change receiver that the profile set changed.
+    fn changed(&self) {
+        self.changes
+            .send_modify(|generation| *generation = generation.wrapping_add(1));
     }
 
     /// Attaches an observer to every client and detection session created from now on.
@@ -458,6 +475,7 @@ impl RouterRegistry {
                 .insert(id.clone(), loaded),
         );
         drop(self.clients.lock().await.remove(&id));
+        self.changed();
         Ok(())
     }
 
@@ -502,6 +520,7 @@ impl RouterRegistry {
                 .insert(id.clone(), loaded),
         );
         drop(self.clients.lock().await.remove(&id));
+        self.changed();
         Ok(())
     }
 
@@ -525,6 +544,7 @@ impl RouterRegistry {
         }
         drop(self.profiles.write().map_err(lock_error)?.remove(id));
         drop(self.clients.lock().await.remove(id));
+        self.changed();
         Ok(())
     }
 
@@ -632,6 +652,10 @@ impl RouterRegistry {
         let mut clients = self.clients.lock().await;
         for id in &changed {
             drop(clients.remove(id));
+        }
+        drop(clients);
+        if !changed.is_empty() {
+            self.changed();
         }
         Ok(changed.len())
     }

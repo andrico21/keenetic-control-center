@@ -107,8 +107,15 @@ MCP adds its own gates: write tools need their toolset enabled in `[mcp] toolset
 `[mcp] allow_destructive = true` plus `confirm: true`. `kcc mcp stdio` bypasses HTTP
 authentication by design, so it's off by default and runs as `[mcp] stdio_role`.
 
-Known gap: a custom role created or edited in the Web UI reaches MCP's outer gate at
-once, but MCP handlers keep their startup copy of the roles until restart.
+Role changes take effect without a restart. A custom role created, edited or reduced in
+the Web UI, or changed in `roles.json` followed by `SIGHUP`, binds the next MCP call (the
+transport's RBAC and the MCP handlers' own permission and scope checks share one role
+set) and the next Web UI request of every signed-in session holding it.
+
+The last use of an API key is recorded on its next MCP tool call, at most once a minute
+per key; failed authentication records nothing. The firmware-update check sends the
+catalog-validated `components check-update` action, which changes no configuration,
+outside the change workflow and without an audit entry.
 
 ## Audit chain
 

@@ -377,6 +377,18 @@ impl SessionStore {
             .retain(|_id, session| session.username.as_deref() != Some(username));
     }
 
+    /// The number of signed-in sessions that have not expired.
+    pub(crate) async fn active(&self) -> usize {
+        let now = self.inner.clock.unix_seconds();
+        self.inner
+            .sessions
+            .read()
+            .await
+            .values()
+            .filter(|session| session.is_authenticated() && !self.inner.expired(session, now))
+            .count()
+    }
+
     /// Ends every session holding the role `name`, after an administrator changed it.
     pub(crate) async fn invalidate_role(&self, name: &str) {
         self.inner

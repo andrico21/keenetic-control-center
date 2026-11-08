@@ -21,6 +21,7 @@ kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-migrate = { version = "0.1.0", path = "../kcc-migrate" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
+kcc-telemetry = { version = "0.1.0", path = "../kcc-telemetry" }
 rand = "0.10.3"
 rmcp-server-kit = "3.21.1"
 secrecy = "0.10.3"

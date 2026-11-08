@@ -122,6 +122,14 @@ impl MetricsExporter {
         }
         drop(lock(&self.shared.routers).remove(router));
         self.poller.unsubscribe_metrics(router).await;
+        tracing::info!(router = %router, "router metrics stopped");
+    }
+
+    /// The routers being exported, in id order.
+    #[inline]
+    #[must_use]
+    pub fn watched(&self) -> Vec<String> {
+        lock(&self.watchers).keys().cloned().collect()
     }
 }
 
@@ -144,16 +152,21 @@ async fn follow(
         let published = receiver.borrow_and_update().clone();
         match published {
             Some(Ok(snapshot)) => {
-                let first = lock(&shared.routers)
-                    .get_mut(&router)
-                    .is_some_and(|cached| {
-                        let first = cached.snapshot.is_none();
-                        cached.snapshot = Some(Arc::new(snapshot));
-                        cached.received = Instant::now();
-                        first
-                    });
+                let update = snapshot.update_available;
+                let (first, update_changed) =
+                    lock(&shared.routers)
+                        .get_mut(&router)
+                        .map_or((false, false), |cached| {
+                            let previous = cached.snapshot.as_ref().map(|old| old.update_available);
+                            cached.snapshot = Some(Arc::new(snapshot));
+                            cached.received = Instant::now();
+                            (previous.is_none(), previous.flatten() != update)
+                        });
                 if first {
                     tracing::info!(router = %router, "router metrics available");
+                }
+                if let Some(available) = update.filter(|_| update_changed) {
+                    tracing::info!(router = %router, available, "firmware update status exported");
                 }
             }
             Some(Err(_)) => shared.self_metrics.poller_error(&router),

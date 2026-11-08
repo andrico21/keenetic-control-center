@@ -1,10 +1,11 @@
 //! Where the log page's lines come from.
 //!
-//! The page reads the router's log through [`LogSource`]. Today that is [`PollingLog`]:
-//! the todo-21 reader (`logging::read_log`, a POST of `show log`) asked again at most
-//! every [`POLL_INTERVAL`], with the lines already seen left out. When the router's log
-//! collector runs (todo 55), it owns the router's one `show log` stream; it implements
-//! [`LogSource`] and the page follows it instead, without opening a second stream.
+//! The page reads the router's log through [`LogSource`]. When the router's log
+//! collector runs (`[logs] enabled` and the router selected), it owns the router's one
+//! `show log` stream and the page follows it ([`CollectorLog`]) without a request of its
+//! own. Otherwise it is [`PollingLog`]: the todo-21 reader (`logging::read_log`, a POST
+//! of `show log`) asked again at most every [`POLL_INTERVAL`], with the lines already
+//! seen left out.
 
 use alloc::sync::Arc;
 use core::{future::ready, time::Duration};
@@ -17,6 +18,9 @@ use futures_util::{
 use kcc_domain::{DomainError, RouterCtx, logging};
 use serde_json::Value;
 use tokio::time::sleep;
+
+use super::log_collector::CollectorLog;
+use crate::WebState;
 
 /// How often [`PollingLog`] asks the router again; the router's log must not be polled
 /// faster than this.
@@ -81,9 +85,16 @@ impl LogSource for PollingLog {
     }
 }
 
-/// The log source the page reads.
-pub(crate) fn source() -> Arc<dyn LogSource> {
-    Arc::new(PollingLog::new())
+/// The log source the page reads for `router`: its running collector, else polling.
+pub(crate) fn source(state: &WebState, router: &str) -> Arc<dyn LogSource> {
+    match state
+        .log_feeds()
+        .get(router)
+        .filter(|feed| feed.subscribe().is_some())
+    {
+        Some(feed) => Arc::new(CollectorLog::new(feed.clone())),
+        None => Arc::new(PollingLog::new()),
+    }
 }
 
 /// The lines of a log answer: plain text line by line, or the records of a JSON `log`

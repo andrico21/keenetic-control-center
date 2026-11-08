@@ -217,8 +217,9 @@ struct UpdateCache {
 struct CachedUpdate {
     /// The latest completed result.
     status: UpdateStatus,
-    /// Unix time the latest check started.
-    checked_at: u64,
+    /// Unix time the latest check started; `None` after a check that returned
+    /// [`UpdateStatus::Unknown`], so the next page load asks again.
+    checked_at: Option<u64>,
 }
 
 impl UpdateCache {
@@ -230,9 +231,10 @@ impl UpdateCache {
         };
         let now = self.clock.unix_seconds();
         let mut entries = lock(&self.entries);
-        let due = entries.get(router).is_none_or(|cached| {
-            now.saturating_sub(cached.checked_at) >= UPDATE_CHECK_TTL.as_secs()
-        });
+        let due = entries
+            .get(router)
+            .and_then(|cached| cached.checked_at)
+            .is_none_or(|checked_at| now.saturating_sub(checked_at) >= UPDATE_CHECK_TTL.as_secs());
         let status = entries
             .get(router)
             .map_or(UpdateStatus::Unknown, |cached| cached.status.clone());
@@ -241,7 +243,7 @@ impl UpdateCache {
                 router.to_owned(),
                 CachedUpdate {
                     status: status.clone(),
-                    checked_at: now,
+                    checked_at: Some(now),
                 },
             ));
             drop(entries);
@@ -251,7 +253,11 @@ impl UpdateCache {
             drop(tokio::spawn(async move {
                 let result = checker.check(&id).await;
                 if let Some(cached) = lock(&shared).get_mut(&id) {
-                    cached.status = result;
+                    if result == UpdateStatus::Unknown {
+                        cached.checked_at = None;
+                    } else {
+                        cached.status = result;
+                    }
                 }
             }));
         }

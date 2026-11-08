@@ -40,11 +40,13 @@ use core::fmt;
 use std::sync::Mutex;
 
 use kcc_app::{
+    api_key_use::KeyUseRecorder,
     audit::AuditLog,
     jobs::JobRunner,
     permissions::{Permission, Role, ToolSpec},
     poller::Poller,
     registry::{RouterRegistry, authorize},
+    role_source::RoleSource,
     settings::{McpConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
 };
@@ -171,8 +173,9 @@ pub struct KccMcp {
     workflow: Arc<ChangeWorkflow>,
     jobs: Arc<JobRunner>,
     poller: Arc<Poller>,
-    roles: Arc<[Role]>,
+    roles: RoleSource,
     fallback_role: Role,
+    key_use: Option<Arc<KeyUseRecorder>>,
     tool_router: ToolRouter<Self>,
     tool_specs: Arc<[ToolSpec]>,
     pseudonyms: Arc<Mutex<BTreeMap<String, String>>>,

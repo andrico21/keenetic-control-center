@@ -193,6 +193,12 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
   first request after expiry atomically applies the staged set, bumps the final firmware
   title/release build (`5.1.3` -> `5.1.4`, `5.01.C.3.0-0` -> `5.01.C.4.0-0`), and updates
   `show version` `ndw.components`. **assumed (R-CLI documentation, not live-verified).**
+- `components check-update [force]` is unknown to the fake unless
+  `FakeRouter::with_firmware_update` opts in. Then the parser answers a `message` status
+  plus `"available": true, "version": "<title>"` (`FirmwareUpdate::Available`) or
+  `"available": false` (`FirmwareUpdate::Current`) and changes nothing. **assumed (answer
+  shape not live-verified; the catalog marks the command as an action that changes no
+  settings).**
 - `FaultInjection` is per fake-router instance: acknowledged silent no-op paths, HTTP 500
   after N requests, latency, session drop after N requests, and refusal to disable
   management `Bridge0`. No mutable state is shared between separately built instances.
