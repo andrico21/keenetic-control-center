@@ -42,7 +42,7 @@ async fn time_zone_and_time_server_change_through_their_dialogs() -> TestResult 
         "the rule"
     );
     assert_eq!(fixture.handle().request_count(), before, "nothing sent");
-    let ignored = text(
+    let applied = text(
         fixture
             .post(
                 &format!("{PAGE}/timezone"),
@@ -52,16 +52,9 @@ async fn time_zone_and_time_server_change_through_their_dialogs() -> TestResult 
             .await?,
     )
     .await?;
-    let mut args = FluentArgs::new();
-    args.set("field", "/tz/locality");
-    let read_back = html(&tr(
-        Locale::En,
-        keys::WEB_KIT_VERIFICATION_FAILED,
-        Some(&args),
-    ));
     assert!(
-        ignored.contains(&read_back),
-        "the catalog took the zone, the fake kept UTC: {ignored}"
+        applied.contains("data-tone=\"success\"") && applied.contains("Europe/Berlin"),
+        "the verified zone is shown: {applied}"
     );
     let server = text(
         fixture

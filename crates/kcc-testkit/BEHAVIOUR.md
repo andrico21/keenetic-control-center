@@ -120,6 +120,10 @@ fixtures; fixture values remain the baseline for unmodified rows and fields.
   save/reboot, fail-safe, components, and tools used by this simulator. Unknown commands
   return code `7405600` and leave the AST byte-identical. This command-existence check is
   temporary until `kcc-catalog` exposes its generated catalog at runtime.
+- RCI writes for `system hostname`, `system description` and `system clock timezone`
+  update the settings tree, running CLI AST, matching `show system` or `show clock date`
+  projection, and `show last-change` unsaved state together. **assumed (R-CLI catalog and
+  R-RCI projection shape, not live-verified)**.
 - `parse` accepting `authentication password ns3 <blob>` is **assumed (R-CLI
   documentation, not live-verified - see `spikes/live-router/RESULT.md`)**. The AST parser
   itself accepts typed NS3 tokens; the simulator catalog stand-in does not yet expose that

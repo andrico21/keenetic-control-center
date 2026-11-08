@@ -205,7 +205,7 @@ Policy) and `extra_route_rate_limit` (600 per minute for the Web UI).
 | `shutdown_timeout` | duration | `"30s"` | graceful shutdown timeout |
 | `request_timeout` | duration | `"120s"` | per-request timeout |
 | `max_request_body` | integer | `1048576` | maximum request body in bytes |
-| `allowed_origins` | list of strings | `[]` | `Origin` values allowed on browser requests; **list the Web UI origin** (e.g. `"http://127.0.0.1:8443"`), or every Web UI form post gets HTTP 403 |
+| `allowed_origins` | list of strings | `[]` | extra `Origin` values allowed on browser requests, in addition to the Web UI listener and `web.public_url` origins derived by kcc; use this for another trusted reverse-proxy origin |
 | `stdio_enabled` | bool | `false` | the kit's stdio switch; kcc uses `[mcp] stdio_enabled` instead |
 | `tool_rate_limit` | integer | unset | MCP tool calls per source IP per minute |
 | `tool_rate_limit_burst` | integer | unset | burst for `tool_rate_limit` |

@@ -11,8 +11,8 @@ listen_port = 8443
 # (`kcc-tls-cert`, `kcc-tls-key`); see the README for `kcc tls self-signed`.
 tls_cert_path = "/run/secrets/kcc-tls-cert"
 tls_key_path = "/run/secrets/kcc-tls-key"
-# Browser origins the server accepts on POST (the Web UI login and every form); list the
-# address browsers use, the same as [web] public_url.
+# Optional explicit browser origin, retained here as a deployment assertion; kcc also
+# derives this origin from [web] public_url.
 allowed_origins = ["https://localhost:8443"]
 
 [web]

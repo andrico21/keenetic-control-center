@@ -40,12 +40,11 @@ cp deploy/podman/seccomp-kcc.json ~/.config/kcc/seccomp-kcc.json
 cp deploy/podman/kcc.container ~/.config/containers/systemd/kcc.container
 ```
 
-Two settings in `kcc.toml.example` matter for the container: `[server] allowed_origins`
-must list the address browsers use (the server's own Origin check is not derived from
-`[web] public_url` yet, so without it every Web UI form is refused with 403), and the
-`[web] public_url` host is the SNI `kcc healthcheck` sends, so the certificate must
-carry it. The unit's `HealthCmd` uses the exec (JSON) form: the plain-string form
-becomes `CMD-SHELL`, which needs `/bin/sh`, and distroless has no shell.
+The `[web] public_url` host is the SNI `kcc healthcheck` sends, so the certificate must
+carry it. kcc derives its browser Origin allowlist from that URL and the listener;
+`[server] allowed_origins` adds any other trusted proxy origins. The unit's `HealthCmd`
+uses the exec (JSON) form: the plain-string form becomes `CMD-SHELL`, which needs
+`/bin/sh`, and distroless has no shell.
 
 ### Secrets
 

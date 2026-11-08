@@ -125,8 +125,8 @@ types other than WireGuard have no create form, and VPN credentials have no form
 `/ui/r/<router>/system/...` has tabs:
 
 - **General**: host name, description, time zone, NTP server, restart, factory reset.
-  Known gaps: host-name and time-zone writes fail verification on the simulator; the
-  real firmware shape is unconfirmed.
+  Host-name, description and time-zone changes are verified by a fresh read. Their
+  simulator projection is documentation-derived; the real firmware shape is unconfirmed.
 - **Router users**: router accounts and their tags; add and delete. kcc refuses to
   delete the account it logs in with.
 - **Services**: turn router services on or off.

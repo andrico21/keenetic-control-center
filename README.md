@@ -63,13 +63,9 @@ and sets `no_new_privs`. Run it as an ordinary user.
 ## Quick start
 
 1. Create `kcc.toml` in the config directory (`~/.config/kcc/kcc.toml` on Linux). kcc
-   contacts only routers inside `[outbound] allowed_networks`, and the Web UI accepts
-   form posts only from origins listed in `[server] allowed_origins`:
+   contacts only routers inside `[outbound] allowed_networks`:
 
    ```toml
-   [server]
-   allowed_origins = ["http://127.0.0.1:8443", "http://localhost:8443"]
-
    [outbound]
    allowed_networks = ["192.168.1.0/24"]
    ```
@@ -187,8 +183,6 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 ## Limitations
 
 - No firmware line has live hardware evidence yet; see [docs/FIRMWARE.md](docs/FIRMWARE.md).
-- `[server] allowed_origins` must list the Web UI origin, otherwise browser form posts
-  get HTTP 403. kcc doesn't derive it from the listener yet.
 - Some writes are known to fail verification or be refused on 5.1 and need fixes:
   firewall `bind`, DNS FQDN group entries with an address, a DHCP pool without DNS
   servers, and changing the password of the router account kcc itself logs in with.

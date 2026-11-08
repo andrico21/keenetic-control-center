@@ -22,6 +22,8 @@ listen_port = 8443
 # tls_key_path = "/etc/kcc/kcc-key.pem"
 # Reverse proxies whose forwarded headers are trusted (default: none).
 # trusted_proxies = ["127.0.0.1"]
+# Extra trusted browser origins beyond the listener and [web] public_url origins.
+# allowed_origins = ["https://another-proxy.example"]
 
 # Logging (rmcp-server-kit). Use the [metrics] section below for Prometheus,
 # not `metrics_enabled` here.

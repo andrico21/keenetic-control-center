@@ -189,8 +189,7 @@ cat >"${WORK}/etc/kcc.toml" <<EOF
 [server]
 listen_addr = "${LISTEN}"
 listen_port = ${LISTEN_PORT}
-# The kit's own Origin check is not fed from [web] yet (notepad issues.md); list the
-# browser origin explicitly.
+# Keep one explicit entry to exercise union with the origin derived from [web].
 allowed_origins = ["https://localhost:${WEB_PORT}"]
 tls_cert_path = "${CERT_IN}"
 tls_key_path = "${KEY}"

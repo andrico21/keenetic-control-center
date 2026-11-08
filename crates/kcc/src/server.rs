@@ -115,7 +115,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     let tls = config.server.tls_cert_path.is_some() && config.server.tls_key_path.is_some();
     let base = McpServerConfig::new("placeholder:0", "kcc", env!("CARGO_PKG_VERSION"));
     let readiness = readiness_check(services.state.dir().to_owned(), services.audit.clone());
-    let mut server = config
+    let server = config
         .server
         .apply_to_mcp_config(base)
         .map_err(error)?
@@ -124,25 +124,29 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         .with_extra_route_rate_limit(600)
         .with_security_headers(kcc_web::csp::security_headers(tls))
         .with_readiness_check(readiness);
+    let mut server_with_origins = crate::server_origins::apply(server, &config).map_err(error)?;
     let auth_reload = Arc::new(TransportReload::new(
         services.state.clone(),
         handler.tool_specs().to_vec(),
     ));
     if config.web.enabled {
         let web_state = services.web_state(&config, tls, Arc::clone(&auth_reload))?;
-        server = server.with_extra_router(web_router(web_state));
+        server_with_origins = server_with_origins.with_extra_router(web_router(web_state));
     }
-    server = with_reload(
-        server,
+    server_with_origins = with_reload(
+        server_with_origins,
         auth_reload.slot(),
         path,
         Arc::clone(&services.registry),
         services.state.clone(),
         handler.tool_specs().to_vec(),
     );
-    let (with_exporter, _exporter) = with_metrics(server, &config, &services).await?;
-    server = with_exporter;
-    let serve_result = serve(server.validate().map_err(error)?, move || handler.clone()).await;
+    let (configured_server, _exporter) =
+        with_metrics(server_with_origins, &config, &services).await?;
+    let serve_result = serve(configured_server.validate().map_err(error)?, move || {
+        handler.clone()
+    })
+    .await;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
         cancelled = drain.cancelled,

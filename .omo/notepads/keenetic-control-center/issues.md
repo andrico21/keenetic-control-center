@@ -205,6 +205,14 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - New VPN and segment tests were executed against the real workflow/fake HTTP router. Only the app template tests have explicit permissive-mutation proof in this session; no equivalent mutation pass was completed for each new domain test. TRACE assertions cover the current-thread scoped subscriber, not arbitrary unrelated OS threads. No live hardware behavior is claimed.
 - All code remains uncommitted. The evidence and API notes describe retained implementation, not a merge-ready completion claim. Needed orchestrator decisions: deliver corrected obfs-key/OpenVPN catalog metadata, resolve the protected Wi-Fi projection/test contract, and authorize app/testkit child-module extraction.
 
+## [2026-11-08] Resolved: `kcc serve` Web UI Origin bridge
+- Cause: rmcp-server-kit's listener received only `[server] allowed_origins`; its empty default rejected browser form POSTs before kcc-web's CSRF/Origin middleware.
+- Resolution in `wt/tfix2`: `kcc serve` unions every operator-configured origin with `Config::web_allowed_origins()` before kit validation. Same-origin login works without configuration, configured extra origins remain accepted, and foreign origins remain HTTP 403.
+
+## [2026-11-08] Resolved: fake-router system write verification
+- Cause: the domain used catalog-valid RCI writes and fresh-read verification, but the fake acknowledged `system hostname` and `system clock timezone` only in its static settings tree; its running CLI AST and `show` projections never changed, so verification correctly reported `VerificationFailed`.
+- Resolution in `wt/tfix2`: the fake applies host-name, description and time-zone writes to the running AST and projects them through settings, `show system`, `show clock date`, `show rc`, generated running config and `show last-change` unsaved state. The shapes remain documentation-derived and are not live-hardware evidence.
+
 ## 2026-11-06: cargo vet fixed (orchestrator)
 - Exemptions for multer 3.1.0, spin 0.9.9, version_check 0.9.5 added; `cargo vet` -> "Vetting Succeeded (59 fully audited, 22 partially audited, 283 exempted)". `imports.lock` gained two publisher/wildcard audit entries that cargo vet itself fetched (encoding_rs, multiversion_no_op). Merge gates for every later todo must run `cargo vet` (it was skipped for todo 39/40).
 

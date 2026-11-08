@@ -80,8 +80,9 @@ for a loopback test sink) and don't follow redirects either.
   one allowed `Origin` and a same-origin `Sec-Fetch-Site`.
 - `[web] login_max_failures` failed logins (5) lock the account for `lockout`
   (15 minutes). Failed logins answer with one generic message.
-- The HTTP layer also checks `Origin` against `[server] allowed_origins`, which you
-  must set to the Web UI origin (see [CONFIG.md](CONFIG.md)).
+- The HTTP layer also checks `Origin` against the Web UI listener and
+  `[web] public_url` origins derived by kcc, plus any extra trusted origins in
+  `[server] allowed_origins` (see [CONFIG.md](CONFIG.md)).
 
 ## Permissions (RBAC)
 

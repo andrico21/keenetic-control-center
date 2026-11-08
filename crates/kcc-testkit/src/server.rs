@@ -956,6 +956,47 @@ impl Shared {
             None => self.post_one(&mut settings, pointer, body),
         }
     }
+
+    /// Applies a system RCI write to every mutable simulator projection.
+    fn apply_system_setting(&self, path: &str, body: &Value) -> Option<Value> {
+        use kcc_config::quoting::quote_cli_word;
+        use secrecy::ExposeSecret as _;
+
+        let (line, settings_body) = match path {
+            "system" => {
+                if let Some(hostname) = body.get("hostname").and_then(Value::as_str) {
+                    let quoted = quote_cli_word(hostname).ok()?;
+                    (
+                        format!("system hostname {}", quoted.expose_secret()),
+                        serde_json::json!({"name":hostname}),
+                    )
+                } else {
+                    let description = body.get("description").and_then(Value::as_str)?;
+                    let quoted = quote_cli_word(description).ok()?;
+                    (
+                        format!("system description {}", quoted.expose_secret()),
+                        serde_json::json!({"description":description}),
+                    )
+                }
+            }
+            "system/clock/timezone" => {
+                let locality = body.get("locality").and_then(Value::as_str)?;
+                let quoted = quote_cli_word(locality).ok()?;
+                (
+                    format!("system clock timezone {}", quoted.expose_secret()),
+                    serde_json::json!({}),
+                )
+            }
+            _ => return None,
+        };
+        let result = lock(&self.config).apply(&line);
+        if kcc_rci::RciResponse::from_value(result.clone()).is_ok()
+            && let Some(system) = lock(&self.settings).pointer_mut("/system")
+        {
+            drop(tree::apply(system, &settings_body, "/system"));
+        }
+        Some(result)
+    }
 }
 
 /// Recursively overlays dynamic configuration fields onto settings-tree fields.
@@ -1228,6 +1269,9 @@ async fn rci_post(
     }
     if shared.silent_noop(&path) {
         return Json(tree::status("message", "saved.")).into_response();
+    }
+    if let Some(result) = shared.apply_system_setting(&path, &parsed) {
+        return Json(result).into_response();
     }
     let resolved = {
         let settings = lock(&shared.settings);

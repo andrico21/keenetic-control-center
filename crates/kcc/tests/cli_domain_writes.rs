@@ -29,3 +29,5 @@ mod link;
 mod secrets;
 #[path = "cli/support.rs"]
 mod support;
+#[path = "cli_domain_writes/system.rs"]
+mod system;

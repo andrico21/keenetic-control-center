@@ -87,6 +87,50 @@ async fn hostname_silent_noop_is_detectable_by_verification_spec() -> Result<(),
 }
 
 #[tokio::test]
+async fn hostname_and_timezone_writes_verify_and_reach_running_config() -> Result<(), Box<dyn Error>>
+{
+    for firmware in [Firmware::V4_3, Firmware::V5_1] {
+        let fixture = Fixture::spawn(firmware, FaultInjection::default()).await?;
+        let mut changes = fixture
+            .workflow
+            .begin(
+                "router",
+                Actor::new(ActorKind::Cli, "test".to_owned()),
+                &admin_role(),
+                None,
+                false,
+            )
+            .await?;
+
+        let _hostname = changes
+            .apply(system::change_request(&system::plan_hostname(
+                &fixture.context,
+                "changed-host",
+            )?)?)
+            .await?;
+        let _timezone = changes
+            .apply(system::change_request(&system::plan_timezone(
+                &fixture.context,
+                "Europe/Berlin",
+            )?)?)
+            .await?;
+
+        let running = fixture.handle.running_config_text();
+        assert!(
+            running.contains("system hostname changed-host"),
+            "{running}"
+        );
+        assert!(
+            running.contains("system clock timezone Europe/Berlin"),
+            "{running}"
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn timezone_plans_the_catalog_locality_argument() -> Result<(), Box<dyn Error>> {
     for firmware in [Firmware::V4_3, Firmware::V5_1] {
         let fixture = Fixture::spawn(firmware, FaultInjection::default()).await?;

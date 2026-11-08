@@ -1,13 +1,17 @@
 //! Secret-safe JSON projections of mutable CLI configuration.
 
 mod interface;
+mod system;
 
 use alloc::collections::BTreeMap;
 
 use kcc_config::config_text::{Ast, Token, flatten};
 use serde_json::{Map, Value, json};
 
-use self::interface::interfaces;
+use self::{
+    interface::interfaces,
+    system::{clock_show, system, system_show},
+};
 
 /// Builds mutable `show rc` or `show sc` fields.
 pub(super) fn configuration(ast: &Ast) -> Value {
@@ -42,6 +46,7 @@ pub(super) fn configuration(ast: &Ast) -> Value {
     insert_path(&mut root, &["dns-proxy"], dns_proxy(&command_lines));
     insert_path(&mut root, &["user"], users(&command_lines));
     insert_path(&mut root, &["service"], services(&command_lines));
+    insert_path(&mut root, &["system"], system(&command_lines));
     insert_path(
         &mut root,
         &["access-list"],
@@ -69,6 +74,14 @@ pub(super) fn show(ast: &Ast, path: &str, fixture: Option<&Value>) -> Option<Val
         "interface" => Some(overlay(
             fixture.cloned().unwrap_or_else(empty_object),
             interfaces(&command_lines),
+        )),
+        "system" => Some(overlay(
+            fixture.cloned().unwrap_or_else(empty_object),
+            system_show(&command_lines),
+        )),
+        "clock/date" => Some(overlay(
+            fixture.cloned().unwrap_or_else(empty_object),
+            clock_show(&command_lines),
         )),
         _ => None,
     }
