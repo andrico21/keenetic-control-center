@@ -4,8 +4,9 @@
 //!
 //! Account changes are management changes (a router account may be the one kcc or a
 //! person signs in with): they need `ManageUsers` and `Destructive` and run inside the
-//! router's fail-safe timer. The account kcc signs in with cannot be deleted. Passwords
-//! are not set here yet (see `user_forms`).
+//! router's fail-safe timer. The account kcc signs in with cannot be deleted, nor its
+//! password changed. Set password opens the write-only password dialog
+//! (`secret_pages`); no page shows a password.
 
 use askama::Template;
 use axum::{
@@ -71,10 +72,8 @@ pub(crate) struct Region {
     router: String,
     /// The accounts shown.
     table: Table<Account>,
-    /// Whether the role may change tags.
-    edit_tags: bool,
-    /// Whether the role may delete accounts.
-    delete: bool,
+    /// The row actions the role may use.
+    actions: RowActions,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -82,6 +81,24 @@ pub(crate) struct Region {
 impl Localize for Region {
     fn shell(&self) -> &Shell {
         &self.shell
+    }
+}
+
+/// The row actions a role may use on the accounts.
+#[derive(Debug, Clone, Copy)]
+struct RowActions {
+    /// Edit tags.
+    edit_tags: bool,
+    /// Set password (not on the account kcc signs in with).
+    set_password: bool,
+    /// Delete (not on the account kcc signs in with).
+    delete: bool,
+}
+
+impl RowActions {
+    /// Whether the rows have any action.
+    const fn any(self) -> bool {
+        self.edit_tags || self.set_password || self.delete
     }
 }
 
@@ -156,6 +173,14 @@ impl Region {
     fn delete_url(&self, account: &Account) -> String {
         super::shared::with_query(
             &format!("/ui/r/{}/system/users/delete", self.router),
+            &[("name", &account.name)],
+        )
+    }
+
+    /// The password dialog of `account`.
+    fn password_url(&self, account: &Account) -> String {
+        super::shared::with_query(
+            &format!("/ui/r/{}/system/users/password", self.router),
             &[("name", &account.name)],
         )
     }
@@ -246,8 +271,11 @@ impl<'call> Viewer<'call> {
                 &self.query,
                 format!("/ui/r/{}/system/users", self.router),
             ),
-            edit_tags: controls.allows("set_tag"),
-            delete: controls.allows("delete"),
+            actions: RowActions {
+                edit_tags: controls.allows("set_tag"),
+                set_password: controls.allows("set_password"),
+                delete: controls.allows("delete"),
+            },
             oob: false,
         }
     }

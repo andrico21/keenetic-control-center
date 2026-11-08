@@ -51,6 +51,8 @@ enum Kind {
     Select,
     /// Radio buttons.
     Radio,
+    /// A write-only secret: always shown empty, never filled with a value.
+    Secret,
 }
 
 /// One option of a select or a radio group.
@@ -227,6 +229,11 @@ impl FormDialog {
         self.input((name, label), Kind::File, Vec::new())
     }
 
+    /// Adds a write-only secret input `name` labelled `label`; it is never filled.
+    pub(crate) fn secret(self, name: &'static str, label: MessageKey) -> Self {
+        self.input((name, label), Kind::Secret, Vec::new())
+    }
+
     /// Carries `name` along, not shown; its value comes with [`FormDialog::values`].
     pub(crate) fn hidden(self, name: &'static str) -> Self {
         self.input((name, keys::WEB_DNS_NONE), Kind::Hidden, Vec::new())
@@ -265,10 +272,10 @@ impl FormDialog {
         self
     }
 
-    /// Fills every input with its submitted value.
+    /// Fills every input with its submitted value; files and secrets stay empty.
     pub(crate) fn values(mut self, values: &Values) -> Self {
         for input in &mut self.inputs {
-            if input.kind != Kind::File {
+            if !matches!(input.kind, Kind::File | Kind::Secret) {
                 values.get(input.name).clone_into(&mut input.value);
             }
         }

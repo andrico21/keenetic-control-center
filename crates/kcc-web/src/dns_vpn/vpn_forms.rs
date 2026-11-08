@@ -164,7 +164,9 @@ impl VpnForm {
                 .text("allowed", keys::WEB_VPN_ALLOWED_ADD)
                 .help(keys::WEB_VPN_ALLOWED_HELP)
                 .text("keepalive", keys::WEB_VPN_KEEPALIVE)
-                .help(keys::WEB_VPN_KEEPALIVE_HELP),
+                .help(keys::WEB_VPN_KEEPALIVE_HELP)
+                .secret("psk", keys::WEB_VPN_PRESHARED)
+                .help(keys::WEB_SECRET_PEER_HELP),
             Self::Pool(server) => FormDialog::new(locale, server.title(), post_to)
                 .hidden("server")
                 .text("begin", keys::WEB_VPN_POOL_BEGIN)

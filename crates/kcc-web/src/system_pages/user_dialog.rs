@@ -3,7 +3,8 @@
 //!
 //! The dialog shows the tags the router's catalog offers as checkboxes, explains the
 //! fail-safe timer, and its Apply confirms the management change. The submitted name and
-//! tags are checked here before anything is sent.
+//! tags are checked here before anything is sent. Adding an account also offers its
+//! password in two write-only fields, which never show a value.
 
 use askama::Template;
 use axum::{
@@ -58,6 +59,8 @@ pub(crate) struct UserDialog {
     choices: Vec<TagChoice>,
     /// Localized error under the tags; empty when none.
     tags_error: String,
+    /// Localized error under the password; empty when none.
+    password_error: String,
     /// The fail-safe explanation.
     fail_safe: String,
     /// The submit button.
@@ -111,6 +114,7 @@ impl UserDialog {
                 })
                 .collect(),
             tags_error: String::new(),
+            password_error: String::new(),
             fail_safe: tr(locale, keys::WEB_SYSTEM_USERS_FAIL_SAFE, Some(&args)),
             submit: keys::WEB_SYSTEM_USERS_ADD,
         }
@@ -163,6 +167,7 @@ impl UserDialog {
         match field {
             Field::Name => self.name_error = message,
             Field::Tags => self.tags_error = message,
+            Field::Password => self.password_error = message,
         }
         respond::in_dialog(respond::unprocessable(&self)).into()
     }
@@ -175,6 +180,8 @@ pub(crate) enum Field {
     Name,
     /// The tags.
     Tags,
+    /// The new account's password and its repetition.
+    Password,
 }
 
 /// `GET /ui/r/{router}/system/users/new`: the add dialog.

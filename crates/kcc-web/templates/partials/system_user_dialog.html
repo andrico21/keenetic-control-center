@@ -1,5 +1,6 @@
-{#- Add a router account or change its tags: the name, the tag checkboxes and the fail-safe note. Apply confirms the management change; the server checks the confirmation again. -#}
+{#- Add a router account or change its tags: the name, the tag checkboxes, the new account's optional password in write-only fields (never a value) and the fail-safe note. Apply confirms the management change; the server checks the confirmation again. -#}
 {%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
 {% call ui::dialog_body(title) %}
 <form class="form" hx-post="{{ post_to }}" hx-target="#page-outcome">
   <input type="hidden" name="confirm" value="yes">
@@ -22,7 +23,8 @@
   </fieldset>
   {%- endif %}
   {%- if fixed_name.is_none() %}
-  <p class="field__help">{{ t(keys::WEB_SYSTEM_USERS_NO_PASSWORD) }}</p>
+  {{ kit::secret_field("user-password", "secret", t(keys::WEB_SECRET_PASSWORD), "", t(keys::WEB_SECRET_ADD_HELP)) }}
+  {{ kit::secret_field("user-password-again", "secret_again", t(keys::WEB_SECRET_REPEAT), password_error, "") }}
   {%- endif %}
   <p class="dialog__text">{{ fail_safe }}</p>
   <div class="dialog__actions">

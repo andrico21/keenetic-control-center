@@ -105,7 +105,8 @@ fn settings_facts(subject: Subject<'_>, link: &Link, controls: &Controls) -> Vec
                 "wan-password",
                 keys::WEB_INTERNET_PASSWORD,
                 Some(link.presence_text(locale, false)),
-            ),
+            )
+            .editable(edit("password", "internet/password")),
             fact(
                 "wan-default-route",
                 keys::WEB_INTERNET_DEFAULT_ROUTE,

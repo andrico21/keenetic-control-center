@@ -1,5 +1,5 @@
 //! The VPN connection tabs: the connections table and a WireGuard connection's peers,
-//! each with the actions the role may use.
+//! each with the actions the role may use, credentials included (write-only dialogs).
 
 use kcc_domain::vpn_clients::{VpnClientStatus, VpnClientType};
 use kcc_i18n::{
@@ -17,7 +17,10 @@ use super::{
     region::{Panel, Region, TableView},
     vpn_read::{allowed, details, endpoint, is_up, type_label},
 };
-use crate::table::{Direction, Sort, rows::Table};
+use crate::{
+    secret_pages::vpn_credential::Kind,
+    table::{Direction, Sort, rows::Table},
+};
 
 /// The connections table.
 #[derive(Debug, Clone, Copy)]
@@ -123,6 +126,13 @@ pub(crate) fn connections(clients: &[VpnClientStatus], viewer: &Viewer) -> (Regi
             {
                 let href = viewer.href(&format!("vpn/peers/{name}"));
                 line = line.with(Act::link(locale, keys::WEB_VPN_PEERS, href));
+            }
+            for (kind, object) in Kind::offered(client) {
+                if viewer.allows(kind.write()) {
+                    let pairs = [("kind", kind.slug()), ("name", object.as_str())];
+                    let href = with_query(viewer, "vpn/credential", &pairs);
+                    line = line.with(Act::open(locale, kind.action(), href));
+                }
             }
             if viewer.allows("delete") {
                 let href = with_query(viewer, "vpn/delete", &named);

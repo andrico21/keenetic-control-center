@@ -13,7 +13,7 @@
         <tr>
           {{ ui::sort_header(t(keys::WEB_SYSTEM_USERS_NAME), table.header("name")) }}
           {{ ui::sort_header(t(keys::WEB_SYSTEM_USERS_TAGS), table.header("tags")) }}
-          {%- if edit_tags || delete %}
+          {%- if actions.any() %}
           <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_SYSTEM_ACTIONS) }}</span></th>
           {%- endif %}
         </tr>
@@ -23,13 +23,16 @@
         <tr>
           <th scope="row" id="user-{{ loop.index }}"><span class="mono">{{ row.name() }}</span>{% if row.signs_in() %} <span class="flag" data-tone="info">{{ t(keys::WEB_SYSTEM_USERS_KCC_LOGIN) }}</span>{% endif %}</th>
           <td>{% if row.untagged() %}<span class="muted">{{ t(keys::WEB_SYSTEM_USERS_NO_TAGS) }}</span>{% else %}<span class="mono">{{ row.tag_list() }}</span>{% endif %}</td>
-          {%- if edit_tags || delete %}
+          {%- if actions.any() %}
           <td>
             <div class="admin-actions">
-              {%- if edit_tags %}
+              {%- if actions.edit_tags %}
               <button class="button button--ghost" type="button" hx-get="{{ tags_url(row) }}" hx-target="#dialog-content" aria-describedby="user-{{ loop.index }}">{{ t(keys::WEB_SYSTEM_USERS_EDIT_TAGS) }}</button>
               {%- endif %}
-              {%- if delete && !row.signs_in() %}
+              {%- if actions.set_password && !row.signs_in() %}
+              <button class="button button--ghost" type="button" hx-get="{{ password_url(row) }}" hx-target="#dialog-content" aria-describedby="user-{{ loop.index }}">{{ t(keys::WEB_SECRET_SET_PASSWORD) }}</button>
+              {%- endif %}
+              {%- if actions.delete && !row.signs_in() %}
               <button class="button button--danger-ghost" type="button" hx-get="{{ delete_url(row) }}" hx-target="#dialog-content" aria-describedby="user-{{ loop.index }}">{{ t(keys::COMMON_DELETE) }}</button>
               {%- endif %}
             </div>

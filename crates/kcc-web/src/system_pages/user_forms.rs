@@ -6,11 +6,10 @@
 //! kit's dialog, which sends the request again with the submitted names in its query
 //! string (names and tags are not secrets).
 //!
-//! Passwords: the domain cannot set a router-account password yet (its secret-safe write
-//! is being added to `router_users` by another change). When `router_users::plan_password`
-//! lands, the add dialog gets a `kit::secret_field`, and `create` appends that plan's
-//! request to the same change; the password must never travel in the query string, so
-//! that form keeps its own confirmation instead of the kit's resubmitted one.
+//! The add dialog also takes an optional password, typed twice into write-only fields
+//! (`kit::secret_field`); `create` appends the domain's protected password write to the
+//! same change. A password never travels in a query string: a request carrying one must
+//! already hold the dialog's confirmation, or nothing is sent.
 
 use axum::{
     Form,
@@ -22,9 +21,10 @@ use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
 use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, DomainError, Result as DomainResult, RouterCtx, router_users};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use secrecy::SecretString;
 
 use super::{
-    shared::{answer, merged, missing, shown_query, value, values, with_query},
+    shared::{answer, merged, missing, profile_login, shown_query, value, values, with_query},
     user_dialog::{Field, UserDialog, check},
     users::{Account, Viewer, accounts, offered_tags},
 };
@@ -40,6 +40,7 @@ use crate::{
         outcome::Outcome,
         respond::Answer,
     },
+    secret_pages::dialog::{Entry, entry},
 };
 
 /// Adding an account, audited as `web.router_user_create`.
@@ -65,8 +66,9 @@ pub(crate) async fn create(
     RawQuery(query): RawQuery,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(form): Form<Vec<(String, String)>>,
+    Form(mut form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
+    let typed = entry(&mut form);
     let pairs = merged(query.as_deref(), form);
     let action = CREATE.open(&state, &user, &router).await?;
     let locale = action.locale();
@@ -78,6 +80,21 @@ pub(crate) async fn create(
         .adding(&router)
         .naming(&name)
         .checking(&tags);
+    let confirmation = Confirmation::from_pairs(&pairs);
+    let password = match typed {
+        Entry::Keep => None,
+        Entry::New(secret) if confirmation.confirmed() => Some(secret),
+        Entry::New(_) => {
+            action.abandon("confirmation_required").await;
+            let text = tr(locale, keys::WEB_SECRET_CONFIRM, None);
+            return Err(dialog.refused(Field::Password, text));
+        }
+        Entry::Mismatch => {
+            action.abandon("validation_failed").await;
+            let text = tr(locale, keys::WEB_SECRET_MISMATCH, None);
+            return Err(dialog.refused(Field::Password, text));
+        }
+    };
     let problem = match check(&name, &tags, &offered) {
         Err(found) => Some(found),
         Ok(()) if find(&domain, &name).await.is_some() => {
@@ -89,9 +106,11 @@ pub(crate) async fn create(
         action.abandon("validation_failed").await;
         return Err(dialog.refused(field, tr(locale, message, None)));
     }
-    let planned = router_users::plan_create(&domain, &name, &tags)
-        .and_then(|operation| Ok((router_users::change_request(&operation)?, operation.risk)));
-    let (request, risk) = match planned {
+    let login = profile_login(&state, &user, &router)
+        .await
+        .unwrap_or_default();
+    let protected = password.map(|secret| (secret, login.as_str()));
+    let (request, risk) = match plan_account(&domain, (&name, &tags), protected) {
         Ok(found) => found,
         Err(error) => {
             action.abandon("validation_failed").await;
@@ -104,7 +123,7 @@ pub(crate) async fn create(
         with_query(&format!("/ui/r/{router}/system/users"), &resubmitted),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(risk, &Confirmation::from_pairs(&pairs), resubmit) {
+    if let Some(prompt) = action.confirm(risk, &confirmation, resubmit) {
         return Ok(prompt);
     }
     let outcome = action.run(risk, Change::Cli(request)).await;
@@ -200,6 +219,37 @@ pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Option<Account> {
         .ok()?
         .into_iter()
         .find(|account| account.name() == name)
+}
+
+/// One change adding the account `name` with `tags` and, when typed, its password.
+///
+/// The password comes with the login kcc signs in with, which the domain refuses; its
+/// protected write joins the same change, with its read-back.
+///
+/// # Errors
+///
+/// Returns the domain's refusal or the catalog's findings.
+fn plan_account(
+    domain: &RouterCtx,
+    (name, tags): (&str, &[&str]),
+    password: Option<(SecretString, &str)>,
+) -> DomainResult<(CliChangeRequest, Risk)> {
+    let created = router_users::plan_create(domain, name, tags)?;
+    let Some((secret, login)) = password else {
+        return Ok((router_users::change_request(&created)?, created.risk));
+    };
+    let protected = router_users::plan_password(domain, name, login, secret)?;
+    let risk = created.risk.max(protected.risk);
+    let mut requests = created.requests;
+    requests.extend(protected.requests.into_iter().skip(1));
+    let operation = ChangeOp::new(
+        requests,
+        protected.verify,
+        risk,
+        protected.permission,
+        false,
+    );
+    Ok((router_users::change_request(&operation)?, risk))
 }
 
 /// One change setting `changes` (tag, wanted) on the account `name`: the account's

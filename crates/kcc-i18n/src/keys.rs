@@ -3593,12 +3593,6 @@ pub const WEB_VPN_CONF_ALLOWED: MessageKey = MessageKey::new("web-vpn-conf-allow
 /// `web-vpn-conf-endpoint` in `web.ftl`.
 pub const WEB_VPN_CONF_ENDPOINT: MessageKey = MessageKey::new("web-vpn-conf-endpoint");
 
-/// `web-vpn-skip-private-key` in `web.ftl`.
-pub const WEB_VPN_SKIP_PRIVATE_KEY: MessageKey = MessageKey::new("web-vpn-skip-private-key");
-
-/// `web-vpn-skip-preshared-key` in `web.ftl`.
-pub const WEB_VPN_SKIP_PRESHARED_KEY: MessageKey = MessageKey::new("web-vpn-skip-preshared-key");
-
 /// `web-vpn-skip-address` in `web.ftl`.
 pub const WEB_VPN_SKIP_ADDRESS: MessageKey = MessageKey::new("web-vpn-skip-address");
 
@@ -3667,10 +3661,6 @@ pub const WEB_SYSTEM_USERS_EDIT_TAGS: MessageKey = MessageKey::new("web-system-u
 
 /// `web-system-users-empty` in `web.ftl`.
 pub const WEB_SYSTEM_USERS_EMPTY: MessageKey = MessageKey::new("web-system-users-empty");
-
-/// `web-system-users-no-password` in `web.ftl`.
-pub const WEB_SYSTEM_USERS_NO_PASSWORD: MessageKey =
-    MessageKey::new("web-system-users-no-password");
 
 /// `web-system-users-fail-safe` in `web.ftl`.
 pub const WEB_SYSTEM_USERS_FAIL_SAFE: MessageKey = MessageKey::new("web-system-users-fail-safe");
@@ -6405,8 +6395,132 @@ pub const WEB_SEGMENTS_DELETE_GONE: MessageKey = MessageKey::new("web-segments-d
 /// `web-segments-read-error` in `web.ftl`.
 pub const WEB_SEGMENTS_READ_ERROR: MessageKey = MessageKey::new("web-segments-read-error");
 
+/// `web-secret-new-password` in `web.ftl`.
+pub const WEB_SECRET_NEW_PASSWORD: MessageKey = MessageKey::new("web-secret-new-password");
+
+/// `web-secret-new-key` in `web.ftl`.
+pub const WEB_SECRET_NEW_KEY: MessageKey = MessageKey::new("web-secret-new-key");
+
+/// `web-secret-password` in `web.ftl`.
+pub const WEB_SECRET_PASSWORD: MessageKey = MessageKey::new("web-secret-password");
+
+/// `web-secret-repeat` in `web.ftl`.
+pub const WEB_SECRET_REPEAT: MessageKey = MessageKey::new("web-secret-repeat");
+
+/// `web-secret-keep-help` in `web.ftl`.
+pub const WEB_SECRET_KEEP_HELP: MessageKey = MessageKey::new("web-secret-keep-help");
+
+/// `web-secret-mismatch` in `web.ftl`.
+pub const WEB_SECRET_MISMATCH: MessageKey = MessageKey::new("web-secret-mismatch");
+
+/// `web-secret-unchanged` in `web.ftl`.
+pub const WEB_SECRET_UNCHANGED: MessageKey = MessageKey::new("web-secret-unchanged");
+
+/// `web-secret-confirm` in `web.ftl`.
+pub const WEB_SECRET_CONFIRM: MessageKey = MessageKey::new("web-secret-confirm");
+
+/// `web-secret-done` in `web.ftl`.
+pub const WEB_SECRET_DONE: MessageKey = MessageKey::new("web-secret-done");
+
+/// `web-secret-wifi-title` in `web.ftl`.
+pub const WEB_SECRET_WIFI_TITLE: MessageKey = MessageKey::new("web-secret-wifi-title");
+
+/// `web-secret-wifi-intro` in `web.ftl`.
+pub const WEB_SECRET_WIFI_INTRO: MessageKey = MessageKey::new("web-secret-wifi-intro");
+
+/// `web-secret-wifi-help` in `web.ftl`.
+pub const WEB_SECRET_WIFI_HELP: MessageKey = MessageKey::new("web-secret-wifi-help");
+
+/// `web-secret-wifi-rule` in `web.ftl`.
+pub const WEB_SECRET_WIFI_RULE: MessageKey = MessageKey::new("web-secret-wifi-rule");
+
+/// `web-secret-wan-title` in `web.ftl`.
+pub const WEB_SECRET_WAN_TITLE: MessageKey = MessageKey::new("web-secret-wan-title");
+
+/// `web-secret-wan-help` in `web.ftl`.
+pub const WEB_SECRET_WAN_HELP: MessageKey = MessageKey::new("web-secret-wan-help");
+
+/// `web-secret-user-title` in `web.ftl`.
+pub const WEB_SECRET_USER_TITLE: MessageKey = MessageKey::new("web-secret-user-title");
+
+/// `web-secret-user-help` in `web.ftl`.
+pub const WEB_SECRET_USER_HELP: MessageKey = MessageKey::new("web-secret-user-help");
+
+/// `web-secret-user-protected` in `web.ftl`.
+pub const WEB_SECRET_USER_PROTECTED: MessageKey = MessageKey::new("web-secret-user-protected");
+
+/// `web-secret-add-help` in `web.ftl`.
+pub const WEB_SECRET_ADD_HELP: MessageKey = MessageKey::new("web-secret-add-help");
+
+/// `web-secret-set-password` in `web.ftl`.
+pub const WEB_SECRET_SET_PASSWORD: MessageKey = MessageKey::new("web-secret-set-password");
+
+/// `web-secret-set-ipsec` in `web.ftl`.
+pub const WEB_SECRET_SET_IPSEC: MessageKey = MessageKey::new("web-secret-set-ipsec");
+
+/// `web-secret-set-psk` in `web.ftl`.
+pub const WEB_SECRET_SET_PSK: MessageKey = MessageKey::new("web-secret-set-psk");
+
+/// `web-secret-set-xauth` in `web.ftl`.
+pub const WEB_SECRET_SET_XAUTH: MessageKey = MessageKey::new("web-secret-set-xauth");
+
+/// `web-secret-set-account` in `web.ftl`.
+pub const WEB_SECRET_SET_ACCOUNT: MessageKey = MessageKey::new("web-secret-set-account");
+
+/// `web-secret-vpn-password-title` in `web.ftl`.
+pub const WEB_SECRET_VPN_PASSWORD_TITLE: MessageKey =
+    MessageKey::new("web-secret-vpn-password-title");
+
+/// `web-secret-vpn-ipsec-title` in `web.ftl`.
+pub const WEB_SECRET_VPN_IPSEC_TITLE: MessageKey = MessageKey::new("web-secret-vpn-ipsec-title");
+
+/// `web-secret-vpn-profile-title` in `web.ftl`.
+pub const WEB_SECRET_VPN_PROFILE_TITLE: MessageKey =
+    MessageKey::new("web-secret-vpn-profile-title");
+
+/// `web-secret-vpn-xauth-title` in `web.ftl`.
+pub const WEB_SECRET_VPN_XAUTH_TITLE: MessageKey = MessageKey::new("web-secret-vpn-xauth-title");
+
+/// `web-secret-ike-title` in `web.ftl`.
+pub const WEB_SECRET_IKE_TITLE: MessageKey = MessageKey::new("web-secret-ike-title");
+
+/// `web-secret-ike-intro` in `web.ftl`.
+pub const WEB_SECRET_IKE_INTRO: MessageKey = MessageKey::new("web-secret-ike-intro");
+
+/// `web-secret-ike-name` in `web.ftl`.
+pub const WEB_SECRET_IKE_NAME: MessageKey = MessageKey::new("web-secret-ike-name");
+
+/// `web-secret-ike-name-help` in `web.ftl`.
+pub const WEB_SECRET_IKE_NAME_HELP: MessageKey = MessageKey::new("web-secret-ike-name-help");
+
+/// `web-secret-ike-name-error` in `web.ftl`.
+pub const WEB_SECRET_IKE_NAME_ERROR: MessageKey = MessageKey::new("web-secret-ike-name-error");
+
+/// `web-secret-vpn-account-title` in `web.ftl`.
+pub const WEB_SECRET_VPN_ACCOUNT_TITLE: MessageKey =
+    MessageKey::new("web-secret-vpn-account-title");
+
+/// `web-secret-vpn-account-intro` in `web.ftl`.
+pub const WEB_SECRET_VPN_ACCOUNT_INTRO: MessageKey =
+    MessageKey::new("web-secret-vpn-account-intro");
+
+/// `web-secret-vpn-no-account` in `web.ftl`.
+pub const WEB_SECRET_VPN_NO_ACCOUNT: MessageKey = MessageKey::new("web-secret-vpn-no-account");
+
+/// `web-secret-account` in `web.ftl`.
+pub const WEB_SECRET_ACCOUNT: MessageKey = MessageKey::new("web-secret-account");
+
+/// `web-secret-account-help` in `web.ftl`.
+pub const WEB_SECRET_ACCOUNT_HELP: MessageKey = MessageKey::new("web-secret-account-help");
+
+/// `web-secret-peer-help` in `web.ftl`.
+pub const WEB_SECRET_PEER_HELP: MessageKey = MessageKey::new("web-secret-peer-help");
+
+/// `web-secret-import-done` in `web.ftl`.
+pub const WEB_SECRET_IMPORT_DONE: MessageKey = MessageKey::new("web-secret-import-done");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2044] = [
+pub static ALL: [MessageKey; 2081] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -7580,8 +7694,6 @@ pub static ALL: [MessageKey; 2044] = [
     WEB_VPN_CONF_INVALID,
     WEB_VPN_CONF_ALLOWED,
     WEB_VPN_CONF_ENDPOINT,
-    WEB_VPN_SKIP_PRIVATE_KEY,
-    WEB_VPN_SKIP_PRESHARED_KEY,
     WEB_VPN_SKIP_ADDRESS,
     WEB_VPN_SKIP_DNS,
     WEB_VPN_SKIP_ASC,
@@ -7605,7 +7717,6 @@ pub static ALL: [MessageKey; 2044] = [
     WEB_SYSTEM_USERS_KCC_LOGIN,
     WEB_SYSTEM_USERS_EDIT_TAGS,
     WEB_SYSTEM_USERS_EMPTY,
-    WEB_SYSTEM_USERS_NO_PASSWORD,
     WEB_SYSTEM_USERS_FAIL_SAFE,
     WEB_SYSTEM_USERS_PROTECTED,
     WEB_SYSTEM_USERS_DELETE_TITLE,
@@ -8451,4 +8562,44 @@ pub static ALL: [MessageKey; 2044] = [
     WEB_SEGMENTS_DELETE_CHANGED,
     WEB_SEGMENTS_DELETE_GONE,
     WEB_SEGMENTS_READ_ERROR,
+    WEB_SECRET_NEW_PASSWORD,
+    WEB_SECRET_NEW_KEY,
+    WEB_SECRET_PASSWORD,
+    WEB_SECRET_REPEAT,
+    WEB_SECRET_KEEP_HELP,
+    WEB_SECRET_MISMATCH,
+    WEB_SECRET_UNCHANGED,
+    WEB_SECRET_CONFIRM,
+    WEB_SECRET_DONE,
+    WEB_SECRET_WIFI_TITLE,
+    WEB_SECRET_WIFI_INTRO,
+    WEB_SECRET_WIFI_HELP,
+    WEB_SECRET_WIFI_RULE,
+    WEB_SECRET_WAN_TITLE,
+    WEB_SECRET_WAN_HELP,
+    WEB_SECRET_USER_TITLE,
+    WEB_SECRET_USER_HELP,
+    WEB_SECRET_USER_PROTECTED,
+    WEB_SECRET_ADD_HELP,
+    WEB_SECRET_SET_PASSWORD,
+    WEB_SECRET_SET_IPSEC,
+    WEB_SECRET_SET_PSK,
+    WEB_SECRET_SET_XAUTH,
+    WEB_SECRET_SET_ACCOUNT,
+    WEB_SECRET_VPN_PASSWORD_TITLE,
+    WEB_SECRET_VPN_IPSEC_TITLE,
+    WEB_SECRET_VPN_PROFILE_TITLE,
+    WEB_SECRET_VPN_XAUTH_TITLE,
+    WEB_SECRET_IKE_TITLE,
+    WEB_SECRET_IKE_INTRO,
+    WEB_SECRET_IKE_NAME,
+    WEB_SECRET_IKE_NAME_HELP,
+    WEB_SECRET_IKE_NAME_ERROR,
+    WEB_SECRET_VPN_ACCOUNT_TITLE,
+    WEB_SECRET_VPN_ACCOUNT_INTRO,
+    WEB_SECRET_VPN_NO_ACCOUNT,
+    WEB_SECRET_ACCOUNT,
+    WEB_SECRET_ACCOUNT_HELP,
+    WEB_SECRET_PEER_HELP,
+    WEB_SECRET_IMPORT_DONE,
 ];

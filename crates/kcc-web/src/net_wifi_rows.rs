@@ -104,19 +104,16 @@ pub(crate) struct ApRow {
 }
 
 impl ApRow {
-    /// The row of `point`, reported under `id`, in `segment`.
-    fn new(id: String, point: &AccessPoint, segment: Option<String>) -> Self {
+    /// The row of `point`, reported under `id`, in `segment`, `password` saying whether a
+    /// Wi-Fi password is stored.
+    fn new(id: String, point: &AccessPoint, (segment, password): (Option<String>, bool)) -> Self {
         Self {
             ssid: point.ssid.clone(),
             enabled: point.state.as_deref().map(|state| state == "up"),
             hidden: point.hide_ssid,
             schedule: point.schedule.clone().filter(|name| !name.is_empty()),
             security: scalar(point.extra.get("encryption")),
-            password: point
-                .extra
-                .get("authentication")
-                .and_then(|authentication| authentication.get("wpa-psk"))
-                .is_some(),
+            password,
             segment,
             id,
         }
@@ -225,11 +222,18 @@ pub(crate) async fn access_points(domain: &RouterCtx) -> Result<Vec<ApRow>, Doma
         .into_iter()
         .filter(|(_, interface)| interface.kind.as_deref() == Some("AccessPoint"))
         .filter_map(|(id, interface)| {
+            // `AccessPoint` drops the authentication member at the read boundary, so whether
+            // a password is stored is taken here first, by presence only.
+            let password = interface
+                .extra
+                .get("authentication")
+                .and_then(|authentication| authentication.get("wpa-psk"))
+                .is_some();
             let point: AccessPoint = serde_json::to_value(&interface)
                 .ok()
                 .and_then(|value| serde_json::from_value(value).ok())?;
             let segment = segments.get(&id).cloned();
-            Some(ApRow::new(id, &point, segment))
+            Some(ApRow::new(id, &point, (segment, password)))
         })
         .collect())
 }

@@ -1,5 +1,6 @@
 //! What a WireGuard `.conf` file says to the import: the connection's name and the parsed
-//! file, the field errors that stop it, and the notes on what the router does not get.
+//! file, the field errors that stop it, whether it holds keys, and the notes on what the
+//! router does not get.
 //!
 //! An error names a line and a WireGuard field, never a value taken from the file.
 
@@ -18,12 +19,13 @@ use secrecy::{ExposeSecret as _, SecretString};
 use super::check;
 
 /// WireGuard field and section names a parse error may name back to the user.
-const NAMED: [&str; 27] = [
+const NAMED: [&str; 28] = [
     "[Interface]",
     "[Peer]",
     "PrivateKey",
     "PublicKey",
     "PresharedKey",
+    "ObfsKey",
     "ListenPort",
     "Address",
     "DNS",
@@ -151,19 +153,22 @@ fn routable(config: &WireGuardConfig, locale: Locale) -> Vec<String> {
     problems
 }
 
+/// Whether the file holds a key the import sends: the private key, a preshared key or an
+/// obfuscation key.
+pub(crate) fn keyed(config: &WireGuardConfig) -> bool {
+    config.interface.private_key.is_some()
+        || config.interface.obfuscation_key.is_some()
+        || config
+            .peers
+            .iter()
+            .any(|peer| peer.preshared_key.is_some() || peer.obfuscation_key.is_some())
+}
+
 /// What the import leaves out of the file, as notes for the outcome.
 pub(crate) fn skipped(config: &WireGuardConfig, locale: Locale) -> Vec<String> {
     let interface = &config.interface;
     let peers = &config.peers;
-    let left: [(bool, MessageKey); 5] = [
-        (
-            interface.private_key.is_some(),
-            keys::WEB_VPN_SKIP_PRIVATE_KEY,
-        ),
-        (
-            peers.iter().any(|peer| peer.preshared_key.is_some()),
-            keys::WEB_VPN_SKIP_PRESHARED_KEY,
-        ),
+    let left: [(bool, MessageKey); 3] = [
         (!interface.addresses.is_empty(), keys::WEB_VPN_SKIP_ADDRESS),
         (!interface.dns.is_empty(), keys::WEB_VPN_SKIP_DNS),
         (

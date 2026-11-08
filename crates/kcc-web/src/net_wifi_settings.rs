@@ -133,6 +133,11 @@ fn point_dialog(subject: Subject<'_>, point: &ApRow, controls: &Controls) -> Set
                 "ap-password",
                 keys::WEB_WIFI_PSK,
                 Some(point.password_text(locale)),
+            )
+            .editable(
+                controls
+                    .allows("wpa_psk")
+                    .then(|| subject.url("wifi/psk", &[])),
             ),
             fact(
                 "ap-hidden",

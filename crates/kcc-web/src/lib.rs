@@ -102,6 +102,7 @@ mod router_form;
 mod routers;
 mod routing_page;
 mod save;
+mod secret_pages;
 mod system_general;
 mod system_pages;
 mod telemetry;
@@ -452,6 +453,7 @@ pub fn web_router(state: WebState) -> Router {
         .merge(routing_page::wiring::routes())
         .merge(nat_page::wiring::routes())
         .merge(firewall_page::wiring::routes())
+        .merge(secret_pages::routes::routes())
         .route(
             "/ui/{*rest}",
             get(pages::section).fallback(pages::not_found),

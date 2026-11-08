@@ -19,6 +19,7 @@ use super::{
     region::Region,
     screen::{Page, Tab, missing},
     vpn_forms::VpnForm,
+    vpn_peer_psk::{self, PeerKey},
     vpn_read::{exists, free_wireguard},
     vpn_servers_tab, vpn_tabs,
 };
@@ -216,6 +217,8 @@ pub(crate) async fn dialog(
 /// `POST /ui/r/{router}/vpn/form/{form}`: checks the values, plans the changes with the
 /// VPN domains, runs them and answers with the outcome and the region read back.
 ///
+/// A peer's preshared key is taken out of the form first and written with the peer.
+///
 /// # Errors
 ///
 /// Answers the dialog with its errors (422) when a value is invalid, and what the kit
@@ -225,8 +228,9 @@ pub(crate) async fn submit(
     Path((router, slug)): Path<(String, String)>,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(pairs): Form<Vec<(String, String)>>,
+    Form(mut pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
+    let psk = vpn_peer_psk::typed(&mut pairs);
     let values = Values::new(pairs);
     let form = VpnForm::from_slug(&slug, &values)
         .filter(|found| *found != VpnForm::Import)
@@ -249,7 +253,14 @@ pub(crate) async fn submit(
             Ok(false)
         }
     };
-    let request = match taken.and_then(|used| Ok((used, planned.request(&ctx)?))) {
+    let peer_key = psk
+        .filter(|_| form == VpnForm::Peer)
+        .map(|key| PeerKey::new(&values, key));
+    let written = planned.request(&ctx).and_then(|request| match peer_key {
+        Some(key) => key.joined(request, &ctx),
+        None => Ok(request),
+    });
+    let request = match taken.and_then(|used| Ok((used, written?))) {
         Ok((false, request)) => request,
         Ok((true, _)) => {
             action.abandon("validation_failed").await;

@@ -2,9 +2,11 @@
 //! client domain's strict parser, checked for what the router can take, and imported
 //! through the change workflow.
 //!
-//! The file's private and preshared keys are parsed into secret strings and never sent,
-//! logged, audited or shown: the router generates the connection's own key pair. An error
-//! names a line and a WireGuard field, never a value taken from the file.
+//! The file's private key, preshared keys and obfuscation keys are parsed into secret
+//! strings and sent only through the VPN client domain's protected requests, whose
+//! read-back checks that the router reports each key, never its value; they are never
+//! logged, audited or shown. Without a private key the router generates the key pair. An
+//! error names a line and a WireGuard field, never a value taken from the file.
 
 use core::str;
 
@@ -17,6 +19,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
+use kcc_catalog::Risk;
 use kcc_domain::vpn_clients;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
@@ -24,6 +27,7 @@ use secrecy::SecretString;
 use super::{
     flow,
     form::{FormDialog, Values},
+    screen::Answered,
     vpn_conf,
     vpn_forms::VpnForm,
     vpn_pages::{Spot, region},
@@ -32,7 +36,10 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    page_kit::{action::Operation, failure::plan_failure, family::Family, respond::Answer},
+    page_kit::{
+        action::Operation, change::Change, failure::plan_failure, family::Family, respond::Answer,
+    },
+    secret_pages::reply::confirmed,
 };
 
 /// Largest import request, file and fields together: 64 KiB.
@@ -124,11 +131,19 @@ pub(crate) async fn import(
     let viewer = Spot::Connections
         .viewer(&ctx, &user, &router)
         .with_query(flow::shown_query(&headers));
-    let answered = flow::apply(action, request, async || {
-        region(&ctx, &Spot::Connections, &viewer).await
-    })
-    .await;
-    Ok(answered.notes(vpn_conf::skipped(&config, locale)).respond())
+    let mut outcome = action.run(Risk::Write, Change::Cli(request)).await;
+    if vpn_conf::keyed(&config) {
+        outcome = confirmed(outcome, tr(locale, keys::WEB_SECRET_IMPORT_DONE, None));
+    }
+    let refreshed = if outcome.succeeded() {
+        Some(region(&ctx, &Spot::Connections, &viewer).await)
+    } else {
+        None
+    };
+    Ok(Answered::new(outcome, locale)
+        .refreshed(refreshed)
+        .notes(vpn_conf::skipped(&config, locale))
+        .respond())
 }
 
 /// The import dialog on `router`, its name field holding `name`.

@@ -354,3 +354,14 @@ pub fn plan_wireguard_import(
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     change::request(operation)
 }
+
+/// Plans one WireGuard peer's preshared key through a protected request; the read-back
+/// checks only that the router reports a key, never its value.
+pub fn plan_wireguard_peer_psk(
+    router: &RouterCtx,
+    name: &str,
+    public_key: &str,
+    key: secrecy::SecretString,
+) -> Result<ChangeOp> {
+    import::peer_preshared(router, name, public_key, key)
+}

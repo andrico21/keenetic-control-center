@@ -24,7 +24,15 @@ your role: pages and buttons you have no permission for are hidden or answer
   typed.
 - **Tables** sort by a column header, filter with the search field and page at the
   bottom. On phones they scroll sideways without a visual cue.
-- **Secrets** (Wi-Fi keys, VPN keys, passwords) show only as Set or Not set.
+- **Secrets** (Wi-Fi keys, VPN keys, passwords) show only as Set or Not set, and the
+  fields that change them are write-only: a dialog asks for the new value twice and
+  never shows the stored one. Leaving both fields empty keeps the stored value and sends
+  nothing. The new value goes only to the router, never into a page, a toast, the audit
+  log (it records field names only) or the server log, and kcc verifies it by reading
+  back that the router reports a stored value of a plausible length, never the value
+  itself. Reading a stored secret is a separate Reveal action where a page offers one:
+  it needs the RevealSecrets permission, is audited whether allowed or not, and shows
+  the value only in its own dialog.
 
 ## Dashboard and fleet
 
@@ -93,9 +101,11 @@ The network area has tabs:
   or security level. Taking down the management interface is a risky change.
 - **Internet** (`/internet`): WAN connections with priority order, default route,
   address mode (DHCP or static), MTU, identity and "connect via"; create and delete
-  connections. Passwords aren't editable here.
+  connections. A PPP connection's (PPPoE, L2TP, PPTP) password is set from its settings
+  (Edit beside Password).
 - **Wi-Fi** (`/wifi`): access points and radios; turn an access point on or off, hide
-  the SSID, edit settings. Pre-shared keys show as Set or Not set.
+  the SSID, edit settings. The Wi-Fi password is set from an access point's settings
+  (Edit beside Wi-Fi password): 8 to 63 characters, checked before anything is sent.
 - **Mesh** (`/mesh`): mesh members with check, update and restart actions.
 
 ## Routing
@@ -133,10 +143,17 @@ offered yet.
 
 `/ui/r/<router>/vpn` lists VPN client connections (turn on or off, delete) and VPN
 servers (service state, address pool, DNS, IPsec). WireGuard connections can be created
-or imported from a `.conf` file: the router generates its own private key, and kcc
-reports which fields of the file it didn't send (private key, preshared key, address,
-DNS, ASC). Peers of a WireGuard tunnel are listed and added on their own page. Client
-types other than WireGuard have no create form, and VPN credentials have no form.
+or imported from a `.conf` file. The import sends the file's private key, preshared keys
+and obfuscation keys to the router and verifies that the router reports each one; a file
+without a private key gets one the router generates. kcc reports which fields of the
+file it didn't send (address, DNS, ASC). Peers of a WireGuard tunnel are listed and
+added on their own page; a peer's preshared key is set in its dialog (left empty, the
+peer keeps its key). Client types other than WireGuard have no create form, but their
+credentials can be set: the password of an L2TP/IPsec, PPTP or SSTP connection, the
+IPsec key of an L2TP/IPsec connection, and the pre-shared key and XAuth password of an
+IPsec connection's profile (row actions). On the servers tab, Set pre-shared key sets
+the IPsec/IKEv2 server's IKE key, and Set an account's password sets the password a
+router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
 
 ## System
 
@@ -147,8 +164,10 @@ types other than WireGuard have no create form, and VPN credentials have no form
 - **General**: host name, description, time zone, NTP server, restart, factory reset.
   Host-name, description and time-zone changes are verified by a fresh read. Their
   simulator projection is documentation-derived; the real firmware shape is unconfirmed.
-- **Router users**: router accounts and their tags; add and delete. kcc refuses to
-  delete the account it logs in with.
+- **Router users**: router accounts and their tags; add (with an optional password),
+  set a password, and delete. These are risky changes run under the fail-safe timer.
+  kcc refuses to delete the account it logs in with or to change its password: change
+  that password on the router, then enter it in kcc with Edit router.
 - **Services**: turn router services on or off.
 - **Components**: installed components; check for updates, queue installs or
   removals, commit (a background job that may reboot the router).

@@ -1131,3 +1131,73 @@ logged in `.omo/evidence/task-70-keenetic-control-center.log`):
 | Reflow and text spacing 1.4.10/1.4.12 | PASS | Sign-in, picker, segments and the delete dialog at 320 px in both themes and at 1280 px, with and without the text-spacing overrides: no sideways scroll, no clipping |
 | Dragging, authentication, help, entry 2.5.7/3.3.8/3.2.6/3.3.7 | PASS | No drag; the sign-in page accepts paste and password managers (plain username and password fields); the typed router name is shown in the help text, not recalled |
 | State-stable controls | PASS | Delete is 75x44 px idle, hovered and focused |
+## Write-only secret fields (todo 71, `src/secret_pages/`)
+
+Supersedes the "Left out on purpose" entries of the todo 37 and 40 briefs about passwords
+(Wi-Fi password, connection password, router-account passwords: they are editable now)
+and the todo 39 note that the import does not send keys and that VPN credentials have no
+form.
+
+Layout (secret dialog, `partials/secret_dialog.html`, `secret_pages::dialog::SecretDialog`):
+the shared `<dialog>` as a centred modal - title, intro (what the secret is for), the
+non-secret field when the secret needs one (an IKE key's name, a VPN account), New
+password or New key, Type it again, the fail-safe note of a management change, Apply;
+scroll owner: the dialog; nested scrollers: none; anti-patterns: a stored value or a mask
+in a field (fields are always empty), the secret in a query string, a Reveal inside the
+dialog, a confirmation dialog stacked over it (a management change's Apply is its
+confirmation, the note above it says so).
+
+- Secret input: the field anatomy (`.field`, label above, help and error below, described
+  by both), `type="password"`, `autocomplete="new-password"`, `autocapitalize="none"`,
+  `spellcheck="false"`, never a `value`; a length rule adds `minlength`, `maxlength` and
+  the localized rule in `data-kcc-invalid` (`app.js` gives it to the browser's check, so
+  an invalid value is never sent). The add-account dialog and the peer dialog use
+  `kit::secret_field` the same way.
+- Entry rule (`dialog::entry`): both fields empty keep the stored value and send nothing
+  (outcome "Nothing was sent", audited `unchanged`); entries that differ come back as 422
+  with the error under the repetition; the typed value moves into a `SecretString` and
+  the repetition is zeroized.
+- Outcome (`reply::verified`): a success toast names the field and says what the
+  read-back checked (the router reports a stored value of a plausible length, never the
+  value) and that the change stays unsaved; a failure stays in `#page-outcome` with the
+  kit's words (`VerificationFailed` names the field).
+- Refusal: the account kcc signs in with gets a warning notice instead of the form (GET)
+  and the same notice as 422 (POST), before any router request.
+
+Page briefs (todo 71):
+
+- Wi-Fi password (`/ui/r/{router}/wifi/psk?name=`, from an access point's settings).
+  Primary action: Apply. Priorities: 1 the new password, 2 its repetition, 3 the 8-63 rule.
+  Left out on purpose: the current password (write-only), a show-password toggle, a
+  strength meter. Required content: title with the access point, intro, New password with
+  the rule as help, Type it again, Apply; the length error (client- and server-side).
+- Connection password (`/ui/r/{router}/internet/password?name=`, PPP connections only).
+  Primary action: Apply. Required content: title with the connection, New password,
+  Type it again, the keep-empty help.
+- Router account password (`/ui/r/{router}/system/users/password?name=`, row action Set
+  password, hidden on kcc's own login). Primary action: Apply (management, confirms).
+  Required content: title with the account, New password, Type it again, the fail-safe
+  note; the refusal for kcc's login. The add-account dialog gains Password and Type it
+  again (optional) in place of the old no-password note.
+- VPN credentials (`/ui/r/{router}/vpn/credential?kind=&name=`): row actions Set password
+  (L2TP/IPsec, PPTP, SSTP), Set IPsec key (L2TP/IPsec), Set pre-shared key and Set XAuth
+  password (IPsec, per profile). Required content: title naming the connection or
+  profile, New password or New key, Type it again.
+- VPN servers: Set pre-shared key on the IPsec/IKEv2 panel (Key name, New key, Type it
+  again) and Set an account's password on the User access panel (Account list without
+  kcc's login, New password, Type it again, the fail-safe note).
+- WireGuard peer dialog: Preshared key (optional, write-only) under the keepalive.
+  WireGuard import: the file's keys are sent and verified; the success toast says so and
+  the notes list only address, DNS and ASC.
+
+Accessibility (section 8, todo 71): every secret input has a visible `<label for>`,
+`type="password"` and `autocomplete="new-password"` (a password manager may fill it, paste
+is never blocked), and `aria-describedby` naming its help and, after a refused try, its
+error, with `aria-invalid="true"`; the refusal for kcc's own login is a `role="alert"`
+notice. A length rule is also `minlength`/`maxlength`, so the browser refuses a short Wi-Fi
+password before anything is sent.
+
+| Item | Location | Why accepted | Owner / Exit |
+|---|---|---|---|
+| Secret dialogs need JavaScript | `partials/secret_dialog.html`, `partials/system_user_dialog.html`, `partials/dns_vpn_form.html` | The dialogs open and post through htmx with the CSRF header; without JavaScript the pages still show Set or Not set | Same as the menus |
+| The localized length message needs JavaScript | `partials/secret_dialog.html` | Without `app.js` the browser shows its own message for a Wi-Fi password outside 8 to 63 characters; the server still refuses it with the localized rule before anything is sent | None needed |

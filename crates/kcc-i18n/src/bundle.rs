@@ -285,6 +285,7 @@ mod tests {
             "peer",
             "network",
             "protocol",
+            "what",
         ] {
             args.set(name, "x");
         }

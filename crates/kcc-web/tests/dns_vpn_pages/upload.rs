@@ -1,5 +1,7 @@
-//! The WireGuard `.conf` upload: a file imported without its keys, field-level errors for
-//! a malformed file that never repeat its values, and the 64 KiB cap answered with a
+//! The WireGuard `.conf` upload.
+//!
+//! A file imported with its keys sent to the router but never shown, field-level errors
+//! for a malformed file that never repeat its values, and the 64 KiB cap answered with a
 //! localized message.
 
 use axum::{
@@ -129,7 +131,7 @@ fn with(key: MessageKey, pairs: &[(&'static str, &str)]) -> String {
 }
 
 #[tokio::test]
-async fn a_wireguard_file_is_imported_without_its_keys() -> TestResult {
+async fn a_wireguard_file_is_imported_and_its_keys_never_shown() -> TestResult {
     let fixture = Fixture::new().await?;
     let operator = sign_in(&fixture, "operator").await?;
     let (private, public, preshared) = (key(7), key(8), key(9));
@@ -143,10 +145,8 @@ async fn a_wireguard_file_is_imported_without_its_keys() -> TestResult {
     let body = text(response).await?;
     assert_eq!(status, StatusCode::OK, "imported: {body}");
     for expected in [
-        said(Locale::En, keys::WEB_KIT_DONE_UNSAVED),
+        said(Locale::En, keys::WEB_SECRET_IMPORT_DONE),
         said(Locale::En, keys::WEB_VPN_IMPORT_SKIPPED),
-        said(Locale::En, keys::WEB_VPN_SKIP_PRIVATE_KEY),
-        said(Locale::En, keys::WEB_VPN_SKIP_PRESHARED_KEY),
         said(Locale::En, keys::WEB_VPN_SKIP_ADDRESS),
         said(Locale::En, keys::WEB_VPN_SKIP_DNS),
         "href=\"/ui/r/home/vpn/peers/Wireguard7\"".to_owned(),

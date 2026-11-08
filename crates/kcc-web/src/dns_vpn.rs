@@ -43,6 +43,7 @@ mod vpn_conf;
 mod vpn_forms;
 mod vpn_import;
 mod vpn_pages;
+mod vpn_peer_psk;
 mod vpn_read;
 mod vpn_servers_tab;
 mod vpn_tabs;

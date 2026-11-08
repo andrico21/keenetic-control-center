@@ -101,6 +101,40 @@ pub(super) fn plan(router: &RouterCtx, name: &str, config: &WireGuardConfig) -> 
     Ok(operation)
 }
 
+/// Plans one existing peer's preshared key alone, verified by its presence marker.
+pub(super) fn peer_preshared(
+    router: &RouterCtx,
+    name: &str,
+    public_key: &str,
+    key: secrecy::SecretString,
+) -> Result<ChangeOp> {
+    let mut operation = ChangeOp::new(
+        Vec::new(),
+        Vec::new(),
+        Risk::Write,
+        Permission::Write,
+        false,
+    );
+    append_secret(
+        router,
+        &mut operation,
+        SecretImport {
+            path: "interface wireguard peer preshared-key",
+            argument: "preshared-key",
+            template: format!(
+                "interface {name} wireguard peer {public_key} preshared-key {{/preshared-key}}"
+            ),
+            key,
+            pointer: format!(
+                "/{}/peers/{}/preshared-key",
+                escape(name),
+                escape(public_key)
+            ),
+        },
+    )?;
+    Ok(operation)
+}
+
 /// A secret slot and the corresponding presence-only observation.
 struct SecretImport {
     /// Catalog command.

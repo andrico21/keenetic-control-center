@@ -129,6 +129,10 @@ pub(crate) fn servers(status: &VpnServerStatus, viewer: &Viewer) -> (Region, Vec
     if viewer.allows("ipsec_service") {
         ipsec = ipsec.act(toggle(viewer, ("ipsec", on)));
     }
+    if viewer.allows("ike_psk") {
+        let href = viewer.href("vpn/server/psk");
+        ipsec = ipsec.act(Act::open(locale, keys::WEB_SECRET_SET_PSK, href));
+    }
     let bound: Vec<String> = status
         .wireguard_interfaces
         .iter()
@@ -142,13 +146,17 @@ pub(crate) fn servers(status: &VpnServerStatus, viewer: &Viewer) -> (Region, Vec
     let wireguard = Panel::new(locale, "vpn-wireguard", keys::WEB_VPN_SERVER_WIREGUARD)
         .note(tr(locale, note, None))
         .items(bound);
-    let access = Panel::new(locale, "vpn-access", keys::WEB_VPN_ACCESS)
+    let mut access = Panel::new(locale, "vpn-access", keys::WEB_VPN_ACCESS)
         .note(tr(locale, keys::WEB_VPN_ACCESS_NOTE, None))
         .act(Act::link(
             locale,
             keys::WEB_VPN_ACCESS_USERS,
             viewer.href("system/users"),
         ));
+    if viewer.allows("password") {
+        let href = viewer.href("vpn/server/password");
+        access = access.act(Act::open(locale, keys::WEB_SECRET_SET_ACCOUNT, href));
+    }
     (
         region.panel(ipsec).panel(wireguard).panel(access),
         Vec::new(),
