@@ -93,3 +93,4 @@ cli-preset-run = { $name } іске қосуы { $router } құрылғысын�
 cli-job-completed = { $name } тапсырмасы аяқталды.
 cli-job-failed = { $name } тапсырмасы аяқталмады.
 cli-name-taken = { $name } бұрыннан бар; басқа атау таңдаңыз.
+cli-persists-immediately = Роутер оны бірден қолданып, сақтайды: сақтау қажет емес, ал fail-safe таймері оны кері қайтара алмайды.

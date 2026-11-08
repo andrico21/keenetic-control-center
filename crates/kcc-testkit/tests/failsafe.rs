@@ -274,4 +274,45 @@ mod tests {
         assert!(running.contains("Kept after cancel"));
         Ok(())
     }
+
+    #[tokio::test]
+    async fn system_country_survives_fail_safe_expiry_without_a_save() -> TestResult {
+        let clock = Arc::new(MockClock::new());
+        let injected: Arc<dyn Clock> = Arc::<MockClock>::clone(&clock);
+        let fake = FakeRouter::builder(Profile::default())
+            .clock(injected)
+            .build()?;
+        let app = fake.router();
+        let cookie = login(&app, fake.realm()).await?;
+        drop(
+            parse(
+                &app,
+                &cookie,
+                "system configuration fail-safe timer reboot 60",
+            )
+            .await?,
+        );
+        drop(parse(&app, &cookie, "system country DE").await?);
+        drop(
+            parse(
+                &app,
+                &cookie,
+                "interface Bridge0 description \"Reverted LAN\"",
+            )
+            .await?,
+        );
+        clock.advance(Duration::from_secs(61));
+        let new_cookie = login(&app, fake.realm()).await?;
+        let (_, running) = send(
+            &app,
+            Method::GET,
+            "/ci/running-config.txt",
+            Some(&new_cookie),
+            Body::empty(),
+        )
+        .await?;
+        assert!(running.contains("system country DE"), "{running}");
+        assert!(!running.contains("Reverted LAN"), "{running}");
+        Ok(())
+    }
 }

@@ -108,6 +108,8 @@ pub(crate) struct Report {
     risk: Option<MessageKey>,
     /// Explorer link of the command the request maps to.
     explore: Option<String>,
+    /// Whether the router persists the request at once.
+    persists: bool,
 }
 
 impl Localize for Report {
@@ -125,6 +127,7 @@ impl Report {
             problems: Vec::new(),
             risk: Some(risk_key(risk)),
             explore: None,
+            persists: false,
         }
     }
 
@@ -139,6 +142,7 @@ impl Report {
                 .collect(),
             risk: None,
             explore: None,
+            persists: false,
         }
     }
 
@@ -146,6 +150,12 @@ impl Report {
     pub(crate) fn with_explore(mut self, router: &str, path: Option<&str>) -> Self {
         self.explore =
             path.map(|command| format!("/ui/r/{router}/explorer?path={}", encode(command)));
+        self
+    }
+
+    /// Labels a request the router persists at once.
+    pub(crate) const fn with_persists(mut self, persists: bool) -> Self {
+        self.persists = persists;
         self
     }
 

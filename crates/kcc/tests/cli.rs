@@ -18,6 +18,8 @@ mod basics;
 mod health;
 #[path = "cli/migrate.rs"]
 mod migrate;
+#[path = "cli/persists.rs"]
+mod persists;
 #[path = "cli/policy.rs"]
 mod policy;
 #[path = "cli/router_credentials.rs"]

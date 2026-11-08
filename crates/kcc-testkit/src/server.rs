@@ -35,6 +35,10 @@ use crate::{
     tree::{self, Selector},
 };
 
+/// Parser interception before ordinary command dispatch.
+#[path = "server/parse_command.rs"]
+mod parse_command;
+
 /// Largest accepted request body; RCI limits POST bodies to about a megabyte.
 pub(crate) const MAX_BODY_BYTES: usize = 1024 * 1024;
 
@@ -549,17 +553,7 @@ impl Shared {
 
     /// Applies a full-path CLI parser command.
     fn parse_command(&self, line: &str) -> Value {
-        if self.silent_noop(line) {
-            return tree::status("message", "saved.");
-        }
-        let intercepted = lock(&self.migration).intercept(line);
-        if let Some(response) = intercepted {
-            return response;
-        }
-        if self.reject_parse(line) {
-            return tree::status("error", "injected parser failure.");
-        }
-        if let Some(response) = self.wipe_routes(line) {
+        if let Some(response) = parse_command::intercept(self, line) {
             return response;
         }
         let words: Vec<&str> = line.split_whitespace().collect();
@@ -608,7 +602,10 @@ impl Shared {
                 "reboot",
                 seconds,
             ] => match seconds.parse::<u64>() {
-                Ok(value) if lock(&self.fail_safe).arm(self.clock.now(), value) => {
+                Ok(value)
+                    if self.faults.fail_safe_arm_noop
+                        || lock(&self.fail_safe).arm(self.clock.now(), value) =>
+                {
                     tree::status("message", "fail-safe armed.")
                 }
                 Ok(_) | Err(_) => tree::status("error", "invalid fail-safe timeout."),
@@ -995,6 +992,14 @@ impl Shared {
                         serde_json::json!({"description":description}),
                     )
                 }
+            }
+            "system/country" => {
+                let country = body.get("country").and_then(Value::as_str)?;
+                let quoted = quote_cli_word(country).ok()?;
+                (
+                    format!("system country {}", quoted.expose_secret()),
+                    serde_json::json!({}),
+                )
             }
             "system/clock/timezone" => {
                 let locality = body.get("locality").and_then(Value::as_str)?;

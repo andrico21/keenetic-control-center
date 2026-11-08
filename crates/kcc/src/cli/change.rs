@@ -39,16 +39,19 @@ pub(crate) struct Gate {
     /// The runner arms the fail-safe timer around a management change; `false` when
     /// the domain operation brackets itself.
     timer: bool,
+    /// The router persists the change at once: labelled before it runs.
+    persists: bool,
 }
 
 impl Gate {
     /// The gate of a planned domain operation.
-    pub(crate) const fn of(operation: &ChangeOp) -> Self {
+    pub(crate) fn of(operation: &ChangeOp) -> Self {
         Self {
             risk: operation.risk,
             permission: operation.permission,
             ask_on_write: false,
             timer: true,
+            persists: operation.persists(),
         }
     }
 
@@ -59,7 +62,13 @@ impl Gate {
             permission,
             ask_on_write,
             timer: true,
+            persists: false,
         }
+    }
+
+    /// The same gate for a change the router persists at once when `persists`.
+    pub(crate) const fn persisting(self, persists: bool) -> Self {
+        Self { persists, ..self }
     }
 
     /// The same gate for an operation that arms its own fail-safe timer.
@@ -115,6 +124,10 @@ where
             return Err(failure);
         }
     };
+    if gate.persists {
+        ctx.out()
+            .note(&ctx.out().tr(keys::CLI_PERSISTS_IMMEDIATELY, &[]));
+    }
     confirm(
         ctx.out(),
         ctx.globals(),
@@ -127,7 +140,9 @@ where
         .begin(target.id(), ctx.principal().actor(), &role, None, false)
         .await?;
     if gate.risk != Risk::Management || !gate.timer {
-        return work(&mut changes, target.router()).await;
+        return work(&mut changes, target.router())
+            .await
+            .map(|document| labelled(document, gate.persists));
     }
     let mode = safety_mode(target.info());
     drop(
@@ -139,7 +154,9 @@ where
         )
         .await?,
     );
-    let applied = work(&mut changes, target.router()).await;
+    let applied = work(&mut changes, target.router())
+        .await
+        .map(|document| labelled(document, gate.persists));
     match SafetyNet::disarm(&mut changes, target.router(), mode).await {
         Ok(_disarmed) => applied,
         Err(WorkflowError::Rci(RciError::Transport | RciError::Timeout)) => {
@@ -148,6 +165,14 @@ where
         }
         Err(error) => applied.and_then(|_value| Err(Failure::from(error))),
     }
+}
+
+/// `document` with its `persists_immediately` flag when it is an object.
+pub(crate) fn labelled(mut document: Value, persists: bool) -> Value {
+    if let Value::Object(object) = &mut document {
+        drop(object.insert("persists_immediately".to_owned(), Value::Bool(persists)));
+    }
+    document
 }
 
 /// The result document of an applied change.

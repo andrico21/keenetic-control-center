@@ -13,5 +13,6 @@
 
 mod fixture;
 mod gates;
+mod persists;
 mod random;
 mod strategies;

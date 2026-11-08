@@ -1902,3 +1902,4 @@ web-presets-keys-key = Ашық кілт
 web-presets-keys-kept = Алынған жабық кілт { $name } интерфейсіне көшірілді: сол кілтті басқа роутер пайдалануы мүмкін.
 web-presets-downloads = Есепті жүктеп алу
 web-presets-group-empty = Баптау жоқ.
+web-explorer-persists-immediately = Роутер оны бірден қолданып, сақтайды: сақтау қажет емес, ал fail-safe таймері оны кері қайтара алмайды.

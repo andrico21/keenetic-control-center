@@ -43,6 +43,9 @@ struct RawCommand {
     kind: CommandKind,
     /// Whether the command supports the CLI `no` prefix.
     prefix_no: bool,
+    /// Whether the manual states that the router persists the command at once.
+    #[serde(default)]
+    persists_immediately: bool,
     /// Generated arguments keyed by request member name.
     arguments: BTreeMap<String, RawArgument>,
     /// Ordered CLI grammar, absent for undocumented command groups.
@@ -105,6 +108,10 @@ pub(super) const DESTRUCTIVE_PATHS: &[&str] = &[
     "system eject",
     "interface * esim profile delete",
 ];
+
+/// Overlay paths the router persists at once, without a configuration save
+/// (`[[persists_immediately]]` in `catalog/overlay.toml`).
+pub(super) const PERSISTS_IMMEDIATELY_PATHS: &[&str] = &["system country"];
 
 /// Gets one lazily parsed data set.
 ///
@@ -174,6 +181,10 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
                 kind: raw.kind,
                 prefix_no: raw.prefix_no,
                 arguments,
+                persists_immediately: raw.persists_immediately
+                    || PERSISTS_IMMEDIATELY_PATHS
+                        .iter()
+                        .any(|pattern| super::path_matches(pattern, &raw.path)),
             };
             drop(commands.insert(raw.path, command));
         }

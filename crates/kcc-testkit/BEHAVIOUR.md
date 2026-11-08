@@ -199,6 +199,13 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `FaultInjection::fail_parse_matching(substring, times)` rejects only the next `times`
   matching parser lines with an RCI error status before mutation; unrelated and later
   parser requests succeed. **assumed**
+- `FaultInjection::fail_safe_arm_noop(true)` answers `system configuration fail-safe timer
+  reboot <s>` with `fail-safe armed.` but leaves the timer off, so `show last-change` keeps
+  `fail-safe.active: false`. **assumed (models a router that acknowledges without arming)**
+- `system country <code>` (parser) and `POST /rci/system/country` are applied to running and
+  startup configuration at once: no save is needed, the unsaved flag does not change, and
+  fail-safe expiry or rollback cannot undo it. **assumed (R-CLI documentation "permanently
+  stored", not live-verified: todo 53 probe 9 `NOT-RUN`)**
 - `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route` or
   `no ipv6 route` remove every running static route in that address family and return
   `cleared all routes.`; the fault then disarms. **assumed (simulates the R-MCP2 incident)**

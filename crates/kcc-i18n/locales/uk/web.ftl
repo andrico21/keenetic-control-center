@@ -1928,3 +1928,4 @@ web-presets-keys-key = Відкритий ключ
 web-presets-keys-kept = Знятий закритий ключ скопійовано до { $name }: той самий ключ може використовувати інший роутер.
 web-presets-downloads = Завантажити звіт
 web-presets-group-empty = Немає налаштувань.
+web-explorer-persists-immediately = Набуває чинності й зберігається роутером одразу: збереження не потрібне, а таймер fail-safe не може його відкотити.

@@ -1902,3 +1902,4 @@ web-presets-keys-key = Public key
 web-presets-keys-kept = The captured private key was copied to { $name }: another router may use the same key.
 web-presets-downloads = Download the report
 web-presets-group-empty = No setting.
+web-explorer-persists-immediately = Takes effect and is saved by the router at once: no save is needed and the fail-safe timer cannot roll it back.

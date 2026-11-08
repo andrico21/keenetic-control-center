@@ -234,6 +234,20 @@ impl Checked {
         }
     }
 
+    /// Whether the router persists any part of the request at once.
+    pub(crate) fn persists(&self) -> bool {
+        match self {
+            Self::Path {
+                method: _,
+                validated,
+                show: _,
+            } => validated.persists_immediately,
+            Self::Root { items, risk: _ } => {
+                items.iter().any(|item| item.validated.persists_immediately)
+            }
+        }
+    }
+
     /// The single catalog path the request maps to, for the explorer link.
     pub(crate) const fn explore(&self) -> Option<&str> {
         match self {

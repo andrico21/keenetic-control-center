@@ -93,6 +93,8 @@ pub struct FaultInjection {
     fail_parse_matching: Option<(String, usize)>,
     /// Whether one single-route removal wipes every static route in that address family.
     route_wipe_on_remove: bool,
+    /// Acknowledge `fail-safe timer reboot` without arming the timer.
+    fail_safe_arm_noop: bool,
 }
 
 impl FaultInjection {
@@ -155,6 +157,15 @@ impl FaultInjection {
     #[must_use]
     pub const fn route_wipe_on_remove(mut self, enabled: bool) -> Self {
         self.route_wipe_on_remove = enabled;
+        self
+    }
+
+    /// Acknowledges `system configuration fail-safe timer reboot <s>` as armed while the
+    /// timer stays off, so `show last-change` keeps reporting it inactive.
+    #[inline]
+    #[must_use]
+    pub const fn fail_safe_arm_noop(mut self, enabled: bool) -> Self {
+        self.fail_safe_arm_noop = enabled;
         self
     }
 }

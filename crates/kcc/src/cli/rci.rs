@@ -16,7 +16,7 @@ use serde_json::{Map, Value, json};
 
 use super::{
     args_fleet::RciCommand,
-    change::{Gate, run as run_change},
+    change::{Gate, labelled, run as run_change},
     context::{Ctx, Services, Target},
     exit::{Detail, Exit, Failure, Outcome},
     fleet::{body_value, print_body},
@@ -71,7 +71,8 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
                 validated.risk.max(Risk::Destructive),
                 Permission::RawRci,
                 true,
-            );
+            )
+            .persisting(validated.persists_immediately);
             let document = run_change(ctx, &services, &target, gate, async |changes, _router| {
                 let request = DeleteRequest::new(
                     joined,
@@ -131,9 +132,10 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             .map(|item| item.value.redacted().clone())
             .collect();
         let responses = target.router().client.batch(values).await?;
-        return report(ctx, responses);
+        return report(ctx, responses, false);
     }
-    let gate = Gate::new(risk, Permission::RawRci, true);
+    let persists = items.iter().any(|item| item.validated.persists_immediately);
+    let gate = Gate::new(risk, Permission::RawRci, true).persisting(persists);
     let mut responses = Vec::new();
     drop(
         run_change(ctx, services, target, gate, async |changes, _router| {
@@ -148,15 +150,16 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         })
         .await?,
     );
-    report(ctx, responses)
+    report(ctx, responses, persists)
 }
 
-/// Prints per-item results; any failed item makes the command partial (exit 7).
+/// Prints per-item results and whether the router persisted them at once; any failed
+/// item makes the command partial (exit 7).
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-fn report(ctx: &Ctx, responses: Vec<Result<RciResponse, RciError>>) -> Outcome {
+fn report(ctx: &Ctx, responses: Vec<Result<RciResponse, RciError>>, persists: bool) -> Outcome {
     let failed = responses
         .iter()
         .filter(|response| response.is_err())
@@ -168,7 +171,7 @@ fn report(ctx: &Ctx, responses: Vec<Result<RciResponse, RciError>>) -> Outcome {
             Err(error) => json!({ "ok": false, "error": error.to_string() }),
         })
         .collect::<Vec<_>>();
-    let document = json!({ "items": items });
+    let document = labelled(json!({ "items": items }), persists);
     ctx.out()
         .emit(&document, &serde_json::to_string_pretty(&document)?)?;
     if failed == 0 {

@@ -95,3 +95,4 @@ cli-preset-run = Запуск { $name } розпочато на { $router }.
 cli-job-completed = Завдання { $name } завершено.
 cli-job-failed = Завдання { $name } не завершилося.
 cli-name-taken = { $name } вже існує; виберіть іншу назву.
+cli-persists-immediately = Набуває чинності й зберігається роутером одразу: збереження не потрібне, а таймер fail-safe не може його відкотити.

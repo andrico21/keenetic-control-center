@@ -194,7 +194,7 @@ impl KccMcp {
 
     #[tool(
         name = "kcc_rci_execute",
-        description = "Apply a catalog-validated raw RCI mutation without saving",
+        description = "Apply a catalog-validated raw RCI mutation without saving; kcc_catalog_describe and the result report persists_immediately for commands the router saves at once, which the fail-safe timer cannot roll back",
         annotations(
             read_only_hint = false,
             destructive_hint = true,

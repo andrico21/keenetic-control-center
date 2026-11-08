@@ -119,6 +119,7 @@ pub(crate) async fn validate(
                 checked.risk(),
             )
             .with_explore(&router, checked.explore())
+            .with_persists(checked.persists())
             .respond(locale)
         }
         Err(problems) => Report::invalid(locale, &problems).respond(locale),
@@ -166,6 +167,7 @@ pub(crate) async fn send(
             .with_include("#rci-form");
         return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
+            .with_persists(checked.persists())
             .render(resubmit, locale);
     }
     let session = current.stream_key();

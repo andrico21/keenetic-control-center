@@ -3,6 +3,9 @@
   <h3 class="explorer__heading" id="preview-title">{{ t(keys::WEB_EXPLORER_PREVIEW_TITLE) }}</h3>
   {%- if problems.is_empty() %}
   <p class="notice" data-tone="success">{{ t(keys::WEB_EXPLORER_VALID) }}</p>
+  {%- if persists %}
+  <p class="notice" data-tone="info">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
+  {%- endif %}
   <dl class="facts preview__facts">
     <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_METHOD) }}</dt><dd class="mono">{{ method }}</dd></div>
     <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_ENDPOINT) }}</dt><dd class="mono">{{ endpoint }}</dd></div>

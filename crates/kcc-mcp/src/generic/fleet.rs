@@ -9,6 +9,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::persists::labelled;
 use crate::{
     KccMcp, McpFailure,
     support::validate::{
@@ -166,7 +167,13 @@ pub(crate) async fn catalog_describe(
     let schema = catalog
         .to_json_schema(&input.path)
         .ok_or(McpFailure::ValidationFailed)?;
-    Ok(json!({ "path": input.path, "schema": schema }))
+    let persists = catalog
+        .lookup(&input.path)
+        .is_some_and(|command| command.persists_immediately);
+    Ok(labelled(
+        json!({ "path": input.path, "schema": schema }),
+        persists,
+    ))
 }
 
 /// Reads one job inside the caller's router scope.

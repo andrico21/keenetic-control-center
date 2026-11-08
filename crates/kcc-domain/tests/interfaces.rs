@@ -168,6 +168,46 @@ async fn confirmed_bridge_down_disarms_without_saving() -> Result<(), Box<dyn Er
     Ok(())
 }
 
+#[tokio::test]
+async fn unarmed_fail_safe_refuses_the_risky_change_unsent() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default().fail_safe_arm_noop(true)).await?;
+    let name = ObjectName::try_from("Bridge0".to_owned())?;
+    let operation = interfaces::plan_down(&fixture.context, &name, ManagementVerdict::Unknown)?;
+    let mut changes = fixture.changes().await?;
+
+    let refused = interfaces::apply(&mut changes, &fixture.context, &name, operation, true).await;
+
+    assert!(
+        refused
+            .as_ref()
+            .is_err_and(interfaces::InterfaceChangeError::is_fail_safe_unarmed),
+        "{refused:?}"
+    );
+    let log = fixture.handle.request_log();
+    let arm_attempt = log
+        .iter()
+        .position(|record| {
+            record.command() == Some("system configuration fail-safe timer reboot 300")
+        })
+        .ok_or("the fail-safe arming command was not sent")?;
+    let read_back = log
+        .iter()
+        .rposition(|record| record.path().contains("last-change"))
+        .ok_or("the fail-safe state was not read back")?;
+    assert!(arm_attempt < read_back, "arming precedes its read-back");
+    assert_eq!(read_back + 1, log.len(), "nothing follows the read-back");
+    assert!(
+        !log.iter()
+            .any(|record| record.command() == Some("interface Bridge0 down")),
+        "the risky change was never sent"
+    );
+    let interface = interfaces::read_interface(&fixture.context, &name).await?;
+    assert_ne!(interface.state.as_deref(), Some("down"));
+    drop(changes);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 struct Fixture {
     directory: TempDir,
     handle: kcc_testkit::Handle,

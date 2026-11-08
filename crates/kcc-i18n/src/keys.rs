@@ -266,6 +266,9 @@ pub const CLI_JOB_FAILED: MessageKey = MessageKey::new("cli-job-failed");
 /// `cli-name-taken` in `cli.ftl`.
 pub const CLI_NAME_TAKEN: MessageKey = MessageKey::new("cli-name-taken");
 
+/// `cli-persists-immediately` in `cli.ftl`.
+pub const CLI_PERSISTS_IMMEDIATELY: MessageKey = MessageKey::new("cli-persists-immediately");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -482,6 +485,9 @@ pub const MCP_PROMPT_TROUBLESHOOT_DEVICE: MessageKey =
 /// `mcp-prompt-safe-change-workflow` in `mcp.ftl`.
 pub const MCP_PROMPT_SAFE_CHANGE_WORKFLOW: MessageKey =
     MessageKey::new("mcp-prompt-safe-change-workflow");
+
+/// `mcp-persists-immediately` in `mcp.ftl`.
+pub const MCP_PERSISTS_IMMEDIATELY: MessageKey = MessageKey::new("mcp-persists-immediately");
 
 /// `migrate-title` in `migrate.ftl`.
 pub const MIGRATE_TITLE: MessageKey = MessageKey::new("migrate-title");
@@ -6340,8 +6346,12 @@ pub const WEB_PRESETS_DOWNLOADS: MessageKey = MessageKey::new("web-presets-downl
 /// `web-presets-group-empty` in `web.ftl`.
 pub const WEB_PRESETS_GROUP_EMPTY: MessageKey = MessageKey::new("web-presets-group-empty");
 
+/// `web-explorer-persists-immediately` in `web.ftl`.
+pub const WEB_EXPLORER_PERSISTS_IMMEDIATELY: MessageKey =
+    MessageKey::new("web-explorer-persists-immediately");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2023] = [
+pub static ALL: [MessageKey; 2026] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6430,6 +6440,7 @@ pub static ALL: [MessageKey; 2023] = [
     CLI_JOB_COMPLETED,
     CLI_JOB_FAILED,
     CLI_NAME_TAKEN,
+    CLI_PERSISTS_IMMEDIATELY,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,
@@ -6501,6 +6512,7 @@ pub static ALL: [MessageKey; 2023] = [
     MCP_PROMPT_TROUBLESHOOT_WIFI,
     MCP_PROMPT_TROUBLESHOOT_DEVICE,
     MCP_PROMPT_SAFE_CHANGE_WORKFLOW,
+    MCP_PERSISTS_IMMEDIATELY,
     MIGRATE_TITLE,
     MIGRATE_SOURCE,
     MIGRATE_TARGET,
@@ -8365,4 +8377,5 @@ pub static ALL: [MessageKey; 2023] = [
     WEB_PRESETS_KEYS_KEPT,
     WEB_PRESETS_DOWNLOADS,
     WEB_PRESETS_GROUP_EMPTY,
+    WEB_EXPLORER_PERSISTS_IMMEDIATELY,
 ];

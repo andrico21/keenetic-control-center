@@ -120,6 +120,9 @@ pub struct Command {
     pub prefix_no: bool,
     /// Named request arguments.
     pub arguments: BTreeMap<String, Argument>,
+    /// Whether the router saves the command itself at once: no configuration save is
+    /// needed and the fail-safe timer cannot roll it back.
+    pub persists_immediately: bool,
 }
 
 /// Coarse authorization and confirmation risk.

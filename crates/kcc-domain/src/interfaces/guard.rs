@@ -10,6 +10,9 @@ use crate::{
     configuration::{SafetyMode, SafetyNet, read_last_change},
 };
 
+/// Shared verification pointer for the native fail-safe state.
+const FAIL_SAFE_ACTIVE_FIELD: &str = "/fail-safe/active";
+
 /// Failures specific to guarded interface execution.
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
@@ -35,6 +38,16 @@ impl InterfaceChangeError {
     #[must_use]
     pub const fn is_confirmation_required(&self) -> bool {
         matches!(self.0, InterfaceChangeErrorKind::ConfirmationRequired)
+    }
+
+    /// Returns whether the change was refused because the fail-safe timer did not arm.
+    #[must_use]
+    pub fn is_fail_safe_unarmed(&self) -> bool {
+        matches!(
+            &self.0,
+            InterfaceChangeErrorKind::Workflow(WorkflowError::VerificationFailed { field })
+                if field == FAIL_SAFE_ACTIVE_FIELD
+        )
     }
 }
 

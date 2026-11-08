@@ -245,6 +245,10 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Keyword literals may contain mixed alphanumerics and `@` (for example SSH ciphers), while demonstrable prose is safely excluded by sentence punctuation and a narrow stop-word set. The 5.1 KN-1811 regression guard pins required subsets for 11 high-risk command arguments rather than copying whole generated inventories.
 - Corrected regeneration remains above the gate for every line: 4.3 = 1058 commands at 853/854 (99%), 5.0 = 1089 at 880/881 (99%), 5.1 = 1125 at 912/913 (99%). The master-to-regenerated audit is recorded in `.omo/evidence/catalog-regeneration-diff-report.txt`; restored literals include user tags, HMAC/integrity algorithms, SSH ciphers, charsets, route direction, button handlers, DTMF modes, filter engines, and torrent priorities, while sentence artifacts are removed and manual type-column fixes remain.
 
+- Row 67/69 integration: parser fault and migration interception belongs in a child helper so the main command dispatcher remains below Clippy's 100-line limit.
+- `SafetyNet::arm` owns fail-safe activation read-back; interface guards preserve their compatibility predicate by recognizing `VerificationFailed` for `/fail-safe/active`.
+- The fail-safe regression must prove arm-before-read-back ordering and that no risky interface command follows a failed activation check.
+
 ## [2026-11-07] Intermittent serve MCP timeout
 - `rmcp-server-kit` performs one Argon2id verification per configured API-key slot on every authenticated request. With two fixture keys and three MCP POSTs, unoptimized debug crypto dominates fixture and request latency.
 - Dev-package optimization for `argon2` and `blake2` is the narrow cause-level fix: under four-way CPU load, fixture time fell from 15.25 s to 0.47 s, MCP requests to 0.27-0.34 s, and user CPU from 14.12 s to 1.32 s.

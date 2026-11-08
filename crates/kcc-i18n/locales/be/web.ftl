@@ -1928,3 +1928,4 @@ web-presets-keys-key = Адкрыты ключ
 web-presets-keys-kept = Зняты закрыты ключ скапіраваны ў { $name }: той самы ключ можа выкарыстоўваць іншы роўтар.
 web-presets-downloads = Спампаваць справаздачу
 web-presets-group-empty = Няма налад.
+web-explorer-persists-immediately = Уступае ў сілу і захоўваецца роўтарам адразу: захаванне не патрабуецца, а таймер fail-safe не можа яго адкаціць.

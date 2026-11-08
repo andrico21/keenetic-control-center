@@ -52,6 +52,8 @@ struct PreviewView {
     payload: String,
     /// Why the request would not be sent.
     problems: Vec<String>,
+    /// Whether the router persists the command at once.
+    persists: bool,
 }
 
 /// The router's stored lines of one command.
@@ -100,6 +102,7 @@ pub(crate) async fn preview(
                 endpoint,
                 payload: serde_json::to_string_pretty(&payload).unwrap_or_default(),
                 problems: Vec::new(),
+                persists: built.validated().persists_immediately,
             }
         }
         Err(problems) => PreviewView {
@@ -111,6 +114,7 @@ pub(crate) async fn preview(
                 .iter()
                 .map(|problem: &Problem| sentence(locale, problem))
                 .collect(),
+            persists: false,
         },
     };
     errors::render(&view)

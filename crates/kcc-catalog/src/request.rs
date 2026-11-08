@@ -19,6 +19,9 @@ pub struct ValidatedRequest {
     pub risk: Risk,
     /// Whether catalog validation was deliberately bypassed.
     pub unvalidated: bool,
+    /// Whether the router persists this change (or one nested command) at once: no
+    /// save is needed and the fail-safe timer cannot roll it back. Never set for a read.
+    pub persists_immediately: bool,
     /// Protected ownership of wire secrets; plaintext remains private to this value.
     #[serde(skip)]
     pub protected: SecretValue,
@@ -33,9 +36,12 @@ impl ValidatedRequest {
         value: Value,
         unvalidated: bool,
     ) -> Self {
+        let persists_immediately =
+            !unvalidated && method != HttpMethod::Get && persists(catalog, path, &value);
         let mut protected = SecretValue::new(path, value);
         classify(catalog, path, "", &mut protected);
         Self {
+            persists_immediately,
             path: protected.scrub_text(path),
             method,
             value: protected.redacted().clone(),
@@ -69,6 +75,23 @@ impl ValidatedRequest {
     pub const fn has_secrets(&self) -> bool {
         self.protected.has_secrets()
     }
+}
+
+/// Whether `path` or a command nested in `value` below it persists immediately.
+fn persists(catalog: &Catalog, path: &str, value: &Value) -> bool {
+    catalog
+        .lookup(path)
+        .is_some_and(|command| command.persists_immediately)
+        || value.as_object().is_some_and(|object| {
+            object.iter().any(|(key, child)| {
+                let child_path = if path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{path} {key}")
+                };
+                persists(catalog, &child_path, child)
+            })
+        })
 }
 
 /// Adds generated Password argument facts to registry classification, recursively.

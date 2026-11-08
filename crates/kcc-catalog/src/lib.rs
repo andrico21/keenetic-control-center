@@ -32,6 +32,8 @@ pub use validate::{HttpMethod, RawAuthorization, RequestOptions, ValidationIssue
 #[cfg(test)]
 mod cli_tests;
 #[cfg(test)]
+mod persists_tests;
+#[cfg(test)]
 mod secret_tests;
 #[cfg(test)]
 mod tests;

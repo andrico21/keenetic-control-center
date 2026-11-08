@@ -160,6 +160,17 @@ impl OperationDescriptor {
     pub fn available(self, catalog: &Catalog) -> bool {
         catalog.lookup(self.catalog_path).is_some()
     }
+
+    /// Returns whether the router persists this operation at once on `catalog`'s
+    /// firmware: the descriptor's own flag or the catalog's `persists_immediately`.
+    #[inline]
+    #[must_use]
+    pub fn persists_immediately_on(self, catalog: &Catalog) -> bool {
+        self.persists_immediately
+            || catalog
+                .lookup(self.catalog_path)
+                .is_some_and(|command| command.persists_immediately)
+    }
 }
 
 /// Metadata for one curated domain.
@@ -234,6 +245,18 @@ impl ChangeOp {
             permission,
             persists_immediately,
         }
+    }
+
+    /// Returns whether the router persists this plan at once: its own flag or any
+    /// catalog-flagged request (no save needed, not undone by the fail-safe timer).
+    #[inline]
+    #[must_use]
+    pub fn persists(&self) -> bool {
+        self.persists_immediately
+            || self
+                .requests
+                .iter()
+                .any(|request| request.persists_immediately)
     }
 }
 

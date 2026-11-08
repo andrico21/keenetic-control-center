@@ -129,6 +129,8 @@ struct Dialog {
     destructive: bool,
     /// The confirm button.
     confirm: MessageKey,
+    /// Whether the router persists the request at once.
+    persists: bool,
 }
 
 impl Localize for Dialog {
@@ -147,6 +149,8 @@ pub(crate) struct Prompt {
     router: String,
     /// Whether a typed router name did not match.
     wrong_name: bool,
+    /// Whether the router persists the request at once.
+    persists: bool,
 }
 
 impl Prompt {
@@ -157,12 +161,19 @@ impl Prompt {
             risk,
             router: router.to_owned(),
             wrong_name: false,
+            persists: false,
         }
     }
 
     /// Reports that the typed router name did not match.
     pub(crate) const fn with_wrong_name(mut self, wrong_name: bool) -> Self {
         self.wrong_name = wrong_name;
+        self
+    }
+
+    /// Labels a request the router persists at once (no save, no fail-safe rollback).
+    pub(crate) const fn with_persists(mut self, persists: bool) -> Self {
+        self.persists = persists;
         self
     }
 
@@ -186,6 +197,7 @@ impl Prompt {
             resubmit,
             destructive,
             confirm: self.family.confirm(),
+            persists: self.persists,
         };
         respond::in_dialog(errors::render(&dialog))
     }

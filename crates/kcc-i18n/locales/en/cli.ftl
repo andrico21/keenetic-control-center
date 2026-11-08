@@ -93,3 +93,4 @@ cli-preset-run = Run { $name } started on { $router }.
 cli-job-completed = Job { $name } completed.
 cli-job-failed = Job { $name } did not complete.
 cli-name-taken = { $name } already exists; choose another name.
+cli-persists-immediately = Takes effect and is saved by the router at once: no save is needed and the fail-safe timer cannot roll it back.

@@ -94,9 +94,18 @@ impl ConfigState {
         Ok(())
     }
 
-    /// Applies one supported full-path CLI line to running configuration.
+    /// Applies one supported full-path CLI line to running configuration, and to startup
+    /// too for `system country`, which the router persists at once.
     pub(crate) fn apply(&mut self, line: &str) -> Value {
         if cli_engine::engine::apply(&mut self.running, line) {
+            let words: Vec<&str> = line.split_whitespace().collect();
+            if words
+                .strip_prefix(&["no"])
+                .unwrap_or(&words)
+                .starts_with(&["system", "country"])
+            {
+                let _: bool = cli_engine::engine::apply(&mut self.startup, line);
+            }
             message("saved.")
         } else {
             unknown(line)

@@ -232,6 +232,7 @@ fn ordinary_shape(command: &[String]) -> Option<Shape> {
         3
     } else if (starts_with(command, &["system", "hostname"])
         || starts_with(command, &["system", "description"])
+        || starts_with(command, &["system", "country"])
         || starts_with(command, &["system", "clock", "timezone"]))
         && matches!(command.len(), 3 | 4)
     {

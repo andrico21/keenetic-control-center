@@ -136,7 +136,7 @@ fn generic() -> Vec<ToolDescription> {
         ),
         raw(
             "kcc_rci_execute",
-            "Apply a catalog-validated raw RCI mutation without saving",
+            "Apply a catalog-validated raw RCI mutation without saving; kcc_catalog_describe and the result report persists_immediately for commands the router saves at once, which the fail-safe timer cannot roll back",
             false,
         ),
         raw(

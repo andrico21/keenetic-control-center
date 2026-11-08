@@ -80,6 +80,7 @@ pub(crate) async fn execute(
         .with_include("#explorer-form");
         return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
+            .with_persists(built.validated().persists_immediately)
             .render(resubmit, locale);
     }
     let session = current.stream_key();

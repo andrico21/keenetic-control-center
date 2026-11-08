@@ -1902,3 +1902,4 @@ web-presets-keys-key = Öffentlicher Schlüssel
 web-presets-keys-kept = Der erfasste private Schlüssel wurde nach { $name } kopiert: Ein anderer Router verwendet eventuell denselben Schlüssel.
 web-presets-downloads = Bericht herunterladen
 web-presets-group-empty = Keine Einstellung.
+web-explorer-persists-immediately = Wird vom Router sofort wirksam und gespeichert: Speichern ist nicht nötig, und der Fail-safe-Timer kann es nicht zurücksetzen.

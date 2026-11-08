@@ -135,6 +135,7 @@ pub(crate) async fn validate(
                 tr(locale, keys::WEB_CONSOLE_MATCHED, Some(&args))
             };
             Report::valid(summary, validated.risk)
+                .with_persists(validated.persists_immediately)
                 .with_explore(
                     &router,
                     (!validated.unvalidated).then_some(validated.path.as_str()),
@@ -196,6 +197,7 @@ pub(crate) async fn send(
             .with_include("#cli-form");
         return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
+            .with_persists(validated.persists_immediately)
             .render(resubmit, locale);
     }
     let session = current.stream_key();

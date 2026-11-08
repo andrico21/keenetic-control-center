@@ -13,6 +13,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
+use super::persists::{applied, batch_applied, cli_applied};
 use crate::{
     KccMcp, McpFailure, authorize_routers,
     support::{
@@ -196,7 +197,7 @@ pub(crate) async fn rci_execute(
         ))
         .await
         .map_err(map_workflow)?;
-    Ok(json!({ "statuses": [], "unsaved": result.unsaved }))
+    Ok(applied(result.unsaved, validated.persists_immediately))
 }
 
 /// Applies a catalog-validated deletion without saving.
@@ -230,7 +231,7 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         ))
         .await
         .map_err(map_workflow)?;
-    Ok(json!({ "statuses": [], "unsaved": result.unsaved }))
+    Ok(applied(result.unsaved, validated.persists_immediately))
 }
 
 /// Applies a catalog-validated root batch without saving.
@@ -242,11 +243,13 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
     let mut risk = Risk::Read;
+    let mut persists = false;
     let mut items = Vec::with_capacity(input.items.len());
     for value in input.items {
         valid_value_size(&value)?;
         let validated = checked(&catalog, "", HttpMethod::Post, &value)?;
         risk = risk.max(validated.risk);
+        persists |= validated.persists_immediately;
         items.push(BatchItem::new(value, validated));
     }
     server.require_destructive(risk, input.confirm)?;
@@ -270,7 +273,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             Err(error) => json!({ "ok": false, "error": map_rci(&error).code() }),
         })
         .collect::<Vec<_>>();
-    Ok(json!({ "responses": responses, "unsaved": result.unsaved }))
+    Ok(batch_applied(responses, result.unsaved, persists))
 }
 
 /// Validates and applies one CLI line without saving.
@@ -296,6 +299,7 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
         )?;
     }
     server.require_destructive(validated.risk, input.confirm)?;
+    let persists = validated.persists_immediately;
     let mut changes = server.begin_change(&host, &identity).await?;
     let result = changes
         .apply_cli(CliChangeRequest::new(
@@ -306,8 +310,5 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
         ))
         .await
         .map_err(map_workflow)?;
-    Ok(json!({
-        "responses": result.responses.into_iter().map(rci_body_value).collect::<Vec<_>>(),
-        "unsaved": result.unsaved
-    }))
+    Ok(cli_applied(result.responses, result.unsaved, persists))
 }
