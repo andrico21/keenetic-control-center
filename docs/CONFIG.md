@@ -16,7 +16,9 @@ file: routers and log sinks name files that hold them.
 `true`/`false`/`1`/`0`, lists are comma-separated. `[[routers]]` has no overrides.
 `[server]` and `[observability]` use `RMCP_SERVER_KIT__SERVER__<KEY>` and
 `RMCP_SERVER_KIT__OBSERVABILITY__<KEY>`. `KCC_MASTER_KEY_FILE` names the master key
-file (default `<config dir>/kcc/master.key`).
+file outside the state directory (default `<config dir>/kcc/master.key`). Back it up
+separately: sealed router credentials and other encrypted state are unrecoverable without
+the same 32-byte key.
 
 **Reload.** On Unix, `SIGHUP` makes `kcc serve` re-read the file and apply API keys,
 roles and router profiles; a rejected file keeps the previous one. Other changes need a
@@ -186,6 +188,11 @@ with `kcc router add` or the Web UI, which live in the state directory.
 | `tls` | string or table | `"verify"` | `"verify"` against trusted roots, or `{ pin_sha256 = "<64 hex digits>" }`, the SHA-256 of the certificate's public key |
 | `test_device` | bool | `false` | live test suites may change this router |
 | `tags` | list of strings | `[]` | free-form labels |
+
+These profile credential paths are operator-managed and are read unchanged. Router
+passwords entered through the Web UI or through `KCC_PASSWORD`/a CLI prompt instead use
+encrypted records under `<state>/router-credentials/`; the persisted profile path
+identifies that managed convention without changing the configuration schema.
 
 ## `[server]` (rmcp-server-kit)
 

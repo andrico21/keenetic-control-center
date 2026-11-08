@@ -1486,6 +1486,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "windows-permissions",
  "zeroize",
 ]
 

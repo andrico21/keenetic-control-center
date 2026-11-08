@@ -17,7 +17,6 @@ use kcc_i18n::{bundle::tr, keys};
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    credentials,
     errors::{self, Kind},
     nav::Section,
     page_kit::{
@@ -83,7 +82,10 @@ pub(crate) async fn create(
         return unprocessable(&FormPage::add(shell, draft, errors));
     };
     let id = draft.id().to_owned();
-    let file = credentials::path(fleet.credentials_dir(), &id);
+    let file = match fleet.credentials().sealed_path(&id) {
+        Ok(path) => path,
+        Err(error) => return errors::internal(&error, shell),
+    };
     let mut profile = ManagedRouterProfile::new(
         id.clone(),
         fields.url().clone(),
@@ -102,8 +104,7 @@ pub(crate) async fn create(
         }
         Err(error) => return errors::internal(&error, shell),
     }
-    let directory = fleet.credentials_dir().to_owned();
-    if let Err(error) = credentials::store(directory, file, secret).await {
+    if let Err(error) = fleet.credentials().store(&id, &secret) {
         if let Err(rollback) = fleet.registry().delete(user.role(), &id).await {
             tracing::error!(error = %rollback, "router profile rollback failed");
         }
@@ -180,9 +181,11 @@ pub(crate) async fn update(
     fields.apply(&mut profile);
     let changed = password.is_some();
     if let Some(secret) = password {
-        let file = credentials::path(fleet.credentials_dir(), &id);
-        let directory = fleet.credentials_dir().to_owned();
-        if let Err(error) = credentials::store(directory, file.clone(), secret).await {
+        let file = match fleet.credentials().sealed_path(&id) {
+            Ok(path) => path,
+            Err(error) => return errors::internal(&error, shell),
+        };
+        if let Err(error) = fleet.credentials().store(&id, &secret) {
             return errors::internal(&error, shell);
         }
         profile.password_file = file;

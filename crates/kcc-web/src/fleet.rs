@@ -8,14 +8,12 @@ extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{error::Error, fmt, pin::Pin, time::Duration};
-use std::{
-    path::{Path, PathBuf},
-    sync::{Mutex, MutexGuard, PoisonError},
-};
+use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use kcc_app::{
     accounts::Clock,
     backups::BackupStore,
+    credentials::CredentialStore,
     permissions::{Permission, Role},
     poller::Poller,
     registry::{self, RegistryEntry, RouterRegistry},
@@ -72,9 +70,8 @@ pub struct FleetServices {
     pub poller: Arc<Poller>,
     /// The leased write workflow used by Save.
     pub workflow: Arc<ChangeWorkflow>,
-    /// Directory for the password files of routers added in the Web UI, created with
-    /// owner-only permissions on first use.
-    pub credentials_dir: PathBuf,
+    /// Encrypted credentials of routers added in the Web UI.
+    pub credentials: Arc<CredentialStore>,
     /// Firmware-update check; `None` shows the update status as unknown.
     pub update_check: Option<Arc<dyn UpdateCheck>>,
     /// The routers' encrypted configuration backups; `None` leaves the configuration page
@@ -117,7 +114,7 @@ impl fmt::Debug for FleetServices {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FleetServices")
             .field("registry", &self.registry)
-            .field("credentials_dir", &self.credentials_dir)
+            .field("credentials", &"CredentialStore([REDACTED])")
             .field("update_check", &self.update_check.is_some())
             .finish_non_exhaustive()
     }
@@ -129,8 +126,8 @@ pub(crate) struct Fleet {
     registry: Arc<RouterRegistry>,
     /// Change workflow for Save.
     workflow: Arc<ChangeWorkflow>,
-    /// Password files of Web UI routers.
-    credentials_dir: PathBuf,
+    /// Encrypted credentials of Web UI routers.
+    credentials: Arc<CredentialStore>,
     /// Per-router live feeds over the shared poller.
     telemetry: Telemetry,
     /// Cached firmware-update checks.
@@ -151,7 +148,7 @@ impl Fleet {
             },
             registry: services.registry,
             workflow: services.workflow,
-            credentials_dir: services.credentials_dir,
+            credentials: services.credentials,
             backups: services.backups,
         }
     }
@@ -171,9 +168,9 @@ impl Fleet {
         &self.workflow
     }
 
-    /// Directory of the password files of Web UI routers.
-    pub(crate) fn credentials_dir(&self) -> &Path {
-        &self.credentials_dir
+    /// Encrypted credential store of Web UI routers.
+    pub(crate) const fn credentials(&self) -> &Arc<CredentialStore> {
+        &self.credentials
     }
 
     /// Per-router live feeds.

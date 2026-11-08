@@ -13,6 +13,7 @@ use kcc_app::{
     accounts::{AccountStore, SystemClock},
     audit::{AuditEvent, AuditLog},
     backups::{BackupRetention, BackupStore},
+    credentials::CredentialStore,
     permissions::{Permission, Role, load_roles},
     persist::StateStore,
     registry::RouterRegistry,
@@ -92,6 +93,8 @@ pub(crate) struct Services {
     backups: Arc<BackupStore>,
     /// Protected change workflow.
     workflow: Arc<ChangeWorkflow>,
+    /// Encrypted kcc-managed router credentials.
+    credentials: Arc<CredentialStore>,
 }
 
 /// One connected router the principal may act on.
@@ -168,13 +171,18 @@ impl Ctx {
     ///
     /// Returns registry, key or audit failures.
     pub(crate) fn services(&self) -> Outcome<Services> {
-        let registry = Arc::new(RouterRegistry::new(
-            self.state.clone(),
-            &self.config.routers,
-            &self.config.outbound,
-        )?);
-        let audit = AuditLog::spawn(&self.state)?;
         let key = MasterKey::load_or_create(&master_key_path()?)?;
+        let credentials = Arc::new(CredentialStore::new(self.state.clone(), key.duplicate()));
+        drop(credentials.migrate_all()?);
+        let registry = Arc::new(
+            RouterRegistry::new(
+                self.state.clone(),
+                &self.config.routers,
+                &self.config.outbound,
+            )?
+            .with_credentials(Arc::clone(&credentials)),
+        );
+        let audit = AuditLog::spawn(&self.state)?;
         let backups = Arc::new(BackupStore::new(self.state.clone(), key).with_retention(
             BackupRetention::new(self.config.backups.max_age, self.config.backups.keep_last),
         ));
@@ -189,6 +197,7 @@ impl Ctx {
             audit,
             backups,
             workflow,
+            credentials,
         })
     }
 
@@ -325,6 +334,11 @@ impl Services {
     /// Protected change workflow.
     pub(crate) const fn workflow(&self) -> &Arc<ChangeWorkflow> {
         &self.workflow
+    }
+
+    /// Encrypted kcc-managed router credentials.
+    pub(crate) const fn credentials(&self) -> &Arc<CredentialStore> {
+        &self.credentials
     }
 }
 

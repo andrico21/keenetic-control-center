@@ -37,6 +37,7 @@ use tokio::sync::Mutex;
 use url::Url;
 
 use crate::{
+    credentials::{CredentialError, CredentialStore},
     permissions::{Permission, Role},
     persist::{Migration, StateDoc, StateError, StateStore, write_atomic},
     settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls},
@@ -203,6 +204,9 @@ pub enum RegistryError {
         /// Underlying I/O error.
         source: io::Error,
     },
+    /// A kcc-managed encrypted credential could not be opened.
+    #[error(transparent)]
+    Credential(#[from] CredentialError),
     /// RCI connection or authentication failed.
     #[error(transparent)]
     Rci(#[from] RciError),
@@ -227,6 +231,8 @@ pub struct RouterRegistry {
     budgets: budgets::Budgets,
     /// Per-router request and login observers (self-metrics).
     observers: Option<RciObserverFactory>,
+    /// Encrypted credentials managed below the state root.
+    credentials: Option<Arc<CredentialStore>>,
 }
 
 /// Builds the request and login observer of one router id (self-metrics).
@@ -266,7 +272,7 @@ impl RouterRegistry {
         Ok(Arc::new(
             RciClient::connect_bootstrap_with(
                 router_url(&profile)?,
-                credentials(&profile, CredentialUse::Primary)?,
+                self.credentials(&profile, CredentialUse::Primary)?,
                 options,
             )
             .await?,
@@ -305,7 +311,14 @@ impl RouterRegistry {
                 .ok_or_else(|| RegistryError::InvalidProfile {
                     reason: "credential file has no name".to_owned(),
                 })?;
-            write_atomic(parent, name, credential.password.expose_secret().as_bytes())?;
+            if let Some(store) = &self.credentials
+                && store.manages(id, &profile.password_file)?
+            {
+                store.store(id, &credential.password)?;
+                profile.password_file = store.sealed_path(id)?;
+            } else {
+                write_atomic(parent, name, credential.password.expose_secret().as_bytes())?;
+            }
             profile.login.clone_from(&credential.login);
         }
         profile.url = endpoint;
@@ -349,7 +362,15 @@ impl RouterRegistry {
             clients: Mutex::new(BTreeMap::new()),
             budgets: budgets::Budgets::default(),
             observers: None,
+            credentials: None,
         })
+    }
+
+    /// Attaches the encrypted credential store used by kcc-managed profiles.
+    #[must_use]
+    pub fn with_credentials(mut self, credentials: Arc<CredentialStore>) -> Self {
+        self.credentials = Some(credentials);
+        self
     }
 
     /// Attaches an observer to every client and detection session created from now on.
@@ -555,7 +576,7 @@ impl RouterRegistry {
         profile: &ManagedRouterProfile,
     ) -> Result<RouterInfo, RegistryError> {
         profile.validate()?;
-        let credentials = credentials(profile, CredentialUse::Primary)?;
+        let credentials = self.credentials(profile, CredentialUse::Primary)?;
         self.detect_with(profile, credentials).await
     }
 
@@ -660,11 +681,27 @@ impl RouterRegistry {
         options.budget = Some(self.budgets.get(&profile.id).await);
         RciClient::connect_with(
             router_url(profile)?,
-            credentials(profile, credential_use)?,
+            self.credentials(profile, credential_use)?,
             options,
         )
         .await
         .map_err(RegistryError::from)
+    }
+
+    /// Reads operator-managed files directly and opens kcc-managed sealed records.
+    fn credentials(
+        &self,
+        profile: &ManagedRouterProfile,
+        credential_use: CredentialUse,
+    ) -> Result<Credentials, RegistryError> {
+        let (login, path) = credential_parts(profile, credential_use)?;
+        if matches!(credential_use, CredentialUse::Primary)
+            && let Some(store) = &self.credentials
+            && store.manages(&profile.id, path)?
+        {
+            return Ok(Credentials::new(login.to_owned(), store.open(&profile.id)?));
+        }
+        credential_file(login, path)
     }
 }
 
@@ -748,10 +785,10 @@ fn lock_error<T>(_error: PoisonError<T>) -> RegistryError {
 }
 
 /// Reads the selected credentials.
-fn credentials(
+fn credential_parts(
     profile: &ManagedRouterProfile,
     credential_use: CredentialUse,
-) -> Result<Credentials, RegistryError> {
+) -> Result<(&str, &PathBuf), RegistryError> {
     let (login, path) = match credential_use {
         CredentialUse::Primary => (profile.login.as_str(), &profile.password_file),
         CredentialUse::ReadOnly => (
@@ -769,6 +806,11 @@ fn credentials(
                 })?,
         ),
     };
+    Ok((login, path))
+}
+
+/// Reads one operator-managed plaintext credential file.
+fn credential_file(login: &str, path: &PathBuf) -> Result<Credentials, RegistryError> {
     let password = fs::read_to_string(path).map_err(|source| RegistryError::CredentialFile {
         path: path.clone(),
         source,

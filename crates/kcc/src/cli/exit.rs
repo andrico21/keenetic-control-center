@@ -3,7 +3,7 @@
 use core::fmt;
 
 use fluent_bundle::FluentArgs;
-use kcc_app::{registry::RegistryError, workflow::WorkflowError};
+use kcc_app::{credentials::CredentialError, registry::RegistryError, workflow::WorkflowError};
 use kcc_catalog::ValidationIssue;
 use kcc_domain::DomainError;
 use kcc_i18n::{
@@ -197,6 +197,12 @@ impl From<RegistryError> for Failure {
             RegistryError::State(_) | RegistryError::ProfileLock | _ => Exit::Generic,
         };
         Self::text(exit, &error)
+    }
+}
+
+impl From<CredentialError> for Failure {
+    fn from(error: CredentialError) -> Self {
+        Self::text(Exit::Auth, &error)
     }
 }
 

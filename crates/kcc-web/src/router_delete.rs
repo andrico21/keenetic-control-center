@@ -13,7 +13,7 @@ use kcc_i18n::{bundle::tr, keys};
 use crate::{
     WebState,
     authz::CurrentUser,
-    credentials, errors,
+    errors,
     nav::Section,
     page::{Localize, Shell},
     page_kit::{
@@ -60,11 +60,14 @@ pub(crate) async fn delete(
     if let Err(error) = fleet.registry().delete(user.role(), &id).await {
         return errors::internal(&error, shell);
     }
-    let managed_file = credentials::path(fleet.credentials_dir(), &id);
-    if entry.profile.password_file == managed_file
-        && let Err(error) = credentials::remove(managed_file).await
+    if matches!(
+        fleet
+            .credentials()
+            .manages(&id, &entry.profile.password_file),
+        Ok(true)
+    ) && let Err(error) = fleet.credentials().remove(&id)
     {
-        tracing::error!(%error, "router password file could not be removed");
+        tracing::error!(router = %id, %error, "router credential could not be removed");
     }
     audit(&state, &user, ProfileAction::Delete(&entry.profile)).await;
     open(Section::Dashboard.href())

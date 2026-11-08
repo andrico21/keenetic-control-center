@@ -20,6 +20,7 @@ use kcc_app::{
     api_keys::api_key_entries,
     audit::AuditLog,
     backups::{BackupRetention, BackupStore},
+    credentials::{CredentialStore, MigrationState},
     jobs::JobRunner,
     permissions::{Role, load_roles, rbac_config},
     persist::StateStore,
@@ -240,17 +241,39 @@ impl Services {
         } else {
             None
         };
-        let mut profiles =
-            RouterRegistry::new(state.clone(), &config.routers, &config.outbound).map_err(error)?;
+        let key_path = master_key_path().map_err(error)?;
+        let master_key = MasterKey::load_or_create(&key_path).map_err(error)?;
+        let credentials = Arc::new(CredentialStore::new(state.clone(), master_key.duplicate()));
+        let migrations = credentials.migrate_all().map_err(error)?;
+        let mut profiles = RouterRegistry::new(state.clone(), &config.routers, &config.outbound)
+            .map_err(error)?
+            .with_credentials(Arc::clone(&credentials));
         if let Some(self_metrics) = &metrics {
             profiles = profiles.with_rci_observers(self_metrics.rci_observers());
         }
         let registry = Arc::new(profiles);
         let poller = Poller::new(Arc::clone(&registry));
         let audit = AuditLog::spawn(&state).map_err(error)?;
+        for (router, migration) in migrations {
+            if !matches!(migration, MigrationState::Current) {
+                let timestamp = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map_or(0, |elapsed| elapsed.as_secs());
+                let event = kcc_app::audit::AuditEvent::new(
+                    timestamp,
+                    kcc_app::audit::Actor::new(
+                        kcc_app::audit::ActorKind::System,
+                        "system".to_owned(),
+                    ),
+                    "router.credential_migrated".to_owned(),
+                )
+                .with_router(router)
+                .with_result("success".to_owned(), format!("startup-{timestamp}"));
+                drop(audit.append(event).await.map_err(error)?);
+            }
+        }
         let roles = load_roles(&state).map_err(error)?;
-        let key_path = master_key_path().map_err(error)?;
-        let accounts_key = MasterKey::load_or_create(&key_path).map_err(error)?;
+        let accounts_key = master_key.duplicate();
         let backup_key = MasterKey::load(&key_path).map_err(error)?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
         let accounts = Arc::new(AccountStore::new(
@@ -376,7 +399,10 @@ impl Services {
             registry: Arc::clone(&self.registry),
             poller: Arc::clone(&self.poller),
             workflow: Arc::clone(&self.workflow),
-            credentials_dir: self.state.dir().join("router-credentials"),
+            credentials: Arc::new(CredentialStore::new(
+                self.state.clone(),
+                MasterKey::load(&master_key_path().map_err(error)?).map_err(error)?,
+            )),
             update_check: None,
             backups: Some(BackupServices::new(
                 Arc::clone(&self.backups),

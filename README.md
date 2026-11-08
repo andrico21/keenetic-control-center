@@ -177,6 +177,11 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Secrets stay out of output.** Reports, logs, audit entries and MCP results carry
   redacted values; revealing a secret needs the `RevealSecrets` permission and is
   audited.
+- **Managed router passwords are sealed.** Passwords entered in the Web UI or through
+  `KCC_PASSWORD`/a CLI prompt are encrypted under the master key in
+  `<state>/router-credentials/<id>.sealed`. Back up `master.key` separately; state
+  cannot recover these credentials without it. Explicit `--password-file` and
+  `password_file` paths remain operator-managed files.
 
 The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 
@@ -193,8 +198,6 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
   access lists are read-only (no catalog has `ipv6 access-list`).
 - MCP migration plans, transient MCP presets and unsaved preset drafts in the Web UI live
   in memory and are lost on restart. An armed router timer still rolls the router back.
-- Router passwords added through the Web UI or a CLI prompt are stored as plain files
-  with mode 0600, not encrypted.
 - Wide tables scroll sideways on phones without a visual cue.
 
 [CHANGELOG.md](CHANGELOG.md) lists what exists today.

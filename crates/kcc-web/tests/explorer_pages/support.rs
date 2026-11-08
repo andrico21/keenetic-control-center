@@ -21,6 +21,7 @@ use kcc_app::{
     accounts::{AccountStore, Clock, NewAccount},
     audit::{AuditEntry, AuditLog, verify_chain},
     backups::BackupStore,
+    credentials::CredentialStore,
     jobs::JobRunner,
     permissions::{Permission, Role, built_in_roles},
     persist::StateStore,
@@ -154,7 +155,7 @@ impl Fixture {
             Arc::clone(&backups),
             audit.clone(),
         );
-        let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
+        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry)).await?;
         let web = WebState::new(WebStateConfig {
             default_locale: Locale::En,
             accounts,
@@ -177,7 +178,7 @@ impl Fixture {
             registry: Arc::clone(&registry),
             poller: Poller::new(Arc::clone(&registry)),
             workflow,
-            credentials_dir: directory.path().join("credentials"),
+            credentials: Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?)),
             update_check: None,
             backups: Some(BackupServices::new(backups, BackupsConfig::default())),
         })

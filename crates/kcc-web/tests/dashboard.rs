@@ -20,7 +20,7 @@ mod tests {
         sync::atomic::{AtomicU64, Ordering},
         time::Duration,
     };
-    use std::fs;
+    use std::{fs, path::PathBuf};
 
     use axum::{
         Router,
@@ -33,6 +33,7 @@ mod tests {
         accounts::{AccountStore, Clock, NewAccount},
         audit::{AuditLog, verify_chain},
         backups::BackupStore,
+        credentials::CredentialStore,
         permissions::{Role, built_in_roles},
         persist::StateStore,
         poller::Poller,
@@ -140,7 +141,11 @@ mod tests {
             fs::write(&password_file, DEFAULT_PASSWORD)?;
             let mut outbound = OutboundConfig::default();
             outbound.allow_loopback = true;
-            let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+            let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));
+            let registry = Arc::new(
+                RouterRegistry::new(state.clone(), &[], &outbound)?
+                    .with_credentials(Arc::clone(&credentials)),
+            );
             let mut routers = Vec::new();
             for (id, profile) in fakes {
                 let (address, handle) = FakeRouter::builder(*profile)
@@ -184,7 +189,7 @@ mod tests {
                 registry: Arc::clone(&registry),
                 poller: Poller::new(Arc::clone(&registry)),
                 workflow,
-                credentials_dir: directory.path().join("credentials"),
+                credentials,
                 update_check: None,
                 backups: None,
             });
@@ -504,10 +509,10 @@ mod tests {
         Ok(())
     }
 
-    /// A router added in the Web UI stores its password owner-only, never renders it, and
-    /// leaves a credential-free audit event.
+    /// A router added in the Web UI stores only sealed bytes, still authenticates, never
+    /// renders its password, and leaves a credential-free audit event.
     #[tokio::test]
-    async fn adding_a_router_stores_the_password_write_only_and_audits() -> TestResult {
+    async fn adding_a_router_stores_only_sealed_bytes_authenticates_and_audits() -> TestResult {
         let fixture = Fixture::new(&[("home", Profile::default())]).await?;
         let browser = fixture.login("admin").await?;
         let address = fixture
@@ -537,17 +542,18 @@ mod tests {
         let stored = fixture.registry.get("lab")?.profile;
         assert_eq!(stored.tags, ["lab", "spare"], "tags");
         assert!(stored.test_device, "test-device flag");
+        assert!(stored.password_file.ends_with("lab.sealed"), "sealed path");
         assert_eq!(
-            fs::read_to_string(&stored.password_file)?,
-            ROUTER_SECRET,
-            "password file"
+            fixture
+                .registry
+                .test_connection(&stored)
+                .await?
+                .version
+                .model,
+            Some("Keenetic Ultra".to_owned()),
+            "sealed credential authenticates"
         );
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt as _;
-            let mode = fs::metadata(&stored.password_file)?.permissions().mode();
-            assert_eq!(mode & 0o777, 0o600, "owner-only password file");
-        }
+        assert_state_has_no_secret(fixture.directory.path().join("state"), ROUTER_SECRET)?;
         let edit = text(fixture.get("/ui/routers/lab/edit", &browser).await?).await?;
         assert!(
             edit.contains("name=\"password\" type=\"password\" value=\"\""),
@@ -567,6 +573,26 @@ mod tests {
             !event.params_redacted.to_string().contains(ROUTER_SECRET),
             "no secret in the audit parameters"
         );
+        Ok(())
+    }
+
+    fn assert_state_has_no_secret(path: PathBuf, secret: &str) -> TestResult {
+        if path.is_dir() {
+            for listed in fs::read_dir(path)? {
+                assert_state_has_no_secret(listed?.path(), secret)?;
+            }
+        } else if path.is_file() {
+            let bytes = fs::read(&path)?;
+            assert!(
+                !bytes
+                    .windows(secret.len())
+                    .any(|part| part == secret.as_bytes()),
+                "secret found in {}",
+                path.display()
+            );
+        } else {
+            return Err(format!("unsupported state entry {}", path.display()).into());
+        }
         Ok(())
     }
 

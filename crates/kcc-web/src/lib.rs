@@ -57,7 +57,6 @@ mod admin_users;
 mod assets;
 mod clients_pages;
 mod config_page;
-mod credentials;
 mod dashboard;
 mod dns_vpn;
 mod firewall_page;

@@ -9,7 +9,6 @@ use kcc_app::{
 };
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
-use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 use url::Url;
 
@@ -17,7 +16,6 @@ use super::{
     args_fleet::RouterCommand,
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
-    files,
     fleet::identity,
     secret::{confirm, read_secret},
 };
@@ -43,13 +41,19 @@ pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
             let role = ctx
                 .principal()
                 .authorize(&[Permission::ManageRouters], &[&id])?;
-            let password_file = password_file(ctx, &id)?;
+            let (password_file, password) = password(ctx, &services, &id)?;
             let mut profile =
                 ManagedRouterProfile::new(id.clone(), parse_url(&url)?, login, password_file);
             profile.tags = tags;
             profile.test_device = test_device;
             profile.tls = pin_sha256.map_or(RouterTls::Verify, RouterTls::PinSha256);
             services.registry().create(&role, profile).await?;
+            if let Some(secret) = password
+                && let Err(error) = services.credentials().store(&id, &secret)
+            {
+                drop(services.registry().delete(&role, &id).await);
+                return Err(error.into());
+            }
             ctx.audit(
                 &services,
                 "cli.router_add",
@@ -93,7 +97,11 @@ pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
                 profile.tls = RouterTls::PinSha256(pin);
             }
             if new_password {
-                profile.password_file = password_file(ctx, &id)?;
+                let (password_file, password) = password(ctx, &services, &id)?;
+                profile.password_file = password_file;
+                if let Some(secret) = password {
+                    services.credentials().store(&id, &secret)?;
+                }
             }
             services.registry().update(&role, profile).await?;
             ctx.audit(
@@ -127,6 +135,7 @@ async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
         .authorize(&[Permission::ManageRouters], &[id])?;
     confirm(ctx.out(), ctx.globals(), Risk::Management, id, false)?;
     services.registry().delete(&role, id).await?;
+    services.credentials().remove(id)?;
     ctx.audit(
         services,
         "cli.router_remove",
@@ -226,20 +235,20 @@ fn list(ctx: &Ctx, services: &Services) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-fn password_file(ctx: &Ctx, id: &str) -> Outcome<PathBuf> {
+fn password(
+    ctx: &Ctx,
+    services: &Services,
+    id: &str,
+) -> Outcome<(PathBuf, Option<secrecy::SecretString>)> {
     if let Some(path) = ctx.globals().password_file() {
-        return Ok(path::absolute(path)?);
+        return Ok((path::absolute(path)?, None));
     }
     let secret = read_secret(
         None,
         &ctx.out()
             .tr(keys::CLI_PROMPT_ROUTER_PASSWORD, &[("router", id)]),
     )?;
-    let dir = ctx.state().dir().join("router-credentials");
-    files::private_dir(&dir)?;
-    let file = dir.join(format!("{id}.password"));
-    files::write_private(&file, secret.expose_secret().as_bytes(), false)?;
-    Ok(file)
+    Ok((services.credentials().sealed_path(id)?, Some(secret)))
 }
 
 /// Parses a router origin.

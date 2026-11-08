@@ -43,14 +43,23 @@ for a loopback test sink) and don't follow redirects either.
   directory can decrypt everything below; back it up separately.
 - **Encrypted with the master key** (XChaCha20-Poly1305, a random nonce per record, the
   owner name as associated data): web account password hashes, configuration backups,
-  stored presets, migration sources and typed migration passwords.
+  stored presets, migration sources, typed migration passwords and router passwords
+  entered through the Web UI or CLI. Managed router records are
+  `<state>/router-credentials/<id>.sealed`, with the router id as associated data.
 - **Hashed**: web account passwords (Argon2id) and API keys (Argon2id, the key is shown
   once and never stored).
-- **Plain files**: router passwords live in the files a profile names. Passwords typed
-  into the Web UI router form or a CLI prompt are written to
-  `<state>/router-credentials/<id>.password` with mode 0600 inside a 0700 directory;
-  they aren't encrypted. Protect the state directory accordingly.
-- On Windows, owner-only ACLs aren't applied to these files yet.
+- **Operator-managed files**: `password_file`, `read_password_file` and `token_file`
+  paths supplied in configuration or with `--password-file` remain files controlled by
+  the operator and are read unchanged; kcc does not copy them into state.
+- **Migration and recovery**: startup and first CLI use seal, reopen and compare legacy
+  `<id>.password` files before overwriting and unlinking them. A wrong/corrupt key,
+  damaged record or comparison failure leaves plaintext in place and fails closed.
+- **Backup and restore**: back up the master key separately from state. Restoring only
+  state makes sealed credentials, backups and presets unrecoverable; restoring only the
+  key provides no secrets. `KCC_MASTER_KEY_FILE` selects the key location.
+- **Windows ACLs**: kcc requests protected owner-only DACLs for the key and every state
+  file/directory. This Windows-only path is not executable or verified on the Linux host
+  used for this change.
 
 ## Secrets in transit
 

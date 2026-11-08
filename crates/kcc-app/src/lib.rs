@@ -13,6 +13,7 @@ pub mod accounts;
 pub mod api_keys;
 pub mod audit;
 pub mod backups;
+pub mod credentials;
 pub mod jobs;
 pub mod permissions;
 pub mod persist;

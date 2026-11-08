@@ -20,5 +20,7 @@ mod health;
 mod migrate;
 #[path = "cli/policy.rs"]
 mod policy;
+#[path = "cli/router_credentials.rs"]
+mod router_credentials;
 #[path = "cli/support.rs"]
 mod support;

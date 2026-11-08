@@ -35,6 +35,13 @@ The pin is the SHA-256 of the router certificate's public key (SubjectPublicKeyI
 and applies to https addresses only. Test connection logs in without storing anything.
 Routers defined in `kcc.toml` are read-only here.
 
+Passwords entered in this form are encrypted in the state directory and are never shown
+again. CLI passwords supplied through `KCC_PASSWORD` or the hidden prompt use the same
+sealed store. Files explicitly selected with `--password-file`, or configured as
+`password_file`, stay under operator control and are read in place. Back up the master
+key selected by `KCC_MASTER_KEY_FILE` separately from state; without it, restored sealed
+credentials and encrypted backups cannot be opened.
+
 A router's dashboard (`/ui/r/<router>`) shows host name, firmware, memory, internet and
 WAN link state, WAN connections, radios and access points, the WAN traffic chart (the
 last 30 minutes, kept in memory), the unsaved-changes banner with Save, and the
