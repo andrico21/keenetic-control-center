@@ -43,8 +43,8 @@ async fn each_role_sees_the_page_and_only_its_controls() -> TestResult {
         let browser = fixture.login(account).await?;
         let page = text(fixture.get(PAGE, &browser).await?).await?;
         assert!(
-            page.contains(&said(Locale::En, keys::WEB_SEGMENTS_LIST_PENDING)),
-            "{account} sees the page: {page}"
+            page.contains(&said(Locale::En, keys::WEB_SEGMENTS_EMPTY)),
+            "{account} sees the empty list: {page}"
         );
         assert_eq!(page.contains(create), creates, "{account} create");
     }

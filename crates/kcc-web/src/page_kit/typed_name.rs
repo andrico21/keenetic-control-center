@@ -56,6 +56,9 @@ pub(crate) struct TypedNameDialog {
     error: String,
     /// The confirming button's label.
     button: MessageKey,
+    /// Lists under the text, such as what a delete removes and what it keeps: each a lead
+    /// sentence and the object names it introduces.
+    lists: Vec<(String, Vec<String>)>,
 }
 
 impl Localize for TypedNameDialog {
@@ -85,12 +88,21 @@ impl TypedNameDialog {
             name: name.to_owned(),
             error: String::new(),
             button: keys::COMMON_DELETE,
+            lists: Vec::new(),
         }
     }
 
     /// Labels the confirming button with `button`.
     pub(crate) const fn with_button(mut self, button: MessageKey) -> Self {
         self.button = button;
+        self
+    }
+
+    /// Lists `items` under the text, introduced by `lead`; no items list nothing.
+    pub(crate) fn with_list(mut self, lead: String, items: Vec<String>) -> Self {
+        if !items.is_empty() {
+            self.lists.push((lead, items));
+        }
         self
     }
 

@@ -1,0 +1,36 @@
+{#- The segments kcc created on one router, one panel each; a change sends the region again out of band. -#}
+<div class="lan-region" id="segments-region"{% if oob %} hx-swap-oob="true"{% endif %}>
+  {%- if rows.is_empty() %}
+  <p class="page__text">{{ t(keys::WEB_SEGMENTS_EMPTY) }}</p>
+  {%- else %}
+  <div class="segments-list">
+    {%- for row in rows %}
+    <section class="panel" aria-labelledby="segment-{{ row.id }}">
+      <div class="panel__head">
+        <h2 class="panel__title" id="segment-{{ row.id }}">{{ row.bridge }}</h2>
+        {%- if !row.complete %}
+        <span class="flag">{{ t(keys::WEB_SEGMENTS_INCOMPLETE) }}</span>
+        {%- endif %}
+      </div>
+      <dl class="facts">
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_VLAN) }}</dt><dd>{{ row.vlan }}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_ADDRESS) }}</dt><dd class="mono">{% if let Some(address) = row.address() %}{{ address }}{% else %}<span class="muted">{{ t(keys::WEB_SEGMENTS_MISSING) }}</span>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_DHCP) }}</dt><dd>{% if let Some(range) = row.range() %}{{ range }}{% else %}<span class="muted">{{ t(keys::WEB_SEGMENTS_MISSING) }}</span>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_NAT) }}</dt><dd>{% if row.nat %}{{ t(keys::COMMON_YES) }}{% else %}<span class="muted">{{ t(keys::COMMON_NO) }}</span>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_HOTSPOT) }}</dt><dd>{% if row.hotspot %}{{ t(keys::COMMON_YES) }}{% else %}<span class="muted">{{ t(keys::COMMON_NO) }}</span>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_WIFI) }}</dt><dd class="mono">{% if let Some(access_point) = row.access_point() %}{{ access_point }}{% else %}<span class="muted">{{ t(keys::WEB_SEGMENTS_ACCESS_POINT_NONE) }}</span>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_PORTS) }}</dt><dd class="mono">{% if let Some(ports) = row.ports() %}{{ ports }}{% else %}<span class="muted">{{ t(keys::WEB_SEGMENTS_ACCESS_POINT_NONE) }}</span>{% endif %}</dd></div>
+        <div class="facts__row"><dt>{{ t(keys::WEB_SEGMENTS_COL_POLICY) }}</dt><dd class="mono">{% if let Some(policy) = row.policy() %}{{ policy }}{% else %}<span class="muted">{{ t(keys::WEB_SEGMENTS_ACCESS_POINT_NONE) }}</span>{% endif %}</dd></div>
+      </dl>
+      {%- if delete %}
+      <div class="segments-actions"><button class="button button--danger-ghost" type="button" hx-get="/ui/r/{{ router }}/segments/delete?id={{ row.id }}" hx-target="#dialog-content" aria-describedby="segment-{{ row.id }}">{{ t(keys::COMMON_DELETE) }}</button></div>
+      {%- endif %}
+    </section>
+    {%- endfor %}
+  </div>
+  {%- if incomplete() %}
+  <p class="page__text">{{ t(keys::WEB_SEGMENTS_INCOMPLETE_NOTE) }}</p>
+  {%- endif %}
+  {%- endif %}
+  <p class="page__text">{{ t(keys::WEB_SEGMENTS_SCOPE) }}</p>
+</div>

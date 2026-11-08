@@ -170,33 +170,35 @@ impl FleetEntry {
 }
 
 /// One navigation link and whether it is the current page.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NavLink {
     /// The linked section.
     section: Section,
+    /// Where the link goes: the section's page on the page's router when it has one.
+    href: String,
     /// Whether the page belongs to this section.
     current: bool,
 }
 
 impl NavLink {
-    /// The section's URL.
+    /// Where the link goes.
     #[inline]
     #[must_use]
-    pub const fn href(self) -> &'static str {
-        self.section.href()
+    pub const fn href(&self) -> &str {
+        self.href.as_str()
     }
 
     /// The link label.
     #[inline]
     #[must_use]
-    pub const fn label(self) -> MessageKey {
+    pub const fn label(&self) -> MessageKey {
         self.section.label()
     }
 
     /// Whether the page belongs to this section (`aria-current="page"`).
     #[inline]
     #[must_use]
-    pub const fn current(self) -> bool {
+    pub const fn current(&self) -> bool {
         self.current
     }
 }
@@ -294,6 +296,8 @@ pub struct Shell {
     router_status: Option<RouterStatus>,
     /// Changes made in the Web UI and not yet saved to the router.
     unsaved_changes: u32,
+    /// Whether the page is for a signed-in user; a visitor's page gets the bare shell.
+    signed_in: bool,
 }
 
 impl fmt::Debug for Shell {
@@ -310,6 +314,7 @@ impl fmt::Debug for Shell {
             .field("fleet", &self.fleet)
             .field("router_status", &self.router_status)
             .field("unsaved_changes", &self.unsaved_changes)
+            .field("signed_in", &self.signed_in)
             .finish()
     }
 }
@@ -327,7 +332,18 @@ impl Shell {
             fleet: Vec::new(),
             router_status: None,
             unsaved_changes: 0,
+            signed_in: true,
         }
+    }
+
+    /// The bare shell of a page for a visitor who is not signed in: the masthead keeps the
+    /// brand and the language and theme menus, without navigation or fleet switcher, and
+    /// the language menu sets only the language cookie.
+    #[inline]
+    #[must_use]
+    pub const fn signed_out(mut self) -> Self {
+        self.signed_in = false;
+        self
     }
 
     /// Marks `section` as the current page in the navigation.
@@ -412,12 +428,29 @@ impl Shell {
         self.unsaved_changes
     }
 
-    /// Every navigation link, marking the current section.
+    /// Whether the page is for a signed-in user: the shell then has the navigation and the
+    /// fleet switcher, and its language menu changes the account's language.
+    #[inline]
+    #[must_use]
+    pub const fn signed_in(&self) -> bool {
+        self.signed_in
+    }
+
+    /// Every navigation link, marking the current section. A section about one router
+    /// links to its page on the router the page shows, else on the only router in the fleet
+    /// switcher; otherwise to the section's router picker.
     #[inline]
     #[must_use]
     pub fn nav(&self) -> [NavLink; 14] {
+        let router = self
+            .fleet
+            .iter()
+            .find(|entry| entry.selected())
+            .or_else(|| self.fleet.first().filter(|_| self.fleet.len() == 1))
+            .map(FleetEntry::id);
         Section::ALL.map(|section| NavLink {
             section,
+            href: section.href_on(router),
             current: self.section == Some(section),
         })
     }
@@ -521,9 +554,9 @@ mod tests {
     #[test]
     fn navigation_marks_only_the_current_section() {
         let shell = Shell::new(Locale::En, Theme::System).with_section(Section::Vpn);
-        let current: Vec<&str> = shell
-            .nav()
-            .into_iter()
+        let links = shell.nav();
+        let current: Vec<&str> = links
+            .iter()
             .filter(|link| link.current())
             .map(NavLink::href)
             .collect();

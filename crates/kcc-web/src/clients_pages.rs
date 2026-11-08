@@ -11,8 +11,9 @@
 //! - `GET /ui/r/{router}/dhcp` (pools) and `.../dhcp/{leases|bindings|arp}`;
 //!   `GET|POST .../dhcp/pools/edit[?name=]` adds or changes a pool and
 //!   `GET|POST .../dhcp/leases/new` adds a static lease.
-//! - `GET /ui/r/{router}/segments`; `GET|POST .../segments/new`, `POST
-//!   .../segments/review` and `POST .../segments/create` are the creation wizard.
+//! - `GET /ui/r/{router}/segments`: the segments kcc created; `GET|POST .../segments/new`,
+//!   `POST .../segments/review` and `POST .../segments/create` are the creation wizard, and
+//!   `GET|POST .../segments/delete?id=` the typed-name delete.
 
 mod client_act;
 mod client_actions;
@@ -25,8 +26,10 @@ mod dhcp_lease;
 mod dhcp_page;
 mod dhcp_rows;
 mod landing;
+mod segment_delete;
 mod segment_form;
 mod segment_known;
+mod segment_list;
 mod segment_review;
 mod segments;
 
@@ -75,6 +78,10 @@ pub(crate) fn routes() -> Router<WebState> {
         )
         .route("/ui/r/{router}/segments/review", post(segments::review))
         .route("/ui/r/{router}/segments/create", post(segments::create))
+        .route(
+            "/ui/r/{router}/segments/delete",
+            get(segment_delete::dialog).post(segment_delete::delete),
+        )
 }
 
 /// One page of the local network family, for the tabs above each page.

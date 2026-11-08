@@ -14,8 +14,9 @@
   {{ kit::outcome_region() }}
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
-  {%- else %}
-  <p class="notice" data-tone="neutral" role="note">{{ t(keys::WEB_SEGMENTS_LIST_PENDING) }}</p>
+  {%- endif %}
+  {%- if let Some(list) = region %}
+  {{ list|safe }}
   {%- endif %}
 </div>
 {%- endblock %}

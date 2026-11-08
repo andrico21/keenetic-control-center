@@ -6,7 +6,9 @@ use kcc_i18n::locale::{self, Locale};
 
 use crate::page::{Shell, Theme};
 
-/// A page shell in the request's preferences: the locale from the `kcc_lang` cookie, then
+/// The bare shell of a page for a visitor who is not signed in.
+///
+/// It follows the request's preferences: the locale from the `kcc_lang` cookie, then
 /// `Accept-Language`, then `default_locale`; the theme from the `kcc_theme` cookie.
 pub(crate) fn shell(headers: &HeaderMap, default_locale: Locale) -> Shell {
     let accept_language = headers
@@ -19,7 +21,7 @@ pub(crate) fn shell(headers: &HeaderMap, default_locale: Locale) -> Shell {
         Some(default_locale),
     );
     let theme = cookie(headers, Theme::COOKIE_NAME).map_or(Theme::System, Theme::from_cookie);
-    Shell::new(locale, theme)
+    Shell::new(locale, theme).signed_out()
 }
 
 /// A page shell using an authenticated account locale and the request's theme cookie.

@@ -3294,3 +3294,33 @@ h3 {
   align-items: flex-start;
   padding-block: var(--space-3);
 }
+
+/* todo 70: the bare shell of the sign-in page - no navigation and no fleet switcher, so
+   the masthead holds the brand and the menus and the page takes the full width. */
+
+.masthead:not(:has(.masthead__menu)) {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "brand prefs";
+}
+
+@media (min-width: 80rem) {
+  .app:not(:has(> .sidenav)) {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "masthead"
+      "main";
+  }
+}
+
+/* todo 70: the segments list - one panel per segment, its delete under its facts. */
+
+.segments-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--panel-min)), 1fr));
+  gap: var(--space-5);
+}
+
+.segments-actions {
+  display: flex;
+  justify-content: flex-end;
+}

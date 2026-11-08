@@ -21,8 +21,11 @@
 <a class="skip-link" href="#main">{{ t(keys::WEB_SKIP_TO_CONTENT) }}</a>
 <div class="app">
   <header class="masthead">
+    {%- if shell.signed_in() %}
     <button class="button button--ghost masthead__menu" type="button" popovertarget="site-nav">{{ t(keys::WEB_NAV_MENU) }}</button>
+    {%- endif %}
     <a class="masthead__brand" href="/ui/">{{ t(keys::COMMON_APP_NAME) }}</a>
+    {%- if shell.signed_in() %}
     <div class="masthead__context">
       {%- if shell.fleet().is_empty() %}
       <p class="masthead__note">{{ t(keys::WEB_FLEET_EMPTY) }}</p>
@@ -44,9 +47,10 @@
       {%- if shell.unsaved_changes() > 0 %}<a class="badge" href="/ui/configuration">{{ t_count(keys::WEB_UNSAVED_CHANGES, shell.unsaved_changes()) }}</a>{% endif -%}
       </span>
     </div>
+    {%- endif %}
     <div class="masthead__prefs">
       <button class="button button--ghost menu-button" type="button" popovertarget="locale-menu"><span class="visually-hidden">{{ t(keys::COMMON_LANGUAGE) }}: </span>{{ t(shell.locale_label()) }}</button>
-      <div class="menu" id="locale-menu" popover>
+      <div class="menu" id="locale-menu" popover{% if shell.signed_in() %} data-kcc-locale-action="/ui/account/locale"{% endif %}>
         <ul class="menu__list">
           {%- for option in shell.locales() %}
           <li><button class="menu__item" type="button" lang="{{ option.tag() }}" data-kcc-locale="{{ option.tag() }}"{% if option.current() %} aria-current="true"{% endif %}>{{ t(option.label()) }}</button></li>
@@ -63,6 +67,7 @@
       </div>
     </div>
   </header>
+  {%- if shell.signed_in() %}
   <nav class="sidenav" id="site-nav" popover aria-label="{{ t(keys::WEB_NAV_LABEL) }}">
     <button class="button button--ghost sidenav__close" type="button" popovertarget="site-nav" popovertargetaction="hide">{{ t(keys::COMMON_CLOSE) }}</button>
     <ul class="sidenav__list">
@@ -71,6 +76,7 @@
       {%- endfor %}
     </ul>
   </nav>
+  {%- endif %}
   <main class="main" id="main" tabindex="-1">
     {%- block content %}{% endblock %}
   </main>

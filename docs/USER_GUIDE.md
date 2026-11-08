@@ -9,6 +9,9 @@ your role: pages and buttons you have no permission for are hidden or answer
 
 - **Router switcher.** The masthead's Router menu opens the dashboard of another router.
   Router pages live under `/ui/r/<router>/...`.
+- **Side navigation.** On a router's page, Clients, Network, Wi-Fi, Routing, Firewall,
+  DNS, VPN and System open that router's page of the section. On other pages they open
+  the only router you may read, or a list of the routers you may read to pick from.
 - **Changes.** A change dialog sends one validated request through the change workflow:
   kcc backs up the startup configuration, checks nobody else changed the router in the
   meantime, applies the change, reads it back and audits it. The result appears as a
@@ -66,10 +69,18 @@ the form). Removing pools or static leases isn't offered yet.
 
 ## Segments
 
-`/ui/r/<router>/segments` creates a network segment (VLAN, bridge, address, DHCP pool,
-ports, access point, policy) step by step, rolling back finished steps if one fails.
-The page doesn't list or delete existing segments yet; the CLI and MCP can delete
-segments kcc created.
+`/ui/r/<router>/segments` lists the segments kcc created on the router: bridge, VLAN ID,
+address, DHCP range, NAT, whether new devices are allowed, Wi-Fi access point, the ports
+carrying the VLAN and the connection policy. A segment that lost some of its objects is
+marked Incomplete. Segments made outside kcc aren't listed; their bridges and VLANs are
+on the Network page.
+
+Create segment builds a new one (VLAN, bridge, address, DHCP pool, ports, access point,
+policy) step by step, rolling back finished steps if one fails. Delete lists the router
+objects that go and the ports that stay (only the segment's VLAN leaves them), and asks
+you to type the router's name. It deletes nothing if the segment changed after the
+dialog opened. Incomplete segments delete what is left. Deleting needs the same Write
+permission as creating.
 
 ## Network
 
@@ -222,5 +233,7 @@ dashboard in `deploy/monitoring/`; see [MONITORING.md](MONITORING.md).
 
 The masthead's language menu offers English, Russian, Ukrainian, German, Belarusian and
 Kazakh; the theme menu offers light, dark and system. Both are stored in cookies set by
-the page's JavaScript, so without JavaScript they do nothing. The account page stores
-your language with your account. See [I18N.md](I18N.md).
+the page's JavaScript, so without JavaScript they do nothing. When you're signed in, the
+language menu also saves the language to your account, as the account page does, and
+every next page uses it. The sign-in page follows the cookie and shows only these two
+menus. See [I18N.md](I18N.md).

@@ -699,9 +699,6 @@ pub const WEB_LOCALE_KK: MessageKey = MessageKey::new("web-locale-kk");
 /// `web-notifications` in `web.ftl`.
 pub const WEB_NOTIFICATIONS: MessageKey = MessageKey::new("web-notifications");
 
-/// `web-section-unavailable` in `web.ftl`.
-pub const WEB_SECTION_UNAVAILABLE: MessageKey = MessageKey::new("web-section-unavailable");
-
 /// `web-error-not-found-title` in `web.ftl`.
 pub const WEB_ERROR_NOT_FOUND_TITLE: MessageKey = MessageKey::new("web-error-not-found-title");
 
@@ -2463,9 +2460,6 @@ pub const WEB_SEGMENTS_TITLE: MessageKey = MessageKey::new("web-segments-title")
 
 /// `web-segments-create` in `web.ftl`.
 pub const WEB_SEGMENTS_CREATE: MessageKey = MessageKey::new("web-segments-create");
-
-/// `web-segments-list-pending` in `web.ftl`.
-pub const WEB_SEGMENTS_LIST_PENDING: MessageKey = MessageKey::new("web-segments-list-pending");
 
 /// `web-segments-wizard-title` in `web.ftl`.
 pub const WEB_SEGMENTS_WIZARD_TITLE: MessageKey = MessageKey::new("web-segments-wizard-title");
@@ -6350,8 +6344,69 @@ pub const WEB_PRESETS_GROUP_EMPTY: MessageKey = MessageKey::new("web-presets-gro
 pub const WEB_EXPLORER_PERSISTS_IMMEDIATELY: MessageKey =
     MessageKey::new("web-explorer-persists-immediately");
 
+/// `web-segments-col-address` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_ADDRESS: MessageKey = MessageKey::new("web-segments-col-address");
+
+/// `web-segments-col-dhcp` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_DHCP: MessageKey = MessageKey::new("web-segments-col-dhcp");
+
+/// `web-segments-col-nat` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_NAT: MessageKey = MessageKey::new("web-segments-col-nat");
+
+/// `web-segments-col-hotspot` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_HOTSPOT: MessageKey = MessageKey::new("web-segments-col-hotspot");
+
+/// `web-segments-col-wifi` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_WIFI: MessageKey = MessageKey::new("web-segments-col-wifi");
+
+/// `web-segments-col-ports` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_PORTS: MessageKey = MessageKey::new("web-segments-col-ports");
+
+/// `web-segments-col-policy` in `web.ftl`.
+pub const WEB_SEGMENTS_COL_POLICY: MessageKey = MessageKey::new("web-segments-col-policy");
+
+/// `web-segments-incomplete` in `web.ftl`.
+pub const WEB_SEGMENTS_INCOMPLETE: MessageKey = MessageKey::new("web-segments-incomplete");
+
+/// `web-segments-incomplete-note` in `web.ftl`.
+pub const WEB_SEGMENTS_INCOMPLETE_NOTE: MessageKey =
+    MessageKey::new("web-segments-incomplete-note");
+
+/// `web-segments-missing` in `web.ftl`.
+pub const WEB_SEGMENTS_MISSING: MessageKey = MessageKey::new("web-segments-missing");
+
+/// `web-segments-empty` in `web.ftl`.
+pub const WEB_SEGMENTS_EMPTY: MessageKey = MessageKey::new("web-segments-empty");
+
+/// `web-segments-scope` in `web.ftl`.
+pub const WEB_SEGMENTS_SCOPE: MessageKey = MessageKey::new("web-segments-scope");
+
+/// `web-segments-delete-title` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_TITLE: MessageKey = MessageKey::new("web-segments-delete-title");
+
+/// `web-segments-delete-text` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_TEXT: MessageKey = MessageKey::new("web-segments-delete-text");
+
+/// `web-segments-delete-removed` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_REMOVED: MessageKey = MessageKey::new("web-segments-delete-removed");
+
+/// `web-segments-delete-kept` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_KEPT: MessageKey = MessageKey::new("web-segments-delete-kept");
+
+/// `web-segments-delete-confirm` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_CONFIRM: MessageKey = MessageKey::new("web-segments-delete-confirm");
+
+/// `web-segments-delete-changed` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_CHANGED: MessageKey = MessageKey::new("web-segments-delete-changed");
+
+/// `web-segments-delete-gone` in `web.ftl`.
+pub const WEB_SEGMENTS_DELETE_GONE: MessageKey = MessageKey::new("web-segments-delete-gone");
+
+/// `web-segments-read-error` in `web.ftl`.
+pub const WEB_SEGMENTS_READ_ERROR: MessageKey = MessageKey::new("web-segments-read-error");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2026] = [
+pub static ALL: [MessageKey; 2044] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6582,7 +6637,6 @@ pub static ALL: [MessageKey; 2026] = [
     WEB_LOCALE_BE,
     WEB_LOCALE_KK,
     WEB_NOTIFICATIONS,
-    WEB_SECTION_UNAVAILABLE,
     WEB_ERROR_NOT_FOUND_TITLE,
     WEB_ERROR_NOT_FOUND_TEXT,
     WEB_ERROR_FORBIDDEN_TITLE,
@@ -7152,7 +7206,6 @@ pub static ALL: [MessageKey; 2026] = [
     WEB_DHCP_READ_ERROR,
     WEB_SEGMENTS_TITLE,
     WEB_SEGMENTS_CREATE,
-    WEB_SEGMENTS_LIST_PENDING,
     WEB_SEGMENTS_WIZARD_TITLE,
     WEB_SEGMENTS_STEP_DETAILS,
     WEB_SEGMENTS_STEP_REVIEW,
@@ -8378,4 +8431,24 @@ pub static ALL: [MessageKey; 2026] = [
     WEB_PRESETS_DOWNLOADS,
     WEB_PRESETS_GROUP_EMPTY,
     WEB_EXPLORER_PERSISTS_IMMEDIATELY,
+    WEB_SEGMENTS_COL_ADDRESS,
+    WEB_SEGMENTS_COL_DHCP,
+    WEB_SEGMENTS_COL_NAT,
+    WEB_SEGMENTS_COL_HOTSPOT,
+    WEB_SEGMENTS_COL_WIFI,
+    WEB_SEGMENTS_COL_PORTS,
+    WEB_SEGMENTS_COL_POLICY,
+    WEB_SEGMENTS_INCOMPLETE,
+    WEB_SEGMENTS_INCOMPLETE_NOTE,
+    WEB_SEGMENTS_MISSING,
+    WEB_SEGMENTS_EMPTY,
+    WEB_SEGMENTS_SCOPE,
+    WEB_SEGMENTS_DELETE_TITLE,
+    WEB_SEGMENTS_DELETE_TEXT,
+    WEB_SEGMENTS_DELETE_REMOVED,
+    WEB_SEGMENTS_DELETE_KEPT,
+    WEB_SEGMENTS_DELETE_CONFIRM,
+    WEB_SEGMENTS_DELETE_CHANGED,
+    WEB_SEGMENTS_DELETE_GONE,
+    WEB_SEGMENTS_READ_ERROR,
 ];

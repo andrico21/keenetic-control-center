@@ -1,16 +1,17 @@
-//! Page handlers: the section pages and the redirects into `/ui/`.
+//! Page handlers: the router pickers of the sections and the redirects into `/ui/`.
 //!
-//! The sections are placeholders until their own pages land; each renders its heading
-//! inside the full shell, so navigation works end to end. The dashboard section is the
-//! fleet overview (`overview`).
+//! A section about one router (clients aside, which has its own landing page) answers at
+//! `/ui/<section>` with its router picker; the navigation links there only when the page
+//! shows no router and the role may read several. The dashboard section is the fleet
+//! overview (`overview`).
 
-use askama::Template;
+mod picker;
+
 use axum::{
     extract::{Path, State, rejection::PathRejection},
     http::HeaderMap,
     response::{Redirect, Response},
 };
-use kcc_i18n::keys;
 
 use crate::{
     WebState,
@@ -18,32 +19,16 @@ use crate::{
     errors::{self, Kind},
     nav::Section,
     overview::masthead,
-    page::{Localize, Shell},
     prefs,
 };
-
-/// A section page.
-#[derive(Template)]
-#[template(path = "pages/section.html")]
-struct SectionPage {
-    /// Page shell with the section marked current.
-    shell: Shell,
-    /// The section shown.
-    section: Section,
-}
-
-impl Localize for SectionPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
 
 /// `GET /` and `GET /ui`: redirect to the dashboard.
 pub(crate) async fn to_ui() -> Redirect {
     Redirect::to(Section::Dashboard.href())
 }
 
-/// `GET /ui/{*rest}`: a section page, or the 404 page for any other path.
+/// `GET /ui/{*rest}`: the router picker of a section about one router, or the 404 page for
+/// any other path.
 pub(crate) async fn section(
     State(state): State<WebState>,
     rest: Result<Path<String>, PathRejection>,
@@ -54,15 +39,8 @@ pub(crate) async fn section(
     let shell = prefs::shell_for_locale(&headers, user.locale())
         .with_csrf_token(current.session().csrf_token().to_owned())
         .with_fleet(masthead(&state, user.role(), None).await, None);
-    match rest
-        .ok()
-        .and_then(|Path(slug)| Section::from_slug(&slug))
-        .filter(|section| *section != Section::Dashboard)
-    {
-        Some(section) => errors::render(&SectionPage {
-            shell: shell.with_section(section),
-            section,
-        }),
+    match rest.ok().and_then(|Path(slug)| Section::from_slug(&slug)) {
+        Some(section) => picker::page(&state, &user, section, shell).await,
         None => errors::response(Kind::NotFound, shell),
     }
 }
@@ -96,7 +74,6 @@ mod tests {
     use fluent_bundle::FluentArgs;
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
-    use super::SectionPage;
     use crate::{
         nav::Section,
         page::{FleetEntry, Localize, RouterStatus, Shell, Theme},
@@ -105,6 +82,23 @@ mod tests {
 
     /// Fallible test result.
     type TestResult = Result<(), Box<dyn Error>>;
+
+    /// A page with nothing in it but the shell.
+    #[derive(Template)]
+    #[template(
+        ext = "html",
+        source = r#"{% extends "base.html" %}{% block title %}{% endblock %}{% block content %}{% endblock %}"#
+    )]
+    struct ShellOnly {
+        /// The shell under test.
+        shell: Shell,
+    }
+
+    impl Localize for ShellOnly {
+        fn shell(&self) -> &Shell {
+            &self.shell
+        }
+    }
 
     /// Every component macro with fixed sample data.
     #[derive(Template)]
@@ -180,11 +174,7 @@ mod tests {
                 Some(RouterStatus::Offline),
             )
             .with_unsaved_changes(3);
-        let html = SectionPage {
-            shell,
-            section: Section::Wifi,
-        }
-        .render()?;
+        let html = ShellOnly { shell }.render()?;
         let mut args = FluentArgs::new();
         args.set("count", 3_u32);
         let badge = tr(Locale::Ru, keys::WEB_UNSAVED_CHANGES, Some(&args));
@@ -198,7 +188,7 @@ mod tests {
                 tr(Locale::Ru, keys::WEB_ROUTER_OFFLINE, None)
             ),
             format!("<a class=\"badge\" href=\"/ui/configuration\">{badge}</a>"),
-            "href=\"/ui/wifi\" aria-current=\"page\"".to_owned(),
+            "href=\"/ui/r/home/wifi\" aria-current=\"page\"".to_owned(),
         ] {
             assert!(html.contains(&expected), "missing {expected}");
         }
@@ -211,9 +201,8 @@ mod tests {
 
     #[test]
     fn an_empty_shell_shows_the_no_router_note_only() -> TestResult {
-        let html = SectionPage {
+        let html = ShellOnly {
             shell: Shell::new(Locale::En, Theme::System).with_section(Section::Dashboard),
-            section: Section::Dashboard,
         }
         .render()?;
         assert!(html.contains("No routers configured"), "empty fleet note");

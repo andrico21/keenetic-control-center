@@ -99,6 +99,41 @@ impl Section {
         }
     }
 
+    /// The section's page on one router, the path after `/ui/r/{router}/`; `None` for the
+    /// sections that are not about one router.
+    #[inline]
+    #[must_use]
+    pub const fn router_page(self) -> Option<&'static str> {
+        match self {
+            Self::Clients => Some("clients"),
+            Self::Network => Some("network"),
+            Self::Wifi => Some("wifi"),
+            Self::Routing => Some("routing"),
+            Self::Firewall => Some("firewall"),
+            Self::Dns => Some("dns"),
+            Self::Vpn => Some("vpn"),
+            Self::System => Some("system/general"),
+            Self::Dashboard
+            | Self::Configuration
+            | Self::Advanced
+            | Self::Migration
+            | Self::Presets
+            | Self::Admin => None,
+        }
+    }
+
+    /// The navigation link of the section on a page about `router`: the section's page on
+    /// that router, or [`href`](Self::href) without a router or for a section that is not
+    /// about one router.
+    #[inline]
+    #[must_use]
+    pub fn href_on(self, router: Option<&str>) -> String {
+        match (self.router_page(), router) {
+            (Some(page), Some(id)) => format!("/ui/r/{id}/{page}"),
+            (Some(_) | None, _) => self.href().to_owned(),
+        }
+    }
+
     /// The navigation label, also the page title.
     #[inline]
     #[must_use]

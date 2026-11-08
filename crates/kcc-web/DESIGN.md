@@ -1061,3 +1061,73 @@ settings-group checkbox column gets.
 | Presets actions need JavaScript | `pages/presets_*.html`, `partials/presets_*.html` | Every change (save, delete, apply, the wizard's steps, Reveal) is an htmx request carrying the CSRF header; the lists, the preset page, the run pages and the report downloads work without it | Same as the menus |
 | The captured settings update needs JavaScript | `partials/presets_compose.html` | Without htmx the captured lines stay as first shown; Save still captures exactly the checked groups | None needed |
 | The presets list and the review table scroll sideways on a phone | `pages/presets_list.html`, `partials/presets_review.html` | Both use the shared `.table-wrap` pattern (the review is the migration review's `.wizard-review` table, at least `--wizard-review-min`); at 390 px the list's Created by, Apply and Delete and the review's Fate and Apply sit past the right edge with no scroll cue; the preset page repeats Apply and Delete | A stacked phone layout or a scroll cue shared by every `.table-wrap` table |
+
+## Sign-in shell, router-aware navigation, segments list and delete (todo 70)
+
+- Bare shell (`Shell::signed_out`, built by `prefs::shell`, so the sign-in page and its
+  refused answer): the masthead keeps the brand and the language and theme menus; no Menu
+  button, no fleet switcher or "no routers" note, no side navigation (five tab stops before
+  the username instead of eighteen). Layout: one column, the masthead as "brand prefs"
+  (`.masthead:not(:has(.masthead__menu))`) and the main area over the full width at 80rem
+  (`.app:not(:has(> .sidenav))`); scroll owner: the document.
+- Signing in or out through htmx answers `HX-Redirect`, a whole page load: a body swap kept
+  the previous page's `<meta name="csrf-token">`, so the first change after signing in
+  (the language menu above all) was refused with 403. Plain posts still get a 303.
+- Language menu: on a signed-in page it carries `data-kcc-locale-action`, and `app.js`
+  posts the choice to `/ui/account/locale` (CSRF header) before reloading, so the account
+  and every live session of it change and the next page renders in the language; the
+  cookie is still written for the sign-in page. A body swap (the account page's own save)
+  takes `<html lang>` from the response. The account page now has the fleet switcher.
+- Side navigation: Clients, Network, Wi-Fi, Routing, Firewall, DNS, VPN and System link to
+  `/ui/r/{router}/<page>` (`Section::router_page`) for the router the page shows, else the
+  only router in the fleet switcher; otherwise to `/ui/<section>`, the section's router
+  picker (`pages/navpicker.html`). There is no remembered "last router": the fleet
+  switcher is the only router state a page has.
+- Router picker. Primary action: open the section on a router (the Pages link). Priorities:
+  1 the routers the role may read, 2 the link to the section's page, 3 the link to each
+  router's dashboard. Left out on purpose: router status and facts (the fleet overview has
+  them), a "pick a router" sentence under the heading. Required content: the section title,
+  Router and Pages columns, one row per readable router, the "no routers to open" and
+  "not configured" notes. Anatomy and keys: the Clients, Configuration and Advanced
+  landings.
+- Segments page. Primary action: Create segment. Priorities: 1 the segments (bridge as the
+  panel title, the Incomplete flag), 2 what each has (VLAN ID, address, DHCP range, NAT,
+  new devices allowed, Wi-Fi, trunk ports, connection policy), 3 Delete. Left out on
+  purpose: segments made outside kcc (the scope note sends readers to the Network page),
+  per-segment edit (the domain has no segment edit), client counts. Required content: the
+  family tabs, the router link, the outcome region, one `.panel` per segment with a
+  `.facts` list in `.segments-list` (`#segments-region`, read back out of band after a
+  create or a delete), Missing for an address or range a partial segment lost, the
+  Incomplete flag and its note, the empty note, the scope note, Delete
+  (`button--danger-ghost` in `.segments-actions`, `aria-describedby` the panel title) only
+  where the role may delete. Layout: `repeat(auto-fill, minmax(min(100%, --panel-min),
+  1fr))`, so a lone segment keeps a panel's width and every fact and Delete stay in view
+  from 320 px up; a ten-column table pushed Delete past the right edge at 1280 px.
+- Segment delete dialog: the kit's `TypedNameDialog` with `with_list`: the router objects
+  that go (`SegmentView::delete_summary().owned_contexts`) and the ports that stay
+  (`preserved_ports`, only the VLAN leaves them), each as `code` in a `.plain-list`; the
+  router's name is typed; Delete segment is `button--danger`. The form posts to
+  `.../segments/delete?id=&seen=`, where `seen` fingerprints the summary shown: a segment
+  that changed answers the dialog again (422) with what goes now; a wrong name, or a hidden
+  name that is not the router's, answers it with the field error; neither sends a change.
+  Permission: `Write`, as the CLI and MCP delete (the typed name is the Web's
+  confirmation).
+
+| Item | Location | Why accepted | Owner / Exit |
+|---|---|---|---|
+| The bare shell's layout uses `:has()` | `assets/css/app.css` | A browser without `:has()` keeps an empty navigation column on the sign-in page at 80rem and wider | None needed |
+| A long fact value wraps under its label | `partials/segments_region.html` | The shared `.facts` row wraps a value that does not fit beside its label (a DHCP range at 390 px) onto its own line, start-aligned | A `.facts` variant that keeps wrapped values end-aligned, if the dashboard wants it too |
+| Router picker links are text-sized | `pages/navpicker.html` | The router and section links are inline links in table cells (about 49x17 px at 320 px wide), the shape every landing table (Clients, Configuration, Advanced) uses; the rows are 49 px apart, so no other target sits within a 24 px circle (WCAG 2.5.8 spacing exception) | Taller row links if the landing tables change together |
+
+WCAG 2.2 AA result for the todo-70 surfaces (probe `wcag.mjs` and `shots.mjs` in Chromium,
+logged in `.omo/evidence/task-70-keenetic-control-center.log`):
+
+| Check | Result | Evidence |
+|---|---|---|
+| Contrast 1.4.3/1.4.11 | PASS | Delete 7.08:1 light, 6.38:1 dark; fact labels 7.1:1 and 8.86:1; notes 7.81:1 and 10.59:1 |
+| Focus 2.4.7/2.4.11 | PASS | Every stop of the sign-in page and Delete show the 2 px focus ring; the dialog opens on Close and Escape returns focus to Delete |
+| Target size 2.5.8 | PASS | Masthead menus, fields, Sign in, Create segment, Delete, Close and Delete segment at least 44 px tall; picker links by the spacing exception |
+| Keyboard 2.1.1/2.1.2 | PASS | Delete reached by Tab, the dialog by Enter, Escape closes it; no trap |
+| Reflow and text spacing 1.4.10/1.4.12 | PASS | Sign-in, picker, segments and the delete dialog at 320 px in both themes and at 1280 px, with and without the text-spacing overrides: no sideways scroll, no clipping |
+| Dragging, authentication, help, entry 2.5.7/3.3.8/3.2.6/3.3.7 | PASS | No drag; the sign-in page accepts paste and password managers (plain username and password fields); the typed router name is shown in the help text, not recalled |
+| State-stable controls | PASS | Delete is 75x44 px idle, hovered and focused |

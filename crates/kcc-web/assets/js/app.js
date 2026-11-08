@@ -63,6 +63,22 @@
     document.dispatchEvent(new CustomEvent("kcc:theme"));
   };
 
+  // A signed-in page's language menu also saves the account's language (the menu carries
+  // the endpoint), so every next page renders in it; a sign-in page only has the cookie.
+  const saveLocale = (item, tag) => {
+    const action = item.closest("[data-kcc-locale-action]")?.getAttribute("data-kcc-locale-action");
+    const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute("content");
+    if (!action || !token) {
+      return Promise.resolve();
+    }
+    return fetch(action, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { "Content-Type": "application/x-www-form-urlencoded", "X-CSRF-Token": token },
+      body: new URLSearchParams({ locale: tag }),
+    }).catch(() => {});
+  };
+
   document.addEventListener("click", (event) => {
     const target = event.target instanceof Element ? event.target : null;
     if (!target) {
@@ -79,7 +95,7 @@
       const tag = locale.getAttribute("data-kcc-locale");
       if (tag && /^[a-z]{2}$/.test(tag)) {
         writeCookie("kcc_lang", tag, YEAR_SECONDS);
-        window.location.reload();
+        saveLocale(locale, tag).finally(() => window.location.reload());
       }
       return;
     }
@@ -404,6 +420,22 @@
     if (xhr?.status === 413 && xhr.getResponseHeader("HX-Retarget")) {
       event.detail.shouldSwap = true;
       event.detail.isError = false;
+    }
+  });
+})();
+
+// todo 70: a response that replaces the whole body is a new page, such as the account page
+// after its language changed; htmx keeps the old <html lang>, so take it from the response.
+(() => {
+  "use strict";
+
+  document.addEventListener("htmx:afterSwap", (event) => {
+    if (event.detail?.target !== document.body) {
+      return;
+    }
+    const match = /<html lang="([a-z]{2})"/.exec(event.detail.xhr?.responseText || "");
+    if (match) {
+      document.documentElement.setAttribute("lang", match[1]);
     }
   });
 })();

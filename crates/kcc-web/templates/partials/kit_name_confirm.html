@@ -1,6 +1,14 @@
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(title) %}
 <p class="dialog__text">{{ t(*text) }}</p>
+{%- for (lead, items) in lists %}
+<p class="dialog__text">{{ lead }}</p>
+<ul class="plain-list">
+  {%- for item in items %}
+  <li><code>{{ item }}</code></li>
+  {%- endfor %}
+</ul>
+{%- endfor %}
 <form class="form" method="post" action="{{ action }}" hx-post="{{ action }}" hx-target="#dialog-content">
   <input type="hidden" name="name" value="{{ name }}">
   {{ ui::field("confirm-name", "confirm", t(keys::WEB_ADMIN_CONFIRM_LABEL), "", error, "text", "off", help) }}

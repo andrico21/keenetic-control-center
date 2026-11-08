@@ -34,6 +34,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser, PASSWORD_CHANGE_PAGE},
     errors,
+    overview::masthead,
     page::{Localize, Shell},
     page_kit::respond,
     prefs,
@@ -201,7 +202,7 @@ pub(crate) async fn login(
                     return internal(error);
                 }
             };
-            let mut response = Redirect::to(landing).into_response();
+            let mut response = go_to(&headers, landing);
             if let Err(error) = set_session_cookie(&mut response, &state, &id) {
                 return internal(error);
             }
@@ -220,6 +221,7 @@ pub(crate) async fn login(
 /// `POST /ui/logout`: invalidates server-side state before deleting the cookie.
 pub(crate) async fn logout(
     State(state): State<WebState>,
+    headers: HeaderMap,
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
@@ -227,7 +229,7 @@ pub(crate) async fn logout(
     if let Err(error) = audit(&state, user.username(), "web.logout", "success").await {
         return internal(error);
     }
-    let mut response = Redirect::to("/ui/login").into_response();
+    let mut response = go_to(&headers, "/ui/login");
     let cookie = state.cookie_security().clear_cookie();
     match header::HeaderValue::from_str(&cookie) {
         Ok(value) => {
@@ -245,7 +247,7 @@ pub(crate) async fn account_page(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    account_response(&state, &headers, &current, &user, false, None)
+    account_response(&state, &headers, &current, &user, false, None).await
 }
 
 /// `POST /ui/account/password`: verifies current password and ends other sessions.
@@ -269,11 +271,11 @@ pub(crate) async fn change_password(
         Ok(Ok(value)) => value,
         Ok(Err(AccountError::InvalidPasswordLength)) => {
             let error = Some(keys::WEB_ADMIN_ERROR_PASSWORD_LENGTH);
-            return account_response(&state, &headers, &current, &user, false, error);
+            return account_response(&state, &headers, &current, &user, false, error).await;
         }
         Ok(Err(AccountError::PasswordEqualsUsername)) => {
             let error = Some(keys::WEB_ADMIN_ERROR_PASSWORD_USERNAME);
-            return account_response(&state, &headers, &current, &user, false, error);
+            return account_response(&state, &headers, &current, &user, false, error).await;
         }
         Ok(Err(error)) => return internal(error),
         Err(error) => return internal(error),
@@ -290,7 +292,7 @@ pub(crate) async fn change_password(
             if let Err(error) = audit(&state, &username, "web.password_change", "success").await {
                 return internal(error);
             }
-            account_response(&state, &headers, &current, &user, true, None)
+            account_response(&state, &headers, &current, &user, true, None).await
         }
         Authentication::Invalid
         | Authentication::Disabled
@@ -299,13 +301,14 @@ pub(crate) async fn change_password(
                 return internal(error);
             }
             let error = Some(keys::ERRORS_AUTH_FAILED);
-            account_response(&state, &headers, &current, &user, false, error)
+            account_response(&state, &headers, &current, &user, false, error).await
         }
         _ => internal("unsupported authentication result"),
     }
 }
 
-/// `POST /ui/account/locale`: persists a supported locale.
+/// `POST /ui/account/locale`: persists a supported locale for the signed-in account and
+/// gives it to the account's live sessions, so the next page renders in it.
 pub(crate) async fn change_locale(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -326,8 +329,9 @@ pub(crate) async fn change_locale(
         Ok(Err(error)) => return internal(error),
         Err(error) => return internal(error),
     }
+    state.sessions().set_user_locale(&username, locale).await;
     user.set_locale(locale);
-    account_response(&state, &headers, &current, &user, true, None)
+    account_response(&state, &headers, &current, &user, true, None).await
 }
 
 /// Renders the uniform login failure and audits only stable metadata.
@@ -464,9 +468,10 @@ pub(crate) fn request_id() -> String {
     format!("web-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed))
 }
 
-/// Renders the account page with the current session's CSRF token.
-fn account_response(
-    _state: &WebState,
+/// Renders the account page with the current session's CSRF token and the fleet switcher.
+// cancel-safe: reads only.
+async fn account_response(
+    state: &WebState,
     headers: &HeaderMap,
     current: &CurrentSession,
     user: &CurrentUser,
@@ -474,7 +479,8 @@ fn account_response(
     error: Option<MessageKey>,
 ) -> Response {
     let shell = prefs::shell_for_locale(headers, user.locale())
-        .with_csrf_token(current.session().csrf_token().to_owned());
+        .with_csrf_token(current.session().csrf_token().to_owned())
+        .with_fleet(masthead(state, user.role(), None).await, None);
     errors::render(&AccountPage {
         shell,
         username: user.username().to_owned(),
@@ -482,6 +488,18 @@ fn account_response(
         password_required: current.session().password_change_required(),
         error: error.map_or_else(String::new, |key| tr(user.locale(), key, None)),
     })
+}
+
+/// Sends the browser to `href` after signing in or out.
+///
+/// An htmx request gets a whole page load (`HX-Redirect`), because swapping only the body
+/// would keep the old page's CSRF token in its head; anything else gets a 303.
+fn go_to(headers: &HeaderMap, href: &str) -> Response {
+    if headers.contains_key("hx-request") {
+        respond::open(href)
+    } else {
+        Redirect::to(href).into_response()
+    }
 }
 
 /// Attaches the transport-appropriate session cookie.

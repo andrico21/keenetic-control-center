@@ -368,6 +368,18 @@ impl SessionStore {
         }
     }
 
+    /// Gives every live session of `username` the account's new `locale`, so its next page
+    /// renders in it; other accounts' sessions keep theirs.
+    pub(crate) async fn set_user_locale(&self, username: &str, locale: Locale) {
+        self.inner
+            .sessions
+            .write()
+            .await
+            .values_mut()
+            .filter(|session| session.username.as_deref() == Some(username))
+            .for_each(|session| session.locale = locale);
+    }
+
     /// Ends every session of `username`, after an administrator changed the account.
     pub(crate) async fn invalidate_user(&self, username: &str) {
         self.inner

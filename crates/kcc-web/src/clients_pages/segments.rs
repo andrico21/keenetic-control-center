@@ -1,8 +1,9 @@
 //! `GET /ui/r/{router}/segments` and the segment creation wizard.
 //!
-//! The wizard shows the details, then the review of the router objects it creates, then
+//! The page lists the segments kcc created, each with its delete (`segment_delete`). The
+//! wizard shows the details, then the review of the router objects it creates, then
 //! creates them through the segments domain, which removes the objects already created
-//! when a step fails.
+//! when a step fails; the list is read back after it.
 
 use askama::Template;
 use axum::{
@@ -27,6 +28,7 @@ use super::{
     Tab, TabLink, answer,
     segment_form::{Details, Problems, SegmentForm},
     segment_known::Known,
+    segment_list::Region,
     segment_review::Review,
 };
 use crate::{
@@ -62,6 +64,8 @@ struct Page {
     tabs: Vec<TabLink>,
     /// Whether the role may create a segment.
     create: bool,
+    /// The segments, when the router answered.
+    region: Option<Region>,
     /// Why the router could not be read.
     problem: Option<MessageKey>,
 }
@@ -72,7 +76,8 @@ impl Localize for Page {
     }
 }
 
-/// `GET /ui/r/{router}/segments`: the page and Create segment when the role may use it.
+/// `GET /ui/r/{router}/segments`: the segments kcc created, with Create segment and each
+/// segment's delete when the role may use them.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -92,15 +97,25 @@ pub(crate) async fn page(
         tabs: Tab::Segments.links(&router),
         router: router.clone(),
         create: false,
+        region: None,
         problem: None,
     };
-    match target.facts(&state).await {
-        Ok(facts) => {
-            page.create = Controls::new(user.role(), &router)
-                .with_operations(segments::DESCRIPTOR.write_ops, Some(facts.catalog()))
-                .allows("create");
+    let (facts, domain) = match target.context(&state).await {
+        Ok(found) => found,
+        Err(error) => {
+            page.problem = Some(error.message(Family::Changes));
+            return errors::render(&page);
         }
-        Err(error) => page.problem = Some(error.message(Family::Changes)),
+    };
+    let controls = Controls::new(user.role(), &router)
+        .with_operations(segments::DESCRIPTOR.write_ops, Some(facts.catalog()));
+    page.create = controls.allows("create");
+    match Region::read(&domain, &router, user.locale()).await {
+        Ok(region) => page.region = Some(region.deletable(controls.allows("delete"))),
+        Err(error) => {
+            tracing::warn!(%error, "segments page: the router could not be read");
+            page.problem = Some(keys::WEB_SEGMENTS_READ_ERROR);
+        }
     }
     errors::render(&page)
 }
@@ -232,7 +247,8 @@ pub(crate) async fn create(
             }
         })
         .await;
-    Ok(answer(outcome, None, note, locale))
+    let listed = Region::read_back(&domain, &router, locale).await;
+    Ok(answer(outcome, listed, note, locale))
 }
 
 /// What the router already has.
@@ -256,7 +272,7 @@ fn refuse(details: Details, problems: Problems, problem: String) -> Answer {
 }
 
 /// The sentence naming the failed step, and the workflow error the kit words.
-fn step_failure(error: SegmentError, locale: Locale) -> (Option<String>, WorkflowError) {
+pub(super) fn step_failure(error: SegmentError, locale: Locale) -> (Option<String>, WorkflowError) {
     let mut args = FluentArgs::new();
     match error {
         SegmentError::StepFailed { step, source } => {
