@@ -7,6 +7,10 @@
 
 use alloc::{collections::BTreeMap, vec};
 
+use crate::descriptor::operation;
+
+mod verification;
+
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
@@ -17,7 +21,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token::validate as validate_token, read_show,
 };
 
 /// Tolerant `show ndns` state.
@@ -254,26 +258,10 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     }
     Ok(CliChangeRequest::new(
         commands,
-        Vec::new(),
+        verification::specs(operation)?,
         operation.permission,
         json!({"operation":"keendns"}),
     ))
-}
-
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
 }
 
 /// Plans one catalog-validated operation.
@@ -294,17 +282,4 @@ fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedReq
         .catalog
         .validate(path, HttpMethod::Post, body)
         .map_err(|issues| DomainError::Validation { issues })
-}
-
-/// Rejects values that cannot be represented as one unquoted router CLI token.
-fn validate_token(value: &str) -> Result<()> {
-    if value.is_empty()
-        || value
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
-        || value.contains(['\'', '"', '\\', ';', '|'])
-    {
-        return Err(DomainError::InvalidCliToken);
-    }
-    Ok(())
 }

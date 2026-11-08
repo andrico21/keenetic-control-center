@@ -14,6 +14,7 @@
 
 mod render;
 pub mod secrets;
+mod verification;
 
 use alloc::vec;
 
@@ -244,6 +245,7 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
 /// Plans one non-secret catalog-validated VPN server mutation.
 pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<ChangeOp> {
     let (path, body, line) = render::input(change);
+    let verify = verification::specs(change, path, &body);
     let mut validated = router
         .catalog
         .validate(path, HttpMethod::Post, &body)
@@ -251,7 +253,7 @@ pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<Chang
     validated.value = json!({"line":line,"arguments":validated.value});
     Ok(ChangeOp::new(
         vec![validated],
-        Vec::new(),
+        verify,
         Risk::Write,
         Permission::Write,
         false,

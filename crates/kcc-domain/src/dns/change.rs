@@ -17,7 +17,7 @@ use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
 use super::{DnsChange, FilterEngine, HttpsUpstream, RebindProtection, TlsUpstream};
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 /// Validates a typed DNS change against the selected router catalog.
 pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
@@ -107,7 +107,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             ))
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         commands,
         operation.verify.clone(),
         operation.permission,

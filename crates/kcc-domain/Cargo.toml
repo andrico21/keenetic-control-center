@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
+kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 base64 = "0.23.1"
 secrecy = "0.10.3"

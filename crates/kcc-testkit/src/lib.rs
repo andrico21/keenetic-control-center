@@ -41,6 +41,7 @@ pub mod live_matrix;
 pub mod migration;
 pub mod model;
 pub mod ndw2;
+mod ntp;
 mod projection;
 mod server;
 pub mod time;

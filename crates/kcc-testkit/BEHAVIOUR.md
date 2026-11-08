@@ -101,6 +101,37 @@ fixtures; fixture values remain the baseline for unmodified rows and fields.
 
 ## CLI configuration files and parser
 
+- A silent-no-op entry equal to a full CLI command intercepts special handlers
+  too, including native fail-safe commands. The existing `parse` entry retains
+  its ordinary-command scope. **assumed fault injection**, added for task 67.
+- Named crypto-map virtual-IP enable/range/DNS fields project from the map context.
+  This task 67 projection is **assumed**, not a hardware capture.
+- Mesh acquisition adds a member whose id equals the candidate identifier to fresh
+  `show mws member` responses. **assumed**, added for task 67; no hardware capture.
+- Structured NTP server/master/sync-period writes update the mutable AST and
+  `show rc ntp`; silent-no-op injection targets `ntp`, not `parse`. **assumed**.
+- VPN/SSTP/OpenConnect server interface, pool and DNS settings, OpenConnect routes
+  and WireGuard server interface bindings project from mutable CLI state. These
+  task 67 projections are **assumed**, not hardware captures.
+- KeenDNS booked names, HTTP proxy contexts/upstreams and cloud security levels
+  project from running CLI state. Dropping a name removes its booking. These task
+  67 projections are **assumed**, not hardware captures.
+- WAN CLI address, DHCP, identity, connect-via, priority, MTU and default-route
+  settings project under `show rc interface` from mutable interface leaves.
+  Default-route is false when absent. **assumed**, added for task 67.
+- `show rc system log` projects configured servers, suppressed identifiers and the
+  reduction flag from mutable CLI state. **assumed**, added for task 67.
+- `ip hotspot default-policy <selection>` replaces the configured default;
+  `ip hotspot policy <interface> <selection>` replaces only that interface's policy.
+  `show rc ip hotspot` projects `default-policy` and the interface-keyed `policy`
+  object from the mutable AST. **assumed**, added for task 67; no hardware capture.
+- `show rc schedule` projects schedule names, descriptions and configured action
+  times from the mutable AST. `show schedule` includes these configured rows.
+  This task 67 projection is **assumed**, not captured from hardware.
+- Management listener `show rc ip http|ssh|telnet` fields are projected from the
+  mutable CLI AST: numeric ports, security levels and HTTP SSL enable/redirect/port.
+  Absent SSL enable and redirect commands project false. **assumed**, not captured
+  from hardware; added for task 67 fresh read-back verification.
 - The JSON settings tree and CLI configuration ASTs are deliberately independent stores.
   A write to one does not propagate to the other. Tests must not infer propagation.
 - `show rc ip policy` projects policy contexts and their child commands from the running

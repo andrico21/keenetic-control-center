@@ -14,7 +14,7 @@ use kcc_app::{
     },
 };
 use kcc_catalog::Risk;
-use kcc_domain::{RouterCtx, configuration::SafetyNet};
+use kcc_domain::{DomainError, RouterCtx, configuration::SafetyNet};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciError, RciResponse};
 use serde_json::{Value, json};
@@ -143,6 +143,15 @@ pub(crate) struct Refused {
 }
 
 impl Refused {
+    /// Converts the domain verification gate into the normal failed outcome.
+    pub(crate) fn verification(error: DomainError) -> Self {
+        if let DomainError::Workflow(source) = error {
+            Self::plain(source)
+        } else {
+            Self::plain(WorkflowError::InvalidResponse)
+        }
+    }
+
     /// A failure with no timer armed.
     const fn plain(error: WorkflowError) -> Self {
         Self {

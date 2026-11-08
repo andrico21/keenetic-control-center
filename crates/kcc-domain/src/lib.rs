@@ -13,6 +13,9 @@
 
 extern crate alloc;
 
+mod cli_token;
+mod descriptor;
+
 pub mod clients;
 pub mod components;
 pub mod configuration;
@@ -34,6 +37,7 @@ pub mod segments;
 pub mod services;
 pub mod storage;
 pub mod system;
+pub mod verification;
 pub mod vpn_clients;
 pub mod vpn_servers;
 pub mod wan;
@@ -143,6 +147,13 @@ pub struct OperationDescriptor {
 }
 
 impl OperationDescriptor {
+    /// States why this operation has no readable postcondition, if it is an action.
+    #[inline]
+    #[must_use]
+    pub fn action_without_state(self) -> Option<&'static str> {
+        verification::action_without_state(self.catalog_path)
+    }
+
     /// Returns whether this operation exists in `catalog`.
     #[inline]
     #[must_use]

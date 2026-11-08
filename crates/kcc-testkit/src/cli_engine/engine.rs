@@ -21,6 +21,11 @@ pub(super) struct Shape {
 
 /// Applies a recognized command, returning whether the line belongs to the local shape table.
 pub(crate) fn apply(ast: &mut Ast, line: &str) -> bool {
+    if let Some(name) = line.strip_prefix("ndns drop-name ")
+        && !apply(ast, &format!("no ndns book-name {name}"))
+    {
+        return false;
+    }
     let Ok(mut parsed) = parse(line) else {
         return false;
     };

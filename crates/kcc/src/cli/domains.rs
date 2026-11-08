@@ -7,7 +7,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest},
 };
-use kcc_domain::{ChangeOp, DomainError, RouterCtx};
+use kcc_domain::{ChangeOp, DomainError, RouterCtx, verification};
 use kcc_i18n::{bundle::MessageKey, keys};
 use serde::Serialize;
 use serde_json::Value;
@@ -229,8 +229,10 @@ impl<'ctx> Session<'ctx> {
     /// Returns the policy refusal, a missing confirmation or the workflow failure.
     // NOT cancel-safe: the change may apply before cancellation.
     pub(crate) async fn cli(&self, operation: &ChangeOp, request: CliChangeRequest) -> Outcome {
+        let verified_request = verification::complete(request)?;
+        verification::require(&verified_request)?;
         self.change(Gate::of(operation), async |changes, _router| {
-            let result = changes.apply_cli(request).await?;
+            let result = changes.apply_cli(verified_request).await?;
             Ok(applied(result.unsaved))
         })
         .await

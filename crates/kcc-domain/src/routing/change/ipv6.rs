@@ -1,6 +1,6 @@
 //! Protected IPv6 route removal and wipe recovery.
 
-use kcc_app::workflow::{ChangeSet, CliChangeResult};
+use kcc_app::workflow::{ChangeSet, CliChangeResult, WorkflowError};
 
 use super::{plan_add_ipv6, plan_remove_ipv6, reports_cleared, request};
 use crate::{
@@ -20,7 +20,16 @@ pub(super) async fn remove(
     let before_table = read::ipv6_table(router).await?;
     let before = before_table.len();
     let removal = plan_remove_ipv6(router, route)?;
-    let result = changes.apply_cli(request(&removal)?).await?;
+    let result = changes
+        .apply_cli(request(&removal)?)
+        .await
+        .map_err(|error| {
+            if matches!(error, WorkflowError::VerificationFailed { field: _ }) {
+                DomainError::RouteCountMismatch
+            } else {
+                DomainError::Workflow(error)
+            }
+        })?;
     if reports_cleared(&result.responses) {
         for saved in before_table.iter().filter_map(configured_ipv6_route) {
             let restore = plan_add_ipv6(router, &saved?)?;

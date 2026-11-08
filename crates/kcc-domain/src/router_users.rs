@@ -7,6 +7,8 @@
 
 use alloc::{collections::BTreeMap, vec};
 
+mod verification;
+
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
@@ -19,6 +21,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
+    cli_token::validate as validate_token,
 };
 
 /// One secret-free router account returned by `show rc user`.
@@ -175,16 +178,18 @@ pub fn plan_password(
         .catalog
         .validate_secret("user password plain", "password", password)
         .map_err(|issues| DomainError::Validation { issues })?;
+    let mut verify = VerificationSpec::presence(
+        vec!["show".to_owned(), "rc".to_owned(), "user".to_owned()],
+        "/password/md5".to_owned(),
+        PresencePredicate::LengthRange {
+            minimum: 32,
+            maximum: 32,
+        },
+    );
+    verify.row = Some(("name".to_owned(), json!(name)));
     Ok(ChangeOp::new(
         vec![user, validated_password],
-        vec![VerificationSpec::presence(
-            vec!["show".to_owned(), "rc".to_owned(), "user".to_owned()],
-            "/0/password/md5".to_owned(),
-            PresencePredicate::LengthRange {
-                minimum: 32,
-                maximum: 32,
-            },
-        )],
+        vec![verify],
         Risk::Management,
         Permission::ManageUsers,
         false,
@@ -252,7 +257,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     }
     Ok(CliChangeRequest::new(
         commands,
-        operation.verify.clone(),
+        verification::specs(operation, name)?,
         operation.permission,
         json!({"operation":"router_user","login":name}),
     ))
@@ -291,17 +296,4 @@ const fn change(requests: Vec<ValidatedRequest>) -> ChangeOp {
         Permission::ManageUsers,
         false,
     )
-}
-
-/// Rejects values that cannot be represented as one unquoted router CLI token.
-fn validate_token(value: &str) -> Result<()> {
-    if value.is_empty()
-        || value
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
-        || value.contains(['\'', '"', '\\', ';', '|'])
-    {
-        return Err(DomainError::InvalidCliToken);
-    }
-    Ok(())
 }

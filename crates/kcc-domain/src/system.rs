@@ -7,7 +7,7 @@
     reason = "domain operation names follow the plan; async operations and small planning helpers are not useful inline candidates"
 )]
 
-use alloc::{collections::BTreeMap, vec};
+use alloc::vec;
 use core::result::Result as CoreResult;
 
 use kcc_app::{
@@ -18,160 +18,28 @@ use kcc_app::{
     },
 };
 use kcc_catalog::{HttpMethod, Risk};
-use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
-use crate::{
-    ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
-};
+use crate::{ChangeOp, DomainDescriptor, DomainError, DomainId, Result, RouterCtx, read_show};
 
-/// Tolerant `show version` model.
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
-#[non_exhaustive]
-pub struct Version {
-    /// Firmware title.
-    pub title: Option<String>,
-    /// Firmware release string.
-    pub release: Option<String>,
-    /// Marketing model.
-    pub model: Option<String>,
-    /// Hardware identifier.
-    pub hw_id: Option<String>,
-    /// Unmodelled router fields.
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Tolerant `show system` model.
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
-#[non_exhaustive]
-pub struct SystemState {
-    /// Router host name.
-    pub hostname: Option<String>,
-    /// Router DNS domain name.
-    pub domainname: Option<String>,
-    /// Uptime as reported by firmware.
-    pub uptime: Option<String>,
-    /// Unmodelled router fields.
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Tolerant clock/date model.
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
-#[non_exhaustive]
-pub struct ClockDate {
-    /// Calendar year.
-    pub year: Option<u16>,
-    /// Calendar month.
-    pub month: Option<u8>,
-    /// Calendar day.
-    pub day: Option<u8>,
-    /// Hour in local time.
-    pub hour: Option<u8>,
-    /// Minute in local time.
-    pub min: Option<u8>,
-    /// Second in local time.
-    pub sec: Option<u8>,
-    /// Timezone object.
-    pub tz: Option<Value>,
-    /// Unmodelled router fields.
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Tolerant NTP status model.
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
-#[non_exhaustive]
-pub struct NtpStatus {
-    /// Synchronization state, when reported.
-    pub status: Option<String>,
-    /// Selected server, when reported.
-    pub server: Option<String>,
-    /// Unmodelled router fields.
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// Tolerant system-mode model.
-#[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
-#[serde(default)]
-#[non_exhaustive]
-pub struct SystemMode {
-    /// Router mode name.
-    pub mode: Option<String>,
-    /// Unmodelled router fields.
-    #[serde(flatten)]
-    pub extra: BTreeMap<String, Value>,
-}
-
-/// System read inventory.
-const READS: &[OperationDescriptor] = &[
-    read_operation("version", "show version"),
-    read_operation("system", "show system"),
-    read_operation("clock_date", "show clock date"),
-    read_operation("ntp_status", "show ntp status"),
-    read_operation("system_mode", "show system mode"),
-];
-
-/// System write inventory.
-const WRITES: &[OperationDescriptor] = &[
-    write_operation(
-        "hostname",
-        "system hostname",
-        Risk::Write,
-        Permission::Write,
-    ),
-    write_operation(
-        "domainname",
-        "system domainname",
-        Risk::Write,
-        Permission::Write,
-    ),
-    write_operation(
-        "description",
-        "system description",
-        Risk::Write,
-        Permission::Write,
-    ),
-    write_operation(
-        "timezone",
-        "system clock timezone",
-        Risk::Write,
-        Permission::Write,
-    ),
-    write_operation("ntp_server", "ntp server", Risk::Write, Permission::Write),
-    write_operation("ntp_master", "ntp master", Risk::Write, Permission::Write),
-    write_operation(
-        "ntp_sync_period",
-        "ntp sync-period",
-        Risk::Write,
-        Permission::Write,
-    ),
-    write_operation(
-        "reboot",
-        "system reboot",
-        Risk::Destructive,
-        Permission::Destructive,
-    ),
-    write_operation(
-        "factory_reset",
-        "system configuration factory-reset",
-        Risk::Destructive,
-        Permission::Destructive,
-    ),
-];
+mod descriptor;
+pub mod models;
+/// Tolerant firmware identity.
+pub type Version = models::Version;
+/// Tolerant system state.
+pub type SystemState = models::SystemState;
+/// Tolerant clock state.
+pub type ClockDate = models::ClockDate;
+/// Tolerant NTP state.
+pub type NtpStatus = models::NtpStatus;
+/// Tolerant operating mode.
+pub type SystemMode = models::SystemMode;
 
 /// System domain metadata.
 pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
     id: DomainId::System,
-    read_ops: READS,
-    write_ops: WRITES,
+    read_ops: descriptor::READS,
+    write_ops: descriptor::WRITES,
     required_components: &[],
 };
 
@@ -243,7 +111,11 @@ pub fn plan_ntp_server(router: &RouterCtx, server: &str) -> Result<ChangeOp> {
         "ntp server",
         vec!["ntp"],
         json!({"server": server}),
-        Vec::new(),
+        vec![VerificationSpec::new(
+            vec!["show".to_owned(), "rc".to_owned(), "ntp".to_owned()],
+            "/server".to_owned(),
+            json!(server),
+        )],
     )
 }
 
@@ -253,8 +125,16 @@ pub fn plan_ntp_master(router: &RouterCtx, enabled: bool) -> Result<ChangeOp> {
         router,
         "ntp master",
         vec!["ntp"],
-        json!({"master": enabled}),
-        Vec::new(),
+        if enabled {
+            json!({})
+        } else {
+            json!({"no":true})
+        },
+        vec![VerificationSpec::new(
+            vec!["show".to_owned(), "rc".to_owned(), "ntp".to_owned()],
+            "/master".to_owned(),
+            json!(enabled),
+        )],
     )
 }
 
@@ -264,8 +144,12 @@ pub fn plan_ntp_sync_period(router: &RouterCtx, seconds: u32) -> Result<ChangeOp
         router,
         "ntp sync-period",
         vec!["ntp"],
-        json!({"sync-period": seconds}),
-        Vec::new(),
+        json!({"period": seconds}),
+        vec![VerificationSpec::new(
+            vec!["show".to_owned(), "rc".to_owned(), "ntp".to_owned()],
+            "/sync-period".to_owned(),
+            json!(seconds),
+        )],
     )
 }
 
@@ -282,7 +166,9 @@ pub fn change_request(operation: &ChangeOp) -> Result<ChangeRequest> {
             "clock".to_owned(),
             "timezone".to_owned(),
         ],
-        "ntp server" | "ntp master" | "ntp sync-period" => vec!["ntp".to_owned()],
+        "ntp server" => vec!["ntp".to_owned()],
+        "ntp master" => vec!["ntp".to_owned(), "master".to_owned()],
+        "ntp sync-period" => vec!["ntp".to_owned(), "sync-period".to_owned()],
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(ChangeRequest::new(
@@ -348,33 +234,6 @@ pub enum FactoryResetError {
     /// Protected execution failed.
     #[error(transparent)]
     Workflow(WorkflowError),
-}
-
-/// Builds a read descriptor.
-const fn read_operation(name: &'static str, catalog_path: &'static str) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk: Risk::Read,
-        permission: Permission::Read,
-        persists_immediately: false,
-    }
-}
-
-/// Builds a write descriptor.
-const fn write_operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
 }
 
 /// Plans one system string field.

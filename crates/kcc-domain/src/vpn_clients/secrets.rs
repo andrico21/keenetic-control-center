@@ -8,7 +8,9 @@ use core::{result::Result as CoreResult, str::from_utf8};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliCommand as ValidatedCli, WorkflowError},
+    workflow::{
+        ChangeSet, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec, WorkflowError,
+    },
 };
 use kcc_catalog::Risk;
 use kcc_rci::{ConfigKind, ObjectName};
@@ -103,9 +105,15 @@ pub fn plan(
             .map_err(|_error| DomainError::InvalidCliToken)?,
     );
     request.value = json!({"line":template,"arguments":request.value});
+    let mut verify = VerificationSpec::presence(
+        Vec::new(),
+        "vpn/credential".to_owned(),
+        PresencePredicate::ConfigSecret,
+    );
+    verify.expected = json!(prefix);
     Ok(ChangeOp::new(
         vec![request],
-        Vec::new(),
+        vec![verify],
         Risk::Write,
         Permission::Write,
         false,

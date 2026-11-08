@@ -1,0 +1,61 @@
+//! KeenDNS and remote-access read-back expectations.
+
+use kcc_app::workflow::{PresencePredicate, VerificationSpec};
+use serde_json::{Value, json};
+
+use crate::{ChangeOp, DomainError, Result};
+
+/// Builds expectations for the selected registration or proxy context.
+pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
+    let first = operation
+        .requests
+        .first()
+        .ok_or(DomainError::InvalidResponse)?;
+    let path = vec!["show".to_owned(), "rc".to_owned()];
+    let text = |key| {
+        first
+            .value
+            .get(key)
+            .and_then(Value::as_str)
+            .ok_or(DomainError::InvalidResponse)
+    };
+    let spec = match first.path.as_str() {
+        "cloud control2 security-level" => VerificationSpec::new(
+            path,
+            "/cloud/control2/security-level".to_owned(),
+            first
+                .value
+                .get("level")
+                .cloned()
+                .ok_or(DomainError::InvalidResponse)?,
+        ),
+        "ndns book-name" | "ndns drop-name" => {
+            let present = first.path == "ndns book-name";
+            VerificationSpec::collection(
+                path,
+                "/ndns/book-name".to_owned(),
+                json!({"name":text("name")?,"domain":text("domain")?}),
+                present,
+            )
+        }
+        "ip http proxy" => {
+            let name = text("name")?.replace('~', "~0").replace('/', "~1");
+            let base = format!("/ip/http/proxy/{name}");
+            if let Some(upstream) = operation.requests.get(1) {
+                VerificationSpec::new(path, format!("{base}/upstream"), upstream.value.clone())
+            } else {
+                VerificationSpec::presence(
+                    path,
+                    base,
+                    if first.value.get("no") == Some(&Value::Bool(true)) {
+                        PresencePredicate::Absent
+                    } else {
+                        PresencePredicate::Present
+                    },
+                )
+            }
+        }
+        _ => return Err(DomainError::InvalidResponse),
+    };
+    Ok(vec![spec])
+}

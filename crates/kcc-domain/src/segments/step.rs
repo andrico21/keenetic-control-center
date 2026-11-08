@@ -14,7 +14,7 @@ use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 
 use super::SegmentSpec;
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 /// Direction in which a segment definition is executed.
 #[derive(Clone, Copy)]
@@ -241,7 +241,9 @@ pub(super) async fn apply(
         Permission::Write,
         json!({"operation":"segment","step":definition.name}),
     );
-    drop(changes.apply_cli(request).await?);
+    let verified_request =
+        verification::complete(request).map_err(|_error| WorkflowError::InvalidResponse)?;
+    drop(changes.apply_cli(verified_request).await?);
     let text = running_config(router).await?;
     let present = context_has_child(&text, &definition.context, definition.child.as_deref());
     let verified = match direction {

@@ -12,7 +12,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{
         ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, LastChange,
-        WorkflowError,
+        VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::{HttpMethod, Risk};
@@ -278,9 +278,20 @@ fn cli_request(
         .catalog
         .validate(catalog_path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
+    let verify = match catalog_path {
+        "system configuration fail-safe timer" | "system configuration fail-safe keep-alive" => {
+            vec![VerificationSpec::new(
+                vec!["show".to_owned(), "last-change".to_owned()],
+                "/fail-safe/active".to_owned(),
+                json!(!line.starts_with("no ")),
+            )]
+        }
+        "system reboot" | "system configuration fail-safe rollback" => Vec::new(),
+        _ => return Err(DomainError::InvalidResponse),
+    };
     Ok(CliChangeRequest::new(
         vec![ValidatedCli::new(line, validated)],
-        Vec::new(),
+        verify,
         permission,
         json!({"operation": catalog_path}),
     ))

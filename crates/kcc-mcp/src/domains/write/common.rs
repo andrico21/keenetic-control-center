@@ -5,7 +5,7 @@ use core::net::Ipv4Addr;
 
 use kcc_app::workflow::{ChangeSet, CliChangeRequest};
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, DomainError, RouterCtx};
+use kcc_domain::{ChangeOp, DomainError, RouterCtx, verification};
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
 use serde_json::{Value, json};
@@ -75,7 +75,9 @@ where
     let (operation, confirm, convert) = planned;
     let operation = operation.map_err(map_domain)?;
     confirm_risk(server, operation.risk, confirm)?;
-    let request = convert(&operation).map_err(map_domain)?;
+    let request =
+        verification::complete(convert(&operation).map_err(map_domain)?).map_err(map_domain)?;
+    verification::require(&request).map_err(map_domain)?;
     let mut changes = begin(server, opened).await?;
     let result = changes.apply_cli(request).await.map_err(map_workflow)?;
     Ok(applied(result.unsaved))

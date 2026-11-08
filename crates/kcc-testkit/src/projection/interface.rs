@@ -7,6 +7,8 @@ use serde_json::{Map, Value, json};
 
 use super::matching;
 
+mod wan;
+
 /// Synthetic encoded marker with plausible NS3 length and no recoverable secret material.
 const NS3_PRESENCE: &str = "000000000000000000000000";
 
@@ -17,12 +19,13 @@ pub(super) fn interfaces(command_lines: &[Vec<String>]) -> Value {
         let Some((name, command)) = words.split_first() else {
             continue;
         };
-        let entry = result
-            .entry(name.clone())
-            .or_insert_with(|| json!({"id":name,"interface-name":name}));
+        let entry = result.entry(name.clone()).or_insert_with(
+            || json!({"id":name,"interface-name":name,"ipcp":{"default-route":false}}),
+        );
         let Some(fields) = entry.as_object_mut() else {
             continue;
         };
+        wan::extend(fields, command);
         match command {
             [field, value]
                 if matches!(field.as_str(), "description" | "ssid" | "security-level") =>

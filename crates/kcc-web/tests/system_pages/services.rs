@@ -17,6 +17,31 @@ use crate::{
 /// The page under test.
 const PAGE: &str = "/ui/r/home/system/services";
 
+/// A silently ignored typed service write renders its failed field without success.
+#[tokio::test]
+async fn silent_service_noop_is_a_failed_outcome() -> TestResult {
+    let fixture = Fixture::with_faults(FaultInjection::default().silent_noop_path("parse")).await?;
+    let operator = fixture.login("operator").await?;
+    let body = text(
+        fixture
+            .post(&format!("{PAGE}/toggle?name=iperf3&on=true"), &operator, "")
+            .await?,
+    )
+    .await?;
+    assert!(body.contains("/service"), "failed field missing: {body}");
+    assert!(
+        !body.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
+        "ignored write reported applied: {body}"
+    );
+    assert!(
+        !fixture
+            .audit()?
+            .iter()
+            .any(|entry| entry.outcome == "applied_unsaved")
+    );
+    Ok(())
+}
+
 /// The services the fake router's running configuration turns on.
 async fn configured(fixture: &Fixture) -> TestResult<Vec<String>> {
     let client = fixture.registry().client(ROUTER).await?;

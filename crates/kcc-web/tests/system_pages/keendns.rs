@@ -87,7 +87,11 @@ async fn the_name_is_released_and_a_bad_name_is_refused() -> TestResult {
 
 #[tokio::test]
 async fn management_changes_ask_first_and_run_inside_the_fail_safe_timer() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = Fixture::with_faults(
+        kcc_testkit::FaultInjection::default()
+            .fail_parse_matching("cloud control2 security-level", 1),
+    )
+    .await?;
     let admin = fixture.login("admin").await?;
     let access = format!("{PAGE}/access?level=private");
     let asked = fixture.post(&access, &admin, "").await?;

@@ -25,7 +25,7 @@ use super::{
     model::{ForwardTarget, PortForward},
     read,
 };
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 /// Plans adding one static forwarding rule.
 pub fn plan_add_forward(router: &RouterCtx, rule: &PortForward) -> Result<ChangeOp> {
@@ -65,12 +65,12 @@ pub async fn apply(
         .map(ToOwned::to_owned)
         .collect();
     let result = changes
-        .apply_cli(CliChangeRequest::new(
+        .apply_cli(verification::complete(CliChangeRequest::new(
             vec![ValidatedCli::new(line.clone(), validated.clone())],
             Vec::new(),
             operation.permission,
             json!({"domain":"nat"}),
-        ))
+        ))?)
         .await?;
     let rows = if validated.path == "ip static" {
         read::running_forwards(router).await?

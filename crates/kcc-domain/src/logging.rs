@@ -7,6 +7,8 @@
 
 use alloc::vec;
 
+mod verification;
+
 use kcc_app::{
     permissions::{Permission, Role},
     registry::authorize,
@@ -185,7 +187,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     };
     Ok(CliChangeRequest::new(
         vec![ValidatedCli::new(line, request.clone())],
-        Vec::new(),
+        verification::specs(request)?,
         operation.permission,
         json!({"operation":request.path}),
     ))

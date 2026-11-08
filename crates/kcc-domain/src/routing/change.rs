@@ -16,7 +16,9 @@ use alloc::{format, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli},
+    workflow::{
+        ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, WorkflowError,
+    },
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::RciBody;
@@ -26,7 +28,7 @@ use super::{
     model::{Ipv4Route, Ipv6Route, RouteTableEntry},
     read,
 };
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 mod ipv6;
 
@@ -62,7 +64,7 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .requests
         .first()
         .ok_or(DomainError::InvalidResponse)?;
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         vec![ValidatedCli::new(render(validated), validated.clone())],
         Vec::new(),
         operation.permission,
@@ -79,7 +81,13 @@ pub async fn remove_ipv4(
     let before_table = read::ipv4_table(router).await?;
     let before = before_table.len();
     let removal = plan_remove_ipv4(router, route)?;
-    let result = changes.apply_cli(request(&removal)?).await?;
+    let result = match changes.apply_cli(request(&removal)?).await {
+        Ok(result) => result,
+        Err(WorkflowError::VerificationFailed { field: _ }) => {
+            return Err(DomainError::RouteCountMismatch);
+        }
+        Err(error) => return Err(error.into()),
+    };
     if reports_cleared(&result.responses) {
         for saved in before_table.iter().filter_map(configured_ipv4_route) {
             let restore = plan_add_ipv4(router, &saved?)?;

@@ -549,6 +549,9 @@ impl Shared {
 
     /// Applies a full-path CLI parser command.
     fn parse_command(&self, line: &str) -> Value {
+        if self.silent_noop(line) {
+            return tree::status("message", "saved.");
+        }
         let intercepted = lock(&self.migration).intercept(line);
         if let Some(response) = intercepted {
             return response;
@@ -972,6 +975,11 @@ impl Shared {
         use secrecy::ExposeSecret as _;
 
         let (line, settings_body) = match path {
+            "ntp" | "ntp/master" | "ntp/sync-period" => {
+                use crate::ntp;
+                let line = ntp::command(path, body)?;
+                return Some(lock(&self.config).apply(&line));
+            }
             "system" => {
                 if let Some(hostname) = body.get("hostname").and_then(Value::as_str) {
                     let quoted = quote_cli_word(hostname).ok()?;

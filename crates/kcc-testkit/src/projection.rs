@@ -1,14 +1,20 @@
 //! Secret-safe JSON projections of mutable CLI configuration.
 
+mod hosts;
+mod hotspot_policy;
 mod interface;
+mod management;
+mod ntp;
+mod remote;
+mod schedule;
 mod system;
-
-use alloc::collections::BTreeMap;
+mod vpn_server;
 
 use kcc_config::config_text::{Ast, Token, flatten};
 use serde_json::{Map, Value, json};
 
 use self::{
+    hosts::{hotspot, users},
     interface::interfaces,
     system::{clock_show, system, system_show},
 };
@@ -53,6 +59,16 @@ pub(super) fn configuration(ast: &Ast) -> Value {
         grouped_rows(&command_lines, &["access-list"]),
     );
     insert_path(&mut root, &["interface"], interfaces(&command_lines));
+    management::extend(&mut root, &command_lines);
+    remote::extend(&mut root, &command_lines);
+    vpn_server::extend(&mut root, &command_lines);
+    insert_path(&mut root, &["ntp"], ntp::project(&command_lines));
+    insert_path(&mut root, &["schedule"], schedule::rows(&command_lines));
+    insert_path(
+        &mut root,
+        &["ip", "hotspot"],
+        hotspot_policy::project(&command_lines),
+    );
     Value::Object(root)
 }
 
@@ -60,6 +76,16 @@ pub(super) fn configuration(ast: &Ast) -> Value {
 pub(super) fn show(ast: &Ast, path: &str, fixture: Option<&Value>) -> Option<Value> {
     let command_lines = lines(ast);
     match path {
+        "mws/member" => Some(append_rows(
+            fixture,
+            Value::Array(
+                matching(&command_lines, &["mws", "acquire"])
+                    .filter_map(|words| words.first())
+                    .map(|candidate| json!({"id":candidate,"online":true}))
+                    .collect(),
+            ),
+        )),
+        "schedule" => Some(append_rows(fixture, schedule::rows(&command_lines))),
         "ip/hotspot" => Some(hotspot(&command_lines, fixture)),
         "ip/dhcp/bindings" => Some(append_rows(fixture, dhcp_hosts(&command_lines))),
         "ip/route" => Some(append_rows(fixture, route_rows(&command_lines))),
@@ -128,31 +154,6 @@ fn dns_proxy(command_lines: &[Vec<String>]) -> Value {
     Value::Object(proxy)
 }
 
-/// Projects users with password hashes only.
-fn users(command_lines: &[Vec<String>]) -> Value {
-    let mut projected = BTreeMap::<String, Map<String, Value>>::new();
-    for words in matching(command_lines, &["user"]) {
-        let Some((name, fields)) = words.split_first() else {
-            continue;
-        };
-        let user = projected.entry(name.clone()).or_insert_with(|| {
-            let mut initial = Map::new();
-            drop(initial.insert("name".to_owned(), Value::String(name.clone())));
-            initial
-        });
-        match fields {
-            [tag, value] if tag == "tag" => push_string(user, "tag", value),
-            [password, format, digest]
-                if password == "password" && matches!(format.as_str(), "md5" | "nt") =>
-            {
-                drop(user.insert("password".to_owned(), json!({format:digest})));
-            }
-            _ => {}
-        }
-    }
-    Value::Array(projected.into_values().map(Value::Object).collect())
-}
-
 /// Projects enabled services.
 fn services(command_lines: &[Vec<String>]) -> Value {
     Value::Array(
@@ -188,39 +189,6 @@ fn grouped_rows(command_lines: &[Vec<String>], prefix: &[&str]) -> Value {
         }
     }
     Value::Object(groups)
-}
-
-/// Projects registered hosts and hotspot overrides.
-fn hotspot(command_lines: &[Vec<String>], fixture: Option<&Value>) -> Value {
-    let mut rows = fixture
-        .and_then(Value::as_array)
-        .cloned()
-        .unwrap_or_default();
-    let registered = matching(command_lines, &["known", "host"])
-        .filter_map(|words| match words {
-            [name, mac] => Some((mac.clone(), name.clone())),
-            _ => None,
-        })
-        .collect::<BTreeMap<_, _>>();
-    for (mac, name) in registered {
-        let mut row = json!({"mac":mac,"name":name,"registered":true});
-        if let Some(fields) = row.as_object_mut() {
-            for command in matching(command_lines, &["ip", "hotspot", "host", &mac]) {
-                match command {
-                    [access] if matches!(access.as_str(), "permit" | "deny") => {
-                        drop(fields.insert("access".to_owned(), Value::String(access.clone())));
-                    }
-                    [field, value] if matches!(field.as_str(), "policy" | "schedule") => {
-                        drop(fields.insert(field.clone(), Value::String(value.clone())));
-                    }
-                    _ => {}
-                }
-            }
-        }
-        rows.retain(|candidate| candidate.get("mac").and_then(Value::as_str) != Some(&mac));
-        rows.push(row);
-    }
-    Value::Array(rows)
 }
 
 /// Projects static routes into route-table rows.
@@ -304,16 +272,6 @@ fn append_rows(fixture: Option<&Value>, dynamic: Value) -> Value {
         rows.append(&mut additions);
     }
     Value::Array(rows)
-}
-
-/// Adds a string to an array field.
-fn push_string(fields: &mut Map<String, Value>, key: &str, value: &str) {
-    let entry = fields
-        .entry(key.to_owned())
-        .or_insert_with(|| Value::Array(Vec::new()));
-    if let Value::Array(items) = entry {
-        items.push(Value::String(value.to_owned()));
-    }
 }
 
 /// Constructs an empty object value.

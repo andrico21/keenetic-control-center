@@ -4,13 +4,13 @@ use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec, WorkflowError},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
 use super::read_clients;
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 /// Catalog-validates ordered client command inputs.
 pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<ChangeOp> {
@@ -39,12 +39,57 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .iter()
         .map(|request| Ok(ValidatedCli::new(cli_line(request)?, request.clone())))
         .collect::<Result<Vec<_>>>()?;
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         commands,
-        Vec::new(),
+        policy_specs(operation)?,
         operation.permission,
         json!({"operation":"clients"}),
     ))
+}
+
+/// Verifies non-host policy commands before the workflow records success.
+fn policy_specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
+    operation
+        .requests
+        .iter()
+        .filter(|request| {
+            matches!(
+                request.path.as_str(),
+                "ip hotspot default-policy" | "ip hotspot policy"
+            )
+        })
+        .map(|request| {
+            let selection = request
+                .value
+                .get("access")
+                .or_else(|| request.value.get("policy"))
+                .cloned()
+                .ok_or(DomainError::InvalidResponse)?;
+            let field = if request.path == "ip hotspot default-policy" {
+                "/default-policy".to_owned()
+            } else {
+                let interface = request
+                    .value
+                    .get("interface")
+                    .and_then(Value::as_str)
+                    .ok_or(DomainError::InvalidResponse)?;
+                format!(
+                    "/policy/{}",
+                    interface.replace('~', "~0").replace('/', "~1")
+                )
+            };
+            Ok(VerificationSpec::new(
+                vec![
+                    "show".to_owned(),
+                    "rc".to_owned(),
+                    "ip".to_owned(),
+                    "hotspot".to_owned(),
+                ],
+                field,
+                selection,
+            ))
+        })
+        .collect()
 }
 
 /// Verifies host-affecting commands against the authoritative hotspot read.

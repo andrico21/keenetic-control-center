@@ -10,7 +10,7 @@
 use axum::response::Response;
 use kcc_app::workflow::{ChangeSet, WorkflowError};
 use kcc_catalog::Risk;
-use kcc_domain::{DomainDescriptor, OperationDescriptor, RouterCtx};
+use kcc_domain::{DomainDescriptor, OperationDescriptor, RouterCtx, verification};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::{Value, json};
 
@@ -200,10 +200,22 @@ impl<'call> Action<'call> {
     // NOT cancel-safe: see `change::apply_with`.
     pub(crate) async fn run(self, risk: Risk, change: Change) -> Outcome {
         let params = change.audit_params();
+        let verified_change = match change {
+            Change::Cli(request) => match verification::complete(request) {
+                Ok(verified) => Change::Cli(verified),
+                Err(error) => return self.finish(params, Err(Refused::verification(error))).await,
+            },
+            other @ (Change::Request(_) | Change::Batch(_) | Change::Delete(_)) => other,
+        };
+        if let Change::Cli(request) = &verified_change
+            && let Err(error) = verification::require(request)
+        {
+            return self.finish(params, Err(Refused::verification(error))).await;
+        }
         let Some(plan) = self.plan(risk) else {
             return self.forbidden(params).await;
         };
-        let result = change::apply(plan, change).await;
+        let result = change::apply(plan, verified_change).await;
         self.finish(params, result).await
     }
 

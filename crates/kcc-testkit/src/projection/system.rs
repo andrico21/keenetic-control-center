@@ -22,7 +22,29 @@ pub(super) fn system(command_lines: &[Vec<String>]) -> Value {
             _ => {}
         }
     }
+    drop(fields.insert("log".to_owned(), logging(command_lines)));
     Value::Object(fields)
+}
+
+/// Projects mutable log settings rather than the immutable log fixture.
+fn logging(lines: &[Vec<String>]) -> Value {
+    let mut servers = Vec::new();
+    let mut suppressed = Vec::new();
+    let mut reduction = false;
+    for words in matching(lines, &["system", "log"]) {
+        match words {
+            [field] if field == "reduction" => reduction = true,
+            [field, ident] if field == "suppress" => suppressed.push(json!(ident)),
+            [field, address] if field == "server" => servers.push(json!({"address":address})),
+            [field, address, port] if field == "server" => {
+                if let Ok(number) = port.parse::<u16>() {
+                    servers.push(json!({"address":address,"port":number}));
+                }
+            }
+            _ => {}
+        }
+    }
+    json!({"server":servers,"suppress":suppressed,"reduction":reduction})
 }
 
 /// Projects mutable identity settings into `show system`.

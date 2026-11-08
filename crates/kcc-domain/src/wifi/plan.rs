@@ -11,7 +11,7 @@ use kcc_rci::ObjectName;
 use secrecy::SecretString;
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 /// Validates one Wi-Fi plan with optional selected-interface read-back.
 pub(super) fn plan(
@@ -91,7 +91,7 @@ pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<
         ));
     }
     let line = render_line(name, &validated.path, &validated.value)?;
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         vec![ValidatedCli::new(line, validated.clone())],
         operation.verify.clone(),
         operation.permission,

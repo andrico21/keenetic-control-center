@@ -68,7 +68,7 @@ pub(super) fn input(change: &VpnServerChange) -> (&'static str, Value, String) {
             if *enabled {
                 format!("crypto map {name} virtual-ip enable")
             } else {
-                format!("crypto map {name} no virtual-ip enable")
+                format!("no crypto map {name} virtual-ip enable")
             },
         ),
         VpnServerChange::IpsecVirtualIpPool {

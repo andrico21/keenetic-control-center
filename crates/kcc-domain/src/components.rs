@@ -7,29 +7,24 @@
 )]
 
 use alloc::{collections::BTreeMap, sync::Arc, vec};
-use core::{result::Result as CoreResult, time::Duration};
+use core::result::Result as CoreResult;
 
 use kcc_app::{
-    jobs::{JobError, JobProgress, JobRunner},
+    jobs::{JobError, JobRunner},
     permissions::{Permission, Role},
-    registry::{RegistryError, RouterRegistry, authorize},
-    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, TerminalCliChangeRequest},
+    registry::{RegistryError, RouterRegistry},
+    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
 use kcc_catalog::{Catalog, HttpMethod, Risk};
-use kcc_rci::capabilities::RouterInfo;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
-use tokio::time::sleep;
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token, descriptor::operation, read_show, verification,
 };
 
-/// Maximum number of post-reboot reachability probes.
-const REACHABILITY_ATTEMPTS: u8 = 40;
-/// Delay between reachability probes; cancellation remains observable between probes.
-const REACHABILITY_INTERVAL: Duration = Duration::from_millis(250);
+mod commit;
 
 /// One component returned by `show components list`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
@@ -215,9 +210,31 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         || request.path.clone(),
         |value| format!("{} {value}", request.path),
     );
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         vec![ValidatedCli::new(line, request.clone())],
-        Vec::new(),
+        if matches!(
+            request.path.as_str(),
+            "components install" | "components remove"
+        ) {
+            vec![VerificationSpec::collection(
+                vec![
+                    "show".to_owned(),
+                    "components".to_owned(),
+                    "pending".to_owned(),
+                ],
+                format!(
+                    "/{}",
+                    request
+                        .path
+                        .strip_prefix("components ")
+                        .ok_or(DomainError::InvalidResponse)?
+                ),
+                json!(argument.ok_or(DomainError::InvalidResponse)?),
+                true,
+            )]
+        } else {
+            Vec::new()
+        },
         operation.permission,
         json!({"operation":request.path}),
     ))
@@ -233,64 +250,16 @@ pub async fn start_commit_job(
     catalog: &Catalog,
     confirmed: bool,
 ) -> CoreResult<String, CommitError> {
-    authorize(role, Permission::Destructive, &router_name)?;
-    if !confirmed {
-        return Err(CommitError::ConfirmationRequired);
-    }
-    let validated = catalog
-        .validate("components commit", HttpMethod::Post, &json!({}))
-        .map_err(|issues| DomainError::Validation { issues })?;
-    let request = TerminalCliChangeRequest::new(
-        vec![ValidatedCli::new("components commit".to_owned(), validated)],
-        Permission::Destructive,
-        json!({"operation":"components commit"}),
-    );
-    let before = registry.poll_info(&router_name).await?;
-    let before_progress = progress("committing", &before, None);
-    let rebooting_progress = progress("rebooting", &before, None);
-    let job_router = router_name.clone();
-    jobs.start(
-        "components.commit".to_owned(),
-        Some(router_name),
-        true,
-        async move |context| {
-            context.progress(10);
-            context.structured_progress(JobProgress::Structured(before_progress));
-            let mut active_changes = changes;
-            drop(
-                active_changes
-                    .apply_cli_terminal(request)
-                    .await
-                    .map_err(|error| error.to_string())?,
-            );
-            context.progress(30);
-            context.structured_progress(JobProgress::Structured(rebooting_progress));
-            for attempt in 0..REACHABILITY_ATTEMPTS {
-                if context.cancellation().is_cancelled() {
-                    return Err("component commit cancelled".to_owned());
-                }
-                match registry.poll_info(&job_router).await {
-                    Ok(after) => {
-                        drop(Catalog::for_router(&after).map_err(|error| error.to_string())?);
-                        context.progress(100);
-                        context.structured_progress(JobProgress::Structured(progress(
-                            "completed",
-                            &before,
-                            Some(&after),
-                        )));
-                        return Ok(());
-                    }
-                    Err(_error) if attempt.saturating_add(1) < REACHABILITY_ATTEMPTS => {
-                        sleep(REACHABILITY_INTERVAL).await;
-                    }
-                    Err(error) => return Err(error.to_string()),
-                }
-            }
-            Err("router did not return after component commit".to_owned())
-        },
+    commit::start(
+        jobs,
+        registry,
+        router_name,
+        role,
+        changes,
+        catalog,
+        confirmed,
     )
     .await
-    .map_err(CommitError::Job)
 }
 
 /// Component commit start failures.
@@ -311,22 +280,6 @@ pub enum CommitError {
     Job(JobError),
 }
 
-/// Builds one operation descriptor.
-const fn operation(
-    name: &'static str,
-    catalog_path: &'static str,
-    risk: Risk,
-    permission: Permission,
-) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
-}
-
 /// Plans one catalog-validated component CLI operation.
 fn plan_cli(router: &RouterCtx, path: &str, body: &Value, risk: Risk) -> Result<ChangeOp> {
     let validated = router
@@ -342,30 +295,7 @@ fn plan_cli(router: &RouterCtx, path: &str, body: &Value, risk: Risk) -> Result<
     ))
 }
 
-/// Serializes typed commit state into a job progress payload.
-fn progress(phase: &str, before: &RouterInfo, after: Option<&RouterInfo>) -> Value {
-    let payload = CommitProgress {
-        phase: phase.to_owned(),
-        before_firmware: before.version.title.clone(),
-        after_firmware: after.and_then(|info| info.version.title.clone()),
-        before_components: before.components.iter().cloned().collect(),
-        after_components: after
-            .into_iter()
-            .flat_map(|info| info.components.iter().cloned())
-            .collect(),
-    };
-    serde_json::to_value(payload).unwrap_or_else(|_error| json!({"phase":phase}))
-}
-
 /// Rejects values that cannot be represented as one unquoted router CLI token.
 fn validate_token(value: &str) -> Result<()> {
-    if value.is_empty()
-        || value
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
-        || value.contains(['\'', '"', '\\', ';', '|'])
-    {
-        return Err(DomainError::InvalidCliToken);
-    }
-    Ok(())
+    cli_token::validate(value)
 }

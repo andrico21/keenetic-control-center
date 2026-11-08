@@ -1525,6 +1525,7 @@ dependencies = [
  "base64",
  "kcc-app",
  "kcc-catalog",
+ "kcc-config",
  "kcc-rci",
  "kcc-testkit",
  "secrecy",

@@ -33,6 +33,8 @@ mod cli;
 mod output;
 #[path = "workflow_replay.rs"]
 mod replay;
+#[path = "workflow_verify.rs"]
+mod verification;
 pub use cli::command::{CliCommand, SecretCommandError};
 pub use replay::{ReplayCompletionError, ReplayOutcome, ReplayPolicy, ReplayResult};
 use tokio::{
@@ -94,6 +96,8 @@ impl LastChange {
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct VerificationSpec {
+    /// Optional named collection row selected before reading `field`.
+    pub row: Option<(String, Value)>,
     /// RCI resource path segments.
     pub path: Vec<String>,
     /// JSON pointer within the decoded response.
@@ -108,6 +112,18 @@ pub struct VerificationSpec {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
 #[non_exhaustive]
 pub enum PresencePredicate {
+    /// A named configuration credential has a bounded nonempty protected payload.
+    ConfigSecret,
+    /// The canonical running configuration contains the expected CLI token sequence.
+    ConfigCommand,
+    /// The canonical running configuration excludes the expected CLI token sequence.
+    ConfigCommandAbsent,
+    /// The field is absent from a successfully read configuration object.
+    Absent,
+    /// The selected collection contains the expected non-secret fields.
+    Contains,
+    /// The readable collection contains no row matching the expected non-secret fields.
+    Excludes,
     /// The pointer exists and is not null.
     Present,
     /// The pointer contains a nonempty string.
@@ -129,11 +145,34 @@ pub enum PresencePredicate {
 }
 
 impl VerificationSpec {
+    /// Matches a non-secret row in a readable collection, independently of row order.
+    #[inline]
+    #[must_use]
+    pub const fn collection(
+        path: Vec<String>,
+        field: String,
+        expected: Value,
+        present: bool,
+    ) -> Self {
+        Self {
+            row: None,
+            path,
+            field,
+            expected,
+            predicate: Some(if present {
+                PresencePredicate::Contains
+            } else {
+                PresencePredicate::Excludes
+            }),
+        }
+    }
+
     /// Creates a read-back expectation.
     #[inline]
     #[must_use]
     pub const fn new(path: Vec<String>, field: String, expected: Value) -> Self {
         Self {
+            row: None,
             path,
             field,
             expected,
@@ -146,6 +185,7 @@ impl VerificationSpec {
     #[must_use]
     pub const fn presence(path: Vec<String>, field: String, predicate: PresencePredicate) -> Self {
         Self {
+            row: None,
             path,
             field,
             expected: Value::Null,
@@ -1245,6 +1285,16 @@ async fn read_last_change(client: &RciClient) -> Result<LastChange, WorkflowErro
 /// Executes one read-back expectation.
 // cancel-safe: only reads router state.
 async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), WorkflowError> {
+    if matches!(
+        spec.predicate,
+        Some(
+            PresencePredicate::ConfigCommand
+                | PresencePredicate::ConfigCommandAbsent
+                | PresencePredicate::ConfigSecret
+        )
+    ) {
+        return verification::configuration(client, spec).await;
+    }
     let path = RciPath::from_segments(&spec.path).map_err(|_error| RciError::Validation)?;
     let configuration = spec.path.starts_with(&["show".to_owned(), "rc".to_owned()]);
     let readback = if configuration {
@@ -1276,9 +1326,36 @@ async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), Workf
     } else {
         Some(&actual)
     };
-    let field = selected.and_then(|value| value.pointer(&spec.field));
+    let selected_row = match &spec.row {
+        Some((key, expected)) => selected
+            .and_then(Value::as_array)
+            .and_then(|rows| rows.iter().find(|row| row.get(key) == Some(expected))),
+        None => selected,
+    };
+    let field = selected_row.and_then(|value| value.pointer(&spec.field));
     let matches = match spec.predicate {
+        Some(
+            PresencePredicate::ConfigCommand
+            | PresencePredicate::ConfigCommandAbsent
+            | PresencePredicate::ConfigSecret,
+        ) => false,
         None => field == Some(&spec.expected),
+        Some(PresencePredicate::Absent) => {
+            spec.field.rsplit_once('/').is_some_and(|(parent, _)| {
+                selected
+                    .and_then(|value| value.pointer(parent))
+                    .is_some_and(Value::is_object)
+            }) && field.is_none()
+        }
+        Some(PresencePredicate::Contains) => field.and_then(Value::as_array).is_some_and(|rows| {
+            rows.iter()
+                .any(|row| verification::contains(row, &spec.expected))
+        }),
+        Some(PresencePredicate::Excludes) => field.and_then(Value::as_array).is_some_and(|rows| {
+            !rows
+                .iter()
+                .any(|row| verification::contains(row, &spec.expected))
+        }),
         Some(PresencePredicate::Present) => field.is_some_and(|value| !value.is_null()),
         Some(PresencePredicate::NonEmpty) => field
             .and_then(Value::as_str)
@@ -1295,7 +1372,11 @@ async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), Workf
     };
     if !matches {
         return Err(WorkflowError::VerificationFailed {
-            field: spec.field.clone(),
+            field: if spec.field.is_empty() {
+                spec.path.join("/")
+            } else {
+                spec.field.clone()
+            },
         });
     }
     Ok(())

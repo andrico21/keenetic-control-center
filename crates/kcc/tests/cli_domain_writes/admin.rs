@@ -1,8 +1,25 @@
 //! Firewall, service, storage, schedule and KeenDNS writes.
 
 use kcc_app::audit::read_entries;
+use kcc_testkit::FaultInjection;
 
 use super::{lab::Lab, support::TestResult};
+
+/// A typed schedule no-op exits with verification status and reports no success.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn silent_schedule_noop_exits_six() -> TestResult {
+    let lab = Lab::with_faults("", FaultInjection::default().silent_noop_path("parse")).await?;
+    let run = lab.run(&["--json", "schedules", "create", "f4probe"])?;
+    assert_eq!(run.code, 6_i32, "{run:?}");
+    assert!(run.stderr.contains("/schedule"), "{run:?}");
+    assert!(!run.stdout.contains("\"applied\":true"), "{run:?}");
+    assert!(
+        !read_entries(&lab.env.state_dir())?
+            .iter()
+            .any(|entry| entry.outcome == "applied_unsaved")
+    );
+    lab.shutdown().await
+}
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn firewall_rule_is_added_and_removed_and_read_back() -> TestResult {

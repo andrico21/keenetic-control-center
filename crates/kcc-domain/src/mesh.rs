@@ -12,7 +12,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{
         ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, TerminalCliChangeRequest,
-        TerminalCliChangeResult, WorkflowError,
+        TerminalCliChangeResult, VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::{HttpMethod, Risk};
@@ -233,7 +233,16 @@ fn plan(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
         .map_err(|issues| DomainError::Validation { issues })?;
     Ok(ChangeOp::new(
         vec![validated],
-        Vec::new(),
+        if path == "mws acquire" {
+            vec![VerificationSpec::collection(
+                vec!["show".to_owned(), "mws".to_owned(), "member".to_owned()],
+                String::new(),
+                json!({"id":body.get("candidate").ok_or(DomainError::InvalidResponse)?}),
+                true,
+            )]
+        } else {
+            Vec::new()
+        },
         Risk::Write,
         Permission::Write,
         false,

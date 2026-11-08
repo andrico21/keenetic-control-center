@@ -7,7 +7,7 @@ use kcc_app::{
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 /// Catalog-validates ordered DHCP command inputs.
 pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<ChangeOp> {
@@ -42,7 +42,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             validated.clone(),
         ));
     }
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         commands,
         Vec::new(),
         operation.permission,

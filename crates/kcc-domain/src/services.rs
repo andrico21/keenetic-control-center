@@ -19,7 +19,10 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
+    cli_token::validate as validate_token, descriptor,
 };
+
+mod verification;
 
 /// One service returned by `show rc service`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
@@ -244,7 +247,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let line = command_line(request);
     Ok(CliChangeRequest::new(
         vec![ValidatedCli::new(line, request.clone())],
-        Vec::new(),
+        verification::specs(request)?,
         operation.permission,
         json!({"operation":request.path}),
     ))
@@ -257,13 +260,7 @@ const fn operation(
     risk: Risk,
     permission: Permission,
 ) -> OperationDescriptor {
-    OperationDescriptor {
-        name,
-        catalog_path,
-        risk,
-        permission,
-        persists_immediately: false,
-    }
+    descriptor::operation(name, catalog_path, risk, permission)
 }
 
 /// Plans a management-risk operation.
@@ -315,17 +312,4 @@ fn command_line(request: &ValidatedRequest) -> String {
         .unwrap_or_default();
     let separator = if argument.is_empty() { "" } else { " " };
     format!("{prefix}{}{separator}{argument}", request.path)
-}
-
-/// Rejects values that cannot be represented as one unquoted router CLI token.
-fn validate_token(value: &str) -> Result<()> {
-    if value.is_empty()
-        || value
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
-        || value.contains(['\'', '"', '\\', ';', '|'])
-    {
-        return Err(DomainError::InvalidCliToken);
-    }
-    Ok(())
 }

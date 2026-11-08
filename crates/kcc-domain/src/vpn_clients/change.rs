@@ -8,7 +8,7 @@ use kcc_catalog::{HttpMethod, Risk};
 use serde_json::{Value, json};
 
 use super::{VpnClientChange, render};
-use crate::{ChangeOp, DomainError, OperationDescriptor, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, OperationDescriptor, Result, RouterCtx, verification};
 
 /// Catalog-filtered VPN client write inventory.
 pub(super) const WRITES: &[OperationDescriptor] = &[
@@ -90,7 +90,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             }
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         commands,
         operation.verify.clone(),
         operation.permission,

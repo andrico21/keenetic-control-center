@@ -18,7 +18,7 @@ use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
 use super::verify::Verification;
-use crate::{ChangeOp, DomainError, Result};
+use crate::{ChangeOp, DomainError, Result, verification as readback};
 
 /// Converts a validated firewall operation into protected CLI workflow input.
 pub(super) fn request(
@@ -30,7 +30,7 @@ pub(super) fn request(
         .requests
         .last()
         .ok_or(DomainError::InvalidResponse)?;
-    Ok(CliChangeRequest::new(
+    readback::complete(CliChangeRequest::new(
         vec![ValidatedCli::new(line, validated.clone())],
         Vec::new(),
         operation.permission,

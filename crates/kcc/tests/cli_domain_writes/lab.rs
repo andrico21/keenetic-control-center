@@ -3,7 +3,7 @@
 use core::error::Error;
 
 use kcc_app::audit::read_entries;
-use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle};
+use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, model::Profile};
 use serde_json::Value;
 
 use super::support::{Env, Run, router};
@@ -19,7 +19,19 @@ pub(crate) struct Lab {
 impl Lab {
     /// Starts the fake and writes `kcc.toml` with `cli` (a `[cli]` table body or empty).
     pub(crate) async fn spawn(cli: &str) -> Result<Self, Box<dyn Error>> {
-        let (address, fake) = FakeRouter::spawn().await?;
+        Self::with_faults(cli, FaultInjection::default()).await
+    }
+
+    /// Starts a CLI fixture with router fault injection.
+    pub(crate) async fn with_faults(
+        cli: &str,
+        faults: FaultInjection,
+    ) -> Result<Self, Box<dyn Error>> {
+        let (address, fake) = FakeRouter::builder(Profile::default())
+            .faults(faults)
+            .build()?
+            .serve(([127, 0, 0, 1], 0).into())
+            .await?;
         let env = Env::new("")?;
         let password = env.write("router.password", DEFAULT_PASSWORD)?;
         let section = if cli.is_empty() {

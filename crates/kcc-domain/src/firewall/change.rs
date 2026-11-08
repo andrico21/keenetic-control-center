@@ -19,7 +19,7 @@ use alloc::{format, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliChangeResult},
+    workflow::{ChangeSet, CliChangeRequest, CliChangeResult, WorkflowError},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Map, Value, json};
@@ -154,7 +154,13 @@ pub async fn apply(
     change: &Plan,
 ) -> Result<CliChangeResult> {
     change.verification.preflight(router).await?;
-    let result = changes.apply_cli(request(change)?).await?;
+    let result = changes.apply_cli(request(change)?).await.map_err(|error| {
+        if matches!(error, WorkflowError::VerificationFailed { field: _ }) {
+            DomainError::FirewallVerificationFailed
+        } else {
+            DomainError::Workflow(error)
+        }
+    })?;
     change.verification.verify(router).await?;
     Ok(result)
 }

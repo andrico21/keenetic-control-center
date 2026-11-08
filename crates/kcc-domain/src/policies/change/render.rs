@@ -18,7 +18,7 @@ use kcc_app::workflow::{CliChangeRequest, CliCommand as ValidatedCli};
 use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result};
+use crate::{ChangeOp, DomainError, Result, verification};
 
 /// Converts a connection-policy plan into protected CLI workflow input.
 pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
@@ -32,7 +32,7 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         [_, leaf] => ValidatedCli::new(leaf_line(name, leaf)?, leaf.clone()),
         _ => return Err(DomainError::InvalidResponse),
     };
-    Ok(CliChangeRequest::new(
+    verification::complete(CliChangeRequest::new(
         vec![command],
         Vec::new(),
         operation.permission,

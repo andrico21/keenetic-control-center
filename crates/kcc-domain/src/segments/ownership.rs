@@ -4,7 +4,9 @@ use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
+    workflow::{
+        ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec, WorkflowError,
+    },
 };
 use kcc_catalog::HttpMethod;
 use serde_json::json;
@@ -40,7 +42,11 @@ pub(super) async fn persist(
                     format!("interface Vlan{id} description {quoted}"),
                     request,
                 )],
-                Vec::new(),
+                vec![VerificationSpec::new(
+                    vec!["show".to_owned(), "rc".to_owned()],
+                    format!("/interface/Vlan{id}/description"),
+                    json!(marker),
+                )],
                 Permission::Write,
                 json!({"operation":"segment_ownership","id":id}),
             ))

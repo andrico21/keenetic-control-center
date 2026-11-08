@@ -17,10 +17,45 @@ mod tests {
 
     use kcc_app::audit::ActorKind;
     use kcc_mcp::registry::{definitions::tools, docs::markdown};
-    use kcc_testkit::{FakeRouter, model::Profile};
+    use kcc_testkit::{FakeRouter, FaultInjection, model::Profile};
     use serde_json::json;
 
     use super::lab::{Lab, TestResult, admin, lab_only};
+
+    /// A typed service no-op returns a tool error without an applied audit receipt.
+    #[tokio::test]
+    async fn silent_service_noop_returns_tool_error() -> TestResult {
+        let lab = Lab::start(
+            vec![(
+                "lab-1",
+                FakeRouter::builder(Profile::default())
+                    .faults(FaultInjection::default().silent_noop_path("parse"))
+                    .build()?,
+            )],
+            admin(),
+        )
+        .await?;
+        let reply = lab
+            .call(
+                "kcc_services_write",
+                json!({"host":"lab-1","op":"set_service","name":"iperf3","enabled":true}),
+                false,
+            )
+            .await?;
+        assert_eq!(reply.error(), Some("validation_failed"), "{reply:?}");
+        assert!(
+            lab.router("lab-1")?
+                .request_log()
+                .iter()
+                .any(|request| request.command() == Some("service iperf3"))
+        );
+        assert!(
+            !lab.audit()?
+                .iter()
+                .any(|entry| entry.outcome == "applied_unsaved")
+        );
+        lab.stop().await
+    }
 
     /// `core` stays small, the full inventory stays under the client tool budget, and the
     /// session lists exactly the registry.

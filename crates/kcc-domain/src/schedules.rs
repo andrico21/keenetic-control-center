@@ -8,9 +8,11 @@
 
 use alloc::{collections::BTreeMap, vec};
 
+mod verification;
+
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde::{Deserialize, Serialize};
@@ -213,7 +215,12 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     }
     Ok(CliChangeRequest::new(
         commands,
-        Vec::new(),
+        vec![VerificationSpec::collection(
+            vec!["show".to_owned(), "rc".to_owned()],
+            "/schedule".to_owned(),
+            verification::expected(operation, name)?,
+            true,
+        )],
         Permission::Write,
         json!({"operation":"schedule","name":name}),
     ))
