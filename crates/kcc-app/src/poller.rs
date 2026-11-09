@@ -291,6 +291,7 @@ impl Poller {
     }
 
     /// Returns completed light polling rounds for observability and cadence tests.
+    // cancel-safe: reads a counter under a lock; cancellation changes nothing.
     pub async fn light_rounds(&self, router: &str) -> u64 {
         self.light_rounds
             .lock()

@@ -156,6 +156,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads the system log with the router's POST-only request shape.
+// cancel-safe: only reads the log; a dropped continuation poll leaves
+// just a read-only request behind.
 pub async fn read_log(client: &RciClient, max_lines: u32) -> Result<String> {
     let path =
         RciPath::from_segments(["show", "log"]).map_err(|_error| DomainError::InvalidResponse)?;
@@ -187,6 +189,8 @@ pub async fn read_log(client: &RciClient, max_lines: u32) -> Result<String> {
 }
 
 /// Starts a diagnostic as a persisted non-write job.
+// NOT cancel-safe: once spawned, the diagnostic job runs on without its id reaching the caller;
+// cancelled inside job start, its ownership lock can stay held.
 pub async fn start_job(
     jobs: &Arc<JobRunner>,
     router_name: String,

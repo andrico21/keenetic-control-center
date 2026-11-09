@@ -53,6 +53,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads DHCP pools from the running configuration text.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
     let bytes = router
         .client
@@ -63,6 +64,7 @@ pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
 }
 
 /// Reads running static leases through `show rc ip dhcp host`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
     decode_config_rows(
         router
@@ -74,6 +76,7 @@ pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> 
 }
 
 /// Reads startup static leases through `show sc ip dhcp host`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_startup_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
     decode_config_rows(
         router
@@ -85,11 +88,13 @@ pub async fn read_startup_static_leases(router: &RouterCtx) -> Result<Vec<Static
 }
 
 /// Reads current DHCP bindings.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_bindings(router: &RouterCtx) -> Result<Vec<Binding>> {
     read_show(&router.client, &["show", "ip", "dhcp", "bindings"]).await
 }
 
 /// Reads current ARP neighbours.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
     read_show(&router.client, &["show", "ip", "arp"]).await
 }
@@ -129,6 +134,7 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
 }
 
 /// Plans a static lease only after validating the bound pool subnet and duplicate address.
+// cancel-safe: only read requests; cancellation changes nothing on the router.
 pub async fn plan_static_lease(
     router: &RouterCtx,
     mac: &str,
@@ -170,6 +176,8 @@ pub async fn plan_static_lease(
 }
 
 /// Executes a DHCP plan through the protected workflow and verifies static leases via `show rc`.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
+// and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,

@@ -132,6 +132,8 @@ impl LogCollector {
     /// Once cancellation is sent, dropping this future loses the task result but the task
     /// continues remote cleanup.
     #[inline]
+    // cancel-safe: cancellation is signalled before the await; dropping the future loses only the
+    // join result while the task finishes remote cleanup.
     pub async fn shutdown(mut self) -> Result<(), JoinError> {
         self.cancellation.cancel();
         let Some(task) = self.task.take() else {

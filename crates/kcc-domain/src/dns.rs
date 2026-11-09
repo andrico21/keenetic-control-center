@@ -378,11 +378,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads `show dns-proxy`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_dns_proxy(router: &RouterCtx) -> Result<DnsProxyState> {
     read_show(&router.client, &["show", "dns-proxy"]).await
 }
 
 /// Reads the DNS-related running configuration.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_configuration(router: &RouterCtx) -> Result<DnsConfiguration> {
     let tree = serde_json::json!({
         "dns-proxy": {},

@@ -185,6 +185,7 @@ jobs:
       - run: cargo xtask profile-eq
       - run: cargo xtask i18n-check
       - run: cargo xtask assets-check
+      - run: cargo xtask cancel-safety
       - uses: taiki-e/install-action@c509219cf42fba86913069efd0ade2458c59337b # v2
         with:
           tool: shellcheck@0.11.0

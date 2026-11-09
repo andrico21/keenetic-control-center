@@ -9,11 +9,13 @@ use super::model::RouteTableEntry;
 use crate::{Result, RouterCtx, read_show};
 
 /// Reads the current IPv4 routing table.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn ipv4_table(router: &RouterCtx) -> Result<Vec<RouteTableEntry>> {
     read_show(&router.client, &["show", "ip", "route"]).await
 }
 
 /// Reads the current IPv6 routing table.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn ipv6_table(router: &RouterCtx) -> Result<Vec<RouteTableEntry>> {
     read_show(&router.client, &["show", "ipv6", "route"]).await
 }

@@ -309,6 +309,7 @@ impl JobRunner {
     }
 
     /// Returns startup recovery notices.
+    // cancel-safe: clones the notices under a lock; cancellation changes nothing.
     pub async fn recovery_notices(&self) -> Vec<RecoveryNotice> {
         self.recovery.lock().await.clone()
     }
@@ -328,6 +329,8 @@ impl JobRunner {
     /// # Errors
     ///
     /// Returns [`JobError::NotFound`] when the job is not active.
+    // cancel-safe: the token is cancelled synchronously after the lock; cancelled earlier,
+    // the job keeps running.
     pub async fn cancel(&self, id: &str) -> Result<(), JobError> {
         let token = self
             .active

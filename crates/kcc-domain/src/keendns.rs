@@ -113,6 +113,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads KeenDNS registration state.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_status(router: &RouterCtx) -> Result<KeenDnsState> {
     read_show(&router.client, &["show", "ndns"]).await
 }

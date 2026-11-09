@@ -68,11 +68,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads `show internet status`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_status(router: &RouterCtx) -> Result<InternetStatus> {
     read_show(&router.client, &["show", "internet", "status"]).await
 }
 
 /// Reads all ping-check profiles.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_ping_check(router: &RouterCtx) -> Result<PingCheckProfiles> {
     read_show(&router.client, &["show", "ping-check"]).await
 }

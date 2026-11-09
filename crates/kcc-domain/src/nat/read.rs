@@ -16,21 +16,25 @@ use crate::{DomainError, Result, RouterCtx};
 pub const PAGE_SIZE: usize = 200;
 
 /// Reads running `ip static` forwarding rules.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn running_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, false, "static").await
 }
 
 /// Reads startup `ip static` forwarding rules.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn startup_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, true, "static").await
 }
 
 /// Reads running `ip nat` interface declarations.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn interfaces(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, false, "nat").await
 }
 
 /// Reads one bounded page from `show ip nat`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage> {
     #[derive(Serialize)]
     struct Query {

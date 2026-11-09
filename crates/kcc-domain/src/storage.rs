@@ -143,11 +143,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads mounted media volumes.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_media(router: &RouterCtx) -> Result<Vec<MediaVolume>> {
     read_show(&router.client, &["show", "media"]).await
 }
 
 /// Reads attached USB devices.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_usb(router: &RouterCtx) -> Result<Vec<UsbDevice>> {
     read_show(&router.client, &["show", "usb"]).await
 }

@@ -48,6 +48,8 @@ pub fn plan_remove_interface(router: &RouterCtx, interface: &str) -> Result<Chan
 }
 
 /// Applies a NAT plan and verifies the exact command against a fresh `show rc` read.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
+// and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,

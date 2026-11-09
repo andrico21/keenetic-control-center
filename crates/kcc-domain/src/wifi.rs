@@ -88,6 +88,7 @@ impl Encryption {
 }
 
 /// Reads one slash-safe access point through root POST.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<AccessPoint> {
     let value = serde_json::to_value(interfaces::read_interface(router, name).await?)
         .map_err(|_error| DomainError::InvalidResponse)?;
@@ -95,6 +96,7 @@ pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<
 }
 
 /// Reads radios and derives their bands from `show interface`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> {
     let values: BTreeMap<String, Value> = read_show(&router.client, &["show", "interface"]).await?;
     Ok(values
@@ -107,6 +109,7 @@ pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> 
 }
 
 /// Reads associated Wi-Fi stations.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_stations(router: &RouterCtx) -> Result<Vec<Station>> {
     read_show(&router.client, &["show", "associations"]).await
 }

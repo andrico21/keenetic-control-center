@@ -163,6 +163,8 @@ pub fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp
 }
 
 /// Creates one segment, rolling applied steps back in reverse order on failure.
+// NOT cancel-safe: cancelled between steps, the steps already applied stay on the router
+// and the reverse-order rollback never runs.
 pub async fn create(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -220,11 +222,13 @@ pub async fn create(
     clippy::module_name_repetitions,
     reason = "read_segments is the requested public domain API"
 )]
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_segments(router: &RouterCtx) -> Result<Vec<SegmentView>> {
     discovery::read(router).await
 }
 
 /// Deletes only the shared step definition belonging to an unchanged discovered segment.
+// NOT cancel-safe: cancelled between delete steps, the segment is left partly deleted.
 pub async fn delete_discovered(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -249,6 +253,7 @@ pub async fn delete_discovered(
 }
 
 /// Deletes one segment by executing the same step definition in reverse order.
+// NOT cancel-safe: cancelled between delete steps, the segment is left partly deleted.
 pub async fn delete(
     changes: &mut ChangeSet,
     router: &RouterCtx,

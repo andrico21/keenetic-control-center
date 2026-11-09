@@ -199,6 +199,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads only explicitly selected non-secret VPN server configuration fields.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
     let tree = json!({
         "vpn-server":{"interface":{},"pool-range":{},"dns-servers":{},"mtu":{},"mru":{},"multi-login":{}},

@@ -140,11 +140,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads installed components.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_components(router: &RouterCtx) -> Result<Vec<ComponentState>> {
     read_show(&router.client, &["show", "components", "list"]).await
 }
 
 /// Reads staged component changes.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_pending(router: &RouterCtx) -> Result<PendingComponents> {
     read_show(&router.client, &["show", "components", "pending"]).await
 }
@@ -241,6 +243,8 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Starts a confirmed destructive component commit job.
+// NOT cancel-safe: once spawned, the commit job (which reboots the router) runs on without its id
+// reaching the caller; cancelled inside job start, the router's write-job slot can stay taken.
 pub async fn start_commit_job(
     jobs: &Arc<JobRunner>,
     registry: Arc<RouterRegistry>,

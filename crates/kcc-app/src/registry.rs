@@ -440,6 +440,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns permission, validation, duplicate, or state errors.
+    // NOT cancel-safe: cancelled at the client-cache lock, the profile is already stored and loaded
+    // but no stale client is evicted and no change notification is sent.
     pub async fn create(
         &self,
         role: &Role,
@@ -484,6 +486,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns permission, validation, config-defined, missing, or state errors.
+    // NOT cancel-safe: cancelled at the client-cache lock, the new profile is stored and loaded
+    // but the client built from the old one stays cached and no change notification is sent.
     pub async fn update(
         &self,
         role: &Role,
@@ -529,6 +533,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns permission, config-defined, missing, or state errors.
+    // NOT cancel-safe: cancelled at the client-cache lock, the profile is already removed
+    // but its cached client stays and no change notification is sent.
     pub async fn delete(&self, role: &Role, id: &str) -> Result<(), RegistryError> {
         authorize(role, Permission::ManageRouters, id)?;
         if self.config.read().map_err(lock_error)?.contains_key(id) {

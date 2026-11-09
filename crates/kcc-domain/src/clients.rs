@@ -116,11 +116,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads all connected and remembered clients from `show ip hotspot`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_clients(router: &RouterCtx) -> Result<Vec<Client>> {
     read_show(&router.client, &["show", "ip", "hotspot"]).await
 }
 
 /// Reads one client by MAC address.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_client(router: &RouterCtx, mac: &str) -> Result<Option<Client>> {
     Ok(read_clients(router).await?.into_iter().find(|client| {
         client
@@ -213,6 +215,8 @@ pub fn plan_wake(router: &RouterCtx, mac: &str) -> Result<ChangeOp> {
 
 /// Executes a client plan through the protected workflow and verifies host mutations via
 /// `show ip hotspot`, whose rows are authoritative for registered names.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
+// and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,

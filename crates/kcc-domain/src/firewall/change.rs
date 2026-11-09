@@ -148,6 +148,8 @@ pub fn plan_bind(
 }
 
 /// Applies a firewall plan and verifies the full identity in a fresh running config.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
+// and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,

@@ -118,6 +118,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads configured schedules.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_schedules(router: &RouterCtx) -> Result<Vec<ScheduleState>> {
     read_show(&router.client, &["show", "schedule"]).await
 }

@@ -44,27 +44,32 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads `show version`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_version(router: &RouterCtx) -> Result<Version> {
     read_show(&router.client, &["show", "version"]).await
 }
 
 /// Reads `show system`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_system(router: &RouterCtx) -> Result<SystemState> {
     read_show(&router.client, &["show", "system"]).await
 }
 
 /// Reads `show clock date`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_clock_date(router: &RouterCtx) -> Result<ClockDate> {
     read_show(&router.client, &["show", "clock", "date"]).await
 }
 
 /// Reads `show ntp status`.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_ntp_status(router: &RouterCtx) -> Result<NtpStatus> {
     read_show(&router.client, &["show", "ntp", "status"]).await
 }
 
 /// Reads `show system mode`; refuses before any request when the selected catalog lacks it
 /// (4.3 firmware).
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_system_mode(router: &RouterCtx) -> Result<SystemMode> {
     const PATH: &str = "show system mode";
     if router.catalog.lookup(PATH).is_none() {
@@ -191,6 +196,8 @@ pub fn change_request(operation: &ChangeOp) -> Result<ChangeRequest> {
 }
 
 /// Reboots the router through the terminal workflow path.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router may already be rebooting
+// and the reboot is unaudited.
 pub async fn reboot(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -201,6 +208,8 @@ pub async fn reboot(
 }
 
 /// Factory-resets the router after an exact name confirmation.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router may already be resetting
+// to factory defaults and the reset is unaudited.
 pub async fn factory_reset(
     changes: &mut ChangeSet,
     router: &RouterCtx,

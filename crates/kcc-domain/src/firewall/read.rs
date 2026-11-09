@@ -21,6 +21,7 @@ use super::model::{Action, ConfiguredRule, Direction, Protocol, Rule, UpnpRedire
 use crate::{DomainError, Result, RouterCtx, read_show};
 
 /// Reads named IPv4 access lists from the running configuration.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
     let RciBody::Json(response) = router.client.show_rc(json!({"access-list":{}})).await? else {
         return Err(DomainError::InvalidResponse);
@@ -33,6 +34,7 @@ pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
 }
 
 /// Reads typed IPv4 access-list rules from the running configuration.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn configured_rules(router: &RouterCtx) -> Result<BTreeMap<String, Vec<ConfiguredRule>>> {
     let lists = access_lists(router).await?;
     let object = lists.as_object().ok_or(DomainError::InvalidResponse)?;
@@ -194,6 +196,7 @@ fn port(value: &str) -> Result<u16> {
 }
 
 /// Reads UPnP-created redirects.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn upnp_redirects(router: &RouterCtx) -> Result<Vec<UpnpRedirect>> {
     read_show(&router.client, &["show", "upnp", "redirect"]).await
 }

@@ -20,6 +20,8 @@ use super::render;
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
 
 /// Applies a policy plan and verifies it against a fresh `show rc` read.
+// NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
+// and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,

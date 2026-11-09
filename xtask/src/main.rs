@@ -7,6 +7,7 @@ extern crate alloc;
 
 mod allow_gate;
 mod assets;
+mod cancel_safety;
 mod catalog;
 mod catalog_build;
 mod catalog_extract;
@@ -54,6 +55,9 @@ enum Task {
     AllowGate,
     /// Fail when the xtask `[lints]` tables differ from the root `[workspace.lints]`.
     ProfileEq,
+    /// Fail when a non-test fully `pub` async fn under `crates/*/src` lacks a
+    /// `// cancel-safe:` or `// NOT cancel-safe:` comment.
+    CancelSafety,
     /// Fetch and extract the official CLI reference manuals into `catalog/.cache/`.
     #[command(subcommand)]
     Catalog(CatalogTask),
@@ -176,6 +180,7 @@ where
         Task::LintCompleteness => lint_completeness::run(&root, out),
         Task::AllowGate => allow_gate::run(&root, out),
         Task::ProfileEq => profile_eq::run(&root, out),
+        Task::CancelSafety => cancel_safety::run(&root, out),
         Task::Catalog(CatalogTask::Fetch { version, models }) => {
             catalog_fetch::run(&root, version, models.as_deref(), out)
         }

@@ -96,11 +96,13 @@ impl SecurityLevel {
 }
 
 /// Reads all interface summaries keyed by interface name.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_interfaces(router: &RouterCtx) -> Result<BTreeMap<String, Interface>> {
     read_show(&router.client, &["show", "interface"]).await
 }
 
 /// Reads one interface through root POST, keeping slash-containing names out of URL paths.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Interface> {
     let RciBody::Json(response) = router.client.show_interface(name).await? else {
         return Err(DomainError::InvalidResponse);
@@ -114,11 +116,13 @@ pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Int
 }
 
 /// Reads counters for all interfaces.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_statistics(router: &RouterCtx) -> Result<BTreeMap<String, InterfaceStatistics>> {
     read_show(&router.client, &["show", "interface", "stat"]).await
 }
 
 /// Reads an interface traffic-history resource when the router exposes it.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_traffic_history(router: &RouterCtx) -> Result<TrafficHistory> {
     read_show(&router.client, &["show", "interface", "rrd"]).await
 }
@@ -129,6 +133,7 @@ pub fn plan_up(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
 }
 
 /// Detects whether an interface carries the management connection.
+// cancel-safe: only read requests; cancellation changes nothing on the router.
 pub async fn detect_management(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     management::detect(router, name).await
 }
@@ -178,6 +183,8 @@ pub fn plan_security_level(
 }
 
 /// Executes an interface plan, bracketing management changes with a 300-second safety net.
+// NOT cancel-safe: cancelled mid-way, the change may be applied and, for a management change,
+// the 300-second fail-safe left armed so the router reboots and drops unsaved work.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,

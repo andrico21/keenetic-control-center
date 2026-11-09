@@ -22,7 +22,7 @@ cargo xtask profile-eq
 
 G0 plus `cargo deny check`, `cargo audit`, `cargo vet`, `cargo machete`,
 `cargo xtask lint-completeness`, `cargo xtask i18n-check`, `cargo xtask assets-check`,
-`taplo fmt --check`, per-library default-feature
+`cargo xtask cancel-safety`, `taplo fmt --check`, per-library default-feature
 `cargo clippy -p <crate> --all-targets -- -D warnings` and `cargo test -p <crate>`, and
 the MSRV build `cargo +1.99.1 build --workspace --all-features`. A new dependency needs
 `cargo vet` and `cargo deny` to pass.

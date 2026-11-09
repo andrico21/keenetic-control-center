@@ -78,7 +78,7 @@ where
 /// # Errors
 ///
 /// Returns [`GateError::Read`] when a directory cannot be listed.
-fn collect_rust_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), GateError> {
+pub(crate) fn collect_rust_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), GateError> {
     let read_err = |source| GateError::Read {
         path: dir.to_path_buf(),
         source,
@@ -168,7 +168,7 @@ fn attribute_at(code: &[char], pos: usize) -> Option<String> {
 
 /// Replaces comments, string literals and char literals with spaces, keeping newlines so
 /// line numbers are unchanged.
-fn blank_non_code(source: &str) -> String {
+pub(crate) fn blank_non_code(source: &str) -> String {
     let chars: Vec<char> = source.chars().collect();
     let mut out = String::with_capacity(source.len());
     let mut pos = 0_usize;

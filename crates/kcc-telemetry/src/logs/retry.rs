@@ -40,6 +40,8 @@ impl Clock for TokioClock {
 ///
 /// Cancellation during an HTTP request may cause the same batch to be retried after restart.
 #[inline]
+// NOT cancel-safe: a batch the server accepted before cancellation is resent by a later retry,
+// duplicating its lines in Loki.
 pub async fn send_loki(
     client: &LokiClient,
     records: &[LogRecord],

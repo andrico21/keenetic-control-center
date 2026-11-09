@@ -380,6 +380,8 @@ impl AuditLog {
     /// Cancel safety: not cancel-safe. Once sent, the single writer may append
     /// the event even if the caller stops awaiting the acknowledgement.
     #[inline]
+    // NOT cancel-safe: once queued, the writer appends the event even if the caller stops awaiting;
+    // cancelled earlier, the event is dropped unwritten.
     pub async fn append(&self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
         reject_secret_parameters(&event.params_redacted)?;
         let (reply, result) = oneshot::channel();

@@ -111,11 +111,13 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads mesh members.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_members(router: &RouterCtx) -> Result<Vec<Member>> {
     read_show(&router.client, &["show", "mws", "member"]).await
 }
 
 /// Reads mesh associations.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_associations(router: &RouterCtx) -> Result<Vec<Association>> {
     read_show(&router.client, &["show", "mws", "associations"]).await
 }
@@ -170,6 +172,8 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Reboots a mesh member only after exact confirmation, using terminal CLI execution.
+// NOT cancel-safe: cancelled after the CLI request is sent, the member may already be rebooting
+// and the reboot is unaudited.
 pub async fn reboot_member(
     changes: &mut ChangeSet,
     router: &RouterCtx,

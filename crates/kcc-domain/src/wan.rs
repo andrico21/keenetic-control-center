@@ -77,6 +77,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads IPoE, PPPoE, L2TP, and PPTP connections without returning credentials.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_connections(router: &RouterCtx) -> Result<BTreeMap<String, Connection>> {
     let interfaces: BTreeMap<String, Value> =
         read_show(&router.client, &["show", "interface"]).await?;

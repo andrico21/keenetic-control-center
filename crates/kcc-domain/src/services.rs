@@ -173,6 +173,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads enabled router services.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_services(router: &RouterCtx) -> Result<Vec<ServiceState>> {
     let reply = router.client.show_rc(json!({"service":{}})).await?;
     let RciBody::Json(response) = reply else {

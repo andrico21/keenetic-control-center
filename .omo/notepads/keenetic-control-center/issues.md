@@ -401,3 +401,9 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 - Loki: a tenant with the reject-partial-writes policy answers 400 with the same per-entry body but stores nothing; kcc would then count it as partial. Accepted limitation (policy-level, rare).
 - Over-limit files grew slightly: `kcc/src/cli/context.rs` 262 -> 273 pure LOC (async services + audit), `pipeline_delivery.rs` 243 -> 250, `sink.rs` 235 -> 246. Follow-up split.
 - `jobs.rs` still names `explorer.raw.*` kinds; with the refusal every new explorer job is a read, the raw branch only matters for records from older versions.
+
+## [2026-11-09] Todo 79 follow-ups (not fixed, comments only)
+- kcc-app `JobRunner::start`: its existing comment only mentions the spawned job, but cancellation at `ownership.claim(..).await` / `active.lock().await` after the `write_jobs` insert leaks the router's write-job slot (RouterBusy until restart). Real bug; needs a guard or reordering.
+- kcc-telemetry `LogForwarder::start_with_clock`: cancellation while loading a later sink leaves earlier workers spawned with a never-fired token (detached).
+- kcc-app `RouterRegistry::{create,update,delete}`: the only await (client-cache lock) is after persistence; cancellation skips cache eviction and the change notification.
+- Pre-existing: `rustfmt --check` over xtask (xtask/src/main.rs tree) reports diffs in seccomp.rs, seccomp_gen.rs, seccomp_groups.rs (HEAD content, untouched here); root `cargo fmt --all` does not cover the xtask workspace.

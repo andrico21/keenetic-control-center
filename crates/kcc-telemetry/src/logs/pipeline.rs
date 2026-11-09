@@ -61,6 +61,8 @@ impl LogForwarder {
     ///
     /// Returns [`ForwarderError`] when a sink or queue cannot be constructed.
     #[inline]
+    // NOT cancel-safe: cancelled while loading a later sink, the workers already spawned
+    // for earlier sinks keep running detached because their cancellation token never fires.
     pub async fn start(
         config: &LogsConfig,
         metrics: Arc<SelfMetrics>,
@@ -78,6 +80,8 @@ impl LogForwarder {
 
     /// Flushes pending records for at most ten seconds and stops every worker.
     #[inline]
+    // NOT cancel-safe: dropped while flushing, the workers are detached rather than aborted and may
+    // flush past the ten-second deadline; no record is lost.
     pub async fn shutdown(mut self) {
         self.cancellation.cancel();
         for sender in &self.senders {

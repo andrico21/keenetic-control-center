@@ -73,6 +73,8 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 }
 
 /// Removes one IPv4 route, restoring it and aborting on any broad-clear status.
+// NOT cancel-safe: cancelled after the removal is sent, the route (or, on a broad clear,
+// every static route not yet restored) stays removed and unverified.
 pub async fn remove_ipv4(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -103,6 +105,8 @@ pub async fn remove_ipv4(
 }
 
 /// Removes one IPv6 route, restoring all static routes and aborting on a broad-clear status.
+// NOT cancel-safe: cancelled after the removal is sent, the route (or, on a broad clear,
+// every static route not yet restored) stays removed and unverified.
 pub async fn remove_ipv6(
     changes: &mut ChangeSet,
     router: &RouterCtx,

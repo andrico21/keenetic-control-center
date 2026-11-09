@@ -109,6 +109,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Reads router accounts while discarding password hashes at the response boundary.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_users(router: &RouterCtx) -> Result<Vec<RouterUser>> {
     let reply = router.client.show_rc(json!({"user":{}})).await?;
     let RciBody::Json(response) = reply else {

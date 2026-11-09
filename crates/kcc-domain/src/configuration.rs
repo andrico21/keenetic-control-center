@@ -131,6 +131,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 
 impl SafetyNet {
     /// Arms native fail-safe in router mode or scheduled reboot otherwise.
+    // NOT cancel-safe: cancelled after the CLI request is sent, the fail-safe or reboot timer
+    // is armed and fires while the caller believes nothing was armed.
     pub async fn arm(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -150,6 +152,8 @@ impl SafetyNet {
     }
 
     /// Disarms the selected safety mechanism without saving other changes.
+    // NOT cancel-safe: cancelled after the CLI request is sent, the timer may already be disarmed
+    // while the caller still treats it as armed.
     pub async fn disarm(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -168,6 +172,8 @@ impl SafetyNet {
     }
 
     /// Restarts the native fail-safe countdown.
+    // NOT cancel-safe: cancelled after the CLI request is sent, the countdown may be restarted
+    // without the caller knowing.
     pub async fn keep_alive(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -183,11 +189,15 @@ impl SafetyNet {
     }
 
     /// Explicitly persists all unsaved work after the workflow's last-change re-check.
+    // NOT cancel-safe: cancelled after the commit command is sent, the configuration may be
+    // persisted and the fail-safe resolved while the caller still treats the change as unsaved.
     pub async fn commit(changes: &mut ChangeSet) -> CoreResult<(), WorkflowError> {
         changes.commit().await
     }
 
     /// Rolls native fail-safe state back through protected destructive CLI execution.
+    // NOT cancel-safe: cancelled after the CLI request is sent, the router may already be
+    // rolling back (and rebooting) while the caller is unaware.
     pub async fn rollback(
         changes: &mut ChangeSet,
         router: &RouterCtx,
@@ -204,11 +214,14 @@ impl SafetyNet {
 }
 
 /// Reads `show last-change`, including its fail-safe object.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_last_change(router: &RouterCtx) -> Result<LastChangeState> {
     read_show(&router.client, &["show", "last-change"]).await
 }
 
 /// Explicitly saves running configuration.
+// NOT cancel-safe: cancelled after the save command is sent, the running configuration may be
+// persisted while the caller still treats it as unsaved.
 pub async fn save(changes: &mut ChangeSet) -> CoreResult<(), WorkflowError> {
     changes.save().await
 }
