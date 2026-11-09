@@ -1,0 +1,61 @@
+//! Hash-chained audit records for MCP tool failures that reach kcc handlers.
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use kcc_app::audit::{Actor, ActorKind, AuditEvent};
+use rmcp_server_kit::rbac::current_identity;
+use serde_json::json;
+
+use crate::{KccMcp, McpFailure};
+
+/// Appends one refusal or failed-change entry without exposing tool arguments.
+// NOT cancel-safe: once queued, the audit writer may append after this future is dropped.
+pub(crate) async fn failure(
+    server: &KccMcp,
+    tool: &'static str,
+    read_only: bool,
+    error: &McpFailure,
+    request_id: &str,
+) {
+    let Some(audit) = &server.audit else {
+        return;
+    };
+    let (outcome, params) = match error {
+        McpFailure::Forbidden => ("forbidden", json!({"reason": error.code()})),
+        McpFailure::ConfirmRequired
+        | McpFailure::DestructiveDisabled
+        | McpFailure::ValidationFailed
+        | McpFailure::UnverifiedFirmwareTier => ("refused", json!({"reason": error.code()})),
+        McpFailure::RouterUnreachable
+        | McpFailure::RouterRejected
+        | McpFailure::VerificationFailed { field: _ }
+        | McpFailure::Conflict
+        | McpFailure::Internal
+            if !read_only =>
+        {
+            ("failed", json!({"error": error.code()}))
+        }
+        McpFailure::InvalidArguments
+        | McpFailure::RouterUnreachable
+        | McpFailure::RouterRejected
+        | McpFailure::VerificationFailed { field: _ }
+        | McpFailure::Conflict
+        | McpFailure::Internal => return,
+    };
+    let timestamp = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |duration| duration.as_secs());
+    let event = AuditEvent::new(
+        timestamp,
+        Actor::new(
+            ActorKind::Mcp,
+            current_identity().unwrap_or_else(|| "stdio".to_owned()),
+        ),
+        format!("mcp.{tool}"),
+    )
+    .with_params(params)
+    .with_result(outcome.to_owned(), request_id.to_owned());
+    if let Err(audit_error) = audit.append(event).await {
+        tracing::warn!(error = ?audit_error, tool, "MCP failure audit append failed");
+    }
+}

@@ -89,11 +89,13 @@ where
         .open_world(false);
     let tool =
         Tool::new(description.name, description.description, schema).with_annotations(annotations);
+    let name = description.name;
+    let read_only = description.read_only;
     ToolRoute::new_dyn(tool, move |context: ToolCallContext<'_, KccMcp>| {
         let service = context.service;
         let arguments = Value::Object(context.arguments.unwrap_or_default());
         let progress = Progress::from_request(&context.request_context);
         let pending = call(service, arguments, progress);
-        Box::pin(async move { Ok(finish(service, pending.await).into()) })
+        Box::pin(async move { Ok(finish(service, name, read_only, pending.await).await.into()) })
     })
 }

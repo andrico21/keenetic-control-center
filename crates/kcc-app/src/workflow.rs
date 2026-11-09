@@ -867,7 +867,10 @@ impl ChangeSet {
             .with_router(self.router.clone())
             .with_target(request.catalog_path)
             .with_params(audit_params)
-            .with_result("applied_unsaved".to_owned(), format!("change-{timestamp}"));
+            .with_result(
+                applied_outcome(validated.persists_immediately).to_owned(),
+                format!("change-{timestamp}"),
+            );
         drop(self.workflow.audit.append(event).await?);
         Ok(ChangeResult { unsaved: true })
     }
@@ -918,7 +921,10 @@ impl ChangeSet {
         .with_router(self.router.clone())
         .with_target(request.catalog_path)
         .with_params(request.audit_params)
-        .with_result("applied_unsaved".to_owned(), format!("change-{timestamp}"));
+        .with_result(
+            applied_outcome(validated.persists_immediately).to_owned(),
+            format!("change-{timestamp}"),
+        );
         drop(self.workflow.audit.append(event).await?);
         Ok(ChangeResult { unsaved: true })
     }
@@ -982,6 +988,11 @@ impl ChangeSet {
         for item in &request.items {
             item.value.scrub(&mut audit_params);
         }
+        let persists_immediately = !request.items.is_empty()
+            && request
+                .items
+                .iter()
+                .all(|item| item.validated.persists_immediately);
         let event = AuditEvent::new(
             timestamp,
             self.actor.clone(),
@@ -990,7 +1001,10 @@ impl ChangeSet {
         .with_router(self.router.clone())
         .with_target(target)
         .with_params(audit_params)
-        .with_result("applied_unsaved".to_owned(), format!("change-{timestamp}"));
+        .with_result(
+            applied_outcome(persists_immediately).to_owned(),
+            format!("change-{timestamp}"),
+        );
         drop(self.workflow.audit.append(event).await?);
         Ok(BatchChangeResult {
             unsaved: true,
@@ -1017,11 +1031,16 @@ impl ChangeSet {
             verify(&self.client, verification).await?;
         }
         self.expected = read_last_change(&self.client).await?;
+        let persists_immediately = !request.commands.is_empty()
+            && request
+                .commands
+                .iter()
+                .all(|command| command.validated().persists_immediately);
         self.audit_cli(
             &request.commands,
             "router.change_cli",
             request.audit_params,
-            "applied_unsaved",
+            applied_outcome(persists_immediately),
         )
         .await?;
         Ok(CliChangeResult {
@@ -1426,4 +1445,13 @@ fn unix_seconds() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs())
+}
+
+/// Names whether a successful raw change remains unsaved or was persisted by the router.
+const fn applied_outcome(persists_immediately: bool) -> &'static str {
+    if persists_immediately {
+        "applied_persisted"
+    } else {
+        "applied_unsaved"
+    }
 }

@@ -22,8 +22,8 @@ mod tests {
 
     use super::lab::{Lab, TestResult, admin, lab_only};
 
-    /// A typed service no-op returns a `verification_failed` tool error naming the field,
-    /// without an applied audit receipt.
+    /// A typed service no-op returns a `verification_failed` tool error and one failed audit
+    /// receipt without leaking a runtime-built secret.
     #[tokio::test]
     async fn silent_service_noop_returns_tool_error() -> TestResult {
         let lab = Lab::start(
@@ -55,11 +55,25 @@ mod tests {
                 .iter()
                 .any(|request| request.command() == Some("service iperf3"))
         );
-        assert!(
-            !lab.audit()?
-                .iter()
-                .any(|entry| entry.outcome == "applied_unsaved")
+        let secret = ["audit", "secret", "84"].join("-");
+        let failed_entries = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "mcp.kcc_services_write")
+            .collect::<Vec<_>>();
+        let [failed] = failed_entries.as_slice() else {
+            return Err(
+                format!("one failed MCP attempt must be audited: {failed_entries:?}").into(),
+            );
+        };
+        assert_eq!(failed.actor.kind, ActorKind::Mcp);
+        assert_eq!(failed.actor.id, "stdio");
+        assert_eq!(failed.outcome, "failed");
+        assert_eq!(
+            failed.params_redacted,
+            json!({"error":"verification_failed"})
         );
+        assert!(!serde_json::to_string(&failed)?.contains(&secret));
         lab.stop().await
     }
 
@@ -158,6 +172,108 @@ mod tests {
         lab.stop().await
     }
 
+    /// Raw RCI audits distinguish router-persisted settings from ordinary unsaved changes.
+    #[tokio::test]
+    async fn raw_rci_audit_names_persisted_and_unsaved_outcomes() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let persisted = lab
+            .call(
+                "kcc_rci_execute",
+                json!({
+                    "host":"lab-1",
+                    "catalog_path":"system country",
+                    "path":["system","country"],
+                    "value":{"country":"DE"}
+                }),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            persisted.value()?.get("persists_immediately"),
+            Some(&json!(true))
+        );
+        let ordinary = lab
+            .call(
+                "kcc_rci_execute",
+                json!({
+                    "host":"lab-1",
+                    "catalog_path":"system description",
+                    "path":["system","description"],
+                    "value":{"description":"ordinary"}
+                }),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            ordinary.value()?.get("persists_immediately"),
+            Some(&json!(false))
+        );
+        let outcomes = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "router.change")
+            .map(|entry| entry.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes, ["applied_persisted", "applied_unsaved"]);
+        lab.stop().await
+    }
+
+    /// Raw RCI batch audits claim persistence only when every item persists immediately.
+    #[tokio::test]
+    async fn raw_rci_batch_audit_keeps_mixed_changes_unsaved() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let mixed = lab
+            .call(
+                "kcc_rci_batch",
+                json!({
+                    "host":"lab-1",
+                    "items":[
+                        {"system":{"country":{"country":"DE"}}},
+                        {"system":{"description":{"description":"mixed"}}}
+                    ]
+                }),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            mixed.value()?.get("persists_immediately"),
+            Some(&json!(true))
+        );
+        let persisted = lab
+            .call(
+                "kcc_rci_batch",
+                json!({
+                    "host":"lab-1",
+                    "items":[
+                        {"system":{"country":{"country":"US"}}},
+                        {"system":{"country":{"country":"GB"}}}
+                    ]
+                }),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            persisted.value()?.get("persists_immediately"),
+            Some(&json!(true))
+        );
+        let outcomes = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "router.change_batch")
+            .map(|entry| entry.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes, ["applied_unsaved", "applied_persisted"]);
+        lab.stop().await
+    }
+
     /// Firewall writes round-trip one full rule identity through the domain path.
     #[tokio::test]
     async fn firewall_rule_add_and_remove_round_trip_through_domain_read_back() -> TestResult {
@@ -228,8 +344,8 @@ mod tests {
         lab.stop().await
     }
 
-    /// A destructive operation without `confirm`, or outside the caller's scope, is refused
-    /// before the router receives anything.
+    /// A destructive operation without `confirm`, or outside the caller's scope, is refused,
+    /// audited once with its reason, and never reaches a router.
     #[tokio::test]
     async fn refused_domain_operations_send_nothing() -> TestResult {
         let routers = vec![
@@ -263,6 +379,55 @@ mod tests {
             .await?;
         assert_eq!(unknown.error(), Some("invalid_arguments"));
         assert_eq!((lab.requests("lab-1")?, lab.requests("prod-1")?), before);
+        let refusals = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action.starts_with("mcp."))
+            .collect::<Vec<_>>();
+        let [confirmation, scope] = refusals.as_slice() else {
+            return Err(format!("two handler refusals must be audited: {refusals:?}").into());
+        };
+        assert_eq!(confirmation.action, "mcp.kcc_system_write");
+        assert_eq!(confirmation.outcome, "refused");
+        assert_eq!(
+            confirmation.params_redacted,
+            json!({"reason":"confirm_required"})
+        );
+        assert_eq!(scope.action, "mcp.kcc_system_read");
+        assert_eq!(scope.outcome, "forbidden");
+        assert_eq!(scope.params_redacted, json!({"reason":"forbidden"}));
+        lab.stop().await
+    }
+
+    /// A disabled destructive gate records its distinct refusal reason without transmission.
+    #[tokio::test]
+    async fn destructive_disabled_is_audited_without_router_contact() -> TestResult {
+        let lab = Lab::start_with_destructive(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+            false,
+        )
+        .await?;
+        let before = lab.requests("lab-1")?;
+        let reply = lab
+            .call(
+                "kcc_system_write",
+                json!({"host": "lab-1", "op": "reboot", "confirm": true}),
+                false,
+            )
+            .await?;
+        assert_eq!(reply.error(), Some("destructive_disabled"));
+        assert_eq!(lab.requests("lab-1")?, before);
+        let refusal = lab
+            .audit()?
+            .into_iter()
+            .find(|entry| entry.action == "mcp.kcc_system_write")
+            .ok_or("destructive refusal was not audited")?;
+        assert_eq!(refusal.outcome, "refused");
+        assert_eq!(
+            refusal.params_redacted,
+            json!({"reason":"destructive_disabled"})
+        );
         lab.stop().await
     }
 }

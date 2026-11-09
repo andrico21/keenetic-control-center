@@ -119,10 +119,15 @@ outside the change workflow and without an audit entry.
 
 ## Audit chain
 
-Every change, refusal, login and secret reveal appends an entry to `audit.jsonl`. Each
-entry carries a sequence number and `sha256(previous hash || canonical JSON of the
-entry)`, so editing or removing an entry breaks the chain; `kcc audit verify` names the
-first broken sequence. Entries never hold secret values. Appends from several processes
+Every change, handler-level refusal, login and secret reveal appends an entry to
+`audit.jsonl`. MCP records successful changes, failed changes as `failed` with an error
+kind, and refusals that reach a kcc handler as `forbidden` or `refused` with a reason.
+A tool call denied by rmcp-server-kit's role check is refused with HTTP 403 before kcc
+code runs; the kit logs `user`, `role` and `tool` at warn level, but that event is not
+appended to the hash-chained audit. Each audit entry carries a sequence number and
+`sha256(previous hash || canonical JSON of the entry)`, so editing or removing an entry
+breaks the chain; `kcc audit verify` names the first broken sequence. Entries never hold
+secret values. Appends from several processes
 (`kcc serve`, CLI runs, `kcc mcp stdio`) take a cross-process lock on the log and
 re-read its tail before writing, so they extend one chain. Files rotate at 50 MiB. The
 chain detects tampering; it doesn't prevent someone with write access to the state

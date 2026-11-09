@@ -16,12 +16,18 @@ const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Converts a tool outcome into a protocol result with a correlation id.
-pub(crate) fn finish(server: &KccMcp, result: Result<Value, McpFailure>) -> CallToolResult {
+pub(crate) async fn finish(
+    server: &KccMcp,
+    tool: &'static str,
+    read_only: bool,
+    result: Result<Value, McpFailure>,
+) -> CallToolResult {
     let request_id = format!("mcp-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed));
     match result.and_then(|value| shape(server, value, Some(&request_id))) {
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(error) => {
             tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
+            super::audit::failure(server, tool, read_only, &error, &request_id).await;
             let mut reply = json!({
                 "error": error.code(),
                 "request_id": request_id

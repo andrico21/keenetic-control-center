@@ -9,7 +9,7 @@ use core::{error::Error, time::Duration};
 use std::{fs, path::PathBuf};
 
 use kcc_app::{
-    audit::{AuditEntry, AuditLog, read_entries},
+    audit::{AuditEntry, AuditLog, verify_chain},
     backups::BackupStore,
     jobs::JobRunner,
     permissions::{Permission, Role},
@@ -114,6 +114,15 @@ impl Lab {
     /// Serves `routers`, registers them, and connects a session whose stdio identity has
     /// `role`; every toolset is enabled and destructive operations are allowed.
     pub(crate) async fn start(routers: Vec<(&str, FakeRouter)>, role: Role) -> TestResult<Self> {
+        Self::start_with_destructive(routers, role, true).await
+    }
+
+    /// Starts a session with an explicit destructive-operation switch.
+    pub(crate) async fn start_with_destructive(
+        routers: Vec<(&str, FakeRouter)>,
+        role: Role,
+        allow_destructive: bool,
+    ) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
@@ -156,7 +165,7 @@ impl Lab {
         ]
         .map(str::to_owned)
         .to_vec();
-        config.allow_destructive = true;
+        config.allow_destructive = allow_destructive;
         let server = KccMcp::new(
             config,
             PrivacyConfig::default(),
@@ -251,9 +260,9 @@ impl Lab {
         received
     }
 
-    /// Every audit entry written so far.
+    /// Verifies the hash chain, then returns every audit entry.
     pub(crate) fn audit(&self) -> TestResult<Vec<AuditEntry>> {
-        Ok(read_entries(&self.state_dir())?)
+        Ok(verify_chain(&self.state_dir())?)
     }
 
     /// The state directory.

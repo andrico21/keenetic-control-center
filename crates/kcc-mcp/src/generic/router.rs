@@ -148,8 +148,14 @@ impl KccMcp {
             open_world_hint = false
         )
     )]
-    fn routers_list(&self, Parameters(input): Parameters<ListInput>) -> CallToolResult {
-        finish(self, fleet::routers_list(self, input))
+    async fn routers_list(&self, Parameters(input): Parameters<ListInput>) -> CallToolResult {
+        finish(
+            self,
+            "kcc_routers_list",
+            true,
+            fleet::routers_list(self, input),
+        )
+        .await
     }
 
     #[tool(
@@ -163,7 +169,13 @@ impl KccMcp {
         )
     )]
     async fn router_info(&self, Parameters(input): Parameters<HostInput>) -> CallToolResult {
-        finish(self, fleet::router_info(self, input).await)
+        finish(
+            self,
+            "kcc_router_info",
+            true,
+            fleet::router_info(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -180,7 +192,13 @@ impl KccMcp {
         &self,
         Parameters(input): Parameters<CatalogSearchInput>,
     ) -> CallToolResult {
-        finish(self, fleet::catalog_search(self, input).await)
+        finish(
+            self,
+            "kcc_catalog_search",
+            true,
+            fleet::catalog_search(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -197,7 +215,13 @@ impl KccMcp {
         &self,
         Parameters(input): Parameters<CatalogDescribeInput>,
     ) -> CallToolResult {
-        finish(self, fleet::catalog_describe(self, input).await)
+        finish(
+            self,
+            "kcc_catalog_describe",
+            true,
+            fleet::catalog_describe(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -211,7 +235,7 @@ impl KccMcp {
         )
     )]
     async fn rci_read(&self, Parameters(input): Parameters<RciReadInput>) -> CallToolResult {
-        finish(self, rci::rci_read(self, input).await)
+        finish(self, "kcc_rci_read", true, rci::rci_read(self, input).await).await
     }
 
     #[tool(
@@ -225,7 +249,13 @@ impl KccMcp {
         )
     )]
     async fn rci_execute(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
-        finish(self, rci::rci_execute(self, input).await)
+        finish(
+            self,
+            "kcc_rci_execute",
+            false,
+            rci::rci_execute(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -239,7 +269,13 @@ impl KccMcp {
         )
     )]
     async fn rci_delete(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
-        finish(self, rci::rci_delete(self, input).await)
+        finish(
+            self,
+            "kcc_rci_delete",
+            false,
+            rci::rci_delete(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -253,7 +289,13 @@ impl KccMcp {
         )
     )]
     async fn rci_batch(&self, Parameters(input): Parameters<RciBatchInput>) -> CallToolResult {
-        finish(self, rci::rci_batch(self, input).await)
+        finish(
+            self,
+            "kcc_rci_batch",
+            false,
+            rci::rci_batch(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -267,7 +309,13 @@ impl KccMcp {
         )
     )]
     async fn cli_parse(&self, Parameters(input): Parameters<CliInput>) -> CallToolResult {
-        finish(self, rci::cli_parse(self, input).await)
+        finish(
+            self,
+            "kcc_cli_parse",
+            false,
+            rci::cli_parse(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -280,8 +328,8 @@ impl KccMcp {
             open_world_hint = false
         )
     )]
-    fn job_status(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
-        finish(self, fleet::job_status(self, input))
+    async fn job_status(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
+        finish(self, "kcc_job_status", true, fleet::job_status(self, input)).await
     }
 
     #[tool(
@@ -295,6 +343,12 @@ impl KccMcp {
         )
     )]
     async fn job_cancel(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
-        finish(self, fleet::job_cancel(self, input).await)
+        finish(
+            self,
+            "kcc_job_cancel",
+            false,
+            fleet::job_cancel(self, input).await,
+        )
+        .await
     }
 }
