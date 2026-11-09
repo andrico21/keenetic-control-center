@@ -385,7 +385,7 @@ impl JobRunner {
     ///
     /// Returns [`JobError::RouterBusy`] for a second simultaneous write job on one router,
     /// or state I/O errors while persisting the initial record.
-    // NOT cancel-safe: once persisted and spawned, the job continues if the caller drops this future.
+    // cancel-safe: ownership and map reservations roll back on every drop before the task is spawned.
     pub async fn start<F, Fut>(
         self: &Arc<Self>,
         kind: String,
@@ -398,26 +398,24 @@ impl JobRunner {
         Fut: Future<Output = Result<(), String>> + Send + 'static,
     {
         let id = new_id();
+        let cancellation = CancellationToken::new();
+        let mut active = self.active.lock().await;
+        let mut write_jobs = self.write_jobs.lock().await;
         if write {
             let target = router.as_ref().ok_or_else(|| JobError::RouterBusy {
                 router: "missing".to_owned(),
             })?;
-            let mut write_jobs = self.write_jobs.lock().await;
             if write_jobs.contains_key(target) {
                 return Err(JobError::RouterBusy {
                     router: target.clone(),
                 });
             }
+        }
+        let ownership = self.ownership.claim(&id)?;
+        if let Some(target) = router.as_ref().filter(|_target| write) {
             drop(write_jobs.insert(target.clone(), id.clone()));
         }
-        let cancellation = CancellationToken::new();
-        self.ownership.claim(&id).await?;
-        drop(
-            self.active
-                .lock()
-                .await
-                .insert(id.clone(), cancellation.clone()),
-        );
+        drop(active.insert(id.clone(), cancellation.clone()));
         let now = self.clock.unix_seconds();
         if let Err(error) = self.persist(&JobRecord {
             id: id.clone(),
@@ -430,10 +428,9 @@ impl JobRunner {
             updated_at: now,
             message: None,
         }) {
-            self.ownership.release(&id).await;
-            drop(self.active.lock().await.remove(&id));
+            drop(active.remove(&id));
             if write && let Some(target) = &router {
-                drop(self.write_jobs.lock().await.remove(target));
+                drop(write_jobs.remove(target));
             }
             return Err(error);
         }
@@ -477,9 +474,12 @@ impl JobRunner {
                 }
             }
             drop(owner.active.lock().await.remove(&task_id));
-            owner.ownership.release(&task_id).await;
+            owner.ownership.release(&task_id);
             owner.finished.notify_waiters();
         }));
+        ownership.transfer();
+        drop(write_jobs);
+        drop(active);
         Ok(id)
     }
 
@@ -631,4 +631,61 @@ fn new_id() -> String {
         .duration_since(UNIX_EPOCH)
         .map_or(0, |elapsed| elapsed.as_secs());
     format!("job-{timestamp}-{sequence}")
+}
+
+#[cfg(test)]
+mod tests {
+    extern crate alloc;
+
+    use alloc::sync::Arc;
+    use core::{
+        future::pending,
+        task::{Context, Poll, Waker},
+    };
+
+    use super::JobRunner;
+    use crate::{persist::StateStore, registry::RouterRegistry, settings::OutboundConfig};
+
+    #[expect(
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "the assertion proves the start future reached the held active lock"
+    )]
+    #[tokio::test]
+    async fn cancelled_start_releases_router_write_slot() -> Result<(), Box<dyn core::error::Error>>
+    {
+        let temp = tempfile::TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let registry = Arc::new(RouterRegistry::new(
+            state.clone(),
+            &[],
+            &OutboundConfig::default(),
+        )?);
+        let runner = JobRunner::open(state, registry).await?;
+        {
+            let active = runner.active.lock().await;
+            let start = runner.start(
+                "cancelled".to_owned(),
+                Some("router".to_owned()),
+                true,
+                async |_context| pending::<Result<(), String>>().await,
+            );
+            tokio::pin!(start);
+            let mut context = Context::from_waker(Waker::noop());
+            assert!(matches!(start.as_mut().poll(&mut context), Poll::Pending));
+            drop(active);
+        }
+
+        drop(
+            runner
+                .start(
+                    "retry".to_owned(),
+                    Some("router".to_owned()),
+                    true,
+                    async |_context| Ok(()),
+                )
+                .await?,
+        );
+        Ok(())
+    }
 }

@@ -154,3 +154,34 @@ async fn open_prunes_only_expired_finished_jobs() -> TestResult {
     assert_eq!(runner.get("job-running")?.status, JobStatus::Interrupted);
     Ok(())
 }
+
+#[tokio::test]
+async fn failed_ownership_claim_releases_router_write_slot() -> TestResult {
+    let temp = TempDir::new()?;
+    let state = StateStore::open(&temp.path().join("state"))?;
+    let runner = JobRunner::open(state.clone(), registry(&state)?).await?;
+    fs::remove_dir_all(state.dir())?;
+
+    let failed = runner
+        .start(
+            "blocked".to_owned(),
+            Some("router".to_owned()),
+            true,
+            async |_context| Ok(()),
+        )
+        .await;
+    assert!(matches!(failed, Err(JobError::State(_))));
+    fs::create_dir_all(state.dir())?;
+
+    drop(
+        runner
+            .start(
+                "retry".to_owned(),
+                Some("router".to_owned()),
+                true,
+                async |_context| Ok(()),
+            )
+            .await?,
+    );
+    Ok(())
+}
