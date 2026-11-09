@@ -75,6 +75,7 @@ cli-tls-written = Zertifikat nach { $path } geschrieben. SHA-256: { $value }
 cli-plan-written = Plan nach { $path } geschrieben: { $count } Zeilen anzuwenden.
 cli-plan-changed = Der Plan passt nicht mehr zu den Routern; planen Sie neu und prüfen Sie den neuen Plan.
 cli-plan-blocked = Der Plan benötigt weitere Eingaben: { $value }
+cli-plan-conflict = Konflikt in { $item } lösen
 cli-migrate-kept = Der Fail-Safe-Timer läuft weiter: Abschließen mit kcc migrate finish commit oder rollback.
 cli-col-groups = Gruppen
 cli-col-firmware = Firmware

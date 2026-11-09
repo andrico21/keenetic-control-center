@@ -2,7 +2,7 @@
 {%- import "components.html" as ui -%}
 {%- import "partials/kit_macros.html" as kit -%}
 {% call ui::dialog_body(title) %}
-<form class="form" hx-post="{{ post_to }}" hx-target="#page-outcome">
+<form class="form" method="post" action="{{ post_to }}" hx-post="{{ post_to }}" hx-target="#page-outcome">
   <input type="hidden" name="confirm" value="yes">
   {%- if let Some(fixed) = fixed_name %}
   <input type="hidden" name="name" value="{{ fixed }}">

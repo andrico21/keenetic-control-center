@@ -59,6 +59,8 @@ pub struct ClassifiedItem {
     pub after: Option<String>,
     /// Required operator action, when blocked.
     pub needed_input: Option<String>,
+    /// Catalog path of a conflicting scalar, without its value.
+    pub conflict: Option<String>,
     /// Resulting command protected from accidental debug output.
     pub output: Option<SecretString>,
 }
@@ -75,6 +77,7 @@ impl fmt::Debug for ClassifiedItem {
             before,
             after,
             needed_input,
+            conflict,
             output: _,
         } = self;
         f.debug_struct("ClassifiedItem")
@@ -86,6 +89,7 @@ impl fmt::Debug for ClassifiedItem {
             .field("before", before)
             .field("after", after)
             .field("needed_input", needed_input)
+            .field("conflict", conflict)
             .field("output", &"<redacted>")
             .finish()
     }
@@ -421,7 +425,7 @@ fn explicit_item(
         | Disposition::Unsupported
         | Disposition::Conflict => (None, None),
     };
-    item(
+    let mut classified = item(
         source_index,
         line,
         redacted_line.to_string(),
@@ -430,7 +434,14 @@ fn explicit_item(
         &rule.reason_key,
         after,
         output,
-    )
+    );
+    if classified.disposition == Disposition::Conflict {
+        classified.conflict = target
+            .catalog
+            .and_then(|catalog| catalog_command(catalog, &expanded_words(&line.tokens)))
+            .map(str::to_owned);
+    }
+    classified
 }
 
 /// Applies a plaintext password supplied for a realm-bound source hash.
@@ -497,6 +508,7 @@ fn item(
         before,
         after,
         needed_input: None,
+        conflict: None,
         output,
     }
 }

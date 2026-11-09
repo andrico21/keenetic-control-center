@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    ROUTER, TraceCapture, dummy, en, nowhere, stored,
+    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
     support::{Browser, Fixture, TestResult, text},
 };
 
@@ -35,6 +35,7 @@ async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
     let admin = fixture.login("admin").await?;
     let first = dummy("alice", 1);
     let add = text(fixture.get("/ui/r/prod-1/system/users/new", &admin).await?).await?;
+    assert_native_post(&add)?;
     assert!(
         add.contains("name=\"secret\" type=\"password\" value=\"\" autocomplete=\"new-password\""),
         "the add dialog's write-only password: {add}"
@@ -57,6 +58,7 @@ async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
         "Set password: {page}"
     );
     let dialog = text(fixture.get(ALICE, &admin).await?).await?;
+    assert_native_post(&dialog)?;
     assert!(
         dialog.contains("<input type=\"hidden\" name=\"confirm\" value=\"yes\">"),
         "Apply confirms in the dialog: {dialog}"
@@ -83,6 +85,33 @@ async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
         fixture.outcomes("web.router_user_password")?,
         ["success"],
         "audited"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn native_get_ignores_secret_query_values_and_sends_nothing() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    let named = [("name", "alice"), ("confirm", "yes")];
+    let (add_status, _) = post(&fixture, &admin, ("/ui/r/prod-1/system/users", &named)).await?;
+    assert_eq!(add_status, StatusCode::OK, "alice added");
+    let before = fixture.handle(ROUTER)?.request_count();
+    let secret = ["native", "query", "secret"].join("-");
+    let again = ["native", "query", "repeat"].join("-");
+    let path = format!("{ALICE}&secret={secret}&secret_again={again}");
+
+    let response = fixture.get(&path, &admin).await?;
+    let body = text(response).await?;
+
+    assert!(
+        !body.contains(&secret) && !body.contains(&again),
+        "query secrets reflected"
+    );
+    assert_eq!(
+        fixture.handle(ROUTER)?.request_count(),
+        before,
+        "the router heard nothing"
     );
     Ok(())
 }

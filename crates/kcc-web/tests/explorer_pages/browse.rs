@@ -152,6 +152,37 @@ async fn the_detail_shows_catalog_facts_and_a_generated_form() -> TestResult {
     Ok(())
 }
 
+#[tokio::test]
+async fn a_generated_secret_form_has_a_native_post_fallback() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let browser = fixture.login("admin").await?;
+    let page = text(
+        fixture
+            .get(
+                "/ui/r/home/explorer/command?path=user+password+plain",
+                &browser,
+            )
+            .await?,
+    )
+    .await?;
+    let password = page.find("type=\"password\"").ok_or("no password input")?;
+    let start = page
+        .get(..password)
+        .and_then(|before| before.rfind("<form"))
+        .ok_or("no form")?;
+    let tag = page
+        .get(start..)
+        .and_then(|tail| tail.split_once('>').map(|(tag, _)| tag))
+        .ok_or("incomplete form")?;
+    assert!(tag.contains(" method=\"post\""), "native method: {tag}");
+    assert!(
+        tag.contains(" action=\"/ui/r/home/explorer/execute\"")
+            && tag.contains(" hx-post=\"/ui/r/home/explorer/execute\""),
+        "matching targets: {tag}"
+    );
+    Ok(())
+}
+
 /// The preview shows the exact method, endpoint and JSON, masks secrets and sends
 /// nothing to the router.
 #[tokio::test]

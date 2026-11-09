@@ -201,6 +201,7 @@ fn blocked_management(line: &PlannedLine) -> ClassifiedItem {
         before: line.display.clone(),
         after: Some(line.display.clone()),
         needed_input: Some("confirm reconnect URL".to_owned()),
+        conflict: None,
         output: None,
     }
 }

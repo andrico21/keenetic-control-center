@@ -288,6 +288,7 @@ mod tests {
             "what",
             "address",
             "paths",
+            "item",
         ] {
             args.set(name, "x");
         }

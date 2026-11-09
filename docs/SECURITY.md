@@ -128,7 +128,9 @@ router scope to the `host` argument. A denied tool or out-of-scope `host` is ref
 HTTP 403 before kcc code runs; the kit logs `user`, `role`, `tool` and `host` at warn
 level, but that event is not appended to the hash-chained audit. Stdio calls, and HTTP
 calls whose routers are named in other arguments such as `source` or `target`, reach
-kcc's own scope check and are audited. Each audit entry carries a sequence number and
+kcc's own scope check and are audited. The audit entry's `router` field names the router
+the call addressed first; it is not necessarily the router whose scope check refused the
+call. Each audit entry carries a sequence number and
 `sha256(previous hash || canonical JSON of the entry)`, so editing or removing an entry
 breaks the chain; `kcc audit verify` names the first broken sequence. Entries never hold
 secret values. Appends from several processes

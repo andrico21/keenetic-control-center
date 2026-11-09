@@ -15,7 +15,8 @@ mod tests {
     use axum::http::StatusCode;
 
     use crate::{
-        flow::{DNS_LINES, apply, finish, redirected, seed, start, to_preview},
+        assert_native_post,
+        flow::{DNS_LINES, apply, finish, redirected, seed, start},
         support::{Browser, Fixture, TestResult, text},
     };
 
@@ -99,8 +100,26 @@ mod tests {
         served: &mut Vec<String>,
     ) -> TestResult<String> {
         let run = start(fixture, browser, id).await?;
+        for (path, pairs) in [
+            ("target", vec![("router", "lab-1")]),
+            ("target/continue", Vec::new()),
+            ("options", vec![("mode", "merge"), ("regenerate", "yes")]),
+            ("review/continue", Vec::new()),
+        ] {
+            let response = fixture
+                .post(&format!("{run}/{path}"), browser, &pairs)
+                .await?;
+            if response.status() != StatusCode::OK {
+                return Err(format!("{path}: {}", response.status()).into());
+            }
+        }
+        let inputs = page(fixture, browser, &run).await?;
+        assert_native_post(&inputs)?;
         let typed = [("password-0", TARGET_PASSWORD)];
-        to_preview(fixture, browser, &run, ("lab-1", "merge", &typed)).await?;
+        let response = fixture
+            .post(&format!("{run}/inputs"), browser, &typed)
+            .await?;
+        assert_eq!(response.status(), StatusCode::OK, "inputs accepted");
         served.push(page(fixture, browser, &run).await?);
         let stream = apply(fixture, browser, &run).await?;
         for sent in [

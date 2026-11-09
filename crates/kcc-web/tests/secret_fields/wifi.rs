@@ -8,7 +8,7 @@ use kcc_i18n::keys;
 use tokio::time::{Instant, timeout_at};
 
 use crate::{
-    ROUTER, TraceCapture, dummy, en, nowhere, stored,
+    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
     support::{Browser, Fixture, TestResult, text},
 };
 
@@ -84,6 +84,7 @@ async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
         "Edit opens the dialog: {settings}"
     );
     let dialog = text(fixture.get(DIALOG, &operator).await?).await?;
+    assert_native_post(&dialog)?;
     for shown in [
         "name=\"secret\" type=\"password\" value=\"\" autocomplete=\"new-password\"".to_owned(),
         format!(

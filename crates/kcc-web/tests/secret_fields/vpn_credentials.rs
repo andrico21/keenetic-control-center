@@ -5,7 +5,7 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    ROUTER, TraceCapture, dummy, en, nowhere, stored,
+    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
     support::{Browser, Fixture, TestResult, text},
 };
 
@@ -126,6 +126,7 @@ async fn server_credentials_reach_the_router_and_nothing_else() -> TestResult {
             .await?,
     )
     .await?;
+    assert_native_post(&dialog)?;
     assert!(
         dialog.contains("<option value=\"bob\"") && !dialog.contains("<option value=\"admin\""),
         "the accounts kcc may change: {dialog}"

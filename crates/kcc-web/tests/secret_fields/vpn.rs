@@ -6,7 +6,7 @@ use kcc_i18n::keys;
 use url::form_urlencoded::byte_serialize;
 
 use crate::{
-    ROUTER, TraceCapture, dummy, en, key, nowhere, stored,
+    ROUTER, TraceCapture, assert_native_post, dummy, en, key, nowhere, stored,
     support::{Browser, Fixture, TestResult, text},
 };
 
@@ -112,6 +112,7 @@ async fn a_peers_preshared_key_is_set_in_its_dialog_and_kept_when_empty() -> Tes
         url_encoded(&public)
     );
     let dialog = text(fixture.get(&edit, &operator).await?).await?;
+    assert_native_post(&dialog)?;
     assert!(
         dialog.contains("name=\"psk\" type=\"password\" value=\"\" autocomplete=\"new-password\""),
         "write-only: {dialog}"

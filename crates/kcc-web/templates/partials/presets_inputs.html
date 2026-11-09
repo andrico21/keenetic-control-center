@@ -17,7 +17,7 @@
   </ul>
 </div>
 {%- endif %}
-<form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/inputs" hx-target="#wizard-step">
+<form class="form wizard-form" method="post" action="/ui/presets/runs/{{ id }}/inputs" hx-post="/ui/presets/runs/{{ id }}/inputs" hx-target="#wizard-step">
   {%- if !passwords.is_empty() %}
   <section class="wizard-inputs" aria-labelledby="inputs-passwords-title">
     <h3 class="wizard-inputs__title" id="inputs-passwords-title">{{ t(keys::WEB_MIGRATE_INPUTS_PASSWORDS) }}</h3>

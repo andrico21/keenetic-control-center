@@ -75,6 +75,7 @@ cli-tls-written = Certificate written to { $path }. SHA-256: { $value }
 cli-plan-written = Plan written to { $path }: { $count } lines to apply.
 cli-plan-changed = The plan no longer matches the routers; plan again and review the new plan.
 cli-plan-blocked = The plan needs more input: { $value }
+cli-plan-conflict = resolve conflict in { $item }
 cli-migrate-kept = The fail-safe timer keeps running: finish with kcc migrate finish commit or rollback.
 cli-col-groups = Groups
 cli-col-firmware = Firmware

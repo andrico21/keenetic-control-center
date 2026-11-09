@@ -70,6 +70,21 @@ mod tests {
             inputs.contains("name=\"password-0\"") && inputs.contains("type=\"password\""),
             "a write-only password field: {inputs}"
         );
+        let password = inputs.find("type=\"password\"").ok_or("password input")?;
+        let start = inputs
+            .get(..password)
+            .and_then(|before| before.rfind("<form"))
+            .ok_or("inputs form")?;
+        let form = inputs
+            .get(start..)
+            .and_then(|tail| tail.split_once('>').map(|(tag, _)| tag))
+            .ok_or("inputs form")?;
+        assert!(form.contains(" method=\"post\""), "native method: {form}");
+        assert!(
+            form.contains(&format!(" action=\"{page}/inputs\""))
+                && form.contains(&format!(" hx-post=\"{page}/inputs\"")),
+            "matching targets: {form}"
+        );
         let reconnect = value_of(&inputs, "name=\"reconnect_url\"").ok_or("reconnect field")?;
         let missing = fixture
             .post(

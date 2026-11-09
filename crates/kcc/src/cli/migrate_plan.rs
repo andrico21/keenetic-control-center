@@ -72,7 +72,7 @@ impl Planned {
         let login = services.registry().get(&target)?.profile.login;
         let (choices, management_password) = choices(ctx, input, &login)?;
         let plan = Planner::plan(&config, &inventory, &MigrationMaps::default(), &choices)
-            .map_err(blocked)?;
+            .map_err(|error| blocked(ctx, error))?;
         Ok(Self {
             target,
             role,
@@ -191,18 +191,23 @@ fn choices(ctx: &Ctx, input: &PlanInput, login: &str) -> Outcome<(Choices, Optio
 }
 
 /// The blocked plan's needed inputs as a validation failure.
-fn blocked(error: PlanError) -> Failure {
+fn blocked(ctx: &Ctx, error: PlanError) -> Failure {
     match error {
         PlanError::PlanBlocked { items } => {
-            let needed = items
+            let mut needed = items
                 .iter()
                 .filter_map(|item| item.needed_input.clone())
-                .collect::<Vec<_>>()
-                .join("; ");
+                .collect::<Vec<_>>();
+            needed.extend(items.iter().filter_map(|item| {
+                item.conflict.as_ref().map(|name| {
+                    ctx.out()
+                        .tr(keys::CLI_PLAN_CONFLICT, &[("item", name.as_str())])
+                })
+            }));
             Failure::message(
                 Exit::Validation,
                 keys::CLI_PLAN_BLOCKED,
-                &[("value", &needed)],
+                &[("value", &needed.join("; "))],
             )
         }
         PlanError::Rules(_) | _ => Failure::text(Exit::Generic, &error),

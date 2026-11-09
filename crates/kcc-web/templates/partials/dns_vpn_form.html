@@ -8,7 +8,7 @@
 {%- if !problem.is_empty() %}
 <p class="notice" data-tone="error">{{ problem }}</p>
 {%- endif %}
-<form class="form" hx-post="{{ post_to }}" hx-target="#page-outcome"{% if multipart %} hx-encoding="multipart/form-data"{% endif %}>
+<form class="form" method="post" action="{{ post_to }}" hx-post="{{ post_to }}" hx-target="#page-outcome"{% if multipart %} hx-encoding="multipart/form-data"{% endif %}>
   {%- for input in inputs %}
   {%- if input.kind == Kind::Hidden %}
   <input type="hidden" name="{{ input.name }}" value="{{ input.value }}">

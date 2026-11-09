@@ -16,6 +16,9 @@ use super::support::{Env, TestResult, USER, router};
 /// A saved source configuration that copies one interface description.
 const SOURCE: &str = "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\ninterface Bridge11\n description migrated-1\n!\n";
 
+/// A saved source configuration whose Bridge0 description conflicts with the target.
+const CONFLICTING_SOURCE: &str = "! $$$ Model: Keenetic Giga\n! $$$ Version: 5.1.0\ninterface Bridge0\n description source-office\n!\n";
+
 /// A migration-ready fake on `firmware` registered as `target`.
 async fn target(firmware: Firmware) -> Result<(Env, Handle), Box<dyn Error>> {
     let mut scenario = migration::Fixture::default();
@@ -55,6 +58,22 @@ async fn plan_writes_a_plan_file() -> TestResult {
         !fs::read_to_string(&plan_path)?.contains("migrated-1"),
         "plan files are redacted"
     );
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn blocked_plan_names_the_conflicting_catalog_item() -> TestResult {
+    let (env, handle) = target(Firmware::V5_1).await?;
+    drop(env.write("conflict.txt", CONFLICTING_SOURCE)?);
+    let source = format!("file:{}", env.path("conflict.txt").display());
+    let plan_path = env.path("plan.json");
+    let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
+
+    let run = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
+
+    assert_eq!(run.code, 4_i32, "{run:?}");
+    assert!(run.stderr.contains("interface description"), "{run:?}");
     handle.shutdown().await?;
     Ok(())
 }

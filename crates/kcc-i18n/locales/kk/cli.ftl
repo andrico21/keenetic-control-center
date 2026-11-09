@@ -75,6 +75,7 @@ cli-tls-written = Сертификат { $path } ішіне жазылды. SHA-
 cli-plan-written = Жоспар { $path } ішіне жазылды: қолданылатын жолдар саны { $count }.
 cli-plan-changed = Жоспар роутерлерге енді сәйкес келмейді; қайта жоспарлап, жаңа жоспарды тексеріңіз.
 cli-plan-blocked = Жоспарға қосымша деректер қажет: { $value }
+cli-plan-conflict = { $item } ішіндегі қайшылықты шешіңіз
 cli-migrate-kept = Қорғаныс таймері жұмысын жалғастырады: kcc migrate finish commit немесе rollback пәрменімен аяқтаңыз.
 cli-col-groups = Топтар
 cli-col-firmware = Микробағдарлама

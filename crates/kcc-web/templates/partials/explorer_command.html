@@ -44,7 +44,7 @@
     </table>
   </div>
   {%- endif %}
-  <form class="form command-form" id="explorer-form" hx-post="/ui/r/{{ router }}/explorer/execute" hx-target="#explorer-result">
+  <form class="form command-form" id="explorer-form" method="post" action="/ui/r/{{ router }}/explorer/execute" hx-post="/ui/r/{{ router }}/explorer/execute" hx-target="#explorer-result">
     <input type="hidden" name="path" value="{{ detail.path() }}">
     {%- if let Some(group) = detail.form().own() %}
     {%- for field in group.fields() %}

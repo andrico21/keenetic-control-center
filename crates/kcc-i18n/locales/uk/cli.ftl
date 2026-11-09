@@ -77,6 +77,7 @@ cli-tls-written = Сертифікат записано до { $path }. SHA-256:
 cli-plan-written = План записано до { $path }: рядків до застосування { $count }.
 cli-plan-changed = План більше не відповідає роутерам; складіть план заново та перевірте його.
 cli-plan-blocked = Для плану потрібні додаткові дані: { $value }
+cli-plan-conflict = розв’яжіть конфлікт у { $item }
 cli-migrate-kept = Таймер захисту продовжує працювати: завершіть командою kcc migrate finish commit або rollback.
 cli-col-groups = Групи
 cli-col-firmware = Прошивка

@@ -4,7 +4,7 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    ROUTER, TraceCapture, dummy, en, nowhere, stored,
+    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
     support::{Fixture, TestResult, text},
 };
 
@@ -50,6 +50,7 @@ async fn a_connection_password_reaches_the_router_and_nothing_else() -> TestResu
         "Edit beside the password: {settings}"
     );
     let dialog = text(fixture.get(DIALOG, &operator).await?).await?;
+    assert_native_post(&dialog)?;
     assert!(
         dialog.contains("name=\"secret\" type=\"password\" value=\"\""),
         "write-only: {dialog}"

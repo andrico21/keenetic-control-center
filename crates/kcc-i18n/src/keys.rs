@@ -215,6 +215,9 @@ pub const CLI_PLAN_CHANGED: MessageKey = MessageKey::new("cli-plan-changed");
 /// `cli-plan-blocked` in `cli.ftl`.
 pub const CLI_PLAN_BLOCKED: MessageKey = MessageKey::new("cli-plan-blocked");
 
+/// `cli-plan-conflict` in `cli.ftl`.
+pub const CLI_PLAN_CONFLICT: MessageKey = MessageKey::new("cli-plan-conflict");
+
 /// `cli-migrate-kept` in `cli.ftl`.
 pub const CLI_MIGRATE_KEPT: MessageKey = MessageKey::new("cli-migrate-kept");
 
@@ -6562,7 +6565,7 @@ pub const WEB_EXPLORER_MIXED_PERSISTENCE: MessageKey =
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2094] = [
+pub static ALL: [MessageKey; 2095] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6634,6 +6637,7 @@ pub static ALL: [MessageKey; 2094] = [
     CLI_PLAN_WRITTEN,
     CLI_PLAN_CHANGED,
     CLI_PLAN_BLOCKED,
+    CLI_PLAN_CONFLICT,
     CLI_MIGRATE_KEPT,
     CLI_COL_GROUPS,
     CLI_COL_FIRMWARE,
