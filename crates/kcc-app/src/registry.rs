@@ -637,7 +637,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns profile validation, state storage, or registry lock errors.
-    // cancel-safe: the config swap is synchronous; cancellation can only defer cache invalidation.
+    // NOT cancel-safe: cancelled at the client-cache lock, the new profiles are live while stale
+    // cached clients remain and no change notification is sent.
     pub async fn reload(&self, config: &Config) -> Result<usize, RegistryError> {
         let replacement = config_profiles(&config.routers)?;
         let state_profiles = read_state_profiles(&self.store)?;

@@ -144,7 +144,8 @@ impl ComponentsUpdateCheck {
     }
 
     /// Asks `router` once and publishes a known result.
-    // cancel-safe: publishing follows the read-only request; cancellation changes no router state.
+    // cancel-safe: publishing follows a request that does not change the configuration (the domain
+    // classes it Write); cancellation changes no router state.
     async fn run(&self, router: &str) -> CheckOutcome {
         let outcome = self.ask(router).await;
         let status = match outcome {
@@ -164,7 +165,8 @@ impl ComponentsUpdateCheck {
 
     /// The router's answer; [`UpdateStatus::Unknown`] without a request when the router
     /// is offline, not polled, or its catalog lacks the command.
-    // cancel-safe: the parser request is read-only and dropping it changes no router state.
+    // cancel-safe: the parser request does not change the configuration (the domain classes it
+    // Write), and dropping it changes no router state.
     async fn ask(&self, router: &str) -> CheckOutcome {
         let Some(Ok(snapshot)) = self.poller.latest(router).await else {
             return CheckOutcome::Skipped;

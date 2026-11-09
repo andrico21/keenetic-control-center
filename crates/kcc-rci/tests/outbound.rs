@@ -44,13 +44,14 @@ fn admitted(policy: &OutboundPolicy, host: &str, address: IpAddr) -> TestResult 
         .map_err(Into::into)
 }
 
-const fn embedded_forms(address: Ipv4Addr) -> [Ipv6Addr; 3] {
+const fn embedded_forms(address: Ipv4Addr) -> [Ipv6Addr; 4] {
     let [first, second, third, fourth] = address.octets();
     let high = u16::from_be_bytes([first, second]);
     let low = u16::from_be_bytes([third, fourth]);
     [
         Ipv6Addr::new(0x0064, 0xff9b, 0, 0, 0, 0, high, low),
         Ipv6Addr::new(0, 0, 0, 0, 0, 0, high, low),
+        Ipv6Addr::new(0, 0, 0, 0, 0xffff, 0, high, low),
         Ipv6Addr::new(0x2002, high, low, 0, 0, 0, 0, 1),
     ]
 }
@@ -70,6 +71,13 @@ fn suffix_path_admits_only_global_addresses_and_exact_domain_boundaries() -> Tes
         ("169.254.169.254", false),
         ("::ffff:169.254.169.254", false),
         ("fd00::1", false),
+        ("3fff::1", false),
+        ("3fff:0fff:ffff::1", false),
+        ("3ff0::1", true),
+        ("3fff:1000::1", true),
+        ("5f00::1", false),
+        ("5f00:ffff::1", false),
+        ("5eff::1", true),
         (ten.as_str(), false),
         ("192.168.1.1", false),
         ("8.8.8.8", true),
@@ -85,6 +93,23 @@ fn suffix_path_admits_only_global_addresses_and_exact_domain_boundaries() -> Tes
     }
     admitted(&policy, "keenetic.pro", "8.8.8.8".parse()?)?;
     assert!(admitted(&policy, "evilkeenetic.pro", "8.8.8.8".parse()?).is_err());
+    Ok(())
+}
+
+#[test]
+fn suffix_constructor_normalizes_domains_and_drops_empty_entries() -> TestResult {
+    let policy = OutboundPolicy::default()
+        .with_allowed_networks(Vec::new())
+        .with_allowed_suffixes(vec![
+            String::new(),
+            " .LAN ".to_owned(),
+            "keenetic.pro".to_owned(),
+        ]);
+    let public = "8.8.8.8".parse()?;
+
+    assert!(admitted(&policy, "evil.com.", public).is_err());
+    admitted(&policy, "router.lan", public)?;
+    admitted(&policy, "ROUTER.KEENETIC.PRO", public)?;
     Ok(())
 }
 
@@ -143,6 +168,7 @@ fn embedded_ipv4_policy_applies_on_suffix_and_outer_network_paths() -> TestResul
     let outer_networks = vec![
         AllowedNetwork::new("64:ff9b::".parse()?, 96)?,
         AllowedNetwork::new("::".parse()?, 96)?,
+        AllowedNetwork::new("::ffff:0:0:0".parse()?, 96)?,
         AllowedNetwork::new("2002::".parse()?, 16)?,
     ];
     let network = OutboundPolicy::default()

@@ -162,7 +162,13 @@ impl OutboundPolicy {
     #[inline]
     #[must_use]
     pub fn with_allowed_suffixes(mut self, suffixes: Vec<String>) -> Self {
-        self.allowed_suffixes = suffixes;
+        self.allowed_suffixes = suffixes
+            .into_iter()
+            .filter_map(|suffix| {
+                let normalized = suffix.trim().trim_start_matches('.').to_ascii_lowercase();
+                (!normalized.is_empty()).then_some(normalized)
+            })
+            .collect();
         self
     }
 
@@ -263,10 +269,9 @@ impl OutboundPolicy {
     fn matches_suffix(&self, host: &str) -> bool {
         let normalized_host = host.to_ascii_lowercase();
         self.allowed_suffixes.iter().any(|configured| {
-            let domain = configured.trim_start_matches('.');
-            normalized_host == domain
+            normalized_host == configured.as_str()
                 || normalized_host
-                    .strip_suffix(domain)
+                    .strip_suffix(configured)
                     .is_some_and(|prefix| prefix.ends_with('.'))
         })
     }
@@ -373,6 +378,7 @@ fn embedded_ipv4(address: IpAddr) -> Option<Ipv4Addr> {
     };
     let [first, second, third, fourth, fifth, sixth, seventh, eighth] = ipv6.segments();
     if [first, second, third, fourth, fifth, sixth] == [0x0064, 0xff9b, 0, 0, 0, 0]
+        || [first, second, third, fourth, fifth, sixth] == [0, 0, 0, 0, 0xffff, 0]
         || ([first, second, third, fourth, fifth, sixth] == [0, 0, 0, 0, 0, 0]
             && !ipv6.is_unspecified()
             && !ipv6.is_loopback())
@@ -436,6 +442,8 @@ fn is_global(address: IpAddr) -> bool {
                 && segments[0] != 0x0100
                 && !(segments[0] == 0x2001 && segments[1] & 0xfff0 == 0x0010)
                 && !(segments[0] == 0x2001 && segments[1] & 0xfff0 == 0x0020)
+                && !(segments[0] == 0x3fff && segments[1] <= 0x0fff)
+                && segments[0] != 0x5f00
         }
     }
 }

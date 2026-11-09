@@ -261,7 +261,8 @@ impl Poller {
     /// Records the cached firmware-update flag published in [`Snapshot::update_available`]
     /// and applies it to the snapshot already published, so subscribers see it before the
     /// next round.
-    // cancel-safe: a map insert, then an in-place update of the published value.
+    // NOT cancel-safe: cancelled between the two lock awaits, the flag is stored but never
+    // published to the watch channel.
     pub async fn record_update_available(&self, router: &str, available: bool) {
         let _previous: Option<bool> = self
             .update_flags

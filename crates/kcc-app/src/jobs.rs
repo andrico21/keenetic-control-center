@@ -436,20 +436,23 @@ impl JobRunner {
         }
         let owner = Arc::clone(self);
         let task_id = id.clone();
+        let context = JobContext {
+            id: task_id.clone(),
+            cancellation: cancellation.clone(),
+            events: owner.events.clone(),
+            progress: Arc::new(AtomicU8::new(0)),
+        };
+        let worker = tokio::spawn(async move { work(context).await });
         drop(tokio::spawn(async move {
-            let context = JobContext {
-                id: task_id.clone(),
-                cancellation: cancellation.clone(),
-                events: owner.events.clone(),
-                progress: Arc::new(AtomicU8::new(0)),
+            let (result, panicked) = match worker.await {
+                Ok(result) => (result, false),
+                Err(error) if error.is_panic() => (Err("job panicked".to_owned()), true),
+                Err(_error) => (Err("job task was cancelled".to_owned()), false),
             };
-            let result = work(context).await;
-            let status = if cancellation.is_cancelled() {
-                JobStatus::Cancelled
-            } else if result.is_ok() {
-                JobStatus::Completed
-            } else {
-                JobStatus::Failed
+            let status = match (result.is_ok(), cancellation.is_cancelled(), panicked) {
+                (_, _, true) | (false, false, false) => JobStatus::Failed,
+                (_, true, false) => JobStatus::Cancelled,
+                (true, false, false) => JobStatus::Completed,
             };
             if let Ok(mut record) = owner.get(&task_id) {
                 record.status = status;
@@ -641,9 +644,12 @@ mod tests {
     use core::{
         future::pending,
         task::{Context, Poll, Waker},
+        time::Duration,
     };
 
-    use super::JobRunner;
+    use tokio::{sync::oneshot, time::timeout};
+
+    use super::{JobRunner, JobStatus};
     use crate::{persist::StateStore, registry::RouterRegistry, settings::OutboundConfig};
 
     #[expect(
@@ -676,6 +682,71 @@ mod tests {
             drop(active);
         }
 
+        drop(
+            runner
+                .start(
+                    "retry".to_owned(),
+                    Some("router".to_owned()),
+                    true,
+                    async |_context| Ok(()),
+                )
+                .await?,
+        );
+        Ok(())
+    }
+
+    #[expect(
+        clippy::panic,
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "the job panic is the behavior under test"
+    )]
+    #[tokio::test]
+    async fn panicking_job_fails_record_and_releases_router_write_slot()
+    -> Result<(), Box<dyn core::error::Error>> {
+        struct PanicStarted(Option<oneshot::Sender<()>>);
+
+        impl Drop for PanicStarted {
+            fn drop(&mut self) {
+                if let Some(sender) = self.0.take() {
+                    let _delivered: Result<(), ()> = sender.send(());
+                }
+            }
+        }
+
+        let temp = tempfile::TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let registry = Arc::new(RouterRegistry::new(
+            state.clone(),
+            &[],
+            &OutboundConfig::default(),
+        )?);
+        let runner = JobRunner::open(state, registry).await?;
+        let mut events = runner.subscribe();
+        let finished = runner.finished.notified();
+        tokio::pin!(finished);
+        let _: bool = finished.as_mut().enable();
+        let (panic_started, panic_observed) = oneshot::channel();
+        let id = runner
+            .start(
+                "panic".to_owned(),
+                Some("router".to_owned()),
+                true,
+                async move |_context| {
+                    let _signal = PanicStarted(Some(panic_started));
+                    panic!("synthetic job panic");
+                    #[expect(unreachable_code, reason = "the future output type follows the panic")]
+                    Ok(())
+                },
+            )
+            .await?;
+        panic_observed.await?;
+        let terminal = timeout(Duration::from_secs(1), events.recv()).await??;
+        timeout(Duration::from_secs(1), finished).await?;
+
+        assert_eq!(terminal.id, id);
+        assert_eq!(terminal.status, JobStatus::Failed);
+        assert_eq!(runner.get(&id)?.status, JobStatus::Failed);
         drop(
             runner
                 .start(

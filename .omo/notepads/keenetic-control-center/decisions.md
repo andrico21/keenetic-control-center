@@ -688,3 +688,7 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 ## [2026-11-09] Todo 83 network-path decision (W=/home/andrico/kcc-wt/t83)
 
 - For an IPv4-embedding IPv6 target, `allowed_networks` applies to the outer resolved IPv6 address. Embedded metadata and unspecified addresses always veto; embedded loopback requires `allow_loopback`; embedded private/non-global addresses are permitted only on this explicit outer-network path. The suffix path requires both the outer IPv6 address and embedded IPv4 address to be global.
+
+## [2026-11-09] Todo 85 RFC 9637 boundary decision (W=/home/andrico/kcc-wt/t85)
+- Keep `is_global` aligned with std's unstable IPv6 classification using the direct RFC 9637 segment predicate `!(segments[0] == 0x3fff && segments[1] <= 0x0fff)`. A first-segment nibble mask is not equivalent to `/20` and must not be used.
+- Preserve the reviewed `5f00::/16` and SIIT extraction implementation unchanged after confirming their prefix shapes; only add explicit boundary rows for the SRv6 block.
