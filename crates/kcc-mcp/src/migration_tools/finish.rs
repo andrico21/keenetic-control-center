@@ -59,11 +59,8 @@ pub(crate) struct ReportInput {
 /// Commits or rolls back an applied migration.
 pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: FinishInput = parse(arguments)?;
-    if !input.confirm {
-        return Err(McpFailure::ConfirmRequired);
-    }
     valid_job_id(&input.plan_id)?;
-    let identity = server.identity()?;
+    let (identity, _host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
     let mut entries = server.migrations.lock().await;
     let migration = entries
         .get_mut(&input.plan_id)
@@ -74,6 +71,9 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
         return Err(McpFailure::InvalidArguments);
     }
     authorize_routers(&identity, Permission::Migrate, &routers)?;
+    if !input.confirm {
+        return Err(McpFailure::ConfirmRequired);
+    }
     let applier = migration.applier_mut().ok_or(McpFailure::Conflict)?;
     match input.action {
         FinishAction::Commit => applier.commit().await,

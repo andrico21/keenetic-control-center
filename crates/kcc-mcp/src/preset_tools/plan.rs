@@ -190,14 +190,14 @@ impl Planned {
 }
 
 impl ApplyInput {
+    /// Target router profile id.
+    pub(super) fn host(&self) -> &str {
+        &self.host
+    }
+
     /// Whether only the plan is wanted.
     pub(super) const fn dry_run(&self) -> bool {
         self.dry_run
-    }
-
-    /// Whether the caller confirmed the apply.
-    pub(super) const fn confirmed(&self) -> bool {
-        self.confirm
     }
 
     /// Preset apply options from the arguments.
@@ -246,6 +246,9 @@ async fn planned(
     let mut routers = vec![target.clone()];
     routers.extend(source.clone());
     authorize_routers(identity, Permission::Migrate, &routers)?;
+    if !input.dry_run && !input.confirm {
+        return Err(McpFailure::ConfirmRequired);
+    }
     let firmware = FirmwareVersion::from_str(&preset.source.firmware_version)
         .map_err(|_error| McpFailure::ValidationFailed)?;
     let inventory = collect(server, identity, &target, Some(firmware)).await?;

@@ -234,7 +234,7 @@ impl Checked {
         }
     }
 
-    /// Whether the router persists any part of the request at once.
+    /// Whether the router persists every leaf command in the request at once.
     pub(crate) fn persists(&self) -> bool {
         match self {
             Self::Path {
@@ -243,8 +243,23 @@ impl Checked {
                 show: _,
             } => validated.persists_immediately,
             Self::Root { items, risk: _ } => {
-                items.iter().any(|item| item.validated.persists_immediately)
+                !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately)
             }
+        }
+    }
+
+    /// Catalog paths of leaf commands persisted by the router at once.
+    pub(crate) fn persisted_paths(&self) -> Vec<String> {
+        match self {
+            Self::Path {
+                method: _,
+                validated,
+                show: _,
+            } => validated.persisted_paths.clone(),
+            Self::Root { items, risk: _ } => items
+                .iter()
+                .flat_map(|item| item.validated.persisted_paths.iter().cloned())
+                .collect(),
         }
     }
 

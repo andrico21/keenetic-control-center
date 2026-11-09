@@ -24,7 +24,7 @@ use crate::{
 };
 
 /// What a completed request left for the configuration save.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Left {
     /// Nothing: a read, or a change after which the router's state is unknown.
     Nothing,
@@ -32,15 +32,18 @@ pub(crate) enum Left {
     Unsaved,
     /// A change the router saved at once.
     Stored,
+    /// A change with some leaf commands stored at once and the rest waiting for a save.
+    Mixed(Vec<String>),
 }
 
 impl Left {
     /// What a change left: the workflow's `unsaved`, unless the router persisted all of
     /// it at once.
-    pub(crate) const fn of(unsaved: bool, persists: bool) -> Self {
+    pub(crate) fn of(unsaved: bool, persists: bool, persisted_paths: Vec<String>) -> Self {
         match (persists, unsaved) {
             (true, _) => Self::Stored,
-            (false, true) => Self::Unsaved,
+            (false, true) if persisted_paths.is_empty() => Self::Unsaved,
+            (false, true) => Self::Mixed(persisted_paths),
             (false, false) => Self::Nothing,
         }
     }
@@ -56,6 +59,8 @@ pub(crate) struct Reply {
     download: Option<String>,
     /// A started background command.
     job: Option<JobPanel>,
+    /// Stable persistence state marker for UI automation.
+    persistence: &'static str,
 }
 
 /// The reply fragment.
@@ -82,6 +87,7 @@ impl Reply {
             viewer: None,
             download: None,
             job: None,
+            persistence: "none",
         }
     }
 
@@ -101,14 +107,30 @@ impl Reply {
 
     /// A completed command and the router's answer.
     pub(crate) fn done(locale: Locale, viewer: Viewer, left: Left) -> Self {
+        let persistence = match &left {
+            Left::Nothing | Left::Unsaved => "none",
+            Left::Stored => "stored",
+            Left::Mixed(_) => "mixed",
+        };
         let (key, unsaved) = match left {
             Left::Nothing => (Family::Commands.done(false), false),
             Left::Unsaved => (Family::Commands.done(true), true),
             Left::Stored => (keys::WEB_EXPLORER_DONE_PERSISTED, false),
+            Left::Mixed(paths) => {
+                let mut args = fluent_bundle::FluentArgs::new();
+                args.set("paths", paths.join(", "));
+                let headline = tr(locale, keys::WEB_EXPLORER_MIXED_PERSISTENCE, Some(&args));
+                return Self {
+                    viewer: Some(viewer),
+                    persistence: "mixed",
+                    ..Self::of(Outcome::done(headline, true))
+                };
+            }
         };
         let headline = tr(locale, key, None);
         Self {
             viewer: Some(viewer),
+            persistence,
             ..Self::of(Outcome::done(headline, unsaved))
         }
     }

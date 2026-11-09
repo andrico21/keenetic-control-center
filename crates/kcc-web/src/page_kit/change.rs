@@ -97,6 +97,23 @@ impl Change {
             Self::Request(_) | Self::Delete(_) => false,
         }
     }
+
+    /// Catalog paths of leaf commands persisted by the router at once.
+    pub(crate) fn persisted_paths(&self) -> Vec<String> {
+        match self {
+            Self::Batch(request) => request
+                .items
+                .iter()
+                .flat_map(|item| item.validated.persisted_paths.iter().cloned())
+                .collect(),
+            Self::Cli(request) => request
+                .commands
+                .iter()
+                .flat_map(|command| command.validated().persisted_paths.iter().cloned())
+                .collect(),
+            Self::Request(_) | Self::Delete(_) => Vec::new(),
+        }
+    }
 }
 
 /// The catalog paths and field names of CLI lines.

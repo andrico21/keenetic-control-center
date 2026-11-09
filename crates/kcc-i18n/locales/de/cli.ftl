@@ -94,5 +94,6 @@ cli-job-completed = Auftrag { $name } abgeschlossen.
 cli-job-failed = Auftrag { $name } wurde nicht abgeschlossen.
 cli-name-taken = { $name } existiert bereits; wählen Sie einen anderen Namen.
 cli-persists-immediately = Wird vom Router sofort wirksam und gespeichert: Speichern ist nicht nötig, und der Fail-safe-Timer kann es nicht zurücksetzen.
+cli-mixed-persistence = Der Router hat diese Katalogpfade sofort gespeichert: { $paths }. Der Rest ist nicht gespeichert und muss ausdrücklich gespeichert werden.
 cli-applied-persisted = Änderung angewendet. Der Router hat sie bereits gespeichert; Speichern ist nicht nötig.
 cli-error-not-applied = Der Router hat die Änderung nicht übernommen: Beim Zurücklesen zeigt er noch den alten Wert.

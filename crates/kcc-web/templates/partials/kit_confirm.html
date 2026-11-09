@@ -4,6 +4,8 @@
 <p class="dialog__text">{{ text }}</p>
 {%- if persists %}
 <p class="notice" data-tone="info">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
+{%- else if !persisted_paths.is_empty() %}
+<p class="notice" data-tone="info">{{ mixed_persistence }}</p>
 {%- endif %}
 <form class="form" hx-post="{{ resubmit.action }}"{% if let Some(include) = resubmit.include %} hx-include="{{ include }}"{% endif %} hx-target="{{ resubmit.target }}">
   <input type="hidden" name="confirm" value="yes">

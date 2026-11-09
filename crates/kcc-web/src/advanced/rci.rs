@@ -120,6 +120,7 @@ pub(crate) async fn validate(
             )
             .with_explore(&router, checked.explore())
             .with_persists(checked.persists())
+            .with_persisted_paths(checked.persisted_paths())
             .respond(locale)
         }
         Err(problems) => Report::invalid(locale, &problems).respond(locale),
@@ -168,6 +169,7 @@ pub(crate) async fn send(
         return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
             .with_persists(checked.persists())
+            .with_persisted_paths(checked.persisted_paths())
             .render(resubmit, locale);
     }
     let session = current.stream_key();

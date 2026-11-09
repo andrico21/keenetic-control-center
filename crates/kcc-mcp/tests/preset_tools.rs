@@ -283,4 +283,27 @@ mod tests {
         assert_eq!(lab.requests("prod-1")?, quiet);
         lab.stop().await
     }
+
+    #[tokio::test]
+    async fn scoped_identity_is_forbidden_before_preset_confirmation() -> TestResult {
+        let lab = Lab::start(vec![("prod-1", target()?)], lab_only()).await?;
+        let reply = lab
+            .call(
+                "kcc_preset_apply",
+                json!({"host":"prod-1", "preset_id":"missing"}),
+                false,
+            )
+            .await?;
+        assert_eq!(reply.error(), Some("forbidden"));
+        let entries = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "mcp.kcc_preset_apply")
+            .collect::<Vec<_>>();
+        let [entry] = entries.as_slice() else {
+            return Err(format!("one preset refusal must be audited: {entries:?}").into());
+        };
+        assert_eq!(entry.outcome, "forbidden");
+        lab.stop().await
+    }
 }

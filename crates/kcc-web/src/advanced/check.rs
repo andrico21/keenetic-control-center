@@ -119,6 +119,10 @@ pub(crate) struct Report {
     explore: Option<String>,
     /// Whether the router persists the request at once.
     persists: bool,
+    /// Persisted leaf paths when only part of the request is stored at once.
+    persisted_paths: Vec<String>,
+    /// Localized mixed-persistence explanation.
+    mixed_persistence: String,
 }
 
 impl Localize for Report {
@@ -137,6 +141,8 @@ impl Report {
             risk: Some(risk_key(risk)),
             explore: None,
             persists: false,
+            persisted_paths: Vec::new(),
+            mixed_persistence: String::new(),
         }
     }
 
@@ -152,6 +158,8 @@ impl Report {
             risk: None,
             explore: None,
             persists: false,
+            persisted_paths: Vec::new(),
+            mixed_persistence: String::new(),
         }
     }
 
@@ -168,9 +176,20 @@ impl Report {
         self
     }
 
+    /// Labels persisted leaf paths when the rest of the request still needs a save.
+    pub(crate) fn with_persisted_paths(mut self, persisted_paths: Vec<String>) -> Self {
+        self.persisted_paths = persisted_paths;
+        self
+    }
+
     /// The fragment in `locale`.
     pub(crate) fn respond(mut self, locale: Locale) -> Response {
         self.shell = fragment_shell(locale);
+        if !self.persisted_paths.is_empty() {
+            let mut args = FluentArgs::new();
+            args.set("paths", self.persisted_paths.join(", "));
+            self.mixed_persistence = tr(locale, keys::WEB_EXPLORER_MIXED_PERSISTENCE, Some(&args));
+        }
         errors::render(&self)
     }
 }

@@ -167,12 +167,16 @@ pub(crate) async fn catalog_describe(
     let schema = catalog
         .to_json_schema(&input.path)
         .ok_or(McpFailure::ValidationFailed)?;
-    let persists = catalog
+    let persisted_paths = catalog
         .lookup(&input.path)
-        .is_some_and(|command| command.persists_immediately);
+        .filter(|command| command.persists_immediately)
+        .map(|_command| vec![input.path.clone()])
+        .unwrap_or_default();
+    let persists = !persisted_paths.is_empty();
     Ok(labelled(
-        json!({ "path": input.path, "schema": schema }),
+        json!({ "path": input.path, "schema": schema, "persisted_paths": persisted_paths }),
         persists,
+        &[],
     ))
 }
 

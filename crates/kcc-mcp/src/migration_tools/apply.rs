@@ -70,11 +70,8 @@ async fn reviewed(
     server: &KccMcp,
     input: &ApplyInput,
 ) -> Result<([RouterId; 2], kcc_migrate::planner::MigrationPlan), McpFailure> {
-    if !input.confirm {
-        return Err(McpFailure::ConfirmRequired);
-    }
     valid_job_id(&input.plan_id)?;
-    let identity = server.identity()?;
+    let (identity, _host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
     let entries = server.migrations.lock().await;
     let migration = entries
         .get(&input.plan_id)
@@ -93,6 +90,9 @@ async fn reviewed(
         return Err(McpFailure::Conflict);
     }
     authorize_routers(&identity, Permission::Migrate, &routers)?;
+    if !input.confirm {
+        return Err(McpFailure::ConfirmRequired);
+    }
     Ok((routers, plan))
 }
 

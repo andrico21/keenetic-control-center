@@ -41,3 +41,36 @@ async fn rci_post_labels_system_country_and_nothing_else() -> TestResult {
     handle.shutdown().await?;
     Ok(())
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn rci_mixed_root_batch_requires_save_and_reports_persisted_paths() -> TestResult {
+    let (address, handle) = FakeRouter::spawn().await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("lab-1", address, &password))?;
+    let data = r#"[{"system":{"country":{"country":"DE"},"description":{"description":"mixed"}}}]"#;
+
+    let human = env.kcc(&["--yes", "rci", "batch", "--data", data])?;
+    assert_eq!(human.code, 0_i32, "{human:?}");
+    assert!(human.stderr.contains("system country"), "{human:?}");
+    assert!(
+        !human
+            .stderr
+            .contains(&tr(Locale::En, keys::CLI_PERSISTS_IMMEDIATELY, None)),
+        "{human:?}"
+    );
+
+    let json_run = env.kcc(&["--json", "--yes", "rci", "batch", "--data", data])?;
+    assert_eq!(json_run.code, 0_i32, "{json_run:?}");
+    let document: Value = serde_json::from_str(&json_run.stdout)?;
+    assert_eq!(
+        document.get("persists_immediately"),
+        Some(&Value::Bool(false))
+    );
+    assert_eq!(
+        document.get("persisted_paths"),
+        Some(&serde_json::json!(["system country"]))
+    );
+    handle.shutdown().await?;
+    Ok(())
+}

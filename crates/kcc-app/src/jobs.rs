@@ -456,30 +456,33 @@ impl JobRunner {
                 (_, true, false) => JobStatus::Cancelled,
                 (true, false, false) => JobStatus::Completed,
             };
-            if let Ok(mut record) = owner.get(&task_id) {
-                record.status = status;
-                record.progress = if status == JobStatus::Completed {
-                    100
-                } else {
-                    record.progress
-                };
-                record.updated_at = owner.clock.unix_seconds();
-                record.message = result.err();
-                drop(owner.persist(&record));
-                drop(owner.events.send(JobEvent {
-                    id: task_id.clone(),
-                    progress: record.progress,
-                    status,
-                    detail: None,
-                }));
-            } else {
-                tracing::warn!("job record unavailable at completion");
-                drop(owner.events.send(JobEvent {
-                    id: task_id.clone(),
-                    progress: terminal_progress.load(Ordering::Relaxed),
-                    status,
-                    detail: None,
-                }));
+            match owner.get(&task_id) {
+                Ok(mut record) => {
+                    record.status = status;
+                    record.progress = if status == JobStatus::Completed {
+                        100
+                    } else {
+                        record.progress
+                    };
+                    record.updated_at = owner.clock.unix_seconds();
+                    record.message = result.err();
+                    drop(owner.persist(&record));
+                    drop(owner.events.send(JobEvent {
+                        id: task_id.clone(),
+                        progress: record.progress,
+                        status,
+                        detail: None,
+                    }));
+                }
+                Err(error) => {
+                    warn_missing_record(&task_id, &error);
+                    drop(owner.events.send(JobEvent {
+                        id: task_id.clone(),
+                        progress: completed_progress(status, &terminal_progress),
+                        status,
+                        detail: None,
+                    }));
+                }
             }
             if write && let Some(target) = task_router {
                 drop(owner.write_jobs.lock().await.remove(&target));
@@ -607,6 +610,35 @@ impl JobRunner {
         }
         Ok(())
     }
+}
+
+/// Stable kind of a job error for structured logging without leaking values.
+const fn job_error_kind(error: &JobError) -> &'static str {
+    match error {
+        JobError::NotFound { id: _ } => "not_found",
+        JobError::State(_) => "state",
+        JobError::Registry(_) => "registry",
+        JobError::RouterBusy { router: _ } => "router_busy",
+        JobError::Malformed { path: _ } => "malformed",
+    }
+}
+
+/// Returns 100 for completion, otherwise the worker's last reported progress.
+fn completed_progress(status: JobStatus, progress: &AtomicU8) -> u8 {
+    if status == JobStatus::Completed {
+        100
+    } else {
+        progress.load(Ordering::Relaxed)
+    }
+}
+
+/// Logs a missing completion record with correlation and non-sensitive error kind.
+fn warn_missing_record(job: &str, error: &JobError) {
+    tracing::warn!(
+        job,
+        error_kind = job_error_kind(error),
+        "job record unavailable at completion"
+    );
 }
 
 /// Reads one persisted job if present.
@@ -806,6 +838,7 @@ mod tests {
 
         assert_eq!(terminal.id, id);
         assert_eq!(terminal.status, JobStatus::Completed);
+        assert_eq!(terminal.progress, 100);
         drop(
             runner
                 .start(

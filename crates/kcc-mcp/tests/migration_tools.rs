@@ -125,6 +125,37 @@ mod tests {
         lab.stop().await
     }
 
+    #[tokio::test]
+    async fn scoped_identity_is_forbidden_before_migration_confirmation() -> TestResult {
+        let lab = Lab::start(vec![("prod-1", target(Profile::default())?)], lab_only()).await?;
+        for (tool, arguments) in [
+            (
+                "kcc_migration_apply",
+                json!({"host":"prod-1", "plan_id":"missing"}),
+            ),
+            (
+                "kcc_migration_finish",
+                json!({"host":"prod-1", "plan_id":"missing", "action":"commit"}),
+            ),
+        ] {
+            let reply = lab.call(tool, arguments, false).await?;
+            assert_eq!(reply.error(), Some("forbidden"), "{tool}");
+        }
+        let entries = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| {
+                matches!(
+                    entry.action.as_str(),
+                    "mcp.kcc_migration_apply" | "mcp.kcc_migration_finish"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(entries.len(), 2, "{entries:?}");
+        assert!(entries.iter().all(|entry| entry.outcome == "forbidden"));
+        lab.stop().await
+    }
+
     /// Plan, apply with progress, and commit between two fake routers; apply without
     /// `confirm` is refused first.
     #[tokio::test]

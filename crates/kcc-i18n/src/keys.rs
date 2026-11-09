@@ -269,6 +269,9 @@ pub const CLI_NAME_TAKEN: MessageKey = MessageKey::new("cli-name-taken");
 /// `cli-persists-immediately` in `cli.ftl`.
 pub const CLI_PERSISTS_IMMEDIATELY: MessageKey = MessageKey::new("cli-persists-immediately");
 
+/// `cli-mixed-persistence` in `cli.ftl`.
+pub const CLI_MIXED_PERSISTENCE: MessageKey = MessageKey::new("cli-mixed-persistence");
+
 /// `cli-applied-persisted` in `cli.ftl`.
 pub const CLI_APPLIED_PERSISTED: MessageKey = MessageKey::new("cli-applied-persisted");
 
@@ -6551,11 +6554,15 @@ pub const WEB_EXPLORER_CONFIRM_PERSIST_TEXT: MessageKey =
 /// `web-explorer-done-persisted` in `web.ftl`.
 pub const WEB_EXPLORER_DONE_PERSISTED: MessageKey = MessageKey::new("web-explorer-done-persisted");
 
+/// `web-explorer-mixed-persistence` in `web.ftl`.
+pub const WEB_EXPLORER_MIXED_PERSISTENCE: MessageKey =
+    MessageKey::new("web-explorer-mixed-persistence");
+
 /// `web-vpn-error-psk` in `web.ftl`.
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2092] = [
+pub static ALL: [MessageKey; 2094] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6645,6 +6652,7 @@ pub static ALL: [MessageKey; 2092] = [
     CLI_JOB_FAILED,
     CLI_NAME_TAKEN,
     CLI_PERSISTS_IMMEDIATELY,
+    CLI_MIXED_PERSISTENCE,
     CLI_APPLIED_PERSISTED,
     CLI_ERROR_NOT_APPLIED,
     COMMON_APP_NAME,
@@ -8647,5 +8655,6 @@ pub static ALL: [MessageKey; 2092] = [
     WEB_SECRET_IMPORT_DONE,
     WEB_EXPLORER_CONFIRM_PERSIST_TEXT,
     WEB_EXPLORER_DONE_PERSISTED,
+    WEB_EXPLORER_MIXED_PERSISTENCE,
     WEB_VPN_ERROR_PSK,
 ];

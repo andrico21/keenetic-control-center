@@ -4,6 +4,16 @@ Architectural choices and rationales discovered during work on this plan.
 
 _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
+## [2026-11-09] Todo 89 progress (W=/home/andrico/kcc-wt/t89)
+- Add native POST semantics only to forms that can actually render a secret. Do not blanket-edit htmx forms: non-secret forms remain unchanged, while dynamic secret forms use the exact same target expression for `action` and `hx-post` so native submission fails closed at the existing CSRF boundary.
+- Store scalar conflict identity in `ClassifiedItem` as the catalog path selected from the already matched target catalog. This keeps localization at the CLI output boundary and structurally excludes the source/target values, which may contain secrets.
+- Keep N19 as documentation only: the audit format and first-addressed-router selection remain unchanged; SECURITY.md now states that the named router can differ from the router whose scope check refused the call.
+
+## [2026-11-09] Todo 88 progress (W=/home/andrico/kcc-wt/t88)
+- Serialize both leaf lists on `ValidatedRequest` deliberately: Web preview already serializes this public projection, and explicit lists make the one catalog-owned classification available to every surface while preserving all existing JSON field names.
+- A catalog command is a leaf when the current path resolves and no child key resolves to a deeper catalog command; this preserves command argument objects while allowing nested command containers such as `system` and root requests.
+- Mixed UI copy is localized in all six locales with a `paths` Fluent variable; tests assert flags, leaf paths, audit outcomes, badge, and stable state markers rather than full prose.
+
 ## [2026-11-09] Todo 84 progress, attempt 2 (W=/home/andrico/kcc-wt/t84)
 - Chosen choke point: audit typed `McpFailure` in `support::shape::finish`, passing the registry's tool name/read-only metadata into it. This covers all handler-level tool failures once, avoids edits to every domain, generic, config, preset and migration tool, and excludes unknown-tool/bad-JSON protocol errors by construction.
 - Await the bounded `AuditLog::append` before returning the failed tool result. No lock guard is held across it, and the request does not fail if audit I/O fails; the failure is warned while the original MCP result remains authoritative.

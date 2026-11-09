@@ -6,6 +6,8 @@
   {%- endif %}
   {%- if persists %}
   <p>{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
+  {%- else if !persisted_paths.is_empty() %}
+  <p>{{ mixed_persistence }}</p>
   {%- endif %}
   {%- if !problems.is_empty() %}
   <ul class="issues">

@@ -279,6 +279,66 @@ mod tests {
         lab.stop().await
     }
 
+    #[tokio::test]
+    async fn nested_mixed_rci_values_require_save_and_audit_unsaved() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let batch = lab
+            .call(
+                "kcc_rci_batch",
+                json!({
+                    "host":"lab-1",
+                    "items":[{"system":{
+                        "country":{"country":"DE"},
+                        "description":{"description":"batch-mixed"}
+                    }}]
+                }),
+                false,
+            )
+            .await?;
+        let execute = lab
+            .call(
+                "kcc_rci_execute",
+                json!({
+                    "host":"lab-1",
+                    "catalog_path":"system",
+                    "path":["system"],
+                    "value":{
+                        "country":{"country":"US"},
+                        "description":{"description":"execute-mixed"}
+                    }
+                }),
+                false,
+            )
+            .await?;
+
+        for result in [batch.value()?, execute.value()?] {
+            assert_eq!(result.get("persists_immediately"), Some(&json!(false)));
+            assert_eq!(result.get("unsaved"), Some(&json!(true)));
+            assert_eq!(result.get("save_required"), Some(&json!(true)));
+            assert_eq!(
+                result.get("persisted_paths"),
+                Some(&json!(["system country"]))
+            );
+        }
+        let outcomes = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| {
+                matches!(
+                    entry.action.as_str(),
+                    "router.change_batch" | "router.change"
+                )
+            })
+            .map(|entry| entry.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes, ["applied_unsaved", "applied_unsaved"]);
+        lab.stop().await
+    }
+
     /// Firewall writes round-trip one full rule identity through the domain path.
     #[tokio::test]
     async fn firewall_rule_add_and_remove_round_trip_through_domain_read_back() -> TestResult {
@@ -423,20 +483,14 @@ mod tests {
                     false,
                 )
                 .await?;
-            assert_eq!(reply.error(), Some("confirm_required"));
+            assert_eq!(reply.error(), Some("invalid_arguments"));
         }
         let refusals = lab
             .audit()?
             .into_iter()
             .filter(|entry| entry.action == "mcp.kcc_migration_apply")
             .collect::<Vec<_>>();
-        assert_eq!(refusals.len(), 2, "{refusals:?}");
-        for refusal in refusals {
-            assert_eq!(refusal.router, None);
-            let serialized = serde_json::to_string(&refusal)?;
-            assert!(!serialized.contains(&oversized), "{serialized}");
-            assert!(!serialized.contains("../etc"), "{serialized}");
-        }
+        assert!(refusals.is_empty(), "{refusals:?}");
         lab.stop().await
     }
 

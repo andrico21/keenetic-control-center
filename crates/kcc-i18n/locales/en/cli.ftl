@@ -94,5 +94,6 @@ cli-job-completed = Job { $name } completed.
 cli-job-failed = Job { $name } did not complete.
 cli-name-taken = { $name } already exists; choose another name.
 cli-persists-immediately = Takes effect and is saved by the router at once: no save is needed and the fail-safe timer cannot roll it back.
+cli-mixed-persistence = The router saved these catalog paths at once: { $paths }. The rest is not saved and needs an explicit save.
 cli-applied-persisted = Change applied. The router stored it already; no save is needed.
 cli-error-not-applied = The router did not apply the change: reading it back still shows the old value.

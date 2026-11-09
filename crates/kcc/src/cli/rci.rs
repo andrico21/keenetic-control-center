@@ -132,10 +132,21 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             .map(|item| item.value.redacted().clone())
             .collect();
         let responses = target.router().client.batch(values).await?;
-        return report(ctx, responses, false);
+        return report(ctx, responses, false, &[]);
     }
-    let persists = items.iter().any(|item| item.validated.persists_immediately);
+    let persists =
+        !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately);
+    let persisted_paths = items
+        .iter()
+        .flat_map(|item| item.validated.persisted_paths.iter().cloned())
+        .collect::<Vec<_>>();
     let gate = Gate::new(risk, Permission::RawRci, true).persisting(persists);
+    if !persists && !persisted_paths.is_empty() {
+        ctx.out().note(&ctx.out().tr(
+            keys::CLI_MIXED_PERSISTENCE,
+            &[("paths", persisted_paths.join(", ").as_str())],
+        ));
+    }
     let mut responses = Vec::new();
     drop(
         run_change(ctx, services, target, gate, async |changes, _router| {
@@ -150,7 +161,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         })
         .await?,
     );
-    report(ctx, responses, persists)
+    report(ctx, responses, persists, &persisted_paths)
 }
 
 /// Prints per-item results and whether the router persisted them at once; any failed
@@ -159,7 +170,12 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-fn report(ctx: &Ctx, responses: Vec<Result<RciResponse, RciError>>, persists: bool) -> Outcome {
+fn report(
+    ctx: &Ctx,
+    responses: Vec<Result<RciResponse, RciError>>,
+    persists: bool,
+    persisted_paths: &[String],
+) -> Outcome {
     let failed = responses
         .iter()
         .filter(|response| response.is_err())
@@ -171,7 +187,13 @@ fn report(ctx: &Ctx, responses: Vec<Result<RciResponse, RciError>>, persists: bo
             Err(error) => json!({ "ok": false, "error": error.to_string() }),
         })
         .collect::<Vec<_>>();
-    let document = labelled(json!({ "items": items }), persists);
+    let mut document = labelled(json!({ "items": items }), persists);
+    if !persists
+        && !persisted_paths.is_empty()
+        && let Value::Object(object) = &mut document
+    {
+        drop(object.insert("persisted_paths".to_owned(), json!(persisted_paths)));
+    }
     ctx.out()
         .emit(&document, &serde_json::to_string_pretty(&document)?)?;
     if failed == 0 {

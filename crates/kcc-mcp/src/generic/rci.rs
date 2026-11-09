@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::persists::{applied, batch_applied, cli_applied, persisted_paths};
+use super::persists::{applied, batch_applied, cli_applied};
 use crate::{
     KccMcp, McpFailure, authorize_routers,
     support::{
@@ -225,7 +225,7 @@ pub(crate) async fn rci_execute(
         ))
         .await
         .map_err(map_workflow)?;
-    Ok(applied(result.unsaved, validated.persists_immediately))
+    Ok(applied(result.unsaved, &validated))
 }
 
 /// Applies a catalog-validated deletion without saving.
@@ -259,7 +259,7 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         ))
         .await
         .map_err(map_workflow)?;
-    Ok(applied(result.unsaved, validated.persists_immediately))
+    Ok(applied(result.unsaved, &validated))
 }
 
 /// Applies a catalog-validated root batch without saving.
@@ -283,8 +283,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately);
     let persisted_paths = items
         .iter()
-        .filter(|item| item.validated.persists_immediately)
-        .flat_map(|item| persisted_paths(&catalog, &item.validated.value))
+        .flat_map(|item| item.validated.persisted_paths.iter().cloned())
         .collect::<Vec<_>>();
     let mut changes = server.begin_change(&host, &identity).await?;
     let result = changes
@@ -333,7 +332,10 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
         )?;
     }
     server.require_destructive(validated.risk, input.confirm)?;
-    let persists = validated.persists_immediately;
+    let persistence = (
+        validated.persists_immediately,
+        validated.persisted_paths.clone(),
+    );
     let mut changes = server.begin_change(&host, &identity).await?;
     let result = changes
         .apply_cli(CliChangeRequest::new(
@@ -344,5 +346,5 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
         ))
         .await
         .map_err(map_workflow)?;
-    Ok(cli_applied(result.responses, result.unsaved, persists))
+    Ok(cli_applied(result.responses, result.unsaved, persistence))
 }

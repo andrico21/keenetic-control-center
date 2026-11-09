@@ -149,3 +149,37 @@ async fn system_country_is_never_called_unsaved() -> TestResult {
     }
     Ok(())
 }
+
+#[tokio::test]
+async fn mixed_root_batch_is_unsaved_and_names_persisted_paths() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let browser = fixture.login("admin").await?;
+    let fields = form(&[
+        ("method", "POST"),
+        ("path", ""),
+        (
+            "body",
+            r#"[{"system":{"country":{"country":"DE"},"description":{"description":"mixed"}}}]"#,
+        ),
+        ("confirm", "yes"),
+    ]);
+
+    let ran = text(
+        fixture
+            .post("/ui/r/home/console/rci/send", &browser, &fields)
+            .await?,
+    )
+    .await?;
+
+    assert!(ran.contains("id=\"unsaved-badge\""), "unsaved badge: {ran}");
+    assert!(
+        ran.contains("data-persistence=\"mixed\""),
+        "mixed marker: {ran}"
+    );
+    assert!(ran.contains("system country"), "persisted path: {ran}");
+    assert!(
+        !ran.contains(&en(keys::WEB_EXPLORER_DONE_PERSISTED)),
+        "not fully stored: {ran}"
+    );
+    Ok(())
+}

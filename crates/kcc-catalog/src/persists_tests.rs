@@ -68,3 +68,78 @@ fn validated_requests_carry_the_flag_on_every_entry_point() -> Result<(), Box<dy
     );
     Ok(())
 }
+
+#[test]
+fn validated_requests_classify_persistence_per_leaf_command() -> Result<(), Box<dyn Error>> {
+    let catalog =
+        Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, Some("KN-1811"))?;
+    let cases = [
+        (
+            "single persisting path",
+            "system country",
+            HttpMethod::Post,
+            json!({"country": "DE"}),
+            true,
+            &["system country"][..],
+            &[][..],
+        ),
+        (
+            "nested all persisting",
+            "system",
+            HttpMethod::Post,
+            json!({"country": {"country": "DE"}}),
+            true,
+            &["system country"][..],
+            &[][..],
+        ),
+        (
+            "nested mixed",
+            "system",
+            HttpMethod::Post,
+            json!({
+                "country": {"country": "DE"},
+                "description": {"description": "lab"}
+            }),
+            false,
+            &["system country"][..],
+            &["system description"][..],
+        ),
+        (
+            "ordinary",
+            "system description",
+            HttpMethod::Post,
+            json!({"description": "lab"}),
+            false,
+            &[][..],
+            &["system description"][..],
+        ),
+        (
+            "empty root",
+            "",
+            HttpMethod::Post,
+            json!({}),
+            false,
+            &[][..],
+            &[][..],
+        ),
+        (
+            "read",
+            "system country",
+            HttpMethod::Get,
+            json!({}),
+            false,
+            &[][..],
+            &[][..],
+        ),
+    ];
+
+    for (name, path, method, value, persists, persisted_paths, ordinary_paths) in cases {
+        let request = catalog
+            .validate(path, method, &value)
+            .map_err(|_issues| "request refused")?;
+        assert_eq!(request.persists_immediately, persists, "{name}");
+        assert_eq!(request.persisted_paths, persisted_paths, "{name}");
+        assert_eq!(request.ordinary_paths, ordinary_paths, "{name}");
+    }
+    Ok(())
+}

@@ -131,6 +131,10 @@ struct Dialog {
     confirm: MessageKey,
     /// Whether the router persists the request at once.
     persists: bool,
+    /// Persisted leaf paths when the rest still needs a save.
+    persisted_paths: Vec<String>,
+    /// Localized mixed-persistence explanation.
+    mixed_persistence: String,
 }
 
 impl Localize for Dialog {
@@ -151,6 +155,8 @@ pub(crate) struct Prompt {
     wrong_name: bool,
     /// Whether the router persists the request at once.
     persists: bool,
+    /// Persisted leaf paths when the rest still needs a save.
+    persisted_paths: Vec<String>,
 }
 
 impl Prompt {
@@ -162,6 +168,7 @@ impl Prompt {
             router: router.to_owned(),
             wrong_name: false,
             persists: false,
+            persisted_paths: Vec::new(),
         }
     }
 
@@ -174,6 +181,12 @@ impl Prompt {
     /// Labels a request the router persists at once (no save, no fail-safe rollback).
     pub(crate) const fn with_persists(mut self, persists: bool) -> Self {
         self.persists = persists;
+        self
+    }
+
+    /// Labels persisted leaf paths when the rest of the request still needs a save.
+    pub(crate) fn with_persisted_paths(mut self, persisted_paths: Vec<String>) -> Self {
+        self.persisted_paths = persisted_paths;
         self
     }
 
@@ -190,6 +203,17 @@ impl Prompt {
             unsaved_text
         };
         let destructive = !matches!(self.risk, Risk::Read | Risk::Write | Risk::Management);
+        let mixed_persistence = if self.persisted_paths.is_empty() {
+            String::new()
+        } else {
+            let mut mixed_args = FluentArgs::new();
+            mixed_args.set("paths", self.persisted_paths.join(", "));
+            tr(
+                locale,
+                keys::WEB_EXPLORER_MIXED_PERSISTENCE,
+                Some(&mixed_args),
+            )
+        };
         let dialog = Dialog {
             shell: fragment_shell(locale),
             title: tr(locale, title, Some(&args)),
@@ -204,6 +228,8 @@ impl Prompt {
             destructive,
             confirm: self.family.confirm(),
             persists: self.persists,
+            persisted_paths: self.persisted_paths,
+            mixed_persistence,
         };
         respond::in_dialog(errors::render(&dialog))
     }

@@ -2,7 +2,10 @@
 
 use alloc::sync::Arc;
 
-use kcc_app::audit::{Actor, ActorKind};
+use kcc_app::{
+    audit::{Actor, ActorKind},
+    permissions::Permission,
+};
 use kcc_i18n::locale::Locale;
 use kcc_migrate::{
     apply::Applier,
@@ -38,10 +41,7 @@ pub(crate) async fn apply(
     progress: Option<Progress>,
 ) -> Result<Value, McpFailure> {
     let input: ApplyInput = parse(arguments)?;
-    if !input.dry_run() && !input.confirmed() {
-        return Err(McpFailure::ConfirmRequired);
-    }
-    let identity = server.identity()?;
+    let (identity, _host) = server.authorize_host(Permission::Migrate, input.host().to_owned())?;
     let planned = input.planned(server, &identity).await?;
     if input.dry_run() || !planned.is_ready() {
         return planned.view(input.dry_run());

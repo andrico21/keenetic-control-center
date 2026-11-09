@@ -4,6 +4,14 @@ Problems and gotchas encountered during work on this plan.
 
 _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
+## [2026-11-09] Todo 89 progress (W=/home/andrico/kcc-wt/t89)
+- CodeGraph could not query the assigned worktree because it has no `.codegraph` index; built-in reads/searches were used as the prescribed fallback.
+- LSP diagnostics timed out on every attempt under shared daemon load, including the final changed-file retry. Rust compiler tests and strict Clippy completed cleanly; no clean-LSP claim is made.
+
+## [2026-11-09] Todo 88 progress (W=/home/andrico/kcc-wt/t88)
+- CodeGraph was unavailable because the assigned worktree has no `.codegraph` index; built-in reads/searches were used as directed.
+- LSP diagnostics timed out on every attempt under shared daemon load. Rust compiler tests and strict Clippy completed cleanly; no clean-LSP claim is made.
+
 ## [2026-11-09] Todo 84 progress, attempt 2 (W=/home/andrico/kcc-wt/t84)
 - OPEN LIMITATION: rmcp-server-kit 3.21.1 rejects role-denied tool calls before `KccMcp::call_tool`; those HTTP 403 denials are emitted only as the kit's warn event (`user`, `role`, `tool`) and cannot enter kcc's shared hash-chained `AuditLog` through current public APIs.
 - Closure option 1: rmcp-server-kit exposes an authenticated RBAC-denial observer hook carrying sanitized identity, role, tool and reason.

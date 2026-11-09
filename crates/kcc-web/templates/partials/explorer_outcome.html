@@ -1,6 +1,6 @@
 {#- The reply to one execution: the kit's outcome notice, the router's answer or a job panel, then the toast and the header's unsaved badge out of band. -#}
 {%- import "partials/kit_macros.html" as kit -%}
-<section class="outcome" aria-labelledby="outcome-title">
+<section class="outcome" data-persistence="{{ reply.persistence }}" aria-labelledby="outcome-title">
   <h3 class="visually-hidden" id="outcome-title">{{ t(keys::WEB_EXPLORER_RESULT) }}</h3>
   {{ kit::report(reply.outcome) }}
   {%- if let Some(viewer) = reply.viewer %}

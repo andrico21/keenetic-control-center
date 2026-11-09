@@ -19,9 +19,12 @@ pub struct ValidatedRequest {
     pub risk: Risk,
     /// Whether catalog validation was deliberately bypassed.
     pub unvalidated: bool,
-    /// Whether the router persists this change (or one nested command) at once: no
-    /// save is needed and the fail-safe timer cannot roll it back. Never set for a read.
+    /// Whether every leaf command is persisted by the router at once. Never set for a read.
     pub persists_immediately: bool,
+    /// Catalog paths of leaf commands persisted by the router at once.
+    pub persisted_paths: Vec<String>,
+    /// Catalog paths of leaf commands that still require an explicit save.
+    pub ordinary_paths: Vec<String>,
     /// Protected ownership of wire secrets; plaintext remains private to this value.
     #[serde(skip)]
     pub protected: SecretValue,
@@ -36,8 +39,12 @@ impl ValidatedRequest {
         value: Value,
         unvalidated: bool,
     ) -> Self {
-        let persists_immediately =
-            !unvalidated && method != HttpMethod::Get && persists(catalog, path, &value);
+        let (persisted_paths, ordinary_paths) = if unvalidated || method == HttpMethod::Get {
+            (Vec::new(), Vec::new())
+        } else {
+            persistence_paths(catalog, path, &value)
+        };
+        let persists_immediately = !persisted_paths.is_empty() && ordinary_paths.is_empty();
         let mut protected = SecretValue::new(path, value);
         classify(catalog, path, "", &mut protected);
         Self {
@@ -51,6 +58,8 @@ impl ValidatedRequest {
                 catalog.risk(path).unwrap_or(Risk::Write)
             },
             unvalidated,
+            persisted_paths,
+            ordinary_paths,
             protected,
         }
     }
@@ -77,21 +86,53 @@ impl ValidatedRequest {
     }
 }
 
-/// Whether `path` or a command nested in `value` below it persists immediately.
-fn persists(catalog: &Catalog, path: &str, value: &Value) -> bool {
-    catalog
-        .lookup(path)
-        .is_some_and(|command| command.persists_immediately)
-        || value.as_object().is_some_and(|object| {
-            object.iter().any(|(key, child)| {
-                let child_path = if path.is_empty() {
-                    key.clone()
-                } else {
-                    format!("{path} {key}")
-                };
-                persists(catalog, &child_path, child)
+/// Returns persisted and ordinary leaf command paths below a validated request path.
+fn persistence_paths(catalog: &Catalog, path: &str, value: &Value) -> (Vec<String>, Vec<String>) {
+    let mut paths = PersistencePaths::default();
+    paths.visit(catalog, path, value);
+    (paths.persisted, paths.ordinary)
+}
+
+#[derive(Default)]
+/// Leaf command paths grouped by router persistence behavior.
+struct PersistencePaths {
+    /// Commands saved by the router at once.
+    persisted: Vec<String>,
+    /// Commands that still need an explicit save.
+    ordinary: Vec<String>,
+}
+
+impl PersistencePaths {
+    /// Visits nested request objects until catalog command leaves are reached.
+    fn visit(&mut self, catalog: &Catalog, path: &str, value: &Value) {
+        if let Some(object) = value.as_object()
+            && object.keys().any(|key| {
+                let child_path = join_path(path, key);
+                catalog.lookup(&child_path).is_some()
             })
-        })
+        {
+            for (key, child) in object {
+                self.visit(catalog, &join_path(path, key), child);
+            }
+            return;
+        }
+        if let Some(command) = catalog.lookup(path) {
+            if command.persists_immediately {
+                self.persisted.push(path.to_owned());
+            } else {
+                self.ordinary.push(path.to_owned());
+            }
+        }
+    }
+}
+
+/// Appends one catalog path segment with the catalog's space separator.
+fn join_path(path: &str, key: &str) -> String {
+    if path.is_empty() {
+        key.to_owned()
+    } else {
+        format!("{path} {key}")
+    }
 }
 
 /// Adds generated Password argument facts to registry classification, recursively.
