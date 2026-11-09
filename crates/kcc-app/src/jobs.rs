@@ -436,12 +436,14 @@ impl JobRunner {
         }
         let owner = Arc::clone(self);
         let task_id = id.clone();
+        let task_router = router.clone();
         let context = JobContext {
             id: task_id.clone(),
             cancellation: cancellation.clone(),
             events: owner.events.clone(),
             progress: Arc::new(AtomicU8::new(0)),
         };
+        let terminal_progress = Arc::clone(&context.progress);
         let worker = tokio::spawn(async move { work(context).await });
         drop(tokio::spawn(async move {
             let (result, panicked) = match worker.await {
@@ -470,11 +472,17 @@ impl JobRunner {
                     status,
                     detail: None,
                 }));
-                if record.write
-                    && let Some(target) = record.router
-                {
-                    drop(owner.write_jobs.lock().await.remove(&target));
-                }
+            } else {
+                tracing::warn!("job record unavailable at completion");
+                drop(owner.events.send(JobEvent {
+                    id: task_id.clone(),
+                    progress: terminal_progress.load(Ordering::Relaxed),
+                    status,
+                    detail: None,
+                }));
+            }
+            if write && let Some(target) = task_router {
+                drop(owner.write_jobs.lock().await.remove(&target));
             }
             drop(owner.active.lock().await.remove(&task_id));
             owner.ownership.release(&task_id);
@@ -646,6 +654,7 @@ mod tests {
         task::{Context, Poll, Waker},
         time::Duration,
     };
+    use std::fs;
 
     use tokio::{sync::oneshot, time::timeout};
 
@@ -747,6 +756,56 @@ mod tests {
         assert_eq!(terminal.id, id);
         assert_eq!(terminal.status, JobStatus::Failed);
         assert_eq!(runner.get(&id)?.status, JobStatus::Failed);
+        drop(
+            runner
+                .start(
+                    "retry".to_owned(),
+                    Some("router".to_owned()),
+                    true,
+                    async |_context| Ok(()),
+                )
+                .await?,
+        );
+        Ok(())
+    }
+
+    #[expect(
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "the assertions prove cleanup survives a missing persisted record"
+    )]
+    #[tokio::test]
+    async fn missing_record_still_emits_terminal_event_and_releases_router_write_slot()
+    -> Result<(), Box<dyn core::error::Error>> {
+        let temp = tempfile::TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let registry = Arc::new(RouterRegistry::new(
+            state.clone(),
+            &[],
+            &OutboundConfig::default(),
+        )?);
+        let runner = JobRunner::open(state.clone(), registry).await?;
+        let mut events = runner.subscribe();
+        let finished = runner.finished.notified();
+        tokio::pin!(finished);
+        let _: bool = finished.as_mut().enable();
+        let (release, held) = oneshot::channel();
+        let id = runner
+            .start(
+                "missing-record".to_owned(),
+                Some("router".to_owned()),
+                true,
+                async move |_context| held.await.map_err(|error| error.to_string()),
+            )
+            .await?;
+        fs::remove_file(state.dir().join("jobs").join(format!("{id}.json")))?;
+
+        release.send(()).map_err(|()| "job receiver dropped")?;
+        let terminal = timeout(Duration::from_secs(1), events.recv()).await??;
+        timeout(Duration::from_secs(1), finished).await?;
+
+        assert_eq!(terminal.id, id);
+        assert_eq!(terminal.status, JobStatus::Completed);
         drop(
             runner
                 .start(

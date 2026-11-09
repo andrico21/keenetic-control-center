@@ -116,7 +116,7 @@ impl Default for OutboundPolicy {
                 ".netcraze.io",
             ]
             .into_iter()
-            .map(str::to_owned)
+            .filter_map(normalize_suffix)
             .collect(),
             allow_loopback: false,
         }
@@ -162,13 +162,7 @@ impl OutboundPolicy {
     #[inline]
     #[must_use]
     pub fn with_allowed_suffixes(mut self, suffixes: Vec<String>) -> Self {
-        self.allowed_suffixes = suffixes
-            .into_iter()
-            .filter_map(|suffix| {
-                let normalized = suffix.trim().trim_start_matches('.').to_ascii_lowercase();
-                (!normalized.is_empty()).then_some(normalized)
-            })
-            .collect();
+        self.allowed_suffixes = suffixes.into_iter().filter_map(normalize_suffix).collect();
         self
     }
 
@@ -275,6 +269,16 @@ impl OutboundPolicy {
                     .is_some_and(|prefix| prefix.ends_with('.'))
         })
     }
+}
+
+/// Returns one canonical non-empty DNS suffix.
+fn normalize_suffix(suffix: impl AsRef<str>) -> Option<String> {
+    let normalized = suffix
+        .as_ref()
+        .trim()
+        .trim_start_matches('.')
+        .to_ascii_lowercase();
+    (!normalized.is_empty()).then_some(normalized)
 }
 
 /// Custom verifier for explicit leaf-SPKI pinning.

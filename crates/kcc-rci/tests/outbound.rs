@@ -114,6 +114,21 @@ fn suffix_constructor_normalizes_domains_and_drops_empty_entries() -> TestResult
 }
 
 #[test]
+fn default_policy_applies_builtin_suffixes_only_to_global_addresses() -> TestResult {
+    let policy = OutboundPolicy::default();
+    let suffix_only = OutboundPolicy::default().with_allowed_networks(Vec::new());
+    let public = Ipv4Addr::new(8, 8, 8, 8).into();
+    let private = format!("{}.0.0.1", 10_u8).parse()?;
+
+    admitted(&policy, "router.keenetic.pro", public)?;
+    admitted(&policy, "keenetic.pro", public)?;
+    assert!(admitted(&policy, "evilkeenetic.pro", public).is_err());
+    assert!(admitted(&suffix_only, "router.keenetic.pro", private).is_err());
+    admitted(&policy, "router.keenetic.pro", private)?;
+    Ok(())
+}
+
+#[test]
 fn network_path_canonicalizes_addresses_and_honors_loopback_separately() -> TestResult {
     let ten_network = format!("{}.0.0.0", 10_u8);
     let networks = vec![
