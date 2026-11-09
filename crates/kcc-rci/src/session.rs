@@ -33,6 +33,7 @@ use crate::{
     auth_options::{Mode, Options},
     auth_token,
     observe::{LoginScheme, RciObserver},
+    outbound::{OutboundPolicy, TlsMode},
 };
 
 /// Default interval for keeping a session active while long-lived work needs it.
@@ -194,6 +195,43 @@ pub struct Manager {
 pub type SessionManager = Manager;
 
 impl Manager {
+    /// Creates a manager after resolving and validating the router through `outbound`.
+    ///
+    /// # Errors
+    /// Returns policy, DNS, TLS-provider or HTTP-client construction failures.
+    // NOT cancel-safe: synchronous DNS may finish after cancellation, but no request is sent.
+    #[inline]
+    pub async fn connect(
+        router: RouterUrl,
+        credentials: Credentials,
+        outbound: &OutboundPolicy,
+    ) -> Result<Self, RciError> {
+        let timeouts = HttpTimeouts::default();
+        let builder = outbound
+            .client_builder(&router, &TlsMode::Verify, timeouts)
+            .await?;
+        Self::with_client_builder(router, credentials, timeouts, builder)
+    }
+
+    /// Creates a manager with authentication options after outbound-policy validation.
+    ///
+    /// # Errors
+    /// Returns validation, policy, DNS, TLS-provider or HTTP-client construction failures.
+    // NOT cancel-safe: synchronous DNS may finish after cancellation, but no request is sent.
+    #[inline]
+    pub async fn connect_with_options(
+        router: RouterUrl,
+        credentials: Option<Credentials>,
+        options: Options,
+        outbound: &OutboundPolicy,
+    ) -> Result<Self, RciError> {
+        let timeouts = HttpTimeouts::default();
+        let builder = outbound
+            .client_builder(&router, &TlsMode::Verify, timeouts)
+            .await?;
+        Self::with_options_and_client_builder(router, credentials, options, builder)
+    }
+
     /// Probes authentication through this session's transport and bound origin.
     ///
     /// # Errors
@@ -217,21 +255,6 @@ impl Manager {
     #[must_use]
     pub fn is_bootstrap(&self) -> bool {
         self.bootstrap_active.load(Ordering::Acquire)
-    }
-
-    /// Creates a session manager with explicit timeout settings.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RciError::Transport`] when the TLS provider or HTTP client cannot be built.
-    #[inline]
-    pub fn new(
-        router: RouterUrl,
-        credentials: Credentials,
-        timeouts: HttpTimeouts,
-    ) -> Result<Self, RciError> {
-        install_ring_provider()?;
-        Self::with_client_builder(router, credentials, timeouts, Client::builder())
     }
 
     /// Creates a manager from an HTTP builder for deterministic transport integration.
@@ -270,33 +293,17 @@ impl Manager {
         })
     }
 
-    /// Reports every login exchange of this manager to `observer`.
-    #[inline]
-    #[must_use]
-    pub fn with_observer(mut self, observer: Option<Arc<dyn RciObserver>>) -> Self {
-        self.observer = observer;
-        self
-    }
-
-    /// Creates a manager with 5 s connect and 30 s read timeouts.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RciError::Transport`] when the TLS provider or HTTP client cannot be built.
-    #[inline]
-    pub fn with_defaults(router: RouterUrl, credentials: Credentials) -> Result<Self, RciError> {
-        Self::new(router, credentials, HttpTimeouts::default())
-    }
-
-    /// Creates a manager with explicit protocol policy and optional password credentials.
+    /// Creates a manager with explicit authentication policy and a policy-checked HTTP builder.
     ///
     /// # Errors
     /// Returns validation errors for an invalid memory cap or a profile without credentials.
+    #[doc(hidden)]
     #[inline]
-    pub fn with_options(
+    pub fn with_options_and_client_builder(
         router: RouterUrl,
         credentials: Option<Credentials>,
         options: Options,
+        builder: reqwest::ClientBuilder,
     ) -> Result<Self, RciError> {
         if !(8..=0x0004_0000).contains(&options.max_argon2_memory_kib)
             || (credentials.is_none() && options.experimental_token.is_none())
@@ -306,10 +313,19 @@ impl Manager {
         let password_configured = credentials.is_some();
         let identity = credentials
             .unwrap_or_else(|| Credentials::new(String::new(), SecretString::from(String::new())));
-        let mut manager = Self::with_defaults(router, identity)?;
+        let mut manager =
+            Self::with_client_builder(router, identity, HttpTimeouts::default(), builder)?;
         manager.options = options;
         manager.password_configured = password_configured;
         Ok(manager)
+    }
+
+    /// Reports every login exchange of this manager to `observer`.
+    #[inline]
+    #[must_use]
+    pub fn with_observer(mut self, observer: Option<Arc<dyn RciObserver>>) -> Self {
+        self.observer = observer;
+        self
     }
 
     /// Returns a snapshot of the current in-memory session.

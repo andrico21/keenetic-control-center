@@ -476,6 +476,9 @@ pub const ERRORS_OUTBOUND_REFUSED: MessageKey = MessageKey::new("errors-outbound
 /// `errors-outbound-metadata` in `errors.ftl`.
 pub const ERRORS_OUTBOUND_METADATA: MessageKey = MessageKey::new("errors-outbound-metadata");
 
+/// `errors-outbound-loopback` in `errors.ftl`.
+pub const ERRORS_OUTBOUND_LOOPBACK: MessageKey = MessageKey::new("errors-outbound-loopback");
+
 /// `mcp-prompt-troubleshoot-internet` in `mcp.ftl`.
 pub const MCP_PROMPT_TROUBLESHOOT_INTERNET: MessageKey =
     MessageKey::new("mcp-prompt-troubleshoot-internet");
@@ -6530,7 +6533,7 @@ pub const WEB_SECRET_PEER_HELP: MessageKey = MessageKey::new("web-secret-peer-he
 pub const WEB_SECRET_IMPORT_DONE: MessageKey = MessageKey::new("web-secret-import-done");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2084] = [
+pub static ALL: [MessageKey; 2085] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6689,6 +6692,7 @@ pub static ALL: [MessageKey; 2084] = [
     ERRORS_CSRF,
     ERRORS_OUTBOUND_REFUSED,
     ERRORS_OUTBOUND_METADATA,
+    ERRORS_OUTBOUND_LOOPBACK,
     MCP_PROMPT_TROUBLESHOOT_INTERNET,
     MCP_PROMPT_TROUBLESHOOT_WIFI,
     MCP_PROMPT_TROUBLESHOOT_DEVICE,

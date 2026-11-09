@@ -75,8 +75,8 @@ proxies; kcc refuses to start otherwise.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `allowed_networks` | list of CIDRs | `[]` | networks router addresses must fall into; empty admits none |
-| `allowed_suffixes` | list of strings | `[]` | host-name suffixes routers may be addressed by, e.g. `".keenetic.pro"` |
-| `allow_loopback` | bool | `false` | admit loopback router addresses (tests) |
+| `allowed_suffixes` | list of strings | `[]` | DNS suffixes whose resolved global addresses are admitted, e.g. `"keenetic.pro"`; values are case-insensitive, normalized with a leading dot, and match the bare name or subdomains only |
+| `allow_loopback` | bool | `false` | admit literal and resolved loopback router addresses; required even when a loopback CIDR is in `allowed_networks` |
 
 Cloud metadata addresses are always refused. See [SECURITY.md](SECURITY.md).
 
@@ -84,7 +84,8 @@ The policy is deny-by-default: with both lists empty (the default), kcc contacts
 router outside loopback (and loopback only with `allow_loopback = true`). Adding or
 testing a router outside the lists (`kcc router add`, `kcc router test`, the Web UI's
 router form), or using a router from `[[routers]]` that lies outside them, is refused
-with a message that names `[outbound] allowed_networks` and the router's address.
+with a message that names the relevant setting and the router's address. A suffix admits
+only global addresses; private and link-local router names still need `allowed_networks`.
 `kcc serve` logs one warning at startup when routers are configured but
 `allowed_networks` and `allowed_suffixes` are both empty. The CLI reads `kcc.toml` on
 every run; a running `kcc serve` applies a changed `[outbound]` section after a restart.

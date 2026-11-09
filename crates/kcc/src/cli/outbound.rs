@@ -44,14 +44,15 @@ pub(crate) fn explained(error: RegistryError, url: &Url) -> Failure {
 /// The localized refusal of the router at `url`.
 fn refused(url: &Url) -> Failure {
     let host = url.host_str().unwrap_or_default();
-    let metadata = host
+    let literal = host
         .trim_matches(['[', ']'])
         .parse::<IpAddr>()
-        .is_ok_and(is_metadata_address);
-    let key = if metadata {
-        keys::ERRORS_OUTBOUND_METADATA
-    } else {
-        keys::ERRORS_OUTBOUND_REFUSED
+        .ok()
+        .map(|address| address.to_canonical());
+    let key = match literal {
+        Some(address) if is_metadata_address(address) => keys::ERRORS_OUTBOUND_METADATA,
+        Some(address) if address.is_loopback() => keys::ERRORS_OUTBOUND_LOOPBACK,
+        Some(_) | None => keys::ERRORS_OUTBOUND_REFUSED,
     };
     Failure::message(Exit::Policy, key, &[("address", host)])
 }

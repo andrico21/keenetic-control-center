@@ -772,7 +772,9 @@ impl Config {
     /// table or key (the message names it).
     #[inline]
     pub fn from_toml_str(text: &str) -> Result<Self, ConfigError> {
-        Ok(toml::from_str(text)?)
+        let mut config = toml::from_str::<Self>(text)?;
+        normalize_suffixes(&mut config.outbound.allowed_suffixes)?;
+        Ok(config)
     }
 
     /// Reads and parses a `kcc.toml` file.
@@ -834,6 +836,7 @@ impl Config {
         env.web(&mut self.web)?;
         env.mcp(&mut self.mcp)?;
         env.outbound(&mut self.outbound)?;
+        normalize_suffixes(&mut self.outbound.allowed_suffixes)?;
         env.rest(self)?;
         env.metrics(&mut self.metrics)?;
         env.logs(&mut self.logs)?;
@@ -1114,6 +1117,35 @@ where
         field: field.into(),
         reason,
     }
+}
+
+/// Validates DNS suffixes and rewrites them to lowercase leading-dot form.
+///
+/// # Errors
+/// Returns [`ConfigError::Invalid`] when a suffix is empty or not a valid DNS name.
+fn normalize_suffixes(suffixes: &mut Vec<String>) -> Result<(), ConfigError> {
+    for suffix in suffixes {
+        let name = suffix.trim().trim_start_matches('.').to_ascii_lowercase();
+        let valid = !name.is_empty()
+            && name.len() <= 253
+            && name.split('.').all(|label| {
+                !label.is_empty()
+                    && label.len() <= 63
+                    && label
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+                    && !label.starts_with('-')
+                    && !label.ends_with('-')
+            });
+        if !valid {
+            return Err(invalid(
+                "outbound.allowed_suffixes",
+                "must contain valid DNS suffixes such as keenetic.pro",
+            ));
+        }
+        *suffix = format!(".{name}");
+    }
+    Ok(())
 }
 
 /// Reads one variable from the process environment.

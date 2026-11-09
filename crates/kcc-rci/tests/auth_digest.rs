@@ -11,7 +11,7 @@ mod tests {
     use core::{error::Error, sync::atomic::Ordering};
 
     use kcc_rci::{
-        AuthError, RciError,
+        AuthError, OutboundPolicy, RciError,
         auth::Credentials,
         auth_options::{Mode, Options},
         session::SessionManager,
@@ -34,11 +34,13 @@ mod tests {
             let mut options = Options::default();
             options.mode = Mode::DigestProxy;
             let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
-            let manager = SessionManager::with_options(
+            let manager = SessionManager::connect_with_options(
                 format!("http://{address}").parse()?,
                 Some(credentials),
                 options,
-            )?;
+                &OutboundPolicy::default().with_loopback(true),
+            )
+            .await?;
 
             assert_eq!(
                 manager
@@ -72,11 +74,13 @@ mod tests {
         let mut options = Options::default();
         options.mode = Mode::DigestProxy;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("wrong"));
-        let manager = SessionManager::with_options(
+        let manager = SessionManager::connect_with_options(
             format!("http://{address}").parse()?,
             Some(credentials),
             options,
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         let result = manager.get("/rci/show/version").await;
 

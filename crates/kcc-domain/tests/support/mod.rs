@@ -201,13 +201,15 @@ impl Fixture {
             )
             .await?,
         );
-        let manager = kcc_rci::session::SessionManager::with_defaults(
+        let manager = kcc_rci::session::SessionManager::connect(
             origin.clone(),
             Credentials::new(
                 DEFAULT_LOGIN.to_owned(),
                 SecretString::from(DEFAULT_PASSWORD.to_owned()),
             ),
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
         let info = RouterInfo::detect(&manager, &origin).await?;
         let catalog = Catalog::for_router(&info)?;
         let backups = Arc::new(BackupStore::new(

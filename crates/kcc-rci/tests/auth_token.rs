@@ -11,7 +11,8 @@ mod tests {
     use core::{error::Error, sync::atomic::Ordering};
 
     use kcc_rci::{
-        AuthError, RciError, auth::Credentials, auth_options::Options, session::SessionManager,
+        AuthError, OutboundPolicy, RciError, auth::Credentials, auth_options::Options,
+        session::SessionManager,
     };
     use kcc_testkit::auth_fixture::{self, Options as Fixture, Protocol};
     use reqwest::StatusCode;
@@ -29,8 +30,13 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
         let mut options = Options::default();
         options.experimental_token = Some(SecretString::from("fixture-token"));
-        let manager =
-            SessionManager::with_options(format!("http://{address}").parse()?, None, options)?;
+        let manager = SessionManager::connect_with_options(
+            format!("http://{address}").parse()?,
+            None,
+            options,
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         manager.ensure_session().await?;
         assert_eq!(
@@ -64,11 +70,13 @@ mod tests {
             options.token_fallback = token_fallback;
             let credentials = credentials_present
                 .then(|| Credentials::new("admin".to_owned(), SecretString::from("admin")));
-            let manager = SessionManager::with_options(
+            let manager = SessionManager::connect_with_options(
                 format!("http://{address}").parse()?,
                 credentials,
                 options,
-            )?;
+                &OutboundPolicy::default().with_loopback(true),
+            )
+            .await?;
 
             let result = manager.get("/rci/show/version").await;
 

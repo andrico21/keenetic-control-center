@@ -227,10 +227,12 @@ mod tests {
     async fn cached_login_and_cost_rejection_never_enter_argon2_queue() -> TestResult {
         let (address, handle, _counts) = auth_fixture::spawn(Fixture::default()).await?;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
-        let manager = SessionManager::with_defaults(
+        let manager = SessionManager::connect(
             format!("http://{address}").parse()?,
             credentials.clone(),
-        )?;
+            &crate::OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
         manager.ensure_session().await?;
         manager.logout().await;
         let budget = Arc::clone(BUDGET.get_or_init(|| Arc::new(Semaphore::new(1))));
@@ -252,11 +254,13 @@ mod tests {
             token_fallback,
             max_argon2_memory_kib: 32,
         };
-        let limited = SessionManager::with_options(
+        let limited = SessionManager::connect_with_options(
             format!("http://{other_address}").parse()?,
             Some(credentials),
             options,
-        )?;
+            &crate::OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
         let result = timeout(Duration::from_secs(2), limited.ensure_session()).await?;
         assert!(matches!(
             result,

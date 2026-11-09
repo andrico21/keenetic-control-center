@@ -22,7 +22,7 @@ use alloc::collections::BTreeSet;
 use core::{cmp::Ordering, error::Error, net::SocketAddr};
 
 use kcc_rci::{
-    RouterUrl,
+    OutboundPolicy, RouterUrl,
     auth::Credentials,
     capabilities::{AuthSchemeKind, Brand, RouterInfo, SupportTier},
     session::SessionManager,
@@ -45,13 +45,15 @@ async fn detect(builder: FakeRouterBuilder) -> TestResult<RouterInfo> {
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;
     let router = format!("http://{address}").parse::<RouterUrl>()?;
-    let manager = SessionManager::with_defaults(
+    let manager = SessionManager::connect(
         router.clone(),
         Credentials::new(
             DEFAULT_LOGIN.to_owned(),
             SecretString::from(DEFAULT_PASSWORD.to_owned()),
         ),
-    )?;
+        &OutboundPolicy::default().with_loopback(true),
+    )
+    .await?;
     let detected = RouterInfo::detect(&manager, &router).await;
     handle.shutdown().await?;
     Ok(detected?)

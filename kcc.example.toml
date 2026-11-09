@@ -70,9 +70,10 @@ toolsets = ["core"]
 # no network: list the networks your routers live in, for example
 # allowed_networks = ["192.168.0.0/16", "10.0.0.0/8", "fd00::/8"]
 allowed_networks = []
-# Host name suffixes routers may be addressed by, e.g. [".keenetic.pro"].
+# DNS suffixes whose resolved global addresses are admitted. Values are
+# case-insensitive and match the bare name or subdomains, e.g. ["keenetic.pro"].
 allowed_suffixes = []
-# Allow loopback router addresses (test setups only).
+# Allow loopback router addresses, even when loopback is in allowed_networks.
 allow_loopback = false
 
 [state]

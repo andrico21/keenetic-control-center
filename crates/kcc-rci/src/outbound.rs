@@ -239,20 +239,33 @@ impl OutboundPolicy {
     }
 
     /// Whether `address` is admitted for `host`.
-    fn allows(&self, host: &str, address: IpAddr) -> bool {
+    fn allows(&self, host: &str, resolved: IpAddr) -> bool {
+        let address = resolved.to_canonical();
         if is_metadata_address(address) {
             return false;
         }
         if address.is_loopback() {
             return self.allow_loopback;
         }
+        if is_unroutable(address) {
+            return false;
+        }
         self.allowed_networks
             .iter()
             .any(|network| network.contains(address))
-            || self
-                .allowed_suffixes
-                .iter()
-                .any(|suffix| host.to_ascii_lowercase().ends_with(suffix))
+            || (is_global(address) && self.matches_suffix(host))
+    }
+
+    /// Whether `host` equals or is below one configured DNS suffix.
+    fn matches_suffix(&self, host: &str) -> bool {
+        let normalized_host = host.to_ascii_lowercase();
+        self.allowed_suffixes.iter().any(|configured| {
+            let domain = configured.trim_start_matches('.');
+            normalized_host == domain
+                || normalized_host
+                    .strip_suffix(domain)
+                    .is_some_and(|prefix| prefix.ends_with('.'))
+        })
     }
 }
 
@@ -334,7 +347,51 @@ impl ServerCertVerifier for SpkiVerifier {
 #[inline]
 #[must_use]
 pub fn is_metadata_address(address: IpAddr) -> bool {
-    METADATA_ADDRESSES.contains(&address)
+    METADATA_ADDRESSES.contains(&address.to_canonical())
+}
+
+/// Whether no configured outbound path may admit `address`.
+const fn is_unroutable(address: IpAddr) -> bool {
+    address.is_unspecified()
+        || address.is_multicast()
+        || matches!(address, IpAddr::V4(ipv4) if ipv4.is_broadcast())
+}
+
+/// Whether `address` is globally routable under the IANA special-purpose registries.
+fn is_global(address: IpAddr) -> bool {
+    match address {
+        IpAddr::V4(ipv4) => {
+            let octets = ipv4.octets();
+            !matches!(
+                octets,
+                [0 | 10 | 127 | 224..=255, _, _, _]
+                    | [100, 64..=127, _, _]
+                    | [169, 254, _, _]
+                    | [172, 16..=31, _, _]
+                    | [192, 0, 0, 0..=8 | 11..=255]
+                    | [192, 0, 2, _]
+                    | [192, 88, 99, _]
+                    | [192, 168, _, _]
+                    | [198, 18..=19, _, _]
+                    | [198, 51, 100, _]
+                    | [203, 0, 113, _]
+            )
+        }
+        IpAddr::V6(ipv6) => {
+            let segments = ipv6.segments();
+            !ipv6.is_unspecified()
+                && !ipv6.is_loopback()
+                && !ipv6.is_multicast()
+                && segments[0] & 0xfe00 != 0xfc00
+                && segments[0] & 0xffc0 != 0xfe80
+                && segments[0] & 0xffc0 != 0xfec0
+                && segments[..2] != [0x2001, 0x0db8]
+                && segments[..3] != [0x2001, 0x0002, 0]
+                && segments[0] != 0x0100
+                && !(segments[0] == 0x2001 && segments[1] & 0xfff0 == 0x0010)
+                && !(segments[0] == 0x2001 && segments[1] & 0xfff0 == 0x0020)
+        }
+    }
 }
 
 /// Constructs a known-valid default network.

@@ -114,6 +114,15 @@ mod tests {
     impl Fixture {
         /// Serves one fake router per `(id, profile)` and registers it.
         async fn new(fakes: &[(&str, Profile)]) -> Result<Self, Box<dyn Error + Send + Sync>> {
+            let mut outbound = OutboundConfig::default();
+            outbound.allow_loopback = true;
+            Self::with_outbound(fakes, &outbound).await
+        }
+
+        async fn with_outbound(
+            fakes: &[(&str, Profile)],
+            outbound: &OutboundConfig,
+        ) -> Result<Self, Box<dyn Error + Send + Sync>> {
             let directory = TempDir::new()?;
             let state = StateStore::open(&directory.path().join("state"))?;
             let clock: Arc<dyn Clock> = Arc::new(FrozenClock::default());
@@ -140,11 +149,9 @@ mod tests {
             )?;
             let password_file = directory.path().join("router-password");
             fs::write(&password_file, DEFAULT_PASSWORD)?;
-            let mut outbound = OutboundConfig::default();
-            outbound.allow_loopback = true;
             let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));
             let registry = Arc::new(
-                RouterRegistry::new(state.clone(), &[], &outbound)?
+                RouterRegistry::new(state.clone(), &[], outbound)?
                     .with_credentials(Arc::clone(&credentials)),
             );
             let mut routers = Vec::new();
@@ -530,6 +537,23 @@ mod tests {
             tested.contains(&refusal),
             "connection test refusal: {tested}"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn loopback_literal_refusal_names_allow_loopback_in_russian() -> TestResult {
+        let mut outbound = OutboundConfig::default();
+        outbound.allowed_networks = vec!["127.0.0.0/8".parse()?];
+        let fixture = Fixture::with_outbound(&[], &outbound).await?;
+        let browser = fixture.login("russian").await?;
+        let form = "id=loopback&url=http%3A%2F%2F127.0.0.1&login=admin&password=loopback-password-1&tls=verify&tags=";
+
+        let created = fixture.post("/ui/routers/new", &browser, form).await?;
+        assert_eq!(created.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let page = text(created).await?;
+        assert!(page.contains("allow_loopback = true"), "{page}");
+        let tested = text(fixture.post("/ui/routers/test", &browser, form).await?).await?;
+        assert!(tested.contains("allow_loopback = true"), "{tested}");
         Ok(())
     }
 

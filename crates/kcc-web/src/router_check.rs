@@ -101,16 +101,22 @@ pub(crate) async fn allowed(fleet: &Fleet, url: &Url) -> bool {
 /// cloud metadata address, that it is always refused.
 pub(crate) fn policy_refusal(locale: Locale, url: &Url) -> String {
     let host = url.host_str().unwrap_or_default();
-    let metadata = host
+    let literal = host
         .trim_matches(['[', ']'])
         .parse::<IpAddr>()
-        .is_ok_and(is_metadata_address);
-    if metadata {
+        .ok()
+        .map(|address| address.to_canonical());
+    if literal.is_some_and(is_metadata_address) {
         return tr(locale, keys::WEB_ROUTER_ERROR_POLICY, None);
     }
     let mut args = FluentArgs::new();
     args.set("address", host.to_owned());
-    tr(locale, keys::ERRORS_OUTBOUND_REFUSED, Some(&args))
+    let key = if literal.is_some_and(|address| address.is_loopback()) {
+        keys::ERRORS_OUTBOUND_LOOPBACK
+    } else {
+        keys::ERRORS_OUTBOUND_REFUSED
+    };
+    tr(locale, key, Some(&args))
 }
 
 /// The outcome of a connection test.

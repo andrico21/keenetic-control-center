@@ -28,6 +28,7 @@ use core::{
 use kcc_rci::{
     AuthError, RciError, RouterUrl,
     auth::{AuthScheme, Credentials, WwwAuthenticate, ndw2_response},
+    outbound::{OutboundPolicy, TlsMode},
     session::{HttpTimeouts, SessionManager},
 };
 use kcc_testkit::{
@@ -55,9 +56,15 @@ fn credentials(password: &str) -> Credentials {
 /// Builds a manager pointed at one socket address.
 fn manager(address: SocketAddr, password: &str) -> TestResult<SessionManager> {
     let router = format!("http://{address}").parse::<RouterUrl>()?;
-    Ok(SessionManager::with_defaults(
+    let timeouts = HttpTimeouts::default();
+    let builder = OutboundPolicy::default()
+        .with_loopback(true)
+        .client_builder_for_resolved(&router, &TlsMode::Verify, timeouts, &[address])?;
+    Ok(SessionManager::with_client_builder(
         router,
         credentials(password),
+        timeouts,
+        builder,
     )?)
 }
 

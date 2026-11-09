@@ -21,7 +21,7 @@ use core::{error::Error, net::SocketAddr};
 
 use auth_server::{Recorder, Script, Seen};
 use kcc_rci::{
-    AuthError, RciError,
+    AuthError, OutboundPolicy, RciError,
     auth::Credentials,
     auth_options::{Mode, Options},
     session::SessionManager,
@@ -39,22 +39,28 @@ fn credentials() -> Credentials {
 }
 
 /// A password-session manager for one loopback router.
-fn manager(address: SocketAddr) -> Result<SessionManager, Box<dyn Error + Send + Sync>> {
-    Ok(SessionManager::with_defaults(
+async fn manager(address: SocketAddr) -> Result<SessionManager, Box<dyn Error + Send + Sync>> {
+    Ok(SessionManager::connect(
         format!("http://{address}").parse()?,
         credentials(),
-    )?)
+        &OutboundPolicy::default().with_loopback(true),
+    )
+    .await?)
 }
 
 /// A digest-proxy manager for one loopback router.
-fn digest_manager(address: SocketAddr) -> Result<SessionManager, Box<dyn Error + Send + Sync>> {
+async fn digest_manager(
+    address: SocketAddr,
+) -> Result<SessionManager, Box<dyn Error + Send + Sync>> {
     let mut options = Options::default();
     options.mode = Mode::DigestProxy;
-    Ok(SessionManager::with_options(
+    Ok(SessionManager::connect_with_options(
         format!("http://{address}").parse()?,
         Some(credentials()),
         options,
-    )?)
+        &OutboundPolicy::default().with_loopback(true),
+    )
+    .await?)
 }
 
 /// Methods and paths only, for request-sequence assertions.
@@ -74,7 +80,7 @@ async fn ndw4_endpoint_guard_refuses_before_sending() -> TestResult {
     for endpoint in ["//evil/x", "/a\\b", "/a#b"] {
         let router = Recorder::spawn(Script::Ndw4Endpoint(endpoint)).await?;
 
-        let result = manager(router.address())?.ensure_session().await;
+        let result = manager(router.address()).await?.ensure_session().await;
 
         assert!(
             matches!(result, Err(RciError::Auth(AuthError::Rejected))),
@@ -83,7 +89,7 @@ async fn ndw4_endpoint_guard_refuses_before_sending() -> TestResult {
         assert_eq!(lines(&router.requests()), vec![probe.clone()], "{endpoint}");
     }
     let router = Recorder::spawn(Script::Ndw4Endpoint("/auth/elsewhere")).await?;
-    let _refused = manager(router.address())?.ensure_session().await;
+    let _refused = manager(router.address()).await?.ensure_session().await;
     assert_eq!(
         lines(&router.requests()),
         vec![probe, (Method::POST, "/auth/elsewhere".to_owned())]
@@ -97,7 +103,7 @@ async fn ndw4_endpoint_guard_refuses_before_sending() -> TestResult {
 #[tokio::test]
 async fn ndw4_key_cache_rederives_after_parameter_change() -> TestResult {
     let router = Rotating::spawn().await?;
-    let manager = manager(router.address())?;
+    let manager = manager(router.address()).await?;
 
     manager.ensure_session().await?;
     assert!(
@@ -130,7 +136,8 @@ async fn digest_requires_scheme_name_and_auth_qop() -> TestResult {
     for challenge in refused {
         let router = Recorder::spawn(Script::Digest(challenge)).await?;
 
-        let result = digest_manager(router.address())?
+        let result = digest_manager(router.address())
+            .await?
             .get("/rci/show/version")
             .await;
 
@@ -149,7 +156,8 @@ async fn digest_requires_scheme_name_and_auth_qop() -> TestResult {
     ))
     .await?;
 
-    let response = digest_manager(router.address())?
+    let response = digest_manager(router.address())
+        .await?
         .get("/rci/show/version")
         .await?;
 

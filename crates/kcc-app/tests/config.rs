@@ -262,6 +262,41 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         Ok(())
     }
 
+    #[test]
+    fn outbound_suffixes_are_normalized_when_loaded() -> TestResult {
+        let config = Config::from_toml_str(
+            "[outbound]\nallowed_suffixes = [\"keenetic.pro\", \".ROUTER.Example\"]",
+        )?;
+
+        assert_eq!(
+            config.outbound.allowed_suffixes,
+            [".keenetic.pro", ".router.example"]
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn invalid_outbound_suffixes_are_rejected_when_loaded() {
+        for suffix in [
+            "",
+            ".",
+            "bad..example",
+            "-bad.example",
+            "bad-.example",
+            "bad/example",
+        ] {
+            let text = format!("[outbound]\nallowed_suffixes = [{suffix:?}]");
+            assert!(
+                matches!(
+                    Config::from_toml_str(&text),
+                    Err(ConfigError::Invalid { field, reason: _ })
+                        if field == "outbound.allowed_suffixes"
+                ),
+                "accepted invalid suffix {suffix:?}"
+            );
+        }
+    }
+
     /// The `[serverr]` typo is rejected with an error naming the table.
     #[test]
     fn misspelled_server_table_is_rejected() -> TestResult {

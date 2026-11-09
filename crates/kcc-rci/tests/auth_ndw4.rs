@@ -11,7 +11,7 @@ mod tests {
     use core::{error::Error, sync::atomic::Ordering};
 
     use kcc_rci::{
-        AuthError, RciError,
+        AuthError, OutboundPolicy, RciError,
         auth::Credentials,
         auth_options::{Mode, Options},
         session::SessionManager,
@@ -37,10 +37,12 @@ mod tests {
         fixture.iterations = json!("02");
         fixture.memory = json!("0064");
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-        let manager = SessionManager::with_defaults(
+        let manager = SessionManager::connect(
             format!("http://{address}").parse()?,
             credentials("admin"),
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         let response = manager.get("/rci/show/version").await?;
 
@@ -57,10 +59,12 @@ mod tests {
     #[tokio::test]
     async fn wrong_password_rejected_without_ndw2_downgrade() -> TestResult {
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
-        let manager = SessionManager::with_defaults(
+        let manager = SessionManager::connect(
             format!("http://{address}").parse()?,
             credentials("wrong"),
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         let result = manager.ensure_session().await;
 
@@ -78,10 +82,12 @@ mod tests {
         let mut fixture = Fixture::default();
         fixture.tamper_signature = true;
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-        let manager = SessionManager::with_defaults(
+        let manager = SessionManager::connect(
             format!("http://{address}").parse()?,
             credentials("admin"),
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         let result = manager.ensure_session().await;
 
@@ -102,11 +108,13 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
         let mut options = Options::default();
         options.max_argon2_memory_kib = 32;
-        let manager = SessionManager::with_options(
+        let manager = SessionManager::connect_with_options(
             format!("http://{address}").parse()?,
             Some(credentials("admin")),
             options,
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         let result = manager.ensure_session().await;
 
@@ -137,10 +145,12 @@ mod tests {
                 _ => fixture.short_error = true,
             }
             let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-            let manager = SessionManager::with_defaults(
+            let manager = SessionManager::connect(
                 format!("http://{address}").parse()?,
                 credentials("admin"),
-            )?;
+                &OutboundPolicy::default().with_loopback(true),
+            )
+            .await?;
 
             let result = manager.ensure_session().await;
 
@@ -162,11 +172,13 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
         let mut options = Options::default();
         options.mode = Mode::Ndw2;
-        let manager = SessionManager::with_options(
+        let manager = SessionManager::connect_with_options(
             format!("http://{address}").parse()?,
             Some(credentials("admin")),
             options,
-        )?;
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
 
         let response = manager.get("/rci/show/version").await?;
 

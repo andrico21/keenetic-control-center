@@ -79,3 +79,34 @@ fn default_policy_refusals_name_the_setting_and_the_address() -> TestResult {
     );
     Ok(())
 }
+
+#[test]
+fn loopback_literal_refusal_names_allow_loopback_in_english_and_russian() -> TestResult {
+    let env = Env::new("")?;
+    let password = env.write("router.password", "unused-fixture")?;
+    fs::write(
+        env.path("kcc.toml"),
+        "[outbound]\nallowed_networks = [\"127.0.0.0/8\"]\n",
+    )?;
+    let password_arg = password.to_str().ok_or("non-UTF-8 path")?;
+
+    for (locale, expected) in [
+        ("en", "allow_loopback = true"),
+        ("ru", "allow_loopback = true"),
+    ] {
+        let run = env.kcc(&[
+            "--lang",
+            locale,
+            "--password-file",
+            password_arg,
+            "router",
+            "add",
+            "loopback",
+            "--url",
+            "http://127.0.0.1",
+        ])?;
+        assert_eq!(run.code, 10_i32, "{run:?}");
+        assert!(run.stderr.contains(expected), "{locale}: {run:?}");
+    }
+    Ok(())
+}
