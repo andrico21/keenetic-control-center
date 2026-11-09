@@ -11,7 +11,7 @@ use alloc::sync::Arc;
 
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_testkit::firmware_update::FirmwareUpdate;
+use kcc_testkit::{FaultInjection, firmware_update::FirmwareUpdate};
 use kcc_web::{
     fleet::{UPDATE_CHECK_TTL, UpdateCheck as _, UpdateStatus},
     fleet_updates::ComponentsUpdateCheck,
@@ -107,5 +107,50 @@ async fn a_router_no_poll_follows_is_not_asked() -> TestResult {
     assert_eq!(check.check(ROUTER).await, UpdateStatus::Unknown);
     check.refresh().await;
     assert_eq!(fixture.handle().request_count(), before, "no request");
+
+    let mut snapshots = fixture.poller().subscribe(ROUTER).await;
+    drop(snapshots.wait_for(Option::is_some).await?);
+    assert_eq!(
+        check.check(ROUTER).await,
+        UpdateStatus::Available {
+            version: "5.1.4".to_owned(),
+        }
+    );
+    assert_eq!(fixture.commands(CHECK), 1, "checked on the next attempt");
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_failed_check_is_asked_once_per_ttl() -> TestResult {
+    let fixture = Fixture::new(Options::update_with_faults(
+        FirmwareUpdate::Available("5.1.4".to_owned()),
+        FaultInjection::default().fail_parse_matching(CHECK, 42),
+    ))
+    .await?;
+    let mut snapshots = fixture.poller().subscribe(ROUTER).await;
+    drop(snapshots.wait_for(Option::is_some).await?);
+    let check = ComponentsUpdateCheck::new(
+        Arc::clone(fixture.registry()),
+        Arc::clone(fixture.poller()),
+        Arc::<HandClock>::clone(fixture.clock()),
+    );
+
+    assert_eq!(check.check(ROUTER).await, UpdateStatus::Unknown);
+    for _tick in 0_u8..40 {
+        assert_eq!(check.check(ROUTER).await, UpdateStatus::Unknown);
+    }
+    assert_eq!(
+        fixture.commands(CHECK),
+        1,
+        "one failed check within the TTL"
+    );
+
+    fixture.clock().advance(UPDATE_CHECK_TTL);
+    assert_eq!(check.check(ROUTER).await, UpdateStatus::Unknown);
+    assert_eq!(
+        fixture.commands(CHECK),
+        2,
+        "failed check retried after the TTL"
+    );
     Ok(())
 }

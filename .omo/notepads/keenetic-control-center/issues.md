@@ -4,6 +4,14 @@ Problems and gotchas encountered during work on this plan.
 
 _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
+## [2026-11-09] Todo 77 issues (W=/home/andrico/kcc-wt/t77)
+- CodeGraph could not query `/home/andrico/kcc-wt/t77` because that worktree has no `.codegraph` index; built-in reads/searches were used as the prescribed fallback.
+- LSP symbol/diagnostic/format requests timed out under shared daemon load. Dated-nightly rustfmt, compiler tests, and strict Clippy completed successfully and supplied diagnostics.
+
+## [2026-11-09] Todo 82 verification note (W=/home/andrico/kcc-wt/t82)
+- The LSP daemon timed out on every diagnostics request, including retries after builds. Required Rust compiler and strict Clippy checks completed cleanly and provide semantic/type diagnostics; no clean-LSP claim is made.
+- The programming skill's standalone no-excuse script reports existing multiline crate/test `#[expect(... reason = ...)]` blocks as `expect-without-reason`; strict Clippy accepts their reasons. No new violation was introduced.
+
 ---
 
 ## [2026-11-05] Task: todo-16 catalog validation follow-up
@@ -407,3 +415,7 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 - kcc-telemetry `LogForwarder::start_with_clock`: cancellation while loading a later sink leaves earlier workers spawned with a never-fired token (detached).
 - kcc-app `RouterRegistry::{create,update,delete}`: the only await (client-cache lock) is after persistence; cancellation skips cache eviction and the change notification.
 - Pre-existing: `rustfmt --check` over xtask (xtask/src/main.rs tree) reports diffs in seccomp.rs, seccomp_gen.rs, seccomp_groups.rs (HEAD content, untouched here); root `cargo fmt --all` does not cover the xtask workspace.
+
+## [2026-11-09] Todo 81 (W=/home/andrico/kcc-wt/t81)
+- Fake router answers `DELETE system country` with 404, so a CLI end-to-end test of a persisted `rci delete` is impossible on the fake; covered by a unit test in kcc `cli/change.rs`.
+- `cargo xtask cancel-safety` does not exist at HEAD d12ba2b (row 79 adds it); no async fn was added or changed in this row.

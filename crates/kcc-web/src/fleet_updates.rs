@@ -55,6 +55,16 @@ struct Checked {
     started: Option<u64>,
 }
 
+/// Whether asking a router sent a request and produced a usable answer.
+enum CheckOutcome {
+    /// No request was sent, so the router remains due.
+    Skipped,
+    /// A request was sent but produced no usable answer.
+    Failed,
+    /// A request produced a usable answer.
+    Answered(UpdateStatus),
+}
+
 impl ComponentsUpdateCheck {
     /// A check over `registry`, publishing to `poller` and timed by `clock`.
     #[inline]
@@ -87,17 +97,18 @@ impl ComponentsUpdateCheck {
     }
 
     /// The cached status of `router`, checking it first when due.
+    // cancel-safe: cancellation may leave a claimed check cached until the TTL, but never
+    // sends a duplicate request or changes router configuration.
     async fn status(&self, router: &str) -> UpdateStatus {
         let (due, previous) = self.claim(router);
         if !due {
             return previous;
         }
-        let checked = self.run(router).await;
-        self.settle(router, &checked);
-        if checked == UpdateStatus::Unknown {
-            previous
-        } else {
-            checked
+        let outcome = self.run(router).await;
+        self.settle(router, &outcome);
+        match outcome {
+            CheckOutcome::Skipped | CheckOutcome::Failed => previous,
+            CheckOutcome::Answered(status) => status,
         }
     }
 
@@ -121,45 +132,51 @@ impl ComponentsUpdateCheck {
         (!fresh, cached)
     }
 
-    /// Stores a completed check: a known result replaces the cached one, an unknown one
-    /// makes the router due again and keeps the last known status.
-    fn settle(&self, router: &str, checked: &UpdateStatus) {
+    /// Stores a completed check while leaving skipped routers due immediately.
+    fn settle(&self, router: &str, outcome: &CheckOutcome) {
         if let Some(entry) = lock(&self.results).get_mut(router) {
-            if *checked == UpdateStatus::Unknown {
-                entry.started = None;
-            } else {
-                entry.status = checked.clone();
+            match outcome {
+                CheckOutcome::Skipped => entry.started = None,
+                CheckOutcome::Failed => {}
+                CheckOutcome::Answered(status) => entry.status = status.clone(),
             }
         }
     }
 
     /// Asks `router` once and publishes a known result.
-    async fn run(&self, router: &str) -> UpdateStatus {
-        let status = self.ask(router).await;
+    // cancel-safe: publishing follows the read-only request; cancellation changes no router state.
+    async fn run(&self, router: &str) -> CheckOutcome {
+        let outcome = self.ask(router).await;
+        let status = match outcome {
+            CheckOutcome::Skipped => return CheckOutcome::Skipped,
+            CheckOutcome::Failed => return CheckOutcome::Failed,
+            CheckOutcome::Answered(status) => status,
+        };
         let available = match &status {
             UpdateStatus::Available { version: _ } => true,
             UpdateStatus::Current => false,
-            UpdateStatus::Unknown => return status,
+            UpdateStatus::Unknown => return CheckOutcome::Failed,
         };
         self.poller.record_update_available(router, available).await;
         tracing::info!(router, available, "firmware update check completed");
-        status
+        CheckOutcome::Answered(status)
     }
 
     /// The router's answer; [`UpdateStatus::Unknown`] without a request when the router
     /// is offline, not polled, or its catalog lacks the command.
-    async fn ask(&self, router: &str) -> UpdateStatus {
+    // cancel-safe: the parser request is read-only and dropping it changes no router state.
+    async fn ask(&self, router: &str) -> CheckOutcome {
         let Some(Ok(snapshot)) = self.poller.latest(router).await else {
-            return UpdateStatus::Unknown;
+            return CheckOutcome::Skipped;
         };
         let Ok(catalog) = Catalog::for_router(&snapshot.info) else {
-            return UpdateStatus::Unknown;
+            return CheckOutcome::Skipped;
         };
         let client = match self.registry.client(router).await {
             Ok(client) => client,
             Err(error) => {
                 tracing::debug!(%error, router, "firmware update check has no client");
-                return UpdateStatus::Unknown;
+                return CheckOutcome::Skipped;
             }
         };
         let context = RouterCtx::new(client, catalog);
@@ -172,14 +189,19 @@ impl ComponentsUpdateCheck {
                     .map(|request| request.path.clone())
             })
         else {
-            return UpdateStatus::Unknown;
+            return CheckOutcome::Skipped;
         };
         match context.client.parse(&line).await {
-            Ok(RciBody::Json(answer)) => interpret(&answer.value),
-            Ok(_) => UpdateStatus::Unknown,
+            Ok(RciBody::Json(answer)) => match interpret(&answer.value) {
+                UpdateStatus::Unknown => CheckOutcome::Failed,
+                status @ (UpdateStatus::Available { version: _ } | UpdateStatus::Current) => {
+                    CheckOutcome::Answered(status)
+                }
+            },
+            Ok(_) => CheckOutcome::Failed,
             Err(error) => {
                 tracing::debug!(%error, router, "firmware update check failed");
-                UpdateStatus::Unknown
+                CheckOutcome::Failed
             }
         }
     }

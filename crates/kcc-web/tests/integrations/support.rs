@@ -112,7 +112,9 @@ impl Fixture {
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
         let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
-        let mut fake = FakeRouter::builder(Profile::default()).build()?;
+        let mut fake = FakeRouter::builder(Profile::default())
+            .faults(options.faults())
+            .build()?;
         if let Some(update) = options.firmware() {
             fake = fake.with_firmware_update(update);
         }

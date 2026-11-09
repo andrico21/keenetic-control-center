@@ -4,6 +4,15 @@ Architectural choices and rationales discovered during work on this plan.
 
 _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
+## [2026-11-09] Todo 77 decisions (W=/home/andrico/kcc-wt/t77)
+- Rust 1.99.1 still treats `IpAddr::is_global` as unstable, so suffix admission uses an explicit IANA special-purpose exclusion predicate while network allowlists retain their operator-configured private/link-local semantics.
+- Config suffixes are normalized once at TOML/env load to `.lowercase.domain`; the policy still tolerates a missing leading dot for direct API construction, but always enforces the DNS-label boundary and bare-domain match.
+- `RciError::Policy` remains source compatible; literal-host classification at CLI/Web presentation boundaries selects the accurate localized remediation without changing the protocol error enum.
+
+## [2026-11-09] Todo 82 cancellation-safety decision (W=/home/andrico/kcc-wt/t82)
+- Use a synchronous mutex for `JobOwnership::held`: its critical sections are only in-memory insert/remove operations and never span an await, so `Drop` can release ownership deterministically without blocking an async executor or requiring `try_lock` fallback semantics.
+- Keep `active` and `write_jobs` Tokio guards alive from reservation through the synchronous atomic persist. This prevents a spawned task or concurrent start from observing an unpersisted partial state, while cancellation drops both guards and the ownership claim synchronously. Transfer the ownership guard only after persistence and `tokio::spawn` have completed.
+
 ---
 
 - Task 3: project overlay deviation 1 (opened 2026-11-05): routers live in private address space, which the http-services SSRF rule rejects. Adapted via operator allowed_networks, admin-only profiles, metadata always refused, resolve-once-and-pin (rmcp-server-kit OAuthSsrfAllowlist precedent). Upstream clarification tracked in docs/rust-guidelines/UPSTREAM.md; no PR opened.
@@ -661,3 +670,8 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - CLI `router add` now REFUSES (exit 10) an out-of-policy URL before storing, mirroring the Web form; config-defined routers get the same explained refusal on use and `router test`.
 - MCP: `destructive_disabled` wins over `confirm_required` (confirming cannot help while the switch is off). DomainError/CommitError::ConfirmationRequired keep `invalid_arguments` (not a bare forbidden; unchanged).
 - Failed CLI change audit is in the CLI runner (`cli.change`, outcome `failed`), not in `kcc-app` workflow (no workflow*.rs change).
+
+## [2026-11-09] Todo 81 (W=/home/andrico/kcc-wt/t81)
+- MCP `verification_failed` carries `field` (the JSON pointer, e.g. `/service`) next to `error`/`request_id`; it is a path in the router's schema, not a value, so no secret can leak. `McpFailure` is no longer `Copy`.
+- Persisted-at-once wording only replaces the Write-risk confirm text; management/destructive dialogs keep their fail-safe/name texts (plus the existing persists label). A mixed batch (some items persist, some not) still says unsaved: only an all-persisting request is "stored".
+- docs/MCP_TOOLS.md intro now names `verification_failed` vs `validation_failed` (generator text in kcc-mcp registry/docs.rs, regenerated).

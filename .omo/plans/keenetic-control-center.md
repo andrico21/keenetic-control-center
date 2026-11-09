@@ -1011,7 +1011,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(rci,app,i18n): canonicalize outbound addresses, bound suffix matches and name allow_loopback on loopback refusals
   Recommended task executor category: deep-low
 
-- [ ] 78. Back off failed firmware update checks (found by F3 N2)
+- [x] 78. Back off failed firmware update checks (found by F3 N2)
   What to do / Must NOT do: `crates/kcc-web/src/fleet_updates.rs`: `settle` clears `started` for EVERY `UpdateStatus::Unknown`, so a router whose `components check-update` request is sent and fails is asked again on every 15 s tick (136 requests in 33 minutes observed), contradicting `docs/MONITORING.md:26`, `docs/USER_GUIDE.md:60` and row 72 ("at most every six hours per router"). Distinguish "no request sent" (router offline, not polled, catalog lacks the command: due again at the next tick is fine) from "request sent and failed or unreadable" (keeps `started`; the next check is due after `UPDATE_CHECK_TTL`, or a documented shorter retry interval, never per tick). Test with the injected fake clock: a failing router receives exactly one `components check-update` per TTL across many ticks (assert through the fake router's request log), a router that comes online after being offline is checked at the next tick, a success still caches for the TTL. Must NOT add sleeps, must NOT change the documented 6 h cadence.
   Closes: GAP-13
   Parallelization: Wave W14 | Blocked by: 72 | Blocks: F3 re-run

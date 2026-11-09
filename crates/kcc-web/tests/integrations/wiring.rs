@@ -15,7 +15,7 @@ use core::{
 use axum::{body::to_bytes, http::header, response::Response};
 use kcc_app::{accounts::Clock, registry::RouterRegistry, settings::Config};
 use kcc_telemetry::{logs::runtime::Service as LogService, metrics::instrumentation::SelfMetrics};
-use kcc_testkit::firmware_update::FirmwareUpdate;
+use kcc_testkit::{FaultInjection, firmware_update::FirmwareUpdate};
 use kcc_web::{
     fleet::{UpdateCheck, UpdateStatus},
     fleet_updates::ComponentsUpdateCheck,
@@ -82,23 +82,36 @@ impl UpdateCheck for Reporting {
 pub(crate) struct Options {
     /// The fake's `components check-update` answer; `Some` attaches the update check.
     update: Option<FirmwareUpdate>,
+    /// Failures injected into the fake router.
+    faults: FaultInjection,
     /// Runs the router's log collector (`[logs] enabled`) and lets the log page follow it.
     collector: bool,
 }
 
 impl Options {
     /// The update check attached, the fake answering `update`.
-    pub(crate) const fn update(update: FirmwareUpdate) -> Self {
+    pub(crate) fn update(update: FirmwareUpdate) -> Self {
         Self {
             update: Some(update),
+            faults: FaultInjection::default(),
+            collector: false,
+        }
+    }
+
+    /// The update check attached and `faults` injected into the fake router.
+    pub(crate) const fn update_with_faults(update: FirmwareUpdate, faults: FaultInjection) -> Self {
+        Self {
+            update: Some(update),
+            faults,
             collector: false,
         }
     }
 
     /// The log collector running.
-    pub(crate) const fn collector() -> Self {
+    pub(crate) fn collector() -> Self {
         Self {
             update: None,
+            faults: FaultInjection::default(),
             collector: true,
         }
     }
@@ -106,6 +119,11 @@ impl Options {
     /// The fake's `components check-update` answer, when the check is attached.
     pub(crate) fn firmware(&self) -> Option<FirmwareUpdate> {
         self.update.clone()
+    }
+
+    /// Failures injected into the fake router.
+    pub(crate) fn faults(&self) -> FaultInjection {
+        self.faults.clone()
     }
 
     /// Whether the log collector runs.
