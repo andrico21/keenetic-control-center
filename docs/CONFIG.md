@@ -327,7 +327,7 @@ effect.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `log_level` | string | `"info,rmcp=warn,rmcp_server_kit=info"` | `tracing` filter |
+| `log_level` | string | `"info,rmcp=warn,rmcp_server_kit=info"` | `tracing` filter; keep the default in production because `rmcp` debug/trace logs tool arguments, including secret fields |
 | `log_format` | string | `"pretty"` | `pretty`, `json` or `text` |
 | `audit_log_path` | path | unset | the kit's own append-only request audit file (separate from kcc's audit log) |
 | `log_request_headers` | bool | `false` | log request headers at DEBUG (sensitive ones redacted) |

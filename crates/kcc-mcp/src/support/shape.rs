@@ -7,7 +7,41 @@ use std::sync::PoisonError;
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
 
-use crate::{KccMcp, McpFailure};
+use crate::{KccMcp, McpFailure, support::validate::valid_host};
+
+/// Non-secret context retained from parsed tool input for failure auditing.
+#[derive(Clone, Copy)]
+pub(crate) struct FailureContext<'call> {
+    tool: &'static str,
+    read_only: bool,
+    router: Option<&'call str>,
+}
+
+impl<'call> FailureContext<'call> {
+    /// Describes one tool call before its result is known.
+    pub(crate) fn new(tool: &'static str, read_only: bool, router: Option<&'call str>) -> Self {
+        Self {
+            tool,
+            read_only,
+            router: router.filter(|value| valid_host(value).is_ok()),
+        }
+    }
+
+    /// Tool registry name used as the audit action suffix.
+    pub(super) const fn tool(&self) -> &'static str {
+        self.tool
+    }
+
+    /// Whether router and internal failures are non-changing reads.
+    pub(super) const fn read_only(&self) -> bool {
+        self.read_only
+    }
+
+    /// Router id retained from the parsed input, when present.
+    pub(super) const fn router(&self) -> Option<&str> {
+        self.router
+    }
+}
 
 /// Hard ceiling on any configured result budget.
 const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
@@ -16,10 +50,9 @@ const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Converts a tool outcome into a protocol result with a correlation id.
-pub(crate) async fn finish(
+pub(crate) async fn finish_with_context(
     server: &KccMcp,
-    tool: &'static str,
-    read_only: bool,
+    context: FailureContext<'_>,
     result: Result<Value, McpFailure>,
 ) -> CallToolResult {
     let request_id = format!("mcp-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed));
@@ -27,7 +60,7 @@ pub(crate) async fn finish(
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(error) => {
             tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
-            super::audit::failure(server, tool, read_only, &error, &request_id).await;
+            super::audit::failure(server, context, &error, &request_id).await;
             let mut reply = json!({
                 "error": error.code(),
                 "request_id": request_id
@@ -42,6 +75,16 @@ pub(crate) async fn finish(
             CallToolResult::error(vec![ContentBlock::text(text)])
         }
     }
+}
+
+/// Converts a router-independent tool outcome into a protocol result.
+pub(crate) async fn finish(
+    server: &KccMcp,
+    tool: &'static str,
+    read_only: bool,
+    result: Result<Value, McpFailure>,
+) -> CallToolResult {
+    finish_with_context(server, FailureContext::new(tool, read_only, None), result).await
 }
 
 /// Redacts, pseudonymizes, projects, and budgets one result value.

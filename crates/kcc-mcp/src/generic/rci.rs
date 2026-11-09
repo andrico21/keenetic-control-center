@@ -13,7 +13,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::persists::{applied, batch_applied, cli_applied};
+use super::persists::{applied, batch_applied, cli_applied, persisted_paths};
 use crate::{
     KccMcp, McpFailure, authorize_routers,
     support::{
@@ -101,6 +101,34 @@ pub(crate) struct CliInput {
     /// Confirms a destructive line.
     #[serde(default)]
     confirm: bool,
+}
+
+impl RciReadInput {
+    /// Router id retained for failure auditing.
+    pub(crate) fn router(&self) -> &str {
+        &self.host
+    }
+}
+
+impl RciWriteInput {
+    /// Router id retained for failure auditing.
+    pub(crate) fn router(&self) -> &str {
+        &self.host
+    }
+}
+
+impl RciBatchInput {
+    /// Router id retained for failure auditing.
+    pub(crate) fn router(&self) -> &str {
+        &self.host
+    }
+}
+
+impl CliInput {
+    /// Router id retained for failure auditing.
+    pub(crate) fn router(&self) -> &str {
+        &self.host
+    }
 }
 
 /// Selects the generic catalog of a firmware line.
@@ -251,8 +279,13 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         items.push(BatchItem::new(value, validated));
     }
     server.require_destructive(risk, input.confirm)?;
-    let persists = items.iter().any(|item| item.validated.persists_immediately);
-    let stored = items.iter().all(|item| item.validated.persists_immediately);
+    let persists =
+        !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately);
+    let persisted_paths = items
+        .iter()
+        .filter(|item| item.validated.persists_immediately)
+        .flat_map(|item| persisted_paths(&catalog, &item.validated.value))
+        .collect::<Vec<_>>();
     let mut changes = server.begin_change(&host, &identity).await?;
     let result = changes
         .apply_batch(BatchChangeRequest::new(
@@ -273,8 +306,8 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             Err(error) => json!({ "ok": false, "error": map_rci(&error).code() }),
         })
         .collect::<Vec<_>>();
-    let unsaved = result.unsaved && !stored;
-    Ok(batch_applied(responses, unsaved, persists))
+    let unsaved = result.unsaved && !persists;
+    Ok(batch_applied(responses, unsaved, persists, persisted_paths))
 }
 
 /// Validates and applies one CLI line without saving.

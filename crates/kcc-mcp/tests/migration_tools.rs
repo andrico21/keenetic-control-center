@@ -73,6 +73,27 @@ mod tests {
             .to_owned())
     }
 
+    /// Both migration confirmation gates append one refusal for the target router.
+    fn assert_confirmation_refusals(lab: &Lab, plan_id: &str) -> TestResult {
+        let refusals = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| {
+                matches!(
+                    entry.action.as_str(),
+                    "mcp.kcc_migration_apply" | "mcp.kcc_migration_finish"
+                )
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(refusals.len(), 2, "{plan_id}: {refusals:?}");
+        assert!(refusals.iter().all(|entry| {
+            entry.outcome == "refused"
+                && entry.router.as_deref() == Some("lab-1")
+                && entry.params_redacted == json!({"reason":"confirm_required"})
+        }));
+        Ok(())
+    }
+
     /// An identity scoped to `lab-*` cannot plan from `prod-1`; neither router is contacted.
     #[tokio::test]
     async fn scoped_identity_cannot_plan_from_outside_its_scope() -> TestResult {
@@ -92,6 +113,15 @@ mod tests {
             .await?;
         assert_eq!(reply.error(), Some("forbidden"));
         assert_eq!((lab.requests("prod-1")?, lab.requests("lab-1")?), before);
+        let refusals = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "mcp.kcc_migration_plan")
+            .collect::<Vec<_>>();
+        let [refused] = refusals.as_slice() else {
+            return Err(format!("one scope refusal must be audited: {refusals:?}").into());
+        };
+        assert_eq!(refused.router.as_deref(), Some("lab-1"));
         lab.stop().await
     }
 
@@ -127,7 +157,7 @@ mod tests {
                 false,
             )
             .await?;
-        assert_eq!(unconfirmed.error(), Some("invalid_arguments"));
+        assert_eq!(unconfirmed.error(), Some("confirm_required"));
         assert!(
             !lab.router("lab-1")?
                 .startup_config_text()
@@ -154,6 +184,14 @@ mod tests {
             !lab.progress_received().await.is_empty(),
             "no progress notification arrived"
         );
+        let finish_unconfirmed = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host": "lab-1", "plan_id": plan_id, "action": "commit"}),
+                false,
+            )
+            .await?;
+        assert_eq!(finish_unconfirmed.error(), Some("confirm_required"));
         let finished = lab
             .call(
                 "kcc_migration_finish",
@@ -179,6 +217,7 @@ mod tests {
             )
             .await?;
         assert_eq!(report.value()?.get("plan_id"), Some(&json!(plan_id)));
+        assert_confirmation_refusals(&lab, &plan_id)?;
         lab.stop().await
     }
 

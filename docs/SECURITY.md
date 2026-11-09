@@ -121,10 +121,14 @@ outside the change workflow and without an audit entry.
 
 Every change, handler-level refusal, login and secret reveal appends an entry to
 `audit.jsonl`. MCP records successful changes, failed changes as `failed` with an error
-kind, and refusals that reach a kcc handler as `forbidden` or `refused` with a reason.
-A tool call denied by rmcp-server-kit's role check is refused with HTTP 403 before kcc
-code runs; the kit logs `user`, `role` and `tool` at warn level, but that event is not
-appended to the hash-chained audit. Each audit entry carries a sequence number and
+kind, and each refusal that reaches a kcc handler as `forbidden` or `refused` with a
+reason. Refusals are audited per call; there is no per-key MCP tool-call rate limit, and
+audit retention is age-based. Over HTTP, rmcp-server-kit's role check also applies the
+router scope to the `host` argument. A denied tool or out-of-scope `host` is refused with
+HTTP 403 before kcc code runs; the kit logs `user`, `role`, `tool` and `host` at warn
+level, but that event is not appended to the hash-chained audit. Stdio calls, and HTTP
+calls whose routers are named in other arguments such as `source` or `target`, reach
+kcc's own scope check and are audited. Each audit entry carries a sequence number and
 `sha256(previous hash || canonical JSON of the entry)`, so editing or removing an entry
 breaks the chain; `kcc audit verify` names the first broken sequence. Entries never hold
 secret values. Appends from several processes
@@ -132,6 +136,10 @@ secret values. Appends from several processes
 re-read its tail before writing, so they extend one chain. Files rotate at 50 MiB. The
 chain detects tampering; it doesn't prevent someone with write access to the state
 directory from rewriting the whole log.
+
+Keep the shipped production filter `info,rmcp=warn,rmcp_server_kit=info`. Raising the
+`rmcp` target above `warn` makes the MCP SDK log tool arguments at debug or trace,
+including secret fields.
 
 ## Privilege floor
 

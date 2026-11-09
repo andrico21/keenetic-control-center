@@ -6,8 +6,9 @@ Every router-targeting tool takes `host` (a router profile id). Handlers re-chec
 exact operation permission and router scope; the permission column is the coarse gate
 the RBAC layer applies to the tool. Destructive operations need `confirm: true` and
 `[mcp] allow_destructive = true`; a refusal says which one is missing with the error
-code `destructive_disabled` or `confirm_required` (also used when a management change
-lacks `confirm: true`). A write the router accepts but does not apply fails with
+code `destructive_disabled` or `confirm_required` (also used when a management,
+migration, or preset change lacks `confirm: true`). A write the router accepts but
+does not apply fails with
 `verification_failed` and the `field` that read back unchanged; `validation_failed`
 means the input was refused before anything was sent. No tool saves implicitly.
 

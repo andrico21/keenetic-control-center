@@ -71,7 +71,7 @@ async fn reviewed(
     input: &ApplyInput,
 ) -> Result<([RouterId; 2], kcc_migrate::planner::MigrationPlan), McpFailure> {
     if !input.confirm {
-        return Err(McpFailure::InvalidArguments);
+        return Err(McpFailure::ConfirmRequired);
     }
     valid_job_id(&input.plan_id)?;
     let identity = server.identity()?;

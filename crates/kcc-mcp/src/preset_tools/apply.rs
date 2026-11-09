@@ -39,7 +39,7 @@ pub(crate) async fn apply(
 ) -> Result<Value, McpFailure> {
     let input: ApplyInput = parse(arguments)?;
     if !input.dry_run() && !input.confirmed() {
-        return Err(McpFailure::InvalidArguments);
+        return Err(McpFailure::ConfirmRequired);
     }
     let identity = server.identity()?;
     let planned = input.planned(server, &identity).await?;

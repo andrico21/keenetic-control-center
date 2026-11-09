@@ -105,6 +105,25 @@ mod tests {
         Ok(())
     }
 
+    /// The missing preset confirmation appends one refusal for the target router.
+    fn assert_confirmation_refusal(lab: &Lab) -> TestResult {
+        let refusals = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "mcp.kcc_preset_apply")
+            .collect::<Vec<_>>();
+        let [refused] = refusals.as_slice() else {
+            return Err(format!("one missing confirmation must be audited: {refusals:?}").into());
+        };
+        assert_eq!(refused.outcome, "refused");
+        assert_eq!(refused.router.as_deref(), Some("lab-1"));
+        assert_eq!(
+            refused.params_redacted,
+            json!({"reason":"confirm_required"})
+        );
+        Ok(())
+    }
+
     /// The presets toolset has its four tools and the inventory stays within its limits.
     #[test]
     fn presets_toolset_keeps_the_tool_budget() {
@@ -168,8 +187,9 @@ mod tests {
                 false,
             )
             .await?;
-        assert_eq!(unconfirmed.error(), Some("invalid_arguments"));
+        assert_eq!(unconfirmed.error(), Some("confirm_required"));
         assert_eq!(lab.requests("lab-1")?, quiet);
+        assert_confirmation_refusal(&lab)?;
 
         let applied = lab
             .call(

@@ -174,6 +174,64 @@ async fn cli_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<d
     reason = "integration-test assertions and fixtures define the contract"
 )]
 #[tokio::test]
+async fn cli_audit_distinguishes_persisted_and_unsaved_changes() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let info = fixture.registry.poll_info("router").await?;
+    let catalog = Catalog::for_router(&info)?;
+    let cases = [
+        vec![(
+            "system country DE",
+            "system country",
+            json!({"country":"DE"}),
+        )],
+        vec![
+            (
+                "system country US",
+                "system country",
+                json!({"country":"US"}),
+            ),
+            (
+                "system description cli-unsaved",
+                "system description",
+                json!({"description":"cli-unsaved"}),
+            ),
+        ],
+    ];
+    for command_specs in cases {
+        let commands = command_specs
+            .into_iter()
+            .map(|(line, path, value)| {
+                catalog
+                    .validate(path, HttpMethod::Post, &value)
+                    .map(|validated| CliCommand::new(line.to_owned(), validated))
+                    .map_err(|issues| format!("catalog rejected fixture command: {issues:?}"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let request = CliChangeRequest::new(
+            commands,
+            Vec::new(),
+            Permission::Write,
+            json!({"validated":true}),
+        );
+        drop(fixture.begin(None).await?.apply_cli(request).await?);
+    }
+    let outcomes = verify_chain(fixture.state.dir())?
+        .into_iter()
+        .filter(|entry| entry.action == "router.change_cli")
+        .map(|entry| entry.outcome)
+        .collect::<Vec<_>>();
+    assert_eq!(outcomes, ["applied_persisted", "applied_unsaved"]);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
 async fn terminal_cli_mutation_survives_session_loss_after_preflight() -> Result<(), Box<dyn Error>>
 {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;

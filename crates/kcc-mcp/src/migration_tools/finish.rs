@@ -60,7 +60,7 @@ pub(crate) struct ReportInput {
 pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: FinishInput = parse(arguments)?;
     if !input.confirm {
-        return Err(McpFailure::InvalidArguments);
+        return Err(McpFailure::ConfirmRequired);
     }
     valid_job_id(&input.plan_id)?;
     let identity = server.identity()?;

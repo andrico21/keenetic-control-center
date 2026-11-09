@@ -507,6 +507,9 @@ pub const MCP_PROMPT_SAFE_CHANGE_WORKFLOW: MessageKey =
 /// `mcp-persists-immediately` in `mcp.ftl`.
 pub const MCP_PERSISTS_IMMEDIATELY: MessageKey = MessageKey::new("mcp-persists-immediately");
 
+/// `mcp-mixed-persistence` in `mcp.ftl`.
+pub const MCP_MIXED_PERSISTENCE: MessageKey = MessageKey::new("mcp-mixed-persistence");
+
 /// `migrate-title` in `migrate.ftl`.
 pub const MIGRATE_TITLE: MessageKey = MessageKey::new("migrate-title");
 
@@ -6552,7 +6555,7 @@ pub const WEB_EXPLORER_DONE_PERSISTED: MessageKey = MessageKey::new("web-explore
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2091] = [
+pub static ALL: [MessageKey; 2092] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6720,6 +6723,7 @@ pub static ALL: [MessageKey; 2091] = [
     MCP_PROMPT_TROUBLESHOOT_DEVICE,
     MCP_PROMPT_SAFE_CHANGE_WORKFLOW,
     MCP_PERSISTS_IMMEDIATELY,
+    MCP_MIXED_PERSISTENCE,
     MIGRATE_TITLE,
     MIGRATE_SOURCE,
     MIGRATE_TARGET,

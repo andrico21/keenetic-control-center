@@ -6,14 +6,14 @@ use kcc_app::audit::{Actor, ActorKind, AuditEvent};
 use rmcp_server_kit::rbac::current_identity;
 use serde_json::json;
 
+use super::shape::FailureContext;
 use crate::{KccMcp, McpFailure};
 
 /// Appends one refusal or failed-change entry without exposing tool arguments.
 // NOT cancel-safe: once queued, the audit writer may append after this future is dropped.
 pub(crate) async fn failure(
     server: &KccMcp,
-    tool: &'static str,
-    read_only: bool,
+    context: FailureContext<'_>,
     error: &McpFailure,
     request_id: &str,
 ) {
@@ -31,7 +31,7 @@ pub(crate) async fn failure(
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
         | McpFailure::Internal
-            if !read_only =>
+            if !context.read_only() =>
         {
             ("failed", json!({"error": error.code()}))
         }
@@ -45,17 +45,20 @@ pub(crate) async fn failure(
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs());
-    let event = AuditEvent::new(
+    let mut event = AuditEvent::new(
         timestamp,
         Actor::new(
             ActorKind::Mcp,
             current_identity().unwrap_or_else(|| "stdio".to_owned()),
         ),
-        format!("mcp.{tool}"),
+        format!("mcp.{}", context.tool()),
     )
     .with_params(params)
     .with_result(outcome.to_owned(), request_id.to_owned());
+    if let Some(router) = context.router() {
+        event = event.with_router(router.to_owned());
+    }
     if let Err(audit_error) = audit.append(event).await {
-        tracing::warn!(error = ?audit_error, tool, "MCP failure audit append failed");
+        tracing::warn!(error = ?audit_error, tool = context.tool(), "MCP failure audit append failed");
     }
 }

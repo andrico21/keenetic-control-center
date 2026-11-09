@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
-use super::shape::finish;
+use super::shape::{FailureContext, finish_with_context};
 use crate::{KccMcp, McpFailure, registry::definitions::ToolDescription};
 
 /// The boxed outcome of one dynamic tool call.
@@ -95,7 +95,19 @@ where
         let service = context.service;
         let arguments = Value::Object(context.arguments.unwrap_or_default());
         let progress = Progress::from_request(&context.request_context);
+        let router = ["host", "router", "source", "target"]
+            .into_iter()
+            .find_map(|key| arguments.get(key).and_then(Value::as_str))
+            .map(str::to_owned);
         let pending = call(service, arguments, progress);
-        Box::pin(async move { Ok(finish(service, name, read_only, pending.await).await.into()) })
+        Box::pin(async move {
+            Ok(finish_with_context(
+                service,
+                FailureContext::new(name, read_only, router.as_deref()),
+                pending.await,
+            )
+            .await
+            .into())
+        })
     })
 }

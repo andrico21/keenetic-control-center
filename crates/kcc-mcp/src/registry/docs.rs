@@ -40,8 +40,9 @@ pub fn markdown() -> String {
          exact operation permission and router scope; the permission column is the coarse gate\n\
          the RBAC layer applies to the tool. Destructive operations need `confirm: true` and\n\
          `[mcp] allow_destructive = true`; a refusal says which one is missing with the error\n\
-         code `destructive_disabled` or `confirm_required` (also used when a management change\n\
-         lacks `confirm: true`). A write the router accepts but does not apply fails with\n\
+         code `destructive_disabled` or `confirm_required` (also used when a management,\n\
+         migration, or preset change lacks `confirm: true`). A write the router accepts but\n\
+         does not apply fails with\n\
          `verification_failed` and the `field` that read back unchanged; `validation_failed`\n\
          means the input was refused before anything was sent. No tool saves implicitly.\n",
     );

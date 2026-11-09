@@ -1,11 +1,39 @@
 //! The label of commands the router persists immediately: no save is needed and the
 //! fail-safe timer cannot roll them back.
 
+use kcc_catalog::Catalog;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::RciBody;
 use serde_json::{Value, json};
 
 use crate::support::errors::rci_body_value;
+
+/// Catalog paths of nested commands the router persists immediately.
+pub(crate) fn persisted_paths(catalog: &Catalog, value: &Value) -> Vec<String> {
+    fn visit(catalog: &Catalog, value: &Value, path: &str, paths: &mut Vec<String>) {
+        if catalog
+            .lookup(path)
+            .is_some_and(|command| command.persists_immediately)
+        {
+            paths.push(path.to_owned());
+            return;
+        }
+        if let Value::Object(object) = value {
+            for (key, child) in object {
+                let child_path = if path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{path} {key}")
+                };
+                visit(catalog, child, &child_path, paths);
+            }
+        }
+    }
+
+    let mut paths = Vec::new();
+    visit(catalog, value, "", &mut paths);
+    paths
+}
 
 /// Adds `persists_immediately` to a result object and, when set, the notice text.
 pub(crate) fn labelled(mut result: Value, persists: bool) -> Value {
@@ -43,11 +71,31 @@ pub(crate) fn cli_applied(responses: Vec<RciBody>, unsaved: bool, persists: bool
     )
 }
 
-/// The labelled result of an applied root batch; `persists` when any item persists at
-/// once, while `unsaved` stays the caller's, as other items may still wait for a save.
-pub(crate) fn batch_applied(responses: Vec<Value>, unsaved: bool, persists: bool) -> Value {
-    labelled(
+/// The labelled result of an applied root batch.
+pub(crate) fn batch_applied(
+    responses: Vec<Value>,
+    unsaved: bool,
+    persists: bool,
+    persisted_paths: Vec<String>,
+) -> Value {
+    let mut result = labelled(
         json!({ "responses": responses, "unsaved": unsaved }),
         persists,
-    )
+    );
+    if !persists
+        && !persisted_paths.is_empty()
+        && let Value::Object(object) = &mut result
+    {
+        let paths = persisted_paths.join(", ");
+        drop(object.insert("persisted_paths".to_owned(), json!(persisted_paths)));
+        drop(object.insert("save_required".to_owned(), Value::Bool(true)));
+        drop(object.insert(
+            "notice".to_owned(),
+            Value::String(format!(
+                "{} {paths}",
+                tr(Locale::En, keys::MCP_MIXED_PERSISTENCE, None)
+            )),
+        ));
+    }
+    result
 }

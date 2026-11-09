@@ -26,7 +26,7 @@ use crate::{
     KccMcp, config_tools, domains, migration_tools, preset_tools,
     preset_tools::state::Presets,
     registry::definitions::{enabled, tools},
-    support::shape::finish,
+    support::shape::{FailureContext, finish, finish_with_context},
 };
 
 #[tool_router]
@@ -235,7 +235,13 @@ impl KccMcp {
         )
     )]
     async fn rci_read(&self, Parameters(input): Parameters<RciReadInput>) -> CallToolResult {
-        finish(self, "kcc_rci_read", true, rci::rci_read(self, input).await).await
+        let router = input.router().to_owned();
+        finish_with_context(
+            self,
+            FailureContext::new("kcc_rci_read", true, Some(&router)),
+            rci::rci_read(self, input).await,
+        )
+        .await
     }
 
     #[tool(
@@ -249,10 +255,10 @@ impl KccMcp {
         )
     )]
     async fn rci_execute(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
-        finish(
+        let router = input.router().to_owned();
+        finish_with_context(
             self,
-            "kcc_rci_execute",
-            false,
+            FailureContext::new("kcc_rci_execute", false, Some(&router)),
             rci::rci_execute(self, input).await,
         )
         .await
@@ -269,10 +275,10 @@ impl KccMcp {
         )
     )]
     async fn rci_delete(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
-        finish(
+        let router = input.router().to_owned();
+        finish_with_context(
             self,
-            "kcc_rci_delete",
-            false,
+            FailureContext::new("kcc_rci_delete", false, Some(&router)),
             rci::rci_delete(self, input).await,
         )
         .await
@@ -289,10 +295,10 @@ impl KccMcp {
         )
     )]
     async fn rci_batch(&self, Parameters(input): Parameters<RciBatchInput>) -> CallToolResult {
-        finish(
+        let router = input.router().to_owned();
+        finish_with_context(
             self,
-            "kcc_rci_batch",
-            false,
+            FailureContext::new("kcc_rci_batch", false, Some(&router)),
             rci::rci_batch(self, input).await,
         )
         .await
@@ -309,10 +315,10 @@ impl KccMcp {
         )
     )]
     async fn cli_parse(&self, Parameters(input): Parameters<CliInput>) -> CallToolResult {
-        finish(
+        let router = input.router().to_owned();
+        finish_with_context(
             self,
-            "kcc_cli_parse",
-            false,
+            FailureContext::new("kcc_cli_parse", false, Some(&router)),
             rci::cli_parse(self, input).await,
         )
         .await

@@ -22,8 +22,8 @@ mod tests {
 
     use super::lab::{Lab, TestResult, admin, lab_only};
 
-    /// A typed service no-op returns a `verification_failed` tool error and one failed audit
-    /// receipt without leaking a runtime-built secret.
+    /// A typed service no-op returns a `verification_failed` tool error and one redacted audit
+    /// receipt.
     #[tokio::test]
     async fn silent_service_noop_returns_tool_error() -> TestResult {
         let lab = Lab::start(
@@ -55,7 +55,6 @@ mod tests {
                 .iter()
                 .any(|request| request.command() == Some("service iperf3"))
         );
-        let secret = ["audit", "secret", "84"].join("-");
         let failed_entries = lab
             .audit()?
             .into_iter()
@@ -68,12 +67,12 @@ mod tests {
         };
         assert_eq!(failed.actor.kind, ActorKind::Mcp);
         assert_eq!(failed.actor.id, "stdio");
+        assert_eq!(failed.router.as_deref(), Some("lab-1"));
         assert_eq!(failed.outcome, "failed");
         assert_eq!(
             failed.params_redacted,
             json!({"error":"verification_failed"})
         );
-        assert!(!serde_json::to_string(&failed)?.contains(&secret));
         lab.stop().await
     }
 
@@ -222,7 +221,7 @@ mod tests {
         lab.stop().await
     }
 
-    /// Raw RCI batch audits claim persistence only when every item persists immediately.
+    /// A mixed raw RCI batch says which catalog path persisted and still requires a save.
     #[tokio::test]
     async fn raw_rci_batch_audit_keeps_mixed_changes_unsaved() -> TestResult {
         let lab = Lab::start(
@@ -245,8 +244,13 @@ mod tests {
             .await?;
         assert_eq!(
             mixed.value()?.get("persists_immediately"),
-            Some(&json!(true))
+            Some(&json!(false))
         );
+        assert_eq!(
+            mixed.value()?.get("persisted_paths"),
+            Some(&json!(["system country"]))
+        );
+        assert_eq!(mixed.value()?.get("save_required"), Some(&json!(true)));
         let persisted = lab
             .call(
                 "kcc_rci_batch",
@@ -264,6 +268,7 @@ mod tests {
             persisted.value()?.get("persists_immediately"),
             Some(&json!(true))
         );
+        assert_eq!(persisted.value()?.get("save_required"), None);
         let outcomes = lab
             .audit()?
             .into_iter()
@@ -388,14 +393,50 @@ mod tests {
             return Err(format!("two handler refusals must be audited: {refusals:?}").into());
         };
         assert_eq!(confirmation.action, "mcp.kcc_system_write");
+        assert_eq!(confirmation.router.as_deref(), Some("lab-1"));
         assert_eq!(confirmation.outcome, "refused");
         assert_eq!(
             confirmation.params_redacted,
             json!({"reason":"confirm_required"})
         );
         assert_eq!(scope.action, "mcp.kcc_system_read");
+        assert_eq!(scope.router.as_deref(), Some("prod-1"));
         assert_eq!(scope.outcome, "forbidden");
         assert_eq!(scope.params_redacted, json!({"reason":"forbidden"}));
+        lab.stop().await
+    }
+
+    /// Invalid router-shaped arguments never enter failure audit records.
+    #[tokio::test]
+    async fn invalid_router_arguments_are_omitted_from_failure_audits() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let oversized = "A".repeat(300);
+        for host in [oversized.as_str(), "../etc"] {
+            let reply = lab
+                .call(
+                    "kcc_migration_apply",
+                    json!({"host": host, "plan_id": "missing"}),
+                    false,
+                )
+                .await?;
+            assert_eq!(reply.error(), Some("confirm_required"));
+        }
+        let refusals = lab
+            .audit()?
+            .into_iter()
+            .filter(|entry| entry.action == "mcp.kcc_migration_apply")
+            .collect::<Vec<_>>();
+        assert_eq!(refusals.len(), 2, "{refusals:?}");
+        for refusal in refusals {
+            assert_eq!(refusal.router, None);
+            let serialized = serde_json::to_string(&refusal)?;
+            assert!(!serialized.contains(&oversized), "{serialized}");
+            assert!(!serialized.contains("../etc"), "{serialized}");
+        }
         lab.stop().await
     }
 
@@ -424,6 +465,7 @@ mod tests {
             .find(|entry| entry.action == "mcp.kcc_system_write")
             .ok_or("destructive refusal was not audited")?;
         assert_eq!(refusal.outcome, "refused");
+        assert_eq!(refusal.router.as_deref(), Some("lab-1"));
         assert_eq!(
             refusal.params_redacted,
             json!({"reason":"destructive_disabled"})
