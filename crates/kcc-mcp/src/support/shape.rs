@@ -22,11 +22,17 @@ pub(crate) fn finish(server: &KccMcp, result: Result<Value, McpFailure>) -> Call
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(error) => {
             tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
-            let text = serde_json::to_string(&json!({
+            let mut reply = json!({
                 "error": error.code(),
                 "request_id": request_id
-            }))
-            .unwrap_or_else(|_error| "{\"error\":\"internal\"}".to_owned());
+            });
+            if let (McpFailure::VerificationFailed { field }, Value::Object(object)) =
+                (&error, &mut reply)
+            {
+                drop(object.insert("field".to_owned(), Value::String(field.clone())));
+            }
+            let text = serde_json::to_string(&reply)
+                .unwrap_or_else(|_error| "{\"error\":\"internal\"}".to_owned());
             CallToolResult::error(vec![ContentBlock::text(text)])
         }
     }

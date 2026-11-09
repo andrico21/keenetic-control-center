@@ -154,8 +154,15 @@ pub(crate) fn tunnel(value: &str) -> Option<String> {
 /// A WireGuard public key: Base64 of 32 bytes.
 pub(crate) fn wireguard_key(value: &str) -> Option<String> {
     let trimmed = value.trim();
-    let decoded = STANDARD.decode(trimmed).ok()?;
-    (decoded.len() == KEY_BYTES).then(|| trimmed.to_owned())
+    is_wireguard_key(trimmed).then(|| trimmed.to_owned())
+}
+
+/// Whether `value`, trimmed, has the shape of every WireGuard key (public, private or
+/// preshared): Base64 of 32 bytes. Nothing is kept, so it also checks secrets.
+pub(crate) fn is_wireguard_key(value: &str) -> bool {
+    STANDARD
+        .decode(value.trim())
+        .is_ok_and(|decoded| decoded.len() == KEY_BYTES)
 }
 
 /// An IPv4 range in CIDR form, such as `192.0.2.0/24`, as the address and its dotted mask.

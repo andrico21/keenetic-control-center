@@ -15,8 +15,8 @@ pub(crate) fn map_workflow(error: WorkflowError) -> McpFailure {
     tracing::warn!(error = ?error, "MCP change workflow failed");
     match error {
         WorkflowError::PermissionDenied { router: _ } => McpFailure::Forbidden,
-        WorkflowError::CatalogValidation { issues: _ }
-        | WorkflowError::VerificationFailed { field: _ } => McpFailure::ValidationFailed,
+        WorkflowError::CatalogValidation { issues: _ } => McpFailure::ValidationFailed,
+        WorkflowError::VerificationFailed { field } => McpFailure::VerificationFailed { field },
         WorkflowError::Conflict { agent: _ } | WorkflowError::RouterBusy { actor: _ } => {
             McpFailure::Conflict
         }

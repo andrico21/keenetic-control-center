@@ -33,19 +33,23 @@ use crate::{
 fn assert_tool_result(result: Result<Value, McpFailure>) -> TestCaseResult {
     match result {
         Ok(value) => prop_assert!(serde_json::to_vec(&value).is_ok()),
-        Err(error) => prop_assert!(matches!(
-            error,
-            McpFailure::InvalidArguments
-                | McpFailure::Forbidden
-                | McpFailure::ConfirmRequired
-                | McpFailure::DestructiveDisabled
-                | McpFailure::RouterUnreachable
-                | McpFailure::RouterRejected
-                | McpFailure::ValidationFailed
-                | McpFailure::Conflict
-                | McpFailure::Internal
-                | McpFailure::UnverifiedFirmwareTier
-        )),
+        Err(error) => {
+            let typed = matches!(
+                error,
+                McpFailure::InvalidArguments
+                    | McpFailure::Forbidden
+                    | McpFailure::ConfirmRequired
+                    | McpFailure::DestructiveDisabled
+                    | McpFailure::RouterUnreachable
+                    | McpFailure::RouterRejected
+                    | McpFailure::ValidationFailed
+                    | McpFailure::VerificationFailed { field: _ }
+                    | McpFailure::Conflict
+                    | McpFailure::Internal
+                    | McpFailure::UnverifiedFirmwareTier
+            );
+            prop_assert!(typed, "{error:?}");
+        }
     }
     Ok(())
 }

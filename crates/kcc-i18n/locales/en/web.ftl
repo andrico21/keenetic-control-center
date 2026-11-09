@@ -1959,3 +1959,6 @@ web-secret-account = Account
 web-secret-account-help = The account kcc signs in with is not listed: change its password on the router.
 web-secret-peer-help = Optional. Leave it empty to keep the peer's current key; kcc never shows it.
 web-secret-import-done = Imported. The keys from the file were sent, and the router reports each one stored; kcc checks only that they are there, never their values. The change stays unsaved until you save the configuration.
+web-explorer-confirm-persist-text = The command changes the configuration of { $router }, and the router saves it at once. kcc backs up the saved configuration first.
+web-explorer-done-persisted = Command completed. The router stored the change already; no save is needed.
+web-vpn-error-psk = Enter a WireGuard preshared key: 44 characters of Base64. Leave the field empty to keep the stored key.

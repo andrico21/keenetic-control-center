@@ -1,5 +1,5 @@
 //! Commands the router persists immediately are flagged in the describe output and in
-//! every raw-write result; other commands are not.
+//! every raw-write result, which never calls them unsaved; other commands are not.
 
 use core::error::Error;
 
@@ -44,30 +44,30 @@ async fn system_country_is_flagged_before_and_after_it_runs() -> Result<(), Box<
         "path": ["system", "country"],
         "value": {"country": "DE"}
     }))?;
-    let executed = rci_execute(fixture.server(), execute).await;
-    assert_eq!(
-        label(&executed.map_err(|error| format!("{error:?}"))?),
-        flagged
-    );
+    let executed = rci_execute(fixture.server(), execute)
+        .await
+        .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(label(&executed), flagged);
+    assert_eq!(executed.get("unsaved"), Some(&Value::Bool(false)), "stored");
     let ordinary: RciWriteInput = serde_json::from_value(json!({
         "host": "lab-1",
         "catalog_path": "ip host",
         "path": ["ip", "host"],
         "value": {"domain": "mcp.example", "address": "192.0.2.11"}
     }))?;
-    let applied = rci_execute(fixture.server(), ordinary).await;
-    assert_eq!(
-        label(&applied.map_err(|error| format!("{error:?}"))?),
-        plain
-    );
+    let applied = rci_execute(fixture.server(), ordinary)
+        .await
+        .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(label(&applied), plain);
+    assert_eq!(applied.get("unsaved"), Some(&Value::Bool(true)), "unsaved");
 
     let line: CliInput =
         serde_json::from_value(json!({"host": "lab-1", "line": "system country DE"}))?;
-    let parsed = cli_parse(fixture.server(), line).await;
-    assert_eq!(
-        label(&parsed.map_err(|error| format!("{error:?}"))?),
-        flagged
-    );
+    let parsed = cli_parse(fixture.server(), line)
+        .await
+        .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(label(&parsed), flagged);
+    assert_eq!(parsed.get("unsaved"), Some(&Value::Bool(false)), "stored");
     fixture.shutdown().await?;
     Ok(())
 }

@@ -100,6 +100,9 @@ pub(crate) struct Failure {
     exit: Exit,
     /// Explanation.
     detail: Detail,
+    /// A headline more precise than the exit family's, such as a change the router
+    /// accepted but did not apply.
+    headline: Option<MessageKey>,
 }
 
 /// Command result.
@@ -108,7 +111,17 @@ pub(crate) type Outcome<T = ()> = Result<T, Failure>;
 impl Failure {
     /// A failure with a detail.
     pub(crate) const fn new(exit: Exit, detail: Detail) -> Self {
-        Self { exit, detail }
+        Self {
+            exit,
+            detail,
+            headline: None,
+        }
+    }
+
+    /// The same failure under the headline `key` instead of the exit family's.
+    const fn headlined(mut self, key: MessageKey) -> Self {
+        self.headline = Some(key);
+        self
     }
 
     /// A failure explained by one localized message.
@@ -136,7 +149,11 @@ impl Failure {
 
     /// The localized headline.
     pub(crate) fn headline(&self, locale: Locale) -> String {
-        tr(locale, self.exit.headline(), None)
+        tr(
+            locale,
+            self.headline.unwrap_or_else(|| self.exit.headline()),
+            None,
+        )
     }
 
     /// The localized detail lines.
@@ -219,9 +236,10 @@ impl From<WorkflowError> for Failure {
             WorkflowError::RouterBusy { actor: _ } | WorkflowError::Conflict { agent: _ } => {
                 Exit::Conflict
             }
-            WorkflowError::VerificationFailed { field: _ }
-            | WorkflowError::InvalidResponse
-            | WorkflowError::SaveTimeout => Exit::Router,
+            WorkflowError::VerificationFailed { field: _ } => {
+                return Self::text(Exit::Router, &error).headlined(keys::CLI_ERROR_NOT_APPLIED);
+            }
+            WorkflowError::InvalidResponse | WorkflowError::SaveTimeout => Exit::Router,
             WorkflowError::State(_) | WorkflowError::Backup(_) | WorkflowError::Audit(_) | _ => {
                 Exit::Generic
             }

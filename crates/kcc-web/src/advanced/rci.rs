@@ -211,6 +211,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
             validated,
             show: _,
         } => {
+            let persists = validated.persists_immediately;
             let request = DeleteRequest::new(
                 validated.path.clone(),
                 path_segments(&validated.path),
@@ -219,7 +220,10 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
                 Permission::RawRci,
                 params.clone(),
             );
-            dispatch.change(risk, Change::Delete(request)).await
+            dispatch
+                .persisting(persists)
+                .change(risk, Change::Delete(request))
+                .await
         }
         Checked::Path {
             method: _,

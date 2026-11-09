@@ -238,9 +238,15 @@ pub(crate) async fn submit(
     let action = form.operation().open(&state, &user, &router).await?;
     let locale = action.locale();
     let dialog = || form.dialog(&router, locale).values(&values);
-    let planned = match form.check(&values) {
-        Ok(planned) => planned,
-        Err(problems) => {
+    let key_problems = vpn_peer_psk::problems(psk.as_ref().filter(|_| form == VpnForm::Peer));
+    let planned = match (form.check(&values), key_problems.is_empty()) {
+        (Ok(planned), true) => planned,
+        (Ok(_), false) => {
+            action.abandon("validation_failed").await;
+            return Err(dialog().errors(&key_problems).invalid().into());
+        }
+        (Err(mut problems), _) => {
+            problems.extend(key_problems);
             action.abandon("validation_failed").await;
             return Err(dialog().errors(&problems).invalid().into());
         }

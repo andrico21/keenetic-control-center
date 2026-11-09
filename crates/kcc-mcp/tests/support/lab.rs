@@ -65,9 +65,14 @@ pub(crate) struct Reply {
 impl Reply {
     /// The stable error code of a failed call.
     pub(crate) fn error(&self) -> Option<&str> {
-        self.failed
-            .then(|| self.value.get("error").and_then(Value::as_str))
-            .flatten()
+        self.failure()
+            .and_then(|failure| failure.get("error"))
+            .and_then(Value::as_str)
+    }
+
+    /// The JSON payload of a failed call.
+    pub(crate) fn failure(&self) -> Option<&Value> {
+        self.failed.then_some(&self.value)
     }
 
     /// The payload of a successful call.

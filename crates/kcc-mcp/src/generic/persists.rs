@@ -21,24 +21,30 @@ pub(crate) fn labelled(mut result: Value, persists: bool) -> Value {
     result
 }
 
-/// The labelled result of one applied raw mutation.
+/// The labelled result of one applied raw mutation; one the router persisted at once
+/// is not unsaved.
 pub(crate) fn applied(unsaved: bool, persists: bool) -> Value {
-    labelled(json!({ "statuses": [], "unsaved": unsaved }), persists)
+    labelled(
+        json!({ "statuses": [], "unsaved": unsaved && !persists }),
+        persists,
+    )
 }
 
-/// The labelled result of one applied CLI line.
+/// The labelled result of one applied CLI line; one the router persisted at once is not
+/// unsaved.
 pub(crate) fn cli_applied(responses: Vec<RciBody>, unsaved: bool, persists: bool) -> Value {
     let responses = responses
         .into_iter()
         .map(rci_body_value)
         .collect::<Vec<_>>();
     labelled(
-        json!({ "responses": responses, "unsaved": unsaved }),
+        json!({ "responses": responses, "unsaved": unsaved && !persists }),
         persists,
     )
 }
 
-/// The labelled result of an applied root batch.
+/// The labelled result of an applied root batch; `persists` when any item persists at
+/// once, while `unsaved` stays the caller's, as other items may still wait for a save.
 pub(crate) fn batch_applied(responses: Vec<Value>, unsaved: bool, persists: bool) -> Value {
     labelled(
         json!({ "responses": responses, "unsaved": unsaved }),

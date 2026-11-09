@@ -87,7 +87,7 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
             })
             .await?;
             ctx.out()
-                .emit(&document, &ctx.out().tr(keys::CLI_APPLIED, &[]))
+                .emit(&document, &ctx.out().tr(gate.applied(), &[]))
         }
         RciCommand::Post { path, data } => {
             let target = ctx.target(&services, &[Permission::RawRci]).await?;

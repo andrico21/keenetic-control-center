@@ -22,7 +22,8 @@ mod tests {
 
     use super::lab::{Lab, TestResult, admin, lab_only};
 
-    /// A typed service no-op returns a tool error without an applied audit receipt.
+    /// A typed service no-op returns a `verification_failed` tool error naming the field,
+    /// without an applied audit receipt.
     #[tokio::test]
     async fn silent_service_noop_returns_tool_error() -> TestResult {
         let lab = Lab::start(
@@ -42,7 +43,12 @@ mod tests {
                 false,
             )
             .await?;
-        assert_eq!(reply.error(), Some("validation_failed"), "{reply:?}");
+        assert_eq!(reply.error(), Some("verification_failed"), "{reply:?}");
+        assert_eq!(
+            reply.failure().and_then(|failure| failure.get("field")),
+            Some(&json!("/service")),
+            "{reply:?}"
+        );
         assert!(
             lab.router("lab-1")?
                 .request_log()

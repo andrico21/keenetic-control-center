@@ -15,7 +15,10 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciClient, RciError, RciResponse};
 use serde_json::Value;
 
-use super::{outcome::Reply, viewer::Rendered};
+use super::{
+    outcome::{Left, Reply},
+    viewer::Rendered,
+};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -50,6 +53,8 @@ pub(crate) struct Dispatch<'call> {
     target: Target<'call>,
     /// The router's catalog facts.
     facts: &'call RouterFacts,
+    /// Whether the router persists the request at once, when its change cannot say.
+    persists: bool,
 }
 
 impl<'call> Sender<'call> {
@@ -76,17 +81,24 @@ impl<'call> Sender<'call> {
             sender: self,
             target,
             facts,
+            persists: false,
         }
     }
 }
 
 impl Dispatch<'_> {
+    /// The same dispatch for a request the router persists at once when `persists`.
+    pub(crate) const fn persisting(mut self, persists: bool) -> Self {
+        self.persists = persists;
+        self
+    }
+
     /// Runs the read-only root object `root` through the shared client.
     // cancel-safe: a read.
     pub(crate) async fn read_root(self, root: &Value) -> Reply {
         match self.client().await {
             Ok(client) => match client.post_root(root).await {
-                Ok(body) => self.answered(&body, false),
+                Ok(body) => self.answered(&body, Left::Nothing),
                 Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
             Err(failure) => Reply::failed(failure),
@@ -98,7 +110,7 @@ impl Dispatch<'_> {
     pub(crate) async fn read_batch(self, items: Vec<Value>) -> Reply {
         match self.client().await {
             Ok(client) => match client.batch(items).await {
-                Ok(responses) => self.items(&responses, false),
+                Ok(responses) => self.items(&responses, Left::Nothing),
                 Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
             Err(failure) => Reply::failed(failure),
@@ -114,7 +126,7 @@ impl Dispatch<'_> {
     {
         match self.client().await {
             Ok(client) => match request(client).await {
-                Ok(body) => self.answered(&body, false),
+                Ok(body) => self.answered(&body, Left::Nothing),
                 Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
             Err(failure) => Reply::failed(failure),
@@ -125,35 +137,39 @@ impl Dispatch<'_> {
     // NOT cancel-safe: see `change::apply`.
     pub(crate) async fn change(self, risk: Risk, change: Change) -> Reply {
         let plan = Plan::new(self.target, self.facts, self.sender.user).at(risk);
+        let persists = self.persists || change.persists();
+        let left = |unsaved| Left::of(unsaved, persists);
         match change::apply(plan, change).await {
-            Ok(Applied::Batch { unsaved, responses }) => self.items(&responses, unsaved),
-            Ok(Applied::Cli { unsaved, responses }) => self.lines(&responses, unsaved),
-            Ok(Applied::Terminal(responses)) => self.lines(&responses, false),
-            Ok(Applied::Done { unsaved }) => self.shown(Rendered::text("", self.locale()), unsaved),
+            Ok(Applied::Batch { unsaved, responses }) => self.items(&responses, left(unsaved)),
+            Ok(Applied::Cli { unsaved, responses }) => self.lines(&responses, left(unsaved)),
+            Ok(Applied::Terminal(responses)) => self.lines(&responses, Left::Nothing),
+            Ok(Applied::Done { unsaved }) => {
+                self.shown(Rendered::text("", self.locale()), left(unsaved))
+            }
             Err(refused) => Reply::failed(refused.failure(Family::Commands, self.locale())),
         }
     }
 
     /// The outcome of the answers to CLI lines: one shown as it came, several as a list.
-    fn lines(self, bodies: &[RciBody], unsaved: bool) -> Reply {
+    fn lines(self, bodies: &[RciBody], left: Left) -> Reply {
         match bodies {
-            [body] => self.answered(body, unsaved),
+            [body] => self.answered(body, left),
             many => {
                 let values = many.iter().map(body_value).collect();
                 let rendered =
                     Rendered::json(&Value::Array(values), &[], self.reveal(), self.locale());
-                self.shown(rendered, unsaved)
+                self.shown(rendered, left)
             }
         }
     }
 
     /// The outcome of one answer.
-    fn answered(self, body: &RciBody, unsaved: bool) -> Reply {
-        self.shown(Rendered::body(body, self.reveal(), self.locale()), unsaved)
+    fn answered(self, body: &RciBody, left: Left) -> Reply {
+        self.shown(Rendered::body(body, self.reveal(), self.locale()), left)
     }
 
     /// The outcome of batch answers: every value shown, refused items reported.
-    fn items(self, responses: &[Result<RciResponse, RciError>], unsaved: bool) -> Reply {
+    fn items(self, responses: &[Result<RciResponse, RciError>], left: Left) -> Reply {
         let locale = self.locale();
         let mut values = Vec::with_capacity(responses.len());
         let mut statuses = Vec::new();
@@ -200,7 +216,7 @@ impl Dispatch<'_> {
         };
         let rendered = Rendered::json(&shown, &statuses, self.reveal(), locale);
         if refused.is_empty() {
-            return self.shown(rendered, unsaved);
+            return self.shown(rendered, left);
         }
         let (viewer, _full, _json) = rendered.into_parts();
         Reply::failed(
@@ -211,10 +227,10 @@ impl Dispatch<'_> {
     }
 
     /// The outcome showing `rendered`, keeping a truncated answer for download.
-    fn shown(self, rendered: Rendered, unsaved: bool) -> Reply {
+    fn shown(self, rendered: Rendered, left: Left) -> Reply {
         let (viewer, full, json) = rendered.into_parts();
         let truncated = viewer.truncated();
-        let outcome = Reply::done(self.locale(), viewer, unsaved);
+        let outcome = Reply::done(self.locale(), viewer, left);
         if !truncated {
             return outcome;
         }

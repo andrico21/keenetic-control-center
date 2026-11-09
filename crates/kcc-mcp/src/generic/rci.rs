@@ -243,16 +243,16 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
     let mut risk = Risk::Read;
-    let mut persists = false;
     let mut items = Vec::with_capacity(input.items.len());
     for value in input.items {
         valid_value_size(&value)?;
         let validated = checked(&catalog, "", HttpMethod::Post, &value)?;
         risk = risk.max(validated.risk);
-        persists |= validated.persists_immediately;
         items.push(BatchItem::new(value, validated));
     }
     server.require_destructive(risk, input.confirm)?;
+    let persists = items.iter().any(|item| item.validated.persists_immediately);
+    let stored = items.iter().all(|item| item.validated.persists_immediately);
     let mut changes = server.begin_change(&host, &identity).await?;
     let result = changes
         .apply_batch(BatchChangeRequest::new(
@@ -273,7 +273,8 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             Err(error) => json!({ "ok": false, "error": map_rci(&error).code() }),
         })
         .collect::<Vec<_>>();
-    Ok(batch_applied(responses, result.unsaved, persists))
+    let unsaved = result.unsaved && !stored;
+    Ok(batch_applied(responses, unsaved, persists))
 }
 
 /// Validates and applies one CLI line without saving.

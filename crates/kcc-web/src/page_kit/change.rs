@@ -75,6 +75,28 @@ impl Change {
         };
         json!({ "operations": paths, "fields": fields })
     }
+
+    /// Whether the router persists every part of the change at once, so none of it
+    /// waits for a save.
+    pub(crate) fn persists(&self) -> bool {
+        match self {
+            Self::Batch(request) => {
+                !request.items.is_empty()
+                    && request
+                        .items
+                        .iter()
+                        .all(|item| item.validated.persists_immediately)
+            }
+            Self::Cli(request) => {
+                !request.commands.is_empty()
+                    && request
+                        .commands
+                        .iter()
+                        .all(|command| command.validated().persists_immediately)
+            }
+            Self::Request(_) | Self::Delete(_) => false,
+        }
+    }
 }
 
 /// The catalog paths and field names of CLI lines.

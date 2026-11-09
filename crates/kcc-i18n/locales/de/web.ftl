@@ -1959,3 +1959,6 @@ web-secret-account = Konto
 web-secret-account-help = Das Konto, mit dem sich kcc anmeldet, ist nicht aufgeführt: Ändern Sie sein Passwort am Router.
 web-secret-peer-help = Optional. Leer lassen, um den aktuellen Schlüssel des Peers zu behalten; kcc zeigt ihn nie an.
 web-secret-import-done = Importiert. Die Schlüssel aus der Datei wurden gesendet, und der Router meldet jeden als gespeichert; kcc prüft nur, ob sie vorhanden sind, nie ihre Werte. Die Änderung bleibt ungespeichert, bis Sie die Konfiguration speichern.
+web-explorer-confirm-persist-text = Der Befehl ändert die Konfiguration von { $router }, und der Router speichert sie sofort. kcc sichert zuerst die gespeicherte Konfiguration.
+web-explorer-done-persisted = Befehl ausgeführt. Der Router hat die Änderung bereits gespeichert; Speichern ist nicht nötig.
+web-vpn-error-psk = Geben Sie einen WireGuard-Preshared-Key ein: 44 Base64-Zeichen. Lassen Sie das Feld leer, um den gespeicherten Schlüssel zu behalten.

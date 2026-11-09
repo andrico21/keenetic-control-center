@@ -23,6 +23,29 @@ use crate::{
     },
 };
 
+/// What a completed request left for the configuration save.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Left {
+    /// Nothing: a read, or a change after which the router's state is unknown.
+    Nothing,
+    /// A change that waits for a save.
+    Unsaved,
+    /// A change the router saved at once.
+    Stored,
+}
+
+impl Left {
+    /// What a change left: the workflow's `unsaved`, unless the router persisted all of
+    /// it at once.
+    pub(crate) const fn of(unsaved: bool, persists: bool) -> Self {
+        match (persists, unsaved) {
+            (true, _) => Self::Stored,
+            (false, true) => Self::Unsaved,
+            (false, false) => Self::Nothing,
+        }
+    }
+}
+
 /// The reply of the explorer or a console to one request.
 pub(crate) struct Reply {
     /// Headline, problems, the router's own words, toast and unsaved badge.
@@ -77,8 +100,13 @@ impl Reply {
     }
 
     /// A completed command and the router's answer.
-    pub(crate) fn done(locale: Locale, viewer: Viewer, unsaved: bool) -> Self {
-        let headline = tr(locale, Family::Commands.done(unsaved), None);
+    pub(crate) fn done(locale: Locale, viewer: Viewer, left: Left) -> Self {
+        let (key, unsaved) = match left {
+            Left::Nothing => (Family::Commands.done(false), false),
+            Left::Unsaved => (Family::Commands.done(true), true),
+            Left::Stored => (keys::WEB_EXPLORER_DONE_PERSISTED, false),
+        };
+        let headline = tr(locale, key, None);
         Self {
             viewer: Some(viewer),
             ..Self::of(Outcome::done(headline, unsaved))

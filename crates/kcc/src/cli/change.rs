@@ -16,7 +16,7 @@ use kcc_domain::{
     ChangeOp, RouterCtx,
     configuration::{SafetyMode, SafetyNet},
 };
-use kcc_i18n::keys;
+use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::{
     RciError,
     capabilities::{RouterInfo, SystemMode},
@@ -78,6 +78,16 @@ impl Gate {
         Self {
             timer: false,
             ..self
+        }
+    }
+
+    /// The headline of the applied change: stored by the router already, or waiting
+    /// for a save.
+    pub(crate) const fn applied(self) -> MessageKey {
+        if self.persists {
+            keys::CLI_APPLIED_PERSISTED
+        } else {
+            keys::CLI_APPLIED
         }
     }
 
@@ -186,10 +196,14 @@ where
     attempt
 }
 
-/// `document` with its `persists_immediately` flag when it is an object.
+/// `document` with its `persists_immediately` flag when it is an object; a change the
+/// router persisted at once is not `unsaved`.
 pub(crate) fn labelled(mut document: Value, persists: bool) -> Value {
     if let Value::Object(object) = &mut document {
         drop(object.insert("persists_immediately".to_owned(), Value::Bool(persists)));
+        if persists && let Some(unsaved) = object.get_mut("unsaved") {
+            *unsaved = Value::Bool(false);
+        }
     }
     document
 }
@@ -205,5 +219,36 @@ pub(crate) const fn safety_mode(info: &RouterInfo) -> SafetyMode {
     match info.system_mode {
         Some(SystemMode::Router) => SafetyMode::Router,
         Some(_) | None => SafetyMode::ScheduledReboot,
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use kcc_app::permissions::Permission;
+    use kcc_catalog::Risk;
+    use kcc_i18n::keys;
+    use serde_json::Value;
+
+    use super::{Gate, applied, labelled};
+
+    #[test]
+    fn a_persisted_change_is_neither_unsaved_nor_headlined_so() {
+        let gate = Gate::new(Risk::Write, Permission::RawRci, true);
+        for (persists, unsaved, headline) in [
+            (true, false, keys::CLI_APPLIED_PERSISTED),
+            (false, true, keys::CLI_APPLIED),
+        ] {
+            let document = labelled(applied(true), persists);
+            assert_eq!(
+                document.get("unsaved"),
+                Some(&Value::Bool(unsaved)),
+                "{document}"
+            );
+            assert_eq!(gate.persisting(persists).applied(), headline);
+        }
     }
 }

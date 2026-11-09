@@ -8,7 +8,7 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeRequest},
 };
 use kcc_domain::{ChangeOp, DomainError, RouterCtx, verification};
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::bundle::MessageKey;
 use serde::Serialize;
 use serde_json::Value;
 
@@ -219,7 +219,7 @@ impl<'ctx> Session<'ctx> {
     {
         let document = run_change(self.ctx, &self.services, &self.target, gate, work).await?;
         let out = self.ctx.out();
-        out.emit(&document, &out.tr(keys::CLI_APPLIED, &[]))
+        out.emit(&document, &out.tr(gate.applied(), &[]))
     }
 
     /// Applies a planned operation's CLI request.

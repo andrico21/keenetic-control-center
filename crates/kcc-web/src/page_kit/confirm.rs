@@ -182,7 +182,13 @@ impl Prompt {
         let mut args = FluentArgs::new();
         args.set("router", self.router.clone());
         args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-        let (title, text) = self.family.dialog(self.risk);
+        let (title, unsaved_text) = self.family.dialog(self.risk);
+        // The router saves such a change itself, so the dialog does not call it unsaved.
+        let text = if self.persists && self.risk == Risk::Write {
+            keys::WEB_EXPLORER_CONFIRM_PERSIST_TEXT
+        } else {
+            unsaved_text
+        };
         let destructive = !matches!(self.risk, Risk::Read | Risk::Write | Risk::Management);
         let dialog = Dialog {
             shell: fragment_shell(locale),

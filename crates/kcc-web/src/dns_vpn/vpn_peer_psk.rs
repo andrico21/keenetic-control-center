@@ -6,9 +6,13 @@
 
 use kcc_app::workflow::CliChangeRequest;
 use kcc_domain::{Result as DomainResult, RouterCtx, vpn_clients};
-use secrecy::SecretString;
+use kcc_i18n::keys;
+use secrecy::{ExposeSecret as _, SecretString};
 
-use super::form::Values;
+use super::{
+    check::is_wireguard_key,
+    form::{Errors, Values},
+};
 use crate::{page_kit::secret::write_only, secret_pages::dialog::take};
 
 /// The form field of the key.
@@ -18,6 +22,16 @@ const FIELD: &str = "psk";
 /// keeps the peer's stored key.
 pub(crate) fn typed(pairs: &mut Vec<(String, String)>) -> Option<SecretString> {
     write_only(take(pairs, FIELD))
+}
+
+/// The field error of a typed key that is not a WireGuard key; the key is never echoed.
+pub(crate) fn problems(psk: Option<&SecretString>) -> Errors {
+    match psk {
+        Some(key) if !is_wireguard_key(key.expose_secret()) => {
+            vec![(FIELD, keys::WEB_VPN_ERROR_PSK)]
+        }
+        Some(_) | None => Vec::new(),
+    }
 }
 
 /// A preshared key for one peer of one connection.

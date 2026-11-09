@@ -1,12 +1,15 @@
-//! Commands the router persists immediately carry a label before they run: in the
-//! explorer preview, the console checks and the confirmation dialog. Other commands
-//! carry none.
+//! Commands the router persists immediately: labelled, and never called unsaved.
+//!
+//! The label shows before they run: in the explorer preview, the console checks and the
+//! confirmation dialog. Other commands carry none. Once such a command runs, nothing
+//! calls it unsaved.
 
-use kcc_i18n::keys;
+use fluent_bundle::FluentArgs;
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use crate::{
-    en, form,
-    support::{Fixture, TestResult, text},
+    en, form, html,
+    support::{Fixture, ROUTER, TestResult, text},
 };
 
 /// Every pre-execution surface of the explorer and both consoles, for `system country`
@@ -90,5 +93,59 @@ async fn system_country_is_labelled_before_it_runs_and_others_are_not() -> TestR
         before,
         "previews, checks and unconfirmed sends change nothing"
     );
+    Ok(())
+}
+
+/// Once `system country` runs, nothing calls it unsaved: the confirmation asks without
+/// the unsaved sentence, and the result says the router stored it with no unsaved badge.
+#[tokio::test]
+async fn system_country_is_never_called_unsaved() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let browser = fixture.login("admin").await?;
+    let mut args = FluentArgs::new();
+    args.set("router", ROUTER);
+    let localized = |key| html(&tr(Locale::En, key, Some(&args)));
+    let unsaved_ask = localized(keys::WEB_EXPLORER_CONFIRM_WRITE_TEXT);
+    let stored_ask = localized(keys::WEB_EXPLORER_CONFIRM_PERSIST_TEXT);
+    let cases = [
+        (
+            "/ui/r/home/explorer/execute",
+            vec![("path", "system country"), ("a.country", "DE")],
+        ),
+        (
+            "/ui/r/home/console/cli/send",
+            vec![("line", "system country AT")],
+        ),
+        (
+            "/ui/r/home/console/rci/send",
+            vec![
+                ("method", "POST"),
+                ("path", "system country"),
+                ("body", r#"{"country":"CH"}"#),
+            ],
+        ),
+    ];
+    for (route, mut fields) in cases {
+        let asked = text(fixture.post(route, &browser, &form(&fields)).await?).await?;
+        assert!(asked.contains(&stored_ask), "{route}: asks: {asked}");
+        assert!(
+            !asked.contains(&unsaved_ask),
+            "{route}: not unsaved: {asked}"
+        );
+        fields.push(("confirm", "yes"));
+        let ran = text(fixture.post(route, &browser, &form(&fields)).await?).await?;
+        assert!(
+            ran.contains(&en(keys::WEB_EXPLORER_DONE_PERSISTED)),
+            "{route}: stored: {ran}"
+        );
+        assert!(
+            !ran.contains(&en(keys::WEB_EXPLORER_DONE_UNSAVED)),
+            "{route}: not unsaved: {ran}"
+        );
+        assert!(
+            !ran.contains("id=\"unsaved-badge\""),
+            "{route}: no badge: {ran}"
+        );
+    }
     Ok(())
 }

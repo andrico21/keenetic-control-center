@@ -126,7 +126,7 @@ pub fn authorize_routers(
 }
 
 /// Stable errors exposed by the MCP adapter.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum McpFailure {
     /// Tool arguments failed boundary validation.
@@ -141,8 +141,13 @@ pub enum McpFailure {
     RouterUnreachable,
     /// The router rejected an otherwise valid request.
     RouterRejected,
-    /// Catalog or read-back validation failed.
+    /// Catalog or argument validation failed; nothing was sent.
     ValidationFailed,
+    /// The router accepted a change but reading it back still shows the old value.
+    VerificationFailed {
+        /// JSON pointer of the field that read back unchanged.
+        field: String,
+    },
     /// Concurrent state made the operation unsafe.
     Conflict,
     /// An internal service failed.
@@ -153,7 +158,7 @@ pub enum McpFailure {
 
 impl McpFailure {
     /// Stable wire code.
-    const fn code(self) -> &'static str {
+    const fn code(&self) -> &'static str {
         match self {
             Self::InvalidArguments => "invalid_arguments",
             Self::Forbidden => "forbidden",
@@ -162,6 +167,7 @@ impl McpFailure {
             Self::RouterUnreachable => "router_unreachable",
             Self::RouterRejected => "router_rejected",
             Self::ValidationFailed => "validation_failed",
+            Self::VerificationFailed { field: _ } => "verification_failed",
             Self::Conflict => "conflict",
             Self::Internal => "internal",
             Self::UnverifiedFirmwareTier => "unverified_firmware_tier",

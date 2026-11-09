@@ -41,7 +41,9 @@ pub fn markdown() -> String {
          the RBAC layer applies to the tool. Destructive operations need `confirm: true` and\n\
          `[mcp] allow_destructive = true`; a refusal says which one is missing with the error\n\
          code `destructive_disabled` or `confirm_required` (also used when a management change\n\
-         lacks `confirm: true`). No tool saves implicitly.\n",
+         lacks `confirm: true`). A write the router accepts but does not apply fails with\n\
+         `verification_failed` and the `field` that read back unchanged; `validation_failed`\n\
+         means the input was refused before anything was sent. No tool saves implicitly.\n",
     );
     for &(toolset, summary) in TOOLSETS {
         let members = all

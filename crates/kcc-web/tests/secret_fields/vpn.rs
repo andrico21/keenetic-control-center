@@ -116,7 +116,7 @@ async fn a_peers_preshared_key_is_set_in_its_dialog_and_kept_when_empty() -> Tes
         dialog.contains("name=\"psk\" type=\"password\" value=\"\" autocomplete=\"new-password\""),
         "write-only: {dialog}"
     );
-    let secret = dummy("peer", 1);
+    let secret = key(29);
     let fields = [
         ("tunnel", TUNNEL),
         ("key", public.as_str()),
@@ -175,4 +175,47 @@ async fn a_peers_preshared_key_is_set_in_its_dialog_and_kept_when_empty() -> Tes
 /// `value` percent-encoded for a query string.
 fn url_encoded(value: &str) -> String {
     byte_serialize(value.as_bytes()).collect()
+}
+
+/// A preshared key of the wrong shape is refused under its field before anything is
+/// sent, and the refusal never shows the typed value.
+#[tokio::test]
+async fn a_peers_preshared_key_of_the_wrong_shape_is_refused_before_sending() -> TestResult {
+    let trace = TraceCapture::install();
+    let fixture = Fixture::new().await?;
+    let operator = fixture.login("operator").await?;
+    let public = key(30);
+    let (imported, _) = import(&fixture, &operator, &conf(&key(31), &public, None)).await?;
+    assert_eq!(imported, StatusCode::OK, "imported without a preshared key");
+    let short = format!("{}=", "A".repeat(42));
+    let marked = format!("{}{}", dummy("peer", 2), "A".repeat(20));
+    let error = en(keys::WEB_VPN_ERROR_PSK, &[]);
+    let mut answers = Vec::new();
+    for typed in [&short, &marked] {
+        let before = fixture.handle(ROUTER)?.request_count();
+        let fields = [
+            ("tunnel", TUNNEL),
+            ("key", public.as_str()),
+            ("psk", typed.as_str()),
+        ];
+        let response = fixture
+            .post("/ui/r/prod-1/vpn/form/peer", &operator, &fields)
+            .await?;
+        let status = response.status();
+        let answer = text(response).await?;
+        assert_eq!(
+            status,
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "refused: {answer}"
+        );
+        assert!(answer.contains(&error), "under its field: {answer}");
+        assert_eq!(
+            fixture.handle(ROUTER)?.request_count(),
+            before,
+            "nothing reached the router"
+        );
+        answers.push(answer);
+    }
+    nowhere(&marked, &answers, (&fixture, &trace))?;
+    Ok(())
 }
