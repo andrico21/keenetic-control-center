@@ -11,3 +11,5 @@ errors-invalid-input = Неприпустиме значення поля { $fie
 errors-unsupported-firmware = Прошивка { $version } не підтримується.
 errors-timeout = Час очікування операції минув.
 errors-csrf = Термін дії форми минув. Оновіть сторінку й спробуйте ще раз.
+errors-outbound-refused = kcc не підключається до { $address }: адреса не входить до мереж параметра [outbound] allowed_networks. Додайте мережу роутера, наприклад 192.168.1.0/24, до allowed_networks у kcc.toml (або суфікс його імені хоста до allowed_suffixes); запущений kcc serve застосує зміну після перезапуску. Адреси хмарних метаданих заборонені завжди.
+errors-outbound-metadata = kcc ніколи не підключається до { $address }: це адреса хмарних метаданих, її не дозволяє жоден параметр.

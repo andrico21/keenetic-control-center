@@ -110,7 +110,7 @@ impl<'ctx> Session<'ctx> {
     /// Returns the policy refusal or connection failures.
     // cancel-safe: connecting only reads router state.
     pub(crate) async fn open(ctx: &'ctx Ctx, permission: Permission) -> Outcome<Self> {
-        let services = ctx.services()?;
+        let services = ctx.services().await?;
         let target = ctx.target(&services, &[permission]).await?;
         Ok(Self {
             ctx,
@@ -129,7 +129,7 @@ impl<'ctx> Session<'ctx> {
         permission: Permission,
         account: &str,
     ) -> Outcome<Self> {
-        let services = ctx.services()?;
+        let services = ctx.services().await?;
         let id = ctx.router_id(&services)?;
         let profile = services.registry().get(&id)?.profile;
         if account == profile.login {

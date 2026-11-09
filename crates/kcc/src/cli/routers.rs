@@ -17,6 +17,7 @@ use super::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     fleet::identity,
+    outbound,
     secret::{confirm, read_secret},
 };
 
@@ -27,12 +28,12 @@ use super::{
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: adding, editing and removing write local state.
 pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     match command {
         RouterCommand::List => list(ctx, &services),
         RouterCommand::Add {
             id,
-            url,
+            url: address,
             login,
             tags,
             test_device,
@@ -41,9 +42,10 @@ pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
             let role = ctx
                 .principal()
                 .authorize(&[Permission::ManageRouters], &[&id])?;
+            let url = parse_url(&address)?;
+            outbound::check(services.registry(), &url).await?;
             let (password_file, password) = password(ctx, &services, &id)?;
-            let mut profile =
-                ManagedRouterProfile::new(id.clone(), parse_url(&url)?, login, password_file);
+            let mut profile = ManagedRouterProfile::new(id.clone(), url, login, password_file);
             profile.tags = tags;
             profile.test_device = test_device;
             profile.tls = pin_sha256.map_or(RouterTls::Verify, RouterTls::PinSha256);
@@ -161,7 +163,11 @@ async fn test(ctx: &Ctx, services: &Services) -> Outcome {
     let id = ctx.router_id(services)?;
     drop(ctx.principal().authorize(&[Permission::Read], &[&id])?);
     let profile = services.registry().get(&id)?.profile;
-    let info = services.registry().test_connection(&profile).await?;
+    let info = services
+        .registry()
+        .test_connection(&profile)
+        .await
+        .map_err(|error| outbound::explained(error, &profile.url))?;
     let out = ctx.out();
     let (model, firmware) = identity(&info);
     out.emit(

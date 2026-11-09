@@ -200,3 +200,37 @@ async fn background_commands_run_as_jobs_and_stop() -> TestResult {
     );
     Ok(())
 }
+
+/// Background work that changes the router would bypass the change workflow as a job,
+/// so it is refused in the viewer's language before anything is sent.
+#[tokio::test]
+async fn background_changes_are_refused_unsent() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    drop(fixture.get("/ui/r/home/explorer", &admin).await?);
+    let before = fixture.handle().request_count();
+    let response = fixture
+        .post(
+            "/ui/r/home/explorer/execute",
+            &admin,
+            &form(&[
+                ("path", "ussd send"),
+                ("a.interface", "UsbQmi0"),
+                ("a.request", "*100#"),
+                ("confirm", "yes"),
+            ]),
+        )
+        .await?;
+    assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    let body = text(response).await?;
+    let mut args = FluentArgs::new();
+    args.set("path", "ussd send");
+    let refusal = tr(
+        Locale::En,
+        keys::WEB_EXPLORER_ISSUE_BACKGROUND_CHANGE,
+        Some(&args),
+    );
+    assert!(body.contains(&html(&refusal)), "localized refusal: {body}");
+    assert_eq!(fixture.handle().request_count(), before, "nothing sent");
+    Ok(())
+}

@@ -3,6 +3,7 @@
 pub mod dedupe;
 pub mod elastic_sink;
 pub mod format;
+mod loki_reply;
 pub mod parser;
 pub mod pipeline;
 mod pipeline_delivery;

@@ -426,6 +426,26 @@ async fn serve_exposes_health_web_and_viewer_filtered_mcp() -> TestResult {
     Ok(())
 }
 
+/// The fixture's router is admitted only by `allow_loopback`; with `allowed_networks`
+/// and `allowed_suffixes` empty, startup warns exactly once.
+#[tokio::test]
+async fn startup_warns_once_when_outbound_names_no_network() -> TestResult {
+    let fixture = Fixture::new(false).await?;
+    let mut process = fixture.spawn()?;
+    process.wait_listening()?;
+
+    let warnings = process
+        .stderr
+        .lines()
+        .filter(|line| line.contains("WARN") && line.contains("allowed_networks"))
+        .count();
+
+    assert_eq!(warnings, 1, "{}", process.stderr);
+    drop(process);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 #[tokio::test]
 async fn disabled_http_mcp_still_serves_web_without_tools() -> TestResult {
     let fixture = Fixture::new(false).await?;

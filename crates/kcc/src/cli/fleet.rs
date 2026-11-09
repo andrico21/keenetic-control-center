@@ -22,7 +22,7 @@ use super::{
 /// Returns the command's failure with its exit code.
 // cancel-safe: reads only.
 pub(crate) async fn info(ctx: &Ctx) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
     let info = target.info();
     let (model, firmware) = identity(info);
@@ -60,7 +60,7 @@ pub(crate) async fn info(ctx: &Ctx) -> Outcome {
 /// Returns the command's failure with its exit code.
 // cancel-safe: reads only.
 pub(crate) async fn show(ctx: &Ctx, words: &[String]) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
     let path = format!("show {}", words.join(" "));
     drop(
@@ -89,7 +89,7 @@ pub(crate) async fn show(ctx: &Ctx, words: &[String]) -> Outcome {
 /// Returns the command's failure with its exit code.
 // cancel-safe: reads only.
 pub(crate) async fn catalog(ctx: &Ctx, command: CatalogCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
     let catalog = &target.router().catalog;
     let out = ctx.out();

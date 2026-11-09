@@ -167,13 +167,28 @@ impl SecretValue {
 impl PartialEq for SecretValue {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.redacted == other.redacted
-            && self.secrets.len() == other.secrets.len()
-            && self.secrets.iter().zip(&other.secrets).all(
+        let Self {
+            redacted,
+            secrets,
+            scrubbers,
+        } = self;
+        let Self {
+            redacted: other_redacted,
+            secrets: other_secrets,
+            scrubbers: other_scrubbers,
+        } = other;
+        redacted == other_redacted
+            && secrets.len() == other_secrets.len()
+            && secrets.iter().zip(other_secrets).all(
                 |((path, value), (other_path, other_value))| {
                     path == other_path && value.expose_secret() == other_value.expose_secret()
                 },
             )
+            && scrubbers.len() == other_scrubbers.len()
+            && scrubbers
+                .iter()
+                .zip(other_scrubbers)
+                .all(|(value, other_value)| value.expose_secret() == other_value.expose_secret())
     }
 }
 

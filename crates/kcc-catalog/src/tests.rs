@@ -165,12 +165,6 @@ fn enforces_methods_background_lifecycle_and_risk() {
         catalog.risk("system configuration factory-reset"),
         Some(Risk::Destructive)
     );
-    catalog.learn_background("system");
-    drop(
-        catalog
-            .validate("system", HttpMethod::Get, &json!({}))
-            .expect("runtime-learned background command accepts polling"),
-    );
 }
 
 #[test]

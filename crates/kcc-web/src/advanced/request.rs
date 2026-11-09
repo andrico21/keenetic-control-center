@@ -1,7 +1,8 @@
 //! How the explorer turns a submitted form into one validated request.
 //!
 //! A read travels as one root object, a change as a one-item batch, and a background
-//! command to its own resource.
+//! command that only reads to its own resource; background work that changes the router
+//! is refused.
 
 use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest, ValidationIssue};
 use serde_json::{Map, Value};
@@ -61,6 +62,11 @@ pub(crate) fn build(
         .validate(path, HttpMethod::Post, &body)
         .map_err(from_issues)?;
     let delivery = if catalog.is_background(path) {
+        if !reads_only(path, validated.risk) {
+            return Err(vec![Problem::BackgroundChange {
+                path: path.to_owned(),
+            }]);
+        }
         Delivery::Background
     } else {
         drop(
@@ -125,6 +131,19 @@ impl Request {
         };
         ("POST", endpoint, payload)
     }
+}
+
+/// Whether background work at `path` only reads.
+///
+/// The catalog rates it `Read`, or a curated domain operation runs the same command as a
+/// read (the network diagnostics, the component list and the system log). A job bypasses
+/// the change workflow, so any other background command is refused before it is sent.
+fn reads_only(path: &str, risk: Risk) -> bool {
+    risk == Risk::Read
+        || kcc_domain::registry()
+            .iter()
+            .flat_map(|domain| domain.read_ops.iter().chain(domain.write_ops))
+            .any(|operation| operation.catalog_path == path && operation.risk == Risk::Read)
 }
 
 /// The request body of a submitted form.

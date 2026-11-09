@@ -111,10 +111,17 @@ impl KccMcp {
             .map_err(map_workflow)
     }
 
-    /// Refuses a destructive operation without confirmation and the server-wide switch.
+    /// Refuses a destructive operation while the server-wide switch is off, then one
+    /// without confirmation, each with its own reason code.
     pub(crate) fn require_destructive(&self, risk: Risk, confirm: bool) -> Result<(), McpFailure> {
-        if risk == Risk::Destructive && (!confirm || !self.config.allow_destructive) {
-            return Err(McpFailure::Forbidden);
+        if risk != Risk::Destructive {
+            return Ok(());
+        }
+        if !self.config.allow_destructive {
+            return Err(McpFailure::DestructiveDisabled);
+        }
+        if !confirm {
+            return Err(McpFailure::ConfirmRequired);
         }
         Ok(())
     }

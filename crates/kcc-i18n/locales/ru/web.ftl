@@ -470,6 +470,7 @@ web-explorer-issue-root = Корневой адрес принимает POST с
 web-explorer-issue-batch = В пакете должно быть от 1 до { $count } объектов.
 web-explorer-issue-segment = { $path } нельзя указать в URL. Отправьте запрос методом POST на корневой адрес.
 web-explorer-issue-length = Запрос пустой или слишком длинный.
+web-explorer-issue-background-change = { $path } выполняется в фоне и изменяет роутер. В фоне запускаются только команды чтения, поэтому ничего не отправлено.
 web-explorer-landing-empty = Нет доступных роутеров.
 web-explorer-router = Роутер
 web-explorer-tools = Инструменты

@@ -30,7 +30,7 @@ use super::{
 // NOT cancel-safe: changes write local state.
 pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
     ctx.principal().require(Permission::ManageUsers)?;
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let accounts = ctx.accounts()?;
     let out = ctx.out();
     match command {
@@ -118,7 +118,7 @@ pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the password change writes local state.
 async fn passwd(ctx: &Ctx, username: &str, current_password_file: Option<&Path>) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let accounts = ctx.accounts()?;
     let out = ctx.out();
     let new = read_secret(
@@ -177,7 +177,7 @@ async fn passwd(ctx: &Ctx, username: &str, current_password_file: Option<&Path>)
 pub(crate) async fn admin(ctx: &Ctx, command: AdminCommand) -> Outcome {
     let AdminCommand::Init { username } = command;
     ctx.principal().require(Permission::ManageUsers)?;
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let accounts = ctx.accounts()?;
     if accounts.has_admin()? {
         return Err(Failure::message(

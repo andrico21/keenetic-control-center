@@ -4,9 +4,6 @@ mod data;
 mod query;
 mod schema;
 
-use alloc::{collections::BTreeSet, sync::Arc};
-use std::sync::{PoisonError, RwLock};
-
 use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
 use secrecy::SecretString;
 
@@ -28,8 +25,6 @@ pub struct Catalog {
     data: &'static CatalogData,
     /// Hardware-model selection applied to the shared catalog data.
     model_match: ModelMatch,
-    /// Command paths observed as background work at runtime.
-    learned_background: Arc<RwLock<BTreeSet<String>>>,
 }
 
 impl Catalog {
@@ -62,11 +57,7 @@ impl Catalog {
             .map_or(ModelMatch::Union, |model| {
                 ModelMatch::Exact(model.to_owned())
             });
-        Ok(Self {
-            data,
-            model_match,
-            learned_background: Arc::new(RwLock::new(BTreeSet::new())),
-        })
+        Ok(Self { data, model_match })
     }
 
     /// Returns the selected generated firmware line.
@@ -103,26 +94,12 @@ impl Catalog {
             .filter(|command| self.lookup(&command.path).is_some())
     }
 
-    /// Records that a router response for `path` carried `continued: true`.
-    #[inline]
-    pub fn learn_background(&self, path: &str) {
-        let mut learned = self
-            .learned_background
-            .write()
-            .unwrap_or_else(PoisonError::into_inner);
-        let _inserted = learned.insert(path.to_owned());
-    }
-
-    /// Returns whether a command is overlay-defined or runtime-learned as background work.
+    /// Returns whether a command visible in this view is marked as background work by
+    /// the catalog overlay.
     #[inline]
     #[must_use]
     pub fn is_background(&self, path: &str) -> bool {
-        BACKGROUND_PATHS.contains(&path)
-            || self
-                .learned_background
-                .read()
-                .unwrap_or_else(PoisonError::into_inner)
-                .contains(path)
+        BACKGROUND_PATHS.contains(&path) && self.lookup(path).is_some()
     }
 
     /// Classifies a visible command's operational risk.

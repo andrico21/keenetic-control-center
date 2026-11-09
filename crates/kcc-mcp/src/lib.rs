@@ -133,6 +133,10 @@ pub enum McpFailure {
     InvalidArguments,
     /// Application permission or router scope denied the operation.
     Forbidden,
+    /// The operation needs `confirm: true`, which the call did not set.
+    ConfirmRequired,
+    /// Destructive operations are off: `[mcp] allow_destructive` is `false`.
+    DestructiveDisabled,
     /// The router could not be reached.
     RouterUnreachable,
     /// The router rejected an otherwise valid request.
@@ -153,6 +157,8 @@ impl McpFailure {
         match self {
             Self::InvalidArguments => "invalid_arguments",
             Self::Forbidden => "forbidden",
+            Self::ConfirmRequired => "confirm_required",
+            Self::DestructiveDisabled => "destructive_disabled",
             Self::RouterUnreachable => "router_unreachable",
             Self::RouterRejected => "router_rejected",
             Self::ValidationFailed => "validation_failed",

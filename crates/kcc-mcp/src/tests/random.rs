@@ -37,6 +37,8 @@ fn assert_tool_result(result: Result<Value, McpFailure>) -> TestCaseResult {
             error,
             McpFailure::InvalidArguments
                 | McpFailure::Forbidden
+                | McpFailure::ConfirmRequired
+                | McpFailure::DestructiveDisabled
                 | McpFailure::RouterUnreachable
                 | McpFailure::RouterRejected
                 | McpFailure::ValidationFailed

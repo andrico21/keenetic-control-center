@@ -462,6 +462,7 @@ web-explorer-issue-root = Der Wurzel-Endpunkt nimmt POST mit einem Objekt an ode
 web-explorer-issue-batch = Ein Stapel enthält 1 bis { $count } Objekte.
 web-explorer-issue-segment = { $path } kann nicht Teil einer URL sein. Senden Sie es mit POST an den Wurzel-Endpunkt.
 web-explorer-issue-length = Die Anfrage ist leer oder zu lang.
+web-explorer-issue-background-change = { $path } läuft im Hintergrund und ändert den Router. Im Hintergrund laufen nur lesende Befehle, daher wurde nichts gesendet.
 web-explorer-landing-empty = Keine Router zum Öffnen.
 web-explorer-router = Router
 web-explorer-tools = Werkzeuge

@@ -56,6 +56,28 @@ mod tests {
         Ok(())
     }
 
+    /// Equality covers the line and the template flag as well as the validated request.
+    #[test]
+    fn equality_compares_every_field() -> Result<(), Box<dyn Error>> {
+        let catalog =
+            Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, Some("KN-1811"))?;
+        let request = catalog
+            .validate_secret(
+                "crypto ike key",
+                "psk",
+                SecretString::from("dummy credential"),
+            )
+            .map_err(|_issues| "secret fixture rejected")?;
+        let line = "crypto ike key office {/psk} any";
+        let template = ValidatedCli::from_template(request.clone(), line)?;
+        let literal = ValidatedCli::new(line.to_owned(), request.clone());
+        let other = ValidatedCli::new("crypto ike key branch {/psk} any".to_owned(), request);
+        assert_ne!(template, literal, "the template flag makes a difference");
+        assert_ne!(literal, other, "the line makes a difference");
+        assert_eq!(literal, literal.clone());
+        Ok(())
+    }
+
     /// A valid secret body cannot authorize a different command, slot, or extra argument.
     #[test]
     fn secret_templates_reject_wrong_positions_and_unknown_tokens() -> Result<(), Box<dyn Error>> {

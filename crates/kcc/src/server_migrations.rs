@@ -1,4 +1,4 @@
-//! Startup audit events for migrated router credentials.
+//! Audit events for router credentials migrated at startup or on first CLI use.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -7,7 +7,8 @@ use kcc_app::{
     credentials::MigrationState,
 };
 
-/// Appends one audit event for each credential migrated during startup.
+/// Appends one audit event, naming only the router id, for each credential migrated
+/// when `origin` (`startup` for `kcc serve`, `cli` for a CLI run) opened the state.
 ///
 /// # Errors
 /// Returns an audit writer error when an event cannot be appended.
@@ -15,6 +16,7 @@ use kcc_app::{
 pub(super) async fn append_credential_events(
     audit: &AuditLog,
     migrations: Vec<(String, MigrationState)>,
+    origin: &str,
 ) -> Result<(), AuditError> {
     for (router, migration) in migrations {
         if !matches!(migration, MigrationState::Current) {
@@ -27,7 +29,7 @@ pub(super) async fn append_credential_events(
                 "router.credential_migrated".to_owned(),
             )
             .with_router(router)
-            .with_result("success".to_owned(), format!("startup-{timestamp}"));
+            .with_result("success".to_owned(), format!("{origin}-{timestamp}"));
             drop(audit.append(event).await?);
         }
     }

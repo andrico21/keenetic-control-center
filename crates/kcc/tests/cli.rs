@@ -14,12 +14,18 @@
 mod admin;
 #[path = "cli/basics.rs"]
 mod basics;
+#[path = "cli/failures.rs"]
+mod failures;
 #[path = "cli/health.rs"]
 mod health;
 #[path = "cli/migrate.rs"]
 mod migrate;
+#[path = "cli/outbound.rs"]
+mod outbound;
 #[path = "cli/persists.rs"]
 mod persists;
+#[path = "cli/pipes.rs"]
+mod pipes;
 #[path = "cli/policy.rs"]
 mod policy;
 #[path = "cli/router_credentials.rs"]

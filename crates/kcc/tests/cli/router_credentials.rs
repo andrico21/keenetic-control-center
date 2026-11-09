@@ -3,6 +3,7 @@
 use core::net::SocketAddr;
 use std::{fs, path::Path};
 
+use kcc_app::audit::read_entries;
 use kcc_testkit::{DEFAULT_LOGIN, FakeRouter, model::Profile};
 
 use super::support::{Env, TestResult};
@@ -63,6 +64,33 @@ fn first_cli_use_migrates_legacy_plaintext_and_wrong_key_preserves_it() -> TestR
     let failed = env.kcc(&["router", "list"])?;
     assert_ne!(failed.code, 0_i32, "conflicting migration must fail");
     assert_eq!(fs::read_to_string(&legacy)?, "different-password");
+    Ok(())
+}
+
+#[test]
+fn first_cli_use_audits_each_migrated_credential_once_by_router_id() -> TestResult {
+    let env = Env::new("")?;
+    let credentials = env.state_dir().join("router-credentials");
+    fs::create_dir_all(&credentials)?;
+    let secret = ["legacy", "-audit", "-fixture"].concat();
+    fs::write(credentials.join("home.password"), &secret)?;
+
+    let first = env.kcc(&["router", "list"])?;
+    let second = env.kcc(&["router", "list"])?;
+
+    assert_eq!(first.code, 0_i32, "{first:?}");
+    assert_eq!(second.code, 0_i32, "{second:?}");
+    let entries = read_entries(&env.state_dir())?;
+    let migrated = entries
+        .iter()
+        .filter(|entry| entry.action == "router.credential_migrated")
+        .collect::<Vec<_>>();
+    assert_eq!(migrated.len(), 1, "{entries:?}");
+    assert_eq!(
+        migrated.first().and_then(|entry| entry.router.as_deref()),
+        Some("home")
+    );
+    assert_state_has_no_secret(&env.state_dir(), secret.as_bytes())?;
     Ok(())
 }
 

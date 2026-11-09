@@ -28,6 +28,7 @@ mod tests {
         http::{Method, Request, StatusCode, header},
         response::Response,
     };
+    use fluent_bundle::FluentArgs;
     use futures_util::StreamExt as _;
     use kcc_app::{
         accounts::{AccountStore, Clock, NewAccount},
@@ -502,6 +503,29 @@ mod tests {
             "no profile stored"
         );
         let tested = text(fixture.post("/ui/routers/test", &browser, &form).await?).await?;
+        assert!(
+            tested.contains(&refusal),
+            "connection test refusal: {tested}"
+        );
+        Ok(())
+    }
+
+    /// With the default empty `[outbound] allowed_networks`, adding or testing a LAN router
+    /// names the setting to change and the router's address, and stores nothing.
+    #[tokio::test]
+    async fn default_policy_refusal_names_the_setting_and_the_address() -> TestResult {
+        let fixture = Fixture::new(&[]).await?;
+        let browser = fixture.login("russian").await?;
+        let form = "id=office&url=http%3A%2F%2F192.168.1.1&login=admin&password=office-password-1&tls=verify&tags=";
+        let mut args = FluentArgs::new();
+        args.set("address", "192.168.1.1");
+        let refusal = tr(Locale::Ru, keys::ERRORS_OUTBOUND_REFUSED, Some(&args));
+        let created = fixture.post("/ui/routers/new", &browser, form).await?;
+        assert_eq!(created.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let page = text(created).await?;
+        assert!(page.contains(&refusal), "localized refusal: {page}");
+        assert!(fixture.registry.get("office").is_err(), "no profile stored");
+        let tested = text(fixture.post("/ui/routers/test", &browser, form).await?).await?;
         assert!(
             tested.contains(&refusal),
             "connection test refusal: {tested}"

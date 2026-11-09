@@ -240,7 +240,7 @@ impl OutboundPolicy {
 
     /// Whether `address` is admitted for `host`.
     fn allows(&self, host: &str, address: IpAddr) -> bool {
-        if METADATA_ADDRESSES.contains(&address) {
+        if is_metadata_address(address) {
             return false;
         }
         if address.is_loopback() {
@@ -328,6 +328,13 @@ impl ServerCertVerifier for SpkiVerifier {
             .signature_verification_algorithms
             .supported_schemes()
     }
+}
+
+/// Whether `address` is a cloud metadata address, which no configuration admits.
+#[inline]
+#[must_use]
+pub fn is_metadata_address(address: IpAddr) -> bool {
+    METADATA_ADDRESSES.contains(&address)
 }
 
 /// Constructs a known-valid default network.

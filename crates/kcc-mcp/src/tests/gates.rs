@@ -158,9 +158,25 @@ async fn invalid_and_destructive_requests_never_reach_router() -> Result<(), Box
         fixture
             .server()
             .require_destructive(kcc_catalog::Risk::Destructive, true),
-        Err(McpFailure::Forbidden)
+        Err(McpFailure::DestructiveDisabled)
     );
     fixture.shutdown().await?;
+    let mut enabled = McpConfig::default();
+    enabled.allow_destructive = true;
+    let switched_on = Fixture::spawn(enabled, PrivacyConfig::default()).await?;
+    assert_eq!(
+        switched_on
+            .server()
+            .require_destructive(kcc_catalog::Risk::Destructive, false),
+        Err(McpFailure::ConfirmRequired)
+    );
+    assert_eq!(
+        switched_on
+            .server()
+            .require_destructive(kcc_catalog::Risk::Destructive, true),
+        Ok(())
+    );
+    switched_on.shutdown().await?;
     Ok(())
 }
 

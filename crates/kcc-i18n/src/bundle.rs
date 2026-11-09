@@ -286,6 +286,7 @@ mod tests {
             "network",
             "protocol",
             "what",
+            "address",
         ] {
             args.set(name, "x");
         }

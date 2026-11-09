@@ -4,7 +4,6 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::{fmt, net::SocketAddr, time::Duration};
-use std::io::{self, Write as _};
 
 use clap::CommandFactory as _;
 use clap_complete::Shell;
@@ -26,7 +25,7 @@ use super::{
     context::{Globals, load_config},
     exit::{Exit, Failure, Outcome},
     files,
-    output::Out,
+    output::{Out, write_stdout},
 };
 
 /// How long the healthcheck waits for `/healthz`.
@@ -38,10 +37,9 @@ const HEALTH_TIMEOUT: Duration = Duration::from_secs(5);
 ///
 /// Returns stdout failures.
 pub(crate) fn completions(shell: Shell) -> Outcome {
-    let mut stdout = io::stdout().lock();
-    clap_complete::generate(shell, &mut Cli::command(), "kcc", &mut stdout);
-    stdout.flush()?;
-    Ok(())
+    let mut script = Vec::new();
+    clap_complete::generate(shell, &mut Cli::command(), "kcc", &mut script);
+    write_stdout(&script)
 }
 
 /// Writes a self-signed certificate and its key, printing the certificate's SHA-256.

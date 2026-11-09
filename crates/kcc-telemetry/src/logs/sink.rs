@@ -11,7 +11,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use thiserror::Error;
 use tokio::fs;
 
-use super::{format, types::LogRecord};
+use super::{format, loki_reply, types::LogRecord};
 
 /// A configured Loki push client.
 pub struct LokiClient {
@@ -118,13 +118,19 @@ impl LokiClient {
             .map_err(|_error| DeliveryError::Transport)?;
         let status = response.status();
         if status.is_success() {
-            Ok(())
-        } else {
-            Err(DeliveryError::Status {
-                status,
-                retry_after: retry_after(response.headers()),
-            })
+            return Ok(());
         }
+        let delay = retry_after(response.headers());
+        if status == StatusCode::BAD_REQUEST {
+            let reply = loki_reply::read_body(response).await;
+            if let Some(rejected) = loki_reply::rejected_entries(&reply, records.len()) {
+                return Err(DeliveryError::PartiallyAccepted { rejected });
+            }
+        }
+        Err(DeliveryError::Status {
+            status,
+            retry_after: delay,
+        })
     }
 }
 
@@ -257,6 +263,12 @@ pub enum DeliveryError {
         /// Server-requested retry delay, when present as delta seconds.
         retry_after: Option<Duration>,
     },
+    /// Loki stored part of the push and refused `rejected` entries for good.
+    #[error("log sink refused {rejected} entries of the push")]
+    PartiallyAccepted {
+        /// Number of refused entries.
+        rejected: usize,
+    },
 }
 
 impl DeliveryError {
@@ -276,7 +288,8 @@ impl DeliveryError {
             | Self::Client
             | Self::Payload
             | Self::Compress
-            | Self::Transport => false,
+            | Self::Transport
+            | Self::PartiallyAccepted { rejected: _ } => false,
         }
     }
 
@@ -296,7 +309,8 @@ impl DeliveryError {
             | Self::Client
             | Self::Payload
             | Self::Compress
-            | Self::Transport => None,
+            | Self::Transport
+            | Self::PartiallyAccepted { rejected: _ } => None,
         }
     }
 }

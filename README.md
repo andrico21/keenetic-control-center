@@ -70,6 +70,13 @@ and sets `no_new_privs`. Run it as an ordinary user.
    allowed_networks = ["192.168.1.0/24"]
    ```
 
+   Both `allowed_networks` and `allowed_suffixes` are empty by default, so a fresh
+   install refuses every router until you name its network. `kcc router add`,
+   `kcc router test`, the Web UI's router form and every command on a router from
+   `[[routers]]` then say which setting to change and show the router's address, and
+   `kcc serve` logs one warning at startup when routers are configured but both lists
+   are empty.
+
 2. Create the first administrator and add a router. The examples in this repository
    use `$ROUTER_URL` for the router address (for example `http://192.168.1.1`) and a
    file `router.pw` holding the router's admin password:

@@ -462,6 +462,7 @@ web-explorer-issue-root = The root endpoint takes POST with an object, or a list
 web-explorer-issue-batch = A batch holds 1 to { $count } objects.
 web-explorer-issue-segment = { $path } cannot be part of a URL. Send it with POST to the root endpoint.
 web-explorer-issue-length = The request is empty or too long.
+web-explorer-issue-background-change = { $path } runs in the background and changes the router. The explorer runs only reading commands in the background, so nothing was sent.
 web-explorer-landing-empty = No routers to open.
 web-explorer-router = Router
 web-explorer-tools = Tools

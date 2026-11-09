@@ -3,7 +3,9 @@
 //! Every change runs in a leased change set (permission and scope, one pre-change backup
 //! per window, the conflict check, read-back, audit with `actor=cli:<user>`). A
 //! management change also runs inside the router's fail-safe timer, armed before and
-//! disarmed after it while the router still answers.
+//! disarmed after it while the router still answers. An attempt that fails after the
+//! confirmation leaves a `cli.change` audit entry with outcome `failed` and the error
+//! kind.
 
 use kcc_app::{
     permissions::Permission,
@@ -135,36 +137,53 @@ where
         target.id(),
         gate.ask_on_write,
     )?;
-    let mut changes = services
-        .workflow()
-        .begin(target.id(), ctx.principal().actor(), &role, None, false)
-        .await?;
-    if gate.risk != Risk::Management || !gate.timer {
-        return work(&mut changes, target.router())
+    let attempt = async move {
+        let mut changes = services
+            .workflow()
+            .begin(target.id(), ctx.principal().actor(), &role, None, false)
+            .await?;
+        if gate.risk != Risk::Management || !gate.timer {
+            return work(&mut changes, target.router())
+                .await
+                .map(|document| labelled(document, gate.persists));
+        }
+        let mode = safety_mode(target.info());
+        drop(
+            SafetyNet::arm(
+                &mut changes,
+                target.router(),
+                mode,
+                MANAGEMENT_TIMER.as_secs(),
+            )
+            .await?,
+        );
+        let applied = work(&mut changes, target.router())
             .await
             .map(|document| labelled(document, gate.persists));
-    }
-    let mode = safety_mode(target.info());
-    drop(
-        SafetyNet::arm(
-            &mut changes,
-            target.router(),
-            mode,
-            MANAGEMENT_TIMER.as_secs(),
-        )
-        .await?,
-    );
-    let applied = work(&mut changes, target.router())
-        .await
-        .map(|document| labelled(document, gate.persists));
-    match SafetyNet::disarm(&mut changes, target.router(), mode).await {
-        Ok(_disarmed) => applied,
-        Err(WorkflowError::Rci(RciError::Transport | RciError::Timeout)) => {
-            ctx.out().note(&ctx.out().tr(keys::CLI_FAILSAFE_LEFT, &[]));
-            applied
+        match SafetyNet::disarm(&mut changes, target.router(), mode).await {
+            Ok(_disarmed) => applied,
+            Err(WorkflowError::Rci(RciError::Transport | RciError::Timeout)) => {
+                ctx.out().note(&ctx.out().tr(keys::CLI_FAILSAFE_LEFT, &[]));
+                applied
+            }
+            Err(error) => {
+                drop(applied?);
+                Err(Failure::from(error))
+            }
         }
-        Err(error) => applied.and_then(|_value| Err(Failure::from(error))),
     }
+    .await;
+    if let Err(failure) = &attempt {
+        ctx.audit(
+            services,
+            "cli.change",
+            Some(target.id()),
+            json!({ "error": failure.exit().name() }),
+            "failed",
+        )
+        .await;
+    }
+    attempt
 }
 
 /// `document` with its `persists_immediately` flag when it is an object.

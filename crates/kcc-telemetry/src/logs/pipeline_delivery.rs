@@ -211,7 +211,14 @@ async fn deliver_loki(worker: &Worker, client: &LokiClient, batch: &[LogRecord])
                 worker.clock.wait(delay(attempt, error.retry_after())).await;
                 attempt = attempt.saturating_add(1);
             }
-            Err(_) => {
+            Err(DeliveryError::PartiallyAccepted { rejected }) => {
+                tracing::warn!(sink = %worker.name, rejected, sent = batch.len(), "log sink refused part of a push");
+                forwarded(worker, batch.len().saturating_sub(rejected));
+                dropped(worker, rejected);
+                return;
+            }
+            Err(error) => {
+                tracing::warn!(sink = %worker.name, %error, sent = batch.len(), "log sink refused a push");
                 dropped(worker, batch.len());
                 return;
             }

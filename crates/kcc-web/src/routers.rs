@@ -24,7 +24,7 @@ use crate::{
         respond::{open, unprocessable},
     },
     router_access::{ProfileAction, audit},
-    router_check::allowed,
+    router_check::{allowed, policy_refusal},
     router_form::{Draft, FieldErrors, FormPage, RouterForm, is_slug},
 };
 
@@ -76,7 +76,7 @@ pub(crate) async fn create(
     if let Ok(fields) = &parsed
         && !allowed(fleet, fields.url()).await
     {
-        errors.set_url(tr(locale, keys::WEB_ROUTER_ERROR_POLICY, None));
+        errors.set_url(policy_refusal(locale, fields.url()));
     }
     let (Ok(fields), Some(secret), false) = (parsed, password, errors.any()) else {
         return unprocessable(&FormPage::add(shell, draft, errors));
@@ -172,7 +172,7 @@ pub(crate) async fn update(
     if let Ok(fields) = &parsed
         && !allowed(fleet, fields.url()).await
     {
-        errors.set_url(tr(locale, keys::WEB_ROUTER_ERROR_POLICY, None));
+        errors.set_url(policy_refusal(locale, fields.url()));
     }
     let (Ok(fields), false) = (parsed, errors.any()) else {
         return unprocessable(&FormPage::edit(shell, draft, errors));

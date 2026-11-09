@@ -49,6 +49,7 @@ mod issues;
 mod migrate;
 mod migrate_apply;
 mod migrate_plan;
+mod outbound;
 mod output;
 mod persist;
 pub mod preset;

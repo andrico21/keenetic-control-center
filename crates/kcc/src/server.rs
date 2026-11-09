@@ -261,13 +261,17 @@ impl Services {
             profiles = profiles.with_rci_observers(self_metrics.rci_observers());
         }
         let registry = Arc::new(profiles);
+        crate::server_outbound::warn_closed_policy(
+            &config.outbound,
+            registry.list().map_err(error)?.len(),
+        );
         let poller = Poller::new(Arc::clone(&registry));
         let audit = AuditLog::spawn_with_policy(
             &state,
             kcc_app::audit::AuditPolicy::default().with_retention(config.audit.retention),
         )
         .map_err(error)?;
-        crate::server_migrations::append_credential_events(&audit, migrations)
+        crate::server_migrations::append_credential_events(&audit, migrations, "startup")
             .await
             .map_err(error)?;
         let roles = RoleSource::new(load_roles(&state).map_err(error)?);

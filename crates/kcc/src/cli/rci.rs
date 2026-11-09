@@ -35,7 +35,7 @@ const MAX_BATCH: usize = 50;
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: writes may apply before cancellation.
 pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     match command {
         RciCommand::Get { path, data } => {
             let target = ctx

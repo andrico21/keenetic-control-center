@@ -7,9 +7,10 @@ use proptest::{
     prelude::proptest,
     test_runner::{Config, RngSeed, TestCaseError},
 };
+use secrecy::SecretString;
 use serde_json::{Value, json};
 
-use crate::{Catalog, HttpMethod, ValidationIssue};
+use crate::{Catalog, HttpMethod, SecretValue, ValidationIssue};
 
 proptest! {
     #![proptest_config(Config { cases: 256, rng_seed: RngSeed::Fixed(17), ..Config::default() })]
@@ -108,4 +109,24 @@ fn obfuscation_keys_are_redacted() -> Result<(), Box<dyn Error>> {
         );
     }
     Ok(())
+}
+
+/// Equality covers the retained scrubbers: two values that remove different text from
+/// router output are different values.
+#[test]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test assertions define the ownership contract"
+)]
+fn equality_compares_retained_scrubbers() {
+    let plain = SecretValue::new("system description", json!({"description": "lab"}));
+    let mut scrubbed = plain.clone();
+    scrubbed.retain_scrubber(SecretString::from("scrubber-fixture"));
+    let mut same = plain.clone();
+    same.retain_scrubber(SecretString::from("scrubber-fixture"));
+    let mut other = plain.clone();
+    other.retain_scrubber(SecretString::from("other-fixture"));
+    assert_ne!(plain, scrubbed, "a scrubber makes a difference");
+    assert_ne!(scrubbed, other, "the scrubber text makes a difference");
+    assert_eq!(scrubbed, same);
 }

@@ -11,3 +11,5 @@ errors-invalid-input = Ungültiger Wert für { $field }.
 errors-unsupported-firmware = Firmware { $version } wird nicht unterstützt.
 errors-timeout = Zeitüberschreitung bei der Operation.
 errors-csrf = Das Formular ist abgelaufen. Laden Sie die Seite neu und versuchen Sie es erneut.
+errors-outbound-refused = kcc verbindet sich nicht mit { $address }: Die Adresse liegt außerhalb der Netze der Einstellung [outbound] allowed_networks. Tragen Sie das Netz des Routers, zum Beispiel 192.168.1.0/24, in allowed_networks in kcc.toml ein (oder das Suffix seines Hostnamens in allowed_suffixes); ein laufendes kcc serve übernimmt die Änderung nach einem Neustart. Cloud-Metadatenadressen sind immer gesperrt.
+errors-outbound-metadata = kcc verbindet sich nie mit { $address }: Das ist eine Cloud-Metadatenadresse, die keine Einstellung zulässt.

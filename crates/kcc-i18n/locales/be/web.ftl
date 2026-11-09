@@ -470,6 +470,7 @@ web-explorer-issue-root = Каранёвы адрас прымае POST з аб'
 web-explorer-issue-batch = У пакеце павінна быць ад 1 да { $count } аб'ектаў.
 web-explorer-issue-segment = { $path } нельга ўказаць у URL. Адпраўце запыт метадам POST на каранёвы адрас.
 web-explorer-issue-length = Запыт пусты або занадта доўгі.
+web-explorer-issue-background-change = { $path } выконваецца ў фоне і змяняе роўтар. У фоне запускаюцца толькі каманды чытання, таму нічога не адпраўлена.
 web-explorer-landing-empty = Няма даступных роўтараў.
 web-explorer-router = Роўтар
 web-explorer-tools = Інструменты

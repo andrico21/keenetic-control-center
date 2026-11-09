@@ -49,7 +49,7 @@ pub(crate) async fn run(ctx: &Ctx, args: CopyCommand) -> Outcome {
         ctx.principal()
             .authorize(&[Permission::Read, Permission::Migrate], &[&args.to])?,
     );
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let (config, source, _role) = Origin::read(ctx, &services, &args.from).await?.into_parts();
     let selected = args.groups.iter().map(String::as_str).collect::<Vec<_>>();
     let selection = SettingsGroupEngine::embedded()

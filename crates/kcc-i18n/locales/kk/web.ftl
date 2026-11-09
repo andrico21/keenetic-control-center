@@ -462,6 +462,7 @@ web-explorer-issue-root = Түбір мекенжайы нысанмен нем�
 web-explorer-issue-batch = Топтамада 1-ден { $count }-ге дейін нысан болады.
 web-explorer-issue-segment = { $path } URL бөлігі бола алмайды. Оны түбір мекенжайына POST әдісімен жіберіңіз.
 web-explorer-issue-length = Сұрау бос немесе тым ұзын.
+web-explorer-issue-background-change = { $path } фонда орындалады және роутерді өзгертеді. Фонда тек оқу командалары іске қосылады, сондықтан ештеңе жіберілмеді.
 web-explorer-landing-empty = Ашуға болатын роутерлер жоқ.
 web-explorer-router = Роутер
 web-explorer-tools = Құралдар

@@ -52,6 +52,11 @@ pub(crate) enum Problem {
     },
     /// The input is empty or longer than allowed.
     Length,
+    /// Background work that changes the router; only reading commands run as jobs.
+    BackgroundChange {
+        /// The refused command path.
+        path: String,
+    },
 }
 
 /// The root RCI object that runs `path` with `body`:
@@ -89,6 +94,10 @@ pub(crate) fn sentence(locale: Locale, problem: &Problem) -> String {
             keys::WEB_EXPLORER_ISSUE_SEGMENT
         }
         Problem::Length => keys::WEB_EXPLORER_ISSUE_LENGTH,
+        Problem::BackgroundChange { path } => {
+            args.set("path", path.clone());
+            keys::WEB_EXPLORER_ISSUE_BACKGROUND_CHANGE
+        }
     };
     tr(locale, key, Some(&args))
 }

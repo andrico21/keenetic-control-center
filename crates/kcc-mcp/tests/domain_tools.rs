@@ -239,7 +239,7 @@ mod tests {
                 false,
             )
             .await?;
-        assert_eq!(reboot.error(), Some("forbidden"));
+        assert_eq!(reboot.error(), Some("confirm_required"));
         let outside = lab
             .call(
                 "kcc_system_read",

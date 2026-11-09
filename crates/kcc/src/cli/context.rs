@@ -30,9 +30,11 @@ use serde_json::Value;
 use super::{
     args::Cli,
     exit::{Exit, Failure, Outcome},
+    outbound,
     output::Out,
     principal::Principal,
 };
+use crate::server_migrations::append_credential_events;
 
 /// Global options shared by every command.
 #[derive(Debug, Clone)]
@@ -165,15 +167,17 @@ impl Ctx {
         &self.principal
     }
 
-    /// Opens the router services; contacts no router.
+    /// Opens the router services; contacts no router. A legacy router credential
+    /// migrated on this first use is audited by router id.
     ///
     /// # Errors
     ///
     /// Returns registry, key or audit failures.
-    pub(crate) fn services(&self) -> Outcome<Services> {
+    // NOT cancel-safe: a migration audit event may be appended after cancellation.
+    pub(crate) async fn services(&self) -> Outcome<Services> {
         let key = MasterKey::load_or_create(&master_key_path()?)?;
         let credentials = Arc::new(CredentialStore::new(self.state.clone(), key.duplicate()));
-        drop(credentials.migrate_all()?);
+        let migrations = credentials.migrate_all()?;
         let registry = Arc::new(
             RouterRegistry::new(
                 self.state.clone(),
@@ -186,6 +190,7 @@ impl Ctx {
             &self.state,
             AuditPolicy::default().with_retention(self.config.audit.retention),
         )?;
+        append_credential_events(&audit, migrations, "cli").await?;
         let backups = Arc::new(BackupStore::new(self.state.clone(), key).with_retention(
             BackupRetention::new(self.config.backups.max_age, self.config.backups.keep_last),
         ));
@@ -278,9 +283,17 @@ impl Ctx {
                 return Err(failure);
             }
         };
-        drop(services.registry.get(&id)?);
-        let client = services.registry.client(&id).await?;
-        let info = services.registry.poll_info(&id).await?;
+        let url = services.registry.get(&id)?.profile.url;
+        let client = services
+            .registry
+            .client(&id)
+            .await
+            .map_err(|error| outbound::explained(error, &url))?;
+        let info = services
+            .registry
+            .poll_info(&id)
+            .await
+            .map_err(|error| outbound::explained(error, &url))?;
         let catalog =
             Catalog::for_router(&info).map_err(|error| Failure::text(Exit::Router, &error))?;
         Ok(Target {

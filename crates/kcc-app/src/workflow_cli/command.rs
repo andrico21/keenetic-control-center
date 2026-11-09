@@ -168,10 +168,15 @@ impl CliCommand {
 impl fmt::Debug for CliCommand {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            line: _,
+            validated,
+            template,
+        } = self;
         f.debug_struct("CliCommand")
             .field("line", &"<redacted>")
-            .field("validated", &self.validated)
-            .field("template", &self.template)
+            .field("validated", validated)
+            .field("template", template)
             .finish()
     }
 }
@@ -179,9 +184,19 @@ impl fmt::Debug for CliCommand {
 impl PartialEq for CliCommand {
     #[inline]
     fn eq(&self, other: &Self) -> bool {
-        self.validated == other.validated
-            && self.template == other.template
-            && self.line.expose_secret() == other.line.expose_secret()
+        let Self {
+            line,
+            validated,
+            template,
+        } = self;
+        let Self {
+            line: other_line,
+            validated: other_validated,
+            template: other_template,
+        } = other;
+        validated == other_validated
+            && template == other_template
+            && line.expose_secret() == other_line.expose_secret()
     }
 }
 

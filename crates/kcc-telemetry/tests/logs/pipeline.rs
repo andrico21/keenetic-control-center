@@ -15,7 +15,12 @@ use kcc_testkit::{
 };
 use prometheus::{Registry, TextEncoder};
 use tempfile::TempDir;
-use tokio::time::advance;
+use tokio::{
+    io::{AsyncReadExt as _, AsyncWriteExt as _},
+    net::TcpListener,
+    task::JoinHandle,
+    time::advance,
+};
 use tracing::{Level, subscriber::set_default};
 use tracing_subscriber::fmt::MakeWriter;
 
@@ -104,6 +109,96 @@ async fn trace_and_debug_never_include_sink_password_or_api_key() -> TestResult 
     assert!(!output.contains("trace-secret-api-key"));
     fake.shutdown().await?;
     Ok(())
+}
+
+#[tokio::test(start_paused = true)]
+async fn loki_partial_refusal_drops_only_the_refused_entries_and_warns_once() -> TestResult {
+    let (url, loki) =
+        loki_answering_400("user 'fake', total ignored: 1 out of 3 for stream: {router=\"lab\"}")
+            .await?;
+    let config = Config::from_toml_str(&format!(
+        "[logs]\nenabled = true\n\n[[logs.sinks]]\nkind = \"loki\"\nurl = \"{url}\"\n"
+    ))?;
+    config.validate()?;
+    let capture = Capture::default();
+    let subscriber = tracing_subscriber::fmt()
+        .with_max_level(Level::WARN)
+        .with_ansi(false)
+        .with_writer(capture.clone())
+        .finish();
+    let _guard = set_default(subscriber);
+    let metrics = SelfMetrics::new("partial-test")?;
+    let registry = Registry::new();
+    metrics.register(&registry)?;
+    let pipeline = LogForwarder::start(&config.logs, metrics).await?;
+    let timestamp = timestamp()?;
+    for (id, message) in [(1, "old"), (2, "fresh"), (3, "fresher")] {
+        pipeline.push(&record(id, timestamp, message));
+    }
+
+    advance(Duration::from_secs(2)).await;
+    pipeline.shutdown().await;
+    loki.await??;
+
+    let exposition = TextEncoder::new().encode_to_string(&registry.gather())?;
+    assert!(
+        exposition.contains("kcc_log_records_forwarded_total{sink=\"loki-0\"} 2"),
+        "{exposition}"
+    );
+    assert!(
+        exposition
+            .contains("kcc_log_records_dropped_total{reason=\"permanent\",sink=\"loki-0\"} 1"),
+        "{exposition}"
+    );
+    assert_eq!(
+        capture.text().matches(" WARN ").count(),
+        1,
+        "{}",
+        capture.text()
+    );
+    Ok(())
+}
+
+/// A one-request Loki that answers HTTP 400 with `body`; returns its URL and task.
+async fn loki_answering_400(
+    body: &'static str,
+) -> Result<(String, JoinHandle<io::Result<()>>), Box<dyn Error>> {
+    let listener = TcpListener::bind("127.0.0.1:0").await?;
+    let url = format!("http://{}", listener.local_addr()?);
+    let task = tokio::spawn(async move {
+        let (mut stream, _peer) = listener.accept().await?;
+        let mut request = Vec::new();
+        let mut chunk = [0_u8; 4096];
+        while !complete(&request) {
+            let read = stream.read(&mut chunk).await?;
+            if read == 0 {
+                break;
+            }
+            request.extend_from_slice(chunk.get(..read).unwrap_or_default());
+        }
+        let answer = format!(
+            "HTTP/1.1 400 Bad Request\r\ncontent-type: text/plain\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        );
+        stream.write_all(answer.as_bytes()).await?;
+        stream.shutdown().await
+    });
+    Ok((url, task))
+}
+
+/// Whether `request` holds its headers and the whole body their content length names.
+fn complete(request: &[u8]) -> bool {
+    let Some(end) = request.windows(4).position(|window| window == b"\r\n\r\n") else {
+        return false;
+    };
+    let head = String::from_utf8_lossy(request.get(..end).unwrap_or_default());
+    let length = head
+        .lines()
+        .filter_map(|line| line.split_once(':'))
+        .find(|(name, _)| name.eq_ignore_ascii_case("content-length"))
+        .and_then(|(_, value)| value.trim().parse::<usize>().ok())
+        .unwrap_or(0);
+    request.len().saturating_sub(end.saturating_add(4)) >= length
 }
 
 fn timestamp() -> Result<chrono::DateTime<FixedOffset>, Box<dyn Error>> {

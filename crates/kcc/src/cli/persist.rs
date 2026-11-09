@@ -28,7 +28,7 @@ use super::{
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: save, commit and rollback may complete before cancellation.
 pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let out = ctx.out();
     match command {
         ConfigCommand::State => {
@@ -108,7 +108,7 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: creating and deleting write local state.
 pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let out = ctx.out();
     let router = ctx.router_id(&services)?;
     match command {
@@ -190,7 +190,7 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: writes the backup.
 async fn backup_create(ctx: &Ctx, reason: &str) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let out = ctx.out();
     let router = ctx.router_id(&services)?;
     let target = ctx.target(&services, &[Permission::Write]).await?;
@@ -225,7 +225,7 @@ async fn backup_create(ctx: &Ctx, reason: &str) -> Outcome {
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: writes the output file.
 async fn backup_get(ctx: &Ctx, name: &str, output: Option<&Path>) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let out = ctx.out();
     let router = ctx.router_id(&services)?;
     let Some(path) = output else {

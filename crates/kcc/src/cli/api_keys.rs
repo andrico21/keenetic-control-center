@@ -25,7 +25,7 @@ use super::{
 // NOT cancel-safe: changes write local state.
 pub(crate) async fn api_key(ctx: &Ctx, command: ApiKeyCommand) -> Outcome {
     ctx.principal().require(Permission::ManageUsers)?;
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let out = ctx.out();
     match command {
         ApiKeyCommand::Create { name, role } => {

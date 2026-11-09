@@ -23,7 +23,7 @@ use crate::cli::{
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: apply and finish change the target under its fail-safe timer.
 pub(crate) async fn run(ctx: &Ctx, command: PresetCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     match command {
         PresetCommand::List => manage::list(ctx, &services),
         PresetCommand::Show { id, reveal } => manage::show(ctx, &services, &id, reveal).await,

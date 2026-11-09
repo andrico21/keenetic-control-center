@@ -1,7 +1,7 @@
 //! The connection test at `/ui/routers/test` and the outbound-policy check of the router
 //! forms.
 
-use core::str::FromStr as _;
+use core::{net::IpAddr, str::FromStr as _};
 use std::path::PathBuf;
 
 use askama::Template;
@@ -11,14 +11,17 @@ use axum::{
     http::StatusCode,
     response::{IntoResponse as _, Response},
 };
+use fluent_bundle::FluentArgs;
 use kcc_app::registry::{ManagedRouterProfile, RegistryError};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
+    locale::Locale,
 };
 use kcc_rci::{
     RciError, RouterUrl, TlsMode,
     capabilities::{AuthSchemeKind, RouterInfo, SupportTier},
+    outbound::is_metadata_address,
     session::HttpTimeouts,
 };
 use url::Url;
@@ -76,7 +79,7 @@ pub(crate) async fn test(
         profile.password_file = existing.profile.password_file;
         fleet.registry().test_connection(&profile).await
     };
-    errors::render(&TestResult::new(shell, &outcome))
+    errors::render(&TestResult::new(shell, &outcome, &profile.url))
 }
 
 /// Whether the outbound policy admits `url`; resolves the host but sends nothing.
@@ -91,6 +94,23 @@ pub(crate) async fn allowed(fleet: &Fleet, url: &Url) -> bool {
         .client_builder(&target, &TlsMode::Verify, HttpTimeouts::default())
         .await
         .is_ok()
+}
+
+/// Why the outbound policy refuses a router at `url`, in `locale`: the
+/// `[outbound] allowed_networks` setting to change and the router's address, or, for a
+/// cloud metadata address, that it is always refused.
+pub(crate) fn policy_refusal(locale: Locale, url: &Url) -> String {
+    let host = url.host_str().unwrap_or_default();
+    let metadata = host
+        .trim_matches(['[', ']'])
+        .parse::<IpAddr>()
+        .is_ok_and(is_metadata_address);
+    if metadata {
+        return tr(locale, keys::WEB_ROUTER_ERROR_POLICY, None);
+    }
+    let mut args = FluentArgs::new();
+    args.set("address", host.to_owned());
+    tr(locale, keys::ERRORS_OUTBOUND_REFUSED, Some(&args))
 }
 
 /// The outcome of a connection test.
@@ -112,8 +132,12 @@ pub(crate) struct TestResult {
 }
 
 impl TestResult {
-    /// The result of `outcome`, described in the shell's locale.
-    pub(crate) fn new(shell: Shell, outcome: &Result<RouterInfo, RegistryError>) -> Self {
+    /// The result of `outcome` for the router at `url`, described in the shell's locale.
+    pub(crate) fn new(
+        shell: Shell,
+        outcome: &Result<RouterInfo, RegistryError>,
+        url: &Url,
+    ) -> Self {
         let locale = shell.locale();
         match outcome {
             Ok(info) => Self {
@@ -146,6 +170,9 @@ impl TestResult {
                     .collect::<Vec<_>>()
                     .join(", "),
             },
+            Err(RegistryError::Rci(RciError::Policy)) => {
+                Self::failed(shell, policy_refusal(locale, url))
+            }
             Err(error) => Self::failed(shell, tr(locale, failure(error), None)),
         }
     }

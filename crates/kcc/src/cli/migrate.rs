@@ -28,7 +28,7 @@ use super::{
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: apply and finish change the target under its fail-safe timer.
 pub(crate) async fn run(ctx: &Ctx, command: MigrateCommand) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let out = ctx.out();
     match command {
         MigrateCommand::Inventory => inventory(ctx, &services).await,

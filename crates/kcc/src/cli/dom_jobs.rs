@@ -100,7 +100,7 @@ async fn diagnostics_writes(ctx: &Ctx, command: DiagnosticsWriteCommand) -> Outc
         DiagnosticsWriteCommand::Arping(args) => (DiagnosticKind::Arping, args),
         DiagnosticsWriteCommand::Iperf3(args) => (DiagnosticKind::Iperf3, args),
     };
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
     let validated = target
         .router()
@@ -201,7 +201,7 @@ async fn components_writes(ctx: &Ctx, command: ComponentsWriteCommand) -> Outcom
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the commit job keeps running in this process until it ends.
 async fn commit(ctx: &Ctx) -> Outcome {
-    let services = ctx.services()?;
+    let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Destructive]).await?;
     confirm(
         ctx.out(),

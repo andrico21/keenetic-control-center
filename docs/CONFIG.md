@@ -80,6 +80,15 @@ proxies; kcc refuses to start otherwise.
 
 Cloud metadata addresses are always refused. See [SECURITY.md](SECURITY.md).
 
+The policy is deny-by-default: with both lists empty (the default), kcc contacts no
+router outside loopback (and loopback only with `allow_loopback = true`). Adding or
+testing a router outside the lists (`kcc router add`, `kcc router test`, the Web UI's
+router form), or using a router from `[[routers]]` that lies outside them, is refused
+with a message that names `[outbound] allowed_networks` and the router's address.
+`kcc serve` logs one warning at startup when routers are configured but
+`allowed_networks` and `allowed_suffixes` are both empty. The CLI reads `kcc.toml` on
+every run; a running `kcc serve` applies a changed `[outbound]` section after a restart.
+
 ## `[state]`
 
 | Key | Type | Default | Meaning |

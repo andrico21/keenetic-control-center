@@ -52,7 +52,7 @@ pub(super) async fn open(
 pub(super) fn confirm_risk(server: &KccMcp, risk: Risk, confirm: bool) -> Result<(), McpFailure> {
     server.require_destructive(risk, confirm)?;
     if risk >= Risk::Management && !confirm {
-        return Err(McpFailure::Forbidden);
+        return Err(McpFailure::ConfirmRequired);
     }
     Ok(())
 }

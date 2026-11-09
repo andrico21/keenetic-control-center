@@ -470,6 +470,12 @@ pub const ERRORS_TIMEOUT: MessageKey = MessageKey::new("errors-timeout");
 /// `errors-csrf` in `errors.ftl`.
 pub const ERRORS_CSRF: MessageKey = MessageKey::new("errors-csrf");
 
+/// `errors-outbound-refused` in `errors.ftl`.
+pub const ERRORS_OUTBOUND_REFUSED: MessageKey = MessageKey::new("errors-outbound-refused");
+
+/// `errors-outbound-metadata` in `errors.ftl`.
+pub const ERRORS_OUTBOUND_METADATA: MessageKey = MessageKey::new("errors-outbound-metadata");
+
 /// `mcp-prompt-troubleshoot-internet` in `mcp.ftl`.
 pub const MCP_PROMPT_TROUBLESHOOT_INTERNET: MessageKey =
     MessageKey::new("mcp-prompt-troubleshoot-internet");
@@ -1935,6 +1941,10 @@ pub const WEB_EXPLORER_ISSUE_SEGMENT: MessageKey = MessageKey::new("web-explorer
 
 /// `web-explorer-issue-length` in `web.ftl`.
 pub const WEB_EXPLORER_ISSUE_LENGTH: MessageKey = MessageKey::new("web-explorer-issue-length");
+
+/// `web-explorer-issue-background-change` in `web.ftl`.
+pub const WEB_EXPLORER_ISSUE_BACKGROUND_CHANGE: MessageKey =
+    MessageKey::new("web-explorer-issue-background-change");
 
 /// `web-explorer-landing-empty` in `web.ftl`.
 pub const WEB_EXPLORER_LANDING_EMPTY: MessageKey = MessageKey::new("web-explorer-landing-empty");
@@ -6520,7 +6530,7 @@ pub const WEB_SECRET_PEER_HELP: MessageKey = MessageKey::new("web-secret-peer-he
 pub const WEB_SECRET_IMPORT_DONE: MessageKey = MessageKey::new("web-secret-import-done");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2081] = [
+pub static ALL: [MessageKey; 2084] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6677,6 +6687,8 @@ pub static ALL: [MessageKey; 2081] = [
     ERRORS_UNSUPPORTED_FIRMWARE,
     ERRORS_TIMEOUT,
     ERRORS_CSRF,
+    ERRORS_OUTBOUND_REFUSED,
+    ERRORS_OUTBOUND_METADATA,
     MCP_PROMPT_TROUBLESHOOT_INTERNET,
     MCP_PROMPT_TROUBLESHOOT_WIFI,
     MCP_PROMPT_TROUBLESHOOT_DEVICE,
@@ -7148,6 +7160,7 @@ pub static ALL: [MessageKey; 2081] = [
     WEB_EXPLORER_ISSUE_BATCH,
     WEB_EXPLORER_ISSUE_SEGMENT,
     WEB_EXPLORER_ISSUE_LENGTH,
+    WEB_EXPLORER_ISSUE_BACKGROUND_CHANGE,
     WEB_EXPLORER_LANDING_EMPTY,
     WEB_EXPLORER_ROUTER,
     WEB_EXPLORER_TOOLS,

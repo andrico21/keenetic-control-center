@@ -39,7 +39,9 @@ pub fn markdown() -> String {
          Every router-targeting tool takes `host` (a router profile id). Handlers re-check the\n\
          exact operation permission and router scope; the permission column is the coarse gate\n\
          the RBAC layer applies to the tool. Destructive operations need `confirm: true` and\n\
-         `[mcp] allow_destructive = true`. No tool saves implicitly.\n",
+         `[mcp] allow_destructive = true`; a refusal says which one is missing with the error\n\
+         code `destructive_disabled` or `confirm_required` (also used when a management change\n\
+         lacks `confirm: true`). No tool saves implicitly.\n",
     );
     for &(toolset, summary) in TOOLSETS {
         let members = all

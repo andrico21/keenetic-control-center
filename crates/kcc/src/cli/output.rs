@@ -57,17 +57,17 @@ impl Out {
     ///
     /// Returns the command's failure with its exit code.
     pub(crate) fn emit(self, value: &Value, human: &str) -> Outcome {
-        let mut stdout = io::stdout().lock();
-        if self.json {
-            serde_json::to_writer_pretty(&mut stdout, value)?;
-            writeln!(stdout)?;
+        let text = if self.json {
+            let mut document = serde_json::to_string_pretty(value)?;
+            document.push('\n');
+            document
         } else if human.is_empty() {
             // Nothing to print: the command's result is its exit code.
+            return Ok(());
         } else {
-            writeln!(stdout, "{human}")?;
-        }
-        stdout.flush()?;
-        Ok(())
+            format!("{human}\n")
+        };
+        write_stdout(text.as_bytes())
     }
 
     /// Writes the result document, or a table with localized `headers` without `--json`.
@@ -117,6 +117,20 @@ impl Out {
                 drop(writeln!(stderr, "  {line}"));
             }
         }
+    }
+}
+
+/// Writes `bytes` to stdout. A reader that went away (`kcc completions bash | head`)
+/// ends the output quietly, as shell tools do.
+///
+/// # Errors
+///
+/// Returns any other stdout failure.
+pub(crate) fn write_stdout(bytes: &[u8]) -> Outcome {
+    let mut stdout = io::stdout().lock();
+    match stdout.write_all(bytes).and_then(|()| stdout.flush()) {
+        Err(error) if error.kind() == io::ErrorKind::BrokenPipe => Ok(()),
+        result => Ok(result?),
     }
 }
 

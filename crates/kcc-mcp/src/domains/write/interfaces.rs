@@ -142,7 +142,7 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
         .await
         .map_err(|error| {
             if error.is_confirmation_required() {
-                McpFailure::Forbidden
+                McpFailure::ConfirmRequired
             } else {
                 tracing::warn!(error = ?error, "MCP interface change failed");
                 McpFailure::Conflict
