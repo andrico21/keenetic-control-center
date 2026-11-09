@@ -13,6 +13,8 @@
     reason = "integration tests use assertions and a boxed error result"
 )]
 
+mod support;
+
 use core::{error::Error, str::FromStr as _, time::Duration};
 use std::sync::Arc;
 
@@ -22,6 +24,7 @@ use kcc_app::{
     registry::RouterRegistry,
     settings::OutboundConfig,
 };
+use kcc_catalog::Catalog;
 use kcc_domain::diagnostics::{self, DiagnosticKind, ProgressLine};
 use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials};
 use kcc_testkit::{
@@ -33,9 +36,11 @@ use serde_json::json;
 use tempfile::TempDir;
 use tokio::time::timeout;
 
+use crate::support::PROFILES;
+
 #[tokio::test]
 async fn log_and_each_diagnostic_run_on_both_profiles() -> Result<(), Box<dyn Error>> {
-    for firmware in [Firmware::V4_3, Firmware::V5_1] {
+    for firmware in PROFILES {
         let profile = Profile::new(Model::Kn1811, firmware)?;
         let router = FakeRouter::builder(profile).build()?;
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
@@ -75,7 +80,16 @@ async fn log_and_each_diagnostic_run_on_both_profiles() -> Result<(), Box<dyn Er
             );
         }
 
-        if firmware == Firmware::V5_1 {
+        let catalog = Catalog::for_firmware_and_model(firmware.title().parse()?, Some("KN-1811"))?;
+        let iperf3_offered = diagnostics::DESCRIPTOR
+            .available_writes(&catalog)
+            .any(|operation| operation.name == "iperf3");
+        assert_eq!(
+            iperf3_offered,
+            firmware == Firmware::V5_1,
+            "iperf3 is offered only where the catalog documents `tools iperf3`"
+        );
+        if iperf3_offered {
             let path = kcc_rci::RciPath::from_segments(["tools", "iperf3"])?;
             let completed = client
                 .start(path, &json!({"host":"192.0.2.1"}))
@@ -105,48 +119,52 @@ async fn log_and_each_diagnostic_run_on_both_profiles() -> Result<(), Box<dyn Er
 
 #[tokio::test]
 async fn diagnostic_job_emits_typed_output_line() -> Result<(), Box<dyn Error>> {
-    let profile = Profile::new(Model::Kn1811, Firmware::V5_1)?;
-    let router = FakeRouter::builder(profile).build()?;
-    let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-    let client = connect(address).await?;
-    let directory = TempDir::new()?;
-    let state = StateStore::open(&directory.path().join("state"))?;
-    let registry = Arc::new(RouterRegistry::new(
-        state.clone(),
-        &[],
-        &OutboundConfig::default(),
-    )?);
-    let jobs = JobRunner::open(state, registry).await?;
-    let mut events = jobs.subscribe();
+    for firmware in PROFILES {
+        let profile = Profile::new(Model::Kn1811, firmware)?;
+        let router = FakeRouter::builder(profile).build()?;
+        let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
+        let client = connect(address).await?;
+        let directory = TempDir::new()?;
+        let state = StateStore::open(&directory.path().join("state"))?;
+        let registry = Arc::new(RouterRegistry::new(
+            state.clone(),
+            &[],
+            &OutboundConfig::default(),
+        )?);
+        let jobs = JobRunner::open(state, registry).await?;
+        let mut events = jobs.subscribe();
 
-    let id = diagnostics::start_job(
-        &jobs,
-        "router".to_owned(),
-        client,
-        DiagnosticKind::Ping,
-        json!({"host":"192.0.2.1"}),
-    )
-    .await?;
-    let emitted_output_line = timeout(Duration::from_secs(5), async {
-        let mut emitted_output_line = false;
-        loop {
-            let event = events.recv().await?;
-            if event.id != id {
-                continue;
+        let id = diagnostics::start_job(
+            &jobs,
+            "router".to_owned(),
+            client,
+            DiagnosticKind::Ping,
+            json!({"host":"192.0.2.1"}),
+        )
+        .await?;
+        let emitted_output_line = timeout(Duration::from_secs(5), async {
+            let mut emitted_output_line = false;
+            loop {
+                let event = events.recv().await?;
+                if event.id != id {
+                    continue;
+                }
+                if matches!(event.detail, Some(JobProgress::OutputLine(_))) {
+                    emitted_output_line = true;
+                }
+                if event.status == JobStatus::Completed {
+                    return Ok::<bool, tokio::sync::broadcast::error::RecvError>(
+                        emitted_output_line,
+                    );
+                }
             }
-            if matches!(event.detail, Some(JobProgress::OutputLine(_))) {
-                emitted_output_line = true;
-            }
-            if event.status == JobStatus::Completed {
-                return Ok::<bool, tokio::sync::broadcast::error::RecvError>(emitted_output_line);
-            }
-        }
-    })
-    .await??;
+        })
+        .await??;
 
-    assert!(emitted_output_line);
-    assert_eq!(jobs.get(&id)?.status, JobStatus::Completed);
-    handle.shutdown().await?;
+        assert!(emitted_output_line);
+        assert_eq!(jobs.get(&id)?.status, JobStatus::Completed);
+        handle.shutdown().await?;
+    }
     Ok(())
 }
 

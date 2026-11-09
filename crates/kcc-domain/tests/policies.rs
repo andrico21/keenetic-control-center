@@ -19,136 +19,144 @@ use kcc_domain::{
     },
 };
 
-use crate::support::{Fixture, TestResult};
+use crate::support::{Fixture, PROFILES, TestResult};
 
 #[tokio::test]
 async fn fixture_policy_is_read_from_show_ip_policy() -> TestResult {
-    let fixture = Fixture::spawn().await?;
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
 
-    let policies = read::policies(fixture.context()).await?;
+        let policies = read::policies(fixture.context()).await?;
 
-    assert!(policies.iter().any(|policy| {
-        policy.name.as_deref() == Some("Policy0")
-            && policy.description.as_deref() == Some("Default fixture policy")
-    }));
-    fixture.shutdown().await?;
+        assert!(policies.iter().any(|policy| {
+            policy.name.as_deref() == Some("Policy0")
+                && policy.description.as_deref() == Some("Default fixture policy")
+        }));
+        fixture.shutdown().await?;
+    }
     Ok(())
 }
 
 #[tokio::test]
 async fn every_policy_leaf_is_verified_in_a_fresh_running_configuration() -> TestResult {
-    let fixture = Fixture::spawn().await?;
-    let name = "Policy9";
-    let operations = [
-        plan::description(fixture.context(), name, Some("uplink-policy"))?,
-        plan::permit(
-            fixture.context(),
-            name,
-            &PolicyPermit::new("ISP").with_order(7),
-            true,
-        )?,
-        plan::multipath(fixture.context(), name, true)?,
-        plan::route(
-            fixture.context(),
-            name,
-            &PolicyRoute::network("203.0.113.0", "255.255.255.0", "ISP").with_metric(11),
-            true,
-        )?,
-        plan::rate_limit(
-            fixture.context(),
-            name,
-            &PolicyRateLimit::fixed("ISP", RateDirection::Input, 50_000),
-            true,
-        )?,
-        plan::rate_limit(
-            fixture.context(),
-            name,
-            &PolicyRateLimit::automatic("ISP", RateDirection::Output),
-            true,
-        )?,
-        plan::standalone(fixture.context(), name, true)?,
-    ];
-    let mut changes = fixture.changes().await?;
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let name = "Policy9";
+        let operations = [
+            plan::description(fixture.context(), name, Some("uplink-policy"))?,
+            plan::permit(
+                fixture.context(),
+                name,
+                &PolicyPermit::new("ISP").with_order(7),
+                true,
+            )?,
+            plan::multipath(fixture.context(), name, true)?,
+            plan::route(
+                fixture.context(),
+                name,
+                &PolicyRoute::network("203.0.113.0", "255.255.255.0", "ISP").with_metric(11),
+                true,
+            )?,
+            plan::rate_limit(
+                fixture.context(),
+                name,
+                &PolicyRateLimit::fixed("ISP", RateDirection::Input, 50_000),
+                true,
+            )?,
+            plan::rate_limit(
+                fixture.context(),
+                name,
+                &PolicyRateLimit::automatic("ISP", RateDirection::Output),
+                true,
+            )?,
+            plan::standalone(fixture.context(), name, true)?,
+        ];
+        let mut changes = fixture.changes().await?;
 
-    drop(
-        apply::apply(
-            &mut changes,
-            fixture.context(),
-            &plan::create(fixture.context(), name)?,
-        )
-        .await?,
-    );
-    for operation in operations {
-        drop(apply::apply(&mut changes, fixture.context(), &operation).await?);
+        drop(
+            apply::apply(
+                &mut changes,
+                fixture.context(),
+                &plan::create(fixture.context(), name)?,
+            )
+            .await?,
+        );
+        for operation in operations {
+            drop(apply::apply(&mut changes, fixture.context(), &operation).await?);
+        }
+
+        let running = fixture.handle().running_config_text();
+        assert!(running.contains("ip policy Policy9"), "{running}");
+        assert!(running.contains("description uplink-policy"), "{running}");
+        assert!(running.contains("permit global ISP order 7"), "{running}");
+        assert!(
+            running.contains("route 203.0.113.0 255.255.255.0 ISP 11"),
+            "{running}"
+        );
+        assert!(running.contains("rate-limit ISP input 50000"), "{running}");
+        assert!(running.contains("rate-limit ISP output auto"), "{running}");
+        drop(changes);
+        fixture.shutdown().await?;
     }
-
-    let running = fixture.handle().running_config_text();
-    assert!(running.contains("ip policy Policy9"), "{running}");
-    assert!(running.contains("description uplink-policy"), "{running}");
-    assert!(running.contains("permit global ISP order 7"), "{running}");
-    assert!(
-        running.contains("route 203.0.113.0 255.255.255.0 ISP 11"),
-        "{running}"
-    );
-    assert!(running.contains("rate-limit ISP input 50000"), "{running}");
-    assert!(running.contains("rate-limit ISP output auto"), "{running}");
-    drop(changes);
-    fixture.shutdown().await?;
     Ok(())
 }
 
 #[tokio::test]
 async fn policy_leaf_removal_is_verified_as_absent() -> TestResult {
-    let fixture = Fixture::spawn().await?;
-    let name = "Policy8";
-    let permit = PolicyPermit::new("ISP");
-    let mut changes = fixture.changes().await?;
-    drop(
-        apply::apply(
-            &mut changes,
-            fixture.context(),
-            &plan::create(fixture.context(), name)?,
-        )
-        .await?,
-    );
-    drop(
-        apply::apply(
-            &mut changes,
-            fixture.context(),
-            &plan::permit(fixture.context(), name, &permit, true)?,
-        )
-        .await?,
-    );
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let name = "Policy8";
+        let permit = PolicyPermit::new("ISP");
+        let mut changes = fixture.changes().await?;
+        drop(
+            apply::apply(
+                &mut changes,
+                fixture.context(),
+                &plan::create(fixture.context(), name)?,
+            )
+            .await?,
+        );
+        drop(
+            apply::apply(
+                &mut changes,
+                fixture.context(),
+                &plan::permit(fixture.context(), name, &permit, true)?,
+            )
+            .await?,
+        );
 
-    drop(
-        apply::apply(
-            &mut changes,
-            fixture.context(),
-            &plan::permit(fixture.context(), name, &permit, false)?,
-        )
-        .await?,
-    );
+        drop(
+            apply::apply(
+                &mut changes,
+                fixture.context(),
+                &plan::permit(fixture.context(), name, &permit, false)?,
+            )
+            .await?,
+        );
 
-    assert!(
-        !fixture
-            .handle()
-            .running_config_text()
-            .contains("ip policy Policy8 permit global ISP")
-    );
-    drop(changes);
-    fixture.shutdown().await?;
+        assert!(
+            !fixture
+                .handle()
+                .running_config_text()
+                .contains("ip policy Policy8 permit global ISP")
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
     Ok(())
 }
 
 #[tokio::test]
 async fn invalid_policy_name_is_rejected_before_any_router_request() -> TestResult {
-    let fixture = Fixture::spawn().await?;
-    let before = fixture.handle().request_log();
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let before = fixture.handle().request_log();
 
-    let result = plan::create(fixture.context(), "bad name");
+        let result = plan::create(fixture.context(), "bad name");
 
-    assert!(matches!(result, Err(DomainError::Validation { issues: _ })));
-    assert_eq!(fixture.handle().request_log(), before);
-    fixture.shutdown().await?;
+        assert!(matches!(result, Err(DomainError::Validation { issues: _ })));
+        assert_eq!(fixture.handle().request_log(), before);
+        fixture.shutdown().await?;
+    }
     Ok(())
 }

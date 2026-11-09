@@ -18,7 +18,14 @@ pub(super) fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResul
         DomainId::System => system_plan(router, op),
         DomainId::Services => {
             let plan = match op {
-                "set_service" => services::plan_service(router, "iperf3", true)?,
+                "set_service" => {
+                    let service = if router.catalog.lookup("service iperf3").is_some() {
+                        "iperf3"
+                    } else {
+                        "udpxy"
+                    };
+                    services::plan_service(router, service, true)?
+                }
                 "management_port" => {
                     services::plan_port(router, services::ManagementListener::Http, 8_080)?
                 }

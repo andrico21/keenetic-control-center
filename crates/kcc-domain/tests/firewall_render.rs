@@ -16,8 +16,10 @@ use kcc_domain::firewall::{
     model::{Action, Protocol, Rule},
     read,
 };
+use kcc_testkit::model::Firmware;
+use tokio::task::JoinSet;
 
-use crate::support::{Fixture, TestResult};
+use crate::support::{Fixture, PROFILES, TestResult};
 
 const ACTIONS: [Action; 2] = [Action::Permit, Action::Deny];
 const PROTOCOLS: [Protocol; 4] = [Protocol::Tcp, Protocol::Udp, Protocol::Icmp, Protocol::Ip];
@@ -36,8 +38,32 @@ enum PortCase {
 
 const PORTS: [PortCase; 3] = [PortCase::None, PortCase::Exact, PortCase::Range];
 
-#[tokio::test]
+/// One rule-field combination.
+#[derive(Clone, Copy)]
+struct Case<'name> {
+    action: Action,
+    protocol: Protocol,
+    source: (&'name str, &'name str),
+    destination: (&'name str, &'name str),
+    ports: PortCase,
+    disabled: bool,
+    schedule: Option<&'name str>,
+}
+
+#[tokio::test(flavor = "multi_thread")]
 async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> TestResult {
+    let mut profiles = JoinSet::new();
+    for firmware in PROFILES {
+        drop(profiles.spawn(matrix(firmware)));
+    }
+    while let Some(outcome) = profiles.join_next().await {
+        outcome??;
+    }
+    Ok(())
+}
+
+/// Exercises every rule-field combination on one firmware profile.
+async fn matrix(firmware: Firmware) -> TestResult {
     for action in ACTIONS {
         for protocol in PROTOCOLS {
             for source in SIDES {
@@ -45,7 +71,7 @@ async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> T
                     for ports in PORTS {
                         for disabled in [false, true] {
                             for schedule in [None, Some("Schedule0")] {
-                                exercise(
+                                let case = Case {
                                     action,
                                     protocol,
                                     source,
@@ -53,13 +79,14 @@ async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> T
                                     ports,
                                     disabled,
                                     schedule,
-                                )
+                                };
+                                exercise(firmware, case)
                                 .await
                                 .map_err(|error| -> Box<dyn Error + Send + Sync> {
                                     let action_name = action.name();
                                     let protocol_name = protocol.name();
                                     format!(
-                                        "{action_name} {protocol_name} {source:?} {destination:?} disabled={disabled} schedule={schedule:?}: {error}",
+                                        "{firmware} {action_name} {protocol_name} {source:?} {destination:?} disabled={disabled} schedule={schedule:?}: {error}",
                                     )
                                     .into()
                                 })?;
@@ -73,16 +100,17 @@ async fn every_rule_field_combination_reaches_and_returns_from_the_router() -> T
     Ok(())
 }
 
-async fn exercise(
-    action: Action,
-    protocol: Protocol,
-    source: (&str, &str),
-    destination: (&str, &str),
-    ports: PortCase,
-    disabled: bool,
-    schedule: Option<&str>,
-) -> TestResult {
-    let fixture = Fixture::spawn().await?;
+async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
+    let Case {
+        action,
+        protocol,
+        source,
+        destination,
+        ports,
+        disabled,
+        schedule,
+    } = case;
+    let fixture = Fixture::spawn(firmware).await?;
     let mut rule = Rule::new(action, protocol, source.0, destination.0);
     rule.source_mask = source.1.to_owned();
     rule.destination_mask = destination.1.to_owned();

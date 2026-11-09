@@ -26,20 +26,37 @@ use kcc_app::{
     workflow::{ChangeSet, ChangeWorkflow},
 };
 use kcc_catalog::Catalog;
-use kcc_domain::RouterCtx;
+use kcc_domain::{DomainError, RouterCtx};
 use kcc_rci::{
     OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials,
     capabilities::RouterInfo,
 };
 use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle,
-    model::Profile,
+    model::{Firmware, Model, Profile},
     time::{Clock, MockClock},
 };
 use secrecy::SecretString;
 use tempfile::TempDir;
 use tracing::{Level, subscriber::DefaultGuard};
 use url::Url;
+
+/// The fake-router profiles every domain suite runs on: KN-1811 on 4.3.9 and on 5.1.
+pub(crate) const PROFILES: [Firmware; 2] = [Firmware::V4_3, Firmware::V5_1];
+
+/// A toggleable service that `firmware`'s catalog documents: `service iperf3` is new in
+/// 5.1, so the 4.3.9 profile toggles `service udpxy`.
+pub(crate) const fn toggle_service(firmware: Firmware) -> &'static str {
+    match firmware {
+        Firmware::V4_3 => "udpxy",
+        Firmware::V5_0 | Firmware::V5_1 | _ => "iperf3",
+    }
+}
+
+/// Whether `outcome` is the planner's typed catalog refusal, produced before any request.
+pub(crate) const fn refused_by_catalog<T>(outcome: &kcc_domain::Result<T>) -> bool {
+    matches!(outcome, Err(DomainError::Validation { issues }) if !issues.is_empty())
+}
 
 /// Integration-test result.
 pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error + Send + Sync>>;
@@ -112,24 +129,37 @@ pub(crate) struct Fixture {
 }
 
 impl Fixture {
-    /// Starts the default fake-router profile.
-    pub(crate) async fn spawn() -> TestResult<Self> {
-        Self::spawn_with(None, FaultInjection::default()).await
+    /// Starts KN-1811 on `firmware`.
+    pub(crate) async fn spawn(firmware: Firmware) -> TestResult<Self> {
+        Self::spawn_with(firmware, None, FaultInjection::default()).await
     }
 
-    /// Starts the default profile with selected fake-router faults.
-    pub(crate) async fn spawn_with_faults(faults: FaultInjection) -> TestResult<Self> {
-        Self::spawn_with(None, faults).await
+    /// Starts KN-1811 on `firmware` with selected fake-router faults.
+    pub(crate) async fn spawn_with_faults(
+        firmware: Firmware,
+        faults: FaultInjection,
+    ) -> TestResult<Self> {
+        Self::spawn_with(firmware, None, faults).await
     }
 
-    /// Starts the default profile with a deterministic clock.
-    pub(crate) async fn spawn_clocked() -> TestResult<Self> {
-        Self::spawn_with(Some(Arc::new(MockClock::new())), FaultInjection::default()).await
+    /// Starts KN-1811 on `firmware` with a deterministic clock.
+    pub(crate) async fn spawn_clocked(firmware: Firmware) -> TestResult<Self> {
+        Self::spawn_with(
+            firmware,
+            Some(Arc::new(MockClock::new())),
+            FaultInjection::default(),
+        )
+        .await
     }
 
     /// Starts the fixture with an optional injected fake-router clock.
-    async fn spawn_with(clock: Option<Arc<MockClock>>, faults: FaultInjection) -> TestResult<Self> {
-        let base_builder = FakeRouter::builder(Profile::default()).faults(faults);
+    async fn spawn_with(
+        firmware: Firmware,
+        clock: Option<Arc<MockClock>>,
+        faults: FaultInjection,
+    ) -> TestResult<Self> {
+        let base_builder =
+            FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?).faults(faults);
         let configured_builder = match &clock {
             Some(source) => {
                 let injected: Arc<dyn Clock> = Arc::<MockClock>::clone(source);

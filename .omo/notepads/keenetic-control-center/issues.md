@@ -386,3 +386,18 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 - DESIGN.md is append-only for parallel work: the todo 37/40 briefs still say password entry is left out; the appended "Write-only secret fields (todo 71)" section supersedes them.
 - Visual QA self-reviewed (no oracle subagent for this executor); pre-existing: dark toasts show the table through, phone tables scroll sideways without a cue.
 - G1 not run: the new kcc-web dev-dependency `tracing-subscriber` is already in the lock graph (kcc-domain) but `cargo vet`/`deny` were not re-run.
+
+## [2026-11-09] Todo 75 issues (W=/home/andrico/kcc-wt/t75)
+- CodeGraph could not query the isolated worktree because it has no `.codegraph/` index. Required LSP symbol/diagnostic calls timed out repeatedly. Targeted compiler tests and strict Clippy passed and are the diagnostic authority for this task.
+- The programming skill's no-excuse script reports inherited multiline `#[expect(...)]` attributes in `jobs.rs`, `jobs_recovery.rs`, and `server.rs` as missing reasons even though each existing attribute has a reason and strict Clippy accepts it; no unrelated attribute rewrite was made.
+
+## [2026-11-09] Todo 74 (4.3.9 profile runs)
+- REAL DEFECT fixed (red first): `kcc_domain::system::read_system_mode` sent `show system mode` to a 4.3.9 router whose catalog lacks it (`Err(Rci(NotFound))` after a request). It now refuses with `DomainError::Validation { UnknownPath "show system mode" }` before any request. Callers (kcc-mcp `system_mode`, kcc CLI `system mode`) get the typed refusal instead of an RCI 404.
+- Catalog defect (kcc-catalog, not fixed here, out of scope): the 4.3 catalog types `object-group fqdn include` `address` as `Keyword ["FQDN"]` (5.1: `String`), so `dns::plan_change(FqdnInclude)` refuses every real domain name on 4.3.9 (`InvalidValue address`). `object-group fqdn exclude` is likely the same. `tests/dns.rs` asserts the typed refusal on 4.3.9.
+- Pre-existing size debt: `tests/verification_coverage/tests/execution.rs` is 258 pure LOC (unchanged by todo 74, only signatures); `tests/support/mod.rs` is 243 (warning band).
+
+## [2026-11-09] Todo 76 findings (W=/home/andrico/kcc-wt/t76)
+- `dns max-ttl` on the 5.1 fake = FAKE GAP, not a kcc defect: kcc renders `dns-proxy max-ttl 3600` (manual 5.1 p.143, `(config-dnspx)> max-ttl <max-ttl>`, entered with the group prefix like the other dns-proxy lines). The fake's CLI engine has no shape for it (`kcc-testkit/src/cli_engine/rules.rs::ordinary_shape` knows only `dns-proxy tls|https upstream`), so `config_state::apply` answers `unknown(line)` -> RCI error status -> "RCI request failed: see audit log". Follow-up for the testkit owner: add a `dns-proxy max-ttl` rule (identity 2). Also the generated synopsis of `dns-proxy max-ttl` is misparsed (`max-ttl <max-ttl> (config-dnspx) max-ttl`), harmless for rendering. Not verified on hardware.
+- Loki: a tenant with the reject-partial-writes policy answers 400 with the same per-entry body but stores nothing; kcc would then count it as partial. Accepted limitation (policy-level, rare).
+- Over-limit files grew slightly: `kcc/src/cli/context.rs` 262 -> 273 pure LOC (async services + audit), `pipeline_delivery.rs` 243 -> 250, `sink.rs` 235 -> 246. Follow-up split.
+- `jobs.rs` still names `explorer.raw.*` kinds; with the refusal every new explorer job is a read, the raw branch only matters for records from older versions.

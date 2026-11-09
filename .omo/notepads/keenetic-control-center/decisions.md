@@ -645,3 +645,19 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Credentials are written only for objects the router lists with the fitting type (a VPN connection of the type, an IPsec profile a client uses, a PPP WAN connection, a known access point or account), so a crafted request cannot create a stray interface.
 - Success says what the read-back checked (`web-secret-done`: the field, presence only, unsaved); the import says the same for the file's keys (`web-secret-import-done`).
 - Domain seam (additive): `vpn_clients::plan_wireguard_peer_psk(&RouterCtx, &str, &str, SecretString) -> Result<ChangeOp>` (reuses the import's protected secret slot and presence read-back).
+
+## [2026-11-09] Todo 75 decisions (W=/home/andrico/kcc-wt/t75)
+- Audit retention never rewrites entries or introduces a sidecar format. The retained suffix is self-anchored by its first entry's existing `prev_hash`; CLI JSON verification reports that value as `anchor`.
+- `0s` disables audit age pruning. Job retention is a fixed 30-day privacy bound rather than a new configuration key, keeping this task's schema surface minimal.
+- The cross-process lock is still acquired by bounded `try_lock` retries on Tokio; ownership then moves with writer state into one blocking closure so all synchronous audit filesystem operations stay off runtime workers.
+
+## [2026-11-09] Todo 74 decisions
+- Both-profile coverage is enforced by type plus guard: support's `Fixture::spawn*` require a `Firmware`, and `tests/profile_coverage.rs` fails for any suite (root or child modules) without `in PROFILES`. The documented exclusion list (`SINGLE_PROFILE`, one-line reason each) is empty; the guard skips only itself.
+- 5.1 assertions are unchanged; where 4.3.9 lacks a command or argument the 4.3 branch asserts the typed catalog refusal with zero requests and then exercises the remaining behaviour (route without metric, WireGuard import without ObfsKey, `udpxy` instead of `iperf3`, crypto map without dns-servers, components update title `4.3.10`).
+- `verification_coverage` administration `set_service` picks `iperf3` when the catalog has it, else `udpxy`; execution helpers take the profile's `Firmware`.
+
+## [2026-11-09] Todo 76 decisions (W=/home/andrico/kcc-wt/t76)
+- Explorer background refusal uses the EFFECTIVE risk, not the raw catalog risk: `tools ping` & co. are catalog `Action` (= Write) but the kcc-domain diagnostics declare them Read with Read permission. Refusing every background command above catalog Read would have removed ping/traceroute from the explorer and broken `background_commands_run_as_jobs_and_stop`. So background delivery is allowed when the catalog says Read or a curated domain op declares the same command Read; the explorer's permission/confirmation gate still uses the catalog risk (not weakened). `ussd send` (and anything learned later) is refused.
+- CLI `router add` now REFUSES (exit 10) an out-of-policy URL before storing, mirroring the Web form; config-defined routers get the same explained refusal on use and `router test`.
+- MCP: `destructive_disabled` wins over `confirm_required` (confirming cannot help while the switch is off). DomainError/CommitError::ConfirmationRequired keep `invalid_arguments` (not a bare forbidden; unchanged).
+- Failed CLI change audit is in the CLI runner (`cli.change`, outcome `failed`), not in `kcc-app` workflow (no workflow*.rs change).

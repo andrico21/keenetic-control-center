@@ -17,7 +17,7 @@ use kcc_app::{
         TerminalCliChangeResult, VerificationSpec, WorkflowError,
     },
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::{HttpMethod, Risk, ValidationIssue};
 use serde_json::{Value, json};
 
 use crate::{ChangeOp, DomainDescriptor, DomainError, DomainId, Result, RouterCtx, read_show};
@@ -63,8 +63,17 @@ pub async fn read_ntp_status(router: &RouterCtx) -> Result<NtpStatus> {
     read_show(&router.client, &["show", "ntp", "status"]).await
 }
 
-/// Reads `show system mode` when the selected catalog exposes it.
+/// Reads `show system mode`; refuses before any request when the selected catalog lacks it
+/// (4.3 firmware).
 pub async fn read_system_mode(router: &RouterCtx) -> Result<SystemMode> {
+    const PATH: &str = "show system mode";
+    if router.catalog.lookup(PATH).is_none() {
+        return Err(DomainError::Validation {
+            issues: vec![ValidationIssue::UnknownPath {
+                path: PATH.to_owned(),
+            }],
+        });
+    }
     read_show(&router.client, &["show", "system", "mode"]).await
 }
 

@@ -50,7 +50,7 @@ mod tests {
 
     use crate::{
         administration, execution, network,
-        support::{Fixture, TestResult},
+        support::{Fixture, PROFILES, TestResult, toggle_service},
         vpn,
     };
 
@@ -64,74 +64,84 @@ mod tests {
     /// Dropping a stateful planner's expectations must fail before router dispatch.
     #[tokio::test]
     async fn missing_verification_is_refused_before_dispatch() -> TestResult {
-        let fixture = Fixture::spawn().await?;
-        let plan = services::plan_service(fixture.context(), "iperf3", true)?;
-        let mut request = services::change_request(&plan)?;
-        request.verify.clear();
-        let before = fixture.handle().request_count();
-        assert!(matches!(
-            verification::require(&request),
-            Err(DomainError::Workflow(WorkflowError::VerificationFailed { field }))
-                if field == "service iperf3"
-        ));
-        assert_eq!(fixture.handle().request_count(), before);
-        fixture.shutdown().await
+        for firmware in PROFILES {
+            let fixture = Fixture::spawn(firmware).await?;
+            let service = toggle_service(firmware);
+            let plan = services::plan_service(fixture.context(), service, true)?;
+            let mut request = services::change_request(&plan)?;
+            request.verify.clear();
+            let before = fixture.handle().request_count();
+            assert!(matches!(
+                verification::require(&request),
+                Err(DomainError::Workflow(WorkflowError::VerificationFailed { field }))
+                    if field == format!("service {service}")
+            ));
+            assert_eq!(fixture.handle().request_count(), before);
+            fixture.shutdown().await?;
+        }
+        Ok(())
     }
 
     /// Every available state-changing registry operation reaches its real planner or executor.
     #[tokio::test]
     async fn registry_writes_require_verification_or_documented_action() -> TestResult {
-        let fixture = Fixture::spawn().await?;
-        for domain in registry() {
-            for operation in domain.write_ops {
-                if operation.risk == Risk::Read || !operation.available(&fixture.context().catalog)
-                {
-                    continue;
+        for firmware in PROFILES {
+            let fixture = Fixture::spawn(firmware).await?;
+            for domain in registry() {
+                for operation in domain.write_ops {
+                    if operation.risk == Risk::Read
+                        || !operation.available(&fixture.context().catalog)
+                    {
+                        continue;
+                    }
+                    if let Some(reason) = operation.action_without_state() {
+                        assert!(!reason.is_empty(), "action requires a reason");
+                        continue;
+                    }
+                    let result = match domain.id {
+                        DomainId::System
+                        | DomainId::Services
+                        | DomainId::KeenDns
+                        | DomainId::Schedules
+                        | DomainId::Logging
+                        | DomainId::RouterUsers
+                        | DomainId::Components => {
+                            administration::check(fixture.context(), domain.id, operation.name)
+                        }
+                        DomainId::Wan
+                        | DomainId::Wifi
+                        | DomainId::Dns
+                        | DomainId::Policies
+                        | DomainId::Routing
+                        | DomainId::Firewall => {
+                            network::check(fixture.context(), domain.id, operation.name)
+                        }
+                        DomainId::VpnClients | DomainId::VpnServers => {
+                            vpn::check(fixture.context(), domain.id, operation.name)
+                        }
+                        DomainId::Clients
+                        | DomainId::Dhcp
+                        | DomainId::Segments
+                        | DomainId::Interfaces
+                        | DomainId::Nat
+                        | DomainId::Configuration
+                        | DomainId::Mesh => {
+                            execution::check(firmware, domain.id, operation.name).await
+                        }
+                        DomainId::Internet | DomainId::Diagnostics | DomainId::Storage | _ => {
+                            Err("uncovered registry write".into())
+                        }
+                    };
+                    result.map_err(|error| {
+                        format!(
+                            "{firmware} {:?}/{} ({}): {error}",
+                            domain.id, operation.name, operation.catalog_path
+                        )
+                    })?;
                 }
-                if let Some(reason) = operation.action_without_state() {
-                    assert!(!reason.is_empty(), "action requires a reason");
-                    continue;
-                }
-                let result = match domain.id {
-                    DomainId::System
-                    | DomainId::Services
-                    | DomainId::KeenDns
-                    | DomainId::Schedules
-                    | DomainId::Logging
-                    | DomainId::RouterUsers
-                    | DomainId::Components => {
-                        administration::check(fixture.context(), domain.id, operation.name)
-                    }
-                    DomainId::Wan
-                    | DomainId::Wifi
-                    | DomainId::Dns
-                    | DomainId::Policies
-                    | DomainId::Routing
-                    | DomainId::Firewall => {
-                        network::check(fixture.context(), domain.id, operation.name)
-                    }
-                    DomainId::VpnClients | DomainId::VpnServers => {
-                        vpn::check(fixture.context(), domain.id, operation.name)
-                    }
-                    DomainId::Clients
-                    | DomainId::Dhcp
-                    | DomainId::Segments
-                    | DomainId::Interfaces
-                    | DomainId::Nat
-                    | DomainId::Configuration
-                    | DomainId::Mesh => execution::check(domain.id, operation.name).await,
-                    DomainId::Internet | DomainId::Diagnostics | DomainId::Storage | _ => {
-                        Err("uncovered registry write".into())
-                    }
-                };
-                result.map_err(|error| {
-                    format!(
-                        "{:?}/{} ({}): {error}",
-                        domain.id, operation.name, operation.catalog_path
-                    )
-                })?;
             }
+            fixture.shutdown().await?;
         }
-        fixture.shutdown().await
+        Ok(())
     }
 }

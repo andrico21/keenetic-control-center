@@ -971,7 +971,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | test(catalog,rci,mcp,migrate): cover resource scoping, transient-copy state and the validation and auth survivors
   Recommended task executor category: unspecified-high
 
-- [ ] 74. Run every domain suite on the 4.3.9 and 5.1 profiles (found by F1 todo 21)
+- [x] 74. Run every domain suite on the 4.3.9 and 5.1 profiles (found by F1 todo 21)
   What to do / Must NOT do: Todo 21 requires every domain test suite to run against a 4.3.9 and a 5.1 fake-router profile; only `tests/system.rs` and `tests/diagnostics.rs` loop over `[Firmware::V4_3, Firmware::V5_1]` today. Parameterize the other `crates/kcc-domain/tests/*` suites (clients, dhcp, segments, interfaces, wifi, wan, mesh, routing, nat, policies, firewall, dns, vpn*, users, services, components, storage, schedules, keendns, unit3...) over both profiles through `tests/support/mod.rs`; operations absent from the 4.3 catalog view must be reported unavailable by `DomainDescriptor`/the planner (typed error, zero requests) and asserted as such; where the fake router lacks a 4.3.9 shape add it ADDITIVELY (BEHAVIOUR.md `assumed`); files <= ~250 pure LOC (split suites). If a domain misbehaves on 4.3.9 that is a real defect: red-first fix + notepad record. Must NOT delete or weaken a 5.1 assertion.
   Closes: GAP-19
   Parallelization: Wave W13 | Blocked by: 21-26, 67 | Blocks: F1-F4 re-run

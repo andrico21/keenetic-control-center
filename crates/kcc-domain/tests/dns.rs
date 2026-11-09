@@ -1,186 +1,97 @@
 //! DNS domain integration coverage.
 
 #![expect(
-    clippy::absolute_paths,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
-    clippy::std_instead_of_alloc,
     clippy::tests_outside_test_module,
     reason = "integration tests use assertions and a boxed error result"
 )]
 
-use core::{error::Error, str::FromStr as _};
-use std::sync::Arc;
+mod support;
 
-use kcc_app::{
-    audit::{Actor, ActorKind, AuditLog},
-    backups::BackupStore,
-    permissions::{Permission, Role},
-    persist::StateStore,
-    registry::{ManagedRouterProfile, RouterRegistry},
-    secrets::MasterKey,
-    settings::OutboundConfig,
-    workflow::ChangeWorkflow,
-};
-use kcc_catalog::Catalog;
+use kcc_catalog::ValidationIssue;
 use kcc_domain::{
-    RouterCtx,
+    DomainError,
     dns::{self, DnsChange, HttpsUpstream},
 };
-use kcc_rci::{
-    OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials,
-    capabilities::RouterInfo,
-};
-use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
-use secrecy::SecretString;
-use tempfile::TempDir;
-use url::Url;
+use kcc_testkit::model::Firmware;
+
+use crate::support::{Fixture, PROFILES, TestResult};
 
 #[tokio::test]
-async fn doh_upstream_is_applied_and_read_back() -> Result<(), Box<dyn Error>> {
-    let fixture = Fixture::spawn().await?;
-    let upstream_url = "https://dns.fixture.invalid/dns-query";
-    let operation = dns::plan_change(
-        &fixture.context,
-        &DnsChange::HttpsUpstream(HttpsUpstream::new(upstream_url)),
-    )?;
-    let request = dns::change_request(&operation)?;
-    let mut changes = fixture
-        .workflow
-        .begin(
-            "router",
-            Actor::new(ActorKind::Cli, "test".to_owned()),
-            &admin_role(),
-            None,
-            false,
-        )
-        .await?;
+async fn doh_upstream_is_applied_and_read_back() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let upstream_url = "https://dns.fixture.invalid/dns-query";
+        let operation = dns::plan_change(
+            fixture.context(),
+            &DnsChange::HttpsUpstream(HttpsUpstream::new(upstream_url)),
+        )?;
+        let request = dns::change_request(&operation)?;
+        let mut changes = fixture.changes().await?;
 
-    drop(changes.apply_cli(request).await?);
+        drop(changes.apply_cli(request).await?);
 
-    let state = dns::read_dns_proxy(&fixture.context).await?;
-    assert_eq!(
-        state
-            .https
-            .and_then(|https| https.upstream.into_iter().next()),
-        Some(vec![upstream_url.to_owned()])
-    );
-    drop(changes);
-    fixture.shutdown().await?;
+        let state = dns::read_dns_proxy(fixture.context()).await?;
+        assert_eq!(
+            state
+                .https
+                .and_then(|https| https.upstream.into_iter().next()),
+            Some(vec![upstream_url.to_owned()])
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
     Ok(())
 }
 
 #[tokio::test]
-async fn fqdn_include_uses_the_group_context_and_applies() -> Result<(), Box<dyn Error>> {
-    let fixture = Fixture::spawn().await?;
-    let group = dns::plan_change(
-        &fixture.context,
-        &DnsChange::FqdnGroup {
-            name: "Blocked".to_owned(),
-        },
-    )?;
-    let include = dns::plan_change(
-        &fixture.context,
-        &DnsChange::FqdnInclude {
-            name: "Blocked".to_owned(),
-            address: "example.test".to_owned(),
-        },
-    )?;
-    let mut changes = fixture
-        .workflow
-        .begin(
-            "router",
-            Actor::new(ActorKind::Cli, "test".to_owned()),
-            &admin_role(),
-            None,
-            false,
-        )
-        .await?;
-
-    drop(changes.apply_cli(dns::change_request(&group)?).await?);
-    drop(changes.apply_cli(dns::change_request(&include)?).await?);
-
-    let running = fixture.handle.running_config_text();
-    assert!(running.contains("object-group fqdn Blocked"), "{running}");
-    assert!(running.contains("include example.test"), "{running}");
-    drop(changes);
-    fixture.shutdown().await
-}
-
-struct Fixture {
-    directory: TempDir,
-    handle: kcc_testkit::Handle,
-    context: RouterCtx,
-    workflow: Arc<ChangeWorkflow>,
-}
-
-impl Fixture {
-    async fn spawn() -> Result<Self, Box<dyn Error>> {
-        let router = FakeRouter::builder(Profile::default()).build()?;
-        let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-        let directory = TempDir::new()?;
-        let password = directory.path().join("password");
-        std::fs::write(&password, DEFAULT_PASSWORD)?;
-        let state = StateStore::open(&directory.path().join("state"))?;
-        let mut outbound = OutboundConfig::default();
-        outbound.allow_loopback = true;
-        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
-        registry
-            .create(
-                &admin_role(),
-                ManagedRouterProfile::new(
-                    "router".to_owned(),
-                    Url::parse(&format!("http://{address}"))?,
-                    DEFAULT_LOGIN.to_owned(),
-                    password,
-                ),
-            )
-            .await?;
-        let origin = RouterUrl::from_str(&format!("http://{address}"))?;
-        let credentials = Credentials::new(
-            DEFAULT_LOGIN.to_owned(),
-            SecretString::from(DEFAULT_PASSWORD.to_owned()),
-        );
-        let options = RciClientOptions::default()
-            .with_outbound(OutboundPolicy::default().with_loopback(true));
-        let client = Arc::new(RciClient::connect_with(origin.clone(), credentials, options).await?);
-        let manager = kcc_rci::session::SessionManager::with_defaults(
-            origin.clone(),
-            Credentials::new(
-                DEFAULT_LOGIN.to_owned(),
-                SecretString::from(DEFAULT_PASSWORD.to_owned()),
-            ),
+async fn fqdn_include_uses_the_group_context_and_applies() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let group = dns::plan_change(
+            fixture.context(),
+            &DnsChange::FqdnGroup {
+                name: "Blocked".to_owned(),
+            },
         )?;
-        let info = RouterInfo::detect(&manager, &origin).await?;
-        let catalog = Catalog::for_router(&info)?;
-        let backups = Arc::new(BackupStore::new(
-            state.clone(),
-            MasterKey::from_bytes([7_u8; 32]),
-        ));
-        let audit = AuditLog::spawn(&state)?;
-        let workflow = ChangeWorkflow::new(state, registry, backups, audit);
-        Ok(Self {
-            directory,
-            handle,
-            context: RouterCtx::new(client, catalog),
-            workflow,
-        })
-    }
+        let before = fixture.handle().request_count();
+        let planned_include = dns::plan_change(
+            fixture.context(),
+            &DnsChange::FqdnInclude {
+                name: "Blocked".to_owned(),
+                address: "example.test".to_owned(),
+            },
+        );
+        if firmware == Firmware::V4_3 {
+            // The 4.3 catalog types `address` as the literal keyword `FQDN`, so the
+            // planner refuses every real domain name before any request.
+            assert!(
+                matches!(
+                    &planned_include,
+                    Err(DomainError::Validation { issues }) if issues.iter().any(|issue| matches!(
+                        issue,
+                        ValidationIssue::InvalidValue { field } if field == "address"
+                    ))
+                ),
+                "{planned_include:?}"
+            );
+            assert_eq!(fixture.handle().request_count(), before);
+            fixture.shutdown().await?;
+            continue;
+        }
+        let include = planned_include?;
+        let mut changes = fixture.changes().await?;
 
-    async fn shutdown(self) -> Result<(), Box<dyn Error>> {
-        let Self {
-            directory,
-            handle,
-            context: _,
-            workflow: _,
-        } = self;
-        handle.shutdown().await?;
-        drop(directory);
-        Ok(())
-    }
-}
+        drop(changes.apply_cli(dns::change_request(&group)?).await?);
+        drop(changes.apply_cli(dns::change_request(&include)?).await?);
 
-fn admin_role() -> Role {
-    Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()])
+        let running = fixture.handle().running_config_text();
+        assert!(running.contains("object-group fqdn Blocked"), "{running}");
+        assert!(running.contains("include example.test"), "{running}");
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
 }

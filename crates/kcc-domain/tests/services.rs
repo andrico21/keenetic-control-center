@@ -12,53 +12,60 @@ mod support;
 use kcc_catalog::Risk;
 use kcc_domain::services::{self, ManagementListener, SecurityLevel};
 
-use crate::support::{Fixture, TestResult};
+use crate::support::{Fixture, PROFILES, TestResult, toggle_service};
 
 #[tokio::test]
 async fn service_enable_and_disable_are_visible_through_show_rc() -> TestResult {
-    let fixture = Fixture::spawn().await?;
-    let before = fixture.handle().request_count();
-    let enable = services::plan_service(fixture.context(), "iperf3", true)?;
-    let mut changes = fixture.changes().await?;
-    drop(
-        changes
-            .apply_cli(services::change_request(&enable)?)
-            .await?,
-    );
-    drop(changes);
-    let enabled = services::read_services(fixture.context()).await?;
-    assert!(enabled.iter().any(|service| {
-        service.name.as_deref() == Some("iperf3") && service.enabled == Some(true)
-    }));
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let service = toggle_service(firmware);
+        let before = fixture.handle().request_count();
+        let enable = services::plan_service(fixture.context(), service, true)?;
+        let mut changes = fixture.changes().await?;
+        drop(
+            changes
+                .apply_cli(services::change_request(&enable)?)
+                .await?,
+        );
+        drop(changes);
+        let enabled = services::read_services(fixture.context()).await?;
+        assert!(enabled.iter().any(|entry| {
+            entry.name.as_deref() == Some(service) && entry.enabled == Some(true)
+        }));
 
-    let disable = services::plan_service(fixture.context(), "iperf3", false)?;
-    let mut disable_changes = fixture.changes().await?;
-    drop(
-        disable_changes
-            .apply_cli(services::change_request(&disable)?)
-            .await?,
-    );
-    drop(disable_changes);
-    let disabled = services::read_services(fixture.context()).await?;
-    assert!(
-        !disabled
-            .iter()
-            .any(|service| service.name.as_deref() == Some("iperf3"))
-    );
-    assert!(fixture.handle().request_count() > before);
-    fixture.shutdown().await
+        let disable = services::plan_service(fixture.context(), service, false)?;
+        let mut disable_changes = fixture.changes().await?;
+        drop(
+            disable_changes
+                .apply_cli(services::change_request(&disable)?)
+                .await?,
+        );
+        drop(disable_changes);
+        let disabled = services::read_services(fixture.context()).await?;
+        assert!(
+            !disabled
+                .iter()
+                .any(|entry| entry.name.as_deref() == Some(service))
+        );
+        assert!(fixture.handle().request_count() > before);
+        fixture.shutdown().await?;
+    }
+    Ok(())
 }
 
 #[tokio::test]
 async fn management_listener_changes_are_management_risk() -> TestResult {
-    let fixture = Fixture::spawn().await?;
-    let http_port = services::plan_port(fixture.context(), ManagementListener::Http, 8080)?;
-    let ssh_level = services::plan_security_level(
-        fixture.context(),
-        ManagementListener::Ssh,
-        SecurityLevel::Protected,
-    )?;
-    assert_eq!(http_port.risk, Risk::Management);
-    assert_eq!(ssh_level.risk, Risk::Management);
-    fixture.shutdown().await
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let http_port = services::plan_port(fixture.context(), ManagementListener::Http, 8080)?;
+        let ssh_level = services::plan_security_level(
+            fixture.context(),
+            ManagementListener::Ssh,
+            SecurityLevel::Protected,
+        )?;
+        assert_eq!(http_port.risk, Risk::Management);
+        assert_eq!(ssh_level.risk, Risk::Management);
+        fixture.shutdown().await?;
+    }
+    Ok(())
 }

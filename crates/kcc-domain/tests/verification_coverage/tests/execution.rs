@@ -10,7 +10,7 @@ use kcc_domain::{
     dhcp::model::PoolConfig,
     interfaces, mesh, nat, segments, system,
 };
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FaultInjection, model::Firmware};
 use serde_json::json;
 
 use crate::{
@@ -19,16 +19,16 @@ use crate::{
 };
 
 /// Exercises public apply paths where the CLI converter is intentionally private.
-pub(super) async fn check(domain: DomainId, op: &str) -> TestResult {
+pub(super) async fn check(firmware: Firmware, domain: DomainId, op: &str) -> TestResult {
     if domain == DomainId::Configuration {
-        return configuration(op).await;
+        return configuration(firmware, op).await;
     }
     let faults = if domain == DomainId::Dhcp && op == "static_lease" {
         FaultInjection::default().silent_noop_path("ip dhcp host 02:00:00:00:67:01 192.0.2.67")
     } else {
         FaultInjection::default().silent_noop_path("parse")
     };
-    let fixture = Fixture::spawn_with_faults(faults).await?;
+    let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
     let router = fixture.context();
     let mut changes = fixture.changes().await?;
     match domain {
@@ -78,7 +78,7 @@ pub(super) async fn check(domain: DomainId, op: &str) -> TestResult {
         DomainId::Segments => {
             drop(changes);
             fixture.shutdown().await?;
-            return segment(op).await;
+            return segment(firmware, op).await;
         }
         DomainId::System
         | DomainId::Internet
@@ -134,13 +134,13 @@ async fn interface_write(changes: &mut ChangeSet, router: &RouterCtx, op: &str) 
 }
 
 /// Proves segment create rejects a no-op and delete verifies its real composed plan.
-async fn segment(op: &str) -> TestResult {
+async fn segment(firmware: Firmware, op: &str) -> TestResult {
     let faults = if op == "create" {
         FaultInjection::default().silent_noop_path("parse")
     } else {
         FaultInjection::default()
     };
-    let fixture = Fixture::spawn_with_faults(faults).await?;
+    let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
     let spec = segments::SegmentSpec::new(
         67,
         67,
@@ -169,7 +169,7 @@ async fn segment(op: &str) -> TestResult {
 }
 
 /// Exercises save/commit state transitions and the native timer's no-op rejection.
-async fn configuration(op: &str) -> TestResult {
+async fn configuration(firmware: Firmware, op: &str) -> TestResult {
     let faulted = matches!(op, "fail_safe_arm" | "fail_safe_keep_alive");
     let faults = if faulted {
         FaultInjection::default()
@@ -178,7 +178,7 @@ async fn configuration(op: &str) -> TestResult {
     } else {
         FaultInjection::default()
     };
-    let fixture = Fixture::spawn_with_faults(faults).await?;
+    let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
     let mut changes = fixture.changes().await?;
     match op {
         "save" | "fail_safe_commit" => {
