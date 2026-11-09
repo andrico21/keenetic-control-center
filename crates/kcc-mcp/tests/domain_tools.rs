@@ -280,6 +280,7 @@ mod tests {
     }
 
     #[tokio::test]
+    // NOT cancel-safe: fixture writes may apply before cancellation.
     async fn nested_mixed_rci_values_require_save_and_audit_unsaved() -> TestResult {
         let lab = Lab::start(
             vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
@@ -315,7 +316,32 @@ mod tests {
             )
             .await?;
 
-        for result in [batch.value()?, execute.value()?] {
+        let deep_batch = lab
+            .call(
+                "kcc_rci_batch",
+                json!({
+                    "host":"lab-1", "items":[{"system":{"country":{"country":"DE"},
+                    "ndss":{"dump-report":{"disable":{}}}}}]
+                }),
+                false,
+            )
+            .await?;
+        let deep_value = lab
+            .call(
+                "kcc_rci_execute",
+                json!({
+                    "host":"lab-1", "catalog_path":"system", "path":["system"],
+                    "value":{"country":{"country":"DE"},"ndss":{"dump-report":{"disable":{}}}}
+                }),
+                false,
+            )
+            .await?;
+        for result in [
+            batch.value()?,
+            execute.value()?,
+            deep_batch.value()?,
+            deep_value.value()?,
+        ] {
             assert_eq!(result.get("persists_immediately"), Some(&json!(false)));
             assert_eq!(result.get("unsaved"), Some(&json!(true)));
             assert_eq!(result.get("save_required"), Some(&json!(true)));
@@ -335,7 +361,15 @@ mod tests {
             })
             .map(|entry| entry.outcome)
             .collect::<Vec<_>>();
-        assert_eq!(outcomes, ["applied_unsaved", "applied_unsaved"]);
+        assert_eq!(
+            outcomes,
+            [
+                "applied_unsaved",
+                "applied_unsaved",
+                "applied_unsaved",
+                "applied_unsaved"
+            ]
+        );
         lab.stop().await
     }
 

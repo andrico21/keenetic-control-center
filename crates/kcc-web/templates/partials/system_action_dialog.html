@@ -1,7 +1,7 @@
 {#- Add a timed action to a schedule: start or stop, the time and the days of the week. -#}
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(title) %}
-<form class="form" hx-post="/ui/r/{{ router }}/system/schedules/action" hx-target="#page-outcome">
+<form class="form" method="post" action="/ui/r/{{ router }}/system/schedules/action" hx-post="/ui/r/{{ router }}/system/schedules/action" hx-target="#page-outcome">
   <input type="hidden" name="name" value="{{ schedule }}">
   <fieldset class="choice">
     <legend class="field__label">{{ t(keys::WEB_SYSTEM_SCHEDULES_ACTION) }}</legend>

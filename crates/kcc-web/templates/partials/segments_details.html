@@ -2,7 +2,7 @@
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(t(keys::WEB_SEGMENTS_WIZARD_TITLE)) %}
 <p class="lan-step">{{ t(keys::WEB_SEGMENTS_STEP_DETAILS) }}</p>
-<form class="form" hx-post="/ui/r/{{ router }}/segments/review" hx-target="#dialog-content">
+<form class="form" method="post" action="/ui/r/{{ router }}/segments/review" hx-post="/ui/r/{{ router }}/segments/review" hx-target="#dialog-content">
   {%- if !problem.is_empty() %}
   <p class="notice" data-tone="error">{{ problem }}</p>
   {%- endif %}

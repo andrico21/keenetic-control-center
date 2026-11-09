@@ -5,7 +5,7 @@
 <div class="page wizard-page">
   <div class="page-head">
     <h1 class="page__title">{{ title }}</h1>
-    <form class="page-head__actions" hx-post="{{ start }}" hx-target="#page-outcome">
+    <form class="page-head__actions" method="post" action="{{ start }}" hx-post="{{ start }}" hx-target="#page-outcome">
       <button class="button button--primary" type="submit">{{ start_label }}</button>
     </form>
   </div>

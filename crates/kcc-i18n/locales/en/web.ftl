@@ -1962,4 +1962,6 @@ web-secret-import-done = Imported. The keys from the file were sent, and the rou
 web-explorer-confirm-persist-text = The command changes the configuration of { $router }, and the router saves it at once. kcc backs up the saved configuration first.
 web-explorer-done-persisted = Command completed. The router stored the change already; no save is needed.
 web-explorer-mixed-persistence = Command completed. The router stored these catalog paths at once: { $paths }. The rest is not saved and needs an explicit save.
+web-explorer-mixed-persistence-before = The router will store these catalog paths at once: { $paths }. The rest will stay unsaved until you explicitly save it.
+web-explorer-confirm-mixed-text = The command will change the configuration of { $router }. kcc will first back up the saved configuration. Some changes will be stored at once; the rest will need an explicit save.
 web-vpn-error-psk = Enter a WireGuard preshared key: 44 characters of Base64. Leave the field empty to keep the stored key.

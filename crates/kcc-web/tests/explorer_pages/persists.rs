@@ -12,6 +12,9 @@ use crate::{
     support::{Fixture, ROUTER, TestResult, text},
 };
 
+#[path = "persists/mixed.rs"]
+mod mixed;
+
 /// Every pre-execution surface of the explorer and both consoles, for `system country`
 /// and for an ordinary change.
 #[tokio::test]

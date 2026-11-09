@@ -11,7 +11,7 @@
   <div class="facts__row"><dt>{{ t(keys::DOMAINS_MODEL) }}</dt><dd>{{ facts.0 }}</dd></div>
   <div class="facts__row"><dt>{{ t(keys::DOMAINS_FIRMWARE) }}</dt><dd>{{ facts.1 }}</dd></div>
 </dl>
-<form class="form wizard-form presets-compose" hx-post="/ui/presets/new/{{ id }}" hx-target="#wizard-step">
+  <form class="form wizard-form presets-compose" method="post" action="/ui/presets/new/{{ id }}" hx-post="/ui/presets/new/{{ id }}" hx-target="#wizard-step">
   <fieldset class="presets-groups" hx-post="/ui/presets/new/{{ id }}/preview" hx-trigger="change" hx-target="#presets-captured" hx-swap="outerHTML"{% if !groups_error.is_empty() %} aria-describedby="presets-groups-error"{% endif %}>
     <legend class="field__label">{{ t(keys::WEB_PRESETS_GROUPS) }}</legend>
     {%- for group in groups %}

@@ -5,7 +5,7 @@
 {%- if !problem.is_empty() %}
 <p class="notice" data-tone="error">{{ problem }}</p>
 {%- else %}
-<form class="form wizard-form" hx-post="/ui/presets/runs/{{ id }}/options" hx-target="#wizard-step">
+  <form class="form wizard-form" method="post" action="/ui/presets/runs/{{ id }}/options" hx-post="/ui/presets/runs/{{ id }}/options" hx-target="#wizard-step">
   <fieldset class="choice presets-mode">
     <legend class="field__label">{{ t(keys::WEB_PRESETS_MODE) }}</legend>
     <label class="choice__option"><input type="radio" name="mode" value="merge"{% if mode == "merge" %} checked{% endif %}><span>{{ t(keys::WEB_PRESETS_MODE_MERGE) }}</span></label>

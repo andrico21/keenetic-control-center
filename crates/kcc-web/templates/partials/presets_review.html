@@ -11,7 +11,7 @@
     {%- endfor %}
   </ul>
 </nav>
-<form class="wizard-review" id="review-form" hx-post="/ui/presets/runs/{{ id }}/review" hx-trigger="change" hx-swap="none">
+  <form class="wizard-review" id="review-form" method="post" action="/ui/presets/runs/{{ id }}/review" hx-post="/ui/presets/runs/{{ id }}/review" hx-trigger="change" hx-swap="none">
   {%- if rows.is_empty() %}
   <p class="table-empty">{{ t(keys::WEB_KIT_TABLE_EMPTY) }}</p>
   {%- else %}

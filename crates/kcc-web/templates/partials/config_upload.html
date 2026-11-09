@@ -1,7 +1,7 @@
 {#- A startup-configuration file stored as a backup: the outcome lands in the page's outcome region, a file error comes back here. -#}
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(t(keys::WEB_CONFIG_UPLOAD_TITLE)) %}
-<form class="form" hx-post="/ui/r/{{ router }}/config/backups/upload" hx-encoding="multipart/form-data" hx-target="#page-outcome">
+<form class="form" method="post" action="/ui/r/{{ router }}/config/backups/upload" hx-post="/ui/r/{{ router }}/config/backups/upload" hx-encoding="multipart/form-data" hx-target="#page-outcome">
   <p class="dialog__text">{{ t(keys::WEB_CONFIG_UPLOAD_TEXT) }}</p>
   <div class="field">
     <label class="field__label" for="backup-file">{{ t(keys::WEB_CONFIG_UPLOAD_FILE) }}</label>

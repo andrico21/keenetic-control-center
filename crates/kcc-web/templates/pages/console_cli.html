@@ -13,7 +13,7 @@
   {%- if let Some(message) = problem %}
   <p class="notice" data-tone="error">{{ t(**message) }}</p>
   {%- else %}
-  <form class="form console-form" id="cli-form" hx-post="/ui/r/{{ router }}/console/cli/send" hx-target="#cli-result">
+  <form class="form console-form" id="cli-form" method="post" action="/ui/r/{{ router }}/console/cli/send" hx-post="/ui/r/{{ router }}/console/cli/send" hx-target="#cli-result">
     <div class="field console-form__line">
       <label class="field__label" for="cli-line">{{ t(keys::WEB_CONSOLE_LINE) }}</label>
       <input class="field__input mono" id="cli-line" name="line" type="text" value="" autocomplete="off" spellcheck="false" aria-describedby="cli-line-help" hx-post="/ui/r/{{ router }}/console/cli/check" hx-trigger="input changed delay:400ms" hx-include="#cli-form" hx-target="#cli-check">

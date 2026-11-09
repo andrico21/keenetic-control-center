@@ -7,7 +7,7 @@
 {%- if !hardware_known %}
 <p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_MAP_HARDWARE_UNKNOWN) }}</p>
 {%- endif %}
-<form class="form wizard-form" hx-post="/ui/migrate/{{ id }}/mapping" hx-target="#wizard-step">
+  <form class="form wizard-form" method="post" action="/ui/migrate/{{ id }}/mapping" hx-post="/ui/migrate/{{ id }}/mapping" hx-target="#wizard-step">
   <section class="wizard-map" aria-labelledby="map-ports-title">
     <h3 class="wizard-map__title" id="map-ports-title">{{ t(keys::WEB_MIGRATE_PORTS) }}</h3>
     {%- if ports.is_empty() %}

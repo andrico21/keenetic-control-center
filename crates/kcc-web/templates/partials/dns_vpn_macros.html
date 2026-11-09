@@ -5,7 +5,7 @@
 {%- if action.is_link() -%}
 <a class="button {{ action.style() }}" href="{{ action.href() }}"{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</a>
 {%- else if action.is_post() -%}
-<form class="inline-form" hx-post="{{ action.href() }}" hx-target="#page-outcome">
+<form class="inline-form" method="post" action="{{ action.href() }}" hx-post="{{ action.href() }}" hx-target="#page-outcome">
   {%- for field in action.fields() %}
   <input type="hidden" name="{{ field.0 }}" value="{{ field.1 }}">
   {%- endfor %}

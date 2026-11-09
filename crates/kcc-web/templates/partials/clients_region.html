@@ -88,7 +88,7 @@
                 <li><button class="menu__item" type="button" hx-get="{{ action_url("name", row) }}" hx-target="#dialog-content">{% if row.registered() %}{{ t(keys::WEB_CLIENTS_ACTION_RENAME) }}{% else %}{{ t(keys::WEB_CLIENTS_ACTION_REGISTER) }}{% endif %}</button></li>
                 {%- endif %}
                 {%- if controls.allows("access") %}
-                <li><form hx-post="{{ action_url("access", row) }}" hx-target="#page-outcome">
+          <li><form method="post" action="{{ action_url("access", row) }}" hx-post="{{ action_url("access", row) }}" hx-target="#page-outcome">
                   {%- if row.blocked() %}
                   <input type="hidden" name="value" value="permit"><button class="menu__item" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_PERMIT) }}</button>
                   {%- else %}
@@ -106,7 +106,7 @@
                 <li><button class="menu__item" type="button" hx-get="{{ action_url("priority", row) }}" hx-target="#dialog-content">{{ t(keys::WEB_CLIENTS_ACTION_PRIORITY) }}</button></li>
                 {%- endif %}
                 {%- if controls.allows("wake") %}
-                <li><form hx-post="{{ action_url("wake", row) }}" hx-target="#page-outcome"><button class="menu__item" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_WAKE) }}</button></form></li>
+          <li><form method="post" action="{{ action_url("wake", row) }}" hx-post="{{ action_url("wake", row) }}" hx-target="#page-outcome"><button class="menu__item" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_WAKE) }}</button></form></li>
                 {%- endif %}
                 {%- if controls.allows("remove") && row.registered() %}
                 <li><button class="menu__item menu__item--danger" type="button" hx-get="{{ action_url("remove", row) }}" hx-target="#dialog-content">{{ t(keys::WEB_CLIENTS_ACTION_REMOVE) }}</button></li>

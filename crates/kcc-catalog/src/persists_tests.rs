@@ -11,10 +11,67 @@ use core::{error::Error, str::FromStr as _};
 use kcc_rci::version::FirmwareVersion;
 use serde_json::json;
 
-use crate::{Catalog, HttpMethod, RawAuthorization};
+use crate::{Catalog, HttpMethod, RawAuthorization, ValidatedRequest};
+
+mod shapes;
 
 /// Every committed firmware line.
 const LINES: [&str; 3] = ["4.3.0", "5.0.0", "5.1.0"];
+
+/// Every catalog command must survive nesting through virtual prefixes.
+#[test]
+fn every_catalog_path_retains_its_persistence_class() -> Result<(), Box<dyn Error>> {
+    for line in LINES {
+        let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str(line)?, None)?;
+        for command in catalog.commands() {
+            let mut value = json!({});
+            for segment in command.path.split_whitespace().rev() {
+                value = json!({segment: value});
+            }
+            let alone =
+                ValidatedRequest::capture(&catalog, "", HttpMethod::Post, value.clone(), false);
+            assert_eq!(
+                alone.persists_immediately, command.persists_immediately,
+                "{line}: {}",
+                command.path
+            );
+            if command.persists_immediately {
+                assert_eq!(alone.persisted_paths, [command.path.as_str()], "{line}");
+            } else {
+                assert!(
+                    alone.ordinary_paths.contains(&command.path),
+                    "{line}: {}",
+                    command.path
+                );
+                // An empty ancestor merged with its only child loses its identity in JSON.
+                // Its ordinary classification is proved above; the merged value is the
+                // existing all-persisting request and cannot also be classified as mixed.
+                if command.path == "system" {
+                    continue;
+                }
+                let system = value
+                    .as_object_mut()
+                    .ok_or("nested object")?
+                    .entry("system")
+                    .or_insert_with(|| json!({}));
+                drop(
+                    system
+                        .as_object_mut()
+                        .ok_or("system object")?
+                        .insert("country".to_owned(), json!({"country":"DE"})),
+                );
+                let mixed = ValidatedRequest::capture(&catalog, "", HttpMethod::Post, value, false);
+                assert!(!mixed.persists_immediately, "{line}: {}", command.path);
+                assert!(
+                    mixed.ordinary_paths.contains(&command.path),
+                    "{line}: {}",
+                    command.path
+                );
+            }
+        }
+    }
+    Ok(())
+}
 
 #[test]
 fn system_country_persists_immediately_on_every_line() -> Result<(), Box<dyn Error>> {

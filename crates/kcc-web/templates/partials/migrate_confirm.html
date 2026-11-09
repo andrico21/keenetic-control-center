@@ -2,7 +2,7 @@
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(words.title) %}
 <p class="dialog__text">{{ words.text }}</p>
-<form class="form" hx-post="{{ action }}" hx-target="#wizard-step">
+  <form class="form" method="post" action="{{ action }}" hx-post="{{ action }}" hx-target="#wizard-step">
   <input type="hidden" name="confirm" value="yes">
   {%- if needs_name %}
   {{ ui::field("confirm-name", "confirm_name", t(keys::WEB_EXPLORER_CONFIRM_NAME), "", name_error, "text", "off") }}

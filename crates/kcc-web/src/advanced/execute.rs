@@ -38,6 +38,7 @@ use crate::{
 };
 
 /// `POST /ui/r/{router}/explorer/execute`: validates and runs the explorer form.
+// NOT cancel-safe: a confirmed write may apply before cancellation.
 pub(crate) async fn execute(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -82,6 +83,7 @@ pub(crate) async fn execute(
         return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
             .with_persists(built.validated().persists_immediately)
+            .with_persisted_paths(built.validated().persisted_paths.clone())
             .render(resubmit, locale);
     }
     let session = current.stream_key();

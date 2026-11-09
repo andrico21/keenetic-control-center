@@ -1,7 +1,7 @@
 {#- A static lease; the DHCP domain refuses an address outside every pool or in use, and the error comes back here. -#}
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(t(keys::WEB_DHCP_LEASE_TITLE)) %}
-<form class="form" hx-post="{{ action }}" hx-target="#page-outcome">
+<form class="form" method="post" action="{{ action }}" hx-post="{{ action }}" hx-target="#page-outcome">
   {%- if !problem.is_empty() %}
   <p class="notice" data-tone="error">{{ problem }}</p>
   {%- endif %}

@@ -17,7 +17,7 @@
   {%- endif %}
   <section class="panel" aria-labelledby="diagnostics-title">
     <h2 class="panel__title" id="diagnostics-title">{{ t(keys::WEB_SYSTEM_DIAG_RUN) }}</h2>
-    <form class="form diagnostics-form" id="diagnostics-form" hx-post="/ui/r/{{ router }}/system/diagnostics" hx-target="#page-outcome">
+  <form class="form diagnostics-form" id="diagnostics-form" method="post" action="/ui/r/{{ router }}/system/diagnostics" hx-post="/ui/r/{{ router }}/system/diagnostics" hx-target="#page-outcome">
       <fieldset class="choice">
         <legend class="field__label">{{ t(keys::WEB_SYSTEM_DIAG_TOOL) }}</legend>
         <div class="system-checks">

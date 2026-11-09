@@ -4,7 +4,7 @@
 {%- if let Some(text) = note %}
 <p class="dialog__text">{{ text }}</p>
 {%- endif %}
-<form class="form" hx-post="{{ post_to }}" hx-target="#page-outcome">
+<form class="form" method="post" action="{{ post_to }}" hx-post="{{ post_to }}" hx-target="#page-outcome">
   {%- for input in inputs %}
   <div class="field">
     <label class="field__label" for="{{ input.id() }}">{{ label(input) }}</label>

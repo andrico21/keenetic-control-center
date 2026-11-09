@@ -1,13 +1,13 @@
 {#- Confirmation of a change; confirm sends the original request again with confirm=yes. -#}
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(title) %}
-<p class="dialog__text">{{ text }}</p>
+<p class="dialog__text" data-message-key="{{ text_key.id() }}">{{ text }}</p>
 {%- if persists %}
-<p class="notice" data-tone="info">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
+<p class="notice" data-tone="info" data-persistence="persists">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
 {%- else if !persisted_paths.is_empty() %}
-<p class="notice" data-tone="info">{{ mixed_persistence }}</p>
+<p class="notice" data-tone="info" data-persistence="mixed" data-message-key="{{ mixed_key.id() }}">{{ mixed_persistence }}</p>
 {%- endif %}
-<form class="form" hx-post="{{ resubmit.action }}"{% if let Some(include) = resubmit.include %} hx-include="{{ include }}"{% endif %} hx-target="{{ resubmit.target }}">
+<form class="form" method="post" action="{{ resubmit.action }}" hx-post="{{ resubmit.action }}"{% if let Some(include) = resubmit.include %} hx-include="{{ include }}"{% endif %} hx-target="{{ resubmit.target }}">
   <input type="hidden" name="confirm" value="yes">
   {%- if needs_name %}
   {{ ui::field("confirm-name", "confirm_name", t(keys::WEB_EXPLORER_CONFIRM_NAME), "", name_error, "text", "off") }}

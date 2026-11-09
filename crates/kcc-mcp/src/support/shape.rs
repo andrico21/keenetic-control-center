@@ -224,3 +224,24 @@ fn project(value: &mut Value, fields: &[String]) {
     };
     object.retain(|key, _nested| fields.contains(key));
 }
+
+#[cfg(test)]
+#[expect(clippy::missing_panics_doc, reason = "test code fails by panicking")]
+mod tests {
+    use super::FailureContext;
+
+    /// Failure audit context must discard malformed router identifiers.
+    #[test]
+    fn failure_context_retains_only_valid_router_identifiers() {
+        let oversized = "a".repeat(300);
+        for (router, expected) in [
+            (oversized.as_str(), None),
+            ("../etc", None),
+            ("Bad Host", None),
+            ("lab-1", Some("lab-1")),
+        ] {
+            let context = FailureContext::new("kcc_rci_execute", false, Some(router));
+            assert_eq!(context.router(), expected);
+        }
+    }
+}

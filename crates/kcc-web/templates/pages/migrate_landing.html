@@ -5,7 +5,7 @@
 <div class="page wizard-page">
   <div class="page-head">
     <h1 class="page__title">{{ t(keys::MIGRATE_TITLE) }}</h1>
-    <form class="page-head__actions" hx-post="/ui/migrate" hx-target="#page-outcome">
+    <form class="page-head__actions" method="post" action="/ui/migrate" hx-post="/ui/migrate" hx-target="#page-outcome">
       <input type="hidden" name="mode" value="migrate">
       <button class="button {% if restore.is_some() %}button--secondary{% else %}button--primary{% endif %}" type="submit">{{ t(keys::MIGRATE_START) }}</button>
     </form>
@@ -19,7 +19,7 @@
   <section class="panel wizard-offer" aria-labelledby="restore-title">
     <h2 class="panel__title" id="restore-title">{{ t(keys::WEB_MIGRATE_RESTORE_TITLE) }}</h2>
     <p class="page__text">{{ offer.text }}</p>
-    <form hx-post="/ui/migrate" hx-target="#page-outcome">
+    <form method="post" action="/ui/migrate" hx-post="/ui/migrate" hx-target="#page-outcome">
       <input type="hidden" name="mode" value="restore">
       <input type="hidden" name="router" value="{{ offer.router }}">
       <input type="hidden" name="backup" value="{{ offer.backup }}">

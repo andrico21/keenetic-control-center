@@ -123,6 +123,8 @@ pub(crate) struct Report {
     persisted_paths: Vec<String>,
     /// Localized mixed-persistence explanation.
     mixed_persistence: String,
+    /// Message selected for the pre-run notice and its stable HTML marker.
+    mixed_key: MessageKey,
 }
 
 impl Localize for Report {
@@ -143,6 +145,7 @@ impl Report {
             persists: false,
             persisted_paths: Vec::new(),
             mixed_persistence: String::new(),
+            mixed_key: keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE,
         }
     }
 
@@ -160,6 +163,7 @@ impl Report {
             persists: false,
             persisted_paths: Vec::new(),
             mixed_persistence: String::new(),
+            mixed_key: keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE,
         }
     }
 
@@ -188,7 +192,7 @@ impl Report {
         if !self.persisted_paths.is_empty() {
             let mut args = FluentArgs::new();
             args.set("paths", self.persisted_paths.join(", "));
-            self.mixed_persistence = tr(locale, keys::WEB_EXPLORER_MIXED_PERSISTENCE, Some(&args));
+            self.mixed_persistence = tr(locale, self.mixed_key, Some(&args));
         }
         errors::render(&self)
     }

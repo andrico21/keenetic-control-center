@@ -702,3 +702,10 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 ## [2026-11-09] Todo 85 RFC 9637 boundary decision (W=/home/andrico/kcc-wt/t85)
 - Keep `is_global` aligned with std's unstable IPv6 classification using the direct RFC 9637 segment predicate `!(segments[0] == 0x3fff && segments[1] <= 0x0fff)`. A first-segment nibble mask is not equivalent to `/20` and must not be used.
 - Preserve the reviewed `5f00::/16` and SIIT extraction implementation unchanged after confirming their prefix shapes; only add explicit boundary rows for the SRv6 block.
+
+## [2026-11-09] Todo 90 progress (W=/home/andrico/kcc-wt/t90)
+
+- Default-to-ordinary is the persistence classification rule. Unknown nodes, non-object nodes, invalid argument values and raw writes never prove persistence. Empty root remains a read/no-op.
+- Argument names have validator precedence over child command names. Invalid object arguments additionally retain nested catalog paths for exhaustive classification, but mark their parent ordinary.
+- Pre-run messages use web-explorer-mixed-persistence-before and web-explorer-confirm-mixed-text in six locales; post-run web-explorer-mixed-persistence remains completed tense. Existing paths/router Fluent variables already occur in bundle all_arguments.
+- The all-template native POST invariant is a kcc-web integration test; no hx-only exceptions are retained.

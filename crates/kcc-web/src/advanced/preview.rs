@@ -17,7 +17,11 @@ use kcc_config::{
     config_text::{CliLine, Token, flatten, parse},
     secrets::redact,
 };
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
 
@@ -54,6 +58,12 @@ struct PreviewView {
     problems: Vec<String>,
     /// Whether the router persists the command at once.
     persists: bool,
+    /// Leaf paths that the router will store at once.
+    persisted_paths: Vec<String>,
+    /// Future-tense explanation for mixed requests.
+    mixed_persistence: String,
+    /// Message selected for the pre-run notice and its stable HTML marker.
+    mixed_key: MessageKey,
 }
 
 /// The router's stored lines of one command.
@@ -82,6 +92,7 @@ impl Localize for StoredView {
 
 /// `POST /ui/r/{router}/explorer/preview`: the method, endpoint and JSON the form would
 /// send, with the validation result. Nothing is sent to the router.
+// cancel-safe: only router facts are read before rendering.
 pub(crate) async fn preview(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -93,7 +104,7 @@ pub(crate) async fn preview(
         Err(response) => return *response,
     };
     let locale = user.locale();
-    let view = match request::build(facts.catalog(), &pairs) {
+    let mut view = match request::build(facts.catalog(), &pairs) {
         Ok(built) => {
             let (method, endpoint, payload) = built.wire();
             PreviewView {
@@ -103,6 +114,9 @@ pub(crate) async fn preview(
                 payload: serde_json::to_string_pretty(&payload).unwrap_or_default(),
                 problems: Vec::new(),
                 persists: built.validated().persists_immediately,
+                persisted_paths: built.validated().persisted_paths.clone(),
+                mixed_persistence: String::new(),
+                mixed_key: keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE,
             }
         }
         Err(problems) => PreviewView {
@@ -115,8 +129,16 @@ pub(crate) async fn preview(
                 .map(|problem: &Problem| sentence(locale, problem))
                 .collect(),
             persists: false,
+            persisted_paths: Vec::new(),
+            mixed_persistence: String::new(),
+            mixed_key: keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE,
         },
     };
+    if !view.persisted_paths.is_empty() {
+        let mut args = FluentArgs::new();
+        args.set("paths", view.persisted_paths.join(", "));
+        view.mixed_persistence = tr(locale, view.mixed_key, Some(&args));
+    }
     errors::render(&view)
 }
 

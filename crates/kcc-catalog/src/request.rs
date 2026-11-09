@@ -3,7 +3,10 @@
 use serde::Serialize;
 use serde_json::Value;
 
-use crate::{ArgumentKind, Catalog, HttpMethod, Risk, SecretValue, WireValue};
+use crate::{
+    ArgumentKind, Catalog, HttpMethod, Risk, SecretValue, WireValue,
+    validate::{boolean_keyword_forms, child_names, valid_argument},
+};
 
 /// A catalog-validated request with a redacted public projection.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -39,8 +42,10 @@ impl ValidatedRequest {
         value: Value,
         unvalidated: bool,
     ) -> Self {
-        let (persisted_paths, ordinary_paths) = if unvalidated || method == HttpMethod::Get {
+        let (persisted_paths, ordinary_paths) = if method == HttpMethod::Get {
             (Vec::new(), Vec::new())
+        } else if unvalidated {
+            (Vec::new(), vec![path.to_owned()])
         } else {
             persistence_paths(catalog, path, &value)
         };
@@ -59,7 +64,10 @@ impl ValidatedRequest {
             },
             unvalidated,
             persisted_paths,
-            ordinary_paths,
+            ordinary_paths: ordinary_paths
+                .iter()
+                .map(|leaf| protected.scrub_text(leaf))
+                .collect(),
             protected,
         }
     }
@@ -105,19 +113,43 @@ struct PersistencePaths {
 impl PersistencePaths {
     /// Visits nested request objects until catalog command leaves are reached.
     fn visit(&mut self, catalog: &Catalog, path: &str, value: &Value) {
-        if let Some(object) = value.as_object()
-            && object.keys().any(|key| {
-                let child_path = join_path(path, key);
-                catalog.lookup(&child_path).is_some()
-            })
-        {
-            for (key, child) in object {
-                self.visit(catalog, &join_path(path, key), child);
-            }
+        let Some(object) = value.as_object() else {
+            self.ordinary.push(path.to_owned());
             return;
+        };
+        let command = catalog.lookup(path);
+        let children = child_names(catalog, path);
+        let mut own_leaf = object.is_empty();
+        let mut proven = true;
+        for (key, child) in object {
+            if let Some(argument) = command.and_then(|entry| entry.arguments.get(key)) {
+                own_leaf = true;
+                proven &= valid_argument(argument, child);
+                // Invalid object arguments may also spell a catalog child. Retain
+                // that child's classification without granting the parent proof.
+                if child.is_object() && children.contains(key) {
+                    self.visit(catalog, &join_path(path, key), child);
+                }
+            } else if command
+                .into_iter()
+                .flat_map(|entry| entry.arguments.values())
+                .flat_map(boolean_keyword_forms)
+                .any(|keyword| keyword == key)
+            {
+                own_leaf = true;
+                proven &= child == &Value::Bool(true);
+            } else if key == "no" {
+                own_leaf = true;
+                proven &=
+                    command.is_some_and(|entry| entry.prefix_no) && child == &Value::Bool(true);
+            } else if children.contains(key) {
+                self.visit(catalog, &join_path(path, key), child);
+            } else {
+                self.ordinary.push(join_path(path, key));
+            }
         }
-        if let Some(command) = catalog.lookup(path) {
-            if command.persists_immediately {
+        if own_leaf && !path.is_empty() {
+            if proven && command.is_some_and(|entry| entry.persists_immediately) {
                 self.persisted.push(path.to_owned());
             } else {
                 self.ordinary.push(path.to_owned());

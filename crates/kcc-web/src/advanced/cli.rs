@@ -114,6 +114,7 @@ pub(crate) async fn page(
 }
 
 /// `POST /ui/r/{router}/console/cli/check`: the command the line maps to; nothing is sent.
+// cancel-safe: only router facts are read before rendering.
 pub(crate) async fn validate(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -136,6 +137,7 @@ pub(crate) async fn validate(
             };
             Report::valid(summary, validated.risk)
                 .with_persists(validated.persists_immediately)
+                .with_persisted_paths(validated.persisted_paths.clone())
                 .with_explore(
                     &router,
                     (!validated.unvalidated).then_some(validated.path.as_str()),
@@ -147,6 +149,7 @@ pub(crate) async fn validate(
 }
 
 /// `POST /ui/r/{router}/console/cli/send`: validates again and sends the line.
+// NOT cancel-safe: a confirmed write may apply before cancellation.
 pub(crate) async fn send(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -198,6 +201,7 @@ pub(crate) async fn send(
         return Prompt::new(Family::Commands, risk, &router)
             .with_wrong_name(wrong_name)
             .with_persists(validated.persists_immediately)
+            .with_persisted_paths(validated.persisted_paths.clone())
             .render(resubmit, locale);
     }
     let session = current.stream_key();

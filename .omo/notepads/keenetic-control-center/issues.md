@@ -442,3 +442,11 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 ## [2026-11-09] Todo 83 tooling note (W=/home/andrico/kcc-wt/t83)
 
 - `lsp_diagnostics` timed out for every changed Rust file on both attempts. Targeted tests, strict `cargo clippy ... -- -D warnings`, and nightly rustfmt all completed cleanly instead; no source blocker remains.
+
+## [2026-11-09] Todo 90 progress (W=/home/andrico/kcc-wt/t90)
+
+- CodeGraph has no worktree index; used Read/Grep instead. Explore agent could not start because its configured model was unavailable.
+- Two LSP diagnostic attempts timed out at the daemon (30 seconds each). Compiler/clippy remain the available diagnostic gates.
+- No git commands or state changes performed. Worktree-only source edits.
+
+- Browser QA unavailable: Playwright MCP startup failed because npx is not on PATH. The current changes are verified through real HTTP route tests and parsed template-form tests; no new screenshots are claimed.

@@ -4,7 +4,7 @@
 {%- if let Some(text) = restore %}
 <p class="page__text">{{ text }}</p>
 {%- else %}
-<form class="form wizard-form" hx-post="/ui/migrate/{{ id }}/target" hx-target="#wizard-step">
+  <form class="form wizard-form" method="post" action="/ui/migrate/{{ id }}/target" hx-post="/ui/migrate/{{ id }}/target" hx-target="#wizard-step">
   <div class="wizard-fields">
     <div class="field">
       <label class="field__label" for="target-router">{{ t(keys::MIGRATE_TARGET) }}</label>
@@ -74,7 +74,7 @@
   </details>
   {%- endfor %}
   {%- if !found.unsupported() %}
-  <form class="form wizard-form" hx-post="/ui/migrate/{{ id }}/target/continue" hx-target="#wizard-step">
+  <form class="form wizard-form" method="post" action="/ui/migrate/{{ id }}/target/continue" hx-post="/ui/migrate/{{ id }}/target/continue" hx-target="#wizard-step">
     {%- if found.needs_ack() %}
     <div class="check">
       <input class="check__input" type="checkbox" id="target-acknowledge" name="acknowledge" value="yes"{% if acknowledged %} checked{% endif %}{% if !ack_error.is_empty() %} aria-invalid="true" aria-describedby="target-acknowledge-error"{% endif %}>

@@ -13,7 +13,7 @@ use kcc_app::{
         WorkflowError,
     },
 };
-use kcc_catalog::Risk;
+use kcc_catalog::{Catalog, HttpMethod, Risk};
 use kcc_domain::{DomainError, RouterCtx, configuration::SafetyNet};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciError, RciResponse};
@@ -29,6 +29,9 @@ use super::{
     outcome::Failure,
 };
 use crate::authz::CurrentUser;
+
+#[cfg(test)]
+mod persistence_tests;
 
 /// A validated change, built by the page with its permission, read-back and redacted
 /// audit parameters.
@@ -99,7 +102,7 @@ impl Change {
     }
 
     /// Catalog paths of leaf commands persisted by the router at once.
-    pub(crate) fn persisted_paths(&self) -> Vec<String> {
+    pub(crate) fn persisted_paths(&self, catalog: &Catalog) -> Vec<String> {
         match self {
             Self::Batch(request) => request
                 .items
@@ -111,7 +114,22 @@ impl Change {
                 .iter()
                 .flat_map(|command| command.validated().persisted_paths.iter().cloned())
                 .collect(),
-            Self::Request(_) | Self::Delete(_) => Vec::new(),
+            Self::Request(request) => catalog
+                .validate(
+                    &request.catalog_path,
+                    HttpMethod::Post,
+                    request.body.expose_for_send().expose_secret(),
+                )
+                .map(|validated| validated.persisted_paths)
+                .unwrap_or_default(),
+            Self::Delete(request) => catalog
+                .validate(
+                    &request.catalog_path,
+                    HttpMethod::Delete,
+                    request.query.expose_for_send().expose_secret(),
+                )
+                .map(|validated| validated.persisted_paths)
+                .unwrap_or_default(),
         }
     }
 }

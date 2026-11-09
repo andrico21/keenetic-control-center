@@ -1067,3 +1067,18 @@ Size review: production apply files max 216 pure lines (preflight), tests touche
 - Red-first boundary runs independently exposed `3fff:1000::1` and `3ff0::1` as wrongly refused. The completed suffix table also pins `3fff::1`, `3fff:0fff:ffff::1`, `5f00::1`, `5f00:ffff::1`, and `5eff::1`.
 - Re-check found no sibling mask bug: `5f00::/16` is exactly one first segment, and SIIT `::ffff:0:0:0/96` is exactly `[0,0,0,0,0xffff,0,hi,lo]`. SIIT code was not touched, so its earlier mutation receipt remains applicable: SHA-256 before/after `81a9f8f1d38befc8937093d1af50deb165d682e7d8007d1ab25057e27a42ee12`.
 - All requested targeted tests, combined strict Clippy, dated-nightly fmt, cancel-safety, no-excuse rules, and diff check passed. LSP timed out twice plus one retry; compiler/Clippy diagnostics are clean. Evidence appended to `.omo/evidence/task-85-keenetic-control-center.log`.
+
+## [2026-11-09] Todo 90 progress (W=/home/andrico/kcc-wt/t90)
+
+- Catalog red: three regressions failed (deep virtual prefixes, unknown nodes, exhaustive catalog paths). Green: cargo test -p kcc-catalog: 39 passed.
+- Walk follows validator child_names, gives arguments and boolean keywords/no precedence, classifies own arguments alongside children, and defaults malformed/unknown leaves to ordinary. Read requests carry no persistence; raw writes are ordinary and their paths are scrubbed. Empty root remains non-persisting.
+- Catalog property enumerates the union view on 4.3, 5.0, 5.1. Empty system merged with country loses its identity in JSON; system alone is checked, and that unrepresentable mixed case is explicitly documented.
+- Mutation: replaced child_names recursion with concrete-command-only lookup. Exhaustive test failed on 4.3 Core commands. Restored byte-identical request.rs SHA256 before/after: 0cfd0d1538aad5dbdcd5b6ef07b9bfc9fb80ad3fa1e5e91a577b419b2d4450f2. Later formatting and raw-path scrubbing changed the file normally.
+- Web pre-run regressions failed on completed-tense console text and absent mixed explorer label, then six persistence route tests passed. Message markers now derive from the actual MessageKey used to translate.
+- Native POST invariant found 38 forms without fallback; all were given matching method/action, no exceptions. Gate lives in kcc-web/tests/form_methods.rs.
+- Existing path-level Web POST and CLI POST already use batch reporting in this worktree; real-route regression passed after catalog fix. Generic Web Request/Delete path metadata is additionally handled.
+
+- Final targeted gates: catalog 39 tests; CLI integration 26 tests; MCP, app (including workflow), whole Web and i18n suites all exited 0. MCP committed_tool_reference_matches_the_registry passed. i18n-check: 0 problems across 6 locales. assets-check: 4 pinned assets, 8 references, 0 problems. cancel-safety: 0 of 191 public async functions missing comments.
+- Clippy across kcc-catalog/kcc-mcp/kcc-app/kcc-web/kcc/kcc-i18n, all targets/features, -D warnings passed after correcting typed test literals and form-parser branches. Nightly fmt check passed.
+- Additional mutation proofs: FailureContext filter bypass fails on a 300-character router; inverted CLI mixed-note guard fails all three persistence tests; removing Web path metadata fails path_change_metadata_retains_saved_children; removing console path labels fails mixed_console_checks_and_dialogs_use_future_keys. All restored and corresponding tests green.
+- No new Fluent variables: paths and router were already supplied by all_arguments; six-locale formatting test passed after i18n-gen.

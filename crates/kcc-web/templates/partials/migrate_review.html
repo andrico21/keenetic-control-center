@@ -14,7 +14,7 @@
 {%- if !error.is_empty() %}
 <p class="notice" data-tone="error">{{ error }}</p>
 {%- endif %}
-<form class="wizard-review" id="review-form" hx-post="/ui/migrate/{{ id }}/review" hx-trigger="change" hx-swap="none">
+  <form class="wizard-review" id="review-form" method="post" action="/ui/migrate/{{ id }}/review" hx-post="/ui/migrate/{{ id }}/review" hx-trigger="change" hx-swap="none">
   {%- if rows.is_empty() %}
   <p class="table-empty">{{ t(keys::WEB_KIT_TABLE_EMPTY) }}</p>
   {%- else %}

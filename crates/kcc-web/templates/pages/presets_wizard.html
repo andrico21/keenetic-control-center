@@ -25,7 +25,7 @@
     {{ panel|safe }}
   </section>
   {%- if let Some(step) = back %}
-  <form class="wizard-back" hx-post="/ui/presets/runs/{{ id }}/back">
+      <form class="wizard-back" method="post" action="/ui/presets/runs/{{ id }}/back" hx-post="/ui/presets/runs/{{ id }}/back">
     <input type="hidden" name="step" value="{{ step }}">
     <button class="button button--ghost" type="submit">{{ t(keys::COMMON_BACK) }}</button>
   </form>

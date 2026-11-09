@@ -1,7 +1,7 @@
 {#- Format one medium: the filesystem first, then the kit asks for the router name. -#}
 {%- import "components.html" as ui -%}
 {% call ui::dialog_body(t(keys::WEB_SYSTEM_STORAGE_FORMAT_TITLE)) %}
-<form class="form" hx-post="{{ post_to }}" hx-target="#page-outcome">
+<form class="form" method="post" action="{{ post_to }}" hx-post="{{ post_to }}" hx-target="#page-outcome">
   <input type="hidden" name="media" value="{{ media }}">
   <div class="field">
     <label class="field__label" for="format-filesystem">{{ t(keys::WEB_SYSTEM_STORAGE_FILESYSTEM) }}</label>

@@ -135,6 +135,10 @@ struct Dialog {
     persisted_paths: Vec<String>,
     /// Localized mixed-persistence explanation.
     mixed_persistence: String,
+    /// Message selected for the pre-run notice and its stable HTML marker.
+    mixed_key: MessageKey,
+    /// Message selected for the confirmation paragraph.
+    text_key: MessageKey,
 }
 
 impl Localize for Dialog {
@@ -199,20 +203,19 @@ impl Prompt {
         // The router saves such a change itself, so the dialog does not call it unsaved.
         let text = if self.persists && self.risk == Risk::Write {
             keys::WEB_EXPLORER_CONFIRM_PERSIST_TEXT
+        } else if !self.persisted_paths.is_empty() && self.risk == Risk::Write {
+            keys::WEB_EXPLORER_CONFIRM_MIXED_TEXT
         } else {
             unsaved_text
         };
         let destructive = !matches!(self.risk, Risk::Read | Risk::Write | Risk::Management);
+        let mixed_key = keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE;
         let mixed_persistence = if self.persisted_paths.is_empty() {
             String::new()
         } else {
             let mut mixed_args = FluentArgs::new();
             mixed_args.set("paths", self.persisted_paths.join(", "));
-            tr(
-                locale,
-                keys::WEB_EXPLORER_MIXED_PERSISTENCE,
-                Some(&mixed_args),
-            )
+            tr(locale, mixed_key, Some(&mixed_args))
         };
         let dialog = Dialog {
             shell: fragment_shell(locale),
@@ -230,6 +233,8 @@ impl Prompt {
             persists: self.persists,
             persisted_paths: self.persisted_paths,
             mixed_persistence,
+            mixed_key,
+            text_key: text,
         };
         respond::in_dialog(errors::render(&dialog))
     }

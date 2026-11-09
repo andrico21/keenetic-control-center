@@ -2,7 +2,7 @@
 {%- import "components.html" as ui -%}
 {%- if proxy %}
 {% call ui::dialog_body(t(keys::WEB_SYSTEM_KEENDNS_PROXY_ADD)) %}
-<form class="form" hx-post="/ui/r/{{ router }}/system/keendns/proxy" hx-target="#page-outcome">
+<form class="form" method="post" action="/ui/r/{{ router }}/system/keendns/proxy" hx-post="/ui/r/{{ router }}/system/keendns/proxy" hx-target="#page-outcome">
   <input type="hidden" name="confirm" value="yes">
   {{ ui::field("proxy-name", "name", t(keys::WEB_SYSTEM_KEENDNS_PROXY_NAME), field(0), "", "text", "off", t(keys::WEB_SYSTEM_KEENDNS_PROXY_NAME_HELP)) }}
   <div class="field">
@@ -26,7 +26,7 @@
 {% endcall %}
 {%- else %}
 {% call ui::dialog_body(t(keys::WEB_SYSTEM_KEENDNS_BOOK)) %}
-<form class="form" hx-post="/ui/r/{{ router }}/system/keendns/book" hx-target="#page-outcome">
+<form class="form" method="post" action="/ui/r/{{ router }}/system/keendns/book" hx-post="/ui/r/{{ router }}/system/keendns/book" hx-target="#page-outcome">
   {{ ui::field("keendns-label", "name", t(keys::WEB_SYSTEM_KEENDNS_LABEL), field(0), "", "text", "off") }}
   {{ ui::field("keendns-domain", "domain", t(keys::WEB_SYSTEM_KEENDNS_DOMAIN), field(1), "", "text", "off", t(keys::WEB_SYSTEM_KEENDNS_DOMAIN_HELP)) }}
   {%- if !error.is_empty() %}

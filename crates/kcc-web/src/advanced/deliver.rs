@@ -138,7 +138,7 @@ impl Dispatch<'_> {
     pub(crate) async fn change(self, risk: Risk, change: Change) -> Reply {
         let plan = Plan::new(self.target, self.facts, self.sender.user).at(risk);
         let persists = self.persists || change.persists();
-        let persisted_paths = change.persisted_paths();
+        let persisted_paths = change.persisted_paths(self.facts.catalog());
         let left = |unsaved| Left::of(unsaved, persists, persisted_paths.clone());
         match change::apply(plan, change).await {
             Ok(Applied::Batch { unsaved, responses }) => self.items(&responses, left(unsaved)),

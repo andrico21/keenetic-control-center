@@ -4,7 +4,9 @@
   {%- if problems.is_empty() %}
   <p class="notice" data-tone="success">{{ t(keys::WEB_EXPLORER_VALID) }}</p>
   {%- if persists %}
-  <p class="notice" data-tone="info">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
+  <p class="notice" data-tone="info" data-persistence="persists">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
+  {%- else if !persisted_paths.is_empty() %}
+  <p class="notice" data-tone="info" data-persistence="mixed" data-message-key="{{ mixed_key.id() }}">{{ mixed_persistence }}</p>
   {%- endif %}
   <dl class="facts preview__facts">
     <div class="facts__row"><dt>{{ t(keys::WEB_EXPLORER_METHOD) }}</dt><dd class="mono">{{ method }}</dd></div>
