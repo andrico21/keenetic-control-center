@@ -1001,6 +1001,56 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(app,web,cli,mcp): explain outbound defaults, handle broken pipes and close small gate gaps
   Recommended task executor category: unspecified-high
 
+- [ ] 77. Outbound policy hardening: canonical addresses, suffix boundaries, accurate loopback refusal (found by F2 M2/L4, F3 N1)
+  What to do / Must NOT do: (1) `crates/kcc-rci/src/outbound.rs::allows`: canonicalize every resolved address with `IpAddr::to_canonical` BEFORE any check (so `::ffff:127.0.0.1` is loopback and `::ffff:169.254.169.254` is the metadata address); refuse unspecified (`0.0.0.0`, `::`), multicast, broadcast and other non-routable addresses on every path; the `allowed_suffixes` path admits only GLOBAL (public) addresses (documented semantics: "hostname suffixes whose resolved public addresses are admitted"; private LAN names belong in `allowed_networks`); suffixes compare case-insensitively on a dot boundary (config value `keenetic.pro` is normalized to `.keenetic.pro`; `evilkeenetic.pro` is NOT admitted; the bare registrable name itself is admitted); `outbound.allowed_suffixes` is validated/normalized at config load (`crates/kcc-app/src/settings.rs`, typed error for empty or invalid entries). Table tests over `127.0.0.1`, `::1`, `::ffff:127.0.0.1`, `0.0.0.0`, `::`, `169.254.169.254`, `::ffff:169.254.169.254`, `fd00::1`, `10.0.0.1`, `192.168.1.1` and a public address, through the suffix path and the network path, with and without `allow_loopback`, plus the `evilkeenetic.pro` case; red first (reproduction in `.omo/evidence/F2-keenetic-control-center-r2.log` appendix "SCRATCH REPRO N1"). (2) `SessionManager::new/with_defaults/with_options` (`crates/kcc-rci/src/session.rs`) are `pub` and build a bare `Client::builder()` with no `OutboundPolicy`: make them test-only or `pub(crate)` (move callers to the policy-checked constructor). (3) F3 N1: a loopback router address refused because `[outbound] allow_loopback` is false must say so: a new localized message in all six locales naming `[outbound] allow_loopback = true`, shown by Web router add/test and CLI router add/test/info when the URL's literal address is loopback (hostnames keep the general text); the metadata message stays; test: `127.0.0.0/8` in `allowed_networks` and `allow_loopback` unset -> text names `allow_loopback`. Must NOT change deny-by-default, must NOT weaken a gate, `RciError` stays source compatible (no new public required variants without need).
+  Closes: GAP-10
+  Parallelization: Wave W14 | Blocked by: 68, 76 | Blocks: F2/F3 re-run
+  References: F2 round 2 M2, L4; F3 round 2 N1; `docs/rust-guidelines/overlays/projects/keenetic-control-center.md` rule (a).
+  Acceptance criteria: G0 green; table test and loopback-message test; docs/CONFIG.md `allowed_suffixes` semantics updated.
+  QA scenarios: happy - `cargo test -p kcc-rci outbound` and `cargo test -p kcc --test cli outbound` piped to `.omo/evidence/task-77-keenetic-control-center.log`; failure - `evilkeenetic.pro` and `::ffff:169.254.169.254` refused, appended.
+  Commit: Y | fix(rci,app,i18n): canonicalize outbound addresses, bound suffix matches and name allow_loopback on loopback refusals
+  Recommended task executor category: deep-low
+
+- [ ] 78. Back off failed firmware update checks (found by F3 N2)
+  What to do / Must NOT do: `crates/kcc-web/src/fleet_updates.rs`: `settle` clears `started` for EVERY `UpdateStatus::Unknown`, so a router whose `components check-update` request is sent and fails is asked again on every 15 s tick (136 requests in 33 minutes observed), contradicting `docs/MONITORING.md:26`, `docs/USER_GUIDE.md:60` and row 72 ("at most every six hours per router"). Distinguish "no request sent" (router offline, not polled, catalog lacks the command: due again at the next tick is fine) from "request sent and failed or unreadable" (keeps `started`; the next check is due after `UPDATE_CHECK_TTL`, or a documented shorter retry interval, never per tick). Test with the injected fake clock: a failing router receives exactly one `components check-update` per TTL across many ticks (assert through the fake router's request log), a router that comes online after being offline is checked at the next tick, a success still caches for the TTL. Must NOT add sleeps, must NOT change the documented 6 h cadence.
+  Closes: GAP-13
+  Parallelization: Wave W14 | Blocked by: 72 | Blocks: F3 re-run
+  References: F3 round 2 N2.
+  Acceptance criteria: G0 green; backoff test red before and green after.
+  QA scenarios: happy - `cargo test -p kcc-web --test integrations update_check 2>&1 | tee .omo/evidence/task-78-keenetic-control-center.log`; failure - 40 ticks on a failing router -> 1 request, appended.
+  Commit: Y | fix(web): back off failed firmware update checks
+  Recommended task executor category: deep-low
+
+- [ ] 79. Cancel-safety annotations on every public async fn plus a gate (found by F2 M1)
+  What to do / Must NOT do: R-GUIDE section 5 (`docs/rust-guidelines/RUST_GUIDELINES.md:1157-1198`): every async fn that may run inside `select!`, `timeout` or an abortable task MUST carry a `// cancel-safe:` or `// NOT cancel-safe:` comment. F2 found 82 fully `pub` async fns in non-test code without one (kcc-domain 87 incl. non-pub, kcc-app 11, kcc-telemetry 4 ...; e.g. `kcc-domain/src/system.rs` `read_version`, `reboot`, `factory_reset`; `configuration.rs` `arm`, `commit`, `rollback`, `save`; `kcc-app/src/registry.rs` `create`, `update`, `delete`; `jobs.rs` `recovery_notices`, `cancel`; `poller.rs` `light_rounds`; `kcc-telemetry/src/logs/pipeline.rs` `start`, `shutdown`). Read each body and state the truth (a comment that is wrong is worse than none: e.g. a write that sends then reads back is NOT cancel-safe because cancellation after the send leaves the router changed); add the comment above each of them, and add an `xtask` check (`cargo xtask cancel-safety`, wired into the G1 list in `AGENTS.md` and `.github/workflows/ci.yml`, with an xtask unit test using a planted missing comment) that fails when a non-test fully `pub` async fn in `crates/*/src` lacks the comment. Non-public async fns stay accepted debt and the check must not flag them. Must NOT change behaviour; comments and the xtask check only.
+  Closes: GAP-14
+  Parallelization: Wave W14 | Blocked by: 66 | Blocks: F2 re-run
+  References: F2 round 2 M1 (same 82 fns as round 1).
+  Acceptance criteria: G0 green; `cargo xtask cancel-safety` exits 0 on the tree and non-zero on the planted fixture.
+  QA scenarios: happy - `cargo xtask cancel-safety 2>&1 | tee .omo/evidence/task-79-keenetic-control-center.log`; failure - planted fn without comment is reported with file:line, appended.
+  Commit: Y | docs(domain,app,telemetry): state cancel safety on every public async fn and gate it in xtask
+  Recommended task executor category: unspecified-high
+
+- [ ] 80. Audit retention prefix-only pruning, overflow-safe Loki counts, redacted secret-carrying Debug (found by F2 L5/L6/L1/L2)
+  What to do / Must NOT do: (1) `crates/kcc-app/src/audit.rs::prune_rotated` deletes EVERY rotated file whose newest `ts` is past the cutoff, but `ts` is caller-supplied: with out-of-order timestamps (a router-class box booting with a 1970 clock, then NTP correcting) a MIDDLE archive can be removed, the next `verify_files` fails with `Chain`, `AuditLog::spawn` fails and `kcc serve` cannot start. Prune only the oldest CONTIGUOUS prefix of rotated files (stop at the first file that is not entirely expired); test with out-of-order timestamps (red first: a middle expired archive is kept and `verify_chain` stays valid). (2) `crates/kcc-telemetry/src/logs/loki_reply.rs`: `.sum::<Option<usize>>()` over peer-supplied counts overflows (panics in debug/test builds, wraps in release): use checked addition (`None` on overflow = whole refusal) and test a body with counts near `usize::MAX`. (3) `crates/kcc-web/src/auth.rs` `LoginForm`/`PasswordForm` derive `Debug` over plaintext password fields: remove the derive or implement a redacting `Debug`; `crates/kcc-rci/src/auth.rs` `Ndw2Challenge` derives `Debug` and its `Display` prints `session_id`, which equals the session cookie value: redact it in `Debug`/`Display`; a test per type that `format!("{value:?}")` carries no secret (values built at run time). Must NOT change the audit entry format or hash construction, must NOT weaken the genesis rule added in row 75.
+  Closes: GAP-7
+  Parallelization: Wave W14 | Blocked by: 75, 76 | Blocks: F2 re-run
+  References: F2 round 2 L5, L6, L1, L2.
+  Acceptance criteria: G0 green; four red-first tests.
+  QA scenarios: happy - `cargo test -p kcc-app --test audit && cargo test -p kcc-telemetry loki_reply && cargo test -p kcc-web auth 2>&1 | tee .omo/evidence/task-80-keenetic-control-center.log`; failure - middle expired archive survives pruning, appended.
+  Commit: Y | fix(app,telemetry,web,rci): prune only an expired audit prefix, bound Loki counts and redact secret-carrying Debug
+  Recommended task executor category: deep-low
+
+- [ ] 81. Honest verification failures and secret input validation on the surfaces (found by F3 N3/N5/N6)
+  What to do / Must NOT do: (1) N6: for `system country` (persists immediately) the Web explorer confirm dialog and result still say "The change stays unsaved until you save it" / "applied and not saved yet" next to the persists-immediately label: when the request carries `persists_immediately` the unsaved wording must not appear (Web explorer preview/confirm/result, console check, CLI note), localized in six locales; test per surface. (2) N5: a read-back `VerificationFailed` reaches MCP as `validation_failed` (the code for bad input) and the CLI headline says "The router could not be reached or reported an error.": give MCP a distinct reason code (`verification_failed`) with the failed field, and the CLI a localized "the router did not apply the change" headline (exit code stays 6), tests on both; update `docs/MCP_TOOLS.md` via `cargo xtask gen-tool-docs`. (3) N3: the WireGuard peer editor (`crates/kcc-web/src/secret_pages` / `dns_vpn/vpn_peer_psk.rs`) accepts any preshared key ("tooshort" -> "Change applied" and sent); validate it as the same 44-character Base64 shape the public-key field uses, before any request, localized error, test with run-time-built values. Must NOT echo any secret in an error, must NOT weaken verification.
+  Closes: GAP-5
+  Parallelization: Wave W14 | Blocked by: 67, 69, 71 | Blocks: F3 re-run
+  References: F3 round 2 N3, N5, N6.
+  Acceptance criteria: G0 green; tests per item; MCP_TOOLS.md regenerated.
+  QA scenarios: happy - `cargo test -p kcc-web --test secret_fields && cargo test -p kcc-mcp && cargo test -p kcc --test cli 2>&1 | tee .omo/evidence/task-81-keenetic-control-center.log`; failure - `system country` confirm dialog has no "stays unsaved" text, appended.
+  Commit: Y | fix(web,mcp,cli): word persisted and unverified changes honestly and validate preshared keys
+  Recommended task executor category: unspecified-high
+
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
 - [ ] F1. Plan compliance audit
