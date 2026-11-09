@@ -190,7 +190,7 @@ mod tests {
     #[tokio::test]
     async fn rotation_prunes_entirely_expired_files_and_preserves_anchor() -> TestResult {
         let (_temp, state) = store()?;
-        let now = 1_800_000_000;
+        let now = 1_800_000_000_u64;
         let clock: Arc<dyn Clock> = Arc::new(MockClock(now));
         let policy = AuditPolicy::default()
             .with_rotate_bytes(1)
@@ -222,6 +222,69 @@ mod tests {
             Some(first.hash.as_str()),
             "the first retained entry reports the deleted prefix hash as its anchor"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rotation_prunes_only_expired_prefix_when_timestamps_are_out_of_order() -> TestResult {
+        let (_temp, state) = store()?;
+        let now = 1_800_000_000_u64;
+        let rotation_only = AuditPolicy::default()
+            .with_rotate_bytes(1)
+            .with_retention(Duration::ZERO);
+        let audit = AuditLog::spawn_with_policy(&state, rotation_only)?;
+        let mut first_expired = event(1);
+        first_expired.ts = now.saturating_sub(101);
+        drop(audit.append(first_expired).await?);
+        let mut middle_kept = event(2);
+        middle_kept.ts = now.saturating_sub(99);
+        let middle = audit.append(middle_kept).await?;
+        let mut last_expired = event(3);
+        last_expired.ts = now.saturating_sub(101);
+        let last = audit.append(last_expired).await?;
+        drop(audit);
+
+        let clock: Arc<dyn Clock> = Arc::new(MockClock(now));
+        let retention = AuditPolicy::default()
+            .with_rotate_bytes(1)
+            .with_retention(Duration::from_secs(100))
+            .with_clock(clock);
+        let pruning_audit = AuditLog::spawn_with_policy(&state, retention.clone())?;
+        drop(pruning_audit.append(event(4)).await?);
+        drop(pruning_audit);
+
+        let names = fs::read_dir(state.dir())?
+            .map(|entry| entry.map(|value| value.file_name().to_string_lossy().into_owned()))
+            .collect::<Result<Vec<_>, _>>()?;
+        assert!(
+            !names
+                .iter()
+                .any(|name| name == "audit-00000000000000000001.jsonl"),
+            "the expired prefix is pruned: {names:?}"
+        );
+        assert!(
+            names
+                .iter()
+                .any(|name| name == "audit-00000000000000000002.jsonl"),
+            "the first unexpired archive remains: {names:?}"
+        );
+        assert!(
+            names
+                .iter()
+                .any(|name| name == "audit-00000000000000000003.jsonl"),
+            "later expired archives remain contiguous with the retained chain: {names:?}"
+        );
+        let verified = verify_chain(state.dir())?;
+        assert_eq!(
+            verified.first().map(|entry| entry.seq),
+            Some(middle.seq),
+            "the retained chain starts at the first unexpired archive"
+        );
+        assert!(
+            verified.iter().any(|entry| entry.seq == last.seq),
+            "the retained chain includes the later expired archive"
+        );
+        drop(AuditLog::spawn_with_policy(&state, retention)?);
         Ok(())
     }
 

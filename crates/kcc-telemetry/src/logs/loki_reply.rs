@@ -40,12 +40,12 @@ pub(super) fn rejected_entries(body: &str, sent: usize) -> Option<usize> {
         body.split(TOTAL_IGNORED)
             .skip(1)
             .map(|tail| tail.split_whitespace().next()?.parse::<usize>().ok())
-            .sum::<Option<usize>>()?
+            .try_fold(0_usize, |total, count| total.checked_add(count?))?
     } else {
         body.trim()
             .split("; ")
             .map(entry_refusals)
-            .sum::<Option<usize>>()?
+            .try_fold(0_usize, |total, count| total.checked_add(count?))?
     };
     (rejected > 0 && rejected < sent).then_some(rejected)
 }
@@ -93,5 +93,18 @@ mod tests {
         ] {
             assert_eq!(rejected_entries(body, 41), None, "{body}");
         }
+    }
+
+    #[test]
+    fn overflowing_refusal_counts_are_not_partial() {
+        let body = format!(
+            "total ignored: {} out of 41; total ignored: {} out of 41",
+            usize::MAX,
+            usize::MAX
+        );
+
+        let rejected = rejected_entries(&body, 41);
+
+        assert_eq!(rejected, None, "overflow means the whole push was refused");
     }
 }

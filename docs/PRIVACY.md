@@ -24,7 +24,8 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Background jobs: kind, router, state, progress | `jobs/` | plain JSON | finished records are pruned after 30 days; running records are kept for recovery |
 | Audit log: time, actor, action, router, outcome, parameter names and non-secret values | `audit.jsonl` (rotated at 50 MiB) | plain, hash-chained | complete rotated files whose newest entry is older than `[audit] retention` (365 days) are pruned after rotation |
 
-Audit pruning never splits a rotated file. The first retained entry keeps the original
+Audit pruning never splits a rotated file and removes only the oldest run of fully expired
+files. The first retained entry keeps the original
 `prev_hash` of the deleted prefix as an external chain anchor, and `kcc audit verify`
 reports that anchor while checking every retained entry. Deleting the oldest rotated files by hand is indistinguishable from retention
 pruning: the chain proves the integrity of what is kept, not that nothing older ever existed.

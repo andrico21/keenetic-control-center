@@ -111,7 +111,8 @@ Pruning runs after each new backup.
 | `retention` | duration | `365d` | maximum age of complete rotated audit files; `0s` disables age pruning |
 
 Pruning runs after rotation. A rotated file is removed only when its newest entry is
-older than the retention bound, so a file that overlaps the cutoff stays intact. The
+older than the retention bound, so a file that overlaps the cutoff stays intact. Pruning
+removes only the oldest run of fully expired files. The
 first retained entry keeps its original `prev_hash` as the deleted prefix's chain anchor;
 `kcc audit verify` reports that anchor while verifying the retained suffix.
 

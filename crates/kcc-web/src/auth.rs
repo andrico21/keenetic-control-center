@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use core::{
     error::Error,
-    fmt::Display,
+    fmt::{self, Display},
     sync::atomic::{AtomicU64, Ordering},
 };
 
@@ -45,7 +45,7 @@ use crate::{
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Login form boundary.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct LoginForm {
     /// Account name.
@@ -54,14 +54,40 @@ pub(crate) struct LoginForm {
     password: String,
 }
 
+impl fmt::Debug for LoginForm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            username,
+            password: _,
+        } = self;
+        f.debug_struct("LoginForm")
+            .field("username", username)
+            .field("password", &"[redacted]")
+            .finish()
+    }
+}
+
 /// Own-password change form boundary.
-#[derive(Debug, Deserialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct PasswordForm {
     /// Current password required for reauthentication.
     current_password: String,
     /// Replacement password.
     new_password: String,
+}
+
+impl fmt::Debug for PasswordForm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            current_password: _,
+            new_password: _,
+        } = self;
+        f.debug_struct("PasswordForm")
+            .field("current_password", &"[redacted]")
+            .field("new_password", &"[redacted]")
+            .finish()
+    }
 }
 
 /// Account-locale form boundary.
@@ -521,4 +547,47 @@ fn set_session_cookie(
 fn internal(error: impl Display) -> Response {
     tracing::error!(%error, "web authentication request failed");
     StatusCode::INTERNAL_SERVER_ERROR.into_response()
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests {
+    use super::{LoginForm, PasswordForm};
+
+    #[test]
+    fn login_form_debug_redacts_password() {
+        let password = ["runtime", "login", "secret"].join("-");
+        let form = LoginForm {
+            username: "alice".to_owned(),
+            password: password.clone(),
+        };
+
+        let debug = format!("{form:?}");
+
+        assert!(!debug.contains(&password), "Debug must omit the password");
+    }
+
+    #[test]
+    fn password_form_debug_redacts_both_passwords() {
+        let current_password = ["runtime", "current", "secret"].join("-");
+        let new_password = ["runtime", "replacement", "secret"].join("-");
+        let form = PasswordForm {
+            current_password: current_password.clone(),
+            new_password: new_password.clone(),
+        };
+
+        let debug = format!("{form:?}");
+
+        assert!(
+            !debug.contains(&current_password),
+            "Debug must omit the current password"
+        );
+        assert!(
+            !debug.contains(&new_password),
+            "Debug must omit the replacement password"
+        );
+    }
 }

@@ -152,7 +152,7 @@ impl fmt::Display for Scheme {
 }
 
 /// Parameters required by `x-ndw2-interactive`.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct Ndw2Challenge {
     /// Authentication realm.
@@ -165,13 +165,36 @@ pub struct Ndw2Challenge {
     pub session_cookie: String,
 }
 
+impl fmt::Debug for Ndw2Challenge {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            realm,
+            challenge,
+            session_id: _,
+            session_cookie,
+        } = self;
+        f.debug_struct("Ndw2Challenge")
+            .field("realm", realm)
+            .field("challenge", challenge)
+            .field("session_id", &"[redacted]")
+            .field("session_cookie", session_cookie)
+            .finish()
+    }
+}
+
 impl fmt::Display for Ndw2Challenge {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let Self {
+            realm,
+            challenge,
+            session_id: _,
+            session_cookie,
+        } = self;
         write!(
             f,
-            "x-ndw2-interactive realm=\"{}\", challenge=\"{}\", session_id=\"{}\", session_cookie=\"{}\"",
-            self.realm, self.challenge, self.session_id, self.session_cookie
+            "x-ndw2-interactive realm=\"{realm}\", challenge=\"{challenge}\", session_id=\"[redacted]\", session_cookie=\"{session_cookie}\""
         )
     }
 }
@@ -413,4 +436,40 @@ fn split_quoted(header: &str) -> Result<Vec<&str>, AuthenticateParseError> {
     }
     chunks.push(header.get(start..).ok_or(AuthenticateParseError)?);
     Ok(chunks)
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests {
+    use super::Ndw2Challenge;
+
+    #[test]
+    fn ndw2_challenge_formatting_redacts_session_id() {
+        let session_id = ["runtime", "session", "secret"].join("-");
+        let challenge = Ndw2Challenge {
+            realm: "Keenetic Giga".to_owned(),
+            challenge: "nonce".to_owned(),
+            session_id: session_id.clone(),
+            session_cookie: "ndm_session".to_owned(),
+        };
+
+        let debug = format!("{challenge:?}");
+        let display = challenge.to_string();
+
+        assert!(
+            !debug.contains(&session_id),
+            "Debug must omit the session id"
+        );
+        assert!(
+            !display.contains(&session_id),
+            "Display must omit the session id"
+        );
+        assert_eq!(
+            challenge.session_id, session_id,
+            "the protocol accessor retains the real session id"
+        );
+    }
 }

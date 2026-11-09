@@ -537,7 +537,7 @@ impl WriterState {
         Ok(())
     }
 
-    /// Removes rotated files whose newest entry predates the retention cutoff.
+    /// Removes the oldest run of rotated files whose newest entry predates the cutoff.
     ///
     /// # Errors
     ///
@@ -550,9 +550,10 @@ impl WriterState {
         let cutoff = self.clock.unix_seconds().saturating_sub(retention);
         for path in rotated_files(&self.dir)? {
             let entries = read_file(&path)?;
-            if entries.last().is_some_and(|entry| entry.ts < cutoff) {
-                fs::remove_file(&path).map_err(|error| io_error(&path, error))?;
+            if entries.last().is_none_or(|entry| entry.ts >= cutoff) {
+                break;
             }
+            fs::remove_file(&path).map_err(|error| io_error(&path, error))?;
         }
         Ok(())
     }
