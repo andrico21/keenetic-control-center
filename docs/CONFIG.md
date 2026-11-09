@@ -99,7 +99,16 @@ Pruning runs after each new backup.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `retention` | duration | `365d` | intended audit retention; shown on the Server page but not enforced yet |
+| `retention` | duration | `365d` | maximum age of complete rotated audit files; `0s` disables age pruning |
+
+Pruning runs after rotation. A rotated file is removed only when its newest entry is
+older than the retention bound, so a file that overlaps the cutoff stays intact. The
+first retained entry keeps its original `prev_hash` as the deleted prefix's chain anchor;
+`kcc audit verify` reports that anchor while verifying the retained suffix.
+
+Finished background-job records under `<state>/jobs/` are retained for 30 days. Startup
+removes older completed, failed, cancelled and interrupted records; running records are
+never age-pruned and remain subject to normal crash recovery.
 
 ## `[cli]`
 

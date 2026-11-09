@@ -110,8 +110,12 @@ pub(crate) fn audit(ctx: &Ctx, command: &AuditCommand) -> Outcome {
     match verify_chain(ctx.state().dir()) {
         Ok(entries) => {
             let count = entries.len().to_string();
+            let anchor = entries
+                .first()
+                .map(|entry| entry.prev_hash.as_str())
+                .unwrap_or_default();
             out.emit(
-                &json!({ "valid": true, "entries": entries.len() }),
+                &json!({ "valid": true, "entries": entries.len(), "anchor": anchor }),
                 &out.tr(keys::CLI_AUDIT_VALID, &[("count", &count)]),
             )
         }

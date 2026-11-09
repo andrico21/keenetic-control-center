@@ -184,6 +184,30 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn corrupt_state_error_omits_stored_value() -> TestResult {
+        let (_temp, store) = store()?;
+        let planted = format!("{}{}", "sensitive-", "value".repeat(12));
+        write_raw(
+            &store,
+            &format!(r#"{{"schema":2,"count":"{planted}","label":"x"}}"#),
+        )?;
+
+        let Err(error) = store.read::<Counter>() else {
+            return Err("invalid count unexpectedly decoded".into());
+        };
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+
+        assert!(!display.contains(&planted), "Display omits stored values");
+        assert!(!debug.contains(&planted), "Debug omits stored values");
+        assert!(
+            display.contains("line ") && display.contains("column "),
+            "location remains actionable"
+        );
+        Ok(())
+    }
+
     /// An older file is migrated, written back at the current schema, and
     /// the directory is copied to `pre-migration-<schema>-<ts>/` first.
     #[test]

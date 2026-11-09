@@ -1,9 +1,6 @@
 //! Reading a preset source: a router's startup configuration, a backup, or a file.
 
-use std::{
-    fs,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::permissions::{Permission, Role};
 use kcc_migrate::{
@@ -12,6 +9,7 @@ use kcc_migrate::{
 };
 use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
+use tokio::fs::read;
 
 use crate::cli::{
     context::{Ctx, Services},
@@ -115,7 +113,7 @@ async fn read_bytes(
 ) -> Outcome<Vec<u8>> {
     match (kind, router) {
         (PresetSourceKind::File, _) | (_, None) => {
-            Ok(fs::read(from.strip_prefix("file:").ok_or_else(usage)?)?)
+            Ok(read(from.strip_prefix("file:").ok_or_else(usage)?).await?)
         }
         (PresetSourceKind::Backup, Some(id)) => {
             let name = from

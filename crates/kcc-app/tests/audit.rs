@@ -11,12 +11,17 @@
     reason = "test code is not rendered API documentation"
 )]
 mod tests {
-    use core::error::Error;
+    extern crate alloc;
+
+    use alloc::sync::Arc;
+    use core::{error::Error, fmt, time::Duration};
     use std::{fs, path::Path};
 
     use kcc_app::{
+        accounts::Clock,
         audit::{
-            AUDIT_FILE_NAME, Actor, ActorKind, AuditError, AuditEvent, AuditLog, verify_chain,
+            AUDIT_FILE_NAME, Actor, ActorKind, AuditError, AuditEvent, AuditLog, AuditPolicy,
+            verify_chain,
         },
         persist::StateStore,
     };
@@ -24,6 +29,20 @@ mod tests {
     use tempfile::TempDir;
 
     type TestResult = Result<(), Box<dyn Error>>;
+
+    struct MockClock(u64);
+
+    impl fmt::Debug for MockClock {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            f.debug_tuple("MockClock").field(&self.0).finish()
+        }
+    }
+
+    impl Clock for MockClock {
+        fn unix_seconds(&self) -> u64 {
+            self.0
+        }
+    }
 
     fn store() -> Result<(TempDir, StateStore), Box<dyn Error>> {
         let temp = TempDir::new()?;
@@ -110,10 +129,39 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn invalid_audit_error_omits_stored_value() -> TestResult {
+        let (_temp, state) = store()?;
+        let planted = format!("{}{}", "sensitive-", "value".repeat(12));
+        fs::write(
+            state.dir().join(AUDIT_FILE_NAME),
+            format!(r#"{{"ts":"{planted}"}}"#),
+        )?;
+
+        let Err(error) = verify_chain(state.dir()) else {
+            return Err("invalid timestamp unexpectedly verified".into());
+        };
+        let display = error.to_string();
+        let debug = format!("{error:?}");
+
+        assert!(!display.contains(&planted), "Display omits stored values");
+        assert!(!debug.contains(&planted), "Debug omits stored values");
+        assert!(
+            display.contains("line ") && display.contains("column "),
+            "location remains actionable"
+        );
+        Ok(())
+    }
+
     #[tokio::test]
     async fn rotation_preserves_chain_across_files() -> TestResult {
         let (_temp, state) = store()?;
-        let audit = AuditLog::spawn_with_limit(&state, 1)?;
+        let audit = AuditLog::spawn_with_policy(
+            &state,
+            AuditPolicy::default()
+                .with_rotate_bytes(1)
+                .with_retention(Duration::ZERO),
+        )?;
 
         drop(audit.append(event(1)).await?);
         drop(audit.append(event(2)).await?);
@@ -135,6 +183,44 @@ mod tests {
             verified.last().map(|entry| entry.seq),
             Some(2),
             "sequence crosses rotation"
+        );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn rotation_prunes_entirely_expired_files_and_preserves_anchor() -> TestResult {
+        let (_temp, state) = store()?;
+        let now = 1_800_000_000;
+        let clock: Arc<dyn Clock> = Arc::new(MockClock(now));
+        let policy = AuditPolicy::default()
+            .with_rotate_bytes(1)
+            .with_retention(Duration::from_secs(100))
+            .with_clock(clock);
+        let audit = AuditLog::spawn_with_policy(&state, policy)?;
+        let mut expired = event(1);
+        expired.ts = now.saturating_sub(101);
+        let first = audit.append(expired).await?;
+        let mut kept = event(2);
+        kept.ts = now.saturating_sub(99);
+
+        let second = audit.append(kept).await?;
+        drop(audit);
+
+        let names = fs::read_dir(state.dir())?
+            .map(|entry| entry.map(|value| value.file_name().to_string_lossy().into_owned()))
+            .collect::<Result<Vec<_>, _>>()?;
+        assert!(
+            !names
+                .iter()
+                .any(|name| name == "audit-00000000000000000001.jsonl"),
+            "the archive whose newest entry expired is pruned: {names:?}"
+        );
+        let verified = verify_chain(state.dir())?;
+        assert_eq!(verified, vec![second], "the retained suffix verifies");
+        assert_eq!(
+            verified.first().map(|entry| entry.prev_hash.as_str()),
+            Some(first.hash.as_str()),
+            "the first retained entry reports the deleted prefix hash as its anchor"
         );
         Ok(())
     }

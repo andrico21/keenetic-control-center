@@ -3,12 +3,13 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use std::{fs, path::Path};
+use std::path::Path;
 
 use kcc_app::jobs::JobRunner;
 use kcc_i18n::keys;
 use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest};
 use serde_json::{Value, json};
+use tokio::fs::read;
 
 use super::{
     args_migrate::{FinishAction, PlanInput},
@@ -31,7 +32,7 @@ pub(crate) async fn apply(
     plan_file: &Path,
     (finish, safety_seconds, report_file): (FinishAction, u64, Option<&Path>),
 ) -> Outcome {
-    let reviewed: Value = serde_json::from_slice(&fs::read(plan_file)?)?;
+    let reviewed: Value = serde_json::from_slice(&read(plan_file).await?)?;
     let planned = Planned::make(ctx, services, input).await?;
     if reviewed.get("plan_id").and_then(Value::as_str) != Some(planned.plan().plan_id.as_str()) {
         return Err(Failure::message(

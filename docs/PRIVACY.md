@@ -21,8 +21,13 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Configuration backups: the router's full startup configuration, secrets included | `backups/<router>/` | encrypted | pruned after each new backup by `[backups] keep_last` (50) and `max_age` (180 days) |
 | Presets: captured configuration lines, secrets included | `presets/<id>.json` | encrypted | until deleted |
 | Migration and preset runs: step record (no secrets), redacted plan and report, sealed source and typed passwords | `migrations/<id>/` | record and reports plain, the rest encrypted | sealed parts of copy runs are dropped on finish or after 24 hours; records and reports stay |
-| Background jobs: kind, router, state, progress | `jobs/` | plain JSON | not pruned |
-| Audit log: time, actor, action, router, outcome, parameter names and non-secret values | `audit.jsonl` (rotated at 50 MiB) | plain, hash-chained | not pruned yet: `[audit] retention` is shown but not enforced |
+| Background jobs: kind, router, state, progress | `jobs/` | plain JSON | finished records are pruned after 30 days; running records are kept for recovery |
+| Audit log: time, actor, action, router, outcome, parameter names and non-secret values | `audit.jsonl` (rotated at 50 MiB) | plain, hash-chained | complete rotated files whose newest entry is older than `[audit] retention` (365 days) are pruned after rotation |
+
+Audit pruning never splits a rotated file. The first retained entry keeps the original
+`prev_hash` of the deleted prefix as an external chain anchor, and `kcc audit verify`
+reports that anchor while checking every retained entry. Deleting the oldest rotated files by hand is indistinguishable from retention
+pruning: the chain proves the integrity of what is kept, not that nothing older ever existed.
 
 In memory only, lost on restart: Web sessions, the live traffic history (30 minutes),
 poller caches, Web UI preset drafts, MCP migration plans and transient MCP presets.

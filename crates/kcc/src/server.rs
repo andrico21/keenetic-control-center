@@ -262,7 +262,11 @@ impl Services {
         }
         let registry = Arc::new(profiles);
         let poller = Poller::new(Arc::clone(&registry));
-        let audit = AuditLog::spawn(&state).map_err(error)?;
+        let audit = AuditLog::spawn_with_policy(
+            &state,
+            kcc_app::audit::AuditPolicy::default().with_retention(config.audit.retention),
+        )
+        .map_err(error)?;
         crate::server_migrations::append_credential_events(&audit, migrations)
             .await
             .map_err(error)?;

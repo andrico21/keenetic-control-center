@@ -29,9 +29,13 @@ use tokio::{
 use tokio_util::sync::CancellationToken;
 
 use crate::{
+    accounts::{Clock, SystemClock},
     persist::{StateError, StateStore, create_private_dir, io_error, write_atomic},
     registry::{RegistryError, RouterRegistry},
 };
+
+/// Default age bound for finished job records: 30 days.
+pub const DEFAULT_FINISHED_RETENTION: Duration = Duration::from_hours(30 * 24);
 
 mod job_ownership;
 
@@ -230,6 +234,10 @@ pub struct JobRunner {
     finished: Notify,
     /// Cross-process ownership of running jobs.
     ownership: JobOwnership,
+    /// Timestamp source shared by lifecycle updates and pruning.
+    clock: Arc<dyn Clock>,
+    /// Maximum age of terminal job records.
+    finished_retention: Duration,
 }
 
 impl fmt::Debug for JobRunner {
@@ -253,6 +261,27 @@ impl JobRunner {
         state: StateStore,
         registry: Arc<RouterRegistry>,
     ) -> Result<Arc<Self>, JobError> {
+        Self::open_with_retention(
+            state,
+            registry,
+            DEFAULT_FINISHED_RETENTION,
+            Arc::new(SystemClock),
+        )
+        .await
+    }
+
+    /// Creates a runner with explicit finished-record retention and time source.
+    ///
+    /// # Errors
+    ///
+    /// Returns state, parse, or router inspection errors.
+    // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    pub async fn open_with_retention(
+        state: StateStore,
+        registry: Arc<RouterRegistry>,
+        finished_retention: Duration,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Arc<Self>, JobError> {
         let (events, _receiver) = broadcast::channel(128);
         let ownership = JobOwnership::new(state.clone());
         let runner = Arc::new(Self {
@@ -264,7 +293,10 @@ impl JobRunner {
             recovery: Mutex::new(Vec::new()),
             finished: Notify::new(),
             ownership,
+            clock,
+            finished_retention,
         });
+        runner.prune_finished()?;
         runner.recover().await?;
         Ok(runner)
     }
@@ -383,7 +415,7 @@ impl JobRunner {
                 .await
                 .insert(id.clone(), cancellation.clone()),
         );
-        let now = unix_seconds();
+        let now = self.clock.unix_seconds();
         if let Err(error) = self.persist(&JobRecord {
             id: id.clone(),
             kind,
@@ -426,7 +458,7 @@ impl JobRunner {
                 } else {
                     record.progress
                 };
-                record.updated_at = unix_seconds();
+                record.updated_at = owner.clock.unix_seconds();
                 record.message = result.err();
                 drop(owner.persist(&record));
                 drop(owner.events.send(JobEvent {
@@ -461,7 +493,7 @@ impl JobRunner {
                 continue;
             }
             record.status = JobStatus::Interrupted;
-            record.updated_at = unix_seconds();
+            record.updated_at = self.clock.unix_seconds();
             self.persist(&record)?;
             if let Some(router) = record.router {
                 let client = self.registry.client(&router).await?;
@@ -543,6 +575,24 @@ impl JobRunner {
         }
         Ok(paths)
     }
+
+    /// Removes terminal records older than the configured bound.
+    fn prune_finished(&self) -> Result<(), JobError> {
+        let retention = self.finished_retention.as_secs();
+        if retention == 0 {
+            return Ok(());
+        }
+        let cutoff = self.clock.unix_seconds().saturating_sub(retention);
+        for path in self.job_paths()? {
+            let Some(record) = read_job(&path)? else {
+                continue;
+            };
+            if record.status != JobStatus::Running && record.updated_at < cutoff {
+                fs::remove_file(&path).map_err(|error| io_error(&path, error))?;
+            }
+        }
+        Ok(())
+    }
 }
 
 /// Reads one persisted job if present.
@@ -574,12 +624,8 @@ fn validate_id(id: &str) -> Result<(), JobError> {
 fn new_id() -> String {
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
     let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
-    format!("job-{}-{sequence}", unix_seconds())
-}
-
-/// Returns current Unix seconds.
-fn unix_seconds() -> u64 {
-    SystemTime::now()
+    let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs())
+        .map_or(0, |elapsed| elapsed.as_secs());
+    format!("job-{timestamp}-{sequence}")
 }

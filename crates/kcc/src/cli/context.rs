@@ -11,7 +11,7 @@ use std::{
 
 use kcc_app::{
     accounts::{AccountStore, SystemClock},
-    audit::{AuditEvent, AuditLog},
+    audit::{AuditEvent, AuditLog, AuditPolicy},
     backups::{BackupRetention, BackupStore},
     credentials::CredentialStore,
     permissions::{Permission, Role, load_roles},
@@ -182,7 +182,10 @@ impl Ctx {
             )?
             .with_credentials(Arc::clone(&credentials)),
         );
-        let audit = AuditLog::spawn(&self.state)?;
+        let audit = AuditLog::spawn_with_policy(
+            &self.state,
+            AuditPolicy::default().with_retention(self.config.audit.retention),
+        )?;
         let backups = Arc::new(BackupStore::new(self.state.clone(), key).with_retention(
             BackupRetention::new(self.config.backups.max_age, self.config.backups.keep_last),
         ));

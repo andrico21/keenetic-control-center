@@ -3,7 +3,8 @@
 use core::fmt;
 extern crate alloc;
 
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, sync::Arc};
+use core::time::Duration;
 use std::{
     fs::{self, File},
     io::{BufRead as _, BufReader, Write as _},
@@ -13,9 +14,15 @@ use std::{
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, error::Category};
 use sha2::{Digest as _, Sha256};
-use tokio::sync::{mpsc, oneshot};
+use tokio::{
+    sync::{mpsc, oneshot},
+    task::spawn_blocking,
+};
 
-use crate::persist::{StateError, StateStore, io_error, open_private_append_file};
+use crate::{
+    accounts::{Clock, SystemClock},
+    persist::{StateError, StateLock, StateStore, io_error, open_private_append_file},
+};
 
 mod append_lock;
 
@@ -25,8 +32,73 @@ use append_lock::acquire_append_lock;
 pub const DEFAULT_ROTATE_BYTES: u64 = 50 * 1024 * 1024;
 /// Active audit file name.
 pub const AUDIT_FILE_NAME: &str = "audit.jsonl";
+/// Default audit retention: 365 days.
+pub const DEFAULT_RETENTION: Duration = Duration::from_hours(365 * 24);
 /// All-zero hash before the first audit entry.
 const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+
+/// Audit rotation, retention, and time-source policy.
+#[derive(Clone)]
+#[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the public name identifies this policy at call sites"
+)]
+pub struct AuditPolicy {
+    /// Active-file rotation threshold.
+    rotate_bytes: u64,
+    /// Maximum age of complete rotated files.
+    retention: Duration,
+    /// Unix timestamp source used by retention.
+    clock: Arc<dyn Clock>,
+}
+
+impl fmt::Debug for AuditPolicy {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AuditPolicy")
+            .field("rotate_bytes", &self.rotate_bytes)
+            .field("retention", &self.retention)
+            .finish_non_exhaustive()
+    }
+}
+
+impl Default for AuditPolicy {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            rotate_bytes: DEFAULT_ROTATE_BYTES,
+            retention: DEFAULT_RETENTION,
+            clock: Arc::new(SystemClock),
+        }
+    }
+}
+
+impl AuditPolicy {
+    /// Sets the rotation threshold.
+    #[inline]
+    #[must_use]
+    pub const fn with_rotate_bytes(mut self, rotate_bytes: u64) -> Self {
+        self.rotate_bytes = rotate_bytes;
+        self
+    }
+
+    /// Sets how long complete rotated files are retained.
+    #[inline]
+    #[must_use]
+    pub const fn with_retention(mut self, retention: Duration) -> Self {
+        self.retention = retention;
+        self
+    }
+
+    /// Sets the Unix clock used by retention.
+    #[inline]
+    #[must_use]
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
+}
 
 /// Audit actor kind.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -251,7 +323,7 @@ impl AuditLog {
     /// Returns an I/O, parse, or chain error while recovering the chain tail.
     #[inline]
     pub fn spawn(store: &StateStore) -> Result<Self, AuditError> {
-        Self::spawn_with_limit(store, DEFAULT_ROTATE_BYTES)
+        Self::spawn_with_policy(store, AuditPolicy::default())
     }
 
     /// Starts the writer with a custom rotation limit, primarily for bounded
@@ -262,6 +334,19 @@ impl AuditLog {
     /// Returns an I/O, parse, or chain error while recovering the chain tail.
     #[inline]
     pub fn spawn_with_limit(store: &StateStore, rotate_bytes: u64) -> Result<Self, AuditError> {
+        Self::spawn_with_policy(
+            store,
+            AuditPolicy::default().with_rotate_bytes(rotate_bytes),
+        )
+    }
+
+    /// Starts the writer with an explicit rotation and retention policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns an I/O, parse, or chain error while recovering the chain tail.
+    #[inline]
+    pub fn spawn_with_policy(store: &StateStore, policy: AuditPolicy) -> Result<Self, AuditError> {
         let files = audit_files(store.dir())?;
         let verified = verify_files(&files)?;
         let (next_seq, previous_hash) = verified.last().map_or_else(
@@ -276,7 +361,9 @@ impl AuditLog {
             dir: store.dir().to_owned(),
             file,
             current_bytes: fs::metadata(&path).map_or(0, |metadata| metadata.len()),
-            rotate_bytes,
+            rotate_bytes: policy.rotate_bytes,
+            retention: policy.retention,
+            clock: policy.clock,
             next_seq,
             previous_hash,
         };
@@ -330,6 +417,10 @@ struct WriterState {
     next_seq: u64,
     /// Last chain hash.
     previous_hash: String,
+    /// Maximum age of complete rotated files.
+    retention: Duration,
+    /// Timestamp source for retention decisions.
+    clock: Arc<dyn Clock>,
 }
 
 /// Runs the sole append/rotation loop.
@@ -337,7 +428,24 @@ async fn writer_task(mut receiver: mpsc::Receiver<Command>, mut state: WriterSta
     while let Some(command) = receiver.recv().await {
         match command {
             Command::Append { event, reply } => {
-                let result = state.append(event).await;
+                let acquired = acquire_append_lock(&state.store).await;
+                let (next_state, result) = match acquired {
+                    Ok(lock) => match spawn_blocking(move || {
+                        let result = state.append_locked(event, &lock);
+                        (state, result)
+                    })
+                    .await
+                    {
+                        Ok(completed) => completed,
+                        Err(_error) => {
+                            drop(reply.send(Err(AuditError::WriterUnavailable)));
+                            receiver.close();
+                            break;
+                        }
+                    },
+                    Err(error) => (state, Err(error)),
+                };
+                state = next_state;
                 let failed = result.is_err();
                 if failed {
                     receiver.close();
@@ -357,8 +465,11 @@ impl WriterState {
     /// # Errors
     ///
     /// Returns serialization, I/O, or rotation errors.
-    async fn append(&mut self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
-        let _lock = acquire_append_lock(&self.store).await?;
+    fn append_locked(
+        &mut self,
+        event: AuditEvent,
+        _lock: &StateLock,
+    ) -> Result<AuditEntry, AuditError> {
         let files = audit_files(&self.dir)?;
         let verified = verify_files(&files)?;
         let (next_seq, previous_hash) = verified.last().map_or_else(
@@ -391,6 +502,7 @@ impl WriterState {
             && self.current_bytes.saturating_add(byte_count) > self.rotate_bytes
         {
             self.rotate()?;
+            self.prune_rotated()?;
         }
         self.file
             .write_all(&bytes)
@@ -420,6 +532,26 @@ impl WriterState {
         fs::rename(&active, &archive).map_err(|error| io_error(&archive, error))?;
         self.file = open_private_append_file(&active)?;
         self.current_bytes = 0;
+        Ok(())
+    }
+
+    /// Removes rotated files whose newest entry predates the retention cutoff.
+    ///
+    /// # Errors
+    ///
+    /// Returns an I/O or JSON error while inspecting or removing an archive.
+    fn prune_rotated(&self) -> Result<(), AuditError> {
+        let retention = self.retention.as_secs();
+        if retention == 0 {
+            return Ok(());
+        }
+        let cutoff = self.clock.unix_seconds().saturating_sub(retention);
+        for path in rotated_files(&self.dir)? {
+            let entries = read_file(&path)?;
+            if entries.last().is_some_and(|entry| entry.ts < cutoff) {
+                fs::remove_file(&path).map_err(|error| io_error(&path, error))?;
+            }
+        }
         Ok(())
     }
 }
@@ -462,6 +594,20 @@ pub fn read_entries(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
 ///
 /// Returns an I/O error when the audit directory cannot be listed.
 fn audit_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
+    let mut rotated = rotated_files(dir)?;
+    let active = dir.join(AUDIT_FILE_NAME);
+    if active.exists() {
+        rotated.push(active);
+    }
+    Ok(rotated)
+}
+
+/// Discovers rotated audit files in sequence order.
+///
+/// # Errors
+///
+/// Returns an I/O error when the audit directory cannot be listed.
+fn rotated_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
     let mut rotated = Vec::new();
     for listed in fs::read_dir(dir).map_err(|error| io_error(dir, error))? {
         let entry = listed.map_err(|error| io_error(dir, error))?;
@@ -478,10 +624,6 @@ fn audit_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
         }
     }
     rotated.sort();
-    let active = dir.join(AUDIT_FILE_NAME);
-    if active.exists() {
-        rotated.push(active);
-    }
     Ok(rotated)
 }
 
@@ -492,8 +634,8 @@ fn audit_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
 /// Returns the first I/O, JSON, or chain validation error.
 fn verify_files(files: &[PathBuf]) -> Result<Vec<AuditEntry>, AuditError> {
     let mut entries = Vec::new();
-    let mut expected_sequence = 1_u64;
-    let mut previous_hash = GENESIS_HASH.to_owned();
+    let mut expected_sequence = None;
+    let mut previous_hash = None;
     for path in files {
         let file = File::open(path).map_err(|error| io_error(path, error))?;
         for read_result in BufReader::new(file).lines() {
@@ -503,16 +645,40 @@ fn verify_files(files: &[PathBuf]) -> Result<Vec<AuditEntry>, AuditError> {
             }
             let entry: AuditEntry =
                 serde_json::from_str(&line).map_err(|error| json_error(&error))?;
-            if entry.seq != expected_sequence || entry.prev_hash != previous_hash {
+            if expected_sequence.is_some_and(|expected| entry.seq != expected)
+                || previous_hash
+                    .as_ref()
+                    .is_some_and(|expected| entry.prev_hash != *expected)
+            {
+                return Err(AuditError::Chain { seq: entry.seq });
+            }
+            if entries.is_empty() && entry.seq == 1 && entry.prev_hash != GENESIS_HASH {
                 return Err(AuditError::Chain { seq: entry.seq });
             }
             let calculated = calculate_hash(&entry)?;
             if entry.hash != calculated {
                 return Err(AuditError::Chain { seq: entry.seq });
             }
-            expected_sequence = expected_sequence.saturating_add(1);
-            previous_hash.clone_from(&entry.hash);
+            expected_sequence = Some(entry.seq.saturating_add(1));
+            previous_hash = Some(entry.hash.clone());
             entries.push(entry);
+        }
+    }
+    Ok(entries)
+}
+
+/// Reads one audit archive without validating its predecessor.
+///
+/// # Errors
+///
+/// Returns an I/O or JSON error when a line cannot be decoded.
+fn read_file(path: &Path) -> Result<Vec<AuditEntry>, AuditError> {
+    let file = File::open(path).map_err(|error| io_error(path, error))?;
+    let mut entries = Vec::new();
+    for read_result in BufReader::new(file).lines() {
+        let line = read_result.map_err(|error| io_error(path, error))?;
+        if !line.is_empty() {
+            entries.push(serde_json::from_str(&line).map_err(|error| json_error(&error))?);
         }
     }
     Ok(entries)
@@ -607,13 +773,80 @@ fn reject_secret_parameters(value: &Value) -> Result<(), AuditError> {
 /// Converts serde errors without embedding an event's potentially sensitive
 /// source text in the error surface.
 fn json_error(error: &serde_json::Error) -> AuditError {
-    let reason = match error.classify() {
+    let category = match error.classify() {
         Category::Io => "I/O",
         Category::Syntax => "syntax",
         Category::Data => "data",
         Category::Eof => "end of input",
     };
     AuditError::Json {
-        reason: reason.to_owned(),
+        reason: format!(
+            "{category} at line {}, column {}",
+            error.line(),
+            error.column()
+        ),
+    }
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::panic_in_result_fn,
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test assertions deliberately panic and are not rendered API documentation"
+)]
+mod tests {
+    use core::error::Error;
+    use std::fs;
+
+    use serde_json::json;
+    use tempfile::TempDir;
+
+    use super::{
+        Actor, ActorKind, AuditEntry, AuditError, GENESIS_HASH, calculate_hash, verify_files,
+    };
+
+    fn entry(seq: u64, prev_hash: String) -> Result<AuditEntry, AuditError> {
+        let mut entry = AuditEntry {
+            ts: 1_700_000_000,
+            seq,
+            actor: Actor::new(ActorKind::Web, "alice".to_owned()),
+            router: None,
+            action: "router.read".to_owned(),
+            target: None,
+            params_redacted: json!({}),
+            outcome: "ok".to_owned(),
+            request_id: "request-1".to_owned(),
+            prev_hash,
+            hash: String::new(),
+        };
+        entry.hash = calculate_hash(&entry)?;
+        Ok(entry)
+    }
+
+    fn verify_single(entry: &AuditEntry) -> Result<Vec<AuditEntry>, Box<dyn Error>> {
+        let temp = TempDir::new()?;
+        let path = temp.path().join("audit.jsonl");
+        fs::write(&path, format!("{}\n", serde_json::to_string(entry)?))?;
+        Ok(verify_files(&[path])?)
+    }
+
+    #[test]
+    fn first_entry_at_seq_one_must_start_at_genesis() -> Result<(), Box<dyn Error>> {
+        let forged = entry(1, "ab".repeat(32))?;
+        let result = verify_single(&forged);
+        assert!(
+            matches!(
+                result
+                    .as_ref()
+                    .err()
+                    .and_then(|error| error.downcast_ref::<AuditError>()),
+                Some(AuditError::Chain { seq: 1 })
+            ),
+            "forged genesis must fail at seq 1, got {result:?}"
+        );
+        assert_eq!(verify_single(&entry(1, GENESIS_HASH.to_owned())?)?.len(), 1);
+        assert_eq!(verify_single(&entry(2, "ab".repeat(32))?)?.len(), 1);
+        Ok(())
     }
 }

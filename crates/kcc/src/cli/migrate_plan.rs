@@ -3,7 +3,6 @@
 extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
-use std::fs;
 
 use kcc_app::{
     permissions::{Permission, Role},
@@ -18,6 +17,7 @@ use kcc_migrate::{
 };
 use kcc_rci::{ConfigKind, SecretBytes};
 use secrecy::{ExposeSecret as _, SecretString};
+use tokio::fs::read;
 
 use super::{
     args_migrate::PlanInput,
@@ -126,7 +126,7 @@ impl Planned {
 // cancel-safe: reads only.
 async fn read_source(services: &Services, from: &str) -> Outcome<(SecretBytes, ApplySource)> {
     if let Some(path) = from.strip_prefix("file:") {
-        let bytes = SecretBytes::from(fs::read(path)?);
+        let bytes = SecretBytes::from(read(path).await?);
         return Ok((bytes.clone(), ApplySource::File(bytes)));
     }
     if let Some(id) = from.strip_prefix("router:") {

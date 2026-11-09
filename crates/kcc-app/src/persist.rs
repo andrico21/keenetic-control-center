@@ -20,7 +20,7 @@ use std::{
 };
 
 use serde::{Serialize, de::DeserializeOwned};
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, error::Category};
 
 use crate::settings::is_valid_name;
 
@@ -307,7 +307,7 @@ impl StateStore {
             Err(error) => return Err(io_error(&path, error)),
         };
         let value: Value =
-            serde_json::from_slice(&bytes).map_err(|error| corrupt(T::FILE_NAME, &error))?;
+            serde_json::from_slice(&bytes).map_err(|error| corrupt_json(T::FILE_NAME, &error))?;
         upgrade::<T>(value).map(Some)
     }
 
@@ -329,7 +329,7 @@ impl StateStore {
         drop(out.insert(SCHEMA_KEY.to_owned(), Value::from(T::SCHEMA)));
         out.append(&mut map);
         let mut bytes = serde_json::to_vec_pretty(&Value::Object(out))
-            .map_err(|error| corrupt(T::FILE_NAME, &error))?;
+            .map_err(|error| corrupt_json(T::FILE_NAME, &error))?;
         bytes.push(b'\n');
         write_atomic(&self.dir, T::FILE_NAME, &bytes)
     }
@@ -411,7 +411,8 @@ where
         drop(map.remove(SCHEMA_KEY));
         current = current.saturating_add(1);
     }
-    let doc = serde_json::from_value(Value::Object(map)).map_err(|error| corrupt(file, &error))?;
+    let doc =
+        serde_json::from_value(Value::Object(map)).map_err(|error| corrupt_json(file, &error))?;
     Ok((doc, found))
 }
 
@@ -664,12 +665,27 @@ pub(crate) fn io_error(path: &Path, source: io::Error) -> StateError {
 }
 
 /// Builds a [`StateError::Corrupt`].
-fn corrupt<E>(file: &str, reason: &E) -> StateError
-where
-    E: Display + ?Sized,
-{
+fn corrupt(file: &str, reason: &(impl Display + ?Sized)) -> StateError {
     StateError::Corrupt {
         file: file.to_owned(),
         reason: reason.to_string(),
+    }
+}
+
+/// Builds a value-free JSON corruption error.
+fn corrupt_json(file: &str, error: &serde_json::Error) -> StateError {
+    let category = match error.classify() {
+        Category::Io => "I/O",
+        Category::Syntax => "syntax",
+        Category::Data => "data",
+        Category::Eof => "end of input",
+    };
+    StateError::Corrupt {
+        file: file.to_owned(),
+        reason: format!(
+            "{category} at line {}, column {}",
+            error.line(),
+            error.column()
+        ),
     }
 }

@@ -12,15 +12,16 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::{error::Error, future::pending};
+use core::{error::Error, fmt, future::pending, time::Duration};
 use std::{
-    env,
+    env, fs,
     io::{BufRead as _, BufReader, Read as _, Write as _, stdin, stdout},
     process::{Command as CliCommand, Stdio},
 };
 
 use kcc_app::{
-    jobs::{JobRunner, JobStatus},
+    accounts::Clock,
+    jobs::{JobError, JobRunner, JobStatus},
     persist::StateStore,
     registry::RouterRegistry,
     settings::OutboundConfig,
@@ -31,6 +32,20 @@ const CHILD_ENV: &str = "KCC_JOBS_RECOVERY_CHILD";
 const STATE_ENV: &str = "KCC_JOBS_RECOVERY_STATE";
 
 type TestResult = Result<(), Box<dyn Error>>;
+
+struct MockClock(u64);
+
+impl fmt::Debug for MockClock {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_tuple("MockClock").field(&self.0).finish()
+    }
+}
+
+impl Clock for MockClock {
+    fn unix_seconds(&self) -> u64 {
+        self.0
+    }
+}
 
 fn registry(state: &StateStore) -> Result<Arc<RouterRegistry>, Box<dyn Error>> {
     Ok(Arc::new(RouterRegistry::new(
@@ -93,5 +108,49 @@ async fn live_job_stays_running_and_dead_job_becomes_interrupted() -> TestResult
     assert!(!output.status.success(), "holder must terminate abruptly");
     let recovery = JobRunner::open(state.clone(), registry(&state)?).await?;
     assert_eq!(recovery.get(&id)?.status, JobStatus::Interrupted);
+    Ok(())
+}
+
+#[tokio::test]
+async fn open_prunes_only_expired_finished_jobs() -> TestResult {
+    let temp = TempDir::new()?;
+    let state = StateStore::open(&temp.path().join("state"))?;
+    let jobs = state.dir().join("jobs");
+    fs::create_dir_all(&jobs)?;
+    let now = 1_800_000_000;
+    for (id, status, updated_at) in [
+        ("job-old", JobStatus::Completed, now - 101),
+        ("job-new", JobStatus::Failed, now - 99),
+        ("job-running", JobStatus::Running, now - 1_000),
+    ] {
+        let encoded_status = serde_json::to_value(status)?;
+        fs::write(
+            jobs.join(format!("{id}.json")),
+            serde_json::to_vec(&serde_json::json!({
+                "id": id,
+                "kind": "test",
+                "router": null,
+                "write": false,
+                "status": encoded_status,
+                "progress": 0_u8,
+                "created_at": updated_at,
+                "updated_at": updated_at,
+                "message": null
+            }))?,
+        )?;
+    }
+    let clock: Arc<dyn Clock> = Arc::new(MockClock(now));
+
+    let runner = JobRunner::open_with_retention(
+        state,
+        registry(&StateStore::open(&temp.path().join("state"))?)?,
+        Duration::from_secs(100),
+        clock,
+    )
+    .await?;
+
+    assert!(matches!(runner.get("job-old"), Err(JobError::NotFound { id }) if id == "job-old"));
+    assert_eq!(runner.get("job-new")?.status, JobStatus::Failed);
+    assert_eq!(runner.get("job-running")?.status, JobStatus::Interrupted);
     Ok(())
 }

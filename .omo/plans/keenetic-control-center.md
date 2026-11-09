@@ -981,7 +981,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | test(domain): run every domain suite on the 4.3.9 and 5.1 profiles
   Recommended task executor category: unspecified-high
 
-- [ ] 75. Retention, blocking I/O and error-text hygiene in kcc-app (found by F1 and F2)
+- [x] 75. Retention, blocking I/O and error-text hygiene in kcc-app (found by F1 and F2)
   What to do / Must NOT do: (1) Enforce `[audit] retention` (default 365d): on audit rotation drop rotated files that are entirely older than the retention while keeping chain verification valid (anchor the first kept file's `prev_hash`; `verify_chain` must still pass and report the anchor), prune finished `jobs/<id>.json` after a bounded age; mock-clock tests; document in `docs/PRIVACY.md`/`CONFIG.md`. (2) `AuditLog` writer runs blocking `write_all`/`sync_data`/`rename` on a tokio worker (`crates/kcc-app/src/audit.rs`): move the append/fsync/rotation I/O into `spawn_blocking` or a dedicated thread without changing the on-disk format or the cross-process lock semantics (the audit_multiprocess test stays green); CLI async fns that use `std::fs` (`kcc/src/cli/migrate_apply.rs` etc.) read files with `tokio::fs` or `spawn_blocking`. (3) `StateError::Corrupt`/`AuditError` embed `serde_json` error strings that can quote stored values: map them to category + line/column only (test with a planted secret-looking value). Must NOT change the audit entry format or hash construction.
   Closes: GAP-7
   Parallelization: Wave W13 | Blocked by: 18, 19, 62 | Blocks: F1-F4 re-run
