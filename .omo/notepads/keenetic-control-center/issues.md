@@ -4,6 +4,18 @@ Problems and gotchas encountered during work on this plan.
 
 _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
+## [2026-11-09] Todo 84 progress, attempt 2 (W=/home/andrico/kcc-wt/t84)
+- OPEN LIMITATION: rmcp-server-kit 3.21.1 rejects role-denied tool calls before `KccMcp::call_tool`; those HTTP 403 denials are emitted only as the kit's warn event (`user`, `role`, `tool`) and cannot enter kcc's shared hash-chained `AuditLog` through current public APIs.
+- Closure option 1: rmcp-server-kit exposes an authenticated RBAC-denial observer hook carrying sanitized identity, role, tool and reason.
+- Closure option 2: kcc replaces the kit's tracing initialization with a kcc-owned `tracing_subscriber::Layer` that recognizes the denial event and bridges it into the shared `AuditLog`; this couples kcc to the kit's event schema and needs a deliberate production tracing design.
+- Verification note: LSP diagnostics timed out on both attempts under shared daemon load. Rust compiler tests and strict four-crate Clippy completed cleanly and are the semantic/type-check evidence; no clean-LSP claim is made.
+
+## [2026-11-09] Todo 84 blocker (W=/home/andrico/kcc-wt/t84)
+- BLOCKED: rmcp-server-kit 3.21.1 has no public RBAC-denial hook and no supported way for kcc to wrap `/mcp` between auth and RBAC or outside RBAC while retaining authenticated `AuthIdentity`. `McpServerConfig::with_extra_router` explicitly bypasses auth/RBAC, and `build_app_router`/`rbac_middleware` are private. The task forbids adding dependencies and editing the dependency, so unit (2) cannot be implemented honestly.
+- Explore subagents failed before execution because their configured provider model was unavailable; direct dependency-source inspection established the blocker. CodeGraph also could not query the required worktree because it has no `.codegraph` index.
+- LSP diagnostics timed out under shared daemon load. No source changes remain in the task worktree after restoring the red-first test patches; `git diff` and `git status --short` are empty.
+- Mutation checks, green verification, and persisted-outcome implementation were not run because the mandatory RBAC unit is blocked; claiming partial completion would violate the task's all-units contract.
+
 ## [2026-11-09] Todo 77 issues (W=/home/andrico/kcc-wt/t77)
 - CodeGraph could not query `/home/andrico/kcc-wt/t77` because that worktree has no `.codegraph` index; built-in reads/searches were used as the prescribed fallback.
 - LSP symbol/diagnostic/format requests timed out under shared daemon load. Dated-nightly rustfmt, compiler tests, and strict Clippy completed successfully and supplied diagnostics.
@@ -419,3 +431,6 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 ## [2026-11-09] Todo 81 (W=/home/andrico/kcc-wt/t81)
 - Fake router answers `DELETE system country` with 404, so a CLI end-to-end test of a persisted `rci delete` is impossible on the fake; covered by a unit test in kcc `cli/change.rs`.
 - `cargo xtask cancel-safety` does not exist at HEAD d12ba2b (row 79 adds it); no async fn was added or changed in this row.
+## [2026-11-09] Todo 83 tooling note (W=/home/andrico/kcc-wt/t83)
+
+- `lsp_diagnostics` timed out for every changed Rust file on both attempts. Targeted tests, strict `cargo clippy ... -- -D warnings`, and nightly rustfmt all completed cleanly instead; no source blocker remains.

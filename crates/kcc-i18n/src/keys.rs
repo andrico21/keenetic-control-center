@@ -485,6 +485,9 @@ pub const ERRORS_OUTBOUND_METADATA: MessageKey = MessageKey::new("errors-outboun
 /// `errors-outbound-loopback` in `errors.ftl`.
 pub const ERRORS_OUTBOUND_LOOPBACK: MessageKey = MessageKey::new("errors-outbound-loopback");
 
+/// `errors-outbound-never` in `errors.ftl`.
+pub const ERRORS_OUTBOUND_NEVER: MessageKey = MessageKey::new("errors-outbound-never");
+
 /// `mcp-prompt-troubleshoot-internet` in `mcp.ftl`.
 pub const MCP_PROMPT_TROUBLESHOOT_INTERNET: MessageKey =
     MessageKey::new("mcp-prompt-troubleshoot-internet");
@@ -6549,7 +6552,7 @@ pub const WEB_EXPLORER_DONE_PERSISTED: MessageKey = MessageKey::new("web-explore
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2090] = [
+pub static ALL: [MessageKey; 2091] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6711,6 +6714,7 @@ pub static ALL: [MessageKey; 2090] = [
     ERRORS_OUTBOUND_REFUSED,
     ERRORS_OUTBOUND_METADATA,
     ERRORS_OUTBOUND_LOOPBACK,
+    ERRORS_OUTBOUND_NEVER,
     MCP_PROMPT_TROUBLESHOOT_INTERNET,
     MCP_PROMPT_TROUBLESHOOT_WIFI,
     MCP_PROMPT_TROUBLESHOOT_DEVICE,

@@ -557,6 +557,29 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn unspecified_address_refusal_says_no_setting_can_admit_it_in_russian() -> TestResult {
+        let fixture = Fixture::new(&[]).await?;
+        let browser = fixture.login("russian").await?;
+        let form = "id=unspecified&url=http%3A%2F%2F0.0.0.0&login=admin&password=unspecified-password-1&tls=verify&tags=";
+        let mut args = FluentArgs::new();
+        args.set("address", "0.0.0.0");
+        let expected = tr(Locale::Ru, keys::ERRORS_OUTBOUND_NEVER, Some(&args));
+
+        let created = fixture.post("/ui/routers/new", &browser, form).await?;
+        assert_eq!(created.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let page = text(created).await?;
+        assert!(page.contains(&expected), "localized refusal: {page}");
+        assert!(!page.contains("allowed_networks"), "{page}");
+        let tested = text(fixture.post("/ui/routers/test", &browser, form).await?).await?;
+        assert!(
+            tested.contains(&expected),
+            "connection test refusal: {tested}"
+        );
+        assert!(!tested.contains("allowed_networks"), "{tested}");
+        Ok(())
+    }
+
     /// A router added in the Web UI stores only sealed bytes, still authenticates, never
     /// renders its password, and leaves a credential-free audit event.
     #[tokio::test]

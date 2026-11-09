@@ -8,7 +8,11 @@ use core::{net::IpAddr, str::FromStr as _};
 
 use kcc_app::registry::{RegistryError, RouterRegistry};
 use kcc_i18n::keys;
-use kcc_rci::{RciError, RouterUrl, TlsMode, outbound::is_metadata_address, session::HttpTimeouts};
+use kcc_rci::{
+    RciError, RouterUrl, TlsMode,
+    outbound::{is_metadata_address, never_admitted},
+    session::HttpTimeouts,
+};
 use url::Url;
 
 use super::exit::{Exit, Failure, Outcome};
@@ -52,6 +56,7 @@ fn refused(url: &Url) -> Failure {
     let key = match literal {
         Some(address) if is_metadata_address(address) => keys::ERRORS_OUTBOUND_METADATA,
         Some(address) if address.is_loopback() => keys::ERRORS_OUTBOUND_LOOPBACK,
+        Some(address) if never_admitted(address) => keys::ERRORS_OUTBOUND_NEVER,
         Some(_) | None => keys::ERRORS_OUTBOUND_REFUSED,
     };
     Failure::message(Exit::Policy, key, &[("address", host)])

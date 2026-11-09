@@ -21,7 +21,7 @@ use kcc_i18n::{
 use kcc_rci::{
     RciError, RouterUrl, TlsMode,
     capabilities::{AuthSchemeKind, RouterInfo, SupportTier},
-    outbound::is_metadata_address,
+    outbound::{is_metadata_address, never_admitted},
     session::HttpTimeouts,
 };
 use url::Url;
@@ -111,10 +111,10 @@ pub(crate) fn policy_refusal(locale: Locale, url: &Url) -> String {
     }
     let mut args = FluentArgs::new();
     args.set("address", host.to_owned());
-    let key = if literal.is_some_and(|address| address.is_loopback()) {
-        keys::ERRORS_OUTBOUND_LOOPBACK
-    } else {
-        keys::ERRORS_OUTBOUND_REFUSED
+    let key = match literal {
+        Some(address) if address.is_loopback() => keys::ERRORS_OUTBOUND_LOOPBACK,
+        Some(address) if never_admitted(address) => keys::ERRORS_OUTBOUND_NEVER,
+        Some(_) | None => keys::ERRORS_OUTBOUND_REFUSED,
     };
     tr(locale, key, Some(&args))
 }

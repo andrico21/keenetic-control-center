@@ -4,6 +4,16 @@ Architectural choices and rationales discovered during work on this plan.
 
 _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 
+## [2026-11-09] Todo 84 progress, attempt 2 (W=/home/andrico/kcc-wt/t84)
+- Chosen choke point: audit typed `McpFailure` in `support::shape::finish`, passing the registry's tool name/read-only metadata into it. This covers all handler-level tool failures once, avoids edits to every domain, generic, config, preset and migration tool, and excludes unknown-tool/bad-JSON protocol errors by construction.
+- Await the bounded `AuditLog::append` before returning the failed tool result. No lock guard is held across it, and the request does not fail if audit I/O fails; the failure is warned while the original MCP result remains authoritative.
+- Use `applied_persisted` when any validated raw mutation is marked `persists_immediately`; retain `applied_unsaved` for ordinary changes. This wording describes router state rather than a frontend's save prompt.
+
+## [2026-11-09] Todo 84 RBAC audit decision (W=/home/andrico/kcc-wt/t84)
+- Do not pretend handler-level auditing covers dependency RBAC. The viewer denial never reaches `KccMcp::call_tool`; a correct solution needs rmcp-server-kit to expose a denial observer carrying sanitized identity/tool/reason, or a public middleware/router insertion point around the authenticated `/mcp` route.
+- Do not use the dependency's separate `observability.audit_log_path` as kcc's audit chain. It is an independent non-hash-chained log and cannot satisfy the single shared `AuditLog` requirement.
+- Do not replace rmcp-server-kit's global tracing initialization with a bespoke subscriber merely to scrape one private event: that requires a new production tracing-subscriber dependency and duplicates dependency-private event schema, both outside the allowed scope. Stop cleanly and request an upstream/API decision instead.
+
 ## [2026-11-09] Todo 77 decisions (W=/home/andrico/kcc-wt/t77)
 - Rust 1.99.1 still treats `IpAddr::is_global` as unstable, so suffix admission uses an explicit IANA special-purpose exclusion predicate while network allowlists retain their operator-configured private/link-local semantics.
 - Config suffixes are normalized once at TOML/env load to `.lowercase.domain`; the policy still tolerates a missing leading dot for direct API construction, but always enforces the DNS-label boundary and bare-domain match.
@@ -675,3 +685,6 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - MCP `verification_failed` carries `field` (the JSON pointer, e.g. `/service`) next to `error`/`request_id`; it is a path in the router's schema, not a value, so no secret can leak. `McpFailure` is no longer `Copy`.
 - Persisted-at-once wording only replaces the Write-risk confirm text; management/destructive dialogs keep their fail-safe/name texts (plus the existing persists label). A mixed batch (some items persist, some not) still says unsaved: only an all-persisting request is "stored".
 - docs/MCP_TOOLS.md intro now names `verification_failed` vs `validation_failed` (generator text in kcc-mcp registry/docs.rs, regenerated).
+## [2026-11-09] Todo 83 network-path decision (W=/home/andrico/kcc-wt/t83)
+
+- For an IPv4-embedding IPv6 target, `allowed_networks` applies to the outer resolved IPv6 address. Embedded metadata and unspecified addresses always veto; embedded loopback requires `allow_loopback`; embedded private/non-global addresses are permitted only on this explicit outer-network path. The suffix path requires both the outer IPv6 address and embedded IPv4 address to be global.

@@ -110,3 +110,34 @@ fn loopback_literal_refusal_names_allow_loopback_in_english_and_russian() -> Tes
     }
     Ok(())
 }
+
+#[test]
+fn unspecified_address_refusal_says_no_setting_can_admit_it() -> TestResult {
+    let env = Env::new("")?;
+    let password = env.write("router.password", "unused-fixture")?;
+    let password_arg = password.to_str().ok_or("non-UTF-8 path")?;
+
+    for (locale, language) in [("en", Locale::En), ("ru", Locale::Ru)] {
+        let mut args = FluentArgs::new();
+        args.set("address", "0.0.0.0");
+        let expected = tr(language, keys::ERRORS_OUTBOUND_NEVER, Some(&args));
+        let run = env.kcc(&[
+            "--lang",
+            locale,
+            "--password-file",
+            password_arg,
+            "router",
+            "add",
+            "unspecified",
+            "--url",
+            "http://0.0.0.0",
+        ])?;
+        assert_eq!(run.code, 10_i32, "{run:?}");
+        assert!(run.stderr.contains(&expected), "{locale}: {run:?}");
+        assert!(
+            !run.stderr.contains("allowed_networks"),
+            "{locale}: {run:?}"
+        );
+    }
+    Ok(())
+}

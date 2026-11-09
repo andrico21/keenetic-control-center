@@ -78,7 +78,10 @@ proxies; kcc refuses to start otherwise.
 | `allowed_suffixes` | list of strings | `[]` | DNS suffixes whose resolved global addresses are admitted, e.g. `"keenetic.pro"`; values are case-insensitive, normalized with a leading dot, and match the bare name or subdomains only |
 | `allow_loopback` | bool | `false` | admit literal and resolved loopback router addresses; required even when a loopback CIDR is in `allowed_networks` |
 
-Cloud metadata addresses are always refused. See [SECURITY.md](SECURITY.md).
+IPv4-mapped, NAT64, IPv4-compatible and 6to4 addresses are checked against both their
+outer IPv6 address and embedded IPv4 address. Unspecified, multicast, broadcast and
+cloud metadata addresses, plus local-use NAT64 and Teredo forms, are never admitted by
+any setting. See [SECURITY.md](SECURITY.md).
 
 The policy is deny-by-default: with both lists empty (the default), kcc contacts no
 router outside loopback (and loopback only with `allow_loopback = true`). Adding or

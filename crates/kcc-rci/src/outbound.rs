@@ -241,19 +241,22 @@ impl OutboundPolicy {
     /// Whether `address` is admitted for `host`.
     fn allows(&self, host: &str, resolved: IpAddr) -> bool {
         let address = resolved.to_canonical();
-        if is_metadata_address(address) {
+        if never_admitted(address) {
             return false;
         }
         if address.is_loopback() {
             return self.allow_loopback;
         }
-        if is_unroutable(address) {
+        let embedded = embedded_ipv4(address);
+        if embedded.is_some_and(|ipv4| ipv4.is_loopback()) && !self.allow_loopback {
             return false;
         }
         self.allowed_networks
             .iter()
             .any(|network| network.contains(address))
-            || (is_global(address) && self.matches_suffix(host))
+            || (is_global(address)
+                && embedded.is_none_or(|ipv4| is_global(IpAddr::V4(ipv4)))
+                && self.matches_suffix(host))
     }
 
     /// Whether `host` equals or is below one configured DNS suffix.
@@ -348,6 +351,49 @@ impl ServerCertVerifier for SpkiVerifier {
 #[must_use]
 pub fn is_metadata_address(address: IpAddr) -> bool {
     METADATA_ADDRESSES.contains(&address.to_canonical())
+}
+
+/// Whether no outbound-policy setting can admit `address`.
+#[inline]
+#[must_use]
+pub fn never_admitted(address: IpAddr) -> bool {
+    let canonical_address = address.to_canonical();
+    is_metadata_address(canonical_address)
+        || is_unroutable(canonical_address)
+        || is_forbidden_ipv6_form(canonical_address)
+        || embedded_ipv4(canonical_address).is_some_and(|ipv4| {
+            is_metadata_address(IpAddr::V4(ipv4)) || is_unroutable(IpAddr::V4(ipv4))
+        })
+}
+
+/// Extracts an IPv4 address carried by a supported IPv6 transition form.
+fn embedded_ipv4(address: IpAddr) -> Option<Ipv4Addr> {
+    let IpAddr::V6(ipv6) = address else {
+        return None;
+    };
+    let [first, second, third, fourth, fifth, sixth, seventh, eighth] = ipv6.segments();
+    if [first, second, third, fourth, fifth, sixth] == [0x0064, 0xff9b, 0, 0, 0, 0]
+        || ([first, second, third, fourth, fifth, sixth] == [0, 0, 0, 0, 0, 0]
+            && !ipv6.is_unspecified()
+            && !ipv6.is_loopback())
+    {
+        Some(Ipv4Addr::from(
+            (u32::from(seventh) << 16) | u32::from(eighth),
+        ))
+    } else if first == 0x2002 {
+        Some(Ipv4Addr::from((u32::from(second) << 16) | u32::from(third)))
+    } else {
+        None
+    }
+}
+
+/// Identifies IPv6 transition forms that no outbound setting admits.
+const fn is_forbidden_ipv6_form(address: IpAddr) -> bool {
+    let IpAddr::V6(ipv6) = address else {
+        return false;
+    };
+    let [first, second, third, _, _, _, _, _] = ipv6.segments();
+    (first == 0x0064 && second == 0xff9b && third == 1) || (first == 0x2001 && second == 0)
 }
 
 /// Whether no configured outbound path may admit `address`.
