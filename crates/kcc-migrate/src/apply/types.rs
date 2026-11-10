@@ -248,6 +248,7 @@ impl ApplyReport {
             Some(ApplyError::UnverifiedFirmwareTier) => keys::MIGRATE_APPLY_TIER,
             Some(ApplyError::AgreementRequired) => keys::MIGRATE_APPLY_AGREEMENT,
             Some(ApplyError::RolledBackByRouter) => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
+            Some(ApplyError::Verification) if self.finished => keys::MIGRATE_APPLY_RESTORED,
             Some(_) => keys::MIGRATE_APPLY_FAILED,
             None if self.finished => keys::MIGRATE_DONE,
             None if self.verified => keys::MIGRATE_APPLY_VERIFIED,

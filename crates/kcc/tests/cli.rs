@@ -32,6 +32,8 @@ mod persists;
 mod pipes;
 #[path = "cli/policy.rs"]
 mod policy;
+#[path = "cli/rci_transport.rs"]
+mod rci_transport;
 #[path = "cli/router_credentials.rs"]
 mod router_credentials;
 #[path = "cli/support.rs"]

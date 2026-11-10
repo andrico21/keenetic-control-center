@@ -582,6 +582,9 @@ pub const MIGRATE_APPLY_VERIFIED: MessageKey = MessageKey::new("migrate-apply-ve
 /// `migrate-apply-failed` in `migrate.ftl`.
 pub const MIGRATE_APPLY_FAILED: MessageKey = MessageKey::new("migrate-apply-failed");
 
+/// `migrate-apply-restored` in `migrate.ftl`.
+pub const MIGRATE_APPLY_RESTORED: MessageKey = MessageKey::new("migrate-apply-restored");
+
 /// `migrate-apply-router-rollback` in `migrate.ftl`.
 pub const MIGRATE_APPLY_ROUTER_ROLLBACK: MessageKey =
     MessageKey::new("migrate-apply-router-rollback");
@@ -6580,7 +6583,7 @@ pub const WEB_EXPLORER_CONFIRM_MIXED_TEXT: MessageKey =
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2099] = [
+pub static ALL: [MessageKey; 2100] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6772,6 +6775,7 @@ pub static ALL: [MessageKey; 2099] = [
     MIGRATE_REASON_PRUNE,
     MIGRATE_APPLY_VERIFIED,
     MIGRATE_APPLY_FAILED,
+    MIGRATE_APPLY_RESTORED,
     MIGRATE_APPLY_ROUTER_ROLLBACK,
     MIGRATE_APPLY_TIER,
     MIGRATE_APPLY_AGREEMENT,

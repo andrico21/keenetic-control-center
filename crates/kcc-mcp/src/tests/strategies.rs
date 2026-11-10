@@ -106,7 +106,7 @@ pub(super) fn rci_read_arguments() -> BoxedStrategy<Value> {
         arbitrary_text(),
         prop::collection::vec(arbitrary_text(), 0..20),
         arbitrary_json(),
-        prop_oneof![Just("get"), Just("show_rc"), Just("show_sc")],
+        Just("get"),
         arbitrary_fields(),
     )
         .prop_map(|(host, catalog_path, path, value, kind, fields)| {

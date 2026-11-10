@@ -94,7 +94,11 @@ pub(crate) async fn apply(
         "finish": action,
         "failure": report.failure,
     });
-    let mut human = report.message(out.locale());
+    let mut human = if action == "rollback" && report.failure == Some(ApplyError::Verification) {
+        out.tr(keys::MIGRATE_APPLY_RESTORED, &[])
+    } else {
+        report.message(out.locale())
+    };
     if action == "keep" {
         human.push('\n');
         human.push_str(&out.tr(keys::CLI_MIGRATE_KEPT, &[]));

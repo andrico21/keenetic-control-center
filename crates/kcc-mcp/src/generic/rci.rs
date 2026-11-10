@@ -28,17 +28,14 @@ use crate::{
     },
 };
 
-/// How a raw read reaches the router.
+/// How a raw read reaches the router. Selector reads (`show rc`/`show sc`) are not offered:
+/// the catalog holds no such commands, so what was validated could not be what was sent.
 #[derive(Debug, Clone, Copy, Default, Deserialize, JsonSchema)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ReadKind {
     /// GET of a setting or show resource.
     #[default]
     Get,
-    /// `show rc` selector POST.
-    ShowRc,
-    /// `show sc` selector POST.
-    ShowSc,
 }
 
 /// One validated raw read.
@@ -167,19 +164,10 @@ fn checked(
 pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
     validate_fields(input.fields.as_deref())?;
-    let transport_matches = match input.kind {
-        ReadKind::Get => true,
-        ReadKind::ShowRc => input.catalog_path == "show rc",
-        ReadKind::ShowSc => input.catalog_path == "show sc",
-    };
-    transport_matches.ok_or(McpFailure::ValidationFailed)?;
+    let ReadKind::Get = input.kind;
     let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
-    let method = match input.kind {
-        ReadKind::Get => HttpMethod::Get,
-        ReadKind::ShowRc | ReadKind::ShowSc => HttpMethod::Post,
-    };
-    let _validated = checked(&catalog, &input.catalog_path, method, &input.value)?;
+    let _validated = checked(&catalog, &input.catalog_path, HttpMethod::Get, &input.value)?;
     let client = server
         .registry
         .client(host.as_str())
@@ -188,21 +176,15 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
             tracing::warn!(host = host.as_str(), error = ?error, "MCP RCI client failed");
             McpFailure::RouterUnreachable
         })?;
-    let body = match input.kind {
-        ReadKind::Get => {
-            let path = RciPath::from_segments(&input.path)
-                .map_err(|_error| McpFailure::InvalidArguments)?;
-            if catalog
-                .lookup(&input.catalog_path)
-                .is_some_and(|command| command.kind == CommandKind::Show)
-            {
-                client.show(&path, &input.value).await
-            } else {
-                client.get(&path, &input.value).await
-            }
-        }
-        ReadKind::ShowRc => client.show_rc(input.value).await,
-        ReadKind::ShowSc => client.show_sc(input.value).await,
+    let path =
+        RciPath::from_segments(&input.path).map_err(|_error| McpFailure::InvalidArguments)?;
+    let body = if catalog
+        .lookup(&input.catalog_path)
+        .is_some_and(|command| command.kind == CommandKind::Show)
+    {
+        client.show(&path, &input.value).await
+    } else {
+        client.get(&path, &input.value).await
     }
     .map_err(|error| map_rci(&error))?;
     Ok(rci_body_value(body))

@@ -12,7 +12,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
-use kcc_app::registry::{ManagedRouterProfile, RegistryError};
+use kcc_app::registry::{ManagedRouterProfile, ProfileSource, RegistryError};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -32,7 +32,7 @@ use crate::{
     errors,
     fleet::Fleet,
     page::{Localize, Shell, Theme},
-    page_kit::context::lookup,
+    page_kit::{audit::Record, context::managed},
     router_form::{FieldErrors, RouterForm, is_slug},
 };
 
@@ -58,10 +58,14 @@ pub(crate) async fn test(
         .find(|candidate| is_slug(candidate))
         .unwrap_or(TEST_ID)
         .to_owned();
+    let audit = Record::on_router("web.router_test", &id, String::new());
     let (_draft, password, parsed) = form.parse(user.locale(), false);
     let fields = match parsed {
         Ok(fields) => fields,
-        Err(errors) => return errors::render(&TestResult::invalid(shell, &errors)),
+        Err(errors) => {
+            audit.append(&state, &user, "refused").await;
+            return errors::render(&TestResult::invalid(shell, &errors));
+        }
     };
     let mut profile =
         ManagedRouterProfile::new(id, fields.url().clone(), String::new(), PathBuf::new());
@@ -72,13 +76,21 @@ pub(crate) async fn test(
             .test_connection_with(&profile, secret)
             .await
     } else {
-        let Ok(Some(existing)) = lookup(fleet, user.role(), &editing).await else {
+        let Ok(existing) = managed(fleet, user.role(), &editing).await else {
+            audit.append(&state, &user, "refused").await;
             let missing = TestResult::message(shell, keys::WEB_ROUTER_ERROR_PASSWORD);
             return errors::render(&missing);
         };
-        profile.password_file = existing.profile.password_file;
+        if !matches!(existing.source, ProfileSource::State) {
+            audit.append(&state, &user, "refused").await;
+            let refused = TestResult::message(shell, keys::WEB_ROUTER_ERROR_CHECK);
+            return errors::render(&refused);
+        }
+        profile = existing.profile;
         fleet.registry().test_connection(&profile).await
     };
+    let audit_outcome = if outcome.is_ok() { "success" } else { "failed" };
+    audit.append(&state, &user, audit_outcome).await;
     errors::render(&TestResult::new(shell, &outcome, &profile.url))
 }
 

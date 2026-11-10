@@ -6,7 +6,7 @@ use std::fs;
 use kcc_app::audit::{ActorKind, read_entries};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{
-    DEFAULT_PASSWORD, FakeRouter, Handle, migration,
+    DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, migration,
     model::{Firmware, Model, Profile},
 };
 use serde_json::Value;
@@ -122,6 +122,43 @@ async fn apply_onto_documentation_tier_needs_the_audited_acknowledgement() -> Te
         .ok_or("the acknowledgement is not audited")?;
     assert_eq!(acknowledged.actor.kind, ActorKind::Cli);
     assert_eq!(acknowledged.actor.id, format!("cli:{USER}"));
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn failed_verification_reports_the_completed_automatic_rollback() -> TestResult {
+    let fake = FakeRouter::builder(Profile::default())
+        .faults(FaultInjection::default().silent_noop_path("parse"))
+        .build()?;
+    let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("target", address, &password))?;
+    drop(env.write("source.txt", SOURCE)?);
+    let source = format!("file:{}", env.path("source.txt").display());
+    let plan_path = env.path("plan.json");
+    let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
+    let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
+    assert_eq!(planned.code, 0_i32, "{planned:?}");
+
+    let applied = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
+
+    assert_ne!(applied.code, 0_i32, "verification must fail");
+    assert!(
+        applied
+            .stdout
+            .contains(&tr(Locale::En, keys::MIGRATE_APPLY_RESTORED, None)),
+        "{}",
+        applied.stdout
+    );
+    assert!(
+        handle
+            .request_log()
+            .iter()
+            .any(|request| request.command() == Some("system reboot")),
+        "rollback reboot reached the router"
+    );
     handle.shutdown().await?;
     Ok(())
 }

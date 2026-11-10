@@ -45,6 +45,17 @@ const LOADING_ATTRIBUTES: [&str; 4] = ["src=\"", "src='", "href=\"", "href='"];
 /// Prefixes of another origin.
 const FOREIGN_PREFIXES: [&str; 3] = ["http:", "https:", "//"];
 
+/// The (surface, ink) custom properties of each toast tone.
+const TOAST_TONES: [(&str, &str); 4] = [
+    ("--color-success-toast", "--color-success-ink"),
+    ("--color-danger-toast", "--color-danger-ink"),
+    ("--color-warning-toast", "--color-warning-ink"),
+    ("--color-info-toast", "--color-info-ink"),
+];
+
+/// The WCAG AA contrast floor for normal text.
+const MIN_TEXT_CONTRAST: f64 = 4.5;
+
 /// `ASSETS.lock`.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -103,6 +114,7 @@ where
     })?;
     let mut problems = Vec::new();
     let pinned = check_entries(&assets, &lock.asset, &mut problems)?;
+    check_toast_contrast(&assets, &mut problems)?;
     for file in files_under(&assets, VENDOR_DIR)? {
         if !pinned.contains(&file) {
             problems.push(format!(
@@ -140,6 +152,83 @@ where
         writeln!(out, "assets-check: FAILED")?;
         Ok(Verdict::Fail)
     }
+}
+
+/// Appends a problem for every toast surface and ink pair that is unreadable or whose
+/// contrast in either theme is below [`MIN_TEXT_CONTRAST`].
+///
+/// # Errors
+///
+/// Returns [`GateError::Read`] when `css/app.css` cannot be read.
+fn check_toast_contrast(assets: &Path, problems: &mut Vec<String>) -> Result<(), GateError> {
+    let path = assets.join("css/app.css");
+    let css = fs::read_to_string(&path).map_err(|source| GateError::Read { path, source })?;
+    for (surface_name, ink_name) in TOAST_TONES {
+        let (Some(surface_colors), Some(ink_colors)) =
+            (color_pair(&css, surface_name), color_pair(&css, ink_name))
+        else {
+            problems.push(format!(
+                "css/app.css: {surface_name} and {ink_name} must be light-dark() pairs of literal six-digit hex colours"
+            ));
+            continue;
+        };
+        for (theme, surface, ink) in [
+            ("light", surface_colors.0, ink_colors.0),
+            ("dark", surface_colors.1, ink_colors.1),
+        ] {
+            let ratio = contrast(surface, ink);
+            if ratio < MIN_TEXT_CONTRAST {
+                problems.push(format!(
+                    "css/app.css: {surface_name} {theme} contrast is {ratio:.2}:1, below {MIN_TEXT_CONTRAST:.1}:1"
+                ));
+            }
+        }
+    }
+    Ok(())
+}
+
+/// The (light, dark) colours of the custom property `name`, or `None` unless it is a
+/// `light-dark()` pair of literal six-digit hex colours.
+fn color_pair(css: &str, name: &str) -> Option<([u8; 3], [u8; 3])> {
+    let prefix = format!("{name}: light-dark(");
+    let value = css.split_once(&prefix)?.1.split_once(");")?.0;
+    let (light, dark) = value.split_once(',')?;
+    Some((hex_color(light.trim())?, hex_color(dark.trim())?))
+}
+
+/// The channels of a literal `#rrggbb` colour, or `None` for any other value.
+fn hex_color(value: &str) -> Option<[u8; 3]> {
+    let hex = value.strip_prefix('#').filter(|hex| hex.len() == 6)?;
+    let channel = |start: usize| {
+        let part = hex.get(start..)?.get(..2)?;
+        u8::from_str_radix(part, 16).ok()
+    };
+    Some([channel(0)?, channel(2)?, channel(4)?])
+}
+
+/// The WCAG contrast ratio of two colours, from 1 to 21.
+#[expect(
+    clippy::float_arithmetic,
+    reason = "WCAG relative luminance is defined over real numbers"
+)]
+fn contrast(left: [u8; 3], right: [u8; 3]) -> f64 {
+    let luminance = |color: [u8; 3]| {
+        let linear = color.map(|channel| {
+            let value = f64::from(channel) / 255.0_f64;
+            if value <= 0.040_45_f64 {
+                value / 12.92_f64
+            } else {
+                ((value + 0.055_f64) / 1.055_f64).powf(2.4_f64)
+            }
+        });
+        0.212_6_f64.mul_add(
+            linear[0],
+            0.715_2_f64.mul_add(linear[1], 0.072_2_f64 * linear[2]),
+        )
+    };
+    let first = luminance(left);
+    let second = luminance(right);
+    (first.max(second) + 0.05_f64) / (first.min(second) + 0.05_f64)
 }
 
 /// Checks every lock entry and returns the set of pinned files.
@@ -354,7 +443,7 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use super::{asset_references, foreign_loads, is_inside, run};
+    use super::{asset_references, check_toast_contrast, foreign_loads, is_inside, run};
     use crate::{Verdict, catalog_fetch::sha256_hex};
 
     /// Fallible test result.
@@ -381,7 +470,18 @@ mod tests {
         fs::create_dir_all(&templates)?;
         fs::write(assets.join("vendor/lib.min.js"), VENDORED)?;
         fs::write(assets.join("LICENSES/lib-MIT.txt"), "MIT License\n")?;
-        fs::write(assets.join("css/app.css"), "body {}\n")?;
+        fs::write(
+            assets.join("css/app.css"),
+            ":root {\n\
+             --color-success-toast: light-dark(#defbe6, #2b3e30);\n\
+             --color-success-ink: light-dark(#0e6027, #6fdc8c);\n\
+             --color-danger-toast: light-dark(#fff1f1, #482c2e);\n\
+             --color-danger-ink: light-dark(#a2191f, #ff8389);\n\
+             --color-warning-toast: light-dark(#fcf4d6, #463f24);\n\
+             --color-warning-ink: light-dark(#684e00, #f1c21b);\n\
+             --color-info-toast: light-dark(#edf5ff, #2b3649);\n\
+             --color-info-ink: light-dark(#0043ce, #78a9ff);\n}\n",
+        )?;
         fs::write(templates.join("base.html"), TEMPLATE)?;
         let lock = format!(
             "[[asset]]\nname = \"lib\"\nversion = \"1.0.0\"\nfile = \"vendor/lib.min.js\"\n\
@@ -445,6 +545,81 @@ mod tests {
         ] {
             assert!(report.contains(expected), "{expected} in {report}");
         }
+        Ok(())
+    }
+
+    /// The fixture stylesheet with `danger_toast` as the danger tone's surface value.
+    fn toast_css(danger_toast: &str) -> String {
+        format!(
+            ":root {{\n\
+             --color-success-toast: light-dark(#defbe6, #2b3e30);\n\
+             --color-success-ink: light-dark(#0e6027, #6fdc8c);\n\
+             --color-danger-toast: {danger_toast};\n\
+             --color-danger-ink: light-dark(#a2191f, #ff8389);\n\
+             --color-warning-toast: light-dark(#fcf4d6, #463f24);\n\
+             --color-warning-ink: light-dark(#684e00, #f1c21b);\n\
+             --color-info-toast: light-dark(#edf5ff, #2b3649);\n\
+             --color-info-ink: light-dark(#0043ce, #78a9ff);\n}}\n"
+        )
+    }
+
+    /// A dark danger surface below the floor fails the gate, naming the token and the theme.
+    ///
+    /// The old surface `#5a3a3d` against the ink `#ff8389` measures 4.20:1 (relative
+    /// luminances 0.0554 and 0.3930: (0.3930 + 0.05) / (0.0554 + 0.05)), under 4.5:1.
+    #[test]
+    fn a_dark_toast_surface_below_the_floor_fails() -> TestResult {
+        let css = toast_css("light-dark(#fff1f1, #5a3a3d)");
+        let (_dir, verdict, report) = gate(
+            &sha256_hex(VENDORED),
+            &[("crates/kcc-web/assets/css/app.css", css.as_str())],
+        )?;
+        assert_eq!(verdict, Verdict::Fail, "{report}");
+        let problems: Vec<&str> = report
+            .lines()
+            .filter(|line| line.contains("--color-danger-toast"))
+            .collect();
+        let [problem] = problems.as_slice() else {
+            return Err(format!("one problem for the failing pair: {report}").into());
+        };
+        assert!(problem.contains("dark contrast is 4.20:1"), "{report}");
+        assert!(
+            !report.contains("light contrast"),
+            "light theme still passes: {report}"
+        );
+        Ok(())
+    }
+
+    /// A value the parser cannot read is a problem, not a silent pass.
+    #[test]
+    fn unreadable_toast_colours_fail_instead_of_passing() -> TestResult {
+        for value in [
+            "color-mix(in srgb, #fff1f1 50%, black)",
+            "light-dark(#fff, #482c2e)",
+        ] {
+            let css = toast_css(value);
+            let (_dir, verdict, report) = gate(
+                &sha256_hex(VENDORED),
+                &[("crates/kcc-web/assets/css/app.css", css.as_str())],
+            )?;
+            assert_eq!(verdict, Verdict::Fail, "{value}: {report}");
+            assert!(
+                report.contains(
+                    "--color-danger-toast and --color-danger-ink must be light-dark() pairs"
+                ),
+                "{value}: {report}"
+            );
+        }
+        Ok(())
+    }
+
+    /// The stylesheet the web crate ships clears every toast pair.
+    #[test]
+    fn the_shipped_stylesheet_passes_the_contrast_gate() -> TestResult {
+        let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("../crates/kcc-web/assets");
+        let mut problems = Vec::new();
+        check_toast_contrast(&assets, &mut problems)?;
+        assert!(problems.is_empty(), "{problems:?}");
         Ok(())
     }
 

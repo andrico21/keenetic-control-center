@@ -38,9 +38,9 @@ mod tests {
         permissions::{Role, built_in_roles},
         persist::StateStore,
         poller::Poller,
-        registry::{ManagedRouterProfile, RouterRegistry},
+        registry::{ManagedRouterProfile, ProfileSource, RouterRegistry},
         secrets::MasterKey,
-        settings::OutboundConfig,
+        settings::{Config, OutboundConfig},
         workflow::ChangeWorkflow,
     };
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
@@ -644,6 +644,153 @@ mod tests {
             !event.params_redacted.to_string().contains(ROUTER_SECRET),
             "no secret in the audit parameters"
         );
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stored_password_test_ignores_a_foreign_submitted_endpoint_and_audits() -> TestResult {
+        let fixture = Fixture::new(&[
+            ("home", Profile::default()),
+            ("foreign", Profile::default()),
+        ])
+        .await?;
+        let browser = fixture.login("admin").await?;
+        let foreign_url = fixture.registry.get("foreign")?.profile.url;
+        let foreign = fixture
+            .routers
+            .iter()
+            .find(|(id, _handle)| id == "foreign")
+            .ok_or("foreign fake missing")?;
+        let before = foreign.1.request_log().len();
+        let encoded_url = foreign_url
+            .as_str()
+            .trim_end_matches('/')
+            .replace(':', "%3A")
+            .replace('/', "%2F");
+        let form = format!(
+            "router=home&url={encoded_url}&login={ROUTER_LOGIN}&password=&tls=verify&tags="
+        );
+
+        let tested = text(fixture.post("/ui/routers/test", &browser, &form).await?).await?;
+
+        assert!(
+            tested.contains(&tr(Locale::En, keys::WEB_TEST_SUCCESS, None)),
+            "the stored profile still connects: {tested}"
+        );
+        assert_eq!(
+            foreign.1.request_log().len(),
+            before,
+            "the submitted foreign endpoint receives no request"
+        );
+        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let event = events
+            .iter()
+            .find(|entry| entry.action == "web.router_test")
+            .ok_or("no router-test audit event")?;
+        assert_eq!(event.router.as_deref(), Some("home"), "stored router id");
+        assert_eq!(event.outcome, "success", "successful outcome");
+        assert_eq!(event.params_redacted, Value::Null, "no submitted values");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn stored_password_test_of_a_config_router_is_refused_and_audited() -> TestResult {
+        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let browser = fixture.login("admin").await?;
+        let url = fixture.registry.get("home")?.profile.url;
+        let password_file = fixture.directory.path().join("router-password");
+        let defined = Config::from_toml_str(&format!(
+            "[[routers]]\nname = \"home\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\n\
+             password_file = {:?}\n",
+            password_file.display().to_string()
+        ))?;
+        assert_eq!(
+            fixture.registry.reload(&defined).await?,
+            0,
+            "the profile is identical; only its source changes"
+        );
+        assert_eq!(
+            fixture.registry.get("home")?.source,
+            ProfileSource::Config,
+            "the router is now defined in kcc.toml"
+        );
+        let home = fixture
+            .routers
+            .iter()
+            .find(|(id, _handle)| id == "home")
+            .ok_or("home fake missing")?;
+        let before = home.1.request_log().len();
+        let encoded_url = url
+            .as_str()
+            .trim_end_matches('/')
+            .replace(':', "%3A")
+            .replace('/', "%2F");
+        let form = format!(
+            "router=home&url={encoded_url}&login={DEFAULT_LOGIN}&password=&tls=verify&tags="
+        );
+
+        let tested = text(fixture.post("/ui/routers/test", &browser, &form).await?).await?;
+
+        assert!(
+            tested.contains(&tr(Locale::En, keys::WEB_ROUTER_ERROR_CHECK, None)),
+            "the check error is shown: {tested}"
+        );
+        assert!(
+            !tested.contains(&tr(Locale::En, keys::WEB_TEST_SUCCESS, None)),
+            "no success: {tested}"
+        );
+        assert_eq!(
+            home.1.request_log().len(),
+            before,
+            "the stored credential is never used for a Config router"
+        );
+        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let tests: Vec<_> = events
+            .iter()
+            .filter(|entry| entry.action == "web.router_test")
+            .collect();
+        let [event] = tests.as_slice() else {
+            return Err(format!("expected one router-test event, got {}", tests.len()).into());
+        };
+        assert_eq!(event.router.as_deref(), Some("home"));
+        assert_eq!(event.outcome, "refused");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn typed_password_test_of_a_new_endpoint_still_connects_and_audits() -> TestResult {
+        let fixture = Fixture::new(&[("foreign", Profile::default())]).await?;
+        let browser = fixture.login("admin").await?;
+        let foreign_url = fixture.registry.get("foreign")?.profile.url;
+        let encoded_url = foreign_url
+            .as_str()
+            .trim_end_matches('/')
+            .replace(':', "%3A")
+            .replace('/', "%2F");
+        let form = format!(
+            "id=lab&url={encoded_url}&login={DEFAULT_LOGIN}&password={DEFAULT_PASSWORD}&tls=verify&tags="
+        );
+
+        let tested = text(fixture.post("/ui/routers/test", &browser, &form).await?).await?;
+
+        assert!(
+            tested.contains(&tr(Locale::En, keys::WEB_TEST_SUCCESS, None)),
+            "the explicitly credentialed endpoint connects: {tested}"
+        );
+        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let matching = events
+            .iter()
+            .filter(|entry| entry.action == "web.router_test")
+            .collect::<Vec<_>>();
+        let [event] = matching.as_slice() else {
+            return Err(format!(
+                "expected one router-test audit event, got {}",
+                matching.len()
+            )
+            .into());
+        };
+        assert_eq!(event.router.as_deref(), Some("lab"), "draft router id");
+        assert_eq!(event.outcome, "success", "successful outcome");
         Ok(())
     }
 

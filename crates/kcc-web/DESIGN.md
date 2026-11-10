@@ -63,7 +63,7 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 | Danger | `--color-danger-ink` / `-wash` | #a2191f / #fff1f1 | #ff8389 / #fa4d56 16% | Offline, errors |
 | Warning | `--color-warning-ink` / `-wash` | #684e00 / #fcf4d6 | #f1c21b / #f1c21b 16% | Unsaved changes |
 | Info | `--color-info-ink` / `-wash` | #0043ce / #edf5ff | #78a9ff / #4589ff 16% | Info toasts |
-| Toast tones | `--color-*-toast` | same opaque tone wash | tone wash composited over Raised | Floating toasts; always opaque so page content cannot bleed through |
+| Toast tones | `--color-*-toast` | same opaque tone wash | success #2b3e30, danger #482c2e, warning #463f24, info #2b3649 | Floating toasts; always opaque so page content cannot bleed through |
 | Neutral | `--color-neutral-ink` / `-wash` | #393939 / #e0e0e0 | #c6c6c6 / #393939 | Unknown status |
 | Disabled | `--color-disabled` / `-ink` | #c6c6c6 / #8d8d8d | #525252 / #8d8d8d | Disabled controls (exempt) |
 | Danger | `--color-danger` / `-hover` / `-active` | #da1e28 / #b81921 / #750e13 | same | Destructive button fill (white text 5.0:1) |
@@ -76,8 +76,9 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 | Shadow | `--color-shadow` | #000000 20% | #000000 60% | Floating surfaces only |
 
 Measured contrast (WCAG 2.x): text 18.1 / 16.5, muted 7.8 / 10.6 (7.1 / 8.9 on chrome),
-placeholder 4.6 / 6.4, link 5.0 / 7.7, on-accent 5.0, every status ink >= 4.8 on its wash,
-field edge 3.3 / 4.6.
+placeholder 4.6 / 6.4, link 5.0 / 7.7, on-accent 5.0, field edge 3.3 / 4.6. Toast
+text on its opaque light/dark surfaces: success 7.00 / 5.24, danger 7.09 / 5.29, warning
+7.11 / 4.87, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text.
 
 Rules: accent fills only the primary action; the current place uses the selected wash and ink;
 status colour lives only in pills, badges, flags, notices, the banner, toasts and field errors.

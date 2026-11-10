@@ -9,7 +9,8 @@
 mod tests {
     use kcc_app::permissions::{Permission, Role};
     use kcc_testkit::{FakeRouter, model::Profile};
-    use serde_json::json;
+    use rmcp::model::CallToolRequestParams;
+    use serde_json::{Value, json};
     use url::form_urlencoded::byte_serialize;
 
     use crate::lab::{Lab, TestResult, admin};
@@ -167,32 +168,61 @@ mod tests {
         lab.stop().await
     }
 
-    /// Selector transports must validate the selector command they actually send.
+    /// The removed selector kinds are not accepted, so nothing unvalidated can be sent.
     // NOT cancel-safe: the fixture owns router and MCP tasks until explicit shutdown.
     #[tokio::test]
-    async fn mismatched_read_transport_is_refused_before_router_access() -> TestResult {
+    async fn removed_selector_kinds_are_refused_before_router_access() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let before = lab.requests("lab-1")?;
         for kind in ["show_rc", "show_sc"] {
-            let lab = Lab::start(
-                vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
-                admin(),
+            let request = json!({"host":"lab-1", "catalog_path":"show running-config",
+                "path":["show","running-config"], "kind":kind, "value":{"system":{}}});
+            let Value::Object(arguments) = request else {
+                return Err("arguments must be an object".into());
+            };
+            // The enum is closed at argument parsing, so the reply is not the tool's JSON error.
+            let result = lab
+                .client
+                .call_tool(CallToolRequestParams::new("kcc_rci_read").with_arguments(arguments))
+                .await;
+            assert!(
+                result.is_err() || result.is_ok_and(|reply| reply.is_error == Some(true)),
+                "{kind} must be refused"
+            );
+            assert_eq!(lab.requests("lab-1")?, before, "{kind} reached the router");
+        }
+        lab.stop().await
+    }
+
+    /// The surviving read validates `show version` and sends that same command. The fake router
+    /// serves no `show running-config`, so `show version` is the positive control.
+    // NOT cancel-safe: the fixture owns router and MCP tasks until explicit shutdown.
+    #[tokio::test]
+    async fn show_read_returns_the_router_reply() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let reply = lab
+            .call(
+                "kcc_rci_read",
+                json!({"host":"lab-1", "catalog_path":"show version",
+                "path":["show","version"], "kind":"get"}),
+                false,
             )
             .await?;
-            let before = lab.requests("lab-1")?;
-            let reply = lab
-                .call(
-                    "kcc_rci_read",
-                    json!({"host":"lab-1",
-                "catalog_path":"system country", "path":["system","country"],
-                "kind":kind}),
-                    false,
-                )
-                .await?;
-            assert_eq!(reply.error(), Some("validation_failed"), "{kind}");
-            assert_eq!(lab.requests("lab-1")?, before);
-            assert_refusal(&lab, "kcc_rci_read")?;
-            lab.stop().await?;
-        }
-        Ok(())
+        assert_eq!(reply.error(), None, "{reply:?}");
+        assert_eq!(
+            reply.value()?.pointer("/value/hw_id"),
+            Some(&json!("KN-1811")),
+            "{reply:?}"
+        );
+        lab.stop().await
     }
 
     /// An honest setting GET never becomes a mutation when the router returns 404.
