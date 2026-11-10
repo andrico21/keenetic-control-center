@@ -1258,6 +1258,17 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(web,cli): give dark notices AA contrast on every surface and describe fail-safe and migration commits truthfully
   Recommended task executor category: visual-engineering
 
+- [ ] 102. `kcc config failsafe commit` must resolve the scheduled-reboot fallback on routers without router mode (found by the row 101 agent while testing commit messages)
+
+  What to do / Must NOT do: `crates/kcc/src/cli/persist.rs` (~100) always calls `SafetyNet::commit(changes)` (the native `system configuration fail-safe commit`) for `kcc config failsafe commit`, but on a router without router mode `kcc config failsafe arm` uses the scheduled-reboot fallback (`system reboot <seconds>`), so the commit leaves that reboot armed and the router reboots after the countdown: mirror what `kcc preset finish` already does per mode (`crates/kcc/src/cli/preset/finish.rs` ~90-96: native commit in router mode, `SafetyNet::disarm` plus the save in scheduled mode) for the commit AND rollback paths of `config failsafe`, and check the Web page `crates/kcc-web/src/config_page/safety.rs` (~100) and every other `SafetyNet::commit` caller for the same mode blindness; red-first tests with a fake router in a non-router mode (see the preset finish tests and `kcc-testkit` mode settings): after `config failsafe arm` and `commit` the fake log shows `no system reboot` and no pending reboot, the configuration state matches what the operator chose (saved or not: decide with evidence from `finish.rs` and say which), in router mode the native commit is unchanged. Must NOT: change the native router-mode behaviour, risk classification, audit format.
+  Closes: GAP-5
+  Parallelization: Wave W25 | Blocked by: 101 | Blocks: F1-F4 re-run
+  References: row 101 agent report ("Without router mode, `config failsafe commit` leaves the scheduled reboot armed").
+  Acceptance criteria: G0 green; scheduled-mode commit disarms the reboot (test); native mode unchanged (test).
+  QA scenarios: happy - `cargo test -p kcc --test cli && cargo test -p kcc-web 2>&1 | tee .omo/evidence/task-102-keenetic-control-center.log`; failure - after commit in scheduled mode no reboot remains armed, appended.
+  Commit: Y | fix(cli,web): resolve the scheduled-reboot fail-safe when committing or rolling back without router mode
+  Recommended task executor category: deep-low
+
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
 - [ ] F1. Plan compliance audit
