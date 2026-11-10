@@ -6599,8 +6599,12 @@ pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 /// `web-explorer-partial-mixed` in `web.ftl`.
 pub const WEB_EXPLORER_PARTIAL_MIXED: MessageKey = MessageKey::new("web-explorer-partial-mixed");
 
+/// `web-explorer-partial-answered` in `web.ftl`.
+pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
+    MessageKey::new("web-explorer-partial-answered");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2105] = [
+pub static ALL: [MessageKey; 2106] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -8706,4 +8710,5 @@ pub static ALL: [MessageKey; 2105] = [
     WEB_EXPLORER_CONFIRM_MIXED_TEXT,
     WEB_VPN_ERROR_PSK,
     WEB_EXPLORER_PARTIAL_MIXED,
+    WEB_EXPLORER_PARTIAL_ANSWERED,
 ];

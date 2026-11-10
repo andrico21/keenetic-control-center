@@ -136,4 +136,60 @@ mod tests {
         }
         Ok(())
     }
+
+    /// A `show`-only batch is a read: no change workflow, no change audit entry and no
+    /// unsaved or persistence claim, while a batch with a write stays a change.
+    // NOT cancel-safe: the fixture owns router and MCP tasks until shutdown.
+    #[tokio::test]
+    async fn read_only_batches_claim_no_change() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let before = lab.requests("lab-1")?;
+        let reply = lab
+            .call(
+                "kcc_rci_batch",
+                json!({"host":"lab-1","items":[{"show":{"version":{}}}]}),
+                false,
+            )
+            .await?;
+        let value = reply.value()?;
+        assert_eq!(value.get("unsaved"), Some(&json!(false)));
+        assert_eq!(value.get("persists_immediately"), Some(&json!(false)));
+        assert_eq!(value.get("notice"), None);
+        assert_eq!(value.pointer("/responses/0/ok"), Some(&json!(true)));
+        assert!(
+            value
+                .pointer("/responses/0/value/show/version/release")
+                .is_some(),
+            "the router's answer: {value}"
+        );
+        let changes = |running: &Lab| -> TestResult<usize> {
+            Ok(running
+                .audit()?
+                .iter()
+                .filter(|entry| entry.action == "router.change_batch")
+                .count())
+        };
+        assert!(
+            lab.requests("lab-1")? > before,
+            "the read reached the router"
+        );
+        assert_eq!(changes(&lab)?, 0, "a read is no change");
+        let mixed = lab
+            .call(
+                "kcc_rci_batch",
+                json!({"host":"lab-1","items":[
+                    {"show":{"version":{}}},
+                    {"system":{"description":{"description":"lab"}}}
+                ]}),
+                false,
+            )
+            .await?;
+        assert_eq!(mixed.value()?.get("unsaved"), Some(&json!(true)));
+        assert_eq!(changes(&lab)?, 1, "a batch with a write is a change");
+        lab.stop().await
+    }
 }

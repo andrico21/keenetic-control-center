@@ -19,6 +19,10 @@ enum BatchKind {
     Description,
     /// Remains unsaved and succeeds.
     Host,
+    /// A read that succeeds.
+    ShowVersion,
+    /// A read and the injected refusal target of read batches.
+    ShowSystem,
 }
 
 /// JSON body for one batch item.
@@ -29,15 +33,17 @@ const fn batch_item(kind: BatchKind) -> &'static str {
         BatchKind::Host => {
             r#"{"ip":{"hotspot":{"host":{"mac":"02:00:00:00:00:96","permit":true}}}}"#
         }
+        BatchKind::ShowVersion => r#"{"show":{"version":{}}}"#,
+        BatchKind::ShowSystem => r#"{"show":{"system":{}}}"#,
     }
 }
 
-/// Sends one batch and returns its rendered response and console audit outcome.
-async fn batch_outcome(items: &[BatchKind]) -> TestResult<(String, String)> {
-    let fixture = Fixture::with_faults(
-        FaultInjection::default().refuse_batch_pointer("/system/description".to_owned()),
-    )
-    .await?;
+/// Sends one batch whose items at `refused` the router refuses and returns its rendered
+/// response and console audit outcome.
+async fn batch_outcome(items: &[BatchKind], refused: &str) -> TestResult<(String, String)> {
+    let fixture =
+        Fixture::with_faults(FaultInjection::default().refuse_batch_pointer(refused.to_owned()))
+            .await?;
     let browser = fixture.login("admin").await?;
     let body = format!(
         "[{}]",
@@ -225,7 +231,7 @@ async fn partial_batches_report_position_independent_outcomes() -> TestResult {
             "partially_applied_persisted",
         ),
     ] {
-        let (body, audited) = batch_outcome(&items).await?;
+        let (body, audited) = batch_outcome(&items, "/system/description").await?;
         let mut args = FluentArgs::new();
         args.set("succeeded", items.len().saturating_sub(1));
         args.set("failed", 1_usize);
@@ -243,6 +249,37 @@ async fn partial_batches_report_position_independent_outcomes() -> TestResult {
     Ok(())
 }
 
+/// A read-only batch with a refused item reports answered and refused counts, claims no
+/// change or save and is audited as partially failed; a wholly refused read stays failed.
+#[tokio::test]
+async fn partial_read_batches_claim_no_change() -> TestResult {
+    let items = [BatchKind::ShowVersion, BatchKind::ShowSystem];
+    let (body, audited) = batch_outcome(&items, "/show/system").await?;
+    let mut args = FluentArgs::new();
+    args.set("succeeded", 1_usize);
+    args.set("failed", 1_usize);
+    assert!(
+        body.contains(&tr(
+            Locale::En,
+            keys::WEB_EXPLORER_PARTIAL_ANSWERED,
+            Some(&args)
+        )),
+        "partial read message key: {body}"
+    );
+    assert_eq!(audited, "partially_failed", "partial read audit outcome");
+    assert!(
+        !body.contains("id=\"unsaved-badge\""),
+        "a read leaves no unsaved badge: {body}"
+    );
+    let (refused, refused_audit) = batch_outcome(&[BatchKind::ShowSystem], "/show/system").await?;
+    assert!(
+        refused.contains(&en(keys::WEB_EXPLORER_REJECTED)),
+        "plain refusal: {refused}"
+    );
+    assert_eq!(refused_audit, "failed", "wholly refused read audit outcome");
+    Ok(())
+}
+
 /// A batch with no successful item remains a plain failure rather than a partial result.
 #[tokio::test]
 async fn wholly_refused_batches_report_failed_not_partial() -> TestResult {
@@ -250,7 +287,7 @@ async fn wholly_refused_batches_report_failed_not_partial() -> TestResult {
         vec![BatchKind::Description],
         vec![BatchKind::Description, BatchKind::Description],
     ] {
-        let (body, audited) = batch_outcome(&items).await?;
+        let (body, audited) = batch_outcome(&items, "/system/description").await?;
         assert!(
             body.contains(&en(keys::WEB_EXPLORER_REJECTED)),
             "plain refusal: {body}"

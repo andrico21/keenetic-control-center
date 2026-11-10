@@ -132,3 +132,53 @@ async fn delete_and_negative_cli_require_permission_without_requests() -> TestRe
     }
     Ok(())
 }
+
+/// A confirmed destructive DELETE or negative CLI line on a management node runs inside
+/// the recovery timer: armed before the request and disarmed after it.
+// NOT cancel-safe: the fixture owns router and HTTP tasks.
+#[tokio::test]
+async fn confirmed_management_delete_and_cli_arm_and_disarm_recovery() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    for (endpoint, request) in [
+        (
+            "/ui/r/home/console/rci/send",
+            form(&[
+                ("method", "DELETE"),
+                ("path", "user"),
+                ("body", r#"{"name":"victim"}"#),
+                ("confirm", "yes"),
+                ("confirm_name", "home"),
+            ]),
+        ),
+        (
+            "/ui/r/home/console/cli/send",
+            form(&[
+                ("line", "no user victim"),
+                ("confirm", "yes"),
+                ("confirm_name", "home"),
+            ]),
+        ),
+    ] {
+        let before = fixture.handle().request_log().len();
+        let response = fixture.post(endpoint, &admin, &request).await?;
+        assert_eq!(response.status(), StatusCode::OK, "{endpoint}");
+        let log = fixture.handle().request_log();
+        let timers = log
+            .iter()
+            .skip(before)
+            .filter_map(|record| record.command())
+            .filter(|line| {
+                let command = line.strip_prefix("no ").unwrap_or(line);
+                command.starts_with("system configuration fail-safe timer")
+                    || command.starts_with("system reboot")
+            })
+            .collect::<Vec<_>>();
+        assert_eq!(timers.len(), 2, "{endpoint}: arm and disarm: {timers:?}");
+        assert!(
+            timers.last().is_some_and(|line| line.starts_with("no ")),
+            "{endpoint}: disarm last: {timers:?}"
+        );
+    }
+    Ok(())
+}

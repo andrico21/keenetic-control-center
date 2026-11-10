@@ -48,8 +48,8 @@ impl Left {
         }
     }
 
-    /// The headline and audit outcome of a batch that applied `succeeded` items and
-    /// refused `failed`, by what the successful items left.
+    /// The headline and audit outcome of a batch whose router answered `succeeded` items
+    /// and refused `failed`, by what the successful items left.
     pub(crate) fn partial(
         &self,
         locale: Locale,
@@ -71,12 +71,13 @@ impl Left {
                     "partially_applied_unsaved",
                 )
             }
-            // A batch with a successful item is either persisted at once or unsaved, so
-            // `Nothing` does not arise here; asking for a save is the conservative claim.
-            Self::Unsaved | Self::Nothing => (
+            Self::Unsaved => (
                 keys::WEB_EXPLORER_PARTIAL_UNSAVED,
                 "partially_applied_unsaved",
             ),
+            // A read-only batch: the successful items only answered, so neither a change
+            // nor a save is claimed.
+            Self::Nothing => (keys::WEB_EXPLORER_PARTIAL_ANSWERED, "partially_failed"),
         };
         (tr(locale, key, Some(&args)), audit)
     }

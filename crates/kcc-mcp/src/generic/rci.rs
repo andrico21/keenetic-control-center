@@ -1,5 +1,7 @@
 //! Catalog-validated raw RCI and CLI tools.
 
+use alloc::sync::Arc;
+
 use kcc_app::{
     permissions::Permission,
     workflow::{
@@ -8,7 +10,7 @@ use kcc_app::{
     },
 };
 use kcc_catalog::{Catalog, CommandKind, HttpMethod, RawAuthorization, Risk};
-use kcc_rci::RciPath;
+use kcc_rci::{RciClient, RciError, RciPath, RciResponse};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -18,7 +20,7 @@ use super::{
     raw_change,
 };
 use crate::{
-    KccMcp, McpFailure, authorize_routers,
+    KccMcp, McpFailure, RouterId, authorize_routers,
     support::{
         errors::{map_rci, map_workflow, rci_body_value, statuses},
         validate::{
@@ -173,6 +175,18 @@ where
     risk.ok_or(McpFailure::ValidationFailed)
 }
 
+/// The shared read client of `host`.
+async fn client(server: &KccMcp, host: &RouterId) -> Result<Arc<RciClient>, McpFailure> {
+    server
+        .registry
+        .client(host.as_str())
+        .await
+        .map_err(|error| {
+            tracing::warn!(host = host.as_str(), error = ?error, "MCP RCI client failed");
+            McpFailure::RouterUnreachable
+        })
+}
+
 /// Runs a catalog-validated read.
 // cancel-safe: only validated reads reach the client, including show-only fallback POSTs.
 pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Value, McpFailure> {
@@ -182,14 +196,7 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
     let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
     let _validated = checked(&catalog, &input.catalog_path, HttpMethod::Get, &input.value)?;
-    let client = server
-        .registry
-        .client(host.as_str())
-        .await
-        .map_err(|error| {
-            tracing::warn!(host = host.as_str(), error = ?error, "MCP RCI client failed");
-            McpFailure::RouterUnreachable
-        })?;
+    let client = client(server, &host).await?;
     let path =
         RciPath::from_segments(&input.path).map_err(|_error| McpFailure::InvalidArguments)?;
     let body = if catalog
@@ -322,6 +329,24 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         items.push(BatchItem::new(value, validated));
     }
     raw_change::authorize(server, (&identity, &host), (risk, input.confirm))?;
+    if risk == Risk::Read {
+        authorize_routers(&identity, Permission::Read, core::slice::from_ref(&host))?;
+        let values = items
+            .iter()
+            .map(|item| item.value.redacted().clone())
+            .collect();
+        let responses = client(server, &host)
+            .await?
+            .batch(values)
+            .await
+            .map_err(|error| map_rci(&error))?;
+        return Ok(batch_applied(
+            batch_values(responses),
+            false,
+            false,
+            Vec::new(),
+        ));
+    }
     let result = raw_change::run(server, (&host, &identity, management), async |changes| {
         changes
             .apply_batch(BatchChangeRequest::new(
@@ -334,8 +359,17 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             .map_err(map_workflow)
     })
     .await?;
-    let responses = result
-        .responses
+    Ok(batch_applied(
+        batch_values(result.responses),
+        result.unsaved,
+        result.persists_immediately,
+        result.persisted_paths,
+    ))
+}
+
+/// The per-item result values of a root batch.
+fn batch_values(responses: Vec<Result<RciResponse, RciError>>) -> Vec<Value> {
+    responses
         .into_iter()
         .map(|response| match response {
             Ok(response) => {
@@ -343,13 +377,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             }
             Err(error) => json!({ "ok": false, "error": map_rci(&error).code() }),
         })
-        .collect::<Vec<_>>();
-    Ok(batch_applied(
-        responses,
-        result.unsaved,
-        result.persists_immediately,
-        result.persisted_paths,
-    ))
+        .collect()
 }
 
 /// Validates and applies one CLI line without saving.

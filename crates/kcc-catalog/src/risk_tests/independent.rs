@@ -188,3 +188,28 @@ fn concrete_cli_management_intents_are_preserved() -> Result<(), Box<dyn Error>>
     }
     Ok(())
 }
+
+/// Ordinary writes stay `Write` without the management fact, including an interface
+/// command that is neither an address nor up/down and a whole-path root key.
+#[test]
+fn ordinary_writes_carry_no_management() -> Result<(), Box<dyn Error>> {
+    let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, None)?;
+    assert_eq!(catalog.risk("interface description"), Some(Risk::Write));
+    let line = "interface Bridge0 description lab";
+    let interface = catalog
+        .validate_cli(line, RawAuthorization::default())
+        .map_err(|issues| format!("{line}: {issues:?}"))?;
+    assert_eq!(interface.risk, Risk::Write, "{line}");
+    assert!(!interface.contains_management(), "{line}");
+    for body in [
+        json!({"system country":{"country":"DE"}}),
+        json!({"system":{"description":{"description":"lab"}}}),
+    ] {
+        let request = catalog
+            .validate("", HttpMethod::Post, &body)
+            .map_err(|issues| format!("{body}: {issues:?}"))?;
+        assert_eq!(request.risk, Risk::Write, "{body}");
+        assert!(!request.contains_management(), "{body}");
+    }
+    Ok(())
+}

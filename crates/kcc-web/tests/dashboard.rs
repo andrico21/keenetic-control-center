@@ -721,6 +721,52 @@ mod tests {
         Ok(())
     }
 
+    /// A login-only or TLS-mode-only edit also moves the credential binding, so an empty
+    /// password refuses it and the stored profile stays as it was.
+    #[tokio::test]
+    async fn editing_the_login_or_tls_mode_without_a_password_is_refused() -> TestResult {
+        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let browser = fixture.login("router-manager").await?;
+        let original = fixture.registry.get("home")?.profile;
+        let encoded_url = original
+            .url
+            .as_str()
+            .trim_end_matches('/')
+            .replace(':', "%3A")
+            .replace('/', "%2F");
+        let pin = "ab".repeat(32);
+        for binding in [
+            format!("login={DEFAULT_LOGIN}&tls=pin&tls_pin={pin}"),
+            format!("login={DEFAULT_LOGIN}2&tls=verify"),
+        ] {
+            let form = format!("router=home&url={encoded_url}&{binding}&password=&tags=moved");
+
+            let response = fixture
+                .post("/ui/routers/home/edit", &browser, &form)
+                .await?;
+
+            assert_eq!(
+                response.status(),
+                StatusCode::UNPROCESSABLE_ENTITY,
+                "{binding}"
+            );
+            let page = text(response).await?;
+            assert!(
+                page.contains(&tr(Locale::En, keys::WEB_ROUTER_ERROR_PASSWORD, None)),
+                "{binding}: the password field names the required credential"
+            );
+            let stored = fixture.registry.get("home")?.profile;
+            assert_eq!(stored.login, original.login, "{binding}: login unchanged");
+            assert_eq!(stored.tls, original.tls, "{binding}: TLS mode unchanged");
+            assert_eq!(stored.tags, original.tags, "{binding}: the edit is atomic");
+            assert_eq!(
+                stored.password_file, original.password_file,
+                "{binding}: credential unchanged"
+            );
+        }
+        Ok(())
+    }
+
     /// Non-binding metadata changes keep the existing credential when the password is empty.
     #[tokio::test]
     async fn editing_tags_without_a_password_keeps_the_stored_credential() -> TestResult {
