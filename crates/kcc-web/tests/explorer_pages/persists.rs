@@ -15,6 +15,34 @@ use crate::{
 #[path = "persists/mixed.rs"]
 mod mixed;
 
+/// Ordinary writes keep their own confirmation warning.
+// NOT cancel-safe: the fixture owns the HTTP session until the test ends.
+#[tokio::test]
+async fn confirmation_paragraph_preserves_ordinary_write_warning() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let browser = fixture.login("admin").await?;
+    let fields = form(&[
+        ("method", "POST"),
+        ("path", "system description"),
+        ("body", r#"{"description":"ordinary"}"#),
+    ]);
+    let page = text(
+        fixture
+            .post("/ui/r/home/console/rci/send", &browser, &fields)
+            .await?,
+    )
+    .await?;
+    assert!(
+        page.contains("data-message-key=\"web-explorer-confirm-write-text\""),
+        "{page}"
+    );
+    assert!(
+        !page.contains("data-message-key=\"web-explorer-confirm-mixed-text\""),
+        "{page}"
+    );
+    Ok(())
+}
+
 /// Every pre-execution surface of the explorer and both consoles, for `system country`
 /// and for an ordinary change.
 #[tokio::test]

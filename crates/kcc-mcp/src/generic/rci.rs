@@ -7,7 +7,7 @@ use kcc_app::{
         DeleteRequest,
     },
 };
-use kcc_catalog::{Catalog, HttpMethod, RawAuthorization, Risk};
+use kcc_catalog::{Catalog, CommandKind, HttpMethod, RawAuthorization, Risk};
 use kcc_rci::RciPath;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -160,9 +160,16 @@ fn checked(
 }
 
 /// Runs a catalog-validated read.
+// cancel-safe: only validated reads reach the client, including show-only fallback POSTs.
 pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
     validate_fields(input.fields.as_deref())?;
+    let transport_matches = match input.kind {
+        ReadKind::Get => true,
+        ReadKind::ShowRc => input.catalog_path == "show rc",
+        ReadKind::ShowSc => input.catalog_path == "show sc",
+    };
+    transport_matches.ok_or(McpFailure::ValidationFailed)?;
     let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
     let method = match input.kind {
@@ -182,7 +189,14 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
         ReadKind::Get => {
             let path = RciPath::from_segments(&input.path)
                 .map_err(|_error| McpFailure::InvalidArguments)?;
-            client.show(&path, &input.value).await
+            if catalog
+                .lookup(&input.catalog_path)
+                .is_some_and(|command| command.kind == CommandKind::Show)
+            {
+                client.show(&path, &input.value).await
+            } else {
+                client.get(&path, &input.value).await
+            }
         }
         ReadKind::ShowRc => client.show_rc(input.value).await,
         ReadKind::ShowSc => client.show_sc(input.value).await,

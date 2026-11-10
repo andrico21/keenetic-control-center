@@ -134,6 +134,6 @@ Catalog-validated raw RCI and CLI access.
 | `kcc_rci_execute` | raw_rci | no | yes | - | Apply a catalog-validated raw RCI mutation without saving; kcc_catalog_describe and the result report persists_immediately for commands the router saves at once, which the fail-safe timer cannot roll back |
 | `kcc_rci_delete` | raw_rci | no | yes | - | Apply a catalog-validated RCI deletion without saving |
 | `kcc_rci_batch` | raw_rci | no | yes | - | Apply catalog-validated root RCI mutations without saving |
-| `kcc_cli_parse` | raw_rci | no | yes | - | Validate and apply one router CLI line without saving |
+| `kcc_cli_parse` | raw_rci | no | yes | - | Validate and apply one router CLI line without saving; lines the catalog cannot map are sent unvalidated (requires RawRci and ManageRouters) and always reported unsaved |
 
 Total: 68 tools.

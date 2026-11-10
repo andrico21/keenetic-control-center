@@ -22,6 +22,7 @@ pub mod auth_options;
 mod auth_token;
 pub mod budget;
 pub mod capabilities;
+pub mod catalog_path;
 pub mod engine;
 pub mod ndw4_keys;
 mod ndw4_reply;

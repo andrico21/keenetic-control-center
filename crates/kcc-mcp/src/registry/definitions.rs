@@ -151,7 +151,7 @@ fn generic() -> Vec<ToolDescription> {
         ),
         raw(
             "kcc_cli_parse",
-            "Validate and apply one router CLI line without saving",
+            "Validate and apply one router CLI line without saving; lines the catalog cannot map are sent unvalidated (requires RawRci and ManageRouters) and always reported unsaved",
             false,
         ),
     ]

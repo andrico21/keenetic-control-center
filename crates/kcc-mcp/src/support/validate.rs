@@ -1,5 +1,6 @@
 //! Tool-argument boundary checks shared by every tool family.
 
+use kcc_rci::catalog_path;
 use serde_json::Value;
 
 use crate::McpFailure;
@@ -71,6 +72,7 @@ pub(crate) fn validate_rci_input(
     for segment in path {
         valid_text(segment, 64)?;
     }
+    (path == catalog_path::segments(catalog_path)).ok_or(McpFailure::ValidationFailed)?;
     valid_value_size(value)
 }
 

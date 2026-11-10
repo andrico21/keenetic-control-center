@@ -450,3 +450,7 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 - No git commands or state changes performed. Worktree-only source edits.
 
 - Browser QA unavailable: Playwright MCP startup failed because npx is not on PATH. The current changes are verified through real HTTP route tests and parsed template-form tests; no new screenshots are claimed.
+
+## [2026-11-10] Todo 92 progress, restart (W=/home/andrico/kcc-wt/t92)
+
+CodeGraph unavailable in worktree (no index); used direct source reads. Explore agent failed before starting (ProviderModelNotFoundError); completed the seam audit directly. LSP diagnostics timed out twice, for support/validate.rs and catalog_path.rs; no LSP result is claimed. Compiler/test/clippy checks remain authoritative execution evidence. Initial standalone raw_paths test had unused lab API compile errors, resolved by including as a child of domain_tools rather than suppressing lints. Fake request_log query values are URL-encoded; instance-name assertion uses byte_serialize. Root ip/http body classified Write, so mixed Management dialog is tested directly through Prompt::render with explicit Risk::Management. This classification behavior predates the row and was not changed.

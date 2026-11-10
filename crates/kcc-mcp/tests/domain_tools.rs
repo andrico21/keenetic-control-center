@@ -4,6 +4,12 @@ extern crate alloc;
 #[path = "support/lab.rs"]
 mod lab;
 
+#[path = "support/raw_paths.rs"]
+mod raw_paths;
+
+#[path = "support/raw_redaction.rs"]
+mod raw_redaction;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

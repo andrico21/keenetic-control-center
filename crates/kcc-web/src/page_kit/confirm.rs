@@ -258,6 +258,23 @@ mod tests {
     use super::{FAIL_SAFE_MINUTES, Prompt, Resubmit};
     use crate::page_kit::family::Family;
 
+    /// Mixed persistence never replaces the management risk warning.
+    // cancel-safe: only renders and reads an in-memory response body.
+    #[tokio::test]
+    async fn mixed_management_keeps_management_paragraph() -> Result<(), Box<dyn Error>> {
+        let response = Prompt::new(Family::Commands, Risk::Management, "home")
+            .with_persisted_paths(vec!["system country".to_owned()])
+            .render(
+                Resubmit::new("/ui/r/home/console/rci/send".to_owned(), "#rci-result"),
+                Locale::En,
+            );
+        let body = to_bytes(response.into_body(), 0x0001_0000).await?;
+        let page = String::from_utf8(body.to_vec())?;
+        assert!(page.contains("data-message-key=\"web-explorer-confirm-management-text\""));
+        assert!(!page.contains("data-message-key=\"web-explorer-confirm-mixed-text\""));
+        Ok(())
+    }
+
     /// The prompt for `risk` on the router `home`, as served.
     async fn prompt(risk: Risk) -> Result<(Option<String>, String), Box<dyn Error>> {
         let resubmit = Resubmit::new("/ui/r/home/system/general/http".to_owned(), "#page-outcome");

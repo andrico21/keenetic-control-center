@@ -3,7 +3,7 @@
 
 use kcc_app::workflow::BatchItem;
 use kcc_catalog::{Catalog, CommandKind, HttpMethod, Risk, ValidatedRequest};
-use kcc_rci::RciPath;
+use kcc_rci::{RciPath, catalog_path};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -150,7 +150,7 @@ fn check_root(
 
 /// The words of a catalog path.
 pub(crate) fn path_segments(path: &str) -> Vec<String> {
-    path.split_whitespace().map(str::to_owned).collect()
+    catalog_path::segments(path)
 }
 
 impl RciForm {

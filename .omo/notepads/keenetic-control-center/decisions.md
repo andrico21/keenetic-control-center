@@ -709,3 +709,9 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 - Argument names have validator precedence over child command names. Invalid object arguments additionally retain nested catalog paths for exhaustive classification, but mark their parent ordinary.
 - Pre-run messages use web-explorer-mixed-persistence-before and web-explorer-confirm-mixed-text in six locales; post-run web-explorer-mixed-persistence remains completed tense. Existing paths/router Fluent variables already occur in bundle all_arguments.
 - The all-template native POST invariant is a kcc-web integration test; no hx-only exceptions are retained.
+
+## [2026-11-10] Todo 92 progress, restart (W=/home/andrico/kcc-wt/t92)
+
+Shared conversion: kcc-rci::catalog_path::segments, whitespace-separated literal catalog keywords. Object names are validated catalog body/query arguments; do not strip arbitrary path slots or relax RciPath URL grammar. Web delegates its existing path_segments wrapper. CLI rci.rs remains unchanged because row 91 edits it; catalog_words_match_cli_segments tests equivalence of the existing join and shared split.
+
+ReadKind binding is checked before discovery: show_rc requires show rc and show_sc requires show sc. Ordinary Get uses client.get unless catalog CommandKind is Show. This closes the independently selected transport seam without changing input fields.

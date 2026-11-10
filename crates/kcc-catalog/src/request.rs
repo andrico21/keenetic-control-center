@@ -120,6 +120,9 @@ impl PersistencePaths {
         let command = catalog.lookup(path);
         let children = child_names(catalog, path);
         let mut own_leaf = object.is_empty();
+        // These defensive checks guard future callers of capture. Validation already
+        // proves them today, so mutations of the proof and argument/child overlap
+        // branches are equivalent for currently reachable validated requests.
         let mut proven = true;
         for (key, child) in object {
             if let Some(argument) = command.and_then(|entry| entry.arguments.get(key)) {

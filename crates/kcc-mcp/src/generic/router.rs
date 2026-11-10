@@ -306,7 +306,7 @@ impl KccMcp {
 
     #[tool(
         name = "kcc_cli_parse",
-        description = "Validate and apply one router CLI line without saving",
+        description = "Validate and apply one router CLI line without saving; lines the catalog cannot map are sent unvalidated (requires RawRci and ManageRouters) and always reported unsaved",
         annotations(
             read_only_hint = false,
             destructive_hint = true,
