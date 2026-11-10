@@ -156,6 +156,9 @@ See [MONITORING.md](MONITORING.md) and [METRICS.md](METRICS.md).
 
 ## `[logs]`
 
+Router log collection and sink forwarding run only in the long-lived `kcc serve` process;
+short-lived commands such as `kcc mcp stdio` do not start collectors or sinks.
+
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `enabled` | bool | `false` | collect router logs |

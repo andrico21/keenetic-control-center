@@ -86,6 +86,25 @@ pub enum Outcome {
     Forbidden,
 }
 
+/// Process role selecting which runtime-owned background services are started.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum ServicesMode {
+    /// Long-running HTTP daemon.
+    Serve,
+    /// Short-lived local MCP transport.
+    Stdio,
+}
+
+impl ServicesMode {
+    /// Whether this role owns router-log collection and sink workers.
+    const fn starts_logs(self, logs_enabled: bool) -> bool {
+        match self {
+            Self::Serve => logs_enabled,
+            Self::Stdio => false,
+        }
+    }
+}
+
 impl Outcome {
     /// Stable process exit code.
     #[must_use]
@@ -110,7 +129,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             state_dir.display()
         ))
     })?;
-    let mut services = Services::open(&config, state).await?;
+    let mut services = Services::open(&config, state, ServicesMode::Serve).await?;
     let handler = services.handler(&config, config.mcp.http_enabled)?;
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state).map_err(error)?)
@@ -177,7 +196,7 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         return Ok(Outcome::Forbidden);
     }
     let state = StateStore::open(&config.state.resolved_dir().map_err(error)?).map_err(error)?;
-    let services = Services::open(&config, state).await?;
+    let services = Services::open(&config, state, ServicesMode::Stdio).await?;
     let handler = services.handler(&config, true)?;
     serve_stdio(handler).await.map_err(error)?;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
@@ -242,10 +261,47 @@ struct Services {
 }
 
 impl Services {
+    /// Starts router log collectors and sink workers when `mode` owns them.
+    // NOT cancel-safe: delegates to `LogService::start`.
+    async fn start_logs(
+        mode: ServicesMode,
+        config: &Config,
+        registry: &RouterRegistry,
+        metrics: Option<Arc<SelfMetrics>>,
+    ) -> Result<Option<LogService>, ServerError> {
+        if !mode.starts_logs(config.logs.enabled) {
+            return Ok(None);
+        }
+        let self_metrics =
+            metrics.ok_or_else(|| ServerError("log metrics are unavailable".to_owned()))?;
+        let mut routers = Vec::new();
+        for entry in registry.list().map_err(error)? {
+            if config.logs.routers.is_empty()
+                || config
+                    .logs
+                    .routers
+                    .iter()
+                    .any(|router| router == &entry.profile.id)
+            {
+                let client = registry.client(&entry.profile.id).await.map_err(error)?;
+                routers.push((entry.profile.id, client));
+            }
+        }
+        LogService::start(routers, &config.logs, self_metrics)
+            .await
+            .map(Some)
+            .map_err(error)
+    }
+
     /// Opens state and constructs each singleton service.
     // cancel-safe: startup performs local state opens and read-only router recovery inspection.
-    async fn open(config: &Config, state: StateStore) -> Result<Self, ServerError> {
-        let metrics = if config.metrics.enabled || config.logs.enabled {
+    async fn open(
+        config: &Config,
+        state: StateStore,
+        mode: ServicesMode,
+    ) -> Result<Self, ServerError> {
+        let starts_logs = mode.starts_logs(config.logs.enabled);
+        let metrics = if config.metrics.enabled || starts_logs {
             Some(SelfMetrics::new(env!("CARGO_PKG_VERSION")).map_err(error)?)
         } else {
             None
@@ -296,31 +352,7 @@ impl Services {
         let jobs = JobRunner::open(state.clone(), Arc::clone(&registry))
             .await
             .map_err(error)?;
-        let logs = if config.logs.enabled {
-            let self_metrics = metrics
-                .clone()
-                .ok_or_else(|| ServerError("log metrics are unavailable".to_owned()))?;
-            let mut routers = Vec::new();
-            for entry in registry.list().map_err(error)? {
-                if config.logs.routers.is_empty()
-                    || config
-                        .logs
-                        .routers
-                        .iter()
-                        .any(|router| router == &entry.profile.id)
-                {
-                    let client = registry.client(&entry.profile.id).await.map_err(error)?;
-                    routers.push((entry.profile.id, client));
-                }
-            }
-            Some(
-                LogService::start(routers, &config.logs, self_metrics)
-                    .await
-                    .map_err(error)?,
-            )
-        } else {
-            None
-        };
+        let logs = Self::start_logs(mode, config, &registry, metrics.clone()).await?;
         let updates = Arc::new(ComponentsUpdateCheck::new(
             Arc::clone(&registry),
             Arc::clone(&poller),
@@ -572,4 +604,46 @@ fn with_metrics(
 /// Converts a display-safe service error into the binary error surface.
 fn error(source: impl core::fmt::Display) -> ServerError {
     ServerError(source.to_string())
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use core::error::Error;
+
+    use kcc_app::{persist::StateStore, registry::RouterRegistry, settings::Config};
+    use kcc_telemetry::metrics::instrumentation::SelfMetrics;
+
+    use super::{Arc, Services, ServicesMode};
+
+    /// Only the daemon role starts log collection, through the real startup path.
+    #[tokio::test]
+    async fn only_serve_mode_starts_router_logs() -> Result<(), Box<dyn Error>> {
+        let config = Config::from_toml_str("[logs]\nenabled = true\n")?;
+        let dir = tempfile::TempDir::new()?;
+        let state = StateStore::open(dir.path())?;
+        let registry = RouterRegistry::new(state, &config.routers, &config.outbound)?;
+        let metrics = SelfMetrics::new("test")?;
+
+        let stdio = Services::start_logs(
+            ServicesMode::Stdio,
+            &config,
+            &registry,
+            Some(Arc::clone(&metrics)),
+        )
+        .await?;
+        if let Some(started) = stdio {
+            started.shutdown().await;
+            return Err("stdio must not start router logs".into());
+        }
+
+        let serve =
+            Services::start_logs(ServicesMode::Serve, &config, &registry, Some(metrics)).await?;
+        let service = serve.ok_or("serve must start router logs")?;
+        service.shutdown().await;
+        Ok(())
+    }
 }

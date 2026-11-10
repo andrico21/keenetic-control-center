@@ -56,7 +56,8 @@ loopback only; see [deploy/podman/README.md](../deploy/podman/README.md).
 
 Router log collection is disabled by default. Enable `[logs]` and configure one or more
 `[[logs.sinks]]` entries to forward the single collector stream owned for each selected
-router. Loki receives bounded `job`, `router`, and `level` labels; process, component, and
+router by the long-lived `kcc serve` process; `kcc mcp stdio` does not start collectors or
+sinks. Loki receives bounded `job`, `router`, and `level` labels; process, component, and
 record id remain structured metadata to avoid unbounded label cardinality. The Web UI log
 page of a collected router follows the same stream (the latest 200 records, then new
 ones), so log viewers add no router requests.
