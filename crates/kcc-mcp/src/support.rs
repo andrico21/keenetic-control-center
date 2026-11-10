@@ -3,6 +3,7 @@
 pub(crate) mod access;
 pub(crate) mod audit;
 pub(crate) mod errors;
+pub(crate) mod raw_change;
 pub(crate) mod route;
 pub(crate) mod shape;
 pub(crate) mod validate;

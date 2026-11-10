@@ -27,6 +27,7 @@ pub(crate) async fn failure(
         | McpFailure::ValidationFailed
         | McpFailure::UnverifiedFirmwareTier => ("refused", json!({"reason": error.code()})),
         McpFailure::RouterUnreachable
+        | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
@@ -36,6 +37,7 @@ pub(crate) async fn failure(
             ("failed", json!({"error": error.code()}))
         }
         McpFailure::InvalidArguments
+        | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::RouterUnreachable
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }

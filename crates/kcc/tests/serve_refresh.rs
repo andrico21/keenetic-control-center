@@ -29,8 +29,10 @@ use crate::{
     web::Browser,
 };
 
-/// The VPN server password operation: the tool needs `Write`, the operation
-/// `ManageUsers`, which only the MCP handler's own check enforces.
+/// The VPN server password operation.
+///
+/// The tool needs `Write`, the operation `ManageUsers`, which only the MCP handler's own
+/// check enforces, and its management risk needs `Destructive`, like the CLI and the Web UI.
 fn password_call() -> (&'static str, Value) {
     (
         "kcc_vpn_servers_write",
@@ -45,6 +47,7 @@ fn ops_form(manage_users: bool) -> Vec<(&'static str, &'static str)> {
         ("scope", "*"),
         ("read", "on"),
         ("write", "on"),
+        ("destructive", "on"),
     ];
     if manage_users {
         form.push(("manage_users", "on"));
@@ -109,7 +112,11 @@ async fn role_changes_bind_mcp_and_the_web_ui_without_a_restart() -> TestResult 
         "ManageUsers opens the users page"
     );
     fixture.state()?.update(|roles: &mut RolesDocument| {
-        roles.roles = vec![ops(&[Permission::Read, Permission::Write])];
+        roles.roles = vec![ops(&[
+            Permission::Read,
+            Permission::Write,
+            Permission::Destructive,
+        ])];
     })?;
     server.hangup()?;
     let reloaded = call(&http, mcp, password_call()).await?;

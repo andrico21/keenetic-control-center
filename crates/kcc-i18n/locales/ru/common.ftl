@@ -46,3 +46,5 @@ common-duration-days = { $count } дн.
 common-duration-hours = { $count } ч
 common-duration-minutes = { $count } мин
 common-duration-seconds = { $count } с
+
+management-disarm-failed = Изменение настроек управления применено, но отключить таймер восстановления не удалось. Считайте таймер активным: он может восстановить сохранённую конфигурацию и отменить все несохранённые изменения. Проверьте роутер перед дальнейшими изменениями.

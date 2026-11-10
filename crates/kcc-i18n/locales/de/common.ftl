@@ -42,3 +42,5 @@ common-duration-days = { $count } Tg.
 common-duration-hours = { $count } Std.
 common-duration-minutes = { $count } Min.
 common-duration-seconds = { $count } Sek.
+
+management-disarm-failed = Die Änderung der Verwaltungseinstellungen wurde angewendet, aber der Wiederherstellungstimer konnte nicht deaktiviert werden. Behandeln Sie den Timer als weiterhin aktiv: Er kann die gespeicherte Konfiguration wiederherstellen und alle ungespeicherten Änderungen verwerfen. Prüfen Sie den Router vor weiteren Änderungen.

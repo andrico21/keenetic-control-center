@@ -95,14 +95,14 @@ const WRITES: &[OperationDescriptor] = &[
         "fail_safe_arm",
         "system configuration fail-safe timer",
         Risk::Destructive,
-        Permission::Destructive,
+        SafetyNet::CONTROL_PERMISSION,
         false,
     ),
     operation(
         "fail_safe_keep_alive",
         "system configuration fail-safe keep-alive",
         Risk::Write,
-        Permission::Write,
+        SafetyNet::CONTROL_PERMISSION,
         false,
     ),
     operation(
@@ -116,7 +116,7 @@ const WRITES: &[OperationDescriptor] = &[
         "fail_safe_rollback",
         "system configuration fail-safe rollback",
         Risk::Destructive,
-        Permission::Destructive,
+        SafetyNet::CONTROL_PERMISSION,
         false,
     ),
 ];
@@ -130,6 +130,15 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 impl SafetyNet {
+    /// Authority shared by arming, disarming, extending, and rolling back recovery.
+    pub const CONTROL_PERMISSION: Permission = Permission::Destructive;
+
+    /// Permissions required to open and close a management bracket without saving.
+    #[must_use]
+    pub const fn management_permissions() -> &'static [Permission] {
+        &[Self::CONTROL_PERMISSION]
+    }
+
     /// Arms native fail-safe in router mode or scheduled reboot otherwise.
     // NOT cancel-safe: cancelled after the CLI request is sent, the fail-safe or reboot timer
     // is armed and fires while the caller believes nothing was armed.
@@ -146,7 +155,7 @@ impl SafetyNet {
             ),
             SafetyMode::ScheduledReboot => ("system reboot", format!("system reboot {seconds}")),
         };
-        let request = cli_request(router, catalog_path, line, Permission::Destructive)
+        let request = cli_request(router, catalog_path, line, Self::CONTROL_PERMISSION)
             .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await
     }
@@ -166,8 +175,13 @@ impl SafetyNet {
             ),
             SafetyMode::ScheduledReboot => ("system reboot", "no system reboot"),
         };
-        let request = cli_request(router, catalog_path, line.to_owned(), Permission::Write)
-            .map_err(|_error| WorkflowError::InvalidResponse)?;
+        let request = cli_request(
+            router,
+            catalog_path,
+            line.to_owned(),
+            Self::CONTROL_PERMISSION,
+        )
+        .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await
     }
 
@@ -182,7 +196,7 @@ impl SafetyNet {
             router,
             "system configuration fail-safe keep-alive",
             "system configuration fail-safe keep-alive".to_owned(),
-            Permission::Write,
+            Self::CONTROL_PERMISSION,
         )
         .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await
@@ -206,7 +220,7 @@ impl SafetyNet {
             router,
             "system configuration fail-safe rollback",
             "system configuration fail-safe rollback".to_owned(),
-            Permission::Destructive,
+            Self::CONTROL_PERMISSION,
         )
         .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await

@@ -1,19 +1,19 @@
 //! Permission, confirmation and recovery for raw mutations.
 
-use kcc_app::{permissions::Permission, workflow::ChangeSet};
+use kcc_app::workflow::ChangeSet;
 use kcc_catalog::Risk;
 use kcc_domain::{
     RouterCtx,
     configuration::{SafetyMode, SafetyNet},
 };
-use kcc_rci::{RciError, capabilities::SystemMode};
+use kcc_rci::capabilities::SystemMode;
 
 use crate::{
     KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers, support::errors::map_workflow,
 };
 
 /// Checks risk before router discovery, including the permission needed for recovery.
-pub(super) fn authorize(
+pub(crate) fn authorize(
     server: &KccMcp,
     target: (&McpIdentity, &RouterId),
     confirmation: (Risk, bool),
@@ -28,11 +28,9 @@ pub(super) fn authorize(
         confirm,
     )?;
     if risk >= Risk::Management {
-        authorize_routers(
-            target.0,
-            Permission::Destructive,
-            core::slice::from_ref(target.1),
-        )?;
+        for &permission in SafetyNet::management_permissions() {
+            authorize_routers(target.0, permission, core::slice::from_ref(target.1))?;
+        }
         if !confirm {
             return Err(McpFailure::ConfirmRequired);
         }
@@ -42,7 +40,7 @@ pub(super) fn authorize(
 
 /// Runs a raw change inside the selected management recovery timer when required.
 // NOT cancel-safe: cancellation may leave a write applied and its recovery timer armed.
-pub(super) async fn run<T, Work>(
+pub(crate) async fn run<T, Work>(
     server: &KccMcp,
     target: (&RouterId, &McpIdentity, bool),
     work: Work,
@@ -51,6 +49,11 @@ where
     Work: AsyncFnOnce(&mut ChangeSet) -> Result<T, McpFailure>,
 {
     let (host, identity, management) = target;
+    if management {
+        for &permission in SafetyNet::management_permissions() {
+            authorize_routers(identity, permission, core::slice::from_ref(host))?;
+        }
+    }
     let mut changes = server.begin_change(host, identity).await?;
     if !management {
         return work(&mut changes).await;
@@ -73,12 +76,14 @@ where
     let applied = work(&mut changes).await;
     match SafetyNet::disarm(&mut changes, &context, mode).await {
         Ok(_result) => applied,
-        Err(kcc_app::workflow::WorkflowError::Rci(RciError::Transport | RciError::Timeout)) => {
-            applied
-        }
         Err(error) => {
+            tracing::warn!(
+                ?error,
+                router = host.as_str(),
+                "management recovery could not be disarmed"
+            );
             drop(applied?);
-            Err(map_workflow(error))
+            Err(McpFailure::ManagementAppliedFailSafeArmed)
         }
     }
 }

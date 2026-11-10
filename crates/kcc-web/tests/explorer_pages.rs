@@ -95,5 +95,8 @@ mod guards;
 mod persists;
 
 #[cfg(test)]
+#[path = "explorer_pages/bracket.rs"]
+mod bracket;
+#[cfg(test)]
 #[path = "explorer_pages/nested_risk.rs"]
 mod nested_risk;

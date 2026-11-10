@@ -144,7 +144,7 @@ pub(crate) fn detail(scope: &Scope<'_>, path: &str) -> Option<Detail> {
     });
     let mut count = FluentArgs::new();
     count.set("count", command.models.len());
-    let permitted = scope.controls.permits(command_permissions(risk));
+    let permitted = scope.controls.permits(&command_permissions(risk));
     Some(Detail {
         path: path.to_owned(),
         query: encode(path),

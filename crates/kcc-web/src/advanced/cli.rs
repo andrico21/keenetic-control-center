@@ -186,7 +186,7 @@ pub(crate) async fn send(
     });
     let audit = Record::on_router("web.console_cli", &router, label).with_params(params.clone());
     let mut needed = vec![Permission::RawRci];
-    needed.extend_from_slice(command_permissions(risk));
+    needed.extend_from_slice(&command_permissions(risk));
     if validated.unvalidated {
         needed.push(Permission::ManageRouters);
     }

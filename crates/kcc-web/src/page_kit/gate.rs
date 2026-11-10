@@ -9,7 +9,7 @@ use kcc_app::{
     registry,
 };
 use kcc_catalog::{Catalog, Risk};
-use kcc_domain::OperationDescriptor;
+use kcc_domain::{OperationDescriptor, configuration::SafetyNet};
 
 use crate::authz::CurrentUser;
 
@@ -18,11 +18,11 @@ use crate::authz::CurrentUser;
 /// A read needs `Read`; a change needs `RawRci`; a management or destructive command also
 /// needs `Destructive`, because kcc arms the router's fail-safe timer around a management
 /// change.
-pub(crate) const fn command_permissions(risk: Risk) -> &'static [Permission] {
+pub(crate) fn command_permissions(risk: Risk) -> Vec<Permission> {
     match risk {
-        Risk::Read => &[Permission::Read],
-        Risk::Write => &[Permission::RawRci],
-        Risk::Management | Risk::Destructive | _ => &[Permission::RawRci, Permission::Destructive],
+        Risk::Read => vec![Permission::Read],
+        Risk::Write => vec![Permission::RawRci],
+        Risk::Management | Risk::Destructive | _ => operation_permissions(Permission::RawRci, risk),
     }
 }
 
@@ -31,7 +31,10 @@ pub(crate) const fn command_permissions(risk: Risk) -> &'static [Permission] {
 /// fail-safe timer around a management change.
 pub(crate) fn operation_permissions(permission: Permission, risk: Risk) -> Vec<Permission> {
     let mut needed = vec![permission];
-    if risk >= Risk::Management && permission != Permission::Destructive {
+    if risk == Risk::Management {
+        needed.extend_from_slice(SafetyNet::management_permissions());
+    }
+    if risk >= Risk::Destructive && permission != Permission::Destructive {
         needed.push(Permission::Destructive);
     }
     needed
@@ -126,11 +129,11 @@ mod tests {
             "operator changes and saves"
         );
         assert!(
-            !operating.permits(command_permissions(Risk::Management)),
+            !operating.permits(&command_permissions(Risk::Management)),
             "operator runs no raw management command"
         );
         assert!(
-            Controls::new(&admin, "home").permits(command_permissions(Risk::Destructive)),
+            Controls::new(&admin, "home").permits(&command_permissions(Risk::Destructive)),
             "admin may"
         );
         let lab = Role::new("lab".to_owned(), Permission::ALL, vec!["lab-*".to_owned()]);

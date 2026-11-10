@@ -124,6 +124,15 @@ still runs afterwards. A management node always requires the recovery timer, inc
 when a destructive sibling determines the request's maximum risk. This applies to raw
 MCP, CLI and Web requests; curated operations retain their domain plans and gates.
 
+Every management bracket checks the shared `SafetyNet` recovery permissions as well
+as the operation permission. `Destructive` authorizes arm, disarm, keep-alive and
+rollback, so a role that can open a bracket can close it without `Write`; persistence
+still requires `Save`. Curated MCP management writes use the same mode-aware bracket
+as raw writes, with their existing confirmation policy. A failed disarm after an
+applied change is reported explicitly: recovery must be treated as armed and may
+discard all unsaved router changes. No permission failure is described as loss of
+router connectivity.
+
 Role changes take effect without a restart. A custom role created, edited or reduced in
 the Web UI, or changed in `roles.json` followed by `SIGHUP`, binds the next MCP call (the
 transport's RBAC and the MCP handlers' own permission and scope checks share one role

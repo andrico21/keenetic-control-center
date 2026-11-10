@@ -15,14 +15,12 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::{
-    persists::{applied, batch_applied, cli_applied},
-    raw_change,
-};
+use super::persists::{applied, batch_applied, cli_applied};
 use crate::{
     KccMcp, McpFailure, RouterId, authorize_routers,
     support::{
         errors::{map_rci, map_workflow, rci_body_value, statuses},
+        raw_change,
         validate::{
             MAX_BATCH_ITEMS, MAX_LINE_CHARS, empty_object, valid_host, valid_text,
             valid_value_size, validate_fields, validate_rci_input,

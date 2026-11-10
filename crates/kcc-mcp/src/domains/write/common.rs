@@ -5,16 +5,17 @@ use core::net::Ipv4Addr;
 
 use kcc_app::workflow::{ChangeSet, CliChangeRequest};
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, DomainError, RouterCtx, verification};
+use kcc_domain::{ChangeOp, DomainError, RouterCtx, configuration::SafetyNet, verification};
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
 use serde_json::{Value, json};
 
 use crate::{
-    KccMcp, McpFailure, McpIdentity, RouterId,
+    KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers,
     domains::table::Area,
     support::{
         errors::{map_domain, map_workflow},
+        raw_change,
         validate::valid_text,
     },
 };
@@ -35,6 +36,7 @@ pub(super) fn check_op(ops: &[&str], op: &str) -> Result<(), McpFailure> {
 }
 
 /// Authorizes the operation's permission and risk on `host` and opens its domain context.
+// NOT cancel-safe: context discovery can initialize the authenticated router session.
 pub(super) async fn open(
     server: &KccMcp,
     area: Area,
@@ -44,6 +46,15 @@ pub(super) async fn open(
     let (permission, risk) = area.write_meta(op).ok_or(McpFailure::InvalidArguments)?;
     let (identity, router) = server.authorize_host(permission, host)?;
     confirm_risk(server, risk, confirm)?;
+    if risk == Risk::Management {
+        for &recovery_permission in SafetyNet::management_permissions() {
+            authorize_routers(
+                &identity,
+                recovery_permission,
+                core::slice::from_ref(&router),
+            )?;
+        }
+    }
     let ctx = server.router_ctx(&router).await?;
     Ok((identity, router, ctx))
 }
@@ -64,6 +75,7 @@ pub(super) async fn begin(server: &KccMcp, opened: &Opened) -> Result<ChangeSet,
 }
 
 /// Applies a planned CLI operation after confirming its planned risk.
+// NOT cancel-safe: a transmitted change may apply before read-back or timer cleanup.
 pub(super) async fn apply_cli<F>(
     server: &KccMcp,
     opened: &Opened,
@@ -78,8 +90,14 @@ where
     let request =
         verification::complete(convert(&operation).map_err(map_domain)?).map_err(map_domain)?;
     verification::require(&request).map_err(map_domain)?;
-    let mut changes = begin(server, opened).await?;
-    let result = changes.apply_cli(request).await.map_err(map_workflow)?;
+    let (identity, router, _context) = opened;
+    authorize_routers(identity, request.permission, core::slice::from_ref(router))?;
+    let result = raw_change::run(
+        server,
+        (router, identity, operation.risk == Risk::Management),
+        async |changes| changes.apply_cli(request).await.map_err(map_workflow),
+    )
+    .await?;
     Ok(applied(result.unsaved))
 }
 

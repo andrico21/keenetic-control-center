@@ -69,7 +69,7 @@ pub(crate) async fn execute(
     });
     let audit = pending.with_params(params.clone());
     let risk = built.risk();
-    if !allowed(&user, &router, command_permissions(risk)) {
+    if !allowed(&user, &router, &command_permissions(risk)) {
         audit.append(&state, &user, "forbidden").await;
         return errors::response(Kind::Forbidden, Shell::new(locale, Theme::System));
     }

@@ -7,20 +7,14 @@
 //! confirmation leaves a `cli.change` audit entry with outcome `failed` and the error
 //! kind.
 
-use kcc_app::{
-    permissions::Permission,
-    workflow::{ChangeSet, WorkflowError},
-};
+use kcc_app::{permissions::Permission, workflow::ChangeSet};
 use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, RouterCtx,
     configuration::{SafetyMode, SafetyNet},
 };
 use kcc_i18n::{bundle::MessageKey, keys};
-use kcc_rci::{
-    RciError,
-    capabilities::{RouterInfo, SystemMode},
-};
+use kcc_rci::capabilities::{RouterInfo, SystemMode};
 use serde_json::{Value, json};
 
 use super::{
@@ -116,7 +110,10 @@ impl Gate {
     /// risk up, because a management change runs inside the fail-safe timer.
     fn permissions(self) -> Vec<Permission> {
         let mut needed = vec![self.permission];
-        if self.risk >= Risk::Management && self.permission != Permission::Destructive {
+        if self.timer || self.risk == Risk::Management {
+            needed.extend_from_slice(SafetyNet::management_permissions());
+        }
+        if self.risk >= Risk::Destructive && self.permission != Permission::Destructive {
             needed.push(Permission::Destructive);
         }
         needed
@@ -193,13 +190,13 @@ where
             .map(|document| labelled(document, gate.persists));
         match SafetyNet::disarm(&mut changes, target.router(), mode).await {
             Ok(_disarmed) => applied,
-            Err(WorkflowError::Rci(RciError::Transport | RciError::Timeout)) => {
-                ctx.out().note(&ctx.out().tr(keys::CLI_FAILSAFE_LEFT, &[]));
-                applied
-            }
             Err(error) => {
                 drop(applied?);
-                Err(Failure::from(error))
+                let failure = Failure::from(error);
+                Err(Failure::headline_only(
+                    failure.exit(),
+                    keys::MANAGEMENT_DISARM_FAILED,
+                ))
             }
         }
     }

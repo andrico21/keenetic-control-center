@@ -10,6 +10,10 @@ mod raw_paths;
 #[path = "support/raw_redaction.rs"]
 mod raw_redaction;
 
+#[path = "support/bracket.rs"]
+mod bracket;
+#[path = "support/curated_bracket.rs"]
+mod curated_bracket;
 #[path = "support/nested_risk.rs"]
 mod nested_risk;
 

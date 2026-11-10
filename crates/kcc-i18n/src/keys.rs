@@ -414,6 +414,9 @@ pub const COMMON_DURATION_MINUTES: MessageKey = MessageKey::new("common-duration
 /// `common-duration-seconds` in `common.ftl`.
 pub const COMMON_DURATION_SECONDS: MessageKey = MessageKey::new("common-duration-seconds");
 
+/// `management-disarm-failed` in `common.ftl`.
+pub const MANAGEMENT_DISARM_FAILED: MessageKey = MessageKey::new("management-disarm-failed");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -6622,7 +6625,7 @@ pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2112] = [
+pub static ALL: [MessageKey; 2113] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6760,6 +6763,7 @@ pub static ALL: [MessageKey; 2112] = [
     COMMON_DURATION_HOURS,
     COMMON_DURATION_MINUTES,
     COMMON_DURATION_SECONDS,
+    MANAGEMENT_DISARM_FAILED,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

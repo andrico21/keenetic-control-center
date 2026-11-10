@@ -91,6 +91,12 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
             }
             let target = ctx.target(&services, &[permission]).await?;
             let mode = safety_mode(target.info());
+            if matches!(action, FailsafeAction::Commit) && mode == SafetyMode::ScheduledReboot {
+                drop(
+                    ctx.principal()
+                        .authorize(SafetyNet::management_permissions(), &[target.id()])?,
+                );
+            }
             let gate = Gate::new(risk, permission, false);
             let document = run_change(ctx, &services, &target, gate, async |changes, router| {
                 match (action, mode) {

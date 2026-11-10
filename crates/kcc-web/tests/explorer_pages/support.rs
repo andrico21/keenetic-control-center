@@ -99,6 +99,17 @@ impl Fixture {
 
     /// The fixture over a fake router with `faults`.
     pub(crate) async fn with_faults(faults: FaultInjection) -> TestResult<Self> {
+        Self::with_router(
+            FakeRouter::builder(Profile::default())
+                .faults(faults)
+                .build()?,
+        )
+        .await
+    }
+
+    /// The fixture over a caller-configured router mode and faults.
+    // NOT cancel-safe: setup creates router and application tasks.
+    pub(crate) async fn with_router(fake: FakeRouter) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let clock: Arc<dyn Clock> = Arc::new(FrozenClock);
@@ -108,7 +119,14 @@ impl Fixture {
             Duration::from_secs(60),
             Arc::clone(&clock),
         ));
-        for role in ["viewer", "operator", "admin", "outsider", "raw-writer"] {
+        for role in [
+            "viewer",
+            "operator",
+            "admin",
+            "outsider",
+            "raw-writer",
+            "rawdes",
+        ] {
             accounts.create(NewAccount::new(
                 role.to_owned(),
                 SecretString::from(PASSWORD),
@@ -128,11 +146,7 @@ impl Fixture {
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
         let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
-        let (address, handle) = FakeRouter::builder(Profile::default())
-            .faults(faults)
-            .build()?
-            .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
-            .await?;
+        let (address, handle) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
         registry
             .create(
                 &admin()?,
@@ -160,21 +174,7 @@ impl Fixture {
             default_locale: Locale::En,
             accounts,
             audit,
-            roles: built_in_roles()
-                .into_iter()
-                .chain([
-                    Role::new(
-                        "outsider".to_owned(),
-                        Permission::ALL,
-                        vec!["lab-*".to_owned()],
-                    ),
-                    Role::new(
-                        "raw-writer".to_owned(),
-                        [Permission::Read, Permission::Write, Permission::RawRci],
-                        vec!["*".to_owned()],
-                    ),
-                ])
-                .collect(),
+            roles: roles(),
             session_idle: Duration::from_secs(3_600),
             session_absolute: Duration::from_secs(36_000),
             allowed_origins: vec![ORIGIN.to_owned()],
@@ -292,6 +292,34 @@ impl Fixture {
     fn state_dir(&self) -> PathBuf {
         self.directory.path().join("state")
     }
+}
+
+/// Built-in and scoped custom roles used by the browser fixture.
+fn roles() -> Vec<Role> {
+    built_in_roles()
+        .into_iter()
+        .chain([
+            Role::new(
+                "rawdes".to_owned(),
+                [
+                    Permission::Read,
+                    Permission::RawRci,
+                    Permission::Destructive,
+                ],
+                vec!["*".to_owned()],
+            ),
+            Role::new(
+                "outsider".to_owned(),
+                Permission::ALL,
+                vec!["lab-*".to_owned()],
+            ),
+            Role::new(
+                "raw-writer".to_owned(),
+                [Permission::Read, Permission::Write, Permission::RawRci],
+                vec!["*".to_owned()],
+            ),
+        ])
+        .collect()
 }
 
 /// The built-in administrator role.

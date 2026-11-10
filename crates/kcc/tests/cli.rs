@@ -16,6 +16,8 @@ mod admin;
 mod basics;
 #[path = "cli/batch_outcomes.rs"]
 mod batch_outcomes;
+#[path = "cli/bracket.rs"]
+mod bracket;
 #[path = "cli/failsafe.rs"]
 mod failsafe;
 #[path = "cli/failures.rs"]

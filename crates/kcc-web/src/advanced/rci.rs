@@ -157,7 +157,7 @@ pub(crate) async fn send(
     let audit =
         Record::on_router("web.console_rci", &router, form.label()).with_params(params.clone());
     if !allowed(&user, &router, &[Permission::RawRci])
-        || !allowed(&user, &router, command_permissions(risk))
+        || !allowed(&user, &router, &command_permissions(risk))
     {
         audit.append(&state, &user, "forbidden").await;
         return errors::response(Kind::Forbidden, fragment_shell(locale));

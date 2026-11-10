@@ -141,6 +141,8 @@ pub enum McpFailure {
     RouterUnreachable,
     /// The router rejected an otherwise valid request.
     RouterRejected,
+    /// The management change applied, but its recovery timer could not be disarmed.
+    ManagementAppliedFailSafeArmed,
     /// Catalog or argument validation failed; nothing was sent.
     ValidationFailed,
     /// The router accepted a change but reading it back still shows the old value.
@@ -166,6 +168,7 @@ impl McpFailure {
             Self::DestructiveDisabled => "destructive_disabled",
             Self::RouterUnreachable => "router_unreachable",
             Self::RouterRejected => "router_rejected",
+            Self::ManagementAppliedFailSafeArmed => "management_applied_fail_safe_armed",
             Self::ValidationFailed => "validation_failed",
             Self::VerificationFailed { field: _ } => "verification_failed",
             Self::Conflict => "conflict",

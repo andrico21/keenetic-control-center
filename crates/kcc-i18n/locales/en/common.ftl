@@ -42,3 +42,5 @@ common-duration-days = { $count } d
 common-duration-hours = { $count } h
 common-duration-minutes = { $count } min
 common-duration-seconds = { $count } s
+
+management-disarm-failed = The management change was applied, but its recovery timer could not be disarmed. Treat the timer as still armed: it may restore the saved configuration and discard all unsaved changes. Check the router before making further changes.

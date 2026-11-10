@@ -73,6 +73,17 @@ operation. Migrations and preset applies use the same pieces through `kcc-migrat
 applier: fail-safe for the whole run, one line at a time, verification, then commit or
 rollback ([MIGRATION.md](MIGRATION.md)).
 
+Management brackets authorize the operation and `SafetyNet::management_permissions()`
+before arming. Arming, disarming, keep-alive and rollback share `Destructive`; commit
+retains `Save`. CLI, Web and raw and curated MCP writes use this same recovery
+permission set. MCP's shared planned-write executor chooses the bracket from the
+actual `ChangeOp` risk, including WAN addressing classified during planning. Router
+mode uses the native timer; other modes use a cancellable scheduled reboot. The
+curated interface guard retains native recovery and its positive arm verification
+until a scheduled-reboot verification contract is established. If cleanup fails after
+application, the result reports the applied change and tells the caller to treat
+recovery as still armed, rather than reporting a refused change.
+
 ## Command catalog
 
 `catalog/<version>/` holds structural command facts (paths, argument types, model

@@ -125,6 +125,7 @@ impl Fixture {
             roles.roles.push(ops(&[
                 Permission::Read,
                 Permission::Write,
+                Permission::Destructive,
                 Permission::ManageUsers,
             ]));
         })?;

@@ -46,3 +46,5 @@ common-duration-days = { $count } дн.
 common-duration-hours = { $count } гадз
 common-duration-minutes = { $count } хв
 common-duration-seconds = { $count } с
+
+management-disarm-failed = Змена налад кіравання ўжыта, але адключыць таймер аднаўлення не ўдалося. Лічыце таймер актыўным: ён можа аднавіць захаваную канфігурацыю і скасаваць усе незахаваныя змены. Праверце роўтар перад далейшымі зменамі.

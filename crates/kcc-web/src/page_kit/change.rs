@@ -204,6 +204,8 @@ pub(crate) struct Refused {
     error: WorkflowError,
     /// Whether the fail-safe timer was left armed, so the router rolls back by itself.
     armed: bool,
+    /// Whether application succeeded before recovery cleanup failed.
+    applied: bool,
 }
 
 impl Refused {
@@ -221,6 +223,7 @@ impl Refused {
         Self {
             error,
             armed: false,
+            applied: false,
         }
     }
 
@@ -228,6 +231,12 @@ impl Refused {
     /// itself when the fail-safe timer stayed armed, else the workflow error.
     pub(crate) fn failure(&self, family: Family, locale: Locale) -> Failure {
         if self.armed {
+            if self.applied {
+                return Failure::new(
+                    tr(locale, keys::MANAGEMENT_DISARM_FAILED, None),
+                    "fail_safe_armed",
+                );
+            }
             let mut args = FluentArgs::new();
             args.set("minutes", FAIL_SAFE_MINUTES.to_string());
             return Failure::new(
@@ -321,6 +330,13 @@ where
 {
     let fleet = plan.target.fleet();
     let router = plan.target.router();
+    if plan.management
+        && !super::gate::allowed(plan.user, router, SafetyNet::management_permissions())
+    {
+        return Err(Refused::plain(WorkflowError::PermissionDenied {
+            router: router.to_owned(),
+        }));
+    }
     let actor = Actor::new(ActorKind::Web, plan.user.username().to_owned());
     let mut changes = fleet
         .workflow()
@@ -348,13 +364,21 @@ where
             router,
             "management change lost the router; fail-safe stays armed"
         );
-        return applied.map_err(|error| Refused { error, armed: true });
+        return applied.map_err(|error| Refused {
+            error,
+            armed: true,
+            applied: false,
+        });
     }
     match SafetyNet::disarm(&mut changes, &context, mode).await {
         Ok(_disarmed) => applied.map_err(Refused::plain),
         Err(error) => {
             tracing::warn!(%error, router, "fail-safe timer could not be disarmed");
-            Err(Refused { error, armed: true })
+            Err(Refused {
+                error,
+                armed: true,
+                applied: applied.is_ok(),
+            })
         }
     }
 }
