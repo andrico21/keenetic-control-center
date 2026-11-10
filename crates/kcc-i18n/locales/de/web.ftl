@@ -1967,3 +1967,4 @@ web-explorer-partial-persisted = { $succeeded } Batch-Elemente wurden angewendet
 web-explorer-partial-unsaved = { $succeeded } Batch-Elemente wurden angewendet und { $failed } abgelehnt. Die erfolgreichen Änderungen sind noch nicht gespeichert.
 web-explorer-confirm-mixed-text = Der Befehl wird die Konfiguration von { $router } ändern. kcc wird zuerst die gespeicherte Konfiguration sichern. Einige Änderungen werden sofort gespeichert; der Rest muss ausdrücklich gespeichert werden.
 web-vpn-error-psk = Geben Sie einen WireGuard-Preshared-Key ein: 44 Base64-Zeichen. Lassen Sie das Feld leer, um den gespeicherten Schlüssel zu behalten.
+web-explorer-partial-mixed = { $succeeded } Batch-Elemente wurden angewendet und { $failed } abgelehnt. Der Router hat diese Katalogpfade sofort gespeichert: { $paths }. Die übrigen erfolgreichen Änderungen sind nicht gespeichert und müssen ausdrücklich gespeichert werden.

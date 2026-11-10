@@ -1203,7 +1203,7 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(web,cli): keep stored router credentials with their endpoint, audit the tested profile and tell the truth about partial batches and migration rollbacks
   Recommended task executor category: deep-low
 
-- [ ] 97. A partially applied Web console batch with mixed persistence must say which successful changes were stored at once (found by the orchestrator while reviewing row 96)
+- [x] 97. A partially applied Web console batch with mixed persistence must say which successful changes were stored at once (found by the orchestrator while reviewing row 96)
 
   What to do / Must NOT do: row 96 unit (5) made the Web RCI console report a partially applied root batch distinctly, but `crates/kcc-web/src/advanced/deliver.rs` (`Dispatch::items`, ~228-250) collapses `Left::Mixed(_)` and `Left::Nothing` into the "not saved yet" wording and the `partially_applied_unsaved` audit word although for `Mixed` some of the SUCCESSFUL items (for example `system country`) were stored by the router at once: make the persistence wording and audit word of the partial result an exhaustive match over all four `Left` states (no wildcard), add the key `web-explorer-partial-mixed` ($succeeded, $failed, $paths) in six locales, and a red-first console test with a three-item batch (stored-at-once success, ordinary success, refused item) asserting the key and the audit outcome. Must NOT: touch the CLI, MCP, the workflow audit words or the catalog.
   Closes: GAP-5

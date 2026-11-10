@@ -192,23 +192,30 @@ async fn the_rci_console_reads_and_sends_batches() -> TestResult {
     Ok(())
 }
 
-/// Partial batches report applied and refused counts, successful-item persistence, and
-/// the workflow's partial audit outcome regardless of refusal position.
+/// Partial batches report counts, persistence, audit and the router's words.
+///
+/// Persistence is stored at once, unsaved, or stored paths plus an unsaved rest, and
+/// none of it depends on the refusal position.
 #[tokio::test]
 async fn partial_batches_report_position_independent_outcomes() -> TestResult {
     for (items, key, outcome) in [
         (
             vec![BatchKind::Description, BatchKind::Country, BatchKind::Host],
-            keys::WEB_EXPLORER_PARTIAL_UNSAVED,
+            keys::WEB_EXPLORER_PARTIAL_MIXED,
             "partially_applied_unsaved",
         ),
         (
             vec![BatchKind::Country, BatchKind::Description, BatchKind::Host],
-            keys::WEB_EXPLORER_PARTIAL_UNSAVED,
+            keys::WEB_EXPLORER_PARTIAL_MIXED,
             "partially_applied_unsaved",
         ),
         (
             vec![BatchKind::Country, BatchKind::Host, BatchKind::Description],
+            keys::WEB_EXPLORER_PARTIAL_MIXED,
+            "partially_applied_unsaved",
+        ),
+        (
+            vec![BatchKind::Host, BatchKind::Description],
             keys::WEB_EXPLORER_PARTIAL_UNSAVED,
             "partially_applied_unsaved",
         ),
@@ -222,11 +229,16 @@ async fn partial_batches_report_position_independent_outcomes() -> TestResult {
         let mut args = FluentArgs::new();
         args.set("succeeded", items.len().saturating_sub(1));
         args.set("failed", 1_usize);
+        args.set("paths", "system country");
         assert!(
             body.contains(&tr(Locale::En, key, Some(&args))),
             "partial message key: {body}"
         );
         assert_eq!(audited, outcome, "partial audit outcome");
+        assert!(
+            body.contains("injected batch refusal."),
+            "the refused item's router words: {body}"
+        );
     }
     Ok(())
 }

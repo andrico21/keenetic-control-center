@@ -47,6 +47,39 @@ impl Left {
             (false, false) => Self::Nothing,
         }
     }
+
+    /// The headline and audit outcome of a batch that applied `succeeded` items and
+    /// refused `failed`, by what the successful items left.
+    pub(crate) fn partial(
+        &self,
+        locale: Locale,
+        succeeded: usize,
+        failed: usize,
+    ) -> (String, &'static str) {
+        let mut args = fluent_bundle::FluentArgs::new();
+        args.set("succeeded", succeeded);
+        args.set("failed", failed);
+        let (key, audit) = match self {
+            Self::Stored => (
+                keys::WEB_EXPLORER_PARTIAL_PERSISTED,
+                "partially_applied_persisted",
+            ),
+            Self::Mixed(paths) => {
+                args.set("paths", paths.join(", "));
+                (
+                    keys::WEB_EXPLORER_PARTIAL_MIXED,
+                    "partially_applied_unsaved",
+                )
+            }
+            // A batch with a successful item is either persisted at once or unsaved, so
+            // `Nothing` does not arise here; asking for a save is the conservative claim.
+            Self::Unsaved | Self::Nothing => (
+                keys::WEB_EXPLORER_PARTIAL_UNSAVED,
+                "partially_applied_unsaved",
+            ),
+        };
+        (tr(locale, key, Some(&args)), audit)
+    }
 }
 
 /// The reply of the explorer or a console to one request.

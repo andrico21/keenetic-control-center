@@ -230,20 +230,8 @@ impl Dispatch<'_> {
         let (viewer, _full, _json) = rendered.into_parts();
         let succeeded = responses.len().saturating_sub(refused.len());
         if succeeded != 0 {
-            let mut args = FluentArgs::new();
-            args.set("succeeded", succeeded);
-            args.set("failed", refused.len());
-            let key = match left {
-                Left::Stored => keys::WEB_EXPLORER_PARTIAL_PERSISTED,
-                Left::Nothing | Left::Unsaved | Left::Mixed(_) => {
-                    keys::WEB_EXPLORER_PARTIAL_UNSAVED
-                }
-            };
-            let audit = match left {
-                Left::Stored => "partially_applied_persisted",
-                Left::Nothing | Left::Unsaved | Left::Mixed(_) => "partially_applied_unsaved",
-            };
-            return Reply::partial(tr(locale, key, Some(&args)), refused, viewer, &left, audit);
+            let (headline, audit) = left.partial(locale, succeeded, refused.len());
+            return Reply::partial(headline, refused, viewer, &left, audit);
         }
         Reply::failed(
             Failure::new(tr(locale, keys::WEB_EXPLORER_REJECTED, None), "failed")

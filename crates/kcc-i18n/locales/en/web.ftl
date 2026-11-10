@@ -1967,3 +1967,4 @@ web-explorer-partial-persisted = { $succeeded } batch items applied and { $faile
 web-explorer-partial-unsaved = { $succeeded } batch items applied and { $failed } were refused. The successful changes are not saved yet.
 web-explorer-confirm-mixed-text = The command will change the configuration of { $router }. kcc will first back up the saved configuration. Some changes will be stored at once; the rest will need an explicit save.
 web-vpn-error-psk = Enter a WireGuard preshared key: 44 characters of Base64. Leave the field empty to keep the stored key.
+web-explorer-partial-mixed = { $succeeded } batch items applied and { $failed } were refused. The router stored these catalog paths at once: { $paths }. The rest of the successful changes is not saved and needs an explicit save.
