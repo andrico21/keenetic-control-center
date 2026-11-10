@@ -1214,6 +1214,28 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(web): name the stored-at-once changes in a partially applied console batch
   Recommended task executor category: unspecified-high
 
+- [ ] 98. Status colour truth for warning notices, local-account messages, and a discriminating `rci get` transport test (found by F3 round 10 N40, N42; F1 round 10 N40)
+
+  What to do / Must NOT do: (1) `Tone::Warning` notices (`page_kit/outcome.rs` ~208-219, `templates/partials/kit_macros.html` ~6, `secret_dialog.html` ~8) have no `.notice[data-tone="warning"]` rule in `app.css` (~680-684, ~929-942), so a partially refused batch renders in the success green: add the rule with the warning wash/ink tokens, verify >= 4.5:1 in both themes, write the numbers in `DESIGN.md`, add a machine check that every emitted `data-tone` value has a CSS rule, take before/after screenshots. (2) `kcc user disable|enable` prints the router-change sentence "not saved yet: run kcc config save" for a local account change (`kcc/src/cli/accounts.rs` ~89-108): print a truthful message in six locales and audit every other local-state CLI command for the same wrong advice. (3) `kcc/tests/cli/rci_transport.rs` cannot fail when `client.show` is replaced by `client.get` (the fake answers show paths on GET): add an additive fake fault that answers a show path only on POST and assert the exact `["GET","POST"]` sequence, keep the non-show `["GET"]` assertion. Must NOT: change risk classification, credential handling, audit format, HTTP statuses.
+  Closes: GAP-5
+  Parallelization: Wave W23 | Blocked by: 97 | Blocks: F1-F4 re-run
+  References: F3 round 10 N40, N42; F1 round 10 N40 (`.omo/evidence/F{1,3}-keenetic-control-center-r10.md`).
+  Acceptance criteria: G0 green; the notice-tone machine check fails on the old CSS and passes on the new; the user-message test and the transport mutation test go red under their mutants; screenshots read.
+  QA scenarios: happy - `cargo test -p kcc-web && cargo test -p kcc --test cli 2>&1 | tee .omo/evidence/task-98-keenetic-control-center.log`; failure - a partially refused batch result is not green.
+  Commit: Y | fix(web,cli,testkit): give warning notices their own colour, tell the truth after account changes and pin the show transport
+  Recommended task executor category: visual-engineering
+
+- [ ] 99. `kcc mcp stdio` must not start router log collectors (found by F3 round 10 N41 MEDIUM)
+
+  What to do / Must NOT do: `run_stdio` (`crates/kcc/src/server.rs` ~173-182) opens `Services` which starts `LogService` whenever `[logs] enabled` and never shuts it down, so every assistant session re-ships the router's whole log window to Loki/Elasticsearch (209 duplicate documents in 25 s measured) and polls the routers in parallel with the server: give `Services::open` an explicit typed mode, start collectors, sinks and pollers only for `kcc serve`, audit every caller and every background task (notepad table), check the telemetry poller for the same duplicate load, add red-first tests (stdio session sends zero log-sink and zero log-collection requests; the serve wiring still starts the service), update the docs sentence. Must NOT: change what `kcc serve` does, the log record format or sink semantics.
+  Closes: GAP-5
+  Parallelization: Wave W23 | Blocked by: 97 | Blocks: F1-F4 re-run
+  References: F3 round 10 N41 (`.omo/evidence/F3-keenetic-control-center-r10.md`, `F3-r10-n41-stdio-logs.log`).
+  Acceptance criteria: G0 green; stdio start no log service (test), serve keeps it (test), mutation self-check red.
+  QA scenarios: happy - `cargo test -p kcc 2>&1 | tee .omo/evidence/task-99-keenetic-control-center.log`; failure - a stdio session with `[logs]` enabled sends zero log requests, appended.
+  Commit: Y | fix(kcc): start router log collection only in kcc serve
+  Recommended task executor category: deep-low
+
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
 - [ ] F1. Plan compliance audit
