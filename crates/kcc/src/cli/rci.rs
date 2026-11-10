@@ -134,10 +134,14 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             .map(|item| item.value.redacted().clone())
             .collect();
         let responses = target.router().client.batch(values).await?;
-        return report(ctx, responses, false, &[]);
+        return report(ctx, responses, (false, false, &[]));
     }
-    let persists =
-        !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately);
+    let persists = items
+        .iter()
+        .any(|item| !item.validated.persisted_paths.is_empty())
+        && items
+            .iter()
+            .all(|item| item.validated.ordinary_paths.is_empty());
     let persisted_paths = items
         .iter()
         .flat_map(|item| item.validated.persisted_paths.iter().cloned())
@@ -157,7 +161,9 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     }
     let mut responses = Vec::new();
     let mut completed_persists = false;
+    let mut unsaved = false;
     let mut completed_paths = Vec::new();
+    let mut applied_changes = 0_usize;
     drop(
         run_change(ctx, services, target, gate, async |changes, _router| {
             let request = BatchChangeRequest::new(
@@ -168,6 +174,8 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             );
             let result = changes.apply_batch(request).await?;
             completed_persists = result.persists_immediately;
+            unsaved = result.unsaved;
+            applied_changes = result.applied_changes;
             completed_paths = result.persisted_paths;
             responses = result.responses;
             Ok(Value::Null)
@@ -182,10 +190,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         ctx.out().note(&ctx.out().tr(
             keys::CLI_BATCH_REFUSED,
             &[
-                (
-                    "succeeded",
-                    &responses.len().saturating_sub(failed).to_string(),
-                ),
+                ("succeeded", &applied_changes.to_string()),
                 ("failed", &failed.to_string()),
             ],
         ));
@@ -200,7 +205,11 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
                 .tr(gate.persisting(completed_persists).applied(), &[]),
         );
     }
-    report(ctx, responses, completed_persists, &completed_paths)
+    report(
+        ctx,
+        responses,
+        (unsaved, completed_persists, &completed_paths),
+    )
 }
 
 /// Prints per-item results and whether the router persisted them at once; any failed
@@ -212,9 +221,9 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
 fn report(
     ctx: &Ctx,
     responses: Vec<Result<RciResponse, RciError>>,
-    persists: bool,
-    persisted_paths: &[String],
+    persistence: (bool, bool, &[String]),
 ) -> Outcome {
+    let (unsaved, persists, persisted_paths) = persistence;
     let failed = responses
         .iter()
         .filter(|response| response.is_err())
@@ -226,7 +235,7 @@ fn report(
             Err(error) => json!({ "ok": false, "error": error.to_string() }),
         })
         .collect::<Vec<_>>();
-    let mut document = labelled(json!({ "items": items }), persists);
+    let mut document = labelled(json!({ "items": items, "unsaved": unsaved }), persists);
     if (!persists || failed != 0)
         && !persisted_paths.is_empty()
         && let Value::Object(object) = &mut document

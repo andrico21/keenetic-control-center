@@ -6,8 +6,10 @@ use super::BatchItem;
 
 /// The successful subset and value-free refusal counts.
 pub(super) struct Completion {
-    /// Number of successfully applied items.
+    /// Number of successfully answered items, including reads.
     pub succeeded: usize,
+    /// Number of successful items containing changes.
+    pub applied_changes: usize,
     /// Number of router-refused items.
     pub failed: usize,
     /// Successful ordinary commands require an explicit save.
@@ -21,7 +23,7 @@ pub(super) struct Completion {
 impl Completion {
     /// The audit vocabulary distinguishes total refusal, partial and complete application.
     pub(super) const fn outcome(&self) -> &'static str {
-        if self.succeeded == 0 {
+        if self.applied_changes == 0 {
             "failed"
         } else if self.failed != 0 {
             if self.persists_immediately {
@@ -41,20 +43,27 @@ pub(super) fn completion(
     responses: &[Result<RciResponse, RciError>],
 ) -> Completion {
     let mut succeeded = 0_usize;
+    let mut applied_changes = 0_usize;
     let mut ordinary = false;
     let mut persisted_paths = Vec::new();
     for (item, response) in items.iter().zip(responses) {
         if response.is_ok() {
             succeeded = succeeded.saturating_add(1);
-            ordinary |= !item.validated.persists_immediately;
+            if item.validated.ordinary_paths.is_empty() && item.validated.persisted_paths.is_empty()
+            {
+                continue;
+            }
+            applied_changes = applied_changes.saturating_add(1);
+            ordinary |= !item.validated.ordinary_paths.is_empty();
             persisted_paths.extend(item.validated.persisted_paths.iter().cloned());
         }
     }
     Completion {
         succeeded,
+        applied_changes,
         failed: responses.len().saturating_sub(succeeded),
         unsaved: ordinary,
-        persists_immediately: succeeded != 0 && !ordinary,
+        persists_immediately: applied_changes != 0 && !ordinary,
         persisted_paths,
     }
 }

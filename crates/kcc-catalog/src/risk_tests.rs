@@ -14,6 +14,7 @@ use serde_json::json;
 use crate::{Catalog, HttpMethod, Risk, ValidatedRequest};
 
 mod independent;
+mod shows;
 
 /// Every command and every split retains the maximum risk of its command nodes.
 #[test]
@@ -36,14 +37,14 @@ fn every_catalog_command_retains_risk_at_every_nesting_depth() -> Result<(), Box
                     .rev()
                     .fold(json!({}), |child, word| json!({*word: child}));
                 let expected = (split.max(1)..=words.len())
-                    .map(|depth| {
+                    .filter_map(|depth| {
                         let node = words
                             .iter()
                             .take(depth)
                             .copied()
                             .collect::<Vec<_>>()
                             .join(" ");
-                        catalog.risk(&node).unwrap_or(Risk::Write)
+                        catalog.risk(&node)
                     })
                     .max()
                     .ok_or("command has words")?;

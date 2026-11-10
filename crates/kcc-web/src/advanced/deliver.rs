@@ -110,7 +110,7 @@ impl Dispatch<'_> {
     pub(crate) async fn read_batch(self, items: Vec<Value>) -> Reply {
         match self.client().await {
             Ok(client) => match client.batch(items).await {
-                Ok(responses) => self.items(&responses, Left::Nothing),
+                Ok(responses) => self.items(&responses, Left::Nothing, None),
                 Err(error) => Reply::failed(rci_failure(Family::Commands, self.locale(), &error)),
             },
             Err(failure) => Reply::failed(failure),
@@ -137,8 +137,32 @@ impl Dispatch<'_> {
     // NOT cancel-safe: see `change::apply`.
     pub(crate) async fn change(self, risk: Risk, change: Change) -> Reply {
         let plan = Plan::new(self.target, self.facts, self.sender.user).at(risk);
-        let persists = self.persists || change.persists();
+        let persists = self.persists
+            || match &change {
+                Change::Batch(request) => {
+                    request
+                        .items
+                        .iter()
+                        .any(|item| !item.validated.persisted_paths.is_empty())
+                        && request
+                            .items
+                            .iter()
+                            .all(|item| item.validated.ordinary_paths.is_empty())
+                }
+                Change::Request(_) | Change::Cli(_) | Change::Delete(_) => change.persists(),
+            };
         let persisted_paths = change.persisted_paths(self.facts.catalog());
+        let change_items = match &change {
+            Change::Batch(request) => request
+                .items
+                .iter()
+                .map(|item| {
+                    !item.validated.ordinary_paths.is_empty()
+                        || !item.validated.persisted_paths.is_empty()
+                })
+                .collect::<Vec<_>>(),
+            Change::Request(_) | Change::Cli(_) | Change::Delete(_) => Vec::new(),
+        };
         let left = |unsaved| Left::of(unsaved, persists, persisted_paths.clone());
         match change::apply(plan, change).await {
             Ok(Applied::Batch {
@@ -149,6 +173,13 @@ impl Dispatch<'_> {
             }) => self.items(
                 &responses,
                 Left::of(unsaved, persists_immediately, successful_persisted_paths),
+                Some(
+                    responses
+                        .iter()
+                        .zip(&change_items)
+                        .filter(|(response, changes)| response.is_ok() && **changes)
+                        .count(),
+                ),
             ),
             Ok(Applied::Cli { unsaved, responses }) => self.lines(&responses, left(unsaved)),
             Ok(Applied::Terminal(responses)) => self.lines(&responses, Left::Nothing),
@@ -178,7 +209,12 @@ impl Dispatch<'_> {
     }
 
     /// The outcome of batch answers: every value shown, refused items reported.
-    fn items(self, responses: &[Result<RciResponse, RciError>], left: Left) -> Reply {
+    fn items(
+        self,
+        responses: &[Result<RciResponse, RciError>],
+        left: Left,
+        applied_changes: Option<usize>,
+    ) -> Reply {
         let locale = self.locale();
         let mut values = Vec::with_capacity(responses.len());
         let mut statuses = Vec::new();
@@ -228,7 +264,8 @@ impl Dispatch<'_> {
             return self.shown(rendered, left);
         }
         let (viewer, _full, _json) = rendered.into_parts();
-        let succeeded = responses.len().saturating_sub(refused.len());
+        let succeeded =
+            applied_changes.unwrap_or_else(|| responses.len().saturating_sub(refused.len()));
         if succeeded != 0 {
             let (headline, audit) = left.partial(locale, succeeded, refused.len());
             return Reply::partial(headline, refused, viewer, &left, audit);

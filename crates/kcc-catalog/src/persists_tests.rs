@@ -11,7 +11,7 @@ use core::{error::Error, str::FromStr as _};
 use kcc_rci::version::FirmwareVersion;
 use serde_json::json;
 
-use crate::{Catalog, HttpMethod, RawAuthorization, ValidatedRequest};
+use crate::{Catalog, CommandKind, HttpMethod, RawAuthorization, ValidatedRequest};
 
 mod shapes;
 
@@ -37,6 +37,11 @@ fn every_catalog_path_retains_its_persistence_class() -> Result<(), Box<dyn Erro
             );
             if command.persists_immediately {
                 assert_eq!(alone.persisted_paths, [command.path.as_str()], "{line}");
+            } else if command.kind == CommandKind::Show {
+                assert!(
+                    alone.ordinary_paths.is_empty(),
+                    "Show commands have no change leaves"
+                );
             } else {
                 assert!(
                     alone.ordinary_paths.contains(&command.path),

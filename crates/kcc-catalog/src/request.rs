@@ -134,13 +134,23 @@ struct RequestClassification {
 }
 
 impl RequestClassification {
-    /// Visits nested request objects until catalog command leaves are reached.
-    fn visit(&mut self, catalog: &Catalog, path: &str, value: &Value) {
-        if !path.is_empty() {
-            let own = catalog.risk(path).unwrap_or(Risk::Write);
+    /// Commands contribute risk; namespaces defer to descendants and unknown paths fail closed.
+    fn node(&mut self, catalog: &Catalog, path: &str) {
+        if path.is_empty() {
+            return;
+        }
+        let node_risk = catalog
+            .risk(path)
+            .or_else(|| child_names(catalog, path).is_empty().then_some(Risk::Write));
+        if let Some(own) = node_risk {
             self.risk = Some(self.risk.map_or(own, |risk| risk.max(own)));
             self.contains_management |= own == Risk::Management;
         }
+    }
+
+    /// Visits nested request objects until catalog command leaves are reached.
+    fn visit(&mut self, catalog: &Catalog, path: &str, value: &Value) {
+        self.node(catalog, path);
         let Some(object) = value.as_object() else {
             self.ordinary.push(path.to_owned());
             return;
@@ -180,16 +190,18 @@ impl RequestClassification {
                 let mut prefix = path.to_owned();
                 for word in key.split_whitespace() {
                     prefix = join_path(&prefix, word);
-                    let own = catalog.risk(&prefix).unwrap_or(Risk::Write);
-                    self.risk = Some(self.risk.map_or(own, |risk| risk.max(own)));
-                    self.contains_management |= own == Risk::Management;
+                    self.node(catalog, &prefix);
                 }
                 self.visit(catalog, &prefix, child);
             } else {
                 self.ordinary.push(join_path(path, key));
             }
         }
-        if own_leaf && !path.is_empty() {
+        if own_leaf
+            && !path.is_empty()
+            && catalog.risk(path) != Some(Risk::Read)
+            && (command.is_some() || children.is_empty())
+        {
             if proven && command.is_some_and(|entry| entry.persists_immediately) {
                 self.persisted.push(path.to_owned());
             } else {

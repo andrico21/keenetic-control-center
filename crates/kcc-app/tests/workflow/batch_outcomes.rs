@@ -12,7 +12,10 @@ mod tests {
     use kcc_app::{
         audit::read_entries,
         permissions::Permission,
-        workflow::{BatchChangeRequest, BatchItem},
+        workflow::{
+            BatchChangeRequest, BatchItem, ChangeRequest, CliChangeRequest, CliCommand,
+            WorkflowError,
+        },
     };
     use kcc_catalog::{Catalog, HttpMethod};
     use kcc_testkit::FaultInjection;
@@ -102,6 +105,126 @@ mod tests {
             drop(changes);
             fixture.shutdown().await?;
         }
+        Ok(())
+    }
+
+    /// Read answers never count as applied or unsaved changes in mixed batches.
+    // NOT cancel-safe: the fixture owns router tasks and writes.
+    #[tokio::test]
+    async fn mixed_read_batches_count_only_changes() -> Result<(), Box<dyn Error>> {
+        for (rejected, ordinary, outcome, unsaved, persisted) in [
+            ("/system/country", false, "failed", false, false),
+            ("/absent", false, "applied_persisted", false, true),
+            ("/absent", true, "applied_unsaved", true, false),
+            (
+                "/system/country",
+                true,
+                "partially_applied_unsaved",
+                true,
+                false,
+            ),
+        ] {
+            let fixture =
+                Fixture::spawn(FaultInjection::default().refuse_batch_pointer(rejected.to_owned()))
+                    .await?;
+            let info = fixture.registry.poll_info("router").await?;
+            let catalog = Catalog::for_router(&info)?;
+            let mut values = vec![json!({"show":{"version":{}}})];
+            if ordinary {
+                values.push(json!({"system":{"description":{"description":"lab"}}}));
+            }
+            if !ordinary || rejected == "/system/country" {
+                values.push(json!({"system":{"country":{"country":"DE"}}}));
+            }
+            let items = values
+                .into_iter()
+                .map(|value| {
+                    let validated = catalog
+                        .validate("", HttpMethod::Post, &value)
+                        .map_err(|issues| format!("{issues:?}"))?;
+                    Ok(BatchItem::new(value, validated))
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            let mut changes = fixture.begin(None).await?;
+            let result = changes
+                .apply_batch(BatchChangeRequest::new(
+                    items,
+                    Vec::new(),
+                    Permission::Write,
+                    json!({"validated":true}),
+                ))
+                .await?;
+            assert_eq!(result.unsaved, unsaved, "{outcome}");
+            assert_eq!(result.applied_changes, usize::from(ordinary || persisted));
+            assert_eq!(result.persists_immediately, persisted, "{outcome}");
+            assert_eq!(
+                result.persisted_paths,
+                if persisted {
+                    vec!["system country"]
+                } else {
+                    Vec::new()
+                }
+            );
+            let entries = read_entries(&fixture.directory.path().join("state"))?;
+            let entry = entries
+                .iter()
+                .find(|entry| entry.action == "router.change_batch")
+                .ok_or("batch audit")?;
+            assert_eq!(entry.outcome, outcome);
+            if rejected == "/system/country" {
+                assert_eq!(
+                    entry.params_redacted,
+                    json!({"error":"router_rejected","succeeded":if ordinary {2_usize} else {1_usize},"failed":1_usize})
+                );
+            }
+            drop(changes);
+            fixture.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    /// A single RCI read reports its answer without unsaved changes.
+    // NOT cancel-safe: the fixture owns router tasks until shutdown.
+    #[tokio::test]
+    async fn single_reads_leave_no_unsaved_changes() -> Result<(), Box<dyn Error>> {
+        let fixture = Fixture::spawn(FaultInjection::default()).await?;
+        let mut changes = fixture.begin(None).await?;
+        let result = changes
+            .apply(ChangeRequest::new(
+                "show version".to_owned(),
+                vec!["show".to_owned(), "version".to_owned()],
+                json!({}),
+                Vec::new(),
+                Permission::Read,
+                json!({}),
+            ))
+            .await?;
+        assert!(!result.unsaved, "a single RCI read is not unsaved");
+        let info = fixture.registry.poll_info("router").await?;
+        let catalog = Catalog::for_router(&info)?;
+        let validated = catalog
+            .validate("show version", HttpMethod::Post, &json!({}))
+            .map_err(|issues| format!("{issues:?}"))?;
+        let parsed = changes
+            .apply_cli(CliChangeRequest::new(
+                vec![CliCommand::new("show version".to_owned(), validated)],
+                Vec::new(),
+                Permission::Read,
+                json!({}),
+            ))
+            .await;
+        assert!(
+            matches!(parsed, Err(WorkflowError::Rci(_))),
+            "fake router rejects parser Show lines"
+        );
+        let outcomes = read_entries(&fixture.directory.path().join("state"))?
+            .into_iter()
+            .filter(|entry| matches!(entry.action.as_str(), "router.change" | "router.change_cli"))
+            .map(|entry| entry.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(outcomes, ["success"]);
+        drop(changes);
+        fixture.shutdown().await?;
         Ok(())
     }
 }

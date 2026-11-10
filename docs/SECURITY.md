@@ -138,9 +138,10 @@ outside the change workflow and without an audit entry.
 
 Root batch completion follows the ordered per-item router responses, including
 error statuses inside HTTP 200. Only successful items contribute persisted paths
-and unsaved-change flags. Fully successful batches retain `applied_persisted` when
+and unsaved-change flags. Reads are never counted as applied or unsaved changes.
+Fully successful batches retain `applied_persisted` when
 every successful command persists immediately, otherwise `applied_unsaved`.
-A batch with no successful items records `failed`. Partial batches record
+A batch with no applied changes and a refusal records `failed`. Partial batches record
 `partially_applied_persisted` or `partially_applied_unsaved` using the same rule for
 the successful subset. Failed and partial batch parameters contain only
 `error: "router_rejected"`, `succeeded` and `failed` counts, never request values.

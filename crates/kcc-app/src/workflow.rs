@@ -18,7 +18,7 @@ use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use kcc_catalog::{Catalog, HttpMethod, SecretValue, ValidatedRequest, ValidationIssue};
+use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidatedRequest, ValidationIssue};
 use kcc_rci::{
     ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse, RouterUrl, SecretBytes,
     auth::Credentials,
@@ -344,6 +344,8 @@ impl BatchChangeRequest {
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct BatchChangeResult {
+    /// Successful items containing changes, excluding read answers.
+    pub applied_changes: usize,
     /// Successful ordinary writes remain unsaved until an explicit save.
     pub unsaved: bool,
     /// Whether all successful items were persisted immediately, with at least one success.
@@ -874,11 +876,18 @@ impl ChangeSet {
             .with_target(request.catalog_path)
             .with_params(audit_params)
             .with_result(
-                applied_outcome(validated.persists_immediately).to_owned(),
+                if validated.risk == Risk::Read {
+                    "success"
+                } else {
+                    applied_outcome(validated.persists_immediately)
+                }
+                .to_owned(),
                 format!("change-{timestamp}"),
             );
         drop(self.workflow.audit.append(event).await?);
-        Ok(ChangeResult { unsaved: true })
+        Ok(ChangeResult {
+            unsaved: !validated.ordinary_paths.is_empty(),
+        })
     }
 
     /// Applies one deletion after catalog validation, backup, conflict check, and read-back.
@@ -1014,6 +1023,7 @@ impl ChangeSet {
         .with_result(outcome.to_owned(), format!("change-{timestamp}"));
         drop(self.workflow.audit.append(event).await?);
         Ok(BatchChangeResult {
+            applied_changes: completion.applied_changes,
             unsaved: completion.unsaved,
             persists_immediately: completion.persists_immediately,
             persisted_paths: completion.persisted_paths,
@@ -1040,22 +1050,27 @@ impl ChangeSet {
             verify(&self.client, verification).await?;
         }
         self.expected = read_last_change(&self.client).await?;
-        let persists_immediately = !request.commands.is_empty()
+        let unsaved = request
+            .commands
+            .iter()
+            .any(|command| !command.validated().ordinary_paths.is_empty());
+        let persists_immediately = !unsaved
             && request
                 .commands
                 .iter()
-                .all(|command| command.validated().persists_immediately);
+                .any(|command| !command.validated().persisted_paths.is_empty());
         self.audit_cli(
             &request.commands,
             "router.change_cli",
             request.audit_params,
-            applied_outcome(persists_immediately),
+            if !unsaved && !persists_immediately {
+                "success"
+            } else {
+                applied_outcome(persists_immediately)
+            },
         )
         .await?;
-        Ok(CliChangeResult {
-            unsaved: true,
-            responses,
-        })
+        Ok(CliChangeResult { unsaved, responses })
     }
 
     /// Applies terminal CLI parser commands without requiring the router to remain reachable.

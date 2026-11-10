@@ -1,4 +1,6 @@
 //! The RCI and CLI consoles, including the R-MCP2 incident payload.
+#[path = "consoles/mixed.rs"]
+mod mixed;
 
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
