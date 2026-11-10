@@ -278,6 +278,10 @@ pub const CLI_MIXED_PERSISTENCE: MessageKey = MessageKey::new("cli-mixed-persist
 /// `cli-applied-persisted` in `cli.ftl`.
 pub const CLI_APPLIED_PERSISTED: MessageKey = MessageKey::new("cli-applied-persisted");
 
+/// `cli-mixed-persistence-before` in `cli.ftl`.
+pub const CLI_MIXED_PERSISTENCE_BEFORE: MessageKey =
+    MessageKey::new("cli-mixed-persistence-before");
+
 /// `cli-error-not-applied` in `cli.ftl`.
 pub const CLI_ERROR_NOT_APPLIED: MessageKey = MessageKey::new("cli-error-not-applied");
 
@@ -6573,7 +6577,7 @@ pub const WEB_EXPLORER_CONFIRM_MIXED_TEXT: MessageKey =
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2097] = [
+pub static ALL: [MessageKey; 2098] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6666,6 +6670,7 @@ pub static ALL: [MessageKey; 2097] = [
     CLI_PERSISTS_IMMEDIATELY,
     CLI_MIXED_PERSISTENCE,
     CLI_APPLIED_PERSISTED,
+    CLI_MIXED_PERSISTENCE_BEFORE,
     CLI_ERROR_NOT_APPLIED,
     COMMON_APP_NAME,
     COMMON_YES,

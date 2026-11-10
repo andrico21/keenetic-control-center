@@ -91,7 +91,7 @@ impl Localize for Line {
 #[derive(Template)]
 #[template(
     ext = "html",
-    source = "<div class=\"notice\" data-tone=\"{{ tone }}\"><p class=\"notice__title\">{{ message }}</p></div><form class=\"form__actions\" hx-post=\"{{ action }}\" hx-target=\"#wizard-step\"><button class=\"button button--primary\" type=\"submit\">{{ t(keys::WEB_MIGRATE_RESULTS_OPEN) }}</button></form>"
+    source = "<div class=\"notice\" data-tone=\"{{ tone }}\"><p class=\"notice__title\">{{ message }}</p></div><form class=\"form__actions\" method=\"post\" action=\"{{ action }}\" hx-post=\"{{ action }}\" hx-target=\"#wizard-step\"><button class=\"button button--primary\" type=\"submit\">{{ t(keys::WEB_MIGRATE_RESULTS_OPEN) }}</button></form>"
 )]
 struct End {
     /// Locale carrier.

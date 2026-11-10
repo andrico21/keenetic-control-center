@@ -97,4 +97,5 @@ cli-name-taken = { $name } existiert bereits; wählen Sie einen anderen Namen.
 cli-persists-immediately = Wird vom Router sofort wirksam und gespeichert: Speichern ist nicht nötig, und der Fail-safe-Timer kann es nicht zurücksetzen.
 cli-mixed-persistence = Der Router hat diese Katalogpfade sofort gespeichert: { $paths }. Der Rest ist nicht gespeichert und muss ausdrücklich gespeichert werden.
 cli-applied-persisted = Änderung angewendet. Der Router hat sie bereits gespeichert; Speichern ist nicht nötig.
+cli-mixed-persistence-before = Der Router wird diese Katalogpfade sofort speichern: { $paths }. Der Rest bleibt ungespeichert, bis Sie ihn speichern.
 cli-error-not-applied = Der Router hat die Änderung nicht übernommen: Beim Zurücklesen zeigt er noch den alten Wert.

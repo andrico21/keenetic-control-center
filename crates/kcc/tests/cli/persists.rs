@@ -1,11 +1,23 @@
 //! Commands the router persists immediately are labelled before they run, in human
 //! output and in the `--json` document; other commands are not.
 
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use fluent_bundle::FluentArgs;
+use kcc_app::audit::read_entries;
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter};
 use serde_json::Value;
 
 use super::support::{Env, TestResult, router};
+
+fn mixed_note(key: MessageKey) -> String {
+    let mut args = FluentArgs::new();
+    args.set("paths", "system country");
+    tr(Locale::En, key, Some(&args))
+}
 
 /// Path POST and deep root batches retain the same mixed result and note.
 // NOT cancel-safe: fixture writes may apply before cancellation.
@@ -123,6 +135,152 @@ async fn rci_mixed_root_batch_requires_save_and_reports_persisted_paths() -> Tes
     assert_eq!(
         document.get("persisted_paths"),
         Some(&serde_json::json!(["system country"]))
+    );
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refused_mixed_changes_use_future_tense_and_send_nothing() -> TestResult {
+    let (address, handle) = FakeRouter::spawn().await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("lab-1", address, &password))?;
+    let before = mixed_note(keys::CLI_MIXED_PERSISTENCE_BEFORE);
+    let applied = mixed_note(keys::CLI_MIXED_PERSISTENCE);
+
+    for args in [
+        vec![
+            "rci",
+            "post",
+            "system",
+            "--data",
+            r#"{"country":{"country":"DE"},"description":{"description":"mixed"}}"#,
+        ],
+        vec![
+            "rci",
+            "batch",
+            "--data",
+            r#"[{"system":{"country":{"country":"DE"}}},{"system":{"description":{"description":"mixed"}}}]"#,
+        ],
+    ] {
+        let run = env.kcc(&args)?;
+        assert_ne!(run.code, 0_i32, "{run:?}");
+        assert!(run.stderr.contains(&before), "{run:?}");
+        assert!(!run.stderr.contains(&applied), "{run:?}");
+    }
+    let entries = read_entries(&env.state_dir())?;
+    assert_eq!(entries.len(), 0, "{entries:?}");
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn successful_mixed_change_reports_saved_paths_only_after_the_future_note() -> TestResult {
+    let (address, handle) = FakeRouter::spawn().await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("lab-1", address, &password))?;
+    let run = env.kcc(&[
+        "--yes",
+        "rci",
+        "post",
+        "system",
+        "--data",
+        r#"{"country":{"country":"DE"},"description":{"description":"mixed"}}"#,
+    ])?;
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    let before = mixed_note(keys::CLI_MIXED_PERSISTENCE_BEFORE);
+    let applied = mixed_note(keys::CLI_MIXED_PERSISTENCE);
+    let before_at = run
+        .stderr
+        .find(&before)
+        .ok_or_else(|| format!("future note missing: {run:?}"))?;
+    let applied_at = run
+        .stderr
+        .find(&applied)
+        .ok_or_else(|| format!("applied note missing: {run:?}"))?;
+    assert!(before_at < applied_at, "{run:?}");
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn successful_text_changes_state_whether_the_result_is_saved() -> TestResult {
+    let (address, handle) = FakeRouter::spawn().await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("lab-1", address, &password))?;
+
+    for (args, key) in [
+        (
+            vec![
+                "--yes",
+                "rci",
+                "post",
+                "system",
+                "description",
+                "--data",
+                r#"{"description":"ordinary"}"#,
+            ],
+            keys::CLI_APPLIED,
+        ),
+        (
+            vec![
+                "--yes",
+                "rci",
+                "batch",
+                "--data",
+                r#"[{"system":{"description":{"description":"batch"}}}]"#,
+            ],
+            keys::CLI_APPLIED,
+        ),
+        (
+            vec![
+                "--yes",
+                "rci",
+                "post",
+                "system",
+                "country",
+                "--data",
+                r#"{"country":"DE"}"#,
+            ],
+            keys::CLI_APPLIED_PERSISTED,
+        ),
+        (
+            vec![
+                "--yes",
+                "--confirm-destructive",
+                "lab-1",
+                "rci",
+                "delete",
+                "system",
+                "description",
+            ],
+            keys::CLI_APPLIED,
+        ),
+    ] {
+        let run = env.kcc(&args)?;
+        assert_eq!(run.code, 0_i32, "{run:?}");
+        assert!(run.stderr.contains(&tr(Locale::En, key, None)), "{run:?}");
+    }
+
+    let json = env.kcc(&[
+        "--json",
+        "--yes",
+        "rci",
+        "post",
+        "system",
+        "description",
+        "--data",
+        r#"{"description":"json"}"#,
+    ])?;
+    assert_eq!(json.code, 0_i32, "{json:?}");
+    assert!(json.stderr.is_empty(), "{json:?}");
+    let document: Value = serde_json::from_str(&json.stdout)?;
+    assert_eq!(
+        document.get("persists_immediately"),
+        Some(&Value::Bool(false))
     );
     handle.shutdown().await?;
     Ok(())

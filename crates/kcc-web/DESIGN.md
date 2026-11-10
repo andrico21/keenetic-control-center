@@ -63,6 +63,7 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 | Danger | `--color-danger-ink` / `-wash` | #a2191f / #fff1f1 | #ff8389 / #fa4d56 16% | Offline, errors |
 | Warning | `--color-warning-ink` / `-wash` | #684e00 / #fcf4d6 | #f1c21b / #f1c21b 16% | Unsaved changes |
 | Info | `--color-info-ink` / `-wash` | #0043ce / #edf5ff | #78a9ff / #4589ff 16% | Info toasts |
+| Toast tones | `--color-*-toast` | same opaque tone wash | tone wash composited over Raised | Floating toasts; always opaque so page content cannot bleed through |
 | Neutral | `--color-neutral-ink` / `-wash` | #393939 / #e0e0e0 | #c6c6c6 / #393939 | Unknown status |
 | Disabled | `--color-disabled` / `-ink` | #c6c6c6 / #8d8d8d | #525252 / #8d8d8d | Disabled controls (exempt) |
 | Danger | `--color-danger` / `-hover` / `-active` | #da1e28 / #b81921 / #750e13 | same | Destructive button fill (white text 5.0:1) |
@@ -305,6 +306,8 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 ### Toast (`ui::toast`)
 - Structure: `#toasts` `role="status"` `aria-live="polite"` region; each toast has a message
   and a Close button; tone by wash (info, success, warning, error), never by an edge stripe.
+- Surface: the tone-specific toast token is opaque in both themes. Dark tokens composite the
+  16% tone wash over Raised so the tone remains visible without underlying text bleeding through.
 
 ### Page briefs (todo 35)
 

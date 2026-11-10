@@ -38,6 +38,10 @@
   --color-warning-wash: light-dark(#fcf4d6, rgb(241 194 27 / 0.16));
   --color-info-ink: light-dark(#0043ce, #78a9ff);
   --color-info-wash: light-dark(#edf5ff, rgb(69 137 255 / 0.16));
+  --color-success-toast: light-dark(#defbe6, color-mix(in srgb, #42be65 16%, #393939));
+  --color-danger-toast: light-dark(#fff1f1, color-mix(in srgb, #fa4d56 16%, #393939));
+  --color-warning-toast: light-dark(#fcf4d6, color-mix(in srgb, #f1c21b 16%, #393939));
+  --color-info-toast: light-dark(#edf5ff, color-mix(in srgb, #4589ff 16%, #393939));
   --color-neutral-ink: light-dark(#393939, #c6c6c6);
   --color-neutral-wash: light-dark(#e0e0e0, #393939);
   --color-disabled: light-dark(#c6c6c6, #525252);
@@ -850,22 +854,22 @@ h3 {
 }
 
 .toast[data-tone="success"] {
-  background: var(--color-success-wash);
+  background: var(--color-success-toast);
   color: var(--color-success-ink);
 }
 
 .toast[data-tone="warning"] {
-  background: var(--color-warning-wash);
+  background: var(--color-warning-toast);
   color: var(--color-warning-ink);
 }
 
 .toast[data-tone="error"] {
-  background: var(--color-danger-wash);
+  background: var(--color-danger-toast);
   color: var(--color-danger-ink);
 }
 
 .toast[data-tone="info"] {
-  background: var(--color-info-wash);
+  background: var(--color-info-toast);
   color: var(--color-info-ink);
 }
 

@@ -40,7 +40,8 @@ mod tests {
     /// Every htmx POST form has the same native POST destination; no exceptions.
     #[test]
     fn every_htmx_post_form_has_matching_native_post() -> Result<(), Box<dyn Error>> {
-        let mut pending = vec![PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("templates")];
+        let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        let mut pending = vec![manifest.join("templates"), manifest.join("src")];
         let mut violations = Vec::new();
         while let Some(path) = pending.pop() {
             if path.is_dir() {
@@ -49,10 +50,13 @@ mod tests {
                 }
                 continue;
             }
-            if path.extension().is_none_or(|extension| extension != "html") {
+            if path
+                .extension()
+                .is_none_or(|extension| !matches!(extension.to_str(), Some("html" | "rs")))
+            {
                 continue;
             }
-            let source = fs::read_to_string(&path)?;
+            let source = fs::read_to_string(&path)?.replace("\\\"", "\"");
             for opening in source.split("<form").skip(1) {
                 let tag = opening.split_once('>').ok_or("unclosed form tag")?.0;
                 if let Some(destination) = attribute(tag, "hx-post")

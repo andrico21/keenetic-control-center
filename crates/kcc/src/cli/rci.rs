@@ -86,8 +86,9 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
                 Ok(json!({ "applied": true, "unsaved": result.unsaved }))
             })
             .await?;
+            ctx.out().note(&ctx.out().tr(gate.applied(), &[]));
             ctx.out()
-                .emit(&document, &ctx.out().tr(gate.applied(), &[]))
+                .emit(&document, &serde_json::to_string_pretty(&document)?)
         }
         RciCommand::Post { path, data } => {
             let target = ctx.target(&services, &[Permission::RawRci]).await?;
@@ -143,7 +144,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     let gate = Gate::new(risk, Permission::RawRci, true).persisting(persists);
     if !persists && !persisted_paths.is_empty() {
         ctx.out().note(&ctx.out().tr(
-            keys::CLI_MIXED_PERSISTENCE,
+            keys::CLI_MIXED_PERSISTENCE_BEFORE,
             &[("paths", persisted_paths.join(", ").as_str())],
         ));
     }
@@ -161,6 +162,14 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         })
         .await?,
     );
+    if !persists && !persisted_paths.is_empty() {
+        ctx.out().note(&ctx.out().tr(
+            keys::CLI_MIXED_PERSISTENCE,
+            &[("paths", persisted_paths.join(", ").as_str())],
+        ));
+    } else {
+        ctx.out().note(&ctx.out().tr(gate.applied(), &[]));
+    }
     report(ctx, responses, persists, &persisted_paths)
 }
 
