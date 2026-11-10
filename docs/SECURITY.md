@@ -107,6 +107,12 @@ MCP adds its own gates: write tools need their toolset enabled in `[mcp] toolset
 `[mcp] allow_destructive = true` plus `confirm: true`. `kcc mcp stdio` bypasses HTTP
 authentication by design, so it's off by default and runs as `[mcp] stdio_role`.
 
+Raw request risk is the maximum risk of every command node visited in its nested
+body, including virtual prefixes and ancestors. Moving a destructive or management
+command from the request path into its body does not lower its risk or remove the
+corresponding permission and confirmation checks. A raw delete is always destructive and
+needs the same permission.
+
 Role changes take effect without a restart. A custom role created, edited or reduced in
 the Web UI, or changed in `roles.json` followed by `SIGHUP`, binds the next MCP call (the
 transport's RBAC and the MCP handlers' own permission and scope checks share one role
@@ -118,6 +124,18 @@ catalog-validated `components check-update` action, which changes no configurati
 outside the change workflow and without an audit entry.
 
 ## Audit chain
+
+Root batch completion follows the ordered per-item router responses, including
+error statuses inside HTTP 200. Only successful items contribute persisted paths
+and unsaved-change flags. Fully successful batches retain `applied_persisted` when
+every successful command persists immediately, otherwise `applied_unsaved`.
+A batch with no successful items records `failed`. Partial batches record
+`partially_applied_persisted` or `partially_applied_unsaved` using the same rule for
+the successful subset. Failed and partial batch parameters contain only
+`error: "router_rejected"`, `succeeded` and `failed` counts, never request values.
+The CLI returns exit code 7 for any item refusal and prints a localized refusal
+note instead of a completed-change note. MCP retains each item's `ok` result and
+derives its persistence notice from successful items only.
 
 Every change, handler-level refusal, login and secret reveal appends an entry to
 `audit.jsonl`. MCP records successful changes, failed changes as `failed` with an error

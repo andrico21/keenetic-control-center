@@ -292,7 +292,14 @@ mod tests {
         ] {
             args.set(name, "x");
         }
-        for name in ["count", "current", "total", "minutes"] {
+        for name in [
+            "count",
+            "current",
+            "total",
+            "minutes",
+            "succeeded",
+            "failed",
+        ] {
             args.set(name, 3_u32);
         }
         args

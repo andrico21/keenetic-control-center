@@ -96,9 +96,19 @@ pub struct FaultInjection {
     route_wipe_on_remove: bool,
     /// Acknowledge `fail-safe timer reboot` without arming the timer.
     fail_safe_arm_noop: bool,
+    /// Root batch items containing this JSON pointer return an error without applying.
+    refuse_batch_pointer: Option<String>,
 }
 
 impl FaultInjection {
+    /// Refuses matching root batch items inside the normal HTTP 200 response.
+    #[inline]
+    #[must_use]
+    pub fn refuse_batch_pointer(mut self, pointer: String) -> Self {
+        self.refuse_batch_pointer = Some(pointer);
+        self
+    }
+
     /// Adds one RCI path whose writes become acknowledged no-ops.
     #[inline]
     #[must_use]

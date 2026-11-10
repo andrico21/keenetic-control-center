@@ -10,6 +10,12 @@ mod raw_paths;
 #[path = "support/raw_redaction.rs"]
 mod raw_redaction;
 
+#[path = "support/nested_risk.rs"]
+mod nested_risk;
+
+#[path = "support/batch_outcomes.rs"]
+mod batch_outcomes;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

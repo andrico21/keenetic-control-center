@@ -715,3 +715,8 @@ _Auto-scaffolded by /ulw-execute. Append new entries below - never overwrite._
 Shared conversion: kcc-rci::catalog_path::segments, whitespace-separated literal catalog keywords. Object names are validated catalog body/query arguments; do not strip arbitrary path slots or relax RciPath URL grammar. Web delegates its existing path_segments wrapper. CLI rci.rs remains unchanged because row 91 edits it; catalog_words_match_cli_segments tests equivalence of the existing join and shared split.
 
 ReadKind binding is checked before discovery: show_rc requires show rc and show_sc requires show sc. Ordinary Get uses client.get unless catalog CommandKind is Show. This closes the independently selected transport seam without changing input fields.
+
+## [2026-11-10] Todo 93 progress (W=/home/andrico/kcc-wt/t93)
+
+- Outcome vocabulary: fully successful retains applied_persisted/applied_unsaved; zero success failed; partial success partially_applied_persisted or partially_applied_unsaved. Refusal params only error=router_rejected and succeeded/failed counts. Shared workflow completion aligns item/response indices; result exposes succeeded-only persistence for CLI/MCP.
+- CLI key cli-batch-refused appended in all six locales with succeeded/failed variables; all_arguments extended; cargo xtask i18n-gen passed and generated keys copied from sandbox output.

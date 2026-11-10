@@ -33,6 +33,9 @@ use tempfile::TempDir;
 use tokio::sync::oneshot;
 use url::Url;
 
+#[path = "workflow/batch_outcomes.rs"]
+mod batch_outcomes;
+
 #[expect(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,

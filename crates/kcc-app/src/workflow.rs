@@ -27,6 +27,8 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
 use serde_json::{Value, json};
 
+#[path = "workflow_batch.rs"]
+mod batch;
 #[path = "workflow_cli.rs"]
 mod cli;
 #[path = "workflow_output.rs"]
@@ -338,12 +340,16 @@ impl BatchChangeRequest {
     }
 }
 
-/// Successful root RCI batch mutation result.
+/// Root RCI batch result, including item-level refusals.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct BatchChangeResult {
-    /// Ordinary writes always remain unsaved until an explicit save.
+    /// Successful ordinary writes remain unsaved until an explicit save.
     pub unsaved: bool,
+    /// Whether all successful items were persisted immediately, with at least one success.
+    pub persists_immediately: bool,
+    /// Persisted leaf paths from successful items only.
+    pub persisted_paths: Vec<String>,
     /// Ordered per-item router responses, including item-level failures.
     pub responses: Vec<Result<RciResponse, RciError>>,
 }
@@ -988,11 +994,15 @@ impl ChangeSet {
         for item in &request.items {
             item.value.scrub(&mut audit_params);
         }
-        let persists_immediately = !request.items.is_empty()
-            && request
-                .items
-                .iter()
-                .all(|item| item.validated.persists_immediately);
+        let completion = batch::completion(&request.items, &responses);
+        let outcome = completion.outcome();
+        if completion.failed != 0 {
+            audit_params = json!({
+                "error":"router_rejected",
+                "succeeded":completion.succeeded,
+                "failed":completion.failed,
+            });
+        }
         let event = AuditEvent::new(
             timestamp,
             self.actor.clone(),
@@ -1001,13 +1011,12 @@ impl ChangeSet {
         .with_router(self.router.clone())
         .with_target(target)
         .with_params(audit_params)
-        .with_result(
-            applied_outcome(persists_immediately).to_owned(),
-            format!("change-{timestamp}"),
-        );
+        .with_result(outcome.to_owned(), format!("change-{timestamp}"));
         drop(self.workflow.audit.append(event).await?);
         Ok(BatchChangeResult {
-            unsaved: true,
+            unsaved: completion.unsaved,
+            persists_immediately: completion.persists_immediately,
+            persisted_paths: completion.persisted_paths,
             responses,
         })
     }

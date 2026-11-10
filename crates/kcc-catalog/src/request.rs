@@ -42,12 +42,18 @@ impl ValidatedRequest {
         value: Value,
         unvalidated: bool,
     ) -> Self {
+        let classification = classify_request(catalog, path, &value);
+        let risk = if unvalidated {
+            Risk::Management
+        } else {
+            classification.risk.unwrap_or(Risk::Read)
+        };
         let (persisted_paths, ordinary_paths) = if method == HttpMethod::Get {
             (Vec::new(), Vec::new())
         } else if unvalidated {
             (Vec::new(), vec![path.to_owned()])
         } else {
-            persistence_paths(catalog, path, &value)
+            (classification.persisted, classification.ordinary)
         };
         let persists_immediately = !persisted_paths.is_empty() && ordinary_paths.is_empty();
         let mut protected = SecretValue::new(path, value);
@@ -57,11 +63,7 @@ impl ValidatedRequest {
             path: protected.scrub_text(path),
             method,
             value: protected.redacted().clone(),
-            risk: if unvalidated {
-                Risk::Management
-            } else {
-                catalog.risk(path).unwrap_or(Risk::Write)
-            },
+            risk,
             unvalidated,
             persisted_paths,
             ordinary_paths: ordinary_paths
@@ -94,25 +96,31 @@ impl ValidatedRequest {
     }
 }
 
-/// Returns persisted and ordinary leaf command paths below a validated request path.
-fn persistence_paths(catalog: &Catalog, path: &str, value: &Value) -> (Vec<String>, Vec<String>) {
-    let mut paths = PersistencePaths::default();
+/// Classifies risk at every node and persistence at command leaves in one shared walk.
+fn classify_request(catalog: &Catalog, path: &str, value: &Value) -> RequestClassification {
+    let mut paths = RequestClassification::default();
     paths.visit(catalog, path, value);
-    (paths.persisted, paths.ordinary)
+    paths
 }
 
 #[derive(Default)]
-/// Leaf command paths grouped by router persistence behavior.
-struct PersistencePaths {
+/// Command-tree risk and leaf persistence behavior.
+struct RequestClassification {
+    /// Maximum node risk; an empty root has no commands.
+    risk: Option<Risk>,
     /// Commands saved by the router at once.
     persisted: Vec<String>,
     /// Commands that still need an explicit save.
     ordinary: Vec<String>,
 }
 
-impl PersistencePaths {
+impl RequestClassification {
     /// Visits nested request objects until catalog command leaves are reached.
     fn visit(&mut self, catalog: &Catalog, path: &str, value: &Value) {
+        if !path.is_empty() {
+            let own = catalog.risk(path).unwrap_or(Risk::Write);
+            self.risk = Some(self.risk.map_or(own, |risk| risk.max(own)));
+        }
         let Some(object) = value.as_object() else {
             self.ordinary.push(path.to_owned());
             return;

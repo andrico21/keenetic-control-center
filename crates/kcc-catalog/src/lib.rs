@@ -34,6 +34,8 @@ mod cli_tests;
 #[cfg(test)]
 mod persists_tests;
 #[cfg(test)]
+mod risk_tests;
+#[cfg(test)]
 mod secret_tests;
 #[cfg(test)]
 mod tests;

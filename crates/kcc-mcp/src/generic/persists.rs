@@ -70,9 +70,15 @@ pub(crate) fn batch_applied(
     persists: bool,
     persisted_paths: Vec<String>,
 ) -> Value {
-    labelled(
-        json!({ "responses": responses, "unsaved": unsaved }),
-        persists,
-        &persisted_paths,
-    )
+    let partial = responses
+        .iter()
+        .any(|response| response.get("ok") == Some(&Value::Bool(false)));
+    let mut result = json!({ "responses": responses, "unsaved": unsaved });
+    if partial
+        && !persisted_paths.is_empty()
+        && let Value::Object(object) = &mut result
+    {
+        drop(object.insert("persisted_paths".to_owned(), json!(persisted_paths)));
+    }
+    labelled(result, persists, &persisted_paths)
 }

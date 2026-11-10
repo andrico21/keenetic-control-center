@@ -985,7 +985,19 @@ impl Shared {
             Some(items) => Value::Array(
                 items
                     .iter()
-                    .map(|item| self.post_one(&mut settings, pointer, item))
+                    .map(|item| {
+                        if pointer.is_empty()
+                            && self
+                                .faults
+                                .refuse_batch_pointer
+                                .as_ref()
+                                .is_some_and(|rejected| item.pointer(rejected).is_some())
+                        {
+                            tree::status("error", "injected batch refusal.")
+                        } else {
+                            self.post_one(&mut settings, pointer, item)
+                        }
+                    })
                     .collect(),
             ),
             None => self.post_one(&mut settings, pointer, body),

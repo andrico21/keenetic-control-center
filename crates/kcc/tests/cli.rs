@@ -14,12 +14,16 @@
 mod admin;
 #[path = "cli/basics.rs"]
 mod basics;
+#[path = "cli/batch_outcomes.rs"]
+mod batch_outcomes;
 #[path = "cli/failures.rs"]
 mod failures;
 #[path = "cli/health.rs"]
 mod health;
 #[path = "cli/migrate.rs"]
 mod migrate;
+#[path = "cli/nested_risk.rs"]
+mod nested_risk;
 #[path = "cli/outbound.rs"]
 mod outbound;
 #[path = "cli/persists.rs"]

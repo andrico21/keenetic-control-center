@@ -454,3 +454,9 @@ Evidence: .omo/evidence/F4-keenetic-control-center.md (+ -runs/).
 ## [2026-11-10] Todo 92 progress, restart (W=/home/andrico/kcc-wt/t92)
 
 CodeGraph unavailable in worktree (no index); used direct source reads. Explore agent failed before starting (ProviderModelNotFoundError); completed the seam audit directly. LSP diagnostics timed out twice, for support/validate.rs and catalog_path.rs; no LSP result is claimed. Compiler/test/clippy checks remain authoritative execution evidence. Initial standalone raw_paths test had unused lab API compile errors, resolved by including as a child of domain_tools rather than suppressing lints. Fake request_log query values are URL-encoded; instance-name assertion uses byte_serialize. Root ip/http body classified Write, so mixed Management dialog is tested directly through Prompt::render with explicit Risk::Management. This classification behavior predates the row and was not changed.
+## [2026-11-10] Todo 94 progress (W=/home/andrico/kcc-wt/t94)
+
+- CodeGraph was unavailable because `/home/andrico/kcc-wt/t94` has no `.codegraph` index; the required call returned that indexing is the owner's decision.
+- The explore subagent failed before execution with `ProviderModelNotFoundError`; the credential-binding sweep was completed locally.
+- `lsp_diagnostics` was attempted twice on changed Rust files but the shared LSP daemon timed out. Cargo tests and all four requested `clippy -D warnings` runs supplied clean compiler diagnostics instead.
+- The first two screenshot attempts exposed capture-pipeline errors (wrong HTTP root, then wrong stylesheet URL). Both artifacts were overwritten; the final three PNGs were opened and inspected after correction.

@@ -149,6 +149,8 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         ));
     }
     let mut responses = Vec::new();
+    let mut completed_persists = false;
+    let mut completed_paths = Vec::new();
     drop(
         run_change(ctx, services, target, gate, async |changes, _router| {
             let request = BatchChangeRequest::new(
@@ -157,20 +159,41 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
                 Permission::RawRci,
                 json!({ "method": "POST" }),
             );
-            responses = changes.apply_batch(request).await?.responses;
+            let result = changes.apply_batch(request).await?;
+            completed_persists = result.persists_immediately;
+            completed_paths = result.persisted_paths;
+            responses = result.responses;
             Ok(Value::Null)
         })
         .await?,
     );
-    if !persists && !persisted_paths.is_empty() {
+    let failed = responses
+        .iter()
+        .filter(|response| response.is_err())
+        .count();
+    if failed != 0 {
+        ctx.out().note(&ctx.out().tr(
+            keys::CLI_BATCH_REFUSED,
+            &[
+                (
+                    "succeeded",
+                    &responses.len().saturating_sub(failed).to_string(),
+                ),
+                ("failed", &failed.to_string()),
+            ],
+        ));
+    } else if !completed_persists && !completed_paths.is_empty() {
         ctx.out().note(&ctx.out().tr(
             keys::CLI_MIXED_PERSISTENCE,
-            &[("paths", persisted_paths.join(", ").as_str())],
+            &[("paths", completed_paths.join(", ").as_str())],
         ));
     } else {
-        ctx.out().note(&ctx.out().tr(gate.applied(), &[]));
+        ctx.out().note(
+            &ctx.out()
+                .tr(gate.persisting(completed_persists).applied(), &[]),
+        );
     }
-    report(ctx, responses, persists, &persisted_paths)
+    report(ctx, responses, completed_persists, &completed_paths)
 }
 
 /// Prints per-item results and whether the router persisted them at once; any failed
@@ -197,7 +220,7 @@ fn report(
         })
         .collect::<Vec<_>>();
     let mut document = labelled(json!({ "items": items }), persists);
-    if !persists
+    if (!persists || failed != 0)
         && !persisted_paths.is_empty()
         && let Value::Object(object) = &mut document
     {

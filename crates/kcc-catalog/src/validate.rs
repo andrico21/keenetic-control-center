@@ -8,7 +8,7 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 
 use crate::{
-    Argument, ArgumentKind, Catalog, Command, CommandKind, Risk, ValidatedRequest,
+    Argument, ArgumentKind, Catalog, Command, CommandKind, ValidatedRequest,
     secret_value::secret_path,
 };
 
@@ -110,11 +110,9 @@ pub(crate) fn validate_root(
     };
     let roots = child_names(catalog, "");
     let root_refs = roots.iter().map(String::as_str).collect::<Vec<_>>();
-    let mut risk = Risk::Read;
     for (field, child_value) in object {
         if catalog.lookup(field).is_some() || roots.contains(field) {
             validate_node(catalog, field, child_value, field, &mut issues);
-            risk = risk.max(catalog.risk(field).unwrap_or(Risk::Write));
         } else {
             issues.push(ValidationIssue::UnknownField {
                 field: field.clone(),
@@ -123,9 +121,13 @@ pub(crate) fn validate_root(
         }
     }
     if issues.is_empty() {
-        let mut request = ValidatedRequest::capture(catalog, "", method, value.clone(), false);
-        request.risk = risk;
-        Ok(request)
+        Ok(ValidatedRequest::capture(
+            catalog,
+            "",
+            method,
+            value.clone(),
+            false,
+        ))
     } else {
         Err(issues)
     }

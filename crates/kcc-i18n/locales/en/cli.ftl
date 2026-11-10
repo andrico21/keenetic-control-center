@@ -99,3 +99,4 @@ cli-mixed-persistence = The router saved these catalog paths at once: { $paths }
 cli-applied-persisted = Change applied. The router stored it already; no save is needed.
 cli-mixed-persistence-before = The router will save these catalog paths at once: { $paths }. The rest will stay unsaved until you save it.
 cli-error-not-applied = The router did not apply the change: reading it back still shows the old value.
+cli-batch-refused = Some items were refused by the router. Succeeded: { $succeeded }; refused: { $failed }.

@@ -54,6 +54,12 @@ Sources:
 
 ## RCI (`/rci/`)
 
+`FaultInjection::refuse_batch_pointer` refuses each root batch item containing the
+configured JSON pointer before applying it. The HTTP response remains 200 and has
+one ordered response per item; refused items contain an RCI error status. Other
+items execute normally. This is assumed fault injection for completion reporting,
+not captured router behavior.
+
 | Behaviour | Source |
 |-----------|--------|
 | `GET /rci/` returns the whole settings tree; `GET /rci/<path>` the node at `<path>` | R-RCI |

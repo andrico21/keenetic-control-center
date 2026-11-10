@@ -13,7 +13,10 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::persists::{applied, batch_applied, cli_applied};
+use super::{
+    persists::{applied, batch_applied, cli_applied},
+    raw_change,
+};
 use crate::{
     KccMcp, McpFailure, authorize_routers,
     support::{
@@ -206,6 +209,7 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
 }
 
 /// Applies a catalog-validated mutation without saving.
+// NOT cancel-safe: transmission can precede the workflow audit receipt.
 pub(crate) async fn rci_execute(
     server: &KccMcp,
     input: RciWriteInput,
@@ -218,7 +222,11 @@ pub(crate) async fn rci_execute(
         HttpMethod::Post,
         &input.value,
     )?;
-    server.require_destructive(preliminary.risk, input.confirm)?;
+    raw_change::authorize(
+        server,
+        (&identity, &host),
+        (preliminary.risk, input.confirm),
+    )?;
     let catalog = server.catalog(host.as_str()).await?;
     let validated = checked(
         &catalog,
@@ -226,19 +234,25 @@ pub(crate) async fn rci_execute(
         HttpMethod::Post,
         &input.value,
     )?;
-    server.require_destructive(validated.risk, input.confirm)?;
-    let mut changes = server.begin_change(&host, &identity).await?;
-    let result = changes
-        .apply(ChangeRequest::new(
-            input.catalog_path,
-            input.path,
-            input.value,
-            Vec::new(),
-            Permission::RawRci,
-            json!({ "validated": true }),
-        ))
-        .await
-        .map_err(map_workflow)?;
+    raw_change::authorize(server, (&identity, &host), (validated.risk, input.confirm))?;
+    let result = raw_change::run(
+        server,
+        (&host, &identity, validated.risk),
+        async |changes| {
+            changes
+                .apply(ChangeRequest::new(
+                    input.catalog_path,
+                    input.path,
+                    input.value,
+                    Vec::new(),
+                    Permission::RawRci,
+                    json!({ "validated": true }),
+                ))
+                .await
+                .map_err(map_workflow)
+        },
+    )
+    .await?;
     Ok(applied(result.unsaved, &validated))
 }
 
@@ -252,7 +266,11 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         HttpMethod::Delete,
         &input.value,
     )?;
-    server.require_destructive(preliminary.risk.max(Risk::Destructive), input.confirm)?;
+    raw_change::authorize(
+        server,
+        (&identity, &host),
+        (preliminary.risk.max(Risk::Destructive), input.confirm),
+    )?;
     let catalog = server.catalog(host.as_str()).await?;
     let validated = checked(
         &catalog,
@@ -260,7 +278,11 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         HttpMethod::Delete,
         &input.value,
     )?;
-    server.require_destructive(validated.risk.max(Risk::Destructive), input.confirm)?;
+    raw_change::authorize(
+        server,
+        (&identity, &host),
+        (validated.risk.max(Risk::Destructive), input.confirm),
+    )?;
     let mut changes = server.begin_change(&host, &identity).await?;
     let result = changes
         .apply_delete(DeleteRequest::new(
@@ -277,12 +299,23 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
 }
 
 /// Applies a catalog-validated root batch without saving.
+// NOT cancel-safe: transmission can precede the workflow audit receipt.
 pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<Value, McpFailure> {
     valid_host(&input.host)?;
     if input.items.is_empty() || input.items.len() > MAX_BATCH_ITEMS {
         return Err(McpFailure::InvalidArguments);
     }
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
+    let preliminary_catalog = catalog_for_version("5.1")?;
+    for value in &input.items {
+        valid_value_size(value)?;
+        let preliminary = checked(&preliminary_catalog, "", HttpMethod::Post, value)?;
+        raw_change::authorize(
+            server,
+            (&identity, &host),
+            (preliminary.risk, input.confirm),
+        )?;
+    }
     let catalog = server.catalog(host.as_str()).await?;
     let mut risk = Risk::Read;
     let mut items = Vec::with_capacity(input.items.len());
@@ -292,23 +325,19 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         risk = risk.max(validated.risk);
         items.push(BatchItem::new(value, validated));
     }
-    server.require_destructive(risk, input.confirm)?;
-    let persists =
-        !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately);
-    let persisted_paths = items
-        .iter()
-        .flat_map(|item| item.validated.persisted_paths.iter().cloned())
-        .collect::<Vec<_>>();
-    let mut changes = server.begin_change(&host, &identity).await?;
-    let result = changes
-        .apply_batch(BatchChangeRequest::new(
-            items,
-            Vec::new(),
-            Permission::RawRci,
-            json!({ "validated": true }),
-        ))
-        .await
-        .map_err(map_workflow)?;
+    raw_change::authorize(server, (&identity, &host), (risk, input.confirm))?;
+    let result = raw_change::run(server, (&host, &identity, risk), async |changes| {
+        changes
+            .apply_batch(BatchChangeRequest::new(
+                items,
+                Vec::new(),
+                Permission::RawRci,
+                json!({ "validated": true }),
+            ))
+            .await
+            .map_err(map_workflow)
+    })
+    .await?;
     let responses = result
         .responses
         .into_iter()
@@ -319,8 +348,12 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             Err(error) => json!({ "ok": false, "error": map_rci(&error).code() }),
         })
         .collect::<Vec<_>>();
-    let unsaved = result.unsaved && !persists;
-    Ok(batch_applied(responses, unsaved, persists, persisted_paths))
+    Ok(batch_applied(
+        responses,
+        result.unsaved,
+        result.persists_immediately,
+        result.persisted_paths,
+    ))
 }
 
 /// Validates and applies one CLI line without saving.

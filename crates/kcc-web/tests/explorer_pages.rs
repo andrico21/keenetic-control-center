@@ -93,3 +93,7 @@ mod guards;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "explorer_pages/persists.rs"]
 mod persists;
+
+#[cfg(test)]
+#[path = "explorer_pages/nested_risk.rs"]
+mod nested_risk;
