@@ -6575,6 +6575,14 @@ pub const WEB_EXPLORER_MIXED_PERSISTENCE: MessageKey =
 pub const WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE: MessageKey =
     MessageKey::new("web-explorer-mixed-persistence-before");
 
+/// `web-explorer-partial-persisted` in `web.ftl`.
+pub const WEB_EXPLORER_PARTIAL_PERSISTED: MessageKey =
+    MessageKey::new("web-explorer-partial-persisted");
+
+/// `web-explorer-partial-unsaved` in `web.ftl`.
+pub const WEB_EXPLORER_PARTIAL_UNSAVED: MessageKey =
+    MessageKey::new("web-explorer-partial-unsaved");
+
 /// `web-explorer-confirm-mixed-text` in `web.ftl`.
 pub const WEB_EXPLORER_CONFIRM_MIXED_TEXT: MessageKey =
     MessageKey::new("web-explorer-confirm-mixed-text");
@@ -6583,7 +6591,7 @@ pub const WEB_EXPLORER_CONFIRM_MIXED_TEXT: MessageKey =
 pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2100] = [
+pub static ALL: [MessageKey; 2102] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -8682,6 +8690,8 @@ pub static ALL: [MessageKey; 2100] = [
     WEB_EXPLORER_DONE_PERSISTED,
     WEB_EXPLORER_MIXED_PERSISTENCE,
     WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE,
+    WEB_EXPLORER_PARTIAL_PERSISTED,
+    WEB_EXPLORER_PARTIAL_UNSAVED,
     WEB_EXPLORER_CONFIRM_MIXED_TEXT,
     WEB_VPN_ERROR_PSK,
 ];

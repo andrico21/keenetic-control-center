@@ -77,8 +77,8 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 
 Measured contrast (WCAG 2.x): text 18.1 / 16.5, muted 7.8 / 10.6 (7.1 / 8.9 on chrome),
 placeholder 4.6 / 6.4, link 5.0 / 7.7, on-accent 5.0, field edge 3.3 / 4.6. Toast
-text on its opaque light/dark surfaces: success 7.00 / 5.24, danger 7.09 / 5.29, warning
-7.11 / 4.87, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text.
+text on its opaque light/dark surfaces: success 7.00 / 6.70, danger 7.09 / 5.29, warning
+7.11 / 6.25, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text.
 
 Rules: accent fills only the primary action; the current place uses the selected wash and ink;
 status colour lives only in pills, badges, flags, notices, the banner, toasts and field errors.

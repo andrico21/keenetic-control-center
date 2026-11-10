@@ -144,7 +144,10 @@ async fn failed_verification_reports_the_completed_automatic_rollback() -> TestR
 
     let applied = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
 
-    assert_ne!(applied.code, 0_i32, "verification must fail");
+    assert_eq!(
+        applied.code, 6_i32,
+        "verification keeps the router exit code"
+    );
     assert!(
         applied
             .stdout
@@ -152,6 +155,14 @@ async fn failed_verification_reports_the_completed_automatic_rollback() -> TestR
         "{}",
         applied.stdout
     );
+    for stale in [keys::MIGRATE_APPLY_FAILED, keys::CLI_ERROR_ROUTER] {
+        let message = tr(Locale::En, stale, None);
+        assert!(
+            !applied.stderr.contains(&message),
+            "completed rollback must not print stale failure text: {}",
+            applied.stderr
+        );
+    }
     assert!(
         handle
             .request_log()

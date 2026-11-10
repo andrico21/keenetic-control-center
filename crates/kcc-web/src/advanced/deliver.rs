@@ -141,7 +141,15 @@ impl Dispatch<'_> {
         let persisted_paths = change.persisted_paths(self.facts.catalog());
         let left = |unsaved| Left::of(unsaved, persists, persisted_paths.clone());
         match change::apply(plan, change).await {
-            Ok(Applied::Batch { unsaved, responses }) => self.items(&responses, left(unsaved)),
+            Ok(Applied::Batch {
+                unsaved,
+                persists_immediately,
+                persisted_paths: successful_persisted_paths,
+                responses,
+            }) => self.items(
+                &responses,
+                Left::of(unsaved, persists_immediately, successful_persisted_paths),
+            ),
             Ok(Applied::Cli { unsaved, responses }) => self.lines(&responses, left(unsaved)),
             Ok(Applied::Terminal(responses)) => self.lines(&responses, Left::Nothing),
             Ok(Applied::Done { unsaved }) => {
@@ -220,8 +228,25 @@ impl Dispatch<'_> {
             return self.shown(rendered, left);
         }
         let (viewer, _full, _json) = rendered.into_parts();
+        let succeeded = responses.len().saturating_sub(refused.len());
+        if succeeded != 0 {
+            let mut args = FluentArgs::new();
+            args.set("succeeded", succeeded);
+            args.set("failed", refused.len());
+            let key = match left {
+                Left::Stored => keys::WEB_EXPLORER_PARTIAL_PERSISTED,
+                Left::Nothing | Left::Unsaved | Left::Mixed(_) => {
+                    keys::WEB_EXPLORER_PARTIAL_UNSAVED
+                }
+            };
+            let audit = match left {
+                Left::Stored => "partially_applied_persisted",
+                Left::Nothing | Left::Unsaved | Left::Mixed(_) => "partially_applied_unsaved",
+            };
+            return Reply::partial(tr(locale, key, Some(&args)), refused, viewer, &left, audit);
+        }
         Reply::failed(
-            Failure::new(tr(locale, keys::WEB_EXPLORER_REJECTED, None), "rci_error")
+            Failure::new(tr(locale, keys::WEB_EXPLORER_REJECTED, None), "failed")
                 .with_router_said(refused),
         )
         .with_viewer(viewer)

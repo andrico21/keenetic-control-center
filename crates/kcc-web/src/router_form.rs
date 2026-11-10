@@ -132,6 +132,11 @@ impl FieldErrors {
         self.url = message;
     }
 
+    /// Marks the password as invalid with `message`.
+    pub(crate) fn set_password(&mut self, message: String) {
+        self.password = message;
+    }
+
     /// The first field message, in form order.
     pub(crate) fn first(&self) -> &str {
         [&self.id, &self.url, &self.login, &self.password, &self.pin]
@@ -159,6 +164,11 @@ impl Parsed {
     /// Router origin.
     pub(crate) const fn url(&self) -> &Url {
         &self.url
+    }
+
+    /// Whether applying these fields would move the profile's primary credential binding.
+    pub(crate) fn moves_credential(&self, profile: &ManagedRouterProfile) -> bool {
+        self.url != profile.url || self.login != profile.login || self.tls != profile.tls
     }
 
     /// Copies the parsed fields into `profile`, keeping its id, password file and

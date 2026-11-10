@@ -104,9 +104,16 @@ pub(crate) async fn apply(
         human.push_str(&out.tr(keys::CLI_MIGRATE_KEPT, &[]));
     }
     out.emit(&document, &human)?;
-    report
-        .failure
-        .map_or(Ok(()), |failure| Err(apply_failure(failure)))
+    report.failure.map_or(Ok(()), |failure| {
+        if action == "rollback" && failure == ApplyError::Verification {
+            Err(Failure::headline_only(
+                Exit::Router,
+                keys::MIGRATE_APPLY_RESTORED,
+            ))
+        } else {
+            Err(apply_failure(failure))
+        }
+    })
 }
 
 /// Maps a migration failure to its exit code and localized message.

@@ -205,6 +205,20 @@ impl Outcome {
         }
     }
 
+    /// A partly completed request with a truthful persistence notice and audit outcome.
+    pub(crate) fn partial(
+        headline: String,
+        router_said: Vec<String>,
+        unsaved: bool,
+        audit: &'static str,
+    ) -> Self {
+        Self {
+            router_said,
+            unsaved,
+            ..Self::base(Tone::Warning, headline, audit)
+        }
+    }
+
     /// A request under way, such as a started job, audited as `audit`.
     pub(crate) const fn info(headline: String, audit: &'static str) -> Self {
         Self::base(Tone::Info, headline, audit)

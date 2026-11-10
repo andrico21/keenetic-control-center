@@ -83,4 +83,57 @@ mod tests {
         }
         Ok(())
     }
+
+    /// A fully successful persisting batch needs no partial-only path list, while a
+    /// partial persisting batch names the successful persisted path.
+    // NOT cancel-safe: the fixture owns router and MCP tasks until shutdown.
+    #[tokio::test]
+    async fn persisted_paths_exist_only_for_partial_persisting_batches() -> TestResult {
+        for (rejected, items, expected_paths) in [
+            (
+                "/absent",
+                json!([{"system":{"country":{"country":"DE"}}}]),
+                None,
+            ),
+            (
+                "/system/description",
+                json!([
+                    {"system":{"country":{"country":"DE"}}},
+                    {"system":{"description":{"description":"lab"}}}
+                ]),
+                Some(json!(["system country"])),
+            ),
+        ] {
+            let lab = Lab::start(
+                vec![(
+                    "lab-1",
+                    FakeRouter::builder(Profile::default())
+                        .faults(FaultInjection::default().refuse_batch_pointer(rejected.to_owned()))
+                        .build()?,
+                )],
+                admin(),
+            )
+            .await?;
+            let reply = lab
+                .call(
+                    "kcc_rci_batch",
+                    json!({"host":"lab-1","items":items}),
+                    false,
+                )
+                .await?;
+            let value = reply.value()?;
+            assert_eq!(
+                value.get("persists_immediately"),
+                Some(&json!(true)),
+                "{rejected}"
+            );
+            assert_eq!(
+                value.get("persisted_paths"),
+                expected_paths.as_ref(),
+                "{rejected}"
+            );
+            lab.stop().await?;
+        }
+        Ok(())
+    }
 }

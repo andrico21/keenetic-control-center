@@ -10,6 +10,67 @@ use crate::{
     support::{Fixture, TestResult, header_text, text},
 };
 
+/// A batch item used by the partial-outcome position matrix.
+#[derive(Clone, Copy)]
+enum BatchKind {
+    /// Persists immediately.
+    Country,
+    /// Remains unsaved and is the injected refusal target.
+    Description,
+    /// Remains unsaved and succeeds.
+    Host,
+}
+
+/// JSON body for one batch item.
+const fn batch_item(kind: BatchKind) -> &'static str {
+    match kind {
+        BatchKind::Country => r#"{"system":{"country":{"country":"DE"}}}"#,
+        BatchKind::Description => r#"{"system":{"description":{"description":"lab"}}}"#,
+        BatchKind::Host => {
+            r#"{"ip":{"hotspot":{"host":{"mac":"02:00:00:00:00:96","permit":true}}}}"#
+        }
+    }
+}
+
+/// Sends one batch and returns its rendered response and console audit outcome.
+async fn batch_outcome(items: &[BatchKind]) -> TestResult<(String, String)> {
+    let fixture = Fixture::with_faults(
+        FaultInjection::default().refuse_batch_pointer("/system/description".to_owned()),
+    )
+    .await?;
+    let browser = fixture.login("admin").await?;
+    let body = format!(
+        "[{}]",
+        items
+            .iter()
+            .map(|kind| batch_item(*kind))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    let sent = text(
+        fixture
+            .post(
+                "/ui/r/home/console/rci/send",
+                &browser,
+                &form(&[
+                    ("method", "POST"),
+                    ("path", ""),
+                    ("body", &body),
+                    ("confirm", "yes"),
+                ]),
+            )
+            .await?,
+    )
+    .await?;
+    let outcome = fixture
+        .audit()?
+        .into_iter()
+        .find(|entry| entry.action == "web.console_rci")
+        .ok_or("console audit missing")?
+        .outcome;
+    Ok((sent, outcome))
+}
+
 /// The RCI console rejects the R-MCP2 incident payload with the validation message and
 /// never sends it.
 #[tokio::test]
@@ -128,6 +189,62 @@ async fn the_rci_console_reads_and_sends_batches() -> TestResult {
             .contains("02:00:00:00:00:97"),
         "applied"
     );
+    Ok(())
+}
+
+/// Partial batches report applied and refused counts, successful-item persistence, and
+/// the workflow's partial audit outcome regardless of refusal position.
+#[tokio::test]
+async fn partial_batches_report_position_independent_outcomes() -> TestResult {
+    for (items, key, outcome) in [
+        (
+            vec![BatchKind::Description, BatchKind::Country, BatchKind::Host],
+            keys::WEB_EXPLORER_PARTIAL_UNSAVED,
+            "partially_applied_unsaved",
+        ),
+        (
+            vec![BatchKind::Country, BatchKind::Description, BatchKind::Host],
+            keys::WEB_EXPLORER_PARTIAL_UNSAVED,
+            "partially_applied_unsaved",
+        ),
+        (
+            vec![BatchKind::Country, BatchKind::Host, BatchKind::Description],
+            keys::WEB_EXPLORER_PARTIAL_UNSAVED,
+            "partially_applied_unsaved",
+        ),
+        (
+            vec![BatchKind::Country, BatchKind::Description],
+            keys::WEB_EXPLORER_PARTIAL_PERSISTED,
+            "partially_applied_persisted",
+        ),
+    ] {
+        let (body, audited) = batch_outcome(&items).await?;
+        let mut args = FluentArgs::new();
+        args.set("succeeded", items.len().saturating_sub(1));
+        args.set("failed", 1_usize);
+        assert!(
+            body.contains(&tr(Locale::En, key, Some(&args))),
+            "partial message key: {body}"
+        );
+        assert_eq!(audited, outcome, "partial audit outcome");
+    }
+    Ok(())
+}
+
+/// A batch with no successful item remains a plain failure rather than a partial result.
+#[tokio::test]
+async fn wholly_refused_batches_report_failed_not_partial() -> TestResult {
+    for items in [
+        vec![BatchKind::Description],
+        vec![BatchKind::Description, BatchKind::Description],
+    ] {
+        let (body, audited) = batch_outcome(&items).await?;
+        assert!(
+            body.contains(&en(keys::WEB_EXPLORER_REJECTED)),
+            "plain refusal: {body}"
+        );
+        assert_eq!(audited, "failed", "failed audit outcome");
+    }
     Ok(())
 }
 

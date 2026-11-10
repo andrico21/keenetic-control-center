@@ -105,6 +105,29 @@ impl Reply {
         Self::of(Outcome::failed(failure))
     }
 
+    /// A batch that applied some items and refused others.
+    pub(crate) fn partial(
+        headline: String,
+        router_said: Vec<String>,
+        viewer: Viewer,
+        left: &Left,
+        audit: &'static str,
+    ) -> Self {
+        let unsaved = matches!(left, Left::Unsaved | Left::Mixed(_));
+        let persistence = match left {
+            Left::Nothing | Left::Unsaved => "none",
+            Left::Stored => "stored",
+            Left::Mixed(_) => "mixed",
+        };
+        Self {
+            outcome: Outcome::partial(headline, router_said, unsaved, audit),
+            viewer: Some(viewer),
+            download: None,
+            job: None,
+            persistence,
+        }
+    }
+
     /// A completed command and the router's answer.
     pub(crate) fn done(locale: Locale, viewer: Viewer, left: Left) -> Self {
         let persistence = match &left {

@@ -39,7 +39,7 @@ use crate::{
 /// The id a connection test uses when the form has no valid one yet.
 const TEST_ID: &str = "connection-test";
 
-/// `POST /ui/routers/test`: signs in with the form's values and shows the result.
+/// `POST /ui/routers/test`: tests a stored profile or signs in with typed credentials.
 ///
 /// An empty password on the edit form uses the stored one. A failure, including an
 /// outbound-policy refusal, is explained in the viewer's language.
@@ -53,13 +53,16 @@ pub(crate) async fn test(
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
     let editing = form.router().to_owned();
-    let id = [form.id(), editing.as_str()]
-        .into_iter()
-        .find(|candidate| is_slug(candidate))
-        .unwrap_or(TEST_ID)
-        .to_owned();
-    let audit = Record::on_router("web.router_test", &id, String::new());
+    let draft_id = form.id().to_owned();
     let (_draft, password, parsed) = form.parse(user.locale(), false);
+    let id = if password.is_some() {
+        is_slug(&draft_id).then_some(draft_id.as_str())
+    } else {
+        is_slug(&editing).then_some(editing.as_str())
+    }
+    .unwrap_or(TEST_ID)
+    .to_owned();
+    let audit = Record::on_router("web.router_test", &id, String::new());
     let fields = match parsed {
         Ok(fields) => fields,
         Err(errors) => {
@@ -76,6 +79,11 @@ pub(crate) async fn test(
             .test_connection_with(&profile, secret)
             .await
     } else {
+        if !draft_id.is_empty() && draft_id != editing {
+            audit.append(&state, &user, "refused").await;
+            let refused = TestResult::message(shell, keys::WEB_ROUTER_ERROR_ID);
+            return errors::render(&refused);
+        }
         let Ok(existing) = managed(fleet, user.role(), &editing).await else {
             audit.append(&state, &user, "refused").await;
             let missing = TestResult::message(shell, keys::WEB_ROUTER_ERROR_PASSWORD);
@@ -83,7 +91,7 @@ pub(crate) async fn test(
         };
         if !matches!(existing.source, ProfileSource::State) {
             audit.append(&state, &user, "refused").await;
-            let refused = TestResult::message(shell, keys::WEB_ROUTER_ERROR_CHECK);
+            let refused = TestResult::message(shell, keys::WEB_ROUTER_CONFIG_DEFINED);
             return errors::render(&refused);
         }
         profile = existing.profile;

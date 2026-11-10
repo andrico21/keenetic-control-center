@@ -39,13 +39,10 @@ fn rci_get_uses_show_transport_only_for_catalog_show_commands() -> TestResult {
         .filter(|request| request.path() == "/rci/system/country")
         .map(|request| request.method().as_str())
         .collect::<Vec<_>>();
-    assert!(
-        !show_methods.is_empty(),
-        "catalog show reaches its show endpoint"
-    );
-    assert!(
-        show_methods.iter().all(|method| *method == "GET"),
-        "catalog show transport never uses POST: {show_methods:?}"
+    assert_eq!(
+        show_methods,
+        ["GET", "GET", "GET"],
+        "catalog discovery and the requested show all use GET"
     );
     assert_eq!(
         setting_methods,

@@ -108,7 +108,7 @@ impl Fixture {
             Duration::from_secs(60),
             Arc::clone(&clock),
         ));
-        for role in ["viewer", "operator", "admin", "outsider"] {
+        for role in ["viewer", "operator", "admin", "outsider", "raw-writer"] {
             accounts.create(NewAccount::new(
                 role.to_owned(),
                 SecretString::from(PASSWORD),
@@ -162,11 +162,18 @@ impl Fixture {
             audit,
             roles: built_in_roles()
                 .into_iter()
-                .chain([Role::new(
-                    "outsider".to_owned(),
-                    Permission::ALL,
-                    vec!["lab-*".to_owned()],
-                )])
+                .chain([
+                    Role::new(
+                        "outsider".to_owned(),
+                        Permission::ALL,
+                        vec!["lab-*".to_owned()],
+                    ),
+                    Role::new(
+                        "raw-writer".to_owned(),
+                        [Permission::Read, Permission::Write, Permission::RawRci],
+                        vec!["*".to_owned()],
+                    ),
+                ])
                 .collect(),
             session_idle: Duration::from_secs(3_600),
             session_absolute: Duration::from_secs(36_000),

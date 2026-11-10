@@ -137,6 +137,11 @@ impl Failure {
         )
     }
 
+    /// A failure whose localized headline fully explains the outcome.
+    pub(crate) const fn headline_only(exit: Exit, key: MessageKey) -> Self {
+        Self::new(exit, Detail::None).headlined(key)
+    }
+
     /// A failure explained by display-safe text.
     pub(crate) fn text(exit: Exit, text: &(impl fmt::Display + ?Sized)) -> Self {
         Self::new(exit, Detail::Text(text.to_string()))

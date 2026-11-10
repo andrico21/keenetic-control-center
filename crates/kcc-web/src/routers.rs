@@ -144,8 +144,10 @@ pub(crate) async fn edit_page(
     }
 }
 
-/// `POST /ui/routers/{id}/edit`: updates a Web UI profile; an empty password keeps the
-/// stored one.
+/// `POST /ui/routers/{id}/edit`: updates a Web UI profile.
+///
+/// An empty password keeps the stored one unless the address, login or TLS mode moves;
+/// moving the address or TLS mode drops the read-only poll credentials.
 pub(crate) async fn update(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -174,11 +176,22 @@ pub(crate) async fn update(
     {
         errors.set_url(policy_refusal(locale, fields.url()));
     }
+    if let Ok(fields) = &parsed
+        && password.is_none()
+        && fields.moves_credential(&entry.profile)
+    {
+        errors.set_password(tr(locale, keys::WEB_ROUTER_ERROR_PASSWORD, None));
+    }
     let (Ok(fields), false) = (parsed, errors.any()) else {
         return unprocessable(&FormPage::edit(shell, draft, errors));
     };
-    let mut profile = entry.profile;
+    let stored = entry.profile;
+    let mut profile = stored.clone();
     fields.apply(&mut profile);
+    if profile.url != stored.url || profile.tls != stored.tls {
+        profile.read_login = None;
+        profile.read_password_file = None;
+    }
     let changed = password.is_some();
     if let Some(secret) = password {
         let file = match fleet.credentials().sealed_path(&id) {

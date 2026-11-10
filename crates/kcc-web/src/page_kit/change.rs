@@ -160,6 +160,10 @@ pub(crate) enum Applied {
     Batch {
         /// Whether the router now has unsaved changes.
         unsaved: bool,
+        /// Whether every successful item was persisted immediately.
+        persists_immediately: bool,
+        /// Persisted paths from successful items only.
+        persisted_paths: Vec<String>,
         /// Ordered per-item answers, refusals included.
         responses: Vec<Result<RciResponse, RciError>>,
     },
@@ -181,6 +185,8 @@ impl Applied {
             Self::Done { unsaved }
             | Self::Batch {
                 unsaved,
+                persists_immediately: _,
+                persisted_paths: _,
                 responses: _,
             }
             | Self::Cli {
@@ -369,6 +375,8 @@ async fn send(changes: &mut ChangeSet, change: Change) -> Result<Applied, Workfl
             .await
             .map(|result| Applied::Batch {
                 unsaved: result.unsaved,
+                persists_immediately: result.persists_immediately,
+                persisted_paths: result.persisted_paths,
                 responses: result.responses,
             }),
         Change::Cli(request) => changes.apply_cli(request).await.map(|result| Applied::Cli {

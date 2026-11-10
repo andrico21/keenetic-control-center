@@ -13,13 +13,14 @@ use crate::{
     support::{Fixture, TestResult, text},
 };
 
-/// Every destructive request shape asks for the router name and refuses an operator.
+/// Every destructive request shape asks for the router name and refuses a raw writer who
+/// deliberately lacks `Destructive`.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test]
 async fn nested_destructive_console_requests_need_typed_name_and_permission() -> TestResult {
     let fixture = Fixture::new().await?;
     let admin = fixture.login("admin").await?;
-    let operator = fixture.login("operator").await?;
+    let raw_writer = fixture.login("raw-writer").await?;
     drop(fixture.get("/ui/r/home/console/rci", &admin).await?);
     let before = fixture.handle().request_count();
     for (path, body) in [
@@ -46,7 +47,7 @@ async fn nested_destructive_console_requests_need_typed_name_and_permission() ->
             "typed name required: {path}: {asked}"
         );
         let denied = fixture
-            .post("/ui/r/home/console/rci/send", &operator, &request)
+            .post("/ui/r/home/console/rci/send", &raw_writer, &request)
             .await?;
         assert_eq!(denied.status(), StatusCode::FORBIDDEN, "{path}");
         assert_eq!(
