@@ -19,7 +19,14 @@ pub(super) fn authorize(
     confirmation: (Risk, bool),
 ) -> Result<(), McpFailure> {
     let (risk, confirm) = confirmation;
-    server.require_destructive(risk, confirm)?;
+    server.require_destructive(
+        if risk >= Risk::Management {
+            Risk::Destructive
+        } else {
+            risk
+        },
+        confirm,
+    )?;
     if risk >= Risk::Management {
         authorize_routers(
             target.0,
@@ -37,15 +44,15 @@ pub(super) fn authorize(
 // NOT cancel-safe: cancellation may leave a write applied and its recovery timer armed.
 pub(super) async fn run<T, Work>(
     server: &KccMcp,
-    target: (&RouterId, &McpIdentity, Risk),
+    target: (&RouterId, &McpIdentity, bool),
     work: Work,
 ) -> Result<T, McpFailure>
 where
     Work: AsyncFnOnce(&mut ChangeSet) -> Result<T, McpFailure>,
 {
-    let (host, identity, risk) = target;
+    let (host, identity, management) = target;
     let mut changes = server.begin_change(host, identity).await?;
-    if risk != Risk::Management {
+    if !management {
         return work(&mut changes).await;
     }
     let info = server

@@ -44,7 +44,11 @@ pub fn markdown() -> String {
          migration, or preset change lacks `confirm: true`). A write the router accepts but\n\
          does not apply fails with\n\
          `verification_failed` and the `field` that read back unchanged; `validation_failed`\n\
-         means the input was refused before anything was sent. No tool saves implicitly.\n",
+         means the input was refused before anything was sent. No tool saves implicitly.\n\n\
+         Every mutating raw tool, including `kcc_cli_parse`, requires the destructive role\n\
+         permission, confirmation, and server switch for management or destructive requests.\n\
+         Negative `no` commands are destructive. Management nodes retain their recovery timer\n\
+         even when a destructive sibling raises the maximum request risk.\n",
     );
     for &(toolset, summary) in TOOLSETS {
         let members = all

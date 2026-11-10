@@ -13,6 +13,9 @@ mod raw_redaction;
 #[path = "support/nested_risk.rs"]
 mod nested_risk;
 
+#[path = "support/raw_parity.rs"]
+mod raw_parity;
+
 #[path = "support/batch_outcomes.rs"]
 mod batch_outcomes;
 

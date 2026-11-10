@@ -105,13 +105,23 @@ pub(super) const DESTRUCTIVE_PATHS: &[&str] = &[
     "copy",
     "media * format",
     "mws member reboot",
+    "mws reboot",
     "system eject",
-    "interface * esim profile delete",
+    "interface esim profile delete",
 ];
 
 /// Overlay paths the router persists at once, without a configuration save
 /// (`[[persists_immediately]]` in `catalog/overlay.toml`).
 pub(super) const PERSISTS_IMMEDIATELY_PATHS: &[&str] = &["system country"];
+
+/// Prefix rules affecting management access.
+pub(super) const MANAGEMENT_PREFIXES: &[&str] = &["user ", "ip http "];
+
+/// Interface command endings affecting management access.
+pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[" up", " down"];
+
+/// Interface address commands and their descendants affect management access.
+pub(super) const MANAGEMENT_INTERFACE_ADDRESS: &str = " ip address";
 
 /// Gets one lazily parsed data set.
 ///

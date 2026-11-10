@@ -2,12 +2,17 @@
 
 mod data;
 mod query;
+#[cfg(test)]
+mod rule_tests;
 mod schema;
 
 use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
 use secrecy::SecretString;
 
-use self::data::{BACKGROUND_PATHS, CatalogData, DESTRUCTIVE_PATHS, data};
+use self::data::{
+    BACKGROUND_PATHS, CatalogData, DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_ADDRESS,
+    MANAGEMENT_INTERFACE_SUFFIXES, MANAGEMENT_PREFIXES, data,
+};
 use crate::{
     CatalogError, CatalogVersion, Command, CommandKind, ModelMatch, Risk, SecretValue,
     ValidatedRequest, cli,
@@ -113,12 +118,15 @@ impl Catalog {
         {
             return Some(Risk::Destructive);
         }
-        if path.starts_with("user ")
-            || path.starts_with("ip http ")
+        if path == "user"
+            || MANAGEMENT_PREFIXES
+                .iter()
+                .any(|prefix| path.starts_with(prefix))
             || (path.starts_with("interface ")
-                && (path.contains(" ip address")
-                    || path.ends_with(" up")
-                    || path.ends_with(" down")))
+                && (path.contains(MANAGEMENT_INTERFACE_ADDRESS)
+                    || MANAGEMENT_INTERFACE_SUFFIXES
+                        .iter()
+                        .any(|suffix| path.ends_with(suffix))))
         {
             return Some(Risk::Management);
         }

@@ -12,6 +12,11 @@ does not apply fails with
 `verification_failed` and the `field` that read back unchanged; `validation_failed`
 means the input was refused before anything was sent. No tool saves implicitly.
 
+Every mutating raw tool, including `kcc_cli_parse`, requires the destructive role
+permission, confirmation, and server switch for management or destructive requests.
+Negative `no` commands are destructive. Management nodes retain their recovery timer
+even when a destructive sibling raises the maximum request risk.
+
 ## Toolset `core` (14 tools)
 
 Registered by default: fleet, catalog, jobs, configuration state and the main reads.

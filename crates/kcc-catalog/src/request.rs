@@ -20,6 +20,9 @@ pub struct ValidatedRequest {
     pub value: Value,
     /// Risk used for permissions and confirmation.
     pub risk: Risk,
+    /// Whether any visited command can interrupt management access.
+    #[serde(skip)]
+    pub contains_management: bool,
     /// Whether catalog validation was deliberately bypassed.
     pub unvalidated: bool,
     /// Whether every leaf command is persisted by the router at once. Never set for a read.
@@ -46,7 +49,13 @@ impl ValidatedRequest {
         let risk = if unvalidated {
             Risk::Management
         } else {
-            classification.risk.unwrap_or(Risk::Read)
+            classification.risk.unwrap_or_else(|| {
+                if path.is_empty() && value.as_object().is_some_and(serde_json::Map::is_empty) {
+                    Risk::Read
+                } else {
+                    Risk::Write
+                }
+            })
         };
         let (persisted_paths, ordinary_paths) = if method == HttpMethod::Get {
             (Vec::new(), Vec::new())
@@ -64,6 +73,7 @@ impl ValidatedRequest {
             method,
             value: protected.redacted().clone(),
             risk,
+            contains_management: unvalidated || classification.contains_management,
             unvalidated,
             persisted_paths,
             ordinary_paths: ordinary_paths
@@ -94,6 +104,13 @@ impl ValidatedRequest {
     pub const fn has_secrets(&self) -> bool {
         self.protected.has_secrets()
     }
+
+    /// Reports management nodes independently of the maximum risk of the request.
+    #[inline]
+    #[must_use]
+    pub const fn contains_management(&self) -> bool {
+        self.contains_management
+    }
 }
 
 /// Classifies risk at every node and persistence at command leaves in one shared walk.
@@ -108,6 +125,8 @@ fn classify_request(catalog: &Catalog, path: &str, value: &Value) -> RequestClas
 struct RequestClassification {
     /// Maximum node risk; an empty root has no commands.
     risk: Option<Risk>,
+    /// A destructive sibling must not hide a management node's recovery requirement.
+    contains_management: bool,
     /// Commands saved by the router at once.
     persisted: Vec<String>,
     /// Commands that still need an explicit save.
@@ -120,6 +139,7 @@ impl RequestClassification {
         if !path.is_empty() {
             let own = catalog.risk(path).unwrap_or(Risk::Write);
             self.risk = Some(self.risk.map_or(own, |risk| risk.max(own)));
+            self.contains_management |= own == Risk::Management;
         }
         let Some(object) = value.as_object() else {
             self.ordinary.push(path.to_owned());
@@ -151,10 +171,20 @@ impl RequestClassification {
                 proven &= child == &Value::Bool(true);
             } else if key == "no" {
                 own_leaf = true;
+                if child == &Value::Bool(true) {
+                    self.risk = Some(Risk::Destructive);
+                }
                 proven &=
                     command.is_some_and(|entry| entry.prefix_no) && child == &Value::Bool(true);
-            } else if children.contains(key) {
-                self.visit(catalog, &join_path(path, key), child);
+            } else if children.contains(key) || (path.is_empty() && catalog.lookup(key).is_some()) {
+                let mut prefix = path.to_owned();
+                for word in key.split_whitespace() {
+                    prefix = join_path(&prefix, word);
+                    let own = catalog.risk(&prefix).unwrap_or(Risk::Write);
+                    self.risk = Some(self.risk.map_or(own, |risk| risk.max(own)));
+                    self.contains_management |= own == Risk::Management;
+                }
+                self.visit(catalog, &prefix, child);
             } else {
                 self.ordinary.push(join_path(path, key));
             }

@@ -187,6 +187,7 @@ async fn router_refusals_show_what_the_router_said() -> TestResult {
                 ("a.mac", "02:00:00:00:00:98"),
                 ("a.no", "true"),
                 ("confirm", "yes"),
+                ("confirm_name", "home"),
             ]),
         )
         .await?;

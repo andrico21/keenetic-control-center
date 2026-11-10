@@ -164,8 +164,8 @@ Cursor (`.cursor/mcp.json`):
 ```
 
 Write tools appear only when the role allows them and the toolset is enabled in
-`[mcp] toolsets`. Destructive tools also need `[mcp] allow_destructive = true` and
-`confirm: true` in the call. What an assistant may send to its model provider is
+`[mcp] toolsets`. Destructive tools, and raw changes to management settings, also need
+`[mcp] allow_destructive = true` and `confirm: true` in the call. What an assistant may send to its model provider is
 described in [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## Safety model

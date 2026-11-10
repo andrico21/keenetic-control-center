@@ -159,6 +159,20 @@ fn checked(
         })
 }
 
+/// Takes the strongest classification from every embedded catalog accepting the input.
+fn preliminary_risk<F>(validate: F) -> Result<Risk, McpFailure>
+where
+    F: Fn(&Catalog) -> Result<kcc_catalog::ValidatedRequest, Vec<kcc_catalog::ValidationIssue>>,
+{
+    let mut risk: Option<Risk> = None;
+    for version in ["4.3", "5.0", "5.1"] {
+        if let Ok(request) = validate(&catalog_for_version(version)?) {
+            risk = Some(risk.map_or(request.risk, |previous| previous.max(request.risk)));
+        }
+    }
+    risk.ok_or(McpFailure::ValidationFailed)
+}
+
 /// Runs a catalog-validated read.
 // cancel-safe: only validated reads reach the client, including show-only fallback POSTs.
 pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Value, McpFailure> {
@@ -198,17 +212,10 @@ pub(crate) async fn rci_execute(
 ) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
-    let preliminary = checked(
-        &catalog_for_version("5.1")?,
-        &input.catalog_path,
-        HttpMethod::Post,
-        &input.value,
-    )?;
-    raw_change::authorize(
-        server,
-        (&identity, &host),
-        (preliminary.risk, input.confirm),
-    )?;
+    let preliminary = preliminary_risk(|catalog| {
+        catalog.validate(&input.catalog_path, HttpMethod::Post, &input.value)
+    })?;
+    raw_change::authorize(server, (&identity, &host), (preliminary, input.confirm))?;
     let catalog = server.catalog(host.as_str()).await?;
     let validated = checked(
         &catalog,
@@ -216,10 +223,14 @@ pub(crate) async fn rci_execute(
         HttpMethod::Post,
         &input.value,
     )?;
-    raw_change::authorize(server, (&identity, &host), (validated.risk, input.confirm))?;
+    raw_change::authorize(
+        server,
+        (&identity, &host),
+        (validated.risk.max(preliminary), input.confirm),
+    )?;
     let result = raw_change::run(
         server,
-        (&host, &identity, validated.risk),
+        (&host, &identity, validated.contains_management()),
         async |changes| {
             changes
                 .apply(ChangeRequest::new(
@@ -239,19 +250,17 @@ pub(crate) async fn rci_execute(
 }
 
 /// Applies a catalog-validated deletion without saving.
+// NOT cancel-safe: transmission can precede the workflow audit receipt.
 pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
-    let preliminary = checked(
-        &catalog_for_version("5.1")?,
-        &input.catalog_path,
-        HttpMethod::Delete,
-        &input.value,
-    )?;
+    let preliminary = preliminary_risk(|catalog| {
+        catalog.validate(&input.catalog_path, HttpMethod::Delete, &input.value)
+    })?;
     raw_change::authorize(
         server,
         (&identity, &host),
-        (preliminary.risk.max(Risk::Destructive), input.confirm),
+        (preliminary.max(Risk::Destructive), input.confirm),
     )?;
     let catalog = server.catalog(host.as_str()).await?;
     let validated = checked(
@@ -265,18 +274,24 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         (&identity, &host),
         (validated.risk.max(Risk::Destructive), input.confirm),
     )?;
-    let mut changes = server.begin_change(&host, &identity).await?;
-    let result = changes
-        .apply_delete(DeleteRequest::new(
-            input.catalog_path,
-            input.path,
-            input.value,
-            Vec::new(),
-            Permission::RawRci,
-            json!({ "validated": true }),
-        ))
-        .await
-        .map_err(map_workflow)?;
+    let result = raw_change::run(
+        server,
+        (&host, &identity, validated.contains_management()),
+        async |changes| {
+            changes
+                .apply_delete(DeleteRequest::new(
+                    input.catalog_path,
+                    input.path,
+                    input.value,
+                    Vec::new(),
+                    Permission::RawRci,
+                    json!({ "validated": true }),
+                ))
+                .await
+                .map_err(map_workflow)
+        },
+    )
+    .await?;
     Ok(applied(result.unsaved, &validated))
 }
 
@@ -288,27 +303,26 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         return Err(McpFailure::InvalidArguments);
     }
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
-    let preliminary_catalog = catalog_for_version("5.1")?;
+    let mut risk = Risk::Read;
     for value in &input.items {
         valid_value_size(value)?;
-        let preliminary = checked(&preliminary_catalog, "", HttpMethod::Post, value)?;
-        raw_change::authorize(
-            server,
-            (&identity, &host),
-            (preliminary.risk, input.confirm),
-        )?;
+        let preliminary =
+            preliminary_risk(|catalog| catalog.validate("", HttpMethod::Post, value))?;
+        risk = risk.max(preliminary);
+        raw_change::authorize(server, (&identity, &host), (preliminary, input.confirm))?;
     }
     let catalog = server.catalog(host.as_str()).await?;
-    let mut risk = Risk::Read;
+    let mut management = false;
     let mut items = Vec::with_capacity(input.items.len());
     for value in input.items {
         valid_value_size(&value)?;
         let validated = checked(&catalog, "", HttpMethod::Post, &value)?;
         risk = risk.max(validated.risk);
+        management |= validated.contains_management();
         items.push(BatchItem::new(value, validated));
     }
     raw_change::authorize(server, (&identity, &host), (risk, input.confirm))?;
-    let result = raw_change::run(server, (&host, &identity, risk), async |changes| {
+    let result = raw_change::run(server, (&host, &identity, management), async |changes| {
         changes
             .apply_batch(BatchChangeRequest::new(
                 items,
@@ -339,14 +353,18 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
 }
 
 /// Validates and applies one CLI line without saving.
+// NOT cancel-safe: transmission can precede the workflow audit receipt and timer cleanup.
 pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value, McpFailure> {
     valid_host(&input.host)?;
     valid_text(&input.line, MAX_LINE_CHARS)?;
     let (identity, host) = server.authorize_host(Permission::RawRci, input.host)?;
-    let catalog = server.catalog(host.as_str()).await?;
     let mut raw_authorization = RawAuthorization::default();
     raw_authorization.raw_rci = identity.role.grants(Permission::RawRci);
     raw_authorization.admin_manage_routers = identity.role.grants(Permission::ManageRouters);
+    let preliminary =
+        preliminary_risk(|catalog| catalog.validate_cli(&input.line, raw_authorization))?;
+    raw_change::authorize(server, (&identity, &host), (preliminary, input.confirm))?;
+    let catalog = server.catalog(host.as_str()).await?;
     let validated = catalog
         .validate_cli(&input.line, raw_authorization)
         .map_err(|issues| {
@@ -360,20 +378,30 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
             core::slice::from_ref(&host),
         )?;
     }
-    server.require_destructive(validated.risk, input.confirm)?;
+    raw_change::authorize(
+        server,
+        (&identity, &host),
+        (validated.risk.max(preliminary), input.confirm),
+    )?;
     let persistence = (
         validated.persists_immediately,
         validated.persisted_paths.clone(),
     );
-    let mut changes = server.begin_change(&host, &identity).await?;
-    let result = changes
-        .apply_cli(CliChangeRequest::new(
-            vec![ValidatedCli::new(input.line, validated)],
-            Vec::new(),
-            Permission::RawRci,
-            json!({ "validated": true }),
-        ))
-        .await
-        .map_err(map_workflow)?;
+    let result = raw_change::run(
+        server,
+        (&host, &identity, validated.contains_management()),
+        async |changes| {
+            changes
+                .apply_cli(CliChangeRequest::new(
+                    vec![ValidatedCli::new(input.line, validated)],
+                    Vec::new(),
+                    Permission::RawRci,
+                    json!({ "validated": true }),
+                ))
+                .await
+                .map_err(map_workflow)
+        },
+    )
+    .await?;
     Ok(cli_applied(result.responses, result.unsaved, persistence))
 }

@@ -5,7 +5,7 @@
 
 mod synthetic;
 
-use serde_json::{Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::{
     model::{Firmware, Model, Profile},
@@ -86,6 +86,10 @@ pub(crate) fn load(
         let removals: Value = serde_json::from_str(removals_text)?;
         strip(&mut settings, &removals, "settings");
         strip(&mut show, &removals, "show");
+        if let Some(object) = settings.as_object_mut() {
+            drop(object.insert("cifs".to_owned(), json!({"master":{}})));
+            drop(object.insert("kabinet".to_owned(), json!({"port":{}})));
+        }
     }
     if let Some(version) = show.get_mut("version").and_then(Value::as_object_mut) {
         drop(version.insert("title".to_owned(), Value::from(title)));

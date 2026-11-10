@@ -42,7 +42,7 @@ fn cli_fixed_forms_are_validated_in_both_firmware_views() {
                 "no system hostname",
                 "system hostname",
                 json!({"no":true}),
-                Risk::Write,
+                Risk::Destructive,
             ),
             (
                 "system configuration save",

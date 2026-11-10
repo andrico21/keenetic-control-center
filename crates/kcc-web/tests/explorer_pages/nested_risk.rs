@@ -23,6 +23,8 @@ async fn nested_destructive_console_requests_need_typed_name_and_permission() ->
     drop(fixture.get("/ui/r/home/console/rci", &admin).await?);
     let before = fixture.handle().request_count();
     for (path, body) in [
+        ("", r#"{"system reboot":{}}"#),
+        ("user", r#"{"name":"victim","no":true}"#),
         ("system reboot", "{}"),
         ("system", r#"{"reboot":{}}"#),
         ("", r#"{"system":{"configuration":{"factory-reset":{}}}}"#),
@@ -52,6 +54,80 @@ async fn nested_destructive_console_requests_need_typed_name_and_permission() ->
             before,
             "no router requests: {path}"
         );
+    }
+    Ok(())
+}
+
+/// A destructive sibling cannot disable the management recovery timer.
+// NOT cancel-safe: the fixture owns router and HTTP tasks.
+#[tokio::test]
+async fn mixed_console_requests_arm_and_disarm_recovery() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    let request = form(&[
+        ("method", "POST"),
+        ("path", ""),
+        (
+            "body",
+            r#"[{"ip":{"http":{"port":{"port":8082}}}},{"mws":{"member":{"reboot":{}}}}]"#,
+        ),
+        ("confirm", "yes"),
+        ("confirm_name", "home"),
+    ]);
+    let response = fixture
+        .post("/ui/r/home/console/rci/send", &admin, &request)
+        .await?;
+    assert_eq!(response.status(), StatusCode::OK);
+    let log = fixture.handle().request_log();
+    let timers = log
+        .iter()
+        .filter_map(|record| record.command())
+        .filter(|line| {
+            let command = line.strip_prefix("no ").unwrap_or(line);
+            command.starts_with("system configuration fail-safe timer")
+                || command.starts_with("system reboot")
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(timers.len(), 2, "arm and disarm: {timers:?}");
+    assert!(
+        timers.iter().any(|line| line.starts_with("no ")),
+        "disarm: {timers:?}"
+    );
+    Ok(())
+}
+
+/// DELETE and negative CLI lines share the raw destructive refusal boundary.
+// NOT cancel-safe: the fixture owns router and HTTP tasks.
+#[tokio::test]
+async fn delete_and_negative_cli_require_permission_without_requests() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    let operator = fixture.login("operator").await?;
+    drop(fixture.get("/ui/r/home/console/rci", &admin).await?);
+    let before = fixture.handle().request_count();
+    for (endpoint, request) in [
+        (
+            "/ui/r/home/console/rci/send",
+            form(&[
+                ("method", "DELETE"),
+                ("path", "user"),
+                ("body", r#"{"name":"victim"}"#),
+                ("confirm", "yes"),
+            ]),
+        ),
+        (
+            "/ui/r/home/console/cli/send",
+            form(&[("line", "no user victim"), ("confirm", "yes")]),
+        ),
+    ] {
+        let asked = text(fixture.post(endpoint, &admin, &request).await?).await?;
+        assert!(
+            asked.contains("name=\"confirm_name\""),
+            "typed name: {asked}"
+        );
+        let denied = fixture.post(endpoint, &operator, &request).await?;
+        assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+        assert_eq!(fixture.handle().request_count(), before);
     }
     Ok(())
 }

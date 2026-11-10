@@ -52,7 +52,7 @@ impl Gate {
             risk: operation.risk,
             permission: operation.permission,
             ask_on_write: false,
-            timer: true,
+            timer: operation.risk == Risk::Management,
             persists: operation.persists(),
         }
     }
@@ -63,7 +63,7 @@ impl Gate {
             risk,
             permission,
             ask_on_write,
-            timer: true,
+            timer: matches!(risk, Risk::Management),
             persists: false,
         }
     }
@@ -71,6 +71,14 @@ impl Gate {
     /// The same gate for a change the router persists at once when `persists`.
     pub(crate) const fn persisting(self, persists: bool) -> Self {
         Self { persists, ..self }
+    }
+
+    /// Preserves a raw request's management requirement independently of maximum risk.
+    pub(crate) const fn recovery(self, management: bool) -> Self {
+        Self {
+            timer: management,
+            ..self
+        }
     }
 
     /// The same gate for an operation that arms its own fail-safe timer.
@@ -152,7 +160,7 @@ where
             .workflow()
             .begin(target.id(), ctx.principal().actor(), &role, None, false)
             .await?;
-        if gate.risk != Risk::Management || !gate.timer {
+        if !gate.timer {
             return work(&mut changes, target.router())
                 .await
                 .map(|document| labelled(document, gate.persists));

@@ -103,7 +103,7 @@ request, and the change workflow checks again. A user can grant only roles whose
 permissions they hold, and the last enabled admin can't be removed.
 
 MCP adds its own gates: write tools need their toolset enabled in `[mcp] toolsets`,
-`[mcp] read_only = true` registers only read tools, and destructive tools also need
+`[mcp] read_only = true` registers only read tools, and destructive tools, and raw management changes, also need
 `[mcp] allow_destructive = true` plus `confirm: true`. `kcc mcp stdio` bypasses HTTP
 authentication by design, so it's off by default and runs as `[mcp] stdio_role`.
 
@@ -111,7 +111,18 @@ Raw request risk is the maximum risk of every command node visited in its nested
 body, including virtual prefixes and ancestors. Moving a destructive or management
 command from the request path into its body does not lower its risk or remove the
 corresponding permission and confirmation checks. A raw delete is always destructive and
-needs the same permission.
+needs the same permission. POST `"no": true` and CLI `no <command>` removals have
+the same destructive risk floor as DELETE. Whole-path root keys, such as
+`{"system reboot":{}}`, retain each command prefix's risk and the leaf's persistence.
+An empty root object is read-only; a nonempty unclassified body fails closed as a write.
+
+All mutating raw MCP tools, including `kcc_cli_parse`, require the `Destructive`
+permission, explicit confirmation and the server switch for management or destructive
+requests. Preliminary authorization uses the maximum risk
+from every embedded firmware catalog that accepts the input; router-specific validation
+still runs afterwards. A management node always requires the recovery timer, including
+when a destructive sibling determines the request's maximum risk. This applies to raw
+MCP, CLI and Web requests; curated operations retain their domain plans and gates.
 
 Role changes take effect without a restart. A custom role created, edited or reduced in
 the Web UI, or changed in `roles.json` followed by `SIGHUP`, binds the next MCP call (the

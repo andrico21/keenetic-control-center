@@ -72,7 +72,8 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
                 Permission::RawRci,
                 true,
             )
-            .persisting(validated.persists_immediately);
+            .persisting(validated.persists_immediately)
+            .recovery(validated.contains_management());
             let document = run_change(ctx, &services, &target, gate, async |changes, _router| {
                 let request = DeleteRequest::new(
                     joined,
@@ -141,7 +142,13 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         .iter()
         .flat_map(|item| item.validated.persisted_paths.iter().cloned())
         .collect::<Vec<_>>();
-    let gate = Gate::new(risk, Permission::RawRci, true).persisting(persists);
+    let gate = Gate::new(risk, Permission::RawRci, true)
+        .persisting(persists)
+        .recovery(
+            items
+                .iter()
+                .any(|item| item.validated.contains_management()),
+        );
     if !persists && !persisted_paths.is_empty() {
         ctx.out().note(&ctx.out().tr(
             keys::CLI_MIXED_PERSISTENCE_BEFORE,

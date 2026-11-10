@@ -8,6 +8,7 @@
 use fluent_bundle::FluentArgs;
 use kcc_app::{
     audit::{Actor, ActorKind},
+    permissions::Permission,
     workflow::{
         BatchChangeRequest, ChangeRequest, ChangeSet, CliChangeRequest, CliCommand, DeleteRequest,
         WorkflowError,
@@ -240,8 +241,8 @@ pub(crate) struct Plan<'call> {
     facts: &'call RouterFacts,
     /// The signed-in user.
     user: &'call CurrentUser,
-    /// Risk of the change; management arms the fail-safe timer.
-    risk: Risk,
+    /// Management recovery remains required when a destructive sibling raises risk.
+    management: bool,
 }
 
 impl<'call> Plan<'call> {
@@ -255,13 +256,13 @@ impl<'call> Plan<'call> {
             target,
             facts,
             user,
-            risk: Risk::Write,
+            management: false,
         }
     }
 
     /// Sets the risk of the change.
     pub(crate) const fn at(mut self, risk: Risk) -> Self {
-        self.risk = risk;
+        self.management = matches!(risk, Risk::Management);
         self
     }
 }
@@ -272,7 +273,28 @@ impl<'call> Plan<'call> {
 ///
 /// Returns the workflow error and whether the fail-safe timer stays armed.
 // NOT cancel-safe: see `apply_with`.
-pub(crate) async fn apply(plan: Plan<'_>, change: Change) -> Result<Applied, Refused> {
+pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Applied, Refused> {
+    let management = match &change {
+        Change::Batch(request) if request.permission == Permission::RawRci => request
+            .items
+            .iter()
+            .any(|item| item.validated.contains_management()),
+        Change::Cli(request) if request.permission == Permission::RawRci => request
+            .commands
+            .iter()
+            .any(|command| command.validated().contains_management()),
+        Change::Delete(request) if request.permission == Permission::RawRci => plan
+            .facts
+            .catalog()
+            .validate(
+                &request.catalog_path,
+                HttpMethod::Delete,
+                request.query.expose_for_send().expose_secret(),
+            )
+            .is_ok_and(|validated| validated.contains_management()),
+        Change::Request(_) | Change::Delete(_) | Change::Batch(_) | Change::Cli(_) => false,
+    };
+    plan.management |= management;
     apply_with(plan, async move |changes, _context| {
         send(changes, change).await
     })
@@ -305,7 +327,7 @@ where
         .await
         .map_err(|error| Refused::plain(error.into()))?;
     let context = RouterCtx::new(client, plan.facts.catalog().clone());
-    if plan.risk != Risk::Management {
+    if !plan.management {
         return work(&mut changes, &context).await.map_err(Refused::plain);
     }
     let mode = plan.facts.mode();

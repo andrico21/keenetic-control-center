@@ -15,6 +15,29 @@ async fn nested_destructive_requires_confirmation_without_mutations() -> TestRes
     )?;
     env.write_config(&router("lab-1", address, &password))?;
     for args in [
+        vec![
+            "--yes",
+            "rci",
+            "delete",
+            "user",
+            "--data",
+            r#"{"name":"victim"}"#,
+        ],
+        vec![
+            "--yes",
+            "rci",
+            "batch",
+            "--data",
+            r#"[{"system reboot":{}}]"#,
+        ],
+        vec![
+            "--yes",
+            "rci",
+            "post",
+            "user",
+            "--data",
+            r#"{"name":"victim","no":true}"#,
+        ],
         vec!["--yes", "rci", "post", "system", "reboot", "--data", "{}"],
         vec![
             "--yes",
@@ -35,9 +58,18 @@ async fn nested_destructive_requires_confirmation_without_mutations() -> TestRes
         let run = env.kcc(&args)?;
         assert_eq!(run.code, 10_i32, "{run:?}");
     }
-    assert_eq!(handle.request_log().iter().filter(|record|
-        record.method().as_str() == "POST" && record.path().starts_with("/rci")
-    ).count(), 0, "discovery may read; no mutation reaches the router");
+    assert_eq!(
+        handle
+            .request_log()
+            .iter()
+            .filter(
+                |record| matches!(record.method().as_str(), "POST" | "DELETE")
+                    && record.path().starts_with("/rci")
+            )
+            .count(),
+        0,
+        "discovery may read; no mutation reaches the router"
+    );
     handle.shutdown().await?;
     Ok(())
 }
@@ -47,6 +79,15 @@ async fn nested_destructive_requires_confirmation_without_mutations() -> TestRes
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn nested_management_arms_the_same_fail_safe_as_direct() -> TestResult {
     for args in [
+        vec![
+            "--yes",
+            "--confirm-destructive",
+            "lab-1",
+            "rci",
+            "batch",
+            "--data",
+            r#"[{"ip":{"http":{"port":{"port":8082}}}},{"mws":{"member":{"reboot":{}}}}]"#,
+        ],
         vec![
             "--yes",
             "rci",
