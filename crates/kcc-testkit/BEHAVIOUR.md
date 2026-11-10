@@ -269,3 +269,7 @@ address transition can serve clones of the same router; the inactive host return
 Expired fail-safe timers are processed before connectivity checks, restoring running
 configuration and the original management host. All these semantics are assumed from
 the todo-53 NOT-RUN fallback, not observations of real firmware.
+
+Legacy-firmware fixtures (4.3 and 5.0 derived trees) also carry `cifs master` and `kabinet port`
+nodes, which exist only in those catalogs, so raw-tool tests can create and remove a
+legacy-only command. These nodes are test fixtures, not observations of real firmware.
