@@ -43,6 +43,9 @@ pub(crate) struct Gate {
     timer: bool,
     /// The router persists the change at once: labelled before it runs.
     persists: bool,
+    /// What the command did when it leaves no change waiting for a save, such as a restart;
+    /// `None` for an ordinary change.
+    outcome: Option<MessageKey>,
 }
 
 impl Gate {
@@ -54,6 +57,7 @@ impl Gate {
             ask_on_write: false,
             timer: operation.risk == Risk::Management,
             persists: operation.persists(),
+            outcome: None,
         }
     }
 
@@ -65,6 +69,15 @@ impl Gate {
             ask_on_write,
             timer: matches!(risk, Risk::Management),
             persists: false,
+            outcome: None,
+        }
+    }
+
+    /// The same gate for a command whose headline is `outcome`, not an applied change.
+    pub(crate) const fn reporting(self, outcome: MessageKey) -> Self {
+        Self {
+            outcome: Some(outcome),
+            ..self
         }
     }
 
@@ -89,13 +102,13 @@ impl Gate {
         }
     }
 
-    /// The headline of the applied change: stored by the router already, or waiting
-    /// for a save.
+    /// The headline of the finished command: its stated outcome, else the applied change,
+    /// stored by the router already or waiting for a save.
     pub(crate) const fn applied(self) -> MessageKey {
-        if self.persists {
-            keys::CLI_APPLIED_PERSISTED
-        } else {
-            keys::CLI_APPLIED
+        match self.outcome {
+            Some(outcome) => outcome,
+            None if self.persists => keys::CLI_APPLIED_PERSISTED,
+            None => keys::CLI_APPLIED,
         }
     }
 

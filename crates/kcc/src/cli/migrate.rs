@@ -148,9 +148,15 @@ async fn inventory(ctx: &Ctx, services: &Services) -> Outcome {
 // NOT cancel-safe: the commit or rollback may complete before cancellation.
 async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
     let target = ctx.target(services, &[Permission::Migrate]).await?;
-    let gate = match action {
-        FinishStep::Commit => Gate::new(Risk::Write, Permission::Save, false),
-        FinishStep::Rollback => Gate::new(Risk::Destructive, Permission::Destructive, false),
+    let (gate, outcome) = match action {
+        FinishStep::Commit => (
+            Gate::new(Risk::Write, Permission::Save, false),
+            keys::CLI_MIGRATE_COMMITTED,
+        ),
+        FinishStep::Rollback => (
+            Gate::new(Risk::Destructive, Permission::Destructive, false),
+            keys::CLI_MIGRATE_ROLLED_BACK,
+        ),
     };
     let document = run_change(ctx, services, &target, gate, async |changes, router| {
         match action {
@@ -161,7 +167,7 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
     })
     .await?;
     let out = ctx.out();
-    out.emit(&document, &out.tr(keys::CLI_APPLIED, &[]))
+    out.emit(&document, &out.tr(outcome, &[]))
 }
 
 /// Notes a documentation-based target the plan was not acknowledged for.

@@ -679,7 +679,7 @@ samp {
 
 .notice {
   padding: var(--space-4) var(--space-5);
-  background: var(--color-success-wash);
+  background: var(--color-success-toast);
   color: var(--color-success-ink);
 }
 
@@ -927,17 +927,17 @@ h3 {
 }
 
 .notice[data-tone="info"] {
-  background: var(--color-info-wash);
+  background: var(--color-info-toast);
   color: var(--color-info-ink);
 }
 
 .notice[data-tone="warning"] {
-  background: var(--color-warning-wash);
+  background: var(--color-warning-toast);
   color: var(--color-warning-ink);
 }
 
 .notice[data-tone="error"] {
-  background: var(--color-danger-wash);
+  background: var(--color-danger-toast);
   color: var(--color-danger-ink);
 }
 

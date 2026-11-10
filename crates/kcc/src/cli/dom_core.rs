@@ -51,7 +51,8 @@ pub(crate) async fn system(ctx: &Ctx, command: SystemCommand) -> Outcome {
         SystemCommand::Ntp => return session.show(&system::read_ntp_status(router).await?),
         SystemCommand::Mode => return session.show(&system::read_system_mode(router).await?),
         SystemCommand::Reboot => {
-            let gate = Gate::new(Risk::Destructive, Permission::Destructive, false);
+            let gate = Gate::new(Risk::Destructive, Permission::Destructive, false)
+                .reporting(keys::CLI_DONE_TERMINAL);
             return session
                 .change(gate, async |changes, context| {
                     drop(system::reboot(changes, context).await?);
@@ -60,7 +61,8 @@ pub(crate) async fn system(ctx: &Ctx, command: SystemCommand) -> Outcome {
                 .await;
         }
         SystemCommand::FactoryReset => {
-            let gate = Gate::new(Risk::Destructive, Permission::Destructive, false);
+            let gate = Gate::new(Risk::Destructive, Permission::Destructive, false)
+                .reporting(keys::CLI_DONE_TERMINAL);
             let id = session.target().id().to_owned();
             return session
                 .change(gate, async |changes, context| {

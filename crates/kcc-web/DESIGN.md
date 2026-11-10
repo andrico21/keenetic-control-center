@@ -63,7 +63,7 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 | Danger | `--color-danger-ink` / `-wash` | #a2191f / #fff1f1 | #ff8389 / #fa4d56 16% | Offline, errors |
 | Warning | `--color-warning-ink` / `-wash` | #684e00 / #fcf4d6 | #f1c21b / #f1c21b 16% | Unsaved changes |
 | Info | `--color-info-ink` / `-wash` | #0043ce / #edf5ff | #78a9ff / #4589ff 16% | Info toasts |
-| Toast tones | `--color-*-toast` | same opaque tone wash | success #2b3e30, danger #482c2e, warning #463f24, info #2b3649 | Floating toasts; always opaque so page content cannot bleed through |
+| Toast tones | `--color-*-toast` | same opaque tone wash | success #2b3e30, danger #482c2e, warning #463f24, info #2b3649 | Floating toasts and notices; always opaque, so nothing under them changes their contrast |
 | Neutral | `--color-neutral-ink` / `-wash` | #393939 / #e0e0e0 | #c6c6c6 / #393939 | Unknown status |
 | Disabled | `--color-disabled` / `-ink` | #c6c6c6 / #8d8d8d | #525252 / #8d8d8d | Disabled controls (exempt) |
 | Danger | `--color-danger` / `-hover` / `-active` | #da1e28 / #b81921 / #750e13 | same | Destructive button fill (white text 5.0:1) |
@@ -78,9 +78,21 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 Measured contrast (WCAG 2.x): text 18.1 / 16.5, muted 7.8 / 10.6 (7.1 / 8.9 on chrome),
 placeholder 4.6 / 6.4, link 5.0 / 7.7, on-accent 5.0, field edge 3.3 / 4.6. Toast
 text on its opaque light/dark surfaces: success 7.00 / 6.70, danger 7.09 / 5.29, warning
-7.11 / 6.25, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text. Warning
-notice text on its wash: 7.11 light; dark, with the 16% wash over the surface under it,
-7.59 on the canvas, 6.22 on chrome and 4.85 on a dialog's raised surface.
+7.11 / 6.25, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text.
+
+Notice text on its surface, per tone and theme. Every notice surface is an opaque literal
+pair, so the ratio is the same on the canvas, on chrome and on a dialog's raised surface.
+The 16% dark washes notices used before measured 4.04:1 (info) and 4.16:1 (error) on a
+dialog; `cargo xtask assets-check` now fails a notice rule whose surface is not an opaque
+literal pair or whose text is under 4.5:1 in either theme.
+
+| Notice tone | Surface / ink | Light | Dark |
+|---|---|---|---|
+| Success (default) | `--color-success-toast` / `--color-success-ink` | 7.00 | 6.70 |
+| Info | `--color-info-toast` / `--color-info-ink` | 7.09 | 5.16 |
+| Warning | `--color-warning-toast` / `--color-warning-ink` | 7.11 | 6.25 |
+| Error | `--color-danger-toast` / `--color-danger-ink` | 7.09 | 5.29 |
+| Neutral | `--color-neutral-wash` / `--color-neutral-ink` | 8.75 | 6.76 |
 
 Rules: accent fills only the primary action; the current place uses the selected wash and ink;
 status colour lives only in pills, badges, flags, notices, the banner, toasts and field errors.
@@ -288,8 +300,11 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   edge stripe. Flag: a non-link pill (warning by default, `data-tone="info"`).
 
 ### Notice (`.notice`)
-- Tones by wash: success (default), info, warning, error, neutral; `notice__title` for a bold
-  first line. A `role="note"` notice is one paragraph (the tier notice with its link).
+- Tones by surface: success (default), info, warning, error, neutral; `notice__title` for a
+  bold first line. A `role="note"` notice is one paragraph (the tier notice with its link).
+- Surfaces are opaque: success, info, warning and error use the toast tokens, neutral the
+  neutral wash (section 2 has the ratios). A notice sits on the canvas, on chrome or inside a
+  dialog, and a translucent wash would change its contrast with each.
 - Every tone other than the default has its own `.notice[data-tone]` rule: the kcc-web test
   `every_notice_tone_has_its_own_rule` fails for a `Tone` or a template's literal notice
   tone without one, which would otherwise render in the success colours.
@@ -313,7 +328,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 - Structure: `#toasts` `role="status"` `aria-live="polite"` region; each toast has a message
   and a Close button; tone by wash (info, success, warning, error), never by an edge stripe.
 - Surface: the tone-specific toast token is opaque in both themes. Dark tokens composite the
-  16% tone wash over Raised so the tone remains visible without underlying text bleeding through.
+  16% tone wash over Chrome so the tone remains visible without underlying text bleeding through.
 
 ### Page briefs (todo 35)
 

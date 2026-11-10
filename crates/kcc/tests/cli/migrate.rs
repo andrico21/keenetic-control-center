@@ -173,3 +173,57 @@ async fn failed_verification_reports_the_completed_automatic_rollback() -> TestR
     handle.shutdown().await?;
     Ok(())
 }
+
+/// Finishing a kept migration says what the router did, in English and Kazakh.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn finishing_a_kept_migration_says_what_the_router_did() -> TestResult {
+    for (step, headline, locale, lang) in [
+        ("commit", keys::CLI_MIGRATE_COMMITTED, Locale::En, "en"),
+        ("rollback", keys::CLI_MIGRATE_ROLLED_BACK, Locale::En, "en"),
+        ("commit", keys::CLI_MIGRATE_COMMITTED, Locale::Kk, "kk"),
+        ("rollback", keys::CLI_MIGRATE_ROLLED_BACK, Locale::Kk, "kk"),
+    ] {
+        let (env, handle) = target(Firmware::V5_1).await?;
+        let source = format!("file:{}", env.path("source.txt").display());
+        let plan_path = env.path("plan.json");
+        let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
+        let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
+        assert_eq!(planned.code, 0_i32, "{planned:?}");
+        let kept = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
+        assert_eq!(kept.code, 0_i32, "{kept:?}");
+        let finished = env.kcc(&[
+            "--lang",
+            lang,
+            "--confirm-destructive",
+            "target",
+            "migrate",
+            "finish",
+            step,
+        ])?;
+        assert_eq!(finished.code, 0_i32, "{finished:?}");
+        assert!(
+            finished.stdout.contains(&tr(locale, headline, None)),
+            "{step} {lang}: {finished:?}"
+        );
+        for ordinary in [keys::CLI_APPLIED, keys::CLI_APPLIED_PERSISTED] {
+            let text = tr(locale, ordinary, None);
+            assert!(
+                !finished.stdout.contains(&text) && !finished.stderr.contains(&text),
+                "{step} {lang}: {finished:?}"
+            );
+        }
+        let committed = step == "commit";
+        assert_eq!(
+            handle.startup_config_text().contains("migrated-1"),
+            committed,
+            "{step}: the saved configuration"
+        );
+        assert_eq!(
+            handle.running_config_text().contains("migrated-1"),
+            committed,
+            "{step}: the running configuration"
+        );
+        handle.shutdown().await?;
+    }
+    Ok(())
+}

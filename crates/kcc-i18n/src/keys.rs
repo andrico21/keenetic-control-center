@@ -294,6 +294,24 @@ pub const CLI_ACCOUNT_DISABLED: MessageKey = MessageKey::new("cli-account-disabl
 /// `cli-account-enabled` in `cli.ftl`.
 pub const CLI_ACCOUNT_ENABLED: MessageKey = MessageKey::new("cli-account-enabled");
 
+/// `cli-failsafe-running` in `cli.ftl`.
+pub const CLI_FAILSAFE_RUNNING: MessageKey = MessageKey::new("cli-failsafe-running");
+
+/// `cli-failsafe-committed` in `cli.ftl`.
+pub const CLI_FAILSAFE_COMMITTED: MessageKey = MessageKey::new("cli-failsafe-committed");
+
+/// `cli-failsafe-rolled-back` in `cli.ftl`.
+pub const CLI_FAILSAFE_ROLLED_BACK: MessageKey = MessageKey::new("cli-failsafe-rolled-back");
+
+/// `cli-migrate-committed` in `cli.ftl`.
+pub const CLI_MIGRATE_COMMITTED: MessageKey = MessageKey::new("cli-migrate-committed");
+
+/// `cli-migrate-rolled-back` in `cli.ftl`.
+pub const CLI_MIGRATE_ROLLED_BACK: MessageKey = MessageKey::new("cli-migrate-rolled-back");
+
+/// `cli-done-terminal` in `cli.ftl`.
+pub const CLI_DONE_TERMINAL: MessageKey = MessageKey::new("cli-done-terminal");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6604,7 +6622,7 @@ pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2106] = [
+pub static ALL: [MessageKey; 2112] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6702,6 +6720,12 @@ pub static ALL: [MessageKey; 2106] = [
     CLI_BATCH_REFUSED,
     CLI_ACCOUNT_DISABLED,
     CLI_ACCOUNT_ENABLED,
+    CLI_FAILSAFE_RUNNING,
+    CLI_FAILSAFE_COMMITTED,
+    CLI_FAILSAFE_ROLLED_BACK,
+    CLI_MIGRATE_COMMITTED,
+    CLI_MIGRATE_ROLLED_BACK,
+    CLI_DONE_TERMINAL,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

@@ -60,7 +60,8 @@ pub(crate) async fn config(
 async fn config_writes(ctx: &Ctx, command: ConfigWriteCommand) -> Outcome {
     let ConfigWriteCommand::KeepAlive = command;
     let session = Session::open(ctx, Permission::Write).await?;
-    let gate = Gate::new(Risk::Write, Permission::Write, false);
+    let gate =
+        Gate::new(Risk::Write, Permission::Write, false).reporting(keys::CLI_FAILSAFE_RUNNING);
     session
         .change(gate, async |changes, router| {
             Ok(applied(

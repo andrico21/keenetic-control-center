@@ -23,7 +23,7 @@ mod tests {
     const DEFAULT_TONE: &str = "success";
 
     /// The declaration of the default tone's wash in a base `.notice` rule.
-    const DEFAULT_WASH: &str = "background: var(--color-success-wash);";
+    const DEFAULT_WASH: &str = "background: var(--color-success-toast);";
 
     /// The opening of a tone rule's selector.
     const TONE_SELECTOR: &str = ".notice[data-tone=\"";

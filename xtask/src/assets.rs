@@ -9,7 +9,11 @@
 //! - every asset a template names (a quoted `*.js` or `*.css` path, as passed to the
 //!   `stylesheet` and `script` macros) is pinned, or is a first-party file outside `vendor/`;
 //! - no template loads anything from another origin (`src` or `href` starting with
-//!   `http:`, `https:` or `//`).
+//!   `http:`, `https:` or `//`);
+//! - every toast pair and every notice rule of `css/app.css` reaches 4.5:1 in both themes
+//!   on an opaque surface (notices: [`notice_contrast`]).
+
+mod notice_contrast;
 
 use alloc::collections::BTreeSet;
 use std::{
@@ -114,7 +118,7 @@ where
     })?;
     let mut problems = Vec::new();
     let pinned = check_entries(&assets, &lock.asset, &mut problems)?;
-    check_toast_contrast(&assets, &mut problems)?;
+    check_text_contrast(&assets, &mut problems)?;
     for file in files_under(&assets, VENDOR_DIR)? {
         if !pinned.contains(&file) {
             problems.push(format!(
@@ -154,13 +158,13 @@ where
     }
 }
 
-/// Appends a problem for every toast surface and ink pair that is unreadable or whose
-/// contrast in either theme is below [`MIN_TEXT_CONTRAST`].
+/// Appends a problem for every toast surface and ink pair, and every notice rule, that is
+/// unreadable or whose contrast in either theme is below [`MIN_TEXT_CONTRAST`].
 ///
 /// # Errors
 ///
 /// Returns [`GateError::Read`] when `css/app.css` cannot be read.
-fn check_toast_contrast(assets: &Path, problems: &mut Vec<String>) -> Result<(), GateError> {
+fn check_text_contrast(assets: &Path, problems: &mut Vec<String>) -> Result<(), GateError> {
     let path = assets.join("css/app.css");
     let css = fs::read_to_string(&path).map_err(|source| GateError::Read { path, source })?;
     for (surface_name, ink_name) in TOAST_TONES {
@@ -184,6 +188,7 @@ fn check_toast_contrast(assets: &Path, problems: &mut Vec<String>) -> Result<(),
             }
         }
     }
+    notice_contrast::check(&css, problems);
     Ok(())
 }
 
@@ -443,7 +448,7 @@ mod tests {
 
     use tempfile::TempDir;
 
-    use super::{asset_references, check_toast_contrast, foreign_loads, is_inside, run};
+    use super::{asset_references, check_text_contrast, foreign_loads, is_inside, run};
     use crate::{Verdict, catalog_fetch::sha256_hex};
 
     /// Fallible test result.
@@ -618,7 +623,7 @@ mod tests {
     fn the_shipped_stylesheet_passes_the_contrast_gate() -> TestResult {
         let assets = Path::new(env!("CARGO_MANIFEST_DIR")).join("../crates/kcc-web/assets");
         let mut problems = Vec::new();
-        check_toast_contrast(&assets, &mut problems)?;
+        check_text_contrast(&assets, &mut problems)?;
         assert!(problems.is_empty(), "{problems:?}");
         Ok(())
     }

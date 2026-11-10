@@ -71,11 +71,20 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
             out.emit(&document, &out.tr(keys::CLI_SAVED, &[]))
         }
         ConfigCommand::Failsafe { action, seconds } => {
-            let (permission, risk) = match action {
-                FailsafeAction::Commit => (Permission::Save, Risk::Write),
-                FailsafeAction::Arm | FailsafeAction::Rollback => {
-                    (Permission::Destructive, Risk::Destructive)
+            let (permission, risk, outcome) = match action {
+                FailsafeAction::Arm => (
+                    Permission::Destructive,
+                    Risk::Destructive,
+                    keys::CLI_FAILSAFE_RUNNING,
+                ),
+                FailsafeAction::Commit => {
+                    (Permission::Save, Risk::Write, keys::CLI_FAILSAFE_COMMITTED)
                 }
+                FailsafeAction::Rollback => (
+                    Permission::Destructive,
+                    Risk::Destructive,
+                    keys::CLI_FAILSAFE_ROLLED_BACK,
+                ),
             };
             if !(300..=3600).contains(&seconds) {
                 return Err(Failure::text(Exit::Usage, &"--seconds must be 300..=3600"));
@@ -96,7 +105,7 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
                 Ok(applied(!matches!(action, FailsafeAction::Commit)))
             })
             .await?;
-            out.emit(&document, &out.tr(keys::CLI_APPLIED, &[]))
+            out.emit(&document, &out.tr(outcome, &[]))
         }
     }
 }
