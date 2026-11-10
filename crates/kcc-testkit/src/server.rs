@@ -1275,6 +1275,13 @@ async fn rci_get(
     Path(path): Path<String>,
     Query(query): Query<BTreeMap<String, String>>,
 ) -> Response {
+    if shared
+        .faults
+        .show_requires_post
+        .contains(path.trim_end_matches('/'))
+    {
+        return empty(StatusCode::NOT_FOUND);
+    }
     read(&shared, &login, &path, &query)
 }
 

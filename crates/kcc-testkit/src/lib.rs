@@ -98,6 +98,8 @@ pub struct FaultInjection {
     fail_safe_arm_noop: bool,
     /// Root batch items containing this JSON pointer return an error without applying.
     refuse_batch_pointer: Option<String>,
+    /// Show resources whose `GET` answers 404 while `POST` answers normally.
+    show_requires_post: BTreeSet<String>,
 }
 
 impl FaultInjection {
@@ -106,6 +108,19 @@ impl FaultInjection {
     #[must_use]
     pub fn refuse_batch_pointer(mut self, pointer: String) -> Self {
         self.refuse_batch_pointer = Some(pointer);
+        self
+    }
+
+    /// Answers `GET /rci/<path>` for the show resource `path` (for example
+    /// `show/clock/date`) with 404, as a router that serves it only by `POST` does;
+    /// `POST /rci/<path>` still answers normally.
+    #[inline]
+    #[must_use]
+    pub fn show_requires_post<S>(mut self, path: S) -> Self
+    where
+        S: Into<String>,
+    {
+        let _: bool = self.show_requires_post.insert(path.into());
         self
     }
 

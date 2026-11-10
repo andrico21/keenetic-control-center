@@ -931,6 +931,11 @@ h3 {
   color: var(--color-info-ink);
 }
 
+.notice[data-tone="warning"] {
+  background: var(--color-warning-wash);
+  color: var(--color-warning-ink);
+}
+
 .notice[data-tone="error"] {
   background: var(--color-danger-wash);
   color: var(--color-danger-ink);

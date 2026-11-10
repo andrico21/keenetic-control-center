@@ -102,3 +102,5 @@ cli-applied-persisted = Змена ўжыта. Роўтар ужо захава�
 cli-mixed-persistence-before = Роўтар адразу захавае гэтыя шляхі каталога: { $paths }. Астатняе застанецца незахаваным, пакуль вы яго не захаваеце.
 cli-error-not-applied = Роўтар не ўжыў змену: пры зваротным чытанні бачна ранейшае значэнне.
 cli-batch-refused = Роўтар адхіліў некаторыя элементы. Паспяхова: { $succeeded }; адхілена: { $failed }.
+cli-account-disabled = Уваход для { $user } адключаны.
+cli-account-enabled = Уваход для { $user } уключаны.

@@ -105,7 +105,14 @@ pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
             .await;
             out.emit(
                 &json!({ "username": username, "disabled": !enable }),
-                &out.tr(keys::CLI_APPLIED, &[]),
+                &out.tr(
+                    if enable {
+                        keys::CLI_ACCOUNT_ENABLED
+                    } else {
+                        keys::CLI_ACCOUNT_DISABLED
+                    },
+                    &[("user", &username)],
+                ),
             )
         }
     }

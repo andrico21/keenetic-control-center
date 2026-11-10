@@ -102,3 +102,5 @@ cli-applied-persisted = Изменение применено. Роутер уж
 cli-mixed-persistence-before = Роутер сразу сохранит эти пути каталога: { $paths }. Остальное останется несохранённым, пока вы его не сохраните.
 cli-error-not-applied = Роутер не применил изменение: при обратном чтении видно прежнее значение.
 cli-batch-refused = Роутер отклонил некоторые элементы. Успешно: { $succeeded }; отклонено: { $failed }.
+cli-account-disabled = Вход для { $user } отключён.
+cli-account-enabled = Вход для { $user } включён.

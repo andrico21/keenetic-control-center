@@ -221,6 +221,11 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route` or
   `no ipv6 route` remove every running static route in that address family and return
   `cleared all routes.`; the fault then disarms. **assumed (simulates the R-MCP2 incident)**
+- `FaultInjection::show_requires_post(path)` answers `GET /rci/<path>` for that show
+  resource (for example `show/clock/date`) with 404 and an empty body, while
+  `POST /rci/<path>` answers as usual. **assumed fault injection** (models a router that
+  serves a show resource only by POST; lets tests tell the client's POST fallback for show
+  commands from a plain GET)
 - `Handle::request_log()` records method, path, sorted query pairs, and non-secret root
   parser lines. Parser lines containing password or key command fields are omitted; headers,
   cookies, authorization values, and other request bodies are never retained.

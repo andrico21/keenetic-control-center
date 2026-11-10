@@ -18,6 +18,9 @@ use crate::{
     page::{Localize, Shell},
 };
 
+#[cfg(test)]
+mod notice_tone_tests;
+
 /// The tone of a notice or a toast.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Tone {

@@ -78,7 +78,9 @@ Every token is `light-dark(light, dark)`; `color-scheme` on `:root` picks the co
 Measured contrast (WCAG 2.x): text 18.1 / 16.5, muted 7.8 / 10.6 (7.1 / 8.9 on chrome),
 placeholder 4.6 / 6.4, link 5.0 / 7.7, on-accent 5.0, field edge 3.3 / 4.6. Toast
 text on its opaque light/dark surfaces: success 7.00 / 6.70, danger 7.09 / 5.29, warning
-7.11 / 6.25, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text.
+7.11 / 6.25, info 7.09 / 5.16; every tone clears 4.5:1 for 14 px normal text. Warning
+notice text on its wash: 7.11 light; dark, with the 16% wash over the surface under it,
+7.59 on the canvas, 6.22 on chrome and 4.85 on a dialog's raised surface.
 
 Rules: accent fills only the primary action; the current place uses the selected wash and ink;
 status colour lives only in pills, badges, flags, notices, the banner, toasts and field errors.
@@ -286,8 +288,11 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   edge stripe. Flag: a non-link pill (warning by default, `data-tone="info"`).
 
 ### Notice (`.notice`)
-- Tones by wash: success (default), info, error, neutral; `notice__title` for a bold first
-  line. A `role="note"` notice is one paragraph (the tier notice with its link).
+- Tones by wash: success (default), info, warning, error, neutral; `notice__title` for a bold
+  first line. A `role="note"` notice is one paragraph (the tier notice with its link).
+- Every tone other than the default has its own `.notice[data-tone]` rule: the kcc-web test
+  `every_notice_tone_has_its_own_rule` fails for a `Tone` or a template's literal notice
+  tone without one, which would otherwise render in the success colours.
 
 ### Traffic chart (`.traffic`)
 - Legend `<dl>` with colour swatches and the newest rates as text, then the uPlot canvas

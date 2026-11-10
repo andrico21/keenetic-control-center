@@ -1,4 +1,4 @@
-//! First-run administration, API keys, the audit chain, and secret hygiene.
+//! First-run administration, accounts, API keys, the audit chain, and secret hygiene.
 
 use std::fs;
 
@@ -63,6 +63,65 @@ async fn admin_init_prints_its_password_once_and_audit_verify_finds_tampering() 
         "{}",
         broken.stderr
     );
+    Ok(())
+}
+
+/// `user disable` and `--enable` change a kcc account, not a router.
+///
+/// Each run names the account's new sign-in state, never the router-change sentence with
+/// its save advice, and the account list agrees with it.
+#[test]
+fn user_disable_and_enable_name_the_account_change_without_router_save_advice() -> TestResult {
+    let env = Env::new("")?;
+    let password = env.write("alice.password", &"alice-".repeat(3))?;
+    let added = env.kcc(&[
+        "--password-file",
+        password.to_str().ok_or("non-UTF-8 path")?,
+        "user",
+        "add",
+        "alice",
+    ])?;
+    assert_eq!(added.code, 0_i32, "{added:?}");
+    let mut user = fluent_bundle::FluentArgs::new();
+    user.set("user", "alice");
+    for (lang, locale) in [("en", Locale::En), ("ru", Locale::Ru)] {
+        for (enable, said) in [
+            (false, keys::CLI_ACCOUNT_DISABLED),
+            (true, keys::CLI_ACCOUNT_ENABLED),
+        ] {
+            let mut args = vec!["--lang", lang, "user", "disable", "alice"];
+            if enable {
+                args.push("--enable");
+            }
+            let run = env.kcc(&args)?;
+            assert_eq!(run.code, 0_i32, "{run:?}");
+            assert!(
+                run.stdout.contains(&tr(locale, said, Some(&user))),
+                "{lang} enable={enable}: {}",
+                run.stdout
+            );
+            for router_change in [keys::CLI_APPLIED, keys::CLI_APPLIED_PERSISTED] {
+                assert!(
+                    !streams(&run).contains(&tr(locale, router_change, None)),
+                    "{lang} enable={enable} printed {}",
+                    router_change.id()
+                );
+            }
+            let listed: Value =
+                serde_json::from_str(&env.kcc(&["--json", "user", "list"])?.stdout)?;
+            let disabled = listed
+                .get("users")
+                .and_then(Value::as_array)
+                .and_then(|users| {
+                    users.iter().find(|account| {
+                        account.get("username").and_then(Value::as_str) == Some("alice")
+                    })
+                })
+                .and_then(|account| account.get("disabled"))
+                .and_then(Value::as_bool);
+            assert_eq!(disabled, Some(!enable), "{listed}");
+        }
+    }
     Ok(())
 }
 

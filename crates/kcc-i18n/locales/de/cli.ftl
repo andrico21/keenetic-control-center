@@ -100,3 +100,5 @@ cli-applied-persisted = Änderung angewendet. Der Router hat sie bereits gespeic
 cli-mixed-persistence-before = Der Router wird diese Katalogpfade sofort speichern: { $paths }. Der Rest bleibt ungespeichert, bis Sie ihn speichern.
 cli-error-not-applied = Der Router hat die Änderung nicht übernommen: Beim Zurücklesen zeigt er noch den alten Wert.
 cli-batch-refused = Der Router hat einige Elemente abgelehnt. Erfolgreich: { $succeeded }; abgelehnt: { $failed }.
+cli-account-disabled = Anmeldung für { $user } deaktiviert.
+cli-account-enabled = Anmeldung für { $user } aktiviert.

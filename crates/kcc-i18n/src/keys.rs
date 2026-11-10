@@ -288,6 +288,12 @@ pub const CLI_ERROR_NOT_APPLIED: MessageKey = MessageKey::new("cli-error-not-app
 /// `cli-batch-refused` in `cli.ftl`.
 pub const CLI_BATCH_REFUSED: MessageKey = MessageKey::new("cli-batch-refused");
 
+/// `cli-account-disabled` in `cli.ftl`.
+pub const CLI_ACCOUNT_DISABLED: MessageKey = MessageKey::new("cli-account-disabled");
+
+/// `cli-account-enabled` in `cli.ftl`.
+pub const CLI_ACCOUNT_ENABLED: MessageKey = MessageKey::new("cli-account-enabled");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6594,7 +6600,7 @@ pub const WEB_VPN_ERROR_PSK: MessageKey = MessageKey::new("web-vpn-error-psk");
 pub const WEB_EXPLORER_PARTIAL_MIXED: MessageKey = MessageKey::new("web-explorer-partial-mixed");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2103] = [
+pub static ALL: [MessageKey; 2105] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6690,6 +6696,8 @@ pub static ALL: [MessageKey; 2103] = [
     CLI_MIXED_PERSISTENCE_BEFORE,
     CLI_ERROR_NOT_APPLIED,
     CLI_BATCH_REFUSED,
+    CLI_ACCOUNT_DISABLED,
+    CLI_ACCOUNT_ENABLED,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

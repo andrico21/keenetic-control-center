@@ -100,3 +100,5 @@ cli-applied-persisted = Өзгеріс қолданылды. Роутер оны
 cli-mixed-persistence-before = Роутер мына каталог жолдарын бірден сақтайды: { $paths }. Қалғаны сіз сақтағанға дейін сақталмай қалады.
 cli-error-not-applied = Роутер өзгерісті қолданбады: кері оқығанда бұрынғы мән көрінеді.
 cli-batch-refused = Роутер кейбір элементтерді қабылдамады. Сәтті: { $succeeded }; қабылданбаған: { $failed }.
+cli-account-disabled = { $user } үшін кіру өшірілді.
+cli-account-enabled = { $user } үшін кіру қосылды.
