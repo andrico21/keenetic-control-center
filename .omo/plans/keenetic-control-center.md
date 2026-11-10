@@ -1247,6 +1247,17 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(web,mcp): do not report read-only batches as changes and pin the timer, credential and risk rules their mutants showed unprotected
   Recommended task executor category: unspecified-high
 
+- [ ] 101. Dark notices inside dialogs must reach AA contrast, and fail-safe and migration commits must not tell the operator to save (found by the row 98 agent while fixing F3 round 10 N40)
+
+  What to do / Must NOT do: (1) in the dark theme the info and error `.notice` washes are translucent (`rgb(... / 0.16)`) and sit over a dialog's raised surface, so their ink measures 4.04:1 (info) and 4.16:1 (error), below WCAG AA 4.5:1 (examples: field-problem error notices in the DHCP, DNS/VPN and segment dialogs); the warning notice measures 4.85:1 there: give every `.notice` tone an opaque surface that is checkable (reuse the opaque literal `--color-*-toast` tokens that the xtask toast gate already measures at >= 5.16:1, or equivalent literal hex), verify every tone x theme x surface (canvas, chrome, dialog raised) >= 4.5:1 with the xtask gate's own function, extend the machine check so a notice surface that is not a literal pair fails loudly, write the measured numbers in `crates/kcc-web/DESIGN.md`, take before/after screenshots of an error notice inside a dialog at 390 px dark and 1280 px light and read them. (2) `kcc config failsafe commit` and `kcc migrate finish commit` print "Change applied. It is not saved yet: run kcc config save" although the commit saves the configuration and their JSON says `\"unsaved\": false`; the rollback variants print "Change applied" (`kcc/src/cli/{persist,migrate,change}.rs`, key `CLI_APPLIED`): print messages that match what happened for commit (stored) and rollback (the router restored its saved configuration), keys in six locales, red-first CLI tests, audit the other `CLI_APPLIED` call sites for the same untruth. Must NOT: change risk classification, credential handling, audit format, HTTP statuses, the toast tokens' values.
+  Closes: GAP-5
+  Parallelization: Wave W24 | Blocked by: 98 | Blocks: F1-F4 re-run
+  References: row 98 agent follow-ups 1 and 2 (`.omo/notepads/keenetic-control-center/learnings.md`, section "Todo 98 progress").
+  Acceptance criteria: G0 green; the notice contrast gate fails on a sub-AA notice surface and passes on the shipped CSS; commit and rollback messages tested by key; screenshots read.
+  QA scenarios: happy - `cargo test -p kcc --test cli && cargo test -p kcc-web && cargo xtask assets-check 2>&1 | tee .omo/evidence/task-101-keenetic-control-center.log`; failure - `kcc config failsafe commit` no longer says to save, appended.
+  Commit: Y | fix(web,cli): give dark notices AA contrast on every surface and describe fail-safe and migration commits truthfully
+  Recommended task executor category: visual-engineering
+
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
 - [ ] F1. Plan compliance audit
