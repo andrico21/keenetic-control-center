@@ -7,7 +7,7 @@ use std::io::{self, BufRead as _, IsTerminal as _, Write as _};
 
 use kcc_app::{jobs::JobRunner, permissions::Permission};
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet, recovery};
+use kcc_domain::configuration::{SafetyMode, SafetyNet, recovery};
 use kcc_i18n::keys;
 use serde_json::{Value, json};
 
@@ -90,6 +90,7 @@ pub(super) async fn finalize(
         Finish::Save => Gate::new(Risk::Write, Permission::Save, false),
         Finish::Rollback => Gate::new(Risk::Destructive, Permission::Destructive, false),
     };
+    let mut saved = false;
     run_change(ctx, services, target, gate, async |changes, router| {
         match (action, mode) {
             (Finish::KeepUnsaved, _) => {
@@ -98,20 +99,26 @@ pub(super) async fn finalize(
                     .map_err(Failure::from);
                 recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
             }
-            (Finish::Save, SafetyMode::Router) => SafetyNet::commit(changes).await?,
-            (Finish::Save, SafetyMode::ScheduledReboot | _) => {
-                configuration::save(changes).await?;
-                ctx.out().note(&ctx.out().tr(keys::CLI_SAVED, &[]));
-                let disarm = SafetyNet::disarm(changes, router, mode)
+            (Finish::Save, _) => {
+                ctx.finish_saved(changes, router, mode)
                     .await
-                    .map_err(Failure::from);
-                recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
+                    .map_err(|error| {
+                        saved = error.applied();
+                        Failure::recovery(error)
+                    })?;
             }
             (Finish::Rollback, _) => drop(SafetyNet::rollback(changes, router).await?),
         }
         Ok(json!({ "router": target.id(), "finish": name(action) }))
     })
     .await
+    .map_err(|error| {
+        if saved {
+            Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
+        } else {
+            error
+        }
+    })
 }
 
 /// `preset finish <run-id> <action>`: ends a run started by another process.

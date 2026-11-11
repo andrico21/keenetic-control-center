@@ -5,7 +5,7 @@ use std::path::Path;
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet, recovery};
+use kcc_domain::configuration::{self, SafetyMode, SafetyNet};
 use kcc_i18n::keys;
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -100,17 +100,10 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
                     (FailsafeAction::Arm, _) => {
                         drop(SafetyNet::arm(changes, router, mode, seconds).await?);
                     }
-                    (FailsafeAction::Commit, SafetyMode::Router) => {
-                        SafetyNet::commit(changes).await?;
-                    }
-                    (FailsafeAction::Commit, SafetyMode::ScheduledReboot | _) => {
-                        configuration::save(changes).await?;
-                        out.note(&out.tr(keys::CLI_SAVED, &[]));
-                        let disarm = SafetyNet::disarm(changes, router, mode)
-                            .await
-                            .map_err(Failure::from);
-                        recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
-                    }
+                    (FailsafeAction::Commit, _) => ctx
+                        .finish_saved(changes, router, mode)
+                        .await
+                        .map_err(Failure::recovery)?,
                     (FailsafeAction::Rollback, _) => {
                         drop(SafetyNet::rollback(changes, router).await?);
                     }

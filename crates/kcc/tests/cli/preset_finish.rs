@@ -196,7 +196,7 @@ async fn preset_finish_disarm_failure_reports_saved_change() -> TestResult {
     assert!(
         finish
             .stderr
-            .contains(&tr(Locale::En, keys::MANAGEMENT_DISARM_FAILED, None)),
+            .contains(&tr(Locale::En, keys::FINISH_SAVED_ARMED, None)),
         "{finish:?}"
     );
     assert!(

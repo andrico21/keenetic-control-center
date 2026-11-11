@@ -36,11 +36,12 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
         .map_err(|_error| ApplyError::Drift)?;
     match applier.mode {
         SafetyMode::Router => {
-            applier
+            let commit = applier
                 .changes
                 .commit()
                 .await
-                .map_err(|_error| ApplyError::Workflow)?;
+                .map_err(|_error| ApplyError::Workflow);
+            recovery::finish(commit, commit).map_err(|_error| ApplyError::FinishFailed)?;
             applier
                 .changes
                 .save()
@@ -48,24 +49,39 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
                 .map_err(|_error| ApplyError::Workflow)?;
         }
         SafetyMode::ScheduledReboot => {
-            applier
+            let saved = applier
                 .changes
                 .save()
                 .await
-                .map_err(|_error| ApplyError::Workflow)?;
-            let client = applier.changes.client();
-            let catalog = Catalog::for_router(
-                &client
-                    .detect()
-                    .await
-                    .map_err(|_error| ApplyError::Unreachable)?,
-            )
-            .map_err(|_error| ApplyError::Validation)?;
-            let ctx = RouterCtx::new(Arc::clone(&client), catalog);
-            let disarm = SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
-                .await
                 .map_err(|_error| ApplyError::Workflow);
-            recovery::finish(Ok(()), disarm).map_err(|_error| ApplyError::DisarmFailed)?;
+            let disarm = match saved {
+                Ok(()) => {
+                    async {
+                        let client = applier.changes.client();
+                        let catalog = Catalog::for_router(
+                            &client
+                                .detect()
+                                .await
+                                .map_err(|_error| ApplyError::Unreachable)?,
+                        )
+                        .map_err(|_error| ApplyError::Validation)?;
+                        let ctx = RouterCtx::new(Arc::clone(&client), catalog);
+                        SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
+                            .await
+                            .map(|_receipt| ())
+                            .map_err(|_error| ApplyError::Workflow)
+                    }
+                    .await
+                }
+                Err(error) => Err(error),
+            };
+            recovery::finish(saved, disarm).map_err(|error| {
+                if error.applied() {
+                    ApplyError::SavedDisarmFailed
+                } else {
+                    ApplyError::FinishFailed
+                }
+            })?;
         }
         _ => return Err(ApplyError::Validation),
     }

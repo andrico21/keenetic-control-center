@@ -72,7 +72,19 @@ pub(crate) async fn apply(
             "rollback"
         }
         (FinishAction::Commit, None) => {
-            applier.commit().await.map_err(apply_failure)?;
+            if let Err(error) = applier.commit().await {
+                if error.recovery_armed() {
+                    ctx.audit(
+                        services,
+                        "cli.change",
+                        Some(&target),
+                        json!({"error":"router", "fail_safe_armed":true}),
+                        "failed",
+                    )
+                    .await;
+                }
+                return Err(apply_failure(error));
+            }
             "commit"
         }
         (FinishAction::Keep, None) => "keep",
@@ -119,6 +131,9 @@ pub(crate) async fn apply(
 /// Maps a migration failure to its exit code and localized message.
 pub(crate) fn apply_failure(error: ApplyError) -> Failure {
     let (exit, key) = match error {
+        ApplyError::SavedDisarmFailed => (Exit::Router, keys::FINISH_SAVED_ARMED),
+        ApplyError::DisarmFailed => (Exit::Router, keys::MANAGEMENT_DISARM_FAILED),
+        ApplyError::FinishFailed => (Exit::Router, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
         ApplyError::UnverifiedFirmwareTier => (Exit::Policy, keys::MIGRATE_APPLY_TIER),
         ApplyError::AgreementRequired => (Exit::Policy, keys::MIGRATE_APPLY_AGREEMENT),
         ApplyError::RolledBackByRouter => (Exit::Router, keys::MIGRATE_APPLY_ROUTER_ROLLBACK),

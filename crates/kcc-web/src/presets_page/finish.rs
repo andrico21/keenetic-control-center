@@ -135,13 +135,18 @@ pub(super) async fn finish(
     };
     if let Err(error) = result {
         drop(slot);
-        let failed = if error == ApplyError::DisarmFailed {
+        let failed = if error.recovery_armed() {
             audit.with_params(json!({ "fail_safe_armed": true }))
         } else {
             audit
         };
         failed.append(&state, &user, "failed").await;
-        let reason = tr(locale, failure_text(&failure_name(error)), None);
+        let key = match (choice, error) {
+            (_, ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
+            (_, ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            _ => failure_text(&failure_name(error)),
+        };
+        let reason = tr(locale, key, None);
         let panel = Panel::new(&visit).await.refusing(reason);
         return Err(refused(&panel).into());
     }

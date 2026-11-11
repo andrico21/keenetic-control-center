@@ -3,7 +3,7 @@
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 use kcc_domain::{
-    configuration::{self, SafetyMode, SafetyNet, recovery},
+    configuration::{SafetyMode, SafetyNet},
     system,
 };
 use kcc_i18n::keys;
@@ -162,19 +162,23 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
         ),
         FinishStep::Rollback => (
             Gate::new(Risk::Destructive, Permission::Destructive, false),
-            keys::CLI_MIGRATE_ROLLED_BACK,
+            if mode == SafetyMode::ScheduledReboot {
+                keys::MIGRATE_ROLLBACK_SAVED
+            } else {
+                keys::CLI_MIGRATE_ROLLED_BACK
+            },
         ),
     };
+    let mut saved = false;
     let document = run_change(ctx, services, &target, gate, async |changes, router| {
         match (action, mode) {
-            (FinishStep::Commit, SafetyMode::Router) => SafetyNet::commit(changes).await?,
-            (FinishStep::Commit, SafetyMode::ScheduledReboot | _) => {
-                configuration::save(changes).await?;
-                ctx.out().note(&ctx.out().tr(keys::CLI_SAVED, &[]));
-                let disarm = SafetyNet::disarm(changes, router, mode)
+            (FinishStep::Commit, _) => {
+                ctx.finish_saved(changes, router, mode)
                     .await
-                    .map_err(Failure::from);
-                recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
+                    .map_err(|error| {
+                        saved = error.applied();
+                        Failure::recovery(error)
+                    })?;
             }
             (FinishStep::Rollback, SafetyMode::Router) => {
                 drop(SafetyNet::rollback(changes, router).await?);
@@ -185,7 +189,14 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
         }
         Ok(applied(matches!(action, FinishStep::Rollback)))
     })
-    .await?;
+    .await
+    .map_err(|error| {
+        if saved {
+            Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
+        } else {
+            error
+        }
+    })?;
     let out = ctx.out();
     out.emit(&document, &out.tr(outcome, &[]))
 }

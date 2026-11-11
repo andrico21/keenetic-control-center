@@ -245,6 +245,9 @@ impl ApplyReport {
     #[must_use]
     pub fn message(&self, locale: Locale) -> String {
         let key = match self.failure {
+            Some(ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
+            Some(ApplyError::DisarmFailed) => keys::MANAGEMENT_DISARM_FAILED,
+            Some(ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
             Some(ApplyError::UnverifiedFirmwareTier) => keys::MIGRATE_APPLY_TIER,
             Some(ApplyError::AgreementRequired) => keys::MIGRATE_APPLY_AGREEMENT,
             Some(ApplyError::RolledBackByRouter) => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
@@ -295,6 +298,12 @@ pub enum ApplyError {
     /// Verified work remains applied but its recovery timer could not be disarmed.
     #[error("migration recovery timer remains armed")]
     DisarmFailed,
+    /// Configuration was saved, but recovery disarm could not be confirmed.
+    #[error("migration configuration saved; recovery timer remains armed")]
+    SavedDisarmFailed,
+    /// Closing could not be confirmed, so recovery must still be treated as armed.
+    #[error("migration closing outcome unknown; recovery timer remains armed")]
+    FinishFailed,
     /// A router line failed under the selected stop policy.
     #[error("migration stopped on command error")]
     Stopped,
@@ -316,4 +325,16 @@ pub enum ApplyError {
     /// Hardware identity differs for raw restore.
     #[error("raw restore hardware mismatch")]
     HardwareMismatch,
+}
+
+impl ApplyError {
+    /// Whether a failed finish leaves recovery armed or its disarm unconfirmed.
+    #[inline]
+    #[must_use]
+    pub const fn recovery_armed(self) -> bool {
+        matches!(
+            self,
+            Self::FinishFailed | Self::DisarmFailed | Self::SavedDisarmFailed
+        )
+    }
 }

@@ -82,11 +82,11 @@ pub(crate) fn roles() -> Vec<Role> {
 pub(crate) async fn routers(
     directory: &Path,
     registry: &RouterRegistry,
-    faults: FaultInjection,
+    (mode, faults): (&str, FaultInjection),
 ) -> TestResult<Vec<(&'static str, Handle)>> {
     let router_mode = || {
         let mut fixture = migration::Fixture::default();
-        fixture.mode = Some("router".to_owned());
+        fixture.mode = Some(mode.to_owned());
         fixture
     };
     let routers = [

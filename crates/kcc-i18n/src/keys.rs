@@ -633,6 +633,12 @@ pub const MIGRATE_APPLY_AGREEMENT: MessageKey = MessageKey::new("migrate-apply-a
 /// `migrate-apply-residual` in `migrate.ftl`.
 pub const MIGRATE_APPLY_RESIDUAL: MessageKey = MessageKey::new("migrate-apply-residual");
 
+/// `finish-saved-armed` in `migrate.ftl`.
+pub const FINISH_SAVED_ARMED: MessageKey = MessageKey::new("finish-saved-armed");
+
+/// `migrate-rollback-saved` in `migrate.ftl`.
+pub const MIGRATE_ROLLBACK_SAVED: MessageKey = MessageKey::new("migrate-rollback-saved");
+
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
@@ -6633,7 +6639,7 @@ pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2115] = [
+pub static ALL: [MessageKey; 2117] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6841,6 +6847,8 @@ pub static ALL: [MessageKey; 2115] = [
     MIGRATE_APPLY_TIER,
     MIGRATE_APPLY_AGREEMENT,
     MIGRATE_APPLY_RESIDUAL,
+    FINISH_SAVED_ARMED,
+    MIGRATE_ROLLBACK_SAVED,
     WEB_NAV_DASHBOARD,
     WEB_NAV_ROUTERS,
     WEB_NAV_INTERFACES,

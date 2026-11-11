@@ -68,10 +68,10 @@ pub(crate) fn roles() -> Vec<Role> {
 pub(crate) async fn routers(
     directory: &Path,
     registry: &RouterRegistry,
-    faults: FaultInjection,
+    (mode, faults): (&str, FaultInjection),
 ) -> TestResult<Vec<(&'static str, Handle)>> {
     let mut target = migration::Fixture::default();
-    target.mode = Some("router".to_owned());
+    target.mode = Some(mode.to_owned());
     let routers = [
         (
             "giga",

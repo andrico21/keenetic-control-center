@@ -91,9 +91,15 @@ async fn explicit_disarm_failures_report_armed() -> TestResult {
                 "{mode} {command}: save receipt"
             );
             assert!(
-                finished
-                    .stderr
-                    .contains(&tr(Locale::En, keys::MANAGEMENT_DISARM_FAILED, None)),
+                finished.stderr.contains(&tr(
+                    Locale::En,
+                    if command == "save" {
+                        keys::FINISH_SAVED_ARMED
+                    } else {
+                        keys::MANAGEMENT_DISARM_FAILED
+                    },
+                    None
+                )),
                 "{mode} {command}: {finished:?}"
             );
             let entries = read_entries(&env.state_dir())?;

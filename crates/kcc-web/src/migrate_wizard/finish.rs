@@ -12,7 +12,8 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys};
-use kcc_migrate::apply::Applier;
+use kcc_migrate::apply::{Applier, ApplyError};
+use serde_json::json;
 
 use super::{
     access::{Services, Visit},
@@ -145,8 +146,36 @@ async fn finish(
     if let Err(error) = result {
         drop(slot);
         let name = failure_name(error);
-        audit.append(state, user, "failed").await;
-        let reason = tr(locale, failure_text(&name), None);
+        let failed = if error.recovery_armed() {
+            audit.with_params(json!({ "fail_safe_armed": true }))
+        } else {
+            audit
+        };
+        failed.append(state, user, "failed").await;
+        let key = match error {
+            ApplyError::SavedDisarmFailed => keys::FINISH_SAVED_ARMED,
+            ApplyError::DisarmFailed => keys::MANAGEMENT_DISARM_FAILED,
+            ApplyError::FinishFailed => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            ApplyError::ReplanRequired
+            | ApplyError::UnverifiedFirmwareTier
+            | ApplyError::Drift
+            | ApplyError::SameRouter
+            | ApplyError::Source
+            | ApplyError::Firmware
+            | ApplyError::AgreementRequired
+            | ApplyError::PasswordRequired
+            | ApplyError::Validation
+            | ApplyError::Workflow
+            | ApplyError::Stopped
+            | ApplyError::Verification
+            | ApplyError::RolledBackByRouter
+            | ApplyError::Unreachable
+            | ApplyError::Cancelled
+            | ApplyError::Job
+            | ApplyError::HardwareMismatch
+            | _ => failure_text(&name),
+        };
+        let reason = tr(locale, key, None);
         let panel = Panel::new(&visit).await.refusing(reason);
         return Err(refused(&panel).into());
     }

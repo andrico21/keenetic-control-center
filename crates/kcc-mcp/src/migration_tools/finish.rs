@@ -82,7 +82,13 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
             applier.rollback().await
         }
     }
-    .map_err(map_apply)?;
+    .map_err(|error| {
+        if error.recovery_armed() {
+            McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        } else {
+            map_apply(error)
+        }
+    })?;
     let value = migration.summary();
     drop(entries);
     Ok(value)

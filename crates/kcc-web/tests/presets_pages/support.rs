@@ -95,6 +95,12 @@ impl Fixture {
     /// Builds the fixture with target-router faults for recovery outcomes.
     // NOT cancel-safe: fixture services may start before cancellation.
     pub(crate) async fn with_faults(faults: FaultInjection) -> TestResult<Self> {
+        Self::with_mode("router", faults).await
+    }
+
+    /// Builds a target with the requested recovery mode and closing faults.
+    // NOT cancel-safe: fixture services may start before cancellation.
+    pub(crate) async fn with_mode(mode: &str, faults: FaultInjection) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let clock: Arc<dyn Clock> = Arc::new(FrozenClock);
@@ -102,7 +108,7 @@ impl Fixture {
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
         let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
-        let handles = setup::routers(directory.path(), &registry, faults).await?;
+        let handles = setup::routers(directory.path(), &registry, (mode, faults)).await?;
         let audit = AuditLog::spawn(&state)?;
         let backups = Arc::new(BackupStore::new(state.clone(), master_key()));
         let workflow =
