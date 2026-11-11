@@ -152,12 +152,7 @@ impl Analysis {
             passwords,
             overwrite,
         );
-        let target = ClassificationTarget::new(
-            Some(&self.target.catalog),
-            &self.target.running_config,
-            &self.target.installed_components,
-            self.target.realm.as_deref(),
-        );
+        let target = ClassificationTarget::from_inventory(&self.target);
         RuleEngine::embedded()?.classify(&self.source.ast, target, &choices)
     }
 

@@ -22,6 +22,35 @@ mod tests {
     };
 
     #[tokio::test]
+    async fn review_keeps_target_bridge_members_that_cli_and_mcp_plan() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed_source(&fixture).await?;
+        let admin = fixture.login("admin").await?;
+
+        let page = to_review(&fixture, &admin).await?;
+        let review = text(fixture.get(&page, &admin).await?).await?;
+
+        for member in [
+            "GigabitEthernet0/1",
+            "GigabitEthernet0/2",
+            "GigabitEthernet0/3",
+            "GigabitEthernet0/4",
+            "WifiMaster0/AccessPoint0",
+        ] {
+            let line = format!("interface Bridge0 include {member}");
+            let start = review
+                .find(&line)
+                .ok_or_else(|| format!("missing {line}"))?;
+            let row = review
+                .get(start..)
+                .and_then(|tail| tail.split_once("</tr>").map(|(row, _)| row))
+                .ok_or("incomplete membership row")?;
+            assert!(row.contains("data-fate=\"migrated\""), "{line}: {row}");
+        }
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn the_review_waits_for_conflicts_and_the_inputs_for_passwords() -> TestResult {
         let fixture = Fixture::new().await?;
         seed_source(&fixture).await?;

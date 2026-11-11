@@ -19,7 +19,8 @@ mod tests {
     use kcc_migrate::{
         maps::{InterfaceMap, PortMap, RadioMap},
         rules::{
-            ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleEngine,
+            ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
+            InterfaceInventory, RuleEngine,
         },
     };
     use kcc_rci::version::FirmwareVersion;
@@ -71,8 +72,13 @@ mod tests {
             .chain(interfaces)
             .map(|(_source, mapped)| (*mapped).to_owned())
             .collect();
-        let target_view = ClassificationTarget::new(catalog, &target_ast, &installed, target_realm)
-            .with_interfaces(Some(&target_interfaces));
+        let target_view = ClassificationTarget::new(
+            catalog,
+            &target_ast,
+            &installed,
+            target_realm,
+            InterfaceInventory::Available(&target_interfaces),
+        );
         let choices = ClassificationChoices::new(
             &port_map,
             &radio_map,
@@ -392,8 +398,13 @@ mod tests {
             &passwords,
             &overwrites,
         );
-        let target_view =
-            ClassificationTarget::new(None, &target_ast, &installed, Some("Keenetic Ultra"));
+        let target_view = ClassificationTarget::new(
+            None,
+            &target_ast,
+            &installed,
+            Some("Keenetic Ultra"),
+            InterfaceInventory::Unavailable,
+        );
         let resolved = RuleEngine::embedded()?.classify(&source_ast, target_view, &choices)?;
         assert_eq!(resolved[0].disposition, Disposition::Remap);
         assert_eq!(
@@ -567,7 +578,13 @@ mod tests {
             let passwords = BTreeMap::new();
             let overwrites = BTreeSet::new();
             let choices = ClassificationChoices::new(&port_map, &radio_map, &interface_map, &passwords, &overwrites);
-            let target_view = ClassificationTarget::new(None, &target, &installed, None);
+            let target_view = ClassificationTarget::new(
+                None,
+                &target,
+                &installed,
+                None,
+                InterfaceInventory::Unavailable,
+            );
             let engine = RuleEngine::embedded()?;
             let lines = flatten(&source);
             let items = engine.classify(&source, target_view, &choices)?;

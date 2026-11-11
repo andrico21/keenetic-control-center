@@ -13,7 +13,10 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use crate::maps::{InterfaceMap, MapEntry, PortMap, RadioMap};
+use crate::{
+    inventory::TargetInventory,
+    maps::{InterfaceMap, MapEntry, PortMap, RadioMap},
+};
 
 /// Embedded migration rules parsed once per process.
 const RULES_TOML: &str = include_str!("../rules/rules.toml");
@@ -106,12 +109,12 @@ pub struct ClassificationTarget<'target> {
     installed_components: &'target BTreeSet<String>,
     /// Authentication realm advertised by the target.
     realm: Option<&'target str>,
-    /// Interface ids reported by the target, or `None` when that inventory was unreadable.
-    interfaces: Option<&'target BTreeSet<String>>,
+    /// Authoritative interface inventory state.
+    interfaces: InterfaceInventory<'target>,
 }
 
 impl<'target> ClassificationTarget<'target> {
-    /// Creates a target classification view.
+    /// Creates a target classification view from explicit facts.
     #[inline]
     #[must_use]
     pub const fn new(
@@ -119,22 +122,45 @@ impl<'target> ClassificationTarget<'target> {
         running_config: &'target Ast,
         installed_components: &'target BTreeSet<String>,
         realm: Option<&'target str>,
+        interfaces: InterfaceInventory<'target>,
     ) -> Self {
         Self {
             catalog,
             running_config,
             installed_components,
             realm,
-            interfaces: None,
+            interfaces,
         }
     }
 
-    /// Attaches the target's authoritative interface inventory.
+    /// Creates the complete classification view used by migration surfaces.
     #[inline]
     #[must_use]
-    pub const fn with_interfaces(mut self, interfaces: Option<&'target BTreeSet<String>>) -> Self {
-        self.interfaces = interfaces;
-        self
+    pub fn from_inventory(inventory: &'target TargetInventory) -> Self {
+        Self::new(
+            Some(&inventory.catalog),
+            &inventory.running_config,
+            &inventory.installed_components,
+            inventory.realm.as_deref(),
+            InterfaceInventory::from(inventory.interface_inventory.as_ref()),
+        )
+    }
+}
+
+/// Whether the target's authoritative interface list was readable.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum InterfaceInventory<'target> {
+    /// The interface list was read successfully.
+    Available(&'target BTreeSet<String>),
+    /// The interface list could not be established.
+    Unavailable,
+}
+
+impl<'target> From<Option<&'target BTreeSet<String>>> for InterfaceInventory<'target> {
+    #[inline]
+    fn from(value: Option<&'target BTreeSet<String>>) -> Self {
+        value.map_or(Self::Unavailable, Self::Available)
     }
 }
 
@@ -226,6 +252,7 @@ impl RuleEngine {
         let redacted_lines = flatten(&redact(source));
         let target_lines = flatten(target.running_config);
         let mappings = mappings(choices);
+        let planned_interfaces = planned_interfaces(&lines, &mappings);
         Ok(lines
             .iter()
             .zip(redacted_lines.iter())
@@ -240,6 +267,7 @@ impl RuleEngine {
                     &target,
                     choices,
                     &target_lines,
+                    &planned_interfaces,
                     &mappings,
                     rules,
                 )
@@ -332,15 +360,18 @@ fn classify_line(
     target: &ClassificationTarget<'_>,
     choices: &ClassificationChoices<'_>,
     target_lines: &[CliLine],
+    planned_interfaces: &BTreeSet<String>,
     mappings: &BTreeMap<&str, &str>,
     rules: &[Rule],
 ) -> ClassifiedItem {
     let words = expanded_words(&line.tokens);
     if let ["interface", _bridge, "include" | "inherit", member] = words.as_slice()
         && let mapped_member = mappings.get(*member).copied().unwrap_or(member)
-        && target
-            .interfaces
-            .is_none_or(|interfaces| !interfaces.contains(mapped_member))
+        && !planned_interfaces.contains(mapped_member)
+        && match target.interfaces {
+            InterfaceInventory::Available(interfaces) => !interfaces.contains(mapped_member),
+            InterfaceInventory::Unavailable => true,
+        }
     {
         return item(
             source_index,
@@ -401,6 +432,17 @@ fn classify_line(
         Some(redacted_line.to_string()),
         Some(SecretString::from(line.to_string())),
     )
+}
+
+/// Collects mapped interface contexts that this source plan creates before membership replay.
+fn planned_interfaces(lines: &[CliLine], mappings: &BTreeMap<&str, &str>) -> BTreeSet<String> {
+    lines
+        .iter()
+        .filter_map(|line| match expanded_words(&line.tokens).as_slice() {
+            ["interface", name] => Some(mappings.get(*name).copied().unwrap_or(name).to_owned()),
+            [_, ..] | [] => None,
+        })
+        .collect()
 }
 
 /// Builds an item selected by the first matching explicit rule.

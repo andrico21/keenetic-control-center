@@ -11,9 +11,44 @@ mod tests {
     use kcc_migrate::{
         maps::{InterfaceMap, PortMap, RadioMap},
         rules::{
-            ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleEngine,
+            ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
+            InterfaceInventory, RuleEngine,
         },
     };
+
+    /// Classifies source text against an optional target interface inventory and mapping.
+    #[expect(
+        clippy::missing_errors_doc,
+        reason = "integration-test helper propagates fixture errors"
+    )]
+    fn classify_source(
+        source_text: &str,
+        target_interfaces: Option<&BTreeSet<String>>,
+        interface_map: &InterfaceMap,
+    ) -> Result<Vec<ClassifiedItem>, Box<dyn Error>> {
+        let source = parse(source_text)?;
+        let target = parse("")?;
+        let installed = BTreeSet::new();
+        let port_map = PortMap::default();
+        let radio_map = RadioMap::default();
+        let passwords = BTreeMap::new();
+        let overwrites = BTreeSet::new();
+        let choices = ClassificationChoices::new(
+            &port_map,
+            &radio_map,
+            interface_map,
+            &passwords,
+            &overwrites,
+        );
+        let target_view = ClassificationTarget::new(
+            None,
+            &target,
+            &installed,
+            None,
+            InterfaceInventory::from(target_interfaces),
+        );
+        Ok(RuleEngine::embedded()?.classify(&source, target_view, &choices)?)
+    }
 
     /// Classifies one bridge member against an optional target interface inventory.
     #[expect(
@@ -24,24 +59,8 @@ mod tests {
         member: &str,
         target_interfaces: Option<&BTreeSet<String>>,
     ) -> Result<ClassifiedItem, Box<dyn Error>> {
-        let source = parse(&format!("interface Bridge0 include {member}\n"))?;
-        let target = parse("")?;
-        let installed = BTreeSet::new();
-        let port_map = PortMap::default();
-        let radio_map = RadioMap::default();
-        let interface_map = InterfaceMap::default();
-        let passwords = BTreeMap::new();
-        let overwrites = BTreeSet::new();
-        let choices = ClassificationChoices::new(
-            &port_map,
-            &radio_map,
-            &interface_map,
-            &passwords,
-            &overwrites,
-        );
-        let target_view = ClassificationTarget::new(None, &target, &installed, None)
-            .with_interfaces(target_interfaces);
-        let mut items = RuleEngine::embedded()?.classify(&source, target_view, &choices)?;
+        let source = format!("interface Bridge0 include {member}\n");
+        let mut items = classify_source(&source, target_interfaces, &InterfaceMap::default())?;
         items
             .pop()
             .ok_or_else(|| "membership line was not classified".into())
@@ -63,6 +82,62 @@ mod tests {
         assert_eq!(item.disposition, Disposition::Copy);
         assert_eq!(item.rule_id, "default-copy");
         assert!(item.output.is_some());
+        Ok(())
+    }
+
+    #[test]
+    #[expect(
+        clippy::missing_errors_doc,
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "integration-test assertions define the task contract"
+    )]
+    fn bridge_member_created_by_the_same_plan_is_copied_after_creation()
+    -> Result<(), Box<dyn Error>> {
+        let source = "interface Vlan5\n!\ninterface Bridge1\n include Vlan5\n!\n";
+
+        let items = classify_source(source, Some(&BTreeSet::new()), &InterfaceMap::default())?;
+
+        let [created, membership] = items.as_slice() else {
+            return Err(format!(
+                "expected creation and membership, got {} items",
+                items.len()
+            )
+            .into());
+        };
+        assert_eq!(created.disposition, Disposition::Copy);
+        assert_eq!(membership.disposition, Disposition::Copy);
+        assert!(created.source_index < membership.source_index);
+        Ok(())
+    }
+
+    #[test]
+    #[expect(
+        clippy::missing_errors_doc,
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "integration-test assertions define the task contract"
+    )]
+    fn mapped_bridge_member_created_by_the_same_plan_is_copied() -> Result<(), Box<dyn Error>> {
+        let source = "interface Vlan5\n!\ninterface Bridge1\n include Vlan5\n!\n";
+        let interface_map = serde_json::from_value(serde_json::json!({
+            "entries": [{"source": "Vlan5", "target": "Vlan7"}]
+        }))?;
+
+        let items = classify_source(source, Some(&BTreeSet::new()), &interface_map)?;
+
+        let [_, membership] = items.as_slice() else {
+            return Err(format!(
+                "expected creation and membership, got {} items",
+                items.len()
+            )
+            .into());
+        };
+        assert_eq!(membership.disposition, Disposition::Remap);
+        assert_eq!(
+            membership.after.as_deref(),
+            Some("interface Bridge1 include Vlan7")
+        );
         Ok(())
     }
 

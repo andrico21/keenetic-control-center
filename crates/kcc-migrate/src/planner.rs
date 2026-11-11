@@ -55,13 +55,7 @@ impl Planner {
             &choices.new_passwords,
             &choices.overwrite_scalars,
         );
-        let classification_target = ClassificationTarget::new(
-            Some(&target.catalog),
-            &target.running_config,
-            &target.installed_components,
-            target.realm.as_deref(),
-        )
-        .with_interfaces(target.interface_inventory.as_ref());
+        let classification_target = ClassificationTarget::from_inventory(target);
         let mut classified = RuleEngine::embedded()?.classify(
             &source.ast,
             classification_target,
