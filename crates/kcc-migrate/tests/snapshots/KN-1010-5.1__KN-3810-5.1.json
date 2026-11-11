@@ -1,10 +1,10 @@
 {
   "dispositions": {
-    "copy": 6,
+    "copy": 11,
     "remap": 1
   },
   "phases": {
-    "additive": 4,
+    "additive": 5,
     "management": 1,
     "prune": 0
   },

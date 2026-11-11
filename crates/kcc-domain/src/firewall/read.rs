@@ -14,7 +14,7 @@
 
 use alloc::collections::BTreeMap;
 
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Value, json};
 
 use super::model::{Action, ConfiguredRule, Direction, Protocol, Rule, UpnpRedirect};
@@ -27,8 +27,8 @@ pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
         return Err(DomainError::InvalidResponse);
     };
     response
-        .value
-        .pointer("/show/rc/access-list")
+        .configuration_tree(ConfigKind::Running)
+        .and_then(|tree| tree.get("access-list"))
         .cloned()
         .ok_or(DomainError::InvalidResponse)
 }
@@ -59,11 +59,13 @@ pub(crate) async fn has_binding(
         return Err(DomainError::InvalidResponse);
     };
     Ok(response
-        .value
-        .pointer(&format!(
-            "/show/rc/interface/{}/ip/access-group",
-            interface.replace('~', "~0").replace('/', "~1")
-        ))
+        .configuration_tree(ConfigKind::Running)
+        .and_then(|tree| {
+            tree.pointer(&format!(
+                "/interface/{}/ip/access-group",
+                interface.replace('~', "~0").replace('/', "~1")
+            ))
+        })
         .and_then(Value::as_array)
         .is_some_and(|bindings| {
             bindings.iter().any(|binding| {

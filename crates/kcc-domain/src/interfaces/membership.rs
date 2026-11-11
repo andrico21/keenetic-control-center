@@ -22,8 +22,8 @@ pub(crate) async fn read(router: &RouterCtx) -> Result<BTreeMap<String, BTreeSet
         return Err(DomainError::InvalidResponse);
     };
     let tree = response
-        .value
-        .pointer("/show/rc/interface")
+        .configuration_tree(ConfigKind::Running)
+        .and_then(|tree| tree.get("interface"))
         .ok_or(DomainError::InvalidResponse)?;
     merge(lines, tree)
 }

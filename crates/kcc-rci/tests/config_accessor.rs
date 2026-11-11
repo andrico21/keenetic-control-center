@@ -18,10 +18,6 @@ const ROOTS: [&str; 3] = [
     "crates/kcc-app/src",
     "crates/kcc-web/src",
 ];
-const ROW_110_OWNERS: [&str; 2] = [
-    "crates/kcc-domain/src/firewall/read.rs",
-    "crates/kcc-domain/src/interfaces/management.rs",
-];
 const FORBIDDEN: [&str; 4] = [
     ".pointer(\"/show/rc",
     ".pointer(\"/show/sc",
@@ -52,9 +48,6 @@ fn visit(workspace: &Path, directory: &Path, violations: &mut Vec<String>) -> Te
             continue;
         }
         let relative = path.strip_prefix(workspace)?.to_string_lossy();
-        if ROW_110_OWNERS.contains(&relative.as_ref()) {
-            continue;
-        }
         let source = fs::read_to_string(&path)?;
         for forbidden in FORBIDDEN {
             if source.contains(forbidden) {
