@@ -32,6 +32,7 @@ pub mod capture;
 mod cli_engine;
 mod components;
 mod config_state;
+mod connection_fault;
 mod failsafe;
 pub mod fake_elasticsearch;
 pub mod fake_loki;
@@ -100,9 +101,26 @@ pub struct FaultInjection {
     refuse_batch_pointer: Option<String>,
     /// Show resources whose `GET` answers 404 while `POST` answers normally.
     show_requires_post: BTreeSet<String>,
+    /// Parser command whose connection is lost before or after application.
+    disconnect_parse: Option<(String, bool)>,
 }
 
 impl FaultInjection {
+    /// Drops connections after applying a matching parser command.
+    #[inline]
+    #[must_use]
+    pub fn disconnect_after_parse(mut self, command: String) -> Self {
+        self.disconnect_parse = Some((command, true));
+        self
+    }
+
+    /// Drops connections without applying a matching parser command.
+    #[inline]
+    #[must_use]
+    pub fn disconnect_before_parse(mut self, command: String) -> Self {
+        self.disconnect_parse = Some((command, false));
+        self
+    }
     /// Refuses matching root batch items inside the normal HTTP 200 response.
     #[inline]
     #[must_use]
@@ -504,13 +522,16 @@ impl FakeRouter {
         let shared = Arc::clone(&self.shared);
         let app = self.router();
         let task = tokio::spawn(async move {
-            axum::serve(listener, app)
-                .with_graceful_shutdown(async move {
-                    match stopped.await {
-                        Ok(()) | Err(_) => {}
-                    }
-                })
-                .await
+            axum::serve(
+                connection_fault::Listener::new(listener, self.shared.connection_lost()),
+                app,
+            )
+            .with_graceful_shutdown(async move {
+                match stopped.await {
+                    Ok(()) | Err(_) => {}
+                }
+            })
+            .await
         });
         Ok((
             local,
@@ -590,6 +611,14 @@ pub struct Handle {
 }
 
 impl Handle {
+    /// Whether either simulated recovery timer remains armed.
+    #[inline]
+    #[must_use]
+    pub fn recovery_armed(&self) -> bool {
+        self.router
+            .as_ref()
+            .is_some_and(|shared| shared.recovery_armed())
+    }
     /// Returns peak simultaneous HTTP handlers, including injected latency and authentication.
     #[inline]
     #[must_use]

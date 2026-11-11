@@ -72,6 +72,10 @@ impl FailSafe {
 }
 
 impl ScheduledReboot {
+    /// Whether a scheduled recovery reboot remains pending.
+    pub(crate) const fn active(&self) -> bool {
+        self.deadline.is_some()
+    }
     /// Arms or re-arms the reboot timer.
     pub(crate) const fn arm(&mut self, now: Duration, seconds: u64) -> bool {
         if seconds == 0 {

@@ -17,6 +17,13 @@ permission, confirmation, and server switch for management or destructive reques
 Negative `no` commands are destructive. Management nodes retain their recovery timer
 even when a destructive sibling raises the maximum request risk.
 
+After recovery arms, unsuccessful cleanup returns `management_applied_fail_safe_armed`
+when work succeeded, or `management_outcome_unknown_fail_safe_armed` when work failed
+or its outcome is unknown. Both carry a localized English `message` explaining recovery;
+the timer remains armed and will restore the saved configuration, discarding unsaved changes.
+Successful cleanup preserves the original work error. Failed-change audit parameters
+include `fail_safe_armed: true` when recovery remains armed.
+
 ## Toolset `core` (14 tools)
 
 Registered by default: fleet, catalog, jobs, configuration state and the main reads.

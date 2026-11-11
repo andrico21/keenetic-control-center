@@ -49,7 +49,12 @@ impl Record {
 
     /// Appends the record with `outcome`; a failed append is logged and the action stands.
     // NOT cancel-safe: an abandoned append may still be written.
-    pub(crate) async fn append(self, state: &WebState, user: &CurrentUser, outcome: &str) {
+    pub(crate) async fn append(mut self, state: &WebState, user: &CurrentUser, outcome: &str) {
+        if outcome == "fail_safe_armed"
+            && let Value::Object(object) = &mut self.params
+        {
+            drop(object.insert("fail_safe_armed".to_owned(), Value::Bool(true)));
+        }
         let mut event = AuditEvent::new(
             state.unix_seconds(),
             Actor::new(ActorKind::Web, user.username().to_owned()),

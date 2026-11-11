@@ -3,12 +3,25 @@
 use core::fmt;
 
 use kcc_app::workflow::WorkflowError;
-use kcc_domain::DomainError;
+use kcc_domain::{DomainError, configuration::recovery};
 use kcc_rci::{RciBody, RciError, RciResponse};
 use rmcp::ErrorData;
 use serde_json::{Value, json};
 
 use crate::McpFailure;
+
+/// Maps bracket completion without losing an armed recovery timer.
+pub(crate) fn map_recovery(error: recovery::Failure<McpFailure>) -> McpFailure {
+    if error.is_armed() {
+        if error.applied() {
+            McpFailure::ManagementAppliedFailSafeArmed
+        } else {
+            McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        }
+    } else {
+        error.into_source()
+    }
+}
 
 /// Maps a protected workflow failure.
 pub(crate) fn map_workflow(error: WorkflowError) -> McpFailure {

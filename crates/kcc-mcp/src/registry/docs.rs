@@ -48,7 +48,13 @@ pub fn markdown() -> String {
          Every mutating raw tool, including `kcc_cli_parse`, requires the destructive role\n\
          permission, confirmation, and server switch for management or destructive requests.\n\
          Negative `no` commands are destructive. Management nodes retain their recovery timer\n\
-         even when a destructive sibling raises the maximum request risk.\n",
+          even when a destructive sibling raises the maximum request risk.\n\n\
+          After recovery arms, unsuccessful cleanup returns `management_applied_fail_safe_armed`\n\
+          when work succeeded, or `management_outcome_unknown_fail_safe_armed` when work failed\n\
+          or its outcome is unknown. Both carry a localized English `message` explaining recovery;\n\
+          the timer remains armed and will restore the saved configuration, discarding unsaved changes.\n\
+          Successful cleanup preserves the original work error. Failed-change audit parameters\n\
+          include `fail_safe_armed: true` when recovery remains armed.\n",
     );
     for &(toolset, summary) in TOOLSETS {
         let members = all

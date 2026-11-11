@@ -23,6 +23,8 @@ use crate::{
     DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
 };
 
+pub mod recovery;
+
 /// Tolerant fail-safe state nested in `show last-change`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]

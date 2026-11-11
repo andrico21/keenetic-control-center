@@ -12,6 +12,8 @@ mod raw_redaction;
 
 #[path = "support/bracket.rs"]
 mod bracket;
+#[path = "support/bracket_failures.rs"]
+mod bracket_failures;
 #[path = "support/curated_bracket.rs"]
 mod curated_bracket;
 #[path = "support/nested_risk.rs"]

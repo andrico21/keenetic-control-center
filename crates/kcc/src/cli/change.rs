@@ -11,7 +11,7 @@ use kcc_app::{permissions::Permission, workflow::ChangeSet};
 use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, RouterCtx,
-    configuration::{SafetyMode, SafetyNet},
+    configuration::{SafetyMode, SafetyNet, recovery},
 };
 use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::capabilities::{RouterInfo, SystemMode};
@@ -188,28 +188,21 @@ where
         let applied = work(&mut changes, target.router())
             .await
             .map(|document| labelled(document, gate.persists));
-        match SafetyNet::disarm(&mut changes, target.router(), mode).await {
-            Ok(_disarmed) => applied,
-            Err(error) => {
-                drop(applied?);
-                let failure = Failure::from(error);
-                Err(Failure::headline_only(
-                    failure.exit(),
-                    keys::MANAGEMENT_DISARM_FAILED,
-                ))
-            }
-        }
+        let disarm = SafetyNet::disarm(&mut changes, target.router(), mode)
+            .await
+            .map_err(Failure::from);
+        recovery::finish(applied, disarm).map_err(Failure::recovery)
     }
     .await;
     if let Err(failure) = &attempt {
-        ctx.audit(
-            services,
-            "cli.change",
-            Some(target.id()),
-            json!({ "error": failure.exit().name() }),
-            "failed",
-        )
-        .await;
+        let mut params = json!({ "error": failure.exit().name() });
+        if failure.fail_safe_armed()
+            && let Value::Object(object) = &mut params
+        {
+            drop(object.insert("fail_safe_armed".to_owned(), json!(true)));
+        }
+        ctx.audit(services, "cli.change", Some(target.id()), params, "failed")
+            .await;
     }
     attempt
 }

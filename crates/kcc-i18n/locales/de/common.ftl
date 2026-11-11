@@ -44,3 +44,5 @@ common-duration-minutes = { $count } Min.
 common-duration-seconds = { $count } Sek.
 
 management-disarm-failed = Die Änderung der Verwaltungseinstellungen wurde angewendet, aber der Wiederherstellungstimer konnte nicht deaktiviert werden. Behandeln Sie den Timer als weiterhin aktiv: Er kann die gespeicherte Konfiguration wiederherstellen und alle ungespeicherten Änderungen verwerfen. Prüfen Sie den Router vor weiteren Änderungen.
+
+management-outcome-unknown-armed = Es ist unklar, ob die Änderung der Verwaltungseinstellungen angewendet wurde. Der Wiederherstellungstimer bleibt aktiv und wird die gespeicherte Konfiguration wiederherstellen und alle ungespeicherten Änderungen verwerfen.

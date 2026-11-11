@@ -421,6 +421,10 @@ pub const COMMON_DURATION_SECONDS: MessageKey = MessageKey::new("common-duration
 /// `management-disarm-failed` in `common.ftl`.
 pub const MANAGEMENT_DISARM_FAILED: MessageKey = MessageKey::new("management-disarm-failed");
 
+/// `management-outcome-unknown-armed` in `common.ftl`.
+pub const MANAGEMENT_OUTCOME_UNKNOWN_ARMED: MessageKey =
+    MessageKey::new("management-outcome-unknown-armed");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -6769,6 +6773,7 @@ pub static ALL: [MessageKey; 2114] = [
     COMMON_DURATION_MINUTES,
     COMMON_DURATION_SECONDS,
     MANAGEMENT_DISARM_FAILED,
+    MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

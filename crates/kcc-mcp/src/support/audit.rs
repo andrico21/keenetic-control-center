@@ -4,7 +4,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::audit::{Actor, ActorKind, AuditEvent};
 use rmcp_server_kit::rbac::current_identity;
-use serde_json::json;
+use serde_json::{Value, json};
 
 use super::shape::FailureContext;
 use crate::{KccMcp, McpFailure};
@@ -28,16 +28,27 @@ pub(crate) async fn failure(
         | McpFailure::UnverifiedFirmwareTier => ("refused", json!({"reason": error.code()})),
         McpFailure::RouterUnreachable
         | McpFailure::ManagementAppliedFailSafeArmed
+        | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
         | McpFailure::Internal
             if !context.read_only() =>
         {
-            ("failed", json!({"error": error.code()}))
+            let mut params = json!({"error": error.code()});
+            if matches!(
+                error,
+                McpFailure::ManagementAppliedFailSafeArmed
+                    | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+            ) && let Value::Object(object) = &mut params
+            {
+                drop(object.insert("fail_safe_armed".to_owned(), json!(true)));
+            }
+            ("failed", params)
         }
         McpFailure::InvalidArguments
         | McpFailure::ManagementAppliedFailSafeArmed
+        | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::RouterUnreachable
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }

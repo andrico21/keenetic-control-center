@@ -4,7 +4,7 @@ use alloc::{collections::BTreeMap, sync::Arc};
 use core::{
     fmt, iter,
     str::from_utf8,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::atomic::{AtomicBool, AtomicU64, Ordering},
     time::Duration,
 };
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -193,6 +193,8 @@ struct ParseFault {
 /// Everything the handlers share.
 #[derive(Debug)]
 pub(crate) struct Shared {
+    /// Socket-level simulated management outage.
+    connection_lost: Arc<AtomicBool>,
     /// Session cookie name, random per server.
     cookie_name: String,
     /// Authentication realm.
@@ -320,6 +322,7 @@ impl Shared {
         let components = Components::new(show.get("version"));
         Self {
             cookie_name,
+            connection_lost: Arc::new(AtomicBool::new(false)),
             realm,
             product,
             startup_accounts: Mutex::new(accounts.clone()),
@@ -347,6 +350,20 @@ impl Shared {
             log_streams: AtomicU64::new(0),
             firmware_update: Mutex::new(None),
         }
+    }
+
+    /// Shared socket outage flag.
+    pub(crate) fn connection_lost(&self) -> Arc<AtomicBool> {
+        Arc::clone(&self.connection_lost)
+    }
+
+    /// Whether native or scheduled recovery remains armed.
+    pub(crate) fn recovery_armed(&self) -> bool {
+        lock(&self.fail_safe)
+            .as_json(self.clock.now())
+            .get("active")
+            == Some(&Value::Bool(true))
+            || lock(&self.scheduled_reboot).active()
     }
 
     /// The session cookie name.
@@ -943,6 +960,17 @@ impl Shared {
             && let Some(line) = body.get("parse").and_then(Value::as_str)
         {
             self.record_command(line);
+            if let Some((command, apply)) = &self.faults.disconnect_parse
+                && line.contains(command)
+            {
+                let result = if *apply {
+                    self.parse_command(line)
+                } else {
+                    Value::Null
+                };
+                self.connection_lost.store(true, Ordering::SeqCst);
+                return result;
+            }
             return self.parse_command(line);
         }
         if pointer.is_empty()

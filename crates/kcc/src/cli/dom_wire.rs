@@ -173,7 +173,7 @@ pub(crate) async fn interfaces(ctx: &Ctx, command: InterfacesCommand) -> Outcome
         .change(gate, async |changes, context| {
             let result = interfaces::apply(changes, context, &name, operation, true)
                 .await
-                .map_err(|error| Failure::text(Exit::Router, &error))?;
+                .map_err(Failure::from)?;
             Ok(applied(result.unsaved))
         })
         .await

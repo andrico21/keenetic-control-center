@@ -136,10 +136,15 @@ Every management bracket checks the shared `SafetyNet` recovery permissions as w
 as the operation permission. `Destructive` authorizes arm, disarm, keep-alive and
 rollback, so a role that can open a bracket can close it without `Write`; persistence
 still requires `Save`. Curated MCP management writes use the same mode-aware bracket
-as raw writes, with their existing confirmation policy. A failed disarm after an
-applied change is reported explicitly: recovery must be treated as armed and may
-discard all unsaved router changes. No permission failure is described as loss of
-router connectivity.
+as raw writes, with their existing confirmation policy. After arming succeeds, any
+unsuccessful cleanup reports that recovery remains armed and will restore the saved
+configuration, discarding all unsaved router changes. Successful work is reported as
+applied; failed work or a lost response is reported with an unknown application
+outcome. Successful cleanup preserves the original work error without an armed note.
+The failed-change audit parameters include `fail_safe_armed: true` when recovery
+remains armed. The interface guard retains native timer verification and its existing
+early return without cleanup after failed work. No permission failure is described as
+loss of router connectivity.
 
 Runtime management risk belongs to `kcc-domain`: firewall plans classify every
 affected interface and treat failed discovery as management risk; HTTP, SSH and

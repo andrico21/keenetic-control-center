@@ -5,7 +5,7 @@ use core::fmt;
 use fluent_bundle::FluentArgs;
 use kcc_app::{credentials::CredentialError, registry::RegistryError, workflow::WorkflowError};
 use kcc_catalog::ValidationIssue;
-use kcc_domain::DomainError;
+use kcc_domain::{DomainError, configuration::recovery, interfaces::InterfaceChangeError};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -109,6 +109,34 @@ pub(crate) struct Failure {
 pub(crate) type Outcome<T = ()> = Result<T, Failure>;
 
 impl Failure {
+    /// Preserves the error family while exposing an unfinished recovery bracket.
+    pub(crate) fn recovery(error: recovery::Failure<Self>) -> Self {
+        let armed = error.is_armed();
+        let applied = error.applied();
+        let source = error.into_source();
+        if armed {
+            Self::headline_only(
+                source.exit(),
+                if applied {
+                    keys::MANAGEMENT_DISARM_FAILED
+                } else {
+                    keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+                },
+            )
+        } else {
+            source
+        }
+    }
+
+    /// Whether this failure reports an armed recovery timer.
+    pub(crate) fn fail_safe_armed(&self) -> bool {
+        self.headline.is_some_and(|key| {
+            matches!(
+                key,
+                keys::MANAGEMENT_DISARM_FAILED | keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+            )
+        })
+    }
     /// A failure with a detail.
     pub(crate) const fn new(exit: Exit, detail: Detail) -> Self {
         Self {
@@ -203,6 +231,24 @@ impl From<RciError> for Failure {
             | _ => Exit::Router,
         };
         Self::text(exit, &error)
+    }
+}
+
+impl From<InterfaceChangeError> for Failure {
+    fn from(error: InterfaceChangeError) -> Self {
+        error.armed_outcome().map_or_else(
+            || Self::text(Exit::Router, &error),
+            |applied| {
+                Self::headline_only(
+                    Exit::Router,
+                    if applied {
+                        keys::MANAGEMENT_DISARM_FAILED
+                    } else {
+                        keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+                    },
+                )
+            },
+        )
     }
 }
 

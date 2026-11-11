@@ -1,5 +1,11 @@
 # Fake router behaviour
 
+`disconnect_after_parse` applies the matching parser command then resets its TCP
+connection and subsequent connections. `disconnect_before_parse` resets them without
+executing the command. These opt-in faults simulate loss of management connectivity;
+they do not stop the simulated recovery timer or alter its state. This is assumed
+fault injection, not captured hardware behaviour.
+
 What `kcc-testkit`'s `FakeRouter` simulates, and where each behaviour comes from.
 
 Sources:

@@ -18,6 +18,8 @@ mod basics;
 mod batch_outcomes;
 #[path = "cli/bracket.rs"]
 mod bracket;
+#[path = "cli/bracket_failures.rs"]
+mod bracket_failures;
 #[path = "cli/failsafe.rs"]
 mod failsafe;
 #[path = "cli/failures.rs"]

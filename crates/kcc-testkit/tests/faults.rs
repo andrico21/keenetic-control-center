@@ -12,7 +12,8 @@ mod tests {
 
     use axum::http::Method;
     use kcc_rci::{
-        OutboundPolicy, RciBody, RciClient, RciClientOptions, RouterUrl, auth::Credentials,
+        OutboundPolicy, RciBody, RciClient, RciClientOptions, RciError, RouterUrl,
+        auth::Credentials,
     };
     use kcc_testkit::{
         DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, model::Profile,
@@ -21,6 +22,40 @@ mod tests {
     use serde_json::{Value, json};
 
     type TestResult<T = ()> = Result<T, Box<dyn Error>>;
+
+    /// Connection faults reset the wire while preserving the selected application outcome.
+    // NOT cancel-safe: the fixture owns router tasks and sends configuration writes.
+    #[tokio::test]
+    async fn connection_loss_preserves_timer_and_application_outcome() -> TestResult {
+        for (faults, applied) in [
+            (
+                FaultInjection::default().disconnect_after_parse("ip http port".to_owned()),
+                true,
+            ),
+            (
+                FaultInjection::default().disconnect_before_parse("ip http port".to_owned()),
+                false,
+            ),
+        ] {
+            let (handle, client) = spawned(faults).await?;
+            drop(
+                client
+                    .parse("system configuration fail-safe timer reboot 300")
+                    .await?,
+            );
+            let result = client.parse("ip http port 8430").await;
+            assert!(matches!(result, Err(RciError::Transport)), "{result:?}");
+            assert_eq!(handle.running_config_text().contains("port 8430"), applied);
+            assert!(handle.recovery_armed());
+            let cleanup = client
+                .parse("no system configuration fail-safe timer")
+                .await;
+            assert!(matches!(cleanup, Err(RciError::Transport)), "{cleanup:?}");
+            assert!(handle.recovery_armed());
+            handle.shutdown().await?;
+        }
+        Ok(())
+    }
 
     /// Builds a spawned router, handle, and authenticated client.
     async fn spawned(faults: FaultInjection) -> TestResult<(kcc_testkit::Handle, RciClient)> {

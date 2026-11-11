@@ -4,7 +4,7 @@ use kcc_app::workflow::ChangeSet;
 use kcc_catalog::Risk;
 use kcc_domain::{
     RouterCtx,
-    configuration::{SafetyMode, SafetyNet},
+    configuration::{SafetyMode, SafetyNet, recovery},
 };
 use kcc_rci::capabilities::SystemMode;
 
@@ -74,16 +74,8 @@ where
             .map_err(map_workflow)?,
     );
     let applied = work(&mut changes).await;
-    match SafetyNet::disarm(&mut changes, &context, mode).await {
-        Ok(_result) => applied,
-        Err(error) => {
-            tracing::warn!(
-                ?error,
-                router = host.as_str(),
-                "management recovery could not be disarmed"
-            );
-            drop(applied?);
-            Err(McpFailure::ManagementAppliedFailSafeArmed)
-        }
-    }
+    let disarm = SafetyNet::disarm(&mut changes, &context, mode)
+        .await
+        .map_err(map_workflow);
+    recovery::finish(applied, disarm).map_err(super::errors::map_recovery)
 }

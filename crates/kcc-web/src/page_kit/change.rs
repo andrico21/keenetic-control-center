@@ -15,7 +15,10 @@ use kcc_app::{
     },
 };
 use kcc_catalog::{Catalog, HttpMethod, Risk};
-use kcc_domain::{DomainError, RouterCtx, configuration::SafetyNet};
+use kcc_domain::{
+    DomainError, RouterCtx,
+    configuration::{SafetyNet, recovery},
+};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciError, RciResponse};
 use serde_json::{Value, json};
@@ -370,17 +373,16 @@ where
             applied: false,
         });
     }
-    match SafetyNet::disarm(&mut changes, &context, mode).await {
-        Ok(_disarmed) => applied.map_err(Refused::plain),
-        Err(error) => {
-            tracing::warn!(%error, router, "fail-safe timer could not be disarmed");
-            Err(Refused {
-                error,
-                armed: true,
-                applied: applied.is_ok(),
-            })
+    let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
+    recovery::finish(applied, disarm).map_err(|failure| {
+        let armed = failure.is_armed();
+        let completed = failure.applied();
+        Refused {
+            error: failure.into_source(),
+            armed,
+            applied: completed,
         }
-    }
+    })
 }
 
 /// Sends `change` through the change set.

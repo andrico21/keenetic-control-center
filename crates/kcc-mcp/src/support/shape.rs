@@ -4,6 +4,7 @@ use alloc::collections::BTreeMap;
 use core::sync::atomic::{AtomicU64, Ordering};
 use std::sync::PoisonError;
 
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
 
@@ -50,6 +51,7 @@ const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Converts a tool outcome into a protocol result with a correlation id.
+// NOT cancel-safe: a queued audit append may complete after cancellation.
 pub(crate) async fn finish_with_context(
     server: &KccMcp,
     context: FailureContext<'_>,
@@ -65,6 +67,28 @@ pub(crate) async fn finish_with_context(
                 "error": error.code(),
                 "request_id": request_id
             });
+            let recovery_message = match error {
+                McpFailure::ManagementAppliedFailSafeArmed => Some(keys::MANAGEMENT_DISARM_FAILED),
+                McpFailure::ManagementOutcomeUnknownFailSafeArmed => {
+                    Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
+                }
+                McpFailure::InvalidArguments
+                | McpFailure::Forbidden
+                | McpFailure::ConfirmRequired
+                | McpFailure::DestructiveDisabled
+                | McpFailure::RouterUnreachable
+                | McpFailure::RouterRejected
+                | McpFailure::ValidationFailed
+                | McpFailure::VerificationFailed { field: _ }
+                | McpFailure::Conflict
+                | McpFailure::Internal
+                | McpFailure::UnverifiedFirmwareTier => None,
+            };
+            if let Some(key) = recovery_message
+                && let Value::Object(object) = &mut reply
+            {
+                drop(object.insert("message".to_owned(), json!(tr(Locale::En, key, None))));
+            }
             if let (McpFailure::VerificationFailed { field }, Value::Object(object)) =
                 (&error, &mut reply)
             {
