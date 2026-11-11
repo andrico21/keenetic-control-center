@@ -103,9 +103,11 @@ request, and the change workflow checks again. A user can grant only roles whose
 permissions they hold, and the last enabled admin can't be removed.
 
 `Migrate` permits planning and reviewing migrations, presets and settings copies. Every
-apply also requires `Destructive` because it arms the recovery timer before changing the
-router. The built-in `operator` role can plan but cannot apply; use `admin` or a custom
-role granting both permissions.
+apply requires one fixed set before any router request: `Read`, `Migrate`, `Write`,
+`Save` and `Destructive`. Those permissions cover the initial workflow read, the replay,
+commit or save, and the recovery bracket; keep, commit and rollback use the same up-front
+set so authorization stays predictable. The built-in `operator` role can plan but cannot
+apply because it lacks `Destructive`; use `admin` or a custom role granting the full set.
 
 MCP adds its own gates: write tools need their toolset enabled in `[mcp] toolsets`,
 `[mcp] read_only = true` registers only read tools, and destructive tools, and raw management changes, also need

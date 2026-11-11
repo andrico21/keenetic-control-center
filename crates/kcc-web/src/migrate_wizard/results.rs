@@ -119,7 +119,7 @@ impl Panel {
         let rollback = pending && allowed(user, target, &ROLLBACK);
         let shown = [
             (
-                matches!(held, Some((true, false))) && allowed(user, target, &APPLY),
+                matches!(held, Some((true, false))) && allowed(user, target, APPLY),
                 ("commit", keys::WEB_MIGRATE_COMMIT, "primary", STEP),
             ),
             (

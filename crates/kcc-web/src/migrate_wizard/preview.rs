@@ -6,6 +6,7 @@
 
 use askama::Template;
 use kcc_app::permissions::Permission;
+use kcc_domain::configuration::SafetyNet;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     format, keys,
@@ -24,13 +25,8 @@ use crate::{
     page_kit::{context::fragment_shell, gate::allowed},
 };
 
-/// What the apply needs on the target: the replay, the backup and the fail-safe timer.
-pub(super) const APPLY: [Permission; 4] = [
-    Permission::Migrate,
-    Permission::Write,
-    Permission::Save,
-    Permission::Destructive,
-];
+/// Complete apply authority from the shared safety policy.
+pub(super) const APPLY: &[Permission] = SafetyNet::apply_permissions();
 
 /// The step's panel.
 #[derive(Template)]
@@ -91,7 +87,7 @@ impl Panel {
             phases: Vec::new(),
             components: record.components().iter().cloned().collect(),
             reconnect: record.reconnect_url().map(str::to_owned),
-            may_apply: allowed(services.user(), target, &APPLY),
+            may_apply: allowed(services.user(), target, APPLY),
             problem: String::new(),
             error: String::new(),
         };

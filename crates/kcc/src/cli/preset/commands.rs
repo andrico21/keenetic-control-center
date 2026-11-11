@@ -49,7 +49,7 @@ pub(crate) async fn run(ctx: &Ctx, command: PresetCommand) -> Outcome {
         } => {
             require_finish(finish)?;
             let target = ctx.router_id(&services)?;
-            ctx.authorize_recovery(&services, &target)
+            ctx.authorize_apply(&services, &target)
                 .await
                 .map_err(|_failure| {
                     Failure::message(Exit::Policy, keys::CLI_APPLY_RECOVERY_FORBIDDEN, &[])

@@ -228,6 +228,28 @@ impl Ctx {
         }
     }
 
+    /// Checks complete apply authority and records a handler-level refusal.
+    ///
+    /// # Errors
+    /// Returns the principal's permission or scope refusal.
+    // NOT cancel-safe: the refusal audit may append after cancellation.
+    pub(crate) async fn authorize_apply(&self, services: &Services, id: &str) -> Outcome {
+        match self
+            .principal
+            .authorize(SafetyNet::apply_permissions(), &[id])
+        {
+            Ok(role) => {
+                drop(role);
+                Ok(())
+            }
+            Err(failure) => {
+                self.audit(services, "cli.refused", Some(id), Value::Null, "forbidden")
+                    .await;
+                Err(failure)
+            }
+        }
+    }
+
     /// Opens the router services; contacts no router. A legacy router credential
     /// migrated on this first use is audited by router id.
     ///

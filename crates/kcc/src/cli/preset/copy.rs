@@ -2,7 +2,6 @@
 
 use std::io::{self, IsTerminal as _};
 
-use kcc_app::permissions::Permission;
 use kcc_i18n::keys;
 use kcc_migrate::presets::{
     groups::SettingsGroupEngine,
@@ -45,12 +44,8 @@ pub(super) fn require_finish(finish: Option<Finish>) -> Outcome {
 // NOT cancel-safe: changes the target under its fail-safe timer.
 pub(crate) async fn run(ctx: &Ctx, args: CopyCommand) -> Outcome {
     require_finish(args.finish)?;
-    drop(
-        ctx.principal()
-            .authorize(&[Permission::Read, Permission::Migrate], &[&args.to])?,
-    );
     let services = ctx.services().await?;
-    ctx.authorize_recovery(&services, &args.to)
+    ctx.authorize_apply(&services, &args.to)
         .await
         .map_err(|_failure| {
             Failure::message(Exit::Policy, keys::CLI_APPLY_RECOVERY_FORBIDDEN, &[])

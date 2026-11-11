@@ -124,7 +124,7 @@ async fn finish(
     let session = visit.session();
     let target = visit.record().target().unwrap_or_default().to_owned();
     let (action, needed, finished) = match choice {
-        Choice::Commit => ("web.migrate_commit", &APPLY[..], Finish::Committed),
+        Choice::Commit => ("web.migrate_commit", APPLY, Finish::Committed),
         Choice::Rollback => ("web.migrate_rollback", &ROLLBACK[..], Finish::RolledBack),
     };
     let audit = Audit::on_router(action, &target, id.to_owned());

@@ -76,7 +76,11 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
     }
     let applier = migration.applier_mut().ok_or(McpFailure::Conflict)?;
     let result = match input.action {
-        FinishAction::Commit => applier.commit().await,
+        FinishAction::Commit => {
+            authorize_routers(&identity, Permission::Save, core::slice::from_ref(target))
+                .map_err(|_forbidden| McpFailure::ManagementOutcomeUnknownFailSafeArmed)?;
+            applier.commit().await
+        }
         FinishAction::Rollback => {
             server.require_destructive(Risk::Destructive, input.confirm)?;
             applier.rollback().await

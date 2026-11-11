@@ -246,9 +246,8 @@ mod tests {
         lab.stop().await
     }
 
-    /// Applying a preset requires recovery permission before the target is read.
     #[tokio::test]
-    async fn apply_requires_destructive_before_any_router_request() -> TestResult {
+    async fn apply_requires_complete_permissions_before_any_router_request() -> TestResult {
         let routers = vec![
             ("lab-src", FakeRouter::builder(Profile::default()).build()?),
             ("lab-1", target()?),
@@ -258,8 +257,8 @@ mod tests {
             [
                 Permission::Read,
                 Permission::Write,
-                Permission::Save,
                 Permission::Migrate,
+                Permission::Destructive,
             ],
             vec!["*".to_owned()],
         );

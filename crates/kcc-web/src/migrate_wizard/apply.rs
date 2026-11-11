@@ -6,8 +6,7 @@ use alloc::sync::Arc;
 use axum::{
     Extension, Form,
     extract::{Path, State},
-    http::StatusCode,
-    response::{IntoResponse as _, Response},
+    response::Response,
 };
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{
@@ -34,7 +33,6 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
-        gate::allowed,
         respond::Answer,
     },
 };
@@ -62,14 +60,10 @@ pub(super) async fn apply(
     let locale = user.locale();
     let target = visit.record().target().unwrap_or_default().to_owned();
     let audit = Audit::on_router("web.migrate_apply", &target, id.clone());
-    if !allowed(&user, &target, &APPLY) {
+    let missing = errors::refusal::missing(&user, &target, APPLY);
+    if !missing.is_empty() {
         audit.append(&state, &user, "forbidden").await;
-        return Err((
-            StatusCode::FORBIDDEN,
-            tr(locale, keys::WEB_MIGRATE_APPLY_FORBIDDEN, None),
-        )
-            .into_response()
-            .into());
+        return Err(errors::refusal::refused(locale, &missing, "#wizard-step").into());
     }
     let Some(jobs) = state.advanced().jobs().cloned() else {
         return Err(refusal(&visit, keys::WEB_MIGRATE_APPLY_NO_JOBS).await);

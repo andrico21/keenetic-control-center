@@ -12,9 +12,8 @@ use super::support::{Env, TestResult, router};
 
 const SOURCE: &str = "! $$$ Model: Keenetic Giga\n! $$$ Version: 5.1.0\ninterface Bridge11\n description migrated-permission\n!\n";
 
-/// Migration apply requires recovery authority before the target receives any request.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn migration_apply_requires_destructive_before_any_router_request() -> TestResult {
+async fn migration_apply_requires_complete_permissions_before_any_router_request() -> TestResult {
     for mode in ["router", "extender"] {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
@@ -36,7 +35,12 @@ async fn migration_apply_requires_destructive_before_any_router_request() -> Tes
         let mut roles = RolesDocument::default();
         roles.roles.push(Role::new(
             "migrator".to_owned(),
-            [Permission::Read, Permission::Write, Permission::Migrate],
+            [
+                Permission::Read,
+                Permission::Write,
+                Permission::Migrate,
+                Permission::Destructive,
+            ],
             vec!["target".to_owned()],
         ));
         StateStore::open(&env.state_dir())?.write(&roles)?;

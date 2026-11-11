@@ -63,6 +63,7 @@ pub(crate) fn roles() -> Vec<Role> {
             Permission::Write,
             Permission::Save,
             Permission::Migrate,
+            Permission::Destructive,
         ],
         vec!["*".to_owned()],
     ));

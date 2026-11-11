@@ -25,16 +25,21 @@ fn capture(pair: &Pair) -> TestResult {
     Ok(())
 }
 
-/// Preset and copy applies require recovery authority before either router is contacted.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn preset_and_copy_apply_require_destructive_before_any_router_request() -> TestResult {
+async fn preset_and_copy_apply_require_complete_permissions_before_any_router_request() -> TestResult
+{
     for role in ["operator", "migrator"] {
         let pair = Pair::start(Profile::default()).await?;
         capture(&pair)?;
         let mut roles = RolesDocument::default();
         roles.roles.push(Role::new(
             "migrator".to_owned(),
-            [Permission::Read, Permission::Write, Permission::Migrate],
+            [
+                Permission::Read,
+                Permission::Write,
+                Permission::Migrate,
+                Permission::Destructive,
+            ],
             vec!["*".to_owned()],
         ));
         StateStore::open(&pair.env.state_dir())?.write(&roles)?;

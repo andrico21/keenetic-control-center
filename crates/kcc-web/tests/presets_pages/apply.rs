@@ -132,9 +132,8 @@ mod tests {
         Ok(())
     }
 
-    /// Applying without recovery permission is audited and sends no target request.
     #[tokio::test]
-    async fn apply_requires_destructive_before_any_router_request() -> TestResult {
+    async fn apply_names_missing_permissions_before_any_router_request() -> TestResult {
         let fixture = Fixture::new().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let operator = fixture.login("operator").await?;
@@ -154,9 +153,16 @@ mod tests {
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+        assert_eq!(
+            refused
+                .headers()
+                .get("hx-retarget")
+                .and_then(|value| value.to_str().ok()),
+            Some("#wizard-step")
+        );
         let body = text(refused).await?;
         assert!(
-            body.contains("Destructive") && body.contains("Migrate"),
+            body.contains("Destructive") && !body.contains("Write, Save"),
             "the refusal names the missing permissions: {body}"
         );
         assert_eq!(fixture.handle("lab-1")?.request_count(), before);

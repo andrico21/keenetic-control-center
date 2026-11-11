@@ -44,11 +44,9 @@ pub(crate) async fn apply(
     let input: ApplyInput = parse(arguments)?;
     let (identity, host) = server.authorize_host(Permission::Migrate, input.host().to_owned())?;
     if !input.dry_run() {
-        authorize_routers(
-            &identity,
-            SafetyNet::CONTROL_PERMISSION,
-            core::slice::from_ref(&host),
-        )?;
+        for permission in SafetyNet::apply_permissions() {
+            authorize_routers(&identity, *permission, core::slice::from_ref(&host))?;
+        }
     }
     let planned = input.planned(server, &identity).await?;
     if input.dry_run() || !planned.is_ready() {

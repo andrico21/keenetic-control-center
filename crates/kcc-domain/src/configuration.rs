@@ -135,10 +135,25 @@ impl SafetyNet {
     /// Authority shared by arming, disarming, extending, and rolling back recovery.
     pub const CONTROL_PERMISSION: Permission = Permission::Destructive;
 
+    /// Permissions required to apply and finish a migration, preset, or settings copy.
+    pub const APPLY_PERMISSIONS: [Permission; 5] = [
+        Permission::Read,
+        Permission::Migrate,
+        Permission::Write,
+        Permission::Save,
+        Self::CONTROL_PERMISSION,
+    ];
+
     /// Permissions required to open and close a management bracket without saving.
     #[must_use]
     pub const fn management_permissions() -> &'static [Permission] {
         &[Self::CONTROL_PERMISSION]
+    }
+
+    /// Permissions required before an apply may contact any router.
+    #[must_use]
+    pub const fn apply_permissions() -> &'static [Permission] {
+        &Self::APPLY_PERMISSIONS
     }
 
     /// Arms native fail-safe in router mode or scheduled reboot otherwise.
