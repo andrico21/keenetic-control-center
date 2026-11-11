@@ -7,7 +7,7 @@ use kcc_config::{
     config_text::{Token, flatten, parse},
     secrets::redact,
 };
-use kcc_rci::{ConfigKind, RciBody};
+use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 use serde_json::{Value, json};
@@ -18,12 +18,10 @@ use crate::{DomainError, Result, RouterCtx};
 // cancel-safe: configuration reads do not change router state.
 pub(crate) async fn read(router: &RouterCtx) -> Result<BTreeMap<String, BTreeSet<String>>> {
     let lines = configuration_lines(router).await?;
-    let RciBody::Json(response) = router.client.show_rc(json!({"interface":{}})).await? else {
-        return Err(DomainError::InvalidResponse);
-    };
+    let response = router.client.show_rc(json!({"interface":{}})).await?;
     let tree = response
-        .configuration_tree(ConfigKind::Running)
-        .and_then(|tree| tree.get("interface"))
+        .configuration_tree()
+        .get("interface")
         .ok_or(DomainError::InvalidResponse)?;
     merge(lines, tree)
 }

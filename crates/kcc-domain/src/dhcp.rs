@@ -19,7 +19,7 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeResult, WorkflowError},
 };
 use kcc_catalog::Risk;
-use kcc_rci::{ConfigKind, RciBody};
+use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
@@ -63,27 +63,21 @@ pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
 /// Reads running static leases through `show rc ip dhcp host`.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
-    decode_config_rows(
-        router
-            .client
-            .show_rc(json!({"ip":{"dhcp":{"host":{}}}}))
-            .await?,
-        ConfigKind::Running,
-        "/ip/dhcp/host",
-    )
+    let answer = router
+        .client
+        .show_rc(json!({"ip":{"dhcp":{"host":{}}}}))
+        .await?;
+    decode_config_rows(&answer, "/ip/dhcp/host")
 }
 
 /// Reads startup static leases through `show sc ip dhcp host`.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_startup_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
-    decode_config_rows(
-        router
-            .client
-            .show_sc(json!({"ip":{"dhcp":{"host":{}}}}))
-            .await?,
-        ConfigKind::Startup,
-        "/ip/dhcp/host",
-    )
+    let answer = router
+        .client
+        .show_sc(json!({"ip":{"dhcp":{"host":{}}}}))
+        .await?;
+    decode_config_rows(&answer, "/ip/dhcp/host")
 }
 
 /// Reads current DHCP bindings.
@@ -234,17 +228,13 @@ const fn write_operation(name: &'static str, path: &'static str) -> OperationDes
 }
 
 /// Decodes projected configuration rows.
-fn decode_config_rows<T>(body: RciBody, kind: ConfigKind, pointer: &str) -> Result<Vec<T>>
+fn decode_config_rows<T>(answer: &kcc_rci::ConfigurationAnswer, pointer: &str) -> Result<Vec<T>>
 where
     T: DeserializeOwned,
 {
-    let RciBody::Json(response) = body else {
-        return Err(DomainError::InvalidResponse);
-    };
     serde_json::from_value(
-        response
-            .configuration_tree(kind)
-            .ok_or(DomainError::InvalidResponse)?
+        answer
+            .configuration_tree()
             .pointer(pointer)
             .cloned()
             .ok_or(DomainError::InvalidResponse)?,

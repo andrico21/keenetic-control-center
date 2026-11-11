@@ -15,7 +15,6 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
-use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Map, Value, json};
 
 use crate::net_change::scalar;
@@ -242,12 +241,12 @@ pub(crate) async fn access_points(domain: &RouterCtx) -> Result<Vec<ApRow>, Doma
 /// router does not report it.
 // cancel-safe: a read.
 async fn segments(domain: &RouterCtx) -> BTreeMap<String, String> {
-    let Ok(RciBody::Json(response)) = domain.client.show_rc(json!({"interface": {}})).await else {
+    let Ok(response) = domain.client.show_rc(json!({"interface": {}})).await else {
         return BTreeMap::new();
     };
     let tree = response
-        .configuration_tree(ConfigKind::Running)
-        .and_then(|tree| tree.get("interface"))
+        .configuration_tree()
+        .get("interface")
         .and_then(Value::as_object);
     tree.map_or_else(BTreeMap::new, included)
 }

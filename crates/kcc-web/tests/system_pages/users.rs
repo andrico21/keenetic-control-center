@@ -5,7 +5,6 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
-use kcc_rci::RciBody;
 use serde_json::{Value, json};
 
 use crate::{
@@ -19,12 +18,10 @@ pub(crate) const PAGE: &str = "/ui/r/home/system/users";
 /// The accounts the fake router's running configuration has: name and tags.
 pub(crate) async fn configured(fixture: &Fixture) -> TestResult<Vec<(String, Vec<String>)>> {
     let client = fixture.registry().client(ROUTER).await?;
-    let RciBody::Json(reply) = client.show_rc(json!({"user": {}})).await? else {
-        return Err("show rc user is not JSON".into());
-    };
+    let reply = client.show_rc(json!({"user": {}})).await?;
     Ok(reply
-        .value
-        .pointer("/show/rc/user")
+        .configuration_tree()
+        .get("user")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()

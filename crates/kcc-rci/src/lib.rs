@@ -23,6 +23,7 @@ mod auth_token;
 pub mod budget;
 pub mod capabilities;
 pub mod catalog_path;
+pub mod configuration_answer;
 pub mod engine;
 pub mod ndw4_keys;
 mod ndw4_reply;
@@ -33,6 +34,7 @@ pub mod version;
 
 use core::{fmt, net::Ipv4Addr, str::FromStr};
 
+pub use configuration_answer::ConfigurationAnswer;
 pub use engine::{BackgroundHandle, ConfigKind, RciBody, RciClient, RciClientOptions, SecretBytes};
 pub use outbound::{AllowedNetwork, OutboundPolicy, TlsMode};
 use serde::{Deserialize, Serialize, Serializer};
@@ -595,16 +597,6 @@ pub struct RciResponse {
 }
 
 impl RciResponse {
-    /// Returns the projected configuration tree from a `show rc` or `show sc` answer.
-    #[inline]
-    #[must_use]
-    pub fn configuration_tree(&self, kind: ConfigKind) -> Option<&Value> {
-        self.value.pointer(match kind {
-            ConfigKind::Startup => "/show/sc",
-            ConfigKind::Running => "/show/rc",
-        })
-    }
-
     /// Converts a decoded response, returning the first error-level status as a failure.
     ///
     /// # Errors

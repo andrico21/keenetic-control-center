@@ -74,24 +74,10 @@ async fn verbs_show_parse_and_config_transfer_use_the_real_router_surface() -> T
 
     let version = json_value(client.get(&path(&["show", "version"])?, &empty).await?)?;
     assert!(version.get("title").is_some());
-    let RciBody::Json(shown) = client.show_rc(json!({"system":{}})).await? else {
-        return Err("show rc did not return JSON".into());
-    };
-    assert!(
-        shown
-            .configuration_tree(ConfigKind::Running)
-            .and_then(|tree| tree.get("system"))
-            .is_some()
-    );
-    let RciBody::Json(startup_shown) = client.show_sc(json!({"system":{}})).await? else {
-        return Err("show sc did not return JSON".into());
-    };
-    assert!(
-        startup_shown
-            .configuration_tree(ConfigKind::Startup)
-            .and_then(|tree| tree.get("system"))
-            .is_some()
-    );
+    let shown = client.show_rc(json!({"system":{}})).await?;
+    assert!(shown.configuration_tree().get("system").is_some());
+    let startup_shown = client.show_sc(json!({"system":{}})).await?;
+    assert!(startup_shown.configuration_tree().get("system").is_some());
     let interface = "WifiMaster0/AccessPoint0".parse::<ObjectName>()?;
     drop(client.show_interface(&interface).await?);
     drop(client.parse("interface Bridge0 description Engine").await?);

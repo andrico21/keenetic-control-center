@@ -14,7 +14,6 @@
 
 use alloc::collections::BTreeMap;
 
-use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Value, json};
 
 use super::model::{Action, ConfiguredRule, Direction, Protocol, Rule, UpnpRedirect};
@@ -23,12 +22,10 @@ use crate::{DomainError, Result, RouterCtx, read_show};
 /// Reads named IPv4 access lists from the running configuration.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
-    let RciBody::Json(response) = router.client.show_rc(json!({"access-list":{}})).await? else {
-        return Err(DomainError::InvalidResponse);
-    };
+    let response = router.client.show_rc(json!({"access-list":{}})).await?;
     response
-        .configuration_tree(ConfigKind::Running)
-        .and_then(|tree| tree.get("access-list"))
+        .configuration_tree()
+        .get("access-list")
         .cloned()
         .ok_or(DomainError::InvalidResponse)
 }
@@ -51,21 +48,16 @@ pub(crate) async fn has_binding(
     acl: &str,
     direction: Direction,
 ) -> Result<bool> {
-    let RciBody::Json(response) = router
+    let response = router
         .client
         .show_rc(json!({"interface":{interface:{"ip":{"access-group":{}}}}}))
-        .await?
-    else {
-        return Err(DomainError::InvalidResponse);
-    };
+        .await?;
     Ok(response
-        .configuration_tree(ConfigKind::Running)
-        .and_then(|tree| {
-            tree.pointer(&format!(
-                "/interface/{}/ip/access-group",
-                interface.replace('~', "~0").replace('/', "~1")
-            ))
-        })
+        .configuration_tree()
+        .pointer(&format!(
+            "/interface/{}/ip/access-group",
+            interface.replace('~', "~0").replace('/', "~1")
+        ))
         .and_then(Value::as_array)
         .is_some_and(|bindings| {
             bindings.iter().any(|binding| {

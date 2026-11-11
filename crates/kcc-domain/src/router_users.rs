@@ -14,7 +14,6 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
-use kcc_rci::{ConfigKind, RciBody};
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -95,17 +94,10 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// Reads router accounts while discarding password hashes at the response boundary.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_users(router: &RouterCtx) -> Result<Vec<RouterUser>> {
-    let reply = router.client.show_rc(json!({"user":{}})).await?;
-    let RciBody::Json(response) = reply else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let projection = serde_json::from_value::<UserProjection>(
-        response
-            .configuration_tree(ConfigKind::Running)
-            .cloned()
-            .ok_or(DomainError::InvalidResponse)?,
-    )
-    .map_err(|_error| DomainError::InvalidResponse)?;
+    let response = router.client.show_rc(json!({"user":{}})).await?;
+    let projection =
+        serde_json::from_value::<UserProjection>(response.configuration_tree().clone())
+            .map_err(|_error| DomainError::InvalidResponse)?;
     Ok(projection
         .user
         .into_iter()

@@ -46,8 +46,8 @@ mod tests {
                 .parse("ip static tcp ISP 443 192.0.2.44 8443")
                 .await?,
         );
-        let forwards = json(client.show_rc(json!({"ip":{"static":{}}})).await?)?;
-        assert!(forwards.to_string().contains("8443"));
+        let forwards = client.show_rc(json!({"ip":{"static":{}}})).await?;
+        assert!(forwards.configuration_tree().to_string().contains("8443"));
         let nat_path = RciPath::from_segments(["show", "ip", "nat"])?;
         assert_eq!(
             json(client.show(&nat_path, &()).await?)?

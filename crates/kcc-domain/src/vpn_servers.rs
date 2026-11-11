@@ -23,7 +23,6 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
-use kcc_rci::{ConfigKind, RciBody};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
@@ -209,12 +208,8 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
         "crypto":{"map":{"virtual-ip":{"enable":{},"range":{},"dns-servers":{},"interface":{}}}},
         "service":{}
     });
-    let RciBody::Json(response) = router.client.show_rc(tree).await? else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let root = response
-        .configuration_tree(ConfigKind::Running)
-        .ok_or(DomainError::InvalidResponse)?;
+    let response = router.client.show_rc(tree).await?;
+    let root = response.configuration_tree();
     Ok(VpnServerStatus {
         vpn: decode(root.get("vpn-server")),
         sstp: decode(root.get("sstp-server")),

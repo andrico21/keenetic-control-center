@@ -13,7 +13,6 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
-use kcc_rci::{ConfigKind, RciBody};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -170,18 +169,10 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// Reads enabled router services.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_services(router: &RouterCtx) -> Result<Vec<ServiceState>> {
-    let reply = router.client.show_rc(json!({"service":{}})).await?;
-    let RciBody::Json(response) = reply else {
-        return Err(DomainError::InvalidResponse);
-    };
-    serde_json::from_value::<ServiceProjection>(
-        response
-            .configuration_tree(ConfigKind::Running)
-            .cloned()
-            .ok_or(DomainError::InvalidResponse)?,
-    )
-    .map(|projection| projection.service)
-    .map_err(|_error| DomainError::InvalidResponse)
+    let response = router.client.show_rc(json!({"service":{}})).await?;
+    serde_json::from_value::<ServiceProjection>(response.configuration_tree().clone())
+        .map(|projection| projection.service)
+        .map_err(|_error| DomainError::InvalidResponse)
 }
 
 /// Plans enabling or disabling one service present in the selected catalog.

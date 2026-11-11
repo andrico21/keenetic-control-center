@@ -19,7 +19,6 @@ use alloc::collections::BTreeMap;
 
 use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
 use kcc_catalog::Risk;
-use kcc_rci::{ConfigKind, RciBody};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
@@ -392,13 +391,8 @@ pub async fn read_configuration(router: &RouterCtx) -> Result<DnsConfiguration> 
         "object-group": {"fqdn": {}},
         "nextdns": {}
     });
-    let RciBody::Json(response) = router.client.show_rc(tree).await? else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let configuration = response
-        .configuration_tree(ConfigKind::Running)
-        .cloned()
-        .ok_or(DomainError::InvalidResponse)?;
+    let response = router.client.show_rc(tree).await?;
+    let configuration = response.configuration_tree().clone();
     serde_json::from_value(configuration).map_err(|_error| DomainError::InvalidResponse)
 }
 

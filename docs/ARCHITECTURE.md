@@ -50,6 +50,11 @@ kcc <command> ──┴──────── CLI ──────┤
 - Long operations (diagnostics, component commits, migrations, preset applies) run as
   **jobs** with progress events; one write job per router at a time.
 
+`show rc` and `show sc` return an opaque `ConfigurationAnswer`, not the general RCI
+response type. Its private router envelope is projected inside `kcc-rci`; consumers can
+read only `configuration_tree()`. This makes the envelope and requested configuration
+root agree by construction and prevents a new reader from silently choosing a wrong root.
+
 ## Change workflow
 
 Every write from any front end goes through `kcc-app`'s `ChangeWorkflow`:

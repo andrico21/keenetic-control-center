@@ -40,13 +40,10 @@ mod tests {
     #[tokio::test]
     async fn bridge_membership_text_agrees_with_show_rc() -> TestResult {
         let (handle, client) = spawned().await?;
-        let RciBody::Json(response) = client.show_rc(serde_json::json!({"interface":{}})).await?
-        else {
-            return Err("expected show rc JSON".into());
-        };
+        let response = client.show_rc(serde_json::json!({"interface":{}})).await?;
         let interfaces = response
-            .value
-            .pointer("/show/rc/interface")
+            .configuration_tree()
+            .get("interface")
             .and_then(Value::as_object)
             .ok_or("interface tree")?;
         let text = handle.running_config_text();

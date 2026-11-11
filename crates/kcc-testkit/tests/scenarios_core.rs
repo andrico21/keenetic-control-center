@@ -196,13 +196,13 @@ mod tests {
         );
         drop(client.parse("user operator tag cli").await?);
         drop(client.parse("user operator tag readonly").await?);
-        let shown = json(client.show_rc(json!({"user":{}})).await?)?;
-        assert!(shown.to_string().contains("readonly"));
-        assert!(!shown.to_string().contains(secret));
+        let shown = client.show_rc(json!({"user":{}})).await?;
+        assert!(shown.configuration_tree().to_string().contains("readonly"));
+        assert!(!shown.configuration_tree().to_string().contains(secret));
         drop(client.parse("no user operator tag cli").await?);
-        let after = json(client.show_rc(json!({"user":{}})).await?)?;
-        assert!(!after.to_string().contains("\"cli\""));
-        assert!(after.to_string().contains("readonly"));
+        let after = client.show_rc(json!({"user":{}})).await?;
+        assert!(!after.configuration_tree().to_string().contains("\"cli\""));
+        assert!(after.configuration_tree().to_string().contains("readonly"));
         handle.shutdown().await?;
         Ok(())
     }

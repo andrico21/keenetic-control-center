@@ -10,7 +10,6 @@ use kcc_domain::{
     policies::{model::PolicyState, read},
 };
 use kcc_i18n::{bundle::MessageKey, keys};
-use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Value, json};
 
 use super::route_rows::text_key;
@@ -189,14 +188,8 @@ pub(crate) async fn read_policies(domain: &RouterCtx) -> Result<Vec<Policy>, Mes
 pub(crate) async fn configured(
     domain: &RouterCtx,
 ) -> Result<Vec<(String, Vec<Vec<String>>)>, DomainError> {
-    let RciBody::Json(response) = domain.client.show_rc(json!({"ip": {"policy": {}}})).await?
-    else {
-        return Err(DomainError::InvalidResponse);
-    };
-    let Some(Value::Object(policies)) = response
-        .configuration_tree(ConfigKind::Running)
-        .and_then(|tree| tree.pointer("/ip/policy"))
-    else {
+    let response = domain.client.show_rc(json!({"ip": {"policy": {}}})).await?;
+    let Some(Value::Object(policies)) = response.configuration_tree().pointer("/ip/policy") else {
         return Ok(Vec::new());
     };
     Ok(policies

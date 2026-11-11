@@ -17,6 +17,7 @@ use crate::{
     auth::Credentials,
     budget::Budget,
     capabilities::RouterInfo,
+    configuration_answer::ConfigurationAnswer,
     encode_query,
     observe::{RciObserver, RequestOutcome},
     outbound::{OutboundPolicy, TlsMode},
@@ -383,8 +384,11 @@ impl RciClient {
     /// Returns request or response-processing errors.
     // cancel-safe: this show operation is read-only.
     #[inline]
-    pub async fn show_rc(&self, tree: Value) -> Result<RciBody, RciError> {
-        self.post_root(&json!({"show":{"rc":tree}})).await
+    pub async fn show_rc(&self, tree: Value) -> Result<ConfigurationAnswer, RciError> {
+        let RciBody::Json(response) = self.post_root(&json!({"show":{"rc":tree}})).await? else {
+            return Err(RciError::Decode);
+        };
+        ConfigurationAnswer::from_response(&response, ConfigKind::Running)
     }
 
     /// Reads the startup configuration tree through `show sc`.
@@ -394,8 +398,11 @@ impl RciClient {
     /// Returns request or response-processing errors.
     // cancel-safe: this show operation is read-only.
     #[inline]
-    pub async fn show_sc(&self, tree: Value) -> Result<RciBody, RciError> {
-        self.post_root(&json!({"show":{"sc":tree}})).await
+    pub async fn show_sc(&self, tree: Value) -> Result<ConfigurationAnswer, RciError> {
+        let RciBody::Json(response) = self.post_root(&json!({"show":{"sc":tree}})).await? else {
+            return Err(RciError::Decode);
+        };
+        ConfigurationAnswer::from_response(&response, ConfigKind::Startup)
     }
 
     /// Reads a show resource, learning when a router requires POST for that resource.

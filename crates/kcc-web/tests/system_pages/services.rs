@@ -7,7 +7,6 @@ use std::io::{self, Write as _};
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
-use kcc_rci::RciBody;
 use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::{Value, json};
 
@@ -118,12 +117,10 @@ async fn silent_service_noop_is_a_failed_outcome() -> TestResult {
 /// The services the fake router's running configuration turns on.
 async fn configured(fixture: &Fixture) -> TestResult<Vec<String>> {
     let client = fixture.registry().client(ROUTER).await?;
-    let RciBody::Json(reply) = client.show_rc(json!({"service": {}})).await? else {
-        return Err("show rc service is not JSON".into());
-    };
+    let reply = client.show_rc(json!({"service": {}})).await?;
     Ok(reply
-        .value
-        .pointer("/show/rc/service")
+        .configuration_tree()
+        .get("service")
         .and_then(Value::as_array)
         .into_iter()
         .flatten()

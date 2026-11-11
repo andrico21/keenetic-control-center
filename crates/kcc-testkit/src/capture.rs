@@ -321,7 +321,9 @@ pub async fn fetch(connection: &Connection, request: &Request) -> Result<RawBody
                 .split(' ')
                 .rev()
                 .fold(json!({}), |inner, word| json!({ word: inner }));
-            client.show_rc(tree).await?
+            return Ok(RawBody(Raw::Json(
+                client.show_rc(tree).await?.configuration_tree().clone(),
+            )));
         }
         Request::ShowLog => {
             client
