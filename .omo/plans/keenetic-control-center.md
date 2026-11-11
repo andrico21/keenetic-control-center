@@ -1335,6 +1335,17 @@ Your next move: review the summary; then start execution with `$ulw-execute keen
   Commit: Y | fix(domain,cli): verify a firewall binding against the running configuration the router returns
   Recommended task executor category: deep-low
 
+- [ ] 109. Pin the CLI's own Destructive and recovery-permission gate with tests (found by F2 round 12 N51, mutation survivors in permission code)
+
+  What to do / Must NOT do: F2's delta-scoped mutants (log `.omo/evidence/F2-keenetic-control-center-r12.log`, report section 4 and N51) survive in the CLI gate that row 103 rewrote: `crates/kcc/src/cli/change.rs` ~111-120 `Gate::permissions` (`112:9` -> `vec![]`, `113:23` `||` to `&&`, `116:62` `!=` to `==`) and `crates/kcc/src/cli/persist.rs` ~94 (`94:57` `&&` to `||`, `94:65` `==` to `!=`): no CLI test fails when its `Destructive` or recovery-permission clauses are removed, and F2 proved that mutant `116:62` lets a `{Read, RawRci}` role send raw destructive requests (`--confirm-destructive lab-1 rci batch --data '[{"system":{"description":{"no":true}}}]'` applied; `rci delete system description` sent `DELETE`) because for raw requests the CLI gate is the only place that demands `Destructive`. Add CLI tests (`crates/kcc/tests/cli/`, a NEW module registered in `crates/kcc/tests/cli.rs`, custom roles through the harness as in `nested_risk.rs`/`bracket.rs`) that assert exit 10, the `cli.refused` audit entry and ZERO router mutation requests for: a `{Read, RawRci}` role sending a raw `no:true` removal, a raw DELETE and a nested destructive body; a `{Read, Write}` role and the built-in operator changing a curated interface `down` on the management bridge (management risk needs the bracket permission); the built-in operator running `kcc config failsafe commit` on a scheduled-reboot (extender) fake (`crates/kcc/tests/cli/failsafe.rs` shows how) with zero router writes; plus the positive controls (admin completes). Mutation self-check for EACH of the five survivors (neutralise with `&& false`/`|| true` style edits if dead-code lints block removal): the new tests must go red, restore, `sha256sum` before/mutated/restored. Must NOT: change production code (tests only; if a test exposes a real defect, stop and report it), weaken or delete any test. Rows 105-108 edit `crates/kcc/src/cli/{preset/finish,dom_admin,change,rci}.rs` concurrently: do not edit those files.
+  Closes: GAP-5
+  Parallelization: Wave W27 | Blocked by: 104 | Blocks: F1-F4 re-run
+  References: F2 round 12 N51 (`.omo/evidence/F2-keenetic-control-center-r12.md`, `.log`).
+  Acceptance criteria: G0 green; each of the five mutants is killed by a CLI test.
+  QA scenarios: happy - `cargo test -p kcc --test cli 2>&1 | tee .omo/evidence/task-109-keenetic-control-center.log`; failure - mutant `116:62` turns a new test red, appended.
+  Commit: Y | test(cli): pin the destructive and recovery permission gate of the CLI change workflow
+  Recommended task executor category: deep-low
+
 ## Final verification wave
 > Runs in parallel after ALL todos. ALL must APPROVE. Surface results and wait for the user's explicit okay before declaring complete.
 - [ ] F1. Plan compliance audit
