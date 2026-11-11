@@ -46,7 +46,7 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
                 .changes
                 .save()
                 .await
-                .map_err(|_error| ApplyError::Workflow)?;
+                .map_err(|_error| ApplyError::CommittedSaveFailed)?;
         }
         SafetyMode::ScheduledReboot => {
             let saved = applier
@@ -155,7 +155,7 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
             .changes
             .apply_cli_terminal(request)
             .await
-            .map_err(|_error| ApplyError::Workflow)?,
+            .map_err(|_error| ApplyError::FinishFailed)?,
     );
     wait_restored(applier).await?;
     applier.report.finished = true;

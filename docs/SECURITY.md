@@ -188,13 +188,16 @@ remains armed. The interface guard retains native timer verification and its exi
 early return without cleanup after failed work. No permission failure is described as
 loss of router connectivity.
 
-Migration and preset closing steps preserve the same armed fact when commit or save
-fails before disarm can be confirmed. Their failed CLI, MCP and Web audit entries
+Migration and preset closing steps preserve the same armed fact when commit, save or
+explicit rollback fails before disarm can be confirmed. Their failed CLI, MCP and Web audit entries
 include `fail_safe_armed: true` without setting values. The CLI exits 6; MCP finish
 returns `management_outcome_unknown_fail_safe_armed`. A lost native commit reply is
 reported conservatively even if the router actually committed. A confirmed save
 followed by failed disarm is identified as saved: scheduled recovery then reloads the
 new saved configuration, rather than promising to restore the pre-migration state.
+When native commit is confirmed but its following startup save fails, MCP reports
+`management_applied_not_saved` and keeps the finish retryable instead of claiming that
+nothing changed.
 
 Runtime management risk belongs to `kcc-domain`: firewall plans classify every
 affected interface and treat failed discovery as management risk; HTTP, SSH and

@@ -30,4 +30,5 @@ migrate-apply-tier = Bestätigen Sie die Migration auf eine nur anhand der Dokum
 migrate-apply-agreement = Bestätigen Sie die aktuelle Routervereinbarung, bevor Sie fortfahren.
 migrate-apply-residual = Beibehaltene Einstellungen nur auf dem Zielrouter: { $count }.
 finish-saved-armed = Die Konfiguration wurde gespeichert, aber der Wiederherstellungstimer konnte nicht deaktiviert werden. Behandeln Sie den Timer als aktiv: Der Router kann mit seiner gespeicherten Konfiguration neu starten, die diese Änderungen enthält.
+migrate-committed-not-saved = Die Migration ist aktiv und der Wiederherstellungstimer ist deaktiviert, aber die Startkonfiguration wurde nicht gespeichert. Wiederholen Sie den Commit, um sie zu speichern.
 migrate-rollback-saved = Der Router startet mit seiner gespeicherten Konfiguration neu, die die migrierten Einstellungen bereits enthalten kann.

@@ -55,7 +55,15 @@ mod tests {
             .await?;
         assert_eq!(results.status(), StatusCode::OK);
 
-        let response = fixture.post(&format!("{page}/save"), &admin, &[]).await?;
+        let (endpoint, form) = if step == "fail-safe rollback" {
+            (
+                format!("{page}/rollback"),
+                vec![("confirm", "yes"), ("confirm_name", "lab-1")],
+            )
+        } else {
+            (format!("{page}/save"), Vec::new())
+        };
+        let response = fixture.post(&endpoint, &admin, &form).await?;
 
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = text(response).await?;
@@ -78,7 +86,14 @@ mod tests {
         let entries = fixture.audit()?;
         let failed = entries
             .iter()
-            .find(|entry| entry.action == "web.preset_save")
+            .find(|entry| {
+                entry.action
+                    == if step == "fail-safe rollback" {
+                        "web.preset_rollback"
+                    } else {
+                        "web.preset_save"
+                    }
+            })
             .ok_or("missing preset finish audit")?;
         assert_eq!(failed.outcome, "failed");
         assert_eq!(failed.params_redacted, json!({"fail_safe_armed":true}));
@@ -103,5 +118,11 @@ mod tests {
             }
         }
         Ok(())
+    }
+
+    /// A refused preset rollback reports that recovery remains armed.
+    #[tokio::test]
+    async fn refused_preset_rollback_reports_armed() -> TestResult {
+        closing("router", "fail-safe rollback", false).await
     }
 }

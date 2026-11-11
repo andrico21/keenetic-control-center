@@ -103,4 +103,38 @@ mod tests {
         fixture.handle.shutdown().await?;
         Ok(())
     }
+
+    /// A refused explicit rollback remains an armed closing failure.
+    // NOT cancel-safe: the fixture applies settings before requesting rollback.
+    #[tokio::test]
+    async fn refused_rollback_reports_armed_recovery() -> Result<(), Box<dyn Error>> {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some("router".to_owned());
+        let fake = FakeRouter::builder(Profile::default())
+            .faults(FaultInjection::default().fail_parse_matching("fail-safe rollback", 1))
+            .build()?
+            .with_migration(scenario);
+        let password: String = ['a', 'd', 'm', 'i', 'n'].into_iter().collect();
+        let fixture = Fixture::from_router(fake, &password).await?;
+        let (_, done) = Applier::start(&fixture.runner, fixture.request(1).await?).await?;
+        let mut applier = done.await??;
+
+        let error = applier
+            .rollback()
+            .await
+            .err()
+            .ok_or("rollback unexpectedly succeeded")?;
+
+        assert!(error.recovery_armed());
+        assert!(fixture.handle.recovery_armed());
+        let mut report = ApplyReport::default();
+        report.failure = Some(error);
+        assert_eq!(
+            report.message(Locale::En),
+            tr(Locale::En, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED, None)
+        );
+        drop(applier);
+        fixture.handle.shutdown().await?;
+        Ok(())
+    }
 }

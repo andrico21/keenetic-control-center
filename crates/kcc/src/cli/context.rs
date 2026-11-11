@@ -28,7 +28,7 @@ use kcc_domain::{
 };
 use kcc_i18n::keys;
 use kcc_rci::capabilities::RouterInfo;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::{
     args::Cli,
@@ -165,6 +165,19 @@ impl Ctx {
             }
         };
         recovery::finish(Ok(()), disarm.map_err(Failure::from))
+    }
+
+    /// Audits a migration finish failure whose recovery timer remains armed.
+    // NOT cancel-safe: the audit writer may append after cancellation.
+    pub(crate) async fn audit_armed_finish(&self, services: &Services, router: &str) {
+        self.audit(
+            services,
+            "cli.change",
+            Some(router),
+            json!({"error":"router", "fail_safe_armed":true}),
+            "failed",
+        )
+        .await;
     }
 
     /// Loads the configuration and state and resolves the principal.

@@ -30,4 +30,5 @@ migrate-apply-tier = Confirm migration to firmware supported from documentation 
 migrate-apply-agreement = Confirm the current router agreement before continuing.
 migrate-apply-residual = Target-only settings retained: { $count }.
 finish-saved-armed = The configuration was saved, but the recovery timer could not be disarmed. Treat the timer as armed: the router may restart with its saved configuration, which includes these changes.
+migrate-committed-not-saved = The migration is live and the recovery timer is disarmed, but the startup configuration was not saved. Retry commit to save it.
 migrate-rollback-saved = The router is restarting with its saved configuration, which may already include the migrated settings.

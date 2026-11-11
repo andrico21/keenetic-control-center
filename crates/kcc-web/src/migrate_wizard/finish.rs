@@ -156,6 +156,7 @@ async fn finish(
             ApplyError::SavedDisarmFailed => keys::FINISH_SAVED_ARMED,
             ApplyError::DisarmFailed => keys::MANAGEMENT_DISARM_FAILED,
             ApplyError::FinishFailed => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            ApplyError::CommittedSaveFailed => keys::MIGRATE_COMMITTED_NOT_SAVED,
             ApplyError::ReplanRequired
             | ApplyError::UnverifiedFirmwareTier
             | ApplyError::Drift

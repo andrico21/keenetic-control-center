@@ -3,7 +3,7 @@
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 use kcc_domain::{
-    configuration::{SafetyMode, SafetyNet},
+    configuration::{SafetyMode, SafetyNet, recovery},
     system,
 };
 use kcc_i18n::keys;
@@ -187,10 +187,18 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
                     })?;
             }
             (FinishStep::Rollback, SafetyMode::Router) => {
-                drop(SafetyNet::rollback(changes, router).await?);
+                drop(
+                    SafetyNet::rollback(changes, router)
+                        .await
+                        .map_err(|error| {
+                            Failure::recovery(recovery::Failure::armed(Failure::from(error)))
+                        })?,
+                );
             }
             (FinishStep::Rollback, SafetyMode::ScheduledReboot | _) => {
-                drop(system::reboot(changes, router).await?);
+                drop(system::reboot(changes, router).await.map_err(|error| {
+                    Failure::recovery(recovery::Failure::armed(Failure::from(error)))
+                })?);
             }
         }
         Ok(applied(matches!(action, FinishStep::Rollback)))

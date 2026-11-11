@@ -643,6 +643,9 @@ pub const MIGRATE_APPLY_RESIDUAL: MessageKey = MessageKey::new("migrate-apply-re
 /// `finish-saved-armed` in `migrate.ftl`.
 pub const FINISH_SAVED_ARMED: MessageKey = MessageKey::new("finish-saved-armed");
 
+/// `migrate-committed-not-saved` in `migrate.ftl`.
+pub const MIGRATE_COMMITTED_NOT_SAVED: MessageKey = MessageKey::new("migrate-committed-not-saved");
+
 /// `migrate-rollback-saved` in `migrate.ftl`.
 pub const MIGRATE_ROLLBACK_SAVED: MessageKey = MessageKey::new("migrate-rollback-saved");
 
@@ -6866,6 +6869,7 @@ pub static ALL: [MessageKey; 2122] = [
     MIGRATE_APPLY_AGREEMENT,
     MIGRATE_APPLY_RESIDUAL,
     FINISH_SAVED_ARMED,
+    MIGRATE_COMMITTED_NOT_SAVED,
     MIGRATE_ROLLBACK_SAVED,
     WEB_NAV_DASHBOARD,
     WEB_NAV_ROUTERS,

@@ -107,7 +107,15 @@ pub(super) async fn finalize(
                         Failure::recovery(error)
                     })?;
             }
-            (Finish::Rollback, _) => drop(SafetyNet::rollback(changes, router).await?),
+            (Finish::Rollback, _) => {
+                drop(
+                    SafetyNet::rollback(changes, router)
+                        .await
+                        .map_err(|error| {
+                            Failure::recovery(recovery::Failure::armed(Failure::from(error)))
+                        })?,
+                );
+            }
         }
         Ok(json!({ "router": target.id(), "finish": name(action) }))
     })

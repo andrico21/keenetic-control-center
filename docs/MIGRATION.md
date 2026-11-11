@@ -220,11 +220,15 @@ they save and cancel the scheduled reboot, requiring recovery permission before 
 If disarming fails, the command reports that recovery remains armed; a completed save
 is reported separately. Keeping a preset unsaved requires recovery permission in either mode.
 
-A refused commit or save, or a lost reply before confirmed disarm, also leaves the
-finish incomplete. CLI finishes exit 6 and all front ends audit `fail_safe_armed: true`.
+A refused commit, save or explicit rollback, or a lost reply before confirmed disarm,
+also leaves the finish incomplete. CLI finishes exit 6 and all front ends audit
+`fail_safe_armed: true`.
 MCP `kcc_migration_finish` returns `management_outcome_unknown_fail_safe_armed` for
 these closing failures, including failed disarm. Treat recovery as armed even when a
 lost native commit reply means the router may already have saved and disarmed.
+If native commit succeeds but the following startup save is refused, MCP instead returns
+`management_applied_not_saved`: the migration is live, the entry remains retryable, and
+the operator should retry commit to save it.
 When a scheduled-mode save succeeds but disarm fails, the saved configuration already
 contains the changes. A subsequent reboot or scheduled rollback loads that saved
 configuration; it does not necessarily undo the migration. Keep the pre-run backup

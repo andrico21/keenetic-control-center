@@ -93,7 +93,7 @@ async fn explicit_disarm_failures_report_armed() -> TestResult {
             assert!(
                 finished.stderr.contains(&tr(
                     Locale::En,
-                    if command == "save" {
+                    if command == "save" || command == "commit" {
                         keys::FINISH_SAVED_ARMED
                     } else {
                         keys::MANAGEMENT_DISARM_FAILED

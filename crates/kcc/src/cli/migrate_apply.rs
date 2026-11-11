@@ -68,20 +68,18 @@ pub(crate) async fn apply(
     let report = applier.report().clone();
     let action = match (finish, report.failure) {
         (_, Some(_)) | (FinishAction::Rollback, None) => {
-            applier.rollback().await.map_err(apply_failure)?;
+            if let Err(error) = applier.rollback().await {
+                if error.recovery_armed() {
+                    ctx.audit_armed_finish(services, &target).await;
+                }
+                return Err(apply_failure(error));
+            }
             "rollback"
         }
         (FinishAction::Commit, None) => {
             if let Err(error) = applier.commit().await {
                 if error.recovery_armed() {
-                    ctx.audit(
-                        services,
-                        "cli.change",
-                        Some(&target),
-                        json!({"error":"router", "fail_safe_armed":true}),
-                        "failed",
-                    )
-                    .await;
+                    ctx.audit_armed_finish(services, &target).await;
                 }
                 return Err(apply_failure(error));
             }
@@ -139,6 +137,9 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         }
         ApplyError::FinishFailed => {
             return Failure::headline_only(Exit::Router, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED);
+        }
+        ApplyError::CommittedSaveFailed => {
+            return Failure::headline_only(Exit::Router, keys::MIGRATE_COMMITTED_NOT_SAVED);
         }
         ApplyError::UnverifiedFirmwareTier
         | ApplyError::AgreementRequired

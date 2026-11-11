@@ -187,6 +187,99 @@ mod tests {
         closing_failure("extender", true).await
     }
 
+    /// A refused rollback remains retryable and reports the armed timer.
+    #[tokio::test]
+    async fn refused_rollback_reports_armed() -> TestResult {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some("router".to_owned());
+        let target = FakeRouter::builder(Profile::default())
+            .faults(FaultInjection::default().fail_parse_matching("fail-safe rollback", 1))
+            .build()?
+            .with_migration(scenario);
+        let mut lab = Lab::start(
+            vec![
+                ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+                ("lab-1", target),
+            ],
+            admin(),
+        )
+        .await?;
+        let id = applied(&mut lab).await?;
+
+        let reply = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"rollback", "confirm":true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(
+            reply.error(),
+            Some("management_outcome_unknown_fail_safe_armed"),
+            "{reply:?}"
+        );
+        assert!(lab.router("lab-1")?.recovery_armed());
+        let retained = lab
+            .call(
+                "kcc_migration_report",
+                json!({"host":"lab-1", "plan_id":id}),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            retained.value()?.pointer("/apply/finished"),
+            Some(&json!(false))
+        );
+        lab.stop().await
+    }
+
+    /// A native commit followed by a refused save reports live but unsaved state.
+    #[tokio::test]
+    async fn native_commit_save_refusal_is_not_conflict() -> TestResult {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some("router".to_owned());
+        let target = FakeRouter::builder(Profile::default())
+            .faults(FaultInjection::default().fail_parse_matching("system configuration save", 1))
+            .build()?
+            .with_migration(scenario);
+        let mut lab = Lab::start(
+            vec![
+                ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+                ("lab-1", target),
+            ],
+            admin(),
+        )
+        .await?;
+        let id = applied(&mut lab).await?;
+
+        let reply = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"commit", "confirm":true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(
+            reply.error(),
+            Some("management_applied_not_saved"),
+            "{reply:?}"
+        );
+        let retained = lab
+            .call(
+                "kcc_migration_report",
+                json!({"host":"lab-1", "plan_id":id}),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            retained.value()?.pointer("/apply/finished"),
+            Some(&json!(false))
+        );
+        lab.stop().await
+    }
+
     /// Drift leaves the migration open so the caller can still roll it back.
     #[tokio::test]
     async fn drifted_commit_remains_retryable_by_rollback() -> TestResult {

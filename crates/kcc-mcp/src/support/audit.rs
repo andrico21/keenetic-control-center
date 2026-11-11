@@ -33,6 +33,7 @@ pub(crate) async fn failure(
         }
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        | McpFailure::ManagementAppliedNotSaved
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
@@ -62,6 +63,7 @@ pub(crate) async fn failure(
         }
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        | McpFailure::ManagementAppliedNotSaved
         | McpFailure::RouterUnreachable
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }

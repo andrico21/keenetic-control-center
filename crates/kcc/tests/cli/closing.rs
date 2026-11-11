@@ -195,3 +195,85 @@ async fn scheduled_rollback_reports_saved_configuration() -> TestResult {
     handle.shutdown().await?;
     Ok(())
 }
+
+/// Every explicit CLI rollback reports the armed timer when its closing step is refused.
+// NOT cancel-safe: arms and changes each fixture router before requesting rollback.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn refused_explicit_rollbacks_report_armed() -> TestResult {
+    let mut failures = Vec::new();
+    for mode in ["router"] {
+        for path in ["preset", "migrate", "config"] {
+            let command = "fail-safe rollback";
+            let (env, handle) = target(
+                mode,
+                FaultInjection::default().fail_parse_matching(command, 1),
+            )
+            .await?;
+            let arm = env.kcc(&[
+                "--confirm-destructive",
+                "target",
+                "config",
+                "failsafe",
+                "arm",
+            ])?;
+            assert_eq!(arm.code, 0_i32, "{arm:?}");
+            let changed = env.kcc(&["system", "set-description", "rollback-pending"])?;
+            assert_eq!(changed.code, 0_i32, "{changed:?}");
+            let job = run_id(&env).await?;
+
+            let run = match path {
+                "preset" => env.kcc(&[
+                    "--json",
+                    "--yes",
+                    "--confirm-destructive",
+                    "target",
+                    "preset",
+                    "finish",
+                    &job,
+                    "rollback",
+                ]),
+                "migrate" => env.kcc(&[
+                    "--json",
+                    "--confirm-destructive",
+                    "target",
+                    "migrate",
+                    "finish",
+                    "rollback",
+                ]),
+                _ => env.kcc(&[
+                    "--json",
+                    "--confirm-destructive",
+                    "target",
+                    "config",
+                    "failsafe",
+                    "rollback",
+                ]),
+            }?;
+
+            let error: serde_json::Value = serde_json::from_str(&run.stderr)?;
+            let entries = read_entries(&env.state_dir())?;
+            let failed = entries
+                .iter()
+                .find(|entry| entry.action == "cli.change" && entry.outcome == "failed")
+                .ok_or("missing failed rollback audit")?;
+            if run.code != 6_i32
+                || !run.stderr.contains(&tr(
+                    Locale::En,
+                    keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+                    None,
+                ))
+                || error.pointer("/error/fail_safe_armed") != Some(&json!(true))
+                || failed.params_redacted.get("fail_safe_armed") != Some(&json!(true))
+                || !handle.recovery_armed()
+            {
+                failures.push(format!(
+                    "{path} {mode}: {run:?}; audit={failed:?}; armed={}",
+                    handle.recovery_armed()
+                ));
+            }
+            handle.shutdown().await?;
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+    Ok(())
+}

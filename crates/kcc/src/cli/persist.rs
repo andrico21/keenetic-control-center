@@ -5,7 +5,7 @@ use std::path::Path;
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet};
+use kcc_domain::configuration::{self, SafetyMode, SafetyNet, recovery};
 use kcc_i18n::keys;
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -14,7 +14,7 @@ use serde_json::{Value, json};
 use super::{
     args_fleet::{BackupCommand, ConfigCommand, FailsafeAction},
     change::{Gate, applied, run as run_change, safety_mode},
-    context::Ctx,
+    context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files,
     redact::{redacted_copy, redacted_lines},
@@ -71,49 +71,75 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
             out.emit(&document, &out.tr(keys::CLI_SAVED, &[]))
         }
         ConfigCommand::Failsafe { action, seconds } => {
-            let (permission, risk, outcome) = match action {
-                FailsafeAction::Arm => (
-                    Permission::Destructive,
-                    Risk::Destructive,
-                    keys::CLI_FAILSAFE_RUNNING,
-                ),
-                FailsafeAction::Commit => {
-                    (Permission::Save, Risk::Write, keys::CLI_FAILSAFE_COMMITTED)
-                }
-                FailsafeAction::Rollback => (
-                    Permission::Destructive,
-                    Risk::Destructive,
-                    keys::CLI_FAILSAFE_ROLLED_BACK,
-                ),
-            };
-            if !(300..=3600).contains(&seconds) {
-                return Err(Failure::text(Exit::Usage, &"--seconds must be 300..=3600"));
-            }
-            let target = ctx.target(&services, &[permission]).await?;
-            let mode = safety_mode(target.info());
-            if matches!(action, FailsafeAction::Commit) && mode == SafetyMode::ScheduledReboot {
-                ctx.authorize_recovery(&services, target.id()).await?;
-            }
-            let gate = Gate::new(risk, permission, false);
-            let document = run_change(ctx, &services, &target, gate, async |changes, router| {
-                match (action, mode) {
-                    (FailsafeAction::Arm, _) => {
-                        drop(SafetyNet::arm(changes, router, mode, seconds).await?);
-                    }
-                    (FailsafeAction::Commit, _) => ctx
-                        .finish_saved(changes, router, mode)
-                        .await
-                        .map_err(Failure::recovery)?,
-                    (FailsafeAction::Rollback, _) => {
-                        drop(SafetyNet::rollback(changes, router).await?);
-                    }
-                }
-                Ok(applied(!matches!(action, FailsafeAction::Commit)))
-            })
-            .await?;
-            out.emit(&document, &out.tr(outcome, &[]))
+            failsafe(ctx, &services, action, seconds).await
         }
     }
+}
+
+/// Runs a fail-safe timer action.
+///
+/// # Errors
+/// Returns validation, policy, workflow, or router failures.
+// NOT cancel-safe: timer actions may complete before cancellation.
+async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, seconds: u64) -> Outcome {
+    let (permission, risk, outcome) = match action {
+        FailsafeAction::Arm => (
+            Permission::Destructive,
+            Risk::Destructive,
+            keys::CLI_FAILSAFE_RUNNING,
+        ),
+        FailsafeAction::Commit => (Permission::Save, Risk::Write, keys::CLI_FAILSAFE_COMMITTED),
+        FailsafeAction::Rollback => (
+            Permission::Destructive,
+            Risk::Destructive,
+            keys::CLI_FAILSAFE_ROLLED_BACK,
+        ),
+    };
+    if !(300..=3600).contains(&seconds) {
+        return Err(Failure::text(Exit::Usage, &"--seconds must be 300..=3600"));
+    }
+    let target = ctx.target(services, &[permission]).await?;
+    let mode = safety_mode(target.info());
+    if matches!(action, FailsafeAction::Commit) && mode == SafetyMode::ScheduledReboot {
+        ctx.authorize_recovery(services, target.id()).await?;
+    }
+    let mut saved = false;
+    let document = run_change(
+        ctx,
+        services,
+        &target,
+        Gate::new(risk, permission, false),
+        async |changes, router| {
+            match action {
+                FailsafeAction::Arm => drop(SafetyNet::arm(changes, router, mode, seconds).await?),
+                FailsafeAction::Commit => {
+                    ctx.finish_saved(changes, router, mode)
+                        .await
+                        .map_err(|error| {
+                            saved = error.applied();
+                            Failure::recovery(error)
+                        })?;
+                }
+                FailsafeAction::Rollback => drop(
+                    SafetyNet::rollback(changes, router)
+                        .await
+                        .map_err(|error| {
+                            Failure::recovery(recovery::Failure::armed(Failure::from(error)))
+                        })?,
+                ),
+            }
+            Ok(applied(!matches!(action, FailsafeAction::Commit)))
+        },
+    )
+    .await
+    .map_err(|error| {
+        if saved {
+            Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
+        } else {
+            error
+        }
+    })?;
+    ctx.out().emit(&document, &ctx.out().tr(outcome, &[]))
 }
 
 /// Runs a `backup` command.

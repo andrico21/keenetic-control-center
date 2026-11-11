@@ -46,6 +46,7 @@ pub(crate) struct ApplyInput {
 pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
     match error {
         ApplyError::DisarmFailed => McpFailure::ManagementAppliedFailSafeArmed,
+        ApplyError::CommittedSaveFailed => McpFailure::ManagementAppliedNotSaved,
         ApplyError::UnverifiedFirmwareTier => McpFailure::UnverifiedFirmwareTier,
         ApplyError::Source | ApplyError::Unreachable => McpFailure::RouterUnreachable,
         ApplyError::RolledBackByRouter => McpFailure::RouterRejected,

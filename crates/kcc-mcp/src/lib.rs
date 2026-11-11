@@ -145,6 +145,8 @@ pub enum McpFailure {
     ManagementAppliedFailSafeArmed,
     /// Work failed or its outcome is unknown, and recovery remains armed.
     ManagementOutcomeUnknownFailSafeArmed,
+    /// The live configuration was committed, but startup configuration was not saved.
+    ManagementAppliedNotSaved,
     /// A completed batch retains its item results when recovery cleanup fails.
     BatchFailSafeArmed {
         /// Whether at least one change item succeeded.
@@ -189,6 +191,7 @@ impl McpFailure {
                 applied: false,
                 completion: _,
             } => "management_outcome_unknown_fail_safe_armed",
+            Self::ManagementAppliedNotSaved => "management_applied_not_saved",
             Self::ValidationFailed => "validation_failed",
             Self::VerificationFailed { field: _ } => "verification_failed",
             Self::Conflict => "conflict",
