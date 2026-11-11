@@ -94,7 +94,8 @@ async fn wifi_encryption_and_schedule_are_written_and_read_back() -> TestResult 
     let ap = "WifiMaster0/AccessPoint0";
     drop(lab.json(&["wifi", "encryption", "--ap", ap, "wpa3"])?);
     drop(lab.json(&["schedules", "create", "night"])?);
-    drop(lab.json(&["wifi", "schedule", "--ap", ap, "night"])?);
+    // The access point is a member of the management bridge, so the schedule needs confirmation.
+    drop(lab.json(&["--yes", "wifi", "schedule", "--ap", ap, "night"])?);
     let running = lab.fake.running_config_text();
     assert!(running.contains("encryption wpa3"), "{running}");
     assert!(running.contains("schedule night"), "{running}");
