@@ -114,7 +114,15 @@ corresponding permission and confirmation checks. A raw delete is always destruc
 needs the same permission. POST `"no": true` and CLI `no <command>` removals have
 the same destructive risk floor as DELETE. Whole-path root keys, such as
 `{"system reboot":{}}`, retain each command prefix's risk and the leaf's persistence.
-An empty root object is read-only; a nonempty unclassified body fails closed as a write.
+An empty root object is read-only. An empty object at a virtual namespace (a catalog
+path prefix that is not itself a command) contributes Write risk and an ordinary
+change leaf. This rule applies per subtree, including beside a Show command in the
+same item; accepted namespace changes are reported and audited as `applied_unsaved`.
+Nonempty namespaces defer to their descendants. `{"show":{}}` remains Read because
+`show` is itself a catalogued Show command; `{"show":{"clock":{}}}` is Write because
+`show clock` is only a namespace, while `show clock date` remains Read. A nonempty
+unclassified body also fails closed as a write. These are conservative authorization
+and accounting rules, not claims about a real router's effect for an empty namespace.
 
 All mutating raw MCP tools, including `kcc_cli_parse`, require the `Destructive`
 permission, explicit confirmation and the server switch for management or destructive

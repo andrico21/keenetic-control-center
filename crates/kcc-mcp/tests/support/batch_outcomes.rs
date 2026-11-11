@@ -1,6 +1,8 @@
 //! MCP persistence describes only successful batch items.
 #[path = "batch_outcomes/mixed.rs"]
 mod mixed;
+#[path = "batch_outcomes/namespaces.rs"]
+mod namespaces;
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

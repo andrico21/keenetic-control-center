@@ -36,6 +36,9 @@ use url::Url;
 #[path = "workflow/batch_outcomes.rs"]
 mod batch_outcomes;
 
+#[path = "workflow/namespaces.rs"]
+mod namespaces;
+
 #[expect(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,

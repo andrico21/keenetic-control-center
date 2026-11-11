@@ -1,6 +1,8 @@
 //! Router-refused batch items cannot produce a CLI success note.
 #[path = "batch_outcomes/mixed.rs"]
 mod mixed;
+#[path = "batch_outcomes/namespaces.rs"]
+mod namespaces;
 use fluent_bundle::FluentArgs;
 use kcc_app::audit::read_entries;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};

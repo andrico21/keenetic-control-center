@@ -200,10 +200,14 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             &[("paths", completed_paths.join(", ").as_str())],
         ));
     } else {
-        ctx.out().note(
-            &ctx.out()
-                .tr(gate.persisting(completed_persists).applied(), &[]),
-        );
+        let note = match (unsaved, completed_persists && applied_changes != 0) {
+            (true, _) => Some(keys::CLI_APPLIED),
+            (false, true) => Some(keys::CLI_APPLIED_PERSISTED),
+            (false, false) => None,
+        };
+        if let Some(key) = note {
+            ctx.out().note(&ctx.out().tr(key, &[]));
+        }
     }
     report(
         ctx,

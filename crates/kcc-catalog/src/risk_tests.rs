@@ -14,6 +14,7 @@ use serde_json::json;
 use crate::{Catalog, HttpMethod, Risk, ValidatedRequest};
 
 mod independent;
+mod namespaces;
 mod shows;
 
 /// Every command and every split retains the maximum risk of its command nodes.

@@ -157,6 +157,13 @@ impl RequestClassification {
         };
         let command = catalog.lookup(path);
         let children = child_names(catalog, path);
+        // An empty virtual prefix is an ordinary change even beside a Show command.
+        // Nonempty namespaces defer to their children; the empty root stays read-only.
+        if object.is_empty() && command.is_none() && !path.is_empty() {
+            self.risk = Some(self.risk.unwrap_or(Risk::Write).max(Risk::Write));
+            self.ordinary.push(path.to_owned());
+            return;
+        }
         let mut own_leaf = object.is_empty();
         // These defensive checks guard future callers of capture. Validation already
         // proves them today, so mutations of the proof and argument/child overlap
