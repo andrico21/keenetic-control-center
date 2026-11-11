@@ -23,6 +23,7 @@ migrate-reason-unsupported = The target does not support this setting.
 migrate-reason-prune = Removed by operator selection.
 migrate-apply-verified = Migration verified. Choose commit or rollback; changes are not saved yet.
 migrate-apply-failed = Migration stopped. Review the result before choosing rollback.
+migrate-job-start-failed = The job could not be started. Retry the command.
 migrate-apply-restored = Migration verification failed. kcc rolled back automatically and restored the startup configuration.
 migrate-apply-router-rollback = The router restored its saved configuration after the recovery timer expired.
 migrate-apply-tier = Confirm migration to firmware supported from documentation only.

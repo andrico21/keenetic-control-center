@@ -27,14 +27,17 @@ mod verify;
 
 use alloc::sync::Arc;
 use core::time::Duration;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::{
-    jobs::{JobContext, JobProgress, JobRunner},
+    audit::AuditEvent,
+    jobs::{JobContext, JobError, JobProgress, JobRunner},
     workflow::ChangeSet,
 };
 use kcc_domain::configuration::SafetyMode;
 use kcc_rci::{RciClient, SecretBytes, auth::Credentials};
 pub use raw::RawRestore;
+use serde_json::json;
 use tokio::sync::oneshot;
 #[expect(
     clippy::module_name_repetitions,
@@ -96,8 +99,12 @@ impl Applier {
     ) -> Result<(String, oneshot::Receiver<Result<Self, ApplyError>>), ApplyError> {
         let router = request.target.clone();
         let locale = request.options.locale;
+        let admission_audit = request.audit.clone();
+        let admission_actor = request.actor.clone();
+        let admission_target = request.target.clone();
+        let admission_request_id = request.plan.plan_id.clone();
         let (sender, receiver) = oneshot::channel();
-        let id = runner
+        let started = runner
             .start(
                 "migration".to_owned(),
                 Some(router),
@@ -125,8 +132,29 @@ impl Applier {
                     }
                 },
             )
-            .await
-            .map_err(|_error| ApplyError::Job)?;
+            .await;
+        let id = match started {
+            Ok(id) => id,
+            Err(JobError::IdCollision) => {
+                let timestamp = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs();
+                let event =
+                    AuditEvent::new(timestamp, admission_actor, "migration.start".to_owned())
+                        .with_router(admission_target)
+                        .with_params(json!({"reason":"job_id_collision"}))
+                        .with_result("refused".to_owned(), admission_request_id);
+                drop(
+                    admission_audit
+                        .append(event)
+                        .await
+                        .map_err(|_error| ApplyError::Workflow)?,
+                );
+                return Err(ApplyError::JobStart);
+            }
+            Err(_) => return Err(ApplyError::Job),
+        };
         Ok((id, receiver))
     }
 

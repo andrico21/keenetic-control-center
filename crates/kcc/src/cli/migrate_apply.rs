@@ -157,6 +157,7 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         | ApplyError::Workflow
         | ApplyError::Cancelled
         | ApplyError::Job
+        | ApplyError::JobStart
         | _ => {}
     }
     let (exit, key) = match error {
@@ -173,6 +174,7 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         | ApplyError::Unreachable
         | ApplyError::Stopped
         | ApplyError::Verification => (Exit::Router, keys::MIGRATE_APPLY_FAILED),
+        ApplyError::JobStart => (Exit::Generic, keys::MIGRATE_JOB_START_FAILED),
         ApplyError::Workflow | ApplyError::Cancelled | ApplyError::Job | _ => {
             (Exit::Generic, keys::MIGRATE_APPLY_FAILED)
         }

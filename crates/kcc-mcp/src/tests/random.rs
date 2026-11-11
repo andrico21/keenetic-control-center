@@ -45,6 +45,7 @@ fn assert_tool_result(result: Result<Value, McpFailure>) -> TestCaseResult {
                     | McpFailure::ValidationFailed
                     | McpFailure::VerificationFailed { field: _ }
                     | McpFailure::Conflict
+                    | McpFailure::JobUnavailable
                     | McpFailure::Internal
                     | McpFailure::UnverifiedFirmwareTier
             );

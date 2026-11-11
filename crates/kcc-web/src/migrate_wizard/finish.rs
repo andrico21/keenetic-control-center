@@ -172,6 +172,7 @@ async fn finish(
             | ApplyError::Unreachable
             | ApplyError::Cancelled
             | ApplyError::Job
+            | ApplyError::JobStart
             | ApplyError::HardwareMismatch
             | _ => failure_text(&name),
         };

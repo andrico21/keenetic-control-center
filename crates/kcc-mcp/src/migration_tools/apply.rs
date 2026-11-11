@@ -52,9 +52,10 @@ pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
         ApplyError::Drift
         | ApplyError::ReplanRequired
         | ApplyError::Workflow
-        | ApplyError::Job
         | ApplyError::Cancelled
         | ApplyError::Stopped => McpFailure::Conflict,
+        ApplyError::JobStart => McpFailure::JobUnavailable,
+        ApplyError::Job => McpFailure::Internal,
         ApplyError::SameRouter
         | ApplyError::Firmware
         | ApplyError::AgreementRequired

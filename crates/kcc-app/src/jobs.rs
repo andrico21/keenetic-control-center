@@ -17,7 +17,6 @@ use std::{
     fs, io,
     path::PathBuf,
     sync::atomic::{AtomicU8, Ordering},
-    time::{SystemTime, UNIX_EPOCH},
 };
 
 use serde::{Deserialize, Serialize};
@@ -37,8 +36,10 @@ use crate::{
 /// Default age bound for finished job records: 30 days.
 pub const DEFAULT_FINISHED_RETENTION: Duration = Duration::from_hours(30 * 24);
 
+mod job_id;
 mod job_ownership;
 
+use job_id::JobIdAllocator;
 use job_ownership::JobOwnership;
 
 /// Job lifecycle status persisted on disk.
@@ -141,6 +142,12 @@ pub enum JobError {
         /// Router id.
         router: String,
     },
+    /// A generated identifier could not be claimed in the shared state directory.
+    #[error("job could not be started; retry")]
+    IdCollision,
+    /// The operating system could not supply identifier entropy.
+    #[error("job identifier could not be allocated")]
+    IdUnavailable,
     /// The job id does not exist.
     #[error("job {id} was not found")]
     NotFound {
@@ -238,6 +245,8 @@ pub struct JobRunner {
     clock: Arc<dyn Clock>,
     /// Maximum age of terminal job records.
     finished_retention: Duration,
+    /// Cross-process-safe identifier allocator.
+    ids: JobIdAllocator,
 }
 
 impl fmt::Debug for JobRunner {
@@ -282,6 +291,19 @@ impl JobRunner {
         finished_retention: Duration,
         clock: Arc<dyn Clock>,
     ) -> Result<Arc<Self>, JobError> {
+        let ids = JobIdAllocator::system()?;
+        Self::open_with_ids(state, registry, finished_retention, clock, ids).await
+    }
+
+    /// Creates a runner around one already initialized identifier allocator.
+    // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    async fn open_with_ids(
+        state: StateStore,
+        registry: Arc<RouterRegistry>,
+        finished_retention: Duration,
+        clock: Arc<dyn Clock>,
+        ids: JobIdAllocator,
+    ) -> Result<Arc<Self>, JobError> {
         let (events, _receiver) = broadcast::channel(128);
         let ownership = JobOwnership::new(state.clone());
         let runner = Arc::new(Self {
@@ -295,6 +317,7 @@ impl JobRunner {
             ownership,
             clock,
             finished_retention,
+            ids,
         });
         runner.prune_finished()?;
         runner.recover().await?;
@@ -397,7 +420,7 @@ impl JobRunner {
         F: FnOnce(JobContext) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(), String>> + Send + 'static,
     {
-        let id = new_id();
+        let id = self.ids.allocate(self.clock.unix_seconds());
         let cancellation = CancellationToken::new();
         let mut active = self.active.lock().await;
         let mut write_jobs = self.write_jobs.lock().await;
@@ -619,6 +642,8 @@ const fn job_error_kind(error: &JobError) -> &'static str {
         JobError::State(_) => "state",
         JobError::Registry(_) => "registry",
         JobError::RouterBusy { router: _ } => "router_busy",
+        JobError::IdCollision => "id_collision",
+        JobError::IdUnavailable => "id_unavailable",
         JobError::Malformed { path: _ } => "malformed",
     }
 }
@@ -666,16 +691,6 @@ fn validate_id(id: &str) -> Result<(), JobError> {
     Ok(())
 }
 
-/// Allocates a process-unique sortable job id.
-fn new_id() -> String {
-    static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
-    let sequence = NEXT.fetch_add(1, Ordering::Relaxed);
-    let timestamp = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs());
-    format!("job-{timestamp}-{sequence}")
-}
-
 #[cfg(test)]
 mod tests {
     extern crate alloc;
@@ -686,12 +701,69 @@ mod tests {
         task::{Context, Poll, Waker},
         time::Duration,
     };
-    use std::fs;
+    use std::{fs, sync::atomic::Ordering};
 
     use tokio::{sync::oneshot, time::timeout};
 
-    use super::{JobRunner, JobStatus};
+    use super::{JobError, JobRunner, JobStatus, job_id::JobIdAllocator};
     use crate::{persist::StateStore, registry::RouterRegistry, settings::OutboundConfig};
+
+    #[tokio::test]
+    #[expect(
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "the assertions define the collision refusal contract"
+    )]
+    async fn forced_identifier_collision_is_retryable_before_work_starts() -> Result<(), JobError> {
+        let temp = tempfile::TempDir::new()
+            .map_err(|error| crate::persist::io_error(std::path::Path::new("."), error))?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let registry = Arc::new(RouterRegistry::new(
+            state.clone(),
+            &[],
+            &OutboundConfig::default(),
+        )?);
+        let clock: Arc<dyn crate::accounts::Clock> = Arc::new(crate::accounts::SystemClock);
+        let first = JobRunner::open_with_ids(
+            state.clone(),
+            Arc::clone(&registry),
+            Duration::from_secs(100),
+            Arc::clone(&clock),
+            JobIdAllocator::for_test(7, [9; 4]),
+        )
+        .await?;
+        let second = JobRunner::open_with_ids(
+            state,
+            registry,
+            Duration::from_secs(100),
+            clock,
+            JobIdAllocator::for_test(7, [9; 4]),
+        )
+        .await?;
+        let (release, released) = oneshot::channel();
+        drop(
+            first
+                .start("held".to_owned(), None, false, async move |_context| {
+                    drop(released.await);
+                    Ok(())
+                })
+                .await?,
+        );
+        let work_started = Arc::new(core::sync::atomic::AtomicBool::new(false));
+        let observed = Arc::clone(&work_started);
+
+        let collision = second
+            .start("refused".to_owned(), None, false, async move |_context| {
+                observed.store(true, Ordering::Relaxed);
+                Ok(())
+            })
+            .await;
+
+        assert!(matches!(collision, Err(JobError::IdCollision)));
+        assert!(!work_started.load(Ordering::Relaxed));
+        release.send(()).map_err(|()| JobError::IdUnavailable)?;
+        Ok(())
+    }
 
     #[expect(
         clippy::missing_panics_doc,

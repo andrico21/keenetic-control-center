@@ -36,6 +36,7 @@ pub(crate) async fn failure(
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
+        | McpFailure::JobUnavailable
         | McpFailure::Internal
             if !context.read_only() =>
         {
@@ -65,6 +66,7 @@ pub(crate) async fn failure(
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
+        | McpFailure::JobUnavailable
         | McpFailure::Internal => return,
     };
     let timestamp = SystemTime::now()

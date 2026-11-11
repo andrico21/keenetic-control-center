@@ -35,7 +35,11 @@ impl JobOwnership {
 
     /// Claims one job until the claim is transferred or dropped.
     pub(super) fn claim(&self, id: &str) -> Result<JobOwnershipClaim<'_>, JobError> {
-        let lock = self.state.try_lock(&lock_name(id))?;
+        let lock = match self.state.try_lock(&lock_name(id)) {
+            Ok(lock) => lock,
+            Err(StateError::StateLocked { path: _ }) => return Err(JobError::IdCollision),
+            Err(error) => return Err(error.into()),
+        };
         drop(self.held().insert(id.to_owned(), lock));
         Ok(JobOwnershipClaim {
             ownership: self,

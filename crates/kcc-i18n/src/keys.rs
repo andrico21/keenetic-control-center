@@ -621,6 +621,9 @@ pub const MIGRATE_APPLY_VERIFIED: MessageKey = MessageKey::new("migrate-apply-ve
 /// `migrate-apply-failed` in `migrate.ftl`.
 pub const MIGRATE_APPLY_FAILED: MessageKey = MessageKey::new("migrate-apply-failed");
 
+/// `migrate-job-start-failed` in `migrate.ftl`.
+pub const MIGRATE_JOB_START_FAILED: MessageKey = MessageKey::new("migrate-job-start-failed");
+
 /// `migrate-apply-restored` in `migrate.ftl`.
 pub const MIGRATE_APPLY_RESTORED: MessageKey = MessageKey::new("migrate-apply-restored");
 
@@ -6652,7 +6655,7 @@ pub const WEB_REFUSAL_MISSING: MessageKey = MessageKey::new("web-refusal-missing
 pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2121] = [
+pub static ALL: [MessageKey; 2122] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6856,6 +6859,7 @@ pub static ALL: [MessageKey; 2121] = [
     MIGRATE_REASON_PRUNE,
     MIGRATE_APPLY_VERIFIED,
     MIGRATE_APPLY_FAILED,
+    MIGRATE_JOB_START_FAILED,
     MIGRATE_APPLY_RESTORED,
     MIGRATE_APPLY_ROUTER_ROLLBACK,
     MIGRATE_APPLY_TIER,

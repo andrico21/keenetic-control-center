@@ -27,6 +27,10 @@ use kcc_app::{
     settings::OutboundConfig,
 };
 use tempfile::TempDir;
+use tokio::{
+    sync::{broadcast::error::RecvError, oneshot},
+    time::timeout,
+};
 
 const CHILD_ENV: &str = "KCC_JOBS_RECOVERY_CHILD";
 const STATE_ENV: &str = "KCC_JOBS_RECOVERY_STATE";
@@ -183,5 +187,65 @@ async fn failed_ownership_claim_releases_router_write_slot() -> TestResult {
             )
             .await?,
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn runners_sharing_state_start_same_second_jobs() -> TestResult {
+    let temp = TempDir::new()?;
+    let state = StateStore::open(&temp.path().join("state"))?;
+    let clock: Arc<dyn Clock> = Arc::new(MockClock(1_800_000_000));
+    let first = JobRunner::open_with_retention(
+        state.clone(),
+        registry(&state)?,
+        Duration::from_secs(100),
+        Arc::clone(&clock),
+    )
+    .await?;
+    let second_state = StateStore::open(&temp.path().join("state"))?;
+    let second = JobRunner::open_with_retention(
+        second_state.clone(),
+        registry(&second_state)?,
+        Duration::from_secs(100),
+        clock,
+    )
+    .await?;
+    let mut first_events = first.subscribe();
+    let mut second_events = second.subscribe();
+    let (release_first, first_released) = oneshot::channel();
+    let (release_second, second_released) = oneshot::channel();
+
+    let first_id = first
+        .start("first".to_owned(), None, false, async move |_context| {
+            drop(first_released.await);
+            Ok(())
+        })
+        .await?;
+    let second_id = second
+        .start("second".to_owned(), None, false, async move |_context| {
+            drop(second_released.await);
+            Ok(())
+        })
+        .await?;
+
+    assert_ne!(first_id, second_id);
+    release_first.send(()).map_err(|()| "first job stopped")?;
+    release_second.send(()).map_err(|()| "second job stopped")?;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if first_events.recv().await?.id == first_id {
+                break Ok::<(), RecvError>(());
+            }
+        }
+    })
+    .await??;
+    timeout(Duration::from_secs(2), async {
+        loop {
+            if second_events.recv().await?.id == second_id {
+                break Ok::<(), RecvError>(());
+            }
+        }
+    })
+    .await??;
     Ok(())
 }

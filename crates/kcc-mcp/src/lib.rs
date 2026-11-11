@@ -161,6 +161,8 @@ pub enum McpFailure {
     },
     /// Concurrent state made the operation unsafe.
     Conflict,
+    /// A background job could not be admitted; retrying is safe.
+    JobUnavailable,
     /// An internal service failed.
     Internal,
     /// The target firmware is documentation-based and the caller did not acknowledge it.
@@ -190,6 +192,7 @@ impl McpFailure {
             Self::ValidationFailed => "validation_failed",
             Self::VerificationFailed { field: _ } => "verification_failed",
             Self::Conflict => "conflict",
+            Self::JobUnavailable => "job_unavailable",
             Self::Internal => "internal",
             Self::UnverifiedFirmwareTier => "unverified_firmware_tier",
         }

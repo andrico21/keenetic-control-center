@@ -100,6 +100,7 @@ pub(crate) async fn finish_with_context(
                 | McpFailure::ValidationFailed
                 | McpFailure::VerificationFailed { field: _ }
                 | McpFailure::Conflict
+                | McpFailure::JobUnavailable
                 | McpFailure::Internal
                 | McpFailure::UnverifiedFirmwareTier => None,
             };

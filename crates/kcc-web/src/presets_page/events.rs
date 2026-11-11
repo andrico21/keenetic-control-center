@@ -114,6 +114,7 @@ pub(super) fn failure_text(name: &str) -> MessageKey {
         "RolledBackByRouter" => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
         "Unreachable" => keys::WEB_MIGRATE_FAILURE_UNREACHABLE,
         "Cancelled" => keys::WEB_PRESETS_FAILURE_CANCELLED,
+        "JobStart" => keys::MIGRATE_JOB_START_FAILED,
         _ => keys::WEB_PRESETS_FAILURE_FAILED,
     }
 }

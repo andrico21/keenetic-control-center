@@ -23,6 +23,7 @@ migrate-reason-unsupported = Der Zielrouter unterstützt diese Einstellung nicht
 migrate-reason-prune = Nach Auswahl des Bedieners entfernt.
 migrate-apply-verified = Migration geprüft. Wählen Sie Speichern oder Zurücksetzen; Änderungen sind noch nicht gespeichert.
 migrate-apply-failed = Migration angehalten. Prüfen Sie das Ergebnis vor dem Zurücksetzen.
+migrate-job-start-failed = Der Auftrag konnte nicht gestartet werden. Wiederholen Sie den Befehl.
 migrate-apply-restored = Die Migrationsprüfung ist fehlgeschlagen. kcc hat automatisch zurückgesetzt und die Startkonfiguration wiederhergestellt.
 migrate-apply-router-rollback = Der Router hat nach Ablauf des Wiederherstellungstimers seine gespeicherte Konfiguration wiederhergestellt.
 migrate-apply-tier = Bestätigen Sie die Migration auf eine nur anhand der Dokumentation unterstützte Firmware.

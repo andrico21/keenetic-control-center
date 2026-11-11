@@ -322,6 +322,9 @@ pub enum ApplyError {
     /// Job admission failed.
     #[error("migration job unavailable")]
     Job,
+    /// A shared-state identifier collision refused admission before router contact.
+    #[error("migration job could not be started; retry")]
+    JobStart,
     /// Hardware identity differs for raw restore.
     #[error("raw restore hardware mismatch")]
     HardwareMismatch,
