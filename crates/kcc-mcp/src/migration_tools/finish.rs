@@ -75,20 +75,20 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
         return Err(McpFailure::ConfirmRequired);
     }
     let applier = migration.applier_mut().ok_or(McpFailure::Conflict)?;
-    match input.action {
+    let result = match input.action {
         FinishAction::Commit => applier.commit().await,
         FinishAction::Rollback => {
             server.require_destructive(Risk::Destructive, input.confirm)?;
             applier.rollback().await
         }
-    }
-    .map_err(|error| {
+    };
+    if let Err(error) = result {
         if error.recovery_armed() {
-            McpFailure::ManagementOutcomeUnknownFailSafeArmed
-        } else {
-            map_apply(error)
+            return Err(McpFailure::ManagementOutcomeUnknownFailSafeArmed);
         }
-    })?;
+        return Err(map_apply(error));
+    }
+    migration.close();
     let value = migration.summary();
     drop(entries);
     Ok(value)

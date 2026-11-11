@@ -1,4 +1,4 @@
-//! In-memory migration records keyed by plan id.
+//! In-memory migration records keyed by target router and plan id.
 //!
 //! A `MigrationPlan` carries executable commands in secret buffers and deliberately cannot
 //! be deserialized, so plans and the applier's write lease live only in this process; a
@@ -6,7 +6,11 @@
 
 use alloc::collections::BTreeMap;
 
-use kcc_migrate::{apply::Applier, planner::MigrationPlan, report::MigrationReport};
+use kcc_migrate::{
+    apply::{Applier, ApplyReport},
+    planner::MigrationPlan,
+    report::MigrationReport,
+};
 use serde_json::{Value, json};
 use tokio::sync::{Mutex, MutexGuard};
 
@@ -23,6 +27,8 @@ pub(crate) struct Migration {
     target: RouterId,
     /// Reviewed executable plan.
     plan: MigrationPlan,
+    /// Router-qualified id exposed by MCP and used as the map key.
+    id: String,
     /// Redacted report of the plan.
     report: MigrationReport,
     /// Whole-source index of each planned source setting.
@@ -31,6 +37,8 @@ pub(crate) struct Migration {
     job: Option<String>,
     /// Lease retained for commit or rollback.
     applier: Option<Applier>,
+    /// Last apply report after a terminal finish releases the lease.
+    applied: Option<ApplyReport>,
 }
 
 impl Migration {
@@ -42,15 +50,18 @@ impl Migration {
     ) -> Self {
         let (source, target) = routers;
         let (plan, report, kept) = planned;
+        let id = format!("{}{plan_id}", target.as_str(), plan_id = plan.plan_id);
         Self {
             owner,
             source,
             target,
             plan,
+            id,
             report,
             kept,
             job: None,
             applier: None,
+            applied: None,
         }
     }
 
@@ -69,7 +80,7 @@ impl Migration {
 
     /// Whether an apply already produced a lease.
     pub(crate) const fn applied(&self) -> bool {
-        self.applier.is_some()
+        self.applier.is_some() || self.applied.is_some()
     }
 
     /// Stores the apply job and its lease.
@@ -83,22 +94,39 @@ impl Migration {
         self.applier.as_mut()
     }
 
+    /// Releases the write lease while retaining the terminal report.
+    pub(crate) fn close(&mut self) {
+        if let Some(applier) = self.applier.take() {
+            self.applied = Some(applier.report().clone());
+            drop(applier);
+        }
+    }
+
+    /// Target router used to isolate otherwise identical planner ids.
+    const fn target(&self) -> &RouterId {
+        &self.target
+    }
+
     /// Plan counts and the apply outcome, without command text.
     pub(crate) fn summary(&self) -> Value {
-        let apply = self.applier.as_ref().map(|applier| {
-            let report = applier.report();
-            json!({
-                "job_id": self.job,
-                "applied": report.applied.len(),
-                "failed": report.failed,
-                "residual_count": report.residual_count,
-                "verified": report.verified,
-                "finished": report.finished,
-                "failure": report.failure
-            })
-        });
+        let apply = self
+            .applier
+            .as_ref()
+            .map(Applier::report)
+            .or(self.applied.as_ref())
+            .map(|report| {
+                json!({
+                    "job_id": self.job,
+                    "applied": report.applied.len(),
+                    "failed": report.failed,
+                    "residual_count": report.residual_count,
+                    "verified": report.verified,
+                    "finished": report.finished,
+                    "failure": report.failure
+                })
+            });
         json!({
-            "plan_id": self.plan.plan_id,
+            "plan_id": self.id,
             "source": self.source.as_str(),
             "target": self.target.as_str(),
             "counts": self.report.counts,
@@ -137,11 +165,30 @@ impl Migration {
 /// Every live migration of this process.
 #[derive(Debug, Default)]
 pub(crate) struct Migrations {
-    /// Records by plan id.
+    /// Records by target router and plan id.
     entries: Mutex<BTreeMap<String, Migration>>,
 }
 
 impl Migrations {
+    /// Records a plan unless an applied migration on its target is still open.
+    ///
+    /// # Errors
+    /// Returns `conflict` while the target has an unfinished applied migration.
+    pub(crate) async fn record(&self, migration: Migration) -> Result<(), McpFailure> {
+        let mut entries = self.entries.lock().await;
+        let target = migration.target().as_str();
+        if entries
+            .values()
+            .any(|existing| existing.target().as_str() == target && existing.applier.is_some())
+        {
+            return Err(McpFailure::Conflict);
+        }
+        let key = migration.id.clone();
+        drop(entries.insert(key, migration));
+        drop(entries);
+        Ok(())
+    }
+
     /// Locks the records.
     pub(crate) async fn lock(&self) -> MutexGuard<'_, BTreeMap<String, Migration>> {
         self.entries.lock().await

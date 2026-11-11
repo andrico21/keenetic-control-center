@@ -8,6 +8,7 @@ mod lab;
 #[expect(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
     reason = "acceptance assertions establish the finish recovery contract"
 )]
 mod tests {
@@ -132,6 +133,32 @@ mod tests {
             failed.params_redacted.get("fail_safe_armed"),
             Some(&json!(true))
         );
+        let retained = lab
+            .call(
+                "kcc_migration_report",
+                json!({"host":"lab-1", "plan_id":id}),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            retained.value()?.pointer("/apply/finished"),
+            Some(&json!(false))
+        );
+        if !lost_reply {
+            let retry = lab
+                .call(
+                    "kcc_migration_finish",
+                    json!({
+                        "host":"lab-1", "plan_id":id, "action":"commit", "confirm":true
+                    }),
+                    false,
+                )
+                .await?;
+            assert_eq!(
+                retry.value()?.pointer("/apply/finished"),
+                Some(&json!(true))
+            );
+        }
         lab.stop().await?;
         Ok(())
     }
@@ -158,5 +185,64 @@ mod tests {
     #[tokio::test]
     async fn lost_scheduled_save_reports_armed() -> TestResult {
         closing_failure("extender", true).await
+    }
+
+    /// Drift leaves the migration open so the caller can still roll it back.
+    #[tokio::test]
+    async fn drifted_commit_remains_retryable_by_rollback() -> TestResult {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some("router".to_owned());
+        let target = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let mut lab = Lab::start(
+            vec![
+                ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+                ("lab-1", target),
+            ],
+            admin(),
+        )
+        .await?;
+        let id = applied(&mut lab).await?;
+        drop(
+            lab.registry
+                .client("lab-1")
+                .await?
+                .parse("interface Bridge0 description out-of-band")
+                .await?,
+        );
+
+        let drifted = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"commit", "confirm":true}),
+                false,
+            )
+            .await?;
+        assert_eq!(drifted.error(), Some("conflict"), "{drifted:?}");
+        let retained = lab
+            .call(
+                "kcc_migration_report",
+                json!({"host":"lab-1", "plan_id":id}),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            retained.value()?.pointer("/apply/finished"),
+            Some(&json!(false))
+        );
+
+        let rollback = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"rollback", "confirm":true}),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            rollback.value()?.pointer("/apply/finished"),
+            Some(&json!(true))
+        );
+        lab.stop().await
     }
 }

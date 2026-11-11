@@ -87,13 +87,20 @@ impl Reply {
 /// Routers, services, and one connected MCP client session.
 #[expect(
     clippy::field_scoped_visibility_modifiers,
+    clippy::partial_pub_fields,
     reason = "resource tests drive resources/list and resources/read on the same session"
 )]
-pub(crate) struct Lab {
+#[expect(
+    unreachable_pub,
+    reason = "integration tests compile this shared support module as their crate-local harness"
+)]
+pub struct Lab {
     /// Temporary state.
     directory: TempDir,
     /// Router handles by profile id.
     routers: Vec<(String, Handle)>,
+    /// Registry retained for test-only out-of-band router changes.
+    pub registry: Arc<RouterRegistry>,
     /// The client session.
     pub(crate) client: RunningService<RoleClient, Recorder>,
     /// Progress notifications received.
@@ -169,7 +176,7 @@ impl Lab {
         let server = KccMcp::new(
             config,
             PrivacyConfig::default(),
-            registry,
+            Arc::clone(&registry),
             workflow,
             jobs,
             poller,
@@ -189,6 +196,7 @@ impl Lab {
         Ok(Self {
             directory,
             routers: handles,
+            registry,
             client,
             progress,
         })
@@ -273,6 +281,7 @@ impl Lab {
     /// Ends the session and stops every router.
     pub(crate) async fn stop(self) -> TestResult {
         drop(self.client.cancel().await?);
+        drop(self.registry);
         for (_id, handle) in self.routers {
             handle.shutdown().await?;
         }

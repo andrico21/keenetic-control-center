@@ -214,6 +214,6 @@ pub(crate) async fn plan(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
         summary.extend(items);
         drop(summary.insert("status".to_owned(), json!("planned")));
     }
-    drop(server.migrations.lock().await.insert(id, migration));
+    server.migrations.record(migration).await?;
     Ok(value)
 }

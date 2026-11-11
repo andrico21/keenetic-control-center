@@ -71,7 +71,6 @@ pub(crate) async fn apply(
     let protected = request(reviewed).map_err(map_request)?;
     let migration_plan = protected.plan.clone();
     let report = MigrationReport::from_plan(&migration_plan, Locale::En);
-    let plan_id = migration_plan.plan_id.clone();
     let mut events = server.jobs.subscribe();
     let (job, done) = Applier::start(&server.jobs, protected)
         .await
@@ -86,7 +85,7 @@ pub(crate) async fn apply(
     );
     migration.record_apply(job.clone(), applier);
     let mut value = migration.summary();
-    drop(server.migrations.lock().await.insert(plan_id, migration));
+    server.migrations.record(migration).await?;
     if let Value::Object(summary) = &mut value {
         drop(summary.insert("job_id".to_owned(), json!(job)));
         drop(summary.insert("preset_id".to_owned(), json!(preset_id)));
