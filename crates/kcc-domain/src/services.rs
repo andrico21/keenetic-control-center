@@ -24,6 +24,17 @@ use crate::{
 
 mod verification;
 
+/// Returns the shared service-toggle risk, preserving protection for both toggle directions.
+#[inline]
+#[must_use]
+pub fn service_risk(name: &str) -> Risk {
+    if matches!(name, "http" | "ssh" | "telnet") {
+        Risk::Management
+    } else {
+        Risk::Write
+    }
+}
+
 /// One service returned by `show rc service`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
 #[serde(default)]
@@ -197,7 +208,7 @@ pub fn plan_service(router: &RouterCtx, name: &str, enabled: bool) -> Result<Cha
     Ok(ChangeOp::new(
         vec![request],
         Vec::new(),
-        Risk::Write,
+        service_risk(name),
         Permission::Write,
         false,
     ))

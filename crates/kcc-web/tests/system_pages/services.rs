@@ -3,10 +3,12 @@
 //! Per-role switches, an ordinary service turned on and read back, a management service
 //! that asks first and runs inside the fail-safe timer, refusals, and a router refusal.
 
+use std::io::{self, Write as _};
+
 use axum::http::StatusCode;
 use kcc_i18n::keys;
 use kcc_rci::RciBody;
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::{Value, json};
 
 use crate::{
@@ -16,6 +18,77 @@ use crate::{
 
 /// The page under test.
 const PAGE: &str = "/ui/r/home/system/services";
+
+/// Stopping every management service preserves the dialog, role gate and both timer edges.
+// NOT cancel-safe: fixture writes may apply before cancellation.
+#[tokio::test]
+async fn management_service_stops_keep_the_web_bracket_in_both_modes() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let fake = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let fixture = Fixture::with_router(fake).await?;
+        let admin = fixture.login("admin").await?;
+        for name in ["http", "ssh", "telnet"] {
+            let toggle = format!("{PAGE}/toggle?name={name}&on=false");
+            for role in ["operator", "writer"] {
+                let browser = fixture.login(role).await?;
+                let before = fixture.handle().request_log().len();
+                let denied = fixture.post(&toggle, &browser, "").await?;
+                assert_eq!(denied.status(), StatusCode::FORBIDDEN);
+                assert!(
+                    fixture
+                        .handle()
+                        .request_log()
+                        .iter()
+                        .skip(before)
+                        .all(|record| record.command().is_none()),
+                    "no unauthorized mutation"
+                );
+            }
+            let prompt = fixture.post(&toggle, &admin, "").await?;
+            assert_eq!(
+                header_text(&prompt, "hx-retarget").as_deref(),
+                Some("#dialog-content")
+            );
+            let before = fixture.handle().request_log().len();
+            let response = fixture.post(&toggle, &admin, "confirm=yes").await?;
+            assert_eq!(response.status(), StatusCode::OK);
+            let commands = fixture
+                .handle()
+                .request_log()
+                .iter()
+                .skip(before)
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            let (arm, disarm) = if mode == "router" {
+                (
+                    "system configuration fail-safe timer reboot 300",
+                    "no system configuration fail-safe timer",
+                )
+            } else {
+                ("system reboot 300", "no system reboot")
+            };
+            assert_eq!(
+                commands.first().map(String::as_str),
+                Some(arm),
+                "{mode} {name}: {commands:?}"
+            );
+            assert_eq!(
+                commands.last().map(String::as_str),
+                Some(disarm),
+                "{mode} {name}: {commands:?}"
+            );
+            writeln!(
+                io::stderr(),
+                "BRACKET Web {mode} service {name} off: dialog; operator/writer 403; arm + disarm"
+            )?;
+        }
+    }
+    Ok(())
+}
 
 /// A silently ignored typed service write renders its failed field without success.
 #[tokio::test]

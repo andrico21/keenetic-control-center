@@ -11,7 +11,7 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{apply_cli, begin, check_op, needed, object, open, secret, text};
+use super::common::{apply_cli, apply_registered, check_op, needed, object, open, secret, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -135,6 +135,7 @@ pub(super) async fn wifi(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
 }
 
 /// Runs one mesh write.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn mesh(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: MeshInput = parse(arguments)?;
     check_op(MESH_OPS, &input.op)?;
@@ -152,16 +153,22 @@ pub(super) async fn mesh(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
         "update_start" => mesh::plan_update_start(ctx, member),
         _ => {
             let typed = text(input.confirm_name.as_deref())?;
-            let mut changes = begin(server, &opened).await?;
             drop(
-                mesh::reboot_member(&mut changes, ctx, member, typed)
-                    .await
-                    .map_err(|error| match error {
-                        RebootError::ConfirmationMismatch => McpFailure::InvalidArguments,
-                        RebootError::Domain(domain) => map_domain(domain),
-                        RebootError::Workflow(workflow) => map_workflow(workflow),
-                        _ => McpFailure::Internal,
-                    })?,
+                apply_registered(
+                    server,
+                    &opened,
+                    (Area::Mesh, &input.op, input.confirm, async |changes| {
+                        mesh::reboot_member(changes, ctx, member, typed)
+                            .await
+                            .map_err(|error| match error {
+                                RebootError::ConfirmationMismatch => McpFailure::InvalidArguments,
+                                RebootError::Domain(domain) => map_domain(domain),
+                                RebootError::Workflow(workflow) => map_workflow(workflow),
+                                _ => McpFailure::Internal,
+                            })
+                    }),
+                )
+                .await?,
             );
             return Ok(json!({ "applied": true, "rebooting": member }));
         }

@@ -11,8 +11,22 @@ mod support;
 
 use kcc_catalog::Risk;
 use kcc_domain::services::{self, ManagementListener, SecurityLevel};
+use kcc_testkit::model::Firmware;
 
 use crate::support::{Fixture, PROFILES, TestResult, toggle_service};
+
+/// Service toggles preserve the Web's management classification in the shared plan.
+#[tokio::test]
+async fn management_service_toggles_carry_management_risk() -> TestResult {
+    let fixture = Fixture::spawn(Firmware::V5_1).await?;
+    for name in ["http", "ssh", "telnet"] {
+        for enabled in [false, true] {
+            let operation = services::plan_service(fixture.context(), name, enabled)?;
+            assert_eq!(operation.risk, Risk::Management, "{name} enabled={enabled}");
+        }
+    }
+    fixture.shutdown().await
+}
 
 #[tokio::test]
 async fn service_enable_and_disable_are_visible_through_show_rc() -> TestResult {

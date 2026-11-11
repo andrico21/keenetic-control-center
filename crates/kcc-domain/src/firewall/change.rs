@@ -16,6 +16,7 @@ mod render;
 mod verify;
 
 use alloc::{format, vec};
+use core::slice;
 
 use kcc_app::{
     permissions::Permission,
@@ -37,6 +38,28 @@ pub struct Plan {
 }
 
 impl Plan {
+    /// Resolves runtime management risk once before the surface authorizes execution.
+    /// Unclassified plans remain management risk rather than bypassing recovery.
+    // cancel-safe: only configuration and topology reads precede returning the plan.
+    pub async fn classify(mut self, router: &RouterCtx) -> Self {
+        self.operation.risk = match &self.verification {
+            Verification::Binding {
+                interface,
+                list: _,
+                direction: _,
+                present: _,
+            } => super::management::interfaces_risk(router, slice::from_ref(interface)).await,
+            Verification::Add { list, rule: _ }
+            | Verification::Remove { list, rule: _ }
+            | Verification::Property {
+                list,
+                before: _,
+                property: _,
+            } => super::management::list_risk(router, list).await,
+        };
+        self
+    }
+
     /// Returns the validated generic operation metadata.
     #[inline]
     #[must_use]
@@ -249,7 +272,13 @@ fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedReq
 }
 
 const fn operation(requests: Vec<ValidatedRequest>) -> ChangeOp {
-    ChangeOp::new(requests, Vec::new(), Risk::Write, Permission::Write, false)
+    ChangeOp::new(
+        requests,
+        Vec::new(),
+        Risk::Management,
+        Permission::Write,
+        false,
+    )
 }
 
 fn insert(fields: &mut Map<String, Value>, name: &str, value: Value) {

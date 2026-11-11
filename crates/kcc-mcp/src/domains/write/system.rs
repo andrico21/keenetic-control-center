@@ -8,7 +8,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{applied, begin, check_op, confirm_risk, needed, open, text};
+use super::common::{applied, apply, apply_registered, check_op, needed, open, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -71,6 +71,7 @@ fn plan(ctx: &RouterCtx, input: &Input) -> Result<Result<ChangeOp, DomainError>,
 }
 
 /// Runs one system write.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn write(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: Input = parse(arguments)?;
     check_op(OPS, &input.op)?;
@@ -83,11 +84,15 @@ pub(super) async fn write(server: &KccMcp, arguments: Value) -> Result<Value, Mc
     let (_identity, router, ctx) = &opened;
     match input.op.as_str() {
         "reboot" => {
-            let mut changes = begin(server, &opened).await?;
             drop(
-                system::reboot(&mut changes, ctx)
-                    .await
-                    .map_err(map_workflow)?,
+                apply_registered(
+                    server,
+                    &opened,
+                    (Area::System, &input.op, input.confirm, async |changes| {
+                        system::reboot(changes, ctx).await.map_err(map_workflow)
+                    }),
+                )
+                .await?,
             );
             Ok(json!({ "applied": true, "rebooting": true }))
         }
@@ -95,25 +100,38 @@ pub(super) async fn write(server: &KccMcp, arguments: Value) -> Result<Value, Mc
             let typed = text(input.confirm_name.as_deref())?;
             system::confirm_factory_reset(router.as_str(), typed)
                 .map_err(|_error| McpFailure::InvalidArguments)?;
-            let mut changes = begin(server, &opened).await?;
             drop(
-                system::factory_reset(&mut changes, ctx, router.as_str(), typed)
-                    .await
-                    .map_err(|error| match error {
-                        FactoryResetError::ConfirmationMismatch => McpFailure::InvalidArguments,
-                        FactoryResetError::Domain(domain) => map_domain(domain),
-                        FactoryResetError::Workflow(workflow) => map_workflow(workflow),
-                        _ => McpFailure::Internal,
-                    })?,
+                apply_registered(
+                    server,
+                    &opened,
+                    (Area::System, &input.op, input.confirm, async |changes| {
+                        system::factory_reset(changes, ctx, router.as_str(), typed)
+                            .await
+                            .map_err(|error| match error {
+                                FactoryResetError::ConfirmationMismatch => {
+                                    McpFailure::InvalidArguments
+                                }
+                                FactoryResetError::Domain(domain) => map_domain(domain),
+                                FactoryResetError::Workflow(workflow) => map_workflow(workflow),
+                                _ => McpFailure::Internal,
+                            })
+                    }),
+                )
+                .await?,
             );
             Ok(json!({ "applied": true, "factory_reset": true }))
         }
         _ => {
             let operation = plan(ctx, &input)?.map_err(map_domain)?;
-            confirm_risk(server, operation.risk, input.confirm)?;
             let request = system::change_request(&operation).map_err(map_domain)?;
-            let mut changes = begin(server, &opened).await?;
-            let result = changes.apply(request).await.map_err(map_workflow)?;
+            let result = apply(
+                server,
+                &opened,
+                (&operation, input.confirm, async |changes| {
+                    changes.apply(request).await.map_err(map_workflow)
+                }),
+            )
+            .await?;
             Ok(applied(result.unsaved))
         }
     }

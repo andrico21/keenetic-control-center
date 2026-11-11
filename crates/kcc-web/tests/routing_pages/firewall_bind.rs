@@ -5,13 +5,16 @@
 //! A 4.3.9 router without IPv6 access lists gets the explorer note.
 
 use core::net::SocketAddr;
-use std::fs;
+use std::{
+    fs,
+    io::{self, Write as _},
+};
 
 use axum::http::StatusCode;
 use kcc_app::{permissions::built_in_roles, registry::ManagedRouterProfile};
 use kcc_i18n::keys;
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, migration,
     model::{Firmware, Model, Profile},
 };
 use tempfile::TempDir;
@@ -26,6 +29,96 @@ use crate::{
 
 /// The catalog path of the fail-safe timer's arm and disarm lines.
 const TIMER: &str = "system configuration fail-safe timer";
+
+/// Runtime management bindings keep the Web's confirmation and recovery in both modes.
+// NOT cancel-safe: fixture writes may apply before cancellation.
+#[tokio::test]
+async fn management_firewall_binding_brackets_both_modes() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let fake = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let fixture = Fixture::with_router(fake).await?;
+        let admin = fixture.login("admin").await?;
+        two_rules(&fixture, &admin).await?;
+        let (arm, disarm) = if mode == "router" {
+            (
+                "system configuration fail-safe timer reboot 300",
+                "no system configuration fail-safe timer",
+            )
+        } else {
+            ("system reboot 300", "no system reboot")
+        };
+        for path in [
+            "/ui/r/home/firewall/bind?list=WebAcl&interface=Bridge0&direction=in",
+            "/ui/r/home/firewall/rule/new?list=WebAcl&action=deny&protocol=ip&source=192.0.2.5&source_mask=255.255.255.255&destination=198.51.100.5&destination_mask=255.255.255.255",
+            "/ui/r/home/firewall/unbind?interface=Bridge0&list=WebAcl&direction=in",
+        ] {
+            let asked = post(&fixture, &admin, (path, &[]), StatusCode::OK).await?;
+            assert!(
+                asked.contains(&said(keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE)),
+                "dialog"
+            );
+            for role in ["operator", "writer"] {
+                let browser = fixture.login(role).await?;
+                let before = fixture.handle().request_log().len();
+                drop(
+                    post(
+                        &fixture,
+                        &browser,
+                        (path, &[("confirm", "yes")]),
+                        StatusCode::FORBIDDEN,
+                    )
+                    .await?,
+                );
+                assert!(
+                    fixture
+                        .handle()
+                        .request_log()
+                        .iter()
+                        .skip(before)
+                        .all(|record| record.command().is_none()),
+                    "no unauthorized mutation"
+                );
+            }
+            let before = fixture.handle().request_log().len();
+            drop(
+                post(
+                    &fixture,
+                    &admin,
+                    (path, &[("confirm", "yes")]),
+                    StatusCode::OK,
+                )
+                .await?,
+            );
+            let commands = fixture
+                .handle()
+                .request_log()
+                .iter()
+                .skip(before)
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                commands.first().map(String::as_str),
+                Some(arm),
+                "{mode} {path}: {commands:?}"
+            );
+            assert_eq!(
+                commands.last().map(String::as_str),
+                Some(disarm),
+                "{mode} {path}: {commands:?}"
+            );
+            writeln!(
+                io::stderr(),
+                "BRACKET Web {mode} {path}: dialog; operator/writer 403; arm + disarm"
+            )?;
+        }
+        assert_eq!(applied(&fixture), 0, "last action unbound the list");
+    }
+    Ok(())
+}
 
 /// Applying `WebAcl` inbound to `interface`, confirmed when `confirm` is set.
 fn binding(interface: &str, confirm: bool) -> Vec<(&str, &str)> {

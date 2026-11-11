@@ -126,6 +126,7 @@ impl Fixture {
             "outsider",
             "raw-writer",
             "rawdes",
+            "writer",
         ] {
             accounts.create(NewAccount::new(
                 role.to_owned(),
@@ -299,6 +300,11 @@ fn roles() -> Vec<Role> {
     built_in_roles()
         .into_iter()
         .chain([
+            Role::new(
+                "writer".to_owned(),
+                [Permission::Read, Permission::Write],
+                vec!["*".to_owned()],
+            ),
             Role::new(
                 "rawdes".to_owned(),
                 [

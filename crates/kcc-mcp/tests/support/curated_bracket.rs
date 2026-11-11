@@ -170,6 +170,53 @@ mod tests {
         )
         .await
     }
+
+    /// The interface executor owns its native management bracket independently of the funnel.
+    // NOT cancel-safe: the fixture owns router and MCP tasks.
+    #[tokio::test]
+    async fn curated_interface_guard_brackets_management_changes() -> TestResult {
+        for mode in ["router", "extender"] {
+            let mut scenario = migration::Fixture::default();
+            scenario.mode = Some(mode.to_owned());
+            let fake = FakeRouter::builder(Profile::default())
+                .build()?
+                .with_migration(scenario);
+            let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
+            for input in [
+                json!({"host":"lab-1","op":"down","name":"Bridge0","confirm":true}),
+                json!({"host":"lab-1","op":"security_level","name":"Bridge0","level":"private","confirm":true}),
+            ] {
+                let before = lab.router("lab-1")?.request_log().len();
+                let reply = lab
+                    .call("kcc_interfaces_write", input.clone(), false)
+                    .await?;
+                let commands = lab
+                    .router("lab-1")?
+                    .request_log()
+                    .iter()
+                    .skip(before)
+                    .filter_map(|record| record.command().map(str::to_owned))
+                    .collect::<Vec<_>>();
+                assert_eq!(reply.error(), None, "{mode} {input}: {reply:?}");
+                assert_eq!(
+                    commands.first().map(String::as_str),
+                    Some("system configuration fail-safe timer reboot 300"),
+                    "{commands:?}"
+                );
+                assert_eq!(
+                    commands.last().map(String::as_str),
+                    Some("no system configuration fail-safe timer"),
+                    "{commands:?}"
+                );
+                writeln!(
+                    io::stderr(),
+                    "BRACKET MCP interface guard {mode} {input}: native arm + disarm"
+                )?;
+            }
+            lab.stop().await?;
+        }
+        Ok(())
+    }
     /// A role missing recovery permission is refused before router discovery.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
     #[tokio::test]

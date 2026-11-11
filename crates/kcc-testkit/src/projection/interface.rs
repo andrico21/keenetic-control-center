@@ -36,11 +36,10 @@ pub(super) fn interfaces(command_lines: &[Vec<String>]) -> Value {
                 drop(fields.insert("state".to_owned(), Value::String(state.clone())));
             }
             [ip, access_group, acl, direction] if ip == "ip" && access_group == "access-group" => {
-                let bindings = fields
-                    .entry("ip".to_owned())
-                    .or_insert_with(|| json!({"access-group":[]}));
+                let bindings = fields.entry("ip".to_owned()).or_insert_with(|| json!({}));
                 if let Some(rows) = bindings
-                    .get_mut("access-group")
+                    .as_object_mut()
+                    .map(|branch| branch.entry("access-group").or_insert_with(|| json!([])))
                     .and_then(Value::as_array_mut)
                 {
                     rows.push(json!({"acl":acl,"direction":direction}));

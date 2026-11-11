@@ -11,7 +11,7 @@
 )]
 #![expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 
-mod fixture;
+pub(crate) mod fixture;
 mod gates;
 mod persists;
 mod random;

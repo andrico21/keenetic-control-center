@@ -15,7 +15,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::common::{applied, begin, check_op, confirm_risk, needed, open, text};
+use super::common::{applied, apply, check_op, needed, open, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -131,6 +131,7 @@ pub(super) struct FirewallInput {
 }
 
 /// Runs one NAT write.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn nat(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: NatInput = parse(arguments)?;
     check_op(NAT_OPS, &input.op)?;
@@ -170,11 +171,16 @@ pub(super) async fn nat(server: &KccMcp, arguments: Value) -> Result<Value, McpF
         }
     }
     .map_err(map_domain)?;
-    confirm_risk(server, operation.risk, input.confirm)?;
-    let mut changes = begin(server, &opened).await?;
-    let result = nat_change::apply(&mut changes, ctx, &operation)
-        .await
-        .map_err(map_domain)?;
+    let result = apply(
+        server,
+        &opened,
+        (&operation, input.confirm, async |changes| {
+            nat_change::apply(changes, ctx, &operation)
+                .await
+                .map_err(map_domain)
+        }),
+    )
+    .await?;
     Ok(applied(result.unsaved))
 }
 
@@ -227,6 +233,7 @@ fn plan_firewall(
 }
 
 /// Runs one firewall write.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn firewall(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: FirewallInput = parse(arguments)?;
     check_op(FIREWALL_OPS, &input.op)?;
@@ -236,11 +243,19 @@ pub(super) async fn firewall(server: &KccMcp, arguments: Value) -> Result<Value,
         (input.host.clone(), &input.op, input.confirm),
     )
     .await?;
-    let operation = plan_firewall(&opened.2, &input)?.map_err(map_domain)?;
-    confirm_risk(server, operation.operation().risk, input.confirm)?;
-    let mut changes = begin(server, &opened).await?;
-    let result = firewall_change::apply(&mut changes, &opened.2, &operation)
-        .await
-        .map_err(map_domain)?;
+    let operation = plan_firewall(&opened.2, &input)?
+        .map_err(map_domain)?
+        .classify(&opened.2)
+        .await;
+    let result = apply(
+        server,
+        &opened,
+        (operation.operation(), input.confirm, async |changes| {
+            firewall_change::apply(changes, &opened.2, &operation)
+                .await
+                .map_err(map_domain)
+        }),
+    )
+    .await?;
     Ok(applied(result.unsaved))
 }

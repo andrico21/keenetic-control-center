@@ -21,15 +21,23 @@ use url::Url;
 
 use crate::KccMcp;
 
-pub(super) struct Fixture {
+pub(crate) struct Fixture {
     directory: TempDir,
     server: KccMcp,
     handle: kcc_testkit::Handle,
 }
 
 impl Fixture {
+    /// Observes commands sent by the synthetic-operation test.
+    pub(crate) fn commands(&self) -> Vec<String> {
+        self.handle
+            .request_log()
+            .iter()
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect()
+    }
     /// The handler under test.
-    pub(super) const fn server(&self) -> &KccMcp {
+    pub(crate) const fn server(&self) -> &KccMcp {
         &self.server
     }
 
@@ -38,7 +46,7 @@ impl Fixture {
         self.handle.request_count()
     }
 
-    pub(super) async fn spawn(
+    pub(crate) async fn spawn(
         config: McpConfig,
         privacy: PrivacyConfig,
     ) -> Result<Self, Box<dyn Error>> {
@@ -97,7 +105,7 @@ impl Fixture {
         })
     }
 
-    pub(super) async fn shutdown(self) -> Result<(), Box<dyn Error>> {
+    pub(crate) async fn shutdown(self) -> Result<(), Box<dyn Error>> {
         let Self {
             directory,
             server: _,

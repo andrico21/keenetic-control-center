@@ -15,7 +15,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::common::{applied, apply_cli, begin, check_op, confirm_risk, open, text};
+use super::common::{applied, apply, apply_cli, check_op, open, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -109,6 +109,7 @@ const fn enabled_default() -> bool {
 }
 
 /// Runs one static-route write; removals go through the route-wipe guard.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouteInput = parse(arguments)?;
     check_op(ROUTING_OPS, &input.op)?;
@@ -136,10 +137,17 @@ pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, 
         route.interface = interface.map(str::to_owned);
         route.metric = input.metric;
         if input.remove {
-            let mut changes = begin(server, &opened).await?;
-            let result = route_change::remove_ipv4(&mut changes, ctx, &route)
-                .await
-                .map_err(map_domain)?;
+            let operation = route_change::plan_remove_ipv4(ctx, &route).map_err(map_domain)?;
+            let result = apply(
+                server,
+                &opened,
+                (&operation, input.confirm, async |changes| {
+                    route_change::remove_ipv4(changes, ctx, &route)
+                        .await
+                        .map_err(map_domain)
+                }),
+            )
+            .await?;
             return Ok(applied(result.unsaved));
         }
         let planned = route_change::plan_add_ipv4(ctx, &route);
@@ -159,10 +167,17 @@ pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, 
         .map(str::to_owned);
     route.interface = interface.map(str::to_owned);
     if input.remove {
-        let mut changes = begin(server, &opened).await?;
-        let result = route_change::remove_ipv6(&mut changes, ctx, &route)
-            .await
-            .map_err(map_domain)?;
+        let operation = route_change::plan_remove_ipv6(ctx, &route).map_err(map_domain)?;
+        let result = apply(
+            server,
+            &opened,
+            (&operation, input.confirm, async |changes| {
+                route_change::remove_ipv6(changes, ctx, &route)
+                    .await
+                    .map_err(map_domain)
+            }),
+        )
+        .await?;
         return Ok(applied(result.unsaved));
     }
     let planned = route_change::plan_add_ipv6(ctx, &route);
@@ -216,6 +231,7 @@ fn plan_policy(
 }
 
 /// Runs one policy write.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn policies(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: PolicyInput = parse(arguments)?;
     check_op(POLICY_OPS, &input.op)?;
@@ -226,10 +242,15 @@ pub(super) async fn policies(server: &KccMcp, arguments: Value) -> Result<Value,
     )
     .await?;
     let operation = plan_policy(&opened.2, &input)?.map_err(map_domain)?;
-    confirm_risk(server, operation.risk, input.confirm)?;
-    let mut changes = begin(server, &opened).await?;
-    let result = apply_policy(&mut changes, &opened.2, &operation)
-        .await
-        .map_err(map_domain)?;
+    let result = apply(
+        server,
+        &opened,
+        (&operation, input.confirm, async |changes| {
+            apply_policy(changes, &opened.2, &operation)
+                .await
+                .map_err(map_domain)
+        }),
+    )
+    .await?;
     Ok(applied(result.unsaved))
 }

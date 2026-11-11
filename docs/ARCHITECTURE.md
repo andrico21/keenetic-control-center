@@ -77,7 +77,10 @@ Management brackets authorize the operation and `SafetyNet::management_permissio
 before arming. Arming, disarming, keep-alive and rollback share `Destructive`; commit
 retains `Save`. CLI, Web and raw and curated MCP writes use this same recovery
 permission set. MCP's shared planned-write executor chooses the bracket from the
-actual `ChangeOp` risk, including WAN addressing classified during planning. Router
+actual `ChangeOp` risk, including WAN addressing and firewall bindings classified
+in `kcc-domain`. Firewall list changes inspect all affected interfaces and fail
+closed if discovery fails. HTTP, SSH and Telnet service toggles also receive their
+management classification from the domain, shared with the Web and CLI. Router
 mode uses the native timer; other modes use a cancellable scheduled reboot. The
 curated interface guard retains native recovery and its positive arm verification
 until a scheduled-reboot verification contract is established. If cleanup fails after

@@ -37,9 +37,6 @@ use crate::{
     },
 };
 
-/// The services that carry management access to the router.
-pub(crate) const MANAGEMENT: [&str; 3] = ["http", "ssh", "telnet"];
-
 /// The page.
 #[derive(Template)]
 #[template(path = "pages/system_services.html")]
@@ -177,7 +174,7 @@ async fn read(domain: &RouterCtx) -> Result<Vec<Service>, MessageKey> {
             on: configured.iter().any(|service| {
                 service.name.as_deref() == Some(name.as_str()) && service.enabled != Some(false)
             }),
-            management: MANAGEMENT.contains(&name.as_str()),
+            management: services::service_risk(&name) == Risk::Management,
             name,
         })
         .collect())

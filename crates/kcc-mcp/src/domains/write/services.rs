@@ -1,5 +1,6 @@
 //! `kcc_services_write`, `kcc_keendns_write`, and `kcc_router_users_write`.
 
+use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, DomainError, RouterCtx, keendns,
     keendns::RemoteSecurityLevel,
@@ -11,7 +12,7 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::common::{apply_cli, check_op, needed, open, secret, text};
+use super::common::{apply_cli, check_op, needed, open, preauthorize_management, secret, text};
 use crate::{KccMcp, McpFailure, domains::table::Area, support::route::parse};
 
 /// Service write operations.
@@ -145,6 +146,7 @@ fn plan_keendns(
 }
 
 /// Runs one service or KeenDNS write.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn services_or_keendns(
     server: &KccMcp,
     area: Area,
@@ -153,6 +155,12 @@ pub(super) async fn services_or_keendns(
     let input: AdminInput = parse(arguments)?;
     let services = area == Area::Services;
     check_op(if services { SERVICE_OPS } else { KEENDNS_OPS }, &input.op)?;
+    if services
+        && input.op == "set_service"
+        && services::service_risk(text(input.name.as_deref())?) == Risk::Management
+    {
+        preauthorize_management(server, &input.host)?;
+    }
     let opened = open(server, area, (input.host.clone(), &input.op, input.confirm)).await?;
     if services {
         let planned = plan_service(&opened.2, &input)?;

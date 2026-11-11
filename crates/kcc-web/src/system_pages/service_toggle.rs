@@ -12,11 +12,10 @@ use axum::{
     response::Response,
 };
 use kcc_app::permissions::Permission;
-use kcc_catalog::Risk;
 use kcc_domain::services;
 
 use super::{
-    services::{MANAGEMENT, Viewer, known},
+    services::{Viewer, known},
     shared::{answer, forbidden, merged, missing, shown_query, value, with_query},
 };
 use crate::{
@@ -45,6 +44,7 @@ const SET: Operation = Operation::write(&services::DESCRIPTOR, "set_service", "w
 /// Answers 404 for a service the catalog does not know, 403 when the role may not take
 /// the change's risk, and what the kit answers when the router or the permission is
 /// missing.
+// NOT cancel-safe: a transmitted service change may precede read-back and timer cleanup.
 pub(crate) async fn toggle(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -70,11 +70,7 @@ pub(crate) async fn toggle(
         action.abandon("not_found").await;
         return Err(missing());
     }
-    let risk = if MANAGEMENT.contains(&name.as_str()) {
-        Risk::Management
-    } else {
-        Risk::Write
-    };
+    let risk = services::service_risk(&name);
     if !allowed(
         &user,
         &router,

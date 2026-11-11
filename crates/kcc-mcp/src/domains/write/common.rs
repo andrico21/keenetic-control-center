@@ -1,9 +1,15 @@
 //! Shared steps of every write tool: operation check, authorization, risk confirmation,
 //! argument extraction, and protected application.
 
+#[cfg(test)]
+mod tests;
+
 use core::net::Ipv4Addr;
 
-use kcc_app::workflow::{ChangeSet, CliChangeRequest};
+use kcc_app::{
+    permissions::Permission,
+    workflow::{ChangeSet, CliChangeRequest},
+};
 use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, DomainError, RouterCtx, configuration::SafetyNet, verification};
 use kcc_rci::ObjectName;
@@ -68,10 +74,62 @@ pub(super) fn confirm_risk(server: &KccMcp, risk: Risk, confirm: bool) -> Result
     Ok(())
 }
 
-/// Opens the protected change set of an opened target.
+/// Runs a terminal or multi-step domain executor using its registered operation metadata.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
+pub(super) async fn apply_registered<T, Work>(
+    server: &KccMcp,
+    opened: &Opened,
+    planned: (Area, &str, bool, Work),
+) -> Result<T, McpFailure>
+where
+    Work: AsyncFnOnce(&mut ChangeSet) -> Result<T, McpFailure>,
+{
+    let (area, name, confirm, work) = planned;
+    let (permission, risk) = area.write_meta(name).ok_or(McpFailure::InvalidArguments)?;
+    let operation = ChangeOp::new(Vec::new(), Vec::new(), risk, permission, false);
+    apply(server, opened, (&operation, confirm, work)).await
+}
+
+/// Hands ownership to executors whose recovery lifetime is a background job or domain guard.
+// NOT cancel-safe: change-set creation may complete before ownership reaches the executor.
 pub(super) async fn begin(server: &KccMcp, opened: &Opened) -> Result<ChangeSet, McpFailure> {
     let (identity, router, _ctx) = opened;
     server.begin_change(router, identity).await
+}
+
+/// Checks recovery permission before runtime classification can contact a router.
+pub(super) fn preauthorize_management(server: &KccMcp, host: &str) -> Result<(), McpFailure> {
+    let (identity, router) = server.authorize_host(Permission::Write, host.to_owned())?;
+    for &permission in SafetyNet::management_permissions() {
+        authorize_routers(&identity, permission, core::slice::from_ref(&router))?;
+    }
+    Ok(())
+}
+
+/// Executes every planned curated mutation under its operation's risk and permissions.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
+pub(super) async fn apply<T, Work>(
+    server: &KccMcp,
+    opened: &Opened,
+    planned: (&ChangeOp, bool, Work),
+) -> Result<T, McpFailure>
+where
+    Work: AsyncFnOnce(&mut ChangeSet) -> Result<T, McpFailure>,
+{
+    let (operation, confirm, work) = planned;
+    confirm_risk(server, operation.risk, confirm)?;
+    let (identity, router, _context) = opened;
+    authorize_routers(
+        identity,
+        operation.permission,
+        core::slice::from_ref(router),
+    )?;
+    raw_change::run(
+        server,
+        (router, identity, operation.risk == Risk::Management),
+        work,
+    )
+    .await
 }
 
 /// Applies a planned CLI operation after confirming its planned risk.
@@ -92,10 +150,12 @@ where
     verification::require(&request).map_err(map_domain)?;
     let (identity, router, _context) = opened;
     authorize_routers(identity, request.permission, core::slice::from_ref(router))?;
-    let result = raw_change::run(
+    let result = apply(
         server,
-        (router, identity, operation.risk == Risk::Management),
-        async |changes| changes.apply_cli(request).await.map_err(map_workflow),
+        opened,
+        (&operation, confirm, async |changes| {
+            changes.apply_cli(request).await.map_err(map_workflow)
+        }),
     )
     .await?;
     Ok(applied(result.unsaved))

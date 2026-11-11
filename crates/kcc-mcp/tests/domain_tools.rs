@@ -16,6 +16,8 @@ mod bracket;
 mod curated_bracket;
 #[path = "support/nested_risk.rs"]
 mod nested_risk;
+#[path = "support/runtime_bracket.rs"]
+mod runtime_bracket;
 
 #[path = "support/raw_parity.rs"]
 mod raw_parity;

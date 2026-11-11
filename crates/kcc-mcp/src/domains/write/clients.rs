@@ -10,7 +10,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{Opened, applied, begin, check_op, confirm_risk, ipv4, needed, open, text};
+use super::common::{Opened, applied, apply, apply_registered, check_op, ipv4, needed, open, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -179,20 +179,26 @@ async fn plan_client(
 }
 
 /// Applies a client or DHCP plan through the domain executor.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 async fn apply_planned(
     server: &KccMcp,
     opened: &Opened,
     planned: (ChangeOp, bool, Area),
 ) -> Result<Value, McpFailure> {
     let (operation, confirm, area) = planned;
-    confirm_risk(server, operation.risk, confirm)?;
-    let mut changes = begin(server, opened).await?;
-    let result = if area == Area::Dhcp {
-        dhcp::apply(&mut changes, &opened.2, &operation).await
-    } else {
-        clients::apply(&mut changes, &opened.2, &operation).await
-    }
-    .map_err(map_workflow)?;
+    let result = apply(
+        server,
+        opened,
+        (&operation, confirm, async |changes| {
+            if area == Area::Dhcp {
+                dhcp::apply(changes, &opened.2, &operation).await
+            } else {
+                clients::apply(changes, &opened.2, &operation).await
+            }
+            .map_err(map_workflow)
+        }),
+    )
+    .await?;
     Ok(applied(result.unsaved))
 }
 
@@ -264,6 +270,7 @@ fn map_segment(error: SegmentError) -> McpFailure {
 }
 
 /// Runs one segment write through the stepwise segment executor.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: SegmentInput = parse(arguments)?;
     check_op(SEGMENT_OPS, &input.op)?;
@@ -284,11 +291,18 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
             ipv4(input.dhcp_end.as_deref())?,
             input.switch_ports.clone(),
         );
-        let mut changes = begin(server, &opened).await?;
+        let operation = segments::plan_create(ctx, &spec).map_err(map_domain)?;
         drop(
-            segments::create(&mut changes, ctx, &spec)
-                .await
-                .map_err(map_segment)?,
+            apply(
+                server,
+                &opened,
+                (&operation, input.confirm, async |changes| {
+                    segments::create(changes, ctx, &spec)
+                        .await
+                        .map_err(map_segment)
+                }),
+            )
+            .await?,
         );
         return Ok(json!({ "applied": true, "unsaved": true, "id": input.id }));
     }
@@ -298,10 +312,16 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
         .into_iter()
         .find(|segment| segment.id == input.id)
         .ok_or(McpFailure::InvalidArguments)?;
-    let mut changes = begin(server, &opened).await?;
-    let summary = segments::delete_discovered(&mut changes, ctx, &view)
-        .await
-        .map_err(map_segment)?;
+    let summary = apply_registered(
+        server,
+        &opened,
+        (Area::Segments, &input.op, input.confirm, async |changes| {
+            segments::delete_discovered(changes, ctx, &view)
+                .await
+                .map_err(map_segment)
+        }),
+    )
+    .await?;
     drop(summary);
     Ok(json!({ "applied": true, "unsaved": true, "id": input.id }))
 }

@@ -116,7 +116,9 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
             };
             firewall_change::plan_bind(router, &interface, &acl, bound, !remove)?
         }
-    };
+    }
+    .classify(router)
+    .await;
     session
         .change(Gate::of(operation.operation()), async |changes, context| {
             Ok(applied(

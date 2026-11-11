@@ -6,7 +6,7 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{apply_cli, begin, check_op, needed, object, open, secret, text};
+use super::common::{apply_cli, apply_registered, check_op, needed, object, open, secret, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -102,6 +102,7 @@ fn server_change(input: &VpnServerInput) -> Result<VpnServerChange, McpFailure> 
 }
 
 /// Runs one VPN server write; credential operations use the secret-safe paths.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn servers(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: VpnServerInput = parse(arguments)?;
     check_op(OPS, &input.op)?;
@@ -115,10 +116,21 @@ pub(super) async fn servers(server: &KccMcp, arguments: Value) -> Result<Value, 
         "ike_psk" => {
             let name = object(input.name.as_deref())?;
             let value = secret(input.secret)?;
-            let mut changes = begin(server, &opened).await?;
-            server_secrets::apply_ike_psk(&mut changes, &opened.2, name, value)
-                .await
-                .map_err(map_workflow)?;
+            apply_registered(
+                server,
+                &opened,
+                (
+                    Area::VpnServers,
+                    &input.op,
+                    input.confirm,
+                    async |changes| {
+                        server_secrets::apply_ike_psk(changes, &opened.2, name, value)
+                            .await
+                            .map_err(map_workflow)
+                    },
+                ),
+            )
+            .await?;
             Ok(json!({ "applied": true, "unsaved": true }))
         }
         "password" => {

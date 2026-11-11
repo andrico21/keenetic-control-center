@@ -141,6 +141,12 @@ applied change is reported explicitly: recovery must be treated as armed and may
 discard all unsaved router changes. No permission failure is described as loss of
 router connectivity.
 
+Runtime management risk belongs to `kcc-domain`: firewall plans classify every
+affected interface and treat failed discovery as management risk; HTTP, SSH and
+Telnet service toggles carry the same risk as the Web's existing policy. CLI, MCP
+and Web consume that shared classification for confirmation and recovery. Curated
+MCP planned writes enter a common executor that selects recovery from `ChangeOp`.
+
 Role changes take effect without a restart. A custom role created, edited or reduced in
 the Web UI, or changed in `roles.json` followed by `SIGHUP`, binds the next MCP call (the
 transport's RBAC and the MCP handlers' own permission and scope checks share one role

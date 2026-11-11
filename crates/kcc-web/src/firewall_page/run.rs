@@ -12,8 +12,7 @@ use kcc_app::{
     workflow::{CliChangeRequest, WorkflowError},
 };
 use kcc_catalog::Risk;
-use kcc_domain::{RouterCtx, interfaces};
-use kcc_rci::ObjectName;
+use kcc_domain::{RouterCtx, firewall::management::interfaces_risk};
 use url::form_urlencoded;
 
 use super::{
@@ -248,7 +247,7 @@ pub(crate) async fn submit(
 ) -> Result<Response, Answer> {
     let locale = action.locale();
     let router = action.router();
-    let risk = risk(domain, &planned.interfaces).await;
+    let risk = interfaces_risk(domain, &planned.interfaces).await;
     let needed = [Permission::Write, Permission::Destructive];
     if risk >= Risk::Management && !allowed(sender.user, router, &needed) {
         action.abandon("forbidden").await;
@@ -293,21 +292,4 @@ pub(crate) async fn submit(
         None
     };
     Ok(answer(outcome, shown, locale))
-}
-
-/// The risk of changing the traffic of `names`: management when any of them carries kcc's
-/// connection to the router (or the detection fails), a write otherwise.
-// cancel-safe: reads only.
-async fn risk(domain: &RouterCtx, names: &[String]) -> Risk {
-    let mut highest = Risk::Write;
-    for name in names {
-        let found = match ObjectName::try_from(name.clone()) {
-            Ok(object) => interfaces::detect_management(domain, &object)
-                .await
-                .map_or(Risk::Management, |verdict| verdict.risk(&object)),
-            Err(_error) => Risk::Management,
-        };
-        highest = highest.max(found);
-    }
-    highest
 }

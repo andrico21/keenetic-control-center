@@ -110,8 +110,20 @@ impl<'ctx> Session<'ctx> {
     /// Returns the policy refusal or connection failures.
     // cancel-safe: connecting only reads router state.
     pub(crate) async fn open(ctx: &'ctx Ctx, permission: Permission) -> Outcome<Self> {
+        Self::open_permissions(ctx, &[permission]).await
+    }
+
+    /// Authorizes every required permission before router discovery.
+    ///
+    /// # Errors
+    /// Returns policy or connection failures.
+    // cancel-safe: connecting only reads router state.
+    pub(crate) async fn open_permissions(
+        ctx: &'ctx Ctx,
+        permissions: &[Permission],
+    ) -> Outcome<Self> {
         let services = ctx.services().await?;
-        let target = ctx.target(&services, &[permission]).await?;
+        let target = ctx.target(&services, permissions).await?;
         Ok(Self {
             ctx,
             services,

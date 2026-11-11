@@ -80,6 +80,14 @@ pub(super) async fn finalize(
     action: Finish,
 ) -> Outcome<Value> {
     let mode = safety_mode(target.info());
+    if matches!(action, Finish::KeepUnsaved)
+        || matches!(action, Finish::Save) && mode == SafetyMode::ScheduledReboot
+    {
+        drop(
+            ctx.principal()
+                .authorize(SafetyNet::management_permissions(), &[target.id()])?,
+        );
+    }
     let gate = match action {
         Finish::KeepUnsaved => Gate::new(Risk::Write, Permission::Write, false),
         Finish::Save => Gate::new(Risk::Write, Permission::Save, false),
@@ -91,7 +99,13 @@ pub(super) async fn finalize(
             (Finish::Save, SafetyMode::Router) => SafetyNet::commit(changes).await?,
             (Finish::Save, SafetyMode::ScheduledReboot | _) => {
                 configuration::save(changes).await?;
-                drop(SafetyNet::disarm(changes, router, mode).await?);
+                drop(
+                    SafetyNet::disarm(changes, router, mode)
+                        .await
+                        .map_err(|_error| {
+                            Failure::headline_only(Exit::Router, keys::MANAGEMENT_DISARM_FAILED)
+                        })?,
+                );
             }
             (Finish::Rollback, _) => drop(SafetyNet::rollback(changes, router).await?),
         }
@@ -121,6 +135,12 @@ pub(super) async fn finish_run(
         .router
         .filter(|_router| record.kind == "migration")
         .ok_or_else(not_run)?;
+    if matches!(action, Finish::Save | Finish::KeepUnsaved) {
+        drop(
+            ctx.principal()
+                .authorize(SafetyNet::management_permissions(), &[&router])?,
+        );
+    }
     let target = ctx
         .target_named(services, router, &[Permission::Read, Permission::Migrate])
         .await?;

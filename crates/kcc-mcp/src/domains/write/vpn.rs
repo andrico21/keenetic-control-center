@@ -9,11 +9,14 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{apply_cli, begin, check_op, needed, object, open, secret, text};
+use super::common::{apply, apply_cli, check_op, needed, object, open, secret, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
-    support::{errors::map_workflow, route::parse},
+    support::{
+        errors::{map_domain, map_workflow},
+        route::parse,
+    },
 };
 
 /// VPN client operations. `wireguard_import`, `wireguard_asc`, and `wireguard_peer_psk`
@@ -154,6 +157,7 @@ fn client_change(input: &VpnInput) -> Result<VpnClientChange, McpFailure> {
 }
 
 /// Runs one VPN client write; credential operations use the secret-safe executor.
+// NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: VpnInput = parse(arguments)?;
     check_op(CLIENT_OPS, &input.op)?;
@@ -173,10 +177,18 @@ pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, 
     };
     if let Some(credential) = target(object(input.name.as_deref())?) {
         let value = secret(input.secret)?;
-        let mut changes = begin(server, &opened).await?;
-        client_secrets::apply(&mut changes, &opened.2, &credential, value)
-            .await
-            .map_err(map_workflow)?;
+        let operation =
+            client_secrets::plan(&opened.2, &credential, value.clone()).map_err(map_domain)?;
+        apply(
+            server,
+            &opened,
+            (&operation, input.confirm, async |changes| {
+                client_secrets::apply(changes, &opened.2, &credential, value)
+                    .await
+                    .map_err(map_workflow)
+            }),
+        )
+        .await?;
         return Ok(json!({ "applied": true, "unsaved": true }));
     }
     let planned = vpn_clients::plan_change(&opened.2, &client_change(&input)?);

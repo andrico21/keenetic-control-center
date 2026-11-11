@@ -24,6 +24,8 @@ mod failsafe;
 mod failures;
 #[path = "cli/firewall_binding.rs"]
 mod firewall_binding;
+#[path = "cli/firewall_permissions.rs"]
+mod firewall_permissions;
 #[path = "cli/health.rs"]
 mod health;
 #[path = "cli/migrate.rs"]
@@ -40,9 +42,13 @@ mod persists;
 mod pipes;
 #[path = "cli/policy.rs"]
 mod policy;
+#[path = "cli/preset_finish.rs"]
+mod preset_finish;
 #[path = "cli/rci_transport.rs"]
 mod rci_transport;
 #[path = "cli/router_credentials.rs"]
 mod router_credentials;
+#[path = "cli/runtime_management.rs"]
+mod runtime_management;
 #[path = "cli/support.rs"]
 mod support;
