@@ -32,6 +32,8 @@ mod migrate;
 mod nested_risk;
 #[path = "cli/outbound.rs"]
 mod outbound;
+#[path = "cli/permission_gates.rs"]
+mod permission_gates;
 #[path = "cli/persists.rs"]
 mod persists;
 #[path = "cli/pipes.rs"]
