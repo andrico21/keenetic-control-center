@@ -14,12 +14,14 @@ use kcc_testkit::{FakeRouter, migration, model::Profile};
 
 use crate::{
     form,
-    support::{Fixture, TestResult},
+    support::{Fixture, TestResult, text},
 };
 
 /// Both consoles and positive/negative raw encodings require management protection.
 fn cases() -> Vec<(&'static str, String)> {
     let mut cases = [
+        "no interface Bridge0",
+        "system mode EXTENDER",
         "interface Bridge0 ip access-group LabAcl in",
         "interface Bridge0 security-level public",
         "ip ssh port 2222",
@@ -34,6 +36,8 @@ fn cases() -> Vec<(&'static str, String)> {
     })
     .collect::<Vec<_>>();
     for body in [
+        r#"{"interface":{"name":"Bridge0","no":true}}"#,
+        r#"{"system":{"mode":{"mode":"extender"}}}"#,
         r#"{"service":{"telnet":{}}}"#,
         r#"[{"service http":{"no":true}}]"#,
     ] {
@@ -49,6 +53,33 @@ fn cases() -> Vec<(&'static str, String)> {
         ));
     }
     cases
+}
+
+/// The console chooses the fail-safe explanation for newly classified management commands.
+// NOT cancel-safe: the fixture owns router and HTTP tasks.
+#[tokio::test]
+async fn raw_management_dialog_uses_recovery_wording() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let browser = fixture.login("admin").await?;
+    for line in ["no interface Bridge0", "system mode EXTENDER"] {
+        let response = fixture
+            .post(
+                "/ui/r/home/console/cli/send",
+                &browser,
+                &form(&[("line", line)]),
+            )
+            .await?;
+        let page = text(response).await?;
+        assert!(
+            page.contains("data-message-key=\"web-explorer-confirm-management-text\""),
+            "{line}: {page}"
+        );
+        assert!(
+            !page.contains("data-message-key=\"web-explorer-confirm-destructive-text\""),
+            "{line}: {page}"
+        );
+    }
+    Ok(())
 }
 
 /// A role without Destructive cannot mutate management settings or arm recovery.

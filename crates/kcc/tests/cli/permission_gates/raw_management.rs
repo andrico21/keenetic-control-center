@@ -15,6 +15,27 @@ fn cases() -> Vec<Vec<&'static str>> {
     vec![
         vec![
             "rci",
+            "delete",
+            "interface",
+            "--data",
+            r#"{"name":"Bridge0"}"#,
+        ],
+        vec![
+            "rci",
+            "batch",
+            "--data",
+            r#"[{"interface":{"name":"Bridge0","no":true}}]"#,
+        ],
+        vec![
+            "rci",
+            "post",
+            "system",
+            "mode",
+            "--data",
+            r#"{"mode":"extender"}"#,
+        ],
+        vec![
+            "rci",
             "post",
             "--data",
             r#"{"interface":{"name":"Bridge0","ip":{"access-group":{"acl":"LabAcl","direction":"in"}}}}"#,

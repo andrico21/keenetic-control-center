@@ -9,6 +9,7 @@ use crate::{Catalog, HttpMethod, RawAuthorization, Risk};
 
 /// Literal domain intents: listeners, bridge topology, firewall ingress and accounts.
 const MANAGEMENT: &[&str] = &[
+    "interface",
     "user",
     "user tag",
     "user password plain",
@@ -20,6 +21,14 @@ const MANAGEMENT: &[&str] = &[
     "interface security-level",
     "interface include",
     "interface inherit",
+    "interface role",
+    "interface ipv6 address",
+    "interface ip dhcp client routes",
+    "interface ip global",
+    "interface mac address",
+    "interface mac clone",
+    "ip route",
+    "system mode",
     "ip http port",
     "ip http security-level",
     "ip http ssl enable",
@@ -42,6 +51,16 @@ const MANAGEMENT: &[&str] = &[
     "access-list permit",
     "access-list deny",
     "access-list rule",
+];
+
+/// Raw writes that do not alter the router's management return path.
+const ORDINARY: &[&str] = &[
+    "interface description",
+    "interface rf",
+    "interface mac band",
+    "ip hotspot default-policy",
+    "ip hotspot policy",
+    "dns-proxy filter assign interface profile",
 ];
 
 /// Every present curated intent retains Management through public raw validation.
@@ -80,14 +99,57 @@ fn curated_management_paths_protect_all_raw_shapes() -> Result<(), Box<dyn Error
                     assert!(request.contains_management(), "{version} {path}: {body}");
                 }
             }
-            if command.prefix_no {
-                let deleted = catalog
-                    .validate(path, HttpMethod::Delete, &json!({}))
-                    .map_err(|issues| format!("DELETE {version} {path}: {issues:?}"))?;
+            if command.prefix_no
+                && let Ok(deleted) = catalog.validate(path, HttpMethod::Delete, &json!({}))
+            {
                 assert!(deleted.risk >= Risk::Management, "{version} {path}");
                 assert!(deleted.contains_management(), "DELETE {version} {path}");
             }
         }
+    }
+    Ok(())
+}
+
+/// The explicit reachability table keeps ordinary raw work available to raw writers.
+#[test]
+fn reachability_candidates_have_reasoned_risk() -> Result<(), Box<dyn Error>> {
+    for version in ["4.3.0", "5.0.0", "5.1.0"] {
+        let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str(version)?, None)?;
+        for &path in ORDINARY {
+            if catalog.lookup(path).is_none() {
+                continue;
+            }
+            assert_eq!(catalog.risk(path), Some(Risk::Write), "{version} {path}");
+        }
+    }
+    Ok(())
+}
+
+/// Whole-interface removal and operating-mode changes retain Management in every spelling.
+#[test]
+fn interface_removal_and_mode_switch_require_recovery() -> Result<(), Box<dyn Error>> {
+    let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, None)?;
+    for (path, method, value) in [
+        (
+            "interface",
+            HttpMethod::Post,
+            json!({"name":"Bridge0","no":true}),
+        ),
+        ("interface", HttpMethod::Delete, json!({"name":"Bridge0"})),
+        ("system mode", HttpMethod::Post, json!({"mode":"extender"})),
+    ] {
+        let request = catalog
+            .validate(path, method, &value)
+            .map_err(|issues| format!("{method:?} {path}: {issues:?}"))?;
+        assert!(request.risk >= Risk::Management, "{method:?} {path}");
+        assert!(request.contains_management(), "{method:?} {path}");
+    }
+    for line in ["no interface Bridge0", "system mode EXTENDER"] {
+        let request = catalog
+            .validate_cli(line, RawAuthorization::default())
+            .map_err(|issues| format!("{line}: {issues:?}"))?;
+        assert!(request.risk >= Risk::Management, "{line}");
+        assert!(request.contains_management(), "{line}");
     }
     Ok(())
 }

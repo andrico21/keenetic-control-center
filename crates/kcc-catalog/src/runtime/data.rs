@@ -129,6 +129,9 @@ pub(super) const MANAGEMENT_PREFIXES: &[&str] = &[
     "access-list ",
 ];
 
+/// Exact command paths that can replace the management interface or its routing context.
+pub(super) const MANAGEMENT_PATHS: &[&str] = &["interface", "ip route", "system mode"];
+
 /// Interface command endings affecting management access.
 pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[
     " up",
@@ -137,10 +140,18 @@ pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[
     " security-level",
     " include",
     " inherit",
+    " role",
 ];
 
-/// Interface address commands and their descendants affect management access.
-pub(super) const MANAGEMENT_INTERFACE_ADDRESS: &str = " ip address";
+/// Interface command trees that can alter the address, uplink route, or link identity.
+pub(super) const MANAGEMENT_INTERFACE_TREES: &[&str] = &[
+    " ip address",
+    " ipv6 address",
+    " ip dhcp client",
+    " ip global",
+    " mac address",
+    " mac clone",
+];
 
 /// Gets one lazily parsed data set.
 ///

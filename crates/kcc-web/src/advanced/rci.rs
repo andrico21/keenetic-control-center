@@ -164,9 +164,14 @@ pub(crate) async fn send(
     }
     let confirmation = form.confirmation();
     if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {
+        let prompt_risk = if checked.contains_management() {
+            Risk::Management
+        } else {
+            risk
+        };
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/rci/send"), "#rci-result")
             .with_include("#rci-form");
-        return Prompt::new(Family::Commands, risk, &router)
+        return Prompt::new(Family::Commands, prompt_risk, &router)
             .with_wrong_name(wrong_name)
             .with_persists(checked.persists())
             .with_persisted_paths(checked.persisted_paths())

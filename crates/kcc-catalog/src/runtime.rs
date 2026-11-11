@@ -10,8 +10,8 @@ use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
 use secrecy::SecretString;
 
 use self::data::{
-    BACKGROUND_PATHS, CatalogData, DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_ADDRESS,
-    MANAGEMENT_INTERFACE_SUFFIXES, MANAGEMENT_PREFIXES, data,
+    BACKGROUND_PATHS, CatalogData, DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_SUFFIXES,
+    MANAGEMENT_INTERFACE_TREES, MANAGEMENT_PATHS, MANAGEMENT_PREFIXES, data,
 };
 use crate::{
     CatalogError, CatalogVersion, Command, CommandKind, ModelMatch, Risk, SecretValue,
@@ -119,11 +119,14 @@ impl Catalog {
             return Some(Risk::Destructive);
         }
         if path == "user"
+            || MANAGEMENT_PATHS.contains(&path)
             || MANAGEMENT_PREFIXES
                 .iter()
                 .any(|prefix| path.starts_with(prefix))
             || (path.starts_with("interface ")
-                && (path.contains(MANAGEMENT_INTERFACE_ADDRESS)
+                && (MANAGEMENT_INTERFACE_TREES
+                    .iter()
+                    .any(|tree| path.contains(tree))
                     || MANAGEMENT_INTERFACE_SUFFIXES
                         .iter()
                         .any(|suffix| path.ends_with(suffix))))

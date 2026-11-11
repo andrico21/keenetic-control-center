@@ -13,8 +13,8 @@ use kcc_rci::version::FirmwareVersion;
 use super::{
     Catalog,
     data::{
-        DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_ADDRESS, MANAGEMENT_INTERFACE_SUFFIXES,
-        MANAGEMENT_PREFIXES, PERSISTS_IMMEDIATELY_PATHS,
+        DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_SUFFIXES, MANAGEMENT_INTERFACE_TREES,
+        MANAGEMENT_PATHS, MANAGEMENT_PREFIXES, PERSISTS_IMMEDIATELY_PATHS,
     },
     path_matches,
 };
@@ -49,11 +49,16 @@ fn every_safety_pattern_matches_an_embedded_command() -> Result<(), Box<dyn Erro
             "dead management prefix: {prefix}"
         );
     }
-    for suffix in MANAGEMENT_INTERFACE_SUFFIXES
-        .iter()
-        .copied()
-        .chain([MANAGEMENT_INTERFACE_ADDRESS])
-    {
+    for path in MANAGEMENT_PATHS {
+        assert!(
+            catalogs
+                .iter()
+                .flat_map(Catalog::commands)
+                .any(|command| command.path == *path),
+            "dead management path: {path}"
+        );
+    }
+    for suffix in MANAGEMENT_INTERFACE_SUFFIXES {
         assert!(
             catalogs
                 .iter()
@@ -61,6 +66,17 @@ fn every_safety_pattern_matches_an_embedded_command() -> Result<(), Box<dyn Erro
                 .any(|command| command.path.starts_with("interface ")
                     && command.path.ends_with(suffix)),
             "dead management rule: interface *{suffix}"
+        );
+    }
+    for tree in MANAGEMENT_INTERFACE_TREES {
+        assert!(
+            catalogs
+                .iter()
+                .flat_map(Catalog::commands)
+                .any(
+                    |command| command.path.starts_with("interface ") && command.path.contains(tree)
+                ),
+            "dead management rule: interface *{tree}*"
         );
     }
     Ok(())

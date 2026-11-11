@@ -42,10 +42,17 @@ async fn nested_destructive_console_requests_need_typed_name_and_permission() ->
                 .await?,
         )
         .await?;
-        assert!(
-            asked.contains("name=\"confirm_name\""),
-            "typed name required: {path}: {asked}"
-        );
+        if path == "user" {
+            assert!(
+                asked.contains("data-message-key=\"web-explorer-confirm-management-text\""),
+                "management recovery prompt: {path}: {asked}"
+            );
+        } else {
+            assert!(
+                asked.contains("name=\"confirm_name\""),
+                "typed name required: {path}: {asked}"
+            );
+        }
         let denied = fixture
             .post("/ui/r/home/console/rci/send", &raw_writer, &request)
             .await?;
@@ -123,8 +130,8 @@ async fn delete_and_negative_cli_require_permission_without_requests() -> TestRe
     ] {
         let asked = text(fixture.post(endpoint, &admin, &request).await?).await?;
         assert!(
-            asked.contains("name=\"confirm_name\""),
-            "typed name: {asked}"
+            asked.contains("data-message-key=\"web-explorer-confirm-management-text\""),
+            "management recovery prompt: {asked}"
         );
         let denied = fixture.post(endpoint, &operator, &request).await?;
         assert_eq!(denied.status(), StatusCode::FORBIDDEN);

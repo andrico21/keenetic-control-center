@@ -196,9 +196,14 @@ pub(crate) async fn send(
     }
     let confirmation = Confirmation::new(form.confirm.as_deref(), form.confirm_name.as_deref());
     if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {
+        let prompt_risk = if validated.contains_management() {
+            Risk::Management
+        } else {
+            risk
+        };
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/cli/send"), "#cli-result")
             .with_include("#cli-form");
-        return Prompt::new(Family::Commands, risk, &router)
+        return Prompt::new(Family::Commands, prompt_risk, &router)
             .with_wrong_name(wrong_name)
             .with_persists(validated.persists_immediately)
             .with_persisted_paths(validated.persisted_paths.clone())

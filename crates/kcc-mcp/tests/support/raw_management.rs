@@ -22,6 +22,22 @@ mod tests {
         vec![
             (
                 "kcc_cli_parse",
+                json!({"host":"lab-1","line":"no interface Bridge0"}),
+            ),
+            (
+                "kcc_rci_execute",
+                json!({"host":"lab-1","catalog_path":"system mode","path":["system","mode"],"value":{"mode":"extender"}}),
+            ),
+            (
+                "kcc_rci_delete",
+                json!({"host":"lab-1","catalog_path":"interface","path":["interface"],"value":{"name":"Bridge0"}}),
+            ),
+            (
+                "kcc_rci_batch",
+                json!({"host":"lab-1","items":[{"interface":{"name":"Bridge0","no":true}}]}),
+            ),
+            (
+                "kcc_cli_parse",
                 json!({"host":"lab-1","line":"interface Bridge0 ip access-group LabAcl in"}),
             ),
             (
@@ -68,20 +84,24 @@ mod tests {
                 };
                 let mut scenario = migration::Fixture::default();
                 scenario.mode = Some(mode.to_owned());
-                let lab = Lab::start(
-                    vec![(
-                        "lab-1",
-                        FakeRouter::builder(Profile::default())
-                            .build()?
-                            .with_migration(scenario),
-                    )],
-                    role,
-                )
-                .await?;
-                let before = lab.requests("lab-1")?;
                 let mut inputs = cases();
+                inputs.push((
+                    "kcc_cli_parse",
+                    json!({"host":"lab-1","line":"system mode EXTENDER"}),
+                ));
                 inputs.push(("kcc_cli_parse", json!({"host":"lab-1","line":"system configuration fail-safe timer reboot 300"})));
                 for (tool, mut input) in inputs {
+                    let lab = Lab::start(
+                        vec![(
+                            "lab-1",
+                            FakeRouter::builder(Profile::default())
+                                .build()?
+                                .with_migration(scenario.clone()),
+                        )],
+                        role.clone(),
+                    )
+                    .await?;
+                    let before = lab.requests("lab-1")?;
                     if !destructive {
                         drop(
                             input
@@ -106,8 +126,8 @@ mod tests {
                         "RAW MCP {mode} destructive={destructive} {tool} {input}: {:?}, zero requests",
                         reply.error()
                     )?;
+                    lab.stop().await?;
                 }
-                lab.stop().await?;
             }
         }
         Ok(())
@@ -120,17 +140,17 @@ mod tests {
         for mode in ["router", "extender"] {
             let mut scenario = migration::Fixture::default();
             scenario.mode = Some(mode.to_owned());
-            let lab = Lab::start(
-                vec![(
-                    "lab-1",
-                    FakeRouter::builder(Profile::default())
-                        .build()?
-                        .with_migration(scenario),
-                )],
-                admin(),
-            )
-            .await?;
             for (tool, mut input) in cases() {
+                let lab = Lab::start(
+                    vec![(
+                        "lab-1",
+                        FakeRouter::builder(Profile::default())
+                            .build()?
+                            .with_migration(scenario.clone()),
+                    )],
+                    admin(),
+                )
+                .await?;
                 drop(
                     input
                         .as_object_mut()
@@ -170,8 +190,8 @@ mod tests {
                     io::stderr(),
                     "RAW MCP admin {mode} {tool} {input}: {commands:?}"
                 )?;
+                lab.stop().await?;
             }
-            lab.stop().await?;
         }
         Ok(())
     }

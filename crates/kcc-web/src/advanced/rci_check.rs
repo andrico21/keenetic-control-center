@@ -207,6 +207,20 @@ impl Checked {
         }
     }
 
+    /// Whether any validated command requires management recovery.
+    pub(crate) fn contains_management(&self) -> bool {
+        match self {
+            Self::Path {
+                method: _,
+                validated,
+                show: _,
+            } => validated.contains_management(),
+            Self::Root { items, risk: _ } => items
+                .iter()
+                .any(|item| item.validated.contains_management()),
+        }
+    }
+
     /// Requests in the batch.
     pub(crate) const fn count(&self) -> usize {
         match self {
