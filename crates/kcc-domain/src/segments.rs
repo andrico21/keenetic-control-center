@@ -20,11 +20,14 @@ use kcc_app::{
     workflow::{ChangeSet, WorkflowError},
 };
 use kcc_catalog::Risk;
+use kcc_rci::ObjectName;
 use serde::{Deserialize, Serialize};
 
 pub use self::discovery::{DeleteSummary, SegmentView, VlanId};
 use self::step::{Direction, Step, steps};
-use crate::{ChangeOp, DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx};
+use crate::{
+    ChangeOp, DomainDescriptor, DomainId, OperationDescriptor, Result, RouterCtx, interfaces,
+};
 
 /// Complete input for one UI-visible network segment.
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -151,15 +154,40 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 /// Plans all validated create requests in execution order.
-pub fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
     ownership::validate(segment)?;
-    step::plan(router, &steps(segment), Direction::Create)
+    step::plan(
+        router,
+        &steps(segment),
+        Direction::Create,
+        management_risk(router, segment).await?,
+    )
 }
 
 /// Plans all validated delete requests in reverse execution order.
-pub fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
     ownership::validate(segment)?;
-    step::plan(router, &steps(segment), Direction::Delete)
+    step::plan(
+        router,
+        &steps(segment),
+        Direction::Delete,
+        management_risk(router, segment).await?,
+    )
+}
+
+/// Classifies an access-point bridge-membership change through the shared topology oracle.
+// cancel-safe: management classification performs read-only topology requests.
+async fn management_risk(router: &RouterCtx, segment: &SegmentSpec) -> Result<Risk> {
+    let Some(access_point) = &segment.access_point else {
+        return Ok(Risk::Write);
+    };
+    let name = ObjectName::try_from(access_point.clone())
+        .map_err(|_error| crate::DomainError::InvalidResponse)?;
+    Ok(interfaces::detect_management(router, &name)
+        .await?
+        .risk(&name))
 }
 
 /// Creates one segment, rolling applied steps back in reverse order on failure.

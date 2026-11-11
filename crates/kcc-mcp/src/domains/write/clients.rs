@@ -129,6 +129,9 @@ pub(super) struct SegmentInput {
     /// Switch ports joined to the segment.
     #[serde(default)]
     switch_ports: Vec<String>,
+    /// Access point joined to the segment.
+    #[serde(default)]
+    access_point: Option<String>,
 }
 
 /// Plans one client change.
@@ -282,7 +285,7 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
     .await?;
     let ctx = &opened.2;
     if input.op == "create" {
-        let spec = SegmentSpec::new(
+        let mut spec = SegmentSpec::new(
             input.id,
             needed(input.vlan_id)?,
             ipv4(input.address.as_deref())?,
@@ -291,7 +294,12 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
             ipv4(input.dhcp_end.as_deref())?,
             input.switch_ports.clone(),
         );
-        let operation = segments::plan_create(ctx, &spec).map_err(map_domain)?;
+        if let Some(access_point) = input.access_point.clone() {
+            spec = spec.with_access_point(access_point);
+        }
+        let operation = segments::plan_create(ctx, &spec)
+            .await
+            .map_err(map_domain)?;
         drop(
             apply(
                 server,

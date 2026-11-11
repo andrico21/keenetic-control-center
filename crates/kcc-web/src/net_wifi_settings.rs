@@ -13,19 +13,24 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_domain::{ChangeOp, DomainError, RouterCtx, wifi};
+use kcc_app::permissions::Permission;
+use kcc_domain::{DomainError, wifi};
 use kcc_i18n::keys;
-use kcc_rci::ObjectName;
 
 use crate::{
     WebState,
     authz::CurrentUser,
+    errors,
     net_change::{Params, Planned, Subject, finish, missing, reader, unusable},
     net_pages::{Call, Tab},
     net_settings::{Button, Fact, SettingsDialog},
     net_wifi_rows::{ApRow, RadioRow, access_points, radios},
     page_kit::{
-        action::Operation, context::fragment_shell, family::Family, gate::Controls, respond::Answer,
+        action::Operation,
+        context::fragment_shell,
+        family::Family,
+        gate::{Controls, allowed, operation_permissions},
+        respond::Answer,
     },
 };
 
@@ -34,9 +39,6 @@ const UP: Operation = Operation::write(&wifi::DESCRIPTOR, "up", "web.wifi_enable
 
 /// Hiding or showing a network name, audited as `web.wifi_hide_ssid`.
 const HIDE: Operation = Operation::write(&wifi::DESCRIPTOR, "hide_ssid", "web.wifi_hide_ssid");
-
-/// A Wi-Fi domain planner of an on-or-off setting.
-type Planner = fn(&RouterCtx, &ObjectName, bool) -> Result<ChangeOp, DomainError>;
 
 /// `GET /ui/r/{router}/wifi/settings?name=`: a radio's or an access point's settings.
 ///
@@ -218,15 +220,31 @@ pub(crate) async fn toggle(
         Some("no") => false,
         Some(_) | None => return Err(missing()),
     };
-    let (operation, plan): (Operation, Planner) = match params.get("setting") {
-        Some("enabled") => (UP, wifi::plan_up),
-        Some("hidden") => (HIDE, wifi::plan_hide_ssid),
+    let operation = match params.get("setting") {
+        Some("enabled") => UP,
+        Some("hidden") => HIDE,
         Some(_) | None => return Err(missing()),
     };
     let action = operation.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let change = plan(&domain, &name, value)
-        .and_then(|planned| Ok((wifi::change_request(&name, &planned)?, planned.risk)));
+    let planned: Result<_, DomainError> = match params.get("setting") {
+        Some("enabled") => wifi::plan_up(&domain, &name, value).await,
+        Some("hidden") => wifi::plan_hide_ssid(&domain, &name, value),
+        Some(_) | None => return Err(missing()),
+    };
+    if let Ok(plan) = &planned
+        && !allowed(
+            &user,
+            &router,
+            &operation_permissions(Permission::Write, plan.risk),
+        )
+    {
+        action.abandon("forbidden").await;
+        return Err(
+            errors::response(errors::Kind::Forbidden, fragment_shell(user.locale())).into(),
+        );
+    }
+    let change = planned.and_then(|plan| Ok((wifi::change_request(&name, &plan)?, plan.risk)));
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
     Ok(finish(call, action, Planned::new(domain, change)).await)
 }

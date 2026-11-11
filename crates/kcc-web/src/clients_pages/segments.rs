@@ -13,7 +13,7 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_app::workflow::WorkflowError;
+use kcc_app::{permissions::Permission, workflow::WorkflowError};
 use kcc_domain::{
     DomainError, RouterCtx,
     segments::{self, SegmentError},
@@ -43,7 +43,7 @@ use crate::{
         context::{self, Caller},
         failure::plan_failure,
         family::Family,
-        gate::Controls,
+        gate::{Controls, allowed, operation_permissions},
         outcome::Outcome,
         respond::{self, Answer},
     },
@@ -183,7 +183,7 @@ pub(crate) async fn review(
             return Err(refuse(details, *problems, String::new()));
         }
     };
-    if let Err(error) = segments::plan_create(&domain, &spec) {
+    if let Err(error) = segments::plan_create(&domain, &spec).await {
         let problem = plan_failure(Family::Changes, locale, &error)
             .message()
             .to_owned();
@@ -213,7 +213,7 @@ pub(crate) async fn create(
     let form = SegmentForm::from_pairs(&pairs);
     let checked = match form.check(&known, locale) {
         Err(problems) => Err((*problems, String::new())),
-        Ok(spec) => match segments::plan_create(&domain, &spec) {
+        Ok(spec) => match segments::plan_create(&domain, &spec).await {
             Ok(plan) => Ok((spec, plan.risk)),
             Err(error) => {
                 let failure = plan_failure(Family::Changes, locale, &error);
@@ -229,6 +229,16 @@ pub(crate) async fn create(
             return Err(refuse(details, problems, problem));
         }
     };
+    if !allowed(
+        &user,
+        &router,
+        &operation_permissions(Permission::Write, risk),
+    ) {
+        opened.abandon("forbidden").await;
+        return Err(
+            errors::response(errors::Kind::Forbidden, context::fragment_shell(locale)).into(),
+        );
+    }
     let mut note = None;
     let outcome = opened
         .run_with(risk, async |changes, context| {

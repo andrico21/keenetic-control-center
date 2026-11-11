@@ -162,8 +162,16 @@ pub fn plan_hide_ssid(router: &RouterCtx, name: &ObjectName, hidden: bool) -> Re
 }
 
 /// Plans whether an access point is enabled.
-pub fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Result<ChangeOp> {
-    plan::plan(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Result<ChangeOp> {
+    let risk = if enabled {
+        Risk::Write
+    } else {
+        interfaces::detect_management(router, name)
+            .await?
+            .risk(name)
+    };
+    plan::plan_with_risk(
         router,
         name,
         "interface up",
@@ -172,17 +180,27 @@ pub fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Result<C
             "state",
             Value::String(if enabled { "up" } else { "down" }.to_owned()),
         )),
+        risk,
     )
 }
 
 /// Plans an access-point schedule.
-pub fn plan_schedule(router: &RouterCtx, name: &ObjectName, schedule: &str) -> Result<ChangeOp> {
-    plan::plan(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_schedule(
+    router: &RouterCtx,
+    name: &ObjectName,
+    schedule: &str,
+) -> Result<ChangeOp> {
+    let risk = interfaces::detect_management(router, name)
+        .await?
+        .risk(name);
+    plan::plan_with_risk(
         router,
         name,
         "interface schedule",
         &json!({"schedule": schedule}),
         None,
+        risk,
     )
 }
 

@@ -51,7 +51,7 @@ pub(crate) async fn wifi(ctx: &Ctx, command: WifiCommand) -> Outcome {
         }
         WifiCommand::Enable { ap, state } => {
             let name = object(&ap)?;
-            let operation = wifi::plan_up(router, &name, state.enabled())?;
+            let operation = wifi::plan_up(router, &name, state.enabled()).await?;
             (name, operation)
         }
         WifiCommand::Channel { ap, channel } => {

@@ -101,8 +101,7 @@ fn plan_wifi(
         "encryption_wpa2" => wifi::plan_encryption(ctx, name, Encryption::Wpa2),
         "encryption_wpa3" => wifi::plan_encryption(ctx, name, Encryption::Wpa3),
         "hide_ssid" => wifi::plan_hide_ssid(ctx, name, needed(input.enabled)?),
-        "up" => wifi::plan_up(ctx, name, needed(input.enabled)?),
-        "schedule" => wifi::plan_schedule(ctx, name, text(value)?),
+        "up" | "schedule" => return Err(McpFailure::InvalidArguments),
         "channel" => wifi::plan_channel(ctx, name, text(value)?),
         "channel_width" => wifi::plan_channel_width(ctx, name, text(value)?),
         "power" => wifi::plan_power(ctx, name, needed(input.number)?),
@@ -123,7 +122,11 @@ pub(super) async fn wifi(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
     .await?;
     let name = object(Some(&input.name))?;
     let confirm = input.confirm;
-    let planned = plan_wifi(&opened.2, &name, input)?;
+    let planned = match input.op.as_str() {
+        "up" => wifi::plan_up(&opened.2, &name, needed(input.enabled)?).await,
+        "schedule" => wifi::plan_schedule(&opened.2, &name, text(input.value.as_deref())?).await,
+        _ => plan_wifi(&opened.2, &name, input)?,
+    };
     apply_cli(
         server,
         &opened,

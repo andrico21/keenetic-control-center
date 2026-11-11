@@ -102,3 +102,50 @@ async fn management_bracket_disarm_failure_reports_applied() -> TestResult {
     handle.shutdown().await?;
     Ok(())
 }
+
+/// Curated Wi-Fi disable uses the selected router mode's recovery bracket.
+// NOT cancel-safe: fixture writes may apply before cancellation.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn wifi_disable_brackets_both_modes() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let fake = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
+        let env = Env::new("")?;
+        let password = env.write("router.password", "admin")?;
+        env.write_config(&router("lab-1", address, &password))?;
+
+        let run = env.kcc(&[
+            "--yes",
+            "--confirm-destructive",
+            "lab-1",
+            "wifi",
+            "enable",
+            "--ap",
+            "WifiMaster0/AccessPoint0",
+            "off",
+        ])?;
+
+        let commands = handle
+            .request_log()
+            .iter()
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        let (arm, disarm) = if mode == "router" {
+            (
+                "system configuration fail-safe timer reboot 300",
+                "no system configuration fail-safe timer",
+            )
+        } else {
+            ("system reboot 300", "no system reboot")
+        };
+        assert_eq!(commands.first().map(String::as_str), Some(arm), "{run:?}");
+        assert_eq!(commands.last().map(String::as_str), Some(disarm), "{run:?}");
+        assert_eq!(run.code, 0_i32, "{run:?}");
+        handle.shutdown().await?;
+    }
+    Ok(())
+}

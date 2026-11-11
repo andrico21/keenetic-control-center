@@ -166,9 +166,10 @@ async fn segments_writes(ctx: &Ctx, command: SegmentsWriteCommand) -> Outcome {
             if let Some(name) = connection_policy {
                 spec = spec.with_connection_policy(name);
             }
-            drop(segments::plan_create(session.router(), &spec)?);
+            let operation = segments::plan_create(session.router(), &spec).await?;
+            let create_gate = Gate::new(operation.risk, operation.permission, false);
             session
-                .change(gate, async |changes, context| {
+                .change(create_gate, async |changes, context| {
                     drop(
                         segments::create(changes, context, &spec)
                             .await

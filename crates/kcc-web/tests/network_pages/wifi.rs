@@ -6,7 +6,7 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::Value;
 
 use crate::{
@@ -63,6 +63,77 @@ async fn each_role_sees_radios_points_and_devices() -> TestResult {
     )
     .await?;
     assert!(filtered.contains("1 of 4"), "the device filter: {filtered}");
+    Ok(())
+}
+
+#[tokio::test]
+async fn management_access_point_disable_is_refused_or_bracketed() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let fixture = Fixture::with_router(
+            FakeRouter::builder(Profile::default())
+                .build()?
+                .with_migration(scenario),
+        )
+        .await?;
+        for account in ["operator", "writer"] {
+            let browser = fixture.login(account).await?;
+            let before = fixture.handle().request_log().len();
+            let response = fixture
+                .post(
+                    "/ui/r/home/wifi/toggle?name=WifiMaster0%2FAccessPoint0&setting=enabled&value=no",
+                    &browser,
+                    "",
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN, "{account} {mode}");
+            assert!(
+                fixture
+                    .handle()
+                    .request_log()
+                    .iter()
+                    .skip(before)
+                    .all(|record| record.command().is_none()),
+                "{account} {mode}"
+            );
+        }
+        let admin = fixture.login("admin").await?;
+        let before = fixture.handle().request_log().len();
+        let response = fixture
+            .post(
+                "/ui/r/home/wifi/toggle?name=WifiMaster0%2FAccessPoint0&setting=enabled&value=no",
+                &admin,
+                &form(&[("confirm", "yes"), ("confirm_name", "home")]),
+            )
+            .await?;
+        assert_eq!(response.status(), StatusCode::OK, "admin {mode}");
+        let commands = fixture
+            .handle()
+            .request_log()
+            .iter()
+            .skip(before)
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        let (arm, disarm) = if mode == "router" {
+            (
+                "system configuration fail-safe timer reboot 300",
+                "no system configuration fail-safe timer",
+            )
+        } else {
+            ("system reboot 300", "no system reboot")
+        };
+        assert_eq!(
+            commands.first().map(String::as_str),
+            Some(arm),
+            "{commands:?}"
+        );
+        assert_eq!(
+            commands.last().map(String::as_str),
+            Some(disarm),
+            "{commands:?}"
+        );
+    }
     Ok(())
 }
 

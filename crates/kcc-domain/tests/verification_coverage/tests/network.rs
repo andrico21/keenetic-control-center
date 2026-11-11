@@ -10,10 +10,10 @@ use kcc_domain::{
 use crate::{administration::secret, support::TestResult, tests::checked};
 
 /// Dispatches a registry write to its network planner.
-pub(super) fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResult {
+pub(super) async fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResult {
     match domain {
         DomainId::Wan => wan_plan(router, op),
-        DomainId::Wifi => wifi_plan(router, op),
+        DomainId::Wifi => wifi_plan(router, op).await,
         DomainId::Dns => dns_plan(router, op),
         DomainId::Policies => policy_plan(router, op),
         DomainId::Routing => {
@@ -108,7 +108,7 @@ fn wan_plan(router: &RouterCtx, op: &str) -> TestResult {
 }
 
 /// Covers radio and access-point planners, including protected PSK construction.
-fn wifi_plan(router: &RouterCtx, op: &str) -> TestResult {
+async fn wifi_plan(router: &RouterCtx, op: &str) -> TestResult {
     let name = "WifiMaster0/AccessPoint0".parse()?;
     let plan = match op {
         "ssid" => wifi::plan_ssid(router, &name, "coverage67")?,
@@ -117,8 +117,8 @@ fn wifi_plan(router: &RouterCtx, op: &str) -> TestResult {
         "encryption_wpa2" => wifi::plan_encryption(router, &name, wifi::Encryption::Wpa2)?,
         "encryption_wpa3" => wifi::plan_encryption(router, &name, wifi::Encryption::Wpa3)?,
         "hide_ssid" => wifi::plan_hide_ssid(router, &name, true)?,
-        "up" => wifi::plan_up(router, &name, true)?,
-        "schedule" => wifi::plan_schedule(router, &name, "Schedule0")?,
+        "up" => wifi::plan_up(router, &name, true).await?,
+        "schedule" => wifi::plan_schedule(router, &name, "Schedule0").await?,
         "channel" => wifi::plan_channel(router, &name, "auto")?,
         "channel_width" => wifi::plan_channel_width(router, &name, "20")?,
         "power" => wifi::plan_power(router, &name, 50)?,

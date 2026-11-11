@@ -187,6 +187,7 @@ pub(super) fn plan(
     router: &RouterCtx,
     definitions: &[Step],
     direction: Direction,
+    risk: Risk,
 ) -> Result<ChangeOp> {
     let iterator: Box<dyn Iterator<Item = &Step> + '_> = match direction {
         Direction::Create => Box::new(definitions.iter()),
@@ -198,7 +199,7 @@ pub(super) fn plan(
     Ok(ChangeOp::new(
         requests,
         Vec::new(),
-        Risk::Write,
+        risk,
         Permission::Write,
         false,
     ))

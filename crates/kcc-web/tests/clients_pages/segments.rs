@@ -4,7 +4,7 @@
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 
 use crate::{
     form, html, router_said, said,
@@ -69,6 +69,40 @@ async fn each_role_sees_the_page_and_only_its_controls() -> TestResult {
         assert!(
             details.contains(expected),
             "missing {expected} in {details}"
+        );
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn management_access_point_segment_is_refused_for_writer() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let fixture = Fixture::with_router(
+            FakeRouter::builder(Profile::default())
+                .build()?
+                .with_migration(scenario),
+        )
+        .await?;
+        let writer = fixture.login("writer").await?;
+        let before = fixture.handle().request_log().len();
+        let response = fixture
+            .post(
+                &format!("{PAGE}/create"),
+                &writer,
+                &form(&changed("access_point", "WifiMaster0/AccessPoint0")),
+            )
+            .await?;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{mode}");
+        assert!(
+            fixture
+                .handle()
+                .request_log()
+                .iter()
+                .skip(before)
+                .all(|record| record.command().is_none()),
+            "{mode}"
         );
     }
     Ok(())

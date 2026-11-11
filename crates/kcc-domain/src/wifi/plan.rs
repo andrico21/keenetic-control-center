@@ -21,6 +21,18 @@ pub(super) fn plan(
     body: &Value,
     expected: Option<(&str, Value)>,
 ) -> Result<ChangeOp> {
+    plan_with_risk(router, name, path, body, expected, Risk::Write)
+}
+
+/// Validates one Wi-Fi plan with an already-classified risk.
+pub(super) fn plan_with_risk(
+    router: &RouterCtx,
+    name: &ObjectName,
+    path: &str,
+    body: &Value,
+    expected: Option<(&str, Value)>,
+    risk: Risk,
+) -> Result<ChangeOp> {
     let validated = router
         .catalog
         .validate(path, HttpMethod::Post, body)
@@ -36,7 +48,7 @@ pub(super) fn plan(
     Ok(ChangeOp::new(
         vec![validated],
         verify,
-        Risk::Write,
+        risk,
         Permission::Write,
         false,
     ))

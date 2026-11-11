@@ -84,6 +84,24 @@ mod tests {
     async fn curated_bracket_management_port() -> TestResult {
         bracket("kcc_services_write", json!({"host":"lab-1","op":"management_port","name":"http","port":8082_u16,"confirm":true})).await
     }
+    /// Disabling the management access point is protected.
+    #[tokio::test]
+    async fn curated_bracket_wifi_disable() -> TestResult {
+        bracket(
+            "kcc_wifi_write",
+            json!({"host":"lab-1","op":"up","name":"WifiMaster0/AccessPoint0","enabled":false,"confirm":true}),
+        )
+        .await
+    }
+    /// Moving the management access point to a segment is protected.
+    #[tokio::test]
+    async fn curated_bracket_segment_access_point() -> TestResult {
+        bracket(
+            "kcc_segments_write",
+            json!({"host":"lab-1","op":"create","id":7_u16,"vlan_id":7_u16,"address":"198.51.100.1","mask":"255.255.255.0","dhcp_begin":"198.51.100.10","dhcp_end":"198.51.100.50","switch_ports":[],"access_point":"WifiMaster0/AccessPoint0","confirm":true}),
+        )
+        .await
+    }
     /// Management listener exposure is protected.
     #[tokio::test]
     async fn curated_bracket_management_security_level() -> TestResult {
@@ -231,10 +249,28 @@ mod tests {
             role,
         )
         .await?;
-        let before = lab.requests("lab-1")?;
-        let reply = lab.call("kcc_services_write", json!({"host":"lab-1","op":"management_port","name":"http","port":8082_u16,"confirm":true}), false).await?;
-        assert_eq!(reply.error(), Some("forbidden"));
-        assert_eq!(lab.requests("lab-1")?, before);
+        for (tool, input) in [
+            (
+                "kcc_wifi_write",
+                json!({"host":"lab-1","op":"up","name":"WifiMaster0/AccessPoint0","enabled":false,"confirm":true}),
+            ),
+            (
+                "kcc_segments_write",
+                json!({"host":"lab-1","op":"create","id":7_u16,"vlan_id":7_u16,"address":"198.51.100.1","mask":"255.255.255.0","dhcp_begin":"198.51.100.10","dhcp_end":"198.51.100.50","switch_ports":[],"access_point":"WifiMaster0/AccessPoint0","confirm":true}),
+            ),
+        ] {
+            let before = lab.router("lab-1")?.request_log().len();
+            let reply = lab.call(tool, input, false).await?;
+            assert_eq!(reply.error(), Some("forbidden"), "{tool}: {reply:?}");
+            assert!(
+                lab.router("lab-1")?
+                    .request_log()
+                    .iter()
+                    .skip(before)
+                    .all(|record| record.command().is_none()),
+                "{tool}"
+            );
+        }
         lab.stop().await
     }
 }

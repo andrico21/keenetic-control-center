@@ -87,6 +87,7 @@ pub(crate) async fn field(
     let domain = action.context().await?;
     let planned = checked
         .plan(&domain, &name)
+        .await
         .and_then(|operation| Ok((wifi::change_request(&name, &operation)?, operation.risk)));
     let change = match planned {
         Ok(found) => found,

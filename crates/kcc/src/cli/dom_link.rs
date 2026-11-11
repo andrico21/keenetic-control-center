@@ -140,7 +140,7 @@ pub(crate) async fn wifi(ctx: &Ctx, command: Family<WifiCommand, WifiWriteComman
         }
         WifiWriteCommand::Schedule { ap, schedule } => {
             let name = object(&ap)?;
-            let operation = wifi::plan_schedule(router, &name, &schedule)?;
+            let operation = wifi::plan_schedule(router, &name, &schedule).await?;
             (name, operation)
         }
         WifiWriteCommand::ChannelWidth { ap, width } => {

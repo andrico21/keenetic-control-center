@@ -135,3 +135,59 @@ async fn raw_management_brackets_both_modes() -> TestResult {
     }
     Ok(())
 }
+
+/// Curated Wi-Fi and segment management changes need recovery authority before mutation.
+// NOT cancel-safe: the fixture owns router tasks and child processes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn curated_wifi_and_segment_permission_refuses_both_modes() -> TestResult {
+    for role in ["operator", "writer"] {
+        for mode in ["router", "extender"] {
+            let (env, handle, _address) = lab(mode, role).await?;
+            if role == "writer" {
+                add_role(&env, role, &[Permission::Read, Permission::Write])?;
+            }
+            for input in [
+                vec![
+                    "--yes",
+                    "wifi",
+                    "enable",
+                    "--ap",
+                    "WifiMaster0/AccessPoint0",
+                    "off",
+                ],
+                vec![
+                    "--yes",
+                    "segments",
+                    "create",
+                    "7",
+                    "--vlan",
+                    "7",
+                    "--address",
+                    "198.51.100.1",
+                    "--mask",
+                    "255.255.255.0",
+                    "--dhcp-begin",
+                    "198.51.100.10",
+                    "--dhcp-end",
+                    "198.51.100.50",
+                    "--access-point",
+                    "WifiMaster0/AccessPoint0",
+                ],
+            ] {
+                let before = handle.request_log().len();
+                let run = env.kcc(&input)?;
+                assert_eq!(run.code, 10_i32, "{role} {mode} {input:?}: {run:?}");
+                assert!(
+                    handle
+                        .request_log()
+                        .iter()
+                        .skip(before)
+                        .all(|record| record.command().is_none()),
+                    "{input:?}"
+                );
+            }
+            handle.shutdown().await?;
+        }
+    }
+    Ok(())
+}

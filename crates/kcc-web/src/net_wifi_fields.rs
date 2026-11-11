@@ -281,7 +281,7 @@ impl Checked {
     /// # Errors
     ///
     /// Returns the catalog's findings.
-    pub(crate) fn plan(
+    pub(crate) async fn plan(
         self,
         domain: &RouterCtx,
         name: &ObjectName,
@@ -289,7 +289,7 @@ impl Checked {
         match self {
             Self::Ssid(ssid) => wifi::plan_ssid(domain, name, &ssid),
             Self::Security(mode) => wifi::plan_encryption(domain, name, mode),
-            Self::Schedule(schedule) => wifi::plan_schedule(domain, name, &schedule),
+            Self::Schedule(schedule) => wifi::plan_schedule(domain, name, &schedule).await,
             Self::Channel(channel) => wifi::plan_channel(domain, name, &channel),
             Self::Width(width) => wifi::plan_channel_width(domain, name, &width),
             Self::Power(power) => wifi::plan_power(domain, name, power),

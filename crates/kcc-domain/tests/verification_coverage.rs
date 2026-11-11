@@ -114,7 +114,7 @@ mod tests {
                         | DomainId::Policies
                         | DomainId::Routing
                         | DomainId::Firewall => {
-                            network::check(fixture.context(), domain.id, operation.name)
+                            network::check(fixture.context(), domain.id, operation.name).await
                         }
                         DomainId::VpnClients | DomainId::VpnServers => {
                             vpn::check(fixture.context(), domain.id, operation.name)

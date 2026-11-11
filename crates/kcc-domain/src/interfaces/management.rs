@@ -243,3 +243,68 @@ impl Network {
         u32::from(ipv4_address) & self.mask == self.network
     }
 }
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "unit tests use assertions while propagating fixture decoding failures"
+)]
+mod tests {
+    use alloc::collections::BTreeSet;
+    use core::net::{IpAddr, Ipv4Addr};
+
+    use serde_json::json;
+
+    use super::{ManagementVerdict, ObservedSource, classify_bridge};
+    use crate::interfaces::Interface;
+
+    fn bridge() -> Result<Interface, serde_json::Error> {
+        serde_json::from_value(json!({
+            "id":"Bridge7",
+            "type":"Bridge",
+            "address":"198.51.100.1",
+            "mask":"255.255.255.0"
+        }))
+    }
+
+    #[test]
+    fn bridge_without_observed_sources_is_unknown() -> Result<(), serde_json::Error> {
+        let members = BTreeSet::from(["WifiMaster0/AccessPoint0".to_owned()]);
+
+        let verdict = classify_bridge(&bridge()?, "Bridge7", Some(&members), &[]);
+
+        assert_eq!(verdict, ManagementVerdict::Unknown);
+        Ok(())
+    }
+
+    #[test]
+    fn bridge_with_unrelated_source_is_not_management() -> Result<(), serde_json::Error> {
+        let members = BTreeSet::from(["WifiMaster0/AccessPoint1".to_owned()]);
+        let sources = [ObservedSource {
+            address: IpAddr::V4(Ipv4Addr::new(203, 0, 113, 9)),
+            interface: "Bridge0".to_owned(),
+        }];
+
+        let verdict = classify_bridge(&bridge()?, "Bridge7", Some(&members), &sources);
+
+        assert_eq!(verdict, ManagementVerdict::NotManagement);
+        Ok(())
+    }
+
+    #[test]
+    fn source_on_bridge_or_member_is_management() -> Result<(), serde_json::Error> {
+        let members = BTreeSet::from(["WifiMaster0/AccessPoint0".to_owned()]);
+        for interface in ["Bridge7", "WifiMaster0/AccessPoint0"] {
+            let sources = [ObservedSource {
+                address: IpAddr::V4(Ipv4Addr::new(198, 51, 100, 25)),
+                interface: interface.to_owned(),
+            }];
+
+            let verdict = classify_bridge(&bridge()?, "Bridge7", Some(&members), &sources);
+
+            assert_eq!(verdict, ManagementVerdict::Management, "{interface}");
+        }
+        Ok(())
+    }
+}
