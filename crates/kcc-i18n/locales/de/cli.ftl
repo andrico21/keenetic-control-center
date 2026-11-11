@@ -108,3 +108,4 @@ cli-failsafe-rolled-back = Änderungen zurückgesetzt: Der Router hat die gespei
 cli-migrate-committed = Die Migration ist gespeichert: Der Router hat die migrierte Konfiguration gespeichert.
 cli-migrate-rolled-back = Die Migration ist zurückgesetzt: Der Router läuft mit der Konfiguration, die er vorher gespeichert hatte.
 cli-done-terminal = Der Router führt es aus. Einige Minuten lang antwortet er möglicherweise nicht.
+cli-error-firewall-verification = Der Router zeigte nach der Änderung nicht die erwartete Konfiguration; prüfen Sie sie vor einem erneuten Versuch.

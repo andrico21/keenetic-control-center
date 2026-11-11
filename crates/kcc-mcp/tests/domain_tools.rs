@@ -435,6 +435,59 @@ mod tests {
         lab.stop().await
     }
 
+    /// Firewall bindings succeed only when the running configuration reflects the write.
+    #[tokio::test]
+    async fn firewall_binding_success_and_ignored_write_use_domain_read_back() -> TestResult {
+        let applied = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+        let input = json!({
+            "host":"lab-1",
+            "op":"binding",
+            "acl":"McpAcl",
+            "interface":"ISP"
+        });
+
+        let reply = applied
+            .call("kcc_firewall_write", input.clone(), false)
+            .await?;
+        assert_eq!(reply.value()?.get("unsaved"), Some(&json!(true)));
+        assert!(
+            applied
+                .audit()?
+                .iter()
+                .any(|entry| entry.outcome == "applied_unsaved")
+        );
+        applied.stop().await?;
+
+        let ignored = Lab::start(
+            vec![(
+                "lab-1",
+                FakeRouter::builder(Profile::default())
+                    .faults(FaultInjection::default().silent_noop_path("parse"))
+                    .build()?,
+            )],
+            admin(),
+        )
+        .await?;
+
+        let ignored_reply = ignored.call("kcc_firewall_write", input, false).await?;
+        assert_eq!(
+            ignored_reply.error(),
+            Some("verification_failed"),
+            "{ignored_reply:?}"
+        );
+        assert!(
+            !ignored
+                .audit()?
+                .iter()
+                .any(|entry| entry.outcome == "applied_unsaved")
+        );
+        ignored.stop().await
+    }
+
     /// A diagnostic job started with a progress token reports progress until it ends.
     #[tokio::test]
     async fn diagnostic_job_streams_progress() -> TestResult {

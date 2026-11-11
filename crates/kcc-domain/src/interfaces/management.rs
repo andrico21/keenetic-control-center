@@ -114,7 +114,7 @@ async fn bridge_members(router: &RouterCtx, name: &ObjectName) -> Result<BTreeSe
         return Ok(BTreeSet::new());
     };
     let pointer = format!(
-        "/interface/{}/include",
+        "/show/rc/interface/{}/include",
         name.as_str().replace('~', "~0").replace('/', "~1")
     );
     Ok(response

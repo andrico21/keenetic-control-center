@@ -66,6 +66,9 @@ pub(crate) fn map_domain(error: DomainError) -> McpFailure {
         DomainError::StaticLeaseOutsidePool
         | DomainError::StaticLeaseAddressInUse
         | DomainError::InvalidCliToken => McpFailure::ValidationFailed,
+        DomainError::FirewallVerificationFailed => McpFailure::VerificationFailed {
+            field: "/interface/ip/access-group".to_owned(),
+        },
         DomainError::ProtectedAccount | DomainError::PermissionDenied => McpFailure::Forbidden,
         DomainError::SafetyAbort | DomainError::RouteCountMismatch => McpFailure::Conflict,
         DomainError::InvalidResponse | _ => {

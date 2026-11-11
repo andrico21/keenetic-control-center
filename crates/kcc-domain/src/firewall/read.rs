@@ -61,7 +61,7 @@ pub(crate) async fn has_binding(
     Ok(response
         .value
         .pointer(&format!(
-            "/interface/{}/ip/access-group",
+            "/show/rc/interface/{}/ip/access-group",
             interface.replace('~', "~0").replace('/', "~1")
         ))
         .and_then(Value::as_array)

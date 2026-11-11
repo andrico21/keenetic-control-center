@@ -22,6 +22,8 @@ mod bracket;
 mod failsafe;
 #[path = "cli/failures.rs"]
 mod failures;
+#[path = "cli/firewall_binding.rs"]
+mod firewall_binding;
 #[path = "cli/health.rs"]
 mod health;
 #[path = "cli/migrate.rs"]

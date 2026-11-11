@@ -312,6 +312,10 @@ pub const CLI_MIGRATE_ROLLED_BACK: MessageKey = MessageKey::new("cli-migrate-rol
 /// `cli-done-terminal` in `cli.ftl`.
 pub const CLI_DONE_TERMINAL: MessageKey = MessageKey::new("cli-done-terminal");
 
+/// `cli-error-firewall-verification` in `cli.ftl`.
+pub const CLI_ERROR_FIREWALL_VERIFICATION: MessageKey =
+    MessageKey::new("cli-error-firewall-verification");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6625,7 +6629,7 @@ pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2113] = [
+pub static ALL: [MessageKey; 2114] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6729,6 +6733,7 @@ pub static ALL: [MessageKey; 2113] = [
     CLI_MIGRATE_COMMITTED,
     CLI_MIGRATE_ROLLED_BACK,
     CLI_DONE_TERMINAL,
+    CLI_ERROR_FIREWALL_VERIFICATION,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

@@ -264,6 +264,9 @@ impl From<DomainError> for Failure {
             DomainError::ProtectedAccount => {
                 return Self::message(Exit::Policy, keys::CLI_PROFILE_LOGIN_PROTECTED, &[]);
             }
+            DomainError::FirewallVerificationFailed => {
+                return Self::message(Exit::Router, keys::CLI_ERROR_FIREWALL_VERIFICATION, &[]);
+            }
             DomainError::PermissionDenied | DomainError::ConfirmationRequired => Exit::Policy,
             DomainError::InvalidResponse
             | DomainError::SafetyAbort

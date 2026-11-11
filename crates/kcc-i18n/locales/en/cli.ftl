@@ -108,3 +108,4 @@ cli-failsafe-rolled-back = Changes rolled back: the router restored its saved co
 cli-migrate-committed = The migration is committed: the router saved the migrated configuration.
 cli-migrate-rolled-back = The migration is rolled back: the router runs the configuration it had saved before.
 cli-done-terminal = The router is carrying it out. It may not answer for a few minutes.
+cli-error-firewall-verification = The router did not show the expected configuration after the change; check it before retrying.
