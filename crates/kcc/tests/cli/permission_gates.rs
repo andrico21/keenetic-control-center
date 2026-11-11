@@ -12,6 +12,8 @@ use super::support::{Env, TestResult, router};
 
 #[path = "permission_gates/raw.rs"]
 mod raw;
+#[path = "permission_gates/raw_management.rs"]
+mod raw_management;
 #[path = "permission_gates/recovery.rs"]
 mod recovery;
 

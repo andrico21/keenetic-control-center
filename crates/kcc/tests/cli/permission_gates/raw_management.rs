@@ -1,0 +1,137 @@
+//! Binary raw management gates and mode-aware brackets.
+#![expect(
+    clippy::use_debug,
+    reason = "test evidence records exact argv and timer commands"
+)]
+
+use std::io::{self, Write as _};
+
+use kcc_app::permissions::Permission;
+
+use super::{TestResult, add_role, lab, mutation_count};
+
+/// Distinct CLI entry points and positive/negative management changes.
+fn cases() -> Vec<Vec<&'static str>> {
+    vec![
+        vec![
+            "rci",
+            "post",
+            "--data",
+            r#"{"interface":{"name":"Bridge0","ip":{"access-group":{"acl":"LabAcl","direction":"in"}}}}"#,
+        ],
+        vec![
+            "rci",
+            "post",
+            "--data",
+            r#"{"interface":{"name":"Bridge0","security-level":{"level":"public"}}}"#,
+        ],
+        vec![
+            "rci",
+            "batch",
+            "--data",
+            r#"[{"service":{"http":{"no":true}}}]"#,
+        ],
+        vec![
+            "rci",
+            "post",
+            "ip",
+            "telnet",
+            "port",
+            "--data",
+            r#"{"number":2323}"#,
+        ],
+        vec![
+            "rci",
+            "post",
+            "ip",
+            "ssh",
+            "port",
+            "--data",
+            r#"{"number":2222}"#,
+        ],
+        vec!["rci", "post", "--data", r#"{"service":{"ssh":{}}}"#],
+    ]
+}
+
+/// Raw writers cannot bypass recovery authorization, including timer arming.
+// NOT cancel-safe: the fixture owns router tasks and child processes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn raw_management_permission_refuses_both_modes() -> TestResult {
+    for mode in ["router", "extender"] {
+        let (env, handle, _address) = lab(mode, "raw-writer").await?;
+        add_role(
+            &env,
+            "raw-writer",
+            &[Permission::Read, Permission::Write, Permission::RawRci],
+        )?;
+        let mut inputs = cases();
+        inputs.push(vec![
+            "rci",
+            "post",
+            "system",
+            "configuration",
+            "fail-safe",
+            "timer",
+            "--data",
+            r#"{"action":"reboot","interval":300}"#,
+        ]);
+        for input in inputs {
+            let before = handle.request_log().len();
+            let mut args = vec!["--yes", "--confirm-destructive", "lab-1"];
+            args.extend(input);
+            let run = env.kcc(&args)?;
+            assert_eq!(run.code, 10_i32, "{args:?}: {run:?}");
+            assert_eq!(mutation_count(&handle, before), 0, "{args:?}");
+            writeln!(
+                io::stderr(),
+                "RAW CLI raw-writer {mode} {args:?}: exit 10, zero mutations"
+            )?;
+        }
+        handle.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// Confirmed administrators receive native or scheduled recovery around every raw shape.
+// NOT cancel-safe: the fixture owns router tasks and child processes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn raw_management_brackets_both_modes() -> TestResult {
+    for mode in ["router", "extender"] {
+        let (env, handle, _address) = lab(mode, "admin").await?;
+        for input in cases() {
+            let before = handle.request_log().len();
+            let mut args = vec!["--yes", "--confirm-destructive", "lab-1"];
+            args.extend(input);
+            let run = env.kcc(&args)?;
+            assert_eq!(run.code, 0_i32, "{args:?}: {run:?}");
+            let commands = handle
+                .request_log()
+                .iter()
+                .skip(before)
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            let (arm, disarm) = if mode == "router" {
+                (
+                    "system configuration fail-safe timer reboot 300",
+                    "no system configuration fail-safe timer",
+                )
+            } else {
+                ("system reboot 300", "no system reboot")
+            };
+            assert_eq!(
+                commands.first().map(String::as_str),
+                Some(arm),
+                "{args:?}: {commands:?}"
+            );
+            assert_eq!(
+                commands.last().map(String::as_str),
+                Some(disarm),
+                "{args:?}: {commands:?}"
+            );
+            assert!(!handle.recovery_armed(), "successful cleanup");
+            writeln!(io::stderr(), "RAW CLI admin {mode} {args:?}: {commands:?}")?;
+        }
+        handle.shutdown().await?;
+    }
+    Ok(())
+}

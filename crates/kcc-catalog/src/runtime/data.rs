@@ -100,6 +100,8 @@ pub(super) const DESTRUCTIVE_PATHS: &[&str] = &[
     "system reboot",
     "system configuration factory-reset",
     "system configuration fail-safe rollback",
+    "system configuration fail-safe timer",
+    "system configuration fail-safe keep-alive",
     "components commit",
     "erase",
     "copy",
@@ -115,10 +117,27 @@ pub(super) const DESTRUCTIVE_PATHS: &[&str] = &[
 pub(super) const PERSISTS_IMMEDIATELY_PATHS: &[&str] = &["system country"];
 
 /// Prefix rules affecting management access.
-pub(super) const MANAGEMENT_PREFIXES: &[&str] = &["user ", "ip http "];
+pub(super) const MANAGEMENT_PREFIXES: &[&str] = &[
+    "user ",
+    "ip http ",
+    "ip ssh",
+    "ip telnet",
+    "service http",
+    "service ssh",
+    "service telnet",
+    "cloud control2 security-level",
+    "access-list ",
+];
 
 /// Interface command endings affecting management access.
-pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[" up", " down"];
+pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[
+    " up",
+    " down",
+    " ip access-group",
+    " security-level",
+    " include",
+    " inherit",
+];
 
 /// Interface address commands and their descendants affect management access.
 pub(super) const MANAGEMENT_INTERFACE_ADDRESS: &str = " ip address";

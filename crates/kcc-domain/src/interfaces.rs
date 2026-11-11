@@ -29,6 +29,7 @@ use crate::{
 pub mod guard;
 /// Management-connection detection from router and client topology.
 pub mod management;
+pub(crate) mod membership;
 /// Tolerant interface response models.
 pub mod models;
 

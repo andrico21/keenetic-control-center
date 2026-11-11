@@ -382,8 +382,9 @@ impl FakeRouterBuilder {
             .unwrap_or_else(|| firmware.release().to_owned());
         let (settings, show, startup_config) =
             fixtures::load(self.profile, &title, &release).map_err(BuildError::Fixture)?;
-        let config = config_state::ConfigState::new(startup_config, model.hw_id(), &title)
+        let mut config = config_state::ConfigState::new(startup_config, model.hw_id(), &title)
             .map_err(BuildError::ConfigFixture)?;
+        config.seed_membership(&settings);
         let mut users = self.users;
         if users.is_empty() {
             users.push(UserSpec {

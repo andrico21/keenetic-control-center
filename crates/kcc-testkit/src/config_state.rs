@@ -43,6 +43,28 @@ impl ConfigState {
         })
     }
 
+    /// Adds seed membership to both stores so text and show-rc describe the same topology.
+    pub(crate) fn seed_membership(&mut self, settings: &Value) {
+        if let Some(interfaces) = settings.get("interface").and_then(Value::as_object) {
+            for (bridge, fields) in interfaces {
+                for keyword in ["include", "inherit"] {
+                    for member in fields
+                        .get(keyword)
+                        .and_then(Value::as_array)
+                        .into_iter()
+                        .flatten()
+                    {
+                        if let Some(name) = member.get("interface").and_then(Value::as_str) {
+                            let line = format!("interface {bridge} {keyword} {name}");
+                            let _: bool = cli_engine::engine::apply(&mut self.running, &line);
+                            let _: bool = cli_engine::engine::apply(&mut self.startup, &line);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /// Canonical running configuration with router headers.
     pub(crate) fn running_text(&self) -> String {
         render(&self.running, &self.model, &self.version)

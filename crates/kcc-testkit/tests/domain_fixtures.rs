@@ -10,6 +10,7 @@
 mod tests {
     use core::{error::Error, net::SocketAddr, str::FromStr as _};
 
+    use kcc_config::config_text::{Token, flatten, parse};
     use kcc_rci::{
         OutboundPolicy, RciBody, RciClient, RciClientOptions, RciPath, RouterUrl, auth::Credentials,
     };
@@ -32,6 +33,58 @@ mod tests {
             .with_outbound(OutboundPolicy::default().with_loopback(true));
         let client = RciClient::connect_with(router, credentials, options).await?;
         Ok((handle, client))
+    }
+
+    /// Every show-rc membership edge is represented by the running configuration text.
+    // NOT cancel-safe: the fixture owns router tasks until shutdown.
+    #[tokio::test]
+    async fn bridge_membership_text_agrees_with_show_rc() -> TestResult {
+        let (handle, client) = spawned().await?;
+        let RciBody::Json(response) = client.show_rc(serde_json::json!({"interface":{}})).await?
+        else {
+            return Err("expected show rc JSON".into());
+        };
+        let interfaces = response
+            .value
+            .pointer("/show/rc/interface")
+            .and_then(Value::as_object)
+            .ok_or("interface tree")?;
+        let text = handle.running_config_text();
+        let ast = parse(&text)?;
+        let lines = flatten(&ast);
+        let mut count = 0_usize;
+        for (bridge, fields) in interfaces {
+            for keyword in ["include", "inherit"] {
+                for member in fields
+                    .get(keyword)
+                    .and_then(Value::as_array)
+                    .into_iter()
+                    .flatten()
+                {
+                    let name = member
+                        .get("interface")
+                        .and_then(Value::as_str)
+                        .ok_or("member")?;
+                    let expected = ["interface", bridge, keyword, name];
+                    assert!(
+                        lines.iter().any(|line| line
+                            .tokens
+                            .iter()
+                            .filter_map(|token| match token {
+                                Token::Word(word) => Some(word.as_str()),
+                                Token::Ns3(_) | _ => None,
+                            })
+                            .eq(expected)),
+                        "missing membership {expected:?}"
+                    );
+                    count = count.saturating_add(1);
+                }
+            }
+        }
+        assert_eq!(count, 5, "default bridge members");
+        assert_eq!(handle.running_config_text(), handle.startup_config_text());
+        handle.shutdown().await?;
+        Ok(())
     }
 
     /// Reads one JSON show response.

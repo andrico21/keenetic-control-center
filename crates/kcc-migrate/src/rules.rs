@@ -602,6 +602,13 @@ fn scalar_conflict(
     overwrite_scalars: &BTreeSet<String>,
 ) -> bool {
     let source_words = expanded_words(&source.tokens);
+    // Bridge members are additive collection entries, not competing scalar values.
+    if matches!(
+        source_words.as_slice(),
+        ["interface", _, "include" | "inherit", _]
+    ) {
+        return false;
+    }
     let Some((source_value, source_key)) = source_words.split_last() else {
         return false;
     };

@@ -66,7 +66,7 @@ fn cli_fixed_forms_are_validated_in_both_firmware_views() {
                 "system configuration fail-safe timer reboot 60",
                 "system configuration fail-safe timer",
                 json!({"action":"reboot","interval":60_i64}),
-                Risk::Write,
+                Risk::Destructive,
             ),
         ] {
             let request = current

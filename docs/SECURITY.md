@@ -132,6 +132,15 @@ still runs afterwards. A management node always requires the recovery timer, inc
 when a destructive sibling determines the request's maximum risk. This applies to raw
 MCP, CLI and Web requests; curated operations retain their domain plans and gates.
 
+Raw classification is deliberately coarser than curated classification: interface
+firewall bindings, access-list rules, security levels and bridge membership changes always have Management
+risk, regardless of the interface's current role. SSH, Telnet, HTTP service toggles and
+cloud-control exposure likewise protect management access. Curated firewall operations
+can still classify an ordinary interface as Write using runtime topology. Raw recovery
+timer and keep-alive commands are Destructive instead: they control recovery itself and
+must not be automatically disarmed by an enclosing management bracket. IPv6 access-group
+commands are not present in the embedded catalogs and remain rejected by validation.
+
 Every management bracket checks the shared `SafetyNet` recovery permissions as well
 as the operation permission. `Destructive` authorizes arm, disarm, keep-alive and
 rollback, so a role that can open a bracket can close it without `Write`; persistence

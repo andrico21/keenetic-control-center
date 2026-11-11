@@ -4,6 +4,8 @@ extern crate alloc;
 #[path = "support/lab.rs"]
 mod lab;
 
+#[path = "support/raw_management.rs"]
+mod raw_management;
 #[path = "support/raw_paths.rs"]
 mod raw_paths;
 

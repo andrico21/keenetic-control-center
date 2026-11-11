@@ -11,11 +11,16 @@ mod support;
 )]
 mod tests {
     use kcc_catalog::Risk;
-    use kcc_domain::firewall::{
-        change, management,
-        model::{Action, Direction, Protocol, Rule},
+    use kcc_domain::{
+        firewall::{
+            change, management,
+            model::{Action, Direction, Protocol, Rule},
+        },
+        interfaces,
     };
+    use kcc_rci::ObjectName;
     use kcc_testkit::model::Firmware;
+    use serde_json::json;
 
     use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -112,6 +117,95 @@ mod tests {
             );
             fixture.shutdown().await?;
         }
+        Ok(())
+    }
+
+    /// Both configuration membership keywords protect members absent from the show seed.
+    // NOT cancel-safe: fixture writes may apply before cancellation.
+    #[tokio::test]
+    async fn text_include_and_inherit_members_are_management() -> TestResult {
+        for keyword in ["include", "inherit"] {
+            let fixture = Fixture::spawn(Firmware::V5_1).await?;
+            drop(
+                fixture
+                    .context()
+                    .client
+                    .parse(&format!("interface Bridge0 {keyword} LabMember"))
+                    .await?,
+            );
+            let risk =
+                management::interfaces_risk(fixture.context(), &["LabMember".to_owned()]).await;
+            assert_eq!(risk, Risk::Management, "text {keyword}");
+            fixture.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    /// Stock show-rc members need protection even without membership in configuration text.
+    // NOT cancel-safe: fixture lifecycle owns a router task.
+    #[tokio::test]
+    async fn show_rc_bridge_members_are_management() -> TestResult {
+        let fixture = Fixture::spawn(Firmware::V5_1).await?;
+        for member in ["GigabitEthernet0/1", "WifiMaster0/AccessPoint0"] {
+            let risk = management::interfaces_risk(fixture.context(), &[member.to_owned()]).await;
+            assert_eq!(risk, Risk::Management, "show rc {member}");
+        }
+        let ordinary = management::interfaces_risk(fixture.context(), &["ISP".to_owned()]).await;
+        assert_eq!(
+            ordinary,
+            Risk::Write,
+            "ordinary firewall access stays available"
+        );
+        fixture.shutdown().await?;
+        Ok(())
+    }
+
+    /// Settings-only include edges reach both management consumers.
+    // NOT cancel-safe: fixture writes may apply before cancellation.
+    #[tokio::test]
+    async fn show_rc_include_protects_both_consumers() -> TestResult {
+        for keyword in ["include"] {
+            let fixture = Fixture::spawn(Firmware::V5_1).await?;
+            drop(
+                fixture
+                    .context()
+                    .client
+                    .post_root(&json!({"interface":{"Bridge0":{keyword:[{"interface":"ISP"}]}}}))
+                    .await?,
+            );
+            let risk = management::interfaces_risk(fixture.context(), &["ISP".to_owned()]).await;
+            assert_eq!(risk, Risk::Management, "show rc {keyword}");
+            let name = ObjectName::try_from("ISP".to_owned())?;
+            let verdict = interfaces::detect_management(fixture.context(), &name).await?;
+            assert_eq!(
+                verdict.risk(&name),
+                Risk::Management,
+                "interface show rc {keyword}"
+            );
+            fixture.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    /// Malformed membership evidence cannot authorize an ordinary firewall write.
+    // NOT cancel-safe: fixture writes may apply before cancellation.
+    #[tokio::test]
+    async fn malformed_show_rc_membership_fails_closed() -> TestResult {
+        let fixture = Fixture::spawn(Firmware::V5_1).await?;
+        drop(
+            fixture
+                .context()
+                .client
+                .post_root(&json!({"interface":{"Bridge0":{"include":[{}]}}}))
+                .await?,
+        );
+        let risk = management::interfaces_risk(fixture.context(), &["ISP".to_owned()]).await;
+        assert_eq!(
+            risk,
+            Risk::Management,
+            "unreadable membership must fail closed"
+        );
+        fixture.shutdown().await?;
         Ok(())
     }
 }

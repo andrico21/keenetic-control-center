@@ -7,9 +7,9 @@ use std::net::ToSocketAddrs as _;
 use kcc_catalog::Risk;
 use kcc_rci::{ObjectName, RciBody, RciPath};
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
-use crate::{Result, RouterCtx, interfaces::Interface, read_show};
+use crate::{DomainError, Result, RouterCtx, interfaces::Interface, read_show};
 
 /// Result of management-connection detection.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -37,22 +37,63 @@ impl ManagementVerdict {
 }
 
 /// Detects direct origin-address ownership and bridge topology evidence.
+// cancel-safe: topology reads do not change router state.
 pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     let interfaces: BTreeMap<String, Interface> =
         read_show(&router.client, &["show", "interface"]).await?;
-    let Some(selected) = interfaces.get(name.as_str()) else {
-        return Ok(ManagementVerdict::Unknown);
-    };
     let hosts = router_hosts(router);
     let direct = classify_direct(name, &hosts, &interfaces);
-    if direct != ManagementVerdict::Unknown {
+    if direct == ManagementVerdict::Management {
         return Ok(direct);
     }
-    if selected.kind.as_deref() != Some("Bridge") {
-        return Ok(ManagementVerdict::Unknown);
+    let membership = super::membership::read(router).await?;
+    let mut candidates = BTreeSet::from([name.as_str().to_owned()]);
+    loop {
+        let before = candidates.len();
+        for (bridge, members) in &membership {
+            if members.iter().any(|member| candidates.contains(member)) {
+                let _: bool = candidates.insert(bridge.clone());
+            }
+        }
+        if candidates.len() == before {
+            break;
+        }
     }
-    let members = bridge_members(router, name).await?;
     let sources = observed_sources(router).await;
+    let mut verdict = direct;
+    for candidate in candidates {
+        let Some(selected) = interfaces.get(&candidate) else {
+            continue;
+        };
+        let object = ObjectName::try_from(candidate.clone())
+            .map_err(|_error| DomainError::InvalidResponse)?;
+        if classify_direct(&object, &hosts, &interfaces) == ManagementVerdict::Management {
+            return Ok(ManagementVerdict::Management);
+        }
+        if selected.kind.as_deref() != Some("Bridge") {
+            continue;
+        }
+        let members = membership.get(&candidate);
+        let bridge = classify_bridge(selected, &candidate, members, &sources);
+        if bridge == ManagementVerdict::Management
+            || (candidate != name.as_str() && bridge.risk(&object) == Risk::Management)
+        {
+            return Ok(ManagementVerdict::Management);
+        }
+        if candidate == name.as_str() {
+            verdict = bridge;
+        }
+    }
+    Ok(verdict)
+}
+
+/// Classifies a bridge using the shared membership union and observed source addresses.
+fn classify_bridge(
+    selected: &Interface,
+    name: &str,
+    members: Option<&BTreeSet<String>>,
+    sources: &[ObservedSource],
+) -> ManagementVerdict {
     let selected_network = selected
         .address
         .as_deref()
@@ -60,17 +101,17 @@ pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<Mana
         .zip(selected.extra.get("mask").and_then(Value::as_str))
         .and_then(|(address, mask)| Network::new(address, mask));
     let Some(network) = selected_network else {
-        return Ok(ManagementVerdict::Unknown);
+        return ManagementVerdict::Unknown;
     };
     if sources.iter().any(|source| {
-        (source.interface == name.as_str() || members.contains(&source.interface))
+        (source.interface == name || members.is_some_and(|names| names.contains(&source.interface)))
             && network.contains(source.address)
     }) {
-        Ok(ManagementVerdict::Management)
+        ManagementVerdict::Management
     } else if sources.is_empty() {
-        Ok(ManagementVerdict::Unknown)
+        ManagementVerdict::Unknown
     } else {
-        Ok(ManagementVerdict::NotManagement)
+        ManagementVerdict::NotManagement
     }
 }
 
@@ -102,34 +143,6 @@ pub fn classify_direct(
     } else {
         ManagementVerdict::Unknown
     }
-}
-
-/// Reads bridge members from the configuration projection.
-async fn bridge_members(router: &RouterCtx, name: &ObjectName) -> Result<BTreeSet<String>> {
-    let RciBody::Json(response) = router
-        .client
-        .show_rc(json!({"interface":{name.as_str():{"include":{}}}}))
-        .await?
-    else {
-        return Ok(BTreeSet::new());
-    };
-    let pointer = format!(
-        "/show/rc/interface/{}/include",
-        name.as_str().replace('~', "~0").replace('/', "~1")
-    );
-    Ok(response
-        .value
-        .pointer(&pointer)
-        .and_then(Value::as_array)
-        .into_iter()
-        .flatten()
-        .filter_map(|entry| {
-            entry
-                .get("interface")
-                .and_then(Value::as_str)
-                .map(str::to_owned)
-        })
-        .collect())
 }
 
 /// Reads ARP and hotspot source-address evidence best-effort.

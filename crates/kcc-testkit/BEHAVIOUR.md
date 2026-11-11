@@ -86,6 +86,11 @@ not captured router behavior.
 
 ## Show and read-through
 
+Bridge `include` and `inherit` membership from the settings seed is also inserted
+into running and startup configuration text. Both stores start saved and describe
+the same members as `show rc`. This additive simulator behavior is assumed;
+the spelling used by real router firmware has not been hardware-verified.
+
 | Behaviour | Source |
 |-----------|--------|
 | `GET`/`POST /rci/show/<path>` answer from the profile's show fixtures; a missing fixture is 404 with an empty body | plan |

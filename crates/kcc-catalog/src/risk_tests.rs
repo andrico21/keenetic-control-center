@@ -14,6 +14,7 @@ use serde_json::json;
 use crate::{Catalog, HttpMethod, Risk, ValidatedRequest};
 
 mod independent;
+mod management;
 mod namespaces;
 mod shows;
 

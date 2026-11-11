@@ -6,6 +6,10 @@
 #[path = "explorer_pages/support.rs"]
 mod support;
 
+#[cfg(test)]
+#[path = "explorer_pages/raw_management.rs"]
+mod raw_management;
+
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     locale::Locale,
