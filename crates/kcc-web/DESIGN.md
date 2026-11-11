@@ -424,8 +424,9 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 - Job panel (`.job`): chrome surface with title, live status pill (`running`, `done`,
   `failed`) and Stop; the final answer replaces the waiting note.
 - Confirmation (`ui::dialog_body`): writes confirm, management changes explain the fail-safe
-  timer, destructive commands require the router name typed; the confirm button posts the
-  original form again.
+  timer, destructive commands require the router name typed, and a destructive management
+  command does both in one dialog (the timer text, then the name field with "Type <router>
+  to confirm." as its help); the confirm button posts the original form again.
 
 ### Page briefs (todo 42)
 
@@ -454,7 +455,8 @@ and the admin pages run on it too. One module per responsibility:
 |---|---|
 | `context` | `Caller::shell(state, section, router)`: the full-page shell with the fleet switcher (router selected); `target(state, user, router)`: the router of the route parameter (`is_profile_id`, then the role's visible profiles) or a `Refusal` (`page()`: 404, 403 or the logged 500; `status()` for fragments); `Target::context(state)`: the catalog facts and the `RouterCtx` to read and plan with; `managed()` (`ManageRouters`); `fragment_shell(locale)`. |
 | `gate` | `command_permissions(risk)` for raw commands; `operation_permissions(permission, risk)` for curated ones (management and destructive also need `Destructive`: kcc arms the fail-safe timer); `Controls::new(role, router).with_operations(&DESCRIPTOR.write_ops, catalog)`: what templates use to hide controls (`allows("hostname")`); `allowed(user, router, permissions)`: the handler re-check before acting (403). |
-| `family` | `Family::Commands` (explorer, consoles: every change asks, messages speak of commands) and `Family::Changes` (domain pages: management and destructive changes ask, messages speak of changes); `gate()` decides run or ask. |
+| `family` | `Family::Commands` (explorer, consoles: every change asks, messages speak of commands) and `Family::Changes` (domain pages: management and destructive changes ask, messages speak of changes); `ask(stakes, &confirmation, router)` gives the `Prompt` to show, or `None` to run, from the one guard the stakes give, so the dialog asks for exactly what the gate checks; `gate(risk, ...)` is the same decision for a page with its own dialog. |
+| `stakes` | `Stakes::new(risk)`, `Stakes::of(&validated)`: the risk, and whether a management command runs the request inside the recovery timer; `Guard`: the confirm button, the timer words, the typed name, or the typed name with the timer words. |
 | `confirm` | `Confirmation` (from the form), `Gate`, `Prompt` + `Resubmit`: the dialog in `#dialog-content` (`partials/kit_confirm.html`); confirming re-posts the original request (form values by `hx-include` from the page, so a secret never passes through the dialog); management explains the fail-safe timer, destructive needs the router name typed; decided on the server every time. |
 | `typed_name` | `TypedNameForm` and `TypedNameDialog`: the typed-name delete of objects that are not routers (`partials/kit_name_confirm.html`). |
 | `action` | The kit call: `Operation::write(&DESCRIPTOR, "hostname", "web.system_hostname").open(&state, &user, &router)` resolves the router (404), re-checks the operation's permissions (audited 403) and loads the catalog; the `Action` then gives `context()`, `confirm(risk, &confirmation, resubmit)`, `abandon(reason)`, `run(risk, Change)` and `run_with(risk, work)` for domain functions such as `system::reboot`; it audits how the action ended, once. |

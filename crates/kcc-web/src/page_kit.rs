@@ -12,7 +12,9 @@
 //!   may not do and every handler checks again before it acts.
 //! - [`family`] and [`confirm`]: which changes ask first and in which words; management
 //!   changes explain the fail-safe timer, destructive ones need the router name typed.
-//!   [`typed_name`] is the same for objects that are not routers.
+//!   [`stakes`] is the one decision both follow, so a destructive management change asks
+//!   for the name in the timer's words. [`typed_name`] is the same for objects that are
+//!   not routers.
 //! - [`outcome`] and [`failure`]: a success toast and the unsaved badge, or a localized
 //!   error with the router's own message in a collapsible "router said" block.
 //! - [`change`]: the change workflow run (backup, conflict check, read-back, audit), with
@@ -45,4 +47,5 @@ pub(crate) mod respond;
 )]
 pub(crate) mod reveal;
 pub(crate) mod secret;
+pub(crate) mod stakes;
 pub(crate) mod typed_name;

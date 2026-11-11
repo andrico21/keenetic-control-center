@@ -9,7 +9,10 @@
 use kcc_catalog::Risk;
 use kcc_i18n::{bundle::MessageKey, keys};
 
-use super::confirm::{Confirmation, Gate};
+use super::{
+    confirm::{Confirmation, Gate, Prompt},
+    stakes::{Guard, Stakes},
+};
 
 /// A family of pages: its confirmation policy and its messages.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -23,53 +26,61 @@ pub(crate) enum Family {
 }
 
 impl Family {
-    /// Whether a request of `risk` on `router` with `confirmation` may run now.
+    /// Whether a request of `risk` on `router` with `confirmation` may run now, for a page
+    /// that asks in its own dialog.
     ///
     /// Reads always run. A change the family confirms runs once confirmed; a destructive
     /// one only with the router's name typed exactly.
     pub(crate) fn gate(self, risk: Risk, confirmation: &Confirmation, router: &str) -> Gate {
-        match (risk, self) {
-            (Risk::Read, _) | (Risk::Write, Self::Changes) => Gate::Run,
-            (Risk::Write, Self::Commands) | (Risk::Management, _) => {
-                if confirmation.confirmed() {
-                    Gate::Run
-                } else {
-                    Gate::Ask { wrong_name: false }
-                }
+        Stakes::new(risk)
+            .guard(self)
+            .map_or(Gate::Run, |guard| guard.check(confirmation, router))
+    }
+
+    /// The dialog a request with `stakes` on `router` shows before it runs, or `None` when
+    /// `confirmation` lets it run now.
+    ///
+    /// One guard decides both, so the dialog asks for exactly what the gate checks.
+    pub(crate) fn ask(
+        self,
+        stakes: Stakes,
+        confirmation: &Confirmation,
+        router: &str,
+    ) -> Option<Prompt> {
+        let guard = stakes.guard(self)?;
+        match guard.check(confirmation, router) {
+            Gate::Run => None,
+            Gate::Ask { wrong_name } => {
+                Some(Prompt::new(self, guard, router).with_wrong_name(wrong_name))
             }
-            (Risk::Destructive | _, _) => match (confirmation.name(), confirmation.confirmed()) {
-                (Some(name), true) if name == router => Gate::Run,
-                (Some(_), true) => Gate::Ask { wrong_name: true },
-                (Some(_) | None, _) => Gate::Ask { wrong_name: false },
-            },
         }
     }
 
-    /// The title and text of the dialog confirming a change of `risk`; the texts take
-    /// `$router`, the management one also `$minutes`.
-    pub(crate) const fn dialog(self, risk: Risk) -> (MessageKey, MessageKey) {
-        match (self, risk) {
-            (Self::Commands, Risk::Read | Risk::Write) => (
+    /// The title and text of the dialog confirming a change under `guard`; the texts take
+    /// `$router`, the management ones also `$minutes`.
+    pub(crate) const fn dialog(self, guard: Guard) -> (MessageKey, MessageKey) {
+        match (self, guard) {
+            (Self::Commands, Guard::Write) => (
                 keys::WEB_EXPLORER_CONFIRM_WRITE_TITLE,
                 keys::WEB_EXPLORER_CONFIRM_WRITE_TEXT,
             ),
-            (Self::Commands, Risk::Management) => (
+            (Self::Commands, Guard::Management | Guard::DestructiveManagement) => (
                 keys::WEB_EXPLORER_CONFIRM_MANAGEMENT_TITLE,
                 keys::WEB_EXPLORER_CONFIRM_MANAGEMENT_TEXT,
             ),
-            (Self::Commands, Risk::Destructive | _) => (
+            (Self::Commands, Guard::Destructive) => (
                 keys::WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TITLE,
                 keys::WEB_EXPLORER_CONFIRM_DESTRUCTIVE_TEXT,
             ),
-            (Self::Changes, Risk::Read | Risk::Write) => (
+            (Self::Changes, Guard::Write) => (
                 keys::WEB_KIT_CONFIRM_WRITE_TITLE,
                 keys::WEB_KIT_CONFIRM_WRITE_TEXT,
             ),
-            (Self::Changes, Risk::Management) => (
+            (Self::Changes, Guard::Management | Guard::DestructiveManagement) => (
                 keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE,
                 keys::WEB_KIT_CONFIRM_MANAGEMENT_TEXT,
             ),
-            (Self::Changes, Risk::Destructive | _) => (
+            (Self::Changes, Guard::Destructive) => (
                 keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE,
                 keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TEXT,
             ),

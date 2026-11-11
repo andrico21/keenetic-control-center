@@ -40,7 +40,7 @@ use crate::{
     page_kit::{
         audit::Record,
         change::Change,
-        confirm::{Gate, Prompt, Resubmit},
+        confirm::Resubmit,
         context::{self, Caller},
         family::Family,
         gate::{allowed, command_permissions},
@@ -166,16 +166,10 @@ pub(crate) async fn send(
         return refusal::refused(locale, &missing, "#rci-result");
     }
     let confirmation = form.confirmation();
-    if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {
-        let prompt_risk = if checked.contains_management() {
-            Risk::Management
-        } else {
-            risk
-        };
+    if let Some(prompt) = Family::Commands.ask(checked.stakes(), &confirmation, &router) {
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/rci/send"), "#rci-result")
             .with_include("#rci-form");
-        return Prompt::new(Family::Commands, prompt_risk, &router)
-            .with_wrong_name(wrong_name)
+        return prompt
             .with_persists(checked.persists())
             .with_persisted_paths(checked.persisted_paths())
             .render(resubmit, locale);

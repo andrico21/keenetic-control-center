@@ -9,14 +9,13 @@
 use askama::Template;
 use axum::response::Response;
 use fluent_bundle::FluentArgs;
-use kcc_catalog::Risk;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
     locale::Locale,
 };
 
-use super::{context::fragment_shell, family::Family, respond};
+use super::{context::fragment_shell, family::Family, respond, stakes::Guard};
 use crate::{
     errors,
     page::{Localize, Shell},
@@ -121,6 +120,8 @@ struct Dialog {
     text: String,
     /// Whether the router name must be typed.
     needs_name: bool,
+    /// Localized instruction under the name field, empty when the text already gives it.
+    name_help: String,
     /// Localized mismatch error, empty when none.
     name_error: String,
     /// Where confirm sends the request.
@@ -147,12 +148,12 @@ impl Localize for Dialog {
     }
 }
 
-/// A request waiting for its confirmation.
+/// A request waiting for its confirmation: the dialog asking for what its guard checks.
 pub(crate) struct Prompt {
     /// The page family's words.
     family: Family,
-    /// Risk of the request.
-    risk: Risk,
+    /// What the dialog asks for and explains, as the gate decided it.
+    guard: Guard,
     /// Router profile id.
     router: String,
     /// Whether a typed router name did not match.
@@ -164,11 +165,12 @@ pub(crate) struct Prompt {
 }
 
 impl Prompt {
-    /// Asks to confirm a request of `risk` on `router` in `family`'s words.
-    pub(crate) fn new(family: Family, risk: Risk, router: &str) -> Self {
+    /// Asks on `router` for the confirmation `guard` checks, in `family`'s words; only the
+    /// gate's own decision makes one (`Family::ask`).
+    pub(super) fn new(family: Family, guard: Guard, router: &str) -> Self {
         Self {
             family,
-            risk,
+            guard,
             router: router.to_owned(),
             wrong_name: false,
             persists: false,
@@ -177,7 +179,7 @@ impl Prompt {
     }
 
     /// Reports that the typed router name did not match.
-    pub(crate) const fn with_wrong_name(mut self, wrong_name: bool) -> Self {
+    pub(super) const fn with_wrong_name(mut self, wrong_name: bool) -> Self {
         self.wrong_name = wrong_name;
         self
     }
@@ -198,17 +200,24 @@ impl Prompt {
     pub(crate) fn render(self, resubmit: Resubmit, locale: Locale) -> Response {
         let mut args = FluentArgs::new();
         args.set("router", self.router.clone());
+        args.set("name", self.router.clone());
         args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-        let (title, unsaved_text) = self.family.dialog(self.risk);
+        let (title, unsaved_text) = self.family.dialog(self.guard);
         // The router saves such a change itself, so the dialog does not call it unsaved.
-        let text = if self.persists && self.risk == Risk::Write {
+        let text = if self.persists && self.guard == Guard::Write {
             keys::WEB_EXPLORER_CONFIRM_PERSIST_TEXT
-        } else if !self.persisted_paths.is_empty() && self.risk == Risk::Write {
+        } else if !self.persisted_paths.is_empty() && self.guard == Guard::Write {
             keys::WEB_EXPLORER_CONFIRM_MIXED_TEXT
         } else {
             unsaved_text
         };
-        let destructive = !matches!(self.risk, Risk::Read | Risk::Write | Risk::Management);
+        let needs_name = self.guard.needs_name();
+        // The timer's text does not ask for the name, so the field says what to type.
+        let name_help = if self.guard == Guard::DestructiveManagement {
+            tr(locale, keys::WEB_ADMIN_CONFIRM_HELP, Some(&args))
+        } else {
+            String::new()
+        };
         let mixed_key = keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE;
         let mixed_persistence = if self.persisted_paths.is_empty() {
             String::new()
@@ -221,14 +230,15 @@ impl Prompt {
             shell: fragment_shell(locale),
             title: tr(locale, title, Some(&args)),
             text: tr(locale, text, Some(&args)),
-            needs_name: destructive,
+            needs_name,
+            name_help,
             name_error: if self.wrong_name {
                 tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&args))
             } else {
                 String::new()
             },
             resubmit,
-            destructive,
+            destructive: needs_name,
             confirm: self.family.confirm(),
             persists: self.persists,
             persisted_paths: self.persisted_paths,
@@ -252,17 +262,16 @@ mod tests {
 
     use axum::body::to_bytes;
     use fluent_bundle::FluentArgs;
-    use kcc_catalog::Risk;
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
     use super::{FAIL_SAFE_MINUTES, Prompt, Resubmit};
-    use crate::page_kit::family::Family;
+    use crate::page_kit::{family::Family, stakes::Guard};
 
     /// Mixed persistence never replaces the management risk warning.
     // cancel-safe: only renders and reads an in-memory response body.
     #[tokio::test]
     async fn mixed_management_keeps_management_paragraph() -> Result<(), Box<dyn Error>> {
-        let response = Prompt::new(Family::Commands, Risk::Management, "home")
+        let response = Prompt::new(Family::Commands, Guard::Management, "home")
             .with_persisted_paths(vec!["system country".to_owned()])
             .render(
                 Resubmit::new("/ui/r/home/console/rci/send".to_owned(), "#rci-result"),
@@ -275,10 +284,10 @@ mod tests {
         Ok(())
     }
 
-    /// The prompt for `risk` on the router `home`, as served.
-    async fn prompt(risk: Risk) -> Result<(Option<String>, String), Box<dyn Error>> {
+    /// The prompt for `guard` on the router `home`, as served.
+    async fn prompt(guard: Guard) -> Result<(Option<String>, String), Box<dyn Error>> {
         let resubmit = Resubmit::new("/ui/r/home/system/general/http".to_owned(), "#page-outcome");
-        let response = Prompt::new(Family::Changes, risk, "home").render(resubmit, Locale::En);
+        let response = Prompt::new(Family::Changes, guard, "home").render(resubmit, Locale::En);
         let target = response
             .headers()
             .get("hx-retarget")
@@ -294,7 +303,7 @@ mod tests {
         let mut args = FluentArgs::new();
         args.set("router", "home");
         args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-        let (target, management) = prompt(Risk::Management).await?;
+        let (target, management) = prompt(Guard::Management).await?;
         assert_eq!(target.as_deref(), Some("#dialog-content"), "in the dialog");
         let text = tr(
             Locale::En,
@@ -320,7 +329,7 @@ mod tests {
             management.contains("button--primary"),
             "not a danger button"
         );
-        let (_, destructive) = prompt(Risk::Destructive).await?;
+        let (_, destructive) = prompt(Guard::Destructive).await?;
         assert!(
             destructive.contains("name=\"confirm_name\""),
             "the router name"

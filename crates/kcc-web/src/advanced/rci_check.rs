@@ -8,7 +8,9 @@ use serde::Deserialize;
 use serde_json::{Value, json};
 
 use super::check::{MAX_BATCH, Problem, from_issues};
-use crate::page_kit::{audit::field_names, confirm::Confirmation, failure::method_name};
+use crate::page_kit::{
+    audit::field_names, confirm::Confirmation, failure::method_name, stakes::Stakes,
+};
 
 /// Longest body text read from the console.
 const MAX_BODY: usize = 256 * 1024;
@@ -207,9 +209,10 @@ impl Checked {
         }
     }
 
-    /// Whether any validated command requires management recovery.
-    pub(crate) fn contains_management(&self) -> bool {
-        match self {
+    /// What the request puts at stake: its risk, inside the recovery timer when any
+    /// validated command is a management one.
+    pub(crate) fn stakes(&self) -> Stakes {
+        let management = match self {
             Self::Path {
                 method: _,
                 validated,
@@ -218,7 +221,8 @@ impl Checked {
             Self::Root { items, risk: _ } => items
                 .iter()
                 .any(|item| item.validated.contains_management()),
-        }
+        };
+        Stakes::new(self.risk()).with_management(management)
     }
 
     /// Requests in the batch.

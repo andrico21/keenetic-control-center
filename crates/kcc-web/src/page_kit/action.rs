@@ -17,13 +17,14 @@ use serde_json::{Value, json};
 use super::{
     audit::Record,
     change::{self, Applied, Change, Plan, Refused},
-    confirm::{Confirmation, Gate, Prompt, Resubmit},
+    confirm::{Confirmation, Resubmit},
     context::{self, Target, fragment_shell},
     facts::{FactsError, RouterFacts},
     family::Family,
     gate::{allowed, operation_permissions},
     outcome::{Failure, Outcome},
     respond::Answer,
+    stakes::Stakes,
 };
 use crate::{
     WebState,
@@ -178,14 +179,9 @@ impl<'call> Action<'call> {
         resubmit: Resubmit,
     ) -> Option<Response> {
         let effective = risk.max(self.descriptor.risk);
-        match self.family.gate(effective, confirmation, self.router()) {
-            Gate::Run => None,
-            Gate::Ask { wrong_name } => Some(
-                Prompt::new(self.family, effective, self.router())
-                    .with_wrong_name(wrong_name)
-                    .render(resubmit, self.locale()),
-            ),
-        }
+        self.family
+            .ask(Stakes::new(effective), confirmation, self.router())
+            .map(|prompt| prompt.render(resubmit, self.locale()))
     }
 
     /// Ends the action before anything was sent, audited as `reason`, such as

@@ -29,10 +29,11 @@ use crate::{
     errors::refusal,
     page_kit::{
         audit::{Record, field_names},
-        confirm::{Confirmation, Gate, Prompt, Resubmit},
+        confirm::{Confirmation, Resubmit},
         family::Family,
         gate::{allowed, command_permissions},
         respond,
+        stakes::Stakes,
     },
 };
 
@@ -75,14 +76,14 @@ pub(crate) async fn execute(
         return refusal::refused(locale, &missing, "#explorer-result");
     }
     let confirmation = Confirmation::from_pairs(&pairs);
-    if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {
+    let stakes = Stakes::of(built.validated());
+    if let Some(prompt) = Family::Commands.ask(stakes, &confirmation, &router) {
         let resubmit = Resubmit::new(
             format!("/ui/r/{router}/explorer/execute"),
             "#explorer-result",
         )
         .with_include("#explorer-form");
-        return Prompt::new(Family::Commands, risk, &router)
-            .with_wrong_name(wrong_name)
+        return prompt
             .with_persists(built.validated().persists_immediately)
             .with_persisted_paths(built.validated().persisted_paths.clone())
             .render(resubmit, locale);

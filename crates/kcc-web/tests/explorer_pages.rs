@@ -112,5 +112,8 @@ mod refusal;
 #[path = "explorer_pages/bracket.rs"]
 mod bracket;
 #[cfg(test)]
+#[path = "explorer_pages/destructive_management.rs"]
+mod destructive_management;
+#[cfg(test)]
 #[path = "explorer_pages/nested_risk.rs"]
 mod nested_risk;
