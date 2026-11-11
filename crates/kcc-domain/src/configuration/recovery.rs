@@ -52,6 +52,23 @@ impl<E> Failure<E> {
 /// Returns the work error after successful cleanup, or an armed failure otherwise.
 #[inline]
 pub fn finish<T, D, E>(work: Result<T, E>, disarm: Result<D, E>) -> Result<T, Failure<E>> {
+    let applied = work.is_ok();
+    finish_applied(work, disarm, applied)
+}
+
+/// Combines cleanup with the completion's known application fact.
+///
+/// Batch callers pass whether at least one change item succeeded, excluding reads.
+/// The work result alone cannot establish that fact for a partially refused batch.
+///
+/// # Errors
+/// Returns the work error after successful cleanup, or an armed failure otherwise.
+#[inline]
+pub fn finish_applied<T, D, E>(
+    work: Result<T, E>,
+    disarm: Result<D, E>,
+    applied: bool,
+) -> Result<T, Failure<E>> {
     match (work, disarm) {
         (Ok(value), Ok(_disarmed)) => Ok(value),
         (Err(source), Ok(_disarmed)) => Err(Failure {
@@ -62,7 +79,7 @@ pub fn finish<T, D, E>(work: Result<T, E>, disarm: Result<D, E>) -> Result<T, Fa
         (Ok(_value), Err(source)) => Err(Failure {
             source,
             armed: true,
-            applied: true,
+            applied,
         }),
         (Err(source), Err(_cleanup)) => Err(Failure::armed(source)),
     }

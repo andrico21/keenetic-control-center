@@ -1,5 +1,8 @@
 //! Failed management work retains its recovery receipt.
 
+#[path = "bracket_batch.rs"]
+mod batch;
+
 use std::io::{self, Write as _};
 
 use kcc_app::audit::read_entries;

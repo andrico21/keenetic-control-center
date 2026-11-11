@@ -48,6 +48,22 @@ pub(crate) async fn run<T, Work>(
 where
     Work: AsyncFnOnce(&mut ChangeSet) -> Result<T, McpFailure>,
 {
+    run_completed(server, target, async |changes| {
+        work(changes).await.map(|value| (value, true))
+    })
+    .await
+}
+
+/// Runs raw work with the application's successful-change fact.
+// NOT cancel-safe: cancellation may leave a write applied and its recovery timer armed.
+pub(crate) async fn run_completed<T, Work>(
+    server: &KccMcp,
+    target: (&RouterId, &McpIdentity, bool),
+    work: Work,
+) -> Result<T, McpFailure>
+where
+    Work: AsyncFnOnce(&mut ChangeSet) -> Result<(T, bool), McpFailure>,
+{
     let (host, identity, management) = target;
     if management {
         for &permission in SafetyNet::management_permissions() {
@@ -56,7 +72,7 @@ where
     }
     let mut changes = server.begin_change(host, identity).await?;
     if !management {
-        return work(&mut changes).await;
+        return work(&mut changes).await.map(|(value, _applied)| value);
     }
     let info = server
         .registry
@@ -74,8 +90,11 @@ where
             .map_err(map_workflow)?,
     );
     let applied = work(&mut changes).await;
+    let completed = applied.as_ref().is_ok_and(|(_value, applied)| *applied);
     let disarm = SafetyNet::disarm(&mut changes, &context, mode)
         .await
         .map_err(map_workflow);
-    recovery::finish(applied, disarm).map_err(super::errors::map_recovery)
+    recovery::finish_applied(applied, disarm, completed)
+        .map(|(value, _applied)| value)
+        .map_err(super::errors::map_recovery)
 }

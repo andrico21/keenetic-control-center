@@ -63,13 +63,32 @@ pub(crate) async fn finish_with_context(
         Err(error) => {
             tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
             super::audit::failure(server, context, &error, &request_id).await;
-            let mut reply = json!({
-                "error": error.code(),
-                "request_id": request_id
-            });
-            let recovery_message = match error {
-                McpFailure::ManagementAppliedFailSafeArmed => Some(keys::MANAGEMENT_DISARM_FAILED),
-                McpFailure::ManagementOutcomeUnknownFailSafeArmed => {
+            let mut reply = if let McpFailure::BatchFailSafeArmed {
+                applied: _,
+                completion,
+            } = &error
+            {
+                *completion.clone()
+            } else {
+                json!({})
+            };
+            if let Value::Object(object) = &mut reply {
+                drop(object.insert("error".to_owned(), json!(error.code())));
+                drop(object.insert("request_id".to_owned(), json!(request_id)));
+            }
+            let recovery_message = match &error {
+                McpFailure::BatchFailSafeArmed {
+                    applied: true,
+                    completion: _,
+                }
+                | McpFailure::ManagementAppliedFailSafeArmed => {
+                    Some(keys::MANAGEMENT_DISARM_FAILED)
+                }
+                McpFailure::BatchFailSafeArmed {
+                    applied: false,
+                    completion: _,
+                }
+                | McpFailure::ManagementOutcomeUnknownFailSafeArmed => {
                     Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
                 }
                 McpFailure::InvalidArguments
@@ -94,7 +113,7 @@ pub(crate) async fn finish_with_context(
             {
                 drop(object.insert("field".to_owned(), Value::String(field.clone())));
             }
-            let text = serde_json::to_string(&reply)
+            let text = shape(server, reply, Some(&request_id))
                 .unwrap_or_else(|_error| "{\"error\":\"internal\"}".to_owned());
             CallToolResult::error(vec![ContentBlock::text(text)])
         }

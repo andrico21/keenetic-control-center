@@ -1,5 +1,8 @@
 //! Recovery outcomes across the MCP wire and audit boundary.
 
+#[path = "bracket_batch.rs"]
+mod batch;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

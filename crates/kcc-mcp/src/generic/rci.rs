@@ -345,24 +345,39 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             Vec::new(),
         ));
     }
-    let result = raw_change::run(server, (&host, &identity, management), async |changes| {
-        changes
-            .apply_batch(BatchChangeRequest::new(
-                items,
-                Vec::new(),
-                Permission::RawRci,
-                json!({ "validated": true }),
-            ))
-            .await
-            .map_err(map_workflow)
-    })
-    .await?;
-    Ok(batch_applied(
+    let mut completion = None;
+    let outcome =
+        raw_change::run_completed(server, (&host, &identity, management), async |changes| {
+            let result = changes
+                .apply_batch(BatchChangeRequest::new(
+                    items,
+                    Vec::new(),
+                    Permission::RawRci,
+                    json!({ "validated": true }),
+                ))
+                .await
+                .map_err(map_workflow)?;
+            let applied = result.applied_changes != 0;
+            completion = Some(result);
+            Ok(((), applied))
+        })
+        .await;
+    let Some(result) = completion else {
+        return outcome.and(Err(McpFailure::Internal));
+    };
+    let document = batch_applied(
         batch_values(result.responses),
         result.unsaved,
         result.persists_immediately,
         result.persisted_paths,
-    ))
+    );
+    match outcome {
+        Ok(()) => Ok(document),
+        Err(error) => Err(McpFailure::BatchFailSafeArmed {
+            applied: matches!(error, McpFailure::ManagementAppliedFailSafeArmed),
+            completion: Box::new(document),
+        }),
+    }
 }
 
 /// The per-item result values of a root batch.

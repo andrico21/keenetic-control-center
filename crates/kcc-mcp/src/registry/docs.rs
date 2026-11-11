@@ -50,8 +50,11 @@ pub fn markdown() -> String {
          Negative `no` commands are destructive. Management nodes retain their recovery timer\n\
           even when a destructive sibling raises the maximum request risk.\n\n\
           After recovery arms, unsuccessful cleanup returns `management_applied_fail_safe_armed`\n\
-          when work succeeded, or `management_outcome_unknown_fail_safe_armed` when work failed\n\
-          or its outcome is unknown. Both carry a localized English `message` explaining recovery;\n\
+           when at least one change item succeeded, or `management_outcome_unknown_fail_safe_armed`\n\
+           when every change was refused, work failed, or its outcome is unknown. Successful reads\n\
+           do not count as applied changes. Batch recovery errors retain `responses`, including\n\
+           the refused `ok: false` items; partial application refers only to successful changes.\n\
+           Both codes carry a localized English `message` explaining recovery;\n\
           the timer remains armed and will restore the saved configuration, discarding unsaved changes.\n\
           Successful cleanup preserves the original work error. Failed-change audit parameters\n\
           include `fail_safe_armed: true` when recovery remains armed.\n",

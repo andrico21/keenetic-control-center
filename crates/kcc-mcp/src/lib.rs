@@ -145,6 +145,13 @@ pub enum McpFailure {
     ManagementAppliedFailSafeArmed,
     /// Work failed or its outcome is unknown, and recovery remains armed.
     ManagementOutcomeUnknownFailSafeArmed,
+    /// A completed batch retains its item results when recovery cleanup fails.
+    BatchFailSafeArmed {
+        /// Whether at least one change item succeeded.
+        applied: bool,
+        /// Redacted batch result with the existing per-item wire fields.
+        completion: Box<serde_json::Value>,
+    },
     /// Catalog or argument validation failed; nothing was sent.
     ValidationFailed,
     /// The router accepted a change but reading it back still shows the old value.
@@ -170,10 +177,16 @@ impl McpFailure {
             Self::DestructiveDisabled => "destructive_disabled",
             Self::RouterUnreachable => "router_unreachable",
             Self::RouterRejected => "router_rejected",
-            Self::ManagementAppliedFailSafeArmed => "management_applied_fail_safe_armed",
-            Self::ManagementOutcomeUnknownFailSafeArmed => {
-                "management_outcome_unknown_fail_safe_armed"
-            }
+            Self::ManagementAppliedFailSafeArmed
+            | Self::BatchFailSafeArmed {
+                applied: true,
+                completion: _,
+            } => "management_applied_fail_safe_armed",
+            Self::ManagementOutcomeUnknownFailSafeArmed
+            | Self::BatchFailSafeArmed {
+                applied: false,
+                completion: _,
+            } => "management_outcome_unknown_fail_safe_armed",
             Self::ValidationFailed => "validation_failed",
             Self::VerificationFailed { field: _ } => "verification_failed",
             Self::Conflict => "conflict",

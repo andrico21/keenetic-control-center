@@ -5,6 +5,8 @@
 //! entry. A management change is also wrapped in the router's fail-safe timer: armed
 //! before the change, disarmed afterwards when the router still answers.
 
+use core::mem;
+
 use fluent_bundle::FluentArgs;
 use kcc_app::{
     audit::{Actor, ActorKind},
@@ -161,6 +163,8 @@ pub(crate) enum Applied {
     },
     /// One result per batch item.
     Batch {
+        /// Successful change items, excluding reads.
+        applied_changes: usize,
         /// Whether the router now has unsaved changes.
         unsaved: bool,
         /// Whether every successful item was persisted immediately.
@@ -187,6 +191,7 @@ impl Applied {
         match self {
             Self::Done { unsaved }
             | Self::Batch {
+                applied_changes: _,
                 unsaved,
                 persists_immediately: _,
                 persisted_paths: _,
@@ -204,11 +209,13 @@ impl Applied {
 /// A change that did not complete.
 pub(crate) struct Refused {
     /// Why.
-    error: WorkflowError,
+    error: Box<WorkflowError>,
     /// Whether the fail-safe timer was left armed, so the router rolls back by itself.
     armed: bool,
     /// Whether application succeeded before recovery cleanup failed.
     applied: bool,
+    /// Item refusals retained when cleanup fails after a completed batch.
+    refusals: Vec<RciError>,
 }
 
 impl Refused {
@@ -222,11 +229,12 @@ impl Refused {
     }
 
     /// A failure with no timer armed.
-    const fn plain(error: WorkflowError) -> Self {
+    fn plain(error: WorkflowError) -> Self {
         Self {
-            error,
+            error: Box::new(error),
             armed: false,
             applied: false,
+            refusals: Vec::new(),
         }
     }
 
@@ -234,18 +242,41 @@ impl Refused {
     /// itself when the fail-safe timer stayed armed, else the workflow error.
     pub(crate) fn failure(&self, family: Family, locale: Locale) -> Failure {
         if self.armed {
-            if self.applied {
-                return Failure::new(
-                    tr(locale, keys::MANAGEMENT_DISARM_FAILED, None),
-                    "fail_safe_armed",
-                );
-            }
             let mut args = FluentArgs::new();
             args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-            return Failure::new(
-                tr(locale, keys::WEB_EXPLORER_ARMED, Some(&args)),
-                "fail_safe_armed",
-            );
+            let key = if self.applied {
+                keys::MANAGEMENT_DISARM_FAILED
+            } else if matches!(
+                *self.error,
+                WorkflowError::Rci(RciError::Transport | RciError::Timeout)
+            ) {
+                keys::WEB_EXPLORER_ARMED
+            } else {
+                keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+            };
+            let mut messages = Vec::new();
+            for error in &self.refusals {
+                if let RciError::Rci {
+                    message,
+                    pointer: _,
+                    code: _,
+                    ident: _,
+                } = error
+                {
+                    messages.push(message.clone());
+                }
+            }
+            if let WorkflowError::Rci(RciError::Rci {
+                message,
+                pointer: _,
+                code: _,
+                ident: _,
+            }) = self.error.as_ref()
+            {
+                messages.push(message.clone());
+            }
+            return Failure::new(tr(locale, key, Some(&args)), "fail_safe_armed")
+                .with_router_said(messages);
         }
         workflow_failure(family, locale, &self.error)
     }
@@ -368,19 +399,54 @@ where
             "management change lost the router; fail-safe stays armed"
         );
         return applied.map_err(|error| Refused {
-            error,
+            error: Box::new(error),
             armed: true,
             applied: false,
+            refusals: Vec::new(),
         });
     }
     let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
-    recovery::finish(applied, disarm).map_err(|failure| {
+    let completed = applied.as_ref().is_ok_and(|value| match value {
+        Applied::Batch {
+            applied_changes,
+            unsaved: _,
+            persists_immediately: _,
+            persisted_paths: _,
+            responses: _,
+        } => *applied_changes != 0,
+        Applied::Done { unsaved: _ }
+        | Applied::Cli {
+            unsaved: _,
+            responses: _,
+        }
+        | Applied::Terminal(_) => true,
+    });
+    let mut refusals = Vec::new();
+    let completion = applied.map(|mut value| {
+        if disarm.is_err()
+            && let Applied::Batch {
+                responses,
+                applied_changes: _,
+                unsaved: _,
+                persists_immediately: _,
+                persisted_paths: _,
+            } = &mut value
+        {
+            refusals = mem::take(responses)
+                .into_iter()
+                .filter_map(Result::err)
+                .collect();
+        }
+        value
+    });
+    recovery::finish_applied(completion, disarm, completed).map_err(|failure| {
         let armed = failure.is_armed();
-        let completed = failure.applied();
+        let known_applied = failure.applied();
         Refused {
-            error: failure.into_source(),
+            error: Box::new(failure.into_source()),
             armed,
-            applied: completed,
+            applied: known_applied,
+            refusals,
         }
     })
 }
@@ -400,6 +466,7 @@ async fn send(changes: &mut ChangeSet, change: Change) -> Result<Applied, Workfl
             .apply_batch(request)
             .await
             .map(|result| Applied::Batch {
+                applied_changes: result.applied_changes,
                 unsaved: result.unsaved,
                 persists_immediately: result.persists_immediately,
                 persisted_paths: result.persisted_paths,

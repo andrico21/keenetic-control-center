@@ -137,6 +137,27 @@ pub(crate) async fn run<W>(
 where
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Outcome<Value>,
 {
+    run_completed(ctx, services, target, gate, async |changes, router| {
+        work(changes, router).await.map(|value| (value, true))
+    })
+    .await
+}
+
+/// Runs work whose completion explicitly records whether any change applied.
+///
+/// # Errors
+/// Returns authorization, work or recovery cleanup failures.
+// NOT cancel-safe: cancellation may leave a change applied or recovery armed.
+pub(crate) async fn run_completed<W>(
+    ctx: &Ctx,
+    services: &Services,
+    target: &Target,
+    gate: Gate,
+    work: W,
+) -> Outcome<Value>
+where
+    W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Outcome<(Value, bool)>,
+{
     let role = match ctx
         .principal()
         .authorize(&gate.permissions(), &[target.id()])
@@ -173,7 +194,7 @@ where
         if !gate.timer {
             return work(&mut changes, target.router())
                 .await
-                .map(|document| labelled(document, gate.persists));
+                .map(|(document, _applied)| labelled(document, gate.persists));
         }
         let mode = safety_mode(target.info());
         drop(
@@ -187,11 +208,14 @@ where
         );
         let applied = work(&mut changes, target.router())
             .await
-            .map(|document| labelled(document, gate.persists));
+            .map(|(document, applied)| (labelled(document, gate.persists), applied));
+        let completed = applied.as_ref().is_ok_and(|(_document, changed)| *changed);
         let disarm = SafetyNet::disarm(&mut changes, target.router(), mode)
             .await
             .map_err(Failure::from);
-        recovery::finish(applied, disarm).map_err(Failure::recovery)
+        recovery::finish_applied(applied, disarm, completed)
+            .map(|(document, _applied)| document)
+            .map_err(Failure::recovery)
     }
     .await;
     if let Err(failure) = &attempt {

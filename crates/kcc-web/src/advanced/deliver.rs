@@ -166,6 +166,7 @@ impl Dispatch<'_> {
         let left = |unsaved| Left::of(unsaved, persists, persisted_paths.clone());
         match change::apply(plan, change).await {
             Ok(Applied::Batch {
+                applied_changes: _,
                 unsaved,
                 persists_immediately,
                 persisted_paths: successful_persisted_paths,

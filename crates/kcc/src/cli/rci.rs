@@ -16,7 +16,7 @@ use serde_json::{Map, Value, json};
 
 use super::{
     args_fleet::RciCommand,
-    change::{Gate, labelled, run as run_change},
+    change::{Gate, labelled, run as run_change, run_completed},
     context::{Ctx, Services, Target},
     exit::{Detail, Exit, Failure, Outcome},
     fleet::{body_value, print_body},
@@ -125,16 +125,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         .max()
         .unwrap_or(Risk::Read);
     if risk == Risk::Read {
-        drop(
-            ctx.principal()
-                .authorize(&[Permission::Read], &[target.id()])?,
-        );
-        let values = items
-            .iter()
-            .map(|item| item.value.redacted().clone())
-            .collect();
-        let responses = target.router().client.batch(values).await?;
-        return report(ctx, responses, (false, false, &[]));
+        return read_batch(ctx, target, &items).await;
     }
     let persists = items
         .iter()
@@ -164,24 +155,28 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     let mut unsaved = false;
     let mut completed_paths = Vec::new();
     let mut applied_changes = 0_usize;
-    drop(
-        run_change(ctx, services, target, gate, async |changes, _router| {
-            let request = BatchChangeRequest::new(
-                items,
-                Vec::new(),
-                Permission::RawRci,
-                json!({ "method": "POST" }),
-            );
-            let result = changes.apply_batch(request).await?;
-            completed_persists = result.persists_immediately;
-            unsaved = result.unsaved;
-            applied_changes = result.applied_changes;
-            completed_paths = result.persisted_paths;
-            responses = result.responses;
-            Ok(Value::Null)
-        })
-        .await?,
-    );
+    let completion = run_completed(ctx, services, target, gate, async |changes, _router| {
+        let request = BatchChangeRequest::new(
+            items,
+            Vec::new(),
+            Permission::RawRci,
+            json!({ "method": "POST" }),
+        );
+        let result = changes.apply_batch(request).await?;
+        completed_persists = result.persists_immediately;
+        unsaved = result.unsaved;
+        applied_changes = result.applied_changes;
+        completed_paths = result.persisted_paths;
+        responses = result.responses;
+        Ok((Value::Null, applied_changes != 0))
+    })
+    .await;
+    if let Err(failure) = completion {
+        if responses.iter().all(Result::is_ok) {
+            return Err(failure);
+        }
+        ctx.out().note(&failure.headline(ctx.out().locale()));
+    }
     let failed = responses
         .iter()
         .filter(|response| response.is_err())
@@ -216,6 +211,24 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     )
 }
 
+/// Authorizes and reports a read-only batch without a change workflow.
+///
+/// # Errors
+/// Returns authorization, transport or per-item failures.
+// cancel-safe: only catalog-validated reads reach the router.
+async fn read_batch(ctx: &Ctx, target: &Target, items: &[BatchItem]) -> Outcome {
+    drop(
+        ctx.principal()
+            .authorize(&[Permission::Read], &[target.id()])?,
+    );
+    let values = items
+        .iter()
+        .map(|item| item.value.redacted().clone())
+        .collect();
+    let responses = target.router().client.batch(values).await?;
+    report(ctx, responses, (false, false, &[]))
+}
+
 /// Prints per-item results and whether the router persisted them at once; any failed
 /// item makes the command partial (exit 7).
 ///
@@ -236,6 +249,12 @@ fn report(
         .into_iter()
         .map(|response| match response {
             Ok(value) => json!({ "ok": true, "value": body_value(RciBody::Json(value)) }),
+            Err(RciError::Rci {
+                message,
+                pointer: _,
+                code: _,
+                ident: _,
+            }) => json!({ "ok": false, "error": message }),
             Err(error) => json!({ "ok": false, "error": error.to_string() }),
         })
         .collect::<Vec<_>>();

@@ -18,6 +18,9 @@ use crate::{
     support::{Fixture, TestResult, text},
 };
 
+#[path = "bracket_batch.rs"]
+mod batch;
+
 /// A raw role without ordinary write permission closes its management bracket.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test]
@@ -136,8 +139,18 @@ async fn bracket_failure_matrix_retains_recovery() -> TestResult {
             let body = text(response).await?;
             let mut args = FluentArgs::new();
             args.set("minutes", "5");
-            let unknown = tr(Locale::En, keys::WEB_EXPLORER_ARMED, Some(&args));
+            let unknown = if line == "no user unused" {
+                tr(Locale::En, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED, None)
+            } else {
+                tr(Locale::En, keys::WEB_EXPLORER_ARMED, Some(&args))
+            };
             assert_eq!(body.contains(&unknown), armed && !applied, "{mode}: {body}");
+            if line == "no user unused" {
+                assert!(
+                    body.contains("injected"),
+                    "router refusal remains visible: {body}"
+                );
+            }
             assert_eq!(
                 body.contains(&en(keys::MANAGEMENT_DISARM_FAILED)),
                 applied,

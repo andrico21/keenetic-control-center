@@ -27,6 +27,10 @@ pub(crate) async fn failure(
         | McpFailure::ValidationFailed
         | McpFailure::UnverifiedFirmwareTier => ("refused", json!({"reason": error.code()})),
         McpFailure::RouterUnreachable
+        | McpFailure::BatchFailSafeArmed {
+            applied: _,
+            completion: _,
+        }
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::RouterRejected
@@ -39,6 +43,10 @@ pub(crate) async fn failure(
             if matches!(
                 error,
                 McpFailure::ManagementAppliedFailSafeArmed
+                    | McpFailure::BatchFailSafeArmed {
+                        applied: _,
+                        completion: _
+                    }
                     | McpFailure::ManagementOutcomeUnknownFailSafeArmed
             ) && let Value::Object(object) = &mut params
             {
@@ -47,6 +55,10 @@ pub(crate) async fn failure(
             ("failed", params)
         }
         McpFailure::InvalidArguments
+        | McpFailure::BatchFailSafeArmed {
+            applied: _,
+            completion: _,
+        }
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::RouterUnreachable
