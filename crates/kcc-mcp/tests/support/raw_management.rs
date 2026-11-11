@@ -67,6 +67,43 @@ mod tests {
         ]
     }
 
+    /// Ordinary named-interface leaves stay available to raw writers without recovery.
+    // NOT cancel-safe: fixture lifecycle owns router and MCP tasks.
+    #[tokio::test]
+    async fn ordinary_interface_leaves_apply_without_destructive() -> TestResult {
+        for mode in ["router", "extender"] {
+            let role = Role::new(
+                "raw-writer".to_owned(),
+                [Permission::Read, Permission::Write, Permission::RawRci],
+                vec!["*".to_owned()],
+            );
+            let mut scenario = migration::Fixture::default();
+            scenario.mode = Some(mode.to_owned());
+            for input in [
+                json!({"host":"lab-1","items":[{"interface":{"name":"GigabitEthernet0/0","description":{"description":"lab"}}}]}),
+                json!({"host":"lab-1","items":[{"interface":{"name":"WifiMaster0/AccessPoint1","ssid":{"ssid":"lab"}}}]}),
+            ] {
+                let lab = Lab::start(
+                    vec![(
+                        "lab-1",
+                        FakeRouter::builder(Profile::default())
+                            .build()?
+                            .with_migration(scenario.clone()),
+                    )],
+                    role.clone(),
+                )
+                .await?;
+                let before = lab.requests("lab-1")?;
+                let reply = lab.call("kcc_rci_batch", input.clone(), false).await?;
+                assert_eq!(reply.error(), None, "{mode} {input}: {reply:?}");
+                assert!(lab.requests("lab-1")? > before, "{mode} {input}");
+                assert!(!lab.router("lab-1")?.recovery_armed());
+                lab.stop().await?;
+            }
+        }
+        Ok(())
+    }
+
     /// Missing recovery permission and missing confirmation both send zero requests.
     // NOT cancel-safe: fixture lifecycle owns router and MCP tasks.
     #[tokio::test]
@@ -88,6 +125,14 @@ mod tests {
                 inputs.push((
                     "kcc_cli_parse",
                     json!({"host":"lab-1","line":"system mode EXTENDER"}),
+                ));
+                inputs.push((
+                    "kcc_cli_parse",
+                    json!({"host":"lab-1","line":"interface WifiMaster0/AccessPoint0 schedule sample"}),
+                ));
+                inputs.push((
+                    "kcc_rci_batch",
+                    json!({"host":"lab-1","items":[{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}]}),
                 ));
                 inputs.push(("kcc_cli_parse", json!({"host":"lab-1","line":"system configuration fail-safe timer reboot 300"})));
                 for (tool, mut input) in inputs {

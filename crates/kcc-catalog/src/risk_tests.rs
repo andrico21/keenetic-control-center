@@ -16,6 +16,7 @@ use crate::{Catalog, HttpMethod, Risk, ValidatedRequest};
 mod independent;
 mod management;
 mod namespaces;
+mod parity;
 mod shows;
 
 /// Every command and every split retains the maximum risk of its command nodes.
@@ -46,7 +47,11 @@ fn every_catalog_command_retains_risk_at_every_nesting_depth() -> Result<(), Box
                             .copied()
                             .collect::<Vec<_>>()
                             .join(" ");
-                        catalog.risk(&node)
+                        if depth == 1 && words.first() == Some(&"interface") && words.len() > 1 {
+                            None
+                        } else {
+                            catalog.risk(&node)
+                        }
                     })
                     .max()
                     .ok_or("command has words")?;
@@ -69,7 +74,9 @@ fn every_catalog_command_retains_risk_at_every_nesting_depth() -> Result<(), Box
                     "{line}: {} at {split}",
                     command.path
                 );
-                if let Ok(validated) = catalog.validate(&prefix, HttpMethod::Post, &value) {
+                if command.path != "interface"
+                    && let Ok(validated) = catalog.validate(&prefix, HttpMethod::Post, &value)
+                {
                     assert_eq!(
                         validated.risk, expected,
                         "public {line}: {} at {split}",

@@ -130,7 +130,7 @@ pub(super) const MANAGEMENT_PREFIXES: &[&str] = &[
 ];
 
 /// Exact command paths that can replace the management interface or its routing context.
-pub(super) const MANAGEMENT_PATHS: &[&str] = &["interface", "ip route", "system mode"];
+pub(super) const MANAGEMENT_PATHS: &[&str] = &["ip route", "system mode"];
 
 /// Interface command endings affecting management access.
 pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[
@@ -141,6 +141,7 @@ pub(super) const MANAGEMENT_INTERFACE_SUFFIXES: &[&str] = &[
     " include",
     " inherit",
     " role",
+    " schedule",
 ];
 
 /// Interface command trees that can alter the address, uplink route, or link identity.

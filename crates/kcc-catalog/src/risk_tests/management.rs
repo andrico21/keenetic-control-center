@@ -5,7 +5,7 @@ use core::{error::Error, str::FromStr as _};
 use kcc_rci::version::FirmwareVersion;
 use serde_json::json;
 
-use crate::{Catalog, HttpMethod, RawAuthorization, Risk};
+use crate::{Catalog, CommandKind, HttpMethod, RawAuthorization, Risk};
 
 /// Literal domain intents: listeners, bridge topology, firewall ingress and accounts.
 const MANAGEMENT: &[&str] = &[
@@ -99,9 +99,15 @@ fn curated_management_paths_protect_all_raw_shapes() -> Result<(), Box<dyn Error
                     assert!(request.contains_management(), "{version} {path}: {body}");
                 }
             }
-            if command.prefix_no
-                && let Ok(deleted) = catalog.validate(path, HttpMethod::Delete, &json!({}))
-            {
+            if command.kind == CommandKind::Setting && command.prefix_no {
+                let delete_value = if path == "interface" {
+                    json!({"name":"sample"})
+                } else {
+                    json!({})
+                };
+                let deleted = catalog
+                    .validate(path, HttpMethod::Delete, &delete_value)
+                    .map_err(|issues| format!("DELETE {version} {path}: {issues:?}"))?;
                 assert!(deleted.risk >= Risk::Management, "{version} {path}");
                 assert!(deleted.contains_management(), "DELETE {version} {path}");
             }
@@ -121,6 +127,49 @@ fn reachability_candidates_have_reasoned_risk() -> Result<(), Box<dyn Error>> {
             }
             assert_eq!(catalog.risk(path), Some(Risk::Write), "{version} {path}");
         }
+    }
+    Ok(())
+}
+
+/// Name-keyed ordinary leaves use their own risk instead of the interface ancestor's risk.
+#[test]
+fn ordinary_name_keyed_interface_leaves_remain_write() -> Result<(), Box<dyn Error>> {
+    let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, None)?;
+    for value in [
+        json!({"interface":{"name":"GigabitEthernet0/0","description":{"description":"lab"}}}),
+        json!({"interface":{"name":"WifiMaster0/AccessPoint1","ssid":{"ssid":"lab"}}}),
+        json!({"interface":{"name":"WifiMaster0/AccessPoint1","rf":{}}}),
+        json!({"interface":{"name":"WifiMaster0/AccessPoint1","mac":{"band":{"mac":"02:00:00:00:00:01","band":"0"}}}}),
+    ] {
+        let request = catalog
+            .validate("", HttpMethod::Post, &value)
+            .map_err(|issues| format!("{value}: {issues:?}"))?;
+        assert_eq!(request.risk, Risk::Write, "{value}");
+        assert!(!request.contains_management(), "{value}");
+    }
+    Ok(())
+}
+
+/// A schedule can disable the management access point, so both raw spellings fail closed.
+#[test]
+fn raw_interface_schedule_requires_recovery_in_both_spellings() -> Result<(), Box<dyn Error>> {
+    let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, None)?;
+    let line = catalog
+        .validate_cli(
+            "interface WifiMaster0/AccessPoint0 schedule sample",
+            RawAuthorization::default(),
+        )
+        .map_err(|issues| format!("schedule line: {issues:?}"))?;
+    let structured = catalog
+        .validate(
+            "",
+            HttpMethod::Post,
+            &json!({"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}),
+        )
+        .map_err(|issues| format!("schedule body: {issues:?}"))?;
+    for request in [line, structured] {
+        assert_eq!(request.risk, Risk::Management);
+        assert!(request.contains_management());
     }
     Ok(())
 }

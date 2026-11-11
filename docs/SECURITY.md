@@ -146,7 +146,9 @@ timer and keep-alive commands are Destructive instead: they control recovery its
 must not be automatically disarmed by an enclosing management bracket. IPv6 access-group
 commands are not present in the embedded catalogs and remain rejected by validation.
 
-Whole-interface removal and operating-mode switches are Management changes. Raw interface
+Whole-interface creation and removal are Management changes: creation fails closed because
+raw classification has no runtime topology with which to prove that the new interface cannot
+replace a management path. Operating-mode switches are Management changes too. Raw interface
 role, IPv4 or IPv6 address, DHCP-client route, global-route priority, MAC address/clone and
 IPv4 static route changes are also Management because any of them can replace the address,
 return route or link identity through which kcc reaches the router. The raw classification
@@ -157,7 +159,10 @@ CLI-removal spellings of all of these retain the Destructive floor while still r
 timer. Client hotspot deny/policy selection and DNS-proxy assignment remain ordinary Write:
 they affect client forwarding or name resolution, not kcc's management path. Interface
 description, radio/RF settings, MAC band/BSSID/VHT tuning and other non-address interface
-writes likewise remain ordinary Write and do not require `Destructive`.
+writes likewise remain ordinary Write and do not require `Destructive`; the `interface`
+command is only their structured ancestor and does not raise their risk. Interface schedules
+are Management on the raw route because applying a schedule can disable the management access
+point, and the CLI-line and structured spellings receive the same verdict.
 
 Every management bracket checks the shared `SafetyNet` recovery permissions as well
 as the operation permission. `Destructive` authorizes arm, disarm, keep-alive and

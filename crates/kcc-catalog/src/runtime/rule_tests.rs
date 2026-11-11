@@ -58,6 +58,13 @@ fn every_safety_pattern_matches_an_embedded_command() -> Result<(), Box<dyn Erro
             "dead management path: {path}"
         );
     }
+    assert!(
+        catalogs
+            .iter()
+            .flat_map(Catalog::commands)
+            .any(|command| command.path == "interface"),
+        "whole-interface management rule needs the interface command"
+    );
     for suffix in MANAGEMENT_INTERFACE_SUFFIXES {
         assert!(
             catalogs

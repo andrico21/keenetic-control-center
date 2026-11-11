@@ -55,6 +55,40 @@ fn cases() -> Vec<(&'static str, String)> {
     cases
 }
 
+/// Raw writers apply ordinary named-interface leaves without recovery.
+// NOT cancel-safe: the fixture owns router and HTTP tasks.
+#[tokio::test]
+async fn ordinary_interface_leaves_apply_without_destructive() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        for body in [
+            r#"{"interface":{"name":"GigabitEthernet0/0","description":{"description":"lab"}}}"#,
+            r#"[{"interface":{"name":"WifiMaster0/AccessPoint1","ssid":{"ssid":"lab"}}}]"#,
+        ] {
+            let fixture = Fixture::with_router(
+                FakeRouter::builder(Profile::default())
+                    .build()?
+                    .with_migration(scenario.clone()),
+            )
+            .await?;
+            let browser = fixture.login("raw-writer").await?;
+            let before = fixture.handle().request_count();
+            let response = fixture
+                .post(
+                    "/ui/r/home/console/rci/send",
+                    &browser,
+                    &form(&[("method", "POST"), ("path", ""), ("body", body)]),
+                )
+                .await?;
+            assert_eq!(response.status(), StatusCode::OK, "{mode} {body}");
+            assert!(fixture.handle().request_count() > before, "{mode} {body}");
+            assert!(!fixture.handle().recovery_armed());
+        }
+    }
+    Ok(())
+}
+
 /// The console chooses the fail-safe explanation for newly classified management commands.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test]
@@ -103,6 +137,27 @@ async fn raw_management_permission_refuses_both_modes() -> TestResult {
             "/ui/r/home/console/cli/send",
             form(&[
                 ("line", "system configuration fail-safe timer reboot 300"),
+                ("confirm", "yes"),
+                ("confirm_name", "home"),
+            ]),
+        ));
+        inputs.push((
+            "/ui/r/home/console/cli/send",
+            form(&[
+                ("line", "interface WifiMaster0/AccessPoint0 schedule sample"),
+                ("confirm", "yes"),
+                ("confirm_name", "home"),
+            ]),
+        ));
+        inputs.push((
+            "/ui/r/home/console/rci/send",
+            form(&[
+                ("method", "POST"),
+                ("path", ""),
+                (
+                    "body",
+                    r#"{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}"#,
+                ),
                 ("confirm", "yes"),
                 ("confirm_name", "home"),
             ]),

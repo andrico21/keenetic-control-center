@@ -6,12 +6,20 @@ mod query;
 mod rule_tests;
 mod schema;
 
+#[cfg(test)]
+use alloc::collections::BTreeMap;
+
 use kcc_rci::{capabilities::RouterInfo, version::FirmwareVersion};
 use secrecy::SecretString;
 
 use self::data::{
     BACKGROUND_PATHS, CatalogData, DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_SUFFIXES,
     MANAGEMENT_INTERFACE_TREES, MANAGEMENT_PATHS, MANAGEMENT_PREFIXES, data,
+};
+#[cfg(test)]
+use crate::{
+    ArgumentKind,
+    cli_grammar::{Synopsis, command_forms},
 };
 use crate::{
     CatalogError, CatalogVersion, Command, CommandKind, ModelMatch, Risk, SecretValue,
@@ -151,7 +159,13 @@ impl Catalog {
         method: HttpMethod,
         value: &serde_json::Value,
     ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
-        self.validate_with_options(path, method, value, RequestOptions::default())
+        let mut request =
+            self.validate_with_options(path, method, value, RequestOptions::default())?;
+        if interface_node_selected(path, value) {
+            request.risk = request.risk.max(Risk::Management);
+            request.contains_management = true;
+        }
+        Ok(request)
     }
 
     /// Validates one named secret argument without a caller-owned plaintext JSON copy.
@@ -328,6 +342,104 @@ impl Catalog {
     pub fn search(&self, query: &str, limit: usize) -> Vec<SearchResult<'_>> {
         query::search(self, query, limit)
     }
+
+    /// Derives matching CLI-line and root-structured spellings from generated grammar.
+    #[cfg(test)]
+    pub(crate) fn raw_parity_cases(&self) -> Vec<(String, serde_json::Value)> {
+        self.commands()
+            .flat_map(|command| {
+                command_forms(&self.data.synopses, &command.path, false)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .filter_map(|form| parity_case(self, &form))
+            })
+            .collect()
+    }
+}
+
+/// Builds one CLI line and the equivalent name-keyed root request.
+#[cfg(test)]
+fn parity_case(
+    catalog: &Catalog,
+    form: &[(&str, &Synopsis)],
+) -> Option<(String, serde_json::Value)> {
+    let mut line = Vec::with_capacity(form.len());
+    let mut objects = BTreeMap::<&str, serde_json::Map<String, serde_json::Value>>::new();
+    for (path, node) in form {
+        let object = objects.entry(path).or_default();
+        let token = match node {
+            Synopsis::Keyword(word) => word.clone(),
+            Synopsis::Argument(name) => {
+                let argument = catalog.lookup(path)?.arguments.get(name)?;
+                let value = parity_value(argument)?;
+                drop(object.insert(name.clone(), value.clone()));
+                match value {
+                    serde_json::Value::String(text) => text,
+                    serde_json::Value::Number(number) => number.to_string(),
+                    serde_json::Value::Null
+                    | serde_json::Value::Bool(_)
+                    | serde_json::Value::Array(_)
+                    | serde_json::Value::Object(_) => return None,
+                }
+            }
+            Synopsis::Sequence(_)
+            | Synopsis::Optional(_)
+            | Synopsis::Group(_)
+            | Synopsis::Alternative(_) => return None,
+        };
+        line.push(token);
+    }
+    let mut body = serde_json::Value::Object(serde_json::Map::new());
+    for (path, object) in objects {
+        insert_parity_object(&mut body, path, object)?;
+    }
+    Some((line.join(" "), body))
+}
+
+/// Chooses one valid scalar without copying a catalog-path inventory into the oracle.
+#[cfg(test)]
+fn parity_value(argument: &crate::Argument) -> Option<serde_json::Value> {
+    Some(match argument.kind {
+        ArgumentKind::Integer => {
+            serde_json::Value::from(argument.minimum.or(argument.maximum).unwrap_or(1_i64))
+        }
+        ArgumentKind::IpAddress => serde_json::Value::from("192.0.2.1"),
+        ArgumentKind::IpMask => serde_json::Value::from("255.255.255.0"),
+        ArgumentKind::IpAddressMask => serde_json::Value::from("192.0.2.0/24"),
+        ArgumentKind::MacAddress => serde_json::Value::from("02:00:00:00:00:01"),
+        ArgumentKind::ObjectName | ArgumentKind::String | ArgumentKind::Password => {
+            serde_json::Value::from("sample")
+        }
+        ArgumentKind::Keyword => serde_json::Value::from(
+            argument
+                .values
+                .iter()
+                .find(|value| !value.chars().any(char::is_whitespace))?
+                .clone(),
+        ),
+    })
+}
+
+/// Merges one command object's arguments at its catalog path.
+#[cfg(test)]
+fn insert_parity_object(
+    root: &mut serde_json::Value,
+    path: &str,
+    object: serde_json::Map<String, serde_json::Value>,
+) -> Option<()> {
+    let mut target = root.as_object_mut()?;
+    let mut words = path.split_whitespace().peekable();
+    while let Some(word) = words.next() {
+        let value = target
+            .entry(word)
+            .or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+        if words.peek().is_none() {
+            value.as_object_mut()?.extend(object);
+            return Some(());
+        }
+        target = value.as_object_mut()?;
+    }
+    None
 }
 
 /// Matches overlay `*` segments without treating them as arbitrary substrings.
@@ -339,4 +451,22 @@ fn path_matches(pattern: &str, path: &str) -> bool {
             .iter()
             .zip(path_parts)
             .all(|(expected, actual)| *expected == "*" || *expected == actual)
+}
+
+/// Distinguishes whole-interface creation/removal from a named leaf update.
+fn interface_node_selected(path: &str, value: &serde_json::Value) -> bool {
+    let interface = if path == "interface" {
+        Some(value)
+    } else if path.is_empty() {
+        value.get("interface")
+    } else {
+        None
+    };
+    interface.is_some_and(|node| {
+        node.as_object().is_some_and(|object| {
+            object
+                .keys()
+                .all(|key| matches!(key.as_str(), "name" | "no"))
+        })
+    })
 }

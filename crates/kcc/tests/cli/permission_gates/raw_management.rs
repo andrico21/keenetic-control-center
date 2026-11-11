@@ -74,6 +74,45 @@ fn cases() -> Vec<Vec<&'static str>> {
     ]
 }
 
+/// Raw writers apply ordinary named-interface leaves without the destructive gate.
+// NOT cancel-safe: the fixture owns router tasks and child processes.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn ordinary_interface_leaves_apply_without_destructive() -> TestResult {
+    for mode in ["router", "extender"] {
+        let (env, handle, _address) = lab(mode, "raw-writer").await?;
+        add_role(
+            &env,
+            "raw-writer",
+            &[Permission::Read, Permission::Write, Permission::RawRci],
+        )?;
+        for input in [
+            vec![
+                "rci",
+                "post",
+                "interface",
+                "--data",
+                r#"{"name":"GigabitEthernet0/0","description":{"description":"lab"}}"#,
+            ],
+            vec![
+                "rci",
+                "batch",
+                "--data",
+                r#"[{"interface":{"name":"WifiMaster0/AccessPoint1","ssid":{"ssid":"lab"}}}]"#,
+            ],
+        ] {
+            let before = handle.request_log().len();
+            let mut args = vec!["--yes"];
+            args.extend(input);
+            let run = env.kcc(&args)?;
+            assert_eq!(run.code, 0_i32, "{mode} {args:?}: {run:?}");
+            assert!(mutation_count(&handle, before) != 0, "{mode} {args:?}");
+            assert!(!handle.recovery_armed());
+        }
+        handle.shutdown().await?;
+    }
+    Ok(())
+}
+
 /// Raw writers cannot bypass recovery authorization, including timer arming.
 // NOT cancel-safe: the fixture owns router tasks and child processes.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -95,6 +134,18 @@ async fn raw_management_permission_refuses_both_modes() -> TestResult {
             "timer",
             "--data",
             r#"{"action":"reboot","interval":300}"#,
+        ]);
+        inputs.push(vec![
+            "rci",
+            "post",
+            "--data",
+            r#"{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}"#,
+        ]);
+        inputs.push(vec![
+            "rci",
+            "batch",
+            "--data",
+            r#"[{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}]"#,
         ]);
         for input in inputs {
             let before = handle.request_log().len();
