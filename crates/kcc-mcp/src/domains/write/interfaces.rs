@@ -143,6 +143,13 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
         .map_err(|error| {
             if error.is_confirmation_required() {
                 McpFailure::ConfirmRequired
+            } else if let Some(applied) = error.armed_outcome() {
+                tracing::warn!(error = ?error, "MCP interface change left recovery armed");
+                if applied {
+                    McpFailure::ManagementAppliedFailSafeArmed
+                } else {
+                    McpFailure::ManagementOutcomeUnknownFailSafeArmed
+                }
             } else {
                 tracing::warn!(error = ?error, "MCP interface change failed");
                 McpFailure::Conflict

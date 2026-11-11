@@ -6633,7 +6633,7 @@ pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2114] = [
+pub static ALL: [MessageKey; 2115] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
