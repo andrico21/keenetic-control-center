@@ -82,6 +82,9 @@
   </main>
 </div>
 <div class="toasts" id="toasts" role="status" aria-live="polite" aria-label="{{ t(keys::WEB_NOTIFICATIONS) }}"></div>
+{%- if shell.signed_in() %}
+<template id="refused-toast">{{ ui::toast("error", t(keys::WEB_REFUSAL_TOAST)) }}</template>
+{%- endif %}
 <dialog class="dialog" id="dialog"><div class="dialog__content" id="dialog-content"></div></dialog>
 </body>
 </html>

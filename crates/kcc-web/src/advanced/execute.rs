@@ -26,8 +26,7 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    errors::{self, Kind},
-    page::{Shell, Theme},
+    errors::refusal,
     page_kit::{
         audit::{Record, field_names},
         confirm::{Confirmation, Gate, Prompt, Resubmit},
@@ -69,9 +68,11 @@ pub(crate) async fn execute(
     });
     let audit = pending.with_params(params.clone());
     let risk = built.risk();
-    if !allowed(&user, &router, &command_permissions(risk)) {
+    let needed = command_permissions(risk);
+    if !allowed(&user, &router, &needed) {
         audit.append(&state, &user, "forbidden").await;
-        return errors::response(Kind::Forbidden, Shell::new(locale, Theme::System));
+        let missing = refusal::missing(&user, &router, &needed);
+        return refusal::refused(locale, &missing, "#explorer-result");
     }
     let confirmation = Confirmation::from_pairs(&pairs);
     if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {

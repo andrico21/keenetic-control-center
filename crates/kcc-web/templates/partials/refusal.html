@@ -1,0 +1,8 @@
+{#- A request the role may not make on the router, in its result region: not sent, the permissions the role lacks, who can grant them. -#}
+<section class="outcome" aria-labelledby="refusal-title">
+  <h3 class="visually-hidden" id="refusal-title">{{ t(keys::WEB_EXPLORER_RESULT) }}</h3>
+  <div class="notice" data-tone="error">
+    <p class="notice__title" data-message-key="{{ keys::WEB_REFUSAL_TITLE.id() }}">{{ t(keys::WEB_REFUSAL_TITLE) }}</p>
+    <p data-message-key="{{ keys::WEB_REFUSAL_MISSING.id() }}">{{ missing }}</p>
+  </div>
+</section>

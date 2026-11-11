@@ -729,7 +729,7 @@ async fn finish(
 }
 
 /// The permissions in display order, translated and comma-separated.
-fn permission_list(locale: Locale, permissions: &BTreeSet<Permission>) -> String {
+pub(crate) fn permission_list(locale: Locale, permissions: &BTreeSet<Permission>) -> String {
     PERMISSIONS
         .iter()
         .filter(|(permission, _, _)| permissions.contains(permission))

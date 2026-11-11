@@ -6642,8 +6642,17 @@ pub const WEB_EXPLORER_PARTIAL_MIXED: MessageKey = MessageKey::new("web-explorer
 pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
+/// `web-refusal-title` in `web.ftl`.
+pub const WEB_REFUSAL_TITLE: MessageKey = MessageKey::new("web-refusal-title");
+
+/// `web-refusal-missing` in `web.ftl`.
+pub const WEB_REFUSAL_MISSING: MessageKey = MessageKey::new("web-refusal-missing");
+
+/// `web-refusal-toast` in `web.ftl`.
+pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2118] = [
+pub static ALL: [MessageKey; 2121] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -8762,4 +8771,7 @@ pub static ALL: [MessageKey; 2118] = [
     WEB_VPN_ERROR_PSK,
     WEB_EXPLORER_PARTIAL_MIXED,
     WEB_EXPLORER_PARTIAL_ANSWERED,
+    WEB_REFUSAL_TITLE,
+    WEB_REFUSAL_MISSING,
+    WEB_REFUSAL_TOAST,
 ];

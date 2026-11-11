@@ -34,14 +34,14 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    errors::{self, Kind},
+    errors::{self, refusal},
     nav::Section,
     page::{Localize, Shell},
     page_kit::{
         audit::Record,
         change::Change,
         confirm::{Gate, Prompt, Resubmit},
-        context::{self, Caller, fragment_shell},
+        context::{self, Caller},
         family::Family,
         gate::{allowed, command_permissions},
         respond,
@@ -160,7 +160,10 @@ pub(crate) async fn send(
         || !allowed(&user, &router, &command_permissions(risk))
     {
         audit.append(&state, &user, "forbidden").await;
-        return errors::response(Kind::Forbidden, fragment_shell(locale));
+        let mut needed = vec![Permission::RawRci];
+        needed.extend_from_slice(&command_permissions(risk));
+        let missing = refusal::missing(&user, &router, &needed);
+        return refusal::refused(locale, &missing, "#rci-result");
     }
     let confirmation = form.confirmation();
     if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {

@@ -512,6 +512,18 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 - `#page-outcome`, `aria-live="polite"`, hidden while it holds nothing; actions target it.
   Failures stay there (notice, the router's words); successes only toast.
 
+### Refusal (`errors::refusal`, todo 121)
+- A request the role may not make answers 403, which htmx does not show by itself. Where
+  the handler knows the region of its result (the CLI and RCI consoles, the explorer), the
+  403 carries a fragment for it (`partials/refusal.html`): the outcome section with an
+  error notice, its title saying the request was not sent, its line naming the missing
+  permissions by their Roles-page labels and who can grant them. `HX-Retarget` names the
+  region; `app.js` swaps a 403 that names one like a 422, and the shared dialog closes.
+- Any other 403 to an htmx request (a domain-page change whose risk needs `Destructive`, a
+  page left open after its role changed) shows the refusal toast instead of nothing:
+  `<template id="refused-toast">` in `base.html` (signed-in pages), error tone, shown once
+  until it is closed.
+
 ### Page brief (system general, the kit's reference page)
 
 - System general (`/ui/r/{router}/system/general`). Primary action: none; each setting has
@@ -753,6 +765,7 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | The WireGuard import needs JavaScript | `partials/dns_vpn_form.html` | The upload is an htmx `multipart/form-data` post with the CSRF header; an upload over 64 KiB comes back as 413 with the dialog, which `app.js` swaps like a 422 | Same as the menus |
 | System pages' live parts need JavaScript | `partials/system_job.html`, `pages/system_logs.html` | Job lines and new log lines arrive over server-sent events through the htmx SSE extension; without it the page shows the lines of its load and the job's panel only | Same as the menus |
 | Diagnostic fields filter by `:has()` | `pages/system_diagnostics.html` | A browser without `:has()` shows every tool's fields; the server reads only the chosen tool's | None needed |
+| A refused domain-page change names no permission | `#refused-toast` in `base.html` | Domain handlers still answer the generic 403 page, so the toast can only say the role does not allow it and nothing changed; the consoles and the explorer name the permission in place | Domain handlers answer with `errors::refusal` for their outcome region |
 
 ## Configuration and backups page (todo 41, `src/config_page/`)
 

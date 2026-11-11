@@ -289,6 +289,7 @@ mod tests {
             "address",
             "paths",
             "item",
+            "permissions",
         ] {
             args.set(name, "x");
         }

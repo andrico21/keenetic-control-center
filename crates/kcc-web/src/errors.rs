@@ -2,7 +2,8 @@
 //!
 //! An error page names the failure in the visitor's language and links back to the
 //! dashboard. It never shows the request path, an error message, a stack trace or any
-//! other internal detail; the cause of a 500 goes to the server log instead.
+//! other internal detail; the cause of a 500 goes to the server log instead. A refused
+//! htmx request whose result region is known gets the `refusal` fragment.
 
 use core::fmt::Display;
 
@@ -17,6 +18,8 @@ use kcc_i18n::{
 };
 
 use crate::page::{Localize, Shell};
+
+pub(crate) mod refusal;
 
 /// The error pages of the Web UI.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

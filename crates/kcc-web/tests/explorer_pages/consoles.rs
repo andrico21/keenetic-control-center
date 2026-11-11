@@ -1,4 +1,6 @@
 //! The RCI and CLI consoles, including the R-MCP2 incident payload.
+#[path = "consoles/all_refused.rs"]
+mod all_refused;
 #[path = "consoles/mixed.rs"]
 mod mixed;
 #[path = "consoles/namespaces.rs"]

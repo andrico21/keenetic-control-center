@@ -271,11 +271,18 @@ impl Dispatch<'_> {
             let (headline, audit) = left.partial(locale, succeeded, refused.len());
             return Reply::partial(headline, refused, viewer, &left, audit);
         }
-        Reply::failed(
+        let answered = refused.len() < responses.len();
+        let reply = Reply::failed(
             Failure::new(tr(locale, keys::WEB_EXPLORER_REJECTED, None), "failed")
                 .with_router_said(refused),
-        )
-        .with_viewer(viewer)
+        );
+        // With every item refused the answer holds only their empty places; the router
+        // said block already gives each item's refusal.
+        if answered {
+            reply.with_viewer(viewer)
+        } else {
+            reply
+        }
     }
 
     /// The outcome showing `rendered`, keeping a truncated answer for download.

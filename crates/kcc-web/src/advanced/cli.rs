@@ -30,13 +30,13 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    errors::{self, Kind},
+    errors::{self, refusal},
     nav::Section,
     page::{Localize, Shell},
     page_kit::{
         audit::Record,
         confirm::{Confirmation, Gate, Prompt, Resubmit},
-        context::{self, Caller, fragment_shell},
+        context::{self, Caller},
         family::Family,
         gate::{allowed, command_permissions},
         respond,
@@ -192,7 +192,8 @@ pub(crate) async fn send(
     }
     if !allowed(&user, &router, &needed) {
         audit.append(&state, &user, "forbidden").await;
-        return errors::response(Kind::Forbidden, fragment_shell(locale));
+        let missing = refusal::missing(&user, &router, &needed);
+        return refusal::refused(locale, &missing, "#cli-result");
     }
     let confirmation = Confirmation::new(form.confirm.as_deref(), form.confirm_name.as_deref());
     if let Gate::Ask { wrong_name } = Family::Commands.gate(risk, &confirmation, &router) {

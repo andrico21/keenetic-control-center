@@ -1969,3 +1969,10 @@ web-explorer-confirm-mixed-text = The command will change the configuration of {
 web-vpn-error-psk = Enter a WireGuard preshared key: 44 characters of Base64. Leave the field empty to keep the stored key.
 web-explorer-partial-mixed = { $succeeded } batch items applied and { $failed } were refused. The router stored these catalog paths at once: { $paths }. The rest of the successful changes is not saved and needs an explicit save.
 web-explorer-partial-answered = { $succeeded } batch items answered and { $failed } were refused.
+web-refusal-title = The request was not sent: your role does not allow it on this router.
+web-refusal-missing =
+    { $count ->
+        [one] Missing permission: { $permissions }. An administrator can add it to your role.
+       *[other] Missing permissions: { $permissions }. An administrator can add them to your role.
+    }
+web-refusal-toast = Refused: your role does not allow this on this router. Nothing was changed.

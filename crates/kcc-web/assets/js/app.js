@@ -439,3 +439,36 @@
     }
   });
 })();
+
+// todo 121: a request the role may not make is answered with 403, which htmx does not
+// show. A refusal that names its region (HX-Retarget, such as a console's result) is
+// swapped there like a 422; any other 403 shows the page's refusal toast, once until it is
+// closed, so no refusal passes in silence.
+(() => {
+  "use strict";
+
+  document.addEventListener("htmx:beforeSwap", (event) => {
+    const xhr = event.detail?.xhr;
+    if (xhr?.status === 403 && xhr.getResponseHeader("HX-Retarget")) {
+      event.detail.shouldSwap = true;
+      event.detail.isError = false;
+    }
+  });
+  document.addEventListener("htmx:responseError", (event) => {
+    const toasts = document.getElementById("toasts");
+    const template = document.getElementById("refused-toast");
+    if (
+      event.detail?.xhr?.status !== 403 ||
+      !toasts ||
+      !(template instanceof HTMLTemplateElement) ||
+      toasts.querySelector("[data-kcc-refused]")
+    ) {
+      return;
+    }
+    const toast = template.content.firstElementChild?.cloneNode(true);
+    if (toast instanceof HTMLElement) {
+      toast.setAttribute("data-kcc-refused", "");
+      toasts.append(toast);
+    }
+  });
+})();
