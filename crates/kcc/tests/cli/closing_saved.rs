@@ -38,7 +38,7 @@ async fn resumed_saved_disarm_failure_reports_persistence() -> TestResult {
             let run = if path == "preset" {
                 env.kcc(&["--yes", "preset", "finish", &job, "save"])?
             } else {
-                env.kcc(&["migrate", "finish", "commit"])?
+                env.kcc(&["--json", "migrate", "finish", "commit"])?
             };
 
             let entries = read_entries(&env.state_dir())?;
@@ -54,6 +54,10 @@ async fn resumed_saved_disarm_failure_reports_persistence() -> TestResult {
                     .stderr
                     .contains(&tr(Locale::En, keys::MANAGEMENT_DISARM_FAILED, None))
                 || failed.params_redacted.get("fail_safe_armed") != Some(&json!(true))
+                || (path == "migrate"
+                    && serde_json::from_str::<serde_json::Value>(&run.stderr)?
+                        .pointer("/error/fail_safe_armed")
+                        != Some(&json!(true)))
                 || !handle.recovery_armed()
                 || !handle.startup_config_text().contains("saved-finish")
             {

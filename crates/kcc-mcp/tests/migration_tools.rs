@@ -13,7 +13,10 @@ mod lab;
     reason = "acceptance assertions establish the migration tool contract"
 )]
 mod tests {
-    use kcc_app::audit::ActorKind;
+    use kcc_app::{
+        audit::ActorKind,
+        permissions::{Permission, Role},
+    };
     use kcc_testkit::{
         FakeRouter, migration,
         model::{Firmware, Model, Profile},
@@ -153,6 +156,46 @@ mod tests {
             .collect::<Vec<_>>();
         assert_eq!(entries.len(), 2, "{entries:?}");
         assert!(entries.iter().all(|entry| entry.outcome == "forbidden"));
+        lab.stop().await
+    }
+
+    /// Applying requires recovery permission before either migration router is contacted.
+    #[tokio::test]
+    async fn apply_requires_destructive_before_any_router_request() -> TestResult {
+        let routers = vec![
+            ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+            ("lab-1", target(Profile::default())?),
+        ];
+        let role = Role::new(
+            "migrator".to_owned(),
+            [
+                Permission::Read,
+                Permission::Write,
+                Permission::Save,
+                Permission::Migrate,
+            ],
+            vec!["*".to_owned()],
+        );
+        let lab = Lab::start(routers, role).await?;
+        let plan_id = plan(&lab, "lab-1", "lab-src").await?;
+        let before = (lab.requests("lab-src")?, lab.requests("lab-1")?);
+
+        let refused = lab
+            .call(
+                "kcc_migration_apply",
+                json!({"host":"lab-1", "plan_id":plan_id, "confirm":true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(refused.error(), Some("forbidden"), "{refused:?}");
+        assert_eq!((lab.requests("lab-src")?, lab.requests("lab-1")?), before);
+        let entries = lab.audit()?;
+        let failed = entries
+            .iter()
+            .find(|entry| entry.action == "mcp.kcc_migration_apply")
+            .ok_or("missing migration apply refusal audit")?;
+        assert_eq!(failed.outcome, "forbidden");
         lab.stop().await
     }
 

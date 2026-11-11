@@ -41,6 +41,7 @@ pub(crate) fn accounts(
         ("viewer", "viewer"),
         ("operator", "operator"),
         ("admin", "admin"),
+        ("migrator", "migrator"),
         ("scoped", "giga-migrator"),
     ] {
         accounts.create(NewAccount::new(
@@ -55,6 +56,16 @@ pub(crate) fn accounts(
 /// The built-in roles and `giga-migrator`.
 pub(crate) fn roles() -> Vec<Role> {
     let mut roles = Vec::from(built_in_roles());
+    roles.push(Role::new(
+        "migrator".to_owned(),
+        [
+            Permission::Read,
+            Permission::Write,
+            Permission::Save,
+            Permission::Migrate,
+        ],
+        vec!["*".to_owned()],
+    ));
     roles.push(Role::new(
         "giga-migrator".to_owned(),
         [Permission::Read, Permission::Migrate],

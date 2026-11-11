@@ -137,7 +137,7 @@ async fn one_shot_saved_disarm_failure_reports_armed() -> TestResult {
     assert_eq!(planned.code, 0_i32, "{planned:?}");
 
     let run = env.kcc(&[
-        "migrate", "apply", "--from", &from, "--plan", path, "--finish", "commit",
+        "--json", "migrate", "apply", "--from", &from, "--plan", path, "--finish", "commit",
     ])?;
 
     assert_eq!(run.code, 6_i32, "{run:?}");
@@ -148,6 +148,12 @@ async fn one_shot_saved_disarm_failure_reports_armed() -> TestResult {
     );
     assert!(handle.recovery_armed());
     assert!(handle.startup_config_text().contains("migrated-finish"));
+    let error: serde_json::Value = serde_json::from_str(&run.stderr)?;
+    assert_eq!(
+        error.pointer("/error/fail_safe_armed"),
+        Some(&json!(true)),
+        "{error}"
+    );
     let entries = read_entries(&env.state_dir())?;
     let failed = entries
         .iter()

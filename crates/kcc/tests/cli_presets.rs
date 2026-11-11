@@ -10,6 +10,8 @@
     reason = "integration tests drive the built process and own temporary OS resources"
 )]
 
+#[path = "cli_presets/apply_permissions.rs"]
+mod apply_permissions;
 #[path = "cli_presets/copy.rs"]
 mod copy;
 #[path = "cli_presets/fixture.rs"]

@@ -136,6 +136,31 @@ mod tests {
         )
     }
 
+    /// Applying without recovery permission is audited and sends no target request.
+    #[tokio::test]
+    async fn apply_requires_destructive_before_any_router_request() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed_source(&fixture).await?;
+        let migrator = fixture.login("migrator").await?;
+        let page = to_review(&fixture, &migrator).await?;
+        to_preview(&fixture, &migrator, &page).await?;
+        let before = fixture.handle("ultra")?.request_count();
+
+        let refused = fixture
+            .post(&format!("{page}/apply"), &migrator, &[("confirm", "yes")])
+            .await?;
+
+        assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+        let body = text(refused).await?;
+        assert!(
+            body.contains("Destructive") && body.contains("Migrate"),
+            "the refusal names the missing permissions: {body}"
+        );
+        assert_eq!(fixture.handle("ultra")?.request_count(), before);
+        assert_eq!(outcomes(&fixture, "web.migrate_apply")?, ["forbidden"]);
+        Ok(())
+    }
+
     #[tokio::test]
     async fn a_second_apply_to_the_router_waits_for_the_first_to_finish() -> TestResult {
         let fixture = Fixture::new().await?;

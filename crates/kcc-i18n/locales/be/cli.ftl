@@ -27,6 +27,7 @@ cli-error-partial = Частка элементаў пакета завяршы�
 cli-error-policy = Адхілена палітыкай.
 cli-profile-login-protected = Змяніце гэты пароль на роўтары, а затым абнавіце профіль камандай `kcc router edit --new-password`.
 cli-refused = Роля CLI або вобласць роўтараў не дазваляе гэтага на { $router }.
+cli-apply-recovery-forbidden = Для ўжывання патрэбныя правы Migrate і Destructive, бо яно ўключае таймер адкату роўтара.
 cli-secret-missing = Сакрэт не зададзены: выкарыстайце --password-file, зменную KCC_PASSWORD або запусціце ў тэрмінале.
 cli-confirm-ask = Ужыць гэтую змену да { $router }? Увядзіце yes, каб працягнуць:
 cli-confirm-type = Гэта разбуральная аперацыя. Увядзіце ідэнтыфікатар роўтара { $router }, каб працягнуць:

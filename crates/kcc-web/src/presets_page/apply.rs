@@ -31,7 +31,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors::{self, Kind},
+    errors,
     migrate_wizard::{
         access::Services,
         confirm::{Confirm, Dialog, Words, refused},
@@ -125,7 +125,12 @@ pub(super) async fn apply(
     let audit = Audit::on_router("web.preset_apply", &target, id.clone());
     if !allowed(&user, &target, &APPLY) {
         audit.append(&state, &user, "forbidden").await;
-        return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
+        return Err((
+            StatusCode::FORBIDDEN,
+            tr(locale, keys::WEB_PRESETS_APPLY_FORBIDDEN, None),
+        )
+            .into_response()
+            .into());
     }
     let Some(jobs) = state.advanced().jobs().cloned() else {
         return Err(refusal(&visit, &state, keys::WEB_MIGRATE_APPLY_NO_JOBS).await);

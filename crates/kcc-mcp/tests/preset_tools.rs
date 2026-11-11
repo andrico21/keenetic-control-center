@@ -13,7 +13,10 @@ mod lab;
     reason = "acceptance assertions establish the preset tool contract"
 )]
 mod tests {
-    use kcc_app::audit::ActorKind;
+    use kcc_app::{
+        audit::ActorKind,
+        permissions::{Permission, Role},
+    };
     use kcc_mcp::registry::definitions::tools;
     use kcc_testkit::{FakeRouter, RequestRecord, migration, model::Profile};
     use serde_json::{Value, json};
@@ -240,6 +243,53 @@ mod tests {
                 && entry.router.as_deref() == Some("lab-1")
         });
         assert!(audited, "the apply is not audited as the MCP identity");
+        lab.stop().await
+    }
+
+    /// Applying a preset requires recovery permission before the target is read.
+    #[tokio::test]
+    async fn apply_requires_destructive_before_any_router_request() -> TestResult {
+        let routers = vec![
+            ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+            ("lab-1", target()?),
+        ];
+        let role = Role::new(
+            "migrator".to_owned(),
+            [
+                Permission::Read,
+                Permission::Write,
+                Permission::Save,
+                Permission::Migrate,
+            ],
+            vec!["*".to_owned()],
+        );
+        let lab = Lab::start(routers, role).await?;
+        let captured = lab
+            .call(
+                "kcc_preset_capture",
+                json!({"source":"lab-src", "groups":["dns-secure"], "name":"Recovery gate"}),
+                false,
+            )
+            .await?;
+        assert_eq!(captured.value()?.get("id"), Some(&json!("recovery-gate")));
+        let before = (lab.requests("lab-src")?, lab.requests("lab-1")?);
+
+        let refused = lab
+            .call(
+                "kcc_preset_apply",
+                json!({"host":"lab-1", "preset_id":"recovery-gate", "confirm":true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(refused.error(), Some("forbidden"), "{refused:?}");
+        assert_eq!((lab.requests("lab-src")?, lab.requests("lab-1")?), before);
+        let entries = lab.audit()?;
+        let failed = entries
+            .iter()
+            .find(|entry| entry.action == "mcp.kcc_preset_apply")
+            .ok_or("missing preset apply refusal audit")?;
+        assert_eq!(failed.outcome, "forbidden");
         lab.stop().await
     }
 

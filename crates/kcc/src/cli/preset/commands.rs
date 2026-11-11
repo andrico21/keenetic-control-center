@@ -1,6 +1,7 @@
 //! `kcc preset` dispatch.
 
 use kcc_app::permissions::Permission;
+use kcc_i18n::keys;
 use kcc_migrate::presets::model::Preset;
 
 use super::{
@@ -13,7 +14,7 @@ use super::{
 };
 use crate::cli::{
     context::{Ctx, Services},
-    exit::Outcome,
+    exit::{Exit, Failure, Outcome},
 };
 
 /// Runs a `preset` command.
@@ -48,6 +49,11 @@ pub(crate) async fn run(ctx: &Ctx, command: PresetCommand) -> Outcome {
         } => {
             require_finish(finish)?;
             let target = ctx.router_id(&services)?;
+            ctx.authorize_recovery(&services, &target)
+                .await
+                .map_err(|_failure| {
+                    Failure::message(Exit::Policy, keys::CLI_APPLY_RECOVERY_FORBIDDEN, &[])
+                })?;
             let preset = load(ctx, &services, &id)?;
             run::apply(ctx, &services, preset, (&target, &options, finish)).await
         }

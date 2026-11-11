@@ -131,4 +131,36 @@ mod tests {
         assert_eq!(fixture.outcomes("web.preset_keep")?, ["done"]);
         Ok(())
     }
+
+    /// Applying without recovery permission is audited and sends no target request.
+    #[tokio::test]
+    async fn apply_requires_destructive_before_any_router_request() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed(&fixture, "prod-1", &DNS_LINES).await?;
+        let operator = fixture.login("operator").await?;
+        let id = capture(
+            &fixture,
+            &operator,
+            "prod-1",
+            (&["dns-secure"], "Recovery gate"),
+        )
+        .await?;
+        let page = start(&fixture, &operator, &id).await?;
+        to_preview(&fixture, &operator, &page, ("lab-1", "merge", &[])).await?;
+        let before = fixture.handle("lab-1")?.request_count();
+
+        let refused = fixture
+            .post(&format!("{page}/apply"), &operator, &[("confirm", "yes")])
+            .await?;
+
+        assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+        let body = text(refused).await?;
+        assert!(
+            body.contains("Destructive") && body.contains("Migrate"),
+            "the refusal names the missing permissions: {body}"
+        );
+        assert_eq!(fixture.handle("lab-1")?.request_count(), before);
+        assert_eq!(fixture.outcomes("web.preset_apply")?, ["forbidden"]);
+        Ok(())
+    }
 }

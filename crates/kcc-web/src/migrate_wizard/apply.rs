@@ -6,7 +6,8 @@ use alloc::sync::Arc;
 use axum::{
     Extension, Form,
     extract::{Path, State},
-    response::Response,
+    http::StatusCode,
+    response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{
@@ -29,7 +30,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors::{self, Kind},
+    errors,
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -63,7 +64,12 @@ pub(super) async fn apply(
     let audit = Audit::on_router("web.migrate_apply", &target, id.clone());
     if !allowed(&user, &target, &APPLY) {
         audit.append(&state, &user, "forbidden").await;
-        return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
+        return Err((
+            StatusCode::FORBIDDEN,
+            tr(locale, keys::WEB_MIGRATE_APPLY_FORBIDDEN, None),
+        )
+            .into_response()
+            .into());
     }
     let Some(jobs) = state.advanced().jobs().cloned() else {
         return Err(refusal(&visit, keys::WEB_MIGRATE_APPLY_NO_JOBS).await);

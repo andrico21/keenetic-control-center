@@ -172,7 +172,9 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
 
 - **Permissions.** Built-in roles `viewer`, `operator` and `admin`, plus custom roles
   with router scopes. The Web UI, MCP and the CLI check the same permission before any
-  router request.
+  router request. Migration, preset and settings-copy applies need both `Migrate` and
+  `Destructive` because every apply arms the recovery timer; the built-in `operator`
+  can plan these operations but cannot apply them.
 - **Change workflow.** Each write takes a per-router lease, makes an encrypted backup of
   the startup configuration, refuses if someone else changed the router in between,
   verifies the result by reading it back and appends a hash-chained audit entry.

@@ -12,6 +12,8 @@
 
 #[path = "cli/admin.rs"]
 mod admin;
+#[path = "cli/apply_permissions.rs"]
+mod apply_permissions;
 #[path = "cli/basics.rs"]
 mod basics;
 #[path = "cli/batch_outcomes.rs"]

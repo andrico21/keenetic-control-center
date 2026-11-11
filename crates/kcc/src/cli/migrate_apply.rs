@@ -130,10 +130,36 @@ pub(crate) async fn apply(
 
 /// Maps a migration failure to its exit code and localized message.
 pub(crate) fn apply_failure(error: ApplyError) -> Failure {
+    match error {
+        ApplyError::SavedDisarmFailed => {
+            return Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED);
+        }
+        ApplyError::DisarmFailed => {
+            return Failure::headline_only(Exit::Router, keys::MANAGEMENT_DISARM_FAILED);
+        }
+        ApplyError::FinishFailed => {
+            return Failure::headline_only(Exit::Router, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED);
+        }
+        ApplyError::UnverifiedFirmwareTier
+        | ApplyError::AgreementRequired
+        | ApplyError::RolledBackByRouter
+        | ApplyError::Firmware
+        | ApplyError::Drift
+        | ApplyError::ReplanRequired
+        | ApplyError::Validation
+        | ApplyError::PasswordRequired
+        | ApplyError::SameRouter
+        | ApplyError::HardwareMismatch
+        | ApplyError::Source
+        | ApplyError::Unreachable
+        | ApplyError::Stopped
+        | ApplyError::Verification
+        | ApplyError::Workflow
+        | ApplyError::Cancelled
+        | ApplyError::Job
+        | _ => {}
+    }
     let (exit, key) = match error {
-        ApplyError::SavedDisarmFailed => (Exit::Router, keys::FINISH_SAVED_ARMED),
-        ApplyError::DisarmFailed => (Exit::Router, keys::MANAGEMENT_DISARM_FAILED),
-        ApplyError::FinishFailed => (Exit::Router, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
         ApplyError::UnverifiedFirmwareTier => (Exit::Policy, keys::MIGRATE_APPLY_TIER),
         ApplyError::AgreementRequired => (Exit::Policy, keys::MIGRATE_APPLY_AGREEMENT),
         ApplyError::RolledBackByRouter => (Exit::Router, keys::MIGRATE_APPLY_ROUTER_ROLLBACK),

@@ -25,6 +25,7 @@ cli-error-partial = Буманың кейбір элементтері сәтс�
 cli-error-policy = Саясат бойынша қабылданбады.
 cli-profile-login-protected = Бұл құпиясөзді роутерде өзгертіп, содан кейін профильді `kcc router edit --new-password` пәрменімен жаңартыңыз.
 cli-refused = CLI рөлі немесе роутерлер аймағы { $router } роутерінде мұны рұқсат етпейді.
+cli-apply-recovery-forbidden = Қолдануға Migrate және Destructive құқықтары қажет, себебі ол роутердің қайтару таймерін қосады.
 cli-secret-missing = Құпия берілмеген: --password-file, KCC_PASSWORD айнымалысын пайдаланыңыз немесе терминалда іске қосыңыз.
 cli-confirm-ask = Бұл өзгерісті { $router } роутеріне қолдану керек пе? Жалғастыру үшін yes деп енгізіңіз:
 cli-confirm-type = Бұл бүлдіретін әрекет. Жалғастыру үшін { $router } роутер идентификаторын енгізіңіз:

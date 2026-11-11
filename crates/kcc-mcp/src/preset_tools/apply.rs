@@ -6,6 +6,7 @@ use kcc_app::{
     audit::{Actor, ActorKind},
     permissions::Permission,
 };
+use kcc_domain::configuration::SafetyNet;
 use kcc_i18n::locale::Locale;
 use kcc_migrate::{
     apply::Applier,
@@ -16,7 +17,7 @@ use serde_json::{Value, json};
 
 use super::plan::ApplyInput;
 use crate::{
-    KccMcp, McpFailure,
+    KccMcp, McpFailure, authorize_routers,
     migration_tools::{
         apply::{follow, map_apply},
         state::Migration,
@@ -41,7 +42,14 @@ pub(crate) async fn apply(
     progress: Option<Progress>,
 ) -> Result<Value, McpFailure> {
     let input: ApplyInput = parse(arguments)?;
-    let (identity, _host) = server.authorize_host(Permission::Migrate, input.host().to_owned())?;
+    let (identity, host) = server.authorize_host(Permission::Migrate, input.host().to_owned())?;
+    if !input.dry_run() {
+        authorize_routers(
+            &identity,
+            SafetyNet::CONTROL_PERMISSION,
+            core::slice::from_ref(&host),
+        )?;
+    }
     let planned = input.planned(server, &identity).await?;
     if input.dry_run() || !planned.is_ready() {
         return planned.view(input.dry_run());

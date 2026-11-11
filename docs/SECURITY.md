@@ -102,6 +102,11 @@ globs. Every front end checks the exact permission and router scope before any r
 request, and the change workflow checks again. A user can grant only roles whose
 permissions they hold, and the last enabled admin can't be removed.
 
+`Migrate` permits planning and reviewing migrations, presets and settings copies. Every
+apply also requires `Destructive` because it arms the recovery timer before changing the
+router. The built-in `operator` role can plan but cannot apply; use `admin` or a custom
+role granting both permissions.
+
 MCP adds its own gates: write tools need their toolset enabled in `[mcp] toolsets`,
 `[mcp] read_only = true` registers only read tools, and destructive tools, and raw management changes, also need
 `[mcp] allow_destructive = true` plus `confirm: true`. `kcc mcp stdio` bypasses HTTP

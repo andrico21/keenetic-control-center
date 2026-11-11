@@ -72,7 +72,12 @@ async fn reviewed(
     input: &ApplyInput,
 ) -> Result<([RouterId; 2], kcc_migrate::planner::MigrationPlan), McpFailure> {
     valid_job_id(&input.plan_id)?;
-    let (identity, _host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
+    let (identity, host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
+    authorize_routers(
+        &identity,
+        kcc_domain::configuration::SafetyNet::CONTROL_PERMISSION,
+        core::slice::from_ref(&host),
+    )?;
     let entries = server.migrations.lock().await;
     let migration = entries
         .get(&input.plan_id)

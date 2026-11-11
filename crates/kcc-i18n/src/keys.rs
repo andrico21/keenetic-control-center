@@ -65,6 +65,10 @@ pub const CLI_PROFILE_LOGIN_PROTECTED: MessageKey = MessageKey::new("cli-profile
 /// `cli-refused` in `cli.ftl`.
 pub const CLI_REFUSED: MessageKey = MessageKey::new("cli-refused");
 
+/// `cli-apply-recovery-forbidden` in `cli.ftl`.
+pub const CLI_APPLY_RECOVERY_FORBIDDEN: MessageKey =
+    MessageKey::new("cli-apply-recovery-forbidden");
+
 /// `cli-secret-missing` in `cli.ftl`.
 pub const CLI_SECRET_MISSING: MessageKey = MessageKey::new("cli-secret-missing");
 
@@ -6639,7 +6643,7 @@ pub const WEB_EXPLORER_PARTIAL_ANSWERED: MessageKey =
     MessageKey::new("web-explorer-partial-answered");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2117] = [
+pub static ALL: [MessageKey; 2118] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6661,6 +6665,7 @@ pub static ALL: [MessageKey; 2117] = [
     CLI_ERROR_POLICY,
     CLI_PROFILE_LOGIN_PROTECTED,
     CLI_REFUSED,
+    CLI_APPLY_RECOVERY_FORBIDDEN,
     CLI_SECRET_MISSING,
     CLI_CONFIRM_ASK,
     CLI_CONFIRM_TYPE,
