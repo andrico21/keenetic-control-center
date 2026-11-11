@@ -16,6 +16,8 @@ mod bracket;
 mod bracket_failures;
 #[path = "support/curated_bracket.rs"]
 mod curated_bracket;
+#[path = "support/interface_refusals.rs"]
+mod interface_refusals;
 #[path = "support/nested_risk.rs"]
 mod nested_risk;
 #[path = "support/runtime_bracket.rs"]

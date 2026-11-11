@@ -292,6 +292,9 @@ pub enum ApplyError {
     /// Protected workflow refused the operation.
     #[error("migration workflow failed")]
     Workflow,
+    /// Verified work remains applied but its recovery timer could not be disarmed.
+    #[error("migration recovery timer remains armed")]
+    DisarmFailed,
     /// A router line failed under the selected stop policy.
     #[error("migration stopped on command error")]
     Stopped,

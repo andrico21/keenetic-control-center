@@ -16,7 +16,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
 use kcc_i18n::{bundle::tr, keys};
-use kcc_migrate::apply::Applier;
+use kcc_migrate::apply::{Applier, ApplyError};
 use serde_json::json;
 
 use super::{
@@ -135,7 +135,12 @@ pub(super) async fn finish(
     };
     if let Err(error) = result {
         drop(slot);
-        audit.append(&state, &user, "failed").await;
+        let failed = if error == ApplyError::DisarmFailed {
+            audit.with_params(json!({ "fail_safe_armed": true }))
+        } else {
+            audit
+        };
+        failed.append(&state, &user, "failed").await;
         let reason = tr(locale, failure_text(&failure_name(error)), None);
         let panel = Panel::new(&visit).await.refusing(reason);
         return Err(refused(&panel).into());

@@ -151,6 +151,7 @@ pub(crate) fn failure_name(failure: ApplyError) -> String {
 /// The sentence explaining the failure named `name`.
 pub(super) fn failure_text(name: &str) -> MessageKey {
     match name {
+        "DisarmFailed" => keys::MANAGEMENT_DISARM_FAILED,
         "ReplanRequired" => keys::WEB_MIGRATE_FAILURE_REPLAN,
         "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,
         "Drift" => keys::WEB_MIGRATE_FAILURE_DRIFT,

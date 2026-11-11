@@ -17,7 +17,7 @@ use kcc_app::{
     secrets::MasterKey,
 };
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, migration,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, migration,
     model::{Firmware, Model, Profile},
 };
 use secrecy::SecretString;
@@ -82,6 +82,7 @@ pub(crate) fn roles() -> Vec<Role> {
 pub(crate) async fn routers(
     directory: &Path,
     registry: &RouterRegistry,
+    faults: FaultInjection,
 ) -> TestResult<Vec<(&'static str, Handle)>> {
     let router_mode = || {
         let mut fixture = migration::Fixture::default();
@@ -98,6 +99,7 @@ pub(crate) async fn routers(
         (
             "lab-1",
             FakeRouter::builder(Profile::latest(Model::Kn3810))
+                .faults(faults)
                 .build()?
                 .with_migration(router_mode()),
         ),

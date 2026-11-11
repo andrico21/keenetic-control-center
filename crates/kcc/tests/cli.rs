@@ -26,14 +26,20 @@ mod dns;
 mod failsafe;
 #[path = "cli/failures.rs"]
 mod failures;
+#[path = "cli/finish_failures.rs"]
+mod finish_failures;
 #[path = "cli/firewall_binding.rs"]
 mod firewall_binding;
 #[path = "cli/firewall_permissions.rs"]
 mod firewall_permissions;
 #[path = "cli/health.rs"]
 mod health;
+#[path = "cli/interface_refusals.rs"]
+mod interface_refusals;
 #[path = "cli/migrate.rs"]
 mod migrate;
+#[path = "cli/migrate_finish.rs"]
+mod migrate_finish;
 #[path = "cli/nested_risk.rs"]
 mod nested_risk;
 #[path = "cli/outbound.rs"]

@@ -72,6 +72,14 @@ async fn failsafe_commit_requires_recovery_permission_only_for_scheduled_mode() 
     let refused_before = scheduled.request_log().len();
     let refused = scheduled_env.kcc(&["config", "failsafe", "commit"])?;
     assert_eq!(refused.code, 10_i32, "scheduled operator: {refused:?}");
+    let entries = read_entries(&scheduled_env.state_dir())?;
+    assert_eq!(
+        entries
+            .iter()
+            .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
+            .count(),
+        1
+    );
     assert_eq!(
         mutation_count(&scheduled, refused_before),
         0,

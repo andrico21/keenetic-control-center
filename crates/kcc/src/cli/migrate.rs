@@ -2,7 +2,10 @@
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::configuration::SafetyNet;
+use kcc_domain::{
+    configuration::{self, SafetyMode, SafetyNet, recovery},
+    system,
+};
 use kcc_i18n::keys;
 use kcc_migrate::{
     inventory::{InventoryClient, TargetInventory},
@@ -14,7 +17,7 @@ use serde_json::{Value, json};
 
 use super::{
     args_migrate::{FinishStep, MigrateCommand, PlanInput, ReportFormat},
-    change::{Gate, applied, run as run_change},
+    change::{Gate, applied, run as run_change, safety_mode},
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files, migrate_apply,
@@ -148,6 +151,10 @@ async fn inventory(ctx: &Ctx, services: &Services) -> Outcome {
 // NOT cancel-safe: the commit or rollback may complete before cancellation.
 async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
     let target = ctx.target(services, &[Permission::Migrate]).await?;
+    let mode = safety_mode(target.info());
+    if matches!(action, FinishStep::Commit) && mode == SafetyMode::ScheduledReboot {
+        ctx.authorize_recovery(services, target.id()).await?;
+    }
     let (gate, outcome) = match action {
         FinishStep::Commit => (
             Gate::new(Risk::Write, Permission::Save, false),
@@ -159,9 +166,22 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
         ),
     };
     let document = run_change(ctx, services, &target, gate, async |changes, router| {
-        match action {
-            FinishStep::Commit => SafetyNet::commit(changes).await?,
-            FinishStep::Rollback => drop(SafetyNet::rollback(changes, router).await?),
+        match (action, mode) {
+            (FinishStep::Commit, SafetyMode::Router) => SafetyNet::commit(changes).await?,
+            (FinishStep::Commit, SafetyMode::ScheduledReboot | _) => {
+                configuration::save(changes).await?;
+                ctx.out().note(&ctx.out().tr(keys::CLI_SAVED, &[]));
+                let disarm = SafetyNet::disarm(changes, router, mode)
+                    .await
+                    .map_err(Failure::from);
+                recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
+            }
+            (FinishStep::Rollback, SafetyMode::Router) => {
+                drop(SafetyNet::rollback(changes, router).await?);
+            }
+            (FinishStep::Rollback, SafetyMode::ScheduledReboot | _) => {
+                drop(system::reboot(changes, router).await?);
+            }
         }
         Ok(applied(matches!(action, FinishStep::Rollback)))
     })

@@ -11,13 +11,61 @@
 mod tests {
     use axum::http::StatusCode;
     use kcc_i18n::keys;
-    use serde_json::Value;
+    use kcc_testkit::FaultInjection;
+    use serde_json::{Value, json};
 
     use crate::{
         en,
         flow::{DNS_LINES, apply, capture, finish, last_change, seed, start, to_preview},
         support::{Fixture, TestResult, header_text, text},
     };
+
+    /// A refused keep leaves the run unfinished and reports its armed recovery timer.
+    // NOT cancel-safe: the fixture applies router settings before the failed finish.
+    #[tokio::test]
+    async fn refused_keep_reports_armed_recovery() -> TestResult {
+        let fixture =
+            Fixture::with_faults(FaultInjection::default().fail_parse_matching("no system", 1))
+                .await?;
+        seed(&fixture, "prod-1", &DNS_LINES).await?;
+        let admin = fixture.login("admin").await?;
+        let id = capture(
+            &fixture,
+            &admin,
+            "prod-1",
+            (&["dns-secure"], "Recovery DNS"),
+        )
+        .await?;
+        let page = start(&fixture, &admin, &id).await?;
+        to_preview(&fixture, &admin, &page, ("lab-1", "merge", &[])).await?;
+        let stream = apply(&fixture, &admin, &page).await?;
+        assert!(stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])));
+        let results = fixture
+            .post(&format!("{page}/results"), &admin, &[])
+            .await?;
+        assert_eq!(results.status(), StatusCode::OK);
+
+        let response = fixture.post(&format!("{page}/keep"), &admin, &[]).await?;
+
+        assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
+        let body = text(response).await?;
+        assert!(
+            body.contains(&en(keys::MANAGEMENT_DISARM_FAILED, &[])),
+            "{body}"
+        );
+        assert!(fixture.handle("lab-1")?.recovery_armed());
+        assert_eq!(fixture.outcomes("web.preset_keep")?, ["failed"]);
+        let audit = fixture.audit()?;
+        let failed = audit
+            .iter()
+            .find(|entry| entry.action == "web.preset_keep")
+            .ok_or("missing keep audit")?;
+        assert_eq!(
+            failed.params_redacted.get("fail_safe_armed"),
+            Some(&json!(true))
+        );
+        Ok(())
+    }
 
     #[tokio::test]
     async fn a_preset_applies_in_merge_mode_and_stays_unsaved() -> TestResult {

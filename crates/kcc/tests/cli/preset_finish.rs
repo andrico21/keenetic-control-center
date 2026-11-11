@@ -6,17 +6,75 @@ use alloc::sync::Arc;
 use std::io::{self, Write as _};
 
 use kcc_app::{
-    jobs::JobRunner, persist::StateStore, registry::RouterRegistry, settings::OutboundConfig,
+    audit::read_entries, jobs::JobRunner, persist::StateStore, registry::RouterRegistry,
+    settings::OutboundConfig,
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, migration, model::Profile};
 
 use super::support::{Env, TestResult, router};
 
+/// Native commit needs Save and Migrate, both held by the built-in operator.
+// NOT cancel-safe: the fixture arms recovery and commits configuration.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn preset_finish_router_operator_commits() -> TestResult {
+    let mut scenario = migration::Fixture::default();
+    scenario.mode = Some("router".to_owned());
+    let (address, handle) = FakeRouter::builder(Profile::default())
+        .build()?
+        .with_migration(scenario)
+        .serve(([127, 0, 0, 1], 0).into())
+        .await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    let routers = router("lab-1", address, &password);
+    env.write_config(&routers)?;
+    let arm = env.kcc(&[
+        "--confirm-destructive",
+        "lab-1",
+        "config",
+        "failsafe",
+        "arm",
+    ])?;
+    assert_eq!(arm.code, 0_i32, "{arm:?}");
+    let changed = env.kcc(&["system", "set-description", "operator-preset"])?;
+    assert_eq!(changed.code, 0_i32, "{changed:?}");
+    let state = StateStore::open(&env.state_dir())?;
+    let registry = Arc::new(RouterRegistry::new(
+        state.clone(),
+        &[],
+        &OutboundConfig::default(),
+    )?);
+    let runner = JobRunner::open(state, registry).await?;
+    let run = runner
+        .start(
+            "migration".to_owned(),
+            Some("lab-1".to_owned()),
+            false,
+            async |_context| Ok(()),
+        )
+        .await?;
+    env.write_config(&format!("[cli]\nrole = \"operator\"\n{routers}"))?;
+
+    let finish = env.kcc(&["--yes", "preset", "finish", &run, "save"])?;
+
+    assert_eq!(finish.code, 0_i32, "{finish:?}");
+    assert!(handle.startup_config_text().contains("operator-preset"));
+    assert!(!handle.recovery_armed(), "native commit disarms recovery");
+    assert!(
+        handle
+            .request_log()
+            .iter()
+            .any(|record| record.command() == Some("system configuration fail-safe commit"))
+    );
+    handle.shutdown().await?;
+    Ok(())
+}
+
 /// A resumed extender run cannot save if the caller cannot disarm its timer.
 // NOT cancel-safe: fixture writes may apply before cancellation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn preset_finish_operator_refuses_before_save_or_discovery() -> TestResult {
+async fn preset_finish_operator_refuses_before_mutation() -> TestResult {
     let mut scenario = migration::Fixture::default();
     scenario.mode = Some("extender".to_owned());
     let (address, handle) = FakeRouter::builder(Profile::default())
@@ -55,14 +113,25 @@ async fn preset_finish_operator_refuses_before_save_or_discovery() -> TestResult
         .await?;
     env.write_config(&format!("[cli]\nrole = \"operator\"\n{routers}"))?;
     for action in ["save", "keep-unsaved"] {
-        let before = handle.request_count();
+        let before = handle.request_log().len();
         let startup = handle.startup_config_text();
         let finish = env.kcc(&["--yes", "preset", "finish", &run, action])?;
         assert_eq!(finish.code, 10_i32, "{finish:?}");
+        let entries = read_entries(&env.state_dir())?;
         assert_eq!(
-            handle.request_count(),
-            before,
-            "{action}: refused before any router request"
+            entries
+                .iter()
+                .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
+                .count(),
+            if action == "save" { 1 } else { 2 }
+        );
+        assert!(
+            handle
+                .request_log()
+                .iter()
+                .skip(before)
+                .all(|record| record.command().is_none()),
+            "{action}: mode discovery may read, but refusal must precede mutation"
         );
         assert_eq!(
             handle.startup_config_text(),
@@ -71,7 +140,7 @@ async fn preset_finish_operator_refuses_before_save_or_discovery() -> TestResult
         );
         writeln!(
             io::stderr(),
-            "REFUSAL CLI operator extender preset finish {action}: zero requests after arm"
+            "REFUSAL CLI operator extender preset finish {action}: zero mutations after arm"
         )?;
     }
     handle.shutdown().await?;

@@ -10,7 +10,7 @@ use kcc_app::{
 use kcc_catalog::{Catalog, HttpMethod};
 use kcc_domain::{
     RouterCtx,
-    configuration::{SafetyMode, SafetyNet},
+    configuration::{SafetyMode, SafetyNet, recovery},
 };
 use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
@@ -62,11 +62,10 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
             )
             .map_err(|_error| ApplyError::Validation)?;
             let ctx = RouterCtx::new(Arc::clone(&client), catalog);
-            drop(
-                SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
-                    .await
-                    .map_err(|_error| ApplyError::Workflow)?,
-            );
+            let disarm = SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
+                .await
+                .map_err(|_error| ApplyError::Workflow);
+            recovery::finish(Ok(()), disarm).map_err(|_error| ApplyError::DisarmFailed)?;
         }
         _ => return Err(ApplyError::Validation),
     }
@@ -97,11 +96,10 @@ pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError
     )
     .map_err(|_error| ApplyError::Validation)?;
     let ctx = RouterCtx::new(Arc::clone(&client), catalog);
-    drop(
-        SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
-            .await
-            .map_err(|_error| ApplyError::Workflow)?,
-    );
+    let disarm = SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
+        .await
+        .map_err(|_error| ApplyError::Workflow);
+    recovery::finish(Ok(()), disarm).map_err(|_error| ApplyError::DisarmFailed)?;
     applier.report.finished = true;
     Ok(())
 }

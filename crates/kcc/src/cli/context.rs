@@ -22,7 +22,7 @@ use kcc_app::{
     workflow::ChangeWorkflow,
 };
 use kcc_catalog::Catalog;
-use kcc_domain::RouterCtx;
+use kcc_domain::{RouterCtx, configuration::SafetyNet};
 use kcc_i18n::keys;
 use kcc_rci::capabilities::RouterInfo;
 use serde_json::Value;
@@ -165,6 +165,28 @@ impl Ctx {
     /// Acting principal.
     pub(crate) const fn principal(&self) -> &Principal {
         &self.principal
+    }
+
+    /// Checks recovery authority and records a handler-level refusal.
+    ///
+    /// # Errors
+    /// Returns the principal's permission or scope refusal.
+    // NOT cancel-safe: the refusal audit may append after cancellation.
+    pub(crate) async fn authorize_recovery(&self, services: &Services, id: &str) -> Outcome {
+        match self
+            .principal
+            .authorize(SafetyNet::management_permissions(), &[id])
+        {
+            Ok(role) => {
+                drop(role);
+                Ok(())
+            }
+            Err(failure) => {
+                self.audit(services, "cli.refused", Some(id), Value::Null, "forbidden")
+                    .await;
+                Err(failure)
+            }
+        }
     }
 
     /// Opens the router services; contacts no router. A legacy router credential

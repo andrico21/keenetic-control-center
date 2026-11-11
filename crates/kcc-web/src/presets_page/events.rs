@@ -102,6 +102,7 @@ pub(super) fn end_words(ended: Option<&Ended>, locale: Locale) -> (&'static str,
 /// The sentence explaining the engine's failure named `name`.
 pub(super) fn failure_text(name: &str) -> MessageKey {
     match name {
+        "DisarmFailed" => keys::MANAGEMENT_DISARM_FAILED,
         "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,
         "Drift" | "ReplanRequired" => keys::WEB_MIGRATE_FAILURE_DRIFT,
         "Source" => keys::WEB_PRESETS_FAILURE_SETTINGS,

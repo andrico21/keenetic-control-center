@@ -7,7 +7,7 @@ use std::io::{self, BufRead as _, IsTerminal as _, Write as _};
 
 use kcc_app::{jobs::JobRunner, permissions::Permission};
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet};
+use kcc_domain::configuration::{self, SafetyMode, SafetyNet, recovery};
 use kcc_i18n::keys;
 use serde_json::{Value, json};
 
@@ -83,10 +83,7 @@ pub(super) async fn finalize(
     if matches!(action, Finish::KeepUnsaved)
         || matches!(action, Finish::Save) && mode == SafetyMode::ScheduledReboot
     {
-        drop(
-            ctx.principal()
-                .authorize(SafetyNet::management_permissions(), &[target.id()])?,
-        );
+        ctx.authorize_recovery(services, target.id()).await?;
     }
     let gate = match action {
         Finish::KeepUnsaved => Gate::new(Risk::Write, Permission::Write, false),
@@ -95,17 +92,20 @@ pub(super) async fn finalize(
     };
     run_change(ctx, services, target, gate, async |changes, router| {
         match (action, mode) {
-            (Finish::KeepUnsaved, _) => drop(SafetyNet::disarm(changes, router, mode).await?),
+            (Finish::KeepUnsaved, _) => {
+                let disarm = SafetyNet::disarm(changes, router, mode)
+                    .await
+                    .map_err(Failure::from);
+                recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
+            }
             (Finish::Save, SafetyMode::Router) => SafetyNet::commit(changes).await?,
             (Finish::Save, SafetyMode::ScheduledReboot | _) => {
                 configuration::save(changes).await?;
-                drop(
-                    SafetyNet::disarm(changes, router, mode)
-                        .await
-                        .map_err(|_error| {
-                            Failure::headline_only(Exit::Router, keys::MANAGEMENT_DISARM_FAILED)
-                        })?,
-                );
+                ctx.out().note(&ctx.out().tr(keys::CLI_SAVED, &[]));
+                let disarm = SafetyNet::disarm(changes, router, mode)
+                    .await
+                    .map_err(Failure::from);
+                recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
             }
             (Finish::Rollback, _) => drop(SafetyNet::rollback(changes, router).await?),
         }
@@ -135,12 +135,6 @@ pub(super) async fn finish_run(
         .router
         .filter(|_router| record.kind == "migration")
         .ok_or_else(not_run)?;
-    if matches!(action, Finish::Save | Finish::KeepUnsaved) {
-        drop(
-            ctx.principal()
-                .authorize(SafetyNet::management_permissions(), &[&router])?,
-        );
-    }
     let target = ctx
         .target_named(services, router, &[Permission::Read, Permission::Migrate])
         .await?;

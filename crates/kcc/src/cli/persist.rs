@@ -5,7 +5,7 @@ use std::path::Path;
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet};
+use kcc_domain::configuration::{self, SafetyMode, SafetyNet, recovery};
 use kcc_i18n::keys;
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -92,10 +92,7 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
             let target = ctx.target(&services, &[permission]).await?;
             let mode = safety_mode(target.info());
             if matches!(action, FailsafeAction::Commit) && mode == SafetyMode::ScheduledReboot {
-                drop(
-                    ctx.principal()
-                        .authorize(SafetyNet::management_permissions(), &[target.id()])?,
-                );
+                ctx.authorize_recovery(&services, target.id()).await?;
             }
             let gate = Gate::new(risk, permission, false);
             let document = run_change(ctx, &services, &target, gate, async |changes, router| {
@@ -108,7 +105,11 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
                     }
                     (FailsafeAction::Commit, SafetyMode::ScheduledReboot | _) => {
                         configuration::save(changes).await?;
-                        drop(SafetyNet::disarm(changes, router, mode).await?);
+                        out.note(&out.tr(keys::CLI_SAVED, &[]));
+                        let disarm = SafetyNet::disarm(changes, router, mode)
+                            .await
+                            .map_err(Failure::from);
+                        recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
                     }
                     (FailsafeAction::Rollback, _) => {
                         drop(SafetyNet::rollback(changes, router).await?);
