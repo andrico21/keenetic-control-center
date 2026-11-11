@@ -102,14 +102,18 @@ impl Out {
         let details = failure.details(self.locale);
         let mut stderr = io::stderr().lock();
         if self.json {
-            let document = json!({
-                "error": {
-                    "kind": failure.exit().name(),
-                    "exit_code": failure.exit().code(),
-                    "message": headline,
-                    "details": details,
-                }
+            let mut error = json!({
+                "kind": failure.exit().name(),
+                "exit_code": failure.exit().code(),
+                "message": headline,
+                "details": details,
             });
+            if failure.fail_safe_armed()
+                && let Value::Object(object) = &mut error
+            {
+                drop(object.insert("fail_safe_armed".to_owned(), Value::Bool(true)));
+            }
+            let document = json!({ "error": error });
             drop(writeln!(stderr, "{document}"));
         } else {
             drop(writeln!(stderr, "{headline}"));

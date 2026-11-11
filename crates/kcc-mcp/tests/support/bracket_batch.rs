@@ -52,7 +52,7 @@ mod tests {
                         false,
                     )
                     .await?;
-                let applied = !refused || partial;
+                let applied = !refused;
                 let (code, key) = if applied {
                     (
                         "management_applied_fail_safe_armed",

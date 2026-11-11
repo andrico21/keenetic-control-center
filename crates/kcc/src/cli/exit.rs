@@ -137,6 +137,12 @@ impl Failure {
             )
         })
     }
+
+    /// Preserves the specific explanation while changing the process outcome family.
+    pub(crate) const fn at_exit(mut self, exit: Exit) -> Self {
+        self.exit = exit;
+        self
+    }
     /// A failure with a detail.
     pub(crate) const fn new(exit: Exit, detail: Detail) -> Self {
         Self {

@@ -346,6 +346,8 @@ impl BatchChangeRequest {
 pub struct BatchChangeResult {
     /// Successful items containing changes, excluding read answers.
     pub applied_changes: usize,
+    /// Successful change items containing management operations.
+    pub applied_management_changes: usize,
     /// Successful ordinary writes remain unsaved until an explicit save.
     pub unsaved: bool,
     /// Whether all successful items were persisted immediately, with at least one success.
@@ -1024,6 +1026,7 @@ impl ChangeSet {
         drop(self.workflow.audit.append(event).await?);
         Ok(BatchChangeResult {
             applied_changes: completion.applied_changes,
+            applied_management_changes: completion.applied_management_changes,
             unsaved: completion.unsaved,
             persists_immediately: completion.persists_immediately,
             persisted_paths: completion.persisted_paths,

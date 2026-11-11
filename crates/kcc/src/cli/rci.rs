@@ -155,6 +155,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     let mut unsaved = false;
     let mut completed_paths = Vec::new();
     let mut applied_changes = 0_usize;
+    let mut recovery_failure = None;
     let completion = run_completed(ctx, services, target, gate, async |changes, _router| {
         let request = BatchChangeRequest::new(
             items,
@@ -166,9 +167,10 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         completed_persists = result.persists_immediately;
         unsaved = result.unsaved;
         applied_changes = result.applied_changes;
+        let applied_management_changes = result.applied_management_changes;
         completed_paths = result.persisted_paths;
         responses = result.responses;
-        Ok((Value::Null, applied_changes != 0))
+        Ok((Value::Null, applied_management_changes != 0))
     })
     .await;
     if let Err(failure) = completion {
@@ -176,6 +178,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             return Err(failure);
         }
         ctx.out().note(&failure.headline(ctx.out().locale()));
+        recovery_failure = Some(failure);
     }
     let failed = responses
         .iter()
@@ -208,6 +211,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         ctx,
         responses,
         (unsaved, completed_persists, &completed_paths),
+        recovery_failure,
     )
 }
 
@@ -226,7 +230,7 @@ async fn read_batch(ctx: &Ctx, target: &Target, items: &[BatchItem]) -> Outcome 
         .map(|item| item.value.redacted().clone())
         .collect();
     let responses = target.router().client.batch(values).await?;
-    report(ctx, responses, (false, false, &[]))
+    report(ctx, responses, (false, false, &[]), None)
 }
 
 /// Prints per-item results and whether the router persisted them at once; any failed
@@ -239,6 +243,7 @@ fn report(
     ctx: &Ctx,
     responses: Vec<Result<RciResponse, RciError>>,
     persistence: (bool, bool, &[String]),
+    recovery_failure: Option<Failure>,
 ) -> Outcome {
     let (unsaved, persists, persisted_paths) = persistence;
     let failed = responses
@@ -269,6 +274,8 @@ fn report(
         .emit(&document, &serde_json::to_string_pretty(&document)?)?;
     if failed == 0 {
         Ok(())
+    } else if let Some(failure) = recovery_failure {
+        Err(failure.at_exit(Exit::Partial))
     } else {
         Err(Failure::new(Exit::Partial, Detail::None))
     }

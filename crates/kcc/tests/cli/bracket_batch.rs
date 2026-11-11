@@ -47,7 +47,7 @@ async fn batch_completion_controls_recovery_message() -> TestResult {
             }
             let data = serde_json::to_string(&items)?;
             let run = env.kcc(&["--yes", "rci", "batch", "--data", &data])?;
-            let applied = !refused || partial;
+            let applied = !refused;
             let key = if applied {
                 keys::MANAGEMENT_DISARM_FAILED
             } else {

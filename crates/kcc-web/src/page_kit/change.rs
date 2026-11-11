@@ -163,8 +163,8 @@ pub(crate) enum Applied {
     },
     /// One result per batch item.
     Batch {
-        /// Successful change items, excluding reads.
-        applied_changes: usize,
+        /// Successful management change items.
+        applied_management_changes: usize,
         /// Whether the router now has unsaved changes.
         unsaved: bool,
         /// Whether every successful item was persisted immediately.
@@ -191,7 +191,7 @@ impl Applied {
         match self {
             Self::Done { unsaved }
             | Self::Batch {
-                applied_changes: _,
+                applied_management_changes: _,
                 unsaved,
                 persists_immediately: _,
                 persisted_paths: _,
@@ -408,12 +408,12 @@ where
     let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
     let completed = applied.as_ref().is_ok_and(|value| match value {
         Applied::Batch {
-            applied_changes,
+            applied_management_changes,
             unsaved: _,
             persists_immediately: _,
             persisted_paths: _,
             responses: _,
-        } => *applied_changes != 0,
+        } => *applied_management_changes != 0,
         Applied::Done { unsaved: _ }
         | Applied::Cli {
             unsaved: _,
@@ -426,7 +426,7 @@ where
         if disarm.is_err()
             && let Applied::Batch {
                 responses,
-                applied_changes: _,
+                applied_management_changes: _,
                 unsaved: _,
                 persists_immediately: _,
                 persisted_paths: _,
@@ -466,7 +466,7 @@ async fn send(changes: &mut ChangeSet, change: Change) -> Result<Applied, Workfl
             .apply_batch(request)
             .await
             .map(|result| Applied::Batch {
-                applied_changes: result.applied_changes,
+                applied_management_changes: result.applied_management_changes,
                 unsaved: result.unsaved,
                 persists_immediately: result.persists_immediately,
                 persisted_paths: result.persisted_paths,

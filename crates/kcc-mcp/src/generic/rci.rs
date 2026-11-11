@@ -357,7 +357,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
                 ))
                 .await
                 .map_err(map_workflow)?;
-            let applied = result.applied_changes != 0;
+            let applied = result.applied_management_changes != 0;
             completion = Some(result);
             Ok(((), applied))
         })

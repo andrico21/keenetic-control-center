@@ -20,6 +20,8 @@ use crate::{
 
 #[path = "bracket_batch.rs"]
 mod batch;
+#[path = "bracket_management_fate.rs"]
+mod management_fate;
 
 /// A raw role without ordinary write permission closes its management bracket.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.

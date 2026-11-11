@@ -2,6 +2,8 @@
 
 #[path = "bracket_batch.rs"]
 mod batch;
+#[path = "bracket_management_fate.rs"]
+mod management_fate;
 
 use std::io::{self, Write as _};
 

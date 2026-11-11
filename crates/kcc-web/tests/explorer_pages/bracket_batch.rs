@@ -58,7 +58,7 @@ async fn batch_completion_controls_recovery_message() -> TestResult {
                 .await?;
             assert_eq!(response.status(), StatusCode::OK);
             let body = text(response).await?;
-            let applied = !refused || partial;
+            let applied = !refused;
             let key = if applied {
                 keys::MANAGEMENT_DISARM_FAILED
             } else {

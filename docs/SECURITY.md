@@ -160,12 +160,14 @@ rollback, so a role that can open a bracket can close it without `Write`; persis
 still requires `Save`. Curated MCP management writes use the same mode-aware bracket
 as raw writes, with their existing confirmation policy. After arming succeeds, any
 unsuccessful cleanup reports that recovery remains armed and will restore the saved
-configuration, discarding all unsaved router changes. A batch is reported as applied
-only when its completion records at least one successful change item; successful reads
-do not count. A partial batch retains its item refusals and identifies only the successful
-changes as applied. When every change is refused, the refusal information accompanies
-the unknown-outcome armed-timer message. CLI batch refusals retain exit 7 and item output
-even when cleanup fails (an applied batch with failed cleanup exits 6). MCP recovery
+configuration, discarding all unsaved router changes. A batch's recovery message reports
+the management subset as applied only when at least one management change item succeeded;
+successful ordinary siblings and reads do not count. A partial batch retains its item
+refusals and identifies only the successful changes as applied. When every management
+change is refused, the refusal information accompanies the unknown-outcome armed-timer
+message. CLI batch refusals retain exit 7 and item output even when cleanup fails (an
+applied batch with failed cleanup exits 6). In `--json` mode, the error object adds
+`fail_safe_armed: true` and uses the same localized recovery message. MCP recovery
 errors retain the batch's `responses`, including `ok: false` items. Web retains the
 router's refusal text and reserves loss-of-connectivity wording for transport failures.
 Successful cleanup preserves the original work error without an armed note.
