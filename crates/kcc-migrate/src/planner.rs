@@ -60,7 +60,8 @@ impl Planner {
             &target.running_config,
             &target.installed_components,
             target.realm.as_deref(),
-        );
+        )
+        .with_interfaces(target.interface_inventory.as_ref());
         let mut classified = RuleEngine::embedded()?.classify(
             &source.ast,
             classification_target,

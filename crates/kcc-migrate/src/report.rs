@@ -190,6 +190,7 @@ fn localized_reason(reason_key: &str, locale: Locale) -> String {
         | "migration-reason-hardware-button"
         | "migration-reason-hardware-usb"
         | "migration-reason-hardware-radio"
+        | "migration-reason-hardware-interface"
         | "migration-reason-hardware-printer" => keys::MIGRATE_REASON_SKIP_HARDWARE,
         "migration-reason-identity-ndns"
         | "migration-reason-identity-cloud"

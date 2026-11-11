@@ -15,5 +15,11 @@ pub(super) fn intercept(shared: &Shared, line: &str) -> Option<Value> {
     if shared.reject_parse(line) {
         return Some(tree::status("error", "injected parser failure."));
     }
+    let words = line.split_whitespace().collect::<Vec<_>>();
+    if let ["interface", _bridge, "include" | "inherit", member] = words.as_slice()
+        && !shared.interface_exists(member)
+    {
+        return Some(tree::status("error", "interface not found."));
+    }
     shared.wipe_routes(line)
 }

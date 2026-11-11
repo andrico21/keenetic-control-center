@@ -124,17 +124,17 @@ mod tests {
     // NOT cancel-safe: fixture writes may apply before cancellation.
     #[tokio::test]
     async fn text_include_and_inherit_members_are_management() -> TestResult {
+        let member = "GigabitEthernet0/0";
         for keyword in ["include", "inherit"] {
             let fixture = Fixture::spawn(Firmware::V5_1).await?;
             drop(
                 fixture
                     .context()
                     .client
-                    .parse(&format!("interface Bridge0 {keyword} LabMember"))
+                    .parse(&format!("interface Bridge0 {keyword} {member}"))
                     .await?,
             );
-            let risk =
-                management::interfaces_risk(fixture.context(), &["LabMember".to_owned()]).await;
+            let risk = management::interfaces_risk(fixture.context(), &[member.to_owned()]).await;
             assert_eq!(risk, Risk::Management, "text {keyword}");
             fixture.shutdown().await?;
         }

@@ -65,7 +65,14 @@ mod tests {
         let interface_map = interface_map(interfaces);
         let passwords = BTreeMap::new();
         let overwrite_scalars = overwrites.iter().map(|key| (*key).to_owned()).collect();
-        let target_view = ClassificationTarget::new(catalog, &target_ast, &installed, target_realm);
+        let target_interfaces = ports
+            .iter()
+            .chain(radios)
+            .chain(interfaces)
+            .map(|(_source, mapped)| (*mapped).to_owned())
+            .collect();
+        let target_view = ClassificationTarget::new(catalog, &target_ast, &installed, target_realm)
+            .with_interfaces(Some(&target_interfaces));
         let choices = ClassificationChoices::new(
             &port_map,
             &radio_map,

@@ -111,6 +111,32 @@ mod tests {
         Ok((fake, app))
     }
 
+    #[tokio::test]
+    async fn bridge_membership_rejects_unknown_interfaces() -> TestResult {
+        let (fake, app) = ultra()?;
+        let cookie = login(&app, fake.realm()).await?;
+
+        for keyword in ["include", "inherit"] {
+            let command = format!("interface Bridge0 {keyword} MissingInterface0");
+            let reply = send(
+                &app,
+                Method::POST,
+                "/rci/",
+                Some(&cookie),
+                Body::from(json!({"parse": command}).to_string()),
+            )
+            .await?
+            .json()?;
+
+            assert_eq!(reply.pointer("/status/0/status"), Some(&json!("error")));
+            assert_eq!(
+                reply.pointer("/status/0/message"),
+                Some(&json!("interface not found."))
+            );
+        }
+        Ok(())
+    }
+
     /// A 401 carries every ndw2 header, and the cookie name differs per server.
     #[tokio::test]
     async fn challenge_headers_and_random_cookie_name() -> TestResult {

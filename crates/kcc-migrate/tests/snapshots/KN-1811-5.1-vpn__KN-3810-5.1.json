@@ -1,10 +1,11 @@
 {
   "dispositions": {
-    "copy": 29,
-    "remap": 1
+    "copy": 28,
+    "remap": 1,
+    "skip-hardware": 1
   },
   "phases": {
-    "additive": 23,
+    "additive": 22,
     "management": 1,
     "prune": 0
   },

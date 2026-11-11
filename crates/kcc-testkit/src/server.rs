@@ -911,6 +911,15 @@ impl Shared {
         tree::select_show(&answer, selector)
     }
 
+    /// Checks one name against the profile's interface list.
+    fn interface_exists(&self, name: &str) -> bool {
+        self.show
+            .get("interface")
+            .and_then(Value::as_object)
+            .is_some_and(|interfaces| interfaces.contains_key(name))
+            || lock(&self.config).has_interface(name)
+    }
+
     /// Answers the value of a `{"show": ..}` member of a root POST.
     fn show_member(&self, settings: &Value, request: &Value) -> Value {
         let mut answer = Map::new();

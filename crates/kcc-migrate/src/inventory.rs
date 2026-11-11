@@ -179,6 +179,8 @@ pub struct TargetInventory {
     pub initial_setup: InitialSetupState,
     /// Logical interfaces in the running configuration.
     pub interfaces: Vec<LogicalInterface>,
+    /// Interface ids reported by `show interface`, or `None` when unavailable.
+    pub interface_inventory: Option<BTreeSet<String>>,
 }
 
 impl TargetInventory {
@@ -224,6 +226,9 @@ impl TargetInventory {
         let ports = collect_ports(&info);
         let radios = collect_radios(&info);
         let (usb_modems, interfaces) = collect_interfaces(&running_config);
+        let interface_inventory = optional_show(&client.rci, ["interface"])
+            .await?
+            .and_then(|value| interface_names(&value));
         let available_components = optional_show(&client.rci, ["components", "list"])
             .await?
             .map_or_else(BTreeSet::new, |value| component_names(&value));
@@ -260,8 +265,14 @@ impl TargetInventory {
             realm,
             initial_setup,
             interfaces,
+            interface_inventory,
         })
     }
+}
+
+/// Extracts every interface id from the authoritative interface-list response.
+fn interface_names(value: &Value) -> Option<BTreeSet<String>> {
+    Some(value.as_object()?.keys().cloned().collect())
 }
 
 /// Reads the live running checksum rather than relying on optional export header metadata.

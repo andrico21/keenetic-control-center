@@ -106,6 +106,8 @@ pub struct ClassificationTarget<'target> {
     installed_components: &'target BTreeSet<String>,
     /// Authentication realm advertised by the target.
     realm: Option<&'target str>,
+    /// Interface ids reported by the target, or `None` when that inventory was unreadable.
+    interfaces: Option<&'target BTreeSet<String>>,
 }
 
 impl<'target> ClassificationTarget<'target> {
@@ -123,7 +125,16 @@ impl<'target> ClassificationTarget<'target> {
             running_config,
             installed_components,
             realm,
+            interfaces: None,
         }
+    }
+
+    /// Attaches the target's authoritative interface inventory.
+    #[inline]
+    #[must_use]
+    pub const fn with_interfaces(mut self, interfaces: Option<&'target BTreeSet<String>>) -> Self {
+        self.interfaces = interfaces;
+        self
     }
 }
 
@@ -325,6 +336,23 @@ fn classify_line(
     rules: &[Rule],
 ) -> ClassifiedItem {
     let words = expanded_words(&line.tokens);
+    if let ["interface", _bridge, "include" | "inherit", member] = words.as_slice()
+        && let mapped_member = mappings.get(*member).copied().unwrap_or(member)
+        && target
+            .interfaces
+            .is_none_or(|interfaces| !interfaces.contains(mapped_member))
+    {
+        return item(
+            source_index,
+            line,
+            redacted_line.to_string(),
+            Disposition::SkipHardware,
+            "hardware-missing-bridge-member",
+            "migration-reason-hardware-interface",
+            None,
+            None,
+        );
+    }
     for rule in rules {
         if glob_matches(&rule.pattern, &words)
             && condition_matches(

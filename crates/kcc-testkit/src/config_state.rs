@@ -164,6 +164,17 @@ impl ConfigState {
     pub(crate) fn show(&self, path: &str, fixture: Option<&Value>) -> Option<Value> {
         projection::show(&self.running, path, fixture)
     }
+
+    /// Checks whether running configuration contains a named interface context.
+    pub(crate) fn has_interface(&self, name: &str) -> bool {
+        self.running.nodes.iter().any(|node| {
+            matches!(
+                node.tokens.as_slice(),
+                [Token::Word(command), Token::Word(interface)]
+                    if command == "interface" && interface == name
+            )
+        })
+    }
 }
 
 /// Prints only the command body, without seed metadata.
