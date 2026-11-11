@@ -13,7 +13,7 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -47,22 +47,6 @@ pub struct ServiceState {
     /// Unmodelled router fields.
     #[serde(flatten)]
     pub extra: BTreeMap<String, Value>,
-}
-
-/// `show rc service` response envelope.
-#[derive(Default, Deserialize)]
-#[serde(default)]
-struct ServiceEnvelope {
-    /// Root show response.
-    show: ServiceShow,
-}
-
-/// Runtime configuration response beneath `show`.
-#[derive(Default, Deserialize)]
-#[serde(default)]
-struct ServiceShow {
-    /// Runtime configuration projection.
-    rc: ServiceProjection,
 }
 
 /// Service branch beneath the runtime configuration projection.
@@ -190,9 +174,14 @@ pub async fn read_services(router: &RouterCtx) -> Result<Vec<ServiceState>> {
     let RciBody::Json(response) = reply else {
         return Err(DomainError::InvalidResponse);
     };
-    serde_json::from_value::<ServiceEnvelope>(response.value)
-        .map(|envelope| envelope.show.rc.service)
-        .map_err(|_error| DomainError::InvalidResponse)
+    serde_json::from_value::<ServiceProjection>(
+        response
+            .configuration_tree(ConfigKind::Running)
+            .cloned()
+            .ok_or(DomainError::InvalidResponse)?,
+    )
+    .map(|projection| projection.service)
+    .map_err(|_error| DomainError::InvalidResponse)
 }
 
 /// Plans enabling or disabling one service present in the selected catalog.

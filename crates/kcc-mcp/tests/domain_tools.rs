@@ -40,7 +40,9 @@ mod tests {
 
     use kcc_app::audit::ActorKind;
     use kcc_mcp::registry::{definitions::tools, docs::markdown};
-    use kcc_testkit::{FakeRouter, FaultInjection, model::Profile};
+    use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, auth::Credentials};
+    use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, model::Profile};
+    use secrecy::SecretString;
     use serde_json::json;
 
     use super::lab::{Lab, TestResult, admin, lab_only};
@@ -128,6 +130,38 @@ mod tests {
             .map(|tool| tool.name.to_owned())
             .collect::<BTreeSet<_>>();
         assert_eq!(listed, registered);
+        lab.stop().await
+    }
+
+    /// The DNS read tool exposes configured name servers in its documented typed branch.
+    #[tokio::test]
+    async fn dns_running_configuration_reports_the_router_name_server() -> TestResult {
+        let fake = FakeRouter::builder(Profile::default()).build()?;
+        let (address, seed_handle) = fake.clone().serve(([127, 0, 0, 1], 0).into()).await?;
+        let client = RciClient::connect_with(
+            format!("http://{address}").parse()?,
+            Credentials::new("admin".to_owned(), SecretString::from(DEFAULT_PASSWORD)),
+            RciClientOptions::default()
+                .with_outbound(OutboundPolicy::default().with_loopback(true)),
+        )
+        .await?;
+        drop(client.parse("ip name-server 192.0.2.53").await?);
+        seed_handle.shutdown().await?;
+        let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
+
+        let reply = lab
+            .call(
+                "kcc_dns_read",
+                json!({"host":"lab-1","op":"running_configuration"}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(
+            reply.value()?.pointer("/value/ip/name-server/0/address"),
+            Some(&json!("192.0.2.53")),
+            "{reply:?}"
+        );
         lab.stop().await
     }
 

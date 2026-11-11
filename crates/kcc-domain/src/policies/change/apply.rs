@@ -13,7 +13,7 @@
 )]
 
 use kcc_app::workflow::{ChangeSet, CliChangeResult};
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Value, json};
 
 use super::render;
@@ -64,8 +64,8 @@ async fn policy_commands(router: &RouterCtx, name: &str) -> Result<Option<Vec<Ve
         return Err(DomainError::InvalidResponse);
     };
     response
-        .value
-        .pointer("/show/rc/ip/policy")
+        .configuration_tree(ConfigKind::Running)
+        .and_then(|tree| tree.pointer("/ip/policy"))
         .and_then(|value| value.get(name))
         .map(|value| match value {
             Value::Array(rows) => rows

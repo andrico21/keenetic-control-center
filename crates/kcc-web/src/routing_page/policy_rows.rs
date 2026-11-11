@@ -10,7 +10,7 @@ use kcc_domain::{
     policies::{model::PolicyState, read},
 };
 use kcc_i18n::{bundle::MessageKey, keys};
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Value, json};
 
 use super::route_rows::text_key;
@@ -193,7 +193,10 @@ pub(crate) async fn configured(
     else {
         return Err(DomainError::InvalidResponse);
     };
-    let Some(Value::Object(policies)) = response.value.pointer("/show/rc/ip/policy") else {
+    let Some(Value::Object(policies)) = response
+        .configuration_tree(ConfigKind::Running)
+        .and_then(|tree| tree.pointer("/ip/policy"))
+    else {
         return Ok(Vec::new());
     };
     Ok(policies

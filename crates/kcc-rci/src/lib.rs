@@ -595,6 +595,16 @@ pub struct RciResponse {
 }
 
 impl RciResponse {
+    /// Returns the projected configuration tree from a `show rc` or `show sc` answer.
+    #[inline]
+    #[must_use]
+    pub fn configuration_tree(&self, kind: ConfigKind) -> Option<&Value> {
+        self.value.pointer(match kind {
+            ConfigKind::Startup => "/show/sc",
+            ConfigKind::Running => "/show/rc",
+        })
+    }
+
     /// Converts a decoded response, returning the first error-level status as a failure.
     ///
     /// # Errors

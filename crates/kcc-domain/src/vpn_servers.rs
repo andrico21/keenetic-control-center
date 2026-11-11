@@ -23,7 +23,7 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
@@ -213,10 +213,8 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
         return Err(DomainError::InvalidResponse);
     };
     let root = response
-        .value
-        .pointer("/show/rc")
-        .or_else(|| response.value.get("rc"))
-        .unwrap_or(&response.value);
+        .configuration_tree(ConfigKind::Running)
+        .ok_or(DomainError::InvalidResponse)?;
     Ok(VpnServerStatus {
         vpn: decode(root.get("vpn-server")),
         sstp: decode(root.get("sstp-server")),

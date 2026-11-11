@@ -47,6 +47,33 @@ async fn doh_upstream_is_applied_and_read_back() -> TestResult {
 }
 
 #[tokio::test]
+async fn configured_name_server_is_read_from_running_configuration() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        drop(
+            fixture
+                .context()
+                .client
+                .parse("ip name-server 192.0.2.53")
+                .await?,
+        );
+
+        let configuration = dns::read_configuration(fixture.context()).await?;
+
+        assert_eq!(
+            configuration
+                .ip
+                .as_ref()
+                .and_then(|ip| ip.pointer("/name-server/0/address"))
+                .and_then(serde_json::Value::as_str),
+            Some("192.0.2.53")
+        );
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+#[tokio::test]
 async fn fqdn_include_uses_the_group_context_and_applies() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;

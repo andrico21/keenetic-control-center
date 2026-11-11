@@ -5,7 +5,7 @@
     reason = "router reads are not inline candidates"
 )]
 
-use kcc_rci::{RciBody, RciPath};
+use kcc_rci::{ConfigKind, RciBody, RciPath};
 use serde::Serialize;
 use serde_json::{Value, json};
 
@@ -79,11 +79,16 @@ async fn configuration(
     let RciBody::Json(response) = body else {
         return Err(DomainError::InvalidResponse);
     };
-    let store = if startup { "sc" } else { "rc" };
-    let pointer = format!("/show/{store}/ip/{leaf}");
+    let kind = if startup {
+        ConfigKind::Startup
+    } else {
+        ConfigKind::Running
+    };
+    let pointer = format!("/ip/{leaf}");
     serde_json::from_value(
         response
-            .value
+            .configuration_tree(kind)
+            .ok_or(DomainError::InvalidResponse)?
             .pointer(&pointer)
             .cloned()
             .unwrap_or(Value::Array(Vec::new())),

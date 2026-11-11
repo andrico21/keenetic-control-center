@@ -68,16 +68,7 @@ impl DnsState {
     // cancel-safe: reads only.
     pub(crate) async fn read(ctx: &RouterCtx) -> DomainResult<Self> {
         let proxy = dns::read_dns_proxy(ctx).await?;
-        let read = dns::read_configuration(ctx).await?;
-        // `read_configuration` deserializes the root answer, so its `show.rc` wrapper ends
-        // up as an unknown member; the configuration is inside it.
-        let config = read
-            .extra
-            .get("show")
-            .and_then(|show| show.get("rc"))
-            .cloned()
-            .and_then(|tree| serde_json::from_value(tree).ok())
-            .unwrap_or(read);
+        let config = dns::read_configuration(ctx).await?;
         Ok(Self { proxy, config })
     }
 

@@ -1352,6 +1352,7 @@ async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), Workf
         client.show(&path, &()).await?
     };
     let actual = match readback {
+        RciBody::Json(response) if configuration => configuration_value(&response, spec)?,
         RciBody::Json(response) => response.value,
         RciBody::Text(_) | _ => {
             return Err(WorkflowError::VerificationFailed {
@@ -1363,9 +1364,7 @@ async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), Workf
         spec.path
             .iter()
             .skip(2)
-            .fold(actual.pointer("/show/rc"), |parent, segment| {
-                parent?.get(segment)
-            })
+            .try_fold(&actual, |parent, segment| parent.get(segment))
     } else {
         Some(&actual)
     };
@@ -1423,6 +1422,19 @@ async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), Workf
         });
     }
     Ok(())
+}
+
+/// Extracts the running-configuration projection or names the failed verification field.
+fn configuration_value(
+    response: &RciResponse,
+    spec: &VerificationSpec,
+) -> Result<Value, WorkflowError> {
+    response
+        .configuration_tree(ConfigKind::Running)
+        .cloned()
+        .ok_or_else(|| WorkflowError::VerificationFailed {
+            field: spec.field.clone(),
+        })
 }
 
 /// Scrubs router-controlled retained error detail before crossing the workflow boundary.

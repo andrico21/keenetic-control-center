@@ -15,7 +15,7 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use serde_json::{Map, Value, json};
 
 use crate::net_change::scalar;
@@ -245,9 +245,10 @@ async fn segments(domain: &RouterCtx) -> BTreeMap<String, String> {
     let Ok(RciBody::Json(response)) = domain.client.show_rc(json!({"interface": {}})).await else {
         return BTreeMap::new();
     };
-    let tree = ["/show/rc/interface", "/rc/interface", "/interface"]
-        .into_iter()
-        .find_map(|pointer| response.value.pointer(pointer).and_then(Value::as_object));
+    let tree = response
+        .configuration_tree(ConfigKind::Running)
+        .and_then(|tree| tree.get("interface"))
+        .and_then(Value::as_object);
     tree.map_or_else(BTreeMap::new, included)
 }
 

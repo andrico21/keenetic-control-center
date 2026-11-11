@@ -19,7 +19,7 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeResult, WorkflowError},
 };
 use kcc_catalog::Risk;
-use kcc_rci::RciBody;
+use kcc_rci::{ConfigKind, RciBody};
 use secrecy::ExposeSecret as _;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
@@ -55,10 +55,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// Reads DHCP pools from the running configuration text.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
-    let bytes = router
-        .client
-        .download_config(kcc_rci::ConfigKind::Running)
-        .await?;
+    let bytes = router.client.download_config(ConfigKind::Running).await?;
     let text = from_utf8(bytes.expose_secret()).map_err(|_error| DomainError::InvalidResponse)?;
     Ok(model::parse_pools(text))
 }
@@ -71,7 +68,8 @@ pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> 
             .client
             .show_rc(json!({"ip":{"dhcp":{"host":{}}}}))
             .await?,
-        "/show/rc/ip/dhcp/host",
+        ConfigKind::Running,
+        "/ip/dhcp/host",
     )
 }
 
@@ -83,7 +81,8 @@ pub async fn read_startup_static_leases(router: &RouterCtx) -> Result<Vec<Static
             .client
             .show_sc(json!({"ip":{"dhcp":{"host":{}}}}))
             .await?,
-        "/show/sc/ip/dhcp/host",
+        ConfigKind::Startup,
+        "/ip/dhcp/host",
     )
 }
 
@@ -235,7 +234,7 @@ const fn write_operation(name: &'static str, path: &'static str) -> OperationDes
 }
 
 /// Decodes projected configuration rows.
-fn decode_config_rows<T>(body: RciBody, pointer: &str) -> Result<Vec<T>>
+fn decode_config_rows<T>(body: RciBody, kind: ConfigKind, pointer: &str) -> Result<Vec<T>>
 where
     T: DeserializeOwned,
 {
@@ -244,7 +243,8 @@ where
     };
     serde_json::from_value(
         response
-            .value
+            .configuration_tree(kind)
+            .ok_or(DomainError::InvalidResponse)?
             .pointer(pointer)
             .cloned()
             .ok_or(DomainError::InvalidResponse)?,
