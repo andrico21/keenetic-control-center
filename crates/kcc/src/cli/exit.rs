@@ -133,7 +133,9 @@ impl Failure {
         self.headline.is_some_and(|key| {
             matches!(
                 key,
-                keys::MANAGEMENT_DISARM_FAILED | keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+                keys::MANAGEMENT_DISARM_FAILED
+                    | keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+                    | keys::FINISH_SAVED_ARMED
             )
         })
     }
