@@ -23,3 +23,23 @@ One line each: round, finding, file:line, suggested fix. Reports are under
 - r17 row-137 agent: the wizard review classifies the whole source while the plan classifies the source without lines the operator excluded, so the membership of an interface whose lines were all excluded can differ between review and plan (excluding the `Vlan5` lines still plans `interface Bridge1 include Vlan5`). `kcc-web/src/migrate_wizard/plan.rs`, `kcc-migrate/src/rules.rs`. Fix: decide membership lines from the final dispositions after exclusions (same fix family as r17 F4-N73).
 - r17 row-138 agent: `kcc-web/src/presets_page/options.rs` uses the same `valid_name` for interface rows and was not examined for numeric switch-port sources. Fix: check the preset options step with a source that has `interface 1 ...` and apply the row-138 port-row treatment if it shows the same pre-fill/validator mismatch.
 - r17 row-136 agent: `kcc-web/src/page_kit/change.rs` still reports an ordinary (non-management) write that the router applied while its audit receipt timed out as a router failure; the management path is protected by the owner task. Same item as r17 F2-N76 / F4-N76 above.
+
+## Confirmation round (HEAD `0d00606`, all four reviewers APPROVE)
+
+Reports: `.omo/evidence/F<n>-keenetic-control-center-confirm.md`.
+
+- confirm F2-5, F4-1: `deploy/podman/kcc.container:41` `StopTimeout=40` equals `server.shutdown_timeout` (30 s) plus the 10 s bracket grace (`crates/kcc/src/server_shutdown.rs:17`), and `run_serve` then runs the pre-existing `jobs.drain(30 s)` (`crates/kcc/src/server.rs:205`), so Podman's SIGKILL can win (measured self-exit 40.1 s with stuck brackets). Routers keep their armed fail-safe timers, so nothing is lost; `docs/MONITORING.md:47-48` says "at least", the row asked for "below". Fix: raise `StopTimeout` (and the documented minimum) to cover shutdown_timeout + grace + the jobs drain, or shorten the grace.
+- confirm F4-5, F1-4: part (c) of row 136 (in-request audit appends bounded by the remaining budget) was not implemented; a held Web bracket can answer after ~88 s under a held audit lock (documented in `docs/MONITORING.md`). Fix: an in-request append deadline.
+- confirm F2-1..F2-4: brackets/shutdown test gaps that leave mutants alive on correct code: `brackets.rs:110` (`Claim::hold` refusing an ENDED claim), `:73` (`Brackets::drain` predicate, timing-dependent), `:182` (`own` panic/cancel discrimination), `server_shutdown.rs:66` (the "still closing at exit" warning unasserted).
+- confirm F2-6: `page_kit/change.rs:393-398` names an unowned management change "audit writer unavailable"; unreachable in production (every Web route is under `own`). Fix: a dedicated reason.
+- confirm F2-7: the kit logs `max_concurrent_requests is unset`; held requests now outlive the budget, so an explicit `with_max_concurrent_requests` would bound them besides the per-router lease.
+- confirm F3-1, F4-2: after a lock-held or dead-writer bracket the Web answer and the audit say the timer "stays armed" although the disarm was accepted (`config state` armed: no). Over-cautious wording; nothing was applied. Fix: report "not applied, timer disarmed" when the arm was refused or the disarm accepted.
+- confirm F3-2, F3-3, F4-carried: an ordinary Web write applied while the client left or its audit receipt timed out is answered 408 with no entry (same class as r17 F2-N76/F4-N76; identical before row 136).
+- confirm F3-4: a Web login while another process holds the audit lock takes ~27 s (the login audit append waits for the lock).
+- confirm F3-5: the Web migration preview still offers "Apply the migration" when "Commands to send" is 0.
+- confirm F3-6: `kcc copy ... --yes --finish save` prints "changes are not saved yet" before it finishes with save (the known CLI action-tense item).
+- confirm F3-7: `kcc serve` exits ~4.4 s after "jobs drained" on SIGTERM with nothing in flight.
+- confirm F4-3: `migrate_wizard/routes.rs:59` and `presets_page/routes.rs:85` keep `TimeoutLayer` (30 s, 408) instead of `brackets::budget`; a finish route cut at 30 s leaves the migration's own timer armed (pre-existing; the fail-safe still recovers).
+- confirm F4-4: slow-header connections (request line, then silence) stay open for more than 70 s; the kit's `run_server`, unchanged by the delta. Fix: a header read timeout in the kit configuration.
+- confirm F4 fake: `kcc-testkit/src/projection/interface.rs:35` keeps the first-inserted of `up`/`down` once both leaves exist, so later curated `interfaces down` read-backs fail on that fake (the fake, not kcc).
+- confirm F1-1, F1-2, F1-3: task-138 receipt M2 has no own `before` line; `maps.rs` sits at 250 pure LOC; an aborted unheld task maps to 503 in `brackets.rs:189` (unobservable).
