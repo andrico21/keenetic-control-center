@@ -11,7 +11,6 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_catalog::Risk;
 use kcc_domain::{
     RouterCtx,
     segments::{self, SegmentView},

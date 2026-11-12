@@ -1,7 +1,6 @@
 //! Client policy, DHCP pool and segment writes.
 
 use kcc_app::permissions::Permission;
-use kcc_catalog::Risk;
 use kcc_domain::{
     clients::{self, Access, PolicySelection},
     dhcp::{self, model::PoolConfig},
