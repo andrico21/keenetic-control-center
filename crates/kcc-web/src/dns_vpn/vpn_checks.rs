@@ -2,9 +2,9 @@
 //! or server changes each plans.
 
 use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
-use kcc_catalog::{Risk, ValidatedRequest};
+use kcc_catalog::Risk;
 use kcc_domain::{
-    ChangeOp, Result as DomainResult, RouterCtx,
+    ChangeOp, DomainError, Result as DomainResult, RouterCtx,
     vpn_clients::{self, VpnClientChange},
     vpn_servers::{self, VpnServerChange},
 };
@@ -14,6 +14,10 @@ use super::{
     check::{self, Optional},
     form::{Errors, Values},
     vpn_forms::{Server, VpnForm},
+};
+use crate::{
+    authz::CurrentUser,
+    page_kit::gate::{allowed, operation_permissions},
 };
 
 /// Checked VPN changes, ready to plan.
@@ -31,28 +35,73 @@ impl Planned {
     /// # Errors
     ///
     /// Returns the catalog's findings.
-    pub(crate) async fn request(&self, ctx: &RouterCtx) -> DomainResult<CliChangeRequest> {
-        let mut requests = Vec::new();
-        match self {
+    pub(crate) async fn request(&self, ctx: &RouterCtx) -> DomainResult<PlannedRequest> {
+        let operation = match self {
             Self::Clients(changes) => {
+                let mut operation = None;
                 for change in changes {
-                    requests.extend(vpn_clients::plan_change(ctx, change).await?.requests);
+                    merge(&mut operation, vpn_clients::plan_change(ctx, change).await?);
                 }
-                vpn_clients::change_request(&write(requests))
+                operation.ok_or(DomainError::InvalidResponse)?
             }
             Self::Servers(changes) => {
+                let mut operation = None;
                 for change in changes {
-                    requests.extend(vpn_servers::plan_change(ctx, change)?.requests);
+                    merge(&mut operation, vpn_servers::plan_change(ctx, change)?);
                 }
-                vpn_servers::change_request(&write(requests))
+                operation.ok_or(DomainError::InvalidResponse)?
             }
-        }
+        };
+        let request = match self {
+            Self::Clients(_) => vpn_clients::change_request(&operation)?,
+            Self::Servers(_) => vpn_servers::change_request(&operation)?,
+        };
+        Ok(PlannedRequest {
+            request,
+            risk: operation.risk,
+        })
     }
 }
 
-/// A write plan of the validated `requests`.
-const fn write(requests: Vec<ValidatedRequest>) -> ChangeOp {
-    ChangeOp::new(requests, Vec::new(), Risk::Write, Permission::Write, false)
+/// A protected aggregate request and the maximum risk of its constituent plans.
+pub(crate) struct PlannedRequest {
+    /// Protected CLI request.
+    request: CliChangeRequest,
+    /// Maximum planned risk.
+    risk: Risk,
+}
+
+impl PlannedRequest {
+    /// Builds a protected request with its maximum planned risk.
+    pub(crate) const fn new(request: CliChangeRequest, risk: Risk) -> Self {
+        Self { request, risk }
+    }
+
+    /// Splits this plan into its protected request and maximum risk.
+    pub(crate) fn into_parts(self) -> (CliChangeRequest, Risk) {
+        (self.request, self.risk)
+    }
+
+    /// Whether `user` may execute this plan on `router`.
+    pub(crate) fn allowed(&self, user: &CurrentUser, router: &str) -> bool {
+        allowed(
+            user,
+            router,
+            &operation_permissions(Permission::Write, self.risk),
+        )
+    }
+}
+
+/// Merges one complete operation without losing its maximum risk or verification.
+fn merge(aggregate: &mut Option<ChangeOp>, mut operation: ChangeOp) {
+    if let Some(planned) = aggregate {
+        planned.requests.append(&mut operation.requests);
+        planned.verify.append(&mut operation.verify);
+        planned.risk = planned.risk.max(operation.risk);
+        planned.persists_immediately |= operation.persists_immediately;
+    } else {
+        *aggregate = Some(operation);
+    }
 }
 
 /// The changes `values` ask for in the dialog `form`, or the field errors that stop them.

@@ -12,6 +12,7 @@ mod support;
 
 use core::net::Ipv4Addr;
 
+use base64::{Engine as _, engine::general_purpose::STANDARD};
 use kcc_catalog::{RawAuthorization, Risk};
 use kcc_domain::{segments, vpn_clients, wan, wifi};
 use kcc_rci::ObjectName;
@@ -181,6 +182,27 @@ async fn wan_lifecycle_and_priority_preserve_management_risk() -> TestResult {
                     assert_eq!(operation.risk, expected, "WAN: {}", line.as_str());
                 }
             }
+        }
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+#[tokio::test]
+async fn wireguard_import_preserves_generated_interface_risk() -> TestResult {
+    let public_key = STANDARD.encode([1_u8; 32]);
+    let text = format!("[Interface]\nListenPort = 51820\n[Peer]\nPublicKey = {public_key}\n");
+    let config = vpn_clients::parse_wireguard_config(&text)?;
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        for (name, expected) in [
+            ("Bridge0", Risk::Management),
+            ("WifiMaster0/AccessPoint0", Risk::Management),
+            ("Wireguard7", Risk::Write),
+        ] {
+            let operation =
+                vpn_clients::plan_wireguard_import(fixture.context(), name, &config).await?;
+            assert_eq!(operation.risk, expected, "WireGuard import: {name}");
         }
         fixture.shutdown().await?;
     }

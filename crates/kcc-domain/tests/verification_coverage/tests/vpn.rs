@@ -29,7 +29,7 @@ pub(super) async fn check(router: &RouterCtx, domain: DomainId, op: &str) -> Tes
         ));
         let parsed = vpn_clients::parse_wireguard_config(input.expose_secret())?;
         return checked(vpn_clients::change_request(
-            &vpn_clients::plan_wireguard_import(router, &name, &parsed)?,
+            &vpn_clients::plan_wireguard_import(router, &name, &parsed).await?,
         )?);
     }
     if let Some(target) = credential(op)? {

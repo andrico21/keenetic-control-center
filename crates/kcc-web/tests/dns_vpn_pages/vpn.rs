@@ -6,7 +6,8 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
+use serde_json::json;
 
 use crate::{
     form, key, said,
@@ -255,5 +256,86 @@ async fn a_server_change_the_router_refuses_shows_its_words() -> TestResult {
             .any(|entry| entry.action == "web.vpn_service" && entry.outcome == "rci_error"),
         "audited"
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn management_tunnel_changes_are_refused_or_bracketed() -> TestResult {
+    for mode in ["router", "extender"] {
+        for change in ["state", "delete"] {
+            let mut scenario = migration::Fixture::default();
+            scenario.mode = Some(mode.to_owned());
+            let fake = FakeRouter::builder(Profile::default())
+                .show_fixture(
+                    "interface",
+                    json!({
+                        "Wireguard7": {
+                            "id": "Wireguard7",
+                            "type": "Wireguard",
+                            "address": "127.0.0.1",
+                            "state": "up",
+                            "wireguard": {}
+                        }
+                    }),
+                )
+                .build()?
+                .with_migration(scenario);
+            let fixture = Fixture::with_router(fake).await?;
+            let path = format!("{PAGE}/{change}");
+            let body = if change == "state" {
+                form(&[("tunnel", "Wireguard7"), ("enabled", "off")])
+            } else {
+                form(&[("name", "Wireguard7"), ("confirm", "Wireguard7")])
+            };
+            for account in ["operator", "writer"] {
+                let browser = fixture.login(account).await?;
+                let before = fixture.handle().request_log().len();
+                let response = fixture.post(&path, &browser, &body).await?;
+                assert_eq!(
+                    response.status(),
+                    StatusCode::FORBIDDEN,
+                    "{account} {mode} {change}"
+                );
+                assert!(
+                    fixture
+                        .handle()
+                        .request_log()
+                        .iter()
+                        .skip(before)
+                        .all(|record| record.command().is_none()),
+                    "{account} {mode} {change}"
+                );
+            }
+            let admin = fixture.login("admin").await?;
+            let before = fixture.handle().request_log().len();
+            let response = fixture.post(&path, &admin, &body).await?;
+            assert_eq!(response.status(), StatusCode::OK, "admin {mode} {change}");
+            let commands = fixture
+                .handle()
+                .request_log()
+                .iter()
+                .skip(before)
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            let (arm, disarm) = if mode == "router" {
+                (
+                    "system configuration fail-safe timer reboot 300",
+                    "no system configuration fail-safe timer",
+                )
+            } else {
+                ("system reboot 300", "no system reboot")
+            };
+            assert_eq!(
+                commands.first().map(String::as_str),
+                Some(arm),
+                "{commands:?}"
+            );
+            assert_eq!(
+                commands.last().map(String::as_str),
+                Some(disarm),
+                "{commands:?}"
+            );
+        }
+    }
     Ok(())
 }

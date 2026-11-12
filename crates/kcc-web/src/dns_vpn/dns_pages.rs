@@ -6,6 +6,7 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
+use kcc_catalog::Risk;
 use kcc_domain::{
     DomainError, RouterCtx,
     dns::{self, DnsChange},
@@ -166,7 +167,7 @@ pub(crate) async fn submit(
     };
     let viewer = Viewer::new(&router, locale, controls(&ctx, &user, &router))
         .with_query(flow::shown_query(&headers));
-    let answered = flow::apply(action, request, async || {
+    let answered = flow::apply(action, request, Risk::Write, async || {
         region(&ctx, form.tab(), &viewer).await
     });
     Ok(answered.await.respond())
@@ -209,7 +210,7 @@ pub(crate) async fn intercept(
     };
     let viewer = Viewer::new(&router, locale, controls(&ctx, &user, &router))
         .with_query(flow::shown_query(&headers));
-    let answered = flow::apply(action, request, async || {
+    let answered = flow::apply(action, request, Risk::Write, async || {
         region(&ctx, Tab::Filtering, &viewer).await
     });
     Ok(answered.await.respond())

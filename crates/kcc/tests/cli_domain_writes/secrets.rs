@@ -1,6 +1,7 @@
 //! Key material reaches the router only through `--password-file` or a `.conf` file and
 //! never appears on stdout, stderr or in the audit log.
 
+use kcc_app::permissions::Permission;
 use serde_json::Value;
 
 use super::{
@@ -70,6 +71,47 @@ async fn wireguard_import_reads_the_file_and_never_prints_its_keys() -> TestResu
         "the audit log leaks the pre-shared key"
     );
     lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn wireguard_import_refuses_every_existing_interface_name_without_writes() -> TestResult {
+    for role in ["admin", "operator", "writer"] {
+        let cli = if role == "admin" {
+            String::new()
+        } else {
+            format!("role = {role:?}")
+        };
+        let lab = Lab::spawn(&cli).await?;
+        if role == "writer" {
+            lab.add_role("writer", [Permission::Read, Permission::Write])?;
+        }
+        let public_key = key('1');
+        let conf = lab.env.write(
+            "existing-interface.conf",
+            &format!("[Interface]\nListenPort = 51820\n[Peer]\nPublicKey = {public_key}\n"),
+        )?;
+        let file = conf.to_str().ok_or("non-UTF-8 path")?;
+        for name in [
+            "Bridge0",
+            "GigabitEthernet0/1",
+            "WifiMaster0/AccessPoint0",
+            "ISP",
+        ] {
+            let before = lab.fake.request_log().len();
+            let refused = lab.run(&["vpn", "wireguard-import", name, "--file", file])?;
+            assert_eq!(refused.code, 5_i32, "{role} {name}: {refused:?}");
+            assert!(
+                lab.fake
+                    .request_log()
+                    .iter()
+                    .skip(before)
+                    .all(|record| record.command().is_none()),
+                "{role} {name} sent a write"
+            );
+        }
+        lab.shutdown().await?;
+    }
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

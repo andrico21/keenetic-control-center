@@ -19,7 +19,7 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use kcc_catalog::Risk;
+use kcc_app::permissions::Permission;
 use kcc_domain::vpn_clients;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
@@ -36,8 +36,15 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    errors,
     page_kit::{
-        action::Operation, change::Change, failure::plan_failure, family::Family, respond::Answer,
+        action::Operation,
+        change::Change,
+        context::fragment_shell,
+        failure::plan_failure,
+        family::Family,
+        gate::{allowed, operation_permissions},
+        respond::Answer,
     },
     secret_pages::reply::confirmed,
 };
@@ -111,27 +118,41 @@ pub(crate) async fn import(
     };
     let ctx = action.context().await?;
     // A new connection never reuses a name: that would regenerate a live tunnel's key.
-    let planned = exists(&ctx, &name).await.and_then(|used| {
-        let operation = vpn_clients::plan_wireguard_import(&ctx, &name, &config)?;
-        Ok((used, vpn_clients::change_request(&operation)?))
-    });
-    let request = match planned {
-        Ok((false, request)) => request,
-        Ok((true, _)) => {
+    let name_taken = exists(&ctx, &name).await;
+    let import_result = match name_taken {
+        Ok(false) => vpn_clients::plan_wireguard_import(&ctx, &name, &config)
+            .await
+            .and_then(|operation| {
+                let request = vpn_clients::change_request(&operation)?;
+                Ok((request, operation.risk))
+            }),
+        Ok(true) => {
             action.abandon("validation_failed").await;
             let text = tr(locale, keys::WEB_VPN_ERROR_NAME_TAKEN, None);
             return Err(shown.error("name", &text).invalid().into());
         }
+        Err(error) => Err(error),
+    };
+    let (request, risk) = match import_result {
+        Ok(import_plan) => import_plan,
         Err(error) => {
             let failure = plan_failure(Family::Changes, locale, &error);
             action.abandon("validation_failed").await;
             return Err(shown.error("file", failure.message()).invalid().into());
         }
     };
+    if !allowed(
+        &user,
+        &router,
+        &operation_permissions(Permission::Write, risk),
+    ) {
+        action.abandon("forbidden").await;
+        return Err(errors::response(errors::Kind::Forbidden, fragment_shell(locale)).into());
+    }
     let viewer = Spot::Connections
         .viewer(&ctx, &user, &router)
         .with_query(flow::shown_query(&headers));
-    let mut outcome = action.run(Risk::Write, Change::Cli(request)).await;
+    let mut outcome = action.run(risk, Change::Cli(request)).await;
     if vpn_conf::keyed(&config) {
         outcome = confirmed(outcome, tr(locale, keys::WEB_SECRET_IMPORT_DONE, None));
     }

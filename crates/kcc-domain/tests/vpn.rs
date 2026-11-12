@@ -90,7 +90,7 @@ async fn wireguard_import_applies_non_secret_peer_fields() -> TestResult {
         assert!(!format!("{config:?}").contains(&private_key));
         assert!(!format!("{config:?}").contains(&preshared_key));
         let operation =
-            vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config)?;
+            vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config).await?;
         let request = vpn_clients::change_request(&operation)?;
         let mut changes = fixture.changes().await?;
 

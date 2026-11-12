@@ -18,6 +18,7 @@ use super::{
     form::Values,
     region::Region,
     screen::{Page, Tab, missing},
+    vpn_checks,
     vpn_forms::VpnForm,
     vpn_peer_psk::{self, PeerKey},
     vpn_read::{exists, free_wireguard},
@@ -28,7 +29,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     page_kit::{
-        context::Caller,
+        context::{Caller, fragment_shell},
         failure::plan_failure,
         family::Family,
         gate::Controls,
@@ -239,8 +240,8 @@ pub(crate) async fn submit(
     let locale = action.locale();
     let dialog = || form.dialog(&router, locale).values(&values);
     let key_problems = vpn_peer_psk::problems(psk.as_ref().filter(|_| form == VpnForm::Peer));
-    let planned = match (form.check(&values), key_problems.is_empty()) {
-        (Ok(planned), true) => planned,
+    let checked_changes = match (form.check(&values), key_problems.is_empty()) {
+        (Ok(changes), true) => changes,
         (Ok(_), false) => {
             action.abandon("validation_failed").await;
             return Err(dialog().errors(&key_problems).invalid().into());
@@ -262,15 +263,19 @@ pub(crate) async fn submit(
     let peer_key = psk
         .filter(|_| form == VpnForm::Peer)
         .map(|key| PeerKey::new(&values, key));
-    let written = planned
+    let written = checked_changes
         .request(&ctx)
         .await
-        .and_then(|request| match peer_key {
-            Some(key) => key.joined(request, &ctx),
-            None => Ok(request),
+        .and_then(|request_plan| {
+            let (base_request, risk) = request_plan.into_parts();
+            let joined_request = match peer_key {
+                Some(key) => key.joined(base_request, &ctx)?,
+                None => base_request,
+            };
+            Ok(vpn_checks::PlannedRequest::new(joined_request, risk))
         });
-    let request = match taken.and_then(|used| Ok((used, written?))) {
-        Ok((false, request)) => request,
+    let request_plan = match taken.and_then(|used| Ok((used, written?))) {
+        Ok((false, ready)) => ready,
         Ok((true, _)) => {
             action.abandon("validation_failed").await;
             let taken_name = vec![("name", keys::WEB_VPN_ERROR_NAME_TAKEN)];
@@ -285,6 +290,10 @@ pub(crate) async fn submit(
                 .into());
         }
     };
+    if !request_plan.allowed(&user, &router) {
+        action.abandon("forbidden").await;
+        return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
+    }
     let spot = match form {
         VpnForm::Peer => Spot::Peers(values.get("tunnel").trim().to_owned()),
         VpnForm::Create | VpnForm::Import => Spot::Connections,
@@ -293,6 +302,9 @@ pub(crate) async fn submit(
     let viewer = spot
         .viewer(&ctx, &user, &router)
         .with_query(flow::shown_query(&headers));
-    let answered = flow::apply(action, request, async || region(&ctx, &spot, &viewer).await);
+    let (request, risk) = request_plan.into_parts();
+    let answered = flow::apply(action, request, risk, async || {
+        region(&ctx, &spot, &viewer).await
+    });
     Ok(answered.await.respond())
 }

@@ -344,12 +344,13 @@ pub async fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result
 }
 
 /// Plans imported private and peer keys through protected requests, generating a key when absent.
-pub fn plan_wireguard_import(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_wireguard_import(
     router: &RouterCtx,
     name: &str,
     config: &WireGuardConfig,
 ) -> Result<ChangeOp> {
-    import::plan(router, name, config)
+    import::plan(router, name, config).await
 }
 
 /// Converts a VPN client plan to protected workflow input.

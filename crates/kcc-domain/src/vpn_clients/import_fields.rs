@@ -55,9 +55,7 @@ pub(super) fn append(
         }
     }
     for field in changes {
-        operation
-            .requests
-            .extend(change::plan_unclassified(router, &field)?.requests);
+        change::append(router, operation, &field)?;
     }
     Ok(())
 }

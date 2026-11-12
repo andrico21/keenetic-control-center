@@ -11,9 +11,21 @@ use super::{VpnClientChange, WireGuardConfig, change, import_fields};
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
 
 /// Builds the complete import before any mutation can be dispatched.
-pub(super) fn plan(router: &RouterCtx, name: &str, config: &WireGuardConfig) -> Result<ChangeOp> {
-    let mut operation = change::plan_unclassified(
+pub(super) async fn plan(
+    router: &RouterCtx,
+    name: &str,
+    config: &WireGuardConfig,
+) -> Result<ChangeOp> {
+    let mut operation = ChangeOp::new(
+        Vec::new(),
+        Vec::new(),
+        Risk::Write,
+        Permission::Write,
+        false,
+    );
+    change::append(
         router,
+        &mut operation,
         &VpnClientChange::Create {
             name: name.to_owned(),
         },
@@ -30,15 +42,13 @@ pub(super) fn plan(router: &RouterCtx, name: &str, config: &WireGuardConfig) -> 
                 pointer: format!("/{}/private-key", escape(name)),
             },
         )?,
-        None => operation.requests.extend(
-            change::plan_unclassified(
-                router,
-                &VpnClientChange::GenerateWireGuardPrivateKey {
-                    name: name.to_owned(),
-                },
-            )?
-            .requests,
-        ),
+        None => change::append(
+            router,
+            &mut operation,
+            &VpnClientChange::GenerateWireGuardPrivateKey {
+                name: name.to_owned(),
+            },
+        )?,
     }
     import_fields::append(router, name, config, &mut operation)?;
     if let Some(key) = &config.interface.obfuscation_key {
@@ -96,9 +106,7 @@ pub(super) fn plan(router: &RouterCtx, name: &str, config: &WireGuardConfig) -> 
             )?;
         }
     }
-    operation.risk = Risk::Write;
-    operation.permission = Permission::Write;
-    Ok(operation)
+    change::classify(router, operation).await
 }
 
 /// Plans one existing peer's preshared key alone, verified by its presence marker.

@@ -41,7 +41,8 @@ mod tests {
                     fixture.context(),
                     "Wireguard7",
                     &vpn_clients::parse_wireguard_config(&obfuscated)?,
-                );
+                )
+                .await;
                 assert!(refused_by_catalog(&refused), "obfuscation key accepted");
                 assert_eq!(fixture.handle().request_count(), sent);
                 let plain = obfuscated
@@ -55,7 +56,8 @@ mod tests {
             };
             let config = vpn_clients::parse_wireguard_config(&text)?;
             let operation =
-                vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config)?;
+                vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config)
+                    .await?;
             let request = vpn_clients::change_request(&operation)?;
             let printable = format!("{config:?} {operation:?} {request:?}");
             let mut changes = fixture.changes().await?;
@@ -142,6 +144,7 @@ mod tests {
                 }
                 let error =
                     vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config)
+                        .await
                         .err()
                         .ok_or("control character accepted")?;
                 assert_eq!(fixture.handle().request_count(), before);

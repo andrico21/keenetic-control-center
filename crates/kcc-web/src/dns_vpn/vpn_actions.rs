@@ -235,13 +235,13 @@ impl<'request> Reply<'request> {
 
 /// Plans `planned` for `action`, runs it and answers as `reply` says.
 // NOT cancel-safe: see `Action::run`.
-async fn run(action: Action<'_>, planned: Planned, reply: Reply<'_>) -> Response {
+async fn run(action: Action<'_>, changes: Planned, reply: Reply<'_>) -> Response {
     let locale = action.locale();
     let ctx = match action.context().await {
         Ok(found) => found,
         Err(answer) => return answer.into_response(),
     };
-    let request = match planned.request(&ctx).await {
+    let request_plan = match changes.request(&ctx).await {
         Ok(request) => request,
         Err(error) => {
             let failure = plan_failure(Family::Changes, locale, &error);
@@ -249,11 +249,18 @@ async fn run(action: Action<'_>, planned: Planned, reply: Reply<'_>) -> Response
             return Answered::new(Outcome::failed(failure), locale).respond();
         }
     };
+    if !request_plan.allowed(reply.user, action.router()) {
+        action.abandon("forbidden").await;
+        return errors::response(errors::Kind::Forbidden, fragment_shell(locale));
+    }
     let spot = reply.spot;
     let viewer = spot
         .viewer(&ctx, reply.user, action.router())
         .with_query(flow::shown_query(reply.headers));
-    flow::apply(action, request, async || region(&ctx, &spot, &viewer).await)
-        .await
-        .respond()
+    let (request, risk) = request_plan.into_parts();
+    flow::apply(action, request, risk, async || {
+        region(&ctx, &spot, &viewer).await
+    })
+    .await
+    .respond()
 }

@@ -194,13 +194,14 @@ pub(crate) fn shown_query(headers: &HeaderMap) -> TableQuery {
 pub(crate) async fn apply<F>(
     action: Action<'_>,
     request: CliChangeRequest,
+    risk: Risk,
     read_back: F,
 ) -> Answered
 where
     F: AsyncFnOnce() -> (Region, Vec<Act>),
 {
     let locale = action.locale();
-    let outcome = action.run(Risk::Write, Change::Cli(request)).await;
+    let outcome = action.run(risk, Change::Cli(request)).await;
     let refreshed = if outcome.succeeded() {
         Some(read_back().await)
     } else {

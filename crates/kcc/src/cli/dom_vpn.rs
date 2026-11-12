@@ -5,9 +5,12 @@ use std::{fs, io::Read as _, path::Path};
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::vpn_clients::{
-    self, VpnClientChange, WireGuardAsc,
-    secrets::{self as client_secrets, CredentialTarget},
+use kcc_domain::{
+    interfaces,
+    vpn_clients::{
+        self, VpnClientChange, WireGuardAsc,
+        secrets::{self as client_secrets, CredentialTarget},
+    },
 };
 use kcc_i18n::keys;
 use zeroize::Zeroizing;
@@ -65,10 +68,9 @@ async fn secrets(ctx: &Ctx, command: VpnSecretCommand) -> Outcome {
             let text = read_conf(&file)?;
             let config = vpn_clients::parse_wireguard_config(&text)
                 .map_err(|error| Failure::text(Exit::Validation, &error))?;
-            let taken = vpn_clients::read_clients(session.router())
+            let taken = interfaces::read_interfaces(session.router())
                 .await?
-                .iter()
-                .any(|client| client.id == name);
+                .contains_key(&name);
             if taken {
                 return Err(Failure::message(
                     Exit::Conflict,
@@ -76,7 +78,8 @@ async fn secrets(ctx: &Ctx, command: VpnSecretCommand) -> Outcome {
                     &[("name", &name)],
                 ));
             }
-            let operation = vpn_clients::plan_wireguard_import(session.router(), &name, &config)?;
+            let operation =
+                vpn_clients::plan_wireguard_import(session.router(), &name, &config).await?;
             session
                 .cli(&operation, vpn_clients::change_request(&operation)?)
                 .await

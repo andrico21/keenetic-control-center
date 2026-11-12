@@ -1,5 +1,7 @@
 //! Catalog validation and protected workflow conversion for VPN clients.
 
+use core::result::Result as CoreResult;
+
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
@@ -53,24 +55,38 @@ pub(super) const WRITES: &[OperationDescriptor] = &[
 /// Plans one non-secret mutation.
 // cancel-safe: management classification performs read-only topology requests.
 pub(super) async fn plan(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
-    let mut operation = plan_unclassified(router, change)?;
-    let lines = operation
-        .requests
+    classify(router, unclassified(router, change)?).await
+}
+
+/// Classifies every generated command in one complete VPN client operation.
+// cancel-safe: management classification performs read-only topology requests.
+pub(super) async fn classify(router: &RouterCtx, mut operation: ChangeOp) -> Result<ChangeOp> {
+    let request = request(&operation)?;
+    let lines = request
+        .commands
         .iter()
-        .map(|request| {
-            request
-                .value
-                .get("line")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)
-        })
-        .collect::<Result<Vec<_>>>()?;
-    operation.risk = interfaces::management::classify_generated(router, &lines).await?;
+        .map(ValidatedCli::expose_for_send)
+        .collect::<CoreResult<Vec<_>, _>>()
+        .map_err(|_error| DomainError::InvalidResponse)?;
+    let rendered = lines.iter().map(|line| line.as_str()).collect::<Vec<_>>();
+    operation.risk = interfaces::management::classify_generated(router, &rendered).await?;
     Ok(operation)
 }
 
-/// Plans one non-secret mutation before generated-line management classification.
-pub(super) fn plan_unclassified(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
+/// Appends one catalog-validated non-secret mutation to an aggregate operation.
+pub(super) fn append(
+    router: &RouterCtx,
+    operation: &mut ChangeOp,
+    change: &VpnClientChange,
+) -> Result<()> {
+    operation
+        .requests
+        .extend(unclassified(router, change)?.requests);
+    Ok(())
+}
+
+/// Plans one non-secret mutation before complete-operation classification.
+fn unclassified(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
     let (path, body, line) = render::input(change);
     let mut validated = router
         .catalog
