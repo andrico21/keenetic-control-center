@@ -5,8 +5,10 @@
 //! ports and radios are proposed the engine's way (`kcc_migrate::maps`): by role (WAN to
 //! WAN, LAN n to LAN n) and by a band in common. A file or a backup has no hardware to
 //! read: its ports and radios are the ones its configuration names, kept under their
-//! name where the target has them. Interfaces keep their names unless the target has the
-//! name for another kind of interface.
+//! name where the target has them. A switch port named by its number (`interface 1`) is
+//! a port row for either source, unmapped unless the target has that port, so the
+//! default maps plan it as the CLI and MCP do. Interfaces keep their names unless the
+//! target has the name for another kind of interface.
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
@@ -20,7 +22,7 @@ use serde_json::json;
 
 use super::{
     kinds::Maps,
-    names::{configured_interfaces, interface_kind, is_port, is_radio, valid_name},
+    names::{configured_interfaces, interface_kind, is_port, is_radio, is_switch_port, valid_name},
 };
 
 /// Which map a row belongs to.
@@ -112,14 +114,14 @@ impl<'call> Sides<'call> {
     /// The proposed maps.
     pub(super) fn propose(&self) -> Maps {
         let named = configured_interfaces(self.config);
+        let port_ids = self
+            .target
+            .ports
+            .iter()
+            .map(|port| port.id.clone())
+            .collect::<Vec<_>>();
         let (ports, radios) = self.hardware.map_or_else(
             || {
-                let port_ids = self
-                    .target
-                    .ports
-                    .iter()
-                    .map(|port| port.id.clone())
-                    .collect::<Vec<_>>();
                 let radio_ids = self
                     .target
                     .radios
@@ -137,8 +139,16 @@ impl<'call> Sides<'call> {
                 )
             },
             |source| {
+                let mut ports = PortMap::propose(&source.ports, &self.target.ports);
+                let switch_ports: PortMap = entries(
+                    named.iter().filter(|name| {
+                        is_switch_port(name) && !source.ports.iter().any(|port| port.id == **name)
+                    }),
+                    &port_ids,
+                );
+                ports.entries.extend(switch_ports.entries);
                 (
-                    PortMap::propose(&source.ports, &self.target.ports),
+                    ports,
                     distinct_radios(
                         RadioMap::propose(&source.radios, &self.target.radios),
                         &source.radios,

@@ -27,6 +27,13 @@ pub(super) fn configured_interfaces(config: &SourceConfig) -> Vec<String> {
 pub(super) fn is_port(name: &str, ports: &[PhysicalPort]) -> bool {
     ports.iter().any(|port| port.id == name)
         || (name.contains("Ethernet") && !name.contains("/AccessPoint"))
+        || is_switch_port(name)
+}
+
+/// Whether a configured `name` is a switch port by its number, as in
+/// `interface 1 switchport trunk vlan 5`: a port, never a typed interface name.
+pub(super) fn is_switch_port(name: &str) -> bool {
+    !name.is_empty() && name.bytes().all(|byte| byte.is_ascii_digit())
 }
 
 /// Whether a configured `name` is a Wi-Fi radio (not one of its access points).

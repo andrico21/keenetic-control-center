@@ -25,6 +25,8 @@ mod setup;
 mod steps;
 #[path = "migration_wizard/support.rs"]
 mod support;
+#[path = "migration_wizard/switch_ports.rs"]
+mod switch_ports;
 
 use axum::response::Response;
 use kcc_i18n::{
