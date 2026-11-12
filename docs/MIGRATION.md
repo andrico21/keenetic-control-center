@@ -144,6 +144,14 @@ Factory-reset the target first for a predictable result.
 | `unsupported` | left out: the target catalog can't validate it |
 | `conflict` | blocks: the target has a different value; choose which wins |
 
+Bridge membership is retained when the target already reports the member or when the
+same plan has an executable setting that creates the mapped logical interface. To keep
+missing source hardware fail-closed, kcc treats `GigabitEthernet<n>/<n>` (but not its
+`/Vlan<n>` logical suffix), `WifiMaster<n>`, `WifiMaster<n>/AccessPoint<n>`,
+`FastEthernet*`, `Usb*`, `Ethernet*`, and the `ISP` port alias as physical; every other
+interface name is treated as logical. This split is a name heuristic derived from the
+catalog and known router inventories, not a hardware-verified fact.
+
 ### Never migrated, and why
 
 - **Identity**: KeenDNS registration and booking, cloud registration, ACME and other

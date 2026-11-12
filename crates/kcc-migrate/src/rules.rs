@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
+    interface_names,
     inventory::TargetInventory,
     maps::{InterfaceMap, MapEntry, PortMap, RadioMap},
 };
@@ -252,14 +253,16 @@ impl RuleEngine {
         let redacted_lines = flatten(&redact(source));
         let target_lines = flatten(target.running_config);
         let mappings = mappings(choices);
-        let planned_interfaces = planned_interfaces(&lines, &mappings);
-        Ok(lines
+        let classified_non_memberships = lines
             .iter()
             .zip(redacted_lines.iter())
             .enumerate()
             .map(|(source_index, (line, redacted_line))| {
+                if bridge_member(line).is_some() {
+                    return None;
+                }
                 let fully_redacted_line = redact_ns3(redacted_line);
-                classify_line(
+                Some(classify_line(
                     source_index,
                     line,
                     &fully_redacted_line,
@@ -267,10 +270,34 @@ impl RuleEngine {
                     &target,
                     choices,
                     &target_lines,
-                    &planned_interfaces,
+                    &BTreeSet::new(),
                     &mappings,
                     rules,
-                )
+                ))
+            })
+            .collect::<Vec<_>>();
+        let planned_interfaces = planned_interfaces(&lines, &classified_non_memberships, &mappings);
+        Ok(lines
+            .iter()
+            .zip(redacted_lines.iter())
+            .zip(classified_non_memberships)
+            .enumerate()
+            .map(|(source_index, ((line, redacted_line), classified))| {
+                classified.unwrap_or_else(|| {
+                    let fully_redacted_line = redact_ns3(redacted_line);
+                    classify_line(
+                        source_index,
+                        line,
+                        &fully_redacted_line,
+                        source.header.model.as_deref(),
+                        &target,
+                        choices,
+                        &target_lines,
+                        &planned_interfaces,
+                        &mappings,
+                        rules,
+                    )
+                })
             })
             .collect())
     }
@@ -365,8 +392,8 @@ fn classify_line(
     rules: &[Rule],
 ) -> ClassifiedItem {
     let words = expanded_words(&line.tokens);
-    if let ["interface", _bridge, "include" | "inherit", member] = words.as_slice()
-        && let mapped_member = mappings.get(*member).copied().unwrap_or(member)
+    if let Some(member) = bridge_member(line)
+        && let mapped_member = mappings.get(member).copied().unwrap_or(member)
         && !planned_interfaces.contains(mapped_member)
         && match target.interfaces {
             InterfaceInventory::Available(interfaces) => !interfaces.contains(mapped_member),
@@ -434,15 +461,35 @@ fn classify_line(
     )
 }
 
-/// Collects mapped interface contexts that this source plan creates before membership replay.
-fn planned_interfaces(lines: &[CliLine], mappings: &BTreeMap<&str, &str>) -> BTreeSet<String> {
+/// Collects mapped logical interfaces with at least one executable setting.
+fn planned_interfaces(
+    lines: &[CliLine],
+    classified: &[Option<ClassifiedItem>],
+    mappings: &BTreeMap<&str, &str>,
+) -> BTreeSet<String> {
     lines
         .iter()
-        .filter_map(|line| match expanded_words(&line.tokens).as_slice() {
-            ["interface", name] => Some(mappings.get(*name).copied().unwrap_or(name).to_owned()),
-            [_, ..] | [] => None,
+        .zip(classified)
+        .filter_map(|(line, classification)| {
+            match (expanded_words(&line.tokens).as_slice(), classification) {
+                (["interface", name, ..], Some(item))
+                    if !interface_names::is_physical(name)
+                        && matches!(item.disposition, Disposition::Copy | Disposition::Remap) =>
+                {
+                    Some(mappings.get(*name).copied().unwrap_or(name).to_owned())
+                }
+                ([_, ..] | [], Some(_) | None) => None,
+            }
         })
         .collect()
+}
+
+/// Extracts the member from a flattened bridge-membership line.
+fn bridge_member(line: &CliLine) -> Option<&str> {
+    match expanded_words(&line.tokens).as_slice() {
+        ["interface", _bridge, "include" | "inherit", member] => Some(*member),
+        [_, ..] | [] => None,
+    }
 }
 
 /// Builds an item selected by the first matching explicit rule.
