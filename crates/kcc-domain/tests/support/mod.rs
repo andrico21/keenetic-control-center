@@ -37,6 +37,7 @@ use kcc_testkit::{
     time::{Clock, MockClock},
 };
 use secrecy::SecretString;
+use serde_json::Value;
 use tempfile::TempDir;
 use tracing::{Level, subscriber::DefaultGuard};
 use url::Url;
@@ -142,6 +143,19 @@ impl Fixture {
         Self::spawn_with(firmware, None, faults).await
     }
 
+    /// Starts KN-1811 with focused replacements for embedded show fixtures.
+    pub(crate) async fn spawn_with_show<I, S>(firmware: Firmware, fixtures: I) -> TestResult<Self>
+    where
+        I: IntoIterator<Item = (S, Value)>,
+        S: Into<String>,
+    {
+        let builder = fixtures.into_iter().fold(
+            FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?),
+            |builder, (path, value)| builder.show_fixture(path, value),
+        );
+        Self::spawn_builder(builder, None).await
+    }
+
     /// Starts KN-1811 on `firmware` with a deterministic clock.
     pub(crate) async fn spawn_clocked(firmware: Firmware) -> TestResult<Self> {
         Self::spawn_with(
@@ -167,7 +181,15 @@ impl Fixture {
             }
             None => base_builder,
         };
-        let router = configured_builder.build()?;
+        Self::spawn_builder(configured_builder, clock).await
+    }
+
+    /// Starts one configured fake-router builder and connects the domain context.
+    async fn spawn_builder(
+        builder: kcc_testkit::FakeRouterBuilder,
+        clock: Option<Arc<MockClock>>,
+    ) -> TestResult<Self> {
+        let router = builder.build()?;
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         let directory = TempDir::new()?;
         let password_file = directory.path().join("password");

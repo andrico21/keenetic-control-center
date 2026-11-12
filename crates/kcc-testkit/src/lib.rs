@@ -49,7 +49,10 @@ mod server;
 pub mod time;
 mod tree;
 
-use alloc::{collections::BTreeSet, sync::Arc};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 use core::{error::Error, fmt, net::SocketAddr, time::Duration};
 use std::io;
 
@@ -299,6 +302,8 @@ pub struct FakeRouterBuilder {
     clock: Arc<dyn Clock>,
     /// Fault injection controls.
     faults: FaultInjection,
+    /// Per-path show fixture replacements for focused integration scenarios.
+    show_overrides: BTreeMap<String, Value>,
 }
 
 impl FakeRouterBuilder {
@@ -362,6 +367,16 @@ impl FakeRouterBuilder {
         self
     }
 
+    /// Replaces one embedded `show` fixture at `path`.
+    #[inline]
+    pub fn show_fixture<S>(mut self, path: S, value: Value) -> Self
+    where
+        S: Into<String>,
+    {
+        drop(self.show_overrides.insert(path.into(), value));
+        self
+    }
+
     /// Builds the router state from the profile's fixtures.
     ///
     /// # Errors
@@ -380,8 +395,11 @@ impl FakeRouterBuilder {
         let release = self
             .release
             .unwrap_or_else(|| firmware.release().to_owned());
-        let (settings, show, startup_config) =
+        let (settings, mut show, startup_config) =
             fixtures::load(self.profile, &title, &release).map_err(BuildError::Fixture)?;
+        for (path, value) in self.show_overrides {
+            drop(show.insert(path, value));
+        }
         let mut config = config_state::ConfigState::new(startup_config, model.hw_id(), &title)
             .map_err(BuildError::ConfigFixture)?;
         config.seed_membership(&settings);
@@ -491,6 +509,7 @@ impl FakeRouter {
             ttl: DEFAULT_SESSION_TTL,
             clock: Arc::new(SystemClock::new()),
             faults: FaultInjection::default(),
+            show_overrides: BTreeMap::new(),
         }
     }
 
