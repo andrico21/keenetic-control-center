@@ -164,6 +164,7 @@ pub(super) fn failure_text(name: &str) -> MessageKey {
         "Verification" => keys::WEB_MIGRATE_FAILURE_VERIFICATION,
         "RolledBackByRouter" => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
         "Unreachable" => keys::WEB_MIGRATE_FAILURE_UNREACHABLE,
+        "RollbackRestarting" => keys::MIGRATE_ROLLBACK_SAVED,
         "Cancelled" => keys::WEB_MIGRATE_FAILURE_CANCELLED,
         "JobStart" => keys::MIGRATE_JOB_START_FAILED,
         _ => keys::MIGRATE_APPLY_FAILED,

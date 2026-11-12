@@ -48,7 +48,9 @@ pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
         ApplyError::DisarmFailed => McpFailure::ManagementAppliedFailSafeArmed,
         ApplyError::CommittedSaveFailed => McpFailure::ManagementAppliedNotSaved,
         ApplyError::UnverifiedFirmwareTier => McpFailure::UnverifiedFirmwareTier,
-        ApplyError::Source | ApplyError::Unreachable => McpFailure::RouterUnreachable,
+        ApplyError::Source | ApplyError::Unreachable | ApplyError::RollbackRestarting => {
+            McpFailure::RouterUnreachable
+        }
         ApplyError::RolledBackByRouter => McpFailure::RouterRejected,
         ApplyError::Drift
         | ApplyError::ReplanRequired

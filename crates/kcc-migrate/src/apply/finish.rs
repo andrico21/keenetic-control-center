@@ -157,7 +157,13 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
             .await
             .map_err(|_error| ApplyError::FinishFailed)?,
     );
-    wait_restored(applier).await?;
+    if wait_restored(applier).await.is_err() {
+        return Err(match applier.mode {
+            SafetyMode::Router => ApplyError::FinishFailed,
+            SafetyMode::ScheduledReboot => ApplyError::RollbackRestarting,
+            _ => ApplyError::Validation,
+        });
+    }
     applier.report.finished = true;
     Ok(())
 }

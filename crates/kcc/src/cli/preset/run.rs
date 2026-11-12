@@ -8,7 +8,7 @@ use kcc_app::{jobs::JobRunner, permissions::Permission};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use kcc_migrate::{
-    apply::Applier,
+    apply::{Applier, ApplyError},
     presets::{
         apply::{PresetApplyError, PresetApplyOptions, PresetApplyRequest, request},
         model::Preset,
@@ -27,6 +27,18 @@ use crate::cli::{
     migrate_apply::apply_failure,
     secret::confirm,
 };
+
+/// Audits one failed preset rollback without claiming an unarmed timer is armed.
+// NOT cancel-safe: the audit writer may append after cancellation.
+async fn audit_rollback_failure(ctx: &Ctx, services: &Services, target: &str, error: ApplyError) {
+    let params = if error.recovery_armed() {
+        json!({"error":"router", "fail_safe_armed":true})
+    } else {
+        json!({"error":"router"})
+    };
+    ctx.audit(services, "cli.change", Some(target), params, "failed")
+        .await;
+}
 
 /// Maps a preset apply refusal.
 fn request_failure(error: PresetApplyError) -> Failure {
@@ -91,13 +103,27 @@ pub(super) async fn apply(
         .map_err(apply_failure)?;
     let report = applier.report().clone();
     if let Some(failure) = report.failure {
-        applier.rollback().await.map_err(apply_failure)?;
+        if let Err(error) = applier.rollback().await {
+            audit_rollback_failure(ctx, services, target, error).await;
+            if error != ApplyError::RollbackRestarting {
+                return Err(apply_failure(error));
+            }
+        }
         return Err(apply_failure(failure));
     }
     let action = choose(ctx, finish, (target, &run))?;
+    let mut rollback_restarting = false;
     match action {
         Finish::Save => applier.commit().await.map_err(apply_failure)?,
-        Finish::Rollback => applier.rollback().await.map_err(apply_failure)?,
+        Finish::Rollback => {
+            if let Err(error) = applier.rollback().await {
+                audit_rollback_failure(ctx, services, target, error).await;
+                if error != ApplyError::RollbackRestarting {
+                    return Err(apply_failure(error));
+                }
+                rollback_restarting = true;
+            }
+        }
         Finish::KeepUnsaved => {
             drop(applier);
             let reached = ctx
@@ -121,7 +147,11 @@ pub(super) async fn apply(
         "finish": name(action),
         "plan": plan,
     });
-    let mut text = report.message(out.locale());
+    let mut text = if rollback_restarting {
+        out.tr(keys::MIGRATE_ROLLBACK_SAVED, &[])
+    } else {
+        report.message(out.locale())
+    };
     text.push('\n');
     text.push_str(&out.tr(
         keys::CLI_PRESET_FINISHED,

@@ -248,6 +248,7 @@ impl ApplyReport {
             Some(ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
             Some(ApplyError::DisarmFailed) => keys::MANAGEMENT_DISARM_FAILED,
             Some(ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            Some(ApplyError::RollbackRestarting) => keys::MIGRATE_ROLLBACK_SAVED,
             Some(ApplyError::CommittedSaveFailed) => keys::MIGRATE_COMMITTED_NOT_SAVED,
             Some(ApplyError::UnverifiedFirmwareTier) => keys::MIGRATE_APPLY_TIER,
             Some(ApplyError::AgreementRequired) => keys::MIGRATE_APPLY_AGREEMENT,
@@ -305,6 +306,9 @@ pub enum ApplyError {
     /// Closing could not be confirmed, so recovery must still be treated as armed.
     #[error("migration closing outcome unknown; recovery timer remains armed")]
     FinishFailed,
+    /// The rollback request was accepted, but the restarting router did not return in time.
+    #[error("migration rollback sent; target restarting")]
+    RollbackRestarting,
     /// The live configuration was committed, but saving startup configuration failed.
     #[error("migration committed but was not saved")]
     CommittedSaveFailed,

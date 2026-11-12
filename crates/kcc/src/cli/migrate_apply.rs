@@ -19,6 +19,8 @@ use super::{
     migrate_plan::Planned,
 };
 
+mod migrate_apply_finish;
+
 /// Re-plans, checks the plan file, applies and finishes as asked.
 ///
 /// # Errors
@@ -66,27 +68,9 @@ pub(crate) async fn apply(
         .map_err(|_error| Failure::text(Exit::Generic, "the migration job ended without a result"))?
         .map_err(apply_failure)?;
     let report = applier.report().clone();
-    let action = match (finish, report.failure) {
-        (_, Some(_)) | (FinishAction::Rollback, None) => {
-            if let Err(error) = applier.rollback().await {
-                if error.recovery_armed() {
-                    ctx.audit_armed_finish(services, &target).await;
-                }
-                return Err(apply_failure(error));
-            }
-            "rollback"
-        }
-        (FinishAction::Commit, None) => {
-            if let Err(error) = applier.commit().await {
-                if error.recovery_armed() {
-                    ctx.audit_armed_finish(services, &target).await;
-                }
-                return Err(apply_failure(error));
-            }
-            "commit"
-        }
-        (FinishAction::Keep, None) => "keep",
-    };
+    let (action, rollback_restarting) =
+        migrate_apply_finish::finish(ctx, services, &target, &mut applier, finish, report.failure)
+            .await?;
     drop(applier);
     if let Some(path) = report_file {
         files::write_private(
@@ -104,7 +88,9 @@ pub(crate) async fn apply(
         "finish": action,
         "failure": report.failure,
     });
-    let mut human = if action == "rollback" && report.failure == Some(ApplyError::Verification) {
+    let mut human = if rollback_restarting {
+        out.tr(keys::MIGRATE_ROLLBACK_SAVED, &[])
+    } else if action == "rollback" && report.failure == Some(ApplyError::Verification) {
         out.tr(keys::MIGRATE_APPLY_RESTORED, &[])
     } else {
         report.message(out.locale())
@@ -140,6 +126,9 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         }
         ApplyError::CommittedSaveFailed => {
             return Failure::headline_only(Exit::Router, keys::MIGRATE_COMMITTED_NOT_SAVED);
+        }
+        ApplyError::RollbackRestarting => {
+            return Failure::headline_only(Exit::Router, keys::MIGRATE_ROLLBACK_SAVED);
         }
         ApplyError::UnverifiedFirmwareTier
         | ApplyError::AgreementRequired
