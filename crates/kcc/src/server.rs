@@ -119,6 +119,10 @@ impl Outcome {
 
 /// Runs the HTTP server command.
 // NOT cancel-safe: once the listener starts, shutdown must be driven cooperatively by the kit.
+#[expect(
+    clippy::integer_division_remainder_used,
+    reason = "tokio::select macro expansion contains runtime-internal remainder arithmetic"
+)]
 pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let (path, config, _tracing_guard) = load_config(config_path)?;
     let state_dir = config.state.resolved_dir().map_err(error)?;
@@ -170,17 +174,21 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         Arc::clone(&services.registry),
     );
     let (configured_server, _exporter) = with_metrics(server_with_origins, &config, &services)?;
-    let serve_result = serve(configured_server.validate().map_err(error)?, move || {
+    let serving = serve(configured_server.validate().map_err(error)?, move || {
         handler.clone()
-    })
-    .await;
+    });
+    tokio::pin!(serving);
+    let serve_result = tokio::select! {
+        result = &mut serving => result.map_err(error),
+        () = services.audit.closed() => Err(ServerError("audit writer terminated".to_owned())),
+    };
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
         cancelled = drain.cancelled,
         still_running = drain.still_running,
         "jobs drained; any armed router fail-safe remains armed for rollback"
     );
-    serve_result.map_err(error)?;
+    serve_result?;
     if let Some(logs) = services.logs.take() {
         logs.shutdown().await;
     }

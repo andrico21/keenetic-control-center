@@ -386,6 +386,7 @@ impl Ctx {
         id: String,
         permissions: &[Permission],
     ) -> Outcome<Target> {
+        services.audit.require_alive()?;
         let role = match self.principal.authorize(permissions, &[id.as_str()]) {
             Ok(role) => role,
             Err(failure) => {

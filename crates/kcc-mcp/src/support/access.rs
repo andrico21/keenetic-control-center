@@ -76,6 +76,7 @@ impl KccMcp {
 
     /// Detects the router and selects its catalog.
     pub(crate) async fn catalog(&self, host: &str) -> Result<Catalog, McpFailure> {
+        self.audit_alive()?;
         let info = self.registry.poll_info(host).await.map_err(|error| {
             tracing::warn!(host, error = ?error, "MCP router capability detection failed");
             McpFailure::RouterUnreachable
@@ -88,6 +89,7 @@ impl KccMcp {
 
     /// Builds the curated-domain context of an authorized router.
     pub(crate) async fn router_ctx(&self, host: &RouterId) -> Result<RouterCtx, McpFailure> {
+        self.audit_alive()?;
         let catalog = self.catalog(host.as_str()).await?;
         let client = self.registry.client(host.as_str()).await.map_err(|error| {
             tracing::warn!(host = host.as_str(), error = ?error, "MCP router client failed");
@@ -102,6 +104,7 @@ impl KccMcp {
         host: &RouterId,
         identity: &McpIdentity,
     ) -> Result<ChangeSet, McpFailure> {
+        self.audit_alive()?;
         self.workflow
             .begin(
                 host.as_str(),
@@ -112,6 +115,13 @@ impl KccMcp {
             )
             .await
             .map_err(map_workflow)
+    }
+
+    /// Refuses router work when its required audit writer has terminated.
+    fn audit_alive(&self) -> Result<(), McpFailure> {
+        self.audit.as_ref().map_or(Ok(()), |audit| {
+            audit.require_alive().map_err(|_error| McpFailure::Internal)
+        })
     }
 
     /// Refuses a destructive operation while the server-wide switch is off, then one

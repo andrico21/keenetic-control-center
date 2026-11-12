@@ -601,6 +601,7 @@ impl ChangeWorkflow {
         force: bool,
         selected: Option<Arc<RciClient>>,
     ) -> Result<ChangeSet, WorkflowError> {
+        self.audit_alive()?;
         authorize(role, Permission::Read, router).map_err(map_permission)?;
         let lease = match self.state.try_lease(router) {
             Ok(lease) => lease,
@@ -688,6 +689,14 @@ impl ChangeWorkflow {
     #[must_use]
     pub const fn state(&self) -> &StateStore {
         &self.state
+    }
+
+    /// Refuses work that cannot produce its required audit receipt.
+    ///
+    /// # Errors
+    /// Returns a typed audit failure after the writer terminates.
+    pub fn audit_alive(&self) -> Result<(), WorkflowError> {
+        self.audit.require_alive().map_err(Into::into)
     }
 }
 

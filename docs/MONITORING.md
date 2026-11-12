@@ -30,6 +30,12 @@ every 15 seconds.
 Every metric family, with its labels, is listed in [METRICS.md](METRICS.md), generated
 from the registry by `cargo xtask gen-metric-docs`; a test fails when it is stale.
 
+`/readyz` reports `audit_alive: false` while the audit writer is unavailable. A fatal
+audit-writer error also terminates `kcc serve` with a non-zero status, so the shipped
+Quadlet `Restart=on-failure` policy starts a fresh process instead of leaving an
+unhealthy daemon running. Bounded cross-process append-lock contention fails only the
+contended append and does not terminate the writer.
+
 Example scrape job:
 
 ```yaml

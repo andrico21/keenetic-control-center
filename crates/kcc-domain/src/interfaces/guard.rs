@@ -96,7 +96,25 @@ pub(super) async fn apply(
     if risk != Risk::Management {
         return changes.apply_cli(request).await.map_err(Into::into);
     }
-    drop(SafetyNet::arm(changes, router, SafetyMode::Router, 300).await?);
+    let armed = SafetyNet::arm(changes, router, SafetyMode::Router, 300)
+        .await
+        .map(|_receipt| ())
+        .map_err(InterfaceChangeError::from);
+    if let Err(error) = armed {
+        let disarm = SafetyNet::disarm(changes, router, SafetyMode::Router)
+            .await
+            .map(|_receipt| ())
+            .map_err(InterfaceChangeError::from);
+        return recovery::finish(Err(error), disarm).map_err(|failure| {
+            if failure.is_armed() {
+                InterfaceChangeError(InterfaceChangeErrorKind::Recovery {
+                    applied: failure.applied(),
+                })
+            } else {
+                failure.into_source()
+            }
+        });
+    }
     let result = changes
         .apply_cli(request)
         .await
@@ -108,16 +126,16 @@ pub(super) async fn apply(
             .map_err(InterfaceChangeError::from),
         Err(error) => Err(error),
     };
-    // Preserve the guard's early-return protocol: failed work never sends cleanup.
-    let applied = verified.map_err(|_error| {
-        InterfaceChangeError(InterfaceChangeErrorKind::Recovery { applied: false })
-    })?;
     let disarm = SafetyNet::disarm(changes, router, SafetyMode::Router)
         .await
         .map_err(InterfaceChangeError::from);
-    recovery::finish(Ok(applied), disarm).map_err(|error| {
-        InterfaceChangeError(InterfaceChangeErrorKind::Recovery {
-            applied: error.applied(),
-        })
+    recovery::finish(verified, disarm).map_err(|error| {
+        if error.is_armed() {
+            InterfaceChangeError(InterfaceChangeErrorKind::Recovery {
+                applied: error.applied(),
+            })
+        } else {
+            error.into_source()
+        }
     })
 }

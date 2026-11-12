@@ -26,7 +26,7 @@ use crate::{
 
 mod append_lock;
 
-use append_lock::acquire_append_lock;
+use append_lock::{RetryPolicy, acquire_append_lock};
 
 /// Default audit rotation threshold: 50 MiB.
 pub const DEFAULT_ROTATE_BYTES: u64 = 50 * 1024 * 1024;
@@ -51,6 +51,8 @@ pub struct AuditPolicy {
     retention: Duration,
     /// Unix timestamp source used by retention.
     clock: Arc<dyn Clock>,
+    /// Bounded cross-process append-lock retry policy.
+    append_lock_retry: RetryPolicy,
 }
 
 impl fmt::Debug for AuditPolicy {
@@ -70,6 +72,7 @@ impl Default for AuditPolicy {
             rotate_bytes: DEFAULT_ROTATE_BYTES,
             retention: DEFAULT_RETENTION,
             clock: Arc::new(SystemClock),
+            append_lock_retry: RetryPolicy::PRODUCTION,
         }
     }
 }
@@ -96,6 +99,13 @@ impl AuditPolicy {
     #[must_use]
     pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
+        self
+    }
+
+    /// Sets deterministic append-lock retry parameters for unit tests.
+    #[cfg(test)]
+    const fn with_append_lock_retry(mut self, retry: RetryPolicy) -> Self {
+        self.append_lock_retry = retry;
         self
     }
 }
@@ -366,6 +376,7 @@ impl AuditLog {
             clock: policy.clock,
             next_seq,
             previous_hash,
+            append_lock_retry: policy.append_lock_retry,
         };
         drop(tokio::spawn(writer_task(receiver, state)));
         Ok(Self { sender })
@@ -400,6 +411,24 @@ impl AuditLog {
     pub fn is_alive(&self) -> bool {
         !self.sender.is_closed()
     }
+
+    /// Refuses work that would require an audit receipt when the writer is unavailable.
+    ///
+    /// # Errors
+    /// Returns [`AuditError::WriterUnavailable`] after a fatal writer failure.
+    #[inline]
+    pub fn require_alive(&self) -> Result<(), AuditError> {
+        self.is_alive()
+            .then_some(())
+            .ok_or(AuditError::WriterUnavailable)
+    }
+
+    /// Waits until a fatal writer failure closes the command channel.
+    // cancel-safe: observing channel closure has no side effects.
+    #[inline]
+    pub async fn closed(&self) {
+        self.sender.closed().await;
+    }
 }
 
 /// Mutable state owned exclusively by the writer task.
@@ -423,6 +452,8 @@ struct WriterState {
     retention: Duration,
     /// Timestamp source for retention decisions.
     clock: Arc<dyn Clock>,
+    /// Bounded cross-process append-lock retry policy.
+    append_lock_retry: RetryPolicy,
 }
 
 /// Runs the sole append/rotation loop.
@@ -430,7 +461,7 @@ async fn writer_task(mut receiver: mpsc::Receiver<Command>, mut state: WriterSta
     while let Some(command) = receiver.recv().await {
         match command {
             Command::Append { event, reply } => {
-                let acquired = acquire_append_lock(&state.store).await;
+                let acquired = acquire_append_lock(&state.store, state.append_lock_retry).await;
                 let (next_state, result) = match acquired {
                     Ok(lock) => match spawn_blocking(move || {
                         let result = state.append_locked(event, &lock);
@@ -448,12 +479,14 @@ async fn writer_task(mut receiver: mpsc::Receiver<Command>, mut state: WriterSta
                     Err(error) => (state, Err(error)),
                 };
                 state = next_state;
-                let failed = result.is_err();
-                if failed {
+                let fatal = result
+                    .as_ref()
+                    .is_err_and(|error| !matches!(error, AuditError::AppendLockTimeout));
+                if fatal {
                     receiver.close();
                 }
                 drop(reply.send(result));
-                if failed {
+                if fatal {
                     break;
                 }
             }
@@ -799,15 +832,18 @@ fn json_error(error: &serde_json::Error) -> AuditError {
     reason = "test assertions deliberately panic and are not rendered API documentation"
 )]
 mod tests {
-    use core::error::Error;
+    use core::{error::Error, time::Duration};
     use std::fs;
 
     use serde_json::json;
     use tempfile::TempDir;
+    use tokio::{task::yield_now, time};
 
     use super::{
-        Actor, ActorKind, AuditEntry, AuditError, GENESIS_HASH, calculate_hash, verify_files,
+        Actor, ActorKind, AuditEntry, AuditError, AuditEvent, AuditLog, AuditPolicy, GENESIS_HASH,
+        RetryPolicy, calculate_hash, verify_files,
     };
+    use crate::persist::StateStore;
 
     fn entry(seq: u64, prev_hash: String) -> Result<AuditEntry, AuditError> {
         let mut entry = AuditEntry {
@@ -834,6 +870,21 @@ mod tests {
         Ok(verify_files(&[path])?)
     }
 
+    fn event(sequence: u64) -> AuditEvent {
+        AuditEvent::new(
+            sequence,
+            Actor::new(ActorKind::System, "audit-test".to_owned()),
+            "test.append".to_owned(),
+        )
+        .with_result("success".to_owned(), format!("request-{sequence}"))
+    }
+
+    async fn settle() {
+        for _attempt in 0_u8..8_u8 {
+            yield_now().await;
+        }
+    }
+
     #[test]
     fn first_entry_at_seq_one_must_start_at_genesis() -> Result<(), Box<dyn Error>> {
         let forged = entry(1, "ab".repeat(32))?;
@@ -850,6 +901,63 @@ mod tests {
         );
         assert_eq!(verify_single(&entry(1, GENESIS_HASH.to_owned())?)?.len(), 1);
         assert_eq!(verify_single(&entry(2, "ab".repeat(32))?)?.len(), 1);
+        Ok(())
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn append_waits_beyond_the_old_contention_window() -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let held = state.try_lock(super::AUDIT_FILE_NAME)?;
+        let retry = RetryPolicy::testing(6, Duration::from_secs(1), Duration::from_secs(1));
+        let audit = AuditLog::spawn_with_policy(
+            &state,
+            AuditPolicy::default().with_append_lock_retry(retry),
+        )?;
+        let pending = tokio::spawn({
+            let writer = audit.clone();
+            async move { writer.append(event(1)).await }
+        });
+        settle().await;
+
+        time::advance(Duration::from_millis(2_500)).await;
+        settle().await;
+        assert!(
+            !pending.is_finished(),
+            "the append still waits after two seconds"
+        );
+        drop(held);
+        time::advance(Duration::from_secs(2)).await;
+
+        drop(pending.await??);
+        assert!(audit.is_alive());
+        Ok(())
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn lock_timeout_fails_one_append_and_writer_accepts_the_next()
+    -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let held = state.try_lock(super::AUDIT_FILE_NAME)?;
+        let retry = RetryPolicy::testing(2, Duration::from_millis(1), Duration::from_millis(1));
+        let audit = AuditLog::spawn_with_policy(
+            &state,
+            AuditPolicy::default().with_append_lock_retry(retry),
+        )?;
+        let timed_out = tokio::spawn({
+            let writer = audit.clone();
+            async move { writer.append(event(1)).await }
+        });
+        settle().await;
+
+        time::advance(Duration::from_secs(1)).await;
+        let result = timed_out.await?;
+
+        assert!(matches!(result, Err(AuditError::AppendLockTimeout)));
+        assert!(audit.is_alive(), "a lock timeout is not a writer failure");
+        drop(held);
+        drop(audit.append(event(2)).await?);
         Ok(())
     }
 }

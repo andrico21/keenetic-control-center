@@ -140,6 +140,48 @@ async fn operation_permission_is_enforced_after_read_lease() -> Result<(), Box<d
     reason = "integration-test assertions and fixtures define the contract"
 )]
 #[tokio::test]
+async fn dead_audit_writer_refuses_begin_without_a_router_request() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let audit = AuditLog::spawn_with_limit(&fixture.state, 1)?;
+    drop(audit.append(test_audit_event(1)).await?);
+    std::fs::create_dir_all(fixture.state.dir().join("audit-00000000000000000001.jsonl"))?;
+    let failed = audit.append(test_audit_event(2)).await;
+    assert!(failed.is_err(), "fatal fixture must fail: {failed:?}");
+    assert!(!audit.is_alive(), "fatal fixture must close its writer");
+    let workflow = ChangeWorkflow::new(
+        fixture.state.clone(),
+        Arc::clone(&fixture.registry),
+        Arc::clone(&fixture.backups),
+        audit,
+    );
+    let requests = fixture.handle.request_count();
+
+    let result = workflow
+        .begin(
+            "router",
+            Actor::new(ActorKind::Cli, "test".to_owned()),
+            &admin_role(),
+            None,
+            false,
+        )
+        .await;
+
+    assert!(
+        matches!(result, Err(WorkflowError::Audit(_))),
+        "dead writer result: {result:?}"
+    );
+    assert_eq!(fixture.handle.request_count(), requests);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
 async fn cli_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
     let info = fixture.registry.poll_info("router").await?;
@@ -673,6 +715,15 @@ impl Fixture {
 
 fn admin_role() -> Role {
     Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()])
+}
+
+fn test_audit_event(sequence: u64) -> kcc_app::audit::AuditEvent {
+    kcc_app::audit::AuditEvent::new(
+        sequence,
+        Actor::new(ActorKind::System, "workflow-test".to_owned()),
+        "test.audit".to_owned(),
+    )
+    .with_result("success".to_owned(), format!("audit-{sequence}"))
 }
 
 fn description_request(value: &str) -> ChangeRequest {

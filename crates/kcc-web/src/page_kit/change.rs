@@ -364,6 +364,7 @@ where
 {
     let fleet = plan.target.fleet();
     let router = plan.target.router();
+    fleet.workflow().audit_alive().map_err(Refused::plain)?;
     if plan.management
         && !super::gate::allowed(plan.user, router, SafetyNet::management_permissions())
     {
@@ -387,24 +388,22 @@ where
         return work(&mut changes, &context).await.map_err(Refused::plain);
     }
     let mode = plan.facts.mode();
-    drop(
-        SafetyNet::arm(&mut changes, &context, mode, FAIL_SAFE_SECONDS)
-            .await
-            .map_err(Refused::plain)?,
-    );
-    let applied = work(&mut changes, &context).await;
-    if let Err(WorkflowError::Rci(RciError::Transport | RciError::Timeout)) = &applied {
-        tracing::warn!(
-            router,
-            "management change lost the router; fail-safe stays armed"
-        );
-        return applied.map_err(|error| Refused {
-            error: Box::new(error),
-            armed: true,
-            applied: false,
-            refusals: Vec::new(),
+    let arm_result = SafetyNet::arm(&mut changes, &context, mode, FAIL_SAFE_SECONDS)
+        .await
+        .map(|_receipt| ());
+    if let Err(error) = arm_result {
+        let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
+        return recovery::finish(Err(error), disarm).map_err(|failure| {
+            let armed = failure.is_armed();
+            Refused {
+                error: Box::new(failure.into_source()),
+                armed,
+                applied: false,
+                refusals: Vec::new(),
+            }
         });
     }
+    let applied = work(&mut changes, &context).await;
     let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
     let completed = applied.as_ref().is_ok_and(|value| match value {
         Applied::Batch {

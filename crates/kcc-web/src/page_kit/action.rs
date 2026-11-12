@@ -7,7 +7,10 @@
 //! through the change workflow. The action audits how it ended, once, with field names
 //! only, and returns the outcome to render.
 
-use axum::response::Response;
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse as _, Response},
+};
 use kcc_app::workflow::{ChangeSet, WorkflowError};
 use kcc_catalog::Risk;
 use kcc_domain::{DomainDescriptor, OperationDescriptor, RouterCtx, verification};
@@ -80,6 +83,9 @@ impl Operation {
         router: &'call str,
     ) -> Result<Action<'call>, Answer> {
         let locale = user.locale();
+        if state.audit().require_alive().is_err() {
+            return Err(StatusCode::SERVICE_UNAVAILABLE.into_response().into());
+        }
         let target = context::target(state, user, router)
             .await
             .map_err(context::Refusal::status)?;

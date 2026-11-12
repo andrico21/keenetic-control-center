@@ -193,9 +193,10 @@ errors retain the batch's `responses`, including `ok: false` items. Web retains 
 router's refusal text and reserves loss-of-connectivity wording for transport failures.
 Successful cleanup preserves the original work error without an armed note.
 The failed-change audit parameters include `fail_safe_armed: true` when recovery
-remains armed. The interface guard retains native timer verification and its existing
-early return without cleanup after failed work. No permission failure is described as
-loss of router connectivity.
+remains armed. The interface guard retains native timer verification and closes its
+bracket through the same recovery rule as every other path: after refused or failed work
+it disarms, and it reports the armed timer only when that cleanup cannot be confirmed. No
+permission failure is described as loss of router connectivity.
 
 Migration and preset closing steps preserve the same armed fact when commit, save or
 explicit rollback fails before disarm can be confirmed. Their failed CLI, MCP and Web audit entries
@@ -261,6 +262,12 @@ secret values. Appends from several processes
 re-read its tail before writing, so they extend one chain. Files rotate at 50 MiB. The
 chain detects tampering; it doesn't prevent someone with write access to the state
 directory from rewriting the whole log.
+
+The append lock uses a longer bounded backoff with per-process phase jitter. Mutual
+exclusion still covers tail verification and the complete durable append, so contention
+cannot fork the chain. A lock timeout fails that append only; chain, serialization,
+join, or log I/O failures terminate the writer. New router work is then refused before
+its first router request, and `kcc serve` exits non-zero so its supervisor can restart it.
 
 Keep the shipped production filter `info,rmcp=warn,rmcp_server_kit=info`. Raising the
 `rmcp` target above `warn` makes the MCP SDK log tool arguments at debug or trace,

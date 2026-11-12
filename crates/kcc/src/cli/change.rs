@@ -197,15 +197,23 @@ where
                 .map(|(document, _applied)| labelled(document, gate.persists));
         }
         let mode = safety_mode(target.info());
-        drop(
-            SafetyNet::arm(
-                &mut changes,
-                target.router(),
-                mode,
-                MANAGEMENT_TIMER.as_secs(),
-            )
-            .await?,
-        );
+        let armed = SafetyNet::arm(
+            &mut changes,
+            target.router(),
+            mode,
+            MANAGEMENT_TIMER.as_secs(),
+        )
+        .await
+        .map(|_receipt| ());
+        if let Err(error) = armed {
+            let disarm = SafetyNet::disarm(&mut changes, target.router(), mode)
+                .await
+                .map(|_receipt| ())
+                .map_err(Failure::from);
+            return recovery::finish(Err(Failure::from(error)), disarm)
+                .map(|()| Value::Null)
+                .map_err(Failure::recovery);
+        }
         let applied = work(&mut changes, target.router())
             .await
             .map(|(document, applied)| (labelled(document, gate.persists), applied));

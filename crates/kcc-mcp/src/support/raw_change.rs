@@ -84,11 +84,17 @@ where
         Some(_) | None => SafetyMode::ScheduledReboot,
     };
     let context: RouterCtx = server.router_ctx(host).await?;
-    drop(
-        SafetyNet::arm(&mut changes, &context, mode, 300)
+    let armed = SafetyNet::arm(&mut changes, &context, mode, 300)
+        .await
+        .map(|_receipt| ())
+        .map_err(map_workflow);
+    if let Err(error) = armed {
+        let disarm = SafetyNet::disarm(&mut changes, &context, mode)
             .await
-            .map_err(map_workflow)?,
-    );
+            .map(|_receipt| ())
+            .map_err(map_workflow);
+        return recovery::finish(Err(error), disarm).map_err(super::errors::map_recovery);
+    }
     let applied = work(&mut changes).await;
     let completed = applied.as_ref().is_ok_and(|(_value, applied)| *applied);
     let disarm = SafetyNet::disarm(&mut changes, &context, mode)
