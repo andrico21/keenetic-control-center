@@ -258,8 +258,10 @@ mod tests {
             let renamed = submit(&fixture, &browser, &page, &[("Vlan5", "Vlan7")]).await?;
             moved(&renamed, &page)?;
             let review = text(fixture.get(&page, &browser).await?).await?;
+            // The rename reaches the classification: the membership line is remapped. (The
+            // `vlan-id` line itself is unsupported on this target, as in the CLI plan.)
             assert!(
-                review.contains("interface Vlan7 vlan-id 5"),
+                review.contains("interface Bridge5 include Vlan7"),
                 "{account}: {review}"
             );
         }

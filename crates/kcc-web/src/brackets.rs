@@ -5,11 +5,11 @@
 //! the request budget, not a dropped connection, not the server shutting down, or the
 //! router restores its saved configuration minutes later with nobody told.
 //!
-//! - [`own`], the outermost layer, runs every request as a task the server owns. When
+//! - `own`, the outermost layer, runs every request as a task the server owns. When
 //!   the connection stops waiting, the task is aborted unless it holds a bracket.
-//! - [`hold`] is called by the change workflow right before it arms: it holds the
+//! - `hold` is called by the change workflow right before it arms: it holds the
 //!   request, or refuses when the request has no owner or was already cancelled.
-//! - [`budget`] answers 408 at [`REQUEST_TIMEOUT`] only for a request that holds no
+//! - `budget` answers 408 at [`REQUEST_TIMEOUT`] only for a request that holds no
 //!   bracket; a request that holds one is answered when it ends.
 //! - [`Brackets`] counts the requests that hold a bracket, so `kcc serve` can wait for
 //!   them before it exits.
