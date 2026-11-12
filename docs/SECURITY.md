@@ -150,7 +150,11 @@ commands are not present in the embedded catalogs and remain rejected by validat
 
 Whole-interface creation and removal are Management changes: creation fails closed because
 raw classification has no runtime topology with which to prove that the new interface cannot
-replace a management path. Operating-mode switches are Management changes too. Raw interface
+replace a management path. A removal stays Management when its body also carries sibling
+leaves. Operating-mode switches are Management changes too. Raw `interface <name> up` and
+`interface <name> down` are Management for every interface, including WAN ports and secondary
+access points, because raw classification cannot prove which interface carries management.
+Raw interface
 role, IPv4 or IPv6 address, DHCP-client route, global-route priority, MAC address/clone and
 IPv4 static route changes are also Management because any of them can replace the address,
 return route or link identity through which kcc reaches the router. The raw classification
@@ -160,9 +164,14 @@ routing operation remains an ordinary Write. The `no`, DELETE or
 CLI-removal spellings of all of these retain the Destructive floor while still requiring the recovery
 timer. Client hotspot deny/policy selection and DNS-proxy assignment remain ordinary Write:
 they affect client forwarding or name resolution, not kcc's management path. Interface
-description, radio/RF settings, MAC band/BSSID/VHT tuning and other non-address interface
-writes likewise remain ordinary Write and do not require `Destructive`; the `interface`
-command is only their structured ancestor and does not raise their risk. Interface schedules
+description, SSID, radio/RF settings, MAC band/BSSID/VHT tuning and other non-address
+interface writes likewise remain ordinary Write and do not require `Destructive`; the
+`interface` command is only their structured ancestor and does not raise their risk. The
+deliberate raw over-classification requiring `Destructive` and recovery therefore covers
+every interface creation/removal and up/down operation, every static route, and the raw
+interface security, address, route, identity, membership, role, access-group and schedule
+families listed above, even when runtime topology could prove a particular target ordinary.
+Interface schedules
 are Management on the raw route because applying a schedule can disable the management access
 point, and the CLI-line and structured spellings receive the same verdict.
 

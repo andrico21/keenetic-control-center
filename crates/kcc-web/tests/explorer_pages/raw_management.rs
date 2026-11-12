@@ -37,6 +37,8 @@ fn cases() -> Vec<(&'static str, String)> {
     .collect::<Vec<_>>();
     for body in [
         r#"{"interface":{"name":"Bridge0","no":true}}"#,
+        r#"{"interface":{"name":"Bridge0","no":true,"description":{"description":"lab"}}}"#,
+        r#"{"interface":{"name":"Bridge0","no":true,"ip":{"mtu":{"mtu":1500}}}}"#,
         r#"{"system":{"mode":{"mode":"extender"}}}"#,
         r#"{"service":{"telnet":{}}}"#,
         r#"[{"service http":{"no":true}}]"#,
@@ -95,22 +97,44 @@ async fn ordinary_interface_leaves_apply_without_destructive() -> TestResult {
 async fn raw_management_dialog_uses_recovery_wording() -> TestResult {
     let fixture = Fixture::new().await?;
     let browser = fixture.login("admin").await?;
-    for line in ["no interface Bridge0", "system mode EXTENDER"] {
-        let response = fixture
-            .post(
-                "/ui/r/home/console/cli/send",
-                &browser,
-                &form(&[("line", line)]),
-            )
-            .await?;
+    for (endpoint, request) in [
+        (
+            "/ui/r/home/console/cli/send",
+            form(&[("line", "no interface Bridge0")]),
+        ),
+        (
+            "/ui/r/home/console/cli/send",
+            form(&[("line", "system mode EXTENDER")]),
+        ),
+        (
+            "/ui/r/home/console/rci/send",
+            form(&[
+                ("method", "POST"),
+                ("path", ""),
+                (
+                    "body",
+                    r#"{"interface":{"name":"Bridge0","no":true,"description":{"description":"lab"}}}"#,
+                ),
+            ]),
+        ),
+        (
+            "/ui/r/home/console/rci/send",
+            form(&[
+                ("method", "DELETE"),
+                ("path", "interface"),
+                ("body", r#"{"name":"Bridge0","description":{}}"#),
+            ]),
+        ),
+    ] {
+        let response = fixture.post(endpoint, &browser, &request).await?;
         let page = text(response).await?;
         assert!(
             page.contains("data-message-key=\"web-explorer-confirm-management-text\""),
-            "{line}: {page}"
+            "{request}: {page}"
         );
         assert!(
             !page.contains("data-message-key=\"web-explorer-confirm-destructive-text\""),
-            "{line}: {page}"
+            "{request}: {page}"
         );
     }
     Ok(())

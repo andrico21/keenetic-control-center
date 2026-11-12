@@ -28,6 +28,19 @@ fn cases() -> Vec<Vec<&'static str>> {
         ],
         vec![
             "rci",
+            "batch",
+            "--data",
+            r#"[{"interface":{"name":"Bridge0","no":true,"description":{"description":"lab"}}}]"#,
+        ],
+        vec![
+            "rci",
+            "post",
+            "interface",
+            "--data",
+            r#"{"name":"Bridge0","no":true,"ip":{"mtu":{"mtu":1500}}}"#,
+        ],
+        vec![
+            "rci",
             "post",
             "system",
             "mode",

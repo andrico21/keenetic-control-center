@@ -161,8 +161,8 @@ impl Catalog {
     ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
         let mut request =
             self.validate_with_options(path, method, value, RequestOptions::default())?;
-        if interface_node_selected(path, value) {
-            request.risk = request.risk.max(Risk::Management);
+        if let Some(interface_risk) = interface_node_risk(path, method, value) {
+            request.risk = request.risk.max(interface_risk);
             request.contains_management = true;
         }
         Ok(request)
@@ -454,7 +454,7 @@ fn path_matches(pattern: &str, path: &str) -> bool {
 }
 
 /// Distinguishes whole-interface creation/removal from a named leaf update.
-fn interface_node_selected(path: &str, value: &serde_json::Value) -> bool {
+fn interface_node_risk(path: &str, method: HttpMethod, value: &serde_json::Value) -> Option<Risk> {
     let interface = if path == "interface" {
         Some(value)
     } else if path.is_empty() {
@@ -462,11 +462,15 @@ fn interface_node_selected(path: &str, value: &serde_json::Value) -> bool {
     } else {
         None
     };
-    interface.is_some_and(|node| {
-        node.as_object().is_some_and(|object| {
+    let node = interface?;
+    if method == HttpMethod::Delete || node.get("no") == Some(&serde_json::Value::Bool(true)) {
+        return Some(Risk::Destructive);
+    }
+    node.as_object()
+        .is_some_and(|object| {
             object
                 .keys()
                 .all(|key| matches!(key.as_str(), "name" | "no"))
         })
-    })
+        .then_some(Risk::Management)
 }

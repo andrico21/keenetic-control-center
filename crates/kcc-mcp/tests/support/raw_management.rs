@@ -37,6 +37,14 @@ mod tests {
                 json!({"host":"lab-1","items":[{"interface":{"name":"Bridge0","no":true}}]}),
             ),
             (
+                "kcc_rci_batch",
+                json!({"host":"lab-1","items":[{"interface":{"name":"Bridge0","no":true,"description":{"description":"lab"}}}]}),
+            ),
+            (
+                "kcc_rci_execute",
+                json!({"host":"lab-1","catalog_path":"interface","path":["interface"],"value":{"name":"Bridge0","no":true,"ip":{"mtu":{"mtu":1500_u16}}}}),
+            ),
+            (
                 "kcc_cli_parse",
                 json!({"host":"lab-1","line":"interface Bridge0 ip access-group LabAcl in"}),
             ),

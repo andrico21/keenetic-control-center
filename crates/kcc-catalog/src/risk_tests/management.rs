@@ -203,6 +203,44 @@ fn interface_removal_and_mode_switch_require_recovery() -> Result<(), Box<dyn Er
     Ok(())
 }
 
+/// Interface identity semantics survive sibling leaves in every structured spelling.
+#[test]
+fn interface_identity_with_siblings_requires_recovery() -> Result<(), Box<dyn Error>> {
+    let catalog = Catalog::for_firmware_and_model(FirmwareVersion::from_str("5.1.0")?, None)?;
+    for (path, method, value) in [
+        (
+            "",
+            HttpMethod::Post,
+            json!({"interface":{"name":"Bridge0","no":true,"description":{"description":"lab"}}}),
+        ),
+        (
+            "interface",
+            HttpMethod::Post,
+            json!({"name":"Bridge0","no":true,"description":{}}),
+        ),
+        (
+            "",
+            HttpMethod::Post,
+            json!({"interface":{"name":"Bridge0","no":true,"ip":{"mtu":{"mtu":1_500_i32}}}}),
+        ),
+        (
+            "interface",
+            HttpMethod::Delete,
+            json!({"name":"Bridge0","description":{"description":"lab"}}),
+        ),
+    ] {
+        let request = catalog
+            .validate(path, method, &value)
+            .map_err(|issues| format!("{method:?} {path} {value}: {issues:?}"))?;
+        assert!(
+            request.risk >= Risk::Management,
+            "{method:?} {path} {value}"
+        );
+        assert!(request.contains_management(), "{method:?} {path} {value}");
+    }
+    Ok(())
+}
+
 /// Explicit recovery operations require Destructive without auto-disarming their timer.
 #[test]
 fn raw_recovery_timer_control_is_destructive() -> Result<(), Box<dyn Error>> {
