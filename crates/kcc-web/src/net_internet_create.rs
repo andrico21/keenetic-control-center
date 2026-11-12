@@ -203,12 +203,12 @@ fn ipoe(found: &[Link]) -> Vec<String> {
 /// # Errors
 ///
 /// Returns the catalog's findings.
-fn plan_create(
+async fn plan_create(
     checked: &Checked,
     domain: &RouterCtx,
 ) -> Result<(CliChangeRequest, Risk), DomainError> {
     let name = &checked.name;
-    let mut operations = vec![wan::plan_create(domain, name)?];
+    let mut operations = vec![wan::plan_create(domain, name).await?];
     if checked.kind == Kind::Ipoe {
         operations.push(wan::plan_dhcp(
             domain,
@@ -287,7 +287,7 @@ pub(crate) async fn create(
             return Err(dialog.invalid().into());
         }
     };
-    let change = plan_create(&checked, &domain);
+    let change = plan_create(&checked, &domain).await;
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
     Ok(finish(call, action, Planned::new(domain, change)).await)
 }

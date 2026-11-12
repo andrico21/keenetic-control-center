@@ -31,12 +31,12 @@ impl Planned {
     /// # Errors
     ///
     /// Returns the catalog's findings.
-    pub(crate) fn request(&self, ctx: &RouterCtx) -> DomainResult<CliChangeRequest> {
+    pub(crate) async fn request(&self, ctx: &RouterCtx) -> DomainResult<CliChangeRequest> {
         let mut requests = Vec::new();
         match self {
             Self::Clients(changes) => {
                 for change in changes {
-                    requests.extend(vpn_clients::plan_change(ctx, change)?.requests);
+                    requests.extend(vpn_clients::plan_change(ctx, change).await?.requests);
                 }
                 vpn_clients::change_request(&write(requests))
             }

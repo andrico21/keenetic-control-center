@@ -52,7 +52,7 @@ async fn non_secret_plans_execute_through_change_set() -> TestResult {
         );
         let mut changes = fixture.changes().await?;
 
-        let create = wan::plan_create(fixture.context(), &name)?;
+        let create = wan::plan_create(fixture.context(), &name).await?;
         let created = changes
             .apply_cli(wan::change_request(&name, &create)?)
             .await?;
@@ -74,7 +74,7 @@ async fn non_secret_plans_execute_through_change_set() -> TestResult {
                 .running_config_text()
                 .contains("ip address 198.51.100.9 255.255.255.0")
         );
-        let delete = wan::plan_delete(fixture.context(), &name)?;
+        let delete = wan::plan_delete(fixture.context(), &name).await?;
         drop(
             changes
                 .apply_cli(wan::change_request(&name, &delete)?)
@@ -110,7 +110,7 @@ async fn ppp_password_write_is_encoded_and_read_as_presence_only() -> TestResult
         let fixture = Fixture::spawn(firmware).await?;
         let name = ObjectName::try_from("PPPoE9".to_owned())?;
         let mut changes = fixture.changes().await?;
-        let create = wan::plan_create(fixture.context(), &name)?;
+        let create = wan::plan_create(fixture.context(), &name).await?;
         drop(
             changes
                 .apply_cli(wan::change_request(&name, &create)?)

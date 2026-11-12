@@ -14,7 +14,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use crate::{administration::secret, support::TestResult, tests::checked};
 
 /// Covers client and server planners without synthetic validated requests.
-pub(super) fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResult {
+pub(super) async fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResult {
     if domain == DomainId::VpnServers {
         return server(router, op);
     }
@@ -102,9 +102,9 @@ pub(super) fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResul
         "crypto_map" => VpnClientChange::CryptoMap { name },
         _ => return Err("uncovered VPN client operation".into()),
     };
-    checked(vpn_clients::change_request(&vpn_clients::plan_change(
-        router, &change,
-    )?)?)
+    checked(vpn_clients::change_request(
+        &vpn_clients::plan_change(router, &change).await?,
+    )?)
 }
 
 /// Maps credential operations to their typed target.

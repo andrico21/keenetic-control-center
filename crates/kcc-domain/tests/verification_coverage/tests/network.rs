@@ -12,7 +12,7 @@ use crate::{administration::secret, support::TestResult, tests::checked};
 /// Dispatches a registry write to its network planner.
 pub(super) async fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResult {
     match domain {
-        DomainId::Wan => wan_plan(router, op),
+        DomainId::Wan => wan_plan(router, op).await,
         DomainId::Wifi => wifi_plan(router, op).await,
         DomainId::Dns => dns_plan(router, op),
         DomainId::Policies => policy_plan(router, op),
@@ -81,11 +81,11 @@ pub(super) async fn check(router: &RouterCtx, domain: DomainId, op: &str) -> Tes
 }
 
 /// Covers all WAN registry entries with a real named-interface input.
-fn wan_plan(router: &RouterCtx, op: &str) -> TestResult {
+async fn wan_plan(router: &RouterCtx, op: &str) -> TestResult {
     let name = "PPPoE67".parse()?;
     let plan = match op {
-        "create" => wan::plan_create(router, &name)?,
-        "delete" => wan::plan_delete(router, &name)?,
+        "create" => wan::plan_create(router, &name).await?,
+        "delete" => wan::plan_delete(router, &name).await?,
         "address_static" => wan::plan_static_address(
             router,
             &name,
@@ -99,7 +99,7 @@ fn wan_plan(router: &RouterCtx, op: &str) -> TestResult {
         "identity" => wan::plan_identity(router, &name, "coverage67")?,
         "password" => wan::plan_password(router, &name, secret())?,
         "connect_via" => wan::plan_connect_via(router, &name, &"ISP".parse()?)?,
-        "priority" => wan::plan_priority(router, &name, 67)?,
+        "priority" => wan::plan_priority(router, &name, 67).await?,
         "mtu" => wan::plan_mtu(router, &name, 1_400)?,
         "default_route" => wan::plan_default_route(router, &name, true)?,
         _ => return Err("uncovered WAN operation".into()),

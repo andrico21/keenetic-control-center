@@ -6,11 +6,11 @@
 )]
 
 use alloc::{collections::BTreeMap, vec};
-use core::net::Ipv4Addr;
+use core::{net::Ipv4Addr, result::Result as CoreResult};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, PresencePredicate, VerificationSpec},
+    workflow::{CliChangeRequest, CliCommand, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_rci::ObjectName;
@@ -19,7 +19,9 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    descriptor, interfaces::ManagementVerdict, read_show,
+    descriptor,
+    interfaces::{self, ManagementVerdict},
+    read_show,
 };
 
 /// Tolerant, secret-free WAN response models.
@@ -92,18 +94,29 @@ pub async fn read_connections(router: &RouterCtx) -> Result<BTreeMap<String, Con
 }
 
 /// Plans creation of a named connection interface.
-pub fn plan_create(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
-    plan(router, "interface", &json!({"name": name}), Vec::new())
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_create(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
+    plan_named_generated(
+        router,
+        name,
+        "interface",
+        &json!({"name": name}),
+        Vec::new(),
+    )
+    .await
 }
 
 /// Plans deletion of a named connection interface.
-pub fn plan_delete(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
-    plan(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_delete(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
+    plan_named_generated(
         router,
+        name,
         "interface",
         &json!({"name": name, "no": true}),
         Vec::new(),
     )
+    .await
 }
 
 /// Plans DHCP addressing for an IPoE interface.
@@ -195,15 +208,20 @@ pub fn plan_connect_via(
 }
 
 /// Plans global-routing priority.
-pub fn plan_priority(router: &RouterCtx, name: &ObjectName, priority: i64) -> Result<ChangeOp> {
-    plan_named(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_priority(
+    router: &RouterCtx,
+    name: &ObjectName,
+    priority: i64,
+) -> Result<ChangeOp> {
+    plan_named_generated(
         router,
         name,
         "interface ip global",
         &json!({"priority": priority}),
         Vec::new(),
-        Risk::Write,
     )
+    .await
 }
 
 /// Plans interface MTU.
@@ -266,14 +284,26 @@ fn plan_named(
     plan_with_risk(router, catalog_path, body, verify, risk)
 }
 
-/// Validates one non-secret WAN operation.
-fn plan(
+/// Validates and classifies a generated named-interface operation.
+// cancel-safe: management classification performs read-only topology requests.
+async fn plan_named_generated(
     router: &RouterCtx,
+    name: &ObjectName,
     catalog_path: &str,
     body: &Value,
     verify: Vec<VerificationSpec>,
 ) -> Result<ChangeOp> {
-    plan_with_risk(router, catalog_path, body, verify, Risk::Write)
+    let operation = plan_with_risk(router, catalog_path, body, verify, Risk::Write)?;
+    let request = render::request(name, &operation)?;
+    let lines = request
+        .commands
+        .iter()
+        .map(CliCommand::expose_for_send)
+        .collect::<CoreResult<Vec<_>, _>>()
+        .map_err(|_error| DomainError::InvalidResponse)?;
+    let rendered = lines.iter().map(|line| line.as_str()).collect::<Vec<_>>();
+    let risk = interfaces::management::classify_generated(router, &rendered).await?;
+    Ok(ChangeOp { risk, ..operation })
 }
 
 /// Validates one WAN operation with explicit risk.

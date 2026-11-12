@@ -87,6 +87,39 @@ pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<Mana
     Ok(verdict)
 }
 
+/// Raises a generated CLI plan to management risk for every interface identity it renders.
+// cancel-safe: classification performs read-only topology requests.
+pub(crate) async fn classify_generated(router: &RouterCtx, lines: &[&str]) -> Result<Risk> {
+    let mut names = BTreeSet::new();
+    for line in lines {
+        let mut words = line.split_whitespace();
+        let first = words.next();
+        let interface = match first {
+            Some("interface") => words.next(),
+            Some("no") if words.next() == Some("interface") => words.next(),
+            Some(_) | None => None,
+        };
+        if let Some(name) = interface {
+            let _: bool = names.insert(name.to_owned());
+        }
+        let mut members = line.split_whitespace();
+        while let Some(word) = members.next() {
+            if matches!(word, "include" | "inherit")
+                && let Some(member) = members.next()
+            {
+                let _: bool = names.insert(member.to_owned());
+            }
+        }
+    }
+    for name in names {
+        let object = ObjectName::try_from(name).map_err(|_error| DomainError::InvalidResponse)?;
+        if detect(router, &object).await?.risk(&object) == Risk::Management {
+            return Ok(Risk::Management);
+        }
+    }
+    Ok(Risk::Write)
+}
+
 /// Classifies a bridge using the shared membership union and observed source addresses.
 fn classify_bridge(
     selected: &Interface,

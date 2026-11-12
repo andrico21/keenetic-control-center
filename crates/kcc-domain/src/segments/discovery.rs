@@ -113,6 +113,12 @@ impl SegmentView {
         }
     }
 
+    /// Classifies the exact generated deletion plan for this immutable ownership record.
+    // cancel-safe: management classification performs read-only topology requests.
+    pub async fn deletion_plan(&self, router: &RouterCtx) -> Result<crate::ChangeOp> {
+        super::plan_delete(router, &self.record.spec).await
+    }
+
     /// Returns the private creation intent for the shared step definition.
     pub(super) const fn spec(&self) -> &SegmentSpec {
         &self.record.spec

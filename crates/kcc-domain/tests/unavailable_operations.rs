@@ -70,6 +70,15 @@ async fn planners_refuse_operations_absent_from_4_3_without_a_request() -> TestR
         let fixture = Fixture::spawn(firmware).await?;
         let router = fixture.context();
         let before = fixture.handle().request_count();
+        let unavailable_vpn = vpn_clients::plan_change(
+            router,
+            &VpnClientChange::OpenConnectProtocol {
+                name: "OpenConnect0".to_owned(),
+                protocol: "anyconnect".to_owned(),
+            },
+        )
+        .await
+        .map(drop);
         let outcomes = [
             (
                 "service iperf3",
@@ -79,17 +88,7 @@ async fn planners_refuse_operations_absent_from_4_3_without_a_request() -> TestR
                 "dns-proxy route object-group",
                 dns::plan_change(router, &DnsChange::Route(DnsRoute::new("Blocked"))).map(drop),
             ),
-            (
-                "interface openconnect protocol",
-                vpn_clients::plan_change(
-                    router,
-                    &VpnClientChange::OpenConnectProtocol {
-                        name: "OpenConnect0".to_owned(),
-                        protocol: "anyconnect".to_owned(),
-                    },
-                )
-                .map(drop),
-            ),
+            ("interface openconnect protocol", unavailable_vpn),
             (
                 "wireguard-server interface",
                 vpn_servers::plan_change(

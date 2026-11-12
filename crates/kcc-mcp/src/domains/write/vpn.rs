@@ -191,7 +191,7 @@ pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, 
         .await?;
         return Ok(json!({ "applied": true, "unsaved": true }));
     }
-    let planned = vpn_clients::plan_change(&opened.2, &client_change(&input)?);
+    let planned = vpn_clients::plan_change(&opened.2, &client_change(&input)?).await;
     apply_cli(
         server,
         &opened,

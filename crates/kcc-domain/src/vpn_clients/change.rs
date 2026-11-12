@@ -8,7 +8,9 @@ use kcc_catalog::{HttpMethod, Risk};
 use serde_json::{Value, json};
 
 use super::{VpnClientChange, render};
-use crate::{ChangeOp, DomainError, OperationDescriptor, Result, RouterCtx, verification};
+use crate::{
+    ChangeOp, DomainError, OperationDescriptor, Result, RouterCtx, interfaces, verification,
+};
 
 /// Catalog-filtered VPN client write inventory.
 pub(super) const WRITES: &[OperationDescriptor] = &[
@@ -49,7 +51,26 @@ pub(super) const WRITES: &[OperationDescriptor] = &[
 ];
 
 /// Plans one non-secret mutation.
-pub(super) fn plan(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
+// cancel-safe: management classification performs read-only topology requests.
+pub(super) async fn plan(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
+    let mut operation = plan_unclassified(router, change)?;
+    let lines = operation
+        .requests
+        .iter()
+        .map(|request| {
+            request
+                .value
+                .get("line")
+                .and_then(Value::as_str)
+                .ok_or(DomainError::InvalidResponse)
+        })
+        .collect::<Result<Vec<_>>>()?;
+    operation.risk = interfaces::management::classify_generated(router, &lines).await?;
+    Ok(operation)
+}
+
+/// Plans one non-secret mutation before generated-line management classification.
+pub(super) fn plan_unclassified(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
     let (path, body, line) = render::input(change);
     let mut validated = router
         .catalog

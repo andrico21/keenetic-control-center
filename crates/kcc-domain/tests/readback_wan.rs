@@ -28,7 +28,7 @@ mod tests {
             )
             .await?;
             let name = "Ethernet67".parse()?;
-            let operation = wan::plan_create(fixture.context(), &name)?;
+            let operation = wan::plan_create(fixture.context(), &name).await?;
             let mut changes = fixture.changes().await?;
             let outcome = changes
                 .apply_cli(wan::change_request(&name, &operation)?)
@@ -54,7 +54,7 @@ mod tests {
             .await?;
             let name = "Bridge0".parse()?;
             let operations = [
-                wan::plan_delete(fixture.context(), &name)?,
+                wan::plan_delete(fixture.context(), &name).await?,
                 wan::plan_dhcp(fixture.context(), &name, ManagementVerdict::NotManagement)?,
                 wan::plan_static_address(
                     fixture.context(),

@@ -188,6 +188,24 @@ mod tests {
         )
         .await
     }
+    /// VPN deletion uses the rendered interface's management verdict.
+    #[tokio::test]
+    async fn curated_bracket_vpn_delete() -> TestResult {
+        bracket(
+            "kcc_vpn_clients_write",
+            json!({"host":"lab-1","op":"delete","name":"Bridge0","confirm":true}),
+        )
+        .await
+    }
+    /// WAN deletion uses the rendered interface's management verdict.
+    #[tokio::test]
+    async fn curated_bracket_wan_delete() -> TestResult {
+        bracket(
+            "kcc_wan_write",
+            json!({"host":"lab-1","op":"delete","name":"Bridge0","confirm":true}),
+        )
+        .await
+    }
 
     /// The interface executor owns its native management bracket independently of the funnel.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
@@ -257,6 +275,14 @@ mod tests {
             (
                 "kcc_segments_write",
                 json!({"host":"lab-1","op":"create","id":7_u16,"vlan_id":7_u16,"address":"198.51.100.1","mask":"255.255.255.0","dhcp_begin":"198.51.100.10","dhcp_end":"198.51.100.50","switch_ports":[],"access_point":"WifiMaster0/AccessPoint0","confirm":true}),
+            ),
+            (
+                "kcc_vpn_clients_write",
+                json!({"host":"lab-1","op":"delete","name":"Bridge0","confirm":true}),
+            ),
+            (
+                "kcc_wan_write",
+                json!({"host":"lab-1","op":"priority","name":"Bridge0","number":7_i64,"confirm":true}),
             ),
         ] {
             let before = lab.router("lab-1")?.request_log().len();

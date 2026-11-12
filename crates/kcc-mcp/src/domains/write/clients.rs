@@ -10,7 +10,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{Opened, applied, apply, apply_registered, check_op, ipv4, needed, open, text};
+use super::common::{Opened, applied, apply, check_op, ipv4, needed, open, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -320,10 +320,11 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
         .into_iter()
         .find(|segment| segment.id == input.id)
         .ok_or(McpFailure::InvalidArguments)?;
-    let summary = apply_registered(
+    let operation = view.deletion_plan(ctx).await.map_err(map_domain)?;
+    let summary = apply(
         server,
         &opened,
-        (Area::Segments, &input.op, input.confirm, async |changes| {
+        (&operation, input.confirm, async |changes| {
             segments::delete_discovered(changes, ctx, &view)
                 .await
                 .map_err(map_segment)

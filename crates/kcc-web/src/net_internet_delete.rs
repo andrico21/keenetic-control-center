@@ -86,6 +86,7 @@ pub(crate) async fn delete(
     }
     let domain = action.context().await?;
     let change = wan::plan_delete(&domain, &name)
+        .await
         .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
     let answered = finish(call, action, Planned::new(domain, change)).await;

@@ -122,10 +122,18 @@ pub(crate) async fn delete(
             tr(locale, keys::WEB_SEGMENTS_DELETE_CHANGED, None),
         ));
     }
+    let risk = match view.deletion_plan(&domain).await {
+        Ok(operation) => operation.risk,
+        Err(error) => {
+            let failure = plan_failure(Family::Changes, locale, &error);
+            let shown = Outcome::failed(failure).render(locale);
+            return Err(Answer::from(respond::retarget(shown, "#page-outcome")));
+        }
+    };
     let mut note = None;
     let outcome = action
         .run_with(
-            Risk::Write,
+            risk,
             async |changes, context| match segments::delete_discovered(changes, context, &view)
                 .await
             {

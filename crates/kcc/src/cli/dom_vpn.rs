@@ -43,7 +43,7 @@ pub(crate) async fn vpn(
         Family::Base(sub) => dom_wire::vpn(ctx, sub).await,
         Family::Writes(Family::Base(sub)) => {
             let session = Session::open(ctx, Permission::Write).await?;
-            let operation = vpn_clients::plan_change(session.router(), &change(sub))?;
+            let operation = vpn_clients::plan_change(session.router(), &change(sub)).await?;
             session
                 .cli(&operation, vpn_clients::change_request(&operation)?)
                 .await

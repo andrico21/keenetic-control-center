@@ -262,10 +262,13 @@ pub(crate) async fn submit(
     let peer_key = psk
         .filter(|_| form == VpnForm::Peer)
         .map(|key| PeerKey::new(&values, key));
-    let written = planned.request(&ctx).and_then(|request| match peer_key {
-        Some(key) => key.joined(request, &ctx),
-        None => Ok(request),
-    });
+    let written = planned
+        .request(&ctx)
+        .await
+        .and_then(|request| match peer_key {
+            Some(key) => key.joined(request, &ctx),
+            None => Ok(request),
+        });
     let request = match taken.and_then(|used| Ok((used, written?))) {
         Ok((false, request)) => request,
         Ok((true, _)) => {

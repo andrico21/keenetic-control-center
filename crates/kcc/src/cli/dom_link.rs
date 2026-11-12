@@ -78,12 +78,12 @@ pub(crate) async fn wan(ctx: &Ctx, command: Family<WanCommand, WanWriteCommand>)
     let (name, operation) = match sub {
         WanWriteCommand::Create { name } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_create(router, &object_name)?;
+            let operation = wan::plan_create(router, &object_name).await?;
             (object_name, operation)
         }
         WanWriteCommand::Delete { name } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_delete(router, &object_name)?;
+            let operation = wan::plan_delete(router, &object_name).await?;
             (object_name, operation)
         }
         WanWriteCommand::Static {

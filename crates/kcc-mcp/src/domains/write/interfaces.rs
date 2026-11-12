@@ -165,8 +165,8 @@ async fn plan_wan(
     input: WanInput,
 ) -> Result<Result<ChangeOp, DomainError>, McpFailure> {
     Ok(match input.op.as_str() {
-        "create" => wan::plan_create(ctx, name),
-        "delete" => wan::plan_delete(ctx, name),
+        "create" => wan::plan_create(ctx, name).await,
+        "delete" => wan::plan_delete(ctx, name).await,
         "address_static" => {
             let address =
                 StaticAddress::new(ipv4(input.value.as_deref())?, ipv4(input.mask.as_deref())?);
@@ -184,7 +184,7 @@ async fn plan_wan(
         "identity" => wan::plan_identity(ctx, name, text(input.value.as_deref())?),
         "password" => wan::plan_password(ctx, name, secret(input.secret)?),
         "connect_via" => wan::plan_connect_via(ctx, name, &object(input.value.as_deref())?),
-        "priority" => wan::plan_priority(ctx, name, needed(input.number)?),
+        "priority" => wan::plan_priority(ctx, name, needed(input.number)?).await,
         "mtu" => wan::plan_mtu(ctx, name, needed(input.number)?),
         _ => wan::plan_default_route(ctx, name, needed(input.enabled)?),
     })

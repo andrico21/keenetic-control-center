@@ -81,6 +81,14 @@ impl Step {
     pub(super) fn owns_child(&self, context: &str, child: &str) -> bool {
         self.context == context && self.child.as_deref() == Some(child)
     }
+
+    /// Returns the generated command in one execution direction.
+    pub(super) fn line(&self, direction: Direction) -> &str {
+        match direction {
+            Direction::Create => &self.create,
+            Direction::Delete => &self.delete,
+        }
+    }
 }
 
 /// Mutation half of one step definition.

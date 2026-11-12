@@ -178,12 +178,12 @@ impl Checked {
     /// # Errors
     ///
     /// Returns the catalog's findings.
-    fn plan(self, domain: &RouterCtx, name: &ObjectName) -> Result<ChangeOp, DomainError> {
+    async fn plan(self, domain: &RouterCtx, name: &ObjectName) -> Result<ChangeOp, DomainError> {
         match self {
             Self::Identity(identity) => wan::plan_identity(domain, name, &identity),
             Self::Via(via) => wan::plan_connect_via(domain, name, &via),
             Self::Mtu(mtu) => wan::plan_mtu(domain, name, mtu),
-            Self::Priority(priority) => wan::plan_priority(domain, name, priority),
+            Self::Priority(priority) => wan::plan_priority(domain, name, priority).await,
         }
     }
 }
@@ -271,6 +271,7 @@ pub(crate) async fn field(
     let domain = action.context().await?;
     let planned = checked
         .plan(&domain, &name)
+        .await
         .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
     let change = match planned {
         Ok(found_change) => found_change,

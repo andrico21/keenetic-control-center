@@ -95,16 +95,15 @@ pub(crate) async fn order(
         action.abandon("validation_failed").await;
         return Err(missing());
     }
-    let change = moves
-        .into_iter()
-        .map(|(id, priority)| {
-            let object = ObjectName::try_from(id).map_err(|_error| DomainError::InvalidResponse)?;
-            let operation = wan::plan_priority(&domain, &object, priority)?;
-            wan::change_request(&object, &operation)
-        })
-        .collect::<Result<Vec<_>, _>>()
-        .and_then(merged)
-        .map(|request| (request, Risk::Write));
+    let mut requests = Vec::new();
+    let mut risk = Risk::Write;
+    for (id, priority) in moves {
+        let object = ObjectName::try_from(id).map_err(|_error| DomainError::InvalidResponse)?;
+        let operation = wan::plan_priority(&domain, &object, priority).await?;
+        risk = risk.max(operation.risk);
+        requests.push(wan::change_request(&object, &operation)?);
+    }
+    let change = merged(requests).map(|request| (request, risk));
     Ok(finish(call, action, Planned::new(domain, change)).await)
 }
 

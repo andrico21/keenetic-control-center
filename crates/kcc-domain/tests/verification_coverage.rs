@@ -117,7 +117,7 @@ mod tests {
                             network::check(fixture.context(), domain.id, operation.name).await
                         }
                         DomainId::VpnClients | DomainId::VpnServers => {
-                            vpn::check(fixture.context(), domain.id, operation.name)
+                            vpn::check(fixture.context(), domain.id, operation.name).await
                         }
                         DomainId::Clients
                         | DomainId::Dhcp

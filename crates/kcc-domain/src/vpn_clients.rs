@@ -338,8 +338,9 @@ pub fn parse_wireguard_config(text: &str) -> CoreResult<WireGuardConfig, WireGua
 }
 
 /// Plans a non-secret catalog-validated VPN client mutation.
-pub fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
-    change::plan(router, change)
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
+    change::plan(router, change).await
 }
 
 /// Plans imported private and peer keys through protected requests, generating a key when absent.

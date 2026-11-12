@@ -206,7 +206,7 @@ pub(crate) async fn wan(ctx: &Ctx, command: WanCommand) -> Outcome {
         }
         WanCommand::Priority { name, value } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_priority(router, &object_name, value)?;
+            let operation = wan::plan_priority(router, &object_name, value).await?;
             (object_name, operation)
         }
         WanCommand::Mtu { name, value } => {

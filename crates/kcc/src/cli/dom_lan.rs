@@ -146,7 +146,6 @@ pub(crate) async fn segments(
 // NOT cancel-safe: steps may apply before cancellation; failed steps roll back.
 async fn segments_writes(ctx: &Ctx, command: SegmentsWriteCommand) -> Outcome {
     let session = Session::open(ctx, Permission::Write).await?;
-    let gate = Gate::new(Risk::Write, Permission::Write, false);
     match command {
         SegmentsWriteCommand::Create {
             id,
@@ -191,6 +190,8 @@ async fn segments_writes(ctx: &Ctx, command: SegmentsWriteCommand) -> Outcome {
                         &[("name", &id.to_string())],
                     )
                 })?;
+            let operation = view.deletion_plan(session.router()).await?;
+            let gate = Gate::new(operation.risk, operation.permission, false);
             session
                 .change(gate, async |changes, context| {
                     drop(

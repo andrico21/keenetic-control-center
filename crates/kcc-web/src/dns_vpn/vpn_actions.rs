@@ -241,7 +241,7 @@ async fn run(action: Action<'_>, planned: Planned, reply: Reply<'_>) -> Response
         Ok(found) => found,
         Err(answer) => return answer.into_response(),
     };
-    let request = match planned.request(&ctx) {
+    let request = match planned.request(&ctx).await {
         Ok(request) => request,
         Err(error) => {
             let failure = plan_failure(Family::Changes, locale, &error);

@@ -13,7 +13,7 @@ mod support;
 use core::net::Ipv4Addr;
 
 use kcc_catalog::{RawAuthorization, Risk};
-use kcc_domain::{segments, wifi};
+use kcc_domain::{segments, vpn_clients, wan, wifi};
 use kcc_rci::ObjectName;
 
 use crate::support::{Fixture, PROFILES, TestResult};
@@ -64,6 +64,12 @@ async fn curated_interface_lines_match_catalog_management_risk() -> TestResult {
                 .risk,
             Risk::Management
         );
+        assert_eq!(
+            segments::plan_delete(fixture.context(), &managed_segment)
+                .await?
+                .risk,
+            Risk::Management
+        );
         let catalog = fixture
             .context()
             .catalog
@@ -75,6 +81,12 @@ async fn curated_interface_lines_match_catalog_management_risk() -> TestResult {
         assert_eq!(catalog.risk, Risk::Management);
         assert_eq!(
             segments::plan_create(fixture.context(), &ordinary_segment)
+                .await?
+                .risk,
+            Risk::Write
+        );
+        assert_eq!(
+            segments::plan_delete(fixture.context(), &ordinary_segment)
                 .await?
                 .risk,
             Risk::Write
@@ -95,4 +107,82 @@ fn segment(access_point: &str) -> segments::SegmentSpec {
         Vec::new(),
     )
     .with_access_point(access_point.to_owned())
+}
+
+/// Free-form VPN names must carry the risk of the interface actually rendered.
+#[tokio::test]
+async fn vpn_delete_and_disable_preserve_management_risk() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        for name in ["Bridge0", "WifiMaster0/AccessPoint0", "Wireguard7"] {
+            for change in [
+                vpn_clients::VpnClientChange::Delete {
+                    name: name.to_owned(),
+                },
+                vpn_clients::VpnClientChange::Enabled {
+                    name: name.to_owned(),
+                    enabled: false,
+                },
+            ] {
+                let operation = vpn_clients::plan_change(fixture.context(), &change).await?;
+                let request = vpn_clients::change_request(&operation)?;
+                let expected = if name == "Wireguard7" {
+                    Risk::Write
+                } else {
+                    Risk::Management
+                };
+                for command in &request.commands {
+                    let line = command.expose_for_send()?;
+                    if expected == Risk::Management {
+                        let oracle = fixture
+                            .context()
+                            .catalog
+                            .validate_cli(line.as_str(), RawAuthorization::default())
+                            .map_err(|issues| format!("catalog: {issues:?}"))?;
+                        assert!(oracle.contains_management(), "oracle: {}", line.as_str());
+                    }
+                    assert_eq!(operation.risk, expected, "VPN: {}", line.as_str());
+                }
+            }
+        }
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// WAN creation, deletion and priority use the name rendered by the request.
+#[tokio::test]
+async fn wan_lifecycle_and_priority_preserve_management_risk() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        for name in ["Bridge0", "WifiMaster0/AccessPoint0", "PPPoE7"] {
+            let object = ObjectName::try_from(name.to_owned())?;
+            for operation in [
+                wan::plan_create(fixture.context(), &object).await?,
+                wan::plan_delete(fixture.context(), &object).await?,
+                wan::plan_priority(fixture.context(), &object, 7).await?,
+            ] {
+                let request = wan::change_request(&object, &operation)?;
+                let expected = if name == "PPPoE7" {
+                    Risk::Write
+                } else {
+                    Risk::Management
+                };
+                for command in &request.commands {
+                    let line = command.expose_for_send()?;
+                    if expected == Risk::Management {
+                        let oracle = fixture
+                            .context()
+                            .catalog
+                            .validate_cli(line.as_str(), RawAuthorization::default())
+                            .map_err(|issues| format!("catalog: {issues:?}"))?;
+                        assert!(oracle.contains_management(), "oracle: {}", line.as_str());
+                    }
+                    assert_eq!(operation.risk, expected, "WAN: {}", line.as_str());
+                }
+            }
+        }
+        fixture.shutdown().await?;
+    }
+    Ok(())
 }

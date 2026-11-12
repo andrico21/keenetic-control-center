@@ -12,7 +12,7 @@ use crate::{ChangeOp, DomainError, Result, RouterCtx};
 
 /// Builds the complete import before any mutation can be dispatched.
 pub(super) fn plan(router: &RouterCtx, name: &str, config: &WireGuardConfig) -> Result<ChangeOp> {
-    let mut operation = change::plan(
+    let mut operation = change::plan_unclassified(
         router,
         &VpnClientChange::Create {
             name: name.to_owned(),
@@ -31,7 +31,7 @@ pub(super) fn plan(router: &RouterCtx, name: &str, config: &WireGuardConfig) -> 
             },
         )?,
         None => operation.requests.extend(
-            change::plan(
+            change::plan_unclassified(
                 router,
                 &VpnClientChange::GenerateWireGuardPrivateKey {
                     name: name.to_owned(),
