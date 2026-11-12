@@ -6658,7 +6658,7 @@ pub const WEB_REFUSAL_MISSING: MessageKey = MessageKey::new("web-refusal-missing
 pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2122] = [
+pub static ALL: [MessageKey; 2123] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
