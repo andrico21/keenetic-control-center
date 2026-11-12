@@ -17,7 +17,7 @@ mod tests {
 
     /// Runs one real write on both recovery mechanisms and checks the wire bracket.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
-    async fn bracket(tool: &str, input: Value) -> TestResult {
+    async fn bracket(tool: &str, input: Value, expected_error: Option<&str>) -> TestResult {
         for mode in ["router", "extender"] {
             let mut scenario = migration::Fixture::default();
             scenario.mode = Some(mode.to_owned());
@@ -68,7 +68,7 @@ mod tests {
                 commands.last().is_some_and(|line| line == disarm),
                 "{tool} {mode} must disarm last: {commands:?}; {reply:?}"
             );
-            assert_eq!(reply.error(), None, "{tool} {mode}: {reply:?}");
+            assert_eq!(reply.error(), expected_error, "{tool} {mode}: {reply:?}");
             writeln!(
                 io::stderr(),
                 "BRACKET MCP admin {mode} {tool} {}: arm + disarm",
@@ -82,7 +82,7 @@ mod tests {
     /// Management listener ports are protected.
     #[tokio::test]
     async fn curated_bracket_management_port() -> TestResult {
-        bracket("kcc_services_write", json!({"host":"lab-1","op":"management_port","name":"http","port":8082_u16,"confirm":true})).await
+        bracket("kcc_services_write", json!({"host":"lab-1","op":"management_port","name":"http","port":8082_u16,"confirm":true}), None).await
     }
     /// Disabling the management access point is protected.
     #[tokio::test]
@@ -90,6 +90,7 @@ mod tests {
         bracket(
             "kcc_wifi_write",
             json!({"host":"lab-1","op":"up","name":"WifiMaster0/AccessPoint0","enabled":false,"confirm":true}),
+            None,
         )
         .await
     }
@@ -99,13 +100,14 @@ mod tests {
         bracket(
             "kcc_segments_write",
             json!({"host":"lab-1","op":"create","id":7_u16,"vlan_id":7_u16,"address":"198.51.100.1","mask":"255.255.255.0","dhcp_begin":"198.51.100.10","dhcp_end":"198.51.100.50","switch_ports":[],"access_point":"WifiMaster0/AccessPoint0","confirm":true}),
+            None,
         )
         .await
     }
     /// Management listener exposure is protected.
     #[tokio::test]
     async fn curated_bracket_management_security_level() -> TestResult {
-        bracket("kcc_services_write", json!({"host":"lab-1","op":"management_security_level","name":"http","value":"private","confirm":true})).await
+        bracket("kcc_services_write", json!({"host":"lab-1","op":"management_security_level","name":"http","value":"private","confirm":true}), None).await
     }
     /// HTTPS settings are protected.
     #[tokio::test]
@@ -113,6 +115,7 @@ mod tests {
         bracket(
             "kcc_services_write",
             json!({"host":"lab-1","op":"http_ssl","value":"enable","enabled":true,"confirm":true}),
+            None,
         )
         .await
     }
@@ -122,13 +125,14 @@ mod tests {
         bracket(
             "kcc_keendns_write",
             json!({"host":"lab-1","op":"proxy","name":"labproxy","enabled":true,"confirm":true}),
+            None,
         )
         .await
     }
     /// Proxy upstream changes are protected.
     #[tokio::test]
     async fn curated_bracket_proxy_upstream() -> TestResult {
-        bracket("kcc_keendns_write", json!({"host":"lab-1","op":"proxy_upstream","name":"labproxy","value":"http","target":"192.0.2.10","port":8080_u16,"confirm":true})).await
+        bracket("kcc_keendns_write", json!({"host":"lab-1","op":"proxy_upstream","name":"labproxy","value":"http","target":"192.0.2.10","port":8080_u16,"confirm":true}), None).await
     }
     /// Cloud exposure changes are protected.
     #[tokio::test]
@@ -136,6 +140,7 @@ mod tests {
         bracket(
             "kcc_keendns_write",
             json!({"host":"lab-1","op":"cloud_security_level","value":"private","confirm":true}),
+            None,
         )
         .await
     }
@@ -145,6 +150,7 @@ mod tests {
         bracket(
             "kcc_router_users_write",
             json!({"host":"lab-1","op":"create","name":"bracket-user","confirm":true}),
+            None,
         )
         .await
     }
@@ -154,30 +160,31 @@ mod tests {
         bracket(
             "kcc_router_users_write",
             json!({"host":"lab-1","op":"delete","name":"bracket-user","confirm":true}),
+            None,
         )
         .await
     }
     /// Router access tags are protected.
     #[tokio::test]
     async fn curated_bracket_user_tag() -> TestResult {
-        bracket("kcc_router_users_write", json!({"host":"lab-1","op":"set_tag","name":"bracket-user","value":"http","enabled":true,"confirm":true})).await
+        bracket("kcc_router_users_write", json!({"host":"lab-1","op":"set_tag","name":"bracket-user","value":"http","enabled":true,"confirm":true}), None).await
     }
     /// Router passwords are protected without exposing their value in evidence.
     #[tokio::test]
     async fn curated_bracket_user_password() -> TestResult {
         let secret = ["bracket", "fixture", "credential"].join("-");
-        bracket("kcc_router_users_write", json!({"host":"lab-1","op":"set_password","name":"bracket-user","secret":secret,"confirm":true})).await
+        bracket("kcc_router_users_write", json!({"host":"lab-1","op":"set_password","name":"bracket-user","secret":secret,"confirm":true}), None).await
     }
     /// VPN account password changes also use the management bracket.
     #[tokio::test]
     async fn curated_bracket_vpn_password() -> TestResult {
         let secret = ["vpn", "fixture", "credential"].join("-");
-        bracket("kcc_vpn_servers_write", json!({"host":"lab-1","op":"password","name":"bracket-user","secret":secret,"confirm":true})).await
+        bracket("kcc_vpn_servers_write", json!({"host":"lab-1","op":"password","name":"bracket-user","secret":secret,"confirm":true}), None).await
     }
     /// Runtime management classification overrides ordinary WAN metadata.
     #[tokio::test]
     async fn curated_bracket_wan_static() -> TestResult {
-        bracket("kcc_wan_write", json!({"host":"lab-1","op":"address_static","name":"Bridge0","value":"192.0.2.1","mask":"255.255.255.0","confirm":true})).await
+        bracket("kcc_wan_write", json!({"host":"lab-1","op":"address_static","name":"Bridge0","value":"192.0.2.1","mask":"255.255.255.0","confirm":true}), None).await
     }
     /// DHCP addressing of the management bridge is also protected.
     #[tokio::test]
@@ -185,6 +192,7 @@ mod tests {
         bracket(
             "kcc_wan_write",
             json!({"host":"lab-1","op":"address_dhcp","name":"Bridge0","confirm":true}),
+            None,
         )
         .await
     }
@@ -194,6 +202,7 @@ mod tests {
         bracket(
             "kcc_vpn_clients_write",
             json!({"host":"lab-1","op":"delete","name":"Bridge0","confirm":true}),
+            None,
         )
         .await
     }
@@ -203,6 +212,8 @@ mod tests {
         bracket(
             "kcc_wan_write",
             json!({"host":"lab-1","op":"delete","name":"Bridge0","confirm":true}),
+            // The fake keeps Bridge0 in read-back state after accepting its removal.
+            Some("verification_failed"),
         )
         .await
     }

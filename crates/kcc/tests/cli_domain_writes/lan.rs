@@ -1,8 +1,27 @@
 //! Client policy, DHCP pool, segment and connection-policy writes.
 
+use kcc_app::permissions::Permission;
 use serde_json::Value;
 
 use super::{lab::Lab, support::TestResult};
+
+const MANAGEMENT_SEGMENT: &[&str] = &[
+    "segments",
+    "create",
+    "23",
+    "--vlan",
+    "23",
+    "--address",
+    "192.0.2.129",
+    "--mask",
+    "255.255.255.192",
+    "--dhcp-begin",
+    "192.0.2.130",
+    "--dhcp-end",
+    "192.0.2.180",
+    "--port",
+    "GigabitEthernet0/1",
+];
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn dhcp_pool_is_written_and_read_back() -> TestResult {
@@ -59,23 +78,9 @@ async fn dhcp_pool_without_dns_or_interface_is_written() -> TestResult {
 async fn segment_is_created_listed_and_deleted() -> TestResult {
     let lab = Lab::spawn("").await?;
     let running = lab.fake.running_config_text();
-    let created = lab.json(&[
-        "segments",
-        "create",
-        "23",
-        "--vlan",
-        "23",
-        "--address",
-        "192.0.2.129",
-        "--mask",
-        "255.255.255.192",
-        "--dhcp-begin",
-        "192.0.2.130",
-        "--dhcp-end",
-        "192.0.2.180",
-        "--port",
-        "GigabitEthernet0/1",
-    ])?;
+    let mut confirmed = vec!["--yes"];
+    confirmed.extend_from_slice(MANAGEMENT_SEGMENT);
+    let created = lab.json(&confirmed)?;
     assert_eq!(created.get("id"), Some(&Value::from(23_u16)), "{created}");
     let listed = lab.json(&["segments", "list"])?;
     let found = listed
@@ -85,9 +90,44 @@ async fn segment_is_created_listed_and_deleted() -> TestResult {
         .filter_map(|segment| segment.get("id").and_then(Value::as_u64))
         .any(|id| id == 23);
     assert!(found, "{listed}");
-    drop(lab.json(&["segments", "delete", "23"])?);
+    drop(lab.json(&["--yes", "segments", "delete", "23"])?);
     assert_eq!(lab.fake.running_config_text(), running);
     lab.shutdown().await
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn management_port_segment_requires_confirmation_and_destructive_permission() -> TestResult {
+    let unconfirmed = Lab::spawn("").await?;
+    let unconfirmed_run = unconfirmed.run(MANAGEMENT_SEGMENT)?;
+    assert_eq!(
+        unconfirmed_run.code, 10_i32,
+        "unconfirmed: {unconfirmed_run:?}"
+    );
+    assert!(
+        unconfirmed
+            .fake
+            .request_log()
+            .iter()
+            .all(|record| record.command().is_none()),
+        "unconfirmed segment sent a write"
+    );
+    unconfirmed.shutdown().await?;
+
+    let writer = Lab::spawn("role = \"writer\"").await?;
+    writer.add_role("writer", [Permission::Read, Permission::Write])?;
+    let mut confirmed = vec!["--yes"];
+    confirmed.extend_from_slice(MANAGEMENT_SEGMENT);
+    let writer_run = writer.run(&confirmed)?;
+    assert_eq!(writer_run.code, 10_i32, "writer: {writer_run:?}");
+    assert!(
+        writer
+            .fake
+            .request_log()
+            .iter()
+            .all(|record| record.command().is_none()),
+        "writer segment sent a write"
+    );
+    writer.shutdown().await
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

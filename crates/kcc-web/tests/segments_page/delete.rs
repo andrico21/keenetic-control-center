@@ -15,13 +15,13 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
     let fixture = Fixture::new().await?;
     let settings = fixture.handle().settings_snapshot();
     let running = fixture.handle().running_config_text();
-    let operator = fixture.login("operator").await?;
-    let created = create(&fixture, &operator, &SEGMENT).await?;
+    let admin = fixture.login("admin").await?;
+    let created = create(&fixture, &admin, &SEGMENT).await?;
     assert!(
         created.contains("id=\"segments-region\" hx-swap-oob=\"true\""),
         "the list is read back: {created}"
     );
-    let page = text(fixture.get(PAGE, &operator).await?).await?;
+    let page = text(fixture.get(PAGE, &admin).await?).await?;
     let listed = segment(&page, "23").ok_or("the segment's panel")?;
     for expected in [
         "Bridge23",
@@ -38,7 +38,7 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
         !listed.contains(&said(keys::WEB_SEGMENTS_INCOMPLETE)),
         "complete: {listed}"
     );
-    let (dialog, action) = delete_dialog(&fixture, &operator, "23").await?;
+    let (dialog, action) = delete_dialog(&fixture, &admin, "23").await?;
     for expected in [
         "interface Vlan23",
         "interface Bridge23",
@@ -53,7 +53,7 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
         "{action}"
     );
     let deleted = fixture
-        .post(&action, &operator, "name=home&confirm=home")
+        .post(&action, &admin, "name=home&confirm=home")
         .await?;
     assert_eq!(deleted.status(), StatusCode::OK, "deleted");
     assert_eq!(

@@ -35,6 +35,13 @@ fn changed(name: &str, value: &'static str) -> Vec<(&'static str, &'static str)>
         .collect()
 }
 
+fn confirmed_segment() -> Vec<(&'static str, &'static str)> {
+    SEGMENT
+        .into_iter()
+        .chain([("confirm", "yes"), ("confirm_name", "home")])
+        .collect()
+}
+
 #[tokio::test]
 async fn each_role_sees_the_page_and_only_its_controls() -> TestResult {
     let fixture = Fixture::new().await?;
@@ -109,11 +116,31 @@ async fn management_access_point_segment_is_refused_for_writer() -> TestResult {
 }
 
 #[tokio::test]
+async fn management_port_segment_is_refused_for_writer_without_router_writes() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let writer = fixture.login("writer").await?;
+    let before = fixture.handle().request_log().len();
+    let response = fixture
+        .post(&format!("{PAGE}/create"), &writer, &form(&SEGMENT))
+        .await?;
+    assert_eq!(response.status(), StatusCode::FORBIDDEN);
+    assert!(
+        fixture
+            .handle()
+            .request_log()
+            .iter()
+            .skip(before)
+            .all(|record| record.command().is_none())
+    );
+    Ok(())
+}
+
+#[tokio::test]
 async fn a_segment_is_reviewed_then_created() -> TestResult {
     let fixture = Fixture::new().await?;
-    let operator = fixture.login("operator").await?;
+    let admin = fixture.login("admin").await?;
     let review = fixture
-        .post(&format!("{PAGE}/review"), &operator, &form(&SEGMENT))
+        .post(&format!("{PAGE}/review"), &admin, &form(&SEGMENT))
         .await?;
     assert_eq!(review.status(), StatusCode::OK, "reviewed");
     let steps = text(review).await?;
@@ -134,7 +161,11 @@ async fn a_segment_is_reviewed_then_created() -> TestResult {
         "Create sends the details again"
     );
     let created = fixture
-        .post(&format!("{PAGE}/create"), &operator, &form(&SEGMENT))
+        .post(
+            &format!("{PAGE}/create"),
+            &admin,
+            &form(&confirmed_segment()),
+        )
         .await?;
     assert_eq!(created.status(), StatusCode::OK, "created");
     assert_eq!(
@@ -243,10 +274,14 @@ async fn a_failed_step_is_rolled_back_and_named() -> TestResult {
         FaultInjection::default().fail_parse_matching("interface Bridge23", 1),
     )
     .await?;
-    let operator = fixture.login("operator").await?;
+    let admin = fixture.login("admin").await?;
     let running = fixture.handle().running_config_text();
     let response = fixture
-        .post(&format!("{PAGE}/create"), &operator, &form(&SEGMENT))
+        .post(
+            &format!("{PAGE}/create"),
+            &admin,
+            &form(&confirmed_segment()),
+        )
         .await?;
     assert_eq!(response.status(), StatusCode::OK, "answered");
     let body = text(response).await?;

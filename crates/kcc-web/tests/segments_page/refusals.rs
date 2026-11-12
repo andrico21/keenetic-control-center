@@ -14,13 +14,13 @@ use crate::{
 #[tokio::test]
 async fn a_name_that_is_not_the_routers_deletes_nothing() -> TestResult {
     let fixture = Fixture::new().await?;
-    let operator = fixture.login("operator").await?;
-    drop(create(&fixture, &operator, &SEGMENT).await?);
-    let (_dialog, action) = delete_dialog(&fixture, &operator, "23").await?;
+    let admin = fixture.login("admin").await?;
+    drop(create(&fixture, &admin, &SEGMENT).await?);
+    let (_dialog, action) = delete_dialog(&fixture, &admin, "23").await?;
     let running = fixture.handle().running_config_text();
     let lines = sent_lines(&fixture);
     let wrong = fixture
-        .post(&action, &operator, "name=home&confirm=Home")
+        .post(&action, &admin, "name=home&confirm=Home")
         .await?;
     assert_eq!(
         wrong.status(),
@@ -37,7 +37,7 @@ async fn a_name_that_is_not_the_routers_deletes_nothing() -> TestResult {
         "still shows what goes"
     );
     let tampered = fixture
-        .post(&action, &operator, "name=Bridge23&confirm=Bridge23")
+        .post(&action, &admin, "name=Bridge23&confirm=Bridge23")
         .await?;
     assert_eq!(
         tampered.status(),
@@ -65,9 +65,9 @@ async fn a_name_that_is_not_the_routers_deletes_nothing() -> TestResult {
 #[tokio::test]
 async fn a_viewer_sees_no_delete_and_is_refused() -> TestResult {
     let fixture = Fixture::new().await?;
-    let operator = fixture.login("operator").await?;
-    drop(create(&fixture, &operator, &SEGMENT).await?);
-    let (_dialog, action) = delete_dialog(&fixture, &operator, "23").await?;
+    let admin = fixture.login("admin").await?;
+    drop(create(&fixture, &admin, &SEGMENT).await?);
+    let (_dialog, action) = delete_dialog(&fixture, &admin, "23").await?;
     let running = fixture.handle().running_config_text();
     let viewer = fixture.login("viewer").await?;
     let page = text(fixture.get(PAGE, &viewer).await?).await?;
@@ -107,13 +107,13 @@ async fn a_viewer_sees_no_delete_and_is_refused() -> TestResult {
 #[tokio::test]
 async fn a_segment_changed_after_its_dialog_opened_is_not_deleted() -> TestResult {
     let fixture = Fixture::new().await?;
-    let operator = fixture.login("operator").await?;
-    drop(create(&fixture, &operator, &SEGMENT).await?);
-    let (_stale_dialog, stale) = delete_dialog(&fixture, &operator, "23").await?;
-    let (_dialog, current) = delete_dialog(&fixture, &operator, "23").await?;
+    let admin = fixture.login("admin").await?;
+    drop(create(&fixture, &admin, &SEGMENT).await?);
+    let (_stale_dialog, stale) = delete_dialog(&fixture, &admin, "23").await?;
+    let (_dialog, current) = delete_dialog(&fixture, &admin, "23").await?;
     assert_eq!(current, stale, "the same segment opens the same dialog");
     let deleted = fixture
-        .post(&current, &operator, "name=home&confirm=home")
+        .post(&current, &admin, "name=home&confirm=home")
         .await?;
     assert_eq!(deleted.status(), StatusCode::OK, "deleted in between");
     let other_port: Vec<(&str, &str)> = SEGMENT
@@ -129,11 +129,11 @@ async fn a_segment_changed_after_its_dialog_opened_is_not_deleted() -> TestResul
             )
         })
         .collect();
-    drop(create(&fixture, &operator, &other_port).await?);
+    drop(create(&fixture, &admin, &other_port).await?);
     let running = fixture.handle().running_config_text();
     let lines = sent_lines(&fixture);
     let refused = fixture
-        .post(&stale, &operator, "name=home&confirm=home")
+        .post(&stale, &admin, "name=home&confirm=home")
         .await?;
     assert_eq!(
         refused.status(),

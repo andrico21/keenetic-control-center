@@ -2,7 +2,11 @@
 
 use core::error::Error;
 
-use kcc_app::audit::read_entries;
+use kcc_app::{
+    audit::read_entries,
+    permissions::{Permission, Role, RolesDocument},
+    persist::StateStore,
+};
 use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, model::Profile};
 use serde_json::Value;
 
@@ -60,6 +64,21 @@ impl Lab {
     /// Every audit entry, rendered, for secret scans.
     pub(crate) fn audit_text(&self) -> Result<String, Box<dyn Error>> {
         Ok(format!("{:?}", read_entries(&self.env.state_dir())?))
+    }
+
+    pub(crate) fn add_role(
+        &self,
+        name: &str,
+        permissions: impl IntoIterator<Item = Permission>,
+    ) -> Result<(), Box<dyn Error>> {
+        let mut roles = RolesDocument::default();
+        roles.roles.push(Role::new(
+            name.to_owned(),
+            permissions,
+            vec!["*".to_owned()],
+        ));
+        StateStore::open(&self.env.state_dir())?.write(&roles)?;
+        Ok(())
     }
 
     /// Stops the fake router.

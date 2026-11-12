@@ -69,7 +69,7 @@ async fn planners_refuse_operations_absent_from_4_3_without_a_request() -> TestR
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
         let router = fixture.context();
-        let before = fixture.handle().request_count();
+        let before = fixture.handle().request_log().len();
         let unavailable_vpn = vpn_clients::plan_change(
             router,
             &VpnClientChange::OpenConnectProtocol {
@@ -114,11 +114,25 @@ async fn planners_refuse_operations_absent_from_4_3_without_a_request() -> TestR
                 "show system mode",
             );
         }
-        assert_eq!(
-            fixture.handle().request_count(),
-            before,
-            "{firmware}: planning or refusing sends nothing"
-        );
+        let requests = fixture.handle().request_log();
+        let planned = requests
+            .get(before..)
+            .ok_or("request log became shorter while planning")?;
+        if firmware == Firmware::V4_3 {
+            assert!(
+                planned.is_empty(),
+                "{firmware}: refused operations send nothing"
+            );
+        } else {
+            assert!(
+                !planned.is_empty(),
+                "{firmware}: classification reads topology"
+            );
+            assert!(
+                planned.iter().all(|request| request.command().is_none()),
+                "{firmware}: planning sent a write: {planned:?}"
+            );
+        }
         fixture.shutdown().await?;
     }
     Ok(())

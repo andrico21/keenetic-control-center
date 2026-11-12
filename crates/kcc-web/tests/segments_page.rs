@@ -100,8 +100,13 @@ pub(crate) async fn create(
     browser: &Browser,
     pairs: &[(&str, &str)],
 ) -> TestResult<String> {
+    let confirmed = pairs
+        .iter()
+        .copied()
+        .chain([("confirm", "yes"), ("confirm_name", "home")])
+        .collect::<Vec<_>>();
     let created = fixture
-        .post(&format!("{PAGE}/create"), browser, &form(pairs))
+        .post(&format!("{PAGE}/create"), browser, &form(&confirmed))
         .await?;
     if created.status() != StatusCode::OK {
         return Err(format!("the wizard answered {}", created.status()).into());
