@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeSet, sync::Arc};
 use core::time::Duration;
 use std::{
     path::{Path, PathBuf},
@@ -26,7 +26,7 @@ use kcc_domain::{
     RouterCtx,
     configuration::{SafetyMode, SafetyNet, recovery},
 };
-use kcc_i18n::keys;
+use kcc_i18n::{bundle::tr, keys};
 use kcc_rci::capabilities::RouterInfo;
 use serde_json::Value;
 
@@ -245,7 +245,35 @@ impl Ctx {
             Err(failure) => {
                 self.audit(services, "cli.refused", Some(id), Value::Null, "forbidden")
                     .await;
-                Err(failure)
+                let missing = SafetyNet::apply_permissions()
+                    .iter()
+                    .copied()
+                    .filter(|permission| !self.principal.role().grants(*permission))
+                    .collect::<BTreeSet<_>>();
+                let labels = missing
+                    .iter()
+                    .filter_map(|permission| {
+                        [
+                            (Permission::Read, keys::WEB_ADMIN_PERMISSION_READ),
+                            (Permission::Write, keys::WEB_ADMIN_PERMISSION_WRITE),
+                            (Permission::Save, keys::WEB_ADMIN_PERMISSION_SAVE),
+                            (
+                                Permission::Destructive,
+                                keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE,
+                            ),
+                            (Permission::Migrate, keys::WEB_ADMIN_PERMISSION_MIGRATE),
+                        ]
+                        .into_iter()
+                        .find(|(known, _key)| known == permission)
+                        .map(|(_known, key)| tr(self.out.locale(), key, None))
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                Err(Failure::message(
+                    failure.exit(),
+                    keys::CLI_APPLY_RECOVERY_FORBIDDEN,
+                    &[("missing", &labels)],
+                ))
             }
         }
     }

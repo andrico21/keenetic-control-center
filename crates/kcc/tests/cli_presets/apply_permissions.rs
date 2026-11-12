@@ -1,5 +1,6 @@
 //! Preset and copy apply authorization before source or target discovery.
 
+use fluent_bundle::FluentArgs;
 use kcc_app::{
     audit::read_entries,
     permissions::{Permission, Role, RolesDocument},
@@ -44,6 +45,17 @@ async fn preset_and_copy_apply_require_complete_permissions_before_any_router_re
         ));
         StateStore::open(&pair.env.state_dir())?.write(&roles)?;
         pair.with_cli(&format!("role = {role:?}"))?;
+        let (missing, held) = if role == "operator" {
+            (
+                keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE,
+                keys::WEB_ADMIN_PERMISSION_SAVE,
+            )
+        } else {
+            (
+                keys::WEB_ADMIN_PERMISSION_SAVE,
+                keys::WEB_ADMIN_PERMISSION_WRITE,
+            )
+        };
         for args in [
             vec![
                 "--router",
@@ -76,11 +88,23 @@ async fn preset_and_copy_apply_require_complete_permissions_before_any_router_re
 
             assert_eq!(refused.code, 10_i32, "{role} {args:?}: {refused:?}");
             assert_eq!(pair.requests(), before, "{role} {args:?}: router traffic");
+            let mut message_args = FluentArgs::new();
+            message_args.set("missing", tr(Locale::En, missing, None));
             assert!(
-                refused
-                    .stderr
-                    .contains(&tr(Locale::En, keys::CLI_APPLY_RECOVERY_FORBIDDEN, None)),
+                refused.stderr.contains(&tr(
+                    Locale::En,
+                    keys::CLI_APPLY_RECOVERY_FORBIDDEN,
+                    Some(&message_args)
+                )),
                 "{role} {args:?}: {refused:?}"
+            );
+            assert!(
+                refused.stderr.contains(&tr(Locale::En, missing, None)),
+                "{role} names the missing permission: {refused:?}"
+            );
+            assert!(
+                !refused.stderr.contains(&tr(Locale::En, held, None)),
+                "{role} holds that permission: {refused:?}"
             );
         }
         let refusals = read_entries(&pair.env.state_dir())?

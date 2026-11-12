@@ -34,6 +34,7 @@ pub(crate) async fn failure(
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::ManagementAppliedNotSaved
+        | McpFailure::ManagementNotCommittedFailSafeArmed
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
@@ -50,6 +51,7 @@ pub(crate) async fn failure(
                         completion: _
                     }
                     | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+                    | McpFailure::ManagementNotCommittedFailSafeArmed
             ) && let Value::Object(object) = &mut params
             {
                 drop(object.insert("fail_safe_armed".to_owned(), json!(true)));
@@ -64,6 +66,7 @@ pub(crate) async fn failure(
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::ManagementAppliedNotSaved
+        | McpFailure::ManagementNotCommittedFailSafeArmed
         | McpFailure::RouterUnreachable
         | McpFailure::RouterRejected
         | McpFailure::VerificationFailed { field: _ }

@@ -26,7 +26,7 @@
 <p class="notice" data-tone="error">{{ error }}</p>
 {%- endif %}
 {%- if !may_apply %}
-<p class="notice" data-tone="info">{{ t(keys::WEB_PRESETS_APPLY_FORBIDDEN) }}</p>
+<p class="notice" data-tone="info">{{ apply_forbidden }}</p>
 {%- endif %}
 {%- if may_apply || may_reveal %}
 <div class="form__actions">

@@ -10,7 +10,7 @@
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
     use axum::http::StatusCode;
-    use kcc_i18n::keys;
+    use kcc_i18n::{bundle::tr, keys, locale::Locale};
     use kcc_testkit::FaultInjection;
     use serde_json::{Value, json};
 
@@ -167,6 +167,84 @@ mod tests {
         );
         assert_eq!(fixture.handle("lab-1")?.request_count(), before);
         assert_eq!(fixture.outcomes("web.preset_apply")?, ["forbidden"]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn preview_names_each_missing_apply_permission_in_the_users_locale() -> TestResult {
+        for (username, locale, missing, held) in [
+            (
+                "without-save",
+                Locale::Ru,
+                &[keys::WEB_ADMIN_PERMISSION_SAVE][..],
+                &[keys::WEB_ADMIN_PERMISSION_WRITE][..],
+            ),
+            (
+                "without-write-save",
+                Locale::Kk,
+                &[
+                    keys::WEB_ADMIN_PERMISSION_WRITE,
+                    keys::WEB_ADMIN_PERMISSION_SAVE,
+                ][..],
+                &[][..],
+            ),
+        ] {
+            let fixture = Fixture::new().await?;
+            seed(&fixture, "prod-1", &DNS_LINES).await?;
+            let browser = fixture.login(username).await?;
+            let id = capture(
+                &fixture,
+                &browser,
+                "prod-1",
+                (&["dns-secure"], "Permission notice"),
+            )
+            .await?;
+            let page = start(&fixture, &browser, &id).await?;
+            to_preview(&fixture, &browser, &page, ("lab-1", "merge", &[])).await?;
+
+            let preview = text(fixture.get(&page, &browser).await?).await?;
+
+            for key in missing {
+                let label = tr(locale, *key, None);
+                assert!(
+                    preview.contains(&label),
+                    "{username} lacks {label}: {preview}"
+                );
+            }
+            for key in held {
+                let label = tr(locale, *key, None);
+                assert!(
+                    !preview.contains(&label),
+                    "{username} holds {label}: {preview}"
+                );
+            }
+            assert!(
+                !preview.contains(&format!("hx-post=\"{page}/apply\"")),
+                "Apply stays hidden: {preview}"
+            );
+            assert!(
+                !preview.contains("web-presets-apply-forbidden"),
+                "{preview}"
+            );
+        }
+
+        let fixture = Fixture::new().await?;
+        seed(&fixture, "prod-1", &DNS_LINES).await?;
+        let admin = fixture.login("admin").await?;
+        let id = capture(
+            &fixture,
+            &admin,
+            "prod-1",
+            (&["dns-secure"], "Admin permission"),
+        )
+        .await?;
+        let page = start(&fixture, &admin, &id).await?;
+        to_preview(&fixture, &admin, &page, ("lab-1", "merge", &[])).await?;
+        let preview = text(fixture.get(&page, &admin).await?).await?;
+        assert!(
+            preview.contains(&format!("hx-post=\"{page}/apply\"")),
+            "admin can apply: {preview}"
+        );
         Ok(())
     }
 }

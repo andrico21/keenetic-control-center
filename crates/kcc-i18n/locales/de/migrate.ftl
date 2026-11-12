@@ -31,4 +31,5 @@ migrate-apply-agreement = Bestätigen Sie die aktuelle Routervereinbarung, bevor
 migrate-apply-residual = Beibehaltene Einstellungen nur auf dem Zielrouter: { $count }.
 finish-saved-armed = Die Konfiguration wurde gespeichert, aber der Wiederherstellungstimer konnte nicht deaktiviert werden. Behandeln Sie den Timer als aktiv: Der Router kann mit seiner gespeicherten Konfiguration neu starten, die diese Änderungen enthält.
 migrate-committed-not-saved = Die Migration ist aktiv und der Wiederherstellungstimer ist deaktiviert, aber die Startkonfiguration wurde nicht gespeichert. Wiederholen Sie den Commit, um sie zu speichern.
+migrate-commit-not-sent-armed = Commit wurde nicht gesendet, weil der Rolle „Einstellungen speichern“ fehlt. Der Wiederherstellungstimer ist weiterhin aktiv, und die Migration bleibt für einen erneuten Versuch nach Korrektur der Rolle erhalten.
 migrate-rollback-saved = Der Router startet mit seiner gespeicherten Konfiguration neu, die die migrierten Einstellungen bereits enthalten kann.

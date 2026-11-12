@@ -69,11 +69,7 @@ pub(crate) async fn run(ctx: &Ctx, command: MigrateCommand) -> Outcome {
             report,
         } => {
             let target = ctx.router_id(&services)?;
-            ctx.authorize_apply(&services, &target)
-                .await
-                .map_err(|_failure| {
-                    Failure::message(Exit::Policy, keys::CLI_APPLY_RECOVERY_FORBIDDEN, &[])
-                })?;
+            ctx.authorize_apply(&services, &target).await?;
             migrate_apply::apply(
                 ctx,
                 &services,

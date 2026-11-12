@@ -5,6 +5,7 @@
 //! download.
 
 use askama::Template;
+use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
 use kcc_domain::configuration::SafetyNet;
 use kcc_i18n::{
@@ -21,8 +22,10 @@ use super::{
     target::problem_text,
 };
 use crate::{
+    admin_roles::permission_list,
+    errors,
     page::{Localize, Shell},
-    page_kit::{context::fragment_shell, gate::allowed},
+    page_kit::context::fragment_shell,
 };
 
 /// Complete apply authority from the shared safety policy.
@@ -46,6 +49,8 @@ pub(super) struct Panel {
     reconnect: Option<String>,
     /// Whether the role may apply the plan.
     may_apply: bool,
+    /// Localized reason applying is unavailable.
+    apply_forbidden: String,
     /// Why the plan cannot be shown.
     problem: String,
     /// Why the apply did not start.
@@ -87,10 +92,16 @@ impl Panel {
             phases: Vec::new(),
             components: record.components().iter().cloned().collect(),
             reconnect: record.reconnect_url().map(str::to_owned),
-            may_apply: allowed(services.user(), target, APPLY),
+            may_apply: false,
+            apply_forbidden: String::new(),
             problem: String::new(),
             error: String::new(),
         };
+        let missing = errors::refusal::missing(services.user(), target, APPLY);
+        panel.may_apply = missing.is_empty();
+        let mut args = FluentArgs::new();
+        args.set("missing", permission_list(locale, &missing));
+        panel.apply_forbidden = tr(locale, keys::WEB_MIGRATE_APPLY_FORBIDDEN, Some(&args));
         let analysis = match visit.analysis().await {
             Ok(found) => found,
             Err(problem) => {

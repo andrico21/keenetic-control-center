@@ -92,6 +92,9 @@ pub(crate) async fn finish_with_context(
                     Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
                 }
                 McpFailure::ManagementAppliedNotSaved => Some(keys::MIGRATE_COMMITTED_NOT_SAVED),
+                McpFailure::ManagementNotCommittedFailSafeArmed => {
+                    Some(keys::MIGRATE_COMMIT_NOT_SENT_ARMED)
+                }
                 McpFailure::InvalidArguments
                 | McpFailure::Forbidden
                 | McpFailure::ConfirmRequired

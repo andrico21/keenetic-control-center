@@ -45,11 +45,7 @@ pub(super) fn require_finish(finish: Option<Finish>) -> Outcome {
 pub(crate) async fn run(ctx: &Ctx, args: CopyCommand) -> Outcome {
     require_finish(args.finish)?;
     let services = ctx.services().await?;
-    ctx.authorize_apply(&services, &args.to)
-        .await
-        .map_err(|_failure| {
-            Failure::message(Exit::Policy, keys::CLI_APPLY_RECOVERY_FORBIDDEN, &[])
-        })?;
+    ctx.authorize_apply(&services, &args.to).await?;
     let (config, source, _role) = Origin::read(ctx, &services, &args.from).await?.into_parts();
     let selected = args.groups.iter().map(String::as_str).collect::<Vec<_>>();
     let selection = SettingsGroupEngine::embedded()

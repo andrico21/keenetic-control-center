@@ -78,7 +78,7 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
     let result = match input.action {
         FinishAction::Commit => {
             authorize_routers(&identity, Permission::Save, core::slice::from_ref(target))
-                .map_err(|_forbidden| McpFailure::ManagementOutcomeUnknownFailSafeArmed)?;
+                .map_err(|_forbidden| McpFailure::ManagementNotCommittedFailSafeArmed)?;
             applier.commit().await
         }
         FinishAction::Rollback => {

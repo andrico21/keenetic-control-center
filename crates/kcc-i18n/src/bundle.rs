@@ -290,6 +290,7 @@ mod tests {
             "paths",
             "item",
             "permissions",
+            "missing",
         ] {
             args.set(name, "x");
         }

@@ -12,6 +12,7 @@ mod lab;
     reason = "acceptance assertions establish the finish recovery contract"
 )]
 mod tests {
+    use kcc_app::permissions::{Permission, Role};
     use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
     use serde_json::{Value, json};
 
@@ -265,6 +266,69 @@ mod tests {
             reply.error(),
             Some("management_applied_not_saved"),
             "{reply:?}"
+        );
+        let retained = lab
+            .call(
+                "kcc_migration_report",
+                json!({"host":"lab-1", "plan_id":id}),
+                false,
+            )
+            .await?;
+        assert_eq!(
+            retained.value()?.pointer("/apply/finished"),
+            Some(&json!(false))
+        );
+        lab.stop().await
+    }
+
+    /// A role reduced after apply cannot send commit and keeps the armed migration.
+    #[tokio::test]
+    async fn local_save_refusal_reports_commit_not_sent_and_keeps_retryable_state() -> TestResult {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some("router".to_owned());
+        let target = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let mut lab = Lab::start(
+            vec![
+                ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+                ("lab-1", target),
+            ],
+            admin(),
+        )
+        .await?;
+        let id = applied(&mut lab).await?;
+        lab.roles.replace(vec![Role::new(
+            "admin".to_owned(),
+            Permission::ALL
+                .into_iter()
+                .filter(|permission| *permission != Permission::Save),
+            vec!["*".to_owned()],
+        )]);
+        let before = lab.requests("lab-1")?;
+
+        let reply = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"commit", "confirm":true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(
+            reply.error(),
+            Some("management_not_committed_fail_safe_armed")
+        );
+        assert_eq!(lab.requests("lab-1")?, before, "commit was not sent");
+        assert!(lab.router("lab-1")?.recovery_armed());
+        let failed = lab
+            .audit()?
+            .into_iter()
+            .find(|entry| entry.action == "mcp.kcc_migration_finish")
+            .ok_or("missing finish audit")?;
+        assert_eq!(
+            failed.params_redacted.get("fail_safe_armed"),
+            Some(&json!(true))
         );
         let retained = lab
             .call(

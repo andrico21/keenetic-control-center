@@ -237,6 +237,9 @@ configuration; router mode conservatively reports the recovery outcome as unknow
 MCP `kcc_migration_finish` returns `management_outcome_unknown_fail_safe_armed` for
 these closing failures, including failed disarm. Treat recovery as armed even when a
 lost native commit reply means the router may already have saved and disarmed.
+If the role loses `Save` after apply, finish returns
+`management_not_committed_fail_safe_armed`: commit was not sent, recovery remains
+armed, and the migration stays available for retry after the role is fixed.
 If native commit succeeds but the following startup save is refused, MCP instead returns
 `management_applied_not_saved`: the migration is live, the entry remains retryable, and
 the operator should retry commit to save it.

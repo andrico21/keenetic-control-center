@@ -10,7 +10,7 @@
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
     use axum::http::StatusCode;
-    use kcc_i18n::keys;
+    use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
     use crate::{
         en,
@@ -164,6 +164,70 @@ mod tests {
         );
         assert_eq!(fixture.handle("ultra")?.request_count(), before);
         assert_eq!(outcomes(&fixture, "web.migrate_apply")?, ["forbidden"]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn preview_names_each_missing_apply_permission_in_the_users_locale() -> TestResult {
+        for (username, locale, missing, held) in [
+            (
+                "without-save",
+                Locale::Ru,
+                &[keys::WEB_ADMIN_PERMISSION_SAVE][..],
+                &[keys::WEB_ADMIN_PERMISSION_WRITE][..],
+            ),
+            (
+                "without-write-save",
+                Locale::Kk,
+                &[
+                    keys::WEB_ADMIN_PERMISSION_WRITE,
+                    keys::WEB_ADMIN_PERMISSION_SAVE,
+                ][..],
+                &[][..],
+            ),
+        ] {
+            let fixture = Fixture::new().await?;
+            seed_source(&fixture).await?;
+            let browser = fixture.login(username).await?;
+            let page = to_review(&fixture, &browser).await?;
+            to_preview(&fixture, &browser, &page).await?;
+
+            let preview = text(fixture.get(&page, &browser).await?).await?;
+
+            for key in missing {
+                let label = tr(locale, *key, None);
+                assert!(
+                    preview.contains(&label),
+                    "{username} lacks {label}: {preview}"
+                );
+            }
+            for key in held {
+                let label = tr(locale, *key, None);
+                assert!(
+                    !preview.contains(&label),
+                    "{username} holds {label}: {preview}"
+                );
+            }
+            assert!(
+                !preview.contains(&format!("hx-post=\"{page}/apply\"")),
+                "Apply stays hidden: {preview}"
+            );
+            assert!(
+                !preview.contains("web-migrate-apply-forbidden"),
+                "{preview}"
+            );
+        }
+
+        let fixture = Fixture::new().await?;
+        seed_source(&fixture).await?;
+        let admin = fixture.login("admin").await?;
+        let page = to_review(&fixture, &admin).await?;
+        to_preview(&fixture, &admin, &page).await?;
+        let preview = text(fixture.get(&page, &admin).await?).await?;
+        assert!(
+            preview.contains(&format!("hx-post=\"{page}/apply\"")),
+            "admin can apply: {preview}"
+        );
         Ok(())
     }
 

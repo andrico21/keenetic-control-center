@@ -2,6 +2,7 @@
 //! redacted; Reveal shows them in plaintext with `RevealSecrets`, and Apply asks first.
 
 use askama::Template;
+use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
 use kcc_domain::configuration::SafetyNet;
 use kcc_i18n::{
@@ -19,6 +20,8 @@ use super::{
 };
 use crate::{
     WebState,
+    admin_roles::permission_list,
+    errors,
     page::{Localize, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
 };
@@ -40,6 +43,8 @@ pub(super) struct Panel {
     phases: Vec<(String, Vec<(usize, String)>)>,
     /// Whether the role may apply the plan.
     may_apply: bool,
+    /// Localized reason applying is unavailable.
+    apply_forbidden: String,
     /// Whether the role may reveal commands that carry secret values.
     may_reveal: bool,
     /// Why the plan cannot be shown.
@@ -68,11 +73,17 @@ impl Panel {
             id: record.id().to_owned(),
             facts: Vec::new(),
             phases: Vec::new(),
-            may_apply: allowed(user, target, APPLY),
+            may_apply: false,
+            apply_forbidden: String::new(),
             may_reveal: false,
             problem: String::new(),
             error: String::new(),
         };
+        let missing = errors::refusal::missing(user, target, APPLY);
+        panel.may_apply = missing.is_empty();
+        let mut args = FluentArgs::new();
+        args.set("missing", permission_list(locale, &missing));
+        panel.apply_forbidden = tr(locale, keys::WEB_PRESETS_APPLY_FORBIDDEN, Some(&args));
         let basis = match Basis::of(visit).await {
             Ok(found) => found,
             Err(problem) => {

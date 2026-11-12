@@ -55,8 +55,10 @@ pub fn markdown() -> String {
            do not count as applied changes. Batch recovery errors retain `responses`, including\n\
            the refused `ok: false` items; partial application refers only to successful changes.\n\
            Both codes carry a localized English `message` explaining recovery;\n\
-          the timer remains armed and will restore the saved configuration, discarding unsaved changes.\n\
-          Successful cleanup preserves the original work error. Failed-change audit parameters\n\
+           the timer remains armed and will restore the saved configuration, discarding unsaved changes.\n\
+           A locally refused migration commit returns `management_not_committed_fail_safe_armed`:\n\
+           nothing was sent, the timer remains armed, and the migration is retained for retry.\n\
+           Successful cleanup preserves the original work error. Failed-change audit parameters\n\
           include `fail_safe_armed: true` when recovery remains armed.\n",
     );
     for &(toolset, summary) in TOOLSETS {

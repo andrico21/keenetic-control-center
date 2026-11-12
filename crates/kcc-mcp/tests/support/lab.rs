@@ -16,6 +16,7 @@ use kcc_app::{
     persist::StateStore,
     poller::Poller,
     registry::{ManagedRouterProfile, RouterRegistry},
+    role_source::RoleSource,
     secrets::MasterKey,
     settings::{McpConfig, OutboundConfig, PrivacyConfig},
     workflow::ChangeWorkflow,
@@ -105,6 +106,8 @@ pub struct Lab {
     pub(crate) client: RunningService<RoleClient, Recorder>,
     /// Progress notifications received.
     progress: mpsc::UnboundedReceiver<ProgressNotificationParam>,
+    /// Live application roles retained for late permission edits.
+    pub(crate) roles: RoleSource,
 }
 
 /// An administrator with every permission on every router.
@@ -173,6 +176,7 @@ impl Lab {
         .map(str::to_owned)
         .to_vec();
         config.allow_destructive = allow_destructive;
+        let roles = RoleSource::new(vec![admin(), lab_only(), role.clone()]);
         let server = KccMcp::new(
             config,
             PrivacyConfig::default(),
@@ -183,6 +187,7 @@ impl Lab {
             vec![admin(), lab_only()],
             role,
         )
+        .with_role_source(roles.clone())
         .with_audit(audit)
         .with_presets(presets);
         let (server_io, client_io) = duplex(1 << 20);
@@ -199,11 +204,13 @@ impl Lab {
             registry,
             client,
             progress,
+            roles,
         })
     }
 
     /// Names of the tools the session lists.
     pub(crate) async fn tool_names(&self) -> TestResult<BTreeSet<String>> {
+        drop(self.roles.current());
         Ok(self
             .client
             .list_all_tools()

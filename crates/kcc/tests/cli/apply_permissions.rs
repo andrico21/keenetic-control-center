@@ -1,5 +1,6 @@
 //! Migration apply authorization before target discovery.
 
+use fluent_bundle::FluentArgs;
 use kcc_app::{
     audit::read_entries,
     permissions::{Permission, Role, RolesDocument},
@@ -45,7 +46,18 @@ async fn migration_apply_requires_complete_permissions_before_any_router_request
         ));
         StateStore::open(&env.state_dir())?.write(&roles)?;
 
-        for role in ["operator", "migrator"] {
+        for (role, missing, held) in [
+            (
+                "operator",
+                keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE,
+                keys::WEB_ADMIN_PERMISSION_SAVE,
+            ),
+            (
+                "migrator",
+                keys::WEB_ADMIN_PERMISSION_SAVE,
+                keys::WEB_ADMIN_PERMISSION_WRITE,
+            ),
+        ] {
             env.write_config(&format!("[cli]\nrole = {role:?}\n{routers}"))?;
             let before = handle.request_count();
 
@@ -59,11 +71,23 @@ async fn migration_apply_requires_complete_permissions_before_any_router_request
                 before,
                 "{mode} {role}: router traffic"
             );
+            let mut args = FluentArgs::new();
+            args.set("missing", tr(Locale::En, missing, None));
             assert!(
-                refused
-                    .stderr
-                    .contains(&tr(Locale::En, keys::CLI_APPLY_RECOVERY_FORBIDDEN, None)),
+                refused.stderr.contains(&tr(
+                    Locale::En,
+                    keys::CLI_APPLY_RECOVERY_FORBIDDEN,
+                    Some(&args)
+                )),
                 "{mode} {role}: {refused:?}"
+            );
+            assert!(
+                refused.stderr.contains(&tr(Locale::En, missing, None)),
+                "{mode} {role} names the missing permission: {refused:?}"
+            );
+            assert!(
+                !refused.stderr.contains(&tr(Locale::En, held, None)),
+                "{mode} {role} holds that permission: {refused:?}"
             );
         }
         let refusals = read_entries(&env.state_dir())?

@@ -31,7 +31,10 @@ impl KccMcp {
     pub(crate) fn identity(&self) -> Result<McpIdentity, McpFailure> {
         let role = match current_role() {
             Some(name) => self.roles.find(&name).ok_or(McpFailure::Forbidden)?,
-            None => self.fallback_role.clone(),
+            None => self
+                .roles
+                .find(&self.fallback_role.name)
+                .ok_or(McpFailure::Forbidden)?,
         };
         Ok(McpIdentity::new(
             current_identity().unwrap_or_else(|| "stdio".to_owned()),

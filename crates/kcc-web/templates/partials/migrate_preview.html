@@ -52,6 +52,6 @@
   <button class="button button--primary" type="button" hx-post="/ui/migrate/{{ id }}/apply" hx-target="#dialog-content">{{ t(keys::WEB_MIGRATE_APPLY) }}</button>
 </div>
 {%- else %}
-<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_APPLY_FORBIDDEN) }}</p>
+<p class="notice" data-tone="info">{{ apply_forbidden }}</p>
 {%- endif %}
 {%- endif %}

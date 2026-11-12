@@ -45,6 +45,7 @@ fn assert_tool_result(result: Result<Value, McpFailure>) -> TestCaseResult {
                     | McpFailure::ManagementAppliedFailSafeArmed
                     | McpFailure::ManagementOutcomeUnknownFailSafeArmed
                     | McpFailure::ManagementAppliedNotSaved
+                    | McpFailure::ManagementNotCommittedFailSafeArmed
                     | McpFailure::ValidationFailed
                     | McpFailure::VerificationFailed { field: _ }
                     | McpFailure::Conflict

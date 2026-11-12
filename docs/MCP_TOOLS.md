@@ -24,6 +24,8 @@ do not count as applied changes. Batch recovery errors retain `responses`, inclu
 the refused `ok: false` items; partial application refers only to successful changes.
 Both codes carry a localized English `message` explaining recovery;
 the timer remains armed and will restore the saved configuration, discarding unsaved changes.
+A locally refused migration commit returns `management_not_committed_fail_safe_armed`:
+nothing was sent, the timer remains armed, and the migration is retained for retry.
 Successful cleanup preserves the original work error. Failed-change audit parameters
 include `fail_safe_armed: true` when recovery remains armed.
 

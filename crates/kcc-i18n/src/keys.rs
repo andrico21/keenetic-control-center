@@ -646,6 +646,10 @@ pub const FINISH_SAVED_ARMED: MessageKey = MessageKey::new("finish-saved-armed")
 /// `migrate-committed-not-saved` in `migrate.ftl`.
 pub const MIGRATE_COMMITTED_NOT_SAVED: MessageKey = MessageKey::new("migrate-committed-not-saved");
 
+/// `migrate-commit-not-sent-armed` in `migrate.ftl`.
+pub const MIGRATE_COMMIT_NOT_SENT_ARMED: MessageKey =
+    MessageKey::new("migrate-commit-not-sent-armed");
+
 /// `migrate-rollback-saved` in `migrate.ftl`.
 pub const MIGRATE_ROLLBACK_SAVED: MessageKey = MessageKey::new("migrate-rollback-saved");
 
@@ -6658,7 +6662,7 @@ pub const WEB_REFUSAL_MISSING: MessageKey = MessageKey::new("web-refusal-missing
 pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2123] = [
+pub static ALL: [MessageKey; 2124] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6870,6 +6874,7 @@ pub static ALL: [MessageKey; 2123] = [
     MIGRATE_APPLY_RESIDUAL,
     FINISH_SAVED_ARMED,
     MIGRATE_COMMITTED_NOT_SAVED,
+    MIGRATE_COMMIT_NOT_SENT_ARMED,
     MIGRATE_ROLLBACK_SAVED,
     WEB_NAV_DASHBOARD,
     WEB_NAV_ROUTERS,

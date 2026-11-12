@@ -25,7 +25,7 @@ use url::Url;
 
 use crate::support::TestResult;
 
-/// One account per built-in role and `scoped`, who may migrate `giga` only.
+/// One account per built-in role and the apply-permission test roles.
 pub(crate) fn accounts(
     state: &StateStore,
     clock: &Arc<dyn Clock>,
@@ -37,18 +37,23 @@ pub(crate) fn accounts(
         Duration::from_secs(60),
         Arc::clone(clock),
     ));
-    for (name, role) in [
-        ("viewer", "viewer"),
-        ("operator", "operator"),
-        ("admin", "admin"),
-        ("migrator", "migrator"),
-        ("scoped", "giga-migrator"),
+    for (name, role, locale) in [
+        ("viewer", "viewer", "en"),
+        ("operator", "operator", "en"),
+        ("admin", "admin", "en"),
+        ("migrator", "migrator", "en"),
+        ("scoped", "giga-migrator", "en"),
+        ("without-save", "without-save", "ru"),
+        ("without-write-save", "without-write-save", "kk"),
     ] {
-        accounts.create(NewAccount::new(
-            name.to_owned(),
-            SecretString::from(password.to_owned()),
-            role.to_owned(),
-        ))?;
+        accounts.create(
+            NewAccount::new(
+                name.to_owned(),
+                SecretString::from(password.to_owned()),
+                role.to_owned(),
+            )
+            .with_locale(locale.to_owned()),
+        )?;
     }
     Ok(accounts)
 }
@@ -71,6 +76,25 @@ pub(crate) fn roles() -> Vec<Role> {
         "giga-migrator".to_owned(),
         [Permission::Read, Permission::Migrate],
         vec!["giga".to_owned()],
+    ));
+    roles.push(Role::new(
+        "without-save".to_owned(),
+        [
+            Permission::Read,
+            Permission::Write,
+            Permission::Migrate,
+            Permission::Destructive,
+        ],
+        vec!["*".to_owned()],
+    ));
+    roles.push(Role::new(
+        "without-write-save".to_owned(),
+        [
+            Permission::Read,
+            Permission::Migrate,
+            Permission::Destructive,
+        ],
+        vec!["*".to_owned()],
     ));
     roles
 }

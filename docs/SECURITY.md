@@ -204,6 +204,9 @@ returns `management_outcome_unknown_fail_safe_armed`. A lost native commit reply
 reported conservatively even if the router actually committed. A confirmed save
 followed by failed disarm is identified as saved: scheduled recovery then reloads the
 new saved configuration, rather than promising to restore the pre-migration state.
+When a late role edit removes `Save`, MCP reports
+`management_not_committed_fail_safe_armed`: no commit request was sent, the timer is
+still armed, and the migration is retained for retry.
 When native commit is confirmed but its following startup save fails, MCP reports
 `management_applied_not_saved` and keeps the finish retryable instead of claiming that
 nothing changed.
