@@ -25,7 +25,10 @@ pub use self::types::{
 use crate::{
     apply::command,
     inventory::TargetInventory,
-    rules::{ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleEngine},
+    rules::{
+        ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleEngine,
+        RuleError,
+    },
     source::SourceConfig,
 };
 
@@ -35,19 +38,20 @@ use crate::{
 pub struct Planner;
 
 impl Planner {
-    /// Produces an ordered, idempotent plan without contacting either router.
+    /// Classifies every source line exactly as [`Planner::plan`] does: the rules under
+    /// `maps` and `choices`, then lines the target's catalog cannot build marked
+    /// [`Disposition::Unsupported`]. Every surface that shows what a plan does uses this.
     ///
     /// # Errors
     ///
-    /// Returns [`PlanError::PlanBlocked`] while classification or management reconnect input is
-    /// unresolved, and [`PlanError::Rules`] when embedded policy cannot be loaded.
+    /// Returns [`RuleError`] when the embedded policy cannot be loaded or applied.
     #[inline]
-    pub fn plan(
+    pub fn classify(
         source: &SourceConfig,
         target: &TargetInventory,
         maps: &MigrationMaps,
         choices: &Choices,
-    ) -> Result<MigrationPlan, PlanError> {
+    ) -> Result<Vec<ClassifiedItem>, RuleError> {
         let classification_choices = ClassificationChoices::new(
             &maps.ports,
             &maps.radios,
@@ -62,6 +66,23 @@ impl Planner {
             &classification_choices,
         )?;
         buildability::retain_supported(&mut classified, &target.catalog);
+        Ok(classified)
+    }
+
+    /// Produces an ordered, idempotent plan without contacting either router.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PlanError::PlanBlocked`] while classification or management reconnect input is
+    /// unresolved, and [`PlanError::Rules`] when embedded policy cannot be loaded.
+    #[inline]
+    pub fn plan(
+        source: &SourceConfig,
+        target: &TargetInventory,
+        maps: &MigrationMaps,
+        choices: &Choices,
+    ) -> Result<MigrationPlan, PlanError> {
+        let classified = Self::classify(source, target, maps, choices)?;
         let blocked = classified
             .iter()
             .filter(|item| {

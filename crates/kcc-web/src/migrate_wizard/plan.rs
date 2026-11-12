@@ -144,7 +144,7 @@ impl Built {
 }
 
 /// The maps as the planner takes them.
-fn engine_maps(maps: &Maps) -> MigrationMaps {
+pub(super) fn engine_maps(maps: &Maps) -> MigrationMaps {
     let mut engine = MigrationMaps::default();
     engine.ports = maps.ports().clone();
     engine.radios = maps.radios().clone();

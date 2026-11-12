@@ -19,6 +19,7 @@ use super::{
     access::Visit,
     plan::{Built, Classified},
     reasons::Fate,
+    record::Record,
     target::problem_text,
 };
 use crate::{
@@ -43,6 +44,8 @@ pub(super) struct Panel {
     facts: Vec<(String, String)>,
     /// The phases with their commands.
     phases: Vec<Phase>,
+    /// Whether the router already has every migrated setting, and at least one is.
+    all_present: bool,
     /// Components installed before the plan.
     components: Vec<String>,
     /// The URL kcc reaches the router at after the connection changes.
@@ -90,6 +93,7 @@ impl Panel {
             id: record.id().to_owned(),
             facts: Vec::new(),
             phases: Vec::new(),
+            all_present: false,
             components: record.components().iter().cloned().collect(),
             reconnect: record.reconnect_url().map(str::to_owned),
             may_apply: false,
@@ -150,28 +154,20 @@ impl Panel {
             .len()
             .saturating_add(plan.phases.prune.len())
             .saturating_add(plan.phases.management.len());
-        let fates = classified
-            .items()
-            .iter()
-            .map(|item| {
-                let index = item.source_index;
-                let excluded = record.excluded().contains(&index);
-                Fate::of(item, classified.conflicts(index) && !excluded, excluded)
-            })
-            .collect::<Vec<_>>();
-        let migrated = fates
-            .iter()
-            .filter(|fate| matches!(fate, Fate::Migrated | Fate::Conflict))
-            .count();
-        let left_out = fates.len().saturating_sub(migrated);
+        let settings = classified.items().len();
+        let migrated = migrated(&classified, record);
+        panel.all_present = sent == 0 && migrated > 0;
         panel.facts = [
-            (keys::WEB_MIGRATE_COUNT_SETTINGS, fates.len()),
+            (keys::WEB_MIGRATE_COUNT_SETTINGS, settings),
             (keys::WEB_MIGRATE_COUNT_COMMANDS, sent),
             (
                 keys::WEB_MIGRATE_COUNT_PRESENT,
                 migrated.saturating_sub(sent),
             ),
-            (keys::WEB_MIGRATE_COUNT_LEFT_OUT, left_out),
+            (
+                keys::WEB_MIGRATE_COUNT_LEFT_OUT,
+                settings.saturating_sub(migrated),
+            ),
             (keys::WEB_MIGRATE_COUNT_STAY, plan.residual.len()),
         ]
         .into_iter()
@@ -179,6 +175,22 @@ impl Panel {
         .collect();
         panel
     }
+}
+
+/// How many settings of `classified` the choices of `record` migrate.
+fn migrated(classified: &Classified, record: &Record) -> usize {
+    classified
+        .items()
+        .iter()
+        .filter(|item| {
+            let index = item.source_index;
+            let excluded = record.excluded().contains(&index);
+            matches!(
+                Fate::of(item, classified.conflicts(index) && !excluded, excluded),
+                Fate::Migrated | Fate::Conflict
+            )
+        })
+        .count()
 }
 
 /// A count labelled `key`.

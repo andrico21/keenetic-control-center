@@ -67,7 +67,8 @@ the results.
   plan is blocked; in the CLI exclude them with `--exclude`.
 - Router-user password hashes are realm-bound (see below); you type the password.
 - Lines kcc can't send through a validated request are marked `unsupported` and left
-  out.
+  out. The CLI plan, the MCP plan and the Web wizard's review and preview show the same
+  classification, so the counts there are the ones the apply uses.
 
 ### Finishing
 

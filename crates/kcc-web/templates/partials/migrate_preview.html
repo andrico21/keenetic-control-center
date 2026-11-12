@@ -20,7 +20,7 @@
   </ul>
 </section>
 {%- endif %}
-{%- if phases.is_empty() %}
+{%- if all_present %}
 <p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_PREVIEW_EMPTY) }}</p>
 {%- endif %}
 {%- for phase in phases %}

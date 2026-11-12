@@ -15,14 +15,15 @@ use kcc_config::{
 };
 use kcc_migrate::{
     inventory::{InventoryClient, InventoryError, TargetInventory},
-    rules::{ClassificationChoices, ClassificationTarget, ClassifiedItem, RuleEngine, RuleError},
+    planner::{Choices, Planner},
+    rules::{ClassifiedItem, RuleError},
     source::SourceConfig,
 };
 use kcc_rci::{RciBody, RciClient, RciError, RciPath, version::FirmwareVersion};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::Value;
 
-use super::{kinds::Maps, record::Record};
+use super::{kinds::Maps, plan::engine_maps, record::Record};
 use crate::fleet::Fleet;
 
 /// What `<redacted>` stands for in a shown line.
@@ -134,7 +135,8 @@ impl Analysis {
     }
 
     /// Every source line classified with `maps`, the typed `passwords` and the conflicts
-    /// whose source values `overwrite` takes.
+    /// whose source values `overwrite` takes, as the plan classifies it: lines the target
+    /// cannot build are unsupported.
     ///
     /// # Errors
     ///
@@ -145,15 +147,10 @@ impl Analysis {
         passwords: &BTreeMap<String, SecretString>,
         overwrite: &BTreeSet<String>,
     ) -> Result<Vec<ClassifiedItem>, RuleError> {
-        let choices = ClassificationChoices::new(
-            maps.ports(),
-            maps.radios(),
-            maps.interfaces(),
-            passwords,
-            overwrite,
-        );
-        let target = ClassificationTarget::from_inventory(&self.target);
-        RuleEngine::embedded()?.classify(&self.source.ast, target, &choices)
+        let mut choices = Choices::default();
+        passwords.clone_into(&mut choices.new_passwords);
+        overwrite.clone_into(&mut choices.overwrite_scalars);
+        Planner::classify(&self.source, &self.target, &engine_maps(maps), &choices)
     }
 
     /// The target's settings the source does not have, redacted: they stay on the target
