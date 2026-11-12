@@ -33,6 +33,7 @@
 extern crate alloc;
 
 pub mod admin;
+pub mod brackets;
 pub mod csp;
 mod csrf;
 pub mod errors;
@@ -114,7 +115,7 @@ use core::{fmt, time::Duration};
 
 use axum::{
     Router,
-    http::{HeaderValue, StatusCode, header},
+    http::{HeaderValue, header},
     middleware,
     routing::{get, post},
 };
@@ -127,19 +128,19 @@ use kcc_app::{
 };
 use kcc_i18n::locale::Locale;
 use kcc_telemetry::logs::readers::LogFeeds;
-use tower_http::{
-    limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLayer, timeout::TimeoutLayer,
-};
+use tower_http::{limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLayer};
 
 use crate::{
     admin::AdminServices,
     admin_shared::Admin,
+    brackets::Brackets,
     fleet::{Fleet, FleetServices},
     session::{CookieSecurity, SessionStore},
     sse::StreamLimiter,
 };
 
-/// Time limit for producing a response on every route except server-sent event streams.
+/// Time limit for producing a response on every route except server-sent event streams
+/// and requests that hold a router's fail-safe bracket ([`brackets`]).
 pub const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Request body limit of every route except uploads, which set a larger one explicitly.
@@ -180,6 +181,8 @@ pub struct WebState {
     facts: Arc<page_kit::facts::FactsCache>,
     /// The router log collectors the log page follows instead of polling.
     log_feeds: LogFeeds,
+    /// The requests holding a router's fail-safe bracket.
+    brackets: Brackets,
 }
 
 impl fmt::Debug for WebState {
@@ -242,6 +245,7 @@ impl WebState {
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
+            brackets: Brackets::default(),
         }
     }
 
@@ -262,6 +266,14 @@ impl WebState {
     pub fn with_log_feeds(mut self, feeds: LogFeeds) -> Self {
         self.log_feeds = feeds;
         self
+    }
+
+    /// The Web requests holding a router's fail-safe bracket, for a server that waits
+    /// for them before it exits.
+    #[inline]
+    #[must_use]
+    pub const fn brackets(&self) -> &Brackets {
+        &self.brackets
     }
 
     /// The number of signed-in sessions that have not expired.
@@ -409,7 +421,10 @@ impl WebState {
 ///
 /// Layering contract for the routes later pages add:
 ///
-/// - Request/response routes join `bounded`, under the [`REQUEST_TIMEOUT`].
+/// - Every route runs as a task the server owns ([`brackets`]), so a request holding a
+///   router's fail-safe bracket ends its bracket even when nobody waits any more.
+/// - Request/response routes join `bounded`, under the [`REQUEST_TIMEOUT`] budget of
+///   `brackets::budget`, which waits instead for a request holding a bracket.
 /// - Server-sent event routes (`/ui/sse/...`) are merged after the timeout layer and
 ///   before the body limit, so the timeout never cuts a stream; [`WebState::streams`]
 ///   caps them per session. They pass the same CSRF, authentication and authorization
@@ -475,14 +490,10 @@ pub fn web_router(state: WebState) -> Router {
             state.clone(),
             csrf::middleware,
         ));
-    let bounded =
-        Router::new()
-            .merge(public)
-            .merge(protected)
-            .layer(TimeoutLayer::with_status_code(
-                StatusCode::REQUEST_TIMEOUT,
-                REQUEST_TIMEOUT,
-            ));
+    let bounded = Router::new()
+        .merge(public)
+        .merge(protected)
+        .layer(middleware::from_fn(brackets::budget));
     Router::new()
         .merge(bounded)
         .merge(streams)
@@ -494,6 +505,10 @@ pub fn web_router(state: WebState) -> Router {
         .layer(SetResponseHeaderLayer::if_not_present(
             header::CACHE_CONTROL,
             HeaderValue::from_static(NO_STORE),
+        ))
+        .layer(middleware::from_fn_with_state(
+            state.brackets().clone(),
+            brackets::own,
         ))
         .with_state(state)
 }

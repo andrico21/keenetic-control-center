@@ -9,14 +9,13 @@
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    http::StatusCode,
     middleware,
     routing::{get, post},
 };
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
+use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{compare, create, download, landing, page, restore, safety, upload};
-use crate::{BODY_LIMIT, REQUEST_TIMEOUT, WebState, protect};
+use crate::{BODY_LIMIT, WebState, brackets, protect};
 
 /// Every route of the configuration page.
 pub(crate) fn routes(state: &WebState) -> Router<WebState> {
@@ -44,8 +43,5 @@ pub(crate) fn routes(state: &WebState) -> Router<WebState> {
         .route_layer(DefaultBodyLimit::disable())
         .route_layer(RequestBodyLimitLayer::new(upload::BODY_LIMIT))
         .route_layer(middleware::from_fn(upload::limit));
-    protect(pages.merge(uploads), state).route_layer(TimeoutLayer::with_status_code(
-        StatusCode::REQUEST_TIMEOUT,
-        REQUEST_TIMEOUT,
-    ))
+    protect(pages.merge(uploads), state).route_layer(middleware::from_fn(brackets::budget))
 }

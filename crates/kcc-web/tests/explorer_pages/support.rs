@@ -290,7 +290,7 @@ impl Fixture {
     }
 
     /// The state directory.
-    fn state_dir(&self) -> PathBuf {
+    pub(crate) fn state_dir(&self) -> PathBuf {
         self.directory.path().join("state")
     }
 }

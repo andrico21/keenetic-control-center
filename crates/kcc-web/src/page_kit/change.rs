@@ -9,7 +9,7 @@ use core::mem;
 
 use fluent_bundle::FluentArgs;
 use kcc_app::{
-    audit::{Actor, ActorKind},
+    audit::{Actor, ActorKind, AuditError},
     permissions::Permission,
     workflow::{
         BatchChangeRequest, ChangeRequest, ChangeSet, CliChangeRequest, CliCommand, DeleteRequest,
@@ -34,7 +34,7 @@ use super::{
     family::Family,
     outcome::Failure,
 };
-use crate::authz::CurrentUser;
+use crate::{authz::CurrentUser, brackets};
 
 #[cfg(test)]
 mod persistence_tests;
@@ -353,11 +353,14 @@ pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Applied,
 /// Runs `work` in a leased change set for `plan`, with the router's domain context; a
 /// management change runs inside the fail-safe timer.
 ///
+/// Before it arms, it holds its request (`brackets::hold`), so that nothing cancels the
+/// request until it has ended.
+///
 /// # Errors
 ///
 /// Returns the workflow error and whether the fail-safe timer stays armed.
-// NOT cancel-safe: a dropped future may leave an applied change or an armed timer; the
-// router's own fail-safe timer is the recovery for the latter.
+// NOT cancel-safe before the arm: a dropped future may leave an applied ordinary change.
+// From the arm on the request is held and is not dropped before it disarms and reports.
 pub(crate) async fn apply_with<W>(plan: Plan<'_>, work: W) -> Result<Applied, Refused>
 where
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Result<Applied, WorkflowError>,
@@ -386,6 +389,12 @@ where
     let context = RouterCtx::new(client, plan.facts.catalog().clone());
     if !plan.management {
         return work(&mut changes, &context).await.map_err(Refused::plain);
+    }
+    if !brackets::hold() {
+        tracing::warn!("management change refused: its request has no server owner");
+        return Err(Refused::plain(WorkflowError::Audit(
+            AuditError::WriterUnavailable,
+        )));
     }
     let mode = plan.facts.mode();
     let arm_result = SafetyNet::arm(&mut changes, &context, mode, FAIL_SAFE_SECONDS)

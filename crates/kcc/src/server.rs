@@ -51,7 +51,7 @@ use rmcp_server_kit::{
     metrics::McpMetrics,
     observability::init_tracing_from_config_strict,
     rbac::RbacPolicy,
-    transport::{McpServerConfig, ReadinessCheck, serve, serve_stdio},
+    transport::{McpServerConfig, ReadinessCheck, serve_stdio, serve_with_listener},
 };
 use serde_json::json;
 
@@ -119,10 +119,6 @@ impl Outcome {
 
 /// Runs the HTTP server command.
 // NOT cancel-safe: once the listener starts, shutdown must be driven cooperatively by the kit.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select macro expansion contains runtime-internal remainder arithmetic"
-)]
 pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let (path, config, _tracing_guard) = load_config(config_path)?;
     let state_dir = config.state.resolved_dir().map_err(error)?;
@@ -156,12 +152,14 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             .with_role_source(services.roles.clone()),
     );
     let _updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
+    let mut brackets = None;
     let _sessions = if config.web.enabled {
         let web_state = services.web_state(&config, tls, Arc::clone(&auth_reload))?;
         let sessions = services
             .metrics
             .clone()
             .map(|metrics| crate::server_tasks::track_sessions(web_state.clone(), metrics));
+        brackets = Some(web_state.brackets().clone());
         server_with_origins = server_with_origins.with_extra_router(web_router(web_state));
         sessions
     } else {
@@ -174,14 +172,36 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         Arc::clone(&services.registry),
     );
     let (configured_server, _exporter) = with_metrics(server_with_origins, &config, &services)?;
-    let serving = serve(configured_server.validate().map_err(error)?, move || {
-        handler.clone()
-    });
-    tokio::pin!(serving);
-    let serve_result = tokio::select! {
-        result = &mut serving => result.map_err(error),
-        () = services.audit.closed() => Err(ServerError("audit writer terminated".to_owned())),
-    };
+    let validated = configured_server.validate().map_err(error)?;
+    let listener = tokio::net::TcpListener::bind((
+        config.server.listen_addr.trim_matches(['[', ']']),
+        config.server.listen_port,
+    ))
+    .await
+    .map_err(|source| {
+        error(format!(
+            "bind {}:{}: {source}",
+            config.server.listen_addr, config.server.listen_port
+        ))
+    })?;
+    #[expect(
+        clippy::default_trait_access,
+        reason = "the kit's `CancellationToken`, inferred from `serve_with_listener`, is not a dependency of this crate"
+    )]
+    let shutdown = Default::default();
+    let serving = serve_with_listener(
+        listener,
+        validated,
+        move || handler.clone(),
+        None,
+        Some(Clone::clone(&shutdown)),
+    );
+    let serve_result =
+        crate::server_shutdown::serve_until_shutdown(serving, &services.audit, || {
+            shutdown.cancel();
+        })
+        .await;
+    crate::server_shutdown::wait_for_brackets(brackets.as_ref()).await;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
         cancelled = drain.cancelled,
@@ -610,7 +630,7 @@ fn with_metrics(
 }
 
 /// Converts a display-safe service error into the binary error surface.
-fn error(source: impl core::fmt::Display) -> ServerError {
+pub(crate) fn error(source: impl core::fmt::Display) -> ServerError {
     ServerError(source.to_string())
 }
 

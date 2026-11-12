@@ -51,13 +51,12 @@ mod vpn_tabs;
 use axum::{
     Router,
     extract::DefaultBodyLimit,
-    http::StatusCode,
     middleware,
     routing::{get, post},
 };
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
+use tower_http::limit::RequestBodyLimitLayer;
 
-use crate::{REQUEST_TIMEOUT, WebState, protect};
+use crate::{WebState, brackets, protect};
 
 /// The DNS and VPN page and action routes.
 pub(crate) fn routes() -> Router<WebState> {
@@ -97,8 +96,5 @@ pub(crate) fn uploads(state: &WebState) -> Router<WebState> {
         .route_layer(DefaultBodyLimit::disable())
         .route_layer(RequestBodyLimitLayer::new(vpn_import::UPLOAD_LIMIT))
         .route_layer(middleware::from_fn(vpn_import::limit));
-    protect(route, state).route_layer(TimeoutLayer::with_status_code(
-        StatusCode::REQUEST_TIMEOUT,
-        REQUEST_TIMEOUT,
-    ))
+    protect(route, state).route_layer(middleware::from_fn(brackets::budget))
 }

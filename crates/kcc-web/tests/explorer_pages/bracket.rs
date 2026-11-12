@@ -20,6 +20,8 @@ use crate::{
 
 #[path = "bracket_batch.rs"]
 mod batch;
+#[path = "bracket_budget.rs"]
+mod budget;
 #[path = "bracket_management_fate.rs"]
 mod management_fate;
 

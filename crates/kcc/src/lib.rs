@@ -14,4 +14,5 @@ pub mod server;
 mod server_migrations;
 mod server_origins;
 mod server_outbound;
+mod server_shutdown;
 mod server_tasks;
