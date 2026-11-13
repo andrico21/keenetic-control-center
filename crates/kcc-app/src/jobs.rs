@@ -729,8 +729,19 @@ mod tests {
 
     use super::{JobError, JobRunner, JobStatus, job_id::JobIdAllocator};
     use crate::{
-        audit::AuditLog, persist::StateStore, registry::RouterRegistry, settings::OutboundConfig,
+        accounts::Clock, audit::AuditLog, persist::StateStore, registry::RouterRegistry,
+        settings::OutboundConfig,
     };
+
+    /// A test clock with a fixed unix timestamp.
+    #[derive(Debug)]
+    struct FixedClock(u64);
+
+    impl Clock for FixedClock {
+        fn unix_seconds(&self) -> u64 {
+            self.0
+        }
+    }
 
     #[tokio::test]
     #[expect(
@@ -748,7 +759,7 @@ mod tests {
             &OutboundConfig::default(),
         )?);
         let audit = AuditLog::spawn(&state).map_err(|_error| JobError::IdUnavailable)?;
-        let clock: Arc<dyn crate::accounts::Clock> = Arc::new(crate::accounts::SystemClock);
+        let clock: Arc<dyn Clock> = Arc::new(FixedClock(1_700_000_000));
         let first = JobRunner::open_with_ids(
             state.clone(),
             Arc::clone(&registry),
