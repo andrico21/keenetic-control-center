@@ -19,15 +19,38 @@ pub(super) enum Stop {
 }
 
 impl Stop {
+    /// Arms recovery for `seconds`; an arm whose result was lost is disarmed.
+    ///
+    /// # Errors
+    /// [`ApplyError::Workflow`] when the disarm after a lost arm succeeded, otherwise
+    /// [`ApplyError::ArmUnconfirmed`].
+    // NOT cancel-safe: the arm or the disarm can reach the router before the caller receives
+    // its result.
+    pub(super) async fn arm(
+        changes: &mut ChangeSet,
+        ctx: &RouterCtx,
+        mode: SafetyMode,
+        seconds: u64,
+    ) -> Result<(), ApplyError> {
+        let control = SafetyNet::CONTROL_PERMISSION;
+        if SafetyNet::arm(changes, ctx, mode, seconds, control)
+            .await
+            .is_err()
+        {
+            return Err(Self::unconfirmed_arm(changes, ctx, mode).await);
+        }
+        Ok(())
+    }
+
     /// Disarms after an arm whose result was lost, since the arm may still have reached the
     /// router, and returns the error to report.
     // NOT cancel-safe: the disarm can reach the router before the caller receives its result.
-    pub(super) async fn unconfirmed_arm(
+    async fn unconfirmed_arm(
         changes: &mut ChangeSet,
         ctx: &RouterCtx,
         mode: SafetyMode,
     ) -> ApplyError {
-        match SafetyNet::disarm(changes, ctx, mode).await {
+        match SafetyNet::disarm(changes, ctx, mode, SafetyNet::CONTROL_PERMISSION).await {
             Ok(_receipt) => ApplyError::Workflow,
             Err(_cleanup) => ApplyError::ArmUnconfirmed,
         }
@@ -46,10 +69,12 @@ impl Stop {
         mode: SafetyMode,
     ) -> ApplyError {
         match self {
-            Self::Armed(error) => match SafetyNet::disarm(changes, ctx, mode).await {
-                Ok(_receipt) => error,
-                Err(_cleanup) => ApplyError::FinishFailed,
-            },
+            Self::Armed(error) => {
+                match SafetyNet::disarm(changes, ctx, mode, SafetyNet::CONTROL_PERMISSION).await {
+                    Ok(_receipt) => error,
+                    Err(_cleanup) => ApplyError::FinishFailed,
+                }
+            }
             Self::Rebooted(error) => match changes.current_last_change().await {
                 Ok(state) if state.fail_safe.get("active") != Some(&Value::Bool(true)) => error,
                 Ok(_) | Err(_) => ApplyError::FinishFailed,

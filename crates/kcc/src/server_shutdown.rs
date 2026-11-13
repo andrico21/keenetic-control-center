@@ -1,19 +1,18 @@
 //! How `kcc serve` stops.
 //!
 //! A fatal audit-writer failure drains the requests in flight the way SIGTERM does, and
-//! Web requests still closing a router's fail-safe bracket get a bounded grace before
-//! the process exits.
+//! requests still closing a router's fail-safe bracket get a bounded grace before the
+//! process exits.
 
 use core::time::Duration;
 
-use kcc_app::audit::AuditLog;
-use kcc_web::brackets::Brackets;
+use kcc_app::{audit::AuditLog, brackets::Brackets};
 use rmcp_server_kit::RmcpServerKitError;
 
 use crate::server::{ServerError, error};
 
-/// How long `kcc serve` waits, once its listener stopped, for Web requests still closing
-/// a router's fail-safe bracket.
+/// How long `kcc serve` waits, once its listener stopped, for requests still closing a
+/// router's fail-safe bracket.
 pub(crate) const BRACKET_GRACE: Duration = Duration::from_secs(10);
 
 /// Serves until the kit stops (SIGTERM, Ctrl-C) or the audit writer dies.
@@ -55,13 +54,10 @@ where
     Err(error("audit writer terminated"))
 }
 
-/// Waits, at most [`BRACKET_GRACE`], for Web requests still closing a router's fail-safe
+/// Waits, at most [`BRACKET_GRACE`], for requests still closing a router's fail-safe
 /// bracket; their tasks run on although their connections are gone.
 // cancel-safe: only observes the bracket count.
-pub(crate) async fn wait_for_brackets(web: Option<&Brackets>) {
-    let Some(brackets) = web else {
-        return;
-    };
+pub(crate) async fn wait_for_brackets(brackets: &Brackets) {
     let open = brackets.drain(BRACKET_GRACE).await;
     if open != 0 {
         tracing::warn!(

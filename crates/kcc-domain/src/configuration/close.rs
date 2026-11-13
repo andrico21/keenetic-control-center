@@ -46,8 +46,8 @@ pub struct Closed {
 /// # Errors
 ///
 /// A failure that is still armed and not applied when the step's first command fails; armed
-/// and applied when the configuration was saved but the scheduled reboot could not be
-/// cancelled, or when keep-unsaved could not disarm; applied and not armed when a router-mode
+/// with [`ArmedFate::Saved`](super::bracket::ArmedFate::Saved) when the configuration was
+/// saved but the scheduled reboot could not be cancelled, or when keep-unsaved could not disarm; applied and not armed when a router-mode
 /// commit succeeded but the save after it failed.
 // NOT cancel-safe: cancelled after a command is sent, the router may have saved, disarmed,
 // rolled back or started rebooting while the caller still treats recovery as armed.
@@ -63,7 +63,8 @@ pub async fn close(
     };
     match (step, mode) {
         (Close::KeepUnsaved, _) => {
-            let disarm = SafetyNet::disarm(changes, router, mode).await;
+            let disarm =
+                SafetyNet::disarm(changes, router, mode, SafetyNet::CONTROL_PERMISSION).await;
             recovery::finish(
                 Ok(Closed {
                     saved: false,
@@ -79,8 +80,10 @@ pub async fn close(
         }
         (Close::Save, SafetyMode::ScheduledReboot) => {
             changes.save().await.map_err(Failure::armed)?;
-            let disarm = SafetyNet::disarm(changes, router, mode).await;
-            recovery::finish(Ok(saved), disarm)
+            SafetyNet::disarm(changes, router, mode, SafetyNet::CONTROL_PERMISSION)
+                .await
+                .map(|_disarmed| saved)
+                .map_err(Failure::saved)
         }
         (Close::Rollback, _) => {
             let path = match mode {

@@ -133,7 +133,6 @@ use tower_http::{limit::RequestBodyLimitLayer, set_header::SetResponseHeaderLaye
 use crate::{
     admin::AdminServices,
     admin_shared::Admin,
-    brackets::Brackets,
     fleet::{Fleet, FleetServices},
     session::{CookieSecurity, SessionStore},
     sse::StreamLimiter,
@@ -181,8 +180,6 @@ pub struct WebState {
     facts: Arc<page_kit::facts::FactsCache>,
     /// The router log collectors the log page follows instead of polling.
     log_feeds: LogFeeds,
-    /// The requests holding a router's fail-safe bracket.
-    brackets: Brackets,
 }
 
 impl fmt::Debug for WebState {
@@ -245,7 +242,6 @@ impl WebState {
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
-            brackets: Brackets::default(),
         }
     }
 
@@ -266,14 +262,6 @@ impl WebState {
     pub fn with_log_feeds(mut self, feeds: LogFeeds) -> Self {
         self.log_feeds = feeds;
         self
-    }
-
-    /// The Web requests holding a router's fail-safe bracket, for a server that waits
-    /// for them before it exits.
-    #[inline]
-    #[must_use]
-    pub const fn brackets(&self) -> &Brackets {
-        &self.brackets
     }
 
     /// The number of signed-in sessions that have not expired.
@@ -506,10 +494,7 @@ pub fn web_router(state: WebState) -> Router {
             header::CACHE_CONTROL,
             HeaderValue::from_static(NO_STORE),
         ))
-        .layer(middleware::from_fn_with_state(
-            state.brackets().clone(),
-            brackets::own,
-        ))
+        .layer(middleware::from_fn(brackets::own))
         .with_state(state)
 }
 

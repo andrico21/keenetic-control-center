@@ -196,15 +196,26 @@ async fn configuration(firmware: Firmware, op: &str) -> TestResult {
             );
         }
         "fail_safe_arm" => {
-            let result =
-                SafetyNet::arm(&mut changes, fixture.context(), SafetyMode::Router, 300).await;
+            let result = SafetyNet::arm(
+                &mut changes,
+                fixture.context(),
+                SafetyMode::Router,
+                300,
+                SafetyNet::CONTROL_PERMISSION,
+            )
+            .await;
             assert!(
                 matches!(result, Err(WorkflowError::VerificationFailed { field: _ })),
                 "timer no-op escaped verification: {result:?}"
             );
         }
         "fail_safe_keep_alive" => {
-            let result = SafetyNet::keep_alive(&mut changes, fixture.context()).await;
+            let result = SafetyNet::keep_alive(
+                &mut changes,
+                fixture.context(),
+                SafetyNet::CONTROL_PERMISSION,
+            )
+            .await;
             assert!(
                 matches!(result, Err(WorkflowError::VerificationFailed { field: _ })),
                 "timer no-op escaped verification: {result:?}"

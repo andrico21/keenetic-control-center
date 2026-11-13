@@ -17,10 +17,11 @@ use axum::{
     middleware,
     routing::get,
 };
+use kcc_app::brackets::Brackets;
 use tokio::{sync::oneshot, time::sleep};
 use tower::ServiceExt as _;
 
-use super::{Brackets, budget, hold, own};
+use super::{budget, hold, own};
 use crate::REQUEST_TIMEOUT;
 
 /// Fallible test result.
@@ -66,11 +67,13 @@ fn script() -> (Arc<Script>, Driver) {
     )
 }
 
-/// The handler of a management change, reduced to its bracket.
-async fn bracket(script: Arc<Script>) -> &'static str {
+/// The handler of a management change, reduced to its bracket: it holds its request,
+/// then enters the process-wide count as the change workflow's bracket does.
+async fn bracket(script: Arc<Script>, brackets: Brackets) -> &'static str {
     if !hold() {
         return "refused";
     }
+    let _open = brackets.enter();
     let armed = script.armed.lock().ok().and_then(|mut slot| slot.take());
     let close = script.close.lock().ok().and_then(|mut slot| slot.take());
     let disarmed = script.disarmed.lock().ok().and_then(|mut slot| slot.take());
@@ -89,11 +92,15 @@ async fn bracket(script: Arc<Script>) -> &'static str {
 /// The two layers the Web UI puts around its bounded routes, around `/` (the bracket)
 /// and `/stuck` (a request that never holds one and never answers).
 fn app(brackets: &Brackets, script: Arc<Script>) -> Router {
+    let count = brackets.clone();
     Router::new()
-        .route("/", get(move || bracket(Arc::clone(&script))))
+        .route(
+            "/",
+            get(move || bracket(Arc::clone(&script), count.clone())),
+        )
         .route("/stuck", get(future::pending::<&'static str>))
         .layer(middleware::from_fn(budget))
-        .layer(middleware::from_fn_with_state(brackets.clone(), own))
+        .layer(middleware::from_fn(own))
 }
 
 /// `GET path`.

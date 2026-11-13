@@ -284,3 +284,11 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - Gotcha: `crates/kcc-domain/tests/profile_coverage.rs` fails any new domain suite that does not contain the literal `in PROFILES` (iterate `support::PROFILES`).
 - Gotcha: returning a `Copy` struct from a step needs `let _: T = ...` (`-D unused-results`; `drop(copy)` trips `dropping_copy_types`).
 - Tests: new `crates/kcc/tests/cli/closing_modes.rs` (8-row table, RED showed extender config/preset rollback sending the native rollback and router commit without save), new `crates/kcc-domain/tests/close.rs` (step x mode x firmware + committed-not-saved row; mutation-checked).
+
+## [2026-11-13] Todo 9 progress
+- New seam `kcc_domain::configuration::bracket::{ArmedFate, guarded}`; invariants (refusal before arm, every arm has an owner, count balance incl. unwind/drop, fate truthfulness, one permission) are the module doc of `bracket.rs`.
+- `guarded<T, E, H, W>` uses type parameters, not `impl Trait` args (`clippy::impl_trait_in_params` is denied). Order: `changes.audit_alive()` -> `hold()` -> `changes.enter_bracket()` -> arm -> (arm error: disarm, `recovery::arm_failed`) -> work -> disarm -> `finish_applied`.
+- `SafetyNet::{arm, disarm, keep_alive}` take `permission: Permission` (last arg); `SafetyNet::required(permission, risk)` is the D-Q1 rule owner. `ChangeSet::audit_alive()` and `ChangeSet::enter_bracket()` were added in kcc-app.
+- `crates/kcc-domain/tests/bracket.rs` iterates `PROFILES` x fake system modes `router`/`extender` (`Fixture::spawn_mode`), uses `fail_parse_matching("system", n)` / `("no system", 1)` to refuse arm/disarm in either mode; dead audit writer = corrupt `audit.jsonl` then one append (the writer re-verifies files on every append). Panic case: `tokio::spawn` + `JoinError::is_panic`, count read inside work via an `AtomicUsize`.
+- Gotchas: `let _: Result<..> = fut.await` on a type with a destructor trips `let_underscore_drop`-style lint -> bind + `drop`; `needless_pass_by_value` on a `Result` param -> `match` it to consume; `tuple_array_conversions` -> return `[&str; 2]`; adding an argument can push a function over 100 lines (page_kit `apply_with`, migrate `prepare`).
+- `crates/kcc-domain/tests/support/mod.rs` was already 261 pure LOC before this todo (now 288).

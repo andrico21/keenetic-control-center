@@ -25,6 +25,7 @@ use crate::{
     DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
 };
 
+pub mod bracket;
 pub mod close;
 pub mod recovery;
 
@@ -190,7 +191,9 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 impl SafetyNet {
-    /// Authority shared by arming, disarming, extending, and rolling back recovery.
+    /// Authority of explicit recovery control: a standalone timer and an explicit rollback.
+    ///
+    /// A timer armed around a change is authorized by that change's own permission instead.
     pub const CONTROL_PERMISSION: Permission = Permission::Destructive;
 
     /// Permissions required to apply and finish a migration, preset, or settings copy.
@@ -214,7 +217,20 @@ impl SafetyNet {
         &Self::APPLY_PERMISSIONS
     }
 
-    /// Arms native fail-safe in router mode or scheduled reboot otherwise.
+    /// Permissions a change needs: its own `permission`, plus [`Permission::Destructive`] for
+    /// a destructive risk. The recovery timer kcc arms around a management change needs
+    /// nothing more than the change itself.
+    #[must_use]
+    pub fn required(permission: Permission, risk: Risk) -> Vec<Permission> {
+        let mut required = vec![permission];
+        if risk >= Risk::Destructive && permission != Permission::Destructive {
+            required.push(Permission::Destructive);
+        }
+        required
+    }
+
+    /// Arms native fail-safe in router mode or scheduled reboot otherwise, authorized by
+    /// `permission`, the permission of the change it protects.
     // NOT cancel-safe: cancelled after the CLI request is sent, the fail-safe or reboot timer
     // is armed and fires while the caller believes nothing was armed.
     pub async fn arm(
@@ -222,6 +238,7 @@ impl SafetyNet {
         router: &RouterCtx,
         mode: SafetyMode,
         seconds: u64,
+        permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
         let (catalog_path, line) = match mode {
             SafetyMode::Router => (
@@ -230,18 +247,20 @@ impl SafetyNet {
             ),
             SafetyMode::ScheduledReboot => ("system reboot", format!("system reboot {seconds}")),
         };
-        let request = cli_request(router, catalog_path, line, Self::CONTROL_PERMISSION)
+        let request = cli_request(router, catalog_path, line, permission)
             .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await
     }
 
-    /// Disarms the selected safety mechanism without saving other changes.
+    /// Disarms the selected safety mechanism without saving other changes, authorized by
+    /// `permission`, the permission of the change it protected.
     // NOT cancel-safe: cancelled after the CLI request is sent, the timer may already be disarmed
     // while the caller still treats it as armed.
     pub async fn disarm(
         changes: &mut ChangeSet,
         router: &RouterCtx,
         mode: SafetyMode,
+        permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
         let (catalog_path, line) = match mode {
             SafetyMode::Router => (
@@ -250,28 +269,25 @@ impl SafetyNet {
             ),
             SafetyMode::ScheduledReboot => ("system reboot", "no system reboot"),
         };
-        let request = cli_request(
-            router,
-            catalog_path,
-            line.to_owned(),
-            Self::CONTROL_PERMISSION,
-        )
-        .map_err(|_error| WorkflowError::InvalidResponse)?;
+        let request = cli_request(router, catalog_path, line.to_owned(), permission)
+            .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await
     }
 
-    /// Restarts the native fail-safe countdown.
+    /// Restarts the native fail-safe countdown, authorized by `permission`, the permission
+    /// of the change it protects.
     // NOT cancel-safe: cancelled after the CLI request is sent, the countdown may be restarted
     // without the caller knowing.
     pub async fn keep_alive(
         changes: &mut ChangeSet,
         router: &RouterCtx,
+        permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
         let request = cli_request(
             router,
             "system configuration fail-safe keep-alive",
             "system configuration fail-safe keep-alive".to_owned(),
-            Self::CONTROL_PERMISSION,
+            permission,
         )
         .map_err(|_error| WorkflowError::InvalidResponse)?;
         changes.apply_cli(request).await

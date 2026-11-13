@@ -286,7 +286,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(deploy): raise StopTimeout to cover shutdown, bracket grace and job drain
   Recommended task executor category: quick - one unit value and two doc paragraphs
 
-- [ ] 9. The shared safety bracket: one `guarded` seam, one armed-fate model, one bracket counter, one permission rule
+- [x] 9. The shared safety bracket: one `guarded` seam, one armed-fate model, one bracket counter, one permission rule
   What to do / Must NOT do: Tests in the same todo (new seam). In `kcc-domain` add module `configuration::bracket` (file `crates/kcc-domain/src/configuration/bracket.rs`) with:
   (1) `pub enum ArmedFate { NotSent, Applied, Unknown, Saved }` (`#[non_exhaustive]`, every variant means "the recovery timer may still be armed") with `pub const fn message_key(self) -> MessageKey`: NotSent -> `MANAGEMENT_NOT_SENT_ARMED` (key added by todo 2), Applied -> `MANAGEMENT_DISARM_FAILED`, Unknown -> `MANAGEMENT_OUTCOME_UNKNOWN_ARMED`, Saved -> `FINISH_SAVED_ARMED`. Add the internal path dependency `kcc-i18n` to `crates/kcc-domain/Cargo.toml`.
   (2) `recovery::Failure` (`crates/kcc-domain/src/configuration/recovery.rs:3-86`) gains `sent: bool` (false only when the arm itself failed) and `pub const fn fate(&self) -> Option<ArmedFate>` (`None` when not armed; NotSent when armed && !sent; Applied when armed && applied; Unknown otherwise; `Saved` is produced only by `configuration::close` from todo 3 when a save succeeded and the disarm failed). Keep `finish`/`finish_applied` signatures; add `recovery::arm_failed(source, disarm_result)`.

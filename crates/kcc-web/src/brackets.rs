@@ -11,24 +11,25 @@
 //!   request, or refuses when the request has no owner or was already cancelled.
 //! - `budget` answers 408 at [`REQUEST_TIMEOUT`] only for a request that holds no
 //!   bracket; a request that holds one is answered when it ends.
-//! - [`Brackets`] counts the requests that hold a bracket, so `kcc serve` can wait for
-//!   them before it exits.
+//!
+//! The bracket itself enters the process-wide count of open brackets
+//! ([`kcc_app::brackets::Brackets`], owned by the change workflow), so `kcc serve` can wait
+//! for it before it exits.
 
 use alloc::sync::Arc;
 use core::{
     pin::pin,
     sync::atomic::{AtomicU8, Ordering},
-    time::Duration,
 };
 use std::panic;
 
 use axum::{
-    extract::{Request, State},
+    extract::Request,
     http::StatusCode,
     middleware::Next,
     response::{IntoResponse as _, Response},
 };
-use tokio::{sync::watch, task::AbortHandle, time::timeout};
+use tokio::{task::AbortHandle, time::timeout};
 
 use crate::REQUEST_TIMEOUT;
 
@@ -47,53 +48,11 @@ tokio::task_local! {
     static CLAIM: Arc<Claim>;
 }
 
-/// The Web requests that hold a router's fail-safe bracket and have not ended yet.
-#[derive(Clone, Debug)]
-#[non_exhaustive]
-pub struct Brackets {
-    /// How many there are.
-    open: Arc<watch::Sender<usize>>,
-}
-
-impl Default for Brackets {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            open: Arc::new(watch::Sender::new(0)),
-        }
-    }
-}
-
-impl Brackets {
-    /// Waits until no request holds a bracket, at most `grace`; returns how many still do.
-    // cancel-safe: only observes the count.
-    #[inline]
-    pub async fn drain(&self, grace: Duration) -> usize {
-        let mut open = self.open.subscribe();
-        drop(timeout(grace, open.wait_for(|count| *count == 0)).await);
-        *self.open.borrow()
-    }
-
-    /// Counts one more held request.
-    fn enter(&self) {
-        self.open
-            .send_modify(|count| *count = count.saturating_add(1));
-    }
-
-    /// Counts one held request less.
-    fn leave(&self) {
-        self.open
-            .send_modify(|count| *count = count.saturating_sub(1));
-    }
-}
-
 /// Whether one request holds a bracket.
 #[derive(Debug)]
 struct Claim {
     /// [`OPEN`], [`HELD`] or [`ENDED`].
     state: AtomicU8,
-    /// The count it joins while held.
-    brackets: Brackets,
 }
 
 impl Claim {
@@ -103,10 +62,7 @@ impl Claim {
             .state
             .compare_exchange(OPEN, HELD, Ordering::AcqRel, Ordering::Acquire)
         {
-            Ok(_open) => {
-                self.brackets.enter();
-                true
-            }
+            Ok(_open) => true,
             Err(current) => current == HELD,
         }
     }
@@ -122,11 +78,9 @@ impl Claim {
         }
     }
 
-    /// Ends the request; a held one leaves the count.
+    /// Ends the request.
     fn end(&self) {
-        if self.state.swap(ENDED, Ordering::AcqRel) == HELD {
-            self.brackets.leave();
-        }
+        let _: u8 = self.state.swap(ENDED, Ordering::AcqRel);
     }
 }
 
@@ -156,17 +110,12 @@ impl Drop for Abandon {
     }
 }
 
-/// Runs the request as a task the server owns, counted in `brackets` while it holds one.
+/// Runs the request as a task the server owns.
 // NOT cancel-safe by design: dropped before the request holds a bracket, the task is
 // aborted as the request would have been; dropped after, the task runs to its end.
-pub(crate) async fn own(
-    State(brackets): State<Brackets>,
-    request: Request,
-    next: Next,
-) -> Response {
+pub(crate) async fn own(request: Request, next: Next) -> Response {
     let claim = Arc::new(Claim {
         state: AtomicU8::new(OPEN),
-        brackets,
     });
     let ending = Ending(Arc::clone(&claim));
     let task = tokio::spawn(CLAIM.scope(Arc::clone(&claim), async move {

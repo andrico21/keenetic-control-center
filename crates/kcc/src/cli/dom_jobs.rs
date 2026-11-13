@@ -65,7 +65,9 @@ async fn config_writes(ctx: &Ctx, command: ConfigWriteCommand) -> Outcome {
     session
         .change(gate, async |changes, router| {
             Ok(applied(
-                SafetyNet::keep_alive(changes, router).await?.unsaved,
+                SafetyNet::keep_alive(changes, router, SafetyNet::CONTROL_PERMISSION)
+                    .await?
+                    .unsaved,
             ))
         })
         .await

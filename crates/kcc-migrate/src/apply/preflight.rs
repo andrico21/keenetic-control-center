@@ -10,7 +10,7 @@ use kcc_app::{
 use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
-    configuration::{SafetyMode, SafetyNet, TIMER_RANGE},
+    configuration::{SafetyMode, TIMER_RANGE},
 };
 use kcc_rci::{ConfigKind, RciClient, SecretBytes, auth::Credentials, capabilities::SupportTier};
 use secrecy::ExposeSecret as _;
@@ -88,12 +88,7 @@ pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError
         .map_err(|_unknown| ApplyError::ModeUnknown)?;
     let ctx = RouterCtx::new(Arc::clone(&original), catalog);
     bootstrap::initialize(&request, &mut changes, &ctx).await?;
-    if SafetyNet::arm(&mut changes, &ctx, mode, request.options.safety_seconds)
-        .await
-        .is_err()
-    {
-        return Err(Stop::unconfirmed_arm(&mut changes, &ctx, mode).await);
-    }
+    Stop::arm(&mut changes, &ctx, mode, request.options.safety_seconds).await?;
     let prepared = match initialize(&request, &mut changes, agreements).await {
         Ok(()) => components::install(&request, &mut changes, &ctx).await,
         Err(error) => Err(Stop::Armed(error)),

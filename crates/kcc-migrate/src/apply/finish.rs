@@ -6,7 +6,10 @@ use core::time::Duration;
 use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
-    configuration::close::{Close, Closed, close},
+    configuration::{
+        bracket::ArmedFate,
+        close::{Close, Closed, close},
+    },
 };
 use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
@@ -34,10 +37,10 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
         .map_err(|_error| ApplyError::FinishFailed)?;
     let _: Closed = close(&mut applier.changes, &ctx, applier.mode, Close::Save)
         .await
-        .map_err(|error| match (error.applied(), error.is_armed()) {
-            (true, true) => ApplyError::SavedDisarmFailed,
-            (true, false) => ApplyError::CommittedSaveFailed,
-            (false, _) => ApplyError::FinishFailed,
+        .map_err(|error| match (error.fate(), error.applied()) {
+            (Some(ArmedFate::Saved), _) => ApplyError::SavedDisarmFailed,
+            (None, true) => ApplyError::CommittedSaveFailed,
+            (Some(_) | None, _) => ApplyError::FinishFailed,
         })?;
     applier.report.finished = true;
     Ok(())

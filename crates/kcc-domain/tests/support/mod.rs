@@ -32,7 +32,7 @@ use kcc_rci::{
     capabilities::RouterInfo,
 };
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, migration,
     model::{Firmware, Model, Profile},
     time::{Clock, MockClock},
 };
@@ -127,6 +127,8 @@ pub(crate) struct Fixture {
     registry: Arc<RouterRegistry>,
     /// Injected fake-router clock for deterministic reboot windows.
     clock: Option<Arc<MockClock>>,
+    /// The workflow's audit writer.
+    audit: AuditLog,
 }
 
 impl Fixture {
@@ -154,6 +156,21 @@ impl Fixture {
             |builder, (path, value)| builder.show_fixture(path, value),
         );
         Self::spawn_builder(builder, None).await
+    }
+
+    /// Starts KN-1811 on `firmware` reporting system mode `mode`, with selected faults.
+    pub(crate) async fn spawn_mode(
+        firmware: Firmware,
+        mode: &str,
+        faults: FaultInjection,
+    ) -> TestResult<Self> {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?)
+            .faults(faults)
+            .build()?
+            .with_migration(scenario);
+        Self::spawn_router(router, None).await
     }
 
     /// Starts KN-1811 on `firmware` with a deterministic clock.
@@ -189,7 +206,11 @@ impl Fixture {
         builder: kcc_testkit::FakeRouterBuilder,
         clock: Option<Arc<MockClock>>,
     ) -> TestResult<Self> {
-        let router = builder.build()?;
+        Self::spawn_router(builder.build()?, clock).await
+    }
+
+    /// Serves one built fake router and connects the domain context.
+    async fn spawn_router(router: FakeRouter, clock: Option<Arc<MockClock>>) -> TestResult<Self> {
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         let directory = TempDir::new()?;
         let password_file = directory.path().join("password");
@@ -239,7 +260,7 @@ impl Fixture {
             MasterKey::from_bytes([26_u8; 32]),
         ));
         let audit = AuditLog::spawn(&state)?;
-        let workflow = ChangeWorkflow::new(state, Arc::clone(&registry), backups, audit);
+        let workflow = ChangeWorkflow::new(state, Arc::clone(&registry), backups, audit.clone());
         Ok(Self {
             directory,
             handle,
@@ -247,21 +268,37 @@ impl Fixture {
             workflow,
             registry,
             clock,
+            audit,
         })
     }
 
     /// Begins a protected administrator change set.
     pub(crate) async fn changes(&self) -> TestResult<ChangeSet> {
+        self.changes_as(&admin_role()).await
+    }
+
+    /// Begins a protected change set for `role`.
+    pub(crate) async fn changes_as(&self, role: &Role) -> TestResult<ChangeSet> {
         Ok(self
             .workflow
             .begin(
                 "router",
                 Actor::new(ActorKind::Cli, "test".to_owned()),
-                &admin_role(),
+                role,
                 None,
                 false,
             )
             .await?)
+    }
+
+    /// Returns the protected workflow service.
+    pub(crate) const fn workflow(&self) -> &Arc<ChangeWorkflow> {
+        &self.workflow
+    }
+
+    /// Returns the workflow's audit writer.
+    pub(crate) const fn audit(&self) -> &AuditLog {
+        &self.audit
     }
 
     /// Returns the typed router context.
@@ -307,6 +344,7 @@ impl Fixture {
             workflow: _,
             registry: _,
             clock: _,
+            audit: _,
         } = self;
         handle.shutdown().await?;
         drop(directory);

@@ -189,7 +189,7 @@ pub(super) async fn keep_alive(applier: &mut Applier) -> Result<(), ApplyError> 
     match applier.mode {
         SafetyMode::Router => {
             drop(
-                SafetyNet::keep_alive(&mut applier.changes, &ctx)
+                SafetyNet::keep_alive(&mut applier.changes, &ctx, SafetyNet::CONTROL_PERMISSION)
                     .await
                     .map_err(|_error| ApplyError::Workflow)?,
             );
@@ -201,6 +201,7 @@ pub(super) async fn keep_alive(applier: &mut Applier) -> Result<(), ApplyError> 
                     &ctx,
                     applier.mode,
                     applier.options.safety_seconds,
+                    SafetyNet::CONTROL_PERMISSION,
                 )
                 .await
                 .map_err(|_error| ApplyError::Workflow)?,

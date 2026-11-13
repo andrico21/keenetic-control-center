@@ -409,11 +409,11 @@ where
             AuditError::WriterUnavailable,
         )));
     }
-    let arm_result = SafetyNet::arm(&mut changes, &context, mode, MANAGEMENT_SECONDS)
-        .await
-        .map(|_receipt| ());
+    let (_open, control) = (changes.enter_bracket(), SafetyNet::CONTROL_PERMISSION);
+    let arm_result =
+        SafetyNet::arm(&mut changes, &context, mode, MANAGEMENT_SECONDS, control).await;
     if let Err(error) = arm_result {
-        let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
+        let disarm = SafetyNet::disarm(&mut changes, &context, mode, control).await;
         return recovery::finish(Err(error), disarm).map_err(|failure| {
             let armed = failure.is_armed();
             Refused {
@@ -426,7 +426,7 @@ where
         });
     }
     let applied = work(&mut changes, &context).await;
-    let disarm = SafetyNet::disarm(&mut changes, &context, mode).await;
+    let disarm = SafetyNet::disarm(&mut changes, &context, mode, control).await;
     let completed = applied.as_ref().is_ok_and(|value| match value {
         Applied::Batch {
             applied_management_changes,

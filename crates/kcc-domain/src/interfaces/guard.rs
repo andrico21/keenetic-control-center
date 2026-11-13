@@ -96,15 +96,26 @@ pub(super) async fn apply(
     if risk != Risk::Management {
         return changes.apply_cli(request).await.map_err(Into::into);
     }
-    let armed = SafetyNet::arm(changes, router, SafetyMode::Router, 300)
+    let armed = SafetyNet::arm(
+        changes,
+        router,
+        SafetyMode::Router,
+        300,
+        SafetyNet::CONTROL_PERMISSION,
+    )
+    .await
+    .map(|_receipt| ())
+    .map_err(InterfaceChangeError::from);
+    if let Err(error) = armed {
+        let disarm = SafetyNet::disarm(
+            changes,
+            router,
+            SafetyMode::Router,
+            SafetyNet::CONTROL_PERMISSION,
+        )
         .await
         .map(|_receipt| ())
         .map_err(InterfaceChangeError::from);
-    if let Err(error) = armed {
-        let disarm = SafetyNet::disarm(changes, router, SafetyMode::Router)
-            .await
-            .map(|_receipt| ())
-            .map_err(InterfaceChangeError::from);
         return recovery::finish(Err(error), disarm).map_err(|failure| {
             if failure.is_armed() {
                 InterfaceChangeError(InterfaceChangeErrorKind::Recovery {
@@ -126,9 +137,14 @@ pub(super) async fn apply(
             .map_err(InterfaceChangeError::from),
         Err(error) => Err(error),
     };
-    let disarm = SafetyNet::disarm(changes, router, SafetyMode::Router)
-        .await
-        .map_err(InterfaceChangeError::from);
+    let disarm = SafetyNet::disarm(
+        changes,
+        router,
+        SafetyMode::Router,
+        SafetyNet::CONTROL_PERMISSION,
+    )
+    .await
+    .map_err(InterfaceChangeError::from);
     recovery::finish(verified, disarm).map_err(|error| {
         if error.is_armed() {
             InterfaceChangeError(InterfaceChangeErrorKind::Recovery {

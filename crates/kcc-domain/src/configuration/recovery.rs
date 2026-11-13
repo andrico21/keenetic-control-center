@@ -1,13 +1,19 @@
-//! Outcome precedence after a recovery timer has successfully armed.
+//! Outcome precedence of a recovery bracket: what a failure says about the recovery timer.
 
-/// A failed bracket, including whether cleanup left recovery armed.
+use kcc_i18n::{bundle::MessageKey, keys};
+
+use super::bracket::ArmedFate;
+
+/// A failed bracket, including whether the recovery timer may still be armed.
 #[derive(Debug)]
 #[non_exhaustive]
 pub struct Failure<E> {
-    /// Work error when work failed, otherwise the cleanup error.
+    /// Work error when work failed, otherwise the arm or cleanup error.
     source: E,
-    /// Whether cleanup failed or was not attempted.
-    armed: bool,
+    /// What may still be armed, and after what; `None` when recovery is known to be off.
+    fate: Option<ArmedFate>,
+    /// Whether anything was sent after the arm; false only when the arm itself failed.
+    sent: bool,
     /// Whether work completed successfully before cleanup failed.
     applied: bool,
 }
@@ -19,7 +25,8 @@ impl<E> Failure<E> {
     pub const fn armed(source: E) -> Self {
         Self {
             source,
-            armed: true,
+            fate: Some(ArmedFate::Unknown),
+            sent: true,
             applied: false,
         }
     }
@@ -30,7 +37,20 @@ impl<E> Failure<E> {
     pub(crate) const fn committed(source: E) -> Self {
         Self {
             source,
-            armed: false,
+            fate: None,
+            sent: true,
+            applied: true,
+        }
+    }
+
+    /// Records a disarm that failed after the configuration was saved.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn saved(source: E) -> Self {
+        Self {
+            source,
+            fate: Some(ArmedFate::Saved),
+            sent: true,
             applied: true,
         }
     }
@@ -39,7 +59,7 @@ impl<E> Failure<E> {
     #[inline]
     #[must_use]
     pub const fn is_armed(&self) -> bool {
-        self.armed
+        self.fate.is_some()
     }
 
     /// Whether the work is known to have completed successfully.
@@ -49,11 +69,53 @@ impl<E> Failure<E> {
         self.applied
     }
 
+    /// What may still be armed: `None` when recovery is known to be off; otherwise
+    /// [`ArmedFate::NotSent`] when the arm itself failed, [`ArmedFate::Saved`] when the
+    /// configuration was saved, [`ArmedFate::Applied`] when the work applied, and
+    /// [`ArmedFate::Unknown`] otherwise.
+    #[inline]
+    #[must_use]
+    pub const fn fate(&self) -> Option<ArmedFate> {
+        self.fate
+    }
+
+    /// The message that states this failure's outcome, when the failure itself decides it:
+    /// the armed fate's message; `management-not-applied` when the arm failed and the timer
+    /// is off. `None` when something was sent and recovery is off: the original error (or
+    /// the caller's own outcome) tells what happened.
+    #[inline]
+    #[must_use]
+    pub const fn message_key(&self) -> Option<MessageKey> {
+        match (self.fate, self.sent) {
+            (Some(fate), _) => Some(fate.message_key()),
+            (None, false) => Some(keys::MANAGEMENT_NOT_APPLIED),
+            (None, true) => None,
+        }
+    }
+
     /// Returns the original work or cleanup error.
     #[inline]
     #[must_use]
     pub fn into_source(self) -> E {
         self.source
+    }
+}
+
+/// Records an arm that failed, from the disarm sent after it: recovery may still be armed,
+/// with nothing sent after the arm, only when that disarm failed too.
+///
+/// The arm's error is kept; the cleanup error is dropped.
+#[inline]
+#[must_use]
+pub fn arm_failed<D, E>(source: E, disarm: Result<D, E>) -> Failure<E> {
+    Failure {
+        source,
+        fate: match disarm {
+            Ok(_disarmed) => None,
+            Err(_cleanup) => Some(ArmedFate::NotSent),
+        },
+        sent: false,
+        applied: false,
     }
 }
 
@@ -84,12 +146,18 @@ pub fn finish_applied<T, D, E>(
         (Ok(value), Ok(_disarmed)) => Ok(value),
         (Err(source), Ok(_disarmed)) => Err(Failure {
             source,
-            armed: false,
+            fate: None,
+            sent: true,
             applied: false,
         }),
         (Ok(_value), Err(source)) => Err(Failure {
             source,
-            armed: true,
+            fate: Some(if applied {
+                ArmedFate::Applied
+            } else {
+                ArmedFate::Unknown
+            }),
+            sent: true,
             applied,
         }),
         (Err(source), Err(_cleanup)) => Err(Failure::armed(source)),
@@ -102,7 +170,9 @@ pub fn finish_applied<T, D, E>(
     reason = "test assertions are not rendered API documentation"
 )]
 mod tests {
-    use super::finish;
+    use kcc_i18n::keys;
+
+    use super::{ArmedFate, arm_failed, finish};
 
     /// Cleanup success preserves work errors; cleanup failure always retains armed state.
     #[test]
@@ -120,5 +190,23 @@ mod tests {
             });
             assert_eq!(actual, expected);
         }
+    }
+
+    /// A failed arm reads as armed only when its disarm failed too, and then as not sent; a
+    /// failure that left the timer off never carries an armed message.
+    #[test]
+    fn a_failed_arm_reads_as_armed_only_when_its_disarm_failed() {
+        let off = arm_failed("arm", Ok::<(), _>(()));
+        assert_eq!(off.fate(), None);
+        assert_eq!(off.message_key(), Some(keys::MANAGEMENT_NOT_APPLIED));
+        let armed = arm_failed("arm", Err::<(), _>("disarm"));
+        assert_eq!(armed.fate(), Some(ArmedFate::NotSent));
+        assert_eq!(armed.message_key(), Some(keys::MANAGEMENT_NOT_SENT_ARMED));
+        assert_eq!(armed.into_source(), "arm");
+        let refused = finish(Err::<(), _>("work"), Ok::<(), _>(()));
+        assert_eq!(
+            refused.err().and_then(|failure| failure.message_key()),
+            None
+        );
     }
 }

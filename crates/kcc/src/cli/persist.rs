@@ -116,7 +116,16 @@ async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, second
         async |changes, router| {
             let step = match action {
                 FailsafeAction::Arm => {
-                    drop(SafetyNet::arm(changes, router, mode, seconds).await?);
+                    drop(
+                        SafetyNet::arm(
+                            changes,
+                            router,
+                            mode,
+                            seconds,
+                            SafetyNet::CONTROL_PERMISSION,
+                        )
+                        .await?,
+                    );
                     return Ok(applied(true));
                 }
                 FailsafeAction::Commit => Close::Save,

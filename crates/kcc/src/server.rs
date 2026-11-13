@@ -152,14 +152,12 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             .with_role_source(services.roles.clone()),
     );
     let _updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
-    let mut brackets = None;
     let _sessions = if config.web.enabled {
         let web_state = services.web_state(&config, tls, Arc::clone(&auth_reload))?;
         let sessions = services
             .metrics
             .clone()
             .map(|metrics| crate::server_tasks::track_sessions(web_state.clone(), metrics));
-        brackets = Some(web_state.brackets().clone());
         server_with_origins = server_with_origins.with_extra_router(web_router(web_state));
         sessions
     } else {
@@ -201,7 +199,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             shutdown.cancel();
         })
         .await;
-    crate::server_shutdown::wait_for_brackets(brackets.as_ref()).await;
+    crate::server_shutdown::wait_for_brackets(services.workflow.brackets()).await;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
         cancelled = drain.cancelled,

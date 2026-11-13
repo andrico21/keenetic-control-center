@@ -198,14 +198,25 @@ where
                 .map(|(document, _applied)| labelled(document, gate.persists));
         }
         let mode = SafetyMode::for_change(&changes)?;
-        let armed = SafetyNet::arm(&mut changes, target.router(), mode, MANAGEMENT_SECONDS)
-            .await
-            .map(|_receipt| ());
+        let armed = SafetyNet::arm(
+            &mut changes,
+            target.router(),
+            mode,
+            MANAGEMENT_SECONDS,
+            SafetyNet::CONTROL_PERMISSION,
+        )
+        .await
+        .map(|_receipt| ());
         if let Err(error) = armed {
-            let disarm = SafetyNet::disarm(&mut changes, target.router(), mode)
-                .await
-                .map(|_receipt| ())
-                .map_err(Failure::from);
+            let disarm = SafetyNet::disarm(
+                &mut changes,
+                target.router(),
+                mode,
+                SafetyNet::CONTROL_PERMISSION,
+            )
+            .await
+            .map(|_receipt| ())
+            .map_err(Failure::from);
             return recovery::finish(Err(Failure::from(error)), disarm)
                 .map(|()| Value::Null)
                 .map_err(Failure::recovery);
@@ -214,9 +225,14 @@ where
             .await
             .map(|(document, applied)| (labelled(document, gate.persists), applied));
         let completed = applied.as_ref().is_ok_and(|(_document, changed)| *changed);
-        let disarm = SafetyNet::disarm(&mut changes, target.router(), mode)
-            .await
-            .map_err(Failure::from);
+        let disarm = SafetyNet::disarm(
+            &mut changes,
+            target.router(),
+            mode,
+            SafetyNet::CONTROL_PERMISSION,
+        )
+        .await
+        .map_err(Failure::from);
         recovery::finish_applied(applied, disarm, completed)
             .map(|(document, _applied)| document)
             .map_err(Failure::recovery)

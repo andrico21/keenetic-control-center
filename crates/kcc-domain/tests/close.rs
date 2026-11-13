@@ -93,7 +93,16 @@ async fn close_sends_the_step_of_the_armed_mechanism() -> TestResult {
             };
             let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
             let mut changes = fixture.changes().await?;
-            drop(SafetyNet::arm(&mut changes, fixture.context(), mode, 300).await?);
+            drop(
+                SafetyNet::arm(
+                    &mut changes,
+                    fixture.context(),
+                    mode,
+                    300,
+                    SafetyNet::CONTROL_PERMISSION,
+                )
+                .await?,
+            );
             let plan = system::plan_description(fixture.context(), "closing")?;
             let _: ChangeResult = changes.apply(system::change_request(&plan)?).await?;
             let before = fixture.handle().request_log().len();

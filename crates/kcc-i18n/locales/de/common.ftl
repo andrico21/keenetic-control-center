@@ -50,3 +50,5 @@ management-outcome-unknown-armed = Es ist unklar, ob die Änderung der Verwaltun
 management-mode-unknown = kcc kann nicht erkennen, wie sich dieser Router nach einem Verbindungsverlust wiederherstellen würde: Er meldet weder einen verwendbaren Betriebsmodus noch einen Fail-safe-Timer. Es wurde nichts gesendet.
 
 management-not-sent-armed = Es wurde nichts geändert, aber der Router zählt möglicherweise noch bis zu einem Rollback oder Neustart herunter. Prüfen Sie den Wiederherstellungstimer, bevor Sie es erneut versuchen.
+
+management-not-applied = Es wurde nichts übernommen, und der Wiederherstellungstimer ist aus.

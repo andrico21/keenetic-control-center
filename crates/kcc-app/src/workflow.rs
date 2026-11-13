@@ -50,6 +50,7 @@ use tokio::{
 use crate::{
     audit::{Actor, AuditError, AuditEvent, AuditLog},
     backups::{BackupError, BackupStore},
+    brackets::{BracketGuard, Brackets},
     permissions::{Permission, Role},
     persist::{StateError, StateLock, StateStore},
     registry::{RegistryError, RouterRegistry, authorize},
@@ -525,6 +526,8 @@ pub struct ChangeWorkflow {
     backup_times: Mutex<BTreeMap<String, SystemTime>>,
     /// In-process actor labels for better busy errors (held synchronously, never across await).
     lease_actors: SyncMutex<BTreeMap<String, String>>,
+    /// The process's open safety brackets.
+    brackets: Brackets,
 }
 
 impl fmt::Debug for ChangeWorkflow {
@@ -535,6 +538,7 @@ impl fmt::Debug for ChangeWorkflow {
             .field("registry", &self.registry)
             .field("backups", &self.backups)
             .field("audit", &self.audit)
+            .field("brackets", &self.brackets)
             .finish_non_exhaustive()
     }
 }
@@ -556,6 +560,7 @@ impl ChangeWorkflow {
             audit,
             backup_times: Mutex::new(BTreeMap::new()),
             lease_actors: SyncMutex::new(BTreeMap::new()),
+            brackets: Brackets::default(),
         })
     }
 
@@ -705,6 +710,14 @@ impl ChangeWorkflow {
     /// Returns a typed audit failure after the writer terminates.
     pub fn audit_alive(&self) -> Result<(), WorkflowError> {
         self.audit.require_alive().map_err(Into::into)
+    }
+
+    /// The safety brackets open in this process, for a server that waits for them before it
+    /// exits.
+    #[inline]
+    #[must_use]
+    pub const fn brackets(&self) -> &Brackets {
+        &self.brackets
     }
 }
 
@@ -1177,6 +1190,21 @@ impl ChangeSet {
                 .await?,
         );
         self.wait_saved("router.commit").await
+    }
+
+    /// Refuses work that cannot produce its required audit receipt.
+    ///
+    /// # Errors
+    /// Returns a typed audit failure after the writer terminates.
+    #[inline]
+    pub fn audit_alive(&self) -> Result<(), WorkflowError> {
+        self.workflow.audit_alive()
+    }
+
+    /// Counts a safety bracket of this change set as open until the guard is dropped.
+    #[inline]
+    pub fn enter_bracket(&self) -> BracketGuard {
+        self.workflow.brackets.enter()
     }
 
     /// Returns the baseline state captured when this change set began.
