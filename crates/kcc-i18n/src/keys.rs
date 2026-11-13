@@ -6664,8 +6664,11 @@ pub const WEB_REFUSAL_MISSING: MessageKey = MessageKey::new("web-refusal-missing
 /// `web-refusal-toast` in `web.ftl`.
 pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 
+/// `web-migrate-nothing-to-send` in `web.ftl`.
+pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate-nothing-to-send");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2125] = [
+pub static ALL: [MessageKey; 2126] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -8791,4 +8794,5 @@ pub static ALL: [MessageKey; 2125] = [
     WEB_REFUSAL_TITLE,
     WEB_REFUSAL_MISSING,
     WEB_REFUSAL_TOAST,
+    WEB_MIGRATE_NOTHING_TO_SEND,
 ];

@@ -17,6 +17,8 @@ mod plan_agreement;
 mod plan_screens;
 #[path = "migration_wizard/plan_steps.rs"]
 mod plan_steps;
+#[path = "migration_wizard/preview.rs"]
+mod preview;
 #[path = "migration_wizard/secrets.rs"]
 mod secrets;
 #[path = "migration_wizard/setup.rs"]

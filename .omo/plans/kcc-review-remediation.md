@@ -494,7 +494,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(web): preset options accept numeric switch-port sources
   Recommended task executor category: unspecified-low - one validator check in one page module
 
-- [ ] 29. The migration preview does not offer Apply when nothing would be sent
+- [x] 29. The migration preview does not offer Apply when nothing would be sent
   What to do / Must NOT do: When the preview's "Commands to send" count is 0 (BACKLOG confirm F3-5), render no Apply button and show a new key `web-migrate-nothing-to-send` (en: "Nothing to send: the target already matches."), in the migration wizard preview and the presets preview. Must NOT: change the preview counts.
   Closes: GAP-15
   Parallelization: Wave W4 | Blocked by: - | Blocks: 37, 45 | Can parallelize with: 21, 22, 23, 24, 25, 26, 28, 52, 53

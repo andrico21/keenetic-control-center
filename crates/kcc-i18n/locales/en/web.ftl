@@ -1976,3 +1976,4 @@ web-refusal-missing =
        *[other] Missing permissions: { $permissions }. An administrator can add them to your role.
     }
 web-refusal-toast = Refused: your role does not allow this on this router. Nothing was changed.
+web-migrate-nothing-to-send = Nothing to send: the target already matches.

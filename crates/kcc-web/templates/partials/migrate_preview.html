@@ -1,4 +1,4 @@
-{#- Step 6: the plan as the router gets it, the counts and the downloads; Apply asks first, then starts the job. -#}
+{#- Step 6: the plan as the router gets it, the counts and the downloads; Apply, offered only when something is sent, asks first, then starts the job. -#}
 <h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_PREVIEW_TITLE) }}</h2>
 {%- if !problem.is_empty() %}
 <p class="notice" data-tone="error">{{ problem }}</p>
@@ -19,9 +19,6 @@
     {%- endfor %}
   </ul>
 </section>
-{%- endif %}
-{%- if all_present %}
-<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_PREVIEW_EMPTY) }}</p>
 {%- endif %}
 {%- for phase in phases %}
 <section class="wizard-phase" aria-labelledby="phase-{{ loop.index }}-title">
@@ -47,7 +44,9 @@
 {%- if !error.is_empty() %}
 <p class="notice" data-tone="error">{{ error }}</p>
 {%- endif %}
-{%- if may_apply %}
+{%- if nothing_to_send %}
+<p class="notice" data-tone="info">{{ t(keys::WEB_MIGRATE_NOTHING_TO_SEND) }}</p>
+{%- else if may_apply %}
 <div class="form__actions">
   <button class="button button--primary" type="button" hx-post="/ui/migrate/{{ id }}/apply" hx-target="#dialog-content">{{ t(keys::WEB_MIGRATE_APPLY) }}</button>
 </div>

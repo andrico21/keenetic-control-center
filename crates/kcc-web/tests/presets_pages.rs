@@ -15,6 +15,8 @@ mod copy;
 mod flow;
 #[path = "presets_pages/guards.rs"]
 mod guards;
+#[path = "presets_pages/preview.rs"]
+mod preview;
 #[path = "presets_pages/secrets.rs"]
 mod secrets;
 #[path = "presets_pages/setup.rs"]

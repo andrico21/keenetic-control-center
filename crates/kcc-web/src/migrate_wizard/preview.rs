@@ -44,8 +44,8 @@ pub(super) struct Panel {
     facts: Vec<(String, String)>,
     /// The phases with their commands.
     phases: Vec<Phase>,
-    /// Whether the router already has every migrated setting, and at least one is.
-    all_present: bool,
+    /// Whether applying would send no command and install no component.
+    nothing_to_send: bool,
     /// Components installed before the plan.
     components: Vec<String>,
     /// The URL kcc reaches the router at after the connection changes.
@@ -93,7 +93,7 @@ impl Panel {
             id: record.id().to_owned(),
             facts: Vec::new(),
             phases: Vec::new(),
-            all_present: false,
+            nothing_to_send: false,
             components: record.components().iter().cloned().collect(),
             reconnect: record.reconnect_url().map(str::to_owned),
             may_apply: false,
@@ -156,7 +156,7 @@ impl Panel {
             .saturating_add(plan.phases.management.len());
         let settings = classified.items().len();
         let migrated = migrated(&classified, record);
-        panel.all_present = sent == 0 && migrated > 0;
+        panel.nothing_to_send = sent == 0 && panel.components.is_empty();
         panel.facts = [
             (keys::WEB_MIGRATE_COUNT_SETTINGS, settings),
             (keys::WEB_MIGRATE_COUNT_COMMANDS, sent),
