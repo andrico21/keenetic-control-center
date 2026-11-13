@@ -16,7 +16,10 @@ extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::{Mutex as SyncMutex, PoisonError},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidatedRequest, ValidationIssue};
 use kcc_rci::{
@@ -520,8 +523,8 @@ pub struct ChangeWorkflow {
     audit: AuditLog,
     /// Most recent automatic backup time per router.
     backup_times: Mutex<BTreeMap<String, SystemTime>>,
-    /// In-process actor labels for better busy errors.
-    lease_actors: Mutex<BTreeMap<String, String>>,
+    /// In-process actor labels for better busy errors (held synchronously, never across await).
+    lease_actors: SyncMutex<BTreeMap<String, String>>,
 }
 
 impl fmt::Debug for ChangeWorkflow {
@@ -552,7 +555,7 @@ impl ChangeWorkflow {
             backups,
             audit,
             backup_times: Mutex::new(BTreeMap::new()),
-            lease_actors: Mutex::new(BTreeMap::new()),
+            lease_actors: SyncMutex::new(BTreeMap::new()),
         })
     }
 
@@ -609,7 +612,7 @@ impl ChangeWorkflow {
                 let actor_name = self
                     .lease_actors
                     .lock()
-                    .await
+                    .unwrap_or_else(PoisonError::into_inner)
                     .get(router)
                     .cloned()
                     .unwrap_or_else(|| "another process".to_owned());
@@ -620,9 +623,13 @@ impl ChangeWorkflow {
         drop(
             self.lease_actors
                 .lock()
-                .await
+                .unwrap_or_else(PoisonError::into_inner)
                 .insert(router.to_owned(), actor.id.clone()),
         );
+        let actor_label = LeaseActorGuard {
+            workflow: Arc::clone(self),
+            router: router.to_owned(),
+        };
         let migration = selected.is_some();
         let client = match selected {
             Some(client) => client,
@@ -634,7 +641,6 @@ impl ChangeWorkflow {
             && baseline.checksum != previous.checksum
             && baseline.agent != previous.agent
         {
-            drop(self.lease_actors.lock().await.remove(router));
             return Err(WorkflowError::Conflict {
                 agent: baseline.agent,
             });
@@ -658,6 +664,7 @@ impl ChangeWorkflow {
             backed_up: false,
             force,
             lease: Some(lease),
+            actor_label: Some(actor_label),
         })
     }
 
@@ -700,6 +707,26 @@ impl ChangeWorkflow {
     }
 }
 
+/// Guard that removes the actor label from `lease_actors` on drop.
+struct LeaseActorGuard {
+    /// Shared workflow reference.
+    workflow: Arc<ChangeWorkflow>,
+    /// Router id to remove from the lease map.
+    router: String,
+}
+
+impl Drop for LeaseActorGuard {
+    fn drop(&mut self) {
+        drop(
+            self.workflow
+                .lease_actors
+                .lock()
+                .unwrap_or_else(PoisonError::into_inner)
+                .remove(&self.router),
+        );
+    }
+}
+
 /// One router's leased sequence of writes.
 pub struct ChangeSet {
     /// Shared workflow services.
@@ -724,6 +751,8 @@ pub struct ChangeSet {
     force: bool,
     /// Cross-process lease.
     lease: Option<StateLock>,
+    /// Guard that removes the actor label from `lease_actors` on drop.
+    actor_label: Option<LeaseActorGuard>,
 }
 
 impl fmt::Debug for ChangeSet {
@@ -742,12 +771,8 @@ impl fmt::Debug for ChangeSet {
 
 impl Drop for ChangeSet {
     fn drop(&mut self) {
+        drop(self.actor_label.take());
         drop(self.lease.take());
-        let workflow = Arc::clone(&self.workflow);
-        let router = self.router.clone();
-        drop(tokio::spawn(async move {
-            drop(workflow.lease_actors.lock().await.remove(&router));
-        }));
     }
 }
 

@@ -138,3 +138,23 @@ Git status:
 - No net test deletions (all lines restored or added, none removed)
 
 All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
+
+## [2025-01-10] Todo 4 rework
+
+**Test rewrite completed successfully** for `account_lockout_respects_configurable_max_failures`:
+
+### Changes made:
+1. **File-level `#![expect(...)]` header**: Removed six extra lints (`clippy::panic`, `clippy::wildcard_enum_match_arm`, `clippy::redundant_clone`, `clippy::rest_pattern_accessible_field`, `clippy::unneeded_field_pattern`, `clippy::uninlined_format_args`) to restore to master version
+2. **Removed redundant clone**: Line 185 `state.clone()` → just `state` (dropped without being cloned for second account store)
+3. **Replaced panic-based match with assert!**: Lines 204-210 and 212-218 converted match expressions with `panic!` arms to `assert!(matches!())` patterns
+4. **Fixed enum destructuring**: Used explicit field names instead of `{ .. }`
+   - `Authentication::Locked { until: _ }` (has one field `until: u64`)
+   - `Authentication::Authenticated { role: _, locale: _ }` (has two fields: `role: String, locale: String`)
+5. **Fixed drop pattern**: Changed `drop(...)` to use explicit field binding per linter guidance
+
+### All gates passing:
+- `cargo test -p kcc-app --test accounts_reset`: 5 passed ✓
+- `cargo clippy -p kcc-app -p kcc --all-targets -- -D warnings`: No violations ✓
+- `cargo +nightly-2026-10-03 fmt --all -- --check`: Clean ✓
+
+**Test behavior preserved**: With `with_max_failures(2)` the second wrong password locks; correct third login is refused as locked. With default (5), two wrong passwords do not lock and correct third login authenticates.

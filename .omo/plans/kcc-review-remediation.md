@@ -266,7 +266,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app): startup recovery never fails and reports interrupted jobs in the audit log
   Recommended task executor category: unspecified-low - one function in one file plus an audit entry
 
-- [ ] 7. Dropping a change set releases its lease label synchronously
+- [x] 7. Dropping a change set releases its lease label synchronously
   What to do / Must NOT do: TDD. Change `lease_actors` (`crates/kcc-app/src/workflow.rs:524,555`) from `tokio::sync::Mutex` to `std::sync::Mutex` (it is never held across `.await`: `:608-625,637,749`); lock with `.lock().unwrap_or_else(PoisonError::into_inner)` (no `unwrap`/`expect`); in `impl Drop for ChangeSet` (`:743-752`) remove the label synchronously and delete the `tokio::spawn`. `begin` inserts the label (`:620-625`) and then can return early through `?` (`:629,631,645-648`) without removing it - only the conflict path (`:637`) cleans up; hold the label in a guard value that removes it on every early return and is defused into the `ChangeSet`. Must NOT: change `RouterBusy { actor }` text or lease semantics.
   Closes: GAP-7
   Parallelization: Wave W1 | Blocked by: - | Blocks: 1, 9, 21 | Can parallelize with: 4, 5, 6

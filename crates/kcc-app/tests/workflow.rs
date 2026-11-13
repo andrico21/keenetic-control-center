@@ -621,6 +621,81 @@ async fn graceful_drain_cancels_job_without_triggering_rollback() -> Result<(), 
     Ok(())
 }
 
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    clippy::panic,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test(flavor = "current_thread")]
+async fn lease_label_released_synchronously_on_drop() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let changes_a = fixture.begin(None).await?;
+    drop(changes_a);
+    let changes_b = fixture.begin(None).await?;
+    let error_c = fixture
+        .begin(None)
+        .await
+        .expect_err("agent C must get RouterBusy");
+    let WorkflowError::RouterBusy { actor } = error_c else {
+        panic!("expected RouterBusy, got: {error_c:?}");
+    };
+    assert_eq!(actor, "test");
+    drop(changes_b);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    clippy::panic,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test(flavor = "current_thread")]
+async fn lease_label_cleanup_after_registry_error() -> Result<(), Box<dyn Error>> {
+    let fixture = Fixture::spawn(FaultInjection::default()).await?;
+    let admin = admin_role();
+    let error = fixture
+        .workflow
+        .begin(
+            "unknown-router",
+            Actor::new(ActorKind::Cli, "agent-x".to_owned()),
+            &admin,
+            None,
+            false,
+        )
+        .await;
+    assert!(
+        error.is_err(),
+        "begin on unknown router must fail after label insert"
+    );
+    let held = fixture.state.try_lease("unknown-router")?;
+    let busy_error = fixture
+        .workflow
+        .begin(
+            "unknown-router",
+            Actor::new(ActorKind::Cli, "agent-y".to_owned()),
+            &admin,
+            None,
+            false,
+        )
+        .await
+        .expect_err("should get RouterBusy (held by our lease)");
+    let WorkflowError::RouterBusy { actor } = busy_error else {
+        panic!("expected RouterBusy, got {busy_error:?}");
+    };
+    assert_eq!(
+        actor, "another process",
+        "agent-x's label was cleaned up; no stale actor name remains"
+    );
+    drop(held);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 struct Fixture {
     directory: TempDir,
     state: StateStore,
