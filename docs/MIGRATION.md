@@ -226,13 +226,16 @@ kcc migrate report --from router:home --router home --format markdown --out repo
 ```
 
 `kcc migrate apply --from <source> --plan plan.json --finish commit|rollback|keep`
-re-plans from the same inputs and refuses if the plan changed. `kcc migrate finish
+re-plans from the same inputs and refuses if the plan changed. Apply asks for confirmation
+on the terminal (or accepts `--yes` for automation); refusal exits 10. `kcc migrate finish
 commit|rollback` finishes a kept migration through the router's fail-safe timer.
 Applying, keeping and saving need `Read`, `Migrate`, `Write` and `Save`, which the built-in
 `operator` role holds: the recovery timer around the run is armed, kept alive and disarmed
 under the run's `Migrate`. A rollback finish (chosen with `--finish rollback`, `finish
 rollback` or a rollback button) and a plan that installs components also need
 `Destructive`, checked before any router request.
+When a verification failure causes the router to roll back, apply prints
+"Migration verification failed. kcc rolled back automatically and restored the startup configuration." and exits 6.
 In router mode, migration commit, preset save and `kcc config failsafe commit` use native
 commit and then save; in other modes they save and cancel the scheduled reboot.
 `kcc config failsafe commit` controls a standalone timer, so in those modes it requires

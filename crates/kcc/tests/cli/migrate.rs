@@ -86,7 +86,9 @@ async fn apply_onto_documentation_tier_needs_the_audited_acknowledgement() -> Te
     let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
     let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
     assert_eq!(planned.code, 0_i32, "{planned:?}");
-    let refused = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
+    let refused = env.kcc(&[
+        "migrate", "apply", "--from", &source, "--plan", plan_arg, "--yes",
+    ])?;
     assert_eq!(refused.code, 10_i32, "{refused:?}");
     assert!(
         refused
@@ -107,6 +109,7 @@ async fn apply_onto_documentation_tier_needs_the_audited_acknowledgement() -> Te
         "--plan",
         plan_arg,
         "--ack-documentation-tier",
+        "--yes",
         "--finish",
         "commit",
     ])?;
@@ -127,6 +130,88 @@ async fn apply_onto_documentation_tier_needs_the_audited_acknowledgement() -> Te
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn apply_without_confirmation_exits_10_and_writes_nothing() -> TestResult {
+    let (env, handle) = target(Firmware::V5_1).await?;
+    let source = format!("file:{}", env.path("source.txt").display());
+    let plan_path = env.path("plan.json");
+    let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
+    let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
+    assert_eq!(planned.code, 0_i32, "{planned:?}");
+
+    let requests_before = handle.request_log().len();
+    let refused = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
+
+    assert_eq!(
+        refused.code, 10_i32,
+        "unconfirmed apply exits 10: {refused:?}"
+    );
+    let log_snapshot = handle.request_log().clone();
+    let new_requests = log_snapshot
+        .iter()
+        .skip(requests_before)
+        .collect::<Vec<_>>();
+    let parser_commands = new_requests
+        .iter()
+        .filter_map(|record| record.command().map(str::to_owned))
+        .collect::<Vec<_>>();
+    assert!(
+        parser_commands.is_empty(),
+        "no parser commands should be executed when confirmation is missing, but found: {parser_commands:?}"
+    );
+    let arm_or_reboot_commands = new_requests
+        .iter()
+        .filter_map(|record| record.command())
+        .filter(|cmd| {
+            cmd.contains("system configuration fail-safe timer") || cmd.contains("system reboot")
+        })
+        .collect::<Vec<_>>();
+    assert!(
+        arm_or_reboot_commands.is_empty(),
+        "no arm or reboot commands should be executed when confirmation is missing, but found: {arm_or_reboot_commands:?}"
+    );
+    let entries = read_entries(&env.state_dir())?;
+    let refusals = entries
+        .iter()
+        .filter(|entry| entry.action == "cli.refused" && entry.outcome == "refused")
+        .collect::<Vec<_>>();
+    let [refused_entry] = refusals.as_slice() else {
+        return Err(format!("one refused entry with outcome=refused expected: {entries:?}").into());
+    };
+    assert_eq!(refused_entry.router.as_deref(), Some("target"));
+    assert_eq!(
+        refused_entry.params_redacted.get("reason"),
+        Some(&Value::String("confirm_required".to_owned()))
+    );
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn apply_with_yes_flag_applies_without_asking() -> TestResult {
+    let (env, handle) = target(Firmware::V5_1).await?;
+    let source = format!("file:{}", env.path("source.txt").display());
+    let plan_path = env.path("plan.json");
+    let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
+    let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
+    assert_eq!(planned.code, 0_i32, "{planned:?}");
+
+    let applied = env.kcc(&[
+        "migrate", "apply", "--from", &source, "--plan", plan_arg, "--yes", "--finish", "commit",
+    ])?;
+
+    assert_eq!(
+        applied.code, 0_i32,
+        "apply with --yes succeeds: {applied:?}"
+    );
+    assert!(
+        handle.running_config_text().contains("migrated-1"),
+        "the line was applied"
+    );
+    handle.shutdown().await?;
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn failed_verification_reports_the_completed_automatic_rollback() -> TestResult {
     let fake = FakeRouter::builder(Profile::default())
         .faults(FaultInjection::default().silent_noop_path("parse"))
@@ -142,7 +227,9 @@ async fn failed_verification_reports_the_completed_automatic_rollback() -> TestR
     let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
     assert_eq!(planned.code, 0_i32, "{planned:?}");
 
-    let applied = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
+    let applied = env.kcc(&[
+        "migrate", "apply", "--from", &source, "--plan", plan_arg, "--yes",
+    ])?;
 
     assert_eq!(
         applied.code, 6_i32,
@@ -189,7 +276,9 @@ async fn finishing_a_kept_migration_says_what_the_router_did() -> TestResult {
         let plan_arg = plan_path.to_str().ok_or("non-UTF-8 path")?;
         let planned = env.kcc(&["migrate", "plan", "--from", &source, "--out", plan_arg])?;
         assert_eq!(planned.code, 0_i32, "{planned:?}");
-        let kept = env.kcc(&["migrate", "apply", "--from", &source, "--plan", plan_arg])?;
+        let kept = env.kcc(&[
+            "migrate", "apply", "--from", &source, "--plan", plan_arg, "--yes",
+        ])?;
         assert_eq!(kept.code, 0_i32, "{kept:?}");
         let finished = env.kcc(&[
             "--lang",

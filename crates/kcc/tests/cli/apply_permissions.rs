@@ -64,7 +64,8 @@ async fn migration_apply_requires_complete_permissions_before_any_router_request
             let before = handle.request_count();
 
             let refused = env.kcc(&[
-                "--json", "migrate", "apply", "--from", &source, "--plan", plan, "--finish", finish,
+                "--json", "migrate", "apply", "--from", &source, "--plan", plan, "--yes",
+                "--finish", finish,
             ])?;
 
             assert_eq!(refused.code, 10_i32, "{mode} {role}: {refused:?}");

@@ -434,7 +434,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(app): generate env overrides and their name list from one table
   Recommended task executor category: unspecified-high - macro over ~40 fields with a byte-identical public surface
 
-- [ ] 23. `kcc migrate apply` asks before it touches the router, and a restored rollback says so
+- [x] 23. `kcc migrate apply` asks before it touches the router, and a restored rollback says so
   What to do / Must NOT do: TDD. In `crates/kcc/src/cli/migrate_apply.rs:30-70`, after the plan check and before `Applier::start`, call `secret::confirm(out, ctx.globals(), Risk::Management, target_id, false)` exactly as `crates/kcc/src/cli/preset/run.rs:76` does (`--yes` or a terminal "yes"; refusal exit 10, no router request). When the apply failed and the engine restored the router (`ApplyError::Verification` with `finished`, key `MIGRATE_APPLY_RESTORED`), print that headline (today `exit.rs:299` prints `CLI_ERROR_NOT_APPLIED`) and keep exit 6; document both in `docs/MIGRATION.md` (CLI section: confirmation, exit codes). Must NOT: change other exit codes.
   Closes: GAP-9
   Parallelization: Wave W4 | Blocked by: 14 | Blocks: 24, 26, 45 | Can parallelize with: 22, 28, 29, 52, 53

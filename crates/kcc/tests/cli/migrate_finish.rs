@@ -156,7 +156,7 @@ async fn migration_commit_cancels_the_selected_timer() -> TestResult {
         let path = plan.to_str().ok_or("non-UTF-8 path")?;
         let planned = env.kcc(&["migrate", "plan", "--from", &from, "--out", path])?;
         assert_eq!(planned.code, 0_i32, "{planned:?}");
-        let applied = env.kcc(&["migrate", "apply", "--from", &from, "--plan", path])?;
+        let applied = env.kcc(&["migrate", "apply", "--from", &from, "--plan", path, "--yes"])?;
         assert_eq!(applied.code, 0_i32, "{applied:?}");
         let before = handle.request_log().len();
 

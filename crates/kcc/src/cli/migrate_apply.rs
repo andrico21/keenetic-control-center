@@ -6,6 +6,7 @@ use alloc::sync::Arc;
 use std::path::Path;
 
 use kcc_app::jobs::JobRunner;
+use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest};
 use serde_json::{Value, json};
@@ -17,6 +18,7 @@ use super::{
     exit::{Exit, Failure, Outcome},
     files,
     migrate_plan::Planned,
+    secret,
 };
 
 mod migrate_apply_finish;
@@ -44,6 +46,8 @@ pub(crate) async fn apply(
         ));
     }
     let (target, role, plan, source, management_password) = planned.into_parts();
+    let confirmation = secret::confirm(ctx.out(), ctx.globals(), Risk::Management, &target, false);
+    ctx.confirmed(services, &target, confirmation).await?;
     let mut request = ApplyRequest::new(
         Arc::clone(services.workflow()),
         services.audit_log().clone(),

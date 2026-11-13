@@ -140,7 +140,8 @@ async fn one_shot_saved_disarm_failure_reports_armed() -> TestResult {
     assert_eq!(planned.code, 0_i32, "{planned:?}");
 
     let run = env.kcc(&[
-        "--json", "migrate", "apply", "--from", &from, "--plan", path, "--finish", "commit",
+        "--json", "migrate", "apply", "--from", &from, "--plan", path, "--yes", "--finish",
+        "commit",
     ])?;
 
     assert_eq!(run.code, 6_i32, "{run:?}");
