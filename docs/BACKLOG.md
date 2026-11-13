@@ -28,7 +28,6 @@ One line each: round, finding, file:line, suggested fix. Reports are under
 
 Reports: `.omo/evidence/F<n>-keenetic-control-center-confirm.md`.
 
-- confirm F2-5, F4-1: `deploy/podman/kcc.container:41` `StopTimeout=40` equals `server.shutdown_timeout` (30 s) plus the 10 s bracket grace (`crates/kcc/src/server_shutdown.rs:17`), and `run_serve` then runs the pre-existing `jobs.drain(30 s)` (`crates/kcc/src/server.rs:205`), so Podman's SIGKILL can win (measured self-exit 40.1 s with stuck brackets). Routers keep their armed fail-safe timers, so nothing is lost; `docs/MONITORING.md:47-48` says "at least", the row asked for "below". Fix: raise `StopTimeout` (and the documented minimum) to cover shutdown_timeout + grace + the jobs drain, or shorten the grace.
 - confirm F4-5, F1-4: part (c) of row 136 (in-request audit appends bounded by the remaining budget) was not implemented; a held Web bracket can answer after ~88 s under a held audit lock (documented in `docs/MONITORING.md`). Fix: an in-request append deadline.
 - confirm F2-1..F2-4: brackets/shutdown test gaps that leave mutants alive on correct code: `brackets.rs:110` (`Claim::hold` refusing an ENDED claim), `:73` (`Brackets::drain` predicate, timing-dependent), `:182` (`own` panic/cancel discrimination), `server_shutdown.rs:66` (the "still closing at exit" warning unasserted).
 - confirm F2-6: `page_kit/change.rs:393-398` names an unowned management change "audit writer unavailable"; unreachable in production (every Web route is under `own`). Fix: a dedicated reason.

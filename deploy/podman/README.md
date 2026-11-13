@@ -44,7 +44,7 @@ The `[web] public_url` host is the SNI `kcc healthcheck` sends, so the certifica
 carry it. kcc derives its browser Origin allowlist from that URL and the listener;
 `[server] allowed_origins` adds any other trusted proxy origins. The unit's `HealthCmd`
 uses the exec (JSON) form: the plain-string form becomes `CMD-SHELL`, which needs
-`/bin/sh`, and distroless has no shell.
+`/bin/sh`, and distroless has no shell. The unit's `StopTimeout=80` covers the server shutdown (30 s) plus the bracket grace (10 s), job drain (30 s), and audit flush (5 s); keep it at least this value.
 
 ### Secrets
 

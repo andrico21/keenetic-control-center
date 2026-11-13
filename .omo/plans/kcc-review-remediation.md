@@ -276,7 +276,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app): release the lease label synchronously on drop
   Recommended task executor category: quick - one field type and one Drop body
 
-- [ ] 8. Ship a `StopTimeout` that covers the whole shutdown budget
+- [x] 8. Ship a `StopTimeout` that covers the whole shutdown budget
   What to do / Must NOT do: set `StopTimeout=80` in `deploy/podman/kcc.container:41` (`server.shutdown_timeout` 30 s + bracket grace 10 s `crates/kcc/src/server_shutdown.rs:17` + job drain 30 s `crates/kcc/src/server.rs:205` + the audit flush wait of todo 16 (5 s) + 5 s margin); rewrite `docs/MONITORING.md:38-48` to state that formula ("at least shutdown_timeout + 45 s; 80 s as shipped") and mention it in `deploy/podman/README.md` where the unit is described. Must NOT: change the grace or drain durations.
   Closes: GAP-5
   Parallelization: Wave W3 | Blocked by: 12, 16 | Blocks: 51, 54 | Can parallelize with: 13, 18, 19, 20, 27
