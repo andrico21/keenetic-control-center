@@ -5,7 +5,11 @@ use core::fmt;
 use fluent_bundle::FluentArgs;
 use kcc_app::{credentials::CredentialError, registry::RegistryError, workflow::WorkflowError};
 use kcc_catalog::ValidationIssue;
-use kcc_domain::{DomainError, configuration::recovery, interfaces::InterfaceChangeError};
+use kcc_domain::{
+    DomainError,
+    configuration::{ModeUnknown, recovery},
+    interfaces::InterfaceChangeError,
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -239,6 +243,12 @@ impl From<RciError> for Failure {
             | _ => Exit::Router,
         };
         Self::text(exit, &error)
+    }
+}
+
+impl From<ModeUnknown> for Failure {
+    fn from(_error: ModeUnknown) -> Self {
+        Self::headline_only(Exit::Policy, keys::MANAGEMENT_MODE_UNKNOWN)
     }
 }
 

@@ -24,6 +24,8 @@ mod batch;
 mod budget;
 #[path = "bracket_management_fate.rs"]
 mod management_fate;
+#[path = "bracket_mode.rs"]
+mod mode;
 
 /// A raw role without ordinary write permission closes its management bracket.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.

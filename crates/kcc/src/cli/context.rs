@@ -3,7 +3,6 @@
 extern crate alloc;
 
 use alloc::{collections::BTreeSet, sync::Arc};
-use core::time::Duration;
 use std::{
     path::{Path, PathBuf},
     time::{SystemTime, UNIX_EPOCH},
@@ -512,6 +511,3 @@ pub(crate) fn load_config(path: Option<&Path>) -> Outcome<Config> {
     config.validate()?;
     Ok(config)
 }
-
-/// How long a CLI-armed fail-safe timer runs around a management change.
-pub(crate) const MANAGEMENT_TIMER: Duration = Duration::from_secs(300);

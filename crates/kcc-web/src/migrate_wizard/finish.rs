@@ -160,6 +160,7 @@ async fn finish(
             ApplyError::RollbackRestarting => keys::MIGRATE_ROLLBACK_SAVED,
             ApplyError::ReplanRequired
             | ApplyError::UnverifiedFirmwareTier
+            | ApplyError::ModeUnknown
             | ApplyError::Drift
             | ApplyError::SameRouter
             | ApplyError::Source

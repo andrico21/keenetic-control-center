@@ -45,6 +45,12 @@ The first release, `0.1.0`, is in preparation and contains:
 - **Documentation**: user guide, configuration reference, migration, security,
   privacy and architecture documents, with executable checks.
 
+- **MCP error code `router_mode_unknown`**: a management change is refused, with nothing
+  sent, when the router reports neither a system mode kcc knows nor a `fail-safe`
+  timer in `show last-change`. Every surface now picks the recovery mechanism with the same
+  rule, so a router that reports no system mode (KeeneticOS 4.3 and 5.0) is protected
+  by the fail-safe timer on the CLI and MCP too, instead of a scheduled reboot.
+
 ### Known limitations
 
 See the Limitations section of [README.md](README.md). No firmware line has live

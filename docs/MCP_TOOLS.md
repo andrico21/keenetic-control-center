@@ -17,6 +17,10 @@ permission, confirmation, and server switch for management or destructive reques
 Negative `no` commands are destructive. Management nodes retain their recovery timer
 even when a destructive sibling raises the maximum request risk.
 
+A management change on a router whose recovery mechanism cannot be determined (it
+reports neither a system mode kcc knows nor a fail-safe timer) fails with
+`router_mode_unknown` before anything is sent.
+
 After recovery arms, unsuccessful cleanup returns `management_applied_fail_safe_armed`
 when at least one change item succeeded, or `management_outcome_unknown_fail_safe_armed`
 when every change was refused, work failed, or its outcome is unknown. Successful reads

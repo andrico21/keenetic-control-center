@@ -154,6 +154,7 @@ pub(super) fn failure_text(name: &str) -> MessageKey {
         "DisarmFailed" => keys::MANAGEMENT_DISARM_FAILED,
         "ReplanRequired" => keys::WEB_MIGRATE_FAILURE_REPLAN,
         "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,
+        "ModeUnknown" => keys::MANAGEMENT_MODE_UNKNOWN,
         "Drift" => keys::WEB_MIGRATE_FAILURE_DRIFT,
         "SameRouter" => keys::WEB_MIGRATE_FAILURE_SAME,
         "Source" => keys::WEB_MIGRATE_FAILURE_SOURCE,

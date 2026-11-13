@@ -167,8 +167,8 @@ async fn failed_verification_reports_the_completed_automatic_rollback() -> TestR
         handle
             .request_log()
             .iter()
-            .any(|request| request.command() == Some("system reboot")),
-        "rollback reboot reached the router"
+            .any(|request| request.command() == Some("system configuration fail-safe rollback")),
+        "native rollback reached the router"
     );
     handle.shutdown().await?;
     Ok(())

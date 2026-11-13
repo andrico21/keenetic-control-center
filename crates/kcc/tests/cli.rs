@@ -22,6 +22,8 @@ mod batch_outcomes;
 mod bracket;
 #[path = "cli/bracket_failures.rs"]
 mod bracket_failures;
+#[path = "cli/bracket_mode.rs"]
+mod bracket_mode;
 #[path = "cli/dns.rs"]
 mod dns;
 #[path = "cli/failsafe.rs"]

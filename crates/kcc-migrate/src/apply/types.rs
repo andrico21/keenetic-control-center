@@ -250,6 +250,7 @@ impl ApplyReport {
             Some(ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
             Some(ApplyError::RollbackRestarting) => keys::MIGRATE_ROLLBACK_SAVED,
             Some(ApplyError::CommittedSaveFailed) => keys::MIGRATE_COMMITTED_NOT_SAVED,
+            Some(ApplyError::ModeUnknown) => keys::MANAGEMENT_MODE_UNKNOWN,
             Some(ApplyError::UnverifiedFirmwareTier) => keys::MIGRATE_APPLY_TIER,
             Some(ApplyError::AgreementRequired) => keys::MIGRATE_APPLY_AGREEMENT,
             Some(ApplyError::RolledBackByRouter) => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
@@ -285,6 +286,9 @@ pub enum ApplyError {
     /// Target firmware is too old or unknown.
     #[error("incompatible target firmware")]
     Firmware,
+    /// The target reports neither a system mode kcc knows nor a fail-safe timer; nothing was sent.
+    #[error("target recovery mechanism unknown")]
+    ModeUnknown,
     /// Agreements require confirmation of their current text.
     #[error("router agreement confirmation required")]
     AgreementRequired,

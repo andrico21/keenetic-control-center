@@ -275,7 +275,8 @@ and invalidate sessions. This behavior is assumed, not hardware-verified.
 `FakeRouter::with_migration(migration::Fixture)` enables optional operating-mode replies,
 unaccepted DPN/EULA documents and explicit acceptance, NS3 rejection, management movement
 between two HTTP Host values, and clock-driven loss after a configuration write. Ordinary
-fixtures retain their historical absent mode/agreement endpoints. Both listeners for an
+fixtures retain their historical absent mode/agreement endpoints. `omit_fail_safe` removes the
+`fail-safe` object from `show last-change`, as a firmware without the native timer reports it. **assumed** Both listeners for an
 address transition can serve clones of the same router; the inactive host returns 503.
 Expired fail-safe timers are processed before connectivity checks, restoring running
 configuration and the original management host. All these semantics are assumed from

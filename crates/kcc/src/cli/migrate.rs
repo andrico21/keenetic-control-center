@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 
 use super::{
     args_migrate::{FinishStep, MigrateCommand, PlanInput, ReportFormat},
-    change::{Gate, applied, run as run_change, safety_mode},
+    change::{Gate, applied, recovery_mode, run as run_change},
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files, migrate_apply,
@@ -153,7 +153,7 @@ async fn inventory(ctx: &Ctx, services: &Services) -> Outcome {
 // NOT cancel-safe: the commit or rollback may complete before cancellation.
 async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
     let target = ctx.target(services, &[Permission::Migrate]).await?;
-    let mode = safety_mode(target.info());
+    let mode = recovery_mode(&target).await?;
     if matches!(action, FinishStep::Commit) && mode == SafetyMode::ScheduledReboot {
         ctx.authorize_recovery(services, target.id()).await?;
     }

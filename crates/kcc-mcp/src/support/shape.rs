@@ -101,6 +101,7 @@ pub(crate) async fn finish_with_context(
                 | McpFailure::DestructiveDisabled
                 | McpFailure::RouterUnreachable
                 | McpFailure::RouterRejected
+                | McpFailure::RouterModeUnknown
                 | McpFailure::ValidationFailed
                 | McpFailure::VerificationFailed { field: _ }
                 | McpFailure::Conflict

@@ -70,8 +70,10 @@ async fn synthetic_management_operation_brackets_both_apply_entries()
             .into_iter()
             .skip(before)
             .collect::<Vec<_>>();
-        if commands.first().map(String::as_str) != Some("system reboot 300")
-            || commands.last().map(String::as_str) != Some("no system reboot")
+        if commands.first().map(String::as_str)
+            != Some("system configuration fail-safe timer reboot 300")
+            || commands.last().map(String::as_str)
+                != Some("no system configuration fail-safe timer")
         {
             missing.push(entry);
         }

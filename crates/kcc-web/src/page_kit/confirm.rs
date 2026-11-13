@@ -9,6 +9,7 @@
 use askama::Template;
 use axum::response::Response;
 use fluent_bundle::FluentArgs;
+use kcc_domain::configuration::MANAGEMENT_SECONDS;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -22,10 +23,7 @@ use crate::{
 };
 
 /// Minutes the fail-safe timer runs while a management change is applied.
-pub(crate) const FAIL_SAFE_MINUTES: u64 = 5;
-
-/// [`FAIL_SAFE_MINUTES`] in seconds, as the router's timer takes it.
-pub(crate) const FAIL_SAFE_SECONDS: u64 = FAIL_SAFE_MINUTES.saturating_mul(60);
+pub(crate) const FAIL_SAFE_MINUTES: u64 = MANAGEMENT_SECONDS.div_euclid(60);
 
 /// The confirmation a submitted form carries.
 #[derive(Debug, Clone, Default)]

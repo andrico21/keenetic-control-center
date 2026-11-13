@@ -6,9 +6,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use kcc_app::registry::RouterRegistry;
 use kcc_catalog::{Catalog, ModelMatch};
-use kcc_domain::configuration::SafetyMode;
 use kcc_i18n::{bundle::MessageKey, keys};
-use kcc_rci::capabilities::SystemMode;
 
 use super::family::Family;
 
@@ -23,8 +21,6 @@ type Entries = BTreeMap<String, (u64, RouterFacts)>;
 pub(crate) struct RouterFacts {
     /// Firmware- and model-specific command catalog.
     catalog: Catalog,
-    /// How a management change is protected.
-    mode: SafetyMode,
     /// Hardware id, such as `KN-1811`.
     hw_id: Option<String>,
 }
@@ -82,13 +78,8 @@ impl FactsCache {
             FactsError::Unreachable
         })?;
         let catalog = Catalog::for_router(&info).map_err(|_error| FactsError::Unsupported)?;
-        let mode = match info.system_mode {
-            None | Some(SystemMode::Router) => SafetyMode::Router,
-            Some(_) => SafetyMode::ScheduledReboot,
-        };
         let facts = RouterFacts {
             catalog,
-            mode,
             hw_id: info.hw_id().map(str::to_owned),
         };
         drop(lock(&self.entries).insert(router.to_owned(), (now, facts.clone())));
@@ -100,11 +91,6 @@ impl RouterFacts {
     /// Firmware- and model-specific command catalog.
     pub(crate) const fn catalog(&self) -> &Catalog {
         &self.catalog
-    }
-
-    /// How a management change is protected.
-    pub(crate) const fn mode(&self) -> SafetyMode {
-        self.mode
     }
 
     /// Hardware id, such as `KN-1811`.

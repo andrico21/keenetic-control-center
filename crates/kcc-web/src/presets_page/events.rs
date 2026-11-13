@@ -106,6 +106,7 @@ pub(super) fn failure_text(name: &str) -> MessageKey {
         "CommittedSaveFailed" => keys::MIGRATE_COMMITTED_NOT_SAVED,
         "RollbackRestarting" => keys::MIGRATE_ROLLBACK_SAVED,
         "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,
+        "ModeUnknown" => keys::MANAGEMENT_MODE_UNKNOWN,
         "Drift" | "ReplanRequired" => keys::WEB_MIGRATE_FAILURE_DRIFT,
         "Source" => keys::WEB_PRESETS_FAILURE_SETTINGS,
         "AgreementRequired" => keys::MIGRATE_APPLY_AGREEMENT,

@@ -141,6 +141,8 @@ pub enum McpFailure {
     RouterUnreachable,
     /// The router rejected an otherwise valid request.
     RouterRejected,
+    /// The router reports neither a system mode kcc knows nor a fail-safe timer; nothing was sent.
+    RouterModeUnknown,
     /// The management change applied, but its recovery timer could not be disarmed.
     ManagementAppliedFailSafeArmed,
     /// Work failed or its outcome is unknown, and recovery remains armed.
@@ -183,6 +185,7 @@ impl McpFailure {
             Self::DestructiveDisabled => "destructive_disabled",
             Self::RouterUnreachable => "router_unreachable",
             Self::RouterRejected => "router_rejected",
+            Self::RouterModeUnknown => "router_mode_unknown",
             Self::ManagementAppliedFailSafeArmed
             | Self::BatchFailSafeArmed {
                 applied: true,

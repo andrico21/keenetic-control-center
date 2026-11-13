@@ -10,13 +10,9 @@ use kcc_app::{
 use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
-    configuration::{SafetyMode, SafetyNet},
+    configuration::{SafetyMode, SafetyNet, TIMER_RANGE},
 };
-use kcc_rci::{
-    ConfigKind, RciClient, SecretBytes,
-    auth::Credentials,
-    capabilities::{SupportTier, SystemMode},
-};
+use kcc_rci::{ConfigKind, RciClient, SecretBytes, auth::Credentials, capabilities::SupportTier};
 use secrecy::ExposeSecret as _;
 
 use super::{
@@ -31,7 +27,7 @@ use crate::source::SourceConfig;
 /// Returns typed source, firmware, drift, agreement, or workflow failures.
 // NOT cancel-safe: cancellation after arming leaves router recovery active.
 pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError> {
-    if !(300..=3600).contains(&request.options.safety_seconds) {
+    if !TIMER_RANGE.contains(&request.options.safety_seconds) {
         return Err(ApplyError::Validation);
     }
     authorize(&request.role, Permission::Migrate, &request.target)
@@ -88,14 +84,8 @@ pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError
         drop(command::build(&catalog, line.expose_command())?);
     }
     validate_credentials(&request, &original).await?;
-    let mode = match info.system_mode {
-        Some(SystemMode::Router) => SafetyMode::Router,
-        Some(
-            SystemMode::Extender | SystemMode::Ap | SystemMode::Repeater | SystemMode::Other(_),
-        )
-        | None => SafetyMode::ScheduledReboot,
-        Some(_) => return Err(ApplyError::Validation),
-    };
+    let mode = SafetyMode::decide(info.system_mode.as_ref(), changes.baseline())
+        .map_err(|_unknown| ApplyError::ModeUnknown)?;
     let ctx = RouterCtx::new(Arc::clone(&original), catalog);
     bootstrap::initialize(&request, &mut changes, &ctx).await?;
     drop(

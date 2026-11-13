@@ -5,7 +5,7 @@ use std::path::Path;
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet, recovery};
+use kcc_domain::configuration::{self, SafetyMode, SafetyNet, TIMER_RANGE, recovery};
 use kcc_i18n::keys;
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 
 use super::{
     args_fleet::{BackupCommand, ConfigCommand, FailsafeAction},
-    change::{Gate, applied, run as run_change, safety_mode},
+    change::{Gate, applied, recovery_mode, run as run_change},
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files,
@@ -95,11 +95,11 @@ async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, second
             keys::CLI_FAILSAFE_ROLLED_BACK,
         ),
     };
-    if !(300..=3600).contains(&seconds) {
+    if !TIMER_RANGE.contains(&seconds) {
         return Err(Failure::text(Exit::Usage, &"--seconds must be 300..=3600"));
     }
     let target = ctx.target(services, &[permission]).await?;
-    let mode = safety_mode(target.info());
+    let mode = recovery_mode(&target).await?;
     if matches!(action, FailsafeAction::Commit) && mode == SafetyMode::ScheduledReboot {
         ctx.authorize_recovery(services, target.id()).await?;
     }

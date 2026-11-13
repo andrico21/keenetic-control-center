@@ -13,7 +13,7 @@ use serde_json::{Value, json};
 
 use super::args::Finish;
 use crate::cli::{
-    change::{Gate, run as run_change, safety_mode},
+    change::{Gate, recovery_mode, run as run_change},
     context::{Ctx, Services, Target},
     exit::{Exit, Failure, Outcome},
 };
@@ -79,7 +79,7 @@ pub(super) async fn finalize(
     target: &Target,
     action: Finish,
 ) -> Outcome<Value> {
-    let mode = safety_mode(target.info());
+    let mode = recovery_mode(target).await?;
     if matches!(action, Finish::KeepUnsaved)
         || matches!(action, Finish::Save) && mode == SafetyMode::ScheduledReboot
     {

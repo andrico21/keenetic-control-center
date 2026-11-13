@@ -136,7 +136,7 @@ async fn management_port_needs_yes_and_runs_inside_the_fail_safe_bracket() -> Te
     let entries = read_entries(&lab.env.state_dir())?;
     let lines = format!("{entries:?}");
     assert!(
-        lines.contains("system reboot"),
+        lines.contains("system configuration fail-safe timer"),
         "no fail-safe bracket: {lines}"
     );
     lab.shutdown().await

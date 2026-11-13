@@ -76,4 +76,59 @@ mod tests {
         }
         Ok(())
     }
+
+    /// The recovery mechanism follows the reported mode; an undecidable router gets nothing.
+    // NOT cancel-safe: the fixture owns router and MCP tasks.
+    #[tokio::test]
+    async fn recovery_mechanism_follows_the_reported_mode() -> TestResult {
+        let timer = Some((
+            "system configuration fail-safe timer reboot 300",
+            "no system configuration fail-safe timer",
+        ));
+        let reboot = Some(("system reboot 300", "no system reboot"));
+        let rows = [
+            (Some("router"), false, timer),
+            (Some("extender"), false, reboot),
+            (Some("bridge"), false, None),
+            (None, false, timer),
+            (None, true, None),
+        ];
+        for (mode, omit_fail_safe, expected) in rows {
+            let mut scenario = migration::Fixture::default();
+            scenario.mode = mode.map(str::to_owned);
+            scenario.omit_fail_safe = omit_fail_safe;
+            let fake = FakeRouter::builder(Profile::default())
+                .build()?
+                .with_migration(scenario);
+            let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
+            let reply = lab
+                .call(
+                    "kcc_cli_parse",
+                    json!({"host":"lab-1","line":"ip http port 8082","confirm":true}),
+                    false,
+                )
+                .await?;
+            let router = lab.router("lab-1")?;
+            let commands = router
+                .request_log()
+                .iter()
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            let label = format!("{mode:?} omit={omit_fail_safe}: {commands:?}; {reply:?}");
+            if let Some((arm, disarm)) = expected {
+                assert_eq!(reply.error(), None, "{label}");
+                assert!(commands.iter().any(|line| line == arm), "{label}");
+                assert!(commands.iter().any(|line| line == disarm), "{label}");
+            } else {
+                assert_eq!(reply.error(), Some("router_mode_unknown"), "{label}");
+                assert!(commands.is_empty(), "nothing is sent: {label}");
+                assert!(
+                    !router.running_config_text().contains("port 8082"),
+                    "{label}"
+                );
+            }
+            lab.stop().await?;
+        }
+        Ok(())
+    }
 }

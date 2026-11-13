@@ -49,6 +49,9 @@ pub fn markdown() -> String {
          permission, confirmation, and server switch for management or destructive requests.\n\
          Negative `no` commands are destructive. Management nodes retain their recovery timer\n\
           even when a destructive sibling raises the maximum request risk.\n\n\
+         A management change on a router whose recovery mechanism cannot be determined (it\n\
+         reports neither a system mode kcc knows nor a fail-safe timer) fails with\n\
+         `router_mode_unknown` before anything is sent.\n\n\
           After recovery arms, unsuccessful cleanup returns `management_applied_fail_safe_armed`\n\
            when at least one change item succeeded, or `management_outcome_unknown_fail_safe_armed`\n\
            when every change was refused, work failed, or its outcome is unknown. Successful reads\n\

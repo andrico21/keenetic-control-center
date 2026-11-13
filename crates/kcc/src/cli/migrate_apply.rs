@@ -138,6 +138,7 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         | ApplyError::AgreementRequired
         | ApplyError::RolledBackByRouter
         | ApplyError::Firmware
+        | ApplyError::ModeUnknown
         | ApplyError::Drift
         | ApplyError::ReplanRequired
         | ApplyError::Validation
@@ -159,6 +160,7 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         ApplyError::AgreementRequired => (Exit::Policy, keys::MIGRATE_APPLY_AGREEMENT),
         ApplyError::RolledBackByRouter => (Exit::Router, keys::MIGRATE_APPLY_ROUTER_ROLLBACK),
         ApplyError::Firmware => (Exit::Policy, keys::MIGRATE_APPLY_FAILED),
+        ApplyError::ModeUnknown => (Exit::Policy, keys::MANAGEMENT_MODE_UNKNOWN),
         ApplyError::Drift | ApplyError::ReplanRequired => (Exit::Conflict, keys::CLI_PLAN_CHANGED),
         ApplyError::Validation
         | ApplyError::PasswordRequired

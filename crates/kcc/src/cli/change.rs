@@ -11,14 +11,15 @@ use kcc_app::{permissions::Permission, workflow::ChangeSet};
 use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, RouterCtx,
-    configuration::{SafetyMode, SafetyNet, recovery},
+    configuration::{
+        MANAGEMENT_SECONDS, SafetyMode, SafetyNet, read_last_change, recovery, workflow_last_change,
+    },
 };
 use kcc_i18n::{bundle::MessageKey, keys};
-use kcc_rci::capabilities::{RouterInfo, SystemMode};
 use serde_json::{Value, json};
 
 use super::{
-    context::{Ctx, MANAGEMENT_TIMER, Services, Target},
+    context::{Ctx, Services, Target},
     exit::{Failure, Outcome},
     secret::confirm,
 };
@@ -196,15 +197,10 @@ where
                 .await
                 .map(|(document, _applied)| labelled(document, gate.persists));
         }
-        let mode = safety_mode(target.info());
-        let armed = SafetyNet::arm(
-            &mut changes,
-            target.router(),
-            mode,
-            MANAGEMENT_TIMER.as_secs(),
-        )
-        .await
-        .map(|_receipt| ());
+        let mode = SafetyMode::for_change(&changes)?;
+        let armed = SafetyNet::arm(&mut changes, target.router(), mode, MANAGEMENT_SECONDS)
+            .await
+            .map(|_receipt| ());
         if let Err(error) = armed {
             let disarm = SafetyNet::disarm(&mut changes, target.router(), mode)
                 .await
@@ -256,13 +252,20 @@ pub(crate) fn applied(unsaved: bool) -> Value {
     json!({ "applied": true, "unsaved": unsaved })
 }
 
-/// The router's recovery mechanism: the fail-safe timer in router mode, else a
-/// scheduled reboot.
-pub(crate) const fn safety_mode(info: &RouterInfo) -> SafetyMode {
-    match info.system_mode {
-        Some(SystemMode::Router) => SafetyMode::Router,
-        Some(_) | None => SafetyMode::ScheduledReboot,
-    }
+/// The router's recovery mechanism, decided before a change set exists from the target's
+/// fresh detection and its current `show last-change`.
+///
+/// # Errors
+///
+/// Returns the policy refusal when the mode is unknown, or the router read failure.
+// cancel-safe: a single read.
+pub(crate) async fn recovery_mode(target: &Target) -> Outcome<SafetyMode> {
+    let state = read_last_change(target.router()).await?;
+    let baseline = workflow_last_change(&state)?;
+    Ok(SafetyMode::decide(
+        target.info().system_mode.as_ref(),
+        &baseline,
+    )?)
 }
 
 #[cfg(test)]

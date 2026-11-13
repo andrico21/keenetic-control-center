@@ -85,8 +85,13 @@ permission set. MCP's shared planned-write executor chooses the bracket from the
 actual `ChangeOp` risk, including WAN addressing and firewall bindings classified
 in `kcc-domain`. Firewall list changes inspect all affected interfaces and fail
 closed if discovery fails. HTTP, SSH and Telnet service toggles also receive their
-management classification from the domain, shared with the Web and CLI. Router
-mode uses the native timer; other modes use a cancellable scheduled reboot. The
+management classification from the domain, shared with the Web and CLI. One
+rule picks the recovery mechanism for every surface, from the system mode and the
+`show last-change` read when the change set begins: router mode uses the native timer;
+extender, access-point and repeater modes use a cancellable scheduled reboot; a router
+that reports no mode uses the native timer when its last-change state carries a
+fail-safe object with a boolean `active` member; any other router is refused before
+anything is sent. The timer is 300 seconds everywhere. The
 curated interface guard retains native recovery and its positive arm verification
 until a scheduled-reboot verification contract is established. If cleanup fails after
 application, the result reports the applied change and tells the caller to treat

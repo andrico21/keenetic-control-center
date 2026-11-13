@@ -24,7 +24,7 @@ use std::{
 use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidatedRequest, ValidationIssue};
 use kcc_rci::{
     ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse, RouterUrl, SecretBytes,
-    auth::Credentials,
+    auth::Credentials, capabilities::SystemMode,
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
@@ -661,6 +661,7 @@ impl ChangeWorkflow {
             catalog,
             baseline: baseline.clone(),
             expected: baseline,
+            system_mode: info.system_mode,
             backed_up: false,
             force,
             lease: Some(lease),
@@ -745,6 +746,8 @@ pub struct ChangeSet {
     baseline: LastChange,
     /// Last-change state expected after our own writes.
     expected: LastChange,
+    /// System mode detected when the set began; `None` when the router does not report one.
+    system_mode: Option<SystemMode>,
     /// Whether this set made its required backup.
     backed_up: bool,
     /// Whether optimistic conflicts are explicitly overridden.
@@ -1170,6 +1173,13 @@ impl ChangeSet {
     #[must_use]
     pub const fn baseline(&self) -> &LastChange {
         &self.baseline
+    }
+
+    /// Returns the system mode detected when this change set began.
+    #[inline]
+    #[must_use]
+    pub const fn system_mode(&self) -> Option<&SystemMode> {
+        self.system_mode.as_ref()
     }
 
     /// Reads the current router last-change state while retaining the lease.

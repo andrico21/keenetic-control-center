@@ -4,9 +4,8 @@ use kcc_app::workflow::ChangeSet;
 use kcc_catalog::Risk;
 use kcc_domain::{
     RouterCtx,
-    configuration::{SafetyMode, SafetyNet, recovery},
+    configuration::{MANAGEMENT_SECONDS, SafetyMode, SafetyNet, recovery},
 };
-use kcc_rci::capabilities::SystemMode;
 
 use crate::{
     KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers, support::errors::map_workflow,
@@ -74,17 +73,10 @@ where
     if !management {
         return work(&mut changes).await.map(|(value, _applied)| value);
     }
-    let info = server
-        .registry
-        .poll_info(host.as_str())
-        .await
-        .map_err(|_error| McpFailure::RouterUnreachable)?;
-    let mode = match info.system_mode {
-        Some(SystemMode::Router) => SafetyMode::Router,
-        Some(_) | None => SafetyMode::ScheduledReboot,
-    };
+    let mode =
+        SafetyMode::for_change(&changes).map_err(|_unknown| McpFailure::RouterModeUnknown)?;
     let context: RouterCtx = server.router_ctx(host).await?;
-    let armed = SafetyNet::arm(&mut changes, &context, mode, 300)
+    let armed = SafetyNet::arm(&mut changes, &context, mode, MANAGEMENT_SECONDS)
         .await
         .map(|_receipt| ())
         .map_err(map_workflow);

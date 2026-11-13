@@ -6,7 +6,7 @@
 )]
 
 use alloc::{collections::BTreeMap, vec};
-use core::result::Result as CoreResult;
+use core::{ops::RangeInclusive, result::Result as CoreResult};
 
 use kcc_app::{
     permissions::Permission,
@@ -16,8 +16,10 @@ use kcc_app::{
     },
 };
 use kcc_catalog::{HttpMethod, Risk};
+use kcc_rci::capabilities::SystemMode;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use thiserror::Error;
 
 use crate::{
     DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
@@ -68,6 +70,61 @@ pub enum SafetyMode {
     Router,
     /// Other modes fall back to a scheduled reboot.
     ScheduledReboot,
+}
+
+/// Length of the recovery timer kcc arms around a management change.
+pub const MANAGEMENT_SECONDS: u64 = 300;
+
+/// Recovery timer lengths accepted for an operator-chosen timer.
+pub const TIMER_RANGE: RangeInclusive<u64> = 300..=3600;
+
+/// The router reports neither a system mode kcc knows nor a fail-safe timer.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Error)]
+#[error("the router's recovery mechanism cannot be determined")]
+#[non_exhaustive]
+pub struct ModeUnknown;
+
+impl SafetyMode {
+    /// Chooses the recovery mechanism from a detected system mode and the baseline
+    /// `show last-change`.
+    ///
+    /// A router that reports no mode uses the fail-safe timer only when its last-change state
+    /// carries a fail-safe object with a boolean `active` member.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ModeUnknown`] for a mode kcc does not know, or an unreported mode without a
+    /// fail-safe timer.
+    #[inline]
+    pub fn decide(
+        mode: Option<&SystemMode>,
+        baseline: &LastChange,
+    ) -> CoreResult<Self, ModeUnknown> {
+        match mode {
+            Some(SystemMode::Router) => Ok(Self::Router),
+            Some(SystemMode::Extender | SystemMode::Ap | SystemMode::Repeater) => {
+                Ok(Self::ScheduledReboot)
+            }
+            None if baseline
+                .fail_safe
+                .get("active")
+                .is_some_and(Value::is_boolean) =>
+            {
+                Ok(Self::Router)
+            }
+            Some(_) | None => Err(ModeUnknown),
+        }
+    }
+
+    /// Chooses the recovery mechanism from the facts a change set captured when it began.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`ModeUnknown`] under the rules of [`Self::decide`].
+    #[inline]
+    pub fn for_change(changes: &ChangeSet) -> CoreResult<Self, ModeUnknown> {
+        Self::decide(changes.system_mode(), changes.baseline())
+    }
 }
 
 /// Configuration safety operations.
@@ -339,4 +396,55 @@ fn cli_request(
         permission,
         json!({"operation": catalog_path}),
     ))
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use super::*;
+
+    fn baseline(fail_safe: Value) -> LastChange {
+        LastChange::new(
+            String::new(),
+            String::new(),
+            String::new(),
+            false,
+            fail_safe,
+        )
+    }
+
+    #[test]
+    fn decide_follows_the_recovery_table() {
+        let timer = baseline(json!({"active": false}));
+        let none = baseline(json!({}));
+        let other = SystemMode::Other("bridge".to_owned());
+        let rows = [
+            (Some(SystemMode::Router), &none, Ok(SafetyMode::Router)),
+            (
+                Some(SystemMode::Extender),
+                &timer,
+                Ok(SafetyMode::ScheduledReboot),
+            ),
+            (
+                Some(SystemMode::Ap),
+                &timer,
+                Ok(SafetyMode::ScheduledReboot),
+            ),
+            (
+                Some(SystemMode::Repeater),
+                &none,
+                Ok(SafetyMode::ScheduledReboot),
+            ),
+            (Some(other), &timer, Err(ModeUnknown)),
+            (None, &timer, Ok(SafetyMode::Router)),
+            (None, &none, Err(ModeUnknown)),
+            (None, &baseline(json!({"active": "yes"})), Err(ModeUnknown)),
+        ];
+        for (mode, baseline, expected) in rows {
+            assert_eq!(SafetyMode::decide(mode.as_ref(), baseline), expected);
+        }
+    }
 }

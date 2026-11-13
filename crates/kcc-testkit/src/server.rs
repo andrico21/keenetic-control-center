@@ -791,7 +791,13 @@ impl Shared {
         self.expire_reboots();
         let now = self.clock.now();
         let fail_safe = *lock(&self.fail_safe);
-        lock(&self.config).last_change(&fail_safe.as_json(now))
+        let mut answer = lock(&self.config).last_change(&fail_safe.as_json(now));
+        if lock(&self.migration).omits_fail_safe()
+            && let Some(object) = answer.as_object_mut()
+        {
+            drop(object.remove("fail-safe"));
+        }
+        answer
     }
 
     /// Parses an uploaded startup configuration.

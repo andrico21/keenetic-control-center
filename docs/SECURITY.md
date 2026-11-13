@@ -175,6 +175,16 @@ Interface schedules
 are Management on the raw route because applying a schedule can disable the management access
 point, and the CLI-line and structured spellings receive the same verdict.
 
+The recovery mechanism of every bracket (Web, CLI, MCP, migration, presets) comes from one
+rule applied to the system mode and `show last-change` that the change set read when it
+began, never from a cache: router mode arms the native fail-safe timer; extender,
+access-point and repeater modes arm a scheduled reboot; a router that reports no mode
+(KeeneticOS 4.3 and 5.0, read-only credentials) gets the native timer only when its
+`fail-safe` object has a boolean `active` member. A mode kcc does not know, or an
+unreported mode without that object, is refused before anything is sent: exit code 10
+on the CLI, `router_mode_unknown` over MCP, a refusal message in the Web UI and
+`ModeUnknown` for migration and preset applies. The timer is 300 seconds on every surface.
+
 Every management bracket checks the shared `SafetyNet` recovery permissions as well
 as the operation permission. `Destructive` authorizes arm, disarm, keep-alive and
 rollback, so a role that can open a bracket can close it without `Write`; persistence

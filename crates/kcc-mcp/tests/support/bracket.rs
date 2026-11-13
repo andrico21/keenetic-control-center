@@ -87,11 +87,11 @@ mod tests {
         let state = lab
             .call("kcc_config_state", json!({"host":"lab-1"}), false)
             .await?;
-        // The default fake has no reported mode, so MCP uses scheduled reboot.
+        // The default fake reports no mode but a fail-safe object, so recovery is the timer.
         let log = lab.router("lab-1")?.request_log();
         assert!(
             log.iter()
-                .any(|record| record.command() == Some("no system reboot")),
+                .any(|record| record.command() == Some("no system configuration fail-safe timer")),
             "disarm was attempted"
         );
         assert_eq!(state.value()?.get("unsaved"), Some(&json!(true)));

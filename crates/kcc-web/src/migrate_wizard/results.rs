@@ -23,8 +23,9 @@ use crate::{
 pub(super) const ROLLBACK: [Permission; 2] = [Permission::Migrate, Permission::Destructive];
 
 /// Failures after which nothing on the router changed: the apply can start again.
-const BEFORE_CHANGES: [&str; 10] = [
+const BEFORE_CHANGES: [&str; 11] = [
     "UnverifiedFirmwareTier",
+    "ModeUnknown",
     "Drift",
     "SameRouter",
     "Source",

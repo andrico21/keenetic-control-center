@@ -19,20 +19,15 @@ use kcc_app::{
 use kcc_catalog::{Catalog, HttpMethod, Risk};
 use kcc_domain::{
     DomainError, RouterCtx,
-    configuration::{SafetyNet, recovery},
+    configuration::{MANAGEMENT_SECONDS, SafetyMode, SafetyNet, recovery},
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciError, RciResponse};
 use serde_json::{Value, json};
 
 use super::{
-    audit::field_names,
-    confirm::{FAIL_SAFE_MINUTES, FAIL_SAFE_SECONDS},
-    context::Target,
-    facts::RouterFacts,
-    failure::workflow_failure,
-    family::Family,
-    outcome::Failure,
+    audit::field_names, confirm::FAIL_SAFE_MINUTES, context::Target, facts::RouterFacts,
+    failure::workflow_failure, family::Family, outcome::Failure,
 };
 use crate::{authz::CurrentUser, brackets};
 
@@ -216,6 +211,8 @@ pub(crate) struct Refused {
     applied: bool,
     /// Item refusals retained when cleanup fails after a completed batch.
     refusals: Vec<RciError>,
+    /// Whether nothing was sent because the router's recovery mechanism is unknown.
+    mode_unknown: bool,
 }
 
 impl Refused {
@@ -235,12 +232,27 @@ impl Refused {
             armed: false,
             applied: false,
             refusals: Vec::new(),
+            mode_unknown: false,
+        }
+    }
+
+    /// The router's recovery mechanism is unknown, so nothing was sent.
+    fn mode_unknown() -> Self {
+        Self {
+            mode_unknown: true,
+            ..Self::plain(WorkflowError::InvalidResponse)
         }
     }
 
     /// Why the change did not complete, in `family`'s words: the router rolling back by
     /// itself when the fail-safe timer stayed armed, else the workflow error.
     pub(crate) fn failure(&self, family: Family, locale: Locale) -> Failure {
+        if self.mode_unknown {
+            return Failure::new(
+                tr(locale, keys::MANAGEMENT_MODE_UNKNOWN, None),
+                "mode_unknown",
+            );
+        }
         if self.armed {
             let mut args = FluentArgs::new();
             args.set("minutes", FAIL_SAFE_MINUTES.to_string());
@@ -390,14 +402,14 @@ where
     if !plan.management {
         return work(&mut changes, &context).await.map_err(Refused::plain);
     }
+    let mode = SafetyMode::for_change(&changes).map_err(|_unknown| Refused::mode_unknown())?;
     if !brackets::hold() {
         tracing::warn!("management change refused: its request has no server owner");
         return Err(Refused::plain(WorkflowError::Audit(
             AuditError::WriterUnavailable,
         )));
     }
-    let mode = plan.facts.mode();
-    let arm_result = SafetyNet::arm(&mut changes, &context, mode, FAIL_SAFE_SECONDS)
+    let arm_result = SafetyNet::arm(&mut changes, &context, mode, MANAGEMENT_SECONDS)
         .await
         .map(|_receipt| ());
     if let Err(error) = arm_result {
@@ -409,6 +421,7 @@ where
                 armed,
                 applied: false,
                 refusals: Vec::new(),
+                mode_unknown: false,
             }
         });
     }
@@ -455,6 +468,7 @@ where
             armed,
             applied: known_applied,
             refusals,
+            mode_unknown: false,
         }
     })
 }

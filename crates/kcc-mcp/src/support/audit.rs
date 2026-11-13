@@ -25,6 +25,7 @@ pub(crate) async fn failure(
         McpFailure::ConfirmRequired
         | McpFailure::DestructiveDisabled
         | McpFailure::ValidationFailed
+        | McpFailure::RouterModeUnknown
         | McpFailure::UnverifiedFirmwareTier => ("refused", json!({"reason": error.code()})),
         McpFailure::RouterUnreachable
         | McpFailure::BatchFailSafeArmed {

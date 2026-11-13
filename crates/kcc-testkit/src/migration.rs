@@ -24,6 +24,8 @@ pub struct Fixture {
     pub internet: Option<bool>,
     /// Optional management link state for verification failure scenarios.
     pub management_link: Option<String>,
+    /// Leave the `fail-safe` object out of `show last-change`, as a firmware without the timer does.
+    pub omit_fail_safe: bool,
 }
 
 /// Mutable scenario state belonging to one router instance.
@@ -51,6 +53,11 @@ impl State {
         self.dpn = !fixture.agreements_required;
         self.eula = !fixture.agreements_required;
         self.fixture = fixture;
+    }
+
+    /// Whether `show last-change` omits its `fail-safe` object.
+    pub(crate) const fn omits_fail_safe(&self) -> bool {
+        self.fixture.omit_fail_safe
     }
 
     /// Returns a synthetic optional read response.
