@@ -231,7 +231,7 @@ async fn open(target: &Target, write: bool) -> TestResult<(TempDir, Session)> {
     let audit = AuditLog::spawn(&state)?;
     let workflow =
         ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
-    let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
+    let jobs = JobRunner::open(state, Arc::clone(&registry), audit.clone()).await?;
     let poller = Poller::new(Arc::clone(&registry));
     let mut config = McpConfig::default();
     config.toolsets = if write {

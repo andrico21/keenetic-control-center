@@ -21,6 +21,7 @@ use std::{
 
 use kcc_app::{
     accounts::Clock,
+    audit::AuditLog,
     jobs::{JobError, JobRunner, JobStatus},
     persist::StateStore,
     registry::RouterRegistry,
@@ -36,6 +37,9 @@ const CHILD_ENV: &str = "KCC_JOBS_RECOVERY_CHILD";
 const STATE_ENV: &str = "KCC_JOBS_RECOVERY_STATE";
 
 type TestResult = Result<(), Box<dyn Error>>;
+
+#[path = "jobs_recovery/interrupted.rs"]
+mod interrupted;
 
 struct MockClock(u64);
 
@@ -64,7 +68,8 @@ async fn live_job_stays_running_and_dead_job_becomes_interrupted() -> TestResult
     if env::var_os(CHILD_ENV).is_some() {
         let state_dir = env::var_os(STATE_ENV).ok_or("child state directory missing")?;
         let state = StateStore::open(state_dir.as_ref())?;
-        let runner = JobRunner::open(state.clone(), registry(&state)?).await?;
+        let runner =
+            JobRunner::open(state.clone(), registry(&state)?, AuditLog::spawn(&state)?).await?;
         let id = runner
             .start("held".to_owned(), None, false, async |_context| {
                 pending::<Result<(), String>>().await
@@ -104,13 +109,15 @@ async fn live_job_stays_running_and_dead_job_becomes_interrupted() -> TestResult
         }
     };
 
-    let observer = JobRunner::open(state.clone(), registry(&state)?).await?;
+    let observer =
+        JobRunner::open(state.clone(), registry(&state)?, AuditLog::spawn(&state)?).await?;
     assert_eq!(observer.get(&id)?.status, JobStatus::Running);
 
     child.kill()?;
     let output = child.wait_with_output()?;
     assert!(!output.status.success(), "holder must terminate abruptly");
-    let recovery = JobRunner::open(state.clone(), registry(&state)?).await?;
+    let recovery =
+        JobRunner::open(state.clone(), registry(&state)?, AuditLog::spawn(&state)?).await?;
     assert_eq!(recovery.get(&id)?.status, JobStatus::Interrupted);
     Ok(())
 }
@@ -146,8 +153,9 @@ async fn open_prunes_only_expired_finished_jobs() -> TestResult {
     let clock: Arc<dyn Clock> = Arc::new(MockClock(now));
 
     let runner = JobRunner::open_with_retention(
-        state,
+        state.clone(),
         registry(&StateStore::open(&temp.path().join("state"))?)?,
+        AuditLog::spawn(&state)?,
         Duration::from_secs(100),
         clock,
     )
@@ -163,7 +171,8 @@ async fn open_prunes_only_expired_finished_jobs() -> TestResult {
 async fn failed_ownership_claim_releases_router_write_slot() -> TestResult {
     let temp = TempDir::new()?;
     let state = StateStore::open(&temp.path().join("state"))?;
-    let runner = JobRunner::open(state.clone(), registry(&state)?).await?;
+    let runner =
+        JobRunner::open(state.clone(), registry(&state)?, AuditLog::spawn(&state)?).await?;
     fs::remove_dir_all(state.dir())?;
 
     let failed = runner
@@ -198,6 +207,7 @@ async fn runners_sharing_state_start_same_second_jobs() -> TestResult {
     let first = JobRunner::open_with_retention(
         state.clone(),
         registry(&state)?,
+        AuditLog::spawn(&state)?,
         Duration::from_secs(100),
         Arc::clone(&clock),
     )
@@ -206,6 +216,7 @@ async fn runners_sharing_state_start_same_second_jobs() -> TestResult {
     let second = JobRunner::open_with_retention(
         second_state.clone(),
         registry(&second_state)?,
+        AuditLog::spawn(&second_state)?,
         Duration::from_secs(100),
         clock,
     )

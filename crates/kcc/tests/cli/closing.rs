@@ -5,7 +5,10 @@ use alloc::sync::Arc;
 use core::error::Error;
 
 use kcc_app::{
-    audit::read_entries, jobs::JobRunner, persist::StateStore, registry::RouterRegistry,
+    audit::{AuditLog, read_entries},
+    jobs::JobRunner,
+    persist::StateStore,
+    registry::RouterRegistry,
     settings::OutboundConfig,
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
@@ -44,7 +47,7 @@ pub(super) async fn run_id(env: &Env) -> Result<String, Box<dyn Error>> {
         &[],
         &OutboundConfig::default(),
     )?);
-    let runner = JobRunner::open(state, registry).await?;
+    let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
     Ok(runner
         .start(
             "migration".to_owned(),

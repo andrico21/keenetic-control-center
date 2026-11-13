@@ -19,6 +19,7 @@ use core::{error::Error, str::FromStr as _, time::Duration};
 use std::sync::Arc;
 
 use kcc_app::{
+    audit::AuditLog,
     jobs::{JobProgress, JobRunner, JobStatus},
     persist::StateStore,
     registry::RouterRegistry,
@@ -131,7 +132,7 @@ async fn diagnostic_job_emits_typed_output_line() -> Result<(), Box<dyn Error>> 
             &[],
             &OutboundConfig::default(),
         )?);
-        let jobs = JobRunner::open(state, registry).await?;
+        let jobs = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
         let mut events = jobs.subscribe();
 
         let id = diagnostics::start_job(

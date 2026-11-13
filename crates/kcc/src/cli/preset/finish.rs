@@ -141,9 +141,13 @@ pub(super) async fn finish_run(
     run: &str,
     action: Finish,
 ) -> Outcome {
-    let runner = JobRunner::open(ctx.state().clone(), Arc::clone(services.registry()))
-        .await
-        .map_err(|error| Failure::text(Exit::Generic, &error))?;
+    let runner = JobRunner::open(
+        ctx.state().clone(),
+        Arc::clone(services.registry()),
+        services.audit_log().clone(),
+    )
+    .await
+    .map_err(|error| Failure::text(Exit::Generic, &error))?;
     let not_run = || Failure::message(Exit::Usage, keys::CLI_PRESET_NOT_RUN, &[("name", run)]);
     let record = runner.get(run).map_err(|_error| not_run())?;
     let router = record

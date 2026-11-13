@@ -251,9 +251,13 @@ async fn commit(ctx: &Ctx) -> Outcome {
 /// Returns state failures.
 // cancel-safe: opening only reads and marks stale local job records.
 async fn runner(ctx: &Ctx, services: &Services) -> Outcome<Arc<JobRunner>> {
-    JobRunner::open(ctx.state().clone(), Arc::clone(services.registry()))
-        .await
-        .map_err(|error| Failure::text(Exit::Generic, &error))
+    JobRunner::open(
+        ctx.state().clone(),
+        Arc::clone(services.registry()),
+        services.audit_log().clone(),
+    )
+    .await
+    .map_err(|error| Failure::text(Exit::Generic, &error))
 }
 
 /// Collects `job`'s output lines until it ends.

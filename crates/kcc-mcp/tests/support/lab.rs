@@ -160,7 +160,7 @@ impl Lab {
         let workflow =
             ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
         let presets = PresetStore::new(state.clone(), MasterKey::from_bytes([6_u8; 32]));
-        let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
+        let jobs = JobRunner::open(state, Arc::clone(&registry), audit.clone()).await?;
         let poller = Poller::new(Arc::clone(&registry));
         let mut config = McpConfig::default();
         config.toolsets = [

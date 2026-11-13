@@ -170,7 +170,7 @@ impl Fixture {
             Arc::clone(&backups),
             audit.clone(),
         );
-        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry)).await?;
+        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry), audit.clone()).await?;
         let web = WebState::new(WebStateConfig {
             default_locale: Locale::En,
             accounts,

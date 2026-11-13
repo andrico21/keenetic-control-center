@@ -256,7 +256,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app): validate router names with the registry rule
   Recommended task executor category: quick - shared predicate at three call sites plus docs
 
-- [ ] 6. Startup recovery never fails on a stale job; delete the unread recovery notices
+- [x] 6. Startup recovery never fails on a stale job; delete the unread recovery notices
   What to do / Must NOT do: TDD. In `crates/kcc-app/src/jobs.rs:523-569` (`JobRunner::recover`, called from `open_with_ids` `:296-324`) keep marking a `Running` record whose ownership is not held as `Interrupted`; keep the router probe (`show last-change`) but bound it to 5 s per router and never propagate its errors (today `registry.client(..)?` at `:539` and the `?` at `:525-537` can fail startup); report each interrupted job with `tracing::warn!(job = %record.id, router = ?record.router, fail_safe_active, scheduled_reboot, "job interrupted by a restart")` and one audit entry (action `job.recovered`, outcome `interrupted`, params `{ "job", "fail_safe_armed", "scheduled_reboot" }`; `fail_safe_armed` true when the probe saw the timer active or the reboot scheduled, omitted when the probe failed). Delete only the unread reader `recovery_notices` (`:336`), the `RecoveryNotice` type and the `recovery` field (`:114,563`). Must NOT: change job-record format or the `Interrupted` status name.
   Closes: GAP-7
   Parallelization: Wave W1 | Blocked by: - | Blocks: 9 | Can parallelize with: 7, 1, 2, 3, 4, 5

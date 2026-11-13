@@ -3,7 +3,6 @@
     clippy::absolute_paths,
     clippy::missing_errors_doc,
     clippy::missing_inline_in_public_items,
-    clippy::shadow_unrelated,
     clippy::std_instead_of_core,
     clippy::renamed_function_params,
     reason = "job orchestration prioritizes lifecycle clarity; public async bodies are not useful inline candidates"
@@ -29,9 +28,13 @@ use tokio_util::sync::CancellationToken;
 
 use crate::{
     accounts::{Clock, SystemClock},
+    audit::{Actor, ActorKind, AuditEvent, AuditLog},
     persist::{StateError, StateStore, create_private_dir, io_error, write_atomic},
     registry::{RegistryError, RouterRegistry},
 };
+
+/// Longest wait for one router's `show last-change` during startup recovery.
+const RECOVERY_PROBE_BOUND: Duration = Duration::from_secs(5);
 
 /// Default age bound for finished job records: 30 days.
 pub const DEFAULT_FINISHED_RETENTION: Duration = Duration::from_hours(30 * 24);
@@ -106,20 +109,6 @@ pub struct JobEvent {
     pub status: JobStatus,
     /// Optional operation-specific progress payload.
     pub detail: Option<JobProgress>,
-}
-
-/// Recovery state discovered for an interrupted router job.
-#[derive(Clone, Debug, PartialEq)]
-#[non_exhaustive]
-pub struct RecoveryNotice {
-    /// Interrupted job id.
-    pub job_id: String,
-    /// Router id.
-    pub router: String,
-    /// Raw fail-safe object from `show last-change`.
-    pub fail_safe: Value,
-    /// Whether the router reports a scheduled reboot.
-    pub scheduled_reboot: bool,
 }
 
 /// Outcome of cancelling and draining active jobs during graceful shutdown.
@@ -235,8 +224,6 @@ pub struct JobRunner {
     write_jobs: Mutex<BTreeMap<String, String>>,
     /// Progress broadcast.
     events: broadcast::Sender<JobEvent>,
-    /// Recovery notices discovered on startup.
-    recovery: Mutex<Vec<RecoveryNotice>>,
     /// Signals that an active job task reached its terminal cleanup.
     finished: Notify,
     /// Cross-process ownership of running jobs.
@@ -264,15 +251,17 @@ impl JobRunner {
     ///
     /// # Errors
     ///
-    /// Returns state, parse, or router inspection errors.
+    /// Returns state or parse errors.
     // cancel-safe: startup recovery performs only reads and atomic local state writes.
     pub async fn open(
         state: StateStore,
         registry: Arc<RouterRegistry>,
+        audit: AuditLog,
     ) -> Result<Arc<Self>, JobError> {
         Self::open_with_retention(
             state,
             registry,
+            audit,
             DEFAULT_FINISHED_RETENTION,
             Arc::new(SystemClock),
         )
@@ -283,16 +272,17 @@ impl JobRunner {
     ///
     /// # Errors
     ///
-    /// Returns state, parse, or router inspection errors.
+    /// Returns state or parse errors.
     // cancel-safe: startup recovery performs only reads and atomic local state writes.
     pub async fn open_with_retention(
         state: StateStore,
         registry: Arc<RouterRegistry>,
+        audit: AuditLog,
         finished_retention: Duration,
         clock: Arc<dyn Clock>,
     ) -> Result<Arc<Self>, JobError> {
         let ids = JobIdAllocator::system()?;
-        Self::open_with_ids(state, registry, finished_retention, clock, ids).await
+        Self::open_with_ids(state, registry, audit, finished_retention, clock, ids).await
     }
 
     /// Creates a runner around one already initialized identifier allocator.
@@ -300,6 +290,7 @@ impl JobRunner {
     async fn open_with_ids(
         state: StateStore,
         registry: Arc<RouterRegistry>,
+        audit: AuditLog,
         finished_retention: Duration,
         clock: Arc<dyn Clock>,
         ids: JobIdAllocator,
@@ -312,7 +303,6 @@ impl JobRunner {
             active: Mutex::new(BTreeMap::new()),
             write_jobs: Mutex::new(BTreeMap::new()),
             events,
-            recovery: Mutex::new(Vec::new()),
             finished: Notify::new(),
             ownership,
             clock,
@@ -320,7 +310,7 @@ impl JobRunner {
             ids,
         });
         runner.prune_finished()?;
-        runner.recover().await?;
+        runner.recover(&audit).await?;
         Ok(runner)
     }
 
@@ -329,12 +319,6 @@ impl JobRunner {
     #[must_use]
     pub fn subscribe(&self) -> broadcast::Receiver<JobEvent> {
         self.events.subscribe()
-    }
-
-    /// Returns startup recovery notices.
-    // cancel-safe: clones the notices under a lock; cancellation changes nothing.
-    pub async fn recovery_notices(&self) -> Vec<RecoveryNotice> {
-        self.recovery.lock().await.clone()
     }
 
     /// Gets one persisted job.
@@ -520,8 +504,11 @@ impl JobRunner {
         Ok(id)
     }
 
-    /// Recovers running records and inspects affected routers for pending safety state.
-    async fn recover(&self) -> Result<(), JobError> {
+    /// Marks running records without a live owner as interrupted and reports each one.
+    ///
+    /// Only local state errors fail startup; the router probe and the audit entry are
+    /// best effort.
+    async fn recover(&self, audit: &AuditLog) -> Result<(), JobError> {
         for path in self.job_paths()? {
             let Some(mut record) = read_job(&path)? else {
                 continue;
@@ -535,42 +522,77 @@ impl JobRunner {
             record.status = JobStatus::Interrupted;
             record.updated_at = self.clock.unix_seconds();
             self.persist(&record)?;
-            if let Some(router) = record.router {
-                let client = self.registry.client(&router).await?;
-                let path =
-                    kcc_rci::RciPath::from_segments(["show", "last-change"]).map_err(|_error| {
-                        RegistryError::InvalidProfile {
-                            reason: "last-change path".to_owned(),
-                        }
-                    })?;
-                if let Ok(kcc_rci::RciBody::Json(response)) = client.show(&path, &()).await {
-                    let fail_safe = response
-                        .value
-                        .get("fail-safe")
-                        .cloned()
-                        .unwrap_or(Value::Null);
-                    let scheduled_reboot = response
-                        .value
-                        .pointer("/reboot/scheduled")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false);
-                    if fail_safe
-                        .get("active")
-                        .and_then(Value::as_bool)
-                        .unwrap_or(false)
-                        || scheduled_reboot
-                    {
-                        self.recovery.lock().await.push(RecoveryNotice {
-                            job_id: record.id,
-                            router,
-                            fail_safe,
-                            scheduled_reboot,
-                        });
-                    }
-                }
-            }
+            let probe = match &record.router {
+                Some(router) => self.probe_recovery(router).await,
+                None => None,
+            };
+            let fail_safe_active = probe.map(|(armed, _reboot)| armed);
+            let scheduled_reboot = probe.map(|(_armed, reboot)| reboot);
+            tracing::warn!(
+                job = %record.id,
+                router = ?record.router,
+                fail_safe_active,
+                scheduled_reboot,
+                "job interrupted by a restart"
+            );
+            self.audit_recovered(audit, &record, probe).await;
         }
         Ok(())
+    }
+
+    /// Reads `(fail_safe_active, scheduled_reboot)` from the router within the probe bound.
+    ///
+    /// Returns `None` when the router is unknown, unreachable, slow, or answers unexpectedly.
+    async fn probe_recovery(&self, router: &str) -> Option<(bool, bool)> {
+        let path = kcc_rci::RciPath::from_segments(["show", "last-change"]).ok()?;
+        let probe = async {
+            let client = self.registry.client(router).await.ok()?;
+            client.show(&path, &()).await.ok()
+        };
+        let Ok(Some(kcc_rci::RciBody::Json(response))) =
+            tokio::time::timeout(RECOVERY_PROBE_BOUND, probe).await
+        else {
+            return None;
+        };
+        let active = response
+            .value
+            .pointer("/fail-safe/active")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        let scheduled_reboot = response
+            .value
+            .pointer("/reboot/scheduled")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+        Some((active, scheduled_reboot))
+    }
+
+    /// Appends one `job.recovered` audit entry; failures are logged, never propagated.
+    async fn audit_recovered(
+        &self,
+        audit: &AuditLog,
+        record: &JobRecord,
+        probe: Option<(bool, bool)>,
+    ) {
+        let mut params = serde_json::json!({ "job": record.id });
+        if let (Some((armed, reboot)), Some(object)) = (probe, params.as_object_mut()) {
+            drop(object.insert("fail_safe_armed".to_owned(), Value::Bool(armed || reboot)));
+            drop(object.insert("scheduled_reboot".to_owned(), Value::Bool(reboot)));
+        }
+        let mut event = AuditEvent::new(
+            self.clock.unix_seconds(),
+            Actor::new(ActorKind::System, "job-recovery".to_owned()),
+            "job.recovered".to_owned(),
+        )
+        .with_params(params)
+        .with_target(record.id.clone())
+        .with_result("interrupted".to_owned(), record.id.clone());
+        if let Some(router) = &record.router {
+            event = event.with_router(router.clone());
+        }
+        if let Err(error) = audit.append(event).await {
+            tracing::warn!(%error, job = %record.id, "job recovery audit entry not written");
+        }
     }
 
     /// Persists one job atomically.
@@ -706,7 +728,9 @@ mod tests {
     use tokio::{sync::oneshot, time::timeout};
 
     use super::{JobError, JobRunner, JobStatus, job_id::JobIdAllocator};
-    use crate::{persist::StateStore, registry::RouterRegistry, settings::OutboundConfig};
+    use crate::{
+        audit::AuditLog, persist::StateStore, registry::RouterRegistry, settings::OutboundConfig,
+    };
 
     #[tokio::test]
     #[expect(
@@ -723,18 +747,21 @@ mod tests {
             &[],
             &OutboundConfig::default(),
         )?);
+        let audit = AuditLog::spawn(&state).map_err(|_error| JobError::IdUnavailable)?;
         let clock: Arc<dyn crate::accounts::Clock> = Arc::new(crate::accounts::SystemClock);
         let first = JobRunner::open_with_ids(
             state.clone(),
             Arc::clone(&registry),
+            audit.clone(),
             Duration::from_secs(100),
             Arc::clone(&clock),
             JobIdAllocator::for_test(7, [9; 4]),
         )
         .await?;
         let second = JobRunner::open_with_ids(
-            state,
+            state.clone(),
             registry,
+            audit,
             Duration::from_secs(100),
             clock,
             JobIdAllocator::for_test(7, [9; 4]),
@@ -780,7 +807,7 @@ mod tests {
             &[],
             &OutboundConfig::default(),
         )?);
-        let runner = JobRunner::open(state, registry).await?;
+        let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
         {
             let active = runner.active.lock().await;
             let start = runner.start(
@@ -834,7 +861,7 @@ mod tests {
             &[],
             &OutboundConfig::default(),
         )?);
-        let runner = JobRunner::open(state, registry).await?;
+        let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
         let mut events = runner.subscribe();
         let finished = runner.finished.notified();
         tokio::pin!(finished);
@@ -888,7 +915,7 @@ mod tests {
             &[],
             &OutboundConfig::default(),
         )?);
-        let runner = JobRunner::open(state.clone(), registry).await?;
+        let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
         let mut events = runner.subscribe();
         let finished = runner.finished.notified();
         tokio::pin!(finished);

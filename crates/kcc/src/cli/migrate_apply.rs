@@ -57,9 +57,13 @@ pub(crate) async fn apply(
     request.options.management_password = management_password;
     request.options.safety_seconds = safety_seconds;
     request.options.locale = ctx.out().locale();
-    let runner = JobRunner::open(ctx.state().clone(), Arc::clone(services.registry()))
-        .await
-        .map_err(|error| Failure::text(Exit::Generic, &error))?;
+    let runner = JobRunner::open(
+        ctx.state().clone(),
+        Arc::clone(services.registry()),
+        services.audit_log().clone(),
+    )
+    .await
+    .map_err(|error| Failure::text(Exit::Generic, &error))?;
     let (_job, done) = Applier::start(&runner, request)
         .await
         .map_err(apply_failure)?;

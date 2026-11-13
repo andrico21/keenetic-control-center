@@ -493,7 +493,12 @@ async fn batch_mutation_enforces_operation_permission() -> Result<(), Box<dyn Er
 #[tokio::test]
 async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let runner = JobRunner::open(fixture.state.clone(), Arc::clone(&fixture.registry)).await?;
+    let runner = JobRunner::open(
+        fixture.state.clone(),
+        Arc::clone(&fixture.registry),
+        AuditLog::spawn(&fixture.state)?,
+    )
+    .await?;
     let (release, released) = oneshot::channel::<()>();
     let first = runner
         .start(
@@ -541,7 +546,12 @@ async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dy
 #[tokio::test]
 async fn job_streams_typed_progress_with_latest_percentage() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let runner = JobRunner::open(fixture.state.clone(), Arc::clone(&fixture.registry)).await?;
+    let runner = JobRunner::open(
+        fixture.state.clone(),
+        Arc::clone(&fixture.registry),
+        AuditLog::spawn(&fixture.state)?,
+    )
+    .await?;
     let mut events = runner.subscribe();
     let id = runner
         .start("ping".to_owned(), None, false, async |context| {
@@ -574,7 +584,12 @@ async fn job_streams_typed_progress_with_latest_percentage() -> Result<(), Box<d
 #[tokio::test]
 async fn graceful_drain_cancels_job_without_triggering_rollback() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let runner = JobRunner::open(fixture.state.clone(), Arc::clone(&fixture.registry)).await?;
+    let runner = JobRunner::open(
+        fixture.state.clone(),
+        Arc::clone(&fixture.registry),
+        AuditLog::spawn(&fixture.state)?,
+    )
+    .await?;
     let (started_tx, started_rx) = oneshot::channel::<()>();
     let (rollback_tx, rollback_rx) = oneshot::channel::<()>();
     drop(

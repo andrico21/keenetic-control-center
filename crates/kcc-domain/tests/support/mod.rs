@@ -293,11 +293,9 @@ impl Fixture {
 
     /// Opens a job runner on the fixture state.
     pub(crate) async fn jobs(&self) -> TestResult<Arc<kcc_app::jobs::JobRunner>> {
-        Ok(kcc_app::jobs::JobRunner::open(
-            StateStore::open(&self.directory.path().join("state"))?,
-            Arc::clone(&self.registry),
-        )
-        .await?)
+        let state = StateStore::open(&self.directory.path().join("state"))?;
+        let audit = AuditLog::spawn(&state)?;
+        Ok(kcc_app::jobs::JobRunner::open(state, Arc::clone(&self.registry), audit).await?)
     }
 
     /// Stops the fake router.

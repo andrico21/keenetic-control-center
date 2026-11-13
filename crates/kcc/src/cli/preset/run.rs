@@ -90,9 +90,13 @@ pub(super) async fn apply(
     }
     let mut protected = request(input).map_err(request_failure)?;
     protected.options.locale = out.locale();
-    let runner = JobRunner::open(ctx.state().clone(), Arc::clone(services.registry()))
-        .await
-        .map_err(|error| Failure::text(Exit::Generic, &error))?;
+    let runner = JobRunner::open(
+        ctx.state().clone(),
+        Arc::clone(services.registry()),
+        services.audit_log().clone(),
+    )
+    .await
+    .map_err(|error| Failure::text(Exit::Generic, &error))?;
     let (run, done) = Applier::start(&runner, protected)
         .await
         .map_err(apply_failure)?;

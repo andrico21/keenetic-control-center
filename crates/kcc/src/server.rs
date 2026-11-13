@@ -377,7 +377,7 @@ impl Services {
             Arc::clone(&backups),
             audit.clone(),
         );
-        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry))
+        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry), audit.clone())
             .await
             .map_err(error)?;
         let logs = Self::start_logs(mode, config, &registry, metrics.clone()).await?;

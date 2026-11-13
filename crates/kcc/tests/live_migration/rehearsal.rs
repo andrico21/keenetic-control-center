@@ -231,7 +231,7 @@ impl Services {
             Arc::clone(&backups),
             audit.clone(),
         );
-        let runner = JobRunner::open(state, Arc::clone(&registry)).await?;
+        let runner = JobRunner::open(state, Arc::clone(&registry), audit.clone()).await?;
         Ok(Self {
             _directory: directory,
             registry,

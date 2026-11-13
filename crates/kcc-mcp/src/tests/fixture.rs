@@ -84,8 +84,9 @@ impl Fixture {
             MasterKey::from_bytes([9_u8; 32]),
         ));
         let audit = AuditLog::spawn(&state)?;
-        let workflow = ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit);
-        let jobs = JobRunner::open(state, Arc::clone(&registry)).await?;
+        let workflow =
+            ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
+        let jobs = JobRunner::open(state, Arc::clone(&registry), audit.clone()).await?;
         let poller = Poller::new(Arc::clone(&registry));
         let roles = vec![admin, lab_role(), viewer_role(), operator_role()];
         let server = KccMcp::new(

@@ -6,7 +6,10 @@ use alloc::sync::Arc;
 use std::io::{self, Write as _};
 
 use kcc_app::{
-    audit::read_entries, jobs::JobRunner, persist::StateStore, registry::RouterRegistry,
+    audit::{AuditLog, read_entries},
+    jobs::JobRunner,
+    persist::StateStore,
+    registry::RouterRegistry,
     settings::OutboundConfig,
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
@@ -45,7 +48,7 @@ async fn preset_finish_router_operator_commits() -> TestResult {
         &[],
         &OutboundConfig::default(),
     )?);
-    let runner = JobRunner::open(state, registry).await?;
+    let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
     let run = runner
         .start(
             "migration".to_owned(),
@@ -102,7 +105,7 @@ async fn preset_finish_operator_refuses_before_mutation() -> TestResult {
         &[],
         &OutboundConfig::default(),
     )?);
-    let runner = JobRunner::open(state, registry).await?;
+    let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
     let run = runner
         .start(
             "migration".to_owned(),
@@ -178,7 +181,7 @@ async fn preset_finish_disarm_failure_reports_saved_change() -> TestResult {
         &[],
         &OutboundConfig::default(),
     )?);
-    let runner = JobRunner::open(state, registry).await?;
+    let runner = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
     let run = runner
         .start(
             "migration".to_owned(),

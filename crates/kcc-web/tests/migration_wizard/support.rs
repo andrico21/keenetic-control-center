@@ -112,7 +112,7 @@ impl Fixture {
         let backups = Arc::new(BackupStore::new(state.clone(), master_key()));
         let workflow =
             ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
-        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry)).await?;
+        let jobs = JobRunner::open(state.clone(), Arc::clone(&registry), audit.clone()).await?;
         let web = WebState::new(WebStateConfig {
             default_locale: Locale::En,
             accounts,

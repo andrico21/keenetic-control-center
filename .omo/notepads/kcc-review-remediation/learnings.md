@@ -109,3 +109,32 @@ The guard's Drop impl is the sole mechanism for label cleanup when ChangeSet dro
 The redundant guard in the conflict path was doing duplicate work; removing it and
 relying on the guard's natural Drop is cleaner and proves the guard design works.
 Drop order matters for correctness: label removal must happen before lease release.
+
+## Todo 7 Rework 2 - Test Corrections ($(date +%Y-%m-%d))
+
+Orchestrator review identified three test defects:
+1. Deleted existing test `stale_read_from_another_agent_conflicts` - RESTORED
+2. Missing plan test (b) for registry error case - IMPLEMENTED as `lease_label_cleanup_after_registry_error`
+3. Redundant/wrong tests added - REMOVED (`lease_label_cleanup_on_drop`, `lease_label_cleanup_on_conflict_error`)
+
+Final test structure:
+- `stale_read_from_another_agent_conflicts`: Restored from master (verifies conflict path)
+- `lease_label_released_synchronously_on_drop`: Plan test (a) - proves label removed synchronously when ChangeSet drops
+- `lease_label_cleanup_after_registry_error`: Plan test (b) - proves label removed after early return (registry error)
+
+Test (b) flow:
+1. Begin on unknown router with actor "agent-x" fails after label insert
+2. Hold lease on same router to trigger RouterBusy
+3. Attempt another begin, must see "another process" not stale "agent-x"
+4. Proves guard's Drop removed label despite early return
+
+RED/GREEN captured:
+- RED: With broken guard (no-op Drop), assertion fails: left="agent-x", right="another process"
+- GREEN: With fixed guard, test passes, label is cleaned
+
+Git status:
+- workflow.rs: +49-12 = net +37 (guard impl, drop order fix)
+- tests/workflow.rs: +75-12 = net +63 (restored test, new test (b), removed redundants)
+- No net test deletions (all lines restored or added, none removed)
+
+All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
