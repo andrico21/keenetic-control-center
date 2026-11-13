@@ -148,9 +148,9 @@ async fn scheduled_reboot_commit_saves_and_disarms() -> TestResult {
     Ok(())
 }
 
-/// Scheduled-reboot rollback retains the explicit native rollback used by preset finish.
+/// Scheduled-reboot rollback reboots at once into the saved configuration and says so.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn scheduled_reboot_rollback_remains_explicit() -> TestResult {
+async fn scheduled_reboot_rollback_reboots_at_once() -> TestResult {
     let (env, handle, _clock) = lab("extender").await?;
     let arm = env.kcc(&[
         "--confirm-destructive",
@@ -169,7 +169,7 @@ async fn scheduled_reboot_rollback_remains_explicit() -> TestResult {
         "failsafe",
         "rollback",
     ])?;
-    says(&rolled_back, Locale::En, keys::CLI_FAILSAFE_ROLLED_BACK);
+    says(&rolled_back, Locale::En, keys::FAILSAFE_ROLLBACK_REBOOTING);
     assert!(
         !handle.running_config_text().contains("discard-on-rollback"),
         "scheduled rollback must restore startup configuration"
@@ -180,10 +180,11 @@ async fn scheduled_reboot_rollback_remains_explicit() -> TestResult {
         .filter_map(|request| request.command().map(str::to_owned))
         .collect::<Vec<_>>();
     assert!(
-        commands
-            .iter()
-            .any(|command| command == "system configuration fail-safe rollback"),
-        "scheduled rollback must explicitly restore startup: {commands:?}"
+        commands.iter().any(|command| command == "system reboot")
+            && !commands
+                .iter()
+                .any(|command| command == "system configuration fail-safe rollback"),
+        "scheduled rollback must reboot, not use the native rollback: {commands:?}"
     );
     handle.shutdown().await?;
     Ok(())

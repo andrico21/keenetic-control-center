@@ -22,6 +22,7 @@ pub mod args_domains_wire;
 pub mod args_fleet;
 pub mod args_migrate;
 mod change;
+mod closing;
 mod context;
 pub mod coverage;
 mod dom_admin;

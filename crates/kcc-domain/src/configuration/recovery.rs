@@ -24,6 +24,17 @@ impl<E> Failure<E> {
         }
     }
 
+    /// Records a failure after the work was applied and recovery was resolved.
+    #[inline]
+    #[must_use]
+    pub(crate) const fn committed(source: E) -> Self {
+        Self {
+            source,
+            armed: false,
+            applied: true,
+        }
+    }
+
     /// Whether recovery must still be treated as armed.
     #[inline]
     #[must_use]

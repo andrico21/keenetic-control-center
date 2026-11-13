@@ -7,13 +7,17 @@ use std::io::{self, BufRead as _, IsTerminal as _, Write as _};
 
 use kcc_app::{jobs::JobRunner, permissions::Permission};
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{SafetyMode, SafetyNet, recovery};
+use kcc_domain::configuration::{
+    SafetyMode,
+    close::{Close, Closed, close},
+};
 use kcc_i18n::keys;
 use serde_json::{Value, json};
 
 use super::args::Finish;
 use crate::cli::{
     change::{Gate, recovery_mode, run as run_change},
+    closing::reported,
     context::{Ctx, Services, Target},
     exit::{Exit, Failure, Outcome},
 };
@@ -90,43 +94,16 @@ pub(super) async fn finalize(
         Finish::Save => Gate::new(Risk::Write, Permission::Save, false),
         Finish::Rollback => Gate::new(Risk::Destructive, Permission::Destructive, false),
     };
-    let mut saved = false;
+    let step = match action {
+        Finish::KeepUnsaved => Close::KeepUnsaved,
+        Finish::Save => Close::Save,
+        Finish::Rollback => Close::Rollback,
+    };
     run_change(ctx, services, target, gate, async |changes, router| {
-        match (action, mode) {
-            (Finish::KeepUnsaved, _) => {
-                let disarm = SafetyNet::disarm(changes, router, mode)
-                    .await
-                    .map_err(Failure::from);
-                recovery::finish(Ok(()), disarm).map_err(Failure::recovery)?;
-            }
-            (Finish::Save, _) => {
-                ctx.finish_saved(changes, router, mode)
-                    .await
-                    .map_err(|error| {
-                        saved = error.applied();
-                        Failure::recovery(error)
-                    })?;
-            }
-            (Finish::Rollback, _) => {
-                drop(
-                    SafetyNet::rollback(changes, router)
-                        .await
-                        .map_err(|error| {
-                            Failure::recovery(recovery::Failure::armed(Failure::from(error)))
-                        })?,
-                );
-            }
-        }
+        let _: Closed = reported(ctx.out(), step, close(changes, router, mode, step).await)?;
         Ok(json!({ "router": target.id(), "finish": name(action) }))
     })
     .await
-    .map_err(|error| {
-        if saved {
-            Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
-        } else {
-            error
-        }
-    })
 }
 
 /// `preset finish <run-id> <action>`: ends a run started by another process.

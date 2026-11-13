@@ -2,9 +2,9 @@
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::{
-    configuration::{SafetyMode, SafetyNet, recovery},
-    system,
+use kcc_domain::configuration::{
+    SafetyMode,
+    close::{Close, Closed, close},
 };
 use kcc_i18n::keys;
 use kcc_migrate::{
@@ -18,6 +18,7 @@ use serde_json::{Value, json};
 use super::{
     args_migrate::{FinishStep, MigrateCommand, PlanInput, ReportFormat},
     change::{Gate, applied, recovery_mode, run as run_change},
+    closing::reported,
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files, migrate_apply,
@@ -171,42 +172,15 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
             },
         ),
     };
-    let mut saved = false;
+    let step = match action {
+        FinishStep::Commit => Close::Save,
+        FinishStep::Rollback => Close::Rollback,
+    };
     let document = run_change(ctx, services, &target, gate, async |changes, router| {
-        match (action, mode) {
-            (FinishStep::Commit, _) => {
-                ctx.finish_saved(changes, router, mode)
-                    .await
-                    .map_err(|error| {
-                        saved = error.applied();
-                        Failure::recovery(error)
-                    })?;
-            }
-            (FinishStep::Rollback, SafetyMode::Router) => {
-                drop(
-                    SafetyNet::rollback(changes, router)
-                        .await
-                        .map_err(|error| {
-                            Failure::recovery(recovery::Failure::armed(Failure::from(error)))
-                        })?,
-                );
-            }
-            (FinishStep::Rollback, SafetyMode::ScheduledReboot | _) => {
-                drop(system::reboot(changes, router).await.map_err(|error| {
-                    Failure::recovery(recovery::Failure::armed(Failure::from(error)))
-                })?);
-            }
-        }
-        Ok(applied(matches!(action, FinishStep::Rollback)))
+        let _: Closed = reported(ctx.out(), step, close(changes, router, mode, step).await)?;
+        Ok(applied(step == Close::Rollback))
     })
-    .await
-    .map_err(|error| {
-        if saved {
-            Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
-        } else {
-            error
-        }
-    })?;
+    .await?;
     let out = ctx.out();
     out.emit(&document, &out.tr(outcome, &[]))
 }

@@ -9,6 +9,8 @@
 
 #[path = "cli/closing.rs"]
 mod closing;
+#[path = "cli/closing_modes.rs"]
+mod closing_modes;
 #[path = "cli/closing_saved.rs"]
 mod closing_saved;
 #[path = "cli/support.rs"]

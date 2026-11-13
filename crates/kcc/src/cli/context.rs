@@ -18,13 +18,10 @@ use kcc_app::{
     registry::RouterRegistry,
     secrets::{MasterKey, master_key_path},
     settings::{Config, default_config_dir},
-    workflow::{ChangeSet, ChangeWorkflow},
+    workflow::ChangeWorkflow,
 };
 use kcc_catalog::Catalog;
-use kcc_domain::{
-    RouterCtx,
-    configuration::{SafetyMode, SafetyNet, recovery},
-};
+use kcc_domain::{RouterCtx, configuration::SafetyNet};
 use kcc_i18n::{bundle::tr, keys};
 use kcc_rci::capabilities::RouterInfo;
 use serde_json::Value;
@@ -130,42 +127,6 @@ pub(crate) struct Ctx {
 }
 
 impl Ctx {
-    /// Closes recovery without losing failures before a confirmed disarm.
-    ///
-    /// # Errors
-    /// Returns an armed router failure when persistence or disarm cannot be confirmed.
-    // NOT cancel-safe: persistence or disarm may complete before cancellation.
-    pub(crate) async fn finish_saved(
-        &self,
-        changes: &mut ChangeSet,
-        router: &RouterCtx,
-        mode: SafetyMode,
-    ) -> Result<(), recovery::Failure<Failure>> {
-        let saved = match mode {
-            SafetyMode::Router => changes.commit().await,
-            SafetyMode::ScheduledReboot | _ => changes.save().await,
-        };
-        let disarm = match saved {
-            Ok(()) if mode == SafetyMode::Router => Ok(()),
-            Ok(()) => {
-                self.out.note(&self.out.tr(keys::CLI_SAVED, &[]));
-                SafetyNet::disarm(changes, router, mode)
-                    .await
-                    .map(|_receipt| ())
-            }
-            Err(_) => {
-                return recovery::finish(
-                    saved.map_err(Failure::from),
-                    Err::<(), _>(Failure::headline_only(
-                        Exit::Router,
-                        keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
-                    )),
-                );
-            }
-        };
-        recovery::finish(Ok(()), disarm.map_err(Failure::from))
-    }
-
     /// Loads the configuration and state and resolves the principal.
     ///
     /// # Errors

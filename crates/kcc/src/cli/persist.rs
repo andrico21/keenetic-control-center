@@ -5,7 +5,10 @@ use std::path::Path;
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::configuration::{self, SafetyMode, SafetyNet, TIMER_RANGE, recovery};
+use kcc_domain::configuration::{
+    self, SafetyMode, SafetyNet, TIMER_RANGE,
+    close::{Close, Closed, close},
+};
 use kcc_i18n::keys;
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -14,6 +17,7 @@ use serde_json::{Value, json};
 use super::{
     args_fleet::{BackupCommand, ConfigCommand, FailsafeAction},
     change::{Gate, applied, recovery_mode, run as run_change},
+    closing::reported,
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     files,
@@ -82,18 +86,11 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
 /// Returns validation, policy, workflow, or router failures.
 // NOT cancel-safe: timer actions may complete before cancellation.
 async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, seconds: u64) -> Outcome {
-    let (permission, risk, outcome) = match action {
-        FailsafeAction::Arm => (
-            Permission::Destructive,
-            Risk::Destructive,
-            keys::CLI_FAILSAFE_RUNNING,
-        ),
-        FailsafeAction::Commit => (Permission::Save, Risk::Write, keys::CLI_FAILSAFE_COMMITTED),
-        FailsafeAction::Rollback => (
-            Permission::Destructive,
-            Risk::Destructive,
-            keys::CLI_FAILSAFE_ROLLED_BACK,
-        ),
+    let (permission, risk) = match action {
+        FailsafeAction::Arm | FailsafeAction::Rollback => {
+            (Permission::Destructive, Risk::Destructive)
+        }
+        FailsafeAction::Commit => (Permission::Save, Risk::Write),
     };
     if !TIMER_RANGE.contains(&seconds) {
         return Err(Failure::text(Exit::Usage, &"--seconds must be 300..=3600"));
@@ -103,42 +100,33 @@ async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, second
     if matches!(action, FailsafeAction::Commit) && mode == SafetyMode::ScheduledReboot {
         ctx.authorize_recovery(services, target.id()).await?;
     }
-    let mut saved = false;
+    let outcome = match (action, mode) {
+        (FailsafeAction::Arm, _) => keys::CLI_FAILSAFE_RUNNING,
+        (FailsafeAction::Commit, _) => keys::CLI_FAILSAFE_COMMITTED,
+        (FailsafeAction::Rollback, SafetyMode::ScheduledReboot) => {
+            keys::FAILSAFE_ROLLBACK_REBOOTING
+        }
+        (FailsafeAction::Rollback, SafetyMode::Router | _) => keys::CLI_FAILSAFE_ROLLED_BACK,
+    };
     let document = run_change(
         ctx,
         services,
         &target,
         Gate::new(risk, permission, false),
         async |changes, router| {
-            match action {
-                FailsafeAction::Arm => drop(SafetyNet::arm(changes, router, mode, seconds).await?),
-                FailsafeAction::Commit => {
-                    ctx.finish_saved(changes, router, mode)
-                        .await
-                        .map_err(|error| {
-                            saved = error.applied();
-                            Failure::recovery(error)
-                        })?;
+            let step = match action {
+                FailsafeAction::Arm => {
+                    drop(SafetyNet::arm(changes, router, mode, seconds).await?);
+                    return Ok(applied(true));
                 }
-                FailsafeAction::Rollback => drop(
-                    SafetyNet::rollback(changes, router)
-                        .await
-                        .map_err(|error| {
-                            Failure::recovery(recovery::Failure::armed(Failure::from(error)))
-                        })?,
-                ),
-            }
-            Ok(applied(!matches!(action, FailsafeAction::Commit)))
+                FailsafeAction::Commit => Close::Save,
+                FailsafeAction::Rollback => Close::Rollback,
+            };
+            let _: Closed = reported(ctx.out(), step, close(changes, router, mode, step).await)?;
+            Ok(applied(step == Close::Rollback))
         },
     )
-    .await
-    .map_err(|error| {
-        if saved {
-            Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
-        } else {
-            error
-        }
-    })?;
+    .await?;
     ctx.out().emit(&document, &ctx.out().tr(outcome, &[]))
 }
 

@@ -228,8 +228,11 @@ kcc migrate report --from router:home --router home --format markdown --out repo
 `kcc migrate apply --from <source> --plan plan.json --finish commit|rollback|keep`
 re-plans from the same inputs and refuses if the plan changed. `kcc migrate finish
 commit|rollback` finishes a kept migration through the router's fail-safe timer.
-In router mode, migration commit and preset save use native commit; in other modes
-they save and cancel the scheduled reboot, requiring recovery permission before saving.
+In router mode, migration commit, preset save and `kcc config failsafe commit` use native
+commit and then save; in other modes they save and cancel the scheduled reboot, requiring
+recovery permission before saving. An explicit rollback uses the native fail-safe rollback
+in router mode and reboots the router at once in other modes, so it restarts with its
+saved configuration.
 If disarming fails, the command reports that recovery remains armed; a completed save
 is reported separately. Keeping a preset unsaved requires recovery permission in either mode.
 

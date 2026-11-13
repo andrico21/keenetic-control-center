@@ -3,18 +3,13 @@
 use alloc::sync::Arc;
 use core::time::Duration;
 
-use kcc_app::{
-    permissions::Permission,
-    workflow::{CliCommand as ValidatedCli, TerminalCliChangeRequest},
-};
-use kcc_catalog::{Catalog, HttpMethod};
+use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
-    configuration::{SafetyMode, SafetyNet, recovery},
+    configuration::close::{Close, Closed, close},
 };
 use kcc_rci::ConfigKind;
 use secrecy::ExposeSecret as _;
-use serde_json::json;
 use tokio::time::timeout;
 
 use super::{Applier, ApplyError};
@@ -34,57 +29,16 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
         .ensure_unchanged()
         .await
         .map_err(|_error| ApplyError::Drift)?;
-    match applier.mode {
-        SafetyMode::Router => {
-            let commit = applier
-                .changes
-                .commit()
-                .await
-                .map_err(|_error| ApplyError::Workflow);
-            recovery::finish(commit, commit).map_err(|_error| ApplyError::FinishFailed)?;
-            applier
-                .changes
-                .save()
-                .await
-                .map_err(|_error| ApplyError::CommittedSaveFailed)?;
-        }
-        SafetyMode::ScheduledReboot => {
-            let saved = applier
-                .changes
-                .save()
-                .await
-                .map_err(|_error| ApplyError::Workflow);
-            let disarm = match saved {
-                Ok(()) => {
-                    async {
-                        let client = applier.changes.client();
-                        let catalog = Catalog::for_router(
-                            &client
-                                .detect()
-                                .await
-                                .map_err(|_error| ApplyError::Unreachable)?,
-                        )
-                        .map_err(|_error| ApplyError::Validation)?;
-                        let ctx = RouterCtx::new(Arc::clone(&client), catalog);
-                        SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
-                            .await
-                            .map(|_receipt| ())
-                            .map_err(|_error| ApplyError::Workflow)
-                    }
-                    .await
-                }
-                Err(error) => Err(error),
-            };
-            recovery::finish(saved, disarm).map_err(|error| {
-                if error.applied() {
-                    ApplyError::SavedDisarmFailed
-                } else {
-                    ApplyError::FinishFailed
-                }
-            })?;
-        }
-        _ => return Err(ApplyError::Validation),
-    }
+    let ctx = context(applier)
+        .await
+        .map_err(|_error| ApplyError::FinishFailed)?;
+    let _: Closed = close(&mut applier.changes, &ctx, applier.mode, Close::Save)
+        .await
+        .map_err(|error| match (error.applied(), error.is_armed()) {
+            (true, true) => ApplyError::SavedDisarmFailed,
+            (true, false) => ApplyError::CommittedSaveFailed,
+            (false, _) => ApplyError::FinishFailed,
+        })?;
     applier.report.finished = true;
     Ok(())
 }
@@ -103,19 +57,10 @@ pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError
         .ensure_unchanged()
         .await
         .map_err(|_error| ApplyError::Drift)?;
-    let client = applier.changes.client();
-    let catalog = Catalog::for_router(
-        &client
-            .detect()
-            .await
-            .map_err(|_error| ApplyError::Unreachable)?,
-    )
-    .map_err(|_error| ApplyError::Validation)?;
-    let ctx = RouterCtx::new(Arc::clone(&client), catalog);
-    let disarm = SafetyNet::disarm(&mut applier.changes, &ctx, applier.mode)
+    let ctx = context(applier).await?;
+    let _: Closed = close(&mut applier.changes, &ctx, applier.mode, Close::KeepUnsaved)
         .await
-        .map_err(|_error| ApplyError::Workflow);
-    recovery::finish(Ok(()), disarm).map_err(|_error| ApplyError::DisarmFailed)?;
+        .map_err(|_error| ApplyError::DisarmFailed)?;
     applier.report.finished = true;
     Ok(())
 }
@@ -129,6 +74,27 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
     if applier.report.finished {
         return Err(ApplyError::Validation);
     }
+    let ctx = context(applier).await?;
+    let closed = close(&mut applier.changes, &ctx, applier.mode, Close::Rollback)
+        .await
+        .map_err(|_error| ApplyError::FinishFailed)?;
+    if wait_restored(applier).await.is_err() {
+        return Err(if closed.restarting {
+            ApplyError::RollbackRestarting
+        } else {
+            ApplyError::FinishFailed
+        });
+    }
+    applier.report.finished = true;
+    Ok(())
+}
+
+/// The router context of the applier's current connection.
+///
+/// # Errors
+/// Returns unreachability or an unsupported firmware catalog.
+// cancel-safe: a single detection read.
+async fn context(applier: &Applier) -> Result<RouterCtx, ApplyError> {
     let client = applier.changes.client();
     let catalog = Catalog::for_router(
         &client
@@ -137,35 +103,7 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
             .map_err(|_error| ApplyError::Unreachable)?,
     )
     .map_err(|_error| ApplyError::Validation)?;
-    let path = match applier.mode {
-        SafetyMode::Router => "system configuration fail-safe rollback",
-        SafetyMode::ScheduledReboot => "system reboot",
-        _ => return Err(ApplyError::Validation),
-    };
-    let validated = catalog
-        .validate(path, HttpMethod::Post, &json!({}))
-        .map_err(|_issues| ApplyError::Validation)?;
-    let request = TerminalCliChangeRequest::new(
-        vec![ValidatedCli::new(path.to_owned(), validated)],
-        Permission::Destructive,
-        json!({}),
-    );
-    drop(
-        applier
-            .changes
-            .apply_cli_terminal(request)
-            .await
-            .map_err(|_error| ApplyError::FinishFailed)?,
-    );
-    if wait_restored(applier).await.is_err() {
-        return Err(match applier.mode {
-            SafetyMode::Router => ApplyError::FinishFailed,
-            SafetyMode::ScheduledReboot => ApplyError::RollbackRestarting,
-            _ => ApplyError::Validation,
-        });
-    }
-    applier.report.finished = true;
-    Ok(())
+    Ok(RouterCtx::new(Arc::clone(&client), catalog))
 }
 
 /// Waits out the armed timer and proves the original configuration returned.

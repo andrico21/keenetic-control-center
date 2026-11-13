@@ -320,6 +320,9 @@ pub const CLI_DONE_TERMINAL: MessageKey = MessageKey::new("cli-done-terminal");
 pub const CLI_ERROR_FIREWALL_VERIFICATION: MessageKey =
     MessageKey::new("cli-error-firewall-verification");
 
+/// `failsafe-rollback-rebooting` in `cli.ftl`.
+pub const FAILSAFE_ROLLBACK_REBOOTING: MessageKey = MessageKey::new("failsafe-rollback-rebooting");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6671,7 +6674,7 @@ pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate-nothing-to-send");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2127] = [
+pub static ALL: [MessageKey; 2128] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6777,6 +6780,7 @@ pub static ALL: [MessageKey; 2127] = [
     CLI_MIGRATE_ROLLED_BACK,
     CLI_DONE_TERMINAL,
     CLI_ERROR_FIREWALL_VERIFICATION,
+    FAILSAFE_ROLLBACK_REBOOTING,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

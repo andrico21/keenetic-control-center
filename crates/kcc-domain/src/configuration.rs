@@ -25,6 +25,7 @@ use crate::{
     DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
 };
 
+pub mod close;
 pub mod recovery;
 
 /// Tolerant fail-safe state nested in `show last-change`.
@@ -282,23 +283,6 @@ impl SafetyNet {
     pub async fn commit(changes: &mut ChangeSet) -> CoreResult<(), WorkflowError> {
         changes.commit().await
     }
-
-    /// Rolls native fail-safe state back through protected destructive CLI execution.
-    // NOT cancel-safe: cancelled after the CLI request is sent, the router may already be
-    // rolling back (and rebooting) while the caller is unaware.
-    pub async fn rollback(
-        changes: &mut ChangeSet,
-        router: &RouterCtx,
-    ) -> CoreResult<CliChangeResult, WorkflowError> {
-        let request = cli_request(
-            router,
-            "system configuration fail-safe rollback",
-            "system configuration fail-safe rollback".to_owned(),
-            Self::CONTROL_PERMISSION,
-        )
-        .map_err(|_error| WorkflowError::InvalidResponse)?;
-        changes.apply_cli(request).await
-    }
 }
 
 /// Reads `show last-change`, including its fail-safe object.
@@ -370,9 +354,7 @@ fn cli_request(
                 .ok_or(DomainError::InvalidResponse)?;
             json!({"interval": interval})
         }
-        "system configuration fail-safe keep-alive" | "system configuration fail-safe rollback" => {
-            json!({})
-        }
+        "system configuration fail-safe keep-alive" => json!({}),
         _ => return Err(DomainError::InvalidResponse),
     };
     let validated = router
@@ -387,7 +369,7 @@ fn cli_request(
                 json!(!line.starts_with("no ")),
             )]
         }
-        "system reboot" | "system configuration fail-safe rollback" => Vec::new(),
+        "system reboot" => Vec::new(),
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
