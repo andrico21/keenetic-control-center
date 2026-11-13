@@ -13,16 +13,16 @@
 mod tests {
     extern crate alloc;
 
-    use alloc::collections::{BTreeMap, BTreeSet};
-    use core::{cell::RefCell, error::Error, time::Duration};
+    use alloc::collections::BTreeMap;
+    use core::{error::Error, time::Duration};
     use std::{
         env,
         path::{Path, PathBuf},
     };
 
     use kcc_app::settings::{
-        ClientLabel, Config, ConfigError, KCC_ENV_VARS, LogMode, LogSinkConfig, RouterAuth,
-        RouterTls, SearchFlavor, default_state_dir,
+        ClientLabel, Config, ConfigError, LogMode, LogSinkConfig, RouterAuth, RouterTls,
+        SearchFlavor, default_state_dir,
     };
     use url::Url;
 
@@ -639,25 +639,6 @@ kind = "stdout"
             }
             other => Err(format!("expected an env error, got {other:?}").into()),
         }
-    }
-
-    /// The override pass reads exactly the documented `KCC_ENV_VARS`.
-    #[test]
-    fn every_documented_env_var_is_read() -> TestResult {
-        let seen = RefCell::new(BTreeSet::new());
-        let mut config = Config::from_toml_str("")?;
-        drop(config.apply_kcc_env_overrides_with(|var| {
-            let _: bool = seen.borrow_mut().insert(var.to_owned());
-            Ok(None)
-        })?);
-        let documented: BTreeSet<String> =
-            KCC_ENV_VARS.iter().map(|var| (*var).to_owned()).collect();
-        assert_eq!(
-            seen.into_inner(),
-            documented,
-            "read set equals KCC_ENV_VARS"
-        );
-        Ok(())
     }
 
     /// Linux default: `$XDG_STATE_HOME/kcc`, else `~/.local/state/kcc`.

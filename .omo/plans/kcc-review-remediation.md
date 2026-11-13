@@ -424,7 +424,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(app): one change-request shape and a single validation per batch item
   Recommended task executor category: deep-low - wide signature change across crates, decisions settled by the code
 
-- [ ] 22. Environment overrides generated from one table
+- [x] 22. Environment overrides generated from one table
   What to do / Must NOT do: Replace the hand-written `KCC_ENV_VARS` list (`crates/kcc-app/src/settings.rs:37-77`) and the `EnvApplier` override block (`settings.rs:1167-1506`) with one `macro_rules!` table of `(ENV_NAME, field path, parser)` rows that generates both. Keep every variable name and parsing rule byte-identical (they are a public surface documented in `docs/CONFIG.md`). Delete the sync test `crates/kcc-app/tests/config.rs:619-633` only if the list is now generated from the same table; keep the behavior tests (`:410-437,522-615`). Must NOT: add or rename variables.
   Closes: GAP-11
   Parallelization: Wave W4 | Blocked by: 4 | Blocks: 45 | Can parallelize with: 21, 23, 24, 25, 26, 28, 29, 52, 53

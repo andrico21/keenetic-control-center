@@ -219,3 +219,68 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - RED confirmed: preset options rejected a numeric switch-port source (`interface 1`) via `valid_name`. A preset only carries `interface N` context when an included line references it (e.g. `ip route ... 1`), since groups pull `interface * **` by referenced word.
 - Fix: `is_switch_port` now `pub(crate)`; `presets_page/options.rs` `checked` accepts a port row left as its source; typed names (incl. `99x`) stay strict.
 - Tests: crates/kcc-web/tests/presets_pages/options.rs (a_numeric_switch_port_source_plans, a_typed_port_name_stays_checked). Note a_typed_port_name_stays_checked was already green before the fix (guards strictness).
+
+## 2026-11-13 Todo 20 progress
+
+**Completed deletion of unreachable kcc-rci code:**
+
+### Deleted items:
+1. `KEEPALIVE_INTERVAL` constant (session.rs:40)
+2. `start_keepalive()` method (session.rs:524-541) 
+3. `keepalive_once()` async method (session.rs:540-561)
+4. `Keepalive` struct and Drop impl (session.rs:757-770)
+5. `session_manager()` accessor (engine.rs:177-183)
+6. `with_deadline()` method (engine/background.rs:108-114)
+7. `configure_argon2_concurrency()` function (ndw4_keys.rs:20-32)
+8. `AuthScheme` type alias (auth.rs:136-141)
+9. `SessionManager` type alias (session.rs:184-192)
+
+### Merged helpers:
+1. `read_capped()`: kept engine.rs version (takes cap param as required), deleted capabilities.rs version, made pub(crate) in engine.rs
+2. `lock()`: made pub(crate) in session.rs, deleted duplicate from engine.rs, updated engine.rs import
+
+### Updated static:
+- Replaced `OnceLock<Arc<Semaphore>>` with `LazyLock<Arc<Semaphore>>` in ndw4_keys.rs for `BUDGET`, removed initialization function
+
+### Updated type references:
+- Changed all `SessionManager` to `Manager` in:
+  - engine.rs type signatures and method implementations
+  - engine/background.rs 
+  - capabilities.rs (used Manager type in function signatures)
+  - All test files (session.rs, auth_survivors.rs, auth_ndw4.rs, capabilities.rs, auth_token.rs, engine.rs, auth_digest.rs, components.rs, capture.rs)
+
+### Deleted test-only tests:
+- None identified; all remaining tests exercise surviving functionality
+
+### Acceptance criteria verification:
+✓ `cargo test -p kcc-rci` - GREEN (all 126 tests passed)
+✓ `cargo check -p kcc -p kcc-app -p kcc-web -p kcc-mcp -p kcc-testkit -p kcc-migrate --all-targets` - GREEN
+✓ `cargo clippy -p kcc-rci --all-targets -- -D warnings` - GREEN (no warnings)
+✓ `cargo +nightly-2026-10-03 fmt --all -- --check` - GREEN (all formatted correctly)
+✓ `cargo xtask allow-gate` - GREEN (0 allow attributes)
+✓ `cargo xtask cancel-safety` - GREEN (0 missing comments)
+✓ Final grep verification: no remaining instances of deleted items
+
+### Files modified:
+- crates/kcc-rci/src/session.rs (deleted 3 items, made lock pub)
+- crates/kcc-rci/src/engine.rs (deleted 1 item, updated types, deleted lock, imported lock from session)
+- crates/kcc-rci/src/engine/background.rs (deleted 1 item, updated Manager import)
+- crates/kcc-rci/src/ndw4_keys.rs (deleted 1 item, replaced OnceLock with LazyLock)
+- crates/kcc-rci/src/auth.rs (deleted 1 item)
+- crates/kcc-rci/src/capabilities.rs (deleted read_capped, imported engine::read_capped, updated Manager usage)
+- All test files updated to use Manager instead of SessionManager alias
+- crates/kcc-testkit/src/capture.rs and tests/components.rs updated for Manager type
+
+### Notes:
+- The `configure_argon2_concurrency()` function was unreachable (no callers) - safe to delete
+- The keepalive functionality (Keepalive struct, start_keepalive, keepalive_once) were todo 19 cleanups - verified no callers remain
+- `SessionManager` alias was purely cosmetic - all code now uses `Manager` directly  
+- `AuthScheme` alias similarly cosmetic - all code now uses `Scheme` directly
+- LazyLock provides the same lazy initialization semantics as OnceLock but is simpler for our use case (always defaults to 1 permit)
+
+
+## [2026-11-13] Todo 3 progress
+- Done (worker r3, wt/r3): `kcc_domain::configuration::close::{Close, Closed, close}` is the single router-command closing step; engine `apply/finish.rs` (keeps backup/original/restore wait + job bookkeeping) and CLI `config failsafe commit|rollback`, `preset finish`, `migrate finish` call it; `Ctx::finish_saved` and `SafetyNet::rollback` deleted; CLI failure mapping in `cli/closing.rs::reported`.
+- Gotcha: `crates/kcc-domain/tests/profile_coverage.rs` fails any new domain suite that does not contain the literal `in PROFILES` (iterate `support::PROFILES`).
+- Gotcha: returning a `Copy` struct from a step needs `let _: T = ...` (`-D unused-results`; `drop(copy)` trips `dropping_copy_types`).
+- Tests: new `crates/kcc/tests/cli/closing_modes.rs` (8-row table, RED showed extender config/preset rollback sending the native rollback and router commit without save), new `crates/kcc-domain/tests/close.rs` (step x mode x firmware + committed-not-saved row; mutation-checked).
