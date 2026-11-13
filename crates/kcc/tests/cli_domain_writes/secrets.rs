@@ -73,6 +73,39 @@ async fn wireguard_import_reads_the_file_and_never_prints_its_keys() -> TestResu
     lab.shutdown().await
 }
 
+/// A `.conf` other users can read exits 3 before any router write.
+#[cfg(unix)]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn wireguard_import_refuses_a_conf_others_can_read() -> TestResult {
+    use std::{fs, os::unix::fs::PermissionsExt as _};
+
+    let lab = Lab::spawn("").await?;
+    let conf = lab.env.write(
+        "shared.conf",
+        &format!(
+            "[Interface]\nPrivateKey = {}\nListenPort = 51820\n[Peer]\nPublicKey = {}\n",
+            key('7'),
+            key('1')
+        ),
+    )?;
+    fs::set_permissions(&conf, fs::Permissions::from_mode(0o644))?;
+    let file = conf.to_str().ok_or("non-UTF-8 path")?;
+    let before = lab.fake.request_log().len();
+
+    let refused = lab.run(&["vpn", "wireguard-import", "Wireguard7", "--file", file])?;
+
+    assert_eq!(refused.code, 3_i32, "{refused:?}");
+    assert!(
+        lab.fake
+            .request_log()
+            .iter()
+            .skip(before)
+            .all(|record| record.command().is_none()),
+        "the import sent a write"
+    );
+    lab.shutdown().await
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn wireguard_import_refuses_every_existing_interface_name_without_writes() -> TestResult {
     for role in ["admin", "operator", "writer"] {

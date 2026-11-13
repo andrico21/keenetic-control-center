@@ -1,6 +1,5 @@
 //! Poller integration tests.
 #![expect(
-    clippy::absolute_paths,
     clippy::default_numeric_fallback,
     clippy::std_instead_of_alloc,
     clippy::tests_outside_test_module,
@@ -32,8 +31,7 @@ use url::Url;
 async fn ten_subscribers_share_one_light_poll_round() -> Result<(), Box<dyn Error>> {
     let directory = TempDir::new()?;
     let (address, handle) = FakeRouter::spawn().await?;
-    let password = directory.path().join("password");
-    std::fs::write(&password, DEFAULT_PASSWORD)?;
+    let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let state = StateStore::open(&directory.path().join("state"))?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
@@ -80,8 +78,7 @@ async fn registry_for(
     directory: &TempDir,
     address: SocketAddr,
 ) -> Result<Arc<RouterRegistry>, Box<dyn Error>> {
-    let password = directory.path().join("password");
-    std::fs::write(&password, DEFAULT_PASSWORD)?;
+    let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let state = StateStore::open(&directory.path().join("state"))?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;

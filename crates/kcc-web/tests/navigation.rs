@@ -12,7 +12,6 @@
 mod support;
 
 use core::net::SocketAddr;
-use std::fs;
 
 use axum::http::StatusCode;
 use kcc_app::{permissions::built_in_roles, registry::ManagedRouterProfile};
@@ -127,8 +126,8 @@ pub(crate) async fn add_lab_routers(fixture: &Fixture) -> TestResult<(Handle, Te
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;
     let directory = TempDir::new()?;
-    let password_file = directory.path().join("password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file =
+        kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let admin = built_in_roles()
         .into_iter()
         .find(|role| role.name == "admin")

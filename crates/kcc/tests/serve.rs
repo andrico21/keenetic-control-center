@@ -173,8 +173,8 @@ impl Fixture {
     async fn new(http_enabled: bool) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let (router_address, router) = FakeRouter::spawn().await?;
-        let password_file = directory.path().join("router.password");
-        fs::write(&password_file, DEFAULT_PASSWORD)?;
+        let password_file =
+            kcc_testkit::write_secret_file(directory.path(), "router.password", DEFAULT_PASSWORD)?;
         let state_dir = directory.path().join("state");
         let state = StateStore::open(&state_dir)?;
         let key = MasterKey::from_bytes([17_u8; 32]);
@@ -579,6 +579,41 @@ async fn unknown_stdio_role_is_refused() -> TestResult {
         stderr.contains("configured stdio role \"nosuchrole\" does not exist"),
         "{stderr}"
     );
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+/// A TLS private key other users can read stops `kcc serve` before it listens.
+#[cfg(unix)]
+#[tokio::test]
+async fn serve_refuses_a_tls_key_others_can_read() -> TestResult {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let fixture = Fixture::new(true).await?;
+    let directory = fixture.config.parent().ok_or("config has no parent")?;
+    let generated = rcgen::generate_simple_self_signed(vec!["localhost".to_owned()])?;
+    let cert = directory.join("cert.pem");
+    let key = directory.join("key.pem");
+    fs::write(&cert, generated.cert.pem())?;
+    fs::write(&key, generated.signing_key.serialize_pem())?;
+    fs::set_permissions(&key, fs::Permissions::from_mode(0o644))?;
+    let text = fs::read_to_string(&fixture.config)?.replace(
+        "[server]\n",
+        &format!("[server]\ntls_cert_path = {cert:?}\ntls_key_path = {key:?}\n"),
+    );
+    fs::write(&fixture.config, text)?;
+
+    let (status, stderr) = fixture.spawn()?.wait()?;
+
+    let mut args = fluent_bundle::FluentArgs::new();
+    args.set("path", key.display().to_string());
+    let hint = kcc_i18n::bundle::tr(
+        kcc_i18n::locale::Locale::En,
+        kcc_i18n::keys::ERRORS_SECRET_FILE_PERMISSIONS,
+        Some(&args),
+    );
+    assert_eq!(status.code(), Some(1_i32), "{stderr}");
+    assert!(stderr.contains(&hint), "{stderr}");
     fixture.shutdown().await?;
     Ok(())
 }

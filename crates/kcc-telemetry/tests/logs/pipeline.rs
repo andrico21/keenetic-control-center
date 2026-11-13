@@ -2,7 +2,7 @@
 
 use core::{error::Error, time::Duration};
 use std::{
-    fs, io,
+    io,
     sync::{Arc, Mutex},
 };
 
@@ -85,8 +85,8 @@ async fn record_bound_splits_one_thousand_and_one_records() -> TestResult {
 async fn trace_and_debug_never_include_sink_password_or_api_key() -> TestResult {
     let fake = FakeElasticsearch::spawn().await?;
     let directory = TempDir::new()?;
-    let key = directory.path().join("api-key");
-    fs::write(&key, "trace-secret-api-key\n")?;
+    let key =
+        kcc_testkit::write_secret_file(directory.path(), "api-key", "trace-secret-api-key\n")?;
     let config = Config::from_toml_str(&format!(
         "[logs]\nenabled = true\n\n[[logs.sinks]]\nkind = \"elasticsearch\"\nurl = \"{}\"\napi_key_file = {key:?}\n",
         fake.url()

@@ -43,8 +43,8 @@ async fn start(update: Option<FirmwareUpdate>) -> Result<Running, Box<dyn Error>
         fake = fake.with_firmware_update(answer);
     }
     let (address, router) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
-    let password_file = directory.path().join("router.password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file =
+        kcc_testkit::write_secret_file(directory.path(), "router.password", DEFAULT_PASSWORD)?;
     let state = StateStore::open(&directory.path().join("state"))?;
     AccountStore::new(
         state,

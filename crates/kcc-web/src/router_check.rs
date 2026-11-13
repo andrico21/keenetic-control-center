@@ -199,6 +199,12 @@ impl TestResult {
             Err(RegistryError::Rci(RciError::Policy)) => {
                 Self::failed(shell, policy_refusal(locale, url))
             }
+            Err(RegistryError::CredentialPermissions { path }) => {
+                let mut args = FluentArgs::new();
+                args.set("path", path.display().to_string());
+                let error = tr(locale, keys::ERRORS_SECRET_FILE_PERMISSIONS, Some(&args));
+                Self::failed(shell, error)
+            }
             Err(error) => Self::failed(shell, tr(locale, failure(error), None)),
         }
     }

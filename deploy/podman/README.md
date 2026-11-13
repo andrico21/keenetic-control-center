@@ -49,7 +49,9 @@ uses the exec (JSON) form: the plain-string form becomes `CMD-SHELL`, which need
 ### Secrets
 
 Everything secret is a Podman secret mounted read-only for uid 65532 with mode 0400;
-nothing secret lives in the config directory or in the image.
+nothing secret lives in the config directory or in the image. kcc refuses a secret file
+(router password, log sink credential, TLS key) that group or others can read, so keep
+`mode=0400` (or 0600) on every further `Secret=` line.
 
 ```sh
 # 32-byte master key that encrypts the state store

@@ -68,8 +68,7 @@ fn registry(
 
 /// Writes the fixture password and returns the `[[routers]]` lines of a password profile.
 fn password_lines(directory: &Path, auth: &str) -> Result<String, Box<dyn Error>> {
-    let path = directory.join("password");
-    fs::write(&path, DEFAULT_PASSWORD)?;
+    let path = kcc_testkit::write_secret_file(directory, "password", DEFAULT_PASSWORD)?;
     Ok(format!(
         "login = \"{DEFAULT_LOGIN}\"\npassword_file = {:?}\nauth = \"{auth}\"\n",
         path.display().to_string()
@@ -97,8 +96,11 @@ async fn token_profile_sends_the_token_header() -> Result<(), Box<dyn Error>> {
     let mut fixture = Fixture::default();
     fixture.protocol = Protocol::Token;
     let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-    let token = directory.path().join("token");
-    fs::write(&token, format!("{}\n", ["fixture", "token"].join("-")))?;
+    let token = kcc_testkit::write_secret_file(
+        directory.path(),
+        "token",
+        &format!("{}\n", ["fixture", "token"].join("-")),
+    )?;
     let lines = format!(
         "auth = \"token\"\ntoken_file = {:?}\n",
         token.display().to_string()

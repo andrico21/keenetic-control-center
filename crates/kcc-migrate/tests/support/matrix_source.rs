@@ -11,7 +11,6 @@ use kcc_rci::{
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, model::Profile};
 use secrecy::SecretString;
 use tempfile::TempDir;
-use tokio::fs;
 use url::Url;
 
 use super::support::Fixture;
@@ -83,8 +82,8 @@ pub(crate) async fn register_source(
     fixture: &Fixture,
     source: &LiveSource,
 ) -> Result<SecretBytes, Box<dyn Error>> {
-    let password_file = source.directory.path().join("password");
-    fs::write(&password_file, DEFAULT_PASSWORD).await?;
+    let password_file =
+        kcc_testkit::write_secret_file(source.directory.path(), "password", DEFAULT_PASSWORD)?;
     fixture
         .registry
         .create(

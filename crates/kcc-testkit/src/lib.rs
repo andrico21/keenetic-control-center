@@ -54,7 +54,10 @@ use alloc::{
     sync::Arc,
 };
 use core::{error::Error, fmt, net::SocketAddr, time::Duration};
-use std::io;
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 use axum::http::{HeaderValue, Method};
 use kcc_config::config_text::ParseError;
@@ -79,6 +82,24 @@ pub const DEFAULT_SESSION_TTL: Duration = Duration::from_secs(300);
 
 /// Largest accepted request body in bytes; larger bodies get 413.
 pub const MAX_BODY_BYTES: usize = server::MAX_BODY_BYTES;
+
+/// Writes `contents` to `dir/name` readable by its owner only (mode 0600 on unix), as
+/// kcc requires of every secret file it reads, and returns the path.
+///
+/// # Errors
+///
+/// Returns the I/O error of the write or the permission change.
+#[inline]
+pub fn write_secret_file(dir: &Path, name: &str, contents: &str) -> io::Result<PathBuf> {
+    let path = dir.join(name);
+    fs::write(&path, contents)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt as _;
+        fs::set_permissions(&path, fs::Permissions::from_mode(0o600))?;
+    }
+    Ok(path)
+}
 
 /// Per-instance fault injection controls for workflow tests.
 #[derive(Clone, Debug, Default)]

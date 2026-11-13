@@ -79,7 +79,16 @@ and sets `no_new_privs`. Run it as an ordinary user.
 
 2. Create the first administrator and add a router. The examples in this repository
    use `$ROUTER_URL` for the router address (for example `http://192.168.1.1`) and a
-   file `router.pw` holding the router's admin password:
+   file `router.pw` holding the router's admin password. Only you may read it: kcc
+   refuses a secret file that group or others can read. Create it owner-only, for
+   example:
+
+   ```text
+   umask 077
+   printf '%s\n' 'the-router-password' > router.pw
+   ```
+
+   Then:
 
    ```bash kcc-doc-test
    kcc admin init

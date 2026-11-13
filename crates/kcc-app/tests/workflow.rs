@@ -712,8 +712,8 @@ impl Fixture {
             .faults(faults)
             .build()?;
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-        let password = directory.path().join("password");
-        std::fs::write(&password, DEFAULT_PASSWORD)?;
+        let password =
+            kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;

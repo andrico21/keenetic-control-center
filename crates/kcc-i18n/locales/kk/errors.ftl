@@ -15,3 +15,4 @@ errors-outbound-refused = kcc { $address } мекенжайына қосылма
 errors-outbound-metadata = kcc { $address } мекенжайына ешқашан қосылмайды: бұл бұлттық метадеректер мекенжайы, оған ешбір параметр рұқсат бермейді.
 errors-outbound-loopback = kcc { $address } мекенжайына қосылмайды: кері байланыс мекенжайлары үшін kcc.toml ішінде [outbound] allow_loopback = true мәнін орнатыңыз; іске қосылған kcc serve өзгерісті қайта іске қосылғаннан кейін қолданады.
 errors-outbound-never = kcc { $address } мекенжайына ешқашан қосылмайды: мұндай мекенжайға ешбір параметр рұқсат бермейді.
+errors-secret-file-permissions = { $path } файлын басқа пайдаланушылар оқи алады. chmod 600 { $path } командасын орындап, әрекетті қайталаңыз.

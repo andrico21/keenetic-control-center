@@ -27,8 +27,8 @@ async fn target(test_device: bool) -> Result<Target, Box<dyn Error>> {
     let directory = TempDir::new()?;
     let (address, handle) = FakeRouter::spawn().await?;
     let url = format!("http://{address}");
-    let password_file = directory.path().join("password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file =
+        kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     fs::write(
         directory.path().join("kcc.toml"),
         format!(

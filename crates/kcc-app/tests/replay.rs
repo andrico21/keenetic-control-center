@@ -27,7 +27,6 @@ mod tests {
     use secrecy::SecretString;
     use serde_json::json;
     use tempfile::TempDir;
-    use tokio::fs;
     use url::Url;
 
     /// Strict replay stops at the rejected line; permissive replay retains its error and continues.
@@ -55,8 +54,8 @@ mod tests {
                 .build()?
                 .serve(([127, 0, 0, 1], 0).into())
                 .await?;
-            let password_file = directory.path().join("password");
-            fs::write(&password_file, DEFAULT_PASSWORD).await?;
+            let password_file =
+                kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
             let state = StateStore::open(&directory.path().join("state"))?;
             let mut outbound = OutboundConfig::default();
             outbound.allow_loopback = true;

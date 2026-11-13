@@ -153,8 +153,8 @@ async fn serve_exposes_router_metrics_on_the_kit_listener() -> TestResult {
     drop(tracing_subscriber::fmt().with_test_writer().try_init());
     let directory = TempDir::new()?;
     let (router_address, router) = FakeRouter::spawn().await?;
-    let password_file = directory.path().join("router.password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file =
+        kcc_testkit::write_secret_file(directory.path(), "router.password", DEFAULT_PASSWORD)?;
     let key = directory.path().join("master.key");
     write_master_key(&key)?;
     let (port, metrics_port) = (reserve_port()?, reserve_port()?);

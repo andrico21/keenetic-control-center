@@ -19,7 +19,7 @@ use core::{
     sync::atomic::{AtomicUsize, Ordering},
     time::Duration,
 };
-use std::{fs, path::Path};
+use std::path::Path;
 
 use kcc_app::{
     permissions::{Permission, Role},
@@ -99,8 +99,7 @@ struct Rig {
 /// Builds the rig and lets the first round complete.
 async fn rig() -> Result<Rig, Box<dyn Error>> {
     let directory = TempDir::new()?;
-    let password = directory.path().join("password");
-    fs::write(&password, DEFAULT_PASSWORD)?;
+    let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
     let state = StateStore::open(&directory.path().join("state"))?;

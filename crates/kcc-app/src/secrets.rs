@@ -6,6 +6,8 @@
 //! random 192-bit nonce, and the associated data binds it to its owner (the
 //! router id), so a ciphertext moved to another record fails to open.
 
+pub mod files;
+
 use core::fmt;
 use std::{
     env,
@@ -332,26 +334,11 @@ fn write_key(path: &Path, key: &MasterKey) -> Result<(), CryptoError> {
 ///
 /// [`CryptoError::KeyPermissions`] or [`CryptoError::KeyFile`].
 fn check_key_permissions(file: &File, path: &Path) -> Result<(), CryptoError> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt as _;
-        let mode = file
-            .metadata()
-            .map_err(|source| CryptoError::KeyFile {
-                path: path.to_owned(),
-                source,
-            })?
-            .permissions()
-            .mode();
-        if mode & 0o077 != 0 {
-            return Err(CryptoError::KeyPermissions {
-                path: path.to_owned(),
-            });
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        let _: (&File, &Path) = (file, path);
-    }
-    Ok(())
+    let metadata = file.metadata().map_err(|source| CryptoError::KeyFile {
+        path: path.to_owned(),
+        source,
+    })?;
+    files::owner_only(&metadata, path).map_err(|_error| CryptoError::KeyPermissions {
+        path: path.to_owned(),
+    })
 }

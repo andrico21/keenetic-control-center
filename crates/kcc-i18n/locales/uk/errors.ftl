@@ -15,3 +15,4 @@ errors-outbound-refused = kcc не підключається до { $address }:
 errors-outbound-metadata = kcc ніколи не підключається до { $address }: це адреса хмарних метаданих, її не дозволяє жоден параметр.
 errors-outbound-loopback = kcc не підключається до { $address }: для адрес зворотного зв’язку вкажіть [outbound] allow_loopback = true у kcc.toml; запущений kcc serve застосує зміну після перезапуску.
 errors-outbound-never = kcc ніколи не підключається до { $address }: адресу такого типу не дозволяє жоден параметр.
+errors-secret-file-permissions = Файл { $path } можуть читати інші користувачі. Виконайте chmod 600 { $path } і спробуйте ще раз.

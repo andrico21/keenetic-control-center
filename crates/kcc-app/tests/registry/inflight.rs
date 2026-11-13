@@ -1,7 +1,6 @@
 //! Server-observed request admission across registry client roles.
 
 use core::{error::Error, time::Duration};
-use std::fs;
 
 use kcc_app::{
     permissions::{Permission, Role},
@@ -43,8 +42,7 @@ async fn exercise(single_client: bool) -> Result<(), Box<dyn Error>> {
         .faults(FaultInjection::default().latency(Duration::from_millis(80)))
         .build()?;
     let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
-    let password = directory.path().join("password");
-    fs::write(&password, DEFAULT_PASSWORD)?;
+    let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
     let registry = RouterRegistry::new(

@@ -116,8 +116,8 @@ async fn admin_resets_another_account_without_printing_the_password() -> TestRes
     let env = Env::new("admin")?;
     seed(&env)?;
     let replacement = "alice replacement passphrase";
-    let secret_file = env.path("replacement.password");
-    fs::write(&secret_file, replacement)?;
+    let secret_file =
+        kcc_testkit::write_secret_file(env.directory.path(), "replacement.password", replacement)?;
     let secret_arg = secret_file.to_str().ok_or("non-UTF-8 secret path")?;
 
     let run = env.reset(secret_arg)?;
@@ -150,8 +150,8 @@ async fn viewer_reset_is_refused_with_policy_exit_and_no_state_change() -> TestR
     let env = Env::new("viewer")?;
     seed(&env)?;
     let replacement = "alice replacement passphrase";
-    let secret_file = env.path("replacement.password");
-    fs::write(&secret_file, replacement)?;
+    let secret_file =
+        kcc_testkit::write_secret_file(env.directory.path(), "replacement.password", replacement)?;
     let secret_arg = secret_file.to_str().ok_or("non-UTF-8 secret path")?;
 
     let run = env.reset(secret_arg)?;

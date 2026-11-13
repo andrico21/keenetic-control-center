@@ -56,7 +56,11 @@ impl Sandbox {
         let key = root.join("master.key");
         fs::write(&key, [23_u8; 32])?;
         fs::set_permissions(&key, fs::Permissions::from_mode(0o600))?;
-        fs::write(root.join("router.pw"), DEFAULT_PASSWORD)?;
+        drop(kcc_testkit::write_secret_file(
+            root,
+            "router.pw",
+            DEFAULT_PASSWORD,
+        )?);
         Ok(Self {
             directory,
             router_url,

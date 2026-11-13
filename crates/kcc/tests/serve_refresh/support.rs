@@ -118,8 +118,8 @@ impl Fixture {
     pub(crate) async fn new() -> TestResult<Self> {
         let directory = TempDir::new()?;
         let (address, router) = FakeRouter::spawn().await?;
-        let password_file = directory.path().join("router.password");
-        fs::write(&password_file, DEFAULT_PASSWORD)?;
+        let password_file =
+            kcc_testkit::write_secret_file(directory.path(), "router.password", DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         state.update(|roles: &mut RolesDocument| {
             roles.roles.push(ops(&[

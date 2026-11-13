@@ -3,7 +3,6 @@
 //! Every test runs on paused Tokio time: the cadence is the behavior under test, and the
 //! fake router answers over loopback inside the same runtime.
 #![expect(
-    clippy::absolute_paths,
     clippy::std_instead_of_alloc,
     clippy::tests_outside_test_module,
     clippy::missing_errors_doc,
@@ -59,8 +58,7 @@ async fn rig(firmware: Firmware, metrics_toml: &str) -> Result<Rig, Box<dyn Erro
     let directory = TempDir::new()?;
     let router = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?).build()?;
     let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
-    let password = directory.path().join("password");
-    std::fs::write(&password, DEFAULT_PASSWORD)?;
+    let password = kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let mut outbound = OutboundConfig::default();
     outbound.allow_loopback = true;
     let self_metrics = SelfMetrics::new("0.1.0-test")?;

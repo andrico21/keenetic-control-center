@@ -24,7 +24,6 @@ use kcc_migrate::{
 use kcc_rci::{RouterUrl, SecretBytes};
 use kcc_testkit::{FakeRouter, FaultInjection, Handle, migration, model::Profile};
 use tempfile::TempDir;
-use tokio::fs;
 use url::Url;
 
 /// Real registry, workflow and router with isolated state.
@@ -84,8 +83,7 @@ impl Fixture {
     ) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
-        let password_file = directory.path().join("password");
-        fs::write(&password_file, password).await?;
+        let password_file = kcc_testkit::write_secret_file(directory.path(), "password", password)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;

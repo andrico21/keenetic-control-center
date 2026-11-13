@@ -168,8 +168,8 @@ mod tests {
             .build()?
             .serve(([127, 0, 0, 1], 0).into())
             .await?;
-        let password_file = directory.path().join("password");
-        fs::write(&password_file, DEFAULT_PASSWORD).await?;
+        let password_file =
+            kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;

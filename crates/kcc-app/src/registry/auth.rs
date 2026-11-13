@@ -1,12 +1,15 @@
 //! Authentication scheme and credential source of a router profile.
 
-use std::{fs, path::Path};
+use std::path::Path;
 
 use kcc_rci::auth_options::{Mode, Options};
 use secrecy::SecretString;
 
 use super::{CredentialUse, ManagedRouterProfile, RegistryError};
-use crate::settings::RouterAuth;
+use crate::{
+    secrets::files::{SecretFileError, read_secret_file},
+    settings::RouterAuth,
+};
 
 /// Checks that a profile names exactly one credential file and that it fits the scheme.
 pub(super) fn validate(profile: &ManagedRouterProfile) -> Result<(), RegistryError> {
@@ -46,13 +49,11 @@ pub(super) fn options(
     Ok(options)
 }
 
-/// Reads one operator-managed secret file, dropping its trailing line break.
-pub(super) fn secret_file(path: &Path) -> Result<SecretString, RegistryError> {
-    let secret = fs::read_to_string(path).map_err(|source| RegistryError::CredentialFile {
-        path: path.to_path_buf(),
-        source,
-    })?;
-    Ok(SecretString::from(
-        secret.trim_end_matches(['\r', '\n']).to_owned(),
-    ))
+/// Reads one operator-managed secret file, dropping its trailing line break; refuses a
+/// file group or others can read.
+pub(super) fn secret_file(file: &Path) -> Result<SecretString, RegistryError> {
+    read_secret_file(file).map_err(|error| match error {
+        SecretFileError::Read { path, source } => RegistryError::CredentialFile { path, source },
+        SecretFileError::Permissions { path } => RegistryError::CredentialPermissions { path },
+    })
 }

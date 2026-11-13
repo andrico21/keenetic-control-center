@@ -51,6 +51,15 @@ for a loopback test sink) and don't follow redirects either.
 - **Operator-managed files**: `password_file`, `read_password_file` and `token_file`
   paths supplied in configuration or with `--password-file` remain files controlled by
   the operator and are read unchanged; kcc does not copy them into state.
+- **Owner-only secret files.** On Unix kcc applies the master-key rule to every secret
+  file it reads: router `password_file`, `read_password_file` and `token_file`, CLI
+  `--password-file` and `--current-password-file` input, WireGuard `.conf` imports, log
+  sink `password_file`, `bearer_token_file` and `api_key_file`, and `[server]
+  tls_key_path`. A file group or others can access (any bit of mode 077) is refused
+  before it is read: the router connection or `kcc serve` startup fails, and a CLI
+  command exits 3, naming the file and the `chmod 600` that fixes it. The file contents
+  never reach logs or errors. Modes 0600 and 0400 (the Podman secret mounts) pass.
+  Windows has no mode check, as for the master key.
 - **Migration and recovery**: startup and first CLI use seal, reopen and compare legacy
   `<id>.password` files before overwriting and unlinking them. A wrong/corrupt key,
   damaged record or comparison failure leaves plaintext in place and fails closed.

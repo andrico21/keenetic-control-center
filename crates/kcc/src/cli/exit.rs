@@ -3,7 +3,10 @@
 use core::fmt;
 
 use fluent_bundle::FluentArgs;
-use kcc_app::{credentials::CredentialError, registry::RegistryError, workflow::WorkflowError};
+use kcc_app::{
+    credentials::CredentialError, registry::RegistryError, secrets::files::SecretFileError,
+    workflow::WorkflowError,
+};
 use kcc_catalog::ValidationIssue;
 use kcc_domain::{
     DomainError,
@@ -17,7 +20,7 @@ use kcc_i18n::{
 };
 use kcc_rci::RciError;
 
-use super::issues::issue_sentence;
+use super::{issues::issue_sentence, secret::secret_file_failure};
 
 /// The documented process exit codes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -264,6 +267,9 @@ impl From<RegistryError> for Failure {
             RegistryError::Rci(inner) => return inner.into(),
             RegistryError::PermissionDenied { router } => return denied(&router),
             RegistryError::CredentialFile { path: _, source: _ } => Exit::Auth,
+            RegistryError::CredentialPermissions { path } => {
+                return secret_file_failure(&SecretFileError::Permissions { path });
+            }
             RegistryError::InvalidProfile { reason: _ } => Exit::Validation,
             RegistryError::AlreadyExists { id: _ } => Exit::Conflict,
             RegistryError::ConfigDefined { id: _ } => Exit::Policy,

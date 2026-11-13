@@ -108,8 +108,8 @@ mod tests {
             .serve(([127, 0, 0, 1], 0).into())
             .await?;
         let url = format!("http://{address}");
-        let password_file = files.path().join("password");
-        fs::write(&password_file, DEFAULT_PASSWORD)?;
+        let password_file =
+            kcc_testkit::write_secret_file(files.path(), "password", DEFAULT_PASSWORD)?;
         let config = files.path().join("kcc.toml");
         fs::write(
             &config,

@@ -1,10 +1,16 @@
 //! HTTP delivery to configured log destinations.
 
 use core::{fmt, time::Duration};
-use std::{io::Write as _, path::Path};
+use std::{
+    io::Write as _,
+    path::{Path, PathBuf},
+};
 
 use flate2::{Compression, write::GzEncoder};
-use kcc_app::settings::LogSinkConfig;
+use kcc_app::{
+    secrets::files::{SecretFileError, read_secret_file_async},
+    settings::LogSinkConfig,
+};
 use reqwest::{Client, StatusCode, header, redirect::Policy};
 use rustls::crypto::ring::default_provider;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -240,6 +246,12 @@ pub enum DeliveryError {
     /// A configured secret or CA file cannot be read.
     #[error("cannot read a configured log sink file")]
     ReadFile,
+    /// Group or others can read a configured secret file (unix only).
+    #[error("log sink secret file {path} can be read by other users (chmod 600)")]
+    SecretPermissions {
+        /// Secret file path.
+        path: PathBuf,
+    },
     /// A configured CA file is not a PEM certificate.
     #[error("configured log sink CA is not a valid PEM certificate")]
     Certificate,
@@ -284,6 +296,7 @@ impl DeliveryError {
             Self::WrongKind
             | Self::InvalidAuth
             | Self::ReadFile
+            | Self::SecretPermissions { path: _ }
             | Self::Certificate
             | Self::Client
             | Self::Payload
@@ -305,6 +318,7 @@ impl DeliveryError {
             Self::WrongKind
             | Self::InvalidAuth
             | Self::ReadFile
+            | Self::SecretPermissions { path: _ }
             | Self::Certificate
             | Self::Client
             | Self::Payload
@@ -328,15 +342,18 @@ pub(super) fn retry_after(headers: &header::HeaderMap) -> Option<Duration> {
 ///
 /// # Errors
 ///
-/// Returns [`DeliveryError::ReadFile`] when the configured file cannot be read.
+/// Returns [`DeliveryError::ReadFile`] when the configured file cannot be read, or
+/// [`DeliveryError::SecretPermissions`] when group or others can read it.
 // cancel-safe: the read does not mutate application state.
 pub(super) async fn read_secret(path: &Path) -> Result<SecretString, DeliveryError> {
-    let value = fs::read_to_string(path)
+    read_secret_file_async(path)
         .await
-        .map_err(|_error| DeliveryError::ReadFile)?;
-    Ok(SecretString::from(
-        value.trim_end_matches(['\r', '\n']).to_owned(),
-    ))
+        .map_err(|error| match error {
+            SecretFileError::Permissions { path: refused } => {
+                DeliveryError::SecretPermissions { path: refused }
+            }
+            SecretFileError::Read { path: _, source: _ } | _ => DeliveryError::ReadFile,
+        })
 }
 
 /// Compresses one already-bounded request body.

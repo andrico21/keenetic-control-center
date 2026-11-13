@@ -211,6 +211,12 @@ pub enum RegistryError {
         /// Underlying I/O error.
         source: io::Error,
     },
+    /// Group or others can read a router credential file (unix only).
+    #[error("router credential file {path} can be read by other users (chmod 600)")]
+    CredentialPermissions {
+        /// Credential path.
+        path: PathBuf,
+    },
     /// A kcc-managed encrypted credential could not be opened.
     #[error(transparent)]
     Credential(#[from] CredentialError),

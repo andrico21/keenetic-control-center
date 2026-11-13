@@ -6,7 +6,7 @@
 
 use alloc::{collections::BTreeSet, sync::Arc};
 use core::{error::Error, time::Duration};
-use std::{fs, path::PathBuf};
+use std::path::PathBuf;
 
 use kcc_app::{
     audit::{AuditEntry, AuditLog, verify_chain},
@@ -141,8 +141,11 @@ impl Lab {
         let mut handles = Vec::new();
         for (id, fake) in routers {
             let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
-            let password = directory.path().join(format!("{id}-password"));
-            fs::write(&password, DEFAULT_PASSWORD)?;
+            let password = kcc_testkit::write_secret_file(
+                directory.path(),
+                &format!("{id}-password"),
+                DEFAULT_PASSWORD,
+            )?;
             let profile = ManagedRouterProfile::new(
                 id.to_owned(),
                 Url::parse(&format!("http://{address}"))?,

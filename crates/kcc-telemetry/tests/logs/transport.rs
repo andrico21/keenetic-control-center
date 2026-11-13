@@ -6,7 +6,10 @@ use std::{fs, io::Read as _};
 use chrono::{FixedOffset, TimeZone as _};
 use flate2::read::GzDecoder;
 use kcc_app::settings::Config;
-use kcc_telemetry::logs::{elastic_sink::ElasticsearchClient, sink::LokiClient};
+use kcc_telemetry::logs::{
+    elastic_sink::ElasticsearchClient,
+    sink::{DeliveryError, LokiClient},
+};
 use kcc_testkit::{
     fake_elasticsearch::{FakeElasticsearch, Fault as ElasticsearchFault},
     fake_loki::FakeLoki,
@@ -19,8 +22,8 @@ use super::{TestResult, record};
 async fn loki_sink_applies_tenant_basic_auth_and_gzip_without_debug_secret() -> TestResult {
     let fake = FakeLoki::spawn().await?;
     let directory = TempDir::new()?;
-    let password = directory.path().join("sink-password");
-    fs::write(&password, "highly-secret\n")?;
+    let password =
+        kcc_testkit::write_secret_file(directory.path(), "sink-password", "highly-secret\n")?;
     let url = fake.url();
     let config = Config::from_toml_str(&format!(
         "[logs]\nenabled = true\n\n[[logs.sinks]]\nkind = \"loki\"\nurl = \"{url}\"\ntenant = \"tenant-a\"\nbasic_auth_user = \"writer\"\npassword_file = {password:?}\ncompress = true\n"
@@ -77,14 +80,47 @@ async fn loki_sink_applies_tenant_basic_auth_and_gzip_without_debug_secret() -> 
     Ok(())
 }
 
+/// A bearer token file other users can read is refused before any delivery.
+#[cfg(unix)]
+#[tokio::test]
+async fn loki_sink_refuses_a_bearer_token_file_others_can_read() -> TestResult {
+    use std::os::unix::fs::PermissionsExt as _;
+
+    let fake = FakeLoki::spawn().await?;
+    let directory = TempDir::new()?;
+    let token = kcc_testkit::write_secret_file(
+        directory.path(),
+        "sink-token",
+        &format!("{}\n", ["sink", "token"].join("-")),
+    )?;
+    fs::set_permissions(&token, fs::Permissions::from_mode(0o644))?;
+    let url = fake.url();
+    let config = Config::from_toml_str(&format!(
+        "[logs]\nenabled = true\n\n[[logs.sinks]]\nkind = \"loki\"\nurl = \"{url}\"\nbearer_token_file = {token:?}\n"
+    ))?;
+    config.validate()?;
+
+    let refused = LokiClient::load(config.logs.sinks.first().ok_or("sink")?)
+        .await
+        .err()
+        .ok_or("0644 token accepted")?;
+
+    assert!(
+        matches!(&refused, DeliveryError::SecretPermissions { path } if *path == token),
+        "{refused:?}"
+    );
+    assert!(fake.requests().is_empty(), "the sink was contacted");
+    fake.shutdown().await?;
+    Ok(())
+}
+
 #[tokio::test]
 async fn elasticsearch_sink_uses_api_key_and_classifies_item_failures() -> TestResult {
     let fake =
         FakeElasticsearch::spawn_with_faults(vec![ElasticsearchFault::MapperParsing { item: 1 }])
             .await?;
     let directory = TempDir::new()?;
-    let key = directory.path().join("search-key");
-    fs::write(&key, "encoded-api-key\n")?;
+    let key = kcc_testkit::write_secret_file(directory.path(), "search-key", "encoded-api-key\n")?;
     let config = Config::from_toml_str(&format!(
         "[[logs.sinks]]\nkind = \"elasticsearch\"\nurl = \"{}\"\napi_key_file = {key:?}\n",
         fake.url()

@@ -558,6 +558,10 @@ pub const ERRORS_OUTBOUND_LOOPBACK: MessageKey = MessageKey::new("errors-outboun
 /// `errors-outbound-never` in `errors.ftl`.
 pub const ERRORS_OUTBOUND_NEVER: MessageKey = MessageKey::new("errors-outbound-never");
 
+/// `errors-secret-file-permissions` in `errors.ftl`.
+pub const ERRORS_SECRET_FILE_PERMISSIONS: MessageKey =
+    MessageKey::new("errors-secret-file-permissions");
+
 /// `mcp-prompt-troubleshoot-internet` in `mcp.ftl`.
 pub const MCP_PROMPT_TROUBLESHOOT_INTERNET: MessageKey =
     MessageKey::new("mcp-prompt-troubleshoot-internet");
@@ -6686,7 +6690,7 @@ pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate
 pub const WEB_BRACKET_UNOWNED: MessageKey = MessageKey::new("web-bracket-unowned");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2132] = [
+pub static ALL: [MessageKey; 2133] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6871,6 +6875,7 @@ pub static ALL: [MessageKey; 2132] = [
     ERRORS_OUTBOUND_METADATA,
     ERRORS_OUTBOUND_LOOPBACK,
     ERRORS_OUTBOUND_NEVER,
+    ERRORS_SECRET_FILE_PERMISSIONS,
     MCP_PROMPT_TROUBLESHOOT_INTERNET,
     MCP_PROMPT_TROUBLESHOOT_WIFI,
     MCP_PROMPT_TROUBLESHOOT_DEVICE,

@@ -196,8 +196,7 @@ fn write_config(
     url: &str,
     (port, extra, mcp_http): (u16, &str, bool),
 ) -> TestResult<(PathBuf, String)> {
-    let password_file = home.join("router.password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file = kcc_testkit::write_secret_file(home, "router.password", DEFAULT_PASSWORD)?;
     let state = StateStore::open(&home.join("state"))?;
     let accounts = AccountStore::new(
         state.clone(),

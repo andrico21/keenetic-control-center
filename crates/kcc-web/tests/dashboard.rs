@@ -153,8 +153,11 @@ mod tests {
                 )
                 .with_locale("ru".to_owned()),
             )?;
-            let password_file = directory.path().join("router-password");
-            fs::write(&password_file, DEFAULT_PASSWORD)?;
+            let password_file = kcc_testkit::write_secret_file(
+                directory.path(),
+                "router-password",
+                DEFAULT_PASSWORD,
+            )?;
             let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));
             let registry = Arc::new(
                 RouterRegistry::new(state.clone(), &[], outbound)?
@@ -888,8 +891,11 @@ mod tests {
         fixture: &Fixture,
         id: &str,
     ) -> Result<ManagedRouterProfile, Box<dyn Error + Send + Sync>> {
-        let read_file = fixture.directory.path().join("read-password");
-        fs::write(&read_file, ROUTER_SECRET)?;
+        let read_file = kcc_testkit::write_secret_file(
+            fixture.directory.path(),
+            "read-password",
+            ROUTER_SECRET,
+        )?;
         let mut profile = fixture.registry.get(id)?.profile;
         profile.read_login = Some(ROUTER_LOGIN.to_owned());
         profile.read_password_file = Some(read_file);

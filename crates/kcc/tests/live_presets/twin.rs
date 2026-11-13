@@ -26,8 +26,7 @@ async fn presets_rehearsal_runs_against_two_fake_routers() -> TestResult {
         .serve(local)
         .await?;
     let files = TempDir::new()?;
-    let password_file = files.path().join("password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file = kcc_testkit::write_secret_file(files.path(), "password", DEFAULT_PASSWORD)?;
     let seed = connect(
         format!("http://{source_address}").parse()?,
         DEFAULT_LOGIN.to_owned(),

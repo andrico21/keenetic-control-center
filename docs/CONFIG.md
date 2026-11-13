@@ -7,7 +7,10 @@ and keys are rejected at startup. [kcc.example.toml](../kcc.example.toml) lists 
 kcc sections with their defaults.
 
 Durations use humantime syntax (`30s`, `15m`, `12h`, `180d`). Secrets never go in this
-file: routers and log sinks name files that hold them.
+file: routers and log sinks name files that hold them. On Unix each such file, and
+`[server] tls_key_path`, must be readable by its owner only (mode 0600 or 0400): kcc
+refuses a file that group or others can access when it connects to the router, loads
+the log sink or starts `kcc serve`. Windows has no such mode check.
 
 **Environment overrides.** `KCC_<SECTION>_<KEY>` overrides a key of the kcc sections
 `[web]`, `[mcp]`, `[outbound]`, `[state]`, `[backups]`, `[audit]`, `[cli]`, `[privacy]`,

@@ -15,3 +15,4 @@ errors-outbound-refused = kcc не падключаецца да { $address }: �
 errors-outbound-metadata = kcc ніколі не падключаецца да { $address }: гэта адрас воблачных метаданых, яго не дазваляе ніводны параметр.
 errors-outbound-loopback = kcc не падключаецца да { $address }: для адрасоў зваротнай пятлі задайце [outbound] allow_loopback = true у kcc.toml; запушчаны kcc serve ужыве змяненне пасля перазапуску.
 errors-outbound-never = kcc ніколі не падключаецца да { $address }: адрас такога тыпу не дазваляе ніводны параметр.
+errors-secret-file-permissions = Файл { $path } могуць чытаць іншыя карыстальнікі. Выканайце chmod 600 { $path } і паспрабуйце яшчэ раз.

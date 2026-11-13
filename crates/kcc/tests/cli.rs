@@ -68,6 +68,9 @@ mod rci_transport;
 mod router_credentials;
 #[path = "cli/runtime_management.rs"]
 mod runtime_management;
+#[cfg(unix)]
+#[path = "cli/secret_files.rs"]
+mod secret_files;
 #[path = "cli/support.rs"]
 mod support;
 #[path = "cli/unsaved.rs"]

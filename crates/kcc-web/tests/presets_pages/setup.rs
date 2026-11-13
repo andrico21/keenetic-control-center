@@ -7,7 +7,7 @@
 
 use alloc::sync::Arc;
 use core::{net::SocketAddr, time::Duration};
-use std::{fs, path::Path};
+use std::path::Path;
 
 use kcc_app::{
     accounts::{AccountStore, Clock, NewAccount},
@@ -139,8 +139,8 @@ pub(crate) async fn routers(
     let mut handles = Vec::new();
     for (id, fake) in routers {
         let (address, handle) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
-        let password_file = directory.join(format!("{id}-password"));
-        fs::write(&password_file, DEFAULT_PASSWORD)?;
+        let password_file =
+            kcc_testkit::write_secret_file(directory, &format!("{id}-password"), DEFAULT_PASSWORD)?;
         registry
             .create(
                 &admin,

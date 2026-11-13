@@ -121,6 +121,7 @@ impl Outcome {
 // NOT cancel-safe: once the listener starts, shutdown must be driven cooperatively by the kit.
 pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let (path, config, _tracing_guard) = load_config(config_path)?;
+    crate::server_tls_key::check(&config)?;
     let state_dir = config.state.resolved_dir().map_err(error)?;
     let state = StateStore::open(&state_dir).map_err(error)?;
     let _state_lock = state.try_lock("server").map_err(|source| {

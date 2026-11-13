@@ -1,11 +1,12 @@
 //! Secrets from a file, `KCC_PASSWORD`, or a hidden terminal prompt; and confirmations.
 
 use std::{
-    env, fs,
+    env,
     io::{self, BufRead as _, IsTerminal as _, Write as _},
     path::Path,
 };
 
+use kcc_app::secrets::files::{SecretFileError, read_secret_file};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use secrecy::SecretString;
@@ -27,13 +28,7 @@ const PASSWORD_ENV: &str = "KCC_PASSWORD";
 /// Returns a usage failure when no source is available, or an I/O failure.
 pub(crate) fn read_secret(file: Option<&Path>, prompt: &str) -> Outcome<SecretString> {
     if let Some(path) = file {
-        let raw =
-            Zeroizing::new(fs::read_to_string(path).map_err(|error| {
-                Failure::text(Exit::Auth, &format!("{}: {error}", path.display()))
-            })?);
-        return Ok(SecretString::from(
-            raw.trim_end_matches(['\r', '\n']).to_owned(),
-        ));
+        return read_secret_file(path).map_err(|error| secret_file_failure(&error));
     }
     if let Ok(value) = env::var(PASSWORD_ENV) {
         let raw = Zeroizing::new(value);
@@ -44,6 +39,18 @@ pub(crate) fn read_secret(file: Option<&Path>, prompt: &str) -> Outcome<SecretSt
     }
     let raw = Zeroizing::new(rpassword::prompt_password(prompt)?);
     Ok(SecretString::from(raw.as_str().to_owned()))
+}
+
+/// The exit-3 failure of a secret file that cannot be read or that others can read.
+pub(crate) fn secret_file_failure(error: &SecretFileError) -> Failure {
+    match error {
+        SecretFileError::Permissions { path } => Failure::message(
+            Exit::Auth,
+            keys::ERRORS_SECRET_FILE_PERMISSIONS,
+            &[("path", &path.display().to_string())],
+        ),
+        SecretFileError::Read { path: _, source: _ } | _ => Failure::text(Exit::Auth, error),
+    }
 }
 
 /// Asks before a change of `risk` on `router`.

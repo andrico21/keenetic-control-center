@@ -15,3 +15,4 @@ errors-outbound-refused = kcc does not connect to { $address }: the address is o
 errors-outbound-metadata = kcc never connects to { $address }: it is a cloud metadata address, which no setting admits.
 errors-outbound-loopback = kcc does not connect to { $address }: loopback addresses require [outbound] allow_loopback = true in kcc.toml; a running kcc serve picks the change up when restarted.
 errors-outbound-never = kcc never connects to { $address }: no setting admits this kind of address.
+errors-secret-file-permissions = { $path } can be read by other users. Run chmod 600 { $path } and try again.

@@ -15,3 +15,4 @@ errors-outbound-refused = kcc verbindet sich nicht mit { $address }: Die Adresse
 errors-outbound-metadata = kcc verbindet sich nie mit { $address }: Das ist eine Cloud-Metadatenadresse, die keine Einstellung zulässt.
 errors-outbound-loopback = kcc verbindet sich nicht mit { $address }: Loopback-Adressen erfordern [outbound] allow_loopback = true in kcc.toml; ein laufendes kcc serve übernimmt die Änderung nach einem Neustart.
 errors-outbound-never = kcc verbindet sich nie mit { $address }: Keine Einstellung lässt diese Art von Adresse zu.
+errors-secret-file-permissions = { $path } ist für andere Benutzer lesbar. Führen Sie chmod 600 { $path } aus und versuchen Sie es erneut.

@@ -9,7 +9,6 @@
 )]
 
 use core::error::Error;
-use std::fs;
 
 use kcc_app::{
     persist::StateStore,
@@ -22,12 +21,14 @@ use tempfile::TempDir;
 mod auth_modes;
 #[path = "registry/inflight.rs"]
 mod inflight;
+#[cfg(unix)]
+#[path = "registry/secret_files.rs"]
+mod secret_files;
 
 #[tokio::test]
 async fn reload_replaces_changed_config_profile() -> Result<(), Box<dyn Error>> {
     let directory = TempDir::new()?;
-    let password = directory.path().join("password");
-    fs::write(&password, "fixture")?;
+    let password = kcc_testkit::write_secret_file(directory.path(), "password", "fixture")?;
     let initial = config(&password, 18080)?;
     let state = StateStore::open(&directory.path().join("state"))?;
     let registry = RouterRegistry::new(state, &initial.routers, &OutboundConfig::default())?;

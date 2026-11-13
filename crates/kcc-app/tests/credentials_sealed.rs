@@ -194,8 +194,11 @@ async fn registry_opens_managed_sealed_and_operator_password_files() -> TestResu
         "admin".to_owned(),
         credentials.legacy_path("managed")?,
     );
-    let operator_path = fixture.directory.path().join("operator.password");
-    fs::write(&operator_path, "operator-password")?;
+    let operator_path = kcc_testkit::write_secret_file(
+        fixture.directory.path(),
+        "operator.password",
+        "operator-password",
+    )?;
     let operator = ManagedRouterProfile::new(
         "operator".to_owned(),
         Url::parse("http://127.0.0.1:9")?,

@@ -74,11 +74,14 @@ impl Env {
         self.path("state")
     }
 
-    /// Writes `content` to `name` and returns its path.
+    /// Writes `content` to `name` readable by its owner only, as kcc requires of the
+    /// secret files it reads, and returns its path.
     pub(crate) fn write(&self, name: &str, content: &str) -> Result<PathBuf, Box<dyn Error>> {
-        let path = self.path(name);
-        fs::write(&path, content)?;
-        Ok(path)
+        Ok(kcc_testkit::write_secret_file(
+            self.directory.path(),
+            name,
+            content,
+        )?)
     }
 
     /// Runs `kcc --config <kcc.toml> <args>`.

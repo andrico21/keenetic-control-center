@@ -5,10 +5,7 @@
 //! A 4.3.9 router without IPv6 access lists gets the explorer note.
 
 use core::net::SocketAddr;
-use std::{
-    fs,
-    io::{self, Write as _},
-};
+use std::io::{self, Write as _};
 
 use axum::http::StatusCode;
 use kcc_app::{permissions::built_in_roles, registry::ManagedRouterProfile};
@@ -234,8 +231,8 @@ async fn a_4_3_9_router_without_ipv6_lists_gets_the_explorer_note() -> TestResul
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;
     let directory = TempDir::new()?;
-    let password_file = directory.path().join("password");
-    fs::write(&password_file, DEFAULT_PASSWORD)?;
+    let password_file =
+        kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;
     let admin_role = built_in_roles()
         .into_iter()
         .find(|role| role.name == "admin")

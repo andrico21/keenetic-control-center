@@ -1,9 +1,12 @@
 //! VPN client writes: typed `VpnClientChange`s, secret-safe credentials and the WireGuard
 //! import.
 
-use std::{fs, io::Read as _, path::Path};
+use std::{io::Read as _, path::Path};
 
-use kcc_app::permissions::Permission;
+use kcc_app::{
+    permissions::Permission,
+    secrets::files::{SecretFileError, open_secret_file},
+};
 use kcc_catalog::Risk;
 use kcc_domain::{
     interfaces,
@@ -27,6 +30,7 @@ use super::{
     dom_wire::{self, object},
     domains::Session,
     exit::{Exit, Failure, Outcome},
+    secret::secret_file_failure,
 };
 
 /// Largest WireGuard configuration file read.
@@ -109,10 +113,15 @@ async fn secrets(ctx: &Ctx, command: VpnSecretCommand) -> Outcome {
 ///
 /// # Errors
 ///
-/// Returns I/O failures, or a validation failure for a larger file.
+/// Returns the exit-3 failure of a file others can read, I/O failures (exit 1), or a
+/// validation failure for a larger file.
 fn read_conf(path: &Path) -> Outcome<Zeroizing<String>> {
     let mut text = Zeroizing::new(String::new());
-    let _: usize = fs::File::open(path)?
+    let _: usize = open_secret_file(path)
+        .map_err(|error| match error {
+            SecretFileError::Read { path: _, source } => Failure::from(source),
+            other @ (SecretFileError::Permissions { path: _ } | _) => secret_file_failure(&other),
+        })?
         .take(MAX_CONF_BYTES.saturating_add(1))
         .read_to_string(&mut text)?;
     if u64::try_from(text.len()).unwrap_or(u64::MAX) > MAX_CONF_BYTES {

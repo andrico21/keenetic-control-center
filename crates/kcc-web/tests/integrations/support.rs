@@ -11,7 +11,6 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::{error::Error, net::SocketAddr, sync::atomic::AtomicU64, time::Duration};
-use std::fs;
 
 use axum::{
     Router,
@@ -107,8 +106,8 @@ impl Fixture {
             SecretString::from(PASSWORD),
             "viewer".to_owned(),
         ))?;
-        let password_file = directory.path().join("router-password");
-        fs::write(&password_file, DEFAULT_PASSWORD)?;
+        let password_file =
+            kcc_testkit::write_secret_file(directory.path(), "router-password", DEFAULT_PASSWORD)?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
         let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
