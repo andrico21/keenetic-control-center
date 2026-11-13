@@ -26,6 +26,8 @@ mod bracket;
 mod bracket_failures;
 #[path = "cli/bracket_mode.rs"]
 mod bracket_mode;
+#[path = "cli/busy.rs"]
+mod busy;
 #[path = "cli/dns.rs"]
 mod dns;
 #[path = "cli/failsafe.rs"]

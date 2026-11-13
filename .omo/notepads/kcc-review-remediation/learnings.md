@@ -390,3 +390,28 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 **Doc update**: Updated `docs/MIGRATION.md` to quote the exact i18n message from `migrate-apply-restored` key instead of a shortened version.
 
 **Key insight**: The "plan check" in the todo refers to the plan_id comparison, not to pre-validation. Confirmation must come after the plan is made and validated, ensuring the target used for confirmation matches the target that will be modified.
+
+## [2026-11-14] Todo 24 progress
+- Done: `cli-done` key in 6 locales (+ i18n-gen), `ChangeSet::unsaved()`, `Gate::headline`, `run_headlined`, rci `saved_note`. Tests: cli/unsaved.rs `headline_says_unsaved_only_when_the_router_has_unsaved_configuration`, cli_presets/copy.rs `copy_finishing_with_save_never_says_unsaved`.
+- Gotcha: the fake router's raw `rci post` does not change its last-change `unsaved`; curated CLI writes do.
+- Gotcha: `rci::send` sits at the 100-line clippy limit; keep helpers outside it.
+
+## [2026-11-14] Todo 26 progress
+- Done: CLI `migrate apply`, `preset apply` and `copy` take the target lease (`ChangeWorkflow::reserve`) before
+  `JobRunner` creates a record; busy -> exit 5, `cli.refused`/`refused`/`router_busy`, no job record. Test
+  `crates/kcc/tests/cli/busy.rs::busy_router_refuses_every_apply_before_a_job_exists` (one table, three commands).
+- Gotcha: a CLI test holds a cross-process lease simply with `StateStore::open(state_dir)?.try_lease("<router>")`
+  in the test process (flock is per open file, the `kcc` child sees `StateLocked`).
+- Gotcha: editing sources while a detached RED build compiles makes the RED run build the edited tree; take RED
+  from pristine files (restored with `git show HEAD:<path> > <path>`, then put the edits back).
+- `preflight::prepare` sits at ~97/100 lines; any further growth needs a split.
+
+## [2026-11-14] Todo 54 progress
+- Secret file rule landed: `kcc_app::secrets::files::{open_secret_file, read_secret_file, read_secret_file_async}`
+  (module is `files`, not `file`: clippy `module_name_repetitions` fires on `open_secret_file` inside a `file` module).
+- The host umask is 0022, so every `fs::write` fixture that kcc later reads as a secret is 0644 and now fails; use
+  `kcc_testkit::write_secret_file(dir, name, &str)` (takes `&str`: `impl AsRef<[u8]>` trips `impl_trait_in_params`).
+- Replacing `std::fs::write` in tests can leave `#![expect(clippy::absolute_paths)]` unfulfilled (poller.rs,
+  metrics.rs): drop the expectation in the same change.
+- `match` arms that bind `path` inside a fn whose parameter is `path` trip `shadow_unrelated`; rename one side.
+- Do not `pgrep -f`/`pkill -f` with a pattern that appears in your own command line: it kills the tool shell.

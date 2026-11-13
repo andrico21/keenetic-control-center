@@ -7,7 +7,7 @@ use kcc_app::{
     audit::{Actor, AuditLog},
     backups::BackupStore,
     permissions::Role,
-    workflow::ChangeWorkflow,
+    workflow::{ChangeWorkflow, Reservation},
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciClient, SecretBytes, version::FirmwareVersion};
@@ -166,6 +166,9 @@ pub struct ApplyRequest {
     pub source: ApplySource,
     /// Operator choices.
     pub options: ApplyOptions,
+    /// The target's lease, taken before the job started; `None` takes it when the job
+    /// begins.
+    pub reservation: Option<Reservation>,
 }
 
 impl ApplyRequest {
@@ -190,6 +193,7 @@ impl ApplyRequest {
             plan,
             source,
             options: ApplyOptions::default(),
+            reservation: None,
         }
     }
 }

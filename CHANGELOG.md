@@ -130,6 +130,12 @@ The first release, `0.1.0`, is in preparation and contains:
 - `[[routers]] auth` now selects the sign-in scheme (`ndw2`, `ndw4`, `digest`,
   `token`) instead of being ignored, and `token_file` profiles connect with the token
   instead of being refused at startup. Stored router profiles keep their file format.
+- **A busy router refuses a CLI apply before a job starts**: `kcc migrate apply`,
+  `kcc preset apply` and `kcc copy` onto a router whose write lease another process
+  holds exit 5 with the router-busy message, audit `cli.refused` with outcome `refused`
+  and `reason: "router_busy"`, and leave no job record. They used to announce a run,
+  stop it with "Migration stopped", exit 1 without an audit entry and leave a run id
+  that could be finished.
 
 ### Known limitations
 

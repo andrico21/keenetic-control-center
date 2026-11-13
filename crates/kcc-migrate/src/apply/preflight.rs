@@ -26,17 +26,22 @@ use crate::source::SourceConfig;
 /// # Errors
 /// Returns typed source, firmware, drift, agreement, or workflow failures.
 // NOT cancel-safe: cancellation after arming leaves router recovery active.
-pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError> {
+pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyError> {
     if !TIMER_RANGE.contains(&request.options.safety_seconds) {
         return Err(ApplyError::Validation);
     }
     authorize(&request.role, Permission::Migrate, &request.target)
         .map_err(|_error| ApplyError::Workflow)?;
-    let mut changes = request
-        .workflow
-        .begin_migration(&request.target, request.actor.clone(), &request.role)
-        .await
-        .map_err(|_error| ApplyError::Workflow)?;
+    let (workflow, actor, role) = (&request.workflow, request.actor.clone(), &request.role);
+    let begun = match request.reservation.take() {
+        Some(reservation) => {
+            workflow
+                .begin_reserved_migration(reservation, actor, role)
+                .await
+        }
+        None => workflow.begin_migration(&request.target, actor, role).await,
+    };
+    let mut changes = begun.map_err(|_error| ApplyError::Workflow)?;
     let original = changes.client();
     let bytes = source_bytes(&request, &original).await?;
     let source =

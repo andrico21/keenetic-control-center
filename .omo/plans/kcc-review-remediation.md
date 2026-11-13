@@ -464,7 +464,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(cli): router-aware missing-permission message
   Recommended task executor category: quick - one computation and one key
 
-- [ ] 26. A busy router refuses a CLI apply cleanly
+- [x] 26. A busy router refuses a CLI apply cleanly
   What to do / Must NOT do: TDD. A CLI apply (migrate, preset, copy) onto a router whose lease another process holds prints "run started" and later "Migration stopped. Review the result before choosing rollback.", exits 1, writes no audit entry and leaves a finishable job id (BACKLOG r17 F3-N75). Make the lease failure (`WorkflowError::RouterBusy`) surface before the job record is created: exit 5 (`Exit::Conflict`), the router-busy text naming the holder, one `refused` audit entry (`Attempt::Refused`, todo 15), and no job record. Must NOT: change lease semantics.
   Closes: GAP-9
   Parallelization: Wave W4 | Blocked by: 14, 15, 23 | Blocks: 21, 45 | Can parallelize with: 22, 24, 25, 28, 29, 52, 53

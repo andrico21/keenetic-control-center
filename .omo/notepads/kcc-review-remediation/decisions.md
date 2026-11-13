@@ -155,3 +155,50 @@ Design notes: (1) CLI finish paths (config failsafe commit/rollback, migrate fin
   - `kcc-app/src/audit.rs` unit test `lock_timeout_fails_one_append_and_writer_accepts_the_next` -> `a_lock_timeout_keeps_the_entry_queued_and_the_writer_alive`.
   - `let _: ChangeResult` -> `let _applied: ChangeResult` in kcc-domain tests bracket.rs, close.rs, verification_coverage/tests/execution.rs and kcc-mcp common/tests.rs (ChangeResult now owns a receipt, so `let _` trips `let_underscore_drop`).
 - Plan filter note: `cargo test -p kcc-web --test explorer_pages bracket_budget` matches 0 tests (module path is `bracket::budget`); evidence uses `bracket::budget`.
+
+## [2026-11-14] Todo 26: refuse a CLI apply onto a busy router before a job exists
+- Design: hand the lease over instead of probing it. `ChangeWorkflow::reserve(router, actor, role)`
+  (kcc-app) does what `begin_with_client` did first (audit alive, Read authorization, `try_lease`,
+  `RouterBusy` naming the in-process holder or "another process", actor label) and returns a
+  `Reservation` (lease + label guard; label drops before the lease). `begin`/`begin_migration` now
+  call `reserve` and pass the reservation to `begin_with_client`, so the lease path and its order are
+  unchanged for every caller. New `begin_reserved_migration(reservation, actor, role)` starts a
+  migration change set on an already held lease.
+- `ApplyRequest` (kcc-migrate) gained `reservation: Option<Reservation>` (`None` from `new`, so the
+  Web/MCP paths behave as before); `preflight::prepare` uses it when present, else `begin_migration`.
+- CLI: `migrate_apply::reserve` takes the lease right before `JobRunner::open`/`Applier::start`
+  for `migrate apply` and `preset/run.rs` (`preset apply` and `copy`); on `RouterBusy` it audits
+  `cli.refused` / `refused` / `reason: "router_busy"` and returns `Failure::from(WorkflowError)`
+  (exit 5, `Exit::Conflict`, existing mapping). No job record is created.
+- Why not a probe-and-release: it leaves a window in which another process takes the lease after
+  the probe, which reproduces the old "run started / Migration stopped" outcome; the hand-over has
+  no window and needs no new lease semantics.
+- Changed expectations: none (no existing test changed). Docs: SECURITY.md audit paragraph names
+  `router_busy`; CHANGELOG `### Fixed` entry.
+
+## [2026-11-14] Todo 54 (r54): secret file permission rule
+- Shared reader lives at `kcc_app::secrets::file::{read_secret_file, read_secret_file_async, open_secret_file, SecretFileError}`
+  (new `crates/kcc-app/src/secrets/file.rs`), not at `kcc_app::secrets::read_secret_file`: `secrets.rs` was already at
+  252 pure LOC and the house rules forbid `pub use` re-exports, so the reader is a public submodule. The master key's
+  `check_key_permissions` now calls the same `file::owner_only` mode check (one copy of the `mode & 0o077` rule).
+- Telemetry: kcc-telemetry already depends on kcc-app, so the async variant `read_secret_file_async` sits next to the
+  sync one in kcc-app (tokio `fs` is already a kcc-app feature); no new dependency anywhere.
+- Error surfaces: `RegistryError::CredentialPermissions { path }` (new variant; read failures stay `CredentialFile`),
+  `DeliveryError::SecretPermissions { path }` (read failures stay `ReadFile`), CLI `secret::secret_file_failure`
+  (exit 3 + `errors-secret-file-permissions`), Web connection test renders the same key with the path, `kcc serve`
+  checks `[server] tls_key_path` in new `crates/kcc/src/server_tls_key.rs` (server.rs is >600 LOC) and fails with the
+  English rendering of the key (startup errors are English `ServerError` text).
+- WireGuard `read_conf` uses `open_secret_file` + its 64 KiB cap; a permission refusal exits 3, other open failures keep
+  their previous exit 1 (`From<io::Error>`), so no other exit code changes.
+- Changed expectation: CLI `--password-file` read failures now print `SecretFileError::Read` Display
+  ("cannot read secret file <path>: <io error>") instead of "<path>: <io error>"; exit code unchanged (3).
+- `kcc_testkit::write_secret_file` is a root-level fn in `kcc-testkit/src/lib.rs` as the plan names it (12 lines in an
+  already large file); `crates/kcc/tests/cli/support.rs` `Env::write` now delegates to it, which covers every CLI,
+  cli_domain_writes and cli_presets fixture (including WireGuard `.conf` files) in one place.
+
+## [2026-11-14] Todo 24 decisions
+- Headline rule lives in `Gate::headline(unsaved)` (crates/kcc/src/cli/change.rs): explicit outcome, else persists, else `ChangeSet::unsaved()` (new accessor in kcc-app workflow.rs over the last-change read refreshed after each change) -> `cli-applied` / new `cli-done`.
+- Changed expectation (commit body): crates/kcc/tests/cli/persists.rs `successful_text_changes_state_whether_the_result_is_saved`, the `rci delete system description` row: `CLI_APPLIED` -> `CLI_DONE` (the fake router reports no unsaved configuration after that delete; the JSON `unsaved` field is unchanged).
+- `rci` batch/post headline (`saved_note` in rci.rs): path-based unsaved OR router flag -> not saved; persisted -> persisted; applied changes with router flag false -> `cli-done`.
+- Test action for "no configuration": `kcc components check-update` (dom_net.rs, needs `with_firmware_update(Current)` on the fake). `storage check` is refused by every fake catalog; `mesh reboot` fails on the fake (no members).
+- `kcc copy ... --yes --finish save` never printed the not-saved line (the apply runs through the Applier, not change.rs); new test pins it, green before and after.

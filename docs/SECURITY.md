@@ -272,8 +272,10 @@ Every change, handler-level refusal, login and secret reveal appends an entry to
 kind, and each refusal that reaches a kcc handler as `forbidden` or `refused` with a
 reason. The CLI and MCP share one format for these attempts: outcome `forbidden`
 (`reason: "forbidden"`), `refused` (a `reason` code; the CLI records a missing
-confirmation as `refused` with `reason: "confirm_required"`) or `failed` (an `error`
-code), plus `fail_safe_armed: true` only when the recovery timer may still be armed.
+confirmation as `refused` with `reason: "confirm_required"` and an apply onto a router
+whose lease another process holds as `refused` with `reason: "router_busy"`) or
+`failed` (an `error` code), plus `fail_safe_armed: true` only when the recovery timer
+may still be armed.
 The Web records a change that may have left the timer armed, and a failed migration or
 preset finish, the same way: outcome `failed` with its `error` code, plus
 `fail_safe_armed: true` when the timer may still be armed. Refusals are audited per

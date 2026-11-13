@@ -5,7 +5,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use std::path::Path;
 
-use kcc_app::jobs::JobRunner;
+use kcc_app::{audit::Attempt, jobs::JobRunner, workflow::WorkflowError};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest};
@@ -61,6 +61,7 @@ pub(crate) async fn apply(
     request.options.management_password = management_password;
     request.options.safety_seconds = safety_seconds;
     request.options.locale = ctx.out().locale();
+    reserve(ctx, services, &mut request).await?;
     let runner = JobRunner::open(
         ctx.state().clone(),
         Arc::clone(services.registry()),
@@ -118,6 +119,35 @@ pub(crate) async fn apply(
             Err(apply_failure(failure))
         }
     })
+}
+
+/// Takes the target's lease for `request` before its job is created; a busy router is
+/// refused, and audited, without a job record.
+///
+/// # Errors
+///
+/// Returns the busy, permission, or state failure.
+// NOT cancel-safe: the refusal audit may append after cancellation.
+pub(crate) async fn reserve(ctx: &Ctx, services: &Services, request: &mut ApplyRequest) -> Outcome {
+    match services
+        .workflow()
+        .reserve(&request.target, &request.actor, &request.role)
+    {
+        Ok(reservation) => {
+            request.reservation = Some(reservation);
+            Ok(())
+        }
+        Err(error) => {
+            if let WorkflowError::RouterBusy { actor: _ } = &error {
+                let reason = Attempt::Refused {
+                    reason: "router_busy",
+                };
+                ctx.attempt(services, "cli.refused", Some(&request.target), reason)
+                    .await;
+            }
+            Err(error.into())
+        }
+    }
 }
 
 /// Maps a migration failure to its exit code and its shared message.

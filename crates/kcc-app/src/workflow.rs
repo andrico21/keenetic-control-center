@@ -587,37 +587,24 @@ impl ChangeWorkflow {
         last_read: Option<LastChange>,
         force: bool,
     ) -> Result<ChangeSet, WorkflowError> {
-        self.begin_with_client(router, actor, role, last_read, force, None)
+        let reservation = self.reserve(router, &actor, role)?;
+        self.begin_with_client(reservation, actor, role, last_read, force, None)
             .await
     }
 
-    /// Starts a migration lease, permitting explicitly requested factory setup.
+    /// Takes `router`'s write lease for `actor` before its change set begins, so that a
+    /// busy router is refused before any work is started for it; dropping the
+    /// reservation releases the lease.
     ///
     /// # Errors
-    /// Returns authorization, lease, authentication, or inventory failures.
-    // NOT cancel-safe: cancellation releases the acquired lease.
-    pub async fn begin_migration(
+    ///
+    /// Returns busy, permission, audit, or state errors.
+    pub fn reserve(
         self: &Arc<Self>,
         router: &str,
-        actor: Actor,
+        actor: &Actor,
         role: &Role,
-    ) -> Result<ChangeSet, WorkflowError> {
-        let client = self.registry.bootstrap_client(role, router).await?;
-        self.begin_with_client(router, actor, role, None, false, Some(client))
-            .await
-    }
-
-    /// Acquires the ordinary lease using a caller-selected migration client when supplied.
-    // NOT cancel-safe: cancellation releases the acquired lease.
-    async fn begin_with_client(
-        self: &Arc<Self>,
-        router: &str,
-        actor: Actor,
-        role: &Role,
-        last_read: Option<LastChange>,
-        force: bool,
-        selected: Option<Arc<RciClient>>,
-    ) -> Result<ChangeSet, WorkflowError> {
+    ) -> Result<Reservation, WorkflowError> {
         self.audit_alive()?;
         authorize(role, Permission::Read, router).map_err(map_permission)?;
         let lease = match self.state.try_lease(router) {
@@ -640,14 +627,73 @@ impl ChangeWorkflow {
                 .unwrap_or_else(PoisonError::into_inner)
                 .insert(router.to_owned(), actor.id.clone()),
         );
-        let actor_label = LeaseActorGuard {
-            workflow: Arc::clone(self),
+        Ok(Reservation {
             router: router.to_owned(),
-        };
+            actor_label: LeaseActorGuard {
+                workflow: Arc::clone(self),
+                router: router.to_owned(),
+            },
+            lease,
+        })
+    }
+
+    /// Starts a migration lease, permitting explicitly requested factory setup.
+    ///
+    /// # Errors
+    /// Returns authorization, lease, authentication, or inventory failures.
+    // NOT cancel-safe: cancellation releases the acquired lease.
+    pub async fn begin_migration(
+        self: &Arc<Self>,
+        router: &str,
+        actor: Actor,
+        role: &Role,
+    ) -> Result<ChangeSet, WorkflowError> {
+        let client = self.registry.bootstrap_client(role, router).await?;
+        let reservation = self.reserve(router, &actor, role)?;
+        self.begin_with_client(reservation, actor, role, None, false, Some(client))
+            .await
+    }
+
+    /// Starts a migration change set on the lease `reservation` already holds.
+    ///
+    /// # Errors
+    /// Returns authentication, inventory, or last-change failures.
+    // NOT cancel-safe: cancellation releases the reserved lease.
+    pub async fn begin_reserved_migration(
+        self: &Arc<Self>,
+        reservation: Reservation,
+        actor: Actor,
+        role: &Role,
+    ) -> Result<ChangeSet, WorkflowError> {
+        let client = self
+            .registry
+            .bootstrap_client(role, &reservation.router)
+            .await?;
+        self.begin_with_client(reservation, actor, role, None, false, Some(client))
+            .await
+    }
+
+    /// Begins a change set on a reserved lease using a caller-selected migration client
+    /// when supplied.
+    // NOT cancel-safe: cancellation releases the reserved lease.
+    async fn begin_with_client(
+        self: &Arc<Self>,
+        reservation: Reservation,
+        actor: Actor,
+        role: &Role,
+        last_read: Option<LastChange>,
+        force: bool,
+        selected: Option<Arc<RciClient>>,
+    ) -> Result<ChangeSet, WorkflowError> {
+        let Reservation {
+            router,
+            actor_label,
+            lease,
+        } = reservation;
         let migration = selected.is_some();
         let client = match selected {
             Some(client) => client,
-            None => self.registry.client(router).await?,
+            None => self.registry.client(&router).await?,
         };
         let baseline = read_last_change(&client).await?;
         if !force
@@ -662,13 +708,13 @@ impl ChangeWorkflow {
         let info = if migration {
             client.detect().await?
         } else {
-            self.registry.poll_info(router).await?
+            self.registry.poll_info(&router).await?
         };
         let catalog =
             Catalog::for_router(&info).map_err(|_error| WorkflowError::InvalidResponse)?;
         Ok(ChangeSet {
             workflow: Arc::clone(self),
-            router: router.to_owned(),
+            router,
             actor,
             role: role.clone(),
             client,
@@ -728,6 +774,27 @@ impl ChangeWorkflow {
     #[must_use]
     pub const fn brackets(&self) -> &Brackets {
         &self.brackets
+    }
+}
+
+/// A router's write lease taken before the change set that uses it; dropping it releases
+/// the lease.
+#[non_exhaustive]
+pub struct Reservation {
+    /// Router id.
+    router: String,
+    /// Removes the actor label before the lease is released (fields drop in order).
+    actor_label: LeaseActorGuard,
+    /// Cross-process lease.
+    lease: StateLock,
+}
+
+impl fmt::Debug for Reservation {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Reservation")
+            .field("router", &self.router)
+            .finish_non_exhaustive()
     }
 }
 

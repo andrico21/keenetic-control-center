@@ -24,7 +24,7 @@ use super::{
 use crate::cli::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome, denied},
-    migrate_apply::apply_failure,
+    migrate_apply::{apply_failure, reserve},
     secret::confirm,
 };
 
@@ -90,6 +90,7 @@ pub(super) async fn apply(
     }
     let mut protected = request(input).map_err(request_failure)?;
     protected.options.locale = out.locale();
+    reserve(ctx, services, &mut protected).await?;
     let runner = JobRunner::open(
         ctx.state().clone(),
         Arc::clone(services.registry()),
