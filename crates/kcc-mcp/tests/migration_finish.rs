@@ -16,7 +16,7 @@ mod tests {
     use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
     use serde_json::{Value, json};
 
-    use super::lab::{Lab, TestResult, admin};
+    use super::lab::{Lab, Reply, TestResult, admin};
 
     /// Resolves the fixture's blocked settings before applying its reviewed plan.
     async fn applied(lab: &mut Lab) -> TestResult<String> {
@@ -400,6 +400,82 @@ mod tests {
             rollback.value()?.pointer("/apply/finished"),
             Some(&json!(true))
         );
+        lab.stop().await
+    }
+
+    /// Applies onto an extender whose router answers `fail_after` requests, then rolls back.
+    // NOT cancel-safe: the fixture applies and reboots a migration target.
+    async fn extender_rollback(fail_after: Option<u64>) -> TestResult<(Lab, String, Reply)> {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some("extender".to_owned());
+        let faults = fail_after.map_or_else(FaultInjection::default, |count| {
+            FaultInjection::default().fail_after_requests(count)
+        });
+        let target = FakeRouter::builder(Profile::default())
+            .faults(faults)
+            .build()?
+            .with_migration(scenario);
+        let mut lab = Lab::start(
+            vec![
+                ("lab-src", FakeRouter::builder(Profile::default()).build()?),
+                ("lab-1", target),
+            ],
+            admin(),
+        )
+        .await?;
+        let id = applied(&mut lab).await?;
+        let reply = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"rollback", "confirm":true}),
+                false,
+            )
+            .await?;
+        Ok((lab, id, reply))
+    }
+
+    /// A reboot the extender accepts before going silent closes the migration: the code
+    /// says the router is restarting, and a second finish sends nothing.
+    // NOT cancel-safe: both fixtures apply and reboot a migration target.
+    #[tokio::test(start_paused = true)]
+    async fn silent_extender_rollback_reports_restarting_and_closes() -> TestResult {
+        let (baseline, _id, rolled) = extender_rollback(None).await?;
+        assert_eq!(
+            rolled.value()?.pointer("/apply/finished"),
+            Some(&json!(true))
+        );
+        let reboot = baseline
+            .router("lab-1")?
+            .request_log()
+            .iter()
+            .position(|record| record.command() == Some("system reboot"))
+            .and_then(|index| u64::try_from(index).ok())
+            .ok_or("the baseline rollback sends no reboot")?;
+        baseline.stop().await?;
+
+        let (lab, id, reply) = extender_rollback(Some(reboot.saturating_add(1))).await?;
+        assert_eq!(
+            reply.error(),
+            Some("migration_rollback_restarting"),
+            "{reply:?}"
+        );
+        let silent = lab.requests("lab-1")?;
+        let again = lab
+            .call(
+                "kcc_migration_finish",
+                json!({"host":"lab-1", "plan_id":id, "action":"rollback", "confirm":true}),
+                false,
+            )
+            .await?;
+        assert_eq!(again.error(), Some("conflict"), "{again:?}");
+        assert_eq!(lab.requests("lab-1")?, silent, "no second reboot is sent");
+        let reboots = lab
+            .router("lab-1")?
+            .request_log()
+            .iter()
+            .filter(|record| record.command() == Some("system reboot"))
+            .count();
+        assert_eq!(reboots, 1);
         lab.stop().await
     }
 }

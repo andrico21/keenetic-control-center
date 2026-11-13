@@ -32,8 +32,8 @@ pub(crate) fn map_recovery(error: recovery::Failure<McpFailure>) -> McpFailure {
 pub(crate) const fn armed(fate: ArmedFate) -> McpFailure {
     match fate {
         ArmedFate::NotSent => McpFailure::ManagementNotSentFailSafeArmed,
-        // A saved configuration was applied: the closest code until saving has its own.
-        ArmedFate::Applied | ArmedFate::Saved => McpFailure::ManagementAppliedFailSafeArmed,
+        ArmedFate::Applied => McpFailure::ManagementAppliedFailSafeArmed,
+        ArmedFate::Saved => McpFailure::ManagementSavedFailSafeArmed,
         ArmedFate::Unknown | _ => McpFailure::ManagementOutcomeUnknownFailSafeArmed,
     }
 }

@@ -63,10 +63,29 @@ The first release, `0.1.0`, is in preparation and contains:
 
 - **Migration failure name `ArmUnconfirmed`**: a migration or preset run whose recovery
   arm could not be confirmed and whose cleanup was refused reports this name (Web run
-  state) and the MCP code `management_outcome_unknown_fail_safe_armed`: nothing was
-  sent, but the timer may be armed. A run that fails after arming now disarms the timer
+  state) and the MCP code `management_not_sent_fail_safe_armed`: nothing was sent, but
+  the timer may be armed. A run that fails after arming now disarms the timer
   or reports `FinishFailed` (MCP `management_outcome_unknown_fail_safe_armed`), and a
   component install ends with `ReplanRequired` and no timer armed.
+
+- **MCP error code `migration_rollback_restarting`**: `kcc_migration_finish` answers a
+  scheduled-reboot rollback that the router accepted before it stopped answering with
+  this code (it used to be `router_unreachable`) and closes the migration, so a retry
+  cannot reboot the router again. The Web wizard and the preset page close the run the
+  same way.
+
+- **MCP error code `management_saved_fail_safe_armed`**: the configuration was saved but
+  the recovery timer could not be disarmed, so the router may restart with the saved
+  configuration, which includes the change. Such a failure used to read as
+  `management_applied_fail_safe_armed` (bracketed changes) or
+  `management_outcome_unknown_fail_safe_armed` (migration finish).
+
+- **One message per migration failure**: the CLI, the Web UI, MCP and the engine report
+  each migration failure with the same sentence. `ReplanRequired` asks to review the plan
+  again everywhere (the preset page used to show the drift text), and the MCP migration
+  finish reports a failed disarm by what it left (`management_applied_fail_safe_armed`
+  or `management_saved_fail_safe_armed`) instead of always
+  `management_outcome_unknown_fail_safe_armed`.
 
 ### Fixed
 

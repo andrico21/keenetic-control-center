@@ -243,8 +243,13 @@ If the router accepts an explicit rollback and then stays unreachable during the
 restore check, scheduled-reboot mode reports that the router is restarting with its saved
 configuration; router mode conservatively reports the recovery outcome as unknown and armed.
 MCP `kcc_migration_finish` returns `management_outcome_unknown_fail_safe_armed` for
-these closing failures, including failed disarm. Treat recovery as armed even when a
-lost native commit reply means the router may already have saved and disarmed.
+these closing failures, `management_applied_fail_safe_armed` when only the disarm failed,
+and `management_saved_fail_safe_armed` when the configuration was saved but the disarm
+failed. Treat recovery as armed even when a lost native commit reply means the router
+may already have saved and disarmed. A scheduled-reboot rollback the router accepted
+before it went silent returns `migration_rollback_restarting` and closes the migration:
+every surface reports that the router is restarting with its saved configuration, and
+none offers to finish it again.
 If the role loses `Save` after apply, finish returns
 `management_not_committed_fail_safe_armed`: commit was not sent, recovery remains
 armed, and the migration stays available for retry after the role is fixed.

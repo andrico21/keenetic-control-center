@@ -6,7 +6,6 @@ use alloc::sync::Arc;
 use std::path::Path;
 
 use kcc_app::jobs::JobRunner;
-use kcc_domain::configuration::bracket::ArmedFate;
 use kcc_i18n::keys;
 use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest};
 use serde_json::{Value, json};
@@ -117,67 +116,40 @@ pub(crate) async fn apply(
     })
 }
 
-/// Maps a migration failure to its exit code and localized message.
+/// Maps a migration failure to its exit code and its shared message.
 pub(crate) fn apply_failure(error: ApplyError) -> Failure {
-    match error {
-        ApplyError::SavedDisarmFailed => {
-            return Failure::armed(Exit::Router, ArmedFate::Saved);
-        }
-        ApplyError::DisarmFailed => {
-            return Failure::armed(Exit::Router, ArmedFate::Applied);
-        }
-        ApplyError::FinishFailed => {
-            return Failure::armed(Exit::Router, ArmedFate::Unknown);
-        }
-        ApplyError::ArmUnconfirmed => {
-            return Failure::headline_only(Exit::Router, keys::MANAGEMENT_NOT_SENT_ARMED);
-        }
-        ApplyError::CommittedSaveFailed => {
-            return Failure::headline_only(Exit::Router, keys::MIGRATE_COMMITTED_NOT_SAVED);
-        }
-        ApplyError::RollbackRestarting => {
-            return Failure::headline_only(Exit::Router, keys::MIGRATE_ROLLBACK_SAVED);
-        }
+    if let Some(fate) = error.fate() {
+        return Failure::armed(Exit::Router, fate);
+    }
+    let (exit, headline) = match error {
         ApplyError::UnverifiedFirmwareTier
         | ApplyError::AgreementRequired
-        | ApplyError::RolledBackByRouter
         | ApplyError::Firmware
-        | ApplyError::ModeUnknown
-        | ApplyError::Drift
-        | ApplyError::ReplanRequired
-        | ApplyError::Validation
+        | ApplyError::ModeUnknown => (Exit::Policy, false),
+        ApplyError::Drift | ApplyError::ReplanRequired => (Exit::Conflict, false),
+        ApplyError::Validation
         | ApplyError::PasswordRequired
         | ApplyError::SameRouter
-        | ApplyError::HardwareMismatch
+        | ApplyError::HardwareMismatch => (Exit::Validation, false),
+        ApplyError::CommittedSaveFailed | ApplyError::RollbackRestarting => (Exit::Router, true),
+        ApplyError::RolledBackByRouter
         | ApplyError::Source
         | ApplyError::Unreachable
         | ApplyError::Stopped
         | ApplyError::Verification
+        | ApplyError::DisarmFailed
+        | ApplyError::SavedDisarmFailed
+        | ApplyError::ArmUnconfirmed
+        | ApplyError::FinishFailed => (Exit::Router, false),
+        ApplyError::JobStart
         | ApplyError::Workflow
         | ApplyError::Cancelled
         | ApplyError::Job
-        | ApplyError::JobStart
-        | _ => {}
-    }
-    let (exit, key) = match error {
-        ApplyError::UnverifiedFirmwareTier => (Exit::Policy, keys::MIGRATE_APPLY_TIER),
-        ApplyError::AgreementRequired => (Exit::Policy, keys::MIGRATE_APPLY_AGREEMENT),
-        ApplyError::RolledBackByRouter => (Exit::Router, keys::MIGRATE_APPLY_ROUTER_ROLLBACK),
-        ApplyError::Firmware => (Exit::Policy, keys::MIGRATE_APPLY_FAILED),
-        ApplyError::ModeUnknown => (Exit::Policy, keys::MANAGEMENT_MODE_UNKNOWN),
-        ApplyError::Drift | ApplyError::ReplanRequired => (Exit::Conflict, keys::CLI_PLAN_CHANGED),
-        ApplyError::Validation
-        | ApplyError::PasswordRequired
-        | ApplyError::SameRouter
-        | ApplyError::HardwareMismatch => (Exit::Validation, keys::MIGRATE_APPLY_FAILED),
-        ApplyError::Source
-        | ApplyError::Unreachable
-        | ApplyError::Stopped
-        | ApplyError::Verification => (Exit::Router, keys::MIGRATE_APPLY_FAILED),
-        ApplyError::JobStart => (Exit::Generic, keys::MIGRATE_JOB_START_FAILED),
-        ApplyError::Workflow | ApplyError::Cancelled | ApplyError::Job | _ => {
-            (Exit::Generic, keys::MIGRATE_APPLY_FAILED)
-        }
+        | _ => (Exit::Generic, false),
     };
-    Failure::message(exit, key, &[])
+    if headline {
+        Failure::headline_only(exit, error.message_key())
+    } else {
+        Failure::message(exit, error.message_key(), &[])
+    }
 }

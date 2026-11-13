@@ -2,6 +2,7 @@
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
+use kcc_migrate::apply::ApplyError;
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::Value;
@@ -87,8 +88,8 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
         }
     };
     if let Err(error) = result {
-        if error.recovery_armed() {
-            return Err(McpFailure::ManagementOutcomeUnknownFailSafeArmed);
+        if error == ApplyError::RollbackRestarting {
+            migration.close();
         }
         return Err(map_apply(error));
     }

@@ -33,3 +33,4 @@ finish-saved-armed = The configuration was saved, but the recovery timer could n
 migrate-committed-not-saved = The migration is live and the recovery timer is disarmed, but the startup configuration was not saved. Retry commit to save it.
 migrate-commit-not-sent-armed = Commit was not sent because the role lacks Save settings. The recovery timer is still armed, and the migration is kept for retry after the role is fixed.
 migrate-rollback-saved = The router is restarting with its saved configuration, which may already include the migrated settings.
+migrate-apply-replan = The components are installed and the router restarted. Review the plan again: it now covers the settings that needed them.

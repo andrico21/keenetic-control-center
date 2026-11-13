@@ -145,6 +145,8 @@ pub enum McpFailure {
     RouterModeUnknown,
     /// The management change applied, but its recovery timer could not be disarmed.
     ManagementAppliedFailSafeArmed,
+    /// The configuration was saved, but its recovery timer could not be disarmed.
+    ManagementSavedFailSafeArmed,
     /// Work failed or its outcome is unknown, and recovery remains armed.
     ManagementOutcomeUnknownFailSafeArmed,
     /// The arm was refused and so was its disarm: nothing else was sent, and recovery may
@@ -182,6 +184,9 @@ pub enum McpFailure {
     Internal,
     /// The target firmware is documentation-based and the caller did not acknowledge it.
     UnverifiedFirmwareTier,
+    /// The router accepted the rollback and is restarting with its saved configuration;
+    /// the migration is closed, so no retry reboots it again.
+    MigrationRollbackRestarting,
 }
 
 impl McpFailure {
@@ -206,6 +211,7 @@ impl McpFailure {
                 applied: false,
                 completion: _,
             } => "management_outcome_unknown_fail_safe_armed",
+            Self::ManagementSavedFailSafeArmed => "management_saved_fail_safe_armed",
             Self::ManagementNotSentFailSafeArmed => "management_not_sent_fail_safe_armed",
             Self::ManagementAppliedNotSaved => "management_applied_not_saved",
             Self::ManagementNotCommittedFailSafeArmed => "management_not_committed_fail_safe_armed",
@@ -215,6 +221,7 @@ impl McpFailure {
             Self::JobUnavailable => "job_unavailable",
             Self::Internal => "internal",
             Self::UnverifiedFirmwareTier => "unverified_firmware_tier",
+            Self::MigrationRollbackRestarting => "migration_rollback_restarting",
         }
     }
 }

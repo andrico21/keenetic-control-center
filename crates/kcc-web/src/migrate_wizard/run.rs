@@ -48,6 +48,8 @@ pub(super) enum Finish {
     RolledBack,
     /// The router restored its saved configuration when its timer ran out.
     RolledBackByRouter,
+    /// The router accepted the rollback and is restarting with its saved configuration.
+    RollbackRestarting,
     /// The apply ended without changes to finish: it failed before the first change, or
     /// kcc restarted while it ran.
     Closed,
@@ -60,6 +62,7 @@ impl Finish {
             Self::Committed => keys::WEB_MIGRATE_FINISH_COMMITTED,
             Self::RolledBack => keys::WEB_MIGRATE_FINISH_ROLLED_BACK,
             Self::RolledBackByRouter => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
+            Self::RollbackRestarting => keys::MIGRATE_ROLLBACK_SAVED,
             Self::Closed => keys::WEB_MIGRATE_FINISH_CLOSED,
         }
     }
@@ -148,28 +151,85 @@ pub(crate) fn failure_name(failure: ApplyError) -> String {
         .unwrap_or_else(|| "Workflow".to_owned())
 }
 
-/// The sentence explaining the failure named `name`.
-pub(super) fn failure_text(name: &str) -> MessageKey {
-    match name {
-        "DisarmFailed" => keys::MANAGEMENT_DISARM_FAILED,
-        "FinishFailed" => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
-        "ArmUnconfirmed" => keys::MANAGEMENT_NOT_SENT_ARMED,
-        "ReplanRequired" => keys::WEB_MIGRATE_FAILURE_REPLAN,
-        "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,
-        "ModeUnknown" => keys::MANAGEMENT_MODE_UNKNOWN,
-        "Drift" => keys::WEB_MIGRATE_FAILURE_DRIFT,
-        "SameRouter" => keys::WEB_MIGRATE_FAILURE_SAME,
-        "Source" => keys::WEB_MIGRATE_FAILURE_SOURCE,
-        "AgreementRequired" => keys::MIGRATE_APPLY_AGREEMENT,
-        "PasswordRequired" => keys::WEB_MIGRATE_FAILURE_INPUT,
-        "Validation" => keys::WEB_MIGRATE_FAILURE_VALIDATION,
-        "Stopped" => keys::WEB_MIGRATE_FAILURE_STOPPED,
-        "Verification" => keys::WEB_MIGRATE_FAILURE_VERIFICATION,
-        "RolledBackByRouter" => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
-        "Unreachable" => keys::WEB_MIGRATE_FAILURE_UNREACHABLE,
-        "RollbackRestarting" => keys::MIGRATE_ROLLBACK_SAVED,
-        "Cancelled" => keys::WEB_MIGRATE_FAILURE_CANCELLED,
-        "JobStart" => keys::MIGRATE_JOB_START_FAILED,
-        _ => keys::MIGRATE_APPLY_FAILED,
+/// The sentence explaining `failure` on the wizard's pages: the wizard's own where it
+/// names the step to revisit, else the sentence every surface shows.
+pub(crate) const fn failure_text(failure: ApplyError) -> MessageKey {
+    match failure {
+        ApplyError::Drift => keys::WEB_MIGRATE_FAILURE_DRIFT,
+        ApplyError::SameRouter => keys::WEB_MIGRATE_FAILURE_SAME,
+        ApplyError::Source => keys::WEB_MIGRATE_FAILURE_SOURCE,
+        ApplyError::PasswordRequired => keys::WEB_MIGRATE_FAILURE_INPUT,
+        ApplyError::Validation => keys::WEB_MIGRATE_FAILURE_VALIDATION,
+        ApplyError::Stopped => keys::WEB_MIGRATE_FAILURE_STOPPED,
+        ApplyError::Verification => keys::WEB_MIGRATE_FAILURE_VERIFICATION,
+        ApplyError::Unreachable => keys::WEB_MIGRATE_FAILURE_UNREACHABLE,
+        ApplyError::Cancelled => keys::WEB_MIGRATE_FAILURE_CANCELLED,
+        other @ (ApplyError::ReplanRequired
+        | ApplyError::UnverifiedFirmwareTier
+        | ApplyError::Firmware
+        | ApplyError::ModeUnknown
+        | ApplyError::AgreementRequired
+        | ApplyError::Workflow
+        | ApplyError::DisarmFailed
+        | ApplyError::SavedDisarmFailed
+        | ApplyError::ArmUnconfirmed
+        | ApplyError::FinishFailed
+        | ApplyError::RollbackRestarting
+        | ApplyError::CommittedSaveFailed
+        | ApplyError::RolledBackByRouter
+        | ApplyError::Job
+        | ApplyError::JobStart
+        | ApplyError::HardwareMismatch
+        | _) => other.message_key(),
+    }
+}
+
+/// The sentence explaining the failure a record names `name`; a name this kcc does not
+/// know reads as a stopped migration.
+pub(super) fn recorded_text(name: &str) -> MessageKey {
+    ApplyError::from_name(name).map_or(keys::MIGRATE_APPLY_FAILED, failure_text)
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+mod tests {
+    use kcc_i18n::keys;
+    use kcc_migrate::apply::ApplyError;
+
+    use super::{Ended, Run, failure_name, recorded_text};
+
+    /// A record written by an earlier kcc, with a failure name of today or one kcc no
+    /// longer knows, loads and explains its failure.
+    #[test]
+    fn earlier_records_load_and_explain_their_failure() -> Result<(), serde_json::Error> {
+        for (name, key) in [
+            (
+                failure_name(ApplyError::ReplanRequired),
+                keys::MIGRATE_APPLY_REPLAN,
+            ),
+            (
+                failure_name(ApplyError::Stopped),
+                keys::WEB_MIGRATE_FAILURE_STOPPED,
+            ),
+            (
+                failure_name(ApplyError::SavedDisarmFailed),
+                keys::FINISH_SAVED_ARMED,
+            ),
+            ("RetiredFailure".to_owned(), keys::MIGRATE_APPLY_FAILED),
+        ] {
+            let stored = format!(
+                "{{\"job\":\"j-1\",\"started_at\":1,\"safety_seconds\":600,\"ended\":\
+                 {{\"at\":2,\"verified\":false,\"failure\":\"{name}\",\"applied\":0,\"failed\":0}}}}"
+            );
+            let run: Run = serde_json::from_str(&stored)?;
+            let failure = run.ended().and_then(Ended::failure);
+            assert_eq!(failure.map(recorded_text), Some(key), "{name}");
+        }
+        Ok(())
     }
 }

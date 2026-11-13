@@ -23,14 +23,14 @@ mod support;
     reason = "HTTP acceptance assertions establish recovery receipts"
 )]
 mod tests {
-    use axum::http::StatusCode;
+    use axum::{http::StatusCode, response::Response};
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
     use kcc_testkit::FaultInjection;
     use serde_json::json;
 
     use super::{
         flow,
-        support::{Fixture, TestResult, text},
+        support::{Browser, Fixture, TestResult, text},
     };
 
     /// Closing faults keep the preset timer visible in the page and audit.
@@ -124,5 +124,79 @@ mod tests {
     #[tokio::test]
     async fn refused_preset_rollback_reports_armed() -> TestResult {
         closing("router", "fail-safe rollback", false).await
+    }
+
+    /// Applies a preset onto an extender whose router answers `fail_after` requests, then
+    /// rolls back; returns the fixture, the run page and the rollback's answer.
+    // NOT cancel-safe: the fixture applies settings and reboots the target.
+    async fn extender_rollback(
+        fail_after: Option<u64>,
+    ) -> TestResult<(Fixture, Browser, String, Response)> {
+        let faults = fail_after.map_or_else(FaultInjection::default, |count| {
+            FaultInjection::default().fail_after_requests(count)
+        });
+        let fixture = Fixture::with_mode("extender", faults).await?;
+        flow::seed(&fixture, "prod-1", &flow::DNS_LINES).await?;
+        let admin = fixture.login("admin").await?;
+        let id = flow::capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Silent DNS")).await?;
+        let page = flow::start(&fixture, &admin, &id).await?;
+        flow::to_preview(&fixture, &admin, &page, ("lab-1", "merge", &[])).await?;
+        let stream = flow::apply(&fixture, &admin, &page).await?;
+        assert!(stream.contains(&tr(Locale::En, keys::WEB_PRESETS_APPLIED, None)));
+        let results = fixture
+            .post(&format!("{page}/results"), &admin, &[])
+            .await?;
+        assert_eq!(results.status(), StatusCode::OK);
+        let response = fixture
+            .post(
+                &format!("{page}/rollback"),
+                &admin,
+                &[("confirm", "yes"), ("confirm_name", "lab-1")],
+            )
+            .await?;
+        Ok((fixture, admin, page, response))
+    }
+
+    /// A reboot the extender accepts before going silent says the router is restarting
+    /// and leaves nothing to finish: a second rollback sends nothing.
+    // NOT cancel-safe: both fixtures apply settings and reboot the target.
+    #[tokio::test(start_paused = true)]
+    #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+    async fn silent_extender_preset_rollback_reports_restarting() -> TestResult {
+        let (baseline, _admin, _page, _rolled) = extender_rollback(None).await?;
+        let reboot = baseline
+            .handle("lab-1")?
+            .request_log()
+            .iter()
+            .position(|record| record.command() == Some("system reboot"))
+            .and_then(|index| u64::try_from(index).ok())
+            .ok_or("the baseline rollback sends no reboot")?;
+        drop(baseline);
+
+        let (fixture, admin, page, response) =
+            extender_rollback(Some(reboot.saturating_add(1))).await?;
+        drop(response);
+        let shown = text(fixture.get(&page, &admin).await?).await?;
+        assert!(
+            shown.contains(&tr(Locale::En, keys::MIGRATE_ROLLBACK_SAVED, None)),
+            "{shown}"
+        );
+        assert!(!shown.contains(&format!("{page}/rollback\"")), "{shown}");
+        let silent = fixture.handle("lab-1")?.request_count();
+        drop(
+            fixture
+                .post(
+                    &format!("{page}/rollback"),
+                    &admin,
+                    &[("confirm", "yes"), ("confirm_name", "lab-1")],
+                )
+                .await?,
+        );
+        assert_eq!(
+            fixture.handle("lab-1")?.request_count(),
+            silent,
+            "no second reboot is sent"
+        );
+        Ok(())
     }
 }

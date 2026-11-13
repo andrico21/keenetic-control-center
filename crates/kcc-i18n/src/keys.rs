@@ -665,6 +665,9 @@ pub const MIGRATE_COMMIT_NOT_SENT_ARMED: MessageKey =
 /// `migrate-rollback-saved` in `migrate.ftl`.
 pub const MIGRATE_ROLLBACK_SAVED: MessageKey = MessageKey::new("migrate-rollback-saved");
 
+/// `migrate-apply-replan` in `migrate.ftl`.
+pub const MIGRATE_APPLY_REPLAN: MessageKey = MessageKey::new("migrate-apply-replan");
+
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
@@ -6677,7 +6680,7 @@ pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate
 pub const WEB_BRACKET_UNOWNED: MessageKey = MessageKey::new("web-bracket-unowned");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2129] = [
+pub static ALL: [MessageKey; 2130] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6895,6 +6898,7 @@ pub static ALL: [MessageKey; 2129] = [
     MIGRATE_COMMITTED_NOT_SAVED,
     MIGRATE_COMMIT_NOT_SENT_ARMED,
     MIGRATE_ROLLBACK_SAVED,
+    MIGRATE_APPLY_REPLAN,
     WEB_NAV_DASHBOARD,
     WEB_NAV_ROUTERS,
     WEB_NAV_INTERFACES,

@@ -21,6 +21,7 @@ use tokio::sync::{broadcast, oneshot};
 use crate::{
     KccMcp, McpFailure, RouterId, authorize_routers,
     support::{
+        errors::armed,
         route::{Progress, parse},
         validate::valid_job_id,
     },
@@ -42,19 +43,18 @@ pub(crate) struct ApplyInput {
     ack_documentation_tier: bool,
 }
 
-/// Maps a value-free engine failure.
+/// Maps a value-free engine failure: an armed fate to its code, every other failure to
+/// the code of what it left on the router.
 pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
+    if let Some(fate) = error.fate() {
+        return armed(fate);
+    }
     match error {
-        ApplyError::DisarmFailed => McpFailure::ManagementAppliedFailSafeArmed,
-        ApplyError::FinishFailed | ApplyError::ArmUnconfirmed => {
-            McpFailure::ManagementOutcomeUnknownFailSafeArmed
-        }
         ApplyError::CommittedSaveFailed => McpFailure::ManagementAppliedNotSaved,
+        ApplyError::RollbackRestarting => McpFailure::MigrationRollbackRestarting,
         ApplyError::UnverifiedFirmwareTier => McpFailure::UnverifiedFirmwareTier,
         ApplyError::ModeUnknown => McpFailure::RouterModeUnknown,
-        ApplyError::Source | ApplyError::Unreachable | ApplyError::RollbackRestarting => {
-            McpFailure::RouterUnreachable
-        }
+        ApplyError::Source | ApplyError::Unreachable => McpFailure::RouterUnreachable,
         ApplyError::RolledBackByRouter => McpFailure::RouterRejected,
         ApplyError::Drift
         | ApplyError::ReplanRequired
@@ -62,15 +62,21 @@ pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
         | ApplyError::Cancelled
         | ApplyError::Stopped => McpFailure::Conflict,
         ApplyError::JobStart => McpFailure::JobUnavailable,
-        ApplyError::Job => McpFailure::Internal,
         ApplyError::SameRouter
         | ApplyError::Firmware
         | ApplyError::AgreementRequired
         | ApplyError::PasswordRequired
         | ApplyError::Validation
         | ApplyError::Verification
-        | ApplyError::HardwareMismatch
-        | _ => McpFailure::ValidationFailed,
+        | ApplyError::HardwareMismatch => McpFailure::ValidationFailed,
+        // The armed failures returned above; a failure a newer engine adds is not one this
+        // server can explain.
+        ApplyError::DisarmFailed
+        | ApplyError::SavedDisarmFailed
+        | ApplyError::ArmUnconfirmed
+        | ApplyError::FinishFailed
+        | ApplyError::Job
+        | _ => McpFailure::Internal,
     }
 }
 

@@ -12,8 +12,9 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
+use kcc_migrate::apply::ApplyError;
 
-use super::{access::Visit, events::failure_text};
+use super::{access::Visit, events::recorded_text};
 use crate::{
     page::{Localize, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
@@ -29,18 +30,18 @@ pub(super) const SAVE: [Permission; 2] = [Permission::Migrate, Permission::Save]
 pub(super) const ROLLBACK: [Permission; 2] = [Permission::Migrate, Permission::Destructive];
 
 /// Failures after which nothing on the router changed: the apply can start again.
-const BEFORE_CHANGES: [&str; 11] = [
-    "UnverifiedFirmwareTier",
-    "ModeUnknown",
-    "Drift",
-    "SameRouter",
-    "Source",
-    "Firmware",
-    "AgreementRequired",
-    "PasswordRequired",
-    "Validation",
-    "Workflow",
-    "Job",
+const BEFORE_CHANGES: [ApplyError; 11] = [
+    ApplyError::UnverifiedFirmwareTier,
+    ApplyError::ModeUnknown,
+    ApplyError::Drift,
+    ApplyError::SameRouter,
+    ApplyError::Source,
+    ApplyError::Firmware,
+    ApplyError::AgreementRequired,
+    ApplyError::PasswordRequired,
+    ApplyError::Validation,
+    ApplyError::Workflow,
+    ApplyError::Job,
 ];
 
 /// Where a button's answer goes: the step, or the dialog (the rollback asks first).
@@ -113,7 +114,7 @@ impl Panel {
             .and_then(|end| end.failure().map(str::to_owned));
         let (tone, key) = match (&held, failure.as_deref()) {
             (Some((true, false)), _) => ("success", keys::WEB_PRESETS_APPLIED),
-            (_, Some(name)) => ("error", failure_text(name)),
+            (_, Some(name)) => ("error", recorded_text(name)),
             (Some(_), None) => ("error", keys::WEB_PRESETS_FAILURE_FAILED),
             (None, None) => ("error", keys::WEB_PRESETS_RUN_INTERRUPTED),
         };
@@ -123,7 +124,8 @@ impl Panel {
         let failed_before = held.is_none()
             && failure
                 .as_deref()
-                .is_some_and(|name| BEFORE_CHANGES.contains(&name));
+                .and_then(ApplyError::from_name)
+                .is_some_and(|error| BEFORE_CHANGES.contains(&error));
         let shown = [
             (
                 verified && allowed(user, target, &KEEP),

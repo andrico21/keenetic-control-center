@@ -17,6 +17,7 @@ mod components;
 mod dispatch;
 mod drift;
 mod execute;
+mod failure;
 mod finish;
 mod normalize;
 mod preflight;
@@ -30,6 +31,11 @@ use alloc::sync::Arc;
 use core::time::Duration;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "the task specifies ApplyError and matching public apply types"
+)]
+pub use failure::ApplyError;
 use kcc_app::{
     audit::AuditEvent,
     jobs::{JobContext, JobError, JobProgress, JobRunner},
@@ -45,8 +51,8 @@ use tokio::sync::oneshot;
     reason = "the task specifies ApplyError and matching public apply types"
 )]
 pub use types::{
-    ApplyError, ApplyOptions, ApplyReport, ApplyRequest, ApplySource, ApplyWarning, Clock,
-    StopPolicy, SystemClock, WireGuardPublicKey,
+    ApplyOptions, ApplyReport, ApplyRequest, ApplySource, ApplyWarning, Clock, StopPolicy,
+    SystemClock, WireGuardPublicKey,
 };
 
 /// Checks whether the migration applier can construct a protected request for `line`.

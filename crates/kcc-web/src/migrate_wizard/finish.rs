@@ -21,7 +21,7 @@ use super::{
     kinds::Step,
     preview::APPLY,
     results::{Panel, ROLLBACK},
-    run::{Finish, failure_name, failure_text},
+    run::{Finish, failure_text},
     screen,
     service::Wizards,
 };
@@ -145,56 +145,49 @@ async fn finish(
     };
     if let Err(error) = result {
         drop(slot);
-        let name = failure_name(error);
         let failed = if error.recovery_armed() {
             audit.with_params(json!({ "fail_safe_armed": true }))
         } else {
             audit
         };
         failed.append(state, user, "failed").await;
-        let key = match error {
-            ApplyError::SavedDisarmFailed => keys::FINISH_SAVED_ARMED,
-            ApplyError::DisarmFailed => keys::MANAGEMENT_DISARM_FAILED,
-            ApplyError::FinishFailed => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
-            ApplyError::ArmUnconfirmed => keys::MANAGEMENT_NOT_SENT_ARMED,
-            ApplyError::CommittedSaveFailed => keys::MIGRATE_COMMITTED_NOT_SAVED,
-            ApplyError::RollbackRestarting => keys::MIGRATE_ROLLBACK_SAVED,
-            ApplyError::ReplanRequired
-            | ApplyError::UnverifiedFirmwareTier
-            | ApplyError::ModeUnknown
-            | ApplyError::Drift
-            | ApplyError::SameRouter
-            | ApplyError::Source
-            | ApplyError::Firmware
-            | ApplyError::AgreementRequired
-            | ApplyError::PasswordRequired
-            | ApplyError::Validation
-            | ApplyError::Workflow
-            | ApplyError::Stopped
-            | ApplyError::Verification
-            | ApplyError::RolledBackByRouter
-            | ApplyError::Unreachable
-            | ApplyError::Cancelled
-            | ApplyError::Job
-            | ApplyError::JobStart
-            | ApplyError::HardwareMismatch
-            | _ => failure_text(&name),
-        };
-        let reason = tr(locale, key, None);
+        if error == ApplyError::RollbackRestarting {
+            end(state, wizards, &mut visit, (id, Finish::RollbackRestarting))?;
+            return Ok(screen::moved(visit.record()));
+        }
+        let reason = tr(locale, failure_text(error), None);
         let panel = Panel::new(&visit).await.refusing(reason);
         return Err(refused(&panel).into());
     }
     let done: Option<Applier> = slot.take();
     drop(slot);
     drop(done);
-    session.set_live(None);
-    wizards.release(&target, id);
-    visit.record_mut().finish(finished, state.unix_seconds());
-    visit
-        .save()
-        .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?;
+    end(state, wizards, &mut visit, (id, finished))?;
     audit.append(state, user, "done").await;
     Ok(screen::moved(visit.record()))
+}
+
+/// Ends migration `id` as `how`: drops its applier, frees the target and saves the record.
+///
+/// # Errors
+///
+/// Answers 500 when the record cannot be saved.
+fn end(
+    state: &WebState,
+    wizards: &Wizards,
+    visit: &mut Visit<'_>,
+    (id, how): (&str, Finish),
+) -> Result<(), Answer> {
+    let target = visit.record().target().unwrap_or_default().to_owned();
+    visit.session().set_live(None);
+    wizards.release(&target, id);
+    visit.record_mut().finish(how, state.unix_seconds());
+    visit.save().map_err(|error| {
+        Answer::from(errors::internal(
+            &error,
+            fragment_shell(visit.services().user().locale()),
+        ))
+    })
 }
 
 /// `POST /ui/migrate/{id}/{replan,retry,close}`: plans again from the maps (after

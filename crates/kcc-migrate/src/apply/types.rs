@@ -13,9 +13,9 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciClient, SecretBytes, version::FirmwareVersion};
 use secrecy::SecretString;
 use serde::Serialize;
-use thiserror::Error;
 use tokio::time::{Instant, sleep};
 
+use super::ApplyError;
 use crate::planner::MigrationPlan;
 
 /// Monotonic time and asynchronous waiting, injectable for deterministic router recovery.
@@ -245,118 +245,12 @@ impl ApplyReport {
     #[must_use]
     pub fn message(&self, locale: Locale) -> String {
         let key = match self.failure {
-            Some(ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
-            Some(ApplyError::DisarmFailed) => keys::MANAGEMENT_DISARM_FAILED,
-            Some(ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
-            Some(ApplyError::ArmUnconfirmed) => keys::MANAGEMENT_NOT_SENT_ARMED,
-            Some(ApplyError::RollbackRestarting) => keys::MIGRATE_ROLLBACK_SAVED,
-            Some(ApplyError::CommittedSaveFailed) => keys::MIGRATE_COMMITTED_NOT_SAVED,
-            Some(ApplyError::ModeUnknown) => keys::MANAGEMENT_MODE_UNKNOWN,
-            Some(ApplyError::UnverifiedFirmwareTier) => keys::MIGRATE_APPLY_TIER,
-            Some(ApplyError::AgreementRequired) => keys::MIGRATE_APPLY_AGREEMENT,
-            Some(ApplyError::RolledBackByRouter) => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
             Some(ApplyError::Verification) if self.finished => keys::MIGRATE_APPLY_RESTORED,
-            Some(_) => keys::MIGRATE_APPLY_FAILED,
+            Some(failure) => failure.message_key(),
             None if self.finished => keys::MIGRATE_DONE,
             None if self.verified => keys::MIGRATE_APPLY_VERIFIED,
             None => keys::MIGRATE_START,
         };
         tr(locale, key, None)
-    }
-}
-
-/// Value-free migration failures; front ends localize these stable categories.
-#[derive(Clone, Copy, Debug, Error, Eq, PartialEq, Serialize)]
-#[non_exhaustive]
-pub enum ApplyError {
-    /// Components changed the inventory; the caller must collect and review a fresh plan.
-    #[error("migration inventory changed; review a new plan")]
-    ReplanRequired,
-    /// Firmware acknowledgement is absent.
-    #[error("unverified firmware tier")]
-    UnverifiedFirmwareTier,
-    /// Reviewed fingerprints no longer match.
-    #[error("migration plan drift")]
-    Drift,
-    /// Source and target have the same origin.
-    #[error("source and target origins collide")]
-    SameRouter,
-    /// Authentication or source acquisition failed.
-    #[error("migration source unavailable")]
-    Source,
-    /// Target firmware is too old or unknown.
-    #[error("incompatible target firmware")]
-    Firmware,
-    /// The target reports neither a system mode kcc knows nor a fail-safe timer; nothing was sent.
-    #[error("target recovery mechanism unknown")]
-    ModeUnknown,
-    /// Agreements require confirmation of their current text.
-    #[error("router agreement confirmation required")]
-    AgreementRequired,
-    /// Required operator password is missing.
-    #[error("router password required")]
-    PasswordRequired,
-    /// An option or command failed boundary validation.
-    #[error("invalid migration input")]
-    Validation,
-    /// Protected workflow refused the operation.
-    #[error("migration workflow failed")]
-    Workflow,
-    /// Verified work remains applied but its recovery timer could not be disarmed.
-    #[error("migration recovery timer remains armed")]
-    DisarmFailed,
-    /// Configuration was saved, but recovery disarm could not be confirmed.
-    #[error("migration configuration saved; recovery timer remains armed")]
-    SavedDisarmFailed,
-    /// Arming was not confirmed and its cleanup failed: nothing was sent, but recovery may be armed.
-    #[error("the change was not sent; the recovery timer may be armed")]
-    ArmUnconfirmed,
-    /// Closing could not be confirmed, so recovery must still be treated as armed.
-    #[error("migration closing outcome unknown; recovery timer remains armed")]
-    FinishFailed,
-    /// The rollback request was accepted, but the restarting router did not return in time.
-    #[error("migration rollback sent; target restarting")]
-    RollbackRestarting,
-    /// The live configuration was committed, but saving startup configuration failed.
-    #[error("migration committed but was not saved")]
-    CommittedSaveFailed,
-    /// A router line failed under the selected stop policy.
-    #[error("migration stopped on command error")]
-    Stopped,
-    /// Read-back or health checks failed.
-    #[error("migration verification failed")]
-    Verification,
-    /// Router recovery restored the original startup state after timer expiry.
-    #[error("migration rolled back by router")]
-    RolledBackByRouter,
-    /// Router did not return within the recovery bound.
-    #[error("migration target unreachable")]
-    Unreachable,
-    /// The caller cancelled the job.
-    #[error("migration cancelled")]
-    Cancelled,
-    /// Job admission failed.
-    #[error("migration job unavailable")]
-    Job,
-    /// A shared-state identifier collision refused admission before router contact.
-    #[error("migration job could not be started; retry")]
-    JobStart,
-    /// Hardware identity differs for raw restore.
-    #[error("raw restore hardware mismatch")]
-    HardwareMismatch,
-}
-
-impl ApplyError {
-    /// Whether a failed finish leaves recovery armed or its disarm unconfirmed.
-    #[inline]
-    #[must_use]
-    pub const fn recovery_armed(self) -> bool {
-        matches!(
-            self,
-            Self::FinishFailed
-                | Self::ArmUnconfirmed
-                | Self::DisarmFailed
-                | Self::SavedDisarmFailed
-        )
     }
 }

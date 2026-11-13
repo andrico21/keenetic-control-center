@@ -38,6 +38,7 @@ pub(crate) async fn failure(
             completion: _,
         }
         | McpFailure::ManagementAppliedFailSafeArmed
+        | McpFailure::ManagementSavedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::ManagementNotSentFailSafeArmed
         | McpFailure::ManagementAppliedNotSaved
@@ -47,12 +48,14 @@ pub(crate) async fn failure(
         | McpFailure::Conflict
         | McpFailure::JobUnavailable
         | McpFailure::Internal
+        | McpFailure::MigrationRollbackRestarting
             if !context.read_only() =>
         {
             let mut params = json!({"error": error.code()});
             if matches!(
                 error,
                 McpFailure::ManagementAppliedFailSafeArmed
+                    | McpFailure::ManagementSavedFailSafeArmed
                     | McpFailure::BatchFailSafeArmed {
                         applied: _,
                         completion: _
@@ -72,6 +75,7 @@ pub(crate) async fn failure(
             completion: _,
         }
         | McpFailure::ManagementAppliedFailSafeArmed
+        | McpFailure::ManagementSavedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
         | McpFailure::ManagementNotSentFailSafeArmed
         | McpFailure::ManagementAppliedNotSaved
@@ -82,6 +86,7 @@ pub(crate) async fn failure(
         | McpFailure::Conflict
         | McpFailure::JobUnavailable
         | McpFailure::Internal
+        | McpFailure::MigrationRollbackRestarting
         | McpFailure::NotApplied { cause: _ } => return,
     };
     let timestamp = SystemTime::now()

@@ -96,7 +96,9 @@ pub(crate) async fn finish_with_context(
                 | McpFailure::ManagementOutcomeUnknownFailSafeArmed => {
                     Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
                 }
+                McpFailure::ManagementSavedFailSafeArmed => Some(keys::FINISH_SAVED_ARMED),
                 McpFailure::ManagementNotSentFailSafeArmed => Some(keys::MANAGEMENT_NOT_SENT_ARMED),
+                McpFailure::MigrationRollbackRestarting => Some(keys::MIGRATE_ROLLBACK_SAVED),
                 McpFailure::NotApplied { cause: _ } => Some(keys::MANAGEMENT_NOT_APPLIED),
                 McpFailure::ManagementAppliedNotSaved => Some(keys::MIGRATE_COMMITTED_NOT_SAVED),
                 McpFailure::ManagementNotCommittedFailSafeArmed => {

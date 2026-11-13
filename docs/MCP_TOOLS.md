@@ -30,10 +30,16 @@ do not count as applied changes. Batch recovery errors retain `responses`, inclu
 the refused `ok: false` items; partial application refers only to successful changes.
 When the arm is refused and so is its disarm, the code is
 `management_not_sent_fail_safe_armed`: nothing else was sent, but the timer may be armed.
+When the configuration was saved but the disarm failed, the code is
+`management_saved_fail_safe_armed`: the router may restart with its saved configuration,
+which includes the change.
 These codes carry a localized English `message` explaining recovery;
 the timer remains armed and will restore the saved configuration, discarding unsaved changes.
 A locally refused migration commit returns `management_not_committed_fail_safe_armed`:
 nothing was sent, the timer remains armed, and the migration is retained for retry.
+A migration rollback the router accepted before it stopped answering returns
+`migration_rollback_restarting`: the router is restarting with its saved configuration
+and the migration is closed, so a retry cannot reboot it again.
 Successful cleanup preserves the original work error; when the arm itself was refused
 and its disarm accepted, that error also carries a `message` saying nothing was applied
 and the timer is off. Failed-change audit parameters

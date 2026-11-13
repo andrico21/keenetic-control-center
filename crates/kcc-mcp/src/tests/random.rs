@@ -45,7 +45,9 @@ fn assert_tool_result(result: Result<Value, McpFailure>) -> TestCaseResult {
                     | McpFailure::RouterModeUnknown
                     | McpFailure::ManagementAppliedFailSafeArmed
                     | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+                    | McpFailure::ManagementSavedFailSafeArmed
                     | McpFailure::ManagementNotSentFailSafeArmed
+                    | McpFailure::MigrationRollbackRestarting
                     | McpFailure::NotApplied { cause: _ }
                     | McpFailure::ManagementAppliedNotSaved
                     | McpFailure::ManagementNotCommittedFailSafeArmed

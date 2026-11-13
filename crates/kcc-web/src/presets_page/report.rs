@@ -48,7 +48,10 @@ impl Panel {
         let (how, at) = record.finished().unwrap_or((Finish::Closed, 0));
         let tone = match how {
             Finish::KeptUnsaved | Finish::Saved => "success",
-            Finish::RolledBack | Finish::RolledBackByRouter | Finish::Closed => "info",
+            Finish::RolledBack
+            | Finish::RolledBackByRouter
+            | Finish::RollbackRestarting
+            | Finish::Closed => "info",
         };
         Self {
             shell: fragment_shell(locale),

@@ -61,10 +61,16 @@ pub fn markdown() -> String {
            the refused `ok: false` items; partial application refers only to successful changes.\n\
            When the arm is refused and so is its disarm, the code is\n\
            `management_not_sent_fail_safe_armed`: nothing else was sent, but the timer may be armed.\n\
+           When the configuration was saved but the disarm failed, the code is\n\
+           `management_saved_fail_safe_armed`: the router may restart with its saved configuration,\n\
+           which includes the change.\n\
            These codes carry a localized English `message` explaining recovery;\n\
            the timer remains armed and will restore the saved configuration, discarding unsaved changes.\n\
            A locally refused migration commit returns `management_not_committed_fail_safe_armed`:\n\
            nothing was sent, the timer remains armed, and the migration is retained for retry.\n\
+           A migration rollback the router accepted before it stopped answering returns\n\
+           `migration_rollback_restarting`: the router is restarting with its saved configuration\n\
+           and the migration is closed, so a retry cannot reboot it again.\n\
            Successful cleanup preserves the original work error; when the arm itself was refused\n\
            and its disarm accepted, that error also carries a `message` saying nothing was applied\n\
            and the timer is off. Failed-change audit parameters\n\

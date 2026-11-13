@@ -33,3 +33,4 @@ finish-saved-armed = Die Konfiguration wurde gespeichert, aber der Wiederherstel
 migrate-committed-not-saved = Die Migration ist aktiv und der Wiederherstellungstimer ist deaktiviert, aber die Startkonfiguration wurde nicht gespeichert. Wiederholen Sie den Commit, um sie zu speichern.
 migrate-commit-not-sent-armed = Commit wurde nicht gesendet, weil der Rolle „Einstellungen speichern“ fehlt. Der Wiederherstellungstimer ist weiterhin aktiv, und die Migration bleibt für einen erneuten Versuch nach Korrektur der Rolle erhalten.
 migrate-rollback-saved = Der Router startet mit seiner gespeicherten Konfiguration neu, die die migrierten Einstellungen bereits enthalten kann.
+migrate-apply-replan = Die Komponenten sind installiert und der Router wurde neu gestartet. Prüfen Sie den Plan erneut: Er umfasst jetzt die Einstellungen, die sie brauchten.

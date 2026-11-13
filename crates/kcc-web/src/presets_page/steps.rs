@@ -140,6 +140,8 @@ pub(super) enum Finish {
     RolledBack,
     /// The router restored its saved configuration when its timer ran out.
     RolledBackByRouter,
+    /// The router accepted the rollback and is restarting with its saved configuration.
+    RollbackRestarting,
     /// The apply ended without changes to keep: it failed before the first change, or
     /// kcc restarted while it ran.
     Closed,
@@ -153,6 +155,7 @@ impl Finish {
             Self::Saved => keys::WEB_PRESETS_FINISH_SAVED,
             Self::RolledBack => keys::WEB_PRESETS_FINISH_ROLLED_BACK,
             Self::RolledBackByRouter => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
+            Self::RollbackRestarting => keys::MIGRATE_ROLLBACK_SAVED,
             Self::Closed => keys::WEB_PRESETS_FINISH_CLOSED,
         }
     }
@@ -164,6 +167,7 @@ impl Finish {
             Self::Saved => "saved",
             Self::RolledBack => "rolled-back",
             Self::RolledBackByRouter => "rolled-back-by-router",
+            Self::RollbackRestarting => "rollback-restarting",
             Self::Closed => "closed",
         }
     }

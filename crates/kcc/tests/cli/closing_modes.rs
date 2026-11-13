@@ -1,10 +1,13 @@
 //! Each closing step sends the router command of the target's recovery mode.
 
-use kcc_testkit::FaultInjection;
+use core::error::Error;
+
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_testkit::{FaultInjection, RequestRecord};
 
 use super::{
     closing::{run_id, target},
-    support::TestResult,
+    support::{Run, TestResult},
 };
 
 /// Where a closing step runs from.
@@ -153,5 +156,66 @@ async fn closing_steps_send_the_mode_command() -> TestResult {
         handle.shutdown().await?;
     }
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+    Ok(())
+}
+
+/// Runs an explicit scheduled rollback on an extender that answers `fail_after` requests;
+/// returns the run, the reboots the router received and the requests it answered.
+// NOT cancel-safe: arms, changes and reboots the fixture router.
+async fn explicit_extender_rollback(
+    fail_after: Option<u64>,
+) -> Result<(Run, Vec<RequestRecord>), Box<dyn Error>> {
+    let faults = fail_after.map_or_else(FaultInjection::default, |count| {
+        FaultInjection::default().fail_after_requests(count)
+    });
+    let (env, handle) = target("extender", faults).await?;
+    let arm = env.kcc(&[
+        "--confirm-destructive",
+        "target",
+        "config",
+        "failsafe",
+        "arm",
+    ])?;
+    assert_eq!(arm.code, 0_i32, "{arm:?}");
+    let changed = env.kcc(&["system", "set-description", "silent-reboot"])?;
+    assert_eq!(changed.code, 0_i32, "{changed:?}");
+    let run = env.kcc(&[
+        "--confirm-destructive",
+        "target",
+        "migrate",
+        "finish",
+        "rollback",
+    ])?;
+    let log = handle.request_log();
+    handle.shutdown().await?;
+    Ok((run, log))
+}
+
+/// A reboot the extender accepts before going silent reports that the router is
+/// restarting with its saved configuration, the same meaning as every other surface.
+// NOT cancel-safe: arms, changes and reboots both fixture routers.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn silent_explicit_extender_rollback_reports_restarting() -> TestResult {
+    let (baseline, baseline_log) = explicit_extender_rollback(None).await?;
+    assert_eq!(baseline.code, 0_i32, "{baseline:?}");
+    let reboot = baseline_log
+        .iter()
+        .position(|record| record.command() == Some("system reboot"))
+        .and_then(|index| u64::try_from(index).ok())
+        .ok_or("the baseline rollback sends no reboot")?;
+
+    let (run, log) = explicit_extender_rollback(Some(reboot.saturating_add(1))).await?;
+
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    assert!(
+        run.stdout
+            .contains(&tr(Locale::En, keys::MIGRATE_ROLLBACK_SAVED, None)),
+        "{run:?}"
+    );
+    let reboots = log
+        .iter()
+        .filter(|record| record.command() == Some("system reboot"))
+        .count();
+    assert_eq!(reboots, 1);
     Ok(())
 }

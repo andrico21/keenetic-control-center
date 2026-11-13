@@ -33,7 +33,6 @@ use crate::{
     migrate_wizard::{
         access::Services,
         confirm::{Confirm, Dialog, Words, refused},
-        run::failure_name,
         service::Wizards,
     },
     page_kit::{
@@ -141,33 +140,50 @@ pub(super) async fn finish(
             audit
         };
         failed.append(&state, &user, "failed").await;
-        let key = match (choice, error) {
-            (_, ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
-            (_, ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
-            (_, ApplyError::ArmUnconfirmed) => keys::MANAGEMENT_NOT_SENT_ARMED,
-            (_, ApplyError::CommittedSaveFailed) => keys::MIGRATE_COMMITTED_NOT_SAVED,
-            (_, ApplyError::RollbackRestarting) => keys::MIGRATE_ROLLBACK_SAVED,
-            _ => failure_text(&failure_name(error)),
-        };
-        let reason = tr(locale, key, None);
+        if error == ApplyError::RollbackRestarting {
+            end(&state, &runs, &mut visit, (&id, Finish::RollbackRestarting))?;
+            return Ok(screen::moved(visit.record()));
+        }
+        let reason = tr(locale, failure_text(error), None);
         let panel = Panel::new(&visit).await.refusing(reason);
         return Err(refused(&panel).into());
     }
     let done: Option<Applier> = slot.take();
     drop(slot);
     drop(done);
-    session.set_live(None);
-    runs.release(&target, &id);
-    visit.record_mut().finish(finished, state.unix_seconds());
-    visit
-        .save()
-        .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?;
-    saved::discard(services, &id);
+    end(&state, &runs, &mut visit, (&id, finished))?;
     audit
         .with_params(json!({ "finish": finished.slug() }))
         .append(&state, &user, "done")
         .await;
     Ok(screen::moved(visit.record()))
+}
+
+/// Ends run `id` as `how`: drops its applier, frees the target, saves the record and
+/// deletes what the run sealed.
+///
+/// # Errors
+///
+/// Answers 500 when the record cannot be saved.
+fn end(
+    state: &WebState,
+    runs: &Wizards,
+    visit: &mut Visit<'_>,
+    (id, how): (&str, Finish),
+) -> Result<(), Answer> {
+    let target = visit.record().target().unwrap_or_default().to_owned();
+    visit.session().set_live(None);
+    runs.release(&target, id);
+    visit.record_mut().finish(how, state.unix_seconds());
+    let services = visit.services();
+    visit.save().map_err(|error| {
+        Answer::from(errors::internal(
+            &error,
+            fragment_shell(services.user().locale()),
+        ))
+    })?;
+    saved::discard(services, id);
+    Ok(())
 }
 
 /// Back to the preview after an apply that changed nothing (`retry`), or Finish

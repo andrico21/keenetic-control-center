@@ -10,7 +10,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
     live::Outcome,
-    run::{Ended, failure_text},
+    run::{Ended, recorded_text},
 };
 use crate::{
     overview::fragment,
@@ -175,7 +175,7 @@ pub(super) fn end(locale: Locale, id: &str, ended: Option<&Ended>) -> [Event; 2]
             "error",
             found
                 .failure()
-                .map_or(keys::MIGRATE_APPLY_FAILED, failure_text),
+                .map_or(keys::MIGRATE_APPLY_FAILED, recorded_text),
         ),
         None => ("error", keys::WEB_MIGRATE_RUN_INTERRUPTED),
     };
