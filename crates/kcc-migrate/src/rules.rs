@@ -238,22 +238,39 @@ impl RuleEngine {
     ///
     /// Returns [`RuleError`] when the compile-time rule asset is malformed.
     #[inline]
-    #[expect(
-        clippy::unused_self,
-        reason = "the validated engine value is the public classification capability"
-    )]
     pub fn classify(
         self,
         source: &Ast,
         target: ClassificationTarget<'_>,
         choices: &ClassificationChoices<'_>,
     ) -> Result<Vec<ClassifiedItem>, RuleError> {
+        self.classify_settled(source, target, choices, |_item| {})
+    }
+
+    /// Classifies like [`RuleEngine::classify`], applying `settle` to every line except
+    /// bridge memberships before they are decided, so a member counts as created only by
+    /// lines whose settled disposition still sends them.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RuleError`] when the compile-time rule asset is malformed.
+    #[expect(
+        clippy::unused_self,
+        reason = "the validated engine value is the public classification capability"
+    )]
+    pub(crate) fn classify_settled(
+        self,
+        source: &Ast,
+        target: ClassificationTarget<'_>,
+        choices: &ClassificationChoices<'_>,
+        settle: impl Fn(&mut ClassifiedItem),
+    ) -> Result<Vec<ClassifiedItem>, RuleError> {
         let rules = embedded_rules()?;
         let lines = flatten(source);
         let redacted_lines = flatten(&redact(source));
         let target_lines = flatten(target.running_config);
         let mappings = mappings(choices);
-        let classified_non_memberships = lines
+        let mut classified_non_memberships = lines
             .iter()
             .zip(redacted_lines.iter())
             .enumerate()
@@ -276,6 +293,10 @@ impl RuleEngine {
                 ))
             })
             .collect::<Vec<_>>();
+        classified_non_memberships
+            .iter_mut()
+            .flatten()
+            .for_each(settle);
         let planned_interfaces = planned_interfaces(&lines, &classified_non_memberships, &mappings);
         Ok(lines
             .iter()

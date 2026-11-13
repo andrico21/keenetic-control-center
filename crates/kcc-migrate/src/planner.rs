@@ -40,7 +40,10 @@ pub struct Planner;
 impl Planner {
     /// Classifies every source line exactly as [`Planner::plan`] does: the rules under
     /// `maps` and `choices`, then lines the target's catalog cannot build marked
-    /// [`Disposition::Unsupported`]. Every surface that shows what a plan does uses this.
+    /// [`Disposition::Unsupported`]. Bridge memberships are decided last, from those final
+    /// dispositions: a member no remaining line creates is not included. Every surface
+    /// that shows what a plan does uses this, on the source without the lines the
+    /// operator left out.
     ///
     /// # Errors
     ///
@@ -60,10 +63,11 @@ impl Planner {
             &choices.overwrite_scalars,
         );
         let classification_target = ClassificationTarget::from_inventory(target);
-        let mut classified = RuleEngine::embedded()?.classify(
+        let mut classified = RuleEngine::embedded()?.classify_settled(
             &source.ast,
             classification_target,
             &classification_choices,
+            |item| buildability::retain_supported_item(item, &target.catalog),
         )?;
         buildability::retain_supported(&mut classified, &target.catalog);
         Ok(classified)

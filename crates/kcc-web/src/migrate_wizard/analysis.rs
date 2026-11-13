@@ -134,15 +134,16 @@ impl Analysis {
         &self.agreements
     }
 
-    /// Every source line classified with `maps`, the typed `passwords` and the conflicts
-    /// whose source values `overwrite` takes, as the plan classifies it: lines the target
-    /// cannot build are unsupported.
+    /// Every line of `source` (this analysis's source or a part of it) classified with
+    /// `maps`, the typed `passwords` and the conflicts whose source values `overwrite`
+    /// takes, as the plan classifies it: lines the target cannot build are unsupported.
     ///
     /// # Errors
     ///
     /// Returns a malformed embedded rule set.
     pub(super) fn classify(
         &self,
+        source: &SourceConfig,
         maps: &Maps,
         passwords: &BTreeMap<String, SecretString>,
         overwrite: &BTreeSet<String>,
@@ -150,7 +151,7 @@ impl Analysis {
         let mut choices = Choices::default();
         passwords.clone_into(&mut choices.new_passwords);
         overwrite.clone_into(&mut choices.overwrite_scalars);
-        Planner::classify(&self.source, &self.target, &engine_maps(maps), &choices)
+        Planner::classify(source, &self.target, &engine_maps(maps), &choices)
     }
 
     /// The target's settings the source does not have, redacted: they stay on the target

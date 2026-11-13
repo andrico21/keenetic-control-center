@@ -203,7 +203,12 @@ impl Report {
 /// The components the source's settings need and the target lacks, in name order.
 pub(super) fn missing_components(analysis: &Analysis, maps: &Maps) -> Vec<String> {
     let mut names = analysis
-        .classify(maps, &BTreeMap::default(), &BTreeSet::default())
+        .classify(
+            analysis.source(),
+            maps,
+            &BTreeMap::default(),
+            &BTreeSet::default(),
+        )
         .map(|items| component_names(&items))
         .unwrap_or_default();
     names.sort();

@@ -258,12 +258,19 @@ mod tests {
             let renamed = submit(&fixture, &browser, &page, &[("Vlan5", "Vlan7")]).await?;
             moved(&renamed, &page)?;
             let review = text(fixture.get(&page, &browser).await?).await?;
-            // The rename reaches the classification: the membership line is remapped. (The
-            // `vlan-id` line itself is unsupported on this target, as in the CLI plan.)
+            // The rename is accepted, but the `vlan-id` line, the only one creating the
+            // interface, is unsupported on this target, as in the CLI plan: no Vlan7 is
+            // created, so its membership is skipped rather than remapped.
+            let membership = review
+                .split("id=\"item-")
+                .filter_map(|chunk| chunk.split("</tr>").next())
+                .find(|row| row.contains("interface Bridge5 include Vlan5"))
+                .ok_or_else(|| format!("{account}: no membership row in {review}"))?;
             assert!(
-                review.contains("interface Bridge5 include Vlan7"),
-                "{account}: {review}"
+                membership.contains("data-fate=\"skipped\""),
+                "{account}: {membership}"
             );
+            assert!(!review.contains("include Vlan7"), "{account}: {review}");
         }
         Ok(())
     }

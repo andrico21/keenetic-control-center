@@ -474,7 +474,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(cli,migrate): refuse an apply onto a busy router before starting a job
   Recommended task executor category: unspecified-high - ordering change between lease, job and audit
 
-- [ ] 27. Bridge membership is decided from the final plan dispositions
+- [x] 27. Bridge membership is decided from the final plan dispositions
   What to do / Must NOT do: TDD. `crates/kcc-migrate/src/rules.rs:256-279` decides `interface <bridge> include <member>` lines before `retain_supported` and before operator exclusions (`crates/kcc-migrate/src/planner.rs:64`, `planner/buildability.rs:12-27`), so a logical interface whose only context line the target cannot build, or whose lines the operator excluded, still gets its membership copied (BACKLOG r17 F4-N73 and the row-137 follow-up: excluding the `Vlan5` lines still plans `interface Bridge1 include Vlan5`). Decide membership lines after `retain_supported` and after exclusions, from the final dispositions; make the Web wizard review (`crates/kcc-web/src/migrate_wizard/plan.rs`) classify the same filtered source. Must NOT: change dispositions of unrelated lines.
   Closes: GAP-15
   Parallelization: Wave W3 | Blocked by: - | Blocks: 45, 54 | Can parallelize with: 13, 15, 16, 8, 18, 19, 20

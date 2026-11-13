@@ -9,6 +9,7 @@
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
+    use axum::http::StatusCode;
     use kcc_i18n::{keys, locale::Locale};
     use kcc_migrate::{
         inventory::{InventoryClient, TargetInventory, source_version},
@@ -203,6 +204,69 @@ mod tests {
             "{preview}"
         );
         assert_eq!(counts(&preview, Locale::En), [7, 3, 1, 3], "{preview}");
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn review_and_plan_agree_once_the_vlan_lines_are_excluded() -> TestResult {
+        let fixture = Fixture::new().await?;
+        let admin = fixture.login("admin").await?;
+        let page = to_file_review(&fixture, &admin, MIXED).await?;
+        let saved = fixture
+            .post(&format!("{page}/review"), &admin, &[("shown", "0")])
+            .await?;
+        assert_eq!(saved.status(), StatusCode::NO_CONTENT, "excluded");
+        let review = rows(&text(fixture.get(&page, &admin).await?).await?);
+
+        let client = fixture.registry().client("ultra").await?;
+        let target = TargetInventory::collect(
+            &InventoryClient::from_client(&client),
+            Some(source_version("4.3.0")?),
+        )
+        .await?;
+        let trimmed = MIXED.replacen(" description lab\n", "", 1);
+        let plan = Planner::plan(
+            &SourceConfig::from_bytes(trimmed.as_bytes())?,
+            &target,
+            &MigrationMaps::default(),
+            &Choices::default(),
+        )?;
+
+        let mut expected = vec![(0, "excluded")];
+        for item in &plan.items {
+            let fate = match item.disposition {
+                Disposition::Copy | Disposition::Remap => "migrated",
+                Disposition::SkipHardware | Disposition::SkipIdentity => "skipped",
+                Disposition::Unsupported => "unsupported",
+                Disposition::Conflict | Disposition::NeedsInput | _ => {
+                    return Err(format!("unexpected {:?}", item.disposition).into());
+                }
+            };
+            expected.push((item.source_index.saturating_add(1), fate));
+        }
+        let shown = review
+            .iter()
+            .map(|row: &Row| (row.index, row.fate.as_str()))
+            .collect::<Vec<_>>();
+        assert_eq!(shown, expected, "the review is the plan");
+        assert_eq!(
+            shown.get(3),
+            Some(&(3, "skipped")),
+            "no Vlan5 is created, so Bridge1 gets no Vlan5 member"
+        );
+        let sent = plan
+            .phases
+            .additive
+            .iter()
+            .chain(&plan.phases.management)
+            .map(|line| line.expose_command().to_owned())
+            .collect::<Vec<_>>();
+        assert!(
+            !sent
+                .iter()
+                .any(|line| line == "interface Bridge1 include Vlan5"),
+            "{sent:?}"
+        );
         Ok(())
     }
 }

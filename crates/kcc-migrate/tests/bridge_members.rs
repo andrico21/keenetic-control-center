@@ -5,16 +5,22 @@ mod tests {
     extern crate alloc;
 
     use alloc::collections::{BTreeMap, BTreeSet};
-    use core::error::Error;
+    use core::{error::Error, net::SocketAddr, str::FromStr as _};
 
     use kcc_config::config_text::parse;
     use kcc_migrate::{
+        inventory::{InventoryClient, TargetInventory, source_version},
         maps::{InterfaceMap, PortMap, RadioMap},
+        planner::{Choices, MigrationMaps, Planner},
         rules::{
             ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
             InterfaceInventory, RuleEngine,
         },
+        source::SourceConfig,
     };
+    use kcc_rci::{RouterUrl, auth::Credentials};
+    use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
+    use secrecy::SecretString;
 
     /// Classifies source text against an optional target interface inventory and mapping.
     #[expect(
@@ -78,6 +84,70 @@ mod tests {
             .iter()
             .find(|item| item.before.ends_with(&format!("include {member}")))
             .ok_or_else(|| format!("membership for {member} was not classified").into())
+    }
+
+    /// A real read-only inventory of the default fake KN-1811, whose catalog cannot build
+    /// `vlan-id` and whose interface list has no `Vlan5`.
+    #[expect(
+        clippy::missing_errors_doc,
+        reason = "integration-test helper propagates fixture errors"
+    )]
+    async fn fake_target() -> Result<TargetInventory, Box<dyn Error>> {
+        let router = FakeRouter::builder(Profile::default()).build()?;
+        let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
+        let url = RouterUrl::from_str(&format!("http://{address}"))?;
+        let credentials = Credentials::new(
+            DEFAULT_LOGIN.to_owned(),
+            SecretString::from(DEFAULT_PASSWORD.to_owned()),
+        );
+        let client = InventoryClient::connect(url, credentials).await?;
+        let inventory = TargetInventory::collect(&client, Some(source_version("4.3.0")?)).await?;
+        handle.shutdown().await?;
+        Ok(inventory)
+    }
+
+    #[tokio::test]
+    #[expect(
+        clippy::missing_errors_doc,
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "integration-test assertions define the task contract"
+    )]
+    async fn a_member_the_plan_does_not_create_gets_no_include_line() -> Result<(), Box<dyn Error>>
+    {
+        let header = "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\n";
+        let bridge = "interface Bridge1\n include Vlan5\n!\n";
+        let target = fake_target().await?;
+        for (case, vlan) in [
+            (
+                "only context line unbuildable",
+                "interface Vlan5\n vlan-id 5\n!\n",
+            ),
+            ("every Vlan5 line excluded", ""),
+        ] {
+            let source = SourceConfig::from_bytes(format!("{header}{vlan}{bridge}").as_bytes())?;
+            let maps = MigrationMaps::default();
+            let classified = Planner::classify(&source, &target, &maps, &Choices::default())?;
+            let plan = Planner::plan(&source, &target, &maps, &Choices::default())?;
+
+            let item = membership(&classified, "Vlan5")?;
+            assert_eq!(item.disposition, Disposition::SkipHardware, "{case}");
+            assert_eq!(item.rule_id, "hardware-missing-bridge-member", "{case}");
+            let sent = plan
+                .phases
+                .additive
+                .iter()
+                .chain(&plan.phases.management)
+                .map(|line| line.expose_command().to_owned())
+                .collect::<Vec<_>>();
+            assert!(
+                !sent
+                    .iter()
+                    .any(|line| line == "interface Bridge1 include Vlan5"),
+                "{case}: {sent:?}"
+            );
+        }
+        Ok(())
     }
 
     #[test]

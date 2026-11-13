@@ -33,6 +33,8 @@ pub(super) struct Classified {
 
 impl Classified {
     /// Classifies the source of `analysis` with the choices of `record` and `passwords`.
+    /// The settings the plan keeps are classified as the plan classifies them, on the
+    /// source without the left-out ones; the left-out ones as in the whole source.
     ///
     /// # Errors
     ///
@@ -43,15 +45,38 @@ impl Classified {
         passwords: &BTreeMap<String, SecretString>,
     ) -> Result<Self, RuleError> {
         let maps = record.maps().cloned().unwrap_or_default();
-        let open = analysis.classify(&maps, passwords, &BTreeSet::new())?;
+        let whole = analysis.source();
+        let open = analysis.classify(whole, &maps, passwords, &BTreeSet::new())?;
         let conflicts = open
             .iter()
             .filter(|item| item.disposition == Disposition::Conflict)
             .map(|item| item.source_index)
             .collect::<BTreeSet<_>>();
-        let keys = overwrite_keys(analysis.source(), record.overwrite());
-        let items = analysis.classify(&maps, passwords, &keys)?;
-        Ok(Self { items, conflicts })
+        let keys = overwrite_keys(whole, record.overwrite());
+        let items = analysis.classify(whole, &maps, passwords, &keys)?;
+        let mut classified = Self { items, conflicts };
+        let (planned, kept) = without(whole, &classified.left_out(record));
+        for mut item in analysis.classify(&planned, &maps, passwords, &keys)? {
+            if let Some(&index) = kept.get(item.source_index)
+                && let Some(slot) = classified.items.get_mut(index)
+            {
+                item.source_index = index;
+                *slot = item;
+            }
+        }
+        Ok(classified)
+    }
+
+    /// The settings the plan leaves out: the excluded ones, and those that need a
+    /// component the user agreed to install first.
+    fn left_out(&self, record: &Record) -> BTreeSet<usize> {
+        let mut left_out = record.excluded().clone();
+        for (name, items) in self.components(record) {
+            if record.components().contains(&name) {
+                left_out.extend(items);
+            }
+        }
+        left_out
     }
 
     /// Every item, in source order.
@@ -111,13 +136,7 @@ impl Built {
         passwords: &BTreeMap<String, SecretString>,
     ) -> Result<Self, PlanError> {
         let classified = Classified::new(analysis, record, passwords)?;
-        let mut left_out = record.excluded().clone();
-        for (name, items) in classified.components(record) {
-            if record.components().contains(&name) {
-                left_out.extend(items);
-            }
-        }
-        let (source, kept) = without(analysis.source(), &left_out);
+        let (source, kept) = without(analysis.source(), &classified.left_out(record));
         let maps = record.maps().cloned().unwrap_or_default();
         let mut choices = Choices::default();
         choices.new_passwords = passwords.clone();

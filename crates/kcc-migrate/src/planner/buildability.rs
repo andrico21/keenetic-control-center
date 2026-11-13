@@ -11,17 +11,22 @@ use crate::{
 /// Applies the same builder as preflight to every replayable classification output.
 pub(super) fn retain_supported(items: &mut [ClassifiedItem], catalog: &Catalog) {
     for item in items {
-        if matches!(item.disposition, Disposition::Copy | Disposition::Remap)
-            && item
-                .output
-                .as_ref()
-                .is_none_or(|output| command::build(catalog, output.expose_secret()).is_err())
-        {
-            item.disposition = Disposition::Unsupported;
-            "catalog-unsupported".clone_into(&mut item.rule_id);
-            "migration-reason-unsupported-command".clone_into(&mut item.reason_key);
-            item.after = None;
-            item.output = None;
-        }
+        retain_supported_item(item, catalog);
+    }
+}
+
+/// Marks one replayable output the target cannot build as unsupported.
+pub(super) fn retain_supported_item(item: &mut ClassifiedItem, catalog: &Catalog) {
+    if matches!(item.disposition, Disposition::Copy | Disposition::Remap)
+        && item
+            .output
+            .as_ref()
+            .is_none_or(|output| command::build(catalog, output.expose_secret()).is_err())
+    {
+        item.disposition = Disposition::Unsupported;
+        "catalog-unsupported".clone_into(&mut item.rule_id);
+        "migration-reason-unsupported-command".clone_into(&mut item.reason_key);
+        item.after = None;
+        item.output = None;
     }
 }
