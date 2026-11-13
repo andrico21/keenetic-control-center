@@ -4,6 +4,7 @@ use alloc::collections::BTreeMap;
 use core::sync::atomic::{AtomicU64, Ordering};
 use std::sync::PoisonError;
 
+use kcc_app::audit::receipt::AuditReceipt;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
@@ -133,6 +134,17 @@ pub(crate) async fn finish_with_context(
             CallToolResult::error(vec![ContentBlock::text(text)])
         }
     }
+}
+
+/// `result` with `"audit_pending": true` while the change's audit entry is still queued
+/// behind another process's append lock; it is written once the lock is free.
+pub(crate) fn noting(mut result: Value, audit: &AuditReceipt) -> Value {
+    if audit.is_pending()
+        && let Value::Object(object) = &mut result
+    {
+        drop(object.insert("audit_pending".to_owned(), Value::Bool(true)));
+    }
+    result
 }
 
 /// Converts a router-independent tool outcome into a protocol result.

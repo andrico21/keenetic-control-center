@@ -4,9 +4,9 @@
 //! and other facts the page chose; never a value the user typed, so no secret can reach
 //! the log.
 
-use core::mem;
+use core::{mem, time::Duration};
 
-use kcc_app::audit::{Actor, ActorKind, Attempt, AuditEvent};
+use kcc_app::audit::{Actor, ActorKind, Attempt, AuditError, AuditEvent, receipt::AUDIT_WAIT};
 use serde_json::Value;
 
 use super::outcome::Outcome;
@@ -23,6 +23,8 @@ pub(crate) struct Record {
     target: String,
     /// Redacted parameters.
     params: Value,
+    /// Longest the request waits for the record to be written.
+    wait: Duration,
 }
 
 impl Record {
@@ -33,6 +35,7 @@ impl Record {
             router: None,
             target,
             params: Value::Null,
+            wait: AUDIT_WAIT,
         }
     }
 
@@ -56,7 +59,13 @@ impl Record {
         let event = AuditEvent::new(state.unix_seconds(), actor(user), self.action.to_owned())
             .with_params(self.params)
             .with_result(outcome.to_owned(), auth::request_id());
-        write(state, self.action, self.router, (self.target, event)).await;
+        write(
+            state,
+            (self.action, self.router),
+            (self.target, event),
+            self.wait,
+        )
+        .await;
     }
 
     /// Appends the record of `attempt`, which did not do what it was asked to: its own
@@ -82,11 +91,18 @@ impl Record {
             params.extend(mem::take(own));
             *own = params;
         }
-        write(state, self.action, self.router, (self.target, event)).await;
+        write(
+            state,
+            (self.action, self.router),
+            (self.target, event),
+            self.wait,
+        )
+        .await;
     }
 
     /// Appends the record of `outcome`: a failure that may have left the recovery timer
-    /// armed is a failed attempt saying so.
+    /// armed is a failed attempt saying so. The record of a change whose own entries are
+    /// still queued is queued behind them without waiting: it cannot be written first.
     // NOT cancel-safe: an abandoned append may still be written.
     pub(crate) async fn append_outcome(
         self,
@@ -94,14 +110,22 @@ impl Record {
         user: &CurrentUser,
         outcome: &Outcome,
     ) {
+        let record = if outcome.audit_pending() {
+            Self {
+                wait: Duration::ZERO,
+                ..self
+            }
+        } else {
+            self
+        };
         if outcome.fail_safe_armed() {
             let failed = Attempt::Failed {
                 error: outcome.audit(),
                 fail_safe_armed: true,
             };
-            self.append_attempt(state, user, failed).await;
+            record.append_attempt(state, user, failed).await;
         } else {
-            self.append(state, user, outcome.audit()).await;
+            record.append(state, user, outcome.audit()).await;
         }
     }
 }
@@ -111,20 +135,29 @@ fn actor(user: &CurrentUser) -> Actor {
     Actor::new(ActorKind::Web, user.username().to_owned())
 }
 
-/// Appends `event` of `action` on `router` and `target`; a failed append is logged.
+/// Queues `event` of `action` on `router` and `target`, and waits at most `wait` for it
+/// to be written; an entry still queued then is written later, a failure is logged.
 // NOT cancel-safe: an abandoned append may still be written.
 async fn write(
     state: &WebState,
-    action: &'static str,
-    router: Option<String>,
+    (action, router): (&'static str, Option<String>),
     (target, event): (String, AuditEvent),
+    wait: Duration,
 ) {
     let mut complete = event.with_target(target);
     if let Some(name) = router {
         complete = complete.with_router(name);
     }
-    if let Err(error) = state.audit().append(complete).await {
-        tracing::error!(%error, action, "web audit append failed");
+    let written = match state.audit().submit(complete).await {
+        Ok(mut queued) => queued.wait(wait).await.map(drop),
+        Err(error) => Err(error),
+    };
+    match written {
+        Ok(()) => {}
+        Err(AuditError::Pending) => {
+            tracing::info!(action, "web audit entry queued behind the append lock");
+        }
+        Err(error) => tracing::error!(%error, action, "web audit append failed"),
     }
 }
 

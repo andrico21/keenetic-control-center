@@ -116,6 +116,17 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Audit waits are bounded and keep their entries**: an audit entry waiting on another
+  process's append lock is no longer dropped after about 25 s; the writer keeps it and
+  writes it, in order, once the lock is free. A change the router applied whose entry is
+  still queued after the bounded wait (30 s; 20 s after the disarm of a management
+  change) is reported as done instead of failed: the CLI exits 0 with the
+  `audit-entry-pending` note and `"audit_pending": true` in its `--json` document, MCP
+  write results carry `"audit_pending": true` (the key is absent otherwise), and the
+  Web shows the note as its success toast. A management change's recovery bracket sends
+  its disarm without waiting for any audit entry. A Web sign-in waits at most 5 s for its
+  entry. `kcc serve` and `kcc mcp stdio` give the writer 5 s at exit and log the count
+  of entries still queued.
 - `[[routers]] auth` now selects the sign-in scheme (`ndw2`, `ndw4`, `digest`,
   `token`) instead of being ignored, and `token_file` profiles connect with the token
   instead of being refused at startup. Stored router profiles keep their file format.

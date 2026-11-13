@@ -103,12 +103,16 @@ async fn a_dead_audit_writer_waits_for_the_web_bracket_to_close() -> TestResult 
     );
     let body = response.text().await?;
     assert!(
-        body.contains(&html(&tr(
+        body.contains(&html(&tr(Locale::En, keys::WEB_EXPLORER_FAILED, None))),
+        "the dead writer is the change's failure: {body}"
+    );
+    assert!(
+        !body.contains(&html(&tr(
             Locale::En,
             keys::MANAGEMENT_NOT_SENT_ARMED,
             None
         ))),
-        "{body}"
+        "the disarm was accepted, so the timer is not reported armed: {body}"
     );
     assert!(disarmed(&served), "the disarm reached the router");
     assert!(

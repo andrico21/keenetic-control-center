@@ -182,24 +182,19 @@ pub(crate) enum Applied {
     Terminal(Vec<RciBody>),
 }
 
-impl Applied {
-    /// Whether the router now has unsaved changes; unknown after a terminal change.
-    pub(crate) const fn unsaved(&self) -> bool {
-        match self {
-            Self::Done { unsaved }
-            | Self::Batch {
-                applied_management_changes: _,
-                unsaved,
-                persists_immediately: _,
-                persisted_paths: _,
-                responses: _,
-            }
-            | Self::Cli {
-                unsaved,
-                responses: _,
-            } => *unsaved,
-            Self::Terminal(_) => false,
-        }
+/// A change that completed.
+pub(crate) struct Landed {
+    /// The router's answer.
+    applied: Applied,
+    /// Whether an audit entry of the change is still queued behind another process's
+    /// append lock; it is written once the lock is free.
+    audit_pending: bool,
+}
+
+impl Landed {
+    /// The router's answer, and whether an audit entry of the change is still queued.
+    pub(crate) fn into_parts(self) -> (Applied, bool) {
+        (self.applied, self.audit_pending)
     }
 }
 
@@ -352,7 +347,7 @@ impl<'call> Plan<'call> {
 ///
 /// Returns the workflow error and whether the fail-safe timer stays armed.
 // NOT cancel-safe: see `apply_with`.
-pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Applied, Refused> {
+pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Landed, Refused> {
     let (management, permission) = match &change {
         Change::Batch(request) => (
             request.permission == Permission::RawRci
@@ -410,7 +405,7 @@ pub(crate) async fn apply_with<W>(
     plan: Plan<'_>,
     permission: Permission,
     work: W,
-) -> Result<Applied, Refused>
+) -> Result<Landed, Refused>
 where
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Result<Applied, WorkflowError>,
 {
@@ -445,11 +440,15 @@ where
         ));
     }
     let Some(safety) = mode else {
-        return work(&mut changes, &context).await.map_err(Refused::plain);
+        let applied = work(&mut changes, &context).await.map_err(Refused::plain)?;
+        return Ok(Landed {
+            applied,
+            audit_pending: changes.audit_pending(),
+        });
     };
     let mut refused_items = Vec::new();
     let stash = &mut refused_items;
-    guarded(
+    let applied = guarded(
         &mut changes,
         &context,
         safety,
@@ -482,7 +481,11 @@ where
         },
     )
     .await
-    .map_err(|failure| Refused::bracket(failure, refused_items))
+    .map_err(|failure| Refused::bracket(failure, refused_items))?;
+    Ok(Landed {
+        applied,
+        audit_pending: changes.audit_pending(),
+    })
 }
 
 /// Sends `change` through the change set.

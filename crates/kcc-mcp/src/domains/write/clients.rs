@@ -202,7 +202,7 @@ async fn apply_planned(
         }),
     )
     .await?;
-    Ok(applied(result.unsaved))
+    Ok(applied(result.unsaved, &result.audit))
 }
 
 /// Runs one client write. `schedule` and `policy` take the schedule or policy in

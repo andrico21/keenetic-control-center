@@ -155,6 +155,9 @@ pub(crate) struct Outcome {
     audit: &'static str,
     /// Whether a failed change may have left the recovery timer armed.
     fail_safe_armed: bool,
+    /// Whether the change's audit entries are still queued behind another process's
+    /// append lock.
+    audit_pending: bool,
 }
 
 /// The outcome fragment of a page's outcome region.
@@ -186,6 +189,7 @@ impl Outcome {
             status: StatusCode::OK,
             audit,
             fail_safe_armed: false,
+            audit_pending: false,
         }
     }
 
@@ -218,6 +222,19 @@ impl Outcome {
             toasts: vec![Toast::new(Tone::Success, headline.clone())],
             unsaved,
             ..Self::base(Tone::Success, headline, "success")
+        }
+    }
+
+    /// The same completed request whose audit entries are still queued: its toast says
+    /// they are written once the audit log is free.
+    pub(crate) fn with_audit_pending(self, locale: Locale) -> Self {
+        Self {
+            toasts: vec![Toast::new(
+                Tone::Success,
+                tr(locale, keys::AUDIT_ENTRY_PENDING, None),
+            )],
+            audit_pending: true,
+            ..self
         }
     }
 
@@ -288,6 +305,11 @@ impl Outcome {
     /// Whether a failed change may have left the recovery timer armed.
     pub(crate) const fn fail_safe_armed(&self) -> bool {
         self.fail_safe_armed
+    }
+
+    /// Whether the change's audit entries are still queued.
+    pub(crate) const fn audit_pending(&self) -> bool {
+        self.audit_pending
     }
 
     /// The outcome fragment in `locale`, for a page's outcome region (`#page-outcome`).

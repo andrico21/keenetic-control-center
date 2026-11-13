@@ -12,6 +12,8 @@ mod raw_paths;
 #[path = "support/raw_redaction.rs"]
 mod raw_redaction;
 
+#[path = "support/audit_pending.rs"]
+mod audit_pending;
 #[path = "support/bracket.rs"]
 mod bracket;
 #[path = "support/bracket_failures.rs"]

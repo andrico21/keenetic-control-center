@@ -5,7 +5,9 @@
 //! management change also runs inside the router's fail-safe timer, armed before and
 //! disarmed after it while the router still answers. An attempt that fails after the
 //! confirmation leaves a `cli.change` audit entry with outcome `failed` and the error
-//! kind.
+//! kind. A change the router applied while another process holds the audit append lock
+//! succeeds with a note and `audit_pending` in its document: its entry stays queued, and
+//! is lost if this process exits before the lock is free.
 
 use kcc_app::{audit::Attempt, permissions::Permission, workflow::ChangeSet};
 use kcc_catalog::Risk;
@@ -186,34 +188,39 @@ where
         gate.ask_on_write,
     );
     ctx.confirmed(services, target.id(), confirmation).await?;
-    let attempt = async move {
+    let attempt: Outcome<Value> = async move {
         let mut changes = services
             .workflow()
             .begin(target.id(), ctx.principal().actor(), &role, None, false)
             .await?;
-        match gate.timer {
-            Timer::Off => {
-                return work(&mut changes, target.router())
-                    .await
-                    .map(|(document, _applied)| labelled(document, gate.persists));
+        let document = match gate.timer {
+            Timer::Off => work(&mut changes, target.router())
+                .await
+                .map(|(document, _applied)| labelled(document, gate.persists))?,
+            Timer::Runner => {
+                let mode = SafetyMode::for_change(&changes)?;
+                guarded(
+                    &mut changes,
+                    target.router(),
+                    mode,
+                    gate.permission,
+                    || true,
+                    async |bracketed, router| {
+                        work(bracketed, router)
+                            .await
+                            .map(|(document, applied)| (labelled(document, gate.persists), applied))
+                    },
+                )
+                .await
+                .map_err(Failure::recovery)?
             }
-            Timer::Runner => {}
+        };
+        if !changes.audit_pending() {
+            return Ok(document);
         }
-        let mode = SafetyMode::for_change(&changes)?;
-        guarded(
-            &mut changes,
-            target.router(),
-            mode,
-            gate.permission,
-            || true,
-            async |bracketed, router| {
-                work(bracketed, router)
-                    .await
-                    .map(|(document, applied)| (labelled(document, gate.persists), applied))
-            },
-        )
-        .await
-        .map_err(Failure::recovery)
+        ctx.out()
+            .note(&ctx.out().tr(keys::AUDIT_ENTRY_PENDING, &[]));
+        Ok(audit_pending(document))
     }
     .await;
     if let Err(failure) = &attempt {
@@ -235,6 +242,15 @@ pub(crate) fn labelled(mut document: Value, persists: bool) -> Value {
         if persists && let Some(unsaved) = object.get_mut("unsaved") {
             *unsaved = Value::Bool(false);
         }
+    }
+    document
+}
+
+/// `document` marked `audit_pending`: the change applied, and its audit entry is still
+/// queued behind another process's append lock.
+fn audit_pending(mut document: Value) -> Value {
+    if let Value::Object(object) = &mut document {
+        drop(object.insert("audit_pending".to_owned(), Value::Bool(true)));
     }
     document
 }

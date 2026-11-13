@@ -21,6 +21,7 @@ use crate::{
     support::{
         errors::{map_rci, map_workflow, rci_body_value, statuses},
         raw_change,
+        shape::noting,
         validate::{
             MAX_BATCH_ITEMS, MAX_LINE_CHARS, empty_object, valid_host, valid_text,
             valid_value_size, validate_fields, validate_rci_input,
@@ -257,7 +258,7 @@ pub(crate) async fn rci_execute(
         },
     )
     .await?;
-    Ok(applied(result.unsaved, &validated))
+    Ok(noting(applied(result.unsaved, &validated), &result.audit))
 }
 
 /// Applies a catalog-validated deletion without saving.
@@ -309,7 +310,7 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         },
     )
     .await?;
-    Ok(applied(result.unsaved, &validated))
+    Ok(noting(applied(result.unsaved, &validated), &result.audit))
 }
 
 /// Applies a catalog-validated root batch without saving.
@@ -380,11 +381,14 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
     let Some(result) = completion else {
         return outcome.and(Err(McpFailure::Internal));
     };
-    let document = batch_applied(
-        batch_values(result.responses),
-        result.unsaved,
-        result.persists_immediately,
-        result.persisted_paths,
+    let document = noting(
+        batch_applied(
+            batch_values(result.responses),
+            result.unsaved,
+            result.persists_immediately,
+            result.persisted_paths,
+        ),
+        &result.audit,
     );
     match outcome {
         Ok(()) => Ok(document),
@@ -465,5 +469,8 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
         },
     )
     .await?;
-    Ok(cli_applied(result.responses, result.unsaved, persistence))
+    Ok(noting(
+        cli_applied(result.responses, result.unsaved, persistence),
+        &result.audit,
+    ))
 }

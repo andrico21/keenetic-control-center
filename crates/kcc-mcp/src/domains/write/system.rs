@@ -132,7 +132,7 @@ pub(super) async fn write(server: &KccMcp, arguments: Value) -> Result<Value, Mc
                 }),
             )
             .await?;
-            Ok(applied(result.unsaved))
+            Ok(applied(result.unsaved, &result.audit))
         }
     }
 }

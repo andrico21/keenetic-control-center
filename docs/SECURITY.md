@@ -295,9 +295,22 @@ directory from rewriting the whole log.
 
 The append lock uses a longer bounded backoff with per-process phase jitter. Mutual
 exclusion still covers tail verification and the complete durable append, so contention
-cannot fork the chain. A lock timeout fails that append only; chain, serialization,
-join, or log I/O failures terminate the writer. New router work is then refused before
-its first router request, and `kcc serve` exits non-zero so its supervisor can restart it.
+cannot fork the chain. A busy lock never drops an entry: the one writer of each process
+keeps it at the head of its queue and retries until the lock is free, so entries are
+written in the order they were submitted, and the sequence number and previous hash are
+assigned under the lock. Chain, serialization, join, or log I/O failures terminate the
+writer. New router work is then refused before its first router request, and `kcc serve`
+exits non-zero so its supervisor can restart it.
+
+Audit guarantees: while the process runs, every entry is kept and written in order; an
+entry is lost only if the writer fails or the process exits first (`kcc serve` and `kcc
+mcp stdio` give the writer 5 s at exit and log the count of entries still queued; a CLI
+run exits right after its change). Callers wait for their entry a bounded time (30 s for
+a change; inside a management change's recovery bracket the disarm is sent without
+waiting, then the bracket waits 20 s). A change the router applied whose entry is still
+queued is reported as done with a note that the entry will be written once the audit log
+is free, never as a router failure. A Web sign-in waits at most 5 s for its entry, then
+signs the user in with the entry still queued.
 
 Keep the shipped production filter `info,rmcp=warn,rmcp_server_kit=info`. Raising the
 `rmcp` target above `warn` makes the MCP SDK log tool arguments at debug or trace,

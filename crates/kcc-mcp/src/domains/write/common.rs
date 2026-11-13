@@ -7,6 +7,7 @@ mod tests;
 use core::net::Ipv4Addr;
 
 use kcc_app::{
+    audit::receipt::AuditReceipt,
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest},
 };
@@ -22,6 +23,7 @@ use crate::{
     support::{
         errors::{map_domain, map_workflow},
         raw_change,
+        shape::noting,
         validate::valid_text,
     },
 };
@@ -155,12 +157,12 @@ where
         }),
     )
     .await?;
-    Ok(applied(result.unsaved))
+    Ok(applied(result.unsaved, &result.audit))
 }
 
-/// The result of an applied, unsaved change.
-pub(super) fn applied(unsaved: bool) -> Value {
-    json!({ "applied": true, "unsaved": unsaved })
+/// The result of an applied change, marked `audit_pending` while its entry is queued.
+pub(super) fn applied(unsaved: bool, audit: &AuditReceipt) -> Value {
+    noting(json!({ "applied": true, "unsaved": unsaved }), audit)
 }
 
 /// A required object name.

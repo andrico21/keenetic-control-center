@@ -4,10 +4,16 @@
 //! requests on any surface (Web UI, MCP over HTTP or stdio) still closing a router's
 //! safety bracket get a bounded grace before the process exits: every bracket enters the
 //! change workflow's count ([`kcc_app::brackets::Brackets`]) whichever surface opened it.
+//! Last, the audit writer gets a bounded time to write the entries still queued behind
+//! another process's append lock; those still queued then are lost, and counted in the
+//! log.
 
 use core::time::Duration;
 
-use kcc_app::{audit::AuditLog, brackets::Brackets};
+use kcc_app::{
+    audit::{AuditLog, receipt::AUDIT_FLUSH_WAIT},
+    brackets::Brackets,
+};
 use rmcp_server_kit::RmcpServerKitError;
 
 use crate::server::{ServerError, error};
@@ -68,6 +74,19 @@ pub(crate) async fn wait_for_brackets(brackets: &Brackets) {
     }
 }
 
+/// Gives the audit writer at most [`AUDIT_FLUSH_WAIT`] to write the entries still queued,
+/// and logs how many are lost with the process.
+// cancel-safe: only observes the writer's progress.
+pub(crate) async fn flush_audit(audit: &AuditLog) {
+    let queued = audit.flush(AUDIT_FLUSH_WAIT).await;
+    if queued != 0 {
+        tracing::error!(
+            queued,
+            "audit entries still queued at exit are lost; the append lock stayed busy or the writer failed"
+        );
+    }
+}
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -82,11 +101,16 @@ mod tests {
     use core::error::Error;
     use std::{io, sync::Mutex};
 
-    use kcc_app::brackets::Brackets;
+    use kcc_app::{
+        audit::{AUDIT_FILE_NAME, Actor, ActorKind, AuditEvent, AuditLog},
+        brackets::Brackets,
+        persist::StateStore,
+    };
+    use tempfile::TempDir;
     use tracing::subscriber::set_default;
     use tracing_subscriber::fmt::MakeWriter;
 
-    use super::wait_for_brackets;
+    use super::{flush_audit, wait_for_brackets};
 
     /// Everything the subscriber writes.
     #[derive(Clone, Default)]
@@ -137,6 +161,47 @@ mod tests {
         )?;
         assert!(
             output.contains(" WARN ") && output.contains("open=1"),
+            "{output}"
+        );
+        Ok(())
+    }
+
+    /// Entries still queued behind another process's append lock when the flush wait
+    /// ends are logged as an error with their count.
+    #[tokio::test(start_paused = true)]
+    async fn entries_still_queued_at_exit_are_counted() -> Result<(), Box<dyn Error>> {
+        let captured = Captured::default();
+        let subscriber = tracing_subscriber::fmt()
+            .with_ansi(false)
+            .with_writer(captured.clone())
+            .finish();
+        let _default = set_default(subscriber);
+        let temp = TempDir::new()?;
+        let state = StateStore::open(&temp.path().join("state"))?;
+        let audit = AuditLog::spawn(&state)?;
+        let held = state.try_lock(AUDIT_FILE_NAME)?;
+        for index in 0_u64..2 {
+            let event = AuditEvent::new(
+                index,
+                Actor::new(ActorKind::System, "test".to_owned()),
+                "test.flush".to_owned(),
+            )
+            .with_result("success".to_owned(), format!("flush-{index}"));
+            drop(audit.submit(event).await?);
+        }
+
+        flush_audit(&audit).await;
+        drop(held);
+
+        let output = String::from_utf8(
+            captured
+                .0
+                .lock()
+                .map_err(|_poisoned| "capture lock poisoned")?
+                .clone(),
+        )?;
+        assert!(
+            output.contains(" ERROR ") && output.contains("queued=2"),
             "{output}"
         );
         Ok(())

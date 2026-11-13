@@ -52,3 +52,5 @@ management-mode-unknown = kcc can't tell how this router would recover from a lo
 management-not-sent-armed = Nothing was changed, but the router may still be counting down to a rollback or reboot. Check the recovery timer before trying again.
 
 management-not-applied = Nothing was applied, and the recovery timer is off.
+
+audit-entry-pending = Done. The audit log is busy; this change's entry will be written as soon as it is free.

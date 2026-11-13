@@ -128,7 +128,7 @@ async fn run(
         || true,
         async move |set: &mut ChangeSet, _router: &RouterCtx| match work {
             Work::Apply => {
-                let _: ChangeResult = set.apply(request).await?;
+                let _applied: ChangeResult = set.apply(request).await?;
                 Ok((true, true))
             }
             Work::Fail => Err(WorkflowError::SaveTimeout),
@@ -235,7 +235,7 @@ async fn a_write_only_role_runs_a_whole_bracket() -> TestResult {
             Permission::Write,
             || true,
             async move |set: &mut ChangeSet, _router: &RouterCtx| {
-                let _: ChangeResult = set.apply(request).await?;
+                let _applied: ChangeResult = set.apply(request).await?;
                 Ok::<_, WorkflowError>((workflow.brackets().count(), true))
             },
         )

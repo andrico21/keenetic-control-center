@@ -104,7 +104,7 @@ async fn close_sends_the_step_of_the_armed_mechanism() -> TestResult {
                 .await?,
             );
             let plan = system::plan_description(fixture.context(), "closing")?;
-            let _: ChangeResult = changes.apply(system::change_request(&plan)?).await?;
+            let _applied: ChangeResult = changes.apply(system::change_request(&plan)?).await?;
             let before = fixture.handle().request_log().len();
 
             let closed = close(

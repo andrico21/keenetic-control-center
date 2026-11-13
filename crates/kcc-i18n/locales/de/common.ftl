@@ -52,3 +52,5 @@ management-mode-unknown = kcc kann nicht erkennen, wie sich dieser Router nach e
 management-not-sent-armed = Es wurde nichts geändert, aber der Router zählt möglicherweise noch bis zu einem Rollback oder Neustart herunter. Prüfen Sie den Wiederherstellungstimer, bevor Sie es erneut versuchen.
 
 management-not-applied = Es wurde nichts übernommen, und der Wiederherstellungstimer ist aus.
+
+audit-entry-pending = Erledigt. Das Audit-Protokoll ist belegt; der Eintrag zu dieser Änderung wird geschrieben, sobald es frei ist.

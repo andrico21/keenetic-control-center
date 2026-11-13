@@ -22,12 +22,22 @@ pub(super) struct RetryPolicy {
 }
 
 impl RetryPolicy {
-    /// Production policy: roughly twenty-five seconds under continuous contention.
+    /// Production policy: rounds of roughly twenty-five seconds under continuous contention.
     pub(super) const PRODUCTION: Self = Self {
         attempts: 256,
         initial_delay: Duration::from_millis(10),
         maximum_delay: Duration::from_millis(100),
     };
+
+    /// The production number of attempts per round, with backoff from `initial` up to
+    /// `maximum`.
+    pub(super) const fn backoff(initial_delay: Duration, maximum_delay: Duration) -> Self {
+        Self {
+            initial_delay,
+            maximum_delay,
+            ..Self::PRODUCTION
+        }
+    }
 
     /// Constructs a deterministic policy for tests.
     #[cfg(test)]
@@ -60,7 +70,7 @@ impl RetryPolicy {
 ///
 /// # Errors
 ///
-/// Returns [`AuditError::AppendLockTimeout`] after the bounded retry window, or the
+/// Returns [`AuditError::AppendLockTimeout`] after one bounded round of attempts, or the
 /// underlying state error when opening or locking the sidecar fails.
 // cancel-safe: every failed attempt owns no lock, and a successful lock is returned by value.
 pub(super) async fn acquire_append_lock(

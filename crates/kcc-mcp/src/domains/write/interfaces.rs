@@ -150,7 +150,7 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
         }),
     )
     .await?;
-    Ok(applied(result.unsaved))
+    Ok(applied(result.unsaved, &result.audit))
 }
 
 /// Plans one WAN change.

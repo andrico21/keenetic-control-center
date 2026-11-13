@@ -33,8 +33,18 @@ from the registry by `cargo xtask gen-metric-docs`; a test fails when it is stal
 `/readyz` reports `audit_alive: false` while the audit writer is unavailable. A fatal
 audit-writer error also terminates `kcc serve` with a non-zero status, so the shipped
 Quadlet `Restart=on-failure` policy starts a fresh process instead of leaving an
-unhealthy daemon running. Bounded cross-process append-lock contention fails only the
-contended append and does not terminate the writer.
+unhealthy daemon running. Cross-process append-lock contention never terminates the
+writer and never drops an entry: an entry whose lock stays busy is kept at the head of
+the queue and retried until the lock is free, with a `warn` log line ("audit append lock
+still held by another process") every round of about 25 s. Callers wait for their entry
+only a bounded time: 30 s for an ordinary change, 20 s after the disarm for a management
+change's recovery bracket, 5 s for a Web sign-in. A change the router applied whose entry
+is still queued then is reported as done with the `audit-entry-pending` note (CLI exit
+0, MCP `"audit_pending": true`, a Web success toast). When `kcc serve` or `kcc mcp
+stdio` exits, the writer gets at most 5 s to write what is still queued; the count of
+entries lost then is logged at `error` level ("audit entries still queued at exit are
+lost"). A CLI run exits right after its change, so an entry still queued then is lost
+with it.
 
 Before it exits on a dead audit writer, `kcc serve` shuts its listener down the way
 SIGTERM does: it stops accepting connections and lets the requests in flight finish and

@@ -183,7 +183,7 @@ async fn configuration(firmware: Firmware, op: &str) -> TestResult {
     match op {
         "save" | "fail_safe_commit" => {
             let plan = system::plan_description(fixture.context(), "coverage67")?;
-            let _: ChangeResult = changes.apply(system::change_request(&plan)?).await?;
+            let _applied: ChangeResult = changes.apply(system::change_request(&plan)?).await?;
             if op == "save" {
                 changes.save().await?;
             } else {

@@ -148,7 +148,7 @@ pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, 
                 }),
             )
             .await?;
-            return Ok(applied(result.unsaved));
+            return Ok(applied(result.unsaved, &result.audit));
         }
         let planned = route_change::plan_add_ipv4(ctx, &route);
         return apply_cli(
@@ -178,7 +178,7 @@ pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, 
             }),
         )
         .await?;
-        return Ok(applied(result.unsaved));
+        return Ok(applied(result.unsaved, &result.audit));
     }
     let planned = route_change::plan_add_ipv6(ctx, &route);
     apply_cli(
@@ -252,5 +252,5 @@ pub(super) async fn policies(server: &KccMcp, arguments: Value) -> Result<Value,
         }),
     )
     .await?;
-    Ok(applied(result.unsaved))
+    Ok(applied(result.unsaved, &result.audit))
 }

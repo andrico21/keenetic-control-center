@@ -15,8 +15,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, error::Category};
 use sha2::{Digest as _, Sha256};
 use tokio::{
-    sync::{mpsc, oneshot},
-    task::spawn_blocking,
+    sync::{mpsc, watch},
+    time::timeout,
 };
 
 use crate::{
@@ -25,8 +25,11 @@ use crate::{
 };
 
 mod append_lock;
+pub mod receipt;
+mod writer;
 
-use append_lock::{RetryPolicy, acquire_append_lock};
+use append_lock::RetryPolicy;
+use receipt::{AUDIT_WAIT, Pending, Reply};
 
 /// Default audit rotation threshold: 50 MiB.
 pub const DEFAULT_ROTATE_BYTES: u64 = 50 * 1024 * 1024;
@@ -99,6 +102,15 @@ impl AuditPolicy {
     #[must_use]
     pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
+        self
+    }
+
+    /// Sets the backoff of each round of append-lock attempts, from `initial` up to
+    /// `maximum` between attempts; tests use short delays.
+    #[inline]
+    #[must_use]
+    pub const fn with_append_lock_backoff(mut self, initial: Duration, maximum: Duration) -> Self {
+        self.append_lock_retry = RetryPolicy::backoff(initial, maximum);
         self
     }
 
@@ -354,9 +366,14 @@ pub enum AuditError {
         /// Rejected parameter key.
         key: String,
     },
-    /// Another process held the audit append lock beyond the bounded retry window.
+    /// Another process held the audit append lock beyond one bounded round of attempts;
+    /// the writer keeps the entry queued and starts another round.
     #[error("audit append lock remained busy")]
     AppendLockTimeout,
+    /// The caller stopped waiting; the entry stays queued and is written once the append
+    /// lock is free.
+    #[error("audit entry is still queued")]
+    Pending,
 }
 
 /// A cloneable handle to the one audit writer task.
@@ -369,6 +386,8 @@ pub enum AuditError {
 pub struct AuditLog {
     /// Command channel consumed by exactly one task.
     sender: mpsc::Sender<Command>,
+    /// Entries submitted and not yet written.
+    queued: Arc<watch::Sender<usize>>,
 }
 
 impl fmt::Debug for AuditLog {
@@ -385,8 +404,8 @@ enum Command {
     Append {
         /// Validated event.
         event: AuditEvent,
-        /// Completion signal.
-        reply: oneshot::Sender<Result<AuditEntry, AuditError>>,
+        /// The writer's answer.
+        reply: watch::Sender<Reply>,
     },
 }
 
@@ -443,31 +462,64 @@ impl AuditLog {
             previous_hash,
             append_lock_retry: policy.append_lock_retry,
         };
-        drop(tokio::spawn(writer_task(receiver, state)));
-        Ok(Self { sender })
+        let queued = Arc::new(watch::Sender::new(0));
+        drop(tokio::spawn(writer::writer_task(
+            receiver,
+            state,
+            Arc::clone(&queued),
+        )));
+        Ok(Self { sender, queued })
     }
 
-    /// Appends one audit event after rejecting secret-shaped parameter keys.
+    /// Queues one audit event after rejecting secret-shaped parameter keys, and returns
+    /// the handle of the queued entry without waiting for it to be written.
     ///
     /// # Errors
     ///
-    /// Returns a validation, serialization, I/O, or writer-lifecycle error.
+    /// Returns a validation error, or [`AuditError::WriterUnavailable`] after a fatal
+    /// writer failure.
+    // cancel-safe: cancelled while waiting for a channel slot nothing is queued; the slot
+    // taken, the entry is queued without another await.
+    #[inline]
+    pub async fn submit(&self, event: AuditEvent) -> Result<Pending, AuditError> {
+        reject_secret_parameters(&event.params_redacted)?;
+        let slot = self
+            .sender
+            .reserve()
+            .await
+            .map_err(|_error| AuditError::WriterUnavailable)?;
+        let (reply, answer) = watch::channel(Reply::Queued);
+        self.queued
+            .send_modify(|count| *count = count.saturating_add(1));
+        slot.send(Command::Append { event, reply });
+        Ok(Pending::new(answer))
+    }
+
+    /// Waits at most `limit` for every queued entry to be written, and returns how many
+    /// were still queued then, or lost with a writer that failed.
+    // cancel-safe: waiting only observes the writer's progress.
+    #[inline]
+    pub async fn flush(&self, limit: Duration) -> usize {
+        let mut progress = self.queued.subscribe();
+        let sender = &self.sender;
+        let drained = progress.wait_for(|count| *count == 0 || sender.is_closed());
+        drop(timeout(limit, drained).await);
+        *self.queued.borrow()
+    }
+
+    /// Appends one audit event after rejecting secret-shaped parameter keys, waiting at
+    /// most [`AUDIT_WAIT`] for it to be written.
     ///
-    /// Cancel safety: not cancel-safe. Once sent, the single writer may append
-    /// the event even if the caller stops awaiting the acknowledgement.
+    /// # Errors
+    ///
+    /// Returns a validation error, [`AuditError::Pending`] when the entry is still
+    /// queued at the deadline (it is written later), or
+    /// [`AuditError::WriterUnavailable`] after a fatal writer failure.
     #[inline]
     // NOT cancel-safe: once queued, the writer appends the event even if the caller stops awaiting;
     // cancelled earlier, the event is dropped unwritten.
     pub async fn append(&self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
-        reject_secret_parameters(&event.params_redacted)?;
-        let (reply, result) = oneshot::channel();
-        self.sender
-            .send(Command::Append { event, reply })
-            .await
-            .map_err(|_error| AuditError::WriterUnavailable)?;
-        result
-            .await
-            .map_err(|_error| AuditError::WriterUnavailable)?
+        self.submit(event).await?.wait(AUDIT_WAIT).await
     }
 
     /// Whether the audit writer task is still accepting commands.
@@ -519,44 +571,6 @@ struct WriterState {
     clock: Arc<dyn Clock>,
     /// Bounded cross-process append-lock retry policy.
     append_lock_retry: RetryPolicy,
-}
-
-/// Runs the sole append/rotation loop.
-async fn writer_task(mut receiver: mpsc::Receiver<Command>, mut state: WriterState) {
-    while let Some(command) = receiver.recv().await {
-        match command {
-            Command::Append { event, reply } => {
-                let acquired = acquire_append_lock(&state.store, state.append_lock_retry).await;
-                let (next_state, result) = match acquired {
-                    Ok(lock) => match spawn_blocking(move || {
-                        let result = state.append_locked(event, &lock);
-                        (state, result)
-                    })
-                    .await
-                    {
-                        Ok(completed) => completed,
-                        Err(_error) => {
-                            drop(reply.send(Err(AuditError::WriterUnavailable)));
-                            receiver.close();
-                            break;
-                        }
-                    },
-                    Err(error) => (state, Err(error)),
-                };
-                state = next_state;
-                let fatal = result
-                    .as_ref()
-                    .is_err_and(|error| !matches!(error, AuditError::AppendLockTimeout));
-                if fatal {
-                    receiver.close();
-                }
-                drop(reply.send(result));
-                if fatal {
-                    break;
-                }
-            }
-        }
-    }
 }
 
 impl WriterState {
@@ -1040,7 +1054,7 @@ mod tests {
     }
 
     #[tokio::test(start_paused = true)]
-    async fn lock_timeout_fails_one_append_and_writer_accepts_the_next()
+    async fn a_lock_timeout_keeps_the_entry_queued_and_the_writer_alive()
     -> Result<(), Box<dyn Error>> {
         let temp = TempDir::new()?;
         let state = StateStore::open(&temp.path().join("state"))?;
@@ -1050,19 +1064,21 @@ mod tests {
             &state,
             AuditPolicy::default().with_append_lock_retry(retry),
         )?;
-        let timed_out = tokio::spawn({
-            let writer = audit.clone();
-            async move { writer.append(event(1)).await }
-        });
-        settle().await;
+        let mut first = audit.submit(event(1)).await?;
 
-        time::advance(Duration::from_secs(1)).await;
-        let result = timed_out.await?;
+        let waited = first.wait(Duration::from_secs(1)).await;
 
-        assert!(matches!(result, Err(AuditError::AppendLockTimeout)));
+        assert!(matches!(waited, Err(AuditError::Pending)), "{waited:?}");
+        assert!(first.is_pending(), "the entry stays queued");
         assert!(audit.is_alive(), "a lock timeout is not a writer failure");
         drop(held);
-        drop(audit.append(event(2)).await?);
+        let second = audit.append(event(2)).await?;
+        let written = first.wait(Duration::from_secs(1)).await?;
+        assert_eq!(
+            (written.seq, second.seq),
+            (1, 2),
+            "written in submission order"
+        );
         Ok(())
     }
 }

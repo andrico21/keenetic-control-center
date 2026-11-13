@@ -206,6 +206,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         still_running = drain.still_running,
         "jobs drained; any armed router fail-safe remains armed for rollback"
     );
+    crate::server_shutdown::flush_audit(&services.audit).await;
     serve_result?;
     if let Some(logs) = services.logs.take() {
         logs.shutdown().await;
@@ -213,8 +214,11 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     Ok(Outcome::Ok)
 }
 
-/// Runs the local stdio MCP command; once stdin closes it waits, at most
-/// `BRACKET_GRACE`, for tool calls still closing a router's safety bracket.
+/// Runs the local stdio MCP command.
+///
+/// Once stdin closes it waits, at most `BRACKET_GRACE`, for tool calls still closing a
+/// router's safety bracket, then at most `AUDIT_FLUSH_WAIT` for the audit entries still
+/// queued.
 // cancel-safe: rmcp owns stdio framing, the service future reaches terminal cleanup and the
 // bracket wait only observes the count.
 pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
@@ -228,13 +232,17 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     let handler = services.handler(&config, true)?;
     let served = serve_stdio(handler).await.map_err(error);
     crate::server_shutdown::wait_for_brackets(services.workflow.brackets()).await;
-    served?;
+    if let Err(failure) = served {
+        crate::server_shutdown::flush_audit(&services.audit).await;
+        return Err(failure);
+    }
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
         cancelled = drain.cancelled,
         still_running = drain.still_running,
         "stdio jobs drained; any armed router fail-safe remains armed for rollback"
     );
+    crate::server_shutdown::flush_audit(&services.audit).await;
     Ok(Outcome::Ok)
 }
 

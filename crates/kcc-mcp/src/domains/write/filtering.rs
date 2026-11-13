@@ -181,7 +181,7 @@ pub(super) async fn nat(server: &KccMcp, arguments: Value) -> Result<Value, McpF
         }),
     )
     .await?;
-    Ok(applied(result.unsaved))
+    Ok(applied(result.unsaved, &result.audit))
 }
 
 /// Plans one firewall change.
@@ -257,5 +257,5 @@ pub(super) async fn firewall(server: &KccMcp, arguments: Value) -> Result<Value,
         }),
     )
     .await?;
-    Ok(applied(result.unsaved))
+    Ok(applied(result.unsaved, &result.audit))
 }

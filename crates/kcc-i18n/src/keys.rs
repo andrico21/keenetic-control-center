@@ -441,6 +441,9 @@ pub const MANAGEMENT_NOT_SENT_ARMED: MessageKey = MessageKey::new("management-no
 /// `management-not-applied` in `common.ftl`.
 pub const MANAGEMENT_NOT_APPLIED: MessageKey = MessageKey::new("management-not-applied");
 
+/// `audit-entry-pending` in `common.ftl`.
+pub const AUDIT_ENTRY_PENDING: MessageKey = MessageKey::new("audit-entry-pending");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -6680,7 +6683,7 @@ pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate
 pub const WEB_BRACKET_UNOWNED: MessageKey = MessageKey::new("web-bracket-unowned");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2130] = [
+pub static ALL: [MessageKey; 2131] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6826,6 +6829,7 @@ pub static ALL: [MessageKey; 2130] = [
     MANAGEMENT_MODE_UNKNOWN,
     MANAGEMENT_NOT_SENT_ARMED,
     MANAGEMENT_NOT_APPLIED,
+    AUDIT_ENTRY_PENDING,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

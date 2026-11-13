@@ -21,7 +21,7 @@ use serde_json::{Value, json};
 
 use super::{
     audit::Record,
-    change::{self, Applied, Change, Plan, Refused},
+    change::{self, Applied, Change, Landed, Plan, Refused},
     confirm::{Confirmation, Resubmit},
     context::{self, Target, fragment_shell},
     facts::{FactsError, RouterFacts},
@@ -264,15 +264,33 @@ impl<'call> Action<'call> {
 
     /// The outcome of `result`, audited with `params`.
     // NOT cancel-safe: an abandoned append may still be written.
-    async fn finish(self, params: Value, result: Result<Applied, Refused>) -> Outcome {
+    async fn finish(self, params: Value, result: Result<Landed, Refused>) -> Outcome {
         let locale = self.locale();
         let outcome = match result {
-            Ok(Applied::Terminal(_)) => {
-                Outcome::done(tr(locale, self.family.done_terminal(), None), false)
-            }
-            Ok(applied) => {
-                let unsaved = applied.unsaved();
-                Outcome::done(tr(locale, self.family.done(unsaved), None), unsaved)
+            Ok(landed) => {
+                let (applied, audit_pending) = landed.into_parts();
+                let done = match applied {
+                    Applied::Terminal(_) => {
+                        Outcome::done(tr(locale, self.family.done_terminal(), None), false)
+                    }
+                    Applied::Done { unsaved }
+                    | Applied::Batch {
+                        applied_management_changes: _,
+                        unsaved,
+                        persists_immediately: _,
+                        persisted_paths: _,
+                        responses: _,
+                    }
+                    | Applied::Cli {
+                        unsaved,
+                        responses: _,
+                    } => Outcome::done(tr(locale, self.family.done(unsaved), None), unsaved),
+                };
+                if audit_pending {
+                    done.with_audit_pending(locale)
+                } else {
+                    done
+                }
             }
             Err(refused) => Outcome::failed(refused.failure(self.family, locale)),
         };

@@ -7,6 +7,7 @@ use serde_json::{Value, json};
 use super::{
     BatchChangeResult, ChangeResult, CliChangeResult, TerminalCliChangeResult, WorkflowError,
 };
+use crate::audit::receipt::AuditReceipt;
 
 impl Serialize for ChangeResult {
     #[inline]
@@ -14,7 +15,7 @@ impl Serialize for ChangeResult {
     where
         S: Serializer,
     {
-        json!({"unsaved":self.unsaved}).serialize(serializer)
+        noting(json!({"unsaved":self.unsaved}), &self.audit).serialize(serializer)
     }
 }
 
@@ -24,7 +25,12 @@ impl Serialize for CliChangeResult {
     where
         S: Serializer,
     {
-        json!({"unsaved":self.unsaved, "responses":self.responses.iter().map(body_value).collect::<Vec<_>>()}).serialize(serializer)
+        let responses = self.responses.iter().map(body_value).collect::<Vec<_>>();
+        noting(
+            json!({"unsaved":self.unsaved, "responses":responses}),
+            &self.audit,
+        )
+        .serialize(serializer)
     }
 }
 
@@ -53,8 +59,22 @@ impl Serialize for BatchChangeResult {
                 Err(error) => json!({"error":error.to_string()}),
             })
             .collect::<Vec<_>>();
-        json!({"unsaved":self.unsaved, "responses":responses}).serialize(serializer)
+        noting(
+            json!({"unsaved":self.unsaved, "responses":responses}),
+            &self.audit,
+        )
+        .serialize(serializer)
     }
+}
+
+/// `document` with `"audit_pending": true` while the change's audit entry is still queued.
+fn noting(mut document: Value, audit: &AuditReceipt) -> Value {
+    if audit.is_pending()
+        && let Value::Object(object) = &mut document
+    {
+        drop(object.insert("audit_pending".to_owned(), Value::Bool(true)));
+    }
+    document
 }
 
 impl Serialize for WorkflowError {
@@ -97,6 +117,7 @@ mod tests {
     use serde_json::json;
 
     use super::super::{CliChangeResult, WorkflowError, scrub_error, scrub_response};
+    use crate::audit::receipt::{AuditReceipt, Pending};
 
     /// Router-echoed secrets disappear from JSON, status copies, error detail and serialization.
     #[test]
@@ -124,6 +145,7 @@ mod tests {
         let result = CliChangeResult {
             unsaved: true,
             responses: vec![RciBody::Json(response)],
+            audit: AuditReceipt::Pending(Pending::lost()),
         };
         assert!(serde_json::to_string(&result)?.contains("echo <redacted>"));
         let failure = RciResponse::from_value(json!({"status":[{

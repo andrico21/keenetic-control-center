@@ -201,6 +201,14 @@ impl Reply {
         }
     }
 
+    /// The same completed reply whose audit entries are still queued.
+    pub(crate) fn with_audit_pending(self, locale: Locale) -> Self {
+        Self {
+            outcome: self.outcome.with_audit_pending(locale),
+            ..self
+        }
+    }
+
     /// Offers the complete answer at `href`.
     pub(crate) fn with_download(mut self, href: String) -> Self {
         self.download = Some(href);

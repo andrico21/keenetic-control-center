@@ -36,6 +36,8 @@ mod batch;
 mod cli;
 #[path = "workflow_output.rs"]
 mod output;
+#[path = "workflow_receipts.rs"]
+mod receipts;
 #[path = "workflow_replay.rs"]
 mod replay;
 #[path = "workflow_verify.rs"]
@@ -47,8 +49,9 @@ use tokio::{
     time::{Instant, sleep},
 };
 
+use self::receipts::Receipts;
 use crate::{
-    audit::{Actor, AuditError, AuditEvent, AuditLog},
+    audit::{Actor, AuditError, AuditEvent, AuditLog, receipt::AuditReceipt},
     backups::{BackupError, BackupStore},
     brackets::{BracketGuard, Brackets},
     permissions::{Permission, Role},
@@ -354,6 +357,8 @@ pub struct BatchChangeResult {
     pub applied_management_changes: usize,
     /// Successful ordinary writes remain unsaved until an explicit save.
     pub unsaved: bool,
+    /// The batch's audit entry: written, or still queued.
+    pub audit: AuditReceipt,
     /// Whether all successful items were persisted immediately, with at least one success.
     pub persists_immediately: bool,
     /// Persisted leaf paths from successful items only.
@@ -399,13 +404,15 @@ impl CliChangeRequest {
 }
 
 /// Successful CLI parser mutation result.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct CliChangeResult {
     /// Ordinary writes always remain unsaved until an explicit save.
     pub unsaved: bool,
     /// Ordered router responses for the parser commands.
     pub responses: Vec<RciBody>,
+    /// The change's audit entry: written, or still queued.
+    pub audit: AuditReceipt,
 }
 
 /// One protected terminal CLI parser mutation.
@@ -445,11 +452,13 @@ pub struct TerminalCliChangeResult {
 }
 
 /// Successful mutation result.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ChangeResult {
     /// Ordinary writes always remain unsaved until an explicit save.
     pub unsaved: bool,
+    /// The change's audit entry: written, or still queued.
+    pub audit: AuditReceipt,
 }
 
 /// Change workflow failures.
@@ -671,6 +680,7 @@ impl ChangeWorkflow {
             force,
             lease: Some(lease),
             actor_label: Some(actor_label),
+            receipts: Receipts::default(),
         })
     }
 
@@ -769,6 +779,8 @@ pub struct ChangeSet {
     lease: Option<StateLock>,
     /// Guard that removes the actor label from `lease_actors` on drop.
     actor_label: Option<LeaseActorGuard>,
+    /// Audit entries still queued when their change returned.
+    receipts: Receipts,
 }
 
 impl fmt::Debug for ChangeSet {
@@ -877,13 +889,16 @@ impl ChangeSet {
     pub async fn upload_startup(&mut self, bytes: &SecretBytes) -> Result<(), WorkflowError> {
         self.prepare_cli(Permission::Destructive).await?;
         drop(self.client.upload_startup_config(bytes).await?);
-        self.audit_cli(
-            &[],
-            "router.raw_restore_upload",
-            json!({}),
-            "startup_replaced",
-        )
-        .await
+        drop(
+            self.audit_cli(
+                &[],
+                "router.raw_restore_upload",
+                json!({}),
+                "startup_replaced",
+            )
+            .await?,
+        );
+        Ok(())
     }
 
     /// Replays migration commands while retaining partial results after a later failure.
@@ -947,9 +962,10 @@ impl ChangeSet {
                 .to_owned(),
                 format!("change-{timestamp}"),
             );
-        drop(self.workflow.audit.append(event).await?);
+        let audit = self.receipts.record(&self.workflow.audit, event).await?;
         Ok(ChangeResult {
             unsaved: !validated.ordinary_paths.is_empty(),
+            audit,
         })
     }
 
@@ -1003,8 +1019,11 @@ impl ChangeSet {
             applied_outcome(validated.persists_immediately).to_owned(),
             format!("change-{timestamp}"),
         );
-        drop(self.workflow.audit.append(event).await?);
-        Ok(ChangeResult { unsaved: true })
+        let audit = self.receipts.record(&self.workflow.audit, event).await?;
+        Ok(ChangeResult {
+            unsaved: true,
+            audit,
+        })
     }
 
     /// Applies catalog-validated root RCI items under the normal write protections.
@@ -1084,11 +1103,12 @@ impl ChangeSet {
         .with_target(target)
         .with_params(audit_params)
         .with_result(outcome.to_owned(), format!("change-{timestamp}"));
-        drop(self.workflow.audit.append(event).await?);
+        let audit = self.receipts.record(&self.workflow.audit, event).await?;
         Ok(BatchChangeResult {
             applied_changes: completion.applied_changes,
             applied_management_changes: completion.applied_management_changes,
             unsaved: completion.unsaved,
+            audit,
             persists_immediately: completion.persists_immediately,
             persisted_paths: completion.persisted_paths,
             responses,
@@ -1123,18 +1143,23 @@ impl ChangeSet {
                 .commands
                 .iter()
                 .any(|command| !command.validated().persisted_paths.is_empty());
-        self.audit_cli(
-            &request.commands,
-            "router.change_cli",
-            request.audit_params,
-            if !unsaved && !persists_immediately {
-                "success"
-            } else {
-                applied_outcome(persists_immediately)
-            },
-        )
-        .await?;
-        Ok(CliChangeResult { unsaved, responses })
+        let audit = self
+            .audit_cli(
+                &request.commands,
+                "router.change_cli",
+                request.audit_params,
+                if !unsaved && !persists_immediately {
+                    "success"
+                } else {
+                    applied_outcome(persists_immediately)
+                },
+            )
+            .await?;
+        Ok(CliChangeResult {
+            unsaved,
+            responses,
+            audit,
+        })
     }
 
     /// Applies terminal CLI parser commands without requiring the router to remain reachable.
@@ -1152,13 +1177,15 @@ impl ChangeSet {
         }
         self.prepare_cli(request.permission).await?;
         let responses = self.dispatch_cli(&request.commands).await?;
-        self.audit_cli(
-            &request.commands,
-            "router.change_cli_terminal",
-            request.audit_params,
-            "applied_state_unknown",
-        )
-        .await?;
+        drop(
+            self.audit_cli(
+                &request.commands,
+                "router.change_cli_terminal",
+                request.audit_params,
+                "applied_state_unknown",
+            )
+            .await?,
+        );
         Ok(TerminalCliChangeResult { responses })
     }
 
@@ -1199,6 +1226,31 @@ impl ChangeSet {
     #[inline]
     pub fn audit_alive(&self) -> Result<(), WorkflowError> {
         self.workflow.audit_alive()
+    }
+
+    /// Makes later changes of this set return without waiting for their audit entries,
+    /// until [`Self::settle_audit`]; the entries are still written in the order sent.
+    #[inline]
+    pub const fn defer_audit(&mut self) {
+        self.receipts.defer();
+    }
+
+    /// Stops deferring and waits at most `limit` for the entries still queued.
+    ///
+    /// # Errors
+    /// Returns the writer's failure when it stopped before writing one of them; entries
+    /// still queued at the deadline stay queued and are no error.
+    // cancel-safe: waiting only observes the audit writer's progress.
+    pub async fn settle_audit(&mut self, limit: Duration) -> Result<(), WorkflowError> {
+        Ok(self.receipts.settle(limit).await?)
+    }
+
+    /// Whether an audit entry of this set is still queued, to be written once the append
+    /// lock is free.
+    #[inline]
+    #[must_use]
+    pub fn audit_pending(&self) -> bool {
+        self.receipts.any_pending()
     }
 
     /// Counts a safety bracket of this change set as open until the guard is dropped.
@@ -1276,15 +1328,15 @@ impl ChangeSet {
         Ok(responses)
     }
 
-    /// Appends a CLI mutation audit event without contacting the router.
+    /// Records a CLI mutation audit event without contacting the router.
     // NOT cancel-safe: the writer can append after cancellation.
     async fn audit_cli(
-        &self,
+        &mut self,
         commands: &[CliCommand],
         action: &str,
         mut audit_params: Value,
         outcome: &str,
-    ) -> Result<(), WorkflowError> {
+    ) -> Result<AuditReceipt, WorkflowError> {
         let timestamp = unix_seconds();
         for command in commands {
             command.secrets().scrub(&mut audit_params);
@@ -1299,8 +1351,7 @@ impl ChangeSet {
             .with_target(target)
             .with_params(audit_params)
             .with_result(outcome.to_owned(), format!("change-{timestamp}"));
-        drop(self.workflow.audit.append(event).await?);
-        Ok(())
+        Ok(self.receipts.record(&self.workflow.audit, event).await?)
     }
 
     /// Compares the router with the last state observed after this set's own work.
@@ -1367,7 +1418,7 @@ impl ChangeSet {
                 let event = AuditEvent::new(timestamp, self.actor.clone(), action.to_owned())
                     .with_router(self.router.clone())
                     .with_result("saved".to_owned(), format!("save-{timestamp}"));
-                drop(self.workflow.audit.append(event).await?);
+                drop(self.receipts.record(&self.workflow.audit, event).await?);
                 return Ok(());
             }
             if Instant::now() >= deadline {

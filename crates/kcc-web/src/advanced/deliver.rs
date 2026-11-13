@@ -23,7 +23,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     page_kit::{
-        change::{self, Applied, Change, Plan},
+        change::{self, Applied, Change, Landed, Plan},
         context::Target,
         facts::RouterFacts,
         failure::rci_failure,
@@ -164,7 +164,10 @@ impl Dispatch<'_> {
             Change::Request(_) | Change::Cli(_) | Change::Delete(_) => Vec::new(),
         };
         let left = |unsaved| Left::of(unsaved, persists, persisted_paths.clone());
-        match change::apply(plan, change).await {
+        let locale = self.locale();
+        let landed = change::apply(plan, change).await.map(Landed::into_parts);
+        let audit_pending = landed.as_ref().is_ok_and(|&(_, pending)| pending);
+        let reply = match landed.map(|(applied, _)| applied) {
             Ok(Applied::Batch {
                 applied_management_changes: _,
                 unsaved,
@@ -187,7 +190,12 @@ impl Dispatch<'_> {
             Ok(Applied::Done { unsaved }) => {
                 self.shown(Rendered::text("", self.locale()), left(unsaved))
             }
-            Err(refused) => Reply::failed(refused.failure(Family::Commands, self.locale())),
+            Err(refused) => Reply::failed(refused.failure(Family::Commands, locale)),
+        };
+        if audit_pending {
+            reply.with_audit_pending(locale)
+        } else {
+            reply
         }
     }
 

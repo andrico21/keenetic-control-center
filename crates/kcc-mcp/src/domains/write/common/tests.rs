@@ -53,7 +53,7 @@ async fn synthetic_management_operation_brackets_both_apply_entries()
             let work = async |changes: &mut kcc_app::workflow::ChangeSet| {
                 changes.apply(request).await.map_err(map_workflow)
             };
-            let _: ChangeResult = if entry == "registered" {
+            let _applied: ChangeResult = if entry == "registered" {
                 apply_registered(
                     server,
                     &opened,

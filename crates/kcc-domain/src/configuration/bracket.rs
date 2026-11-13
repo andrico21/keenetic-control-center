@@ -24,9 +24,17 @@
 //! - **One permission authorizes the whole bracket.** Arm, work and disarm are all
 //!   authorized by the permission of the change the timer protects, so a role that may
 //!   make the change may also close its bracket.
+//! - **No receipt holds back the disarm.** Inside the bracket the change set defers its
+//!   audit receipts ([`ChangeSet::defer_audit`]): arm, work and disarm are queued for the
+//!   audit writer in the order they were sent and return at once, so another process
+//!   holding the audit append lock cannot delay the disarm. After the disarm the bracket
+//!   waits at most [`BRACKET_AUDIT_WAIT`] for its receipts; entries still queued then are
+//!   reported as pending and written later, in order. A writer that failed meanwhile is
+//!   the bracket's failure (the timer's fate is still decided by the disarm), and a
+//!   writer already dead when the work would start refuses the work.
 
 use kcc_app::{
-    audit::AuditError,
+    audit::{AuditError, receipt::BRACKET_AUDIT_WAIT},
     permissions::Permission,
     workflow::{ChangeSet, WorkflowError},
 };
@@ -78,7 +86,8 @@ impl ArmedFate {
 ///
 /// A failure whose [`Failure::fate`] says whether the timer may still be armed: refused
 /// before the arm (dead audit writer, request no longer held) with nothing sent; the arm's
-/// error; or the work's error, or the disarm's error after successful work.
+/// error; or the work's error, the disarm's error after successful work, or the audit
+/// writer's failure before it wrote the bracket's receipts.
 // NOT cancel-safe: dropped after the arm is sent, the recovery timer stays armed with nobody
 // to disarm or report it; callers keep the future alive until it returns.
 #[inline]
@@ -101,20 +110,30 @@ where
         return Err(refused(WorkflowError::Audit(AuditError::WriterUnavailable)));
     }
     let _open = changes.enter_bracket();
+    changes.defer_audit();
     if let Err(error) = SafetyNet::arm(changes, router, mode, MANAGEMENT_SECONDS, permission).await
     {
         let disarm = SafetyNet::disarm(changes, router, mode, permission).await;
+        drop(changes.settle_audit(BRACKET_AUDIT_WAIT).await);
         return Err(recovery::arm_failed(
             E::from(error),
             disarm.map_err(E::from),
         ));
     }
-    let worked = work(changes, router).await;
+    let worked = match changes.audit_alive() {
+        Ok(()) => work(changes, router).await,
+        Err(error) => Err(E::from(error)),
+    };
     let disarm = SafetyNet::disarm(changes, router, mode, permission)
         .await
         .map_err(E::from);
     let applied = worked.as_ref().is_ok_and(|&(_, applied)| applied);
-    recovery::finish_applied(worked.map(|(value, _)| value), disarm, applied)
+    let settled = changes.settle_audit(BRACKET_AUDIT_WAIT).await;
+    let completed = match settled {
+        Ok(()) => worked.map(|(value, _)| value),
+        Err(error) => worked.and(Err(E::from(error))),
+    };
+    recovery::finish_applied(completed, disarm, applied)
 }
 
 #[cfg(test)]

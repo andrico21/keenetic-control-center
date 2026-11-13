@@ -18,7 +18,7 @@ use axum::{
 };
 use kcc_app::{
     accounts::{AccountError, Authentication},
-    audit::{Actor, ActorKind, AuditEvent},
+    audit::{Actor, ActorKind, AuditError, AuditEvent, receipt::LOGIN_AUDIT_WAIT},
 };
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -213,7 +213,7 @@ pub(crate) async fn login(
                 Ok(value) => value,
                 Err(error) => return internal(error),
             };
-            if let Err(error) = audit(&state, &username, "web.login", "success").await {
+            if let Err(error) = audit_login(&state, &username).await {
                 state.sessions().invalidate(&id).await;
                 return internal(error);
             }
@@ -474,19 +474,47 @@ async fn audit(
     action: &'static str,
     outcome: &'static str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let event = AuditEvent::new(
+    state
+        .audit()
+        .append(event(state, username, action, outcome))
+        .await
+        .map(|_entry| ())
+        .map_err(Box::<dyn Error + Send + Sync>::from)
+}
+
+/// Records a successful sign-in, waiting at most [`LOGIN_AUDIT_WAIT`] for the entry: one
+/// still queued behind another process's append lock is written later, and the user is
+/// signed in meanwhile.
+///
+/// # Errors
+///
+/// Returns the audit writer's failure.
+// NOT cancel-safe: once queued, the entry is written even if the sign-in stops waiting.
+async fn audit_login(state: &WebState, username: &str) -> Result<(), AuditError> {
+    let mut queued = state
+        .audit()
+        .submit(event(state, username, "web.login", "success"))
+        .await?;
+    match queued.wait(LOGIN_AUDIT_WAIT).await {
+        Ok(_) | Err(AuditError::Pending) => Ok(()),
+        Err(error) => Err(error),
+    }
+}
+
+/// The Web audit event of `username`'s `action`, ended as `outcome`.
+fn event(
+    state: &WebState,
+    username: &str,
+    action: &'static str,
+    outcome: &'static str,
+) -> AuditEvent {
+    AuditEvent::new(
         state.unix_seconds(),
         Actor::new(ActorKind::Web, username.to_owned()),
         action.to_owned(),
     )
     .with_params(Value::Null)
-    .with_result(outcome.to_owned(), request_id());
-    state
-        .audit()
-        .append(event)
-        .await
-        .map(|_entry| ())
-        .map_err(Box::<dyn Error + Send + Sync>::from)
+    .with_result(outcome.to_owned(), request_id())
 }
 
 /// A new correlation id for one Web audit event.

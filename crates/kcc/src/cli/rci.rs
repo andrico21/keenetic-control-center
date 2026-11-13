@@ -6,6 +6,7 @@ use std::{
 };
 
 use kcc_app::{
+    audit::receipt::AuditReceipt,
     permissions::Permission,
     workflow::{BatchChangeRequest, BatchItem, DeleteRequest},
 };
@@ -155,6 +156,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     let mut unsaved = false;
     let mut completed_paths = Vec::new();
     let mut applied_changes = 0_usize;
+    let mut audit = None;
     let mut recovery_failure = None;
     let completion = run_completed(ctx, services, target, gate, async |changes, _router| {
         let request = BatchChangeRequest::new(
@@ -170,6 +172,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         let applied_management_changes = result.applied_management_changes;
         completed_paths = result.persisted_paths;
         responses = result.responses;
+        audit = Some(result.audit);
         Ok((Value::Null, applied_management_changes != 0))
     })
     .await;
@@ -207,10 +210,11 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             ctx.out().note(&ctx.out().tr(key, &[]));
         }
     }
+    let audit_pending = audit.as_ref().is_some_and(AuditReceipt::is_pending);
     report(
         ctx,
         responses,
-        (unsaved, completed_persists, &completed_paths),
+        (unsaved, completed_persists, &completed_paths, audit_pending),
         recovery_failure,
     )
 }
@@ -230,11 +234,13 @@ async fn read_batch(ctx: &Ctx, target: &Target, items: &[BatchItem]) -> Outcome 
         .map(|item| item.value.redacted().clone())
         .collect();
     let responses = target.router().client.batch(values).await?;
-    report(ctx, responses, (false, false, &[]), None)
+    report(ctx, responses, (false, false, &[], false), None)
 }
 
-/// Prints per-item results and whether the router persisted them at once; any failed
-/// item makes the command partial (exit 7).
+/// Prints per-item results; any failed item makes the command partial (exit 7).
+///
+/// `left` says what the items left: unsaved changes, changes persisted at once, the
+/// persisted paths, and an audit entry still queued.
 ///
 /// # Errors
 ///
@@ -242,10 +248,10 @@ async fn read_batch(ctx: &Ctx, target: &Target, items: &[BatchItem]) -> Outcome 
 fn report(
     ctx: &Ctx,
     responses: Vec<Result<RciResponse, RciError>>,
-    persistence: (bool, bool, &[String]),
+    left: (bool, bool, &[String], bool),
     recovery_failure: Option<Failure>,
 ) -> Outcome {
-    let (unsaved, persists, persisted_paths) = persistence;
+    let (unsaved, persists, persisted_paths, audit_pending) = left;
     let failed = responses
         .iter()
         .filter(|response| response.is_err())
@@ -269,6 +275,9 @@ fn report(
         && let Value::Object(object) = &mut document
     {
         drop(object.insert("persisted_paths".to_owned(), json!(persisted_paths)));
+    }
+    if audit_pending && let Value::Object(object) = &mut document {
+        drop(object.insert("audit_pending".to_owned(), Value::Bool(true)));
     }
     ctx.out()
         .emit(&document, &serde_json::to_string_pretty(&document)?)?;
