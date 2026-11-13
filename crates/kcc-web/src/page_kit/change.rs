@@ -281,16 +281,17 @@ impl Refused {
             ),
             Said::Unowned => Failure::new(tr(locale, keys::WEB_BRACKET_UNOWNED, None), "failed"),
             Said::Bracket { key, armed } => {
-                let audit = if armed {
-                    "fail_safe_armed"
-                } else {
-                    workflow_failure(family, locale, &self.error).audit()
-                };
+                let audit = workflow_failure(family, locale, &self.error).audit();
                 let mut messages = self.router_said.clone();
                 if let WorkflowError::Rci(rci) = self.error.as_ref() {
                     messages.extend(router_message(rci));
                 }
-                Failure::new(tr(locale, key, None), audit).with_router_said(messages)
+                let failure = Failure::new(tr(locale, key, None), audit).with_router_said(messages);
+                if armed {
+                    failure.with_fail_safe_armed()
+                } else {
+                    failure
+                }
             }
         }
     }

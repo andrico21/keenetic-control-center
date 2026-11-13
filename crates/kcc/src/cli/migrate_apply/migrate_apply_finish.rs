@@ -1,7 +1,7 @@
 //! One-shot migration finish selection and audit receipts.
 
+use kcc_app::audit::Attempt;
 use kcc_migrate::apply::{Applier, ApplyError};
-use serde_json::json;
 
 use super::{FinishAction, apply_failure};
 use crate::cli::{
@@ -32,25 +32,21 @@ pub(super) async fn finish(
     match result {
         Ok(action) => Ok(action),
         Err(ApplyError::RollbackRestarting) => {
-            ctx.audit(
-                services,
-                "cli.change",
-                Some(target),
-                json!({"error":"router"}),
-                "failed",
-            )
-            .await;
+            let failed = Attempt::Failed {
+                error: "router",
+                fail_safe_armed: false,
+            };
+            ctx.attempt(services, "cli.change", Some(target), failed)
+                .await;
             Ok(("rollback", true))
         }
         Err(error) => {
-            ctx.audit(
-                services,
-                "cli.change",
-                Some(target),
-                json!({"error":"router", "fail_safe_armed":error.recovery_armed()}),
-                "failed",
-            )
-            .await;
+            let failed = Attempt::Failed {
+                error: "router",
+                fail_safe_armed: error.recovery_armed(),
+            };
+            ctx.attempt(services, "cli.change", Some(target), failed)
+                .await;
             Err(apply_failure(error))
         }
     }

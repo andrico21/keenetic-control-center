@@ -177,7 +177,7 @@ pub(crate) async fn send(
     let session = current.stream_key();
     let dispatch = Sender::new(&state, &user, &session).to(target, &facts);
     let outcome = run(dispatch, checked, params).await;
-    audit.append(&state, &user, outcome.audit()).await;
+    audit.append_outcome(&state, &user, outcome.outcome()).await;
     let response = outcome.render(locale);
     if risk == Risk::Read {
         response

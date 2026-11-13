@@ -87,6 +87,19 @@ The first release, `0.1.0`, is in preparation and contains:
   or `management_saved_fail_safe_armed`) instead of always
   `management_outcome_unknown_fail_safe_armed`.
 
+### Changed
+
+- **Audit format of refused and failed attempts**: every surface records them the same
+  way: outcome `forbidden` with `reason: "forbidden"`, `refused` with a `reason` code,
+  or `failed` with an `error` code, plus `fail_safe_armed: true` only when the recovery
+  timer may still be armed. A Web change that left the timer armed used to be audited
+  with the outcome `fail_safe_armed`; it is now `failed` with `fail_safe_armed: true`
+  next to the page's own parameters. Web migration and preset finishes add
+  `error: "router"`, CLI permission refusals add `reason: "forbidden"`, and a CLI
+  failure with no timer armed no longer writes `fail_safe_armed: false`. The CLI now
+  audits a missing confirmation as `cli.refused` with outcome `refused` and
+  `reason: "confirm_required"`. The hash chain and success entries are unchanged.
+
 ### Fixed
 
 - `[[routers]] auth` now selects the sign-in scheme (`ndw2`, `ndw4`, `digest`,

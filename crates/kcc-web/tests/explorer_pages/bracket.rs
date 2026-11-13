@@ -168,6 +168,9 @@ async fn bracket_failure_matrix_retains_recovery() -> TestResult {
                 armed.then_some(&json!(true)),
                 "{failed:?}"
             );
+            if armed {
+                assert_eq!(failed.outcome, "failed", "{mode}: {failed:?}");
+            }
             writeln!(
                 io::stderr(),
                 "RECOVERY Web {mode} {line}: applied={applied} armed={armed} audit={armed} fake={armed}"

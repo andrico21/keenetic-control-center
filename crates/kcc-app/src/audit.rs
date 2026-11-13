@@ -145,6 +145,28 @@ impl Actor {
     }
 }
 
+/// How an attempted action ended without doing what it was asked to: the same outcome
+/// and parameter shape on every surface.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Attempt {
+    /// The principal lacks the permission or router scope; outcome `forbidden`.
+    Forbidden,
+    /// Refused before anything was sent, such as a missing confirmation; outcome
+    /// `refused`.
+    Refused {
+        /// Stable reason code, such as `confirm_required`.
+        reason: &'static str,
+    },
+    /// Started and failed; outcome `failed`.
+    Failed {
+        /// Stable error code, such as `router`.
+        error: &'static str,
+        /// Whether a recovery timer kcc armed may still be armed.
+        fail_safe_armed: bool,
+    },
+}
+
 /// Caller-supplied audit event before sequence and chain hashes are assigned.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -188,6 +210,49 @@ impl AuditEvent {
             outcome: String::new(),
             request_id: String::new(),
         }
+    }
+
+    /// The event of `attempt`: outcome `forbidden`, `refused` or `failed`, with params
+    /// `{"reason": ..}` or `{"error": ..}`, plus `"fail_safe_armed": true` only when a
+    /// recovery timer may still be armed. The request id is still unset.
+    #[inline]
+    #[must_use]
+    pub fn attempt(
+        ts: u64,
+        actor: Actor,
+        action: String,
+        router: Option<String>,
+        attempt: Attempt,
+    ) -> Self {
+        let (outcome, params) = match attempt {
+            Attempt::Forbidden => ("forbidden", serde_json::json!({ "reason": "forbidden" })),
+            Attempt::Refused { reason } => ("refused", serde_json::json!({ "reason": reason })),
+            Attempt::Failed {
+                error,
+                fail_safe_armed: true,
+            } => (
+                "failed",
+                serde_json::json!({ "error": error, "fail_safe_armed": true }),
+            ),
+            Attempt::Failed {
+                error,
+                fail_safe_armed: false,
+            } => ("failed", serde_json::json!({ "error": error })),
+        };
+        Self {
+            router,
+            params_redacted: params,
+            outcome: outcome.to_owned(),
+            ..Self::new(ts, actor, action)
+        }
+    }
+
+    /// Sets the correlation request identifier.
+    #[inline]
+    #[must_use]
+    pub fn with_request_id(mut self, request_id: String) -> Self {
+        self.request_id = request_id;
+        self
     }
 
     /// Sets already-redacted structured parameters.
@@ -840,8 +905,8 @@ mod tests {
     use tokio::{task::yield_now, time};
 
     use super::{
-        Actor, ActorKind, AuditEntry, AuditError, AuditEvent, AuditLog, AuditPolicy, GENESIS_HASH,
-        RetryPolicy, calculate_hash, verify_files,
+        Actor, ActorKind, Attempt, AuditEntry, AuditError, AuditEvent, AuditLog, AuditPolicy,
+        GENESIS_HASH, RetryPolicy, calculate_hash, verify_files,
     };
     use crate::persist::StateStore;
 
@@ -902,6 +967,46 @@ mod tests {
         assert_eq!(verify_single(&entry(1, GENESIS_HASH.to_owned())?)?.len(), 1);
         assert_eq!(verify_single(&entry(2, "ab".repeat(32))?)?.len(), 1);
         Ok(())
+    }
+
+    #[test]
+    fn attempts_share_one_outcome_and_params_shape() {
+        let armed = Attempt::Failed {
+            error: "router",
+            fail_safe_armed: true,
+        };
+        let unarmed = Attempt::Failed {
+            error: "router",
+            fail_safe_armed: false,
+        };
+        let refused = Attempt::Refused {
+            reason: "confirm_required",
+        };
+        for (attempt, outcome, params) in [
+            (
+                Attempt::Forbidden,
+                "forbidden",
+                json!({"reason": "forbidden"}),
+            ),
+            (refused, "refused", json!({"reason": "confirm_required"})),
+            (
+                armed,
+                "failed",
+                json!({"error": "router", "fail_safe_armed": true}),
+            ),
+            (unarmed, "failed", json!({"error": "router"})),
+        ] {
+            let event = AuditEvent::attempt(
+                7,
+                Actor::new(ActorKind::Cli, "tester".to_owned()),
+                "cli.change".to_owned(),
+                Some("lab-1".to_owned()),
+                attempt,
+            );
+            assert_eq!(event.outcome, outcome, "{attempt:?}");
+            assert_eq!(event.params_redacted, params, "{attempt:?}");
+            assert_eq!(event.router.as_deref(), Some("lab-1"));
+        }
     }
 
     #[tokio::test(start_paused = true)]

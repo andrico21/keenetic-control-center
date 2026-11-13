@@ -129,7 +129,13 @@ async fn management_port_needs_yes_and_runs_inside_the_fail_safe_bracket() -> Te
     let unconfirmed = lab.run(&["services", "port", "telnet", "2323"])?;
     assert_eq!(unconfirmed.code, 10_i32, "{unconfirmed:?}");
     let refused = read_entries(&lab.env.state_dir())?;
-    assert_eq!(refused.len(), 0, "{refused:?}");
+    assert_eq!(refused.len(), 1, "{refused:?}");
+    assert!(
+        refused.iter().all(|entry| entry.action == "cli.refused"
+            && entry.outcome == "refused"
+            && entry.params_redacted == serde_json::json!({"reason": "confirm_required"})),
+        "only missing confirmations are audited: {refused:?}"
+    );
     drop(lab.json(&["--yes", "services", "port", "telnet", "2323"])?);
     let running = lab.fake.running_config_text();
     assert!(running.contains("ip telnet port 2323"), "{running}");

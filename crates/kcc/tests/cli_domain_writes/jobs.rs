@@ -40,9 +40,12 @@ async fn component_commit_needs_the_router_id_and_waits_for_the_reboot() -> Test
     let wrong = lab.run(&["--confirm-destructive", "prod-1", "components", "commit"])?;
     assert_eq!(wrong.code, 10_i32, "{wrong:?}");
     let entries = read_entries(&lab.env.state_dir())?;
+    assert_eq!(entries.len(), 2, "{entries:?}");
     assert!(
-        entries.is_empty(),
-        "an unconfirmed commit reached the workflow: {entries:?}"
+        entries.iter().all(|entry| entry.action == "cli.refused"
+            && entry.outcome == "refused"
+            && entry.params_redacted == serde_json::json!({"reason": "confirm_required"})),
+        "only missing confirmations are audited: {entries:?}"
     );
     let done = lab.json(&["--confirm-destructive", "lab-1", "components", "commit"])?;
     assert_eq!(

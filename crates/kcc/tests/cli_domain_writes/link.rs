@@ -51,7 +51,13 @@ async fn management_security_level_needs_yes() -> TestResult {
     let unconfirmed = lab.run(&["interfaces", "security-level", "Bridge0", "private"])?;
     assert_eq!(unconfirmed.code, 10_i32, "{unconfirmed:?}");
     let refused = read_entries(&lab.env.state_dir())?;
-    assert_eq!(refused.len(), 0, "{refused:?}");
+    assert_eq!(refused.len(), 1, "{refused:?}");
+    assert!(
+        refused.iter().all(|entry| entry.action == "cli.refused"
+            && entry.outcome == "refused"
+            && entry.params_redacted == serde_json::json!({"reason": "confirm_required"})),
+        "only missing confirmations are audited: {refused:?}"
+    );
     drop(lab.json(&[
         "--yes",
         "interfaces",
@@ -126,6 +132,12 @@ async fn mesh_reboot_needs_the_member_typed_twice_and_the_router_id() -> TestRes
     ])?;
     assert_eq!(yes_only.code, 10_i32, "{yes_only:?}");
     let entries = read_entries(&lab.env.state_dir())?;
-    assert_eq!(entries.len(), 0, "{entries:?}");
+    assert_eq!(entries.len(), 1, "{entries:?}");
+    assert!(
+        entries.iter().all(|entry| entry.action == "cli.refused"
+            && entry.outcome == "refused"
+            && entry.params_redacted == serde_json::json!({"reason": "confirm_required"})),
+        "only missing confirmations are audited: {entries:?}"
+    );
     lab.shutdown().await
 }

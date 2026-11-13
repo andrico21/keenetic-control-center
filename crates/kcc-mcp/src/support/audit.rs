@@ -2,9 +2,8 @@
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use kcc_app::audit::{Actor, ActorKind, AuditEvent};
+use kcc_app::audit::{Actor, ActorKind, Attempt, AuditEvent};
 use rmcp_server_kit::rbac::current_identity;
-use serde_json::{Value, json};
 
 use super::shape::FailureContext;
 use crate::{KccMcp, McpFailure};
@@ -25,13 +24,15 @@ pub(crate) async fn failure(
     } else {
         error
     };
-    let (outcome, params) = match error {
-        McpFailure::Forbidden => ("forbidden", json!({"reason": error.code()})),
+    let attempt = match error {
+        McpFailure::Forbidden => Attempt::Forbidden,
         McpFailure::ConfirmRequired
         | McpFailure::DestructiveDisabled
         | McpFailure::ValidationFailed
         | McpFailure::RouterModeUnknown
-        | McpFailure::UnverifiedFirmwareTier => ("refused", json!({"reason": error.code()})),
+        | McpFailure::UnverifiedFirmwareTier => Attempt::Refused {
+            reason: error.code(),
+        },
         McpFailure::RouterUnreachable
         | McpFailure::BatchFailSafeArmed {
             applied: _,
@@ -51,23 +52,21 @@ pub(crate) async fn failure(
         | McpFailure::MigrationRollbackRestarting
             if !context.read_only() =>
         {
-            let mut params = json!({"error": error.code()});
-            if matches!(
-                error,
-                McpFailure::ManagementAppliedFailSafeArmed
-                    | McpFailure::ManagementSavedFailSafeArmed
-                    | McpFailure::BatchFailSafeArmed {
-                        applied: _,
-                        completion: _
-                    }
-                    | McpFailure::ManagementOutcomeUnknownFailSafeArmed
-                    | McpFailure::ManagementNotSentFailSafeArmed
-                    | McpFailure::ManagementNotCommittedFailSafeArmed
-            ) && let Value::Object(object) = &mut params
-            {
-                drop(object.insert("fail_safe_armed".to_owned(), json!(true)));
+            Attempt::Failed {
+                error: error.code(),
+                fail_safe_armed: matches!(
+                    error,
+                    McpFailure::ManagementAppliedFailSafeArmed
+                        | McpFailure::ManagementSavedFailSafeArmed
+                        | McpFailure::BatchFailSafeArmed {
+                            applied: _,
+                            completion: _
+                        }
+                        | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+                        | McpFailure::ManagementNotSentFailSafeArmed
+                        | McpFailure::ManagementNotCommittedFailSafeArmed
+                ),
             }
-            ("failed", params)
         }
         McpFailure::InvalidArguments
         | McpFailure::BatchFailSafeArmed {
@@ -92,19 +91,17 @@ pub(crate) async fn failure(
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs());
-    let mut event = AuditEvent::new(
+    let event = AuditEvent::attempt(
         timestamp,
         Actor::new(
             ActorKind::Mcp,
             current_identity().unwrap_or_else(|| "stdio".to_owned()),
         ),
         format!("mcp.{}", context.tool()),
+        context.router().map(str::to_owned),
+        attempt,
     )
-    .with_params(params)
-    .with_result(outcome.to_owned(), request_id.to_owned());
-    if let Some(router) = context.router() {
-        event = event.with_router(router.to_owned());
-    }
+    .with_request_id(request_id.to_owned());
     if let Err(audit_error) = audit.append(event).await {
         tracing::warn!(error = ?audit_error, tool = context.tool(), "MCP failure audit append failed");
     }

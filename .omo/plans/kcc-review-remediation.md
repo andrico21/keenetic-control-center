@@ -354,7 +354,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(migrate,cli,mcp,web): one migration failure vocabulary
   Recommended task executor category: unspecified-high - mechanical mapping consolidation across four crates
 
-- [ ] 15. One audit format for refused and failed attempts
+- [x] 15. One audit format for refused and failed attempts
   What to do / Must NOT do: Add to `crates/kcc-app/src/audit.rs` `pub enum Attempt { Forbidden, Refused { reason: &'static str }, Failed { error: &'static str, fail_safe_armed: bool } }` and `AuditEvent::attempt(timestamp, actor, action, router, Attempt)` producing outcome `forbidden` / `refused` / `failed` with params `{ "reason" | "error", "fail_safe_armed": true }` (the flag only when armed). Use it in CLI (`crates/kcc/src/cli/change.rs:161-188,229-238`, `context.rs:214-260,389-396`, `preset/run.rs:35`, `migrate_apply/migrate_apply_finish.rs:50`, `output.rs:114`), MCP (`crates/kcc-mcp/src/support/audit.rs:14-96`), Web (`crates/kcc-web/src/page_kit/audit.rs:50-74` - delete the `"fail_safe_armed"` outcome; `change.rs:278`; `migrate_wizard/finish.rs:147-154`; `presets_page/finish.rs:136-141`). The CLI now audits a missing confirmation as `refused` (MCP already does, `support/audit.rs:25-28`). Update `docs/MIGRATION.md:234` and the audit section of `docs/SECURITY.md`. Must NOT: change the hash chain, the success-entry format, or existing action names.
   Closes: GAP-3
   Parallelization: Wave W3 | Blocked by: 10, 11, 12 | Blocks: 16, 26 | Can parallelize with: 13, 18, 19, 20, 27

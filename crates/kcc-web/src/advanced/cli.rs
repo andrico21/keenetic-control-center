@@ -216,7 +216,7 @@ pub(crate) async fn send(
         let command = ValidatedCli::new(line, validated);
         dispatch.change(risk, raw_cli(vec![command], params)).await
     };
-    audit.append(&state, &user, outcome.audit()).await;
+    audit.append_outcome(&state, &user, outcome.outcome()).await;
     let response = outcome.render(locale);
     if risk == Risk::Read {
         response

@@ -67,6 +67,7 @@ async fn refused_management_item_reports_unknown_armed() -> TestResult {
             failed.params_redacted.get("fail_safe_armed"),
             Some(&json!(true))
         );
+        assert_eq!(failed.outcome, "failed", "{mode}: {failed:?}");
     }
     Ok(())
 }

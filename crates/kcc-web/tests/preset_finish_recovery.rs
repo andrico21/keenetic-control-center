@@ -96,7 +96,10 @@ mod tests {
             })
             .ok_or("missing preset finish audit")?;
         assert_eq!(failed.outcome, "failed");
-        assert_eq!(failed.params_redacted, json!({"fail_safe_armed":true}));
+        assert_eq!(
+            failed.params_redacted,
+            json!({"error": "router", "fail_safe_armed": true})
+        );
         Ok(())
     }
 

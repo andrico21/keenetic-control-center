@@ -206,13 +206,14 @@ async fn components_writes(ctx: &Ctx, command: ComponentsWriteCommand) -> Outcom
 async fn commit(ctx: &Ctx) -> Outcome {
     let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Destructive]).await?;
-    confirm(
+    let confirmation = confirm(
         ctx.out(),
         ctx.globals(),
         Risk::Destructive,
         target.id(),
         false,
-    )?;
+    );
+    ctx.confirmed(&services, target.id(), confirmation).await?;
     let changes = services
         .workflow()
         .begin(

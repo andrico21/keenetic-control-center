@@ -11,9 +11,9 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
+use kcc_app::audit::Attempt;
 use kcc_i18n::{bundle::tr, keys};
 use kcc_migrate::apply::{Applier, ApplyError};
-use serde_json::json;
 
 use super::{
     access::{Services, Visit},
@@ -150,12 +150,11 @@ async fn finish(
     };
     if let Err(error) = result {
         drop(slot);
-        let failed = if error.recovery_armed() {
-            audit.with_params(json!({ "fail_safe_armed": true }))
-        } else {
-            audit
+        let failed = Attempt::Failed {
+            error: "router",
+            fail_safe_armed: error.recovery_armed(),
         };
-        failed.append(state, user, "failed").await;
+        audit.append_attempt(state, user, failed).await;
         if error == ApplyError::RollbackRestarting {
             end(state, wizards, &mut visit, (id, Finish::RollbackRestarting))?;
             return Ok(screen::moved(visit.record()));

@@ -42,6 +42,38 @@ async fn a_router_refused_change_is_audited_as_failed_with_its_kind() -> TestRes
     Ok(())
 }
 
+/// A change refused for its missing confirmation leaves one `refused` entry, and the log
+/// still verifies.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_missing_confirmation_is_audited_as_refused_and_the_log_verifies() -> TestResult {
+    let (address, handle) = FakeRouter::spawn().await?;
+    let env = Env::new("")?;
+    let password = env.write("router.password", DEFAULT_PASSWORD)?;
+    env.write_config(&router("lab-1", address, &password))?;
+
+    let run = env.kcc(&["services", "set", "telnet", "on"])?;
+
+    assert_eq!(run.code, 10_i32, "{run:?}");
+    let entries = read_entries(&env.state_dir())?;
+    let refusals = entries
+        .iter()
+        .filter(|entry| entry.outcome == "refused")
+        .collect::<Vec<_>>();
+    let [refused] = refusals.as_slice() else {
+        return Err(format!("one refused entry expected: {entries:?}").into());
+    };
+    assert_eq!(refused.action, "cli.refused");
+    assert_eq!(refused.router.as_deref(), Some("lab-1"));
+    assert_eq!(
+        refused.params_redacted,
+        json!({"reason": "confirm_required"})
+    );
+    let verify = env.kcc(&["audit", "verify"])?;
+    assert_eq!(verify.code, 0_i32, "{verify:?}");
+    handle.shutdown().await?;
+    Ok(())
+}
+
 /// A change the router accepts but does not apply exits 6 under its own headline, not
 /// the unreachable-router one, and names the field that read back unchanged.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

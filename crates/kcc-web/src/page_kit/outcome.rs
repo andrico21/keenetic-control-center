@@ -96,6 +96,8 @@ pub(crate) struct Failure {
     router_said: Vec<String>,
     /// Stable audit outcome id.
     audit: &'static str,
+    /// Whether the recovery timer may still be armed.
+    fail_safe_armed: bool,
 }
 
 impl Failure {
@@ -105,7 +107,14 @@ impl Failure {
             message,
             router_said: Vec::new(),
             audit,
+            fail_safe_armed: false,
         }
+    }
+
+    /// The failure of a change that may have left the recovery timer armed.
+    pub(crate) const fn with_fail_safe_armed(mut self) -> Self {
+        self.fail_safe_armed = true;
+        self
     }
 
     /// Adds the router's own words.
@@ -144,6 +153,8 @@ pub(crate) struct Outcome {
     status: StatusCode,
     /// Stable audit outcome id.
     audit: &'static str,
+    /// Whether a failed change may have left the recovery timer armed.
+    fail_safe_armed: bool,
 }
 
 /// The outcome fragment of a page's outcome region.
@@ -174,6 +185,7 @@ impl Outcome {
             unsaved: false,
             status: StatusCode::OK,
             audit,
+            fail_safe_armed: false,
         }
     }
 
@@ -194,6 +206,7 @@ impl Outcome {
     pub(crate) fn failed(failure: Failure) -> Self {
         Self {
             router_said: failure.router_said,
+            fail_safe_armed: failure.fail_safe_armed,
             ..Self::base(Tone::Error, failure.message, failure.audit)
         }
     }
@@ -270,6 +283,11 @@ impl Outcome {
     /// Stable audit outcome id.
     pub(crate) const fn audit(&self) -> &'static str {
         self.audit
+    }
+
+    /// Whether a failed change may have left the recovery timer armed.
+    pub(crate) const fn fail_safe_armed(&self) -> bool {
+        self.fail_safe_armed
     }
 
     /// The outcome fragment in `locale`, for a page's outcome region (`#page-outcome`).

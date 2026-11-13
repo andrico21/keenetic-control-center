@@ -257,8 +257,14 @@ derives its persistence notice from successful items only.
 Every change, handler-level refusal, login and secret reveal appends an entry to
 `audit.jsonl`. MCP records successful changes, failed changes as `failed` with an error
 kind, and each refusal that reaches a kcc handler as `forbidden` or `refused` with a
-reason. Refusals are audited per call; there is no per-key MCP tool-call rate limit, and
-audit retention is age-based. Over HTTP, rmcp-server-kit's role check also applies the
+reason. The CLI and MCP share one format for these attempts: outcome `forbidden`
+(`reason: "forbidden"`), `refused` (a `reason` code; the CLI records a missing
+confirmation as `refused` with `reason: "confirm_required"`) or `failed` (an `error`
+code), plus `fail_safe_armed: true` only when the recovery timer may still be armed.
+The Web records a change that may have left the timer armed, and a failed migration or
+preset finish, the same way: outcome `failed` with its `error` code, plus
+`fail_safe_armed: true` when the timer may still be armed. Refusals are audited per
+call; there is no per-key MCP tool-call rate limit, and audit retention is age-based. Over HTTP, rmcp-server-kit's role check also applies the
 router scope to the `host` argument. A denied tool or out-of-scope `host` is refused with
 HTTP 403 before kcc code runs; the kit logs `user`, `role`, `tool` and `host` at warn
 level, but that event is not appended to the hash-chained audit. Stdio calls, and HTTP

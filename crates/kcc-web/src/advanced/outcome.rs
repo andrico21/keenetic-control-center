@@ -213,9 +213,9 @@ impl Reply {
         self
     }
 
-    /// Stable audit outcome id.
-    pub(crate) const fn audit(&self) -> &'static str {
-        self.outcome.audit()
+    /// The outcome, as the audit records it.
+    pub(crate) const fn outcome(&self) -> &Outcome {
+        &self.outcome
     }
 
     /// The reply fragment in `locale`.

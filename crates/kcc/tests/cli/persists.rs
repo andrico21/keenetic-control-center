@@ -170,7 +170,13 @@ async fn refused_mixed_changes_use_future_tense_and_send_nothing() -> TestResult
         assert!(!run.stderr.contains(&applied), "{run:?}");
     }
     let entries = read_entries(&env.state_dir())?;
-    assert_eq!(entries.len(), 0, "{entries:?}");
+    assert_eq!(entries.len(), 2, "{entries:?}");
+    assert!(
+        entries
+            .iter()
+            .all(|entry| entry.action == "cli.refused" && entry.outcome == "refused"),
+        "only the two missing confirmations are audited: {entries:?}"
+    );
     handle.shutdown().await?;
     Ok(())
 }

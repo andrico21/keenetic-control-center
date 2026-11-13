@@ -4,9 +4,12 @@
 //! and other facts the page chose; never a value the user typed, so no secret can reach
 //! the log.
 
-use kcc_app::audit::{Actor, ActorKind, AuditEvent};
+use core::mem;
+
+use kcc_app::audit::{Actor, ActorKind, Attempt, AuditEvent};
 use serde_json::Value;
 
+use super::outcome::Outcome;
 use crate::{WebState, auth, authz::CurrentUser};
 
 /// One Web UI action as the audit log records it.
@@ -49,27 +52,79 @@ impl Record {
 
     /// Appends the record with `outcome`; a failed append is logged and the action stands.
     // NOT cancel-safe: an abandoned append may still be written.
-    pub(crate) async fn append(mut self, state: &WebState, user: &CurrentUser, outcome: &str) {
-        if outcome == "fail_safe_armed"
-            && let Value::Object(object) = &mut self.params
-        {
-            drop(object.insert("fail_safe_armed".to_owned(), Value::Bool(true)));
-        }
-        let mut event = AuditEvent::new(
-            state.unix_seconds(),
-            Actor::new(ActorKind::Web, user.username().to_owned()),
-            self.action.to_owned(),
-        );
-        if let Some(router) = self.router {
-            event = event.with_router(router);
-        }
-        let complete = event
-            .with_target(self.target)
+    pub(crate) async fn append(self, state: &WebState, user: &CurrentUser, outcome: &str) {
+        let event = AuditEvent::new(state.unix_seconds(), actor(user), self.action.to_owned())
             .with_params(self.params)
             .with_result(outcome.to_owned(), auth::request_id());
-        if let Err(error) = state.audit().append(complete).await {
-            tracing::error!(%error, action = self.action, "web audit append failed");
+        write(state, self.action, self.router, (self.target, event)).await;
+    }
+
+    /// Appends the record of `attempt`, which did not do what it was asked to: its own
+    /// `reason` or `error` and recovery flag next to the record's parameters.
+    // NOT cancel-safe: an abandoned append may still be written.
+    pub(crate) async fn append_attempt(
+        self,
+        state: &WebState,
+        user: &CurrentUser,
+        attempt: Attempt,
+    ) {
+        let mut event = AuditEvent::attempt(
+            state.unix_seconds(),
+            actor(user),
+            self.action.to_owned(),
+            None,
+            attempt,
+        )
+        .with_request_id(auth::request_id());
+        if let Value::Object(mut params) = self.params
+            && let Value::Object(own) = &mut event.params_redacted
+        {
+            params.extend(mem::take(own));
+            *own = params;
         }
+        write(state, self.action, self.router, (self.target, event)).await;
+    }
+
+    /// Appends the record of `outcome`: a failure that may have left the recovery timer
+    /// armed is a failed attempt saying so.
+    // NOT cancel-safe: an abandoned append may still be written.
+    pub(crate) async fn append_outcome(
+        self,
+        state: &WebState,
+        user: &CurrentUser,
+        outcome: &Outcome,
+    ) {
+        if outcome.fail_safe_armed() {
+            let failed = Attempt::Failed {
+                error: outcome.audit(),
+                fail_safe_armed: true,
+            };
+            self.append_attempt(state, user, failed).await;
+        } else {
+            self.append(state, user, outcome.audit()).await;
+        }
+    }
+}
+
+/// The audit principal of `user`.
+fn actor(user: &CurrentUser) -> Actor {
+    Actor::new(ActorKind::Web, user.username().to_owned())
+}
+
+/// Appends `event` of `action` on `router` and `target`; a failed append is logged.
+// NOT cancel-safe: an abandoned append may still be written.
+async fn write(
+    state: &WebState,
+    action: &'static str,
+    router: Option<String>,
+    (target, event): (String, AuditEvent),
+) {
+    let mut complete = event.with_target(target);
+    if let Some(name) = router {
+        complete = complete.with_router(name);
+    }
+    if let Err(error) = state.audit().append(complete).await {
+        tracing::error!(%error, action, "web audit append failed");
     }
 }
 

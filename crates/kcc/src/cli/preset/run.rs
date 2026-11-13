@@ -4,7 +4,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 
-use kcc_app::{jobs::JobRunner, permissions::Permission};
+use kcc_app::{audit::Attempt, jobs::JobRunner, permissions::Permission};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use kcc_migrate::{
@@ -31,12 +31,11 @@ use crate::cli::{
 /// Audits one failed preset rollback without claiming an unarmed timer is armed.
 // NOT cancel-safe: the audit writer may append after cancellation.
 async fn audit_rollback_failure(ctx: &Ctx, services: &Services, target: &str, error: ApplyError) {
-    let params = if error.recovery_armed() {
-        json!({"error":"router", "fail_safe_armed":true})
-    } else {
-        json!({"error":"router"})
+    let failed = Attempt::Failed {
+        error: "router",
+        fail_safe_armed: error.recovery_armed(),
     };
-    ctx.audit(services, "cli.change", Some(target), params, "failed")
+    ctx.attempt(services, "cli.change", Some(target), failed)
         .await;
 }
 
@@ -73,7 +72,8 @@ pub(super) async fn apply(
     let out = ctx.out();
     out.note(&human);
     planned.ready()?;
-    confirm(out, ctx.globals(), Risk::Management, target, false)?;
+    let confirmation = confirm(out, ctx.globals(), Risk::Management, target, false);
+    ctx.confirmed(services, target, confirmation).await?;
     let (role, reviewed, inventory) = planned.into_parts();
     let mut input = PresetApplyRequest::new(
         Arc::clone(services.workflow()),

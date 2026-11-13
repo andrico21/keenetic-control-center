@@ -238,7 +238,7 @@ is reported separately. Keeping a preset unsaved requires recovery permission in
 
 A refused commit, save or explicit rollback, or a lost reply before confirmed disarm,
 also leaves the finish incomplete. CLI finishes exit 6 and all front ends audit
-`fail_safe_armed: true`.
+outcome `failed` with `fail_safe_armed: true`.
 If the router accepts an explicit rollback and then stays unreachable during the bounded
 restore check, scheduled-reboot mode reports that the router is restarting with its saved
 configuration; router mode conservatively reports the recovery outcome as unknown and armed.

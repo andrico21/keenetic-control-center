@@ -278,7 +278,7 @@ impl<'call> Action<'call> {
         };
         self.record
             .with_params(params)
-            .append(self.state, self.user, outcome.audit())
+            .append_outcome(self.state, self.user, &outcome)
             .await;
         outcome
     }

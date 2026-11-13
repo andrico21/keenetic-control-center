@@ -101,7 +101,7 @@ pub(crate) async fn execute(
             dispatch.change(risk, raw_batch(vec![item], params)).await
         }
     };
-    audit.append(&state, &user, outcome.audit()).await;
+    audit.append_outcome(&state, &user, outcome.outcome()).await;
     let response = outcome.render(locale);
     if risk == Risk::Read {
         response

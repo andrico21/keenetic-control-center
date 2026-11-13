@@ -7,7 +7,7 @@
 //! confirmation leaves a `cli.change` audit entry with outcome `failed` and the error
 //! kind.
 
-use kcc_app::{permissions::Permission, workflow::ChangeSet};
+use kcc_app::{audit::Attempt, permissions::Permission, workflow::ChangeSet};
 use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, RouterCtx,
@@ -164,12 +164,11 @@ where
     {
         Ok(role) => role,
         Err(failure) => {
-            ctx.audit(
+            ctx.attempt(
                 services,
                 "cli.refused",
                 Some(target.id()),
-                Value::Null,
-                "forbidden",
+                Attempt::Forbidden,
             )
             .await;
             return Err(failure);
@@ -179,13 +178,14 @@ where
         ctx.out()
             .note(&ctx.out().tr(keys::CLI_PERSISTS_IMMEDIATELY, &[]));
     }
-    confirm(
+    let confirmation = confirm(
         ctx.out(),
         ctx.globals(),
         gate.risk,
         target.id(),
         gate.ask_on_write,
-    )?;
+    );
+    ctx.confirmed(services, target.id(), confirmation).await?;
     let attempt = async move {
         let mut changes = services
             .workflow()
@@ -217,13 +217,11 @@ where
     }
     .await;
     if let Err(failure) = &attempt {
-        let mut params = json!({ "error": failure.exit().name() });
-        if failure.fail_safe_armed()
-            && let Value::Object(object) = &mut params
-        {
-            drop(object.insert("fail_safe_armed".to_owned(), json!(true)));
-        }
-        ctx.audit(services, "cli.change", Some(target.id()), params, "failed")
+        let failed = Attempt::Failed {
+            error: failure.exit().name(),
+            fail_safe_armed: failure.fail_safe_armed(),
+        };
+        ctx.attempt(services, "cli.change", Some(target.id()), failed)
             .await;
     }
     attempt

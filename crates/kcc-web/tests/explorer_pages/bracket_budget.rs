@@ -112,6 +112,7 @@ async fn a_held_audit_lock_does_not_cut_the_management_bracket() -> TestResult {
             Some(&json!(true)),
             "{mode}: {web:?}"
         );
+        assert_eq!(web.outcome, "failed", "{mode}: {web:?}");
     }
     Ok(())
 }

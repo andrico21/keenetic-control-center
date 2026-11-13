@@ -203,7 +203,8 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
                 ctx.principal()
                     .authorize(&[Permission::Destructive], &[&router])?,
             );
-            confirm(out, ctx.globals(), Risk::Destructive, &router, false)?;
+            let confirmation = confirm(out, ctx.globals(), Risk::Destructive, &router, false);
+            ctx.confirmed(&services, &router, confirmation).await?;
             services.backups().delete(&router, &name)?;
             ctx.audit(
                 &services,

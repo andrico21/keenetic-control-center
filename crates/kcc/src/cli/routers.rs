@@ -135,7 +135,8 @@ async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
     let role = ctx
         .principal()
         .authorize(&[Permission::ManageRouters], &[id])?;
-    confirm(ctx.out(), ctx.globals(), Risk::Management, id, false)?;
+    let confirmation = confirm(ctx.out(), ctx.globals(), Risk::Management, id, false);
+    ctx.confirmed(services, id, confirmation).await?;
     services.registry().delete(&role, id).await?;
     services.credentials().remove(id)?;
     ctx.audit(

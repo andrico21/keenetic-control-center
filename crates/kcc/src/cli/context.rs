@@ -10,7 +10,7 @@ use std::{
 
 use kcc_app::{
     accounts::{AccountStore, SystemClock},
-    audit::{AuditEvent, AuditLog, AuditPolicy},
+    audit::{Attempt, AuditEvent, AuditLog, AuditPolicy},
     backups::{BackupRetention, BackupStore},
     credentials::CredentialStore,
     permissions::{Permission, Role, load_roles},
@@ -181,7 +181,7 @@ impl Ctx {
                 Ok(())
             }
             Err(failure) => {
-                self.audit(services, "cli.refused", Some(id), Value::Null, "forbidden")
+                self.attempt(services, "cli.refused", Some(id), Attempt::Forbidden)
                     .await;
                 Err(failure)
             }
@@ -203,7 +203,7 @@ impl Ctx {
                 Ok(())
             }
             Err(failure) => {
-                self.audit(services, "cli.refused", Some(id), Value::Null, "forbidden")
+                self.attempt(services, "cli.refused", Some(id), Attempt::Forbidden)
                     .await;
                 let missing = SafetyNet::apply_permissions()
                     .iter()
@@ -351,7 +351,7 @@ impl Ctx {
         let role = match self.principal.authorize(permissions, &[id.as_str()]) {
             Ok(role) => role,
             Err(failure) => {
-                self.audit(services, "cli.refused", Some(&id), Value::Null, "forbidden")
+                self.attempt(services, "cli.refused", Some(&id), Attempt::Forbidden)
                     .await;
                 return Err(failure);
             }
@@ -397,6 +397,58 @@ impl Ctx {
         if let Some(name) = router {
             event = event.with_router(name.to_owned());
         }
+        self.append(services, event).await;
+    }
+
+    /// Appends the CLI audit entry of `attempt`, which did not do what it was asked to.
+    // NOT cancel-safe: the writer may append after cancellation.
+    pub(crate) async fn attempt(
+        &self,
+        services: &Services,
+        action: &str,
+        router: Option<&str>,
+        attempt: Attempt,
+    ) {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_or(0, |elapsed| elapsed.as_secs());
+        let event = AuditEvent::attempt(
+            timestamp,
+            self.principal.actor(),
+            action.to_owned(),
+            router.map(str::to_owned),
+            attempt,
+        )
+        .with_request_id(format!("cli-{timestamp}"));
+        self.append(services, event).await;
+    }
+
+    /// Passes `confirmation` on, auditing a missing one as refused on `router`.
+    ///
+    /// # Errors
+    ///
+    /// Returns the refusal of `confirmation`.
+    // NOT cancel-safe: the refusal audit may append after cancellation.
+    pub(crate) async fn confirmed(
+        &self,
+        services: &Services,
+        router: &str,
+        confirmation: Outcome,
+    ) -> Outcome {
+        if confirmation.is_err() {
+            let reason = Attempt::Refused {
+                reason: "confirm_required",
+            };
+            self.attempt(services, "cli.refused", Some(router), reason)
+                .await;
+        }
+        confirmation
+    }
+
+    /// Appends `event`; a failing audit write is reported but does not hide the
+    /// command's own result.
+    // NOT cancel-safe: the writer may append after cancellation.
+    async fn append(&self, services: &Services, event: AuditEvent) {
         if let Err(error) = services.audit.append(event).await {
             self.out
                 .note(&Failure::from(error).details(self.out.locale()).join(" "));
