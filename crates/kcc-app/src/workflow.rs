@@ -806,10 +806,21 @@ impl ChangeSet {
     ) -> Result<(), WorkflowError> {
         authorize(&self.role, Permission::Migrate, &self.router).map_err(map_permission)?;
         let expected = read_last_change(&original).await?;
+        let password = self
+            .workflow
+            .registry
+            .get(&self.router)?
+            .profile
+            .password_file
+            .is_some();
         let credentials = original.credentials();
         self.workflow
             .registry
-            .transition(&self.router, Arc::clone(&original), Some(&credentials))
+            .transition(
+                &self.router,
+                Arc::clone(&original),
+                password.then_some(&credentials),
+            )
             .await?;
         self.client = original;
         self.expected = expected;

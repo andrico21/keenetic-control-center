@@ -17,13 +17,14 @@
 
 extern crate alloc;
 
+mod auth;
 mod budgets;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, str::FromStr as _};
 use std::{
-    fs, io,
-    path::PathBuf,
+    io,
+    path::{Path, PathBuf},
     sync::{PoisonError, RwLock},
 };
 
@@ -52,10 +53,17 @@ pub struct ManagedRouterProfile {
     pub id: String,
     /// Router base URL.
     pub url: Url,
-    /// Primary management login.
+    /// Primary management login; may be empty for a token profile.
     pub login: String,
-    /// File holding the primary password.
-    pub password_file: PathBuf,
+    /// File holding the primary password; unset for a token profile.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub password_file: Option<PathBuf>,
+    /// Authentication scheme.
+    #[serde(default, skip_serializing_if = "RouterAuth::is_auto")]
+    pub auth: RouterAuth,
+    /// File holding the API token, with `auth = Token` only.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub token_file: Option<PathBuf>,
     /// Optional read-only polling login.
     pub read_login: Option<String>,
     /// Optional file holding the read-only polling password.
@@ -77,7 +85,9 @@ impl ManagedRouterProfile {
             id,
             url,
             login,
-            password_file,
+            password_file: Some(password_file),
+            auth: RouterAuth::Auto,
+            token_file: None,
             read_login: None,
             read_password_file: None,
             tls: RouterTls::Verify,
@@ -90,7 +100,8 @@ impl ManagedRouterProfile {
     ///
     /// # Errors
     ///
-    /// Returns [`RegistryError::InvalidProfile`] for invalid ids, URLs, or credential pairs.
+    /// Returns [`RegistryError::InvalidProfile`] for invalid ids, URLs, credential sources,
+    /// or credential pairs.
     pub fn validate(&self) -> Result<(), RegistryError> {
         if !is_valid_router_id(&self.id) {
             return Err(RegistryError::InvalidProfile {
@@ -107,11 +118,7 @@ impl ManagedRouterProfile {
                 reason: "url must be an http(s) origin".to_owned(),
             });
         }
-        if self.login.is_empty() {
-            return Err(RegistryError::InvalidProfile {
-                reason: "login must not be empty".to_owned(),
-            });
-        }
+        auth::validate(self)?;
         match (&self.read_login, &self.read_password_file) {
             (None, None) => Ok(()),
             (Some(login), Some(_)) if !login.is_empty() => Ok(()),
@@ -271,6 +278,7 @@ impl RouterRegistry {
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(id).await);
+        options.auth = auth::options(&profile, CredentialUse::Primary)?;
         Ok(Arc::new(
             RciClient::connect_bootstrap_with(
                 router_url(&profile)?,
@@ -298,26 +306,25 @@ impl RouterRegistry {
             .get(id)
             .cloned()
             .ok_or_else(|| RegistryError::NotFound { id: id.to_owned() })?;
-        if let Some(credential) = replacement {
-            let parent =
-                profile
-                    .password_file
-                    .parent()
-                    .ok_or_else(|| RegistryError::InvalidProfile {
-                        reason: "credential file has no parent".to_owned(),
-                    })?;
-            let name = profile
-                .password_file
+        if let Some(credential) = replacement
+            && let Some(password_file) = profile.password_file.clone()
+        {
+            let parent = password_file
+                .parent()
+                .ok_or_else(|| RegistryError::InvalidProfile {
+                    reason: "credential file has no parent".to_owned(),
+                })?;
+            let name = password_file
                 .file_name()
                 .and_then(|name| name.to_str())
                 .ok_or_else(|| RegistryError::InvalidProfile {
                     reason: "credential file has no name".to_owned(),
                 })?;
             if let Some(store) = &self.credentials
-                && store.manages(id, &profile.password_file)?
+                && store.manages(id, &password_file)?
             {
                 store.store(id, &credential.password)?;
-                profile.password_file = store.sealed_path(id)?;
+                profile.password_file = Some(store.sealed_path(id)?);
             } else {
                 write_atomic(parent, name, credential.password.expose_secret().as_bytes())?;
             }
@@ -692,6 +699,7 @@ impl RouterRegistry {
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(&profile.id).await);
+        options.auth = auth::options(profile, CredentialUse::Primary)?;
         RciClient::connect_with(router_url(profile)?, credentials, options)
             .await?
             .detect()
@@ -710,6 +718,7 @@ impl RouterRegistry {
         options.tls = tls_mode(&profile.tls)?;
         options.observer = self.observer(&profile.id);
         options.budget = Some(self.budgets.get(&profile.id).await);
+        options.auth = auth::options(profile, credential_use)?;
         RciClient::connect_with(
             router_url(profile)?,
             self.credentials(profile, credential_use)?,
@@ -725,6 +734,12 @@ impl RouterRegistry {
         profile: &ManagedRouterProfile,
         credential_use: CredentialUse,
     ) -> Result<Credentials, RegistryError> {
+        if matches!(credential_use, CredentialUse::Primary) && profile.password_file.is_none() {
+            return Ok(Credentials::new(
+                profile.login.clone(),
+                SecretString::from(String::new()),
+            ));
+        }
         let (login, path) = credential_parts(profile, credential_use)?;
         if matches!(credential_use, CredentialUse::Primary)
             && let Some(store) = &self.credentials
@@ -746,27 +761,24 @@ enum CredentialUse {
 }
 
 /// Converts a config-defined profile into the common registry representation.
-fn convert_config_profile(profile: &RouterProfile) -> Result<ManagedRouterProfile, RegistryError> {
-    if profile.auth == RouterAuth::Token || profile.token_file.is_some() {
-        return Err(RegistryError::InvalidProfile {
-            reason: "token profiles are not supported by the current RciClient API".to_owned(),
-        });
-    }
-    Ok(ManagedRouterProfile {
+fn convert_config_profile(profile: &RouterProfile) -> ManagedRouterProfile {
+    let auth = match (profile.auth, &profile.token_file) {
+        (RouterAuth::Auto, Some(_)) => RouterAuth::Token,
+        (auth, _) => auth,
+    };
+    ManagedRouterProfile {
         id: profile.name.clone(),
         url: profile.url.clone(),
         login: profile.login.clone().unwrap_or_default(),
-        password_file: profile.password_file.clone().ok_or_else(|| {
-            RegistryError::InvalidProfile {
-                reason: "password_file is required".to_owned(),
-            }
-        })?,
+        password_file: profile.password_file.clone(),
+        auth,
+        token_file: profile.token_file.clone(),
         read_login: profile.read_login.clone(),
         read_password_file: profile.read_password_file.clone(),
         tls: profile.tls.clone(),
         test_device: profile.test_device,
         tags: profile.tags.clone(),
-    })
+    }
 }
 
 /// Converts and validates all config-defined profiles.
@@ -775,7 +787,7 @@ fn config_profiles(
 ) -> Result<BTreeMap<String, ManagedRouterProfile>, RegistryError> {
     let mut converted = BTreeMap::new();
     for profile in profiles {
-        let entry = convert_config_profile(profile)?;
+        let entry = convert_config_profile(profile);
         entry.validate()?;
         if converted.insert(entry.id.clone(), entry).is_some() {
             return Err(RegistryError::AlreadyExists {
@@ -821,7 +833,15 @@ fn credential_parts(
     credential_use: CredentialUse,
 ) -> Result<(&str, &PathBuf), RegistryError> {
     let (login, path) = match credential_use {
-        CredentialUse::Primary => (profile.login.as_str(), &profile.password_file),
+        CredentialUse::Primary => (
+            profile.login.as_str(),
+            profile
+                .password_file
+                .as_ref()
+                .ok_or_else(|| RegistryError::InvalidProfile {
+                    reason: "password_file is missing".to_owned(),
+                })?,
+        ),
         CredentialUse::ReadOnly => (
             profile
                 .read_login
@@ -841,15 +861,8 @@ fn credential_parts(
 }
 
 /// Reads one operator-managed plaintext credential file.
-fn credential_file(login: &str, path: &PathBuf) -> Result<Credentials, RegistryError> {
-    let password = fs::read_to_string(path).map_err(|source| RegistryError::CredentialFile {
-        path: path.clone(),
-        source,
-    })?;
-    Ok(Credentials::new(
-        login.to_owned(),
-        SecretString::from(password.trim_end_matches(['\r', '\n']).to_owned()),
-    ))
+fn credential_file(login: &str, path: &Path) -> Result<Credentials, RegistryError> {
+    Ok(Credentials::new(login.to_owned(), auth::secret_file(path)?))
 }
 
 /// Converts a profile URL into the protocol origin type.

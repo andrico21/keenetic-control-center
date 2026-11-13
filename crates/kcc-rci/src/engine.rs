@@ -15,6 +15,7 @@ use tokio::{sync::Semaphore, time};
 use crate::{
     ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
+    auth_options::Options as AuthOptions,
     budget::Budget,
     capabilities::RouterInfo,
     configuration_answer::ConfigurationAnswer,
@@ -72,6 +73,8 @@ pub struct RciClientOptions {
     pub stop_on_error: bool,
     /// Optional request and login observer (self-metrics).
     pub observer: Option<Arc<dyn RciObserver>>,
+    /// Authentication policy of every session this client opens.
+    pub auth: AuthOptions,
 }
 
 impl Default for RciClientOptions {
@@ -86,6 +89,7 @@ impl Default for RciClientOptions {
             response_bytes: RESPONSE_BYTES,
             stop_on_error: false,
             observer: None,
+            auth: AuthOptions::default(),
         }
     }
 }
@@ -190,19 +194,10 @@ impl RciClient {
         options: RciClientOptions,
     ) -> Result<Self, RciError> {
         let mut client = Self::connect_with(router, credentials, options).await?;
-        let builder = client
-            .options
-            .outbound
-            .client_builder(&client.router, &client.options.tls, client.options.timeouts)
-            .await?;
         client.session = Arc::new(
-            SessionManager::with_client_builder(
-                client.router.clone(),
-                client.credentials.clone(),
-                client.options.timeouts,
-                builder,
-            )?
-            .with_bootstrap(),
+            session(&client.router, &client.credentials, &client.options)
+                .await?
+                .with_bootstrap(),
         );
         Ok(client)
     }
@@ -287,17 +282,9 @@ impl RciClient {
         if options.concurrency == 0 || options.response_bytes == 0 {
             return Err(RciError::Validation);
         }
-        let builder = options
-            .outbound
-            .client_builder(&router, &options.tls, options.timeouts)
-            .await?;
-        let session = SessionManager::with_client_builder(
-            router.clone(),
-            credentials.clone(),
-            options.timeouts,
-            builder,
-        )?
-        .with_observer(options.observer.clone());
+        let session = session(&router, &credentials, &options)
+            .await?
+            .with_observer(options.observer.clone());
         Ok(Self {
             router,
             credentials,
@@ -623,6 +610,29 @@ impl RciClient {
 
 /// A dedicated-session handle sharing its parent client's request budget.
 pub type BackgroundHandle = background::Handle;
+
+/// Opens a session to `router` under the client's transport and authentication policy.
+///
+/// # Errors
+/// Returns policy, transport, or invalid authentication option errors.
+// NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
+async fn session(
+    router: &RouterUrl,
+    credentials: &Credentials,
+    options: &RciClientOptions,
+) -> Result<SessionManager, RciError> {
+    let builder = options
+        .outbound
+        .client_builder(router, &options.tls, options.timeouts)
+        .await?;
+    SessionManager::with_client_builder(
+        router.clone(),
+        credentials.clone(),
+        options.timeouts,
+        builder,
+    )?
+    .with_auth(options.auth.clone(), true)
+}
 
 /// Serializes a query onto one validated RCI resource path.
 ///

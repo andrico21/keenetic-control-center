@@ -60,12 +60,12 @@ pub(crate) async fn delete(
     if let Err(error) = fleet.registry().delete(user.role(), &id).await {
         return errors::internal(&error, shell);
     }
-    if matches!(
-        fleet
-            .credentials()
-            .manages(&id, &entry.profile.password_file),
-        Ok(true)
-    ) && let Err(error) = fleet.credentials().remove(&id)
+    if entry
+        .profile
+        .password_file
+        .as_deref()
+        .is_some_and(|path| matches!(fleet.credentials().manages(&id, path), Ok(true)))
+        && let Err(error) = fleet.credentials().remove(&id)
     {
         tracing::error!(router = %id, %error, "router credential could not be removed");
     }

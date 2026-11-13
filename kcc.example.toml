@@ -160,6 +160,7 @@ queue_max = 10000
 # login = "admin"
 # password_file = "/etc/kcc/home.pw"   # or token_file with auth = "token"
 # auth = "auto"                        # auto, ndw2, ndw4, token or digest
+#                                      # (auth and token_file: [[routers]] entries only)
 # tls = "verify"                       # or { pin_sha256 = "<64 hex digits>" }
 # test_device = false
 # tags = ["home"]

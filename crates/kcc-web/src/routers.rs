@@ -201,7 +201,7 @@ pub(crate) async fn update(
         if let Err(error) = fleet.credentials().store(&id, &secret) {
             return errors::internal(&error, shell);
         }
-        profile.password_file = file;
+        profile.password_file = Some(file);
     }
     match fleet.registry().update(user.role(), profile.clone()).await {
         Ok(()) => {}

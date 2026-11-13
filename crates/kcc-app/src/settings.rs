@@ -712,7 +712,7 @@ pub struct RouterProfile {
 }
 
 /// `auth` of a router profile.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
 pub enum RouterAuth {
@@ -727,6 +727,19 @@ pub enum RouterAuth {
     Token,
     /// HTTP digest.
     Digest,
+}
+
+impl RouterAuth {
+    /// Whether the scheme is picked from the router's challenge (the default).
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "serde's skip_serializing_if passes the field by reference"
+    )]
+    #[inline]
+    #[must_use]
+    pub const fn is_auto(&self) -> bool {
+        matches!(self, Self::Auto)
+    }
 }
 
 /// `tls` of a router profile: `"verify"` or `{ pin_sha256 = "<hex>" }`.

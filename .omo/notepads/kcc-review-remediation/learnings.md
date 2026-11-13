@@ -196,3 +196,26 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - The old 0-command notices (`web-migrate-preview-empty` via `all_present`, `web-presets-preview-nothing`) are no longer rendered: they stated the same fact as the new notice (one fact, one place). Their FTL keys stay (append-only; i18n-check has no unused-key rule). plan_agreement.rs still asserts PREVIEW_EMPTY is absent (now trivially true).
 - Tests: new modules `tests/migration_wizard/preview.rs` and `tests/presets_pages/preview.rs` (module name `preview` makes the plan's `... preview` filter pick them up). Presets 0-command fixture: seed `lab-1` with the same DNS_LINES as `prod-1`, merge mode.
 - Stable markup for "Apply offered": `hx-post="{page}/apply"` (page = /ui/migrate/<id> or /ui/presets/runs/<id>).
+
+## [2026-11-13] Todo 27 progress
+- Done in wt/r27: membership decided after buildability (kcc-migrate rules/planner) and the wizard review classifies the source without left-out lines. Tests: `bridge_members::a_member_the_plan_does_not_create_gets_no_include_line` (2 rows), `plan_agreement::review_and_plan_agree_once_the_vlan_lines_are_excluded`.
+- Gotcha: excluding `interface Vlan5 description lab` in MIXED leaves `vlan-id 5` (unsupported, not excludable): pre-fix the trimmed plan still counted Vlan5 as created via that line, so the row-137 bug was the F4-N73 ordering bug seen through an exclusion. The "every Vlan5 line excluded" kcc-migrate row (source without Vlan5) was already green pre-fix; the RED rows are the unbuildable-only one and the wizard test.
+- Gotcha: launching a test build and then editing src mid-build makes cargo compile the edit in; for a clean RED, restore HEAD sources temporarily (`git show HEAD:path > path`) and rerun.
+- rules.rs is 653 pure LOC (pre-existing, far above 250); split candidate for a later refactor (memberships/glob helpers).
+
+## [2026-11-13] Todo 2 progress
+- Done in /home/andrico/kcc-wt/r2: preflight disarms or reports after a post-arm failure; refused arm -> disarm -> Workflow | new `ApplyError::ArmUnconfirmed` (recovery_armed, key `management-not-sent-armed` x6 locales, CLI Exit::Router, Web finish/run texts, MCP outcome_unknown code, CHANGELOG, docs/MIGRATION.md); components path no longer re-arms after the rebooting commit.
+- Gotcha: the plan's test filter `apply_lifecycle` matches nothing; the `apply` binary mounts the file as `mod lifecycle`, so use `-- lifecycle` (new tests: `-- armed`).
+- Gotcha: the fake's migration intercept answered agreement lines before parse fault injection; fixed order in kcc-testkit/src/server/parse_command.rs.
+- `ChangeSet::current_last_change()` reads `show last-change` on the change set's (reconnected) client; `fail_safe` is a raw Value, test `get("active") == Some(&Value::Bool(true))`.
+
+## [2026-11-13] Todo 22 progress
+- `KCC_*` env overrides now come from one `env_table!` macro in `crates/kcc-app/src/settings/env_overrides.rs` (child module of settings.rs, `mod env_overrides;`, no re-export): rows `"VAR" => section.field: parser,`. It generates `NAMES` (aliased as `pub const KCC_ENV_VARS = env_overrides::NAMES`, so the public path is unchanged without `pub use`) and two `&[Row]` groups (`BEFORE_SUFFIX_CHECK`/`AFTER_SUFFIX_CHECK`) so `normalize_suffixes` keeps running between `[outbound]` and `[state]` rows (error precedence preserved).
+- Per-row parsers stay visible: each row's parser is bound as `let parse: fn(&str) -> Result<_, String> = $parse;` (gives closures their `&str` param type and avoids `(closure)(raw)`); `Row.set` is a fn pointer built from a non-capturing closure in a const.
+- Field path for the report is `concat!(stringify!($section), ".", stringify!($field))` (stringify of `a.b` token runs could insert spaces).
+- Proof: scratch probe applied 26 values (valid + malformed) to each of the 39 vars plus multi-var/precedence cases and dumped Config Debug/report/error text; before/after dumps byte-identical (sha256 b0a7bbef...). settings.rs 1572 -> 1112. Sync test `every_documented_env_var_is_read` deleted (list generated from the same table).
+
+## [2026-11-13] Todo 28 progress
+- RED confirmed: preset options rejected a numeric switch-port source (`interface 1`) via `valid_name`. A preset only carries `interface N` context when an included line references it (e.g. `ip route ... 1`), since groups pull `interface * **` by referenced word.
+- Fix: `is_switch_port` now `pub(crate)`; `presets_page/options.rs` `checked` accepts a port row left as its source; typed names (incl. `99x`) stay strict.
+- Tests: crates/kcc-web/tests/presets_pages/options.rs (a_numeric_switch_port_source_plans, a_typed_port_name_stays_checked). Note a_typed_port_name_stays_checked was already green before the fix (guards strictness).

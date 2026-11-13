@@ -18,6 +18,8 @@ use kcc_app::{
 };
 use tempfile::TempDir;
 
+#[path = "registry/auth_modes.rs"]
+mod auth_modes;
 #[path = "registry/inflight.rs"]
 mod inflight;
 

@@ -218,6 +218,13 @@ with `kcc router add` or the Web UI, which live in the state directory.
 | `test_device` | bool | `false` | live test suites may change this router |
 | `tags` | list of strings | `[]` | free-form labels |
 
+`auth` selects the sign-in scheme of the router: `auto` takes ndw4 when the router
+offers it and ndw2 otherwise, `ndw2` and `ndw4` force one scheme, `digest` signs every
+request with HTTP Digest (KeenDNS HTTP proxy), and `token` sends the contents of
+`token_file` in the `X-NDMA-TKN` header. A profile sets exactly one of `password_file`
+and `token_file`; `token_file` needs `auth = "token"` (or `auto`, which then means
+`token`). `auth` and `token_file` apply to `[[routers]]` entries only.
+
 These profile credential paths are operator-managed and are read unchanged. Router
 passwords entered through the Web UI or through `KCC_PASSWORD`/a CLI prompt instead use
 encrypted records under `<state>/router-credentials/`; the persisted profile path

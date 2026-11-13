@@ -15,3 +15,18 @@ Design notes: (1) CLI finish paths (config failsafe commit/rollback, migrate fin
 - Config `token_file` with `auth = "auto"` (accepted by config validation) is converted to `auth = Token` in the registry profile.
 - Read-only polling credentials never carry the token; their mode is the profile's mode with Token -> Auto.
 - `RouterRegistry::transition` persists a replacement password only when the profile has a `password_file`; `ChangeSet::restore_connection` passes `None` for profiles without one.
+
+## [2026-11-13] Todo 27 decisions
+- Bridge membership is settled in the shared seam `Planner::classify`: `RuleEngine::classify_settled` applies `buildability::retain_supported_item` to every non-membership line BEFORE `planned_interfaces` is computed, then memberships are decided, then `retain_supported` runs over all items. Public `RuleEngine::classify` is unchanged (no-op settle).
+- Exclusions stay source trimming (each surface's `without`); the wizard `Classified::new` now overlays, for every kept setting, the classification of the trimmed source (same `left_out` as `Built::new`: excluded + components agreed to install), so review == plan item by item. Left-out items keep their whole-source classification so their include/exclude control stays.
+- `Analysis::classify` takes the source to classify as its first argument (warnings.rs passes `analysis.source()`).
+- Changed expectation: `crates/kcc-web/tests/migration_wizard/switch_ports.rs::typed_interface_names_stay_checked_in_every_locale` expected the review to show `interface Bridge5 include Vlan7` after renaming Vlan5->Vlan7, although Vlan5's only line `vlan-id 5` is unsupported on the target (the router would refuse the member). It now asserts the membership row is `skipped` and no `include Vlan7` appears.
+
+## [2026-11-13] Todo 2 decisions (worker r2)
+- No existing test expectation changed. `component_install_requires_a_fresh_plan` only gained assertions (no timer armed, no arm/reboot line after `components commit`).
+- A failed `components commit` call (terminal CLI Err) is treated as "not yet rebooted": kcc sends the disarm (Ok -> original Workflow, Err -> FinishFailed). The plan's "no disarm after commit was sent" applies only once the commit call returned Ok; an Err may mean the commit was refused before sending, and in scheduled-reboot mode `show last-change` would not reveal the still-armed reboot timer, so a last-change read alone could leave it unreported.
+- Post-arm outcome lives in a new `crates/kcc-migrate/src/apply/settle.rs` (`Stop::{Armed,Rebooted}`, `Stop::settle`, `Stop::unconfirmed_arm`) so `preflight::prepare` stays under the 100-line clippy limit; `components::install` now returns `Result<(), Stop>`.
+- `ArmUnconfirmed` is NOT in the Web `BEFORE_CHANGES` retry lists: offering a retry while a timer may be armed contradicts its message.
+- `FinishFailed` is newly reachable from a run's preflight, so it is also mapped in the name-based Web run texts (`migrate_wizard/run.rs`, `presets_page/events.rs` -> `management-outcome-unknown-armed`) and in MCP `map_apply` (-> `management_outcome_unknown_fail_safe_armed`; it previously fell into the `_ => validation_failed` arm).
+- Testkit: `FaultInjection::fail_parse_matching` now applies before the migration intercept (agreement `dpn/eula accept`, ns3 lines), matching BEHAVIOUR.md ("rejects the next matching parser lines"); needed to inject an agreement-accept failure after the arm.
+- Scenario (3) (refused disarm) uses an invalid component name as the post-arm failure, because one `fail_parse_matching` slot cannot both refuse `dpn accept` and `no system ...` without also refusing the arm line.

@@ -1,0 +1,58 @@
+//! Authentication scheme and credential source of a router profile.
+
+use std::{fs, path::Path};
+
+use kcc_rci::auth_options::{Mode, Options};
+use secrecy::SecretString;
+
+use super::{CredentialUse, ManagedRouterProfile, RegistryError};
+use crate::settings::RouterAuth;
+
+/// Checks that a profile names exactly one credential file and that it fits the scheme.
+pub(super) fn validate(profile: &ManagedRouterProfile) -> Result<(), RegistryError> {
+    let reason = match (&profile.password_file, &profile.token_file) {
+        (Some(_), None) if profile.auth == RouterAuth::Token => {
+            "auth = \"token\" requires token_file"
+        }
+        (Some(_), None) if profile.login.is_empty() => "login must not be empty",
+        (None, Some(_)) if profile.auth != RouterAuth::Token => {
+            "token_file requires auth = \"token\""
+        }
+        (Some(_), None) | (None, Some(_)) => return Ok(()),
+        (Some(_), Some(_)) | (None, None) => "set exactly one of password_file and token_file",
+    };
+    Err(RegistryError::InvalidProfile {
+        reason: reason.to_owned(),
+    })
+}
+
+/// Builds the RCI authentication policy; only the primary credential pair uses the token.
+pub(super) fn options(
+    profile: &ManagedRouterProfile,
+    credential_use: CredentialUse,
+) -> Result<Options, RegistryError> {
+    let mut options = Options::default();
+    options.mode = match profile.auth {
+        RouterAuth::Auto | RouterAuth::Token => Mode::Auto,
+        RouterAuth::Ndw2 => Mode::Ndw2,
+        RouterAuth::Ndw4 => Mode::Ndw4,
+        RouterAuth::Digest => Mode::DigestProxy,
+    };
+    if matches!(credential_use, CredentialUse::Primary)
+        && let Some(path) = &profile.token_file
+    {
+        options.experimental_token = Some(secret_file(path)?);
+    }
+    Ok(options)
+}
+
+/// Reads one operator-managed secret file, dropping its trailing line break.
+pub(super) fn secret_file(path: &Path) -> Result<SecretString, RegistryError> {
+    let secret = fs::read_to_string(path).map_err(|source| RegistryError::CredentialFile {
+        path: path.to_path_buf(),
+        source,
+    })?;
+    Ok(SecretString::from(
+        secret.trim_end_matches(['\r', '\n']).to_owned(),
+    ))
+}

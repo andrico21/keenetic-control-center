@@ -51,6 +51,12 @@ The first release, `0.1.0`, is in preparation and contains:
   rule, so a router that reports no system mode (KeeneticOS 4.3 and 5.0) is protected
   by the fail-safe timer on the CLI and MCP too, instead of a scheduled reboot.
 
+### Fixed
+
+- `[[routers]] auth` now selects the sign-in scheme (`ndw2`, `ndw4`, `digest`,
+  `token`) instead of being ignored, and `token_file` profiles connect with the token
+  instead of being refused at startup. Stored router profiles keep their file format.
+
 ### Known limitations
 
 See the Limitations section of [README.md](README.md). No firmware line has live

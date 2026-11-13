@@ -100,7 +100,7 @@ pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
             }
             if new_password {
                 let (password_file, password) = password(ctx, &services, &id)?;
-                profile.password_file = password_file;
+                profile.password_file = Some(password_file);
                 if let Some(secret) = password {
                     services.credentials().store(&id, &secret)?;
                 }

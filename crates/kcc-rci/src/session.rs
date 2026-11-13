@@ -305,19 +305,31 @@ impl Manager {
         options: Options,
         builder: reqwest::ClientBuilder,
     ) -> Result<Self, RciError> {
-        if !(8..=0x0004_0000).contains(&options.max_argon2_memory_kib)
-            || (credentials.is_none() && options.experimental_token.is_none())
-        {
-            return Err(RciError::Validation);
-        }
         let password_configured = credentials.is_some();
         let identity = credentials
             .unwrap_or_else(|| Credentials::new(String::new(), SecretString::from(String::new())));
-        let mut manager =
-            Self::with_client_builder(router, identity, HttpTimeouts::default(), builder)?;
-        manager.options = options;
-        manager.password_configured = password_configured;
-        Ok(manager)
+        Self::with_client_builder(router, identity, HttpTimeouts::default(), builder)?
+            .with_auth(options, password_configured)
+    }
+
+    /// Replaces the authentication policy; `password_configured` says whether the manager's
+    /// credentials are real password credentials rather than token-only placeholders.
+    ///
+    /// # Errors
+    /// Returns validation errors for an invalid memory cap or a policy without credentials.
+    pub(crate) fn with_auth(
+        mut self,
+        options: Options,
+        password_configured: bool,
+    ) -> Result<Self, RciError> {
+        if !(8..=0x0004_0000).contains(&options.max_argon2_memory_kib)
+            || (!password_configured && options.experimental_token.is_none())
+        {
+            return Err(RciError::Validation);
+        }
+        self.options = options;
+        self.password_configured = password_configured;
+        Ok(self)
     }
 
     /// Reports every login exchange of this manager to `observer`.

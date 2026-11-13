@@ -8,7 +8,7 @@ use serde_json::Value;
 use tokio::{sync::Semaphore, time};
 use tokio_util::sync::CancellationToken;
 
-use super::{RciBody, RciClient, decode_response, response_json};
+use super::{RciBody, RciClient, decode_response, response_json, session};
 use crate::{
     RciError, RciPath,
     session::{RequestKind, SessionManager},
@@ -24,17 +24,7 @@ pub(super) async fn start(
     path: RciPath,
     body: &Value,
 ) -> Result<Handle, RciError> {
-    let builder = client
-        .options
-        .outbound
-        .client_builder(&client.router, &client.options.tls, client.options.timeouts)
-        .await?;
-    let session = Arc::new(SessionManager::with_client_builder(
-        client.router.clone(),
-        client.credentials.clone(),
-        client.options.timeouts,
-        builder,
-    )?);
+    let session = Arc::new(session(&client.router, &client.credentials, &client.options).await?);
     let _permit = client
         .semaphore
         .acquire()

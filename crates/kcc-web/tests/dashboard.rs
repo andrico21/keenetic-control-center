@@ -639,7 +639,13 @@ mod tests {
         let stored = fixture.registry.get("lab")?.profile;
         assert_eq!(stored.tags, ["lab", "spare"], "tags");
         assert!(stored.test_device, "test-device flag");
-        assert!(stored.password_file.ends_with("lab.sealed"), "sealed path");
+        assert!(
+            stored
+                .password_file
+                .as_deref()
+                .is_some_and(|path| path.ends_with("lab.sealed")),
+            "sealed path"
+        );
         assert_eq!(
             fixture
                 .registry
