@@ -2,7 +2,6 @@
 //! schedule commands.
 
 use kcc_app::permissions::Permission;
-use kcc_catalog::Risk;
 use kcc_domain::{
     components::{self, QueueAction},
     configuration::SafetyNet,
@@ -115,10 +114,7 @@ pub(crate) async fn services(ctx: &Ctx, command: ServicesCommand) -> Outcome {
             session.show(&services::read_services(session.router()).await?)
         }
         ServicesCommand::Set { name, state } => {
-            let mut permissions = vec![Permission::Write];
-            if services::service_risk(&name) == Risk::Management {
-                permissions.extend_from_slice(SafetyNet::management_permissions());
-            }
+            let permissions = SafetyNet::required(Permission::Write, services::service_risk(&name));
             let session = Session::open_permissions(ctx, &permissions).await?;
             let operation = services::plan_service(session.router(), &name, state.enabled())?;
             session

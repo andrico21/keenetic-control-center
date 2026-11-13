@@ -12,7 +12,7 @@ use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, RouterCtx,
     configuration::{
-        MANAGEMENT_SECONDS, SafetyMode, SafetyNet, read_last_change, recovery, workflow_last_change,
+        SafetyMode, SafetyNet, bracket::guarded, read_last_change, workflow_last_change,
     },
 };
 use kcc_i18n::{bundle::MessageKey, keys};
@@ -24,6 +24,17 @@ use super::{
     secret::confirm,
 };
 
+/// Who arms the recovery timer around a change.
+#[derive(Debug, Clone, Copy)]
+enum Timer {
+    /// Nobody: the change needs no timer.
+    Off,
+    /// The runner arms it around the work.
+    Runner,
+    /// The domain operation arms its own, with the explicit recovery authority.
+    Operation,
+}
+
 /// What one change needs: its risk and permission, and whether a write asks first.
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Gate {
@@ -33,14 +44,20 @@ pub(crate) struct Gate {
     permission: Permission,
     /// Raw commands ask before an ordinary write too.
     ask_on_write: bool,
-    /// The runner arms the fail-safe timer around a management change; `false` when
-    /// the domain operation brackets itself.
-    timer: bool,
+    /// Who arms the recovery timer around a management change.
+    timer: Timer,
     /// The router persists the change at once: labelled before it runs.
     persists: bool,
     /// What the command did when it leaves no change waiting for a save, such as a restart;
     /// `None` for an ordinary change.
     outcome: Option<MessageKey>,
+}
+
+impl Timer {
+    /// The runner's timer when `management`, else none.
+    const fn around(management: bool) -> Self {
+        if management { Self::Runner } else { Self::Off }
+    }
 }
 
 impl Gate {
@@ -50,7 +67,7 @@ impl Gate {
             risk: operation.risk,
             permission: operation.permission,
             ask_on_write: false,
-            timer: operation.risk == Risk::Management,
+            timer: Timer::around(operation.risk == Risk::Management),
             persists: operation.persists(),
             outcome: None,
         }
@@ -62,7 +79,7 @@ impl Gate {
             risk,
             permission,
             ask_on_write,
-            timer: matches!(risk, Risk::Management),
+            timer: Timer::around(matches!(risk, Risk::Management)),
             persists: false,
             outcome: None,
         }
@@ -84,7 +101,7 @@ impl Gate {
     /// Preserves a raw request's management requirement independently of maximum risk.
     pub(crate) const fn recovery(self, management: bool) -> Self {
         Self {
-            timer: management,
+            timer: Timer::around(management),
             ..self
         }
     }
@@ -92,7 +109,7 @@ impl Gate {
     /// The same gate for an operation that arms its own fail-safe timer.
     pub(crate) const fn self_bracketed(self) -> Self {
         Self {
-            timer: false,
+            timer: Timer::Operation,
             ..self
         }
     }
@@ -107,15 +124,15 @@ impl Gate {
         }
     }
 
-    /// The permissions held for this change: its own, and `Destructive` from management
-    /// risk up, because a management change runs inside the fail-safe timer.
+    /// The permissions held for this change: what [`SafetyNet::required`] asks of it, plus
+    /// the explicit recovery authority a management operation that arms its own timer uses.
     fn permissions(self) -> Vec<Permission> {
-        let mut needed = vec![self.permission];
-        if self.timer || self.risk == Risk::Management {
-            needed.extend_from_slice(SafetyNet::management_permissions());
-        }
-        if self.risk >= Risk::Destructive && self.permission != Permission::Destructive {
-            needed.push(Permission::Destructive);
+        let mut needed = SafetyNet::required(self.permission, self.risk);
+        if matches!(self.timer, Timer::Operation)
+            && self.risk >= Risk::Management
+            && !needed.contains(&SafetyNet::CONTROL_PERMISSION)
+        {
+            needed.push(SafetyNet::CONTROL_PERMISSION);
         }
         needed
     }
@@ -192,50 +209,29 @@ where
             .workflow()
             .begin(target.id(), ctx.principal().actor(), &role, None, false)
             .await?;
-        if !gate.timer {
-            return work(&mut changes, target.router())
-                .await
-                .map(|(document, _applied)| labelled(document, gate.persists));
+        match gate.timer {
+            Timer::Off | Timer::Operation => {
+                return work(&mut changes, target.router())
+                    .await
+                    .map(|(document, _applied)| labelled(document, gate.persists));
+            }
+            Timer::Runner => {}
         }
         let mode = SafetyMode::for_change(&changes)?;
-        let armed = SafetyNet::arm(
+        guarded(
             &mut changes,
             target.router(),
             mode,
-            MANAGEMENT_SECONDS,
-            SafetyNet::CONTROL_PERMISSION,
+            gate.permission,
+            || true,
+            async |bracketed, router| {
+                work(bracketed, router)
+                    .await
+                    .map(|(document, applied)| (labelled(document, gate.persists), applied))
+            },
         )
         .await
-        .map(|_receipt| ());
-        if let Err(error) = armed {
-            let disarm = SafetyNet::disarm(
-                &mut changes,
-                target.router(),
-                mode,
-                SafetyNet::CONTROL_PERMISSION,
-            )
-            .await
-            .map(|_receipt| ())
-            .map_err(Failure::from);
-            return recovery::finish(Err(Failure::from(error)), disarm)
-                .map(|()| Value::Null)
-                .map_err(Failure::recovery);
-        }
-        let applied = work(&mut changes, target.router())
-            .await
-            .map(|(document, applied)| (labelled(document, gate.persists), applied));
-        let completed = applied.as_ref().is_ok_and(|(_document, changed)| *changed);
-        let disarm = SafetyNet::disarm(
-            &mut changes,
-            target.router(),
-            mode,
-            SafetyNet::CONTROL_PERMISSION,
-        )
-        .await
-        .map_err(Failure::from);
-        recovery::finish_applied(applied, disarm, completed)
-            .map(|(document, _applied)| document)
-            .map_err(Failure::recovery)
+        .map_err(Failure::recovery)
     }
     .await;
     if let Err(failure) = &attempt {

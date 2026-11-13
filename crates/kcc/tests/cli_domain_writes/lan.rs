@@ -96,7 +96,7 @@ async fn segment_is_created_listed_and_deleted() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn management_port_segment_requires_confirmation_and_destructive_permission() -> TestResult {
+async fn management_port_segment_requires_confirmation_and_write_permission() -> TestResult {
     let unconfirmed = Lab::spawn("").await?;
     let unconfirmed_run = unconfirmed.run(MANAGEMENT_SEGMENT)?;
     assert_eq!(
@@ -113,21 +113,21 @@ async fn management_port_segment_requires_confirmation_and_destructive_permissio
     );
     unconfirmed.shutdown().await?;
 
-    let writer = Lab::spawn("role = \"writer\"").await?;
-    writer.add_role("writer", [Permission::Read, Permission::Write])?;
+    let reader = Lab::spawn("role = \"reader\"").await?;
+    reader.add_role("reader", [Permission::Read])?;
     let mut confirmed = vec!["--yes"];
     confirmed.extend_from_slice(MANAGEMENT_SEGMENT);
-    let writer_run = writer.run(&confirmed)?;
-    assert_eq!(writer_run.code, 10_i32, "writer: {writer_run:?}");
+    let reader_run = reader.run(&confirmed)?;
+    assert_eq!(reader_run.code, 10_i32, "reader: {reader_run:?}");
     assert!(
-        writer
+        reader
             .fake
             .request_log()
             .iter()
             .all(|record| record.command().is_none()),
-        "writer segment sent a write"
+        "reader segment sent a write"
     );
-    writer.shutdown().await
+    reader.shutdown().await
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

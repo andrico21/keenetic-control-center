@@ -2,6 +2,7 @@
 
 use kcc_app::workflow::WorkflowError;
 use kcc_domain::configuration::{
+    bracket::ArmedFate,
     close::{Close, Closed},
     recovery,
 };
@@ -34,18 +35,12 @@ pub(crate) fn reported(
         let (applied, armed) = (error.applied(), error.is_armed());
         let source = Failure::from(error.into_source());
         match (step, applied, armed) {
-            (Close::Save, true, true) => {
-                Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED)
-            }
+            (Close::Save, true, true) => Failure::armed(Exit::Router, ArmedFate::Saved),
             (Close::Save, true, false) => {
                 Failure::headline_only(Exit::Router, keys::MIGRATE_COMMITTED_NOT_SAVED)
             }
-            (_, true, true) => {
-                Failure::headline_only(source.exit(), keys::MANAGEMENT_DISARM_FAILED)
-            }
-            (_, false, true) => {
-                Failure::headline_only(source.exit(), keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
-            }
+            (_, true, true) => Failure::armed(source.exit(), ArmedFate::Applied),
+            (_, false, true) => Failure::armed(source.exit(), ArmedFate::Unknown),
             (_, _, false) => source,
         }
     })

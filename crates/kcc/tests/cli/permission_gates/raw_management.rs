@@ -8,7 +8,7 @@ use std::io::{self, Write as _};
 
 use kcc_app::permissions::Permission;
 
-use super::{TestResult, add_role, lab, mutation_count};
+use super::{TestResult, add_role, commands_after, edges, lab, mutation_count};
 
 /// Distinct CLI entry points and positive/negative management changes.
 fn cases() -> Vec<Vec<&'static str>> {
@@ -126,10 +126,11 @@ async fn ordinary_interface_leaves_apply_without_destructive() -> TestResult {
     Ok(())
 }
 
-/// Raw writers cannot bypass recovery authorization, including timer arming.
+/// Raw writers make management changes inside the recovery timer their own permission
+/// authorizes; destructive shapes and explicit timer arming stay refused before mutation.
 // NOT cancel-safe: the fixture owns router tasks and child processes.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn raw_management_permission_refuses_both_modes() -> TestResult {
+async fn raw_management_permission_brackets_writers_both_modes() -> TestResult {
     for mode in ["router", "extender"] {
         let (env, handle, _address) = lab(mode, "raw-writer").await?;
         add_role(
@@ -137,8 +138,11 @@ async fn raw_management_permission_refuses_both_modes() -> TestResult {
             "raw-writer",
             &[Permission::Read, Permission::Write, Permission::RawRci],
         )?;
-        let mut inputs = cases();
-        inputs.push(vec![
+        // Removal shapes are destructive; the rest are management changes.
+        let (mut refused, mut managed): (Vec<_>, Vec<_>) = cases().into_iter().partition(|input| {
+            input.contains(&"delete") || input.iter().any(|arg| arg.contains(r#""no":true"#))
+        });
+        refused.push(vec![
             "rci",
             "post",
             "system",
@@ -148,19 +152,19 @@ async fn raw_management_permission_refuses_both_modes() -> TestResult {
             "--data",
             r#"{"action":"reboot","interval":300}"#,
         ]);
-        inputs.push(vec![
+        managed.push(vec![
             "rci",
             "post",
             "--data",
             r#"{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}"#,
         ]);
-        inputs.push(vec![
+        managed.push(vec![
             "rci",
             "batch",
             "--data",
             r#"[{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}]"#,
         ]);
-        for input in inputs {
+        for input in refused {
             let before = handle.request_log().len();
             let mut args = vec!["--yes", "--confirm-destructive", "lab-1"];
             args.extend(input);
@@ -171,6 +175,22 @@ async fn raw_management_permission_refuses_both_modes() -> TestResult {
                 io::stderr(),
                 "RAW CLI raw-writer {mode} {args:?}: exit 10, zero mutations"
             )?;
+        }
+        for input in managed {
+            let before = handle.request_log().len();
+            let mut args = vec!["--yes"];
+            args.extend(input);
+            let run = env.kcc(&args)?;
+            assert_eq!(run.code, 0_i32, "{args:?}: {run:?}");
+            let commands = commands_after(&handle, before);
+            let (arm, disarm) = edges(mode);
+            assert_eq!(commands.first().map(String::as_str), Some(arm), "{args:?}");
+            assert_eq!(
+                commands.last().map(String::as_str),
+                Some(disarm),
+                "{args:?}"
+            );
+            assert!(!handle.recovery_armed(), "{args:?}: timer disarmed");
         }
         handle.shutdown().await?;
     }
@@ -189,20 +209,8 @@ async fn raw_management_brackets_both_modes() -> TestResult {
             args.extend(input);
             let run = env.kcc(&args)?;
             assert_eq!(run.code, 0_i32, "{args:?}: {run:?}");
-            let commands = handle
-                .request_log()
-                .iter()
-                .skip(before)
-                .filter_map(|record| record.command().map(str::to_owned))
-                .collect::<Vec<_>>();
-            let (arm, disarm) = if mode == "router" {
-                (
-                    "system configuration fail-safe timer reboot 300",
-                    "no system configuration fail-safe timer",
-                )
-            } else {
-                ("system reboot 300", "no system reboot")
-            };
+            let commands = commands_after(&handle, before);
+            let (arm, disarm) = edges(mode);
             assert_eq!(
                 commands.first().map(String::as_str),
                 Some(arm),
@@ -217,62 +225,6 @@ async fn raw_management_brackets_both_modes() -> TestResult {
             writeln!(io::stderr(), "RAW CLI admin {mode} {args:?}: {commands:?}")?;
         }
         handle.shutdown().await?;
-    }
-    Ok(())
-}
-
-/// Curated Wi-Fi and segment management changes need recovery authority before mutation.
-// NOT cancel-safe: the fixture owns router tasks and child processes.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn curated_wifi_and_segment_permission_refuses_both_modes() -> TestResult {
-    for role in ["operator", "writer"] {
-        for mode in ["router", "extender"] {
-            let (env, handle, _address) = lab(mode, role).await?;
-            if role == "writer" {
-                add_role(&env, role, &[Permission::Read, Permission::Write])?;
-            }
-            for input in [
-                vec![
-                    "--yes",
-                    "wifi",
-                    "enable",
-                    "--ap",
-                    "WifiMaster0/AccessPoint0",
-                    "off",
-                ],
-                vec![
-                    "--yes",
-                    "segments",
-                    "create",
-                    "7",
-                    "--vlan",
-                    "7",
-                    "--address",
-                    "198.51.100.1",
-                    "--mask",
-                    "255.255.255.0",
-                    "--dhcp-begin",
-                    "198.51.100.10",
-                    "--dhcp-end",
-                    "198.51.100.50",
-                    "--access-point",
-                    "WifiMaster0/AccessPoint0",
-                ],
-            ] {
-                let before = handle.request_log().len();
-                let run = env.kcc(&input)?;
-                assert_eq!(run.code, 10_i32, "{role} {mode} {input:?}: {run:?}");
-                assert!(
-                    handle
-                        .request_log()
-                        .iter()
-                        .skip(before)
-                        .all(|record| record.command().is_none()),
-                    "{input:?}"
-                );
-            }
-            handle.shutdown().await?;
-        }
     }
     Ok(())
 }

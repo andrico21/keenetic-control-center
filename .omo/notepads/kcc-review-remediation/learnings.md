@@ -292,3 +292,25 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - `crates/kcc-domain/tests/bracket.rs` iterates `PROFILES` x fake system modes `router`/`extender` (`Fixture::spawn_mode`), uses `fail_parse_matching("system", n)` / `("no system", 1)` to refuse arm/disarm in either mode; dead audit writer = corrupt `audit.jsonl` then one append (the writer re-verifies files on every append). Panic case: `tokio::spawn` + `JoinError::is_panic`, count read inside work via an `AtomicUsize`.
 - Gotchas: `let _: Result<..> = fut.await` on a type with a destructor trips `let_underscore_drop`-style lint -> bind + `drop`; `needless_pass_by_value` on a `Result` param -> `match` it to consume; `tuple_array_conversions` -> return `[&str; 2]`; adding an argument can push a function over 100 lines (page_kit `apply_with`, migrate `prepare`).
 - `crates/kcc-domain/tests/support/mod.rs` was already 261 pure LOC before this todo (now 288).
+
+## [2026-11-13] Todo 11 progress
+- MCP raw and curated management changes run through `kcc_domain::configuration::bracket::guarded`; `impl From<WorkflowError> for McpFailure` delegates to `map_workflow`. `grep -rn management_permissions crates/kcc-mcp/src` is empty.
+- New code `management_not_sent_fail_safe_armed` (lib.rs, shape.rs message `management-not-sent-armed`, audit `fail_safe_armed: true`), CHANGELOG entry, docs.rs text, docs/MCP_TOOLS.md regenerated.
+- New tests: `bracket_failures::tests::refused_arm_reports_nothing_sent` (not-sent armed + not-applied rows, both modes), `bracket_failures::authority::tests::{change_permission_authorizes_the_bracket, viewer_is_refused_before_any_router_request}` (new file tests/support/bracket_authority.rs).
+- Gotcha: a RED run must not overlap source edits (cargo compiles the lib too). I parked the edited src files outside the tree, wrote HEAD versions via `git show HEAD:<f> > <f>`, ran RED, then restored them.
+- Gotcha: clippy `wildcard_enum_match_arm` fires on `other => other` over McpFailure; use `if let ... else`. Closure params of `guarded` work must not shadow `changes` (`shadow_unrelated`).
+
+## [2026-11-13] Todo 10 progress
+- `cli/change.rs::run_completed` now runs `bracket::guarded(changes, router, SafetyMode::for_change, gate.permission, || true, work)`; `Gate.timer` is an enum `Timer { Off, Runner, Operation }` (clippy `struct_excessive_bools` refused a 4th bool). Gate permissions = `SafetyNet::required(permission, risk)` (+ CONTROL_PERMISSION only for `Timer::Operation` management gates). `dom_net` services set uses `SafetyNet::required(Write, service_risk)`.
+- `cli/exit.rs::Failure` has an `armed: bool` set only by `Failure::armed(exit, ArmedFate)`; `Failure::recovery` maps `fate()` -> armed, `message_key()` -> headline, else the source. `closing.rs`, `migrate_apply.rs::apply_failure` and the `InterfaceChangeError` mapping build armed failures through `Failure::armed` so `--json` `fail_safe_armed` and the audit flag keep working without key comparison.
+- `ApplyError::ArmUnconfirmed` (migrate_apply.rs) still uses `headline_only(.., MANAGEMENT_NOT_SENT_ARMED)` and so is NOT flagged `fail_safe_armed` in `--json`/audit (behavior kept as before; logged in issues.md for todo 15).
+- `--confirm-destructive` takes the router name as its value: managed raw cases without it must drop the `lab-1` positional.
+- Raw `system configuration fail-safe timer` is catalog Risk::Destructive (kcc-catalog runtime/data.rs DESTRUCTIVE_PATHS), so a Write/RawRci role is still refused standalone timer control after D-Q1.
+
+## [2026-11-13] Todo 12 progress (worker r12)
+- Web `page_kit::change::apply_with(plan, permission, work)` now: audit_alive -> begin -> client -> (management: `SafetyMode::for_change`) -> `brackets::hold()` for EVERY write -> ordinary: work; management: `bracket::guarded(.., permission, brackets::hold, ..)`. Batch item refusals survive a failed disarm via a `&mut Vec<String>` stash captured by the work closure (guarded drops the work value when the disarm fails).
+- `Refused` maps through `recovery::Failure::message_key()`; audit outcome stays `fail_safe_armed` for armed fates. When both the arm receipt and the disarm receipt fail (audit lock held / dead writer) the seam says `ArmedFate::NotSent` -> `management-not-sent-armed` (the old Web copy said outcome-unknown).
+- `own`'s claim is the only thing that keeps a Web request alive after the browser leaves: an ordinary write not held is aborted mid-audit (its `router.change_cli` receipt was already queued to the writer and still lands; the Web entry was lost). Test pattern: hold the audit append lock, `pin!` the request future, `timeout(5s)` it under a paused clock, drop it, release the lock with a oneshot.
+- `kcc serve` MCP HTTP test needs `[mcp] allow_destructive = true` and `toolsets = ["core","raw"]` for `kcc_cli_parse`; an admin API key via `kcc_app::api_keys::create_api_key`. `serve_bracket` MCP test is red until MCP runs through `guarded` (todo 11).
+- `tracing_subscriber::fmt()` in tests: call `.with_ansi(false)`; feature unification turns ANSI on.
+- `cargo test -p kcc-web` stops at the first failing test binary: use `--no-fail-fast` to see all.

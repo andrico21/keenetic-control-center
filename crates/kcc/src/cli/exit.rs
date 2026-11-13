@@ -7,7 +7,7 @@ use kcc_app::{credentials::CredentialError, registry::RegistryError, workflow::W
 use kcc_catalog::ValidationIssue;
 use kcc_domain::{
     DomainError,
-    configuration::{ModeUnknown, recovery},
+    configuration::{ModeUnknown, bracket::ArmedFate, recovery},
     interfaces::InterfaceChangeError,
 };
 use kcc_i18n::{
@@ -107,41 +107,40 @@ pub(crate) struct Failure {
     /// A headline more precise than the exit family's, such as a change the router
     /// accepted but did not apply.
     headline: Option<MessageKey>,
+    /// The router's recovery timer may still be armed.
+    armed: bool,
 }
 
 /// Command result.
 pub(crate) type Outcome<T = ()> = Result<T, Failure>;
 
 impl Failure {
-    /// Preserves the error family while exposing an unfinished recovery bracket.
+    /// Preserves the error family while exposing an unfinished recovery bracket: an armed
+    /// fate headlines what may still be armed, a refused arm says nothing was applied, and
+    /// any other failure keeps its own explanation.
     pub(crate) fn recovery(error: recovery::Failure<Self>) -> Self {
-        let armed = error.is_armed();
-        let applied = error.applied();
+        let outcome = (error.fate(), error.message_key());
         let source = error.into_source();
-        if armed {
-            Self::headline_only(
-                source.exit(),
-                if applied {
-                    keys::MANAGEMENT_DISARM_FAILED
-                } else {
-                    keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
-                },
-            )
-        } else {
-            source
+        match outcome {
+            (Some(fate), _) => Self::armed(source.exit(), fate),
+            (None, Some(key)) => source.headlined(key),
+            (None, None) => source,
+        }
+    }
+
+    /// A failure that left the recovery timer armed after `fate`, headlined by it.
+    pub(crate) const fn armed(exit: Exit, fate: ArmedFate) -> Self {
+        Self {
+            exit,
+            detail: Detail::None,
+            headline: Some(fate.message_key()),
+            armed: true,
         }
     }
 
     /// Whether this failure reports an armed recovery timer.
-    pub(crate) fn fail_safe_armed(&self) -> bool {
-        self.headline.is_some_and(|key| {
-            matches!(
-                key,
-                keys::MANAGEMENT_DISARM_FAILED
-                    | keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
-                    | keys::FINISH_SAVED_ARMED
-            )
-        })
+    pub(crate) const fn fail_safe_armed(&self) -> bool {
+        self.armed
     }
 
     /// Preserves the specific explanation while changing the process outcome family.
@@ -155,6 +154,7 @@ impl Failure {
             exit,
             detail,
             headline: None,
+            armed: false,
         }
     }
 
@@ -257,12 +257,12 @@ impl From<InterfaceChangeError> for Failure {
         error.armed_outcome().map_or_else(
             || Self::text(Exit::Router, &error),
             |applied| {
-                Self::headline_only(
+                Self::armed(
                     Exit::Router,
                     if applied {
-                        keys::MANAGEMENT_DISARM_FAILED
+                        ArmedFate::Applied
                     } else {
-                        keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
+                        ArmedFate::Unknown
                     },
                 )
             },

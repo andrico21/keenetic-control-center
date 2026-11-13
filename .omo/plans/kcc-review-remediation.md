@@ -304,7 +304,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | feat(domain,app): one shared safety bracket with armed fates and a process-wide counter
   Recommended task executor category: deep-high - cross-crate contract (kcc-domain/kcc-app/kcc-web) whose correctness is argued from invariants (counter balance, no arm without owner)
 
-- [ ] 10. CLI management changes run through the shared bracket
+- [x] 10. CLI management changes run through the shared bracket
   What to do / Must NOT do: Replace `run_completed`'s open-coded arm/work/disarm/finish (`crates/kcc/src/cli/change.rs:151-240`, arm at `:194-216`) with `bracket::guarded` (mode from todo 1's rule; permission = the gate's change permission; `hold = || true`). Replace the CLI permission rule (`change.rs:109-121`, `crates/kcc/src/cli/dom_net.rs:118-121`) with `SafetyNet::required`. Derive "armed" from `recovery::Failure::fate()` instead of comparing message keys (`crates/kcc/src/cli/exit.rs:112-141`); headlines from `ArmedFate::message_key`. Delete the now-unused helpers. Must NOT: change exit codes (armed outcomes stay `Exit::Router`), CLI flags, or the `--yes`/`--confirm-destructive` prompts (`crates/kcc/src/cli/secret.rs:50-95`).
   Closes: GAP-2, GAP-3, GAP-8
   Parallelization: Wave W2 | Blocked by: 9 | Blocks: 13, 15, 18, 24 | Can parallelize with: 11, 12, 14, 17

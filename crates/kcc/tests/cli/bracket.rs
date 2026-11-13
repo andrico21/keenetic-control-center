@@ -75,6 +75,63 @@ async fn management_bracket_without_write_permission() -> TestResult {
     Ok(())
 }
 
+/// A role that may write may make a management change: its own permission authorizes the
+/// recovery timer around it.
+// NOT cancel-safe: fixture writes may apply before cancellation.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn management_bracket_with_write_only_role() -> TestResult {
+    for mode in ["router", "extender"] {
+        let mut scenario = migration::Fixture::default();
+        scenario.mode = Some(mode.to_owned());
+        let fake = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let (address, handle) = fake.serve(([127, 0, 0, 1], 0).into()).await?;
+        let env = Env::new("")?;
+        let password = env.write(
+            "router.password",
+            &['a', 'd', 'm', 'i', 'n'].iter().collect::<String>(),
+        )?;
+        let mut roles = RolesDocument::default();
+        roles.roles.push(Role::new(
+            "writer".to_owned(),
+            [Permission::Read, Permission::Write],
+            vec!["*".to_owned()],
+        ));
+        StateStore::open(&env.state_dir())?.write(&roles)?;
+        env.write_config(&format!(
+            "[cli]\nrole = \"writer\"\n{}",
+            router("lab-1", address, &password)
+        ))?;
+
+        let run = env.kcc(&["--yes", "services", "port", "http", "8082"])?;
+
+        let commands = handle
+            .request_log()
+            .iter()
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        let (arm, disarm) = if mode == "router" {
+            (
+                "system configuration fail-safe timer reboot 300",
+                "no system configuration fail-safe timer",
+            )
+        } else {
+            ("system reboot 300", "no system reboot")
+        };
+        assert_eq!(run.code, 0_i32, "{mode}: {run:?}");
+        assert_eq!(commands.first().map(String::as_str), Some(arm), "{run:?}");
+        assert_eq!(commands.last().map(String::as_str), Some(disarm), "{run:?}");
+        assert!(
+            handle.running_config_text().contains("port 8082"),
+            "{mode}: management port applied: {run:?}"
+        );
+        assert!(!handle.recovery_armed(), "{mode}: timer disarmed");
+        handle.shutdown().await?;
+    }
+    Ok(())
+}
+
 /// A refused disarm reports the already-applied change rather than a refused mutation.
 // NOT cancel-safe: fixture writes may apply before cancellation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]

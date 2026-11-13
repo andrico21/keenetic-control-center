@@ -10,6 +10,8 @@ use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, migration, model::Profil
 
 use super::support::{Env, TestResult, router};
 
+#[path = "permission_gates/curated.rs"]
+mod curated;
 #[path = "permission_gates/raw.rs"]
 mod raw;
 #[path = "permission_gates/raw_management.rs"]
@@ -63,4 +65,26 @@ fn env_config(env: &Env, role: &str, address: SocketAddr) -> String {
         "[cli]\nrole = {role:?}\n{}",
         router("lab-1", address, &password)
     )
+}
+
+/// Parser commands the fake received after the first `before` requests.
+fn commands_after(handle: &Handle, before: usize) -> Vec<String> {
+    handle
+        .request_log()
+        .iter()
+        .skip(before)
+        .filter_map(|record| record.command().map(str::to_owned))
+        .collect()
+}
+
+/// The arm and disarm command lines of the recovery timer in `mode`.
+fn edges(mode: &str) -> (&'static str, &'static str) {
+    if mode == "router" {
+        (
+            "system configuration fail-safe timer reboot 300",
+            "no system configuration fail-safe timer",
+        )
+    } else {
+        ("system reboot 300", "no system reboot")
+    }
 }

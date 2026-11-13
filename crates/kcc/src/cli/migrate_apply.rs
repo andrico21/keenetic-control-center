@@ -6,6 +6,7 @@ use alloc::sync::Arc;
 use std::path::Path;
 
 use kcc_app::jobs::JobRunner;
+use kcc_domain::configuration::bracket::ArmedFate;
 use kcc_i18n::keys;
 use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest};
 use serde_json::{Value, json};
@@ -120,13 +121,13 @@ pub(crate) async fn apply(
 pub(crate) fn apply_failure(error: ApplyError) -> Failure {
     match error {
         ApplyError::SavedDisarmFailed => {
-            return Failure::headline_only(Exit::Router, keys::FINISH_SAVED_ARMED);
+            return Failure::armed(Exit::Router, ArmedFate::Saved);
         }
         ApplyError::DisarmFailed => {
-            return Failure::headline_only(Exit::Router, keys::MANAGEMENT_DISARM_FAILED);
+            return Failure::armed(Exit::Router, ArmedFate::Applied);
         }
         ApplyError::FinishFailed => {
-            return Failure::headline_only(Exit::Router, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED);
+            return Failure::armed(Exit::Router, ArmedFate::Unknown);
         }
         ApplyError::ArmUnconfirmed => {
             return Failure::headline_only(Exit::Router, keys::MANAGEMENT_NOT_SENT_ARMED);

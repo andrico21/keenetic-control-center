@@ -1,4 +1,4 @@
-//! Runtime management operations require recovery authority and confirmation on the CLI.
+//! Runtime management operations need write permission and confirmation on the CLI.
 
 use std::io::{self, Write as _};
 
@@ -43,10 +43,10 @@ fn cases() -> Vec<Vec<&'static str>> {
     ]
 }
 
-/// A writer is refused before mutation, after read-only runtime detection if needed.
+/// A reader is refused before mutation, after read-only runtime detection if needed.
 // NOT cancel-safe: fixture lifecycle owns a router task.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn runtime_management_operator_sends_nothing() -> TestResult {
+async fn runtime_management_reader_sends_nothing() -> TestResult {
     for mode in ["router", "extender"] {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
@@ -59,8 +59,8 @@ async fn runtime_management_operator_sends_nothing() -> TestResult {
         let password = env.write("router.password", DEFAULT_PASSWORD)?;
         let mut roles = RolesDocument::default();
         roles.roles.push(Role::new(
-            "writer".to_owned(),
-            [Permission::Read, Permission::Write],
+            "reader".to_owned(),
+            [Permission::Read],
             vec!["*".to_owned()],
         ));
         StateStore::open(&env.state_dir())?.write(&roles)?;
@@ -76,7 +76,7 @@ async fn runtime_management_operator_sends_nothing() -> TestResult {
                 .parse("interface Bridge0 ip access-group RuntimeAcl in")
                 .await?,
         );
-        for role in ["operator", "writer"] {
+        for role in ["reader"] {
             env.write_config(&format!(
                 "[cli]\nrole = \"{role}\"\n{}",
                 router("lab-1", address, &password)
