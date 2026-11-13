@@ -374,7 +374,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app,web,cli,mcp): bounded audit waits that keep entries and never misreport applied changes
   Recommended task executor category: deep-high - concurrency and durability across the audit writer and every surface; correctness argued from FIFO/chain invariants
 
-- [ ] 17. Web migration and preset finish routes use the bracket budget
+- [x] 17. Web migration and preset finish routes use the bracket budget
   What to do / Must NOT do: Replace the `TimeoutLayer` (30 s, 408) on `crates/kcc-web/src/migrate_wizard/routes.rs:59` and `crates/kcc-web/src/presets_page/routes.rs:85` with the `brackets::budget` + `own` wiring the other bracket routes use (`crates/kcc-web/src/lib.rs:420-490` `bounded`), so a finish that holds a bracket is answered when it ends (BACKLOG confirm F4-3). Must NOT: change other routes' budgets.
   Closes: GAP-5
   Parallelization: Wave W2 | Blocked by: 12 | Blocks: 37 | Can parallelize with: 10, 11, 14

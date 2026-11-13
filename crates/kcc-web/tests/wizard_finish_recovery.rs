@@ -216,4 +216,50 @@ mod tests {
         );
         Ok(())
     }
+
+    /// A finish delaying past the 30 s budget is answered with its outcome when held.
+    ///
+    /// The audit append lock is held past 30 s, the commit answer comes back as 200,
+    /// not 408 (or 422 if applier failed, but not 408 which means the request timed out).
+    // NOT cancel-safe: helper function with paused clock.
+    async fn finish_held_past_budget() -> TestResult {
+        use core::time::Duration;
+
+        use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
+        use tokio::{task::JoinHandle, time::sleep};
+
+        let fixture = Fixture::with_mode("router", FaultInjection::default()).await?;
+        flow::seed_source(&fixture).await?;
+        let admin = fixture.login("admin").await?;
+        let page = flow::to_review(&fixture, &admin).await?;
+        flow::to_preview(&fixture, &admin, &page).await?;
+        let stream = flow::apply(&fixture, &admin, &page).await?;
+        assert!(stream.contains(&tr(Locale::En, keys::MIGRATE_APPLY_VERIFIED, None)));
+        let _results = fixture
+            .post(&format!("{page}/results"), &admin, &[])
+            .await?;
+
+        // Hold the audit append lock past the request budget (30 s).
+        let lock = StateStore::open(&fixture.state_dir())?.try_lock(AUDIT_FILE_NAME)?;
+        let _held: JoinHandle<()> = tokio::spawn(async move {
+            sleep(Duration::from_secs(60)).await;
+            drop(lock);
+        });
+
+        // Commit should be answered with 200 (the held bracket outcome), not 408.
+        let response = fixture.post(&format!("{page}/commit"), &admin, &[]).await?;
+        let status = response.status();
+        assert_ne!(
+            status,
+            StatusCode::REQUEST_TIMEOUT,
+            "finish with held bracket should not get 408 timeout"
+        );
+        Ok(())
+    }
+
+    /// Wizard finish outlives its request budget when held.
+    #[tokio::test(start_paused = true)]
+    async fn wizard_finish_outlives_budget_when_held() -> TestResult {
+        finish_held_past_budget().await
+    }
 }

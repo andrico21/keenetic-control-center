@@ -28,6 +28,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    brackets,
     errors::{self, Kind},
     page_kit::{
         audit::Record as Audit,
@@ -139,6 +140,10 @@ async fn finish(
     let Some(applier) = slot.as_mut() else {
         return Err(StatusCode::CONFLICT.into_response().into());
     };
+    if !brackets::hold() {
+        tracing::warn!("finish refused: its request has no server owner");
+        return Err(errors::response(Kind::Internal, fragment_shell(locale)).into());
+    }
     let result = match choice {
         Choice::Commit => applier.commit().await,
         Choice::Rollback => applier.rollback().await,

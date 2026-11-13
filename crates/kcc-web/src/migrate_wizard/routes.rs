@@ -12,17 +12,16 @@ use alloc::sync::Arc;
 use axum::{
     Extension, Router,
     extract::DefaultBodyLimit,
-    http::StatusCode,
     middleware,
     routing::{get, post},
 };
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
+use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
     apply, downloads, events, finish, inputs_submit, landing, mapping_submit, resume,
     review_submit, running, service::Wizards, source, source_read, target, target_confirm,
 };
-use crate::{BODY_LIMIT, REQUEST_TIMEOUT, WebState, protect};
+use crate::{BODY_LIMIT, WebState, brackets, protect};
 
 /// Every wizard route.
 pub(crate) fn router(state: &WebState) -> Router<WebState> {
@@ -56,10 +55,8 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
         .route_layer(DefaultBodyLimit::disable())
         .route_layer(RequestBodyLimitLayer::new(BODY_LIMIT))
         .route_layer(middleware::from_fn(source_read::limit));
-    let bounded = protect(pages.merge(upload), state).route_layer(TimeoutLayer::with_status_code(
-        StatusCode::REQUEST_TIMEOUT,
-        REQUEST_TIMEOUT,
-    ));
+    let bounded =
+        protect(pages.merge(upload), state).route_layer(middleware::from_fn(brackets::budget));
     let streams = protect(
         Router::new().route("/ui/migrate/{id}/events", get(events::events)),
         state,

@@ -11,18 +11,17 @@ use alloc::sync::Arc;
 use axum::{
     Extension, Router,
     extract::DefaultBodyLimit,
-    http::StatusCode,
     middleware,
     routing::{get, post},
 };
-use tower_http::{limit::RequestBodyLimitLayer, timeout::TimeoutLayer};
+use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
     apply, capture, compose, delete, detail, downloads, drafts::Drafts, events, finish, inputs,
     landing, list, options, resume, reveal, review_submit, source, target_submit,
 };
 use crate::{
-    BODY_LIMIT, REQUEST_TIMEOUT, WebState,
+    BODY_LIMIT, WebState, brackets,
     migrate_wizard::{service::Wizards, source_read},
     protect,
 };
@@ -82,10 +81,8 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
         .route_layer(DefaultBodyLimit::disable())
         .route_layer(RequestBodyLimitLayer::new(BODY_LIMIT))
         .route_layer(middleware::from_fn(source_read::limit));
-    let bounded = protect(pages.merge(upload), state).route_layer(TimeoutLayer::with_status_code(
-        StatusCode::REQUEST_TIMEOUT,
-        REQUEST_TIMEOUT,
-    ));
+    let bounded =
+        protect(pages.merge(upload), state).route_layer(middleware::from_fn(brackets::budget));
     let streams = protect(
         Router::new().route("/ui/presets/runs/{run}/events", get(events::events)),
         state,
