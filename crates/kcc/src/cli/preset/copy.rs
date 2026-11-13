@@ -2,6 +2,7 @@
 
 use std::io::{self, IsTerminal as _};
 
+use kcc_domain::configuration::apply_needs::ApplyNeeds;
 use kcc_i18n::keys;
 use kcc_migrate::presets::{
     groups::SettingsGroupEngine,
@@ -45,7 +46,9 @@ pub(super) fn require_finish(finish: Option<Finish>) -> Outcome {
 pub(crate) async fn run(ctx: &Ctx, args: CopyCommand) -> Outcome {
     require_finish(args.finish)?;
     let services = ctx.services().await?;
-    ctx.authorize_apply(&services, &args.to).await?;
+    let needs = ApplyNeeds::default()
+        .finishing_with_rollback(matches!(args.finish, Some(Finish::Rollback)));
+    ctx.authorize_apply(&services, &args.to, needs).await?;
     let (config, source, _role) = Origin::read(ctx, &services, &args.from).await?.into_parts();
     let selected = args.groups.iter().map(String::as_str).collect::<Vec<_>>();
     let selection = SettingsGroupEngine::embedded()

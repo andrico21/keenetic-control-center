@@ -118,3 +118,40 @@ Design notes: (1) CLI finish paths (config failsafe commit/rollback, migrate fin
 - `map_apply` keeps one `| _ => Internal` arm: `ApplyError` is `#[non_exhaustive]` from another crate, so a wildcard is mandatory; every known variant is listed explicitly and an unknown future one is `internal`, not `validation_failed`.
 - RollbackRestarting closes the run on every surface: MCP `migration.close()`; Web wizard and preset finish record a new additive `Finish::RollbackRestarting` (kebab `rollback-restarting`, text MIGRATE_ROLLBACK_SAVED; preset slug `rollback-restarting`) and answer the moved screen. Audit calls untouched (still `failed`).
 - kcc-mcp dev-dependency tokio gains feature `test-util` (needed for `start_paused`), same as kcc-web/kcc/kcc-rci.
+
+## Test Changes in Todo 23
+
+- `apply_onto_documentation_tier_needs_the_audited_acknowledgement`: added `--yes` to second apply (line 109)
+- `failed_verification_reports_the_completed_automatic_rollback`: added `--yes` to apply (line 201) - tests rollback headline
+- `finishing_a_kept_migration_says_what_the_router_did`: added `--yes` to apply (line 248)
+- `apply_permissions.rs`: added `--yes` to apply (line 65) - tests permission denial before confirmation
+- `closing.rs`: added `--yes` to apply (line 143)
+- `migrate_finish.rs`: added `--yes` to apply (line 158)
+- NEW: `apply_without_confirmation_and_with_no_exits_10_and_makes_no_request`: exit 10 when confirmation missing, no router requests after re-plan
+- NEW: `apply_with_yes_flag_applies_without_asking`: --yes allows apply without confirmation
+
+
+## [2026-11-13] Todo 18 (r18): D-Q1 permission model on every apply path
+- `SafetyNet::apply_permissions(needs: ApplyNeeds) -> Vec<Permission>` = [Read, Migrate, Write, Save] + Destructive when `install_components | raw_restore | finish_rollback`. `ApplyNeeds` lives in `kcc-domain/src/configuration/apply_needs.rs` (configuration.rs was already over the size ceiling). `APPLY_PERMISSIONS` const removed.
+- `configuration::close(changes, router, mode, (step, permission))`: the closing commands run under the passed permission. Callers pass `Permission::Migrate` for keep/save of a migration/preset run, `SafetyNet::CONTROL_PERMISSION` for a user-chosen rollback, `Permission::Destructive` for `kcc config failsafe commit|rollback` (standalone timer control).
+- Engine: arm/keep-alive/disarm (settle.rs, execute.rs, finish.rs commit/keep) run under `Permission::Migrate`. `finish::rollback` uses Migrate when `report.failure.is_some()` (rolling back a FAILED run is the run's own recovery, the CLI does it automatically after a failed apply) and CONTROL_PERMISSION otherwise (user choice). Surfaces authorize Destructive up front for every user-chosen rollback: CLI `--finish rollback` (authorize_apply), `migrate finish rollback` / `preset finish <run> rollback` (target permissions include Destructive), interactive preset rollback (authorize_recovery before applier.rollback), Web ROLLBACK const (unchanged), MCP `kcc_migration_finish rollback` (new authorize_routers Destructive -> `forbidden` before any request).
+- Explicit standalone timer control keeps a literal `Permission::Destructive`: persist.rs arm + closing, dom_jobs.rs keep-alive, configuration DESCRIPTOR fail_safe_arm/keep_alive/rollback.
+- Web raw restore (`config_page/store.rs` RAW_RESTORE = [Destructive, Migrate]) unchanged: it is a const Act and already holds Destructive; the engine's upload_startup needs Destructive.
+- CLI and MCP never install components; only the Web wizard does (`apply_permissions(record)`).
+- Existing tests whose expectation changed (name them in the commit body):
+  - `crates/kcc/tests/cli/apply_permissions.rs::migration_apply_requires_complete_permissions_before_any_router_request`: operator row now uses `--finish rollback` (missing Destructive); migrator row `--finish keep`.
+  - `crates/kcc/tests/cli_presets/apply_permissions.rs::preset_and_copy_apply_require_complete_permissions_before_any_router_request`: operator rows now use `--finish rollback`.
+  - `crates/kcc/tests/cli/preset_finish.rs::preset_finish_operator_refuses_before_mutation` -> renamed `preset_finish_operator_saves_but_cannot_roll_back` (operator extender save now succeeds; rollback refused before any router request).
+  - `crates/kcc-web/tests/presets_pages/apply.rs::apply_names_missing_permissions_before_any_router_request` and `crates/kcc-web/tests/migration_wizard/apply_flow.rs::apply_names_missing_permissions_before_any_router_request`: account `operator` -> `without-write-save` (kk), asserting the Write and Save labels and not Destructive.
+  - `crates/kcc-domain/tests/close.rs`: passes `(step, SafetyNet::CONTROL_PERMISSION)`.
+
+## [2026-11-13] Todo 16 (r16): bounded audit waits; changed test expectations
+- Design: the writer (`kcc-app/src/audit/writer.rs`) retries an `AppendLockTimeout` round for the SAME head entry until the lock is free; seq/prev_hash still read under the lock in `append_locked`; any other error stays fatal (closes the channel, answers `Failed`, drops the queue). Callers queue first (`AuditLog::submit`: `reserve()` then sync send, cancel-safe) and bound only the wait on a `watch` reply (`receipt::Pending`). `AuditLog::append` = submit + wait `AUDIT_WAIT` (30 s) -> `AuditError::Pending` at the deadline, entry kept.
+- `ChangeSet` keeps a `Receipts` (workflow_receipts.rs): ordinary mode waits 30 s per receipt and returns `AuditReceipt::Pending` instead of an error; `bracket::guarded` calls `defer_audit()` before the arm and `settle_audit(BRACKET_AUDIT_WAIT=20 s)` after the disarm. In deferred mode a submit to a dead writer becomes `Pending::lost()` (so the disarm is never reported failed because of its receipt) and the failure surfaces at settle; `guarded` also refuses the work when the writer is already dead after the arm.
+- Surfaces: CLI `change::run_completed` (+ `rci send` document) notes `audit-entry-pending` and adds `"audit_pending": true`; MCP adds `"audit_pending": true` via `support::shape::noting` in the `applied`/`cli_applied`/`batch_applied` results; Web `apply_with` returns `Landed` and `Outcome::with_audit_pending` replaces the success toast; the page's own record is queued without waiting when the change's entries are pending (it cannot be written before them).
+- Test expectations changed (forced by the new reporting):
+  - `kcc-web/tests/explorer_pages/bracket_budget.rs`: `a_held_audit_lock_does_not_cut_the_management_bracket` (expected `management-not-sent-armed` and a `failed`/`fail_safe_armed` web entry) replaced by `a_held_audit_lock_does_not_hold_back_the_management_bracket` (success + pending note within 22 s, disarm before any receipt, entries in order after release). `a_queued_arm_receipt_does_not_cut_the_management_bracket`: `management-not-sent-armed` -> success tone + `audit-entry-pending`.
+  - `kcc/tests/serve_bracket.rs` `a_dead_audit_writer_waits_for_the_web_bracket_to_close`: `management-not-sent-armed` -> `web-explorer-failed`, not reported armed (the disarm was accepted; the dead writer is the bracket's failure at settle).
+  - `kcc-app/src/audit.rs` unit test `lock_timeout_fails_one_append_and_writer_accepts_the_next` -> `a_lock_timeout_keeps_the_entry_queued_and_the_writer_alive`.
+  - `let _: ChangeResult` -> `let _applied: ChangeResult` in kcc-domain tests bracket.rs, close.rs, verification_coverage/tests/execution.rs and kcc-mcp common/tests.rs (ChangeResult now owns a receipt, so `let _` trips `let_underscore_drop`).
+- Plan filter note: `cargo test -p kcc-web --test explorer_pages bracket_budget` matches 0 tests (module path is `bracket::budget`); evidence uses `bracket::budget`.

@@ -3,7 +3,8 @@
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 use kcc_domain::configuration::{
-    SafetyMode,
+    SafetyMode, SafetyNet,
+    apply_needs::ApplyNeeds,
     close::{Close, Closed, close},
 };
 use kcc_i18n::keys;
@@ -16,7 +17,7 @@ use kcc_rci::capabilities::SupportTier;
 use serde_json::{Value, json};
 
 use super::{
-    args_migrate::{FinishStep, MigrateCommand, PlanInput, ReportFormat},
+    args_migrate::{FinishAction, FinishStep, MigrateCommand, PlanInput, ReportFormat},
     change::{Gate, applied, recovery_mode, run as run_change},
     closing::reported,
     context::{Ctx, Services},
@@ -70,7 +71,9 @@ pub(crate) async fn run(ctx: &Ctx, command: MigrateCommand) -> Outcome {
             report,
         } => {
             let target = ctx.router_id(&services)?;
-            ctx.authorize_apply(&services, &target).await?;
+            let needs = ApplyNeeds::default()
+                .finishing_with_rollback(matches!(finish, FinishAction::Rollback));
+            ctx.authorize_apply(&services, &target, needs).await?;
             migrate_apply::apply(
                 ctx,
                 &services,
@@ -153,11 +156,12 @@ async fn inventory(ctx: &Ctx, services: &Services) -> Outcome {
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the commit or rollback may complete before cancellation.
 async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
-    let target = ctx.target(services, &[Permission::Migrate]).await?;
+    let needed = match action {
+        FinishStep::Commit => &[Permission::Migrate][..],
+        FinishStep::Rollback => &[Permission::Migrate, SafetyNet::CONTROL_PERMISSION][..],
+    };
+    let target = ctx.target(services, needed).await?;
     let mode = recovery_mode(&target).await?;
-    if matches!(action, FinishStep::Commit) && mode == SafetyMode::ScheduledReboot {
-        ctx.authorize_recovery(services, target.id()).await?;
-    }
     let (gate, outcome) = match action {
         FinishStep::Commit => (
             Gate::new(Risk::Write, Permission::Save, false),
@@ -173,12 +177,12 @@ async fn finish(ctx: &Ctx, services: &Services, action: FinishStep) -> Outcome {
         ),
     };
     let step = match action {
-        FinishStep::Commit => Close::Save,
-        FinishStep::Rollback => Close::Rollback,
+        FinishStep::Commit => (Close::Save, Permission::Migrate),
+        FinishStep::Rollback => (Close::Rollback, SafetyNet::CONTROL_PERMISSION),
     };
     let document = run_change(ctx, services, &target, gate, async |changes, router| {
-        let _: Closed = reported(ctx.out(), step, close(changes, router, mode, step).await)?;
-        Ok(applied(step == Close::Rollback))
+        let _: Closed = reported(ctx.out(), step.0, close(changes, router, mode, step).await)?;
+        Ok(applied(step.0 == Close::Rollback))
     })
     .await?;
     let out = ctx.out();

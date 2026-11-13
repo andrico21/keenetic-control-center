@@ -165,7 +165,9 @@ Cursor (`.cursor/mcp.json`):
 
 Write tools appear only when the role allows them and the toolset is enabled in
 `[mcp] toolsets`. Destructive tools, and raw changes to management settings, also need
-`[mcp] allow_destructive = true` and `confirm: true` in the call. What an assistant may send to its model provider is
+`[mcp] allow_destructive = true` and `confirm: true` in the call; this server switch
+stays required even for a role that holds `Destructive`. Applying a migration or preset
+needs no server switch, but rolling it back does, and needs `Destructive` too. What an assistant may send to its model provider is
 described in [docs/PRIVACY.md](docs/PRIVACY.md).
 
 ## Safety model
@@ -173,9 +175,12 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Permissions.** Built-in roles `viewer`, `operator` and `admin`, plus custom roles
   with router scopes. The Web UI, MCP and the CLI check the same permission before any
   router request. Migration, preset and settings-copy applies need `Read`, `Migrate`,
-  `Write`, `Save` and `Destructive` before any router request. That fixed set covers
-  planning, replay, persistence and the recovery bracket for every finish choice. The
-  built-in `operator` can plan these operations but cannot apply them.
+  `Write` and `Save` before any router request; the recovery timer kcc arms around a
+  change is authorized by that change's own permission. The built-in `operator` can
+  apply these operations and finish them by keeping or saving the changes.
+  `Destructive` is needed only for a rollback finish, a component install, a raw
+  restore of a saved configuration, and explicit timer control (`kcc config failsafe
+  arm|rollback`, the keep-alive and the Web UI's standalone rollback).
 - **Change workflow.** Each write takes a per-router lease, makes an encrypted backup of
   the startup configuration, refuses if someone else changed the router in between,
   verifies the result by reading it back and appends a hash-chained audit entry.

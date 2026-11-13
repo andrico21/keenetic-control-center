@@ -19,7 +19,8 @@ your role: pages and buttons you have no permission for are hidden or answer
   from the startup configuration. Nothing is saved until you press Save.
 - **Risky changes.** Changes that can cut kcc off from the router (disabling or
   re-zoning the interface kcc reaches the router through, firewall rules on it) ask
-  first, need the Destructive permission and run under the router's fail-safe timer.
+  first and run under the router's fail-safe timer, which the change's own permission
+  authorizes. Rolling the timer back yourself needs the Destructive permission.
   Deletions ask for confirmation; the most dangerous ones need the router or object name
   typed.
 - **Tables** sort by a column header, filter with the search field and page at the

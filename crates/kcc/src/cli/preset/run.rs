@@ -120,6 +120,7 @@ pub(super) async fn apply(
     match action {
         Finish::Save => applier.commit().await.map_err(apply_failure)?,
         Finish::Rollback => {
+            ctx.authorize_recovery(services, target).await?;
             if let Err(error) = applier.rollback().await {
                 audit_rollback_failure(ctx, services, target, error).await;
                 if error != ApplyError::RollbackRestarting {

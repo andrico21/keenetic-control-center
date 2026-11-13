@@ -5,6 +5,7 @@ use core::time::Duration;
 
 use kcc_app::{
     jobs::{JobContext, JobProgress},
+    permissions::Permission,
     workflow::ReplayOutcome,
 };
 use kcc_catalog::Catalog;
@@ -171,7 +172,7 @@ async fn retry_lines(
     Ok(())
 }
 
-/// Renews the recovery timer without persisting configuration.
+/// Renews the recovery timer under the run's `Migrate` without persisting configuration.
 ///
 /// # Errors
 /// Returns a protected workflow error.
@@ -189,7 +190,7 @@ pub(super) async fn keep_alive(applier: &mut Applier) -> Result<(), ApplyError> 
     match applier.mode {
         SafetyMode::Router => {
             drop(
-                SafetyNet::keep_alive(&mut applier.changes, &ctx, SafetyNet::CONTROL_PERMISSION)
+                SafetyNet::keep_alive(&mut applier.changes, &ctx, Permission::Migrate)
                     .await
                     .map_err(|_error| ApplyError::Workflow)?,
             );
@@ -201,7 +202,7 @@ pub(super) async fn keep_alive(applier: &mut Applier) -> Result<(), ApplyError> 
                     &ctx,
                     applier.mode,
                     applier.options.safety_seconds,
-                    SafetyNet::CONTROL_PERMISSION,
+                    Permission::Migrate,
                 )
                 .await
                 .map_err(|_error| ApplyError::Workflow)?,

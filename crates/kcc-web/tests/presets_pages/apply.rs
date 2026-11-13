@@ -136,20 +136,20 @@ mod tests {
     async fn apply_names_missing_permissions_before_any_router_request() -> TestResult {
         let fixture = Fixture::new().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
-        let operator = fixture.login("operator").await?;
+        let browser = fixture.login("without-write-save").await?;
         let id = capture(
             &fixture,
-            &operator,
+            &browser,
             "prod-1",
             (&["dns-secure"], "Recovery gate"),
         )
         .await?;
-        let page = start(&fixture, &operator, &id).await?;
-        to_preview(&fixture, &operator, &page, ("lab-1", "merge", &[])).await?;
+        let page = start(&fixture, &browser, &id).await?;
+        to_preview(&fixture, &browser, &page, ("lab-1", "merge", &[])).await?;
         let before = fixture.handle("lab-1")?.request_count();
 
         let refused = fixture
-            .post(&format!("{page}/apply"), &operator, &[("confirm", "yes")])
+            .post(&format!("{page}/apply"), &browser, &[("confirm", "yes")])
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
@@ -161,8 +161,11 @@ mod tests {
             Some("#wizard-step")
         );
         let body = text(refused).await?;
+        let named = |key| body.contains(&tr(Locale::Kk, key, None));
         assert!(
-            body.contains("Destructive") && !body.contains("Write, Save"),
+            named(keys::WEB_ADMIN_PERMISSION_WRITE)
+                && named(keys::WEB_ADMIN_PERMISSION_SAVE)
+                && !named(keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE),
             "the refusal names the missing permissions: {body}"
         );
         assert_eq!(fixture.handle("lab-1")?.request_count(), before);

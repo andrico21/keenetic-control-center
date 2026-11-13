@@ -2,6 +2,7 @@
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
+use kcc_domain::configuration::SafetyNet;
 use kcc_migrate::apply::ApplyError;
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -72,6 +73,10 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
         return Err(McpFailure::InvalidArguments);
     }
     authorize_routers(&identity, Permission::Migrate, &routers)?;
+    if matches!(input.action, FinishAction::Rollback) {
+        let target = core::slice::from_ref(target);
+        authorize_routers(&identity, SafetyNet::CONTROL_PERMISSION, target)?;
+    }
     if !input.confirm {
         return Err(McpFailure::ConfirmRequired);
     }

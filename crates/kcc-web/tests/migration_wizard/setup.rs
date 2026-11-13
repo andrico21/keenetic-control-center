@@ -17,7 +17,7 @@ use kcc_app::{
     secrets::MasterKey,
 };
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, migration,
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FakeRouterBuilder, Handle, migration,
     model::{Firmware, Model, Profile},
 };
 use secrecy::SecretString;
@@ -99,12 +99,12 @@ pub(crate) fn roles() -> Vec<Role> {
     roles
 }
 
-/// Serves `giga`, `ultra` (with `faults`, in router mode) and `legacy`, and registers
+/// Serves `giga`, `ultra` (built by `target`, in `mode`) and `legacy`, and registers
 /// them in `registry` with password files in `directory`.
 pub(crate) async fn routers(
     directory: &Path,
     registry: &RouterRegistry,
-    (mode, faults): (&str, FaultInjection),
+    (mode, target_router): (&str, FakeRouterBuilder),
 ) -> TestResult<Vec<(&'static str, Handle)>> {
     let mut target = migration::Fixture::default();
     target.mode = Some(mode.to_owned());
@@ -113,13 +113,7 @@ pub(crate) async fn routers(
             "giga",
             FakeRouter::builder(Profile::latest(Model::Kn1010)).build()?,
         ),
-        (
-            "ultra",
-            FakeRouter::builder(Profile::default())
-                .faults(faults)
-                .build()?
-                .with_migration(target),
-        ),
+        ("ultra", target_router.build()?.with_migration(target)),
         (
             "legacy",
             FakeRouter::builder(Profile::new(Model::Kn1811, Firmware::V4_3)?).build()?,

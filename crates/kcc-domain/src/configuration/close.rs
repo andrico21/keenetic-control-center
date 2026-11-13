@@ -2,8 +2,9 @@
 
 use alloc::vec;
 
-use kcc_app::workflow::{
-    ChangeSet, CliCommand as ValidatedCli, TerminalCliChangeRequest, WorkflowError,
+use kcc_app::{
+    permissions::Permission,
+    workflow::{ChangeSet, CliCommand as ValidatedCli, TerminalCliChangeRequest, WorkflowError},
 };
 use kcc_catalog::HttpMethod;
 use serde_json::json;
@@ -36,7 +37,12 @@ pub struct Closed {
     pub restarting: bool,
 }
 
-/// Ends a recovery bracket armed with `mode` by `step`.
+/// Ends a recovery bracket armed with `mode` by `step`, sending the disarm or rollback
+/// command under `permission`.
+///
+/// `permission` is the permission of the run the bracket protects for a keep, a save, or
+/// the rollback of a failed run, and [`SafetyNet::CONTROL_PERMISSION`] for a rollback the
+/// user chose. A save also needs [`Permission::Save`] for its commit and save.
 ///
 /// `KeepUnsaved` disarms. `Save` commits the native fail-safe and then saves in router mode,
 /// or saves and then cancels the scheduled reboot. `Rollback` sends the native fail-safe
@@ -55,7 +61,7 @@ pub async fn close(
     changes: &mut ChangeSet,
     router: &RouterCtx,
     mode: SafetyMode,
-    step: Close,
+    (step, permission): (Close, Permission),
 ) -> Result<Closed, Failure<WorkflowError>> {
     let saved = Closed {
         saved: true,
@@ -63,8 +69,7 @@ pub async fn close(
     };
     match (step, mode) {
         (Close::KeepUnsaved, _) => {
-            let disarm =
-                SafetyNet::disarm(changes, router, mode, SafetyNet::CONTROL_PERMISSION).await;
+            let disarm = SafetyNet::disarm(changes, router, mode, permission).await;
             recovery::finish(
                 Ok(Closed {
                     saved: false,
@@ -80,7 +85,7 @@ pub async fn close(
         }
         (Close::Save, SafetyMode::ScheduledReboot) => {
             changes.save().await.map_err(Failure::armed)?;
-            SafetyNet::disarm(changes, router, mode, SafetyNet::CONTROL_PERMISSION)
+            SafetyNet::disarm(changes, router, mode, permission)
                 .await
                 .map(|_disarmed| saved)
                 .map_err(Failure::saved)
@@ -96,7 +101,7 @@ pub async fn close(
                 .map_err(|_issues| Failure::armed(WorkflowError::InvalidResponse))?;
             let request = TerminalCliChangeRequest::new(
                 vec![ValidatedCli::new(path.to_owned(), validated)],
-                SafetyNet::CONTROL_PERMISSION,
+                permission,
                 json!({"operation": path}),
             );
             drop(

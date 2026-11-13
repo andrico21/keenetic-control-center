@@ -103,11 +103,24 @@ request, and the change workflow checks again. A user can grant only roles whose
 permissions they hold, and the last enabled admin can't be removed.
 
 `Migrate` permits planning and reviewing migrations, presets and settings copies. Every
-apply requires one fixed set before any router request: `Read`, `Migrate`, `Write`,
-`Save` and `Destructive`. Those permissions cover the initial workflow read, the replay,
-commit or save, and the recovery bracket; keep, commit and rollback use the same up-front
-set so authorization stays predictable. The built-in `operator` role can plan but cannot
-apply because it lacks `Destructive`; use `admin` or a custom role granting the full set.
+apply is authorized before any router request by one function shared by the CLI, the Web
+UI and MCP: `Read`, `Migrate`, `Write` and `Save` cover the initial workflow read, the
+replay, the keep or save finish, and the recovery timer, which the engine arms, keeps
+alive and disarms under the run's `Migrate`. `Destructive` is added only when the apply
+installs components (the component commit reboots the router), restores a saved
+configuration as it is (the router restarts), or is told up front to finish with a
+rollback. The built-in `operator` role can therefore apply and keep or save; a role
+without `Migrate` still cannot apply. Recovery after a failed apply (a rejected or
+indeterminate line, a failed verification) needs nothing more: kcc either waits out the
+armed timer and verifies the restored configuration by reads, or rolls the failed run
+back under its own `Migrate`.
+
+`Destructive` stays required for an explicit, user-chosen rollback finish (`kcc migrate
+finish rollback`, `kcc preset finish <run> rollback`, `--finish rollback`, the Web UI's
+rollback buttons, `kcc_migration_finish` with `rollback`) and for explicit standalone
+timer control: `kcc config failsafe arm|rollback`, `kcc config keep-alive`, and the Web
+UI's standalone rollback on the configuration page. These checks also happen before any
+router request.
 
 MCP adds its own gates: write tools need their toolset enabled in `[mcp] toolsets`,
 `[mcp] read_only = true` registers only read tools, and destructive tools, and raw management changes, also need
@@ -185,10 +198,10 @@ unreported mode without that object, is refused before anything is sent: exit co
 on the CLI, `router_mode_unknown` over MCP, a refusal message in the Web UI and
 `ModeUnknown` for migration and preset applies. The timer is 300 seconds on every surface.
 
-Every management bracket checks the shared `SafetyNet` recovery permissions as well
-as the operation permission. `Destructive` authorizes arm, disarm, keep-alive and
-rollback, so a role that can open a bracket can close it without `Write`; persistence
-still requires `Save`. Curated MCP management writes use the same mode-aware bracket
+The recovery timer kcc arms, keeps alive or disarms around a management change is
+authorized by that change's own permission (`Write` for curated and raw changes,
+`Migrate` for migration, preset and settings-copy runs), so a role that can open a
+bracket can close it; persistence still requires `Save`. Curated MCP management writes use the same mode-aware bracket
 as raw writes, with their existing confirmation policy. After arming succeeds, any
 unsuccessful cleanup reports that recovery remains armed and will restore the saved
 configuration, discarding all unsaved router changes. A batch's recovery message reports

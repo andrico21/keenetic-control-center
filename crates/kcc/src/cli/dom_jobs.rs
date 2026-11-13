@@ -59,13 +59,13 @@ pub(crate) async fn config(
 // NOT cancel-safe: the keep-alive may reach the router before cancellation.
 async fn config_writes(ctx: &Ctx, command: ConfigWriteCommand) -> Outcome {
     let ConfigWriteCommand::KeepAlive = command;
-    let session = Session::open(ctx, SafetyNet::CONTROL_PERMISSION).await?;
-    let gate = Gate::new(Risk::Write, SafetyNet::CONTROL_PERMISSION, false)
+    let session = Session::open(ctx, Permission::Destructive).await?;
+    let gate = Gate::new(Risk::Write, Permission::Destructive, false)
         .reporting(keys::CLI_FAILSAFE_RUNNING);
     session
         .change(gate, async |changes, router| {
             Ok(applied(
-                SafetyNet::keep_alive(changes, router, SafetyNet::CONTROL_PERMISSION)
+                SafetyNet::keep_alive(changes, router, Permission::Destructive)
                     .await?
                     .unsaved,
             ))

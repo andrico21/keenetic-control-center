@@ -3,10 +3,12 @@
 use alloc::sync::Arc;
 use core::time::Duration;
 
+use kcc_app::permissions::Permission;
 use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
     configuration::{
+        SafetyNet,
         bracket::ArmedFate,
         close::{Close, Closed, close},
     },
@@ -35,7 +37,8 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
     let ctx = context(applier)
         .await
         .map_err(|_error| ApplyError::FinishFailed)?;
-    let _: Closed = close(&mut applier.changes, &ctx, applier.mode, Close::Save)
+    let save = (Close::Save, Permission::Migrate);
+    let _: Closed = close(&mut applier.changes, &ctx, applier.mode, save)
         .await
         .map_err(|error| match (error.fate(), error.applied()) {
             (Some(ArmedFate::Saved), _) => ApplyError::SavedDisarmFailed,
@@ -61,7 +64,8 @@ pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError
         .await
         .map_err(|_error| ApplyError::Drift)?;
     let ctx = context(applier).await?;
-    let _: Closed = close(&mut applier.changes, &ctx, applier.mode, Close::KeepUnsaved)
+    let keep = (Close::KeepUnsaved, Permission::Migrate);
+    let _: Closed = close(&mut applier.changes, &ctx, applier.mode, keep)
         .await
         .map_err(|_error| ApplyError::DisarmFailed)?;
     applier.report.finished = true;
@@ -70,6 +74,10 @@ pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError
 
 /// Requests explicit router rollback, then checks original startup identity.
 ///
+/// Rolling back a verified run is the user's choice and needs
+/// [`SafetyNet::CONTROL_PERMISSION`]; rolling back a failed run is the run's own recovery
+/// and is sent under its `Migrate`.
+///
 /// # Errors
 /// Returns workflow, reconnect, or identity mismatch errors.
 // NOT cancel-safe: rollback may reboot before its response is received.
@@ -77,10 +85,20 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
     if applier.report.finished {
         return Err(ApplyError::Validation);
     }
+    let permission = if applier.report.failure.is_some() {
+        Permission::Migrate
+    } else {
+        SafetyNet::CONTROL_PERMISSION
+    };
     let ctx = context(applier).await?;
-    let closed = close(&mut applier.changes, &ctx, applier.mode, Close::Rollback)
-        .await
-        .map_err(|_error| ApplyError::FinishFailed)?;
+    let closed = close(
+        &mut applier.changes,
+        &ctx,
+        applier.mode,
+        (Close::Rollback, permission),
+    )
+    .await
+    .map_err(|_error| ApplyError::FinishFailed)?;
     if wait_restored(applier).await.is_err() {
         return Err(if closed.restarting {
             ApplyError::RollbackRestarting

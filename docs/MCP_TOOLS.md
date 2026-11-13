@@ -15,9 +15,15 @@ means the input was refused before anything was sent. No tool saves implicitly.
 Every mutating raw tool, including `kcc_cli_parse`, requires confirmation and the server
 switch for management or destructive requests, and the `Destructive` role permission for
 destructive ones. The recovery timer kcc arms around a management change is authorized
-by the change's own permission.
+by the change's own permission; the server switch stays required for raw management
+changes even when the role holds `Destructive`.
 Negative `no` commands are destructive. Management nodes retain their recovery timer
 even when a destructive sibling raises the maximum request risk.
+
+`kcc_migration_apply` and `kcc_preset_apply` need `Read`, `Migrate`, `Write` and `Save`
+and arm the recovery timer under `Migrate`. A `rollback` with `kcc_migration_finish`
+also needs the `Destructive` role permission (otherwise `forbidden`, with nothing sent)
+and the server switch.
 
 A management change on a router whose recovery mechanism cannot be determined (it
 reports neither a system mode kcc knows nor a fail-safe timer) fails with

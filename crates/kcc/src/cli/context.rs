@@ -21,7 +21,10 @@ use kcc_app::{
     workflow::ChangeWorkflow,
 };
 use kcc_catalog::Catalog;
-use kcc_domain::{RouterCtx, configuration::SafetyNet};
+use kcc_domain::{
+    RouterCtx,
+    configuration::{SafetyNet, apply_needs::ApplyNeeds},
+};
 use kcc_i18n::{bundle::tr, keys};
 use kcc_rci::capabilities::RouterInfo;
 use serde_json::Value;
@@ -188,16 +191,20 @@ impl Ctx {
         }
     }
 
-    /// Checks complete apply authority and records a handler-level refusal.
+    /// Checks the authority an apply with `needs` requires and records a handler-level
+    /// refusal.
     ///
     /// # Errors
     /// Returns the principal's permission or scope refusal.
     // NOT cancel-safe: the refusal audit may append after cancellation.
-    pub(crate) async fn authorize_apply(&self, services: &Services, id: &str) -> Outcome {
-        match self
-            .principal
-            .authorize(SafetyNet::apply_permissions(), &[id])
-        {
+    pub(crate) async fn authorize_apply(
+        &self,
+        services: &Services,
+        id: &str,
+        needs: ApplyNeeds,
+    ) -> Outcome {
+        let required = SafetyNet::apply_permissions(needs);
+        match self.principal.authorize(&required, &[id]) {
             Ok(role) => {
                 drop(role);
                 Ok(())
@@ -205,7 +212,7 @@ impl Ctx {
             Err(failure) => {
                 self.attempt(services, "cli.refused", Some(id), Attempt::Forbidden)
                     .await;
-                let missing = SafetyNet::apply_permissions()
+                let missing = required
                     .iter()
                     .copied()
                     .filter(|permission| !self.principal.role().grants(*permission))

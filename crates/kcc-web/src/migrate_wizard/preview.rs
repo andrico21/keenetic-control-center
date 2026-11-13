@@ -7,7 +7,7 @@
 use askama::Template;
 use fluent_bundle::FluentArgs;
 use kcc_app::permissions::Permission;
-use kcc_domain::configuration::SafetyNet;
+use kcc_domain::configuration::{SafetyNet, apply_needs::ApplyNeeds};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     format, keys,
@@ -29,8 +29,17 @@ use crate::{
     page_kit::context::fragment_shell,
 };
 
-/// Complete apply authority from the shared safety policy.
-pub(super) const APPLY: &[Permission] = SafetyNet::apply_permissions();
+/// What applying `record`'s plan needs: installing components first also needs
+/// `Destructive`.
+pub(super) fn apply_permissions(record: &Record) -> Vec<Permission> {
+    let needs = ApplyNeeds::default().installing_components(!record.components().is_empty());
+    SafetyNet::apply_permissions(needs)
+}
+
+/// What committing an applied plan needs.
+pub(super) fn commit_permissions() -> Vec<Permission> {
+    SafetyNet::apply_permissions(ApplyNeeds::default())
+}
 
 /// The step's panel.
 #[derive(Template)]
@@ -101,7 +110,7 @@ impl Panel {
             problem: String::new(),
             error: String::new(),
         };
-        let missing = errors::refusal::missing(services.user(), target, APPLY);
+        let missing = errors::refusal::missing(services.user(), target, &apply_permissions(record));
         panel.may_apply = missing.is_empty();
         let mut args = FluentArgs::new();
         args.set("missing", permission_list(locale, &missing));

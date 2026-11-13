@@ -45,13 +45,15 @@ async fn preset_and_copy_apply_require_complete_permissions_before_any_router_re
         ));
         StateStore::open(&pair.env.state_dir())?.write(&roles)?;
         pair.with_cli(&format!("role = {role:?}"))?;
-        let (missing, held) = if role == "operator" {
+        let (finish, missing, held) = if role == "operator" {
             (
+                "rollback",
                 keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE,
                 keys::WEB_ADMIN_PERMISSION_SAVE,
             )
         } else {
             (
+                "save",
                 keys::WEB_ADMIN_PERMISSION_SAVE,
                 keys::WEB_ADMIN_PERMISSION_WRITE,
             )
@@ -66,7 +68,7 @@ async fn preset_and_copy_apply_require_complete_permissions_before_any_router_re
                 "apply-permission",
                 "--yes",
                 "--finish",
-                "save",
+                finish,
             ],
             vec![
                 "--json",
@@ -79,7 +81,7 @@ async fn preset_and_copy_apply_require_complete_permissions_before_any_router_re
                 "dns-secure",
                 "--yes",
                 "--finish",
-                "save",
+                finish,
             ],
         ] {
             let before = pair.requests();

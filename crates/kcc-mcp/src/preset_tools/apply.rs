@@ -6,7 +6,7 @@ use kcc_app::{
     audit::{Actor, ActorKind},
     permissions::Permission,
 };
-use kcc_domain::configuration::SafetyNet;
+use kcc_domain::configuration::{SafetyNet, apply_needs::ApplyNeeds};
 use kcc_i18n::locale::Locale;
 use kcc_migrate::{
     apply::Applier,
@@ -44,8 +44,8 @@ pub(crate) async fn apply(
     let input: ApplyInput = parse(arguments)?;
     let (identity, host) = server.authorize_host(Permission::Migrate, input.host().to_owned())?;
     if !input.dry_run() {
-        for permission in SafetyNet::apply_permissions() {
-            authorize_routers(&identity, *permission, core::slice::from_ref(&host))?;
+        for permission in SafetyNet::apply_permissions(ApplyNeeds::default()) {
+            authorize_routers(&identity, permission, core::slice::from_ref(&host))?;
         }
     }
     let planned = input.planned(server, &identity).await?;

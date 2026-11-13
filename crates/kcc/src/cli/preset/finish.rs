@@ -8,7 +8,7 @@ use std::io::{self, BufRead as _, IsTerminal as _, Write as _};
 use kcc_app::{jobs::JobRunner, permissions::Permission};
 use kcc_catalog::Risk;
 use kcc_domain::configuration::{
-    SafetyMode,
+    SafetyNet,
     close::{Close, Closed, close},
 };
 use kcc_i18n::keys;
@@ -71,7 +71,8 @@ pub(super) fn choose(
 }
 
 /// Ends the run on `target` through a fresh change set (the router's fail-safe timer
-/// still guards it).
+/// still guards it). Keeping and saving disarm under the run's `Migrate`; a rollback
+/// needs `Destructive`.
 ///
 /// # Errors
 ///
@@ -84,23 +85,18 @@ pub(super) async fn finalize(
     action: Finish,
 ) -> Outcome<Value> {
     let mode = recovery_mode(target).await?;
-    if matches!(action, Finish::KeepUnsaved)
-        || matches!(action, Finish::Save) && mode == SafetyMode::ScheduledReboot
-    {
-        ctx.authorize_recovery(services, target.id()).await?;
-    }
     let gate = match action {
         Finish::KeepUnsaved => Gate::new(Risk::Write, Permission::Write, false),
         Finish::Save => Gate::new(Risk::Write, Permission::Save, false),
         Finish::Rollback => Gate::new(Risk::Destructive, Permission::Destructive, false),
     };
     let step = match action {
-        Finish::KeepUnsaved => Close::KeepUnsaved,
-        Finish::Save => Close::Save,
-        Finish::Rollback => Close::Rollback,
+        Finish::KeepUnsaved => (Close::KeepUnsaved, Permission::Migrate),
+        Finish::Save => (Close::Save, Permission::Migrate),
+        Finish::Rollback => (Close::Rollback, SafetyNet::CONTROL_PERMISSION),
     };
     run_change(ctx, services, target, gate, async |changes, router| {
-        let _: Closed = reported(ctx.out(), step, close(changes, router, mode, step).await)?;
+        let _: Closed = reported(ctx.out(), step.0, close(changes, router, mode, step).await)?;
         Ok(json!({ "router": target.id(), "finish": name(action) }))
     })
     .await
@@ -131,9 +127,16 @@ pub(super) async fn finish_run(
         .router
         .filter(|_router| record.kind == "migration")
         .ok_or_else(not_run)?;
-    let target = ctx
-        .target_named(services, router, &[Permission::Read, Permission::Migrate])
-        .await?;
+    let needed = if matches!(action, Finish::Rollback) {
+        &[
+            Permission::Read,
+            Permission::Migrate,
+            SafetyNet::CONTROL_PERMISSION,
+        ][..]
+    } else {
+        &[Permission::Read, Permission::Migrate][..]
+    };
+    let target = ctx.target_named(services, router, needed).await?;
     let document = finalize(ctx, services, &target, action).await?;
     let out = ctx.out();
     out.emit(

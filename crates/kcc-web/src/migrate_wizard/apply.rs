@@ -22,7 +22,7 @@ use super::{
     confirm::{Confirm, Dialog, Words, refused},
     kinds::Step,
     launch::{Failure, launch},
-    preview::{APPLY, Panel},
+    preview::{Panel, apply_permissions},
     screen,
     service::Wizards,
 };
@@ -60,7 +60,8 @@ pub(super) async fn apply(
     let locale = user.locale();
     let target = visit.record().target().unwrap_or_default().to_owned();
     let audit = Audit::on_router("web.migrate_apply", &target, id.clone());
-    let missing = errors::refusal::missing(&user, &target, APPLY);
+    let needed = apply_permissions(visit.record());
+    let missing = errors::refusal::missing(&user, &target, &needed);
     if !missing.is_empty() {
         audit.append(&state, &user, "forbidden").await;
         return Err(errors::refusal::refused(locale, &missing, "#wizard-step").into());

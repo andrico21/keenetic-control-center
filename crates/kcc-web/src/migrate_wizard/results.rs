@@ -14,7 +14,7 @@ use kcc_i18n::{
 };
 use kcc_migrate::apply::ApplyError;
 
-use super::{access::Visit, preview::APPLY, run::recorded_text};
+use super::{access::Visit, preview::commit_permissions, run::recorded_text};
 use crate::{
     page::{Localize, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
@@ -122,7 +122,7 @@ impl Panel {
         let rollback = pending && allowed(user, target, &ROLLBACK);
         let shown = [
             (
-                matches!(held, Some((true, false))) && allowed(user, target, APPLY),
+                matches!(held, Some((true, false))) && allowed(user, target, &commit_permissions()),
                 ("commit", keys::WEB_MIGRATE_COMMIT, "primary", STEP),
             ),
             (

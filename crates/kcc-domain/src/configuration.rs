@@ -21,10 +21,12 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use thiserror::Error;
 
+use self::apply_needs::ApplyNeeds;
 use crate::{
     DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
 };
 
+pub mod apply_needs;
 pub mod bracket;
 pub mod close;
 pub mod recovery;
@@ -156,14 +158,14 @@ const WRITES: &[OperationDescriptor] = &[
         "fail_safe_arm",
         "system configuration fail-safe timer",
         Risk::Destructive,
-        SafetyNet::CONTROL_PERMISSION,
+        Permission::Destructive,
         false,
     ),
     operation(
         "fail_safe_keep_alive",
         "system configuration fail-safe keep-alive",
         Risk::Write,
-        SafetyNet::CONTROL_PERMISSION,
+        Permission::Destructive,
         false,
     ),
     operation(
@@ -177,7 +179,7 @@ const WRITES: &[OperationDescriptor] = &[
         "fail_safe_rollback",
         "system configuration fail-safe rollback",
         Risk::Destructive,
-        SafetyNet::CONTROL_PERMISSION,
+        Permission::Destructive,
         false,
     ),
 ];
@@ -191,24 +193,27 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 };
 
 impl SafetyNet {
-    /// Authority of explicit recovery control: a standalone timer and an explicit rollback.
+    /// Authority of an explicit, user-chosen rollback.
     ///
-    /// A timer armed around a change is authorized by that change's own permission instead.
+    /// A timer armed, kept alive or disarmed around a change is authorized by that change's
+    /// own permission instead.
     pub const CONTROL_PERMISSION: Permission = Permission::Destructive;
 
-    /// Permissions required to apply and finish a migration, preset, or settings copy.
-    pub const APPLY_PERMISSIONS: [Permission; 5] = [
-        Permission::Read,
-        Permission::Migrate,
-        Permission::Write,
-        Permission::Save,
-        Self::CONTROL_PERMISSION,
-    ];
-
-    /// Permissions required before an apply may contact any router.
+    /// Permissions a migration, preset, or settings copy needs before it contacts any
+    /// router: `Read`, `Migrate`, `Write` and `Save` for the run and its keep or save
+    /// finish, plus `Destructive` when `needs` names a step that reboots or rolls back.
     #[must_use]
-    pub const fn apply_permissions() -> &'static [Permission] {
-        &Self::APPLY_PERMISSIONS
+    pub fn apply_permissions(needs: ApplyNeeds) -> Vec<Permission> {
+        let mut permissions = vec![
+            Permission::Read,
+            Permission::Migrate,
+            Permission::Write,
+            Permission::Save,
+        ];
+        if needs.destructive() {
+            permissions.push(Permission::Destructive);
+        }
+        permissions
     }
 
     /// Permissions a change needs: its own `permission`, plus [`Permission::Destructive`] for

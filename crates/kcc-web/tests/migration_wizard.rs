@@ -11,6 +11,8 @@ mod apply_flow;
 mod flow;
 #[path = "migration_wizard/guards.rs"]
 mod guards;
+#[path = "migration_wizard/operator_guards.rs"]
+mod operator_guards;
 #[path = "migration_wizard/plan_agreement.rs"]
 mod plan_agreement;
 #[path = "migration_wizard/plan_screens.rs"]

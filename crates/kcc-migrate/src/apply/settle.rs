@@ -1,6 +1,6 @@
 //! Recovery outcome when preflight stops after the recovery timer was armed.
 
-use kcc_app::workflow::ChangeSet;
+use kcc_app::{permissions::Permission, workflow::ChangeSet};
 use kcc_domain::{
     RouterCtx,
     configuration::{SafetyMode, SafetyNet},
@@ -19,7 +19,8 @@ pub(super) enum Stop {
 }
 
 impl Stop {
-    /// Arms recovery for `seconds`; an arm whose result was lost is disarmed.
+    /// Arms recovery for `seconds` under the run's `Migrate`; an arm whose result was lost
+    /// is disarmed.
     ///
     /// # Errors
     /// [`ApplyError::Workflow`] when the disarm after a lost arm succeeded, otherwise
@@ -32,8 +33,7 @@ impl Stop {
         mode: SafetyMode,
         seconds: u64,
     ) -> Result<(), ApplyError> {
-        let control = SafetyNet::CONTROL_PERMISSION;
-        if SafetyNet::arm(changes, ctx, mode, seconds, control)
+        if SafetyNet::arm(changes, ctx, mode, seconds, Permission::Migrate)
             .await
             .is_err()
         {
@@ -50,7 +50,7 @@ impl Stop {
         ctx: &RouterCtx,
         mode: SafetyMode,
     ) -> ApplyError {
-        match SafetyNet::disarm(changes, ctx, mode, SafetyNet::CONTROL_PERMISSION).await {
+        match SafetyNet::disarm(changes, ctx, mode, Permission::Migrate).await {
             Ok(_receipt) => ApplyError::Workflow,
             Err(_cleanup) => ApplyError::ArmUnconfirmed,
         }
@@ -70,7 +70,7 @@ impl Stop {
     ) -> ApplyError {
         match self {
             Self::Armed(error) => {
-                match SafetyNet::disarm(changes, ctx, mode, SafetyNet::CONTROL_PERMISSION).await {
+                match SafetyNet::disarm(changes, ctx, mode, Permission::Migrate).await {
                     Ok(_receipt) => error,
                     Err(_cleanup) => ApplyError::FinishFailed,
                 }

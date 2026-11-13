@@ -100,6 +100,20 @@ The first release, `0.1.0`, is in preparation and contains:
   audits a missing confirmation as `cli.refused` with outcome `refused` and
   `reason: "confirm_required"`. The hash chain and success entries are unchanged.
 
+- **Operators can apply migrations, presets and settings copies**: an apply needs `Read`,
+  `Migrate`, `Write` and `Save` on every surface, so the built-in `operator` role can
+  apply and finish by keeping or saving. The recovery timer around the run is armed,
+  kept alive and disarmed under the run's `Migrate` instead of `Destructive`, and
+  rolling back a failed run needs nothing more. `Destructive` is still checked before
+  any router request for a rollback finish (`--finish rollback`, `migrate finish
+  rollback`, `preset finish <run> rollback`, the Web rollback buttons and
+  `kcc_migration_finish` with `rollback`, which now answers `forbidden` without it), a
+  plan that installs components, a raw restore, and explicit timer control
+  (`kcc config failsafe arm|rollback`, `kcc config keep-alive`, the Web standalone
+  rollback). Finishing a kept migration or preset in scheduled-reboot mode no longer
+  needs `Destructive`. MCP raw management changes still need
+  `[mcp] allow_destructive = true`.
+
 ### Fixed
 
 - `[[routers]] auth` now selects the sign-in scheme (`ndw2`, `ndw4`, `digest`,

@@ -10,6 +10,8 @@ use kcc_testkit::{DEFAULT_PASSWORD, FakeRouter, Handle, migration, model::Profil
 
 use super::support::{Env, TestResult, router};
 
+#[path = "permission_gates/apply.rs"]
+mod apply;
 #[path = "permission_gates/curated.rs"]
 mod curated;
 #[path = "permission_gates/raw.rs"]

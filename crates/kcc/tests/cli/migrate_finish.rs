@@ -18,10 +18,11 @@ use kcc_testkit::{
 
 use super::support::{Env, TestResult, router};
 
-/// Scheduled commit refuses built-in and custom savers before mutation and audits both.
-// NOT cancel-safe: fixture services and refusal audit writes may outlive cancellation.
+/// Scheduled commit needs `Migrate` and `Save` only: the built-in operator and a custom
+/// saver both save and cancel the scheduled reboot under the run's `Migrate`.
+// NOT cancel-safe: fixture services and audit writes may outlive cancellation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn migration_scheduled_commit_audits_missing_recovery_permission() -> TestResult {
+async fn migration_scheduled_commit_needs_no_destructive() -> TestResult {
     let mut scenario = migration::Fixture::default();
     scenario.mode = Some("extender".to_owned());
     let (address, handle) = FakeRouter::builder(Profile::default())
@@ -48,23 +49,23 @@ async fn migration_scheduled_commit_audits_missing_recovery_permission() -> Test
 
         let run = env.kcc(&["migrate", "finish", "commit"])?;
 
-        assert_eq!(run.code, 10_i32, "{role}: {run:?}");
-        assert!(
-            handle
-                .request_log()
-                .iter()
-                .skip(before)
-                .all(|record| record.command().is_none()),
-            "{role}: no mutation before refusal"
+        assert_eq!(run.code, 0_i32, "{role}: {run:?}");
+        let commands = handle
+            .request_log()
+            .into_iter()
+            .skip(before)
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            commands,
+            ["system configuration save", "no system reboot"],
+            "{role}"
         );
     }
     let entries = read_entries(&env.state_dir())?;
-    assert_eq!(
-        entries
-            .iter()
-            .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
-            .count(),
-        2
+    assert!(
+        !entries.iter().any(|entry| entry.action == "cli.refused"),
+        "nothing refused: {entries:?}"
     );
     handle.shutdown().await?;
     Ok(())

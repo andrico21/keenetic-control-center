@@ -12,6 +12,7 @@ use kcc_app::{
     jobs::{JobEvent, JobProgress},
     permissions::Permission,
 };
+use kcc_domain::configuration::{SafetyNet, apply_needs::ApplyNeeds};
 use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest, ApplySource};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -87,8 +88,8 @@ async fn reviewed(
 ) -> Result<([RouterId; 2], kcc_migrate::planner::MigrationPlan), McpFailure> {
     valid_job_id(&input.plan_id)?;
     let (identity, host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
-    for permission in kcc_domain::configuration::SafetyNet::apply_permissions() {
-        authorize_routers(&identity, *permission, core::slice::from_ref(&host))?;
+    for permission in SafetyNet::apply_permissions(ApplyNeeds::default()) {
+        authorize_routers(&identity, permission, core::slice::from_ref(&host))?;
     }
     let entries = server.migrations.lock().await;
     let migration = entries

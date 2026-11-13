@@ -333,3 +333,60 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - `start_paused` needs tokio `test-util` in the crate's dev-deps (kcc-mcp lacked it). Paused clock works with FakeRouter loopback + AuditLog in kcc-mcp Lab and kcc-web fixtures (tests ran in 2-7 s).
 - The Web finish routes' 30 s TimeoutLayer cuts any rollback whose restore wait runs past 30 s (408): the Web restarting tests stay red until todo 17's budget lands.
 - `fail_after_requests(index_of("system reboot") + 1)` from a baseline run is the deterministic "accepted then silent" fault on every surface.
+
+## [2026-11-13] Todo 23 progress
+
+**Summary:** Implemented `kcc migrate apply` confirmation before apply starts and rollback headline when verification fails.
+
+**Key changes:**
+- `migrate_apply.rs`: Extract target from plan JSON before re-planning; call `secret::confirm()` with `Risk::Management` before `Planned::make()` to avoid unnecessary router requests if confirmation is missing
+- `secret.rs`: Confirmation logic already existed (reused from preset/run); returns `Exit::Policy` (code 10) on refusal
+- New CLI tests verify: no apply when confirmation missing (exit 10), apply with --yes succeeds, verification failure prints "Migration restored." (existing test)
+- Documentation updated: added requirement for confirmation on terminal (or --yes) and description of exit 6 with restored headline
+
+**Testing:**
+- All 12 migrate tests green (incl. 2 new confirmation tests)
+- All 83 CLI tests green
+- Full kcc test suite green (~1.5k tests)
+- Clippy, fmt, i18n-check, cancel-safety, allow-gate all green
+- No new dependencies, no #[allow], no unwrap/panic outside tests
+
+**Pattern observations:**
+- Confirmation for Management/Destructive changes is consistent across CLI commands (preset run, services, migrate apply)
+- Extracting the target ID from the reviewed plan JSON before re-planning prevents unnecessary router requests
+- Test updates needed only for existing tests that call `migrate apply` without confirming - 6 tests + our 2 new ones
+
+**Test changes documented in decisions.md**
+
+
+## [2026-11-13] Todo 18 progress (r18)
+- Apply authorization now comes from `SafetyNet::apply_permissions(ApplyNeeds)`; `ApplyNeeds` is `#[non_exhaustive]` so other crates build it with `ApplyNeeds::default().installing_components(..).restoring_raw(..).finishing_with_rollback(..)`.
+- `configuration::close` takes `(Close, Permission)` as one tuple argument (keeps the parameter count at 4).
+- Shared MCP test harness `tests/support/lab.rs` is compiled per test binary with `-D dead_code`: a new MCP test binary must use `tool_names`, `progress_received` and `audit` (or the fields `directory`/`progress` go unread).
+- `Lab::roles.replace(..)` swaps the session role by name after setup: start with an all-permission role named like the built-in role, seed/capture, then replace with `built_in_roles()` entry.
+- Web wizard test support: `Fixture::with_target(mode, FakeRouterBuilder)` builds `ultra` from a caller builder (e.g. a `show_fixture("version", ..)` without `wireguard` to force a component install).
+- Observed (not fixed, out of scope): a Web wizard apply whose plan installs `wireguard` on an `ultra` with an overridden `show version` fails preflight with `ApplyError::Drift` before arming; the same upload onto the default `ultra` gets past preflight. Unclear whether fixture artifact or a real Web component-path defect.
+
+## [2026-11-13] Todo 16 progress (worker r16)
+- Invariants (written in `kcc-app/src/audit/writer.rs`, `audit/receipt.rs`, `workflow_receipts.rs`, `kcc-domain/src/configuration/bracket.rs` module docs): one writer per process consumes the channel FIFO and takes the next entry only after the head is written; seq + prev_hash are re-read from disk under the cross-process lock right before hashing (unchanged `append_locked`); a busy lock restarts a bounded round for the SAME head entry (warn log per round) - never skipped/dropped; any other error is fatal (channel closed, head answered Failed, queued entries lost, `is_alive()` false -> `begin`/`guarded` refuse before any router request).
+- Callers: `AuditLog::submit` = `Sender::reserve().await` (cancel-safe) + synchronous `permit.send` (no await between slot and send), returns `receipt::Pending` (a `watch::Receiver<Reply>`). Waits are `Pending::wait(limit)` / `wait_until(deadline)` -> `AuditError::Pending` at the deadline; the entry stays queued. `AuditLog::append` = submit + `AUDIT_WAIT` (30 s). `AuditLog::flush(limit)` waits on a `watch<usize>` queued counter.
+- Constants (kcc-app `audit::receipt`): AUDIT_WAIT 30 s, BRACKET_AUDIT_WAIT 20 s, LOGIN_AUDIT_WAIT 5 s, AUDIT_FLUSH_WAIT 5 s. No config key. Test-only short delays: `AuditPolicy::with_append_lock_backoff(initial, maximum)` (public; production attempts per round kept).
+- Deferred mode: `ChangeSet::defer_audit()` / `settle_audit(limit)` / `audit_pending()`; `guarded` defers before the arm, sends the disarm without waiting for any receipt, then settles within 20 s. A submit to a dead writer in deferred mode yields `Pending::lost()` so the disarm's own result is not polluted; the writer failure surfaces from settle as the work's error (timer fate still decided by the disarm). Consequence: a dead writer after the arm is now "failed, timer off" rather than `management-not-sent-armed` (serve_bracket expectation changed).
+- Gotchas: `ChangeResult` lost `Copy`/`Eq`/`PartialEq` (it carries `AuditReceipt`) -> `let _: ChangeResult` trips `let_underscore_drop`, use `let _applied`. `clippy::large_enum_variant` on `Reply`/`AuditReceipt` expected with reason. The Web page record must not wait when the change's own receipts are pending (it is queued behind them; waiting would add 30 s). The plan's filter `bracket_budget` matches 0 tests; the module path is `bracket::budget`.
+- Test fixture for "held by another process": in-process `StateStore::try_lock(AUDIT_FILE_NAME)` (flock on a separate open file description, so the writer's own `try_lock` fails exactly as with another process); the real cross-process case is `audit_multiprocess::entries_waiting_on_another_process_are_kept_in_order` (child process holder).
+
+## 2025-11-14 Todo 23 rework
+
+**Placement fix**: Moved confirmation in `migrate_apply.rs` from before `Planned::make` to after plan_id check. This ensures:
+- The target is taken from the re-planned result (not the plan file)
+- Confirmation happens with the correct target that will be modified
+- The comparison between plan file target and re-planned target is unnecessary and removed
+
+**Test update**: Changed `apply_without_confirmation_and_with_no_exits_10_and_makes_no_request` to assert machine-read facts:
+- Exit code 10 (refusal)
+- No apply/commit commands in request log (verified by filtering command strings)
+- Audit log entry with outcome `refused` and `params.reason == "confirm_required"`
+
+**Doc update**: Updated `docs/MIGRATION.md` to quote the exact i18n message from `migrate-apply-restored` key instead of a shortened version.
+
+**Key insight**: The "plan check" in the todo refers to the plan_id comparison, not to pre-validation. Confirmation must come after the plan is made and validated, ensuring the target used for confirmation matches the target that will be modified.

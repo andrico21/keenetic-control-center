@@ -19,7 +19,7 @@ use super::{
     access::{Services, Visit},
     confirm::{Confirm, Dialog, Words, refused},
     kinds::Step,
-    preview::APPLY,
+    preview::commit_permissions,
     results::{Panel, ROLLBACK},
     run::{Finish, failure_text},
     screen,
@@ -125,11 +125,19 @@ async fn finish(
     let session = visit.session();
     let target = visit.record().target().unwrap_or_default().to_owned();
     let (action, needed, finished) = match choice {
-        Choice::Commit => ("web.migrate_commit", APPLY, Finish::Committed),
-        Choice::Rollback => ("web.migrate_rollback", &ROLLBACK[..], Finish::RolledBack),
+        Choice::Commit => (
+            "web.migrate_commit",
+            commit_permissions(),
+            Finish::Committed,
+        ),
+        Choice::Rollback => (
+            "web.migrate_rollback",
+            ROLLBACK.to_vec(),
+            Finish::RolledBack,
+        ),
     };
     let audit = Audit::on_router(action, &target, id.to_owned());
-    if !allowed(user, &target, needed) {
+    if !allowed(user, &target, &needed) {
         audit.append(state, user, "forbidden").await;
         return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
     }

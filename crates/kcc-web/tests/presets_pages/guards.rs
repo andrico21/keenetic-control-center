@@ -17,7 +17,7 @@ mod tests {
 
     use crate::{
         en,
-        flow::{DNS_LINES, capture, moved, redirected, seed, start},
+        flow::{DNS_LINES, apply, capture, finish, moved, redirected, seed, start, to_preview},
         support::{Fixture, TestResult, text},
     };
 
@@ -58,6 +58,103 @@ mod tests {
             .await?;
         assert_eq!(read.status(), StatusCode::FORBIDDEN, "no source is read");
         assert_eq!(fixture.request_counts(), before, "no router was asked");
+        Ok(())
+    }
+
+    /// Parser commands `lab-1` received after the first `before` requests.
+    fn commands(fixture: &Fixture, before: usize) -> TestResult<Vec<String>> {
+        Ok(fixture
+            .handle("lab-1")?
+            .request_log()
+            .iter()
+            .skip(before)
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect())
+    }
+
+    /// The built-in operator applies a preset and keeps it unsaved or saves it: `lab-1`
+    /// runs arm, the preset's lines, then disarm or commit.
+    // NOT cancel-safe: the fixture applies router settings.
+    #[tokio::test]
+    async fn an_operator_applies_a_preset_and_keeps_or_saves_it() -> TestResult {
+        for (way, closing) in [
+            ("keep", "no system configuration fail-safe timer"),
+            ("save", "system configuration fail-safe commit"),
+        ] {
+            let fixture = Fixture::new().await?;
+            seed(&fixture, "prod-1", &DNS_LINES).await?;
+            let operator = fixture.login("operator").await?;
+            let id = capture(&fixture, &operator, "prod-1", (&["dns-secure"], "Office")).await?;
+            let page = start(&fixture, &operator, &id).await?;
+            to_preview(&fixture, &operator, &page, ("lab-1", "merge", &[])).await?;
+            let before = fixture.handle("lab-1")?.request_log().len();
+
+            let stream = apply(&fixture, &operator, &page).await?;
+            finish(&fixture, &operator, &page, (way, &[])).await?;
+
+            assert!(
+                stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])),
+                "{way}: {stream}"
+            );
+            let sent = commands(&fixture, before)?;
+            let order = [
+                "system configuration fail-safe timer reboot 900",
+                DNS_LINES[0],
+                closing,
+            ]
+            .map(|line| sent.iter().rposition(|command| command == line));
+            assert!(
+                matches!(order, [Some(arm), Some(line), Some(closed)] if arm < line && line < closed),
+                "{way}: {sent:?}"
+            );
+            assert!(!fixture.handle("lab-1")?.recovery_armed(), "{way}");
+            assert_eq!(fixture.outcomes("web.preset_apply")?, ["started"]);
+            assert_eq!(fixture.outcomes(&format!("web.preset_{way}"))?, ["done"]);
+        }
+        Ok(())
+    }
+
+    /// The operator's rollback is refused before `lab-1` receives a request; the run stays
+    /// armed for a keep or a save.
+    // NOT cancel-safe: the fixture applies router settings.
+    #[tokio::test]
+    async fn an_operators_rollback_is_refused_before_any_router_request() -> TestResult {
+        let fixture = Fixture::new().await?;
+        seed(&fixture, "prod-1", &DNS_LINES).await?;
+        let operator = fixture.login("operator").await?;
+        let id = capture(&fixture, &operator, "prod-1", (&["dns-secure"], "Office")).await?;
+        let page = start(&fixture, &operator, &id).await?;
+        to_preview(&fixture, &operator, &page, ("lab-1", "merge", &[])).await?;
+        let stream = apply(&fixture, &operator, &page).await?;
+        assert!(
+            stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])),
+            "{stream}"
+        );
+        moved(
+            &fixture
+                .post(&format!("{page}/results"), &operator, &[])
+                .await?,
+            &page,
+        )?;
+        let results = text(fixture.get(&page, &operator).await?).await?;
+        assert!(
+            !results.contains(&format!("hx-post=\"{page}/rollback\"")),
+            "no rollback control for the operator: {results}"
+        );
+        let before = fixture.handle("lab-1")?.request_count();
+
+        let refused = fixture
+            .post(
+                &format!("{page}/rollback"),
+                &operator,
+                &[("confirm", "yes"), ("confirm_name", "lab-1")],
+            )
+            .await?;
+
+        assert_eq!(refused.status(), StatusCode::FORBIDDEN);
+        assert_eq!(fixture.handle("lab-1")?.request_count(), before);
+        assert!(fixture.handle("lab-1")?.recovery_armed());
+        assert_eq!(fixture.outcomes("web.preset_rollback")?, ["forbidden"]);
         Ok(())
     }
 

@@ -74,10 +74,11 @@ async fn preset_finish_router_operator_commits() -> TestResult {
     Ok(())
 }
 
-/// A resumed extender run cannot save if the caller cannot disarm its timer.
+/// A resumed extender run: the operator's rollback is refused before any router request,
+/// and the operator's save disarms the scheduled reboot under the run's `Migrate`.
 // NOT cancel-safe: fixture writes may apply before cancellation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn preset_finish_operator_refuses_before_mutation() -> TestResult {
+async fn preset_finish_operator_saves_but_cannot_roll_back() -> TestResult {
     let mut scenario = migration::Fixture::default();
     scenario.mode = Some("extender".to_owned());
     let (address, handle) = FakeRouter::builder(Profile::default())
@@ -115,37 +116,42 @@ async fn preset_finish_operator_refuses_before_mutation() -> TestResult {
         )
         .await?;
     env.write_config(&format!("[cli]\nrole = \"operator\"\n{routers}"))?;
-    for action in ["save", "keep-unsaved"] {
-        let before = handle.request_log().len();
-        let startup = handle.startup_config_text();
-        let finish = env.kcc(&["--yes", "preset", "finish", &run, action])?;
-        assert_eq!(finish.code, 10_i32, "{finish:?}");
-        let entries = read_entries(&env.state_dir())?;
-        assert_eq!(
-            entries
-                .iter()
-                .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
-                .count(),
-            if action == "save" { 1 } else { 2 }
-        );
-        assert!(
-            handle
-                .request_log()
-                .iter()
-                .skip(before)
-                .all(|record| record.command().is_none()),
-            "{action}: mode discovery may read, but refusal must precede mutation"
-        );
-        assert_eq!(
-            handle.startup_config_text(),
-            startup,
-            "refusal must not save"
-        );
-        writeln!(
-            io::stderr(),
-            "REFUSAL CLI operator extender preset finish {action}: zero mutations after arm"
-        )?;
-    }
+    let before = handle.request_count();
+    let startup = handle.startup_config_text();
+    let refused = env.kcc(&["--yes", "preset", "finish", &run, "rollback"])?;
+    assert_eq!(refused.code, 10_i32, "{refused:?}");
+    let entries = read_entries(&env.state_dir())?;
+    assert_eq!(
+        entries
+            .iter()
+            .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
+            .count(),
+        1
+    );
+    assert_eq!(
+        handle.request_count(),
+        before,
+        "refusal precedes any request"
+    );
+    assert_eq!(
+        handle.startup_config_text(),
+        startup,
+        "refusal must not save"
+    );
+    writeln!(
+        io::stderr(),
+        "REFUSAL CLI operator extender preset finish rollback: zero router requests"
+    )?;
+    let saved = env.kcc(&["--yes", "preset", "finish", &run, "save"])?;
+    assert_eq!(saved.code, 0_i32, "{saved:?}");
+    assert!(handle.startup_config_text().contains("pending-preset"));
+    assert!(
+        handle
+            .request_log()
+            .iter()
+            .any(|record| record.command() == Some("no system reboot")),
+        "the scheduled reboot is cancelled"
+    );
     handle.shutdown().await?;
     Ok(())
 }
