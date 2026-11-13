@@ -51,6 +51,16 @@ The first release, `0.1.0`, is in preparation and contains:
   rule, so a router that reports no system mode (KeeneticOS 4.3 and 5.0) is protected
   by the fail-safe timer on the CLI and MCP too, instead of a scheduled reboot.
 
+- **MCP error code `management_not_sent_fail_safe_armed`**: the router refused the
+  recovery arm of a management change and then refused its disarm, so nothing else was
+  sent but the timer may be armed. Such a failure used to read as
+  `management_outcome_unknown_fail_safe_armed`. A refused arm whose disarm was accepted
+  keeps the original error code and adds a `message` saying nothing was applied and the
+  timer is off. MCP management changes now run through the same bracket as the other
+  surfaces, and the timer kcc arms around a management change is authorized by the
+  change's own permission (`Write` or `RawRci`) instead of `Destructive`; raw management
+  changes still need `[mcp] allow_destructive = true` and `confirm: true`.
+
 - **Migration failure name `ArmUnconfirmed`**: a migration or preset run whose recovery
   arm could not be confirmed and whose cleanup was refused reports this name (Web run
   state) and the MCP code `management_outcome_unknown_fail_safe_armed`: nothing was

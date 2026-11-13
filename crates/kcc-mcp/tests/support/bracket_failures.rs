@@ -1,5 +1,7 @@
 //! Recovery outcomes across the MCP wire and audit boundary.
 
+#[path = "bracket_authority.rs"]
+mod authority;
 #[path = "bracket_batch.rs"]
 mod batch;
 #[path = "bracket_management_fate.rs"]
@@ -141,6 +143,73 @@ mod tests {
             ("router_rejected", None),
         )
         .await
+    }
+
+    /// A refused arm says nothing else was sent: with its disarm refused too, that the timer
+    /// may be armed; with its disarm accepted, the router's refusal and that the timer is off.
+    // NOT cancel-safe: the fixture owns router and MCP tasks.
+    #[tokio::test]
+    async fn refused_arm_reports_nothing_sent() -> TestResult {
+        let rows = [
+            (
+                2,
+                "management_not_sent_fail_safe_armed",
+                keys::MANAGEMENT_NOT_SENT_ARMED,
+            ),
+            (1, "router_rejected", keys::MANAGEMENT_NOT_APPLIED),
+        ];
+        for (mode, timer) in [
+            ("router", "system configuration fail-safe timer"),
+            ("extender", "system reboot"),
+        ] {
+            for (refusals, code, key) in rows {
+                let mut scenario = migration::Fixture::default();
+                scenario.mode = Some(mode.to_owned());
+                let fake = FakeRouter::builder(Profile::default())
+                    .faults(FaultInjection::default().fail_parse_matching(timer, refusals))
+                    .build()?
+                    .with_migration(scenario);
+                let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
+                let reply = lab
+                    .call(
+                        "kcc_cli_parse",
+                        json!({"host":"lab-1","line":"ip http port 8082","confirm":true}),
+                        false,
+                    )
+                    .await?;
+                let label = format!("{mode} refusals={refusals}: {reply:?}");
+                assert_eq!(reply.error(), Some(code), "{label}");
+                assert_eq!(
+                    reply.failure().and_then(|failure| failure.get("message")),
+                    Some(&json!(tr(Locale::En, key, None))),
+                    "{label}"
+                );
+                let router = lab.router("lab-1")?;
+                let commands = router
+                    .request_log()
+                    .iter()
+                    .filter_map(|record| record.command().map(str::to_owned))
+                    .collect::<Vec<_>>();
+                assert_eq!(commands.len(), 2, "arm and disarm only: {commands:?}");
+                assert!(
+                    commands.iter().all(|line| line.contains(timer)),
+                    "{commands:?}"
+                );
+                assert!(!router.running_config_text().contains("port 8082"));
+                let entries = lab.audit()?;
+                let failed = entries
+                    .iter()
+                    .find(|entry| entry.action == "mcp.kcc_cli_parse")
+                    .ok_or("missing failed change audit")?;
+                assert_eq!(
+                    failed.params_redacted.get("fail_safe_armed"),
+                    (refusals == 2).then_some(&json!(true)),
+                    "{label}: {failed:?}"
+                );
+                lab.stop().await?;
+            }
+        }
+        Ok(())
     }
 
     /// Curated interface cleanup exposes armed native recovery in either router mode.

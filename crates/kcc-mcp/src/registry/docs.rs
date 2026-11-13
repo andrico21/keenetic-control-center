@@ -45,8 +45,10 @@ pub fn markdown() -> String {
          does not apply fails with\n\
          `verification_failed` and the `field` that read back unchanged; `validation_failed`\n\
          means the input was refused before anything was sent. No tool saves implicitly.\n\n\
-         Every mutating raw tool, including `kcc_cli_parse`, requires the destructive role\n\
-         permission, confirmation, and server switch for management or destructive requests.\n\
+         Every mutating raw tool, including `kcc_cli_parse`, requires confirmation and the server\n\
+         switch for management or destructive requests, and the `Destructive` role permission for\n\
+         destructive ones. The recovery timer kcc arms around a management change is authorized\n\
+         by the change's own permission.\n\
          Negative `no` commands are destructive. Management nodes retain their recovery timer\n\
           even when a destructive sibling raises the maximum request risk.\n\n\
          A management change on a router whose recovery mechanism cannot be determined (it\n\
@@ -57,11 +59,15 @@ pub fn markdown() -> String {
            when every change was refused, work failed, or its outcome is unknown. Successful reads\n\
            do not count as applied changes. Batch recovery errors retain `responses`, including\n\
            the refused `ok: false` items; partial application refers only to successful changes.\n\
-           Both codes carry a localized English `message` explaining recovery;\n\
+           When the arm is refused and so is its disarm, the code is\n\
+           `management_not_sent_fail_safe_armed`: nothing else was sent, but the timer may be armed.\n\
+           These codes carry a localized English `message` explaining recovery;\n\
            the timer remains armed and will restore the saved configuration, discarding unsaved changes.\n\
            A locally refused migration commit returns `management_not_committed_fail_safe_armed`:\n\
            nothing was sent, the timer remains armed, and the migration is retained for retry.\n\
-           Successful cleanup preserves the original work error. Failed-change audit parameters\n\
+           Successful cleanup preserves the original work error; when the arm itself was refused\n\
+           and its disarm accepted, that error also carries a `message` saying nothing was applied\n\
+           and the timer is off. Failed-change audit parameters\n\
           include `fail_safe_armed: true` when recovery remains armed.\n",
     );
     for &(toolset, summary) in TOOLSETS {

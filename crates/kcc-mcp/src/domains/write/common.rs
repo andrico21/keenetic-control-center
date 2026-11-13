@@ -52,14 +52,8 @@ pub(super) async fn open(
     let (permission, risk) = area.write_meta(op).ok_or(McpFailure::InvalidArguments)?;
     let (identity, router) = server.authorize_host(permission, host)?;
     confirm_risk(server, risk, confirm)?;
-    if risk == Risk::Management {
-        for &recovery_permission in SafetyNet::management_permissions() {
-            authorize_routers(
-                &identity,
-                recovery_permission,
-                core::slice::from_ref(&router),
-            )?;
-        }
+    for needed in SafetyNet::required(permission, risk) {
+        authorize_routers(&identity, needed, core::slice::from_ref(&router))?;
     }
     let ctx = server.router_ctx(&router).await?;
     Ok((identity, router, ctx))
@@ -97,10 +91,11 @@ pub(super) async fn begin(server: &KccMcp, opened: &Opened) -> Result<ChangeSet,
     server.begin_change(router, identity).await
 }
 
-/// Checks recovery permission before runtime classification can contact a router.
+/// Checks the permissions of a management write before runtime classification can contact
+/// a router.
 pub(super) fn preauthorize_management(server: &KccMcp, host: &str) -> Result<(), McpFailure> {
     let (identity, router) = server.authorize_host(Permission::Write, host.to_owned())?;
-    for &permission in SafetyNet::management_permissions() {
+    for permission in SafetyNet::required(Permission::Write, Risk::Management) {
         authorize_routers(&identity, permission, core::slice::from_ref(&router))?;
     }
     Ok(())
@@ -119,14 +114,16 @@ where
     let (operation, confirm, work) = planned;
     confirm_risk(server, operation.risk, confirm)?;
     let (identity, router, _context) = opened;
-    authorize_routers(
-        identity,
-        operation.permission,
-        core::slice::from_ref(router),
-    )?;
+    for permission in SafetyNet::required(operation.permission, operation.risk) {
+        authorize_routers(identity, permission, core::slice::from_ref(router))?;
+    }
     raw_change::run(
         server,
-        (router, identity, operation.risk == Risk::Management),
+        (
+            router,
+            identity,
+            (operation.risk == Risk::Management).then_some(operation.permission),
+        ),
         work,
     )
     .await

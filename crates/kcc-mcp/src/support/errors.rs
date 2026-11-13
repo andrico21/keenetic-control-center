@@ -3,23 +3,44 @@
 use core::fmt;
 
 use kcc_app::workflow::WorkflowError;
-use kcc_domain::{DomainError, configuration::recovery};
+use kcc_domain::{
+    DomainError,
+    configuration::{bracket::ArmedFate, recovery},
+};
+use kcc_i18n::keys;
 use kcc_rci::{RciBody, RciError, RciResponse};
 use rmcp::ErrorData;
 use serde_json::{Value, json};
 
 use crate::McpFailure;
 
-/// Maps bracket completion without losing an armed recovery timer.
+/// Maps a failed bracket: an armed fate to its code, a refused arm whose disarm was accepted
+/// to a failure that says nothing was applied, otherwise the original error.
 pub(crate) fn map_recovery(error: recovery::Failure<McpFailure>) -> McpFailure {
-    if error.is_armed() {
-        if error.applied() {
-            McpFailure::ManagementAppliedFailSafeArmed
-        } else {
-            McpFailure::ManagementOutcomeUnknownFailSafeArmed
+    match error.fate() {
+        Some(fate) => armed(fate),
+        None if error.message_key() == Some(keys::MANAGEMENT_NOT_APPLIED) => {
+            McpFailure::NotApplied {
+                cause: Box::new(error.into_source()),
+            }
         }
-    } else {
-        error.into_source()
+        None => error.into_source(),
+    }
+}
+
+/// The code of a failure that may have left the recovery timer armed.
+pub(crate) const fn armed(fate: ArmedFate) -> McpFailure {
+    match fate {
+        ArmedFate::NotSent => McpFailure::ManagementNotSentFailSafeArmed,
+        // A saved configuration was applied: the closest code until saving has its own.
+        ArmedFate::Applied | ArmedFate::Saved => McpFailure::ManagementAppliedFailSafeArmed,
+        ArmedFate::Unknown | _ => McpFailure::ManagementOutcomeUnknownFailSafeArmed,
+    }
+}
+
+impl From<WorkflowError> for McpFailure {
+    fn from(error: WorkflowError) -> Self {
+        map_workflow(error)
     }
 }
 

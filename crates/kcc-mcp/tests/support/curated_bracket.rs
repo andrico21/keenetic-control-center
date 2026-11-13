@@ -264,13 +264,14 @@ mod tests {
         }
         Ok(())
     }
-    /// A role missing recovery permission is refused before router discovery.
+    /// A role missing the change's own permission is refused before router discovery;
+    /// `Destructive` alone authorizes no management change.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
     #[tokio::test]
     async fn curated_bracket_missing_permission_sends_nothing() -> TestResult {
         let role = Role::new(
-            "writer".to_owned(),
-            [Permission::Read, Permission::Write],
+            "destructive-only".to_owned(),
+            [Permission::Read, Permission::Destructive],
             vec!["*".to_owned()],
         );
         let lab = Lab::start(

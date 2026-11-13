@@ -92,21 +92,22 @@ mod tests {
         Ok(())
     }
 
-    /// Runtime discovery never grants an unauthorized caller mutation authority.
+    /// Runtime discovery never grants a caller without the change's permission mutation
+    /// authority, whatever else it holds.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
     #[tokio::test]
     async fn runtime_management_missing_permission_sends_nothing() -> TestResult {
         for mode in ["router", "extender"] {
             for permissions in [
-                vec![Permission::Read, Permission::Write],
+                vec![Permission::Read],
                 vec![
                     Permission::Read,
-                    Permission::Write,
                     Permission::Save,
                     Permission::Migrate,
+                    Permission::Destructive,
                 ],
             ] {
-                let role = Role::new("writer".to_owned(), permissions, vec!["*".to_owned()]);
+                let role = Role::new("non-writer".to_owned(), permissions, vec!["*".to_owned()]);
                 let lab = lab(mode, role).await?;
                 for (tool, mut input) in cases() {
                     drop(

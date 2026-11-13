@@ -2,6 +2,7 @@
 
 use kcc_domain::{
     ChangeOp, DomainError, RouterCtx,
+    configuration::bracket::ArmedFate,
     interfaces::{self, SecurityLevel},
     wan::{self, StaticAddress},
 };
@@ -17,7 +18,10 @@ use super::common::{
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
-    support::{errors::map_domain, route::parse},
+    support::{
+        errors::{armed, map_domain},
+        route::parse,
+    },
 };
 
 /// Interface write operations.
@@ -145,11 +149,11 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
                 McpFailure::ConfirmRequired
             } else if let Some(applied) = error.armed_outcome() {
                 tracing::warn!(error = ?error, "MCP interface change left recovery armed");
-                if applied {
-                    McpFailure::ManagementAppliedFailSafeArmed
+                armed(if applied {
+                    ArmedFate::Applied
                 } else {
-                    McpFailure::ManagementOutcomeUnknownFailSafeArmed
-                }
+                    ArmedFate::Unknown
+                })
             } else {
                 tracing::warn!(error = ?error, "MCP interface change failed");
                 McpFailure::Conflict

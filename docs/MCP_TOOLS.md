@@ -12,8 +12,10 @@ does not apply fails with
 `verification_failed` and the `field` that read back unchanged; `validation_failed`
 means the input was refused before anything was sent. No tool saves implicitly.
 
-Every mutating raw tool, including `kcc_cli_parse`, requires the destructive role
-permission, confirmation, and server switch for management or destructive requests.
+Every mutating raw tool, including `kcc_cli_parse`, requires confirmation and the server
+switch for management or destructive requests, and the `Destructive` role permission for
+destructive ones. The recovery timer kcc arms around a management change is authorized
+by the change's own permission.
 Negative `no` commands are destructive. Management nodes retain their recovery timer
 even when a destructive sibling raises the maximum request risk.
 
@@ -26,11 +28,15 @@ when at least one change item succeeded, or `management_outcome_unknown_fail_saf
 when every change was refused, work failed, or its outcome is unknown. Successful reads
 do not count as applied changes. Batch recovery errors retain `responses`, including
 the refused `ok: false` items; partial application refers only to successful changes.
-Both codes carry a localized English `message` explaining recovery;
+When the arm is refused and so is its disarm, the code is
+`management_not_sent_fail_safe_armed`: nothing else was sent, but the timer may be armed.
+These codes carry a localized English `message` explaining recovery;
 the timer remains armed and will restore the saved configuration, discarding unsaved changes.
 A locally refused migration commit returns `management_not_committed_fail_safe_armed`:
 nothing was sent, the timer remains armed, and the migration is retained for retry.
-Successful cleanup preserves the original work error. Failed-change audit parameters
+Successful cleanup preserves the original work error; when the arm itself was refused
+and its disarm accepted, that error also carries a `message` saying nothing was applied
+and the timer is off. Failed-change audit parameters
 include `fail_safe_armed: true` when recovery remains armed.
 
 ## Toolset `core` (14 tools)

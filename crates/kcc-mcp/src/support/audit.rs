@@ -20,6 +20,11 @@ pub(crate) async fn failure(
     let Some(audit) = &server.audit else {
         return;
     };
+    let error = if let McpFailure::NotApplied { cause } = error {
+        cause.as_ref()
+    } else {
+        error
+    };
     let (outcome, params) = match error {
         McpFailure::Forbidden => ("forbidden", json!({"reason": error.code()})),
         McpFailure::ConfirmRequired
@@ -34,6 +39,7 @@ pub(crate) async fn failure(
         }
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        | McpFailure::ManagementNotSentFailSafeArmed
         | McpFailure::ManagementAppliedNotSaved
         | McpFailure::ManagementNotCommittedFailSafeArmed
         | McpFailure::RouterRejected
@@ -52,6 +58,7 @@ pub(crate) async fn failure(
                         completion: _
                     }
                     | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+                    | McpFailure::ManagementNotSentFailSafeArmed
                     | McpFailure::ManagementNotCommittedFailSafeArmed
             ) && let Value::Object(object) = &mut params
             {
@@ -66,6 +73,7 @@ pub(crate) async fn failure(
         }
         | McpFailure::ManagementAppliedFailSafeArmed
         | McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        | McpFailure::ManagementNotSentFailSafeArmed
         | McpFailure::ManagementAppliedNotSaved
         | McpFailure::ManagementNotCommittedFailSafeArmed
         | McpFailure::RouterUnreachable
@@ -73,7 +81,8 @@ pub(crate) async fn failure(
         | McpFailure::VerificationFailed { field: _ }
         | McpFailure::Conflict
         | McpFailure::JobUnavailable
-        | McpFailure::Internal => return,
+        | McpFailure::Internal
+        | McpFailure::NotApplied { cause: _ } => return,
     };
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)

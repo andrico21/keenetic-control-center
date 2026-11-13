@@ -147,6 +147,15 @@ pub enum McpFailure {
     ManagementAppliedFailSafeArmed,
     /// Work failed or its outcome is unknown, and recovery remains armed.
     ManagementOutcomeUnknownFailSafeArmed,
+    /// The arm was refused and so was its disarm: nothing else was sent, and recovery may
+    /// remain armed.
+    ManagementNotSentFailSafeArmed,
+    /// The recovery arm was refused and its disarm accepted: nothing was applied and the
+    /// timer is off. The wire code is the cause's.
+    NotApplied {
+        /// Why the arm was refused.
+        cause: Box<Self>,
+    },
     /// The live configuration was committed, but startup configuration was not saved.
     ManagementAppliedNotSaved,
     /// Commit was refused locally; nothing was sent and recovery remains armed.
@@ -177,8 +186,9 @@ pub enum McpFailure {
 
 impl McpFailure {
     /// Stable wire code.
-    const fn code(&self) -> &'static str {
+    fn code(&self) -> &'static str {
         match self {
+            Self::NotApplied { cause } => cause.code(),
             Self::InvalidArguments => "invalid_arguments",
             Self::Forbidden => "forbidden",
             Self::ConfirmRequired => "confirm_required",
@@ -196,6 +206,7 @@ impl McpFailure {
                 applied: false,
                 completion: _,
             } => "management_outcome_unknown_fail_safe_armed",
+            Self::ManagementNotSentFailSafeArmed => "management_not_sent_fail_safe_armed",
             Self::ManagementAppliedNotSaved => "management_applied_not_saved",
             Self::ManagementNotCommittedFailSafeArmed => "management_not_committed_fail_safe_armed",
             Self::ValidationFailed => "validation_failed",

@@ -112,7 +112,8 @@ mod tests {
         Ok(())
     }
 
-    /// Missing recovery permission and missing confirmation both send zero requests.
+    /// A missing raw permission and missing confirmation both send zero requests;
+    /// `Destructive` alone authorizes no raw change.
     // NOT cancel-safe: fixture lifecycle owns router and MCP tasks.
     #[tokio::test]
     async fn raw_management_gates_both_modes() -> TestResult {
@@ -122,8 +123,8 @@ mod tests {
                     admin()
                 } else {
                     Role::new(
-                        "raw-writer".to_owned(),
-                        [Permission::Read, Permission::Write, Permission::RawRci],
+                        "destructive-writer".to_owned(),
+                        [Permission::Read, Permission::Write, Permission::Destructive],
                         vec!["*".to_owned()],
                     )
                 };

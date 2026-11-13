@@ -1,17 +1,15 @@
 //! Permission, confirmation and recovery for raw mutations.
 
-use kcc_app::workflow::ChangeSet;
+use kcc_app::{permissions::Permission, workflow::ChangeSet};
 use kcc_catalog::Risk;
-use kcc_domain::{
-    RouterCtx,
-    configuration::{MANAGEMENT_SECONDS, SafetyMode, SafetyNet, recovery},
-};
+use kcc_domain::configuration::{SafetyMode, SafetyNet, bracket};
 
 use crate::{
-    KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers, support::errors::map_workflow,
+    KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers, support::errors::map_recovery,
 };
 
-/// Checks risk before router discovery, including the permission needed for recovery.
+/// Checks a raw change of `risk` before router discovery: the server switch and
+/// confirmation for management and destructive changes, then the change's permissions.
 pub(crate) fn authorize(
     server: &KccMcp,
     target: (&McpIdentity, &RouterId),
@@ -26,22 +24,18 @@ pub(crate) fn authorize(
         },
         confirm,
     )?;
-    if risk >= Risk::Management {
-        for &permission in SafetyNet::management_permissions() {
-            authorize_routers(target.0, permission, core::slice::from_ref(target.1))?;
-        }
-        if !confirm {
-            return Err(McpFailure::ConfirmRequired);
-        }
+    for permission in SafetyNet::required(Permission::RawRci, risk) {
+        authorize_routers(target.0, permission, core::slice::from_ref(target.1))?;
     }
     Ok(())
 }
 
-/// Runs a raw change inside the selected management recovery timer when required.
+/// Runs a change, inside the router's recovery timer when `target.2` names the permission
+/// of a management change.
 // NOT cancel-safe: cancellation may leave a write applied and its recovery timer armed.
 pub(crate) async fn run<T, Work>(
     server: &KccMcp,
-    target: (&RouterId, &McpIdentity, bool),
+    target: (&RouterId, &McpIdentity, Option<Permission>),
     work: Work,
 ) -> Result<T, McpFailure>
 where
@@ -53,52 +47,32 @@ where
     .await
 }
 
-/// Runs raw work with the application's successful-change fact.
+/// Runs a change whose work also reports whether at least one change item applied.
 // NOT cancel-safe: cancellation may leave a write applied and its recovery timer armed.
 pub(crate) async fn run_completed<T, Work>(
     server: &KccMcp,
-    target: (&RouterId, &McpIdentity, bool),
+    target: (&RouterId, &McpIdentity, Option<Permission>),
     work: Work,
 ) -> Result<T, McpFailure>
 where
     Work: AsyncFnOnce(&mut ChangeSet) -> Result<(T, bool), McpFailure>,
 {
     let (host, identity, management) = target;
-    if management {
-        for &permission in SafetyNet::management_permissions() {
-            authorize_routers(identity, permission, core::slice::from_ref(host))?;
-        }
-    }
     let mut changes = server.begin_change(host, identity).await?;
-    if !management {
+    let Some(permission) = management else {
         return work(&mut changes).await.map(|(value, _applied)| value);
-    }
+    };
     let mode =
         SafetyMode::for_change(&changes).map_err(|_unknown| McpFailure::RouterModeUnknown)?;
-    let context: RouterCtx = server.router_ctx(host).await?;
-    let armed = SafetyNet::arm(
+    let context = server.router_ctx(host).await?;
+    bracket::guarded(
         &mut changes,
         &context,
         mode,
-        MANAGEMENT_SECONDS,
-        SafetyNet::CONTROL_PERMISSION,
+        permission,
+        || true,
+        async |open, _router| work(open).await,
     )
     .await
-    .map(|_receipt| ())
-    .map_err(map_workflow);
-    if let Err(error) = armed {
-        let disarm = SafetyNet::disarm(&mut changes, &context, mode, SafetyNet::CONTROL_PERMISSION)
-            .await
-            .map(|_receipt| ())
-            .map_err(map_workflow);
-        return recovery::finish(Err(error), disarm).map_err(super::errors::map_recovery);
-    }
-    let applied = work(&mut changes).await;
-    let completed = applied.as_ref().is_ok_and(|(_value, applied)| *applied);
-    let disarm = SafetyNet::disarm(&mut changes, &context, mode, SafetyNet::CONTROL_PERMISSION)
-        .await
-        .map_err(map_workflow);
-    recovery::finish_applied(applied, disarm, completed)
-        .map(|(value, _applied)| value)
-        .map_err(super::errors::map_recovery)
+    .map_err(map_recovery)
 }

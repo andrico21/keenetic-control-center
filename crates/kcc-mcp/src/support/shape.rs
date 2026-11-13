@@ -63,6 +63,11 @@ pub(crate) async fn finish_with_context(
         Err(error) => {
             tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
             super::audit::failure(server, context, &error, &request_id).await;
+            let cause = if let McpFailure::NotApplied { cause } = &error {
+                cause.as_ref()
+            } else {
+                &error
+            };
             let mut reply = if let McpFailure::BatchFailSafeArmed {
                 applied: _,
                 completion,
@@ -91,6 +96,8 @@ pub(crate) async fn finish_with_context(
                 | McpFailure::ManagementOutcomeUnknownFailSafeArmed => {
                     Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
                 }
+                McpFailure::ManagementNotSentFailSafeArmed => Some(keys::MANAGEMENT_NOT_SENT_ARMED),
+                McpFailure::NotApplied { cause: _ } => Some(keys::MANAGEMENT_NOT_APPLIED),
                 McpFailure::ManagementAppliedNotSaved => Some(keys::MIGRATE_COMMITTED_NOT_SAVED),
                 McpFailure::ManagementNotCommittedFailSafeArmed => {
                     Some(keys::MIGRATE_COMMIT_NOT_SENT_ARMED)
@@ -115,7 +122,7 @@ pub(crate) async fn finish_with_context(
                 drop(object.insert("message".to_owned(), json!(tr(Locale::En, key, None))));
             }
             if let (McpFailure::VerificationFailed { field }, Value::Object(object)) =
-                (&error, &mut reply)
+                (cause, &mut reply)
             {
                 drop(object.insert("field".to_owned(), Value::String(field.clone())));
             }

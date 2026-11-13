@@ -235,7 +235,13 @@ pub(crate) async fn rci_execute(
     )?;
     let result = raw_change::run(
         server,
-        (&host, &identity, validated.contains_management()),
+        (
+            &host,
+            &identity,
+            validated
+                .contains_management()
+                .then_some(Permission::RawRci),
+        ),
         async |changes| {
             changes
                 .apply(ChangeRequest::new(
@@ -281,7 +287,13 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
     )?;
     let result = raw_change::run(
         server,
-        (&host, &identity, validated.contains_management()),
+        (
+            &host,
+            &identity,
+            validated
+                .contains_management()
+                .then_some(Permission::RawRci),
+        ),
         async |changes| {
             changes
                 .apply_delete(DeleteRequest::new(
@@ -346,8 +358,10 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         ));
     }
     let mut completion = None;
-    let outcome =
-        raw_change::run_completed(server, (&host, &identity, management), async |changes| {
+    let outcome = raw_change::run_completed(
+        server,
+        (&host, &identity, management.then_some(Permission::RawRci)),
+        async |changes| {
             let result = changes
                 .apply_batch(BatchChangeRequest::new(
                     items,
@@ -360,8 +374,9 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             let applied = result.applied_management_changes != 0;
             completion = Some(result);
             Ok(((), applied))
-        })
-        .await;
+        },
+    )
+    .await;
     let Some(result) = completion else {
         return outcome.and(Err(McpFailure::Internal));
     };
@@ -430,7 +445,13 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
     );
     let result = raw_change::run(
         server,
-        (&host, &identity, validated.contains_management()),
+        (
+            &host,
+            &identity,
+            validated
+                .contains_management()
+                .then_some(Permission::RawRci),
+        ),
         async |changes| {
             changes
                 .apply_cli(CliChangeRequest::new(
