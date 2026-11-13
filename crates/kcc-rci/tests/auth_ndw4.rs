@@ -14,7 +14,7 @@ mod tests {
         AuthError, OutboundPolicy, RciError,
         auth::Credentials,
         auth_options::{Mode, Options},
-        session::SessionManager,
+        session::Manager,
     };
     use kcc_testkit::auth_fixture::{self, Options as Fixture};
     use reqwest::StatusCode;
@@ -37,7 +37,7 @@ mod tests {
         fixture.iterations = json!("02");
         fixture.memory = json!("0064");
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-        let manager = SessionManager::connect(
+        let manager = Manager::connect(
             format!("http://{address}").parse()?,
             credentials("admin"),
             &OutboundPolicy::default().with_loopback(true),
@@ -59,7 +59,7 @@ mod tests {
     #[tokio::test]
     async fn wrong_password_rejected_without_ndw2_downgrade() -> TestResult {
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
-        let manager = SessionManager::connect(
+        let manager = Manager::connect(
             format!("http://{address}").parse()?,
             credentials("wrong"),
             &OutboundPolicy::default().with_loopback(true),
@@ -82,7 +82,7 @@ mod tests {
         let mut fixture = Fixture::default();
         fixture.tamper_signature = true;
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-        let manager = SessionManager::connect(
+        let manager = Manager::connect(
             format!("http://{address}").parse()?,
             credentials("admin"),
             &OutboundPolicy::default().with_loopback(true),
@@ -108,7 +108,7 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
         let mut options = Options::default();
         options.max_argon2_memory_kib = 32;
-        let manager = SessionManager::connect_with_options(
+        let manager = Manager::connect_with_options(
             format!("http://{address}").parse()?,
             Some(credentials("admin")),
             options,
@@ -145,7 +145,7 @@ mod tests {
                 _ => fixture.short_error = true,
             }
             let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
-            let manager = SessionManager::connect(
+            let manager = Manager::connect(
                 format!("http://{address}").parse()?,
                 credentials("admin"),
                 &OutboundPolicy::default().with_loopback(true),
@@ -172,7 +172,7 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
         let mut options = Options::default();
         options.mode = Mode::Ndw2;
-        let manager = SessionManager::connect_with_options(
+        let manager = Manager::connect_with_options(
             format!("http://{address}").parse()?,
             Some(credentials("admin")),
             options,

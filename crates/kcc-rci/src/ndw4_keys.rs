@@ -1,8 +1,8 @@
 //! Bounded Argon2 work and zeroizing SCRAM key storage.
 
 use alloc::sync::Arc;
-use core::{fmt, num::NonZeroUsize};
-use std::sync::OnceLock;
+use core::fmt;
+use std::sync::LazyLock;
 
 use argon2::{Algorithm, Argon2, Params, Version};
 use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -14,22 +14,8 @@ use zeroize::Zeroizing;
 
 use crate::{AuthError, RciError, auth::Credentials};
 
-/// Global budget, initialized once before the first derivation.
-static BUDGET: OnceLock<Arc<Semaphore>> = OnceLock::new();
-
-/// Sets the process-wide concurrent Argon2 budget before first use (default: one).
-///
-/// # Errors
-/// Returns [`RciError::Validation`] if already initialized or beyond Tokio's limit.
-#[inline]
-pub fn configure_argon2_concurrency(permits: NonZeroUsize) -> Result<(), RciError> {
-    if permits.get() > Semaphore::MAX_PERMITS {
-        return Err(RciError::Validation);
-    }
-    BUDGET
-        .set(Arc::new(Semaphore::new(permits.get())))
-        .map_err(|_existing| RciError::Validation)
-}
+/// Global budget for concurrent Argon2 derivations (default: one).
+static BUDGET: LazyLock<Arc<Semaphore>> = LazyLock::new(|| Arc::new(Semaphore::new(1)));
 
 /// The three SCRAM keys; no public debug representation exposes their bytes.
 pub(crate) struct Keys {
@@ -73,7 +59,7 @@ impl Keys {
         credentials: &Credentials,
         parameters: Parameters,
     ) -> Result<Self, RciError> {
-        let budget = Arc::clone(BUDGET.get_or_init(|| Arc::new(Semaphore::new(1))));
+        let budget = Arc::clone(&*BUDGET);
         let permit = budget
             .acquire_owned()
             .await
@@ -169,8 +155,8 @@ mod tests {
     use serde_json::Value;
     use tokio::time::timeout;
 
-    use super::{Arc, BUDGET, Credentials, Keys, Parameters, STANDARD, Semaphore, salted_password};
-    use crate::{AuthError, RciError, auth_options::Options, session::SessionManager};
+    use super::{Arc, BUDGET, Credentials, Keys, Parameters, STANDARD, salted_password};
+    use crate::{AuthError, RciError, auth_options::Options, session::Manager};
 
     /// Fallible unit-test result.
     type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
@@ -227,7 +213,7 @@ mod tests {
     async fn cached_login_and_cost_rejection_never_enter_argon2_queue() -> TestResult {
         let (address, handle, _counts) = auth_fixture::spawn(Fixture::default()).await?;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
-        let manager = SessionManager::connect(
+        let manager = Manager::connect(
             format!("http://{address}").parse()?,
             credentials.clone(),
             &crate::OutboundPolicy::default().with_loopback(true),
@@ -235,7 +221,7 @@ mod tests {
         .await?;
         manager.ensure_session().await?;
         manager.logout().await;
-        let budget = Arc::clone(BUDGET.get_or_init(|| Arc::new(Semaphore::new(1))));
+        let budget = Arc::clone(&*BUDGET);
         let permit = budget.acquire_owned().await?;
 
         timeout(Duration::from_secs(2), manager.ensure_session()).await??;
@@ -254,7 +240,7 @@ mod tests {
             token_fallback,
             max_argon2_memory_kib: 32,
         };
-        let limited = SessionManager::connect_with_options(
+        let limited = Manager::connect_with_options(
             format!("http://{other_address}").parse()?,
             Some(credentials),
             options,

@@ -24,7 +24,7 @@ use kcc_rci::{
     AuthError, OutboundPolicy, RciError,
     auth::Credentials,
     auth_options::{Mode, Options},
-    session::SessionManager,
+    session::Manager,
 };
 use ndw4_rotating::Rotating;
 use reqwest::{Method, StatusCode};
@@ -39,8 +39,8 @@ fn credentials() -> Credentials {
 }
 
 /// A password-session manager for one loopback router.
-async fn manager(address: SocketAddr) -> Result<SessionManager, Box<dyn Error + Send + Sync>> {
-    Ok(SessionManager::connect(
+async fn manager(address: SocketAddr) -> Result<Manager, Box<dyn Error + Send + Sync>> {
+    Ok(Manager::connect(
         format!("http://{address}").parse()?,
         credentials(),
         &OutboundPolicy::default().with_loopback(true),
@@ -49,12 +49,10 @@ async fn manager(address: SocketAddr) -> Result<SessionManager, Box<dyn Error + 
 }
 
 /// A digest-proxy manager for one loopback router.
-async fn digest_manager(
-    address: SocketAddr,
-) -> Result<SessionManager, Box<dyn Error + Send + Sync>> {
+async fn digest_manager(address: SocketAddr) -> Result<Manager, Box<dyn Error + Send + Sync>> {
     let mut options = Options::default();
     options.mode = Mode::DigestProxy;
-    Ok(SessionManager::connect_with_options(
+    Ok(Manager::connect_with_options(
         format!("http://{address}").parse()?,
         Some(credentials()),
         options,

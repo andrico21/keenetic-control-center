@@ -27,9 +27,9 @@ use core::{
 
 use kcc_rci::{
     AuthError, RciError, RouterUrl,
-    auth::{AuthScheme, Credentials, WwwAuthenticate, ndw2_response},
+    auth::{Credentials, Scheme, WwwAuthenticate, ndw2_response},
     outbound::{OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, SessionManager},
+    session::{HttpTimeouts, Manager},
 };
 use kcc_testkit::{
     FakeRouter,
@@ -54,13 +54,13 @@ fn credentials(password: &str) -> Credentials {
 }
 
 /// Builds a manager pointed at one socket address.
-fn manager(address: SocketAddr, password: &str) -> TestResult<SessionManager> {
+fn manager(address: SocketAddr, password: &str) -> TestResult<Manager> {
     let router = format!("http://{address}").parse::<RouterUrl>()?;
     let timeouts = HttpTimeouts::default();
     let builder = OutboundPolicy::default()
         .with_loopback(true)
         .client_builder_for_resolved(&router, &TlsMode::Verify, timeouts, &[address])?;
-    Ok(SessionManager::with_client_builder(
+    Ok(Manager::with_client_builder(
         router,
         credentials(password),
         timeouts,
@@ -69,9 +69,9 @@ fn manager(address: SocketAddr, password: &str) -> TestResult<SessionManager> {
 }
 
 /// Builds a manager that opens one connection per request for proxy request counting.
-fn unpooled_manager(address: SocketAddr, password: &str) -> TestResult<SessionManager> {
+fn unpooled_manager(address: SocketAddr, password: &str) -> TestResult<Manager> {
     let router = format!("http://{address}").parse::<RouterUrl>()?;
-    Ok(SessionManager::with_client_builder(
+    Ok(Manager::with_client_builder(
         router,
         credentials(password),
         HttpTimeouts::default(),
@@ -113,11 +113,8 @@ fn multi_scheme_header_parses() -> TestResult {
     );
     let parsed = WwwAuthenticate::parse(header)?;
     assert_eq!(parsed.schemes().len(), 3);
-    assert!(matches!(
-        parsed.schemes().first(),
-        Some(AuthScheme::Unknown(_))
-    ));
-    assert!(matches!(parsed.schemes().get(1), Some(AuthScheme::Ndw4(_))));
+    assert!(matches!(parsed.schemes().first(), Some(Scheme::Unknown(_))));
+    assert!(matches!(parsed.schemes().get(1), Some(Scheme::Ndw4(_))));
     assert_eq!(
         parsed.ndw2().map(|value| value.session_cookie.as_str()),
         Some("COOKIE")

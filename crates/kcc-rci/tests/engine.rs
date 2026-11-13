@@ -26,7 +26,7 @@ use kcc_rci::{
     auth::Credentials,
     engine::{ConfigKind, RciBody, RciClient, RciClientOptions, SecretBytes},
     outbound::{AllowedNetwork, OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, SessionManager},
+    session::{HttpTimeouts, Manager},
 };
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
 use secrecy::{ExposeSecret as _, SecretString};
@@ -221,12 +221,8 @@ async fn pinned_tls_accepts_the_right_spki_and_rejects_the_wrong_one() -> TestRe
         timeouts,
         &resolved,
     )?;
-    let right = SessionManager::with_client_builder(
-        router.clone(),
-        credentials(),
-        timeouts,
-        right_builder,
-    )?;
+    let right =
+        Manager::with_client_builder(router.clone(), credentials(), timeouts, right_builder)?;
     assert!(right.get("/auth").await?.status().is_success());
 
     let wrong_builder = policy.client_builder_for_resolved(
@@ -235,8 +231,7 @@ async fn pinned_tls_accepts_the_right_spki_and_rejects_the_wrong_one() -> TestRe
         timeouts,
         &resolved,
     )?;
-    let wrong =
-        SessionManager::with_client_builder(router, credentials(), timeouts, wrong_builder)?;
+    let wrong = Manager::with_client_builder(router, credentials(), timeouts, wrong_builder)?;
     assert!(matches!(wrong.get("/auth").await, Err(RciError::Transport)));
 
     fixture.shutdown().await;

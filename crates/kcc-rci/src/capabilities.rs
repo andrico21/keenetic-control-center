@@ -2,14 +2,15 @@
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
-use reqwest::{Response, StatusCode, header};
+use reqwest::{StatusCode, header};
 use serde::{Deserialize, Deserializer, de::Error as _};
 use serde_json::{Map, Value};
 
 use crate::{
     RciError, RciResponse, RouterUrl,
     auth::{Scheme, WwwAuthenticate},
-    session::SessionManager,
+    engine,
+    session::Manager,
     version::FirmwareVersion,
 };
 
@@ -360,7 +361,7 @@ impl RouterInfo {
     /// [`RciError::NotFound`] when `show version` is absent.
     // cancel-safe: every request is a read.
     #[inline]
-    pub async fn detect(client: &SessionManager, router: &RouterUrl) -> Result<Self, RciError> {
+    pub async fn detect(client: &Manager, router: &RouterUrl) -> Result<Self, RciError> {
         let auth_schemes = probe_auth_schemes(client, router).await?;
         let version: ShowVersion = decode(
             read_optional(client, "/rci/show/version")
@@ -507,7 +508,7 @@ pub fn keenetic_family(hw_id: &str) -> Option<&str> {
 /// Returns transport or timeout failures.
 // cancel-safe: the probe is a read.
 async fn probe_auth_schemes(
-    client: &SessionManager,
+    client: &Manager,
     router: &RouterUrl,
 ) -> Result<Vec<AuthSchemeKind>, RciError> {
     let response = client.probe_auth(router).await?;
@@ -542,7 +543,7 @@ async fn probe_auth_schemes(
 ///
 /// Returns transport, authentication, other HTTP status, decode, or body-size failures.
 // cancel-safe: the request is a read.
-async fn read_optional(client: &SessionManager, path: &str) -> Result<Option<Value>, RciError> {
+async fn read_optional(client: &Manager, path: &str) -> Result<Option<Value>, RciError> {
     let response = client.get(path).await?;
     let status = response.status();
     if matches!(
@@ -556,7 +557,7 @@ async fn read_optional(client: &SessionManager, path: &str) -> Result<Option<Val
             status: status.as_u16(),
         });
     }
-    let body = read_capped(response).await?;
+    let body = engine::read_capped(response, MAX_BODY_BYTES).await?;
     let value = serde_json::from_slice::<Value>(&body).map_err(|_error| RciError::Decode)?;
     match RciResponse::from_value(value) {
         Ok(decoded) => Ok(Some(decoded.value)),
@@ -568,27 +569,6 @@ async fn read_optional(client: &SessionManager, path: &str) -> Result<Option<Val
         }) => Ok(None),
         Err(error) => Err(error),
     }
-}
-
-/// Reads a response body up to [`MAX_BODY_BYTES`].
-///
-/// # Errors
-///
-/// Returns [`RciError::BodyTooLarge`] above the cap or a transport failure.
-// cancel-safe: the body is local state dropped on cancellation.
-async fn read_capped(mut response: Response) -> Result<Vec<u8>, RciError> {
-    let mut body = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_error| RciError::Transport)?
-    {
-        if body.len().saturating_add(chunk.len()) > MAX_BODY_BYTES {
-            return Err(RciError::BodyTooLarge);
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(body)
 }
 
 /// Decodes a typed model.

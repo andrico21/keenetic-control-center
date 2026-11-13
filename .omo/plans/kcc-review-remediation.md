@@ -404,7 +404,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | feat(app,rci): wire per-router auth mode and token file
   Recommended task executor category: deep-low - plumbing through two crates with a persisted-state compatibility constraint
 
-- [ ] 20. Delete unreachable kcc-rci code
+- [x] 20. Delete unreachable kcc-rci code
   What to do / Must NOT do: Re-verify each item has no non-test caller (`grep -rnw <name> crates --include=*.rs`), then delete: session keepalive (`KEEPALIVE_INTERVAL` `crates/kcc-rci/src/session.rs:40`, `start_keepalive`/`keepalive_once` `:517-549`, `Keepalive` `:748-760`), `session_manager` accessor (`engine.rs:177`), `with_deadline` (`engine/background.rs:121`), `configure_argon2_concurrency` (`ndw4_keys.rs:25`; make the derivation budget a plain `static` if the `OnceLock` only existed for it), the aliases `SessionManager = Manager` (`session.rs:195`) and `AuthScheme` (`auth.rs:141`; update `crates/kcc-rci/tests/session.rs:30`). Merge the duplicate helpers `read_capped` (`capabilities.rs:579`, `engine.rs:695`: one fn taking the cap) and `lock` (`engine.rs:738`, `session.rs:859`). Delete tests that exercise only deleted items. Must NOT: delete anything todo 19 now uses (auth options, digest, token).
   Closes: GAP-11
   Parallelization: Wave W3 | Blocked by: 19 | Blocks: 45 | Can parallelize with: 13, 15, 16, 8, 18, 27, 54

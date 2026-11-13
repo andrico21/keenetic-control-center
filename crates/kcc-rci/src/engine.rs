@@ -4,7 +4,7 @@ pub mod background;
 
 use alloc::{collections::BTreeSet, sync::Arc};
 use core::{fmt, mem::take};
-use std::sync::{Mutex as StdMutex, MutexGuard, PoisonError};
+use std::sync::Mutex as StdMutex;
 
 use reqwest::{Method, Response, StatusCode, header::HeaderMap, multipart};
 use secrecy::{ExposeSecret as _, SecretSlice};
@@ -22,7 +22,7 @@ use crate::{
     encode_query,
     observe::{RciObserver, RequestOutcome},
     outbound::{OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, RequestKind, SessionManager},
+    session::{HttpTimeouts, Manager, RequestKind, lock},
 };
 
 /// Maximum serialized request size used for one batch chunk.
@@ -127,7 +127,7 @@ pub struct RciClient {
     /// Credentials retained for dedicated background sessions.
     credentials: Credentials,
     /// Main authenticated session.
-    session: Arc<SessionManager>,
+    session: Arc<Manager>,
     /// Connection policy reused for dedicated sessions.
     options: RciClientOptions,
     /// Per-router request concurrency budget.
@@ -173,13 +173,6 @@ impl RciClient {
     #[must_use]
     pub fn credentials(&self) -> Credentials {
         self.credentials.clone()
-    }
-
-    /// Shares the authenticated session for read-only capability collection.
-    #[inline]
-    #[must_use]
-    pub fn session_manager(&self) -> Arc<SessionManager> {
-        Arc::clone(&self.session)
     }
 
     /// Builds an explicitly authorized factory-setup client under the outbound policy.
@@ -620,12 +613,12 @@ async fn session(
     router: &RouterUrl,
     credentials: &Credentials,
     options: &RciClientOptions,
-) -> Result<SessionManager, RciError> {
+) -> Result<Manager, RciError> {
     let builder = options
         .outbound
         .client_builder(router, &options.tls, options.timeouts)
         .await?;
-    SessionManager::with_client_builder(
+    Manager::with_client_builder(
         router.clone(),
         credentials.clone(),
         options.timeouts,
@@ -702,7 +695,7 @@ fn map_status(response_status: StatusCode) -> Result<(), RciError> {
 /// # Errors
 ///
 /// Returns transport or body-size errors.
-async fn read_capped(mut response: Response, cap: usize) -> Result<Vec<u8>, RciError> {
+pub(crate) async fn read_capped(mut response: Response, cap: usize) -> Result<Vec<u8>, RciError> {
     let mut body = Vec::new();
     while let Some(chunk) = response
         .chunk()
@@ -742,9 +735,4 @@ async fn decode_response(response: Response, cap: usize) -> Result<RciBody, RciE
             .map(RciBody::Text)
             .map_err(|_utf8_error| RciError::Decode),
     }
-}
-
-/// Locks short synchronous state and recovers after poisoning.
-fn lock<T>(mutex: &StdMutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

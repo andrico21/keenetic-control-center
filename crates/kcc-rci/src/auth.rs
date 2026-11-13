@@ -133,13 +133,6 @@ pub enum Scheme {
     Unknown(OpaqueAuthScheme),
 }
 
-/// Public protocol name for an advertised authentication scheme.
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "the protocol API is explicitly named AuthScheme"
-)]
-pub type AuthScheme = Scheme;
-
 impl fmt::Display for Scheme {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

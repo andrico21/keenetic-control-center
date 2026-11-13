@@ -12,7 +12,7 @@ mod tests {
 
     use kcc_rci::{
         AuthError, OutboundPolicy, RciError, auth::Credentials, auth_options::Options,
-        session::SessionManager,
+        session::Manager,
     };
     use kcc_testkit::auth_fixture::{self, Options as Fixture, Protocol};
     use reqwest::StatusCode;
@@ -30,7 +30,7 @@ mod tests {
         let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
         let mut options = Options::default();
         options.experimental_token = Some(SecretString::from("fixture-token"));
-        let manager = SessionManager::connect_with_options(
+        let manager = Manager::connect_with_options(
             format!("http://{address}").parse()?,
             None,
             options,
@@ -70,7 +70,7 @@ mod tests {
             options.token_fallback = token_fallback;
             let credentials = credentials_present
                 .then(|| Credentials::new("admin".to_owned(), SecretString::from("admin")));
-            let manager = SessionManager::connect_with_options(
+            let manager = Manager::connect_with_options(
                 format!("http://{address}").parse()?,
                 credentials,
                 options,

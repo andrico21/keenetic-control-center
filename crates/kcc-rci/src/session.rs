@@ -21,7 +21,7 @@ use reqwest::{
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Serialize;
-use tokio::{sync::Mutex, task::JoinHandle, time};
+use tokio::sync::Mutex;
 use zeroize::Zeroizing;
 
 use self::transport::install_ring_provider;
@@ -35,9 +35,6 @@ use crate::{
     observe::{LoginScheme, RciObserver},
     outbound::{OutboundPolicy, TlsMode},
 };
-
-/// Default interval for keeping a session active while long-lived work needs it.
-const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(120);
 
 /// Configurable HTTP connection and response-read timeouts.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -186,13 +183,6 @@ pub struct Manager {
     /// Optional login observer (self-metrics).
     observer: Option<Arc<dyn RciObserver>>,
 }
-
-/// Public protocol name for the single-flight router session manager.
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "the protocol API is explicitly named SessionManager"
-)]
-pub type SessionManager = Manager;
 
 impl Manager {
     /// Creates a manager after resolving and validating the router through `outbound`.
@@ -524,42 +514,6 @@ impl Manager {
         }
     }
 
-    /// Starts a 120-second `/auth` keepalive until the returned guard is dropped.
-    #[inline]
-    pub fn start_keepalive(self: &Arc<Self>) -> Keepalive {
-        let manager = Arc::clone(self);
-        let task = tokio::spawn(async move {
-            let mut interval = time::interval(KEEPALIVE_INTERVAL);
-            interval.set_missed_tick_behavior(time::MissedTickBehavior::Delay);
-            let _: time::Instant = interval.tick().await;
-            loop {
-                let _: time::Instant = interval.tick().await;
-                drop(manager.keepalive_once().await);
-            }
-        });
-        Keepalive { task }
-    }
-
-    /// Sends one keepalive probe and reacts to an expired router session.
-    ///
-    /// # Errors
-    ///
-    /// Returns authentication, transport, or non-success HTTP status errors.
-    // cancel-safe: GET /auth is read-only, and cancellation leaves local state unchanged.
-    async fn keepalive_once(&self) -> Result<(), RciError> {
-        if self.options.experimental_token.is_some() || self.options.mode == Mode::DigestProxy {
-            return Ok(());
-        }
-        let response = self.get("/auth").await?;
-        if response.status().is_success() {
-            Ok(())
-        } else {
-            Err(RciError::Http {
-                status: response.status().as_u16(),
-            })
-        }
-    }
-
     /// Performs one complete challenge-response exchange.
     ///
     /// # Errors
@@ -754,21 +708,6 @@ impl Manager {
     }
 }
 
-/// A running keepalive task that stops when dropped.
-#[derive(Debug)]
-#[must_use = "dropping the guard stops session keepalive"]
-pub struct Keepalive {
-    /// Background keepalive task.
-    task: JoinHandle<()>,
-}
-
-impl Drop for Keepalive {
-    #[inline]
-    fn drop(&mut self) {
-        self.task.abort();
-    }
-}
-
 /// Borrowed ndw2 login payload.
 #[derive(Serialize)]
 struct LoginBody<'value> {
@@ -868,6 +807,6 @@ fn map_reqwest_error(error: &reqwest::Error) -> RciError {
 }
 
 /// Locks short-lived synchronous state and recovers after a poisoned holder.
-fn lock<T>(mutex: &StdMutex<T>) -> MutexGuard<'_, T> {
+pub(crate) fn lock<T>(mutex: &StdMutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

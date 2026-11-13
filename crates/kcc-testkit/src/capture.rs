@@ -18,7 +18,7 @@ use kcc_rci::{
     auth::Credentials,
     engine::{ConfigKind, RciBody, RciClient, RciClientOptions},
     outbound::{OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, SessionManager},
+    session::{HttpTimeouts, Manager},
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Map, Value, json};
@@ -149,7 +149,7 @@ pub struct Connection {
     /// Request engine.
     pub client: RciClient,
     /// Session used by `RouterInfo::detect` and the root configuration read.
-    pub session: SessionManager,
+    pub session: Manager,
 }
 
 /// Connects to `router` under the default outbound policy (plus loopback when asked).
@@ -174,7 +174,7 @@ pub async fn connect(
     let builder = policy
         .client_builder(&router, &TlsMode::Verify, HttpTimeouts::default())
         .await?;
-    let session = SessionManager::with_client_builder(
+    let session = Manager::with_client_builder(
         router.clone(),
         credentials,
         HttpTimeouts::default(),
@@ -353,7 +353,7 @@ pub async fn fetch(connection: &Connection, request: &Request) -> Result<RawBody
 /// # Errors
 ///
 /// Request, HTTP, size, decode or RCI errors.
-async fn read_root(session: &SessionManager) -> Result<RawBody, RciError> {
+async fn read_root(session: &Manager) -> Result<RawBody, RciError> {
     let mut response = session.get("/rci/").await?;
     match response.status().as_u16() {
         200 => {}

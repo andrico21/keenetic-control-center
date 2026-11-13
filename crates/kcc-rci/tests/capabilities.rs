@@ -25,7 +25,7 @@ use kcc_rci::{
     OutboundPolicy, RouterUrl,
     auth::Credentials,
     capabilities::{AuthSchemeKind, Brand, RouterInfo, SupportTier},
-    session::SessionManager,
+    session::Manager,
     version::{FirmwareVersion, Stage},
 };
 use kcc_testkit::{
@@ -45,7 +45,7 @@ async fn detect(builder: FakeRouterBuilder) -> TestResult<RouterInfo> {
         .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
         .await?;
     let router = format!("http://{address}").parse::<RouterUrl>()?;
-    let manager = SessionManager::connect(
+    let manager = Manager::connect(
         router.clone(),
         Credentials::new(
             DEFAULT_LOGIN.to_owned(),

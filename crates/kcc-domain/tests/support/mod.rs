@@ -223,7 +223,7 @@ impl Fixture {
             )
             .await?,
         );
-        let manager = kcc_rci::session::SessionManager::connect(
+        let manager = kcc_rci::session::Manager::connect(
             origin.clone(),
             Credentials::new(
                 DEFAULT_LOGIN.to_owned(),

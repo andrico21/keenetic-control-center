@@ -11,7 +11,7 @@ use tokio_util::sync::CancellationToken;
 use super::{RciBody, RciClient, decode_response, response_json, session};
 use crate::{
     RciError, RciPath,
-    session::{RequestKind, SessionManager},
+    session::{Manager, RequestKind},
 };
 
 /// Starts a process with a dedicated cookie but the same router admission budget.
@@ -52,7 +52,7 @@ pub(super) async fn start(
 #[non_exhaustive]
 pub struct Handle {
     /// Session isolated from the main request engine.
-    session: Arc<SessionManager>,
+    session: Arc<Manager>,
     /// Router-wide admission shared with ordinary requests.
     semaphore: Arc<Semaphore>,
     /// Process resource path.
@@ -102,14 +102,6 @@ impl Handle {
     #[must_use]
     pub const fn with_poll_interval(mut self, interval: Duration) -> Self {
         self.poll_interval = interval;
-        self
-    }
-
-    /// Overrides the overall polling deadline.
-    #[inline]
-    #[must_use]
-    pub const fn with_deadline(mut self, deadline: Duration) -> Self {
-        self.deadline = deadline;
         self
     }
 

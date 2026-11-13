@@ -13,7 +13,7 @@ use kcc_rci::{
     auth::Credentials,
     capabilities::RouterInfo,
     outbound::{OutboundPolicy, TlsMode},
-    session::{HttpTimeouts, SessionManager},
+    session::{HttpTimeouts, Manager},
 };
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter};
 use reqwest::dns::{Addrs, Name, Resolve, Resolving};
@@ -22,12 +22,12 @@ use secrecy::SecretString;
 use crate::{TestResult, tls_fixture::TlsFixture};
 
 /// Opens a session with exactly the policy-approved address and TLS configuration.
-fn manager(router: &RouterUrl, address: SocketAddr, tls: &TlsMode) -> TestResult<SessionManager> {
+fn manager(router: &RouterUrl, address: SocketAddr, tls: &TlsMode) -> TestResult<Manager> {
     let timeouts = HttpTimeouts::default();
     let builder = OutboundPolicy::default()
         .with_loopback(true)
         .client_builder_for_resolved(router, tls, timeouts, &[address])?;
-    Ok(SessionManager::with_client_builder(
+    Ok(Manager::with_client_builder(
         router.clone(),
         Credentials::new(
             DEFAULT_LOGIN.to_owned(),
@@ -90,7 +90,7 @@ async fn detection_keeps_the_approved_resolution() -> TestResult {
         )?
         .dns_resolver(Arc::clone(&resolver))
         .pool_max_idle_per_host(0);
-    let session = SessionManager::with_client_builder(
+    let session = Manager::with_client_builder(
         router.clone(),
         Credentials::new(
             DEFAULT_LOGIN.to_owned(),
