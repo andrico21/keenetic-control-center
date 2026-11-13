@@ -17,22 +17,22 @@ use crate::{
     support::{Fixture, TestResult, header_text, text},
 };
 
-/// Management requests the `raw-writer` role may not send.
+/// Destructive requests the `raw-writer` role may not send.
 ///
-/// The role holds `Read`, `Write` and `RawRci` (F3's `rawnd`); a management change also
+/// The role holds `Read`, `Write` and `RawRci` (F3's `rawnd`); a destructive change also
 /// needs `Destructive`. Each entry: the endpoint, the form, the region the answer belongs
 /// in and the audit action.
-fn management_requests() -> [(&'static str, String, &'static str, &'static str); 4] {
+fn destructive_requests() -> [(&'static str, String, &'static str, &'static str); 4] {
     [
         (
             "/ui/r/home/console/cli/send",
-            form(&[("line", "ip ssh port 2228")]),
+            form(&[("line", "no ip name-server 192.0.2.53")]),
             "#cli-result",
             "web.console_cli",
         ),
         (
             "/ui/r/home/console/cli/send",
-            form(&[("line", "no ip name-server 192.0.2.53")]),
+            form(&[("line", "no service telnet")]),
             "#cli-result",
             "web.console_cli",
         ),
@@ -48,7 +48,11 @@ fn management_requests() -> [(&'static str, String, &'static str, &'static str);
         ),
         (
             "/ui/r/home/explorer/execute",
-            form(&[("path", "ip http port"), ("a.port", "8080")]),
+            form(&[
+                ("path", "interface"),
+                ("a.name", "Bridge0"),
+                ("a.no", "true"),
+            ]),
             "#explorer-result",
             "web.explorer_execute",
         ),
@@ -74,7 +78,7 @@ fn refusal(locale: Locale, label: MessageKey) -> [String; 2] {
     .map(|(key, sentence)| format!("data-message-key=\"{}\">{}<", key.id(), html(&sentence)))
 }
 
-/// A raw writer's refused management request names `Destructive` in its result region.
+/// A raw writer's refused destructive request names `Destructive` in its result region.
 ///
 /// The line, body or explorer form answers 403; nothing reaches the router and each
 /// refusal stays audited as `forbidden`.
@@ -84,7 +88,7 @@ async fn refused_requests_name_the_missing_permission_in_place() -> TestResult {
     let browser = fixture.login("raw-writer").await?;
     drop(fixture.get("/ui/r/home/console/cli", &browser).await?);
     let expected = refusal(Locale::En, keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE);
-    for (endpoint, request, region, _) in management_requests() {
+    for (endpoint, request, region, _) in destructive_requests() {
         let before = fixture.handle().request_count();
         let response = fixture.post(endpoint, &browser, &request).await?;
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "{request}");
@@ -110,7 +114,7 @@ async fn refused_requests_name_the_missing_permission_in_place() -> TestResult {
         .filter(|entry| entry.outcome == "forbidden")
         .map(|entry| entry.action)
         .collect();
-    let actions = management_requests().map(|(_, _, _, action)| action);
+    let actions = destructive_requests().map(|(_, _, _, action)| action);
     assert_eq!(audited, actions, "every refusal audited");
     Ok(())
 }
@@ -157,7 +161,7 @@ async fn refusals_speak_the_account_language() -> TestResult {
             .post(
                 "/ui/r/home/console/cli/send",
                 &browser,
-                &form(&[("line", "ip ssh port 2228")]),
+                &form(&[("line", "no ip name-server 192.0.2.53")]),
             )
             .await?;
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "{tag}");

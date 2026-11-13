@@ -81,8 +81,32 @@ async fn each_role_sees_the_page_and_only_its_controls() -> TestResult {
     Ok(())
 }
 
+/// Whether the router received the recovery timer's arm, then its disarm, in `mode`.
+fn bracketed(fixture: &Fixture, mode: &str) -> bool {
+    let (arm, disarm) = if mode == "router" {
+        (
+            "system configuration fail-safe timer reboot 300",
+            "no system configuration fail-safe timer",
+        )
+    } else {
+        ("system reboot 300", "no system reboot")
+    };
+    let commands: Vec<String> = fixture
+        .handle()
+        .request_log()
+        .iter()
+        .filter_map(|record| record.command().map(str::to_owned))
+        .collect();
+    commands
+        .iter()
+        .position(|command| command == arm)
+        .is_some_and(|at| commands.iter().skip(at).any(|command| command == disarm))
+}
+
+/// A role with router writes makes a management change: its own permission authorizes
+/// the recovery timer around it.
 #[tokio::test]
-async fn management_access_point_segment_is_refused_for_writer() -> TestResult {
+async fn management_access_point_segment_is_bracketed_for_writer() -> TestResult {
     for mode in ["router", "extender"] {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
@@ -93,45 +117,30 @@ async fn management_access_point_segment_is_refused_for_writer() -> TestResult {
         )
         .await?;
         let writer = fixture.login("writer").await?;
-        let before = fixture.handle().request_log().len();
+        let mut pairs = changed("access_point", "WifiMaster0/AccessPoint0");
+        pairs.extend([("confirm", "yes"), ("confirm_name", "home")]);
         let response = fixture
-            .post(
-                &format!("{PAGE}/create"),
-                &writer,
-                &form(&changed("access_point", "WifiMaster0/AccessPoint0")),
-            )
+            .post(&format!("{PAGE}/create"), &writer, &form(&pairs))
             .await?;
-        assert_eq!(response.status(), StatusCode::FORBIDDEN, "{mode}");
-        assert!(
-            fixture
-                .handle()
-                .request_log()
-                .iter()
-                .skip(before)
-                .all(|record| record.command().is_none()),
-            "{mode}"
-        );
+        assert_eq!(response.status(), StatusCode::OK, "{mode}");
+        assert!(bracketed(&fixture, mode), "{mode}");
     }
     Ok(())
 }
 
 #[tokio::test]
-async fn management_port_segment_is_refused_for_writer_without_router_writes() -> TestResult {
+async fn management_port_segment_is_bracketed_for_writer() -> TestResult {
     let fixture = Fixture::new().await?;
     let writer = fixture.login("writer").await?;
-    let before = fixture.handle().request_log().len();
     let response = fixture
-        .post(&format!("{PAGE}/create"), &writer, &form(&SEGMENT))
+        .post(
+            &format!("{PAGE}/create"),
+            &writer,
+            &form(&confirmed_segment()),
+        )
         .await?;
-    assert_eq!(response.status(), StatusCode::FORBIDDEN);
-    assert!(
-        fixture
-            .handle()
-            .request_log()
-            .iter()
-            .skip(before)
-            .all(|record| record.command().is_none())
-    );
+    assert_eq!(response.status(), StatusCode::OK);
+    assert!(bracketed(&fixture, "router"));
     Ok(())
 }
 

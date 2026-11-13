@@ -23,7 +23,7 @@ async fn each_role_sees_the_name_and_only_its_controls() -> TestResult {
     let proxy = "hx-get=\"/ui/r/home/system/keendns/proxy\"";
     for (account, releases, manages) in [
         ("viewer", false, false),
-        ("operator", true, false),
+        ("operator", true, true),
         ("admin", true, true),
     ] {
         let browser = fixture.login(account).await?;
@@ -35,9 +35,9 @@ async fn each_role_sees_the_name_and_only_its_controls() -> TestResult {
         assert_eq!(page.contains(access), manages, "{account} access");
         assert_eq!(page.contains(proxy), manages, "{account} proxy");
     }
-    let operator = fixture.login("operator").await?;
+    let viewer = fixture.login("viewer").await?;
     let denied = fixture
-        .post(&format!("{PAGE}/access?level=private"), &operator, "")
+        .post(&format!("{PAGE}/access?level=private"), &viewer, "")
         .await?;
     assert_eq!(denied.status(), StatusCode::FORBIDDEN, "management");
     Ok(())

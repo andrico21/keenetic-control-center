@@ -174,7 +174,7 @@ impl Ctx {
     pub(crate) async fn authorize_recovery(&self, services: &Services, id: &str) -> Outcome {
         match self
             .principal
-            .authorize(SafetyNet::management_permissions(), &[id])
+            .authorize(&[SafetyNet::CONTROL_PERMISSION], &[id])
         {
             Ok(role) => {
                 drop(role);

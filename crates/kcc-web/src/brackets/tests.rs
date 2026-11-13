@@ -7,7 +7,7 @@
 )]
 
 use alloc::sync::Arc;
-use core::{error::Error, future, time::Duration};
+use core::{error::Error, future, sync::atomic::AtomicU8, time::Duration};
 use std::sync::Mutex;
 
 use axum::{
@@ -21,7 +21,7 @@ use kcc_app::brackets::Brackets;
 use tokio::{sync::oneshot, time::sleep};
 use tower::ServiceExt as _;
 
-use super::{budget, hold, own};
+use super::{Claim, OPEN, budget, hold, own};
 use crate::REQUEST_TIMEOUT;
 
 /// Fallible test result.
@@ -166,5 +166,42 @@ async fn an_unheld_request_keeps_the_budget() -> TestResult {
         .await?;
     assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
     assert!(!hold(), "no owner, no bracket");
+    Ok(())
+}
+
+/// A request that ended, or was cancelled before it held a bracket, can no longer hold
+/// one.
+#[test]
+fn an_ended_claim_refuses_the_hold() {
+    let ended = Claim {
+        state: AtomicU8::new(OPEN),
+    };
+    ended.end();
+    assert!(!ended.hold(), "ended");
+    let cancelled = Claim {
+        state: AtomicU8::new(OPEN),
+    };
+    assert!(cancelled.cancel(), "an open request may be cancelled");
+    assert!(!cancelled.hold(), "cancelled");
+}
+
+/// A handler that fails.
+#[expect(clippy::panic, reason = "the handler under test panics")]
+async fn failing() -> &'static str {
+    panic!("handler failed")
+}
+
+/// A panicking handler is not answered as a cancelled request: the panic reaches the
+/// server, which closes the connection.
+#[tokio::test]
+async fn a_panicking_request_is_not_answered_as_cancelled() -> TestResult {
+    let app = Router::new()
+        .route("/", get(failing))
+        .layer(middleware::from_fn(own));
+    let answered = tokio::spawn(app.oneshot(get_request("/")?)).await;
+    assert!(
+        answered.is_err_and(|error| error.is_panic()),
+        "the panic, not a 503"
+    );
     Ok(())
 }

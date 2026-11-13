@@ -1,20 +1,23 @@
-//! Web requests the server owns while they hold a router's fail-safe bracket.
+//! Web requests the server owns once they send a write to a router.
 //!
-//! A management change arms the router's fail-safe timer, does its work, disarms the
+//! A management change arms the router's recovery timer, does its work, disarms the
 //! timer and reports. Once the arm is sent, only the request's own end may stop it: not
 //! the request budget, not a dropped connection, not the server shutting down, or the
-//! router restores its saved configuration minutes later with nobody told.
+//! router restores its saved configuration minutes later with nobody told. An ordinary
+//! write the router received must likewise end and be audited.
 //!
 //! - `own`, the outermost layer, runs every request as a task the server owns. When
-//!   the connection stops waiting, the task is aborted unless it holds a bracket.
-//! - `hold` is called by the change workflow right before it arms: it holds the
-//!   request, or refuses when the request has no owner or was already cancelled.
-//! - `budget` answers 408 at [`REQUEST_TIMEOUT`] only for a request that holds no
-//!   bracket; a request that holds one is answered when it ends.
+//!   the connection stops waiting, the task is aborted unless it is held.
+//! - `hold` is called by every Web write right before its first change reaches the
+//!   router, and by the shared safety bracket right before it arms: it holds the
+//!   request, or refuses when the request has no owner or was already cancelled, and
+//!   then nothing is sent.
+//! - `budget` answers 408 at [`REQUEST_TIMEOUT`] only for a request that is not held;
+//!   a held request is answered when it ends.
 //!
 //! The bracket itself enters the process-wide count of open brackets
-//! ([`kcc_app::brackets::Brackets`], owned by the change workflow), so `kcc serve` can wait
-//! for it before it exits.
+//! ([`kcc_app::brackets::Brackets`], owned by the change workflow) on every surface, so
+//! `kcc serve` can wait for it before it exits.
 
 use alloc::sync::Arc;
 use core::{
@@ -38,7 +41,7 @@ mod tests;
 
 /// A request that holds no bracket and may still be cancelled.
 const OPEN: u8 = 0;
-/// A request that armed, or is about to arm, a fail-safe timer: it runs until it ends.
+/// A request that sent, or is about to send, a write: it runs until it ends.
 const HELD: u8 = 1;
 /// A request that ended or was cancelled before it armed: it may not arm any more.
 const ENDED: u8 = 2;
@@ -147,10 +150,10 @@ pub(crate) async fn budget(request: Request, next: Next) -> Response {
     answer.await
 }
 
-/// Holds the current request for a bracket about to arm a router's fail-safe timer.
+/// Holds the current request for a write, or a bracket's arm, about to reach a router.
 ///
 /// A held request is no longer cancelled. False when the request has no owner or was
-/// already cancelled; nothing may be armed then.
+/// already cancelled; nothing may be sent then.
 pub(crate) fn hold() -> bool {
     CLAIM.try_with(|claim| claim.hold()).unwrap_or(false)
 }

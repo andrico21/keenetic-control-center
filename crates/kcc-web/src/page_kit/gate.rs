@@ -13,31 +13,15 @@ use kcc_domain::{OperationDescriptor, configuration::SafetyNet};
 
 use crate::authz::CurrentUser;
 
-/// The permissions a raw command of catalog `risk` needs on its router.
-///
-/// A read needs `Read`; a change needs `RawRci`; a management or destructive command also
-/// needs `Destructive`, because kcc arms the router's fail-safe timer around a management
-/// change.
+/// The permissions a raw command of catalog `risk` needs on its router: `Read` for a
+/// read, otherwise what [`SafetyNet::required`] asks of a `RawRci` change.
 pub(crate) fn command_permissions(risk: Risk) -> Vec<Permission> {
     match risk {
         Risk::Read => vec![Permission::Read],
-        Risk::Write => vec![Permission::RawRci],
-        Risk::Management | Risk::Destructive | _ => operation_permissions(Permission::RawRci, risk),
+        Risk::Write | Risk::Management | Risk::Destructive | _ => {
+            SafetyNet::required(Permission::RawRci, risk)
+        }
     }
-}
-
-/// The permissions a curated operation needs at `risk`: its own `permission`, and
-/// `Destructive` for a management or destructive change, because kcc arms the router's
-/// fail-safe timer around a management change.
-pub(crate) fn operation_permissions(permission: Permission, risk: Risk) -> Vec<Permission> {
-    let mut needed = vec![permission];
-    if risk == Risk::Management {
-        needed.extend_from_slice(SafetyNet::management_permissions());
-    }
-    if risk >= Risk::Destructive && permission != Permission::Destructive {
-        needed.push(Permission::Destructive);
-    }
-    needed
 }
 
 /// Whether `user` holds every one of `permissions` on `router`.
@@ -81,7 +65,7 @@ impl Controls {
             .iter()
             .filter(|operation| catalog.is_none_or(|known| operation.available(known)))
             .filter(|operation| {
-                operation_permissions(operation.permission, operation.risk)
+                SafetyNet::required(operation.permission, operation.risk)
                     .iter()
                     .all(|permission| held.contains(permission))
             })

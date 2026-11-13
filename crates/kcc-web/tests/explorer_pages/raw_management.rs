@@ -140,10 +140,11 @@ async fn raw_management_dialog_uses_recovery_wording() -> TestResult {
     Ok(())
 }
 
-/// A role without Destructive cannot mutate management settings or arm recovery.
+/// A role without Destructive sends no destructive raw command; a management one needs
+/// only its own `RawRci`.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test]
-async fn raw_management_permission_refuses_both_modes() -> TestResult {
+async fn raw_destructive_permission_refuses_both_modes() -> TestResult {
     for mode in ["router", "extender"] {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
@@ -156,32 +157,25 @@ async fn raw_management_permission_refuses_both_modes() -> TestResult {
         let browser = fixture.login("raw-writer").await?;
         drop(fixture.get("/ui/r/home/console/rci", &browser).await?);
         let before = fixture.handle().request_count();
-        let mut inputs = cases();
-        inputs.push((
-            "/ui/r/home/console/cli/send",
-            form(&[
-                ("line", "system configuration fail-safe timer reboot 300"),
-                ("confirm", "yes"),
-                ("confirm_name", "home"),
-            ]),
-        ));
-        inputs.push((
-            "/ui/r/home/console/cli/send",
-            form(&[
-                ("line", "interface WifiMaster0/AccessPoint0 schedule sample"),
-                ("confirm", "yes"),
-                ("confirm_name", "home"),
-            ]),
-        ));
+        let mut inputs: Vec<(&str, String)> = [
+            "no interface Bridge0",
+            "no service http",
+            "no ip name-server 192.0.2.53",
+        ]
+        .into_iter()
+        .map(|line| {
+            (
+                "/ui/r/home/console/cli/send",
+                form(&[("line", line), ("confirm", "yes"), ("confirm_name", "home")]),
+            )
+        })
+        .collect();
         inputs.push((
             "/ui/r/home/console/rci/send",
             form(&[
                 ("method", "POST"),
                 ("path", ""),
-                (
-                    "body",
-                    r#"{"interface":{"name":"WifiMaster0/AccessPoint0","schedule":{"schedule":"sample"}}}"#,
-                ),
+                ("body", r#"{"interface":{"name":"Bridge0","no":true}}"#),
                 ("confirm", "yes"),
                 ("confirm_name", "home"),
             ]),

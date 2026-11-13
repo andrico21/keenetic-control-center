@@ -2,12 +2,10 @@
 //!
 //! Every change runs inside a leased change set: permission and scope, one pre-change
 //! backup per window, the conflict check, the read-back the plan asks for, and the audit
-//! entry. A management change is also wrapped in the router's fail-safe timer: armed
-//! before the change, disarmed afterwards when the router still answers.
+//! entry. A management change also runs inside the router's recovery timer, through the
+//! shared safety bracket ([`kcc_domain::configuration::bracket`]): armed before the
+//! change, disarmed afterwards, and reported as still armed when the disarm failed.
 
-use core::mem;
-
-use fluent_bundle::FluentArgs;
 use kcc_app::{
     audit::{Actor, ActorKind, AuditError},
     permissions::Permission,
@@ -19,15 +17,19 @@ use kcc_app::{
 use kcc_catalog::{Catalog, HttpMethod, Risk};
 use kcc_domain::{
     DomainError, RouterCtx,
-    configuration::{MANAGEMENT_SECONDS, SafetyMode, SafetyNet, recovery},
+    configuration::{SafetyMode, bracket::guarded, recovery},
 };
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 use kcc_rci::{RciBody, RciError, RciResponse};
 use serde_json::{Value, json};
 
 use super::{
-    audit::field_names, confirm::FAIL_SAFE_MINUTES, context::Target, facts::RouterFacts,
-    failure::workflow_failure, family::Family, outcome::Failure,
+    audit::field_names, context::Target, facts::RouterFacts, failure::workflow_failure,
+    family::Family, outcome::Failure,
 };
 use crate::{authz::CurrentUser, brackets};
 
@@ -205,14 +207,29 @@ impl Applied {
 pub(crate) struct Refused {
     /// Why.
     error: Box<WorkflowError>,
-    /// Whether the fail-safe timer was left armed, so the router rolls back by itself.
-    armed: bool,
-    /// Whether application succeeded before recovery cleanup failed.
-    applied: bool,
-    /// Item refusals retained when cleanup fails after a completed batch.
-    refusals: Vec<RciError>,
-    /// Whether nothing was sent because the router's recovery mechanism is unknown.
-    mode_unknown: bool,
+    /// What the failure says beyond its workflow error.
+    said: Said,
+    /// The router's words about refused batch items, kept when the recovery timer may
+    /// still be armed after a completed batch.
+    router_said: Vec<String>,
+}
+
+/// What a refused change's failure says beyond its workflow error.
+#[derive(Clone, Copy)]
+enum Said {
+    /// Nothing more: the workflow error tells what happened.
+    Error,
+    /// The router's recovery mechanism is unknown, so nothing was sent.
+    ModeUnknown,
+    /// The request has no server owner any more, so nothing was sent.
+    Unowned,
+    /// The bracket's own outcome.
+    Bracket {
+        /// The message that states it.
+        key: MessageKey,
+        /// Whether the recovery timer may still be armed.
+        armed: bool,
+    },
 }
 
 impl Refused {
@@ -227,70 +244,70 @@ impl Refused {
 
     /// A failure with no timer armed.
     fn plain(error: WorkflowError) -> Self {
+        Self::said(error, Said::Error)
+    }
+
+    /// A failure that says `said`.
+    fn said(error: WorkflowError, said: Said) -> Self {
         Self {
             error: Box::new(error),
-            armed: false,
-            applied: false,
-            refusals: Vec::new(),
-            mode_unknown: false,
+            said,
+            router_said: Vec::new(),
         }
     }
 
-    /// The router's recovery mechanism is unknown, so nothing was sent.
-    fn mode_unknown() -> Self {
+    /// A failed bracket; `router_said` holds the router's words about refused batch
+    /// items, shown when the recovery timer may still be armed.
+    fn bracket(failure: recovery::Failure<WorkflowError>, router_said: Vec<String>) -> Self {
+        let armed = failure.is_armed();
+        let said = failure
+            .message_key()
+            .map_or(Said::Error, |key| Said::Bracket { key, armed });
         Self {
-            mode_unknown: true,
-            ..Self::plain(WorkflowError::InvalidResponse)
+            error: Box::new(failure.into_source()),
+            said,
+            router_said: if armed { router_said } else { Vec::new() },
         }
     }
 
-    /// Why the change did not complete, in `family`'s words: the router rolling back by
-    /// itself when the fail-safe timer stayed armed, else the workflow error.
+    /// Why the change did not complete, in `family`'s words: the bracket's outcome when
+    /// it decides the message, else the workflow error.
     pub(crate) fn failure(&self, family: Family, locale: Locale) -> Failure {
-        if self.mode_unknown {
-            return Failure::new(
+        match self.said {
+            Said::Error => workflow_failure(family, locale, &self.error),
+            Said::ModeUnknown => Failure::new(
                 tr(locale, keys::MANAGEMENT_MODE_UNKNOWN, None),
                 "mode_unknown",
-            );
-        }
-        if self.armed {
-            let mut args = FluentArgs::new();
-            args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-            let key = if self.applied {
-                keys::MANAGEMENT_DISARM_FAILED
-            } else if matches!(
-                *self.error,
-                WorkflowError::Rci(RciError::Transport | RciError::Timeout)
-            ) {
-                keys::WEB_EXPLORER_ARMED
-            } else {
-                keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED
-            };
-            let mut messages = Vec::new();
-            for error in &self.refusals {
-                if let RciError::Rci {
-                    message,
-                    pointer: _,
-                    code: _,
-                    ident: _,
-                } = error
-                {
-                    messages.push(message.clone());
+            ),
+            Said::Unowned => Failure::new(tr(locale, keys::WEB_BRACKET_UNOWNED, None), "failed"),
+            Said::Bracket { key, armed } => {
+                let audit = if armed {
+                    "fail_safe_armed"
+                } else {
+                    workflow_failure(family, locale, &self.error).audit()
+                };
+                let mut messages = self.router_said.clone();
+                if let WorkflowError::Rci(rci) = self.error.as_ref() {
+                    messages.extend(router_message(rci));
                 }
+                Failure::new(tr(locale, key, None), audit).with_router_said(messages)
             }
-            if let WorkflowError::Rci(RciError::Rci {
-                message,
-                pointer: _,
-                code: _,
-                ident: _,
-            }) = self.error.as_ref()
-            {
-                messages.push(message.clone());
-            }
-            return Failure::new(tr(locale, key, Some(&args)), "fail_safe_armed")
-                .with_router_said(messages);
         }
-        workflow_failure(family, locale, &self.error)
+    }
+}
+
+/// The router's own words in `error`, when it is the router's refusal.
+fn router_message(error: &RciError) -> Option<String> {
+    if let RciError::Rci {
+        message,
+        pointer: _,
+        code: _,
+        ident: _,
+    } = error
+    {
+        Some(message.clone())
+    } else {
+        None
     }
 }
 
@@ -335,58 +352,70 @@ impl<'call> Plan<'call> {
 /// Returns the workflow error and whether the fail-safe timer stays armed.
 // NOT cancel-safe: see `apply_with`.
 pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Applied, Refused> {
-    let management = match &change {
-        Change::Batch(request) if request.permission == Permission::RawRci => request
-            .items
-            .iter()
-            .any(|item| item.validated.contains_management()),
-        Change::Cli(request) if request.permission == Permission::RawRci => request
-            .commands
-            .iter()
-            .any(|command| command.validated().contains_management()),
-        Change::Delete(request) if request.permission == Permission::RawRci => plan
-            .facts
-            .catalog()
-            .validate(
-                &request.catalog_path,
-                HttpMethod::Delete,
-                request.query.expose_for_send().expose_secret(),
-            )
-            .is_ok_and(|validated| validated.contains_management()),
-        Change::Request(_) | Change::Delete(_) | Change::Batch(_) | Change::Cli(_) => false,
+    let (management, permission) = match &change {
+        Change::Batch(request) => (
+            request.permission == Permission::RawRci
+                && request
+                    .items
+                    .iter()
+                    .any(|item| item.validated.contains_management()),
+            request.permission,
+        ),
+        Change::Cli(request) => (
+            request.permission == Permission::RawRci
+                && request
+                    .commands
+                    .iter()
+                    .any(|command| command.validated().contains_management()),
+            request.permission,
+        ),
+        Change::Delete(request) => (
+            request.permission == Permission::RawRci
+                && plan
+                    .facts
+                    .catalog()
+                    .validate(
+                        &request.catalog_path,
+                        HttpMethod::Delete,
+                        request.query.expose_for_send().expose_secret(),
+                    )
+                    .is_ok_and(|validated| validated.contains_management()),
+            request.permission,
+        ),
+        Change::Request(request) => (false, request.permission),
     };
     plan.management |= management;
-    apply_with(plan, async move |changes, _context| {
+    apply_with(plan, permission, async move |changes, _context| {
         send(changes, change).await
     })
     .await
 }
 
-/// Runs `work` in a leased change set for `plan`, with the router's domain context; a
-/// management change runs inside the fail-safe timer.
+/// Runs `work` in a leased change set for `plan`, with the router's domain context.
 ///
-/// Before it arms, it holds its request (`brackets::hold`), so that nothing cancels the
-/// request until it has ended.
+/// A management change runs inside the router's recovery timer, through the shared
+/// bracket, authorized by `permission`, the permission of the change.
+///
+/// Before the first change reaches the router it holds its request (`brackets::hold`),
+/// so that neither the request budget nor a browser that leaves cancels a write the
+/// router may have received: it ends, and is audited, as if somebody still waited.
 ///
 /// # Errors
 ///
 /// Returns the workflow error and whether the fail-safe timer stays armed.
-// NOT cancel-safe before the arm: a dropped future may leave an applied ordinary change.
-// From the arm on the request is held and is not dropped before it disarms and reports.
-pub(crate) async fn apply_with<W>(plan: Plan<'_>, work: W) -> Result<Applied, Refused>
+// NOT cancel-safe until it holds its request: dropped earlier, nothing was sent. From the
+// hold on the request is not dropped before the work ends, disarms and reports.
+pub(crate) async fn apply_with<W>(
+    plan: Plan<'_>,
+    permission: Permission,
+    work: W,
+) -> Result<Applied, Refused>
 where
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Result<Applied, WorkflowError>,
 {
     let fleet = plan.target.fleet();
     let router = plan.target.router();
     fleet.workflow().audit_alive().map_err(Refused::plain)?;
-    if plan.management
-        && !super::gate::allowed(plan.user, router, SafetyNet::management_permissions())
-    {
-        return Err(Refused::plain(WorkflowError::PermissionDenied {
-            router: router.to_owned(),
-        }));
-    }
     let actor = Actor::new(ActorKind::Web, plan.user.username().to_owned());
     let mut changes = fleet
         .workflow()
@@ -399,78 +428,60 @@ where
         .await
         .map_err(|error| Refused::plain(error.into()))?;
     let context = RouterCtx::new(client, plan.facts.catalog().clone());
-    if !plan.management {
-        return work(&mut changes, &context).await.map_err(Refused::plain);
-    }
-    let mode = SafetyMode::for_change(&changes).map_err(|_unknown| Refused::mode_unknown())?;
+    let mode =
+        if plan.management {
+            Some(SafetyMode::for_change(&changes).map_err(|_unknown| {
+                Refused::said(WorkflowError::InvalidResponse, Said::ModeUnknown)
+            })?)
+        } else {
+            None
+        };
     if !brackets::hold() {
-        tracing::warn!("management change refused: its request has no server owner");
-        return Err(Refused::plain(WorkflowError::Audit(
-            AuditError::WriterUnavailable,
-        )));
+        tracing::warn!("change refused: its request has no server owner");
+        return Err(Refused::said(
+            WorkflowError::Audit(AuditError::WriterUnavailable),
+            Said::Unowned,
+        ));
     }
-    let (_open, control) = (changes.enter_bracket(), SafetyNet::CONTROL_PERMISSION);
-    let arm_result =
-        SafetyNet::arm(&mut changes, &context, mode, MANAGEMENT_SECONDS, control).await;
-    if let Err(error) = arm_result {
-        let disarm = SafetyNet::disarm(&mut changes, &context, mode, control).await;
-        return recovery::finish(Err(error), disarm).map_err(|failure| {
-            let armed = failure.is_armed();
-            Refused {
-                error: Box::new(failure.into_source()),
-                armed,
-                applied: false,
-                refusals: Vec::new(),
-                mode_unknown: false,
-            }
-        });
-    }
-    let applied = work(&mut changes, &context).await;
-    let disarm = SafetyNet::disarm(&mut changes, &context, mode, control).await;
-    let completed = applied.as_ref().is_ok_and(|value| match value {
-        Applied::Batch {
-            applied_management_changes,
-            unsaved: _,
-            persists_immediately: _,
-            persisted_paths: _,
-            responses: _,
-        } => *applied_management_changes != 0,
-        Applied::Done { unsaved: _ }
-        | Applied::Cli {
-            unsaved: _,
-            responses: _,
-        }
-        | Applied::Terminal(_) => true,
-    });
-    let mut refusals = Vec::new();
-    let completion = applied.map(|mut value| {
-        if disarm.is_err()
-            && let Applied::Batch {
-                responses,
-                applied_management_changes: _,
-                unsaved: _,
-                persists_immediately: _,
-                persisted_paths: _,
-            } = &mut value
-        {
-            refusals = mem::take(responses)
-                .into_iter()
-                .filter_map(Result::err)
-                .collect();
-        }
-        value
-    });
-    recovery::finish_applied(completion, disarm, completed).map_err(|failure| {
-        let armed = failure.is_armed();
-        let known_applied = failure.applied();
-        Refused {
-            error: Box::new(failure.into_source()),
-            armed,
-            applied: known_applied,
-            refusals,
-            mode_unknown: false,
-        }
-    })
+    let Some(safety) = mode else {
+        return work(&mut changes, &context).await.map_err(Refused::plain);
+    };
+    let mut refused_items = Vec::new();
+    let stash = &mut refused_items;
+    guarded(
+        &mut changes,
+        &context,
+        safety,
+        permission,
+        brackets::hold,
+        async move |leased, router_ctx| {
+            let applied = work(leased, router_ctx).await?;
+            let completed = match &applied {
+                Applied::Batch {
+                    applied_management_changes,
+                    unsaved: _,
+                    persists_immediately: _,
+                    persisted_paths: _,
+                    responses,
+                } => {
+                    *stash = responses
+                        .iter()
+                        .filter_map(|response| response.as_ref().err().and_then(router_message))
+                        .collect();
+                    *applied_management_changes != 0
+                }
+                Applied::Done { unsaved: _ }
+                | Applied::Cli {
+                    unsaved: _,
+                    responses: _,
+                }
+                | Applied::Terminal(_) => true,
+            };
+            Ok((applied, completed))
+        },
+    )
+    .await
+    .map_err(|failure| Refused::bracket(failure, refused_items))
 }
 
 /// Sends `change` through the change set.

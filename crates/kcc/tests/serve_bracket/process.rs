@@ -1,5 +1,5 @@
 //! One `kcc serve` process over the fake router behind the hook relay, with an
-//! administrator `alice` signed in to its Web UI.
+//! administrator `alice` signed in to its Web UI and an administrator API key for MCP.
 #![expect(
     clippy::missing_errors_doc,
     reason = "test support returns the boxed error of whatever step failed"
@@ -21,6 +21,7 @@ use std::{
 
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
+    api_keys::{create_api_key, expose_created_key},
     audit::AUDIT_FILE_NAME,
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
@@ -55,6 +56,8 @@ pub(crate) struct Served {
     base: String,
     /// `alice`, signed in.
     alice: Browser,
+    /// The administrator API key.
+    key: String,
 }
 
 impl Drop for Served {
@@ -67,11 +70,11 @@ impl Drop for Served {
 }
 
 impl Served {
-    /// Starts the server with `server_extra` in `[server]`, the relay running `hooks`
-    /// built from the audit log's path, and signs `alice` in. Returns it with its stderr
-    /// lines after `listening`.
+    /// Starts the server with `server_extra` in `[server]` and MCP over HTTP when
+    /// `mcp_http`, the relay running `hooks` built from the audit log's path, and signs
+    /// `alice` in. Returns it with its stderr lines after `listening`.
     pub(crate) async fn start<H>(
-        server_extra: &str,
+        (server_extra, mcp_http): (&str, bool),
         hooks: H,
     ) -> TestResult<(Self, mpsc::Receiver<String>)>
     where
@@ -86,7 +89,11 @@ impl Served {
         )
         .await?;
         let port = TcpListener::bind(("127.0.0.1", 0))?.local_addr()?.port();
-        let config = write_config(home, &format!("http://{relay}"), (port, server_extra))?;
+        let (config, key) = write_config(
+            home,
+            &format!("http://{relay}"),
+            (port, server_extra, mcp_http),
+        )?;
         let mut child = Command::new(env!("CARGO_BIN_EXE_kcc"))
             .args(["serve", "--config", config.to_str().ok_or("path")?])
             .env("HOME", home)
@@ -121,6 +128,7 @@ impl Served {
             http,
             base,
             alice,
+            key,
         };
         Ok((served, lines))
     }
@@ -141,6 +149,22 @@ impl Served {
                 ),
             )
             .await
+    }
+
+    /// What an MCP client needs: the HTTP client, the base URL and the API key.
+    pub(crate) fn mcp(&self) -> (Client, String, String) {
+        (self.http.clone(), self.base.clone(), self.key.clone())
+    }
+
+    /// Sends SIGTERM.
+    pub(crate) fn terminate(&self) -> TestResult {
+        let status = Command::new("kill")
+            .args(["-TERM", &self.child.id().to_string()])
+            .status()?;
+        if !status.success() {
+            return Err("kill -TERM failed".into());
+        }
+        Ok(())
     }
 
     /// The fake router.
@@ -165,8 +189,13 @@ pub(crate) fn wait_line(lines: &mpsc::Receiver<String>, needle: &str) -> TestRes
     Ok(())
 }
 
-/// Writes the state, the master key and `kcc.toml` for the router at `url`.
-fn write_config(home: &Path, url: &str, (port, extra): (u16, &str)) -> TestResult<PathBuf> {
+/// Writes the state, the master key and `kcc.toml` for the router at `url`; returns the
+/// configuration's path and the administrator API key.
+fn write_config(
+    home: &Path,
+    url: &str,
+    (port, extra, mcp_http): (u16, &str, bool),
+) -> TestResult<(PathBuf, String)> {
     let password_file = home.join("router.password");
     fs::write(&password_file, DEFAULT_PASSWORD)?;
     let state = StateStore::open(&home.join("state"))?;
@@ -181,6 +210,7 @@ fn write_config(home: &Path, url: &str, (port, extra): (u16, &str)) -> TestResul
         SecretString::from(PASSWORD),
         "admin".to_owned(),
     ))?;
+    let created = create_api_key(&state, "mcp-key".to_owned(), "admin".to_owned(), 1)?;
     let key = home.join("master.key");
     fs::write(&key, [17_u8; 32])?;
     #[cfg(unix)]
@@ -192,10 +222,10 @@ fn write_config(home: &Path, url: &str, (port, extra): (u16, &str)) -> TestResul
     fs::write(
         &config,
         format!(
-            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n{extra}\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = false\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"{url}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
+            "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n{extra}\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = {mcp_http}\nallow_destructive = true\ntoolsets = [\"core\", \"raw\"]\n\n[outbound]\nallow_loopback = true\n\n[state]\ndir = {:?}\n\n[[routers]]\nname = \"router\"\nurl = \"{url}\"\nlogin = \"admin\"\npassword_file = {:?}\n",
             state.dir().display().to_string(),
             password_file.display().to_string()
         ),
     )?;
-    Ok(config)
+    Ok((config, expose_created_key(&created).to_owned()))
 }

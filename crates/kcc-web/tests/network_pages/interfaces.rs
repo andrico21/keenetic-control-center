@@ -22,7 +22,7 @@ pub(crate) const DISABLE_BRIDGE: &str =
 #[tokio::test]
 async fn each_role_sees_the_interfaces_and_only_its_controls() -> TestResult {
     let fixture = Fixture::new().await?;
-    for (account, disables) in [("viewer", false), ("operator", false), ("admin", true)] {
+    for (account, disables) in [("viewer", false), ("operator", true), ("admin", true)] {
         let browser = fixture.login(account).await?;
         let response = fixture.get(PAGE, &browser).await?;
         assert_eq!(response.status(), StatusCode::OK, "{account}");

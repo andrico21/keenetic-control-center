@@ -72,8 +72,8 @@ fn armed_then_disarmed(fixture: &Fixture, mode: &str) -> bool {
 /// Both receipts of the bracket time out on the held lock, past the request budget.
 ///
 /// They take about 26 s each against the 30 s budget; the disarm still reaches the
-/// router, the answer is the armed outcome and, once the lock is free, the Web audit
-/// entry records `fail_safe_armed`.
+/// router, the answer is the armed outcome of an arm whose change was never sent and,
+/// once the lock is free, the Web audit entry records `fail_safe_armed`.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test(start_paused = true)]
 async fn a_held_audit_lock_does_not_cut_the_management_bracket() -> TestResult {
@@ -94,7 +94,7 @@ async fn a_held_audit_lock_does_not_cut_the_management_bracket() -> TestResult {
         );
         let body = text(response).await?;
         assert!(
-            body.contains(&en(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)),
+            body.contains(&en(keys::MANAGEMENT_NOT_SENT_ARMED)),
             "{mode}: {body}"
         );
         assert!(armed_then_disarmed(&fixture, mode), "{mode}: disarm sent");
@@ -144,7 +144,7 @@ async fn a_queued_arm_receipt_does_not_cut_the_management_bracket() -> TestResul
         );
         let body = text(management).await?;
         assert!(
-            body.contains(&en(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)),
+            body.contains(&en(keys::MANAGEMENT_NOT_SENT_ARMED)),
             "{mode}: {body}"
         );
         assert!(armed_then_disarmed(&fixture, mode), "{mode}: disarm sent");

@@ -416,7 +416,6 @@ web-explorer-router-said = Router said
 web-explorer-conflict = Another session changed the router since this page loaded. Reload and check before running the command again.
 web-explorer-failed = The command could not be run. Try again.
 web-explorer-not-found = The router does not have this resource.
-web-explorer-armed = The router stopped answering during a management change. Its fail-safe timer restores the saved configuration within { $minutes } minutes.
 web-explorer-download = Download the full response
 web-explorer-truncated = The response is larger than this page shows. Download it to see all of it.
 web-explorer-empty-response = The router returned an empty response.
@@ -1977,3 +1976,4 @@ web-refusal-missing =
     }
 web-refusal-toast = Refused: your role does not allow this on this router. Nothing was changed.
 web-migrate-nothing-to-send = Nothing to send: the target already matches.
+web-bracket-unowned = This change has to come from a page request; nothing was sent.

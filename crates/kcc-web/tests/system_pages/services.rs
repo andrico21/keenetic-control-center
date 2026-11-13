@@ -29,10 +29,10 @@ async fn management_service_stops_keep_the_web_bracket_in_both_modes() -> TestRe
             .build()?
             .with_migration(scenario);
         let fixture = Fixture::with_router(fake).await?;
-        let admin = fixture.login("admin").await?;
+        let operator = fixture.login("operator").await?;
         for name in ["http", "ssh", "telnet"] {
             let toggle = format!("{PAGE}/toggle?name={name}&on=false");
-            for role in ["operator", "writer"] {
+            for role in ["viewer"] {
                 let browser = fixture.login(role).await?;
                 let before = fixture.handle().request_log().len();
                 let denied = fixture.post(&toggle, &browser, "").await?;
@@ -47,13 +47,13 @@ async fn management_service_stops_keep_the_web_bracket_in_both_modes() -> TestRe
                     "no unauthorized mutation"
                 );
             }
-            let prompt = fixture.post(&toggle, &admin, "").await?;
+            let prompt = fixture.post(&toggle, &operator, "").await?;
             assert_eq!(
                 header_text(&prompt, "hx-retarget").as_deref(),
                 Some("#dialog-content")
             );
             let before = fixture.handle().request_log().len();
-            let response = fixture.post(&toggle, &admin, "confirm=yes").await?;
+            let response = fixture.post(&toggle, &operator, "confirm=yes").await?;
             assert_eq!(response.status(), StatusCode::OK);
             let commands = fixture
                 .handle()
@@ -135,7 +135,7 @@ async fn each_role_sees_the_services_and_only_its_switches() -> TestResult {
     let management = "hx-post=\"/ui/r/home/system/services/toggle?name=ssh&#38;on=true\"";
     for (account, plain_shown, management_shown) in [
         ("viewer", false, false),
-        ("operator", true, false),
+        ("operator", true, true),
         ("admin", true, true),
     ] {
         let browser = fixture.login(account).await?;
@@ -205,15 +205,15 @@ async fn an_ordinary_service_is_turned_on_and_read_back() -> TestResult {
 async fn ssh_asks_first_and_runs_inside_the_fail_safe_timer() -> TestResult {
     let fixture = Fixture::new().await?;
     let toggle = format!("{PAGE}/toggle?name=ssh&on=true");
-    let operator = fixture.login("operator").await?;
-    let denied = fixture.post(&toggle, &operator, "").await?;
-    assert_eq!(denied.status(), StatusCode::FORBIDDEN, "operator");
+    let viewer = fixture.login("viewer").await?;
+    let denied = fixture.post(&toggle, &viewer, "").await?;
+    assert_eq!(denied.status(), StatusCode::FORBIDDEN, "viewer");
     assert!(
         audited(&fixture, "web.system_service", "forbidden")?,
         "audited"
     );
-    let admin = fixture.login("admin").await?;
-    let asked = fixture.post(&toggle, &admin, "").await?;
+    let operator = fixture.login("operator").await?;
+    let asked = fixture.post(&toggle, &operator, "").await?;
     assert_eq!(
         header_text(&asked, "hx-retarget").as_deref(),
         Some("#dialog-content"),
@@ -225,7 +225,7 @@ async fn ssh_asks_first_and_runs_inside_the_fail_safe_timer() -> TestResult {
         "explains the timer: {prompt}"
     );
     assert!(configured(&fixture).await?.is_empty(), "nothing yet");
-    let body = text(fixture.post(&toggle, &admin, "confirm=yes").await?).await?;
+    let body = text(fixture.post(&toggle, &operator, "confirm=yes").await?).await?;
     assert!(body.contains(&en(keys::WEB_KIT_DONE_UNSAVED)), "{body}");
     assert_eq!(configured(&fixture).await?, ["ssh"], "on");
     let fail_safe = cli_targets(&fixture)?

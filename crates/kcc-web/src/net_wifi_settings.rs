@@ -14,7 +14,7 @@ use axum::{
     response::Response,
 };
 use kcc_app::permissions::Permission;
-use kcc_domain::{DomainError, wifi};
+use kcc_domain::{DomainError, configuration::SafetyNet, wifi};
 use kcc_i18n::keys;
 
 use crate::{
@@ -29,7 +29,7 @@ use crate::{
         action::Operation,
         context::fragment_shell,
         family::Family,
-        gate::{Controls, allowed, operation_permissions},
+        gate::{Controls, allowed},
         respond::Answer,
     },
 };
@@ -236,7 +236,7 @@ pub(crate) async fn toggle(
         && !allowed(
             &user,
             &router,
-            &operation_permissions(Permission::Write, plan.risk),
+            &SafetyNet::required(Permission::Write, plan.risk),
         )
     {
         action.abandon("forbidden").await;

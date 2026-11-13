@@ -35,12 +35,12 @@ fn cli_targets(fixture: &Fixture) -> TestResult<Vec<String>> {
 async fn bridge0_down_asks_then_runs_inside_the_fail_safe_timer() -> TestResult {
     let fixture = Fixture::new().await?;
     let startup = fixture.handle().startup_config_text();
-    let operator = fixture.login("operator").await?;
-    let denied = fixture.post(DOWN, &operator, "").await?;
+    let viewer = fixture.login("viewer").await?;
+    let denied = fixture.post(DOWN, &viewer, "").await?;
     assert_eq!(
         denied.status(),
         StatusCode::FORBIDDEN,
-        "a management change needs Destructive"
+        "a change needs Write"
     );
     let admin = fixture.login("admin").await?;
     drop(fixture.get("/ui/r/home/network", &admin).await?);

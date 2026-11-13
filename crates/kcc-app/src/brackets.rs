@@ -84,6 +84,8 @@ impl Drop for BracketGuard {
 mod tests {
     use core::time::Duration;
 
+    use tokio::time::Instant;
+
     use super::Brackets;
 
     /// The drain returns once the last guard is dropped and reports what is still open.
@@ -99,5 +101,15 @@ mod tests {
         let drained = tokio::spawn(async move { waiting.drain(Duration::from_secs(60)).await });
         drop(second);
         assert_eq!(drained.await.ok(), Some(0));
+    }
+
+    /// A bracket that stays open makes the drain wait its whole grace, then report it.
+    #[tokio::test(start_paused = true)]
+    async fn drain_reports_the_open_count_when_the_grace_elapses() {
+        let brackets = Brackets::default();
+        let _open = brackets.enter();
+        let started = Instant::now();
+        assert_eq!(brackets.drain(Duration::from_secs(10)).await, 1);
+        assert_eq!(started.elapsed(), Duration::from_secs(10));
     }
 }

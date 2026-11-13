@@ -16,6 +16,7 @@ use fluent_bundle::FluentArgs;
 use kcc_app::{permissions::Permission, workflow::WorkflowError};
 use kcc_domain::{
     DomainError, RouterCtx,
+    configuration::SafetyNet,
     segments::{self, SegmentError},
 };
 use kcc_i18n::{
@@ -43,7 +44,7 @@ use crate::{
         context::{self, Caller},
         failure::plan_failure,
         family::Family,
-        gate::{Controls, allowed, operation_permissions},
+        gate::{Controls, allowed},
         outcome::Outcome,
         respond::{self, Answer},
     },
@@ -232,7 +233,7 @@ pub(crate) async fn create(
     if !allowed(
         &user,
         &router,
-        &operation_permissions(Permission::Write, risk),
+        &SafetyNet::required(Permission::Write, risk),
     ) {
         opened.abandon("forbidden").await;
         return Err(

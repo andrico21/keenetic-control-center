@@ -13,7 +13,9 @@ use axum::{
 };
 use kcc_app::workflow::{ChangeSet, WorkflowError};
 use kcc_catalog::Risk;
-use kcc_domain::{DomainDescriptor, OperationDescriptor, RouterCtx, verification};
+use kcc_domain::{
+    DomainDescriptor, OperationDescriptor, RouterCtx, configuration::SafetyNet, verification,
+};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::{Value, json};
 
@@ -24,7 +26,7 @@ use super::{
     context::{self, Target, fragment_shell},
     facts::{FactsError, RouterFacts},
     family::Family,
-    gate::{allowed, operation_permissions},
+    gate::allowed,
     outcome::{Failure, Outcome},
     respond::Answer,
     stakes::Stakes,
@@ -97,7 +99,7 @@ impl Operation {
         if !allowed(
             user,
             router,
-            &operation_permissions(descriptor.permission, descriptor.risk),
+            &SafetyNet::required(descriptor.permission, descriptor.risk),
         ) {
             record.append(state, user, "forbidden").await;
             return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
@@ -232,7 +234,7 @@ impl<'call> Action<'call> {
         let Some(plan) = self.plan(risk) else {
             return self.forbidden(params).await;
         };
-        let result = change::apply_with(plan, work).await;
+        let result = change::apply_with(plan, self.descriptor.permission, work).await;
         self.finish(params, result).await
     }
 
@@ -243,7 +245,7 @@ impl<'call> Action<'call> {
         allowed(
             self.user,
             self.router(),
-            &operation_permissions(self.descriptor.permission, effective),
+            &SafetyNet::required(self.descriptor.permission, effective),
         )
         .then(|| Plan::new(self.target, &self.facts, self.user).at(effective))
     }

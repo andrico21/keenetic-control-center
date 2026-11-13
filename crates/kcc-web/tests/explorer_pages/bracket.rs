@@ -8,7 +8,6 @@
 use std::io::{self, Write as _};
 
 use axum::http::StatusCode;
-use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::json;
@@ -26,6 +25,8 @@ mod budget;
 mod management_fate;
 #[path = "bracket_mode.rs"]
 mod mode;
+#[path = "bracket_ordinary.rs"]
+mod ordinary;
 
 /// A raw role without ordinary write permission closes its management bracket.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
@@ -143,13 +144,7 @@ async fn bracket_failure_matrix_retains_recovery() -> TestResult {
                 .await?;
             assert_eq!(response.status(), StatusCode::OK);
             let body = text(response).await?;
-            let mut args = FluentArgs::new();
-            args.set("minutes", "5");
-            let unknown = if line == "no user unused" {
-                tr(Locale::En, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED, None)
-            } else {
-                tr(Locale::En, keys::WEB_EXPLORER_ARMED, Some(&args))
-            };
+            let unknown = tr(Locale::En, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED, None);
             assert_eq!(body.contains(&unknown), armed && !applied, "{mode}: {body}");
             if line == "no user unused" {
                 assert!(

@@ -1887,9 +1887,6 @@ pub const WEB_EXPLORER_FAILED: MessageKey = MessageKey::new("web-explorer-failed
 /// `web-explorer-not-found` in `web.ftl`.
 pub const WEB_EXPLORER_NOT_FOUND: MessageKey = MessageKey::new("web-explorer-not-found");
 
-/// `web-explorer-armed` in `web.ftl`.
-pub const WEB_EXPLORER_ARMED: MessageKey = MessageKey::new("web-explorer-armed");
-
 /// `web-explorer-download` in `web.ftl`.
 pub const WEB_EXPLORER_DOWNLOAD: MessageKey = MessageKey::new("web-explorer-download");
 
@@ -6676,6 +6673,9 @@ pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 /// `web-migrate-nothing-to-send` in `web.ftl`.
 pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate-nothing-to-send");
 
+/// `web-bracket-unowned` in `web.ftl`.
+pub const WEB_BRACKET_UNOWNED: MessageKey = MessageKey::new("web-bracket-unowned");
+
 /// Every message key, in catalog order.
 pub static ALL: [MessageKey; 2129] = [
     CLI_ABOUT,
@@ -7292,7 +7292,6 @@ pub static ALL: [MessageKey; 2129] = [
     WEB_EXPLORER_CONFLICT,
     WEB_EXPLORER_FAILED,
     WEB_EXPLORER_NOT_FOUND,
-    WEB_EXPLORER_ARMED,
     WEB_EXPLORER_DOWNLOAD,
     WEB_EXPLORER_TRUNCATED,
     WEB_EXPLORER_EMPTY_RESPONSE,
@@ -8807,4 +8806,5 @@ pub static ALL: [MessageKey; 2129] = [
     WEB_REFUSAL_MISSING,
     WEB_REFUSAL_TOAST,
     WEB_MIGRATE_NOTHING_TO_SEND,
+    WEB_BRACKET_UNOWNED,
 ];

@@ -416,7 +416,6 @@ web-explorer-router-said = Antwort des Routers
 web-explorer-conflict = Seit dem Laden dieser Seite hat eine andere Sitzung den Router geändert. Laden Sie neu und prüfen Sie, bevor Sie den Befehl erneut ausführen.
 web-explorer-failed = Der Befehl konnte nicht ausgeführt werden. Versuchen Sie es erneut.
 web-explorer-not-found = Der Router hat diese Ressource nicht.
-web-explorer-armed = Der Router hat während einer Änderung des Verwaltungszugangs nicht mehr geantwortet. Sein Fail-safe-Timer stellt die gespeicherte Konfiguration innerhalb von { $minutes } Minuten wieder her.
 web-explorer-download = Vollständige Antwort herunterladen
 web-explorer-truncated = Die Antwort ist größer, als diese Seite zeigt. Laden Sie sie herunter, um alles zu sehen.
 web-explorer-empty-response = Der Router hat eine leere Antwort geliefert.
@@ -1977,3 +1976,4 @@ web-refusal-missing =
     }
 web-refusal-toast = Abgelehnt: Ihre Rolle erlaubt das auf diesem Router nicht. Es wurde nichts geändert.
 web-migrate-nothing-to-send = Nichts zu senden: Das Ziel stimmt bereits überein.
+web-bracket-unowned = Diese Änderung muss aus einer Seitenanfrage kommen; es wurde nichts gesendet.

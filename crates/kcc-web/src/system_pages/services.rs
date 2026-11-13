@@ -15,7 +15,7 @@ use axum::{
 };
 use kcc_app::permissions::Permission;
 use kcc_catalog::{Catalog, Risk};
-use kcc_domain::{RouterCtx, services};
+use kcc_domain::{RouterCtx, configuration::SafetyNet, services};
 use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
@@ -27,10 +27,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::{Controls, operation_permissions},
-    },
+    page_kit::{context::fragment_shell, gate::Controls},
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
@@ -215,9 +212,8 @@ impl<'call> Viewer<'call> {
                 &self.query,
                 format!("/ui/r/{}/system/services", self.router),
             ),
-            plain: controls.permits(&operation_permissions(Permission::Write, Risk::Write)),
-            management: controls
-                .permits(&operation_permissions(Permission::Write, Risk::Management)),
+            plain: controls.permits(&SafetyNet::required(Permission::Write, Risk::Write)),
+            management: controls.permits(&SafetyNet::required(Permission::Write, Risk::Management)),
             oob: false,
         }
     }

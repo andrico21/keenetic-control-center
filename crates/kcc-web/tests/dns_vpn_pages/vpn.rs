@@ -287,7 +287,7 @@ async fn management_tunnel_changes_are_refused_or_bracketed() -> TestResult {
             } else {
                 form(&[("name", "Wireguard7"), ("confirm", "Wireguard7")])
             };
-            for account in ["operator", "writer"] {
+            for account in ["viewer"] {
                 let browser = fixture.login(account).await?;
                 let before = fixture.handle().request_log().len();
                 let response = fixture.post(&path, &browser, &body).await?;
@@ -306,10 +306,14 @@ async fn management_tunnel_changes_are_refused_or_bracketed() -> TestResult {
                     "{account} {mode} {change}"
                 );
             }
-            let admin = fixture.login("admin").await?;
+            let operator = fixture.login("operator").await?;
             let before = fixture.handle().request_log().len();
-            let response = fixture.post(&path, &admin, &body).await?;
-            assert_eq!(response.status(), StatusCode::OK, "admin {mode} {change}");
+            let response = fixture.post(&path, &operator, &body).await?;
+            assert_eq!(
+                response.status(),
+                StatusCode::OK,
+                "operator {mode} {change}"
+            );
             let commands = fixture
                 .handle()
                 .request_log()

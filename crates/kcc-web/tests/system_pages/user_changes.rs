@@ -4,7 +4,6 @@
 //! spares the account kcc signs in with, and a router refusal in the router's own words.
 
 use axum::http::StatusCode;
-use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::FaultInjection;
 
@@ -107,13 +106,11 @@ async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
         audited(&fixture, "web.router_user_create", "rci_error")?,
         "audited"
     );
-    let mut args = FluentArgs::new();
-    args.set("minutes", "5");
     assert!(
         !body.contains(&html(&tr(
             Locale::En,
-            keys::WEB_EXPLORER_ARMED,
-            Some(&args)
+            keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            None
         ))),
         "the timer was disarmed"
     );

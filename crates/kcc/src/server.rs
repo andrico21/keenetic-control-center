@@ -213,8 +213,10 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     Ok(Outcome::Ok)
 }
 
-/// Runs the local stdio MCP command.
-// cancel-safe: rmcp owns stdio framing and the service future reaches terminal cleanup.
+/// Runs the local stdio MCP command; once stdin closes it waits, at most
+/// `BRACKET_GRACE`, for tool calls still closing a router's safety bracket.
+// cancel-safe: rmcp owns stdio framing, the service future reaches terminal cleanup and the
+// bracket wait only observes the count.
 pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let (_path, config, _tracing_guard) = load_config(config_path)?;
     if !config.mcp.stdio_enabled {
@@ -224,7 +226,9 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     let state = StateStore::open(&config.state.resolved_dir().map_err(error)?).map_err(error)?;
     let services = Services::open(&config, state, ServicesMode::Stdio).await?;
     let handler = services.handler(&config, true)?;
-    serve_stdio(handler).await.map_err(error)?;
+    let served = serve_stdio(handler).await.map_err(error);
+    crate::server_shutdown::wait_for_brackets(services.workflow.brackets()).await;
+    served?;
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
     tracing::info!(
         cancelled = drain.cancelled,

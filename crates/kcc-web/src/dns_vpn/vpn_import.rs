@@ -20,7 +20,7 @@ use axum::{
     response::Response,
 };
 use kcc_app::permissions::Permission;
-use kcc_domain::vpn_clients;
+use kcc_domain::{configuration::SafetyNet, vpn_clients};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
@@ -38,13 +38,8 @@ use crate::{
     authz::CurrentUser,
     errors,
     page_kit::{
-        action::Operation,
-        change::Change,
-        context::fragment_shell,
-        failure::plan_failure,
-        family::Family,
-        gate::{allowed, operation_permissions},
-        respond::Answer,
+        action::Operation, change::Change, context::fragment_shell, failure::plan_failure,
+        family::Family, gate::allowed, respond::Answer,
     },
     secret_pages::reply::confirmed,
 };
@@ -144,7 +139,7 @@ pub(crate) async fn import(
     if !allowed(
         &user,
         &router,
-        &operation_permissions(Permission::Write, risk),
+        &SafetyNet::required(Permission::Write, risk),
     ) {
         action.abandon("forbidden").await;
         return Err(errors::response(errors::Kind::Forbidden, fragment_shell(locale)).into());

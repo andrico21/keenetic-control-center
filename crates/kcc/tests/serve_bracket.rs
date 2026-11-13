@@ -1,9 +1,9 @@
-//! `kcc serve` finishes a Web management bracket when the audit writer dies inside it.
+//! `kcc serve` finishes every open management bracket before it exits.
 //!
-//! The arm reaches the router, then the audit log turns read-only, so the arm receipt is
-//! a fatal writer failure and the server must exit non-zero. It must not exit first: the
-//! request still sends the disarm and the browser still gets the outcome (F3 round 17
-//! N73, F4 N75).
+//! A Web bracket whose arm receipt kills the audit writer still sends the disarm and the
+//! browser still gets the outcome before the server exits non-zero; a bracket that
+//! outlives the listener's drain, on the Web or over MCP, keeps the process alive until
+//! it has disarmed.
 #![cfg(unix)]
 #![expect(
     clippy::integer_division_remainder_used,
@@ -14,6 +14,8 @@
     reason = "integration tests drive the built process; tokio::select expands to `%`"
 )]
 
+#[path = "serve_bracket/mcp.rs"]
+mod mcp;
 #[path = "serve_bracket/process.rs"]
 mod process;
 #[path = "serve_bracket/proxy.rs"]
@@ -30,7 +32,7 @@ mod web;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::time::Duration;
+use core::{error::Error, time::Duration};
 use std::{fs, os::unix::fs::PermissionsExt as _, path::PathBuf};
 
 use kcc_app::audit::verify_chain;
@@ -39,6 +41,7 @@ use reqwest::StatusCode;
 use tokio::{
     sync::Notify,
     task::{block_in_place, spawn_blocking},
+    time::timeout,
 };
 
 use crate::{
@@ -85,7 +88,8 @@ fn disarmed(served: &Served) -> bool {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn a_dead_audit_writer_waits_for_the_web_bracket_to_close() -> TestResult {
-    let (mut served, _lines) = Served::start("", |audit| vec![(ARM, freeze(audit))]).await?;
+    let (mut served, _lines) =
+        Served::start(("", false), |audit| vec![(ARM, freeze(audit))]).await?;
 
     let answered = served.management_change().await;
     let status =
@@ -101,7 +105,7 @@ async fn a_dead_audit_writer_waits_for_the_web_bracket_to_close() -> TestResult 
     assert!(
         body.contains(&html(&tr(
             Locale::En,
-            keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            keys::MANAGEMENT_NOT_SENT_ARMED,
             None
         ))),
         "{body}"
@@ -130,7 +134,7 @@ async fn a_bracket_outliving_the_drain_disarms_before_exit() -> TestResult {
     let released = Arc::new(Notify::new());
     let gate = Arc::clone(&released);
     let hold: Action = Box::new(move || Box::pin(async move { gate.notified().await }));
-    let (mut served, lines) = Served::start("shutdown_timeout = \"1s\"\n", |audit| {
+    let (mut served, lines) = Served::start(("shutdown_timeout = \"1s\"\n", false), |audit| {
         vec![(ARM, freeze(audit)), (DISARM.as_bytes(), hold)]
     })
     .await?;
@@ -158,5 +162,51 @@ async fn a_bracket_outliving_the_drain_disarms_before_exit() -> TestResult {
         "the router's timer is off"
     );
     assert_eq!(status.code(), Some(1_i32));
+    Ok(())
+}
+
+/// An MCP management change whose disarm the relay holds back keeps a SIGTERM'd server,
+/// past its listener's drain (`shutdown_timeout = "1s"`), alive until the router has the
+/// disarm.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn an_mcp_bracket_disarms_before_a_terminated_server_exits() -> TestResult {
+    let (reached, released) = (Arc::new(Notify::new()), Arc::new(Notify::new()));
+    let (at_disarm, gate) = (Arc::clone(&reached), Arc::clone(&released));
+    let hold: Action = Box::new(move || {
+        Box::pin(async move {
+            at_disarm.notify_one();
+            gate.notified().await;
+        })
+    });
+    let (mut served, _lines) = Served::start(("shutdown_timeout = \"1s\"\n", true), |_audit| {
+        vec![(DISARM.as_bytes(), hold)]
+    })
+    .await?;
+    let (client, base, key) = served.mcp();
+    let mut call = tokio::spawn(async move {
+        let response = mcp::cli_parse(&client, (&base, &key), "no interface Bridge0").await?;
+        Ok::<_, Box<dyn Error + Send + Sync>>(response.text().await?)
+    });
+    timeout(PROCESS_TIMEOUT, async {
+        tokio::select! {
+            () = reached.notified() => Ok(()),
+            answered = &mut call => Err(format!("answered before the disarm: {answered:?}")),
+        }
+    })
+    .await??;
+
+    served.terminate()?;
+    let early = block_in_place(|| served.exit_within(Duration::from_secs(3)))?;
+    assert_eq!(early, None, "still running while the bracket is open");
+    released.notify_one();
+    let exited = block_in_place(|| served.exit_within(PROCESS_TIMEOUT))?;
+    call.abort();
+
+    assert!(exited.is_some(), "kcc serve exited");
+    assert!(disarmed(&served), "the disarm reached the router");
+    assert!(
+        !served.router().recovery_armed(),
+        "the router's timer is off"
+    );
     Ok(())
 }

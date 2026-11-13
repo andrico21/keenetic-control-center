@@ -38,14 +38,16 @@ contended append and does not terminate the writer.
 
 Before it exits on a dead audit writer, `kcc serve` shuts its listener down the way
 SIGTERM does: it stops accepting connections and lets the requests in flight finish and
-answer, within `server.shutdown_timeout` (30 s by default). A Web request that has armed
-a router's fail-safe timer is never cut by the 30-second request budget, a closed
-browser connection or this shutdown: it still disarms the timer and reports, or reports
-that the timer stays armed. After the listener has stopped, on either path, the server
-waits up to 10 more seconds for such requests and logs `Web requests still closing a
-router fail-safe bracket at exit` with their number if any remain; their routers then
-roll back on their own timers. Keep the Quadlet `StopTimeout` (40 s as shipped) at least
-`server.shutdown_timeout` plus these 10 seconds.
+answer, within `server.shutdown_timeout` (30 s by default). A Web request that has sent
+a write to a router is never cut by the 30-second request budget or a closed browser
+connection: it ends and is audited. A request on any surface (Web UI, MCP over HTTP or
+stdio) that has armed a router's fail-safe timer is not cut by this shutdown either: it
+still disarms the timer and reports, or reports that the timer stays armed. After the
+listener has stopped, on either path, `kcc serve` waits up to 10 more seconds for such
+requests, as `kcc mcp stdio` does once its input closes, and logs `requests still
+closing a router fail-safe bracket at exit` with their number if any remain; their
+routers then roll back on their own timers. Keep the Quadlet `StopTimeout` (40 s as
+shipped) at least `server.shutdown_timeout` plus these 10 seconds.
 
 Example scrape job:
 

@@ -205,12 +205,6 @@ impl SafetyNet {
         Self::CONTROL_PERMISSION,
     ];
 
-    /// Permissions required to open and close a management bracket without saving.
-    #[must_use]
-    pub const fn management_permissions() -> &'static [Permission] {
-        &[Self::CONTROL_PERMISSION]
-    }
-
     /// Permissions required before an apply may contact any router.
     #[must_use]
     pub const fn apply_permissions() -> &'static [Permission] {

@@ -5,6 +5,7 @@ use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
 use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, DomainError, Result as DomainResult, RouterCtx,
+    configuration::SafetyNet,
     vpn_clients::{self, VpnClientChange},
     vpn_servers::{self, VpnServerChange},
 };
@@ -15,10 +16,7 @@ use super::{
     form::{Errors, Values},
     vpn_forms::{Server, VpnForm},
 };
-use crate::{
-    authz::CurrentUser,
-    page_kit::gate::{allowed, operation_permissions},
-};
+use crate::{authz::CurrentUser, page_kit::gate::allowed};
 
 /// Checked VPN changes, ready to plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -87,7 +85,7 @@ impl PlannedRequest {
         allowed(
             user,
             router,
-            &operation_permissions(Permission::Write, self.risk),
+            &SafetyNet::required(Permission::Write, self.risk),
         )
     }
 }

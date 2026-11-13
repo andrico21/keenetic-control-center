@@ -77,7 +77,7 @@ async fn management_access_point_disable_is_refused_or_bracketed() -> TestResult
                 .with_migration(scenario),
         )
         .await?;
-        for account in ["operator", "writer"] {
+        for account in ["viewer"] {
             let browser = fixture.login(account).await?;
             let before = fixture.handle().request_log().len();
             let response = fixture
@@ -98,16 +98,16 @@ async fn management_access_point_disable_is_refused_or_bracketed() -> TestResult
                 "{account} {mode}"
             );
         }
-        let admin = fixture.login("admin").await?;
+        let operator = fixture.login("operator").await?;
         let before = fixture.handle().request_log().len();
         let response = fixture
             .post(
                 "/ui/r/home/wifi/toggle?name=WifiMaster0%2FAccessPoint0&setting=enabled&value=no",
-                &admin,
+                &operator,
                 &form(&[("confirm", "yes"), ("confirm_name", "home")]),
             )
             .await?;
-        assert_eq!(response.status(), StatusCode::OK, "admin {mode}");
+        assert_eq!(response.status(), StatusCode::OK, "operator {mode}");
         let commands = fixture
             .handle()
             .request_log()

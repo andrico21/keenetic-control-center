@@ -12,7 +12,7 @@ use axum::{
     response::Response,
 };
 use kcc_app::permissions::Permission;
-use kcc_domain::services;
+use kcc_domain::{configuration::SafetyNet, services};
 
 use super::{
     services::{Viewer, known},
@@ -27,7 +27,7 @@ use crate::{
         confirm::{Confirmation, Resubmit},
         failure::plan_failure,
         family::Family,
-        gate::{allowed, operation_permissions},
+        gate::allowed,
         outcome::Outcome,
         respond::Answer,
     },
@@ -74,7 +74,7 @@ pub(crate) async fn toggle(
     if !allowed(
         &user,
         &router,
-        &operation_permissions(Permission::Write, risk),
+        &SafetyNet::required(Permission::Write, risk),
     ) {
         action.abandon("forbidden").await;
         return Err(forbidden(locale));
