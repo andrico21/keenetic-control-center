@@ -364,6 +364,31 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         expect_invalid(&ROUTER.replace("\"home\"", "\"../x\""), "routers.name")
     }
 
+    /// Router names must follow the registry rule: 1-32 characters, lowercase letters, digits and `-`.
+    /// Uppercase letters (e.g., `Home.1`) are rejected. Names over 32 characters are rejected.
+    #[test]
+    fn router_name_must_follow_registry_rule() -> TestResult {
+        // Uppercase is not allowed in router names (registry rule is [a-z0-9-] only).
+        expect_invalid(&ROUTER.replace("\"home\"", "\"Home.1\""), "routers.name")?;
+        // 40-character name exceeds the 32-character limit.
+        expect_invalid(
+            &ROUTER.replace("\"home\"", "\"this-is-a-very-long-router-name-of-40x\""),
+            "routers.name",
+        )?;
+        // A valid lowercase hyphenated name passes.
+        let config = Config::from_toml_str(&ROUTER.replace("\"home\"", "\"home-1\""))?;
+        config.validate()?;
+        Ok(())
+    }
+
+    /// `logs.routers` entries must use the same router-name rule as the registry.
+    #[test]
+    fn logs_routers_must_follow_registry_rule() -> TestResult {
+        let config_with_bad_log_router = format!("{ROUTER}\n[logs]\nrouters = [\"Home.1\"]");
+        expect_invalid(&config_with_bad_log_router, "logs.routers")?;
+        Ok(())
+    }
+
     /// `[metrics]` defaults are off, loopback, pseudonymous and within the IS-13 floors;
     /// every unsafe or overloading value is refused naming its field.
     #[test]

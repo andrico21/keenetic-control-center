@@ -155,7 +155,7 @@ queue_max = 10000
 # Config-defined router profiles (default: none; read-only in the UI). Routers
 # added with `kcc router add` live in the state directory instead.
 # [[routers]]
-# name = "home"
+# name = "home"                        # 1-32 characters of [a-z0-9-]
 # url = "https://192.168.1.1"
 # login = "admin"
 # password_file = "/etc/kcc/home.pw"   # or token_file with auth = "token"

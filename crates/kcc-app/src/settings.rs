@@ -511,7 +511,11 @@ impl LogsConfig {
         if self.poll_interval < LOG_POLL_MIN_INTERVAL {
             return Err(invalid("logs.poll_interval", "must be at least 5s"));
         }
-        if self.routers.iter().any(|router| !is_valid_name(router)) {
+        if self
+            .routers
+            .iter()
+            .any(|router| !is_valid_router_id(router))
+        {
             return Err(invalid(
                 "logs.routers",
                 "every router must be a valid profile id",
@@ -990,10 +994,10 @@ impl RouterProfile {
     /// [`ConfigError::Invalid`] naming the field.
     fn validate(&self) -> Result<(), ConfigError> {
         let field = |key: &str| format!("routers.{}.{key}", self.name);
-        if !is_valid_name(&self.name) {
+        if !is_valid_router_id(&self.name) {
             return Err(invalid(
                 "routers.name",
-                "must be 1..=64 characters of [A-Za-z0-9._-] not starting with '.'",
+                "must be 1-32 characters of [a-z0-9-]",
             ));
         }
         if !matches!(self.url.scheme(), "http" | "https") {
@@ -1106,6 +1110,15 @@ pub(crate) fn is_valid_name(name: &str) -> bool {
         && name
             .bytes()
             .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
+}
+
+/// Whether `id` is a valid router identifier.
+/// Rule: 1-32 bytes, lowercase letters, digits and `-`.
+pub(crate) fn is_valid_router_id(id: &str) -> bool {
+    (1..=32).contains(&id.len())
+        && id
+            .bytes()
+            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
 }
 
 /// Builds a [`ConfigError::Invalid`].

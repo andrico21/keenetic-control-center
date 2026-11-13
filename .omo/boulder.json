@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "active_work_id": "keenetic-control-center-b590fef9",
+  "active_work_id": "kcc-review-remediation-65541527",
   "works": {
     "keenetic-control-center-d60645fa": {
       "work_id": "keenetic-control-center-d60645fa",
@@ -73,6 +73,22 @@
       },
       "ended_at": "2026-11-06T01:24:30.370Z",
       "elapsed_ms": 31579949
+    },
+    "kcc-review-remediation-65541527": {
+      "work_id": "kcc-review-remediation-65541527",
+      "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-review-remediation.md",
+      "plan_name": "kcc-review-remediation",
+      "status": "active",
+      "started_at": "2026-11-13T11:05:25.000Z",
+      "updated_at": "2026-11-13T11:05:25.000Z",
+      "session_ids": [
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
+      ],
+      "session_origins": {
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
+      },
+      "agent": "atlas",
+      "task_sessions": {}
     }
   },
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",

@@ -246,7 +246,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app): honor web.login_max_failures for account lockout
   Recommended task executor category: quick - one builder field read in one function
 
-- [ ] 5. Config validation uses the same router-name rule as the registry
+- [x] 5. Config validation uses the same router-name rule as the registry
   What to do / Must NOT do: TDD. Make one `pub(crate) fn is_valid_router_id(id: &str) -> bool` (the rule of `crates/kcc-app/src/registry.rs:936-941`: 1-32 bytes, `[a-z0-9-]`) and use it at `registry.rs:95`, `crates/kcc-app/src/settings.rs:514` (`logs.routers`) and `settings.rs:993` (`RouterProfile::validate` name). Keep `is_valid_name` (`settings.rs:1103-1109`) for file-name components (`crates/kcc-app/src/persist.rs:650`). Update the `[[routers]] name` row of `docs/CONFIG.md` and the comment in `kcc.example.toml` to state the rule. Must NOT: loosen the registry rule.
   Closes: GAP-6
   Parallelization: Wave W1 | Blocked by: - | Blocks: 9, 19 | Can parallelize with: 7, 1, 2, 3, 4, 6

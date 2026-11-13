@@ -206,7 +206,7 @@ with `kcc router add` or the Web UI, which live in the state directory.
 
 | Key | Type | Default | Meaning |
 |---|---|---|---|
-| `name` | string | required | profile id, 1 to 64 of `A-Z a-z 0-9 . _ -` |
+| `name` | string | required | profile id, 1 to 32 of `a-z 0-9 -` |
 | `url` | URL | required | router base URL, `http` or `https` |
 | `login` | string | unset | login name; required unless `auth = "token"` |
 | `password_file` | path | unset | file holding the password |

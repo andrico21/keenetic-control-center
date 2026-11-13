@@ -40,7 +40,7 @@ use crate::{
     credentials::{CredentialError, CredentialStore},
     permissions::{Permission, Role},
     persist::{Migration, StateDoc, StateError, StateStore, write_atomic},
-    settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls},
+    settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls, is_valid_router_id},
 };
 
 /// A state-backed router profile with optional read-only polling credentials.
@@ -92,7 +92,7 @@ impl ManagedRouterProfile {
     ///
     /// Returns [`RegistryError::InvalidProfile`] for invalid ids, URLs, or credential pairs.
     pub fn validate(&self) -> Result<(), RegistryError> {
-        if !valid_router_id(&self.id) {
+        if !is_valid_router_id(&self.id) {
             return Err(RegistryError::InvalidProfile {
                 reason: "id must match [a-z0-9-]{1,32}".to_owned(),
             });
@@ -930,12 +930,4 @@ pub(crate) fn glob_matches(pattern: &str, value: &str) -> bool {
         }
     }
     true
-}
-
-/// Slug validation for router ids.
-fn valid_router_id(id: &str) -> bool {
-    (1..=32).contains(&id.len())
-        && id
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
 }
