@@ -34,7 +34,7 @@ use crate::{
     errors,
     migrate_wizard::{
         access::Services,
-        names::{interface_kind, valid_name},
+        names::{interface_kind, is_switch_port, valid_name},
         service::Wizards,
     },
     page::{Localize, Shell},
@@ -282,7 +282,8 @@ where
         } else {
             typed
         };
-        let wrong = if !valid_name(&row.value) {
+        let kept_port = is_switch_port(&row.source) && row.value == row.source;
+        let wrong = if !kept_port && !valid_name(&row.value) {
             Some(Wrong::Name)
         } else if other_kind(&row.source, &row.value) {
             Some(Wrong::Kind)

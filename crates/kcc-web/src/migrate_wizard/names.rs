@@ -32,7 +32,7 @@ pub(super) fn is_port(name: &str, ports: &[PhysicalPort]) -> bool {
 
 /// Whether a configured `name` is a switch port by its number, as in
 /// `interface 1 switchport trunk vlan 5`: a port, never a typed interface name.
-pub(super) fn is_switch_port(name: &str) -> bool {
+pub(crate) fn is_switch_port(name: &str) -> bool {
     !name.is_empty() && name.bytes().all(|byte| byte.is_ascii_digit())
 }
 

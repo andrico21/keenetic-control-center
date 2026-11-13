@@ -484,7 +484,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(migrate,web): decide bridge membership after support and exclusions
   Recommended task executor category: deep-low - planner ordering bug settled by reading the planner
 
-- [ ] 28. Preset options handle numeric switch-port sources
+- [x] 28. Preset options handle numeric switch-port sources
   What to do / Must NOT do: TDD-or-confirm. `crates/kcc-web/src/presets_page/options.rs` uses the interface `valid_name` for interface rows; check it with a source containing `interface 1 ...` switch-port lines (the row-138 treatment exists in the migration wizard: grep `row 138`/port rows in `crates/kcc-web/src/migrate_wizard/`). If the pre-fill or validator rejects or mangles the numeric port, apply the same port-row treatment; if it already works, add the test that proves it. Must NOT: change interface-row validation for named interfaces.
   Closes: GAP-15
   Parallelization: Wave W4 | Blocked by: - | Blocks: 37, 45 | Can parallelize with: 21, 22, 23, 24, 25, 26, 29, 52, 53
