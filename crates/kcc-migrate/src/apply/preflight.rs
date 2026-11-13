@@ -17,7 +17,7 @@ use secrecy::ExposeSecret as _;
 
 use super::{
     Applier, ApplyError, ApplyReport, ApplyRequest, ApplySource, agreements, agreements::audit,
-    bootstrap, command, components, drift,
+    bootstrap, command, components, drift, settle::Stop,
 };
 use crate::source::SourceConfig;
 
@@ -88,13 +88,19 @@ pub(super) async fn prepare(request: ApplyRequest) -> Result<Applier, ApplyError
         .map_err(|_unknown| ApplyError::ModeUnknown)?;
     let ctx = RouterCtx::new(Arc::clone(&original), catalog);
     bootstrap::initialize(&request, &mut changes, &ctx).await?;
-    drop(
-        SafetyNet::arm(&mut changes, &ctx, mode, request.options.safety_seconds)
-            .await
-            .map_err(|_error| ApplyError::Workflow)?,
-    );
-    initialize(&request, &mut changes, agreements).await?;
-    components::install(&request, &mut changes, &ctx).await?;
+    if SafetyNet::arm(&mut changes, &ctx, mode, request.options.safety_seconds)
+        .await
+        .is_err()
+    {
+        return Err(Stop::unconfirmed_arm(&mut changes, &ctx, mode).await);
+    }
+    let prepared = match initialize(&request, &mut changes, agreements).await {
+        Ok(()) => components::install(&request, &mut changes, &ctx).await,
+        Err(error) => Err(Stop::Armed(error)),
+    };
+    if let Err(stop) = prepared {
+        return Err(stop.settle(&mut changes, &ctx, mode).await);
+    }
     let armed_at = request.options.clock.now();
     let credential = request
         .options

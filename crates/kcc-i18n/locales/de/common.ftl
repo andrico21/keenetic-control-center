@@ -48,3 +48,5 @@ management-disarm-failed = Die Änderung der Verwaltungseinstellungen wurde ange
 management-outcome-unknown-armed = Es ist unklar, ob die Änderung der Verwaltungseinstellungen angewendet wurde. Der Wiederherstellungstimer bleibt aktiv und wird die gespeicherte Konfiguration wiederherstellen und alle ungespeicherten Änderungen verwerfen.
 
 management-mode-unknown = kcc kann nicht erkennen, wie sich dieser Router nach einem Verbindungsverlust wiederherstellen würde: Er meldet weder einen verwendbaren Betriebsmodus noch einen Fail-safe-Timer. Es wurde nichts gesendet.
+
+management-not-sent-armed = Es wurde nichts geändert, aber der Router zählt möglicherweise noch bis zu einem Rollback oder Neustart herunter. Prüfen Sie den Wiederherstellungstimer, bevor Sie es erneut versuchen.

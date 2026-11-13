@@ -152,6 +152,8 @@ pub(crate) fn failure_name(failure: ApplyError) -> String {
 pub(super) fn failure_text(name: &str) -> MessageKey {
     match name {
         "DisarmFailed" => keys::MANAGEMENT_DISARM_FAILED,
+        "FinishFailed" => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+        "ArmUnconfirmed" => keys::MANAGEMENT_NOT_SENT_ARMED,
         "ReplanRequired" => keys::WEB_MIGRATE_FAILURE_REPLAN,
         "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,
         "ModeUnknown" => keys::MANAGEMENT_MODE_UNKNOWN,

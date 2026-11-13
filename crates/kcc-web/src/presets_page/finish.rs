@@ -144,6 +144,7 @@ pub(super) async fn finish(
         let key = match (choice, error) {
             (_, ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
             (_, ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            (_, ApplyError::ArmUnconfirmed) => keys::MANAGEMENT_NOT_SENT_ARMED,
             (_, ApplyError::CommittedSaveFailed) => keys::MIGRATE_COMMITTED_NOT_SAVED,
             (_, ApplyError::RollbackRestarting) => keys::MIGRATE_ROLLBACK_SAVED,
             _ => failure_text(&failure_name(error)),

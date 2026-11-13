@@ -185,6 +185,10 @@ minutes per transition to reach the router again.
 - kcc arms the target's fail-safe timer (900 s by default, 300 to 3600) before the
   first migrated line and renews it while it works. A factory-fresh target gets its
   admin password first.
+- If a step before the first migrated line fails (accepting an agreement, installing a
+  component), kcc disarms the timer again; when it can't confirm the disarm, it reports
+  that the timer may still be armed. Installing components reboots the target onto its
+  saved configuration, which clears the timer, and the run ends asking for a fresh plan.
 - Lines are sent one at a time, so a critical rejection stops the run before later
   lines execute.
 - On failure, or Stop, kcc rolls back. If kcc stops or loses the router, the timer

@@ -46,6 +46,9 @@ pub(crate) struct ApplyInput {
 pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
     match error {
         ApplyError::DisarmFailed => McpFailure::ManagementAppliedFailSafeArmed,
+        ApplyError::FinishFailed | ApplyError::ArmUnconfirmed => {
+            McpFailure::ManagementOutcomeUnknownFailSafeArmed
+        }
         ApplyError::CommittedSaveFailed => McpFailure::ManagementAppliedNotSaved,
         ApplyError::UnverifiedFirmwareTier => McpFailure::UnverifiedFirmwareTier,
         ApplyError::ModeUnknown => McpFailure::RouterModeUnknown,

@@ -103,6 +103,8 @@ pub(super) fn end_words(ended: Option<&Ended>, locale: Locale) -> (&'static str,
 pub(super) fn failure_text(name: &str) -> MessageKey {
     match name {
         "DisarmFailed" => keys::MANAGEMENT_DISARM_FAILED,
+        "FinishFailed" => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+        "ArmUnconfirmed" => keys::MANAGEMENT_NOT_SENT_ARMED,
         "CommittedSaveFailed" => keys::MIGRATE_COMMITTED_NOT_SAVED,
         "RollbackRestarting" => keys::MIGRATE_ROLLBACK_SAVED,
         "UnverifiedFirmwareTier" => keys::MIGRATE_APPLY_TIER,

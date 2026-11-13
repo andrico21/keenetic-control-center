@@ -51,6 +51,13 @@ The first release, `0.1.0`, is in preparation and contains:
   rule, so a router that reports no system mode (KeeneticOS 4.3 and 5.0) is protected
   by the fail-safe timer on the CLI and MCP too, instead of a scheduled reboot.
 
+- **Migration failure name `ArmUnconfirmed`**: a migration or preset run whose recovery
+  arm could not be confirmed and whose cleanup was refused reports this name (Web run
+  state) and the MCP code `management_outcome_unknown_fail_safe_armed`: nothing was
+  sent, but the timer may be armed. A run that fails after arming now disarms the timer
+  or reports `FinishFailed` (MCP `management_outcome_unknown_fail_safe_armed`), and a
+  component install ends with `ReplanRequired` and no timer armed.
+
 ### Fixed
 
 - `[[routers]] auth` now selects the sign-in scheme (`ndw2`, `ndw4`, `digest`,

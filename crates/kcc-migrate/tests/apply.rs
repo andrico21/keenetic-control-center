@@ -4,6 +4,8 @@ extern crate alloc;
 #[path = "support/apply_offline.rs"]
 mod offline;
 
+#[path = "support/apply_armed.rs"]
+mod armed;
 #[path = "support/apply_lifecycle.rs"]
 mod lifecycle;
 #[path = "support/apply_policy.rs"]

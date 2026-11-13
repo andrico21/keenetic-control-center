@@ -432,6 +432,9 @@ pub const MANAGEMENT_OUTCOME_UNKNOWN_ARMED: MessageKey =
 /// `management-mode-unknown` in `common.ftl`.
 pub const MANAGEMENT_MODE_UNKNOWN: MessageKey = MessageKey::new("management-mode-unknown");
 
+/// `management-not-sent-armed` in `common.ftl`.
+pub const MANAGEMENT_NOT_SENT_ARMED: MessageKey = MessageKey::new("management-not-sent-armed");
+
 /// `domains-system` in `domains.ftl`.
 pub const DOMAINS_SYSTEM: MessageKey = MessageKey::new("domains-system");
 
@@ -6668,7 +6671,7 @@ pub const WEB_REFUSAL_TOAST: MessageKey = MessageKey::new("web-refusal-toast");
 pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate-nothing-to-send");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2126] = [
+pub static ALL: [MessageKey; 2127] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6811,6 +6814,7 @@ pub static ALL: [MessageKey; 2126] = [
     MANAGEMENT_DISARM_FAILED,
     MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
     MANAGEMENT_MODE_UNKNOWN,
+    MANAGEMENT_NOT_SENT_ARMED,
     DOMAINS_SYSTEM,
     DOMAINS_UPTIME,
     DOMAINS_FIRMWARE,

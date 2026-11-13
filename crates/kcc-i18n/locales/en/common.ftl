@@ -48,3 +48,5 @@ management-disarm-failed = The management change was applied, but its recovery t
 management-outcome-unknown-armed = The management change may or may not have been applied. Its recovery timer stays armed and will restore the saved configuration, discarding all unsaved changes.
 
 management-mode-unknown = kcc can't tell how this router would recover from a lost connection: it reports no usable system mode and no fail-safe timer. Nothing was sent.
+
+management-not-sent-armed = Nothing was changed, but the router may still be counting down to a rollback or reboot. Check the recovery timer before trying again.

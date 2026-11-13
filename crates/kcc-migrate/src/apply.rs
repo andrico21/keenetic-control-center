@@ -22,6 +22,7 @@ mod normalize;
 mod preflight;
 mod raw;
 mod reconnect;
+mod settle;
 mod types;
 mod verify;
 

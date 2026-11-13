@@ -128,6 +128,9 @@ pub(crate) fn apply_failure(error: ApplyError) -> Failure {
         ApplyError::FinishFailed => {
             return Failure::headline_only(Exit::Router, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED);
         }
+        ApplyError::ArmUnconfirmed => {
+            return Failure::headline_only(Exit::Router, keys::MANAGEMENT_NOT_SENT_ARMED);
+        }
         ApplyError::CommittedSaveFailed => {
             return Failure::headline_only(Exit::Router, keys::MIGRATE_COMMITTED_NOT_SAVED);
         }

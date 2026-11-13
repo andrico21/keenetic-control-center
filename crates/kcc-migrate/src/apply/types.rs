@@ -248,6 +248,7 @@ impl ApplyReport {
             Some(ApplyError::SavedDisarmFailed) => keys::FINISH_SAVED_ARMED,
             Some(ApplyError::DisarmFailed) => keys::MANAGEMENT_DISARM_FAILED,
             Some(ApplyError::FinishFailed) => keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
+            Some(ApplyError::ArmUnconfirmed) => keys::MANAGEMENT_NOT_SENT_ARMED,
             Some(ApplyError::RollbackRestarting) => keys::MIGRATE_ROLLBACK_SAVED,
             Some(ApplyError::CommittedSaveFailed) => keys::MIGRATE_COMMITTED_NOT_SAVED,
             Some(ApplyError::ModeUnknown) => keys::MANAGEMENT_MODE_UNKNOWN,
@@ -307,6 +308,9 @@ pub enum ApplyError {
     /// Configuration was saved, but recovery disarm could not be confirmed.
     #[error("migration configuration saved; recovery timer remains armed")]
     SavedDisarmFailed,
+    /// Arming was not confirmed and its cleanup failed: nothing was sent, but recovery may be armed.
+    #[error("the change was not sent; the recovery timer may be armed")]
+    ArmUnconfirmed,
     /// Closing could not be confirmed, so recovery must still be treated as armed.
     #[error("migration closing outcome unknown; recovery timer remains armed")]
     FinishFailed,
@@ -349,7 +353,10 @@ impl ApplyError {
     pub const fn recovery_armed(self) -> bool {
         matches!(
             self,
-            Self::FinishFailed | Self::DisarmFailed | Self::SavedDisarmFailed
+            Self::FinishFailed
+                | Self::ArmUnconfirmed
+                | Self::DisarmFailed
+                | Self::SavedDisarmFailed
         )
     }
 }

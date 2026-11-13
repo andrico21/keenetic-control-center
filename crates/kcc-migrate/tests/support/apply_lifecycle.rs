@@ -66,6 +66,22 @@ mod tests {
                 .contains("wireguard")
         );
         assert!(!fixture.handle.running_config_text().contains("migrated-1"));
+        assert!(!fixture.handle.recovery_armed());
+        let commands = fixture
+            .handle
+            .request_log()
+            .into_iter()
+            .filter_map(|record| record.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        let commit = commands
+            .iter()
+            .position(|line| line == "components commit")
+            .ok_or("components commit was not sent")?;
+        let rearmed = commands.iter().skip(commit).find(|line| {
+            line.contains("system configuration fail-safe timer")
+                || line.starts_with("system reboot ")
+        });
+        assert_eq!(rearmed, None);
         fixture.handle.shutdown().await?;
         Ok(())
     }

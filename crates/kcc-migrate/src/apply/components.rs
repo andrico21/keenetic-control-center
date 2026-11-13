@@ -7,26 +7,25 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, TerminalCliChangeRequest},
 };
 use kcc_catalog::HttpMethod;
-use kcc_domain::{
-    RouterCtx,
-    configuration::{SafetyMode, SafetyNet},
-};
+use kcc_domain::RouterCtx;
 use serde_json::json;
 
-use super::{ApplyError, ApplyRequest};
-use crate::inventory::{InventoryClient, TargetInventory};
+use super::{ApplyError, ApplyRequest, settle::Stop};
 
 /// Installs approved prerequisites under recovery, then forces review of a new inventory.
 ///
 /// # Errors
-/// Returns prerequisite validation, workflow, or reconnect failures. Success returns
-/// `ReplanRequired`: an earlier executable plan is never applied to the changed firmware.
+/// Returns prerequisite validation, workflow, or reconnect failures as [`Stop::Armed`] until
+/// `components commit` is sent, and as [`Stop::Rebooted`] after it. Success returns
+/// `ReplanRequired` with nothing armed: the commit reboots the router onto its saved
+/// configuration, which clears the recovery timer, and an earlier executable plan is never
+/// applied to the changed firmware.
 // NOT cancel-safe: component commit reboots the target and changes installed firmware.
 pub(super) async fn install(
     request: &ApplyRequest,
     changes: &mut ChangeSet,
     ctx: &RouterCtx,
-) -> Result<(), ApplyError> {
+) -> Result<(), Stop> {
     if request.options.install_components.is_empty() {
         return Ok(());
     }
@@ -37,7 +36,7 @@ pub(super) async fn install(
                 .bytes()
                 .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
         {
-            return Err(ApplyError::Validation);
+            return Err(Stop::Armed(ApplyError::Validation));
         }
         let validated = ctx
             .catalog
@@ -46,7 +45,7 @@ pub(super) async fn install(
                 HttpMethod::Post,
                 &json!({"component":name}),
             )
-            .map_err(|_issues| ApplyError::Validation)?;
+            .map_err(|_issues| Stop::Armed(ApplyError::Validation))?;
         commands.push(ValidatedCli::new(
             format!("components install {name}"),
             validated,
@@ -55,7 +54,7 @@ pub(super) async fn install(
     let validated = ctx
         .catalog
         .validate("components commit", HttpMethod::Post, &json!({}))
-        .map_err(|_issues| ApplyError::Validation)?;
+        .map_err(|_issues| Stop::Armed(ApplyError::Validation))?;
     for command in commands {
         drop(
             changes
@@ -66,9 +65,11 @@ pub(super) async fn install(
                     json!({"prerequisite":true}),
                 ))
                 .await
-                .map_err(|_error| ApplyError::Workflow)?,
+                .map_err(|_error| Stop::Armed(ApplyError::Workflow))?,
         );
     }
+    // A refused or lost commit may not have rebooted the router, so its timer is still treated
+    // as pending.
     drop(
         changes
             .apply_cli_terminal(TerminalCliChangeRequest::new(
@@ -77,7 +78,7 @@ pub(super) async fn install(
                 json!({"prerequisite":true}),
             ))
             .await
-            .map_err(|_error| ApplyError::Workflow)?,
+            .map_err(|_error| Stop::Armed(ApplyError::Workflow))?,
     );
     for _attempt in 0..120_u16 {
         request.options.clock.wait(Duration::from_secs(1)).await;
@@ -88,36 +89,20 @@ pub(super) async fn install(
         {
             continue;
         }
-        let client = changes.client();
-        let info = client
+        let info = changes
+            .client()
             .detect()
             .await
-            .map_err(|_error| ApplyError::Unreachable)?;
+            .map_err(|_error| Stop::Rebooted(ApplyError::Unreachable))?;
         if !request
             .options
             .install_components
             .iter()
             .all(|name| info.components.contains(name))
         {
-            return Err(ApplyError::Verification);
+            return Err(Stop::Rebooted(ApplyError::Verification));
         }
-        let source_version = request.options.source_firmware.or(info.firmware);
-        let inventory =
-            TargetInventory::collect(&InventoryClient::from_client(&client), source_version)
-                .await
-                .map_err(|_error| ApplyError::Verification)?;
-        let mode = if inventory.fail_safe_available {
-            SafetyMode::Router
-        } else {
-            SafetyMode::ScheduledReboot
-        };
-        let updated = RouterCtx::new(client, inventory.catalog);
-        drop(
-            SafetyNet::arm(changes, &updated, mode, request.options.safety_seconds)
-                .await
-                .map_err(|_error| ApplyError::Workflow)?,
-        );
-        return Err(ApplyError::ReplanRequired);
+        return Err(Stop::Rebooted(ApplyError::ReplanRequired));
     }
-    Err(ApplyError::Unreachable)
+    Err(Stop::Rebooted(ApplyError::Unreachable))
 }
