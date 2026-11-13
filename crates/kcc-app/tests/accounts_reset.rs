@@ -174,3 +174,73 @@ fn reset_refuses_control_characters_and_passwords_over_the_limit() -> TestResult
     );
     Ok(())
 }
+
+#[test]
+fn account_lockout_respects_configurable_max_failures() -> TestResult {
+    let temp = TempDir::new()?;
+    let state = StateStore::open(&temp.path().join("state"))?;
+    let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
+
+    let accounts_low = AccountStore::new(
+        state,
+        MasterKey::generate()?,
+        Duration::from_secs(60),
+        Arc::clone(&clock),
+    )
+    .with_max_failures(2);
+
+    accounts_low.create(NewAccount::new(
+        "user".to_owned(),
+        SecretString::from("correct password here"),
+        "viewer".to_owned(),
+    ))?;
+
+    assert_eq!(
+        accounts_low.authenticate("user", &SecretString::from("wrong1"))?,
+        Authentication::Invalid,
+        "first wrong password is invalid"
+    );
+
+    assert!(
+        matches!(
+            accounts_low.authenticate("user", &SecretString::from("wrong2"))?,
+            Authentication::Locked { until: _ }
+        ),
+        "second wrong password should lock with max_failures=2"
+    );
+
+    assert!(
+        matches!(
+            accounts_low.authenticate("user", &SecretString::from("correct password here"))?,
+            Authentication::Locked { until: _ }
+        ),
+        "correct password after lockout should be locked"
+    );
+
+    let state2 = StateStore::open(&temp.path().join("state2"))?;
+    let accounts_default = AccountStore::new(
+        state2,
+        MasterKey::generate()?,
+        Duration::from_secs(60),
+        Arc::clone(&clock),
+    );
+
+    accounts_default.create(NewAccount::new(
+        "user2".to_owned(),
+        SecretString::from("another password"),
+        "viewer".to_owned(),
+    ))?;
+
+    drop(accounts_default.authenticate("user2", &SecretString::from("wrong1"))?);
+    drop(accounts_default.authenticate("user2", &SecretString::from("wrong2"))?);
+
+    assert!(
+        matches!(
+            accounts_default.authenticate("user2", &SecretString::from("another password"))?,
+            Authentication::Authenticated { role: _, locale: _ }
+        ),
+        "with default max_failures=5, correct password after 2 attempts succeeds"
+    );
+
+    Ok(())
+}

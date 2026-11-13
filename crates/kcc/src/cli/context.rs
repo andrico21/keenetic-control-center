@@ -332,7 +332,8 @@ impl Ctx {
             key,
             self.config.web.lockout,
             Arc::new(SystemClock::default()),
-        ))
+        )
+        .with_max_failures(self.config.web.login_max_failures))
     }
 
     /// The router id: `--router`, else the only registered router.

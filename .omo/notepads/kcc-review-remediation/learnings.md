@@ -158,3 +158,41 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - `cargo +nightly-2026-10-03 fmt --all -- --check`: Clean ✓
 
 **Test behavior preserved**: With `with_max_failures(2)` the second wrong password locks; correct third login is refused as locked. With default (5), two wrong passwords do not lock and correct third login authenticates.
+
+## [2026-11-13] Flake fix: job ID collision test time-luck race
+
+**Problem:** Test `forced_identifier_collision_is_retryable_before_work_starts` (jobs.rs:738-793) uses `SystemClock`, so when the wall-clock second rolls over between the two `JobRunner::start()` calls, the job IDs differ (they embed `self.clock.unix_seconds()`), collision detection fails silently, and the test passes. On heavy gate runs, the second probability becomes 100% during a second boundary: test flaked.
+
+**Fix:** Injected a fixed test clock with deterministic timestamp (1_700_000_000).
+
+**Implementation:**
+1. Added `#[derive(Debug)] struct FixedClock(u64)` in `#[cfg(test)] mod tests` with `impl Clock for FixedClock`
+2. Changed line 751 from `Arc::new(crate::accounts::SystemClock)` to `Arc::new(FixedClock(1_700_000_000))`
+3. Added `Clock` import to test module imports
+
+**Verification:**
+- 200-run loop: pass=200 fail=0 ✓
+- Full lib suite: 13 tests pass ✓
+- Clippy: clean ✓
+- Rustfmt: clean ✓
+
+**Key insight:** Job ID allocation embeds time, so any test relying on collision must fix the clock. The inline `FixedClock` helper is minimal and specific to this test's needs; no integration-test code leakage.
+
+## [2026-11-13] Todo 1 progress (worker r1)
+- A worktree left earlier locale strings (management-mode-unknown in six .ftl) uncommitted; kept them and regenerated keys.rs with cargo xtask i18n-gen.
+- clippy here denies integer division (`/`) even in consts: use `div_euclid`. clippy match_same_arms: merge `Some(_) | None` into the final arm.
+- Red run was made from a pristine git-archive copy of HEAD with only the tests, locales/keys and testkit knob overlaid; deleted afterwards.
+
+## [2026-11-13] Todo 19 progress
+- `[[routers]] auth`/`token_file` wired: `RciClientOptions.auth` (kcc-rci) is applied by one engine helper `session()` used by `connect_with`, `connect_bootstrap_with` and background sessions (so a token profile's dedicated background session carries the token too).
+- `ManagedRouterProfile` gained `auth` (skip if Auto), `token_file` (skip if None); `password_file` is `Option<PathBuf>` (skip if None). serde_json here has no `preserve_order`, so state files are written with sorted keys; Option fields previously serialized as `null` (read_login etc.) and still do. Fixture test `registry/auth_modes.rs::stored_routers_round_trip_byte_identical` pins the byte-identical round trip.
+- Credential source checks live in `crates/kcc-app/src/registry/auth.rs` (`validate`, `options`, `secret_file`); `credential_file` now reads through `auth::secret_file`, so the owner-only check of the secret-file todo has one place to land for passwords and tokens.
+- `kcc_testkit::auth_fixture` (Protocol::{Ndw4,Token,DigestSha256}) works from kcc-app tests via `Config::from_toml_str` + `RouterRegistry::client`. `RciPath::from_str` takes ONE segment; use `RciPath::from_segments(["show","version"])`.
+
+## [2026-11-13] Todo 29 progress
+- New key `web-migrate-nothing-to-send` (web.ftl, 6 locales, appended at file end), keys.rs via `cargo xtask i18n-gen`. Both previews render it as a `notice` (data-tone="info") in the action slot instead of Apply.
+- Migration preview: `Panel::nothing_to_send = sent == 0 && components.is_empty()`. Components chosen at the inputs step are still installed by Apply, so Apply stays when components exist even with 0 commands (conservative choice).
+- Presets preview: condition is `phases.is_empty()` (phases are pushed only when non-empty, so it matches commands == 0); Reveal stays independent.
+- The old 0-command notices (`web-migrate-preview-empty` via `all_present`, `web-presets-preview-nothing`) are no longer rendered: they stated the same fact as the new notice (one fact, one place). Their FTL keys stay (append-only; i18n-check has no unused-key rule). plan_agreement.rs still asserts PREVIEW_EMPTY is absent (now trivially true).
+- Tests: new modules `tests/migration_wizard/preview.rs` and `tests/presets_pages/preview.rs` (module name `preview` makes the plan's `... preview` filter pick them up). Presets 0-command fixture: seed `lab-1` with the same DNS_LINES as `prod-1`, merge mode.
+- Stable markup for "Apply offered": `hx-post="{page}/apply"` (page = /ui/migrate/<id> or /ui/presets/runs/<id>).

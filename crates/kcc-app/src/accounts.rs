@@ -30,8 +30,6 @@ pub const ARGON2_MEMORY_KIB: u32 = 19_456;
 pub const ARGON2_ITERATIONS: u32 = 2;
 /// Required Argon2id lane count.
 pub const ARGON2_LANES: u32 = 1;
-/// Failed attempts before an account is locked.
-pub const LOCKOUT_FAILURES: u32 = 5;
 /// Minimum accepted password length in Unicode scalar values.
 pub const MIN_PASSWORD_CHARS: usize = 12;
 /// Maximum accepted password length in Unicode scalar values.
@@ -312,6 +310,8 @@ pub struct AccountStore {
     lockout: Duration,
     /// Injectable wall clock.
     clock: Arc<dyn Clock>,
+    /// Maximum login failures before lockout.
+    max_failures: u32,
 }
 
 impl AccountStore {
@@ -329,7 +329,16 @@ impl AccountStore {
             key,
             lockout,
             clock,
+            max_failures: 5,
         }
+    }
+
+    /// Sets the maximum login failures before lockout.
+    #[inline]
+    #[must_use]
+    pub const fn with_max_failures(mut self, max_failures: u32) -> Self {
+        self.max_failures = max_failures;
+        self
     }
 
     /// Creates and persists a UI account.
@@ -411,7 +420,7 @@ impl AccountStore {
                 });
             }
             account.failure_count = account.failure_count.saturating_add(1);
-            if account.failure_count >= LOCKOUT_FAILURES {
+            if account.failure_count >= self.max_failures {
                 let until = now.saturating_add(lockout_seconds);
                 account.lockout_until = Some(until);
                 return Ok(Authentication::Locked { until });

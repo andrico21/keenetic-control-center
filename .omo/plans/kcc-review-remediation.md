@@ -236,7 +236,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(domain,cli,migrate): one close step so rollback reboots in scheduled-reboot mode
   Recommended task executor category: deep-low - one seam replacing four copies across three crates; semantics fixed by the engine
 
-- [ ] 4. `web.login_max_failures` sets the lockout threshold
+- [x] 4. `web.login_max_failures` sets the lockout threshold
   What to do / Must NOT do: TDD. Add a `max_failures: u32` field to `AccountStore` (default 5) set by a new `#[must_use] pub fn with_max_failures(self, max_failures: u32) -> Self` builder (do NOT change `AccountStore::new`, `crates/kcc-app/src/accounts.rs:321-333`: it has 20 call sites), read it in `authenticate` next to `self.lockout` (`:380-420`) instead of `LOCKOUT_FAILURES` at `:414`, delete `LOCKOUT_FAILURES` (`:34`). Call `.with_max_failures(config.web.login_max_failures)` (`crates/kcc-app/src/settings.rs:182,199`) at `crates/kcc/src/server.rs:365` and `crates/kcc/src/cli/context.rs:330`. Must NOT: change the lockout duration logic, the dummy-hash timing path, or the admin page fact (`crates/kcc-web/src/admin.rs:296-297`).
   Closes: GAP-6
   Parallelization: Wave W1 | Blocked by: - | Blocks: 9, 22 | Can parallelize with: 7, 1, 2, 3, 5, 6

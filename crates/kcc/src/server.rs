@@ -362,12 +362,15 @@ impl Services {
         let accounts_key = master_key.duplicate();
         let backup_key = MasterKey::load(&key_path).map_err(error)?;
         let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
-        let accounts = Arc::new(AccountStore::new(
-            state.clone(),
-            accounts_key,
-            config.web.lockout,
-            Arc::clone(&clock),
-        ));
+        let accounts = Arc::new(
+            AccountStore::new(
+                state.clone(),
+                accounts_key,
+                config.web.lockout,
+                Arc::clone(&clock),
+            )
+            .with_max_failures(config.web.login_max_failures),
+        );
         let backups = Arc::new(BackupStore::new(state.clone(), backup_key).with_retention(
             BackupRetention::new(config.backups.max_age, config.backups.keep_last),
         ));
