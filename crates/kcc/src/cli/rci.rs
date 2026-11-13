@@ -11,13 +11,13 @@ use kcc_app::{
     workflow::{BatchChangeRequest, BatchItem, DeleteRequest},
 };
 use kcc_catalog::{Catalog, HttpMethod, Risk};
-use kcc_i18n::keys;
+use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::{RciBody, RciError, RciPath, RciResponse};
 use serde_json::{Map, Value, json};
 
 use super::{
     args_fleet::RciCommand,
-    change::{Gate, labelled, run as run_change, run_completed},
+    change::{Gate, labelled, run_completed, run_headlined},
     context::{Ctx, Services, Target},
     exit::{Detail, Exit, Failure, Outcome},
     fleet::{body_value, print_body},
@@ -75,20 +75,21 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
             )
             .persisting(validated.persists_immediately)
             .recovery(validated.contains_management());
-            let document = run_change(ctx, &services, &target, gate, async |changes, _router| {
-                let request = DeleteRequest::new(
-                    joined,
-                    path,
-                    value,
-                    Vec::new(),
-                    Permission::RawRci,
-                    json!({ "method": "DELETE" }),
-                );
-                let result = changes.apply_delete(request).await?;
-                Ok(json!({ "applied": true, "unsaved": result.unsaved }))
-            })
-            .await?;
-            ctx.out().note(&ctx.out().tr(gate.applied(), &[]));
+            let (document, headline) =
+                run_headlined(ctx, &services, &target, gate, async |changes, _router| {
+                    let request = DeleteRequest::new(
+                        joined,
+                        path,
+                        value,
+                        Vec::new(),
+                        Permission::RawRci,
+                        json!({ "method": "DELETE" }),
+                    );
+                    let result = changes.apply_delete(request).await?;
+                    Ok(json!({ "applied": true, "unsaved": result.unsaved }))
+                })
+                .await?;
+            ctx.out().note(&ctx.out().tr(headline, &[]));
             ctx.out()
                 .emit(&document, &serde_json::to_string_pretty(&document)?)
         }
@@ -176,6 +177,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         Ok((Value::Null, applied_management_changes != 0))
     })
     .await;
+    let router_unsaved = completion.as_ref().ok().map(|(_document, held)| *held);
     if let Err(failure) = completion {
         if responses.iter().all(Result::is_ok) {
             return Err(failure);
@@ -201,11 +203,11 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
             &[("paths", completed_paths.join(", ").as_str())],
         ));
     } else {
-        let note = match (unsaved, completed_persists && applied_changes != 0) {
-            (true, _) => Some(keys::CLI_APPLIED),
-            (false, true) => Some(keys::CLI_APPLIED_PERSISTED),
-            (false, false) => None,
-        };
+        let note = saved_note(
+            (unsaved, completed_persists && applied_changes != 0),
+            router_unsaved,
+            applied_changes,
+        );
         if let Some(key) = note {
             ctx.out().note(&ctx.out().tr(key, &[]));
         }
@@ -217,6 +219,26 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
         (unsaved, completed_persists, &completed_paths, audit_pending),
         recovery_failure,
     )
+}
+
+/// The headline after a batch that applied cleanly.
+///
+/// The change waits for a save (by its paths or by the router's flag), the router stored it
+/// already, or the router holds nothing unsaved after changes that left configuration alone.
+const fn saved_note(
+    (unsaved, persisted): (bool, bool),
+    router_unsaved: Option<bool>,
+    applied_changes: usize,
+) -> Option<MessageKey> {
+    if unsaved || matches!(router_unsaved, Some(true)) {
+        Some(keys::CLI_APPLIED)
+    } else if persisted {
+        Some(keys::CLI_APPLIED_PERSISTED)
+    } else if matches!(router_unsaved, Some(false)) && applied_changes != 0 {
+        Some(keys::CLI_DONE)
+    } else {
+        None
+    }
 }
 
 /// Authorizes and reports a read-only batch without a change workflow.

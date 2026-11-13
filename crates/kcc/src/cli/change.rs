@@ -106,13 +106,15 @@ impl Gate {
         }
     }
 
-    /// The headline of the finished command: its stated outcome, else the applied change,
-    /// stored by the router already or waiting for a save.
-    pub(crate) const fn applied(self) -> MessageKey {
+    /// The headline of the finished command: its stated outcome, else the change stored by
+    /// the router already, else whether the router still holds configuration waiting for a
+    /// save (`unsaved`, read after the change).
+    pub(crate) const fn headline(self, unsaved: bool) -> MessageKey {
         match self.outcome {
             Some(outcome) => outcome,
             None if self.persists => keys::CLI_APPLIED_PERSISTED,
-            None => keys::CLI_APPLIED,
+            None if unsaved => keys::CLI_APPLIED,
+            None => keys::CLI_DONE,
         }
     }
 
@@ -139,13 +141,37 @@ pub(crate) async fn run<W>(
 where
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Outcome<Value>,
 {
-    run_completed(ctx, services, target, gate, async |changes, router| {
-        work(changes, router).await.map(|value| (value, true))
-    })
-    .await
+    run_headlined(ctx, services, target, gate, work)
+        .await
+        .map(|(document, _headline)| document)
 }
 
-/// Runs work whose completion explicitly records whether any change applied.
+/// Like [`run`], with the headline of the finished command: see [`Gate::headline`].
+///
+/// # Errors
+///
+/// Returns the policy refusal, a missing confirmation, or the workflow failure.
+// NOT cancel-safe: see `run`.
+pub(crate) async fn run_headlined<W>(
+    ctx: &Ctx,
+    services: &Services,
+    target: &Target,
+    gate: Gate,
+    work: W,
+) -> Outcome<(Value, MessageKey)>
+where
+    W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Outcome<Value>,
+{
+    let (document, unsaved) =
+        run_completed(ctx, services, target, gate, async |changes, router| {
+            work(changes, router).await.map(|value| (value, true))
+        })
+        .await?;
+    Ok((document, gate.headline(unsaved)))
+}
+
+/// Runs work whose completion explicitly records whether any change applied; also returns
+/// whether the router held unsaved configuration after the work.
 ///
 /// # Errors
 /// Returns authorization, work or recovery cleanup failures.
@@ -156,7 +182,7 @@ pub(crate) async fn run_completed<W>(
     target: &Target,
     gate: Gate,
     work: W,
-) -> Outcome<Value>
+) -> Outcome<(Value, bool)>
 where
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Outcome<(Value, bool)>,
 {
@@ -188,7 +214,7 @@ where
         gate.ask_on_write,
     );
     ctx.confirmed(services, target.id(), confirmation).await?;
-    let attempt: Outcome<Value> = async move {
+    let attempt: Outcome<(Value, bool)> = async move {
         let mut changes = services
             .workflow()
             .begin(target.id(), ctx.principal().actor(), &role, None, false)
@@ -215,12 +241,13 @@ where
                 .map_err(Failure::recovery)?
             }
         };
+        let unsaved = changes.unsaved();
         if !changes.audit_pending() {
-            return Ok(document);
+            return Ok((document, unsaved));
         }
         ctx.out()
             .note(&ctx.out().tr(keys::AUDIT_ENTRY_PENDING, &[]));
-        Ok(audit_pending(document))
+        Ok((audit_pending(document), unsaved))
     }
     .await;
     if let Err(failure) = &attempt {
@@ -302,7 +329,7 @@ mod tests {
                 Some(&Value::Bool(unsaved)),
                 "{document}"
             );
-            assert_eq!(gate.persisting(persists).applied(), headline);
+            assert_eq!(gate.persisting(persists).headline(unsaved), headline);
         }
     }
 }

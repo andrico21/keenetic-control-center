@@ -96,3 +96,18 @@ async fn target_outside_the_cli_scope_exits_10_before_any_request() -> TestResul
     assert_eq!(pair.requests(), before);
     pair.stop().await
 }
+
+/// A copy that finishes with a save prints its finish outcome and never the headline of
+/// an unsaved change.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn copy_finishing_with_save_never_says_unsaved() -> TestResult {
+    let pair = Pair::start(Profile::default()).await?;
+    let run = pair.copy(&["--finish", "save"])?;
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    let not_saved = tr(Locale::En, keys::CLI_APPLIED, None);
+    assert!(
+        !run.stdout.contains(&not_saved) && !run.stderr.contains(&not_saved),
+        "{run:?}"
+    );
+    pair.stop().await
+}

@@ -14,7 +14,7 @@ use serde_json::Value;
 
 use super::{
     args_domains::DomainCommand,
-    change::{Gate, applied, run as run_change},
+    change::{Gate, applied, run_headlined},
     context::{Ctx, Services, Target},
     dom_admin, dom_core, dom_dns, dom_jobs, dom_lan, dom_link, dom_mgmt, dom_net, dom_policies,
     dom_routes, dom_vpn, dom_vpn_server, dom_wire,
@@ -229,9 +229,10 @@ impl<'ctx> Session<'ctx> {
     where
         W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Outcome<Value>,
     {
-        let document = run_change(self.ctx, &self.services, &self.target, gate, work).await?;
+        let (document, headline) =
+            run_headlined(self.ctx, &self.services, &self.target, gate, work).await?;
         let out = self.ctx.out();
-        out.emit(&document, &out.tr(gate.applied(), &[]))
+        out.emit(&document, &out.tr(headline, &[]))
     }
 
     /// Applies a planned operation's CLI request.

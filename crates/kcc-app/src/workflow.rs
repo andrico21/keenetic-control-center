@@ -1340,6 +1340,14 @@ impl ChangeSet {
         self.system_mode.as_ref()
     }
 
+    /// Whether the router's running configuration differed from its startup configuration
+    /// when this change set last read it: at its start and after each of its changes.
+    #[inline]
+    #[must_use]
+    pub const fn unsaved(&self) -> bool {
+        self.expected.unsaved
+    }
+
     /// Reads the current router last-change state while retaining the lease.
     ///
     /// # Errors

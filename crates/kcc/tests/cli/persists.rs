@@ -263,7 +263,7 @@ async fn successful_text_changes_state_whether_the_result_is_saved() -> TestResu
                 "system",
                 "description",
             ],
-            keys::CLI_APPLIED,
+            keys::CLI_DONE,
         ),
     ] {
         let run = env.kcc(&args)?;

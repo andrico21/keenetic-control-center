@@ -444,7 +444,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(cli): confirm migrate apply and name a restored rollback
   Recommended task executor category: quick - existing confirm helper and one headline
 
-- [ ] 24. The CLI says "not saved yet" only when configuration is unsaved
+- [x] 24. The CLI says "not saved yet" only when configuration is unsaved
   What to do / Must NOT do: TDD. The headline after a change (`crates/kcc/src/cli/change.rs:99-107` `applied()`, `:240-258` `labelled`/`applied`) prints `cli-applied` ("not saved yet") for every non-persisted change, including actions that change no configuration (BACKLOG/worker item) and the apply step of `kcc copy ... --yes --finish save` (confirm F3-6). New rule: explicit outcome -> that key; `persists` -> `CLI_APPLIED_PERSISTED`; otherwise use the router's `unsaved` flag read after the change (`LastChange.unsaved`, `crates/kcc-app/src/workflow.rs:63-74`, refreshed in `ChangeSet` after each change): `true` -> `cli-applied`, `false` -> new key `cli-done` (en: "Done."). A run that ends with `--finish save` (e.g. `kcc copy ... --yes --finish save`, which does change configuration) prints only its finish outcome, never the intermediate not-saved line. Apply the same rule to `crates/kcc/src/cli/rci.rs:131-136,187-208`. Must NOT: change JSON fields (`applied`, `unsaved`, `persists_immediately`).
   Closes: GAP-9
   Parallelization: Wave W4 | Blocked by: 10, 23 | Blocks: 25, 45 | Can parallelize with: 21, 22, 26, 28, 29, 52, 53
