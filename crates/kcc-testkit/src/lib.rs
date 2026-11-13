@@ -94,8 +94,8 @@ pub struct FaultInjection {
     session_drop_after_requests: Option<u64>,
     /// Refuse attempts to take the management bridge down.
     refuse_management_bridge_down: bool,
-    /// Parser substring and bounded number of matching failures.
-    fail_parse_matching: Option<(String, usize)>,
+    /// Parser substrings, each with its bounded number of matching failures.
+    fail_parse_matching: Vec<(String, usize)>,
     /// Whether one single-route removal wipes every static route in that address family.
     route_wipe_on_remove: bool,
     /// Acknowledge `fail-safe timer reboot` without arming the timer.
@@ -189,13 +189,16 @@ impl FaultInjection {
     }
 
     /// Makes the next `times` parser lines containing `substring` return an RCI error.
+    ///
+    /// Calls accumulate: each substring keeps its own count, and a line is rejected by the
+    /// first substring it contains that still has failures left.
     #[inline]
     #[must_use]
     pub fn fail_parse_matching<S>(mut self, substring: S, times: usize) -> Self
     where
         S: Into<String>,
     {
-        self.fail_parse_matching = Some((substring.into(), times));
+        self.fail_parse_matching.push((substring.into(), times));
         self
     }
 

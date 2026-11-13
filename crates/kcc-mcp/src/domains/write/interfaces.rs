@@ -2,7 +2,6 @@
 
 use kcc_domain::{
     ChangeOp, DomainError, RouterCtx,
-    configuration::bracket::ArmedFate,
     interfaces::{self, SecurityLevel},
     wan::{self, StaticAddress},
 };
@@ -13,15 +12,12 @@ use serde::Deserialize;
 use serde_json::Value;
 
 use super::common::{
-    Opened, applied, apply_cli, begin, check_op, ipv4, needed, object, open, secret, text,
+    Opened, applied, apply, apply_cli, check_op, ipv4, needed, object, open, secret, text,
 };
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
-    support::{
-        errors::{armed, map_domain},
-        route::parse,
-    },
+    support::{errors::map_domain, route::parse},
 };
 
 /// Interface write operations.
@@ -105,7 +101,7 @@ pub(super) struct WanInput {
     secret: Option<SecretString>,
 }
 
-/// Runs one interface write through the guarded interface executor.
+/// Runs one interface write, a management one inside the router's recovery timer.
 pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: InterfaceInput = parse(arguments)?;
     check_op(INTERFACE_OPS, &input.op)?;
@@ -141,24 +137,19 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
         }
     }
     .map_err(map_domain)?;
-    let mut changes = begin(server, &opened).await?;
-    let result = interfaces::apply(&mut changes, ctx, &name, operation, input.confirm)
-        .await
-        .map_err(|error| {
-            if error.is_confirmation_required() {
-                McpFailure::ConfirmRequired
-            } else if let Some(applied) = error.armed_outcome() {
-                tracing::warn!(error = ?error, "MCP interface change left recovery armed");
-                armed(if applied {
-                    ArmedFate::Applied
-                } else {
-                    ArmedFate::Unknown
+    let result = apply(
+        server,
+        &opened,
+        (&operation, input.confirm, async |changes| {
+            interfaces::apply(changes, ctx, &name, &operation)
+                .await
+                .map_err(|error| {
+                    tracing::warn!(error = ?error, "MCP interface change failed");
+                    McpFailure::Conflict
                 })
-            } else {
-                tracing::warn!(error = ?error, "MCP interface change failed");
-                McpFailure::Conflict
-            }
-        })?;
+        }),
+    )
+    .await?;
     Ok(applied(result.unsaved))
 }
 

@@ -1,5 +1,4 @@
-//! Enable and Disable on the interfaces page, and the parser lines of every interface
-//! change.
+//! Enable and Disable on the interfaces page.
 //!
 //! Disabling an interface can cut kcc off from the router: it asks first, with the
 //! fail-safe explanation and before kcc reads anything, then plans with the management
@@ -12,17 +11,14 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_app::workflow::{CliChangeRequest, CliCommand as ValidatedCli};
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, DomainError, interfaces};
+use kcc_domain::interfaces;
 use kcc_rci::ObjectName;
-use serde_json::{Value, json};
 
 use crate::{
     WebState,
     authz::CurrentUser,
     net_change::{Params, Planned, finish, missing, with_query},
-    net_interface_line::Level,
     net_pages::Call,
     page_kit::{action::Operation, confirm::Resubmit, respond::Answer},
 };
@@ -55,8 +51,12 @@ pub(crate) async fn state(
         Some("up") => {
             let action = UP.open(&state, &user, &router).await?;
             let domain = action.context().await?;
-            let change = interfaces::plan_up(&domain, &name)
-                .and_then(|operation| Ok((cli_request(&name, &operation)?, operation.risk)));
+            let change = interfaces::plan_up(&domain, &name).and_then(|operation| {
+                Ok((
+                    interfaces::change_request(&name, &operation)?,
+                    operation.risk,
+                ))
+            });
             Ok(finish(call, action, Planned::new(domain, change)).await)
         }
         Some("down") => disable(call, &name, &params).await,
@@ -85,59 +85,13 @@ async fn disable(call: Call<'_>, name: &ObjectName, params: &Params) -> Result<R
     }
     let domain = action.context().await?;
     let change = match interfaces::detect_management(&domain, name).await {
-        Ok(verdict) => interfaces::plan_down(&domain, name, verdict)
-            .and_then(|operation| Ok((cli_request(name, &operation)?, operation.risk))),
+        Ok(verdict) => interfaces::plan_down(&domain, name, verdict).and_then(|operation| {
+            Ok((
+                interfaces::change_request(name, &operation)?,
+                operation.risk,
+            ))
+        }),
         Err(error) => Err(error),
     };
     Ok(finish(call, action, Planned::new(domain, change)).await)
-}
-
-/// The protected parser request of an interface plan.
-///
-/// kcc-domain converts these plans only inside its guarded `interfaces::apply`, which arms
-/// a second fail-safe timer inside the one the kit arms and reports failures without the
-/// router's words; the page renders the same closed set of lines and runs them through
-/// the kit instead.
-///
-/// # Errors
-///
-/// Returns [`DomainError::InvalidResponse`] for a plan outside that set.
-pub(crate) fn cli_request(
-    name: &ObjectName,
-    operation: &ChangeOp,
-) -> Result<CliChangeRequest, DomainError> {
-    let validated = operation
-        .requests
-        .first()
-        .ok_or(DomainError::InvalidResponse)?;
-    let value = &validated.value;
-    let line = match validated.path.as_str() {
-        "interface up" if value.get("no") == Some(&Value::Bool(true)) => {
-            format!("interface {name} down")
-        }
-        "interface up" => format!("interface {name} up"),
-        "interface description" => {
-            let text = value
-                .get("description")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)?;
-            let quoted =
-                serde_json::to_string(text).map_err(|_error| DomainError::InvalidResponse)?;
-            format!("interface {name} description {quoted}")
-        }
-        "interface security-level" => {
-            let level = Level::ALL
-                .into_iter()
-                .find(|level| value.get(level.slug()) == Some(&Value::Bool(true)))
-                .ok_or(DomainError::InvalidResponse)?;
-            format!("interface {name} security-level {}", level.slug())
-        }
-        _ => return Err(DomainError::InvalidResponse),
-    };
-    Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated.clone())],
-        operation.verify.clone(),
-        operation.permission,
-        json!({"operation": validated.path, "interface": name.as_str()}),
-    ))
 }

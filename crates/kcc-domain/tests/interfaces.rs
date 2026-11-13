@@ -14,8 +14,13 @@ mod support;
 use core::net::IpAddr;
 use std::collections::{BTreeMap, BTreeSet};
 
+use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::{configuration, interfaces, interfaces::ManagementVerdict};
+use kcc_domain::{
+    configuration::{self, SafetyMode, bracket::guarded},
+    interfaces,
+    interfaces::ManagementVerdict,
+};
 use kcc_rci::ObjectName;
 use kcc_testkit::FaultInjection;
 
@@ -77,44 +82,17 @@ async fn slash_name_read_uses_root_post() -> TestResult {
 }
 
 #[tokio::test]
-async fn bridge_down_requires_confirmation_before_router_access() -> TestResult {
+async fn management_down_plans_carry_management_risk() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
-        let name = ObjectName::try_from("Bridge0".to_owned())?;
-        let operation =
-            interfaces::plan_down(fixture.context(), &name, ManagementVerdict::Unknown)?;
-        assert_eq!(operation.risk, Risk::Management);
-        let mut changes = fixture.changes().await?;
-        let requests_before = fixture.handle().request_count();
-
-        let result =
-            interfaces::apply(&mut changes, fixture.context(), &name, operation, false).await;
-
-        assert!(result.is_err_and(|error| error.is_confirmation_required()));
-        assert_eq!(fixture.handle().request_count(), requests_before);
-        drop(changes);
-        fixture.shutdown().await?;
-    }
-    Ok(())
-}
-
-#[tokio::test]
-async fn directly_detected_isp_down_requires_confirmation_before_router_access() -> TestResult {
-    for firmware in PROFILES {
-        let fixture = Fixture::spawn(firmware).await?;
-        let name = ObjectName::try_from("ISP".to_owned())?;
-        let operation =
-            interfaces::plan_down(fixture.context(), &name, ManagementVerdict::Management)?;
-        assert_eq!(operation.risk, Risk::Management);
-        let mut changes = fixture.changes().await?;
-        let requests_before = fixture.handle().request_count();
-
-        let result =
-            interfaces::apply(&mut changes, fixture.context(), &name, operation, false).await;
-
-        assert!(result.is_err_and(|error| error.is_confirmation_required()));
-        assert_eq!(fixture.handle().request_count(), requests_before);
-        drop(changes);
+        for (interface, verdict) in [
+            ("Bridge0", ManagementVerdict::Unknown),
+            ("ISP", ManagementVerdict::Management),
+        ] {
+            let name = ObjectName::try_from(interface.to_owned())?;
+            let operation = interfaces::plan_down(fixture.context(), &name, verdict)?;
+            assert_eq!(operation.risk, Risk::Management, "{name}");
+        }
         fixture.shutdown().await?;
     }
     Ok(())
@@ -135,7 +113,7 @@ async fn bridge_topology_detection_finds_management_bridge() -> TestResult {
 }
 
 #[tokio::test]
-async fn confirmed_bridge_down_disarms_without_saving() -> TestResult {
+async fn bridge_down_applies_unsaved_without_arming_or_saving() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
         let startup = fixture.handle().startup_config_text();
@@ -144,10 +122,18 @@ async fn confirmed_bridge_down_disarms_without_saving() -> TestResult {
             interfaces::plan_down(fixture.context(), &name, ManagementVerdict::Unknown)?;
         let mut changes = fixture.changes().await?;
 
-        let result =
-            interfaces::apply(&mut changes, fixture.context(), &name, operation, true).await?;
+        let result = interfaces::apply(&mut changes, fixture.context(), &name, &operation).await?;
 
         assert!(result.unsaved);
+        assert!(
+            !fixture
+                .handle()
+                .request_log()
+                .iter()
+                .filter_map(|record| record.command())
+                .any(|command| command.starts_with("system ")),
+            "the surface owns the recovery timer"
+        );
         let interface = interfaces::read_interface(fixture.context(), &name).await?;
         assert_eq!(interface.state.as_deref(), Some("down"));
         let last_change = configuration::read_last_change(fixture.context()).await?;
@@ -167,7 +153,7 @@ async fn confirmed_bridge_down_disarms_without_saving() -> TestResult {
 }
 
 #[tokio::test]
-async fn unarmed_fail_safe_refuses_the_risky_change_unsent() -> TestResult {
+async fn unarmed_fail_safe_refuses_the_bracketed_change_unsent() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn_with_faults(
             firmware,
@@ -179,15 +165,27 @@ async fn unarmed_fail_safe_refuses_the_risky_change_unsent() -> TestResult {
             interfaces::plan_down(fixture.context(), &name, ManagementVerdict::Unknown)?;
         let mut changes = fixture.changes().await?;
 
-        let refused =
-            interfaces::apply(&mut changes, fixture.context(), &name, operation, true).await;
+        let refused = guarded(
+            &mut changes,
+            fixture.context(),
+            SafetyMode::Router,
+            Permission::Write,
+            || true,
+            async |bracketed, router| {
+                interfaces::apply(bracketed, router, &name, &operation)
+                    .await
+                    .map(|applied| (applied, true))
+            },
+        )
+        .await;
 
-        assert!(
-            refused
-                .as_ref()
-                .is_err_and(interfaces::InterfaceChangeError::is_fail_safe_unarmed),
-            "{refused:?}"
+        let failure = refused.err().ok_or("the unarmed bracket was refused")?;
+        assert_eq!(
+            failure.fate(),
+            None,
+            "the disarm after the failed arm closed it"
         );
+        assert!(failure.into_source().is_fail_safe_unarmed());
         let log = fixture.handle().request_log();
         let arm_attempt = log
             .iter()

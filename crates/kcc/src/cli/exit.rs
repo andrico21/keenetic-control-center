@@ -254,19 +254,7 @@ impl From<ModeUnknown> for Failure {
 
 impl From<InterfaceChangeError> for Failure {
     fn from(error: InterfaceChangeError) -> Self {
-        error.armed_outcome().map_or_else(
-            || Self::text(Exit::Router, &error),
-            |applied| {
-                Self::armed(
-                    Exit::Router,
-                    if applied {
-                        ArmedFate::Applied
-                    } else {
-                        ArmedFate::Unknown
-                    },
-                )
-            },
-        )
+        Self::text(Exit::Router, &error)
     }
 }
 

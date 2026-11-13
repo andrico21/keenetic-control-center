@@ -21,7 +21,6 @@ use crate::{
     authz::CurrentUser,
     net_change::{Params, Planned, Subject, finish, with_query},
     net_form::{Choice, FormDialog, Input},
-    net_interface_actions::cli_request,
     net_interface_line::{Level, Line},
     net_pages::Call,
     page_kit::{
@@ -131,8 +130,12 @@ pub(crate) async fn description(
         return Err(dialog.with_error("value", rule).invalid().into());
     };
     let domain = action.context().await?;
-    let checked = interfaces::plan_description(&domain, &name, &value)
-        .and_then(|operation| Ok((cli_request(&name, &operation)?, operation.risk)));
+    let checked = interfaces::plan_description(&domain, &name, &value).and_then(|operation| {
+        Ok((
+            interfaces::change_request(&name, &operation)?,
+            operation.risk,
+        ))
+    });
     let change = match checked {
         Ok(found) => found,
         Err(error) => {
@@ -209,7 +212,12 @@ pub(crate) async fn security(
     let domain = action.context().await?;
     let change = match interfaces::detect_management(&domain, &name).await {
         Ok(verdict) => interfaces::plan_security_level(&domain, &name, level.domain(), verdict)
-            .and_then(|operation| Ok((cli_request(&name, &operation)?, operation.risk))),
+            .and_then(|operation| {
+                Ok((
+                    interfaces::change_request(&name, &operation)?,
+                    operation.risk,
+                ))
+            }),
         Err(error) => Err(error),
     };
     let call = Call::new(&state, &user, &router, &headers);

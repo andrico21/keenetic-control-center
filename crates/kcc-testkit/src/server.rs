@@ -228,7 +228,7 @@ pub(crate) struct Shared {
     /// Per-instance fault injection controls.
     faults: FaultInjection,
     /// Mutable bounded parser-failure state.
-    parse_fault: Mutex<Option<ParseFault>>,
+    parse_fault: Mutex<Vec<ParseFault>>,
     /// Whether the route-wipe incident is still armed.
     route_wipe_armed: Mutex<bool>,
     /// Sanitized request metadata in arrival order.
@@ -313,11 +313,12 @@ impl Shared {
     ) -> Self {
         let parse_fault = faults
             .fail_parse_matching
-            .as_ref()
+            .iter()
             .map(|(substring, remaining)| ParseFault {
                 substring: substring.clone(),
                 remaining: *remaining,
-            });
+            })
+            .collect();
         let route_wipe_armed = faults.route_wipe_on_remove;
         let components = Components::new(show.get("version"));
         Self {
@@ -737,14 +738,15 @@ impl Shared {
 
     /// Consumes one matching bounded parser failure.
     fn reject_parse(&self, line: &str) -> bool {
-        let mut fault = lock(&self.parse_fault);
-        let rejected = fault
-            .as_mut()
-            .is_some_and(|state| state.remaining > 0 && line.contains(&state.substring));
-        if rejected && let Some(state) = fault.as_mut() {
+        let mut faults = lock(&self.parse_fault);
+        let matching = faults
+            .iter_mut()
+            .find(|state| state.remaining > 0 && line.contains(&state.substring));
+        let rejected = matching.is_some();
+        if let Some(state) = matching {
             state.remaining = state.remaining.saturating_sub(1);
         }
-        drop(fault);
+        drop(faults);
         rejected
     }
 

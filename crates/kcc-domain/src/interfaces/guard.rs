@@ -1,61 +1,36 @@
-//! Management-interface safety execution.
+//! Interface change execution: the change and, for a management change, its read-back.
+//!
+//! The recovery bracket around a management change belongs to the surface that runs it
+//! (`configuration::bracket::guarded`), as for every other management change.
 
 use core::result::Result as CoreResult;
 
 use kcc_app::workflow::{ChangeSet, CliChangeRequest, CliChangeResult, WorkflowError};
 use kcc_catalog::Risk;
 
-use crate::{
-    DomainError, RouterCtx,
-    configuration::{SafetyMode, SafetyNet, read_last_change, recovery},
-};
+use crate::{DomainError, RouterCtx, configuration::read_last_change};
 
 /// Shared verification pointer for the native fail-safe state.
 const FAIL_SAFE_ACTIVE_FIELD: &str = "/fail-safe/active";
 
-/// Failures specific to guarded interface execution.
+/// Failures of an interface change.
 #[derive(Debug, thiserror::Error)]
 #[error(transparent)]
 #[non_exhaustive]
 pub struct InterfaceChangeError(InterfaceChangeErrorKind);
 
-/// Internal guarded-execution failure categories.
+/// Internal interface change failure categories.
 #[derive(Debug, thiserror::Error)]
 enum InterfaceChangeErrorKind {
-    /// Recovery was armed and cleanup did not complete.
-    #[error("management recovery timer remains armed")]
-    Recovery {
-        /// Whether the protected work completed before cleanup failed.
-        applied: bool,
-    },
-    /// Explicit management confirmation was absent.
-    #[error("management interface change requires explicit confirmation")]
-    ConfirmationRequired,
-    /// Domain planning or reachability failed.
+    /// Domain planning or the read-back failed.
     #[error(transparent)]
     Domain(#[from] DomainError),
-    /// Protected workflow execution failed.
+    /// Workflow execution failed.
     #[error(transparent)]
     Workflow(#[from] WorkflowError),
 }
 
 impl InterfaceChangeError {
-    /// Returns whether work completed when recovery remains armed.
-    #[must_use]
-    pub const fn armed_outcome(&self) -> Option<bool> {
-        match self.0 {
-            InterfaceChangeErrorKind::Recovery { applied } => Some(applied),
-            InterfaceChangeErrorKind::ConfirmationRequired
-            | InterfaceChangeErrorKind::Domain(_)
-            | InterfaceChangeErrorKind::Workflow(_) => None,
-        }
-    }
-    /// Returns whether explicit management confirmation was absent.
-    #[must_use]
-    pub const fn is_confirmation_required(&self) -> bool {
-        matches!(self.0, InterfaceChangeErrorKind::ConfirmationRequired)
-    }
-
     /// Returns whether the change was refused because the fail-safe timer did not arm.
     #[must_use]
     pub fn is_fail_safe_unarmed(&self) -> bool {
@@ -79,79 +54,19 @@ impl From<WorkflowError> for InterfaceChangeError {
     }
 }
 
-/// Applies a change with fail-safe protection when management connectivity is at risk.
-// NOT cancel-safe: cancellation after arming can leave work applied and recovery armed.
+/// Applies `request`; a management change then reads `show last-change` back to prove the
+/// router still answers.
+// NOT cancel-safe: cancelled after the request is sent, the change may be applied without
+// its read-back.
 pub(super) async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
     request: CliChangeRequest,
     risk: Risk,
-    confirmed: bool,
 ) -> CoreResult<CliChangeResult, InterfaceChangeError> {
-    if risk == Risk::Management && !confirmed {
-        return Err(InterfaceChangeError(
-            InterfaceChangeErrorKind::ConfirmationRequired,
-        ));
+    let applied = changes.apply_cli(request).await?;
+    if risk == Risk::Management {
+        drop(read_last_change(router).await?);
     }
-    if risk != Risk::Management {
-        return changes.apply_cli(request).await.map_err(Into::into);
-    }
-    let armed = SafetyNet::arm(
-        changes,
-        router,
-        SafetyMode::Router,
-        300,
-        SafetyNet::CONTROL_PERMISSION,
-    )
-    .await
-    .map(|_receipt| ())
-    .map_err(InterfaceChangeError::from);
-    if let Err(error) = armed {
-        let disarm = SafetyNet::disarm(
-            changes,
-            router,
-            SafetyMode::Router,
-            SafetyNet::CONTROL_PERMISSION,
-        )
-        .await
-        .map(|_receipt| ())
-        .map_err(InterfaceChangeError::from);
-        return recovery::finish(Err(error), disarm).map_err(|failure| {
-            if failure.is_armed() {
-                InterfaceChangeError(InterfaceChangeErrorKind::Recovery {
-                    applied: failure.applied(),
-                })
-            } else {
-                failure.into_source()
-            }
-        });
-    }
-    let result = changes
-        .apply_cli(request)
-        .await
-        .map_err(InterfaceChangeError::from);
-    let verified = match result {
-        Ok(applied) => read_last_change(router)
-            .await
-            .map(|_state| applied)
-            .map_err(InterfaceChangeError::from),
-        Err(error) => Err(error),
-    };
-    let disarm = SafetyNet::disarm(
-        changes,
-        router,
-        SafetyMode::Router,
-        SafetyNet::CONTROL_PERMISSION,
-    )
-    .await
-    .map_err(InterfaceChangeError::from);
-    recovery::finish(verified, disarm).map_err(|error| {
-        if error.is_armed() {
-            InterfaceChangeError(InterfaceChangeErrorKind::Recovery {
-                applied: error.applied(),
-            })
-        } else {
-            error.into_source()
-        }
-    })
+    Ok(applied)
 }

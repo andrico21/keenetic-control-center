@@ -177,13 +177,26 @@ async fn interface_disarm_failure_reports_armed() -> TestResult {
                     .contains(&tr(Locale::En, keys::MANAGEMENT_DISARM_FAILED, None)),
                 "{mode}: {run:?}"
             );
-            assert!(
-                handle
-                    .request_log()
-                    .iter()
-                    .any(|record| record.command()
-                        == Some("no system configuration fail-safe timer")),
-                "guard retains native timer mode"
+            let (arm, disarm) = if mode == "router" {
+                (
+                    "system configuration fail-safe timer reboot 300",
+                    "no system configuration fail-safe timer",
+                )
+            } else {
+                ("system reboot 300", "no system reboot")
+            };
+            let commands = handle
+                .request_log()
+                .iter()
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            assert_eq!(
+                (
+                    commands.first().map(String::as_str),
+                    commands.last().map(String::as_str)
+                ),
+                (Some(arm), Some(disarm)),
+                "{mode}: the recovery of the router's mode: {commands:?}"
             );
             let entries = read_entries(&env.state_dir())?;
             let failed = entries

@@ -15,50 +15,41 @@ fn command_count(handle: &Handle, before: usize) -> usize {
         .count()
 }
 
-/// Management-interface writes require recovery permission for custom and built-in roles.
+/// A management-interface write needs only its own permission: the recovery timer around
+/// it is authorized by `Write` for custom and built-in roles alike.
 // NOT cancel-safe: fixture writes may apply before cancellation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn management_interface_down_requires_destructive_before_router_mutation() -> TestResult {
+async fn management_interface_down_needs_only_the_change_permission() -> TestResult {
     let (env, handle, address) = lab("router", "writer").await?;
     add_role(&env, "writer", &[Permission::Read, Permission::Write])?;
     for role in ["writer", "operator"] {
         env.write_config(&env_config(&env, role, address))?;
         let before = handle.request_log().len();
-        let run = env.kcc(&[
-            "--yes",
-            "--confirm-destructive",
-            "lab-1",
-            "interfaces",
-            "down",
-            "Bridge0",
-        ])?;
-        assert_eq!(run.code, 10_i32, "role {role}: {run:?}");
-        assert_eq!(command_count(&handle, before), 0, "role {role}");
+        let run = env.kcc(&["--yes", "interfaces", "down", "Bridge0"])?;
+        assert_eq!(run.code, 0_i32, "role {role}: {run:?}");
+        let commands = handle
+            .request_log()
+            .into_iter()
+            .skip(before)
+            .filter_map(|request| request.command().map(str::to_owned))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            (
+                commands.first().map(String::as_str),
+                commands.last().map(String::as_str)
+            ),
+            (
+                Some("system configuration fail-safe timer reboot 300"),
+                Some("no system configuration fail-safe timer")
+            ),
+            "role {role}: {commands:?}"
+        );
+        assert_eq!(command_count(&handle, before), 3, "role {role}");
     }
     let entries = read_entries(&env.state_dir())?;
-    assert_eq!(
-        entries
-            .iter()
-            .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
-            .count(),
-        2,
-        "both management refusals are audited: {entries:?}"
-    );
-    env.write_config(&env_config(&env, "admin", address))?;
-    let before = handle.request_log().len();
-    let allowed = env.kcc(&[
-        "--yes",
-        "--confirm-destructive",
-        "lab-1",
-        "interfaces",
-        "down",
-        "Bridge0",
-    ])?;
-    assert_eq!(allowed.code, 0_i32, "admin: {allowed:?}");
-    assert_ne!(
-        command_count(&handle, before),
-        0,
-        "admin reaches the router"
+    assert!(
+        !entries.iter().any(|entry| entry.action == "cli.refused"),
+        "nothing refused: {entries:?}"
     );
     handle.shutdown().await?;
     Ok(())

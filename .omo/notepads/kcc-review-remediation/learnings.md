@@ -314,3 +314,22 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
 - `kcc serve` MCP HTTP test needs `[mcp] allow_destructive = true` and `toolsets = ["core","raw"]` for `kcc_cli_parse`; an admin API key via `kcc_app::api_keys::create_api_key`. `serve_bracket` MCP test is red until MCP runs through `guarded` (todo 11).
 - `tracing_subscriber::fmt()` in tests: call `.with_ansi(false)`; feature unification turns ANSI on.
 - `cargo test -p kcc-web` stops at the first failing test binary: use `--no-fail-fast` to see all.
+
+## [2026-11-13] Todo 13 progress
+- Done in wt/r13: interface guard non-bracketing; CLI (runner bracket via Gate::of), MCP (common::apply -> raw_change::run), Web (kit already bracketed; deleted its copied request builder) all bracket interface Management changes with SafetyMode::for_change and the change's own permission.
+- RED was CLI+MCP extender rows (fail-safe timer instead of `system reboot 300`); the Web row was already green because the Web kit bracketed interface changes before this todo.
+- Gotcha: `FaultInjection::fail_parse_matching` was a single Option, so chaining two calls silently kept only the last; it is a Vec now.
+
+## [2026-11-13] Todo 15 progress
+- Done in /home/andrico/kcc-wt/r15: `kcc_app::audit::{Attempt, AuditEvent::attempt, AuditEvent::with_request_id}`; CLI `Ctx::attempt` + `Ctx::confirmed` (every `confirm(..)` site audits a refusal as `cli.refused`/`refused`/`confirm_required`); MCP `support/audit.rs` maps McpFailure -> Attempt (byte-identical entries); Web `Failure::with_fail_safe_armed` -> `Outcome::fail_safe_armed` -> `Record::append_outcome`/`append_attempt` (page params merged, attempt keys win); `"fail_safe_armed"` outcome deleted.
+- Gotcha: `cargo test` stops at the first failing test binary; use `--no-fail-fast` to see every pinned expectation (cli_domain_writes had four "zero audit entries after a missing confirmation" pins that a plain run hid behind tests/cli).
+- Gotcha: clippy `shadow_reuse` is denied, including in tests (`let [x] = x.as_slice()` fails; rename).
+- Follow-ups (not done): `crates/kcc/src/cli/context.rs` (374 pure LOC) and `crates/kcc-app/src/audit.rs` (735) were already over the ~250 limit; mesh `--confirm-member` mismatch refusal is unaudited (it fires before services open and a test pins zero router requests there); Web non-armed failures keep their own outcome ids (rci_error, unreachable, busy, mode_unknown, ...), and Web `mode_unknown` differs from MCP `refused`+`router_mode_unknown`.
+
+## [2026-11-13] Todo 14 progress
+- Done on wt/r14: `ApplyError::{fate, message_key, from_name}` in new `kcc-migrate/src/apply/failure.rs` (inline table test over all 25 variants); CLI `apply_failure`, Web wizard/presets mappers, MCP `map_apply`/finish, `ApplyReport::message` all read the table. New MCP codes `migration_rollback_restarting` (closes the entry) and `management_saved_fail_safe_armed`; MCP_TOOLS.md regenerated from `kcc-mcp/src/registry/docs.rs`; CHANGELOG + MIGRATION.md updated; new key `migrate-apply-replan`.
+- `from_name` = derived `Deserialize` over `IntoDeserializer::<serde::de::value::Error>` on `&str`: exact inverse of the serde name, no string table.
+- A `match` on a foreign `#[non_exhaustive]` enum still needs `_`; `clippy::wildcard_enum_match_arm` forces `other @ (A | B | ... | _)` listing every known variant.
+- `start_paused` needs tokio `test-util` in the crate's dev-deps (kcc-mcp lacked it). Paused clock works with FakeRouter loopback + AuditLog in kcc-mcp Lab and kcc-web fixtures (tests ran in 2-7 s).
+- The Web finish routes' 30 s TimeoutLayer cuts any rollback whose restore wait runs past 30 s (408): the Web restarting tests stay red until todo 17's budget lands.
+- `fail_after_requests(index_of("system reboot") + 1)` from a baseline run is the deterministic "accepted then silent" fault on every surface.

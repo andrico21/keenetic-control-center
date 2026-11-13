@@ -2,13 +2,14 @@
 //!
 //! Taking `Bridge0` down asks first with the fail-safe explanation, runs inside the
 //! router's fail-safe timer and leaves the change unsaved; a router refusal under the
-//! guard still disarms the timer.
+//! guard still disarms the timer. A management change runs inside the recovery of the
+//! router's mode and reports the timer as armed when its disarm was refused.
 
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_testkit::FaultInjection;
-use serde_json::Value;
+use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
+use serde_json::{Value, json};
 
 use crate::{
     html, interface, last_change, said,
@@ -17,6 +18,9 @@ use crate::{
 
 /// Disabling `Bridge0`.
 const DOWN: &str = "/ui/r/home/network/state?name=Bridge0&state=down";
+
+/// Setting `Bridge0` to the private level.
+const SECURITY: &str = "/ui/r/home/network/security-level?name=Bridge0&level=private";
 
 /// The catalog path of the fail-safe timer's arm and disarm lines.
 const TIMER: &str = "system configuration fail-safe timer";
@@ -158,5 +162,74 @@ async fn a_refusal_under_the_guard_still_disarms_the_timer() -> TestResult {
         Some("up"),
         "still up"
     );
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_security_level_uses_the_mode_recovery_and_reports_it_armed() -> TestResult {
+    for mode in ["router", "extender"] {
+        for armed in [false, true] {
+            let faults = if armed {
+                FaultInjection::default()
+                    .fail_parse_matching("interface Bridge0 security-level", 1)
+                    .fail_parse_matching("no system", 1)
+            } else {
+                FaultInjection::default()
+            };
+            let mut scenario = migration::Fixture::default();
+            scenario.mode = Some(mode.to_owned());
+            let fixture = Fixture::with_router(
+                FakeRouter::builder(Profile::default())
+                    .faults(faults)
+                    .build()?
+                    .with_migration(scenario),
+            )
+            .await?;
+            let admin = fixture.login("admin").await?;
+            let before = fixture.handle().request_log().len();
+            let response = fixture.post(SECURITY, &admin, "confirm=yes").await?;
+            assert_eq!(response.status(), StatusCode::OK, "{mode}: answered");
+            let body = text(response).await?;
+            let commands = fixture
+                .handle()
+                .request_log()
+                .iter()
+                .skip(before)
+                .filter_map(|record| record.command().map(str::to_owned))
+                .collect::<Vec<_>>();
+            let (arm, disarm) = if mode == "router" {
+                (
+                    "system configuration fail-safe timer reboot 300",
+                    "no system configuration fail-safe timer",
+                )
+            } else {
+                ("system reboot 300", "no system reboot")
+            };
+            assert_eq!(
+                (
+                    commands.first().map(String::as_str),
+                    commands.last().map(String::as_str)
+                ),
+                (Some(arm), Some(disarm)),
+                "{mode}: {commands:?}"
+            );
+            assert_eq!(
+                body.contains(&said(Locale::En, keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)),
+                armed,
+                "{mode}: {body}"
+            );
+            assert_eq!(fixture.handle().recovery_armed(), armed, "{mode}");
+            let entries = fixture.audit()?;
+            let entry = entries
+                .iter()
+                .find(|entry| entry.action == "web.interface_security_level")
+                .ok_or("missing security-level audit")?;
+            assert_eq!(
+                entry.params_redacted.get("fail_safe_armed"),
+                armed.then_some(&json!(true)),
+                "{mode}: {entry:?}"
+            );
+        }
+    }
     Ok(())
 }

@@ -203,10 +203,11 @@ errors retain the batch's `responses`, including `ok: false` items. Web retains 
 router's refusal text and reserves loss-of-connectivity wording for transport failures.
 Successful cleanup preserves the original work error without an armed note.
 The failed-change audit parameters include `fail_safe_armed: true` when recovery
-remains armed. The interface guard retains native timer verification and closes its
-bracket through the same recovery rule as every other path: after refused or failed work
-it disarms, and it reports the armed timer only when that cleanup cannot be confirmed. No
-permission failure is described as loss of router connectivity.
+remains armed. Curated interface changes (up, down, description, security level) run
+inside the same surface bracket as every other management change, with the recovery
+mechanism of the router's mode and the change's own `Write` permission: after refused or
+failed work it disarms, and it reports the armed timer only when that cleanup cannot be
+confirmed. No permission failure is described as loss of router connectivity.
 
 Migration and preset closing steps preserve the same armed fact when commit, save or
 explicit rollback fails before disarm can be confirmed. Their failed CLI, MCP and Web audit entries

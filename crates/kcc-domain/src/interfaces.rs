@@ -25,7 +25,7 @@ use crate::{
     read_show,
 };
 
-/// Guarded execution for management-affecting interface changes.
+/// Interface change execution and its read-back.
 pub mod guard;
 /// Management-connection detection from router and client topology.
 pub mod management;
@@ -52,7 +52,7 @@ pub enum SecurityLevel {
     Protected,
 }
 
-/// Failures specific to guarded interface execution.
+/// Failures of an interface change.
 pub type InterfaceChangeError = guard::InterfaceChangeError;
 /// Result of management-connection detection.
 pub type ManagementVerdict = management::ManagementVerdict;
@@ -183,18 +183,19 @@ pub fn plan_security_level(
     )
 }
 
-/// Executes an interface plan, bracketing management changes with a 300-second safety net.
-// NOT cancel-safe: cancelled mid-way, the change may be applied and, for a management change,
-// the 300-second fail-safe left armed so the router reboots and drops unsaved work.
+/// Executes an interface plan; a management change is read back through `show last-change`.
+///
+/// The caller confirms a management change and runs it inside its recovery bracket
+/// (`configuration::bracket::guarded`), as for every other management change.
+// NOT cancel-safe: cancelled mid-way, the change may be applied without its read-back.
 pub async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
     name: &ObjectName,
-    operation: ChangeOp,
-    confirmed: bool,
+    operation: &ChangeOp,
 ) -> CoreResult<CliChangeResult, InterfaceChangeError> {
-    let request = cli_request(name, &operation)?;
-    guard::apply(changes, router, request, operation.risk, confirmed).await
+    let request = change_request(name, operation)?;
+    guard::apply(changes, router, request, operation.risk).await
 }
 
 /// Builds a read descriptor.
@@ -273,8 +274,8 @@ fn plan_interface(
     ))
 }
 
-/// Converts a validated interface plan into one protected parser request.
-fn cli_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
+/// Converts a validated interface plan into its one parser request.
+pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
     let validated = operation
         .requests
         .first()

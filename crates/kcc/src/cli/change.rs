@@ -31,8 +31,6 @@ enum Timer {
     Off,
     /// The runner arms it around the work.
     Runner,
-    /// The domain operation arms its own, with the explicit recovery authority.
-    Operation,
 }
 
 /// What one change needs: its risk and permission, and whether a write asks first.
@@ -106,14 +104,6 @@ impl Gate {
         }
     }
 
-    /// The same gate for an operation that arms its own fail-safe timer.
-    pub(crate) const fn self_bracketed(self) -> Self {
-        Self {
-            timer: Timer::Operation,
-            ..self
-        }
-    }
-
     /// The headline of the finished command: its stated outcome, else the applied change,
     /// stored by the router already or waiting for a save.
     pub(crate) const fn applied(self) -> MessageKey {
@@ -124,17 +114,9 @@ impl Gate {
         }
     }
 
-    /// The permissions held for this change: what [`SafetyNet::required`] asks of it, plus
-    /// the explicit recovery authority a management operation that arms its own timer uses.
+    /// The permissions held for this change: what [`SafetyNet::required`] asks of it.
     fn permissions(self) -> Vec<Permission> {
-        let mut needed = SafetyNet::required(self.permission, self.risk);
-        if matches!(self.timer, Timer::Operation)
-            && self.risk >= Risk::Management
-            && !needed.contains(&SafetyNet::CONTROL_PERMISSION)
-        {
-            needed.push(SafetyNet::CONTROL_PERMISSION);
-        }
-        needed
+        SafetyNet::required(self.permission, self.risk)
     }
 }
 
@@ -210,7 +192,7 @@ where
             .begin(target.id(), ctx.principal().actor(), &role, None, false)
             .await?;
         match gate.timer {
-            Timer::Off | Timer::Operation => {
+            Timer::Off => {
                 return work(&mut changes, target.router())
                     .await
                     .map(|(document, _applied)| labelled(document, gate.persists));

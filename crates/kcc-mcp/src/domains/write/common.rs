@@ -84,7 +84,7 @@ where
     apply(server, opened, (&operation, confirm, work)).await
 }
 
-/// Hands ownership to executors whose recovery lifetime is a background job or domain guard.
+/// Hands ownership to executors whose recovery lifetime is a background job.
 // NOT cancel-safe: change-set creation may complete before ownership reaches the executor.
 pub(super) async fn begin(server: &KccMcp, opened: &Opened) -> Result<ChangeSet, McpFailure> {
     let (identity, router, _ctx) = opened;
