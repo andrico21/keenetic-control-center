@@ -13,7 +13,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliCommand as ValidatedCli, TerminalCliChangeRequest, WorkflowError},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_domain::configuration::{self, SafetyNet};
@@ -140,13 +140,13 @@ pub(crate) async fn rollback(
                 .catalog
                 .validate(ROLLBACK_COMMAND, HttpMethod::Post, &json!({}))
                 .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
-            let request = TerminalCliChangeRequest::new(
+            let request = CliChangeRequest::terminal(
                 vec![ValidatedCli::new(ROLLBACK_COMMAND.to_owned(), validated)],
                 Permission::Destructive,
                 json!({ "operation": ROLLBACK_COMMAND }),
             );
             changes
-                .apply_cli_terminal(request)
+                .apply_cli(request)
                 .await
                 .map(|result| Applied::Terminal(result.responses))
         })

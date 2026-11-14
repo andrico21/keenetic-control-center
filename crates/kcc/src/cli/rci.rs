@@ -8,9 +8,9 @@ use std::{
 use kcc_app::{
     audit::receipt::AuditReceipt,
     permissions::Permission,
-    workflow::{BatchChangeRequest, BatchItem, DeleteRequest},
+    workflow::{BatchChangeRequest, BatchItem, ChangeRequest},
 };
-use kcc_catalog::{Catalog, HttpMethod, Risk};
+use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest};
 use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::{RciBody, RciError, RciPath, RciResponse};
 use serde_json::{Map, Value, json};
@@ -77,7 +77,7 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
             .recovery(validated.contains_management());
             let (document, headline) =
                 run_headlined(ctx, &services, &target, gate, async |changes, _router| {
-                    let request = DeleteRequest::new(
+                    let request = ChangeRequest::delete(
                         joined,
                         path,
                         value,
@@ -85,7 +85,7 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
                         Permission::RawRci,
                         json!({ "method": "DELETE" }),
                     );
-                    let result = changes.apply_delete(request).await?;
+                    let result = changes.apply(request).await?;
                     Ok(json!({ "applied": true, "unsaved": result.unsaved }))
                 })
                 .await?;
@@ -102,7 +102,7 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
                 let joined = path.join(" ");
                 let validated =
                     validate(&target.router().catalog, &joined, HttpMethod::Post, &value)?;
-                vec![BatchItem::new(nest(&path, value), validated)]
+                vec![(BatchItem::new(nest(&path, value)), validated)]
             };
             send(ctx, &services, &target, items).await
         }
@@ -120,10 +120,15 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: writes may apply before cancellation.
-async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchItem>) -> Outcome {
+async fn send(
+    ctx: &Ctx,
+    services: &Services,
+    target: &Target,
+    items: Vec<(BatchItem, ValidatedRequest)>,
+) -> Outcome {
     let risk = items
         .iter()
-        .map(|item| item.validated.risk)
+        .map(|(_item, validated)| validated.risk)
         .max()
         .unwrap_or(Risk::Read);
     if risk == Risk::Read {
@@ -131,20 +136,20 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     }
     let persists = items
         .iter()
-        .any(|item| !item.validated.persisted_paths.is_empty())
+        .any(|(_item, validated)| !validated.persisted_paths.is_empty())
         && items
             .iter()
-            .all(|item| item.validated.ordinary_paths.is_empty());
+            .all(|(_item, validated)| validated.ordinary_paths.is_empty());
     let persisted_paths = items
         .iter()
-        .flat_map(|item| item.validated.persisted_paths.iter().cloned())
+        .flat_map(|(_item, validated)| validated.persisted_paths.iter().cloned())
         .collect::<Vec<_>>();
     let gate = Gate::new(risk, Permission::RawRci, true)
         .persisting(persists)
         .recovery(
             items
                 .iter()
-                .any(|item| item.validated.contains_management()),
+                .any(|(_item, validated)| validated.contains_management()),
         );
     if !persists && !persisted_paths.is_empty() {
         ctx.out().note(&ctx.out().tr(
@@ -161,7 +166,7 @@ async fn send(ctx: &Ctx, services: &Services, target: &Target, items: Vec<BatchI
     let mut recovery_failure = None;
     let completion = run_completed(ctx, services, target, gate, async |changes, _router| {
         let request = BatchChangeRequest::new(
-            items,
+            items.into_iter().map(|(item, _validated)| item).collect(),
             Vec::new(),
             Permission::RawRci,
             json!({ "method": "POST" }),
@@ -246,14 +251,18 @@ const fn saved_note(
 /// # Errors
 /// Returns authorization, transport or per-item failures.
 // cancel-safe: only catalog-validated reads reach the router.
-async fn read_batch(ctx: &Ctx, target: &Target, items: &[BatchItem]) -> Outcome {
+async fn read_batch(
+    ctx: &Ctx,
+    target: &Target,
+    items: &[(BatchItem, ValidatedRequest)],
+) -> Outcome {
     drop(
         ctx.principal()
             .authorize(&[Permission::Read], &[target.id()])?,
     );
     let values = items
         .iter()
-        .map(|item| item.value.redacted().clone())
+        .map(|(item, _validated)| item.value.redacted().clone())
         .collect();
     let responses = target.router().client.batch(values).await?;
     report(ctx, responses, (false, false, &[], false), None)
@@ -317,7 +326,11 @@ fn report(
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-fn root_items(catalog: &Catalog, value: Value, batch_only: bool) -> Outcome<Vec<BatchItem>> {
+fn root_items(
+    catalog: &Catalog,
+    value: Value,
+    batch_only: bool,
+) -> Outcome<Vec<(BatchItem, ValidatedRequest)>> {
     let values = match value {
         Value::Array(values) => values,
         Value::Object(_) if !batch_only => vec![value],
@@ -340,7 +353,7 @@ fn root_items(catalog: &Catalog, value: Value, batch_only: bool) -> Outcome<Vec<
         .into_iter()
         .map(|item| {
             let validated = validate(catalog, "", HttpMethod::Post, &item)?;
-            Ok(BatchItem::new(item, validated))
+            Ok((BatchItem::new(item), validated))
         })
         .collect()
 }
@@ -355,7 +368,7 @@ fn validate(
     path: &str,
     method: HttpMethod,
     value: &Value,
-) -> Outcome<kcc_catalog::ValidatedRequest> {
+) -> Outcome<ValidatedRequest> {
     catalog
         .validate(path, method, value)
         .map_err(|issues| Failure::new(Exit::Validation, Detail::Issues(issues)))

@@ -1,8 +1,8 @@
-//! Completion facts derived from ordered successful batch responses.
+//! Completion facts derived from the workflow's own item validations and the ordered
+//! batch responses.
 
+use kcc_catalog::ValidatedRequest;
 use kcc_rci::{RciError, RciResponse};
-
-use super::BatchItem;
 
 /// The successful subset and value-free refusal counts.
 pub(super) struct Completion {
@@ -41,7 +41,7 @@ impl Completion {
 
 /// Aligns requests and responses by index; failed items contribute no persistence facts.
 pub(super) fn completion(
-    items: &[BatchItem],
+    items: &[ValidatedRequest],
     responses: &[Result<RciResponse, RciError>],
 ) -> Completion {
     let mut succeeded = 0_usize;
@@ -52,16 +52,15 @@ pub(super) fn completion(
     for (item, response) in items.iter().zip(responses) {
         if response.is_ok() {
             succeeded = succeeded.saturating_add(1);
-            if item.validated.ordinary_paths.is_empty() && item.validated.persisted_paths.is_empty()
-            {
+            if item.ordinary_paths.is_empty() && item.persisted_paths.is_empty() {
                 continue;
             }
             applied_changes = applied_changes.saturating_add(1);
-            if item.validated.contains_management() {
+            if item.contains_management() {
                 applied_management_changes = applied_management_changes.saturating_add(1);
             }
-            ordinary |= !item.validated.ordinary_paths.is_empty();
-            persisted_paths.extend(item.validated.persisted_paths.iter().cloned());
+            ordinary |= !item.ordinary_paths.is_empty();
+            persisted_paths.extend(item.persisted_paths.iter().cloned());
         }
     }
     Completion {
@@ -73,4 +72,25 @@ pub(super) fn completion(
         persists_immediately: applied_changes != 0 && !ordinary,
         persisted_paths,
     }
+}
+
+/// The audit target: each item's leaf command paths, or its validated path when it changes
+/// nothing.
+pub(super) fn target(items: &[ValidatedRequest]) -> String {
+    items
+        .iter()
+        .map(|item| {
+            if item.ordinary_paths.is_empty() && item.persisted_paths.is_empty() {
+                item.path.clone()
+            } else {
+                item.ordinary_paths
+                    .iter()
+                    .chain(&item.persisted_paths)
+                    .map(String::as_str)
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(", ")
 }

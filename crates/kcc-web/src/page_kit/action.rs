@@ -209,7 +209,7 @@ impl<'call> Action<'call> {
                 Ok(verified) => Change::Cli(verified),
                 Err(error) => return self.finish(params, Err(Refused::verification(error))).await,
             },
-            other @ (Change::Request(_) | Change::Batch(_) | Change::Delete(_)) => other,
+            other @ (Change::Request(_) | Change::Batch(..) | Change::Delete(_)) => other,
         };
         if let Change::Cli(request) = &verified_change
             && let Err(error) = verification::require(request)

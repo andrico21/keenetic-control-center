@@ -4,7 +4,7 @@ use alloc::vec;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliCommand as ValidatedCli, TerminalCliChangeRequest, WorkflowError},
+    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
 use kcc_catalog::HttpMethod;
 use serde_json::json;
@@ -99,17 +99,12 @@ pub async fn close(
                 .catalog
                 .validate(path, HttpMethod::Post, &json!({}))
                 .map_err(|_issues| Failure::armed(WorkflowError::InvalidResponse))?;
-            let request = TerminalCliChangeRequest::new(
+            let request = CliChangeRequest::terminal(
                 vec![ValidatedCli::new(path.to_owned(), validated)],
                 permission,
                 json!({"operation": path}),
             );
-            drop(
-                changes
-                    .apply_cli_terminal(request)
-                    .await
-                    .map_err(Failure::armed)?,
-            );
+            drop(changes.apply_cli(request).await.map_err(Failure::armed)?);
             Ok(Closed {
                 saved: false,
                 restarting: mode == SafetyMode::ScheduledReboot,

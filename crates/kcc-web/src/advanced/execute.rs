@@ -97,7 +97,7 @@ pub(crate) async fn execute(
         },
         Delivery::Read => dispatch.read_root(&built.root()).await,
         Delivery::Batch => {
-            let item = BatchItem::new(built.root(), built.validated().clone());
+            let item = (BatchItem::new(built.root()), built.validated().clone());
             dispatch.change(risk, raw_batch(vec![item], params)).await
         }
     };

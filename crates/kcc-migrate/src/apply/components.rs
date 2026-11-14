@@ -4,7 +4,7 @@ use core::time::Duration;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, TerminalCliChangeRequest},
+    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::HttpMethod;
 use kcc_domain::RouterCtx;
@@ -72,7 +72,7 @@ pub(super) async fn install(
     // as pending.
     drop(
         changes
-            .apply_cli_terminal(TerminalCliChangeRequest::new(
+            .apply_cli(CliChangeRequest::terminal(
                 vec![ValidatedCli::new("components commit".to_owned(), validated)],
                 Permission::Destructive,
                 json!({"prerequisite":true}),

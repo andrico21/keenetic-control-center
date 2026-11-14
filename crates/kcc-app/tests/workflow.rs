@@ -23,7 +23,7 @@ use kcc_app::{
     settings::OutboundConfig,
     workflow::{
         BatchChangeRequest, BatchItem, ChangeRequest, ChangeWorkflow, CliChangeRequest, CliCommand,
-        DeleteRequest, LastChange, TerminalCliChangeRequest, VerificationSpec, WorkflowError,
+        LastChange, VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::{Catalog, HttpMethod};
@@ -288,14 +288,14 @@ async fn terminal_cli_mutation_survives_session_loss_after_preflight() -> Result
     let validated = catalog
         .validate("system reboot", HttpMethod::Post, &json!({}))
         .map_err(|issues| format!("catalog rejected terminal command: {issues:?}"))?;
-    let request = TerminalCliChangeRequest::new(
+    let request = CliChangeRequest::terminal(
         vec![CliCommand::new("system reboot".to_owned(), validated)],
         Permission::Destructive,
         json!({"operation":"reboot"}),
     );
     let mut changes = fixture.begin(None).await?;
     let requests_before = fixture.handle.request_count();
-    let result = changes.apply_cli_terminal(request).await?;
+    let result = changes.apply_cli(request).await?;
     let requests_after = fixture.handle.request_count();
     assert_eq!(result.responses.len(), 1);
     assert_eq!(requests_after.saturating_sub(requests_before), 3);
@@ -327,14 +327,14 @@ async fn terminal_cli_mutation_enforces_operation_permission() -> Result<(), Box
     let validated = catalog
         .validate("system reboot", HttpMethod::Post, &json!({}))
         .map_err(|issues| format!("catalog rejected terminal command: {issues:?}"))?;
-    let request = TerminalCliChangeRequest::new(
+    let request = CliChangeRequest::terminal(
         vec![CliCommand::new("system reboot".to_owned(), validated)],
         Permission::Destructive,
         json!({"operation":"reboot"}),
     );
     let mut changes = fixture.begin_with_role(&role).await?;
     let error = changes
-        .apply_cli_terminal(request)
+        .apply_cli(request)
         .await
         .expect_err("terminal CLI permission must be checked before dispatch");
     assert!(matches!(error, WorkflowError::PermissionDenied { router } if router == "router"));
@@ -353,7 +353,7 @@ async fn terminal_cli_mutation_enforces_operation_permission() -> Result<(), Box
 #[tokio::test]
 async fn delete_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let request = DeleteRequest::new(
+    let request = ChangeRequest::delete(
         "system description".to_owned(),
         vec!["system".to_owned(), "description".to_owned()],
         json!({}),
@@ -366,7 +366,7 @@ async fn delete_mutation_uses_backup_and_read_back_protection() -> Result<(), Bo
         json!({"field":"description"}),
     );
     let mut changes = fixture.begin(None).await?;
-    let result = changes.apply_delete(request).await?;
+    let result = changes.apply(request).await?;
     assert!(result.unsaved);
     assert_eq!(fixture.backups.list("router")?.len(), 1);
     fixture.shutdown().await?;
@@ -387,7 +387,7 @@ async fn delete_mutation_enforces_operation_permission() -> Result<(), Box<dyn E
         [Permission::Read, Permission::Write],
         vec!["*".to_owned()],
     );
-    let request = DeleteRequest::new(
+    let request = ChangeRequest::delete(
         "system description".to_owned(),
         vec!["system".to_owned(), "description".to_owned()],
         json!({}),
@@ -397,9 +397,9 @@ async fn delete_mutation_enforces_operation_permission() -> Result<(), Box<dyn E
     );
     let mut changes = fixture.begin_with_role(&role).await?;
     let error = changes
-        .apply_delete(request)
+        .apply(request)
         .await
-        .expect_err("the operation permission must be checked inside apply_delete");
+        .expect_err("the operation permission must be checked inside apply");
     assert!(matches!(error, WorkflowError::PermissionDenied { router } if router == "router"));
     fixture.shutdown().await?;
     Ok(())
@@ -415,20 +415,10 @@ async fn delete_mutation_enforces_operation_permission() -> Result<(), Box<dyn E
 async fn batch_mutation_preserves_responses_and_read_back_protection() -> Result<(), Box<dyn Error>>
 {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let info = fixture.registry.poll_info("router").await?;
-    let catalog = Catalog::for_router(&info)?;
-    let first = json!({"interface":{"name":"Batch1"}});
-    let second = json!({"interface":{"name":"Batch2"}});
-    let first_validated = catalog
-        .validate("", HttpMethod::Post, &first)
-        .map_err(|issues| format!("catalog rejected first batch item: {issues:?}"))?;
-    let second_validated = catalog
-        .validate("", HttpMethod::Post, &second)
-        .map_err(|issues| format!("catalog rejected second batch item: {issues:?}"))?;
     let request = BatchChangeRequest::new(
         vec![
-            BatchItem::new(first, first_validated),
-            BatchItem::new(second, second_validated),
+            BatchItem::new(json!({"interface":{"name":"Batch1"}})),
+            BatchItem::new(json!({"interface":{"name":"Batch2"}})),
         ],
         vec![VerificationSpec::new(
             vec!["interface".to_owned()],
@@ -462,14 +452,8 @@ async fn batch_mutation_enforces_operation_permission() -> Result<(), Box<dyn Er
         [Permission::Read, Permission::Write],
         vec!["*".to_owned()],
     );
-    let info = fixture.registry.poll_info("router").await?;
-    let catalog = Catalog::for_router(&info)?;
-    let value = json!({"interface":{"name":"Denied"}});
-    let validated = catalog
-        .validate("", HttpMethod::Post, &value)
-        .map_err(|issues| format!("catalog rejected batch item: {issues:?}"))?;
     let request = BatchChangeRequest::new(
-        vec![BatchItem::new(value, validated)],
+        vec![BatchItem::new(json!({"interface":{"name":"Denied"}}))],
         Vec::new(),
         Permission::Destructive,
         json!({"items":1_u8}),

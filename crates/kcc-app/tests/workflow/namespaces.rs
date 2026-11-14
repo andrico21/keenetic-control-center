@@ -14,7 +14,6 @@ mod tests {
         permissions::Permission,
         workflow::{BatchChangeRequest, BatchItem},
     };
-    use kcc_catalog::{Catalog, HttpMethod};
     use kcc_testkit::FaultInjection;
     use serde_json::json;
 
@@ -30,18 +29,8 @@ mod tests {
             vec![json!({"show":{"version":{}},"ip":{"http":{}}})],
         ] {
             let fixture = Fixture::spawn(FaultInjection::default()).await?;
-            let info = fixture.registry.poll_info("router").await?;
-            let catalog = Catalog::for_router(&info)?;
             let count = values.len();
-            let items = values
-                .into_iter()
-                .map(|value| {
-                    let validated = catalog
-                        .validate("", HttpMethod::Post, &value)
-                        .map_err(|issues| format!("{issues:?}"))?;
-                    Ok(BatchItem::new(value, validated))
-                })
-                .collect::<Result<Vec<_>, String>>()?;
+            let items = values.into_iter().map(BatchItem::new).collect();
             let mut changes = fixture.begin(None).await?;
             let result = changes
                 .apply_batch(BatchChangeRequest::new(

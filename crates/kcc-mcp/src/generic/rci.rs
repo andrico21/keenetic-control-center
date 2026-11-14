@@ -6,7 +6,6 @@ use kcc_app::{
     permissions::Permission,
     workflow::{
         BatchChangeRequest, BatchItem, ChangeRequest, CliChangeRequest, CliCommand as ValidatedCli,
-        DeleteRequest,
     },
 };
 use kcc_catalog::{Catalog, CommandKind, HttpMethod, RawAuthorization, Risk};
@@ -297,7 +296,7 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         ),
         async |changes| {
             changes
-                .apply_delete(DeleteRequest::new(
+                .apply(ChangeRequest::delete(
                     input.catalog_path,
                     input.path,
                     input.value,
@@ -337,7 +336,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         let validated = checked(&catalog, "", HttpMethod::Post, &value)?;
         risk = risk.max(validated.risk);
         management |= validated.contains_management();
-        items.push(BatchItem::new(value, validated));
+        items.push(BatchItem::new(value));
     }
     raw_change::authorize(server, (&identity, &host), (risk, input.confirm))?;
     if risk == Risk::Read {

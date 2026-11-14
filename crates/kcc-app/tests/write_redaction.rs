@@ -6,10 +6,7 @@ mod tests {
 
     use kcc_app::{
         permissions::Permission,
-        workflow::{
-            BatchChangeRequest, BatchItem, ChangeRequest, CliChangeRequest, CliCommand,
-            DeleteRequest, TerminalCliChangeRequest,
-        },
+        workflow::{BatchChangeRequest, BatchItem, ChangeRequest, CliChangeRequest, CliCommand},
     };
     use kcc_catalog::{Catalog, HttpMethod};
     use kcc_rci::version::FirmwareVersion;
@@ -32,10 +29,10 @@ mod tests {
                     .map_err(|_issues| TestCaseError::fail("valid secret refused"))?;
                 let cli = CliCommand::from_template(validated.clone(), "user guest password plain {/password}")?;
                 let cli_request = CliChangeRequest::new(vec![cli.clone()], Vec::new(), Permission::Write, json!({"detail":input}));
-                let terminal = TerminalCliChangeRequest::new(vec![cli.clone()], Permission::Write, json!({"detail":input}));
+                let terminal = CliChangeRequest::terminal(vec![cli.clone()], Permission::Write, json!({"detail":input}));
                 let change = ChangeRequest::new("user password plain".to_owned(), vec!["user".to_owned()], body.clone(), Vec::new(), Permission::Write, json!({"detail":input}));
-                let delete = DeleteRequest::new("user password plain".to_owned(), vec!["user".to_owned()], body, Vec::new(), Permission::Write, json!({"detail":input}));
-                let item = BatchItem::new(json!({"user":{"password":{"plain":{"password":input}}}}), validated.clone());
+                let delete = ChangeRequest::delete("user password plain".to_owned(), vec!["user".to_owned()], body, Vec::new(), Permission::Write, json!({"detail":input}));
+                let item = BatchItem::new(json!({"user":{"password":{"plain":{"password":input}}}}));
                 let batch = BatchChangeRequest::new(vec![item.clone()], Vec::new(), Permission::Write, json!({"detail":input}));
                 projections.push((
                     format!("{validated:?} {cli:?} {cli_request:?} {terminal:?} {change:?} {delete:?} {item:?} {batch:?}"),

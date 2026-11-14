@@ -11,8 +11,8 @@ use core::result::Result as CoreResult;
 use kcc_app::{
     permissions::Permission,
     workflow::{
-        ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, TerminalCliChangeRequest,
-        TerminalCliChangeResult, VerificationSpec, WorkflowError,
+        ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, TerminalCliChangeResult,
+        VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::{HttpMethod, Risk};
@@ -188,7 +188,7 @@ pub async fn reboot_member(
         .catalog
         .validate("mws member reboot", HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
-    let request = TerminalCliChangeRequest::new(
+    let request = CliChangeRequest::terminal(
         vec![ValidatedCli::new(
             format!("mws member {} reboot", quoted(&body, "member")?),
             validated,
@@ -197,8 +197,9 @@ pub async fn reboot_member(
         json!({"operation":"mws member reboot","member":member}),
     );
     changes
-        .apply_cli_terminal(request)
+        .apply_cli(request)
         .await
+        .map(TerminalCliChangeResult::from)
         .map_err(RebootError::Workflow)
 }
 

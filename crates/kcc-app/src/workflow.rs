@@ -21,7 +21,7 @@ use std::{
     time::{SystemTime, UNIX_EPOCH},
 };
 
-use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidatedRequest, ValidationIssue};
+use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidationIssue};
 use kcc_rci::{
     ConfigKind, RciBody, RciClient, RciError, RciPath, RciResponse, RouterUrl, SecretBytes,
     auth::Credentials, capabilities::SystemMode,
@@ -203,15 +203,27 @@ impl VerificationSpec {
     }
 }
 
-/// One validated mutation request.
+/// How a [`ChangeRequest`] reaches its RCI resource.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[non_exhaustive]
+pub enum ChangeMethod {
+    /// Sets the resource from the request body.
+    Post,
+    /// Deletes the resource; the body becomes the query parameters.
+    Delete,
+}
+
+/// One validated mutation or deletion request.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct ChangeRequest {
+    /// Whether the body is posted or the resource deleted.
+    pub method: ChangeMethod,
     /// Space-separated catalog path.
     pub catalog_path: String,
     /// Slash-separated RCI resource path segments.
     pub rci_path: Vec<String>,
-    /// Mutation body.
+    /// Mutation body, or the deletion query parameters.
     pub body: SecretValue,
     /// Read-back expectations.
     pub verify: Vec<VerificationSpec>,
@@ -236,6 +248,7 @@ impl ChangeRequest {
         let protected_body = SecretValue::new(&catalog_path, body);
         protected_body.scrub(&mut audit_params);
         Self {
+            method: ChangeMethod::Post,
             catalog_path,
             rci_path,
             body: protected_body,
@@ -244,69 +257,48 @@ impl ChangeRequest {
             audit_params,
         }
     }
-}
 
-/// One validated deletion request.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[non_exhaustive]
-pub struct DeleteRequest {
-    /// Space-separated catalog path.
-    pub catalog_path: String,
-    /// Slash-separated RCI resource path segments.
-    pub rci_path: Vec<String>,
-    /// Serialized deletion query parameters.
-    pub query: SecretValue,
-    /// Read-back expectations.
-    pub verify: Vec<VerificationSpec>,
-    /// Permission required to execute this operation.
-    pub permission: Permission,
-    /// Redacted audit parameters.
-    pub audit_params: Value,
-}
-
-impl DeleteRequest {
-    /// Creates a deletion request with read-back and redacted audit data.
+    /// Creates a deletion request whose `query` parameters are protected like a body.
     #[inline]
     #[must_use]
-    pub fn new(
+    pub fn delete(
         catalog_path: String,
         rci_path: Vec<String>,
         query: Value,
         verify: Vec<VerificationSpec>,
         permission: Permission,
-        mut audit_params: Value,
+        audit_params: Value,
     ) -> Self {
-        let protected_query = SecretValue::new(&catalog_path, query);
-        protected_query.scrub(&mut audit_params);
-        Self {
+        let request = Self::new(
             catalog_path,
             rci_path,
-            query: protected_query,
+            query,
             verify,
             permission,
             audit_params,
+        );
+        Self {
+            method: ChangeMethod::Delete,
+            ..request
         }
     }
 }
 
-/// One root RCI batch item paired with its catalog validation result.
+/// One root RCI batch item; the workflow validates it from its value.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[non_exhaustive]
 pub struct BatchItem {
     /// Root RCI object sent to the router.
     pub value: SecretValue,
-    /// Catalog validation result proving the operation shape and risk.
-    pub validated: ValidatedRequest,
 }
 
 impl BatchItem {
-    /// Pairs one root RCI object with its catalog validation result.
+    /// Protects one root RCI object.
     #[inline]
     #[must_use]
-    pub fn new(value: Value, validated: ValidatedRequest) -> Self {
+    pub fn new(value: Value) -> Self {
         Self {
             value: SecretValue::new("", value),
-            validated,
         }
     }
 }
@@ -379,6 +371,9 @@ pub struct CliChangeRequest {
     pub permission: Permission,
     /// Redacted audit parameters.
     pub audit_params: Value,
+    /// The commands may end the router session (reboot, reset): the workflow neither reads
+    /// back nor reads the router's state afterwards, and audits the outcome as unknown.
+    pub terminal: bool,
 }
 
 impl CliChangeRequest {
@@ -399,6 +394,23 @@ impl CliChangeRequest {
             verify,
             permission,
             audit_params,
+            terminal: false,
+        }
+    }
+
+    /// Creates a protected terminal CLI parser mutation, which needs no reachable router
+    /// once its commands are sent.
+    #[inline]
+    #[must_use]
+    pub fn terminal(
+        commands: Vec<CliCommand>,
+        permission: Permission,
+        audit_params: Value,
+    ) -> Self {
+        let request = Self::new(commands, Vec::new(), permission, audit_params);
+        Self {
+            terminal: true,
+            ..request
         }
     }
 }
@@ -415,40 +427,21 @@ pub struct CliChangeResult {
     pub audit: AuditReceipt,
 }
 
-/// One protected terminal CLI parser mutation.
-#[derive(Clone, Debug, PartialEq, Serialize)]
-#[non_exhaustive]
-pub struct TerminalCliChangeRequest {
-    /// Ordered catalog-validated parser commands.
-    pub commands: Vec<CliCommand>,
-    /// Permission required to execute this operation.
-    pub permission: Permission,
-    /// Redacted audit parameters.
-    pub audit_params: Value,
-}
-
-impl TerminalCliChangeRequest {
-    /// Creates a protected terminal CLI parser mutation.
-    #[inline]
-    #[must_use]
-    pub fn new(commands: Vec<CliCommand>, permission: Permission, mut audit_params: Value) -> Self {
-        for command in &commands {
-            command.secrets().scrub(&mut audit_params);
-        }
-        Self {
-            commands,
-            permission,
-            audit_params,
-        }
-    }
-}
-
 /// Successful terminal CLI parser mutation result.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
 pub struct TerminalCliChangeResult {
     /// Ordered router responses received before the session became unreachable.
     pub responses: Vec<RciBody>,
+}
+
+impl From<CliChangeResult> for TerminalCliChangeResult {
+    #[inline]
+    fn from(result: CliChangeResult) -> Self {
+        Self {
+            responses: result.responses,
+        }
+    }
 }
 
 /// Successful mutation result.
@@ -982,7 +975,8 @@ impl ChangeSet {
         replay::run(self, commands, policy).await
     }
 
-    /// Applies one mutation after catalog validation, backup, conflict check, and read-back.
+    /// Applies one mutation or deletion after catalog validation, backup, conflict check,
+    /// and read-back.
     ///
     /// # Errors
     ///
@@ -991,134 +985,87 @@ impl ChangeSet {
     pub async fn apply(&mut self, request: ChangeRequest) -> Result<ChangeResult, WorkflowError> {
         authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
         let wire = request.body.expose_for_send();
+        let http_method = match request.method {
+            ChangeMethod::Post => HttpMethod::Post,
+            ChangeMethod::Delete => HttpMethod::Delete,
+        };
         let validated = self
             .catalog
-            .validate(
-                &request.catalog_path,
-                HttpMethod::Post,
-                wire.expose_secret(),
-            )
+            .validate(&request.catalog_path, http_method, wire.expose_secret())
             .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
-        self.check_conflict().await?;
-        self.ensure_backup().await?;
-        let path =
-            RciPath::from_segments(&request.rci_path).map_err(|_error| RciError::Validation)?;
-        drop(
-            self.client
-                .post(&path, wire.expose_secret())
-                .await
-                .map_err(|error| scrub_error(validated.protected_value(), error))?,
-        );
-        for verification in &request.verify {
-            verify(&self.client, verification).await?;
-        }
-        self.expected = read_last_change(&self.client).await?;
-        let timestamp = unix_seconds();
-        let mut audit_params = request.audit_params;
-        validated.protected_value().scrub(&mut audit_params);
-        let event = AuditEvent::new(timestamp, self.actor.clone(), "router.change".to_owned())
-            .with_router(self.router.clone())
-            .with_target(request.catalog_path)
-            .with_params(audit_params)
-            .with_result(
-                if validated.risk == Risk::Read {
-                    "success"
-                } else {
-                    applied_outcome(validated.persists_immediately)
-                }
-                .to_owned(),
-                format!("change-{timestamp}"),
-            );
-        let audit = self.receipts.record(&self.workflow.audit, event).await?;
-        Ok(ChangeResult {
-            unsaved: !validated.ordinary_paths.is_empty(),
-            audit,
-        })
-    }
-
-    /// Applies one deletion after catalog validation, backup, conflict check, and read-back.
-    ///
-    /// # Errors
-    ///
-    /// Returns validation, conflict, backup, request, verification, or audit errors.
-    // NOT cancel-safe: cancellation after transmission may leave an applied unaudited deletion.
-    pub async fn apply_delete(
-        &mut self,
-        request: DeleteRequest,
-    ) -> Result<ChangeResult, WorkflowError> {
-        authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
-        let wire = request.query.expose_for_send();
-        let validated = self
-            .catalog
-            .validate(
-                &request.catalog_path,
-                HttpMethod::Delete,
-                wire.expose_secret(),
-            )
-            .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
-        if validated.has_secrets() {
+        if request.method == ChangeMethod::Delete && validated.has_secrets() {
             return Err(RciError::Validation.into());
         }
         self.check_conflict().await?;
         self.ensure_backup().await?;
         let path =
             RciPath::from_segments(&request.rci_path).map_err(|_error| RciError::Validation)?;
-        drop(
-            self.client
-                .delete(&path, wire.expose_secret())
-                .await
-                .map_err(|error| scrub_error(validated.protected_value(), error))?,
-        );
+        let sent = match request.method {
+            ChangeMethod::Post => self.client.post(&path, wire.expose_secret()).await,
+            ChangeMethod::Delete => self.client.delete(&path, wire.expose_secret()).await,
+        };
+        drop(sent.map_err(|error| scrub_error(validated.protected_value(), error))?);
         for verification in &request.verify {
-            verify(&self.client, verification).await?;
+            verification::verify(&self.client, verification).await?;
         }
         self.expected = read_last_change(&self.client).await?;
+        let (action, outcome, unsaved) = match request.method {
+            ChangeMethod::Post if validated.risk == Risk::Read => (
+                "router.change",
+                "success",
+                !validated.ordinary_paths.is_empty(),
+            ),
+            ChangeMethod::Post => (
+                "router.change",
+                applied_outcome(validated.persists_immediately),
+                !validated.ordinary_paths.is_empty(),
+            ),
+            ChangeMethod::Delete => (
+                "router.change_delete",
+                applied_outcome(validated.persists_immediately),
+                true,
+            ),
+        };
         let timestamp = unix_seconds();
-        let event = AuditEvent::new(
-            timestamp,
-            self.actor.clone(),
-            "router.change_delete".to_owned(),
-        )
-        .with_router(self.router.clone())
-        .with_target(request.catalog_path)
-        .with_params(request.audit_params)
-        .with_result(
-            applied_outcome(validated.persists_immediately).to_owned(),
-            format!("change-{timestamp}"),
-        );
+        let mut audit_params = request.audit_params;
+        validated.protected_value().scrub(&mut audit_params);
+        let event = AuditEvent::new(timestamp, self.actor.clone(), action.to_owned())
+            .with_router(self.router.clone())
+            .with_target(request.catalog_path)
+            .with_params(audit_params)
+            .with_result(outcome.to_owned(), format!("change-{timestamp}"));
         let audit = self.receipts.record(&self.workflow.audit, event).await?;
-        Ok(ChangeResult {
-            unsaved: true,
-            audit,
-        })
+        Ok(ChangeResult { unsaved, audit })
     }
 
-    /// Applies catalog-validated root RCI items under the normal write protections.
+    /// Applies root RCI items under the normal write protections, each validated once from
+    /// the value it sends.
     ///
     /// # Errors
     ///
-    /// Returns permission, conflict, backup, request, verification, or audit errors.
+    /// Returns permission, validation, conflict, backup, request, verification, or audit
+    /// errors.
     // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
     pub async fn apply_batch(
         &mut self,
         request: BatchChangeRequest,
     ) -> Result<BatchChangeResult, WorkflowError> {
         authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
-        for item in &request.items {
-            let body = item.value.expose_for_send();
-            drop(
-                self.catalog
-                    .validate("", HttpMethod::Post, body.expose_secret())
-                    .map_err(|issues| WorkflowError::CatalogValidation { issues })?,
-            );
-        }
-        self.check_conflict().await?;
-        self.ensure_backup().await?;
         let wire = request
             .items
             .iter()
             .map(|item| item.value.expose_for_send())
             .collect::<Vec<_>>();
+        let validated = wire
+            .iter()
+            .map(|value| {
+                self.catalog
+                    .validate("", HttpMethod::Post, value.expose_secret())
+                    .map_err(|issues| WorkflowError::CatalogValidation { issues })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        self.check_conflict().await?;
+        self.ensure_backup().await?;
         let values = wire
             .iter()
             .map(|value| value.expose_secret().clone())
@@ -1138,36 +1085,28 @@ impl ChangeSet {
             }
         }
         for verification in &request.verify {
-            verify(&self.client, verification).await?;
+            verification::verify(&self.client, verification).await?;
         }
         self.expected = read_last_change(&self.client).await?;
         let timestamp = unix_seconds();
-        let target = request
-            .items
-            .iter()
-            .map(|item| item.validated.path.as_str())
-            .collect::<Vec<_>>()
-            .join(", ");
-        let mut audit_params = request.audit_params;
-        for item in &request.items {
-            item.value.scrub(&mut audit_params);
-        }
-        let completion = batch::completion(&request.items, &responses);
+        let completion = batch::completion(&validated, &responses);
         let outcome = completion.outcome();
-        if completion.failed != 0 {
-            audit_params = json!({
+        let audit_params = if completion.failed == 0 {
+            request.audit_params
+        } else {
+            json!({
                 "error":"router_rejected",
                 "succeeded":completion.succeeded,
                 "failed":completion.failed,
-            });
-        }
+            })
+        };
         let event = AuditEvent::new(
             timestamp,
             self.actor.clone(),
             "router.change_batch".to_owned(),
         )
         .with_router(self.router.clone())
-        .with_target(target)
+        .with_target(batch::target(&validated))
         .with_params(audit_params)
         .with_result(outcome.to_owned(), format!("change-{timestamp}"));
         let audit = self.receipts.record(&self.workflow.audit, event).await?;
@@ -1182,7 +1121,8 @@ impl ChangeSet {
         })
     }
 
-    /// Applies catalog-validated CLI parser commands under the normal write protections.
+    /// Applies catalog-validated CLI parser commands under the normal write protections;
+    /// a terminal request skips the read-back and the final state read.
     ///
     /// # Errors
     ///
@@ -1197,10 +1137,6 @@ impl ChangeSet {
         }
         self.prepare_cli(request.permission).await?;
         let responses = self.dispatch_cli(&request.commands).await?;
-        for verification in &request.verify {
-            verify(&self.client, verification).await?;
-        }
-        self.expected = read_last_change(&self.client).await?;
         let unsaved = request
             .commands
             .iter()
@@ -1210,50 +1146,30 @@ impl ChangeSet {
                 .commands
                 .iter()
                 .any(|command| !command.validated().persisted_paths.is_empty());
-        let audit = self
-            .audit_cli(
-                &request.commands,
+        let (action, outcome) = if request.terminal {
+            ("router.change_cli_terminal", "applied_state_unknown")
+        } else {
+            for verification in &request.verify {
+                verification::verify(&self.client, verification).await?;
+            }
+            self.expected = read_last_change(&self.client).await?;
+            (
                 "router.change_cli",
-                request.audit_params,
                 if !unsaved && !persists_immediately {
                     "success"
                 } else {
                     applied_outcome(persists_immediately)
                 },
             )
+        };
+        let audit = self
+            .audit_cli(&request.commands, action, request.audit_params, outcome)
             .await?;
         Ok(CliChangeResult {
             unsaved,
             responses,
             audit,
         })
-    }
-
-    /// Applies terminal CLI parser commands without requiring the router to remain reachable.
-    ///
-    /// # Errors
-    ///
-    /// Returns permission, conflict, backup, request, or audit errors.
-    // NOT cancel-safe: cancellation after transmission may leave an applied unaudited mutation.
-    pub async fn apply_cli_terminal(
-        &mut self,
-        request: TerminalCliChangeRequest,
-    ) -> Result<TerminalCliChangeResult, WorkflowError> {
-        for command in &request.commands {
-            drop(command.expose_for_send()?);
-        }
-        self.prepare_cli(request.permission).await?;
-        let responses = self.dispatch_cli(&request.commands).await?;
-        drop(
-            self.audit_cli(
-                &request.commands,
-                "router.change_cli_terminal",
-                request.audit_params,
-                "applied_state_unknown",
-            )
-            .await?,
-        );
-        Ok(TerminalCliChangeResult { responses })
     }
 
     /// Explicitly saves running configuration and waits until `unsaved` clears.
@@ -1535,103 +1451,6 @@ async fn read_last_change(client: &RciClient) -> Result<LastChange, WorkflowErro
             .unwrap_or(false),
         fail_safe: value.get("fail-safe").cloned().unwrap_or_else(|| json!({})),
     })
-}
-
-/// Executes one read-back expectation.
-// cancel-safe: only reads router state.
-async fn verify(client: &RciClient, spec: &VerificationSpec) -> Result<(), WorkflowError> {
-    if matches!(
-        spec.predicate,
-        Some(
-            PresencePredicate::ConfigCommand
-                | PresencePredicate::ConfigCommandAbsent
-                | PresencePredicate::ConfigSecret
-        )
-    ) {
-        return verification::configuration(client, spec).await;
-    }
-    let path = RciPath::from_segments(&spec.path).map_err(|_error| RciError::Validation)?;
-    let configuration = spec.path.starts_with(&["show".to_owned(), "rc".to_owned()]);
-    let readback = if configuration {
-        let tree = spec
-            .path
-            .iter()
-            .skip(2)
-            .rev()
-            .fold(json!({}), |child, segment| json!({segment:child}));
-        client.show_rc(tree).await?.configuration_tree().clone()
-    } else {
-        let body = client.show(&path, &()).await?;
-        let RciBody::Json(response) = body else {
-            return Err(WorkflowError::VerificationFailed {
-                field: spec.field.clone(),
-            });
-        };
-        response.value
-    };
-    let actual = readback;
-    let selected = if configuration {
-        spec.path
-            .iter()
-            .skip(2)
-            .try_fold(&actual, |parent, segment| parent.get(segment))
-    } else {
-        Some(&actual)
-    };
-    let selected_row = match &spec.row {
-        Some((key, expected)) => selected
-            .and_then(Value::as_array)
-            .and_then(|rows| rows.iter().find(|row| row.get(key) == Some(expected))),
-        None => selected,
-    };
-    let field = selected_row.and_then(|value| value.pointer(&spec.field));
-    let matches = match spec.predicate {
-        Some(
-            PresencePredicate::ConfigCommand
-            | PresencePredicate::ConfigCommandAbsent
-            | PresencePredicate::ConfigSecret,
-        ) => false,
-        None => field == Some(&spec.expected),
-        Some(PresencePredicate::Absent) => {
-            spec.field.rsplit_once('/').is_some_and(|(parent, _)| {
-                selected
-                    .and_then(|value| value.pointer(parent))
-                    .is_some_and(Value::is_object)
-            }) && field.is_none()
-        }
-        Some(PresencePredicate::Contains) => field.and_then(Value::as_array).is_some_and(|rows| {
-            rows.iter()
-                .any(|row| verification::contains(row, &spec.expected))
-        }),
-        Some(PresencePredicate::Excludes) => field.and_then(Value::as_array).is_some_and(|rows| {
-            !rows
-                .iter()
-                .any(|row| verification::contains(row, &spec.expected))
-        }),
-        Some(PresencePredicate::Present) => field.is_some_and(|value| !value.is_null()),
-        Some(PresencePredicate::NonEmpty) => field
-            .and_then(Value::as_str)
-            .is_some_and(|text| !text.is_empty()),
-        Some(PresencePredicate::LengthRange { minimum, maximum }) => field
-            .and_then(Value::as_str)
-            .is_some_and(|text| (minimum..=maximum).contains(&text.len())),
-        Some(PresencePredicate::MarkerOrLengthRange { minimum, maximum }) => {
-            field == Some(&Value::Bool(true))
-                || field
-                    .and_then(Value::as_str)
-                    .is_some_and(|text| (minimum..=maximum).contains(&text.len()))
-        }
-    };
-    if !matches {
-        return Err(WorkflowError::VerificationFailed {
-            field: if spec.field.is_empty() {
-                spec.path.join("/")
-            } else {
-                spec.field.clone()
-            },
-        });
-    }
-    Ok(())
 }
 
 /// Scrubs router-controlled retained error detail before crossing the workflow boundary.

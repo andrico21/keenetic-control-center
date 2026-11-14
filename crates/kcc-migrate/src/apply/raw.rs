@@ -4,7 +4,7 @@ use core::{str::from_utf8, time::Duration};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliCommand as ValidatedCli, TerminalCliChangeRequest},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{Catalog, HttpMethod};
 use kcc_rci::{ConfigKind, RouterUrl, SecretBytes};
@@ -89,7 +89,7 @@ impl RawRestore {
             .upload_startup(bytes)
             .await
             .map_err(|_error| ApplyError::Workflow)?;
-        let request = TerminalCliChangeRequest::new(
+        let request = CliChangeRequest::terminal(
             vec![ValidatedCli::new("system reboot".to_owned(), validated)],
             Permission::Destructive,
             json!({}),
@@ -97,7 +97,7 @@ impl RawRestore {
         drop(
             self.applier
                 .changes
-                .apply_cli_terminal(request)
+                .apply_cli(request)
                 .await
                 .map_err(|_error| ApplyError::Workflow)?,
         );

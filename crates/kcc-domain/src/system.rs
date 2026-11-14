@@ -13,7 +13,7 @@ use core::result::Result as CoreResult;
 use kcc_app::{
     permissions::Permission,
     workflow::{
-        ChangeRequest, ChangeSet, CliCommand as ValidatedCli, TerminalCliChangeRequest,
+        ChangeRequest, ChangeSet, CliChangeRequest, CliCommand as ValidatedCli,
         TerminalCliChangeResult, VerificationSpec, WorkflowError,
     },
 };
@@ -204,7 +204,10 @@ pub async fn reboot(
 ) -> CoreResult<TerminalCliChangeResult, WorkflowError> {
     let request = terminal_request(router, "system reboot", "system reboot")
         .map_err(|_error| WorkflowError::InvalidResponse)?;
-    changes.apply_cli_terminal(request).await
+    changes
+        .apply_cli(request)
+        .await
+        .map(TerminalCliChangeResult::from)
 }
 
 /// Factory-resets the router after an exact name confirmation.
@@ -225,8 +228,9 @@ pub async fn factory_reset(
         "system configuration factory-reset",
     )?;
     changes
-        .apply_cli_terminal(request)
+        .apply_cli(request)
         .await
+        .map(TerminalCliChangeResult::from)
         .map_err(FactoryResetError::Workflow)
 }
 
@@ -301,12 +305,12 @@ fn terminal_request(
     router: &RouterCtx,
     catalog_path: &str,
     line: &str,
-) -> Result<TerminalCliChangeRequest> {
+) -> Result<CliChangeRequest> {
     let validated = router
         .catalog
         .validate(catalog_path, HttpMethod::Post, &json!({}))
         .map_err(|issues| DomainError::Validation { issues })?;
-    Ok(TerminalCliChangeRequest::new(
+    Ok(CliChangeRequest::terminal(
         vec![ValidatedCli::new(line.to_owned(), validated)],
         Permission::Destructive,
         json!({"operation": catalog_path}),

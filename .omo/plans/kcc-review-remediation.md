@@ -414,7 +414,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(rci): remove the unwired keepalive, setters and aliases
   Recommended task executor category: quick - verified deletions in one crate
 
-- [ ] 21. One workflow change-request shape
+- [x] 21. One workflow change-request shape
   What to do / Must NOT do: In `crates/kcc-app/src/workflow.rs`: merge `ChangeRequest`/`DeleteRequest` (`:202-282`) into one `ChangeRequest` with `method: ChangeMethod { Post, Delete }`, and `CliChangeRequest`/`TerminalCliChangeRequest` (`:364-436`) into one with `terminal: bool`; merge `apply`/`apply_delete` (`:857-956`) into one; `BatchItem` carries the value only and `apply_batch` validates each item once and keeps that result (today it validates and discards at `:969-976`, then trusts `item.validated` at `:1007-1017`); scrub audit params once (`:333-335` vs `:1014-1016`); move the read-back engine `verify` (`:1342-1435`) into `crates/kcc-app/src/workflow_verify.rs` and delete the unreachable predicate arm (`:1388-1393`, dead because of the early return `:1343-1352`). Update every caller (kcc-domain uses `workflow` in ~13 places, kcc-migrate, kcc-web, kcc-mcp, kcc). Must NOT: change audit entry content, read-back semantics or error variants seen by surfaces.
   Closes: GAP-11
   Parallelization: Wave W4 | Blocked by: 7, 16, 18, 26 | Blocks: 32, 45 | Can parallelize with: 22, 24, 25, 28, 29, 52, 53

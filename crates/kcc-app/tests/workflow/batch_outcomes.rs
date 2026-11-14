@@ -42,21 +42,11 @@ mod tests {
             let fixture =
                 Fixture::spawn(FaultInjection::default().refuse_batch_pointer(rejected.to_owned()))
                     .await?;
-            let info = fixture.registry.poll_info("router").await?;
-            let catalog = Catalog::for_router(&info)?;
             let mut values = vec![json!({"system":{"country":{"country":"DE"}}})];
             if mixed {
                 values.push(json!({"system":{"description":{"description":"lab"}}}));
             }
-            let items = values
-                .into_iter()
-                .map(|value| {
-                    let validated = catalog
-                        .validate("", HttpMethod::Post, &value)
-                        .map_err(|issues| format!("{issues:?}"))?;
-                    Ok(BatchItem::new(value, validated))
-                })
-                .collect::<Result<Vec<_>, String>>()?;
+            let items = values.into_iter().map(BatchItem::new).collect();
             let mut changes = fixture.begin(None).await?;
             let result = changes
                 .apply_batch(BatchChangeRequest::new(
@@ -127,8 +117,6 @@ mod tests {
             let fixture =
                 Fixture::spawn(FaultInjection::default().refuse_batch_pointer(rejected.to_owned()))
                     .await?;
-            let info = fixture.registry.poll_info("router").await?;
-            let catalog = Catalog::for_router(&info)?;
             let mut values = vec![json!({"show":{"version":{}}})];
             if ordinary {
                 values.push(json!({"system":{"description":{"description":"lab"}}}));
@@ -136,15 +124,7 @@ mod tests {
             if !ordinary || rejected == "/system/country" {
                 values.push(json!({"system":{"country":{"country":"DE"}}}));
             }
-            let items = values
-                .into_iter()
-                .map(|value| {
-                    let validated = catalog
-                        .validate("", HttpMethod::Post, &value)
-                        .map_err(|issues| format!("{issues:?}"))?;
-                    Ok(BatchItem::new(value, validated))
-                })
-                .collect::<Result<Vec<_>, String>>()?;
+            let items = values.into_iter().map(BatchItem::new).collect();
             let mut changes = fixture.begin(None).await?;
             let result = changes
                 .apply_batch(BatchChangeRequest::new(
@@ -223,6 +203,52 @@ mod tests {
             .map(|entry| entry.outcome)
             .collect::<Vec<_>>();
         assert_eq!(outcomes, ["success"]);
+        drop(changes);
+        fixture.shutdown().await?;
+        Ok(())
+    }
+
+    /// An item is validated from the value it sends, never from the caller's own check of
+    /// another body: a refused value stops the whole batch before anything is sent.
+    // NOT cancel-safe: the fixture owns router tasks until shutdown.
+    #[tokio::test]
+    async fn batch_items_are_validated_from_their_values() -> Result<(), Box<dyn Error>> {
+        let fixture = Fixture::spawn(FaultInjection::default()).await?;
+        let info = fixture.registry.poll_info("router").await?;
+        let catalog = Catalog::for_router(&info)?;
+        let checked = json!({"description":"lab"});
+        drop(
+            catalog
+                .validate("system description", HttpMethod::Post, &checked)
+                .map_err(|issues| format!("{issues:?}"))?,
+        );
+        let sent = json!({"system":{"description":{"description":"lab","unknown-argument":true}}});
+        let mut changes = fixture.begin(None).await?;
+        let before = fixture.handle.request_log().len();
+        let result = changes
+            .apply_batch(BatchChangeRequest::new(
+                vec![
+                    BatchItem::new(json!({"system":{"description":checked}})),
+                    BatchItem::new(sent),
+                ],
+                Vec::new(),
+                Permission::Write,
+                json!({"validated":true}),
+            ))
+            .await;
+        assert!(
+            matches!(&result, Err(WorkflowError::CatalogValidation { issues }) if !issues.is_empty()),
+            "{result:?}"
+        );
+        assert_eq!(fixture.handle.request_log().len(), before);
+        assert!(
+            !fixture
+                .handle
+                .request_log()
+                .iter()
+                .any(|record| record.path() == "/rci/"),
+            "no batch reached the router"
+        );
         drop(changes);
         fixture.shutdown().await?;
         Ok(())

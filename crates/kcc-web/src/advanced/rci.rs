@@ -14,7 +14,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::{
     permissions::Permission,
-    workflow::{BatchItem, DeleteRequest},
+    workflow::{BatchItem, ChangeRequest},
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_i18n::{
@@ -216,7 +216,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
             show: _,
         } => {
             let persists = validated.persists_immediately;
-            let request = DeleteRequest::new(
+            let request = ChangeRequest::delete(
                 validated.path.clone(),
                 path_segments(&validated.path),
                 validated.value,
@@ -241,7 +241,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
                 dispatch
                     .change(
                         risk,
-                        raw_batch(vec![BatchItem::new(root, validated)], params),
+                        raw_batch(vec![(BatchItem::new(root), validated)], params),
                     )
                     .await
             }
@@ -252,7 +252,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
                     .read_batch(
                         items
                             .into_iter()
-                            .map(|item| item.value.redacted().clone())
+                            .map(|(item, _validated)| item.value.redacted().clone())
                             .collect(),
                     )
                     .await

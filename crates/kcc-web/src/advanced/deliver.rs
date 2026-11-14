@@ -10,7 +10,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{BatchChangeRequest, BatchItem, CliChangeRequest, CliCommand},
 };
-use kcc_catalog::Risk;
+use kcc_catalog::{Risk, ValidatedRequest};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{RciBody, RciClient, RciError, RciResponse};
 use serde_json::Value;
@@ -139,26 +139,22 @@ impl Dispatch<'_> {
         let plan = Plan::new(self.target, self.facts, self.sender.user).at(risk);
         let persists = self.persists
             || match &change {
-                Change::Batch(request) => {
-                    request
-                        .items
+                Change::Batch(_request, checks) => {
+                    checks
                         .iter()
-                        .any(|item| !item.validated.persisted_paths.is_empty())
-                        && request
-                            .items
+                        .any(|validated| !validated.persisted_paths.is_empty())
+                        && checks
                             .iter()
-                            .all(|item| item.validated.ordinary_paths.is_empty())
+                            .all(|validated| validated.ordinary_paths.is_empty())
                 }
                 Change::Request(_) | Change::Cli(_) | Change::Delete(_) => change.persists(),
             };
         let persisted_paths = change.persisted_paths(self.facts.catalog());
         let change_items = match &change {
-            Change::Batch(request) => request
-                .items
+            Change::Batch(_request, checks) => checks
                 .iter()
-                .map(|item| {
-                    !item.validated.ordinary_paths.is_empty()
-                        || !item.validated.persisted_paths.is_empty()
+                .map(|validated| {
+                    !validated.ordinary_paths.is_empty() || !validated.persisted_paths.is_empty()
                 })
                 .collect::<Vec<_>>(),
             Change::Request(_) | Change::Cli(_) | Change::Delete(_) => Vec::new(),
@@ -348,13 +344,12 @@ impl Dispatch<'_> {
 
 /// A raw batch of root items as the explorer and the RCI console send it: `RawRci`, no
 /// read-back, audited with the redacted `params`.
-pub(crate) fn raw_batch(items: Vec<BatchItem>, params: Value) -> Change {
-    Change::Batch(BatchChangeRequest::new(
-        items,
-        Vec::new(),
-        Permission::RawRci,
-        params,
-    ))
+pub(crate) fn raw_batch(checked: Vec<(BatchItem, ValidatedRequest)>, params: Value) -> Change {
+    let (items, checks) = checked.into_iter().unzip();
+    Change::Batch(
+        BatchChangeRequest::new(items, Vec::new(), Permission::RawRci, params),
+        checks,
+    )
 }
 
 /// Raw CLI lines as the CLI console sends them: `RawRci`, no read-back, audited with the

@@ -10,10 +10,7 @@
 mod tests {
     use core::{error::Error, str::FromStr as _};
 
-    use kcc_app::{
-        permissions::Permission,
-        workflow::{ChangeRequest, DeleteRequest},
-    };
+    use kcc_app::{permissions::Permission, workflow::ChangeRequest};
     use kcc_catalog::Catalog;
     use kcc_rci::version::FirmwareVersion;
     use serde_json::json;
@@ -34,7 +31,7 @@ mod tests {
             json!({}),
         ));
         assert_eq!(request.persisted_paths(&catalog), ["system country"]);
-        let delete = Change::Delete(DeleteRequest::new(
+        let delete = Change::Delete(ChangeRequest::delete(
             "system country".to_owned(),
             vec!["system".to_owned(), "country".to_owned()],
             json!({}),

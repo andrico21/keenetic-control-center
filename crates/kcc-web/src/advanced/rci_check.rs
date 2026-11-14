@@ -52,7 +52,7 @@ pub(crate) enum Checked {
     /// Root items, sent as one batch.
     Root {
         /// Every item and its validation result.
-        items: Vec<BatchItem>,
+        items: Vec<(BatchItem, ValidatedRequest)>,
         /// The highest item risk.
         risk: Risk,
     },
@@ -129,7 +129,7 @@ fn check_root(
         match catalog.validate("", HttpMethod::Post, &item) {
             Ok(validated) => {
                 risk = risk.max(validated.risk);
-                items.push(BatchItem::new(item, validated));
+                items.push((BatchItem::new(item), validated));
             }
             Err(issues) => problems.extend(issues.into_iter().map(|issue| {
                 if batch {
@@ -220,7 +220,7 @@ impl Checked {
             } => validated.contains_management(),
             Self::Root { items, risk: _ } => items
                 .iter()
-                .any(|item| item.validated.contains_management()),
+                .any(|(_item, validated)| validated.contains_management()),
         };
         Stakes::new(self.risk()).with_management(management)
     }
@@ -247,7 +247,7 @@ impl Checked {
             } => field_names(&validated.value),
             Self::Root { items, risk: _ } => items
                 .iter()
-                .flat_map(|item| field_names(item.value.redacted()))
+                .flat_map(|(item, _validated)| field_names(item.value.redacted()))
                 .collect(),
         }
     }
@@ -261,7 +261,10 @@ impl Checked {
                 show: _,
             } => validated.persists_immediately,
             Self::Root { items, risk: _ } => {
-                !items.is_empty() && items.iter().all(|item| item.validated.persists_immediately)
+                !items.is_empty()
+                    && items
+                        .iter()
+                        .all(|(_item, validated)| validated.persists_immediately)
             }
         }
     }
@@ -276,7 +279,7 @@ impl Checked {
             } => validated.persisted_paths.clone(),
             Self::Root { items, risk: _ } => items
                 .iter()
-                .flat_map(|item| item.validated.persisted_paths.iter().cloned())
+                .flat_map(|(_item, validated)| validated.persisted_paths.iter().cloned())
                 .collect(),
         }
     }

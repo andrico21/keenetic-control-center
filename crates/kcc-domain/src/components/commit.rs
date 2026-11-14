@@ -7,7 +7,7 @@ use kcc_app::{
     jobs::{JobProgress, JobRunner},
     permissions::{Permission, Role},
     registry::{RouterRegistry, authorize},
-    workflow::{ChangeSet, CliCommand as ValidatedCli, TerminalCliChangeRequest},
+    workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{Catalog, HttpMethod};
 use kcc_rci::capabilities::RouterInfo;
@@ -40,7 +40,7 @@ pub(super) async fn start(
     let validated = catalog
         .validate("components commit", HttpMethod::Post, &json!({}))
         .map_err(|issues| DomainError::Validation { issues })?;
-    let request = TerminalCliChangeRequest::new(
+    let request = CliChangeRequest::terminal(
         vec![ValidatedCli::new("components commit".to_owned(), validated)],
         Permission::Destructive,
         json!({"operation":"components commit"}),
@@ -59,7 +59,7 @@ pub(super) async fn start(
             let mut active_changes = changes;
             drop(
                 active_changes
-                    .apply_cli_terminal(request)
+                    .apply_cli(request)
                     .await
                     .map_err(|error| error.to_string())?,
             );

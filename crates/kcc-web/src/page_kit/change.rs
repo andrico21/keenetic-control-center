@@ -10,11 +10,10 @@ use kcc_app::{
     audit::{Actor, ActorKind, AuditError},
     permissions::Permission,
     workflow::{
-        BatchChangeRequest, ChangeRequest, ChangeSet, CliChangeRequest, CliCommand, DeleteRequest,
-        WorkflowError,
+        BatchChangeRequest, ChangeRequest, ChangeSet, CliChangeRequest, CliCommand, WorkflowError,
     },
 };
-use kcc_catalog::{Catalog, HttpMethod, Risk};
+use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest};
 use kcc_domain::{
     DomainError, RouterCtx,
     configuration::{SafetyMode, bracket::guarded, recovery},
@@ -44,12 +43,13 @@ mod persistence_tests;
 pub(crate) enum Change {
     /// One structured write, such as a domain plan converted by its `change_request`.
     Request(ChangeRequest),
-    /// Root RCI items, sent as one batch.
-    Batch(BatchChangeRequest),
+    /// Root RCI items, sent as one batch, with the page's own validation of each item for
+    /// its preview and audit record; the workflow validates the items again from their values.
+    Batch(BatchChangeRequest, Vec<ValidatedRequest>),
     /// CLI lines, sent with `parse`.
     Cli(CliChangeRequest),
     /// One deletion.
-    Delete(DeleteRequest),
+    Delete(ChangeRequest),
 }
 
 impl Change {
@@ -57,24 +57,18 @@ impl Change {
     /// of the fields it sets, never their values.
     pub(crate) fn audit_params(&self) -> Value {
         let (paths, fields): (Vec<&str>, Vec<String>) = match self {
-            Self::Request(request) => (
+            Self::Request(request) | Self::Delete(request) => (
                 vec![request.catalog_path.as_str()],
                 field_names(request.body.redacted()),
             ),
-            Self::Delete(request) => (
-                vec![request.catalog_path.as_str()],
-                field_names(request.query.redacted()),
-            ),
-            Self::Batch(request) => (
-                request
-                    .items
+            Self::Batch(_request, checks) => (
+                checks
                     .iter()
-                    .map(|item| item.validated.path.as_str())
+                    .map(|validated| validated.path.as_str())
                     .collect(),
-                request
-                    .items
+                checks
                     .iter()
-                    .flat_map(|item| field_names(&item.validated.value))
+                    .flat_map(|validated| field_names(&validated.value))
                     .collect(),
             ),
             Self::Cli(request) => lines(&request.commands),
@@ -86,12 +80,11 @@ impl Change {
     /// waits for a save.
     pub(crate) fn persists(&self) -> bool {
         match self {
-            Self::Batch(request) => {
-                !request.items.is_empty()
-                    && request
-                        .items
+            Self::Batch(_request, checks) => {
+                !checks.is_empty()
+                    && checks
                         .iter()
-                        .all(|item| item.validated.persists_immediately)
+                        .all(|validated| validated.persists_immediately)
             }
             Self::Cli(request) => {
                 !request.commands.is_empty()
@@ -107,10 +100,9 @@ impl Change {
     /// Catalog paths of leaf commands persisted by the router at once.
     pub(crate) fn persisted_paths(&self, catalog: &Catalog) -> Vec<String> {
         match self {
-            Self::Batch(request) => request
-                .items
+            Self::Batch(_request, checks) => checks
                 .iter()
-                .flat_map(|item| item.validated.persisted_paths.iter().cloned())
+                .flat_map(|validated| validated.persisted_paths.iter().cloned())
                 .collect(),
             Self::Cli(request) => request
                 .commands
@@ -129,7 +121,7 @@ impl Change {
                 .validate(
                     &request.catalog_path,
                     HttpMethod::Delete,
-                    request.query.expose_for_send().expose_secret(),
+                    request.body.expose_for_send().expose_secret(),
                 )
                 .map(|validated| validated.persisted_paths)
                 .unwrap_or_default(),
@@ -349,12 +341,9 @@ impl<'call> Plan<'call> {
 // NOT cancel-safe: see `apply_with`.
 pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Landed, Refused> {
     let (management, permission) = match &change {
-        Change::Batch(request) => (
+        Change::Batch(request, checks) => (
             request.permission == Permission::RawRci
-                && request
-                    .items
-                    .iter()
-                    .any(|item| item.validated.contains_management()),
+                && checks.iter().any(ValidatedRequest::contains_management),
             request.permission,
         ),
         Change::Cli(request) => (
@@ -373,7 +362,7 @@ pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Landed, 
                     .validate(
                         &request.catalog_path,
                         HttpMethod::Delete,
-                        request.query.expose_for_send().expose_secret(),
+                        request.body.expose_for_send().expose_secret(),
                     )
                     .is_ok_and(|validated| validated.contains_management()),
             request.permission,
@@ -499,27 +488,24 @@ async fn send(changes: &mut ChangeSet, change: Change) -> Result<Applied, Workfl
         Change::Request(request) => changes.apply(request).await.map(|result| Applied::Done {
             unsaved: result.unsaved,
         }),
-        Change::Batch(request) => changes
-            .apply_batch(request)
-            .await
-            .map(|result| Applied::Batch {
-                applied_management_changes: result.applied_management_changes,
-                unsaved: result.unsaved,
-                persists_immediately: result.persists_immediately,
-                persisted_paths: result.persisted_paths,
-                responses: result.responses,
-            }),
+        Change::Batch(request, _checks) => {
+            changes
+                .apply_batch(request)
+                .await
+                .map(|result| Applied::Batch {
+                    applied_management_changes: result.applied_management_changes,
+                    unsaved: result.unsaved,
+                    persists_immediately: result.persists_immediately,
+                    persisted_paths: result.persisted_paths,
+                    responses: result.responses,
+                })
+        }
         Change::Cli(request) => changes.apply_cli(request).await.map(|result| Applied::Cli {
             unsaved: result.unsaved,
             responses: result.responses,
         }),
-        Change::Delete(request) => {
-            changes
-                .apply_delete(request)
-                .await
-                .map(|result| Applied::Done {
-                    unsaved: result.unsaved,
-                })
-        }
+        Change::Delete(request) => changes.apply(request).await.map(|result| Applied::Done {
+            unsaved: result.unsaved,
+        }),
     }
 }
