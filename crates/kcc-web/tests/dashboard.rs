@@ -9,6 +9,26 @@
     reason = "test code is not rendered API documentation"
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "dashboard/router_credentials.rs"]
+mod router_credentials;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "dashboard/router_readers.rs"]
+mod router_readers;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
     extern crate alloc;
 
@@ -60,7 +80,7 @@ mod tests {
     use url::Url;
 
     /// Fallible test result.
-    type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
+    pub(super) type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
 
     /// Largest response body a test reads.
     const BODY_CAP: usize = 0x0040_0000;
@@ -72,10 +92,10 @@ mod tests {
     const PASSWORD: &str = "correct horse battery staple";
 
     /// A second fake-router account whose password appears nowhere else.
-    const ROUTER_LOGIN: &str = "kcc";
+    pub(super) const ROUTER_LOGIN: &str = "kcc";
 
     /// The password of [`ROUTER_LOGIN`].
-    const ROUTER_SECRET: &str = "router-secret-5f2c";
+    pub(super) const ROUTER_SECRET: &str = "router-secret-5f2c";
 
     /// A frozen account and session clock; the tests drive time through tokio.
     #[derive(Debug, Default)]
@@ -91,7 +111,7 @@ mod tests {
     }
 
     /// A signed-in browser: its session cookie and CSRF token.
-    struct Browser {
+    pub(super) struct Browser {
         /// `kcc_session=<id>`.
         cookie: String,
         /// Token for `X-CSRF-Token`.
@@ -100,7 +120,7 @@ mod tests {
 
     /// The Web UI over a registry of fake routers, with an account per built-in role and a
     /// Russian-speaking administrator.
-    struct Fixture {
+    pub(super) struct Fixture {
         /// State, credentials and router password file.
         directory: TempDir,
         /// The Web UI.
@@ -113,7 +133,9 @@ mod tests {
 
     impl Fixture {
         /// Serves one fake router per `(id, profile)` and registers it.
-        async fn new(fakes: &[(&str, Profile)]) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        pub(super) async fn new(
+            fakes: &[(&str, Profile)],
+        ) -> Result<Self, Box<dyn Error + Send + Sync>> {
             let mut outbound = OutboundConfig::default();
             outbound.allow_loopback = true;
             Self::with_outbound(fakes, &outbound).await
@@ -227,7 +249,7 @@ mod tests {
         }
 
         /// `GET path` as `browser`.
-        async fn get(
+        pub(super) async fn get(
             &self,
             path: &str,
             browser: &Browser,
@@ -241,7 +263,7 @@ mod tests {
         }
 
         /// A same-origin form `POST` as `browser`, as htmx sends it.
-        async fn post(
+        pub(super) async fn post(
             &self,
             path: &str,
             browser: &Browser,
@@ -262,7 +284,10 @@ mod tests {
         }
 
         /// Signs `username` in and returns the authenticated browser.
-        async fn login(&self, username: &str) -> Result<Browser, Box<dyn Error + Send + Sync>> {
+        pub(super) async fn login(
+            &self,
+            username: &str,
+        ) -> Result<Browser, Box<dyn Error + Send + Sync>> {
             let page = self
                 .send(Request::get("/ui/login").body(Body::empty())?)
                 .await?;
@@ -300,6 +325,16 @@ mod tests {
                     .await?,
             );
             Ok(())
+        }
+
+        /// The state directory.
+        pub(super) fn state(&self) -> PathBuf {
+            self.directory.path().join("state")
+        }
+
+        /// The registry behind the Web UI.
+        pub(super) fn registry(&self) -> &RouterRegistry {
+            &self.registry
         }
 
         /// The handle of fake router `id`.
@@ -340,7 +375,7 @@ mod tests {
     }
 
     /// The response body as text.
-    async fn text(response: Response) -> Result<String, Box<dyn Error + Send + Sync>> {
+    pub(super) async fn text(response: Response) -> Result<String, Box<dyn Error + Send + Sync>> {
         let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
         Ok(String::from_utf8(bytes.to_vec())?)
     }
@@ -364,7 +399,7 @@ mod tests {
     }
 
     /// A header of `response` as text.
-    fn header_text(response: &Response, name: &str) -> Option<String> {
+    pub(super) fn header_text(response: &Response, name: &str) -> Option<String> {
         response
             .headers()
             .get(name)

@@ -9,6 +9,10 @@
   <dl class="facts">
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_URL) }}</dt><dd class="mono">{{ draft.url }}</dd></div>
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_LOGIN) }}</dt><dd>{{ draft.login }}</dd></div>
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_AUTH) }}</dt><dd>{% if draft.auth == "token" %}{{ t(keys::WEB_ROUTER_AUTH_TOKEN) }}{% else if draft.auth == "ndw2" %}{{ t(keys::WEB_ROUTER_AUTH_NDW2) }}{% else if draft.auth == "ndw4" %}{{ t(keys::WEB_ROUTER_AUTH_NDW4) }}{% else if draft.auth == "digest" %}{{ t(keys::WEB_ROUTER_AUTH_DIGEST) }}{% else %}{{ t(keys::WEB_ROUTER_AUTH_AUTO) }}{% endif %}</dd></div>
+    {%- if !draft.read_login.is_empty() %}
+    <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_READ_LOGIN) }}</dt><dd>{{ draft.read_login }}</dd></div>
+    {%- endif %}
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_TLS) }}</dt><dd>{% if draft.pinned %}{{ t(keys::WEB_ROUTER_TLS_PIN) }}{% else %}{{ t(keys::WEB_ROUTER_TLS_VERIFY) }}{% endif %}</dd></div>
     {%- if !draft.tags.is_empty() %}
     <div class="facts__row"><dt>{{ t(keys::WEB_ROUTER_TAGS) }}</dt><dd>{{ draft.tags }}</dd></div>
@@ -29,14 +33,34 @@
     {%- endif %}
     {{ ui::field("router-url", "url", t(keys::WEB_ROUTER_URL), draft.url, errors.url, "url", "off", t(keys::WEB_ROUTER_URL_HELP)) }}
     {{ ui::field("router-login", "login", t(keys::WEB_ROUTER_LOGIN), draft.login, errors.login, "text", "off") }}
-    {%- if editing %}
-    {{ kit::secret_field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), errors.password, t(keys::WEB_ROUTER_PASSWORD_KEEP)) }}
-    {%- else %}
-    {{ kit::secret_field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), errors.password, "") }}
-    {%- endif %}
     <div class="field">
-      <span class="field__label">{{ t(keys::WEB_ROUTER_AUTH) }}</span>
-      <p class="field__static">{{ t(keys::WEB_ROUTER_AUTH_TEXT) }}</p>
+      <label class="field__label" for="router-auth">{{ t(keys::WEB_ROUTER_AUTH) }}</label>
+      <select class="field__input" id="router-auth" name="auth"
+        {%- if !errors.auth.is_empty() %} aria-invalid="true" aria-describedby="router-auth-error router-auth-help"{% else %} aria-describedby="router-auth-help"{% endif %}>
+        <option value="auto"{% if draft.auth == "auto" || draft.auth.is_empty() %} selected{% endif %}>{{ t(keys::WEB_ROUTER_AUTH_AUTO) }}</option>
+        <option value="ndw2"{% if draft.auth == "ndw2" %} selected{% endif %}>{{ t(keys::WEB_ROUTER_AUTH_NDW2) }}</option>
+        <option value="ndw4"{% if draft.auth == "ndw4" %} selected{% endif %}>{{ t(keys::WEB_ROUTER_AUTH_NDW4) }}</option>
+        <option value="digest"{% if draft.auth == "digest" %} selected{% endif %}>{{ t(keys::WEB_ROUTER_AUTH_DIGEST) }}</option>
+        <option value="token"{% if draft.auth == "token" %} selected{% endif %}>{{ t(keys::WEB_ROUTER_AUTH_TOKEN) }}</option>
+      </select>
+      <p class="field__help" id="router-auth-help">{{ t(keys::WEB_ROUTER_AUTH_HELP) }}</p>
+      {%- if !errors.auth.is_empty() %}
+      <p class="field__error" id="router-auth-error">{{ errors.auth }}</p>
+      {%- endif %}
+    </div>
+    <div data-show="auto ndw2 ndw4 digest">
+      {%- if editing && stored.password() %}
+      {{ kit::secret_field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), errors.password, t(keys::WEB_ROUTER_PASSWORD_KEEP)) }}
+      {%- else %}
+      {{ kit::secret_field("router-password", "password", t(keys::WEB_ROUTER_PASSWORD), errors.password, "") }}
+      {%- endif %}
+    </div>
+    <div data-show="token">
+      {%- if stored.token() %}
+      {{ kit::secret_field("router-token", "token", t(keys::WEB_ROUTER_TOKEN), errors.token, t(keys::WEB_ROUTER_TOKEN_STORED)) }}
+      {%- else %}
+      {{ kit::secret_field("router-token", "token", t(keys::WEB_ROUTER_TOKEN), errors.token, "") }}
+      {%- endif %}
     </div>
     <fieldset class="choice">
       <legend class="field__label">{{ t(keys::WEB_ROUTER_TLS) }}</legend>
@@ -47,6 +71,22 @@
     <div class="pin-field">
       {{ ui::field("router-pin", "tls_pin", t(keys::WEB_ROUTER_TLS_PIN_VALUE), draft.pin, errors.pin, "text", "off") }}
     </div>
+    <fieldset class="form-group" aria-describedby="router-read-help">
+      <legend class="field__label">{{ t(keys::WEB_ROUTER_READ) }}</legend>
+      <p class="field__help" id="router-read-help">{{ t(keys::WEB_ROUTER_READ_HELP) }}</p>
+      {{ ui::field("router-read-login", "read_login", t(keys::WEB_ROUTER_READ_LOGIN), draft.read_login, errors.read_login, "text", "off") }}
+      {%- if stored.read() %}
+      {{ kit::secret_field("router-read-password", "read_password", t(keys::WEB_ROUTER_READ_PASSWORD), errors.read_password, t(keys::WEB_ROUTER_READ_STORED)) }}
+      {%- else %}
+      {{ kit::secret_field("router-read-password", "read_password", t(keys::WEB_ROUTER_READ_PASSWORD), errors.read_password, "") }}
+      {%- endif %}
+      {%- if stored.reader() %}
+      <div class="check">
+        <input class="check__input" type="checkbox" id="router-clear-read" name="clear_read" value="on">
+        <label class="check__label" for="router-clear-read">{{ t(keys::WEB_ROUTER_READ_REMOVE) }}</label>
+      </div>
+      {%- endif %}
+    </fieldset>
     {{ ui::field("router-tags", "tags", t(keys::WEB_ROUTER_TAGS), draft.tags, "", "text", "off", t(keys::WEB_ROUTER_TAGS_HELP)) }}
     <div class="check">
       <input class="check__input" type="checkbox" id="router-test-device" name="test_device" value="on" aria-describedby="router-test-device-help"{% if draft.test_device %} checked{% endif %}>

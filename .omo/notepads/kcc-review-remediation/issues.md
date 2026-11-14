@@ -19,3 +19,10 @@
 ## [2026-11-14] Todo 52 (out of scope, left for follow-ups)
 - Web router audit (`router.profile_create/update`, crates/kcc-web/src/router_access.rs) still logs `credentials_changed: bool`, not the `credentials` kind list the CLI now writes; and the Web edit form cannot handle a token profile (storing a password leaves `token_file` set, so `validate` refuses it). Both belong to todo 53 (Web router form).
 - `kcc router edit --url` runs no outbound-policy check on the new URL (pre-existing; `router add` does).
+
+## [2026-11-14] Todo 53 (found, not fixed: out of scope)
+- `/ui/routers/test` (`crates/kcc-web/src/router_check.rs`) tests a typed password with automatic sign-in only: it ignores the selected sign-in mode and cannot test a typed API token (`RouterRegistry::test_connection_with` takes a password). A stored token profile tests fine with empty fields.
+- The password/token switch rule exists twice: `crates/kcc/src/cli/router_edit.rs::plan` (clap-shaped) and `crates/kcc-web/src/router_form/plan.rs`; both reuse `ManagedRouterProfile::moves_endpoint`. A kcc-app credential-plan seam would make it one.
+- `crates/kcc-web/src/router_form/address.rs::is_slug` duplicates `kcc_app::registry` `valid_router_id`/`is_valid_router_id`.
+- `crates/kcc-web/tests/dashboard.rs` is ~1250 lines (pre-existing); the new tests went into `tests/dashboard/router_{credentials,readers}.rs`.
+- No PNG screenshots for todo 53 (no browser tooling for workers); todo 45's golden capture or the orchestrator's browser should look at the router form at 390 px dark / 1280 px light.

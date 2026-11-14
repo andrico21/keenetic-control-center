@@ -108,7 +108,8 @@ and sets `no_new_privs`. Run it as an ordinary user.
    kcc serve
    ```
 
-Routers can also be added in the Web UI (Dashboard, Add router). Plain HTTP is
+Routers can also be added in the Web UI (Dashboard, Add router), with the same
+password, token and read-only login options, sealed the same way. Plain HTTP is
 accepted only on loopback; any other listener needs TLS
 (`kcc tls self-signed --host <name>` writes a certificate pair) or an https
 `public_url` behind a trusted proxy. Every setting is described in

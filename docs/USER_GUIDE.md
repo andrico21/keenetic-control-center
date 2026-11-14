@@ -41,14 +41,25 @@ your role: pages and buttons you have no permission for are hidden or answer
 
 `/ui/` shows one card per router with its status, model, firmware, support tier and
 unsaved state, refreshed live. Admins with ManageRouters add, edit, test and remove
-routers here (Add router). The router form takes the name, address, login, password,
-certificate check (verify, or pin one certificate), tags and the `test_device` flag.
-The pin is the SHA-256 of the router certificate's public key (SubjectPublicKeyInfo)
-and applies to https addresses only. Test connection logs in without storing anything.
-Routers defined in `kcc.toml` are read-only here.
+routers here (Add router). The router form takes the name, address, login, sign-in
+mode, password or API token, certificate check (verify, or pin one certificate), an
+optional read-only polling account, tags and the `test_device` flag. The sign-in mode is
+Automatic (the scheme the router offers), ndw2, ndw4, HTTP digest or API token; the
+token field appears only for API token and replaces the password. The read-only login
+and password are entered together; the poller then signs in with them instead of the
+management login, and "Remove read-only login" on the edit form drops both. The pin is
+the SHA-256 of the router certificate's public key (SubjectPublicKeyInfo) and applies to
+https addresses only. Test connection logs in with the typed password, or with the
+stored credentials when the field is empty, without storing anything. Routers defined in
+`kcc.toml` are read-only here.
 
-Passwords entered in this form are encrypted in the state directory and are never shown
-again. `kcc router add` and `kcc router edit` use the same sealed store for every
+Passwords, tokens and read-only passwords entered in this form are encrypted in the state
+directory and are never shown again: an empty field keeps the stored secret, and the
+form only says that one is stored. Changing the address, login or certificate check
+needs the password (or the token) again and drops the read-only login unless it is
+entered again in the same save; switching to API token needs a token and removes the
+stored password, switching back needs a password and removes the stored token.
+`kcc router add` and `kcc router edit` use the same sealed store for every
 credential they take: the password (`--password-file`, `KCC_PASSWORD` or the hidden
 prompt), a login token (`--auth token --token-file <file>`) and a read-only polling
 login (`--read-login <name> --read-password-file <file>`). The files are input only and

@@ -6726,8 +6726,63 @@ pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate
 /// `web-bracket-unowned` in `web.ftl`.
 pub const WEB_BRACKET_UNOWNED: MessageKey = MessageKey::new("web-bracket-unowned");
 
+/// `web-router-auth-help` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_HELP: MessageKey = MessageKey::new("web-router-auth-help");
+
+/// `web-router-auth-auto` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_AUTO: MessageKey = MessageKey::new("web-router-auth-auto");
+
+/// `web-router-auth-ndw2` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_NDW2: MessageKey = MessageKey::new("web-router-auth-ndw2");
+
+/// `web-router-auth-ndw4` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_NDW4: MessageKey = MessageKey::new("web-router-auth-ndw4");
+
+/// `web-router-auth-digest` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_DIGEST: MessageKey = MessageKey::new("web-router-auth-digest");
+
+/// `web-router-auth-token` in `web.ftl`.
+pub const WEB_ROUTER_AUTH_TOKEN: MessageKey = MessageKey::new("web-router-auth-token");
+
+/// `web-router-token` in `web.ftl`.
+pub const WEB_ROUTER_TOKEN: MessageKey = MessageKey::new("web-router-token");
+
+/// `web-router-token-stored` in `web.ftl`.
+pub const WEB_ROUTER_TOKEN_STORED: MessageKey = MessageKey::new("web-router-token-stored");
+
+/// `web-router-read` in `web.ftl`.
+pub const WEB_ROUTER_READ: MessageKey = MessageKey::new("web-router-read");
+
+/// `web-router-read-help` in `web.ftl`.
+pub const WEB_ROUTER_READ_HELP: MessageKey = MessageKey::new("web-router-read-help");
+
+/// `web-router-read-login` in `web.ftl`.
+pub const WEB_ROUTER_READ_LOGIN: MessageKey = MessageKey::new("web-router-read-login");
+
+/// `web-router-read-password` in `web.ftl`.
+pub const WEB_ROUTER_READ_PASSWORD: MessageKey = MessageKey::new("web-router-read-password");
+
+/// `web-router-read-stored` in `web.ftl`.
+pub const WEB_ROUTER_READ_STORED: MessageKey = MessageKey::new("web-router-read-stored");
+
+/// `web-router-read-remove` in `web.ftl`.
+pub const WEB_ROUTER_READ_REMOVE: MessageKey = MessageKey::new("web-router-read-remove");
+
+/// `web-router-error-auth` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_AUTH: MessageKey = MessageKey::new("web-router-error-auth");
+
+/// `web-router-error-token` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_TOKEN: MessageKey = MessageKey::new("web-router-error-token");
+
+/// `web-router-error-read-login` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_READ_LOGIN: MessageKey = MessageKey::new("web-router-error-read-login");
+
+/// `web-router-error-read-password` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_READ_PASSWORD: MessageKey =
+    MessageKey::new("web-router-error-read-password");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2143] = [
+pub static ALL: [MessageKey; 2161] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -8871,4 +8926,22 @@ pub static ALL: [MessageKey; 2143] = [
     WEB_REFUSAL_TOAST,
     WEB_MIGRATE_NOTHING_TO_SEND,
     WEB_BRACKET_UNOWNED,
+    WEB_ROUTER_AUTH_HELP,
+    WEB_ROUTER_AUTH_AUTO,
+    WEB_ROUTER_AUTH_NDW2,
+    WEB_ROUTER_AUTH_NDW4,
+    WEB_ROUTER_AUTH_DIGEST,
+    WEB_ROUTER_AUTH_TOKEN,
+    WEB_ROUTER_TOKEN,
+    WEB_ROUTER_TOKEN_STORED,
+    WEB_ROUTER_READ,
+    WEB_ROUTER_READ_HELP,
+    WEB_ROUTER_READ_LOGIN,
+    WEB_ROUTER_READ_PASSWORD,
+    WEB_ROUTER_READ_STORED,
+    WEB_ROUTER_READ_REMOVE,
+    WEB_ROUTER_ERROR_AUTH,
+    WEB_ROUTER_ERROR_TOKEN,
+    WEB_ROUTER_ERROR_READ_LOGIN,
+    WEB_ROUTER_ERROR_READ_PASSWORD,
 ];

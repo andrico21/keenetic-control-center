@@ -1,19 +1,22 @@
-//! The router profile form: submitted fields, their validation, and the form page.
+//! The router profile form: submitted fields and their validation.
 
-use askama::Template;
-use fluent_bundle::FluentArgs;
-use kcc_app::{registry::ManagedRouterProfile, settings::RouterTls};
+pub(crate) mod address;
+pub(crate) mod page;
+pub(crate) mod plan;
+
+use kcc_app::{
+    registry::ManagedRouterProfile,
+    settings::{RouterAuth, RouterTls},
+};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 use serde::Deserialize;
 use url::Url;
 
-use crate::{
-    page::{Localize, Shell},
-    page_kit::secret::write_only,
-};
+use self::address::origin;
+use crate::page_kit::secret::write_only;
 
-/// The submitted router form. The password moves into a [`SecretString`] in
+/// The submitted router form. Every secret moves into a [`SecretString`] in
 /// [`RouterForm::parse`] before any other use and is never echoed back.
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -33,6 +36,21 @@ pub(crate) struct RouterForm {
     /// Password; empty keeps the stored one when editing.
     #[serde(default)]
     password: String,
+    /// Sign-in mode: `auto` (or empty), `ndw2`, `ndw4`, `token` or `digest`.
+    #[serde(default)]
+    auth: String,
+    /// API token of mode `token`; empty keeps the stored one when editing.
+    #[serde(default)]
+    token: String,
+    /// Read-only polling login.
+    #[serde(default)]
+    read_login: String,
+    /// Read-only polling password; empty keeps the stored one.
+    #[serde(default)]
+    read_password: String,
+    /// Present when "remove read-only login" is checked.
+    #[serde(default)]
+    clear_read: Option<String>,
     /// `verify` or `pin`.
     #[serde(default)]
     tls: String,
@@ -47,7 +65,16 @@ pub(crate) struct RouterForm {
     test_device: Option<String>,
 }
 
-/// What the form shows again: every field but the password.
+/// The sign-in modes the form offers, by their form value.
+const MODES: [(&str, RouterAuth); 5] = [
+    ("auto", RouterAuth::Auto),
+    ("ndw2", RouterAuth::Ndw2),
+    ("ndw4", RouterAuth::Ndw4),
+    ("token", RouterAuth::Token),
+    ("digest", RouterAuth::Digest),
+];
+
+/// What the form shows again: every field but the secrets.
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Draft {
     /// Profile id.
@@ -56,6 +83,10 @@ pub(crate) struct Draft {
     url: String,
     /// Login.
     login: String,
+    /// Form value of the sign-in mode.
+    auth: &'static str,
+    /// Read-only polling login.
+    read_login: String,
     /// Whether a certificate is pinned.
     pinned: bool,
     /// Certificate SHA-256.
@@ -77,6 +108,11 @@ impl Draft {
             id: profile.id.clone(),
             url: profile.url.as_str().trim_end_matches('/').to_owned(),
             login: profile.login.clone(),
+            auth: MODES
+                .iter()
+                .find(|(_, mode)| *mode == profile.auth)
+                .map_or("auto", |(value, _)| value),
+            read_login: profile.read_login.clone().unwrap_or_default(),
             pinned,
             pin,
             tags: profile.tags.join(", "),
@@ -106,20 +142,24 @@ pub(crate) struct FieldErrors {
     url: String,
     /// Login.
     login: String,
+    /// Sign-in mode.
+    auth: String,
     /// Password.
     password: String,
+    /// API token.
+    token: String,
     /// Certificate pin.
     pin: String,
+    /// Read-only polling login.
+    read_login: String,
+    /// Read-only polling password.
+    read_password: String,
 }
 
 impl FieldErrors {
     /// Whether any field is invalid.
-    pub(crate) const fn any(&self) -> bool {
-        !(self.id.is_empty()
-            && self.url.is_empty()
-            && self.login.is_empty()
-            && self.password.is_empty()
-            && self.pin.is_empty())
+    pub(crate) fn any(&self) -> bool {
+        !self.first().is_empty()
     }
 
     /// Marks the id as invalid with `message`.
@@ -132,17 +172,41 @@ impl FieldErrors {
         self.url = message;
     }
 
-    /// Marks the password as invalid with `message`.
-    pub(crate) fn set_password(&mut self, message: String) {
-        self.password = message;
-    }
-
     /// The first field message, in form order.
     pub(crate) fn first(&self) -> &str {
-        [&self.id, &self.url, &self.login, &self.password, &self.pin]
-            .into_iter()
-            .find(|message| !message.is_empty())
-            .map_or("", String::as_str)
+        [
+            &self.id,
+            &self.url,
+            &self.login,
+            &self.auth,
+            &self.password,
+            &self.token,
+            &self.pin,
+            &self.read_login,
+            &self.read_password,
+        ]
+        .into_iter()
+        .find(|message| !message.is_empty())
+        .map_or("", String::as_str)
+    }
+}
+
+/// The secrets typed into a form; an empty field is `None`. The password of mode `token`
+/// and the token of a password mode are hidden fields and are dropped.
+#[derive(Default)]
+pub(crate) struct Typed {
+    /// Management password.
+    password: Option<SecretString>,
+    /// API token.
+    token: Option<SecretString>,
+    /// Read-only polling password.
+    read: Option<SecretString>,
+}
+
+impl Typed {
+    /// The typed management password.
+    pub(crate) fn into_password(self) -> Option<SecretString> {
+        self.password
     }
 }
 
@@ -152,6 +216,12 @@ pub(crate) struct Parsed {
     url: Url,
     /// Login.
     login: String,
+    /// Sign-in mode.
+    auth: RouterAuth,
+    /// Read-only polling login.
+    read_login: String,
+    /// Whether "remove read-only login" is checked.
+    clear_read: bool,
     /// TLS policy.
     tls: RouterTls,
     /// Tags.
@@ -176,8 +246,8 @@ impl Parsed {
         moved.moves_endpoint(profile)
     }
 
-    /// Copies the parsed fields into `profile`, keeping its id, password file and
-    /// read-only poll credentials.
+    /// Copies the parsed fields into `profile`, keeping its id, sign-in mode and
+    /// credentials ([`plan::Plan`] changes those).
     pub(crate) fn apply(self, profile: &mut ManagedRouterProfile) {
         profile.url = self.url;
         profile.login = self.login;
@@ -198,25 +268,44 @@ impl RouterForm {
         self.id.trim()
     }
 
-    /// Validates the fields; returns the draft to show again, the password if one was
-    /// typed, and the parsed fields or the field errors.
+    /// Validates the fields; returns the draft to show again, the typed secrets, and the
+    /// parsed fields or the field errors. `primary_required` asks for the password, or the
+    /// token in mode `token`.
     pub(crate) fn parse(
         self,
         locale: Locale,
-        password_required: bool,
-    ) -> (Draft, Option<SecretString>, Result<Parsed, FieldErrors>) {
+        primary_required: bool,
+    ) -> (Draft, Typed, Result<Parsed, FieldErrors>) {
         let message = |key| tr(locale, key, None);
         let mut errors = FieldErrors::default();
-        let draft = Draft {
+        let mut draft = Draft {
             id: self.id.trim().to_owned(),
             url: self.url.trim().to_owned(),
             login: self.login.trim().to_owned(),
+            auth: "auto",
+            read_login: self.read_login.trim().to_owned(),
             pinned: self.tls == "pin",
             pin: self.tls_pin.trim().to_ascii_lowercase(),
             tags: self.tags.trim().to_owned(),
             test_device: self.test_device.is_some(),
         };
-        let password = write_only(self.password);
+        let wanted = if self.auth.is_empty() {
+            "auto"
+        } else {
+            self.auth.as_str()
+        };
+        let mode = MODES.iter().find(|(value, _)| *value == wanted);
+        let auth = mode.map_or(RouterAuth::Auto, |(_, auth)| *auth);
+        draft.auth = mode.map_or("auto", |(value, _)| value);
+        if mode.is_none() {
+            errors.auth = message(keys::WEB_ROUTER_ERROR_AUTH);
+        }
+        let token_mode = auth == RouterAuth::Token;
+        let typed = Typed {
+            password: write_only(self.password).filter(|_| !token_mode),
+            token: write_only(self.token).filter(|_| token_mode),
+            read: write_only(self.read_password),
+        };
         let url = origin(&draft.url);
         if url.is_none() {
             errors.url = message(keys::WEB_ROUTER_ERROR_URL);
@@ -224,8 +313,14 @@ impl RouterForm {
         if draft.login.is_empty() {
             errors.login = message(keys::WEB_ROUTER_ERROR_LOGIN);
         }
-        if password_required && password.is_none() {
-            errors.password = message(keys::WEB_ROUTER_ERROR_PASSWORD);
+        match (primary_required, token_mode) {
+            (true, true) if typed.token.is_none() => {
+                errors.token = message(keys::WEB_ROUTER_ERROR_TOKEN);
+            }
+            (true, false) if typed.password.is_none() => {
+                errors.password = message(keys::WEB_ROUTER_ERROR_PASSWORD);
+            }
+            (true | false, _) => {}
         }
         let tls = if draft.pinned {
             let valid =
@@ -241,6 +336,9 @@ impl RouterForm {
             Some(target) if !errors.any() => Ok(Parsed {
                 url: target,
                 login: draft.login.clone(),
+                auth,
+                read_login: draft.read_login.clone(),
+                clear_read: self.clear_read.is_some(),
                 tls,
                 tags: draft
                     .tags
@@ -253,106 +351,6 @@ impl RouterForm {
             }),
             Some(_) | None => Err(errors),
         };
-        (draft, password, parsed)
-    }
-}
-
-/// An `http`/`https` origin with a host and no path, query or fragment.
-fn origin(text: &str) -> Option<Url> {
-    let url = Url::parse(text).ok()?;
-    let valid = matches!(url.scheme(), "http" | "https")
-        && url.host().is_some()
-        && url.path() == "/"
-        && url.query().is_none()
-        && url.fragment().is_none()
-        && url.username().is_empty()
-        && url.password().is_none();
-    valid.then_some(url)
-}
-
-/// Whether `id` is a registry slug: 1 to 32 of `a-z`, `0-9` and `-`.
-pub(crate) fn is_slug(id: &str) -> bool {
-    (1..=32).contains(&id.len())
-        && id
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-}
-
-/// The add or edit form, or the read-only view of a `kcc.toml` profile.
-#[derive(Template)]
-#[template(path = "pages/router_form.html")]
-pub(crate) struct FormPage {
-    /// Page shell.
-    shell: Shell,
-    /// Page title.
-    title: String,
-    /// Whether an existing profile is edited (the id is fixed).
-    editing: bool,
-    /// Whether the profile comes from `kcc.toml` and is shown read-only.
-    read_only: bool,
-    /// Values to show.
-    draft: Draft,
-    /// Field errors.
-    errors: FieldErrors,
-}
-
-impl FormPage {
-    /// The add form.
-    pub(crate) fn add(shell: Shell, draft: Draft, errors: FieldErrors) -> Self {
-        let title = tr(shell.locale(), keys::WEB_ROUTER_NEW_TITLE, None);
-        Self {
-            shell,
-            title,
-            editing: false,
-            read_only: false,
-            draft,
-            errors,
-        }
-    }
-
-    /// The edit form of `draft.id`; `read_only` for a `kcc.toml` profile.
-    pub(crate) fn edit(shell: Shell, draft: Draft, errors: FieldErrors) -> Self {
-        let mut args = FluentArgs::new();
-        args.set("name", draft.id.clone());
-        let title = tr(shell.locale(), keys::WEB_ROUTER_EDIT_TITLE, Some(&args));
-        Self {
-            shell,
-            title,
-            editing: true,
-            read_only: false,
-            draft,
-            errors,
-        }
-    }
-
-    /// Shows the profile without controls.
-    #[must_use]
-    pub(crate) const fn read_only(mut self) -> Self {
-        self.read_only = true;
-        self
-    }
-
-    /// Where the form posts.
-    fn action(&self) -> String {
-        if self.editing {
-            format!("/ui/routers/{}/edit", self.draft.id)
-        } else {
-            "/ui/routers/new".to_owned()
-        }
-    }
-
-    /// Where Cancel leads.
-    fn cancel(&self) -> String {
-        if self.editing {
-            format!("/ui/r/{}", self.draft.id)
-        } else {
-            "/ui/".to_owned()
-        }
-    }
-}
-
-impl Localize for FormPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
+        (draft, typed, parsed)
     }
 }

@@ -95,6 +95,16 @@ The first release, `0.1.0`, is in preparation and contains:
   still names an external password file is warned about once per CLI run and at
   `kcc serve` startup.
 
+- **The Web UI router form sets every credential kind**: a sign-in mode select (`auto`,
+  `ndw2`, `ndw4`, `digest`, `token`), an API token field shown only for mode `token`, and
+  an optional read-only polling login and password with "Remove read-only login" on
+  edit. Each secret is sealed into `<id>.sealed`, `<id>.token.sealed` or
+  `<id>.read.sealed`, never shown again (the form only notes that one is stored), and
+  follows the CLI's rule: a new address, login or TLS pin, or a switch between password
+  and token sign-in, needs the new primary credential. The `router.profile_create`,
+  `router.profile_update` and `router.profile_delete` audit entries name the credential
+  kinds in `"credentials"` instead of the former `credentials_changed` flag.
+
 - **One message per migration failure**: the CLI, the Web UI, MCP and the engine report
   each migration failure with the same sentence. `ReplanRequired` asks to review the plan
   again everywhere (the preset page used to show the drift text), and the MCP migration

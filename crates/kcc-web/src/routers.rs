@@ -1,9 +1,12 @@
 //! Router profile management: `/ui/routers/new` and `/ui/routers/{id}/edit`.
 //!
 //! The route table requires `ManageRouters` for every route here and the registry checks
-//! the router scope again. Profiles from `kcc.toml` are read-only. A typed password moves
-//! into a [`SecretString`] and then into an owner-only file; it is never rendered, logged
-//! or audited. Every create, update and delete is audited without credentials.
+//! the router scope again. Profiles from `kcc.toml` are read-only. Every typed secret (the
+//! password, the token, the read-only password) moves into a `SecretString` and then into
+//! its sealed record; it is never rendered, logged or audited. Every create, update and
+//! delete is audited with the changed credential kinds only.
+
+use std::path::PathBuf;
 
 use axum::{
     Form,
@@ -11,16 +14,17 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Redirect, Response},
 };
-use kcc_app::{
-    credentials::CredentialKind,
-    registry::{ManagedRouterProfile, ProfileSource, RegistryError},
+use kcc_app::registry::{ManagedRouterProfile, ProfileSource, RegistryError};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
 };
-use kcc_i18n::{bundle::tr, keys};
 
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
+    fleet::Fleet,
     nav::Section,
     page_kit::{
         context::{Caller, lookup, managed},
@@ -28,7 +32,12 @@ use crate::{
     },
     router_access::{ProfileAction, audit},
     router_check::{allowed, policy_refusal},
-    router_form::{Draft, FieldErrors, FormPage, RouterForm, is_slug},
+    router_form::{
+        Draft, FieldErrors, Parsed, RouterForm, Typed,
+        address::is_slug,
+        page::{FormPage, Stored},
+        plan::{Plan, Refusal},
+    },
 };
 
 /// `GET /ui/routers/new`: the add form.
@@ -52,7 +61,7 @@ pub(crate) async fn new_page(
 }
 
 /// `POST /ui/routers/new`: validates, checks the outbound policy, stores the profile and
-/// its password file, and opens the new router's dashboard.
+/// seals its credentials, and opens the new router's dashboard.
 pub(crate) async fn create(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -67,38 +76,35 @@ pub(crate) async fn create(
         .shell(&state, Section::Dashboard, None)
         .await;
     let locale = user.locale();
-    let (draft, password, parsed) = form.parse(locale, true);
+    let (draft, typed, parsed) = form.parse(locale, true);
     let mut errors = parsed.as_ref().err().cloned().unwrap_or_default();
-    let slug = is_slug(draft.id());
-    let taken = slug && matches!(lookup(fleet, user.role(), draft.id()).await, Ok(Some(_)));
-    match (slug, taken) {
-        (false, _) => errors.set_id(tr(locale, keys::WEB_ROUTER_ERROR_ID, None)),
-        (true, true) => errors.set_id(tr(locale, keys::WEB_ROUTER_ERROR_EXISTS, None)),
-        (true, false) => {}
+    if let Some(key) = id_refusal(fleet, &user, draft.id()).await {
+        errors.set_id(tr(locale, key, None));
     }
     if let Ok(fields) = &parsed
         && !allowed(fleet, fields.url()).await
     {
         errors.set_url(policy_refusal(locale, fields.url()));
     }
-    let (Ok(fields), Some(secret), false) = (parsed, password, errors.any()) else {
+    let planned = plan(None, &parsed, typed).unwrap_or_else(|refusal| {
+        refusal.mark(&mut errors, locale);
+        None
+    });
+    let (Ok(fields), Some(plan), false) = (parsed, planned, errors.any()) else {
         return unprocessable(&FormPage::add(shell, draft, errors));
     };
     let id = draft.id().to_owned();
-    let file = match fleet
-        .credentials()
-        .sealed_path(&id, CredentialKind::Password)
-    {
-        Ok(path) => path,
-        Err(error) => return errors::internal(&error, shell),
-    };
+    let store = fleet.credentials();
     let mut profile = ManagedRouterProfile::new(
         id.clone(),
         fields.url().clone(),
         String::new(),
-        file.clone(),
+        PathBuf::new(),
     );
     fields.apply(&mut profile);
+    if let Err(error) = plan.point(store, &mut profile) {
+        return errors::internal(&error, shell);
+    }
     match fleet.registry().create(user.role(), profile.clone()).await {
         Ok(()) => {}
         Err(RegistryError::AlreadyExists { id: _ }) => {
@@ -110,17 +116,50 @@ pub(crate) async fn create(
         }
         Err(error) => return errors::internal(&error, shell),
     }
-    if let Err(error) = fleet
-        .credentials()
-        .store(&id, CredentialKind::Password, &secret)
-    {
+    if let Err(error) = plan.seal(store, &id) {
         if let Err(rollback) = fleet.registry().delete(user.role(), &id).await {
             tracing::error!(error = %rollback, "router profile rollback failed");
         }
+        if let Err(cleanup) = store.remove(&id) {
+            tracing::error!(router = %id, error = %cleanup, "router credential cleanup failed");
+        }
         return errors::internal(&error, shell);
     }
-    audit(&state, &user, ProfileAction::Create(&profile)).await;
+    let credentials = plan.changed();
+    let change = ProfileAction::Create {
+        profile: &profile,
+        credentials: &credentials,
+    };
+    audit(&state, &user, change).await;
     open(&format!("/ui/r/{id}"))
+}
+
+/// Why a new router cannot take the id `id`: not a slug, or already taken.
+// cancel-safe: reads the registry only.
+async fn id_refusal(fleet: &Fleet, user: &CurrentUser, id: &str) -> Option<MessageKey> {
+    if !is_slug(id) {
+        return Some(keys::WEB_ROUTER_ERROR_ID);
+    }
+    matches!(lookup(fleet, user.role(), id).await, Ok(Some(_)))
+        .then_some(keys::WEB_ROUTER_ERROR_EXISTS)
+}
+
+/// Plans the credentials of a valid form for a new profile (`stored` is `None`) or the
+/// edit of `stored`; `None` when the fields are invalid.
+///
+/// # Errors
+///
+/// Returns the fields a refused submit has to fill in.
+fn plan(
+    stored: Option<&ManagedRouterProfile>,
+    parsed: &Result<Parsed, FieldErrors>,
+    typed: Typed,
+) -> Result<Option<Plan>, Refusal> {
+    parsed
+        .as_ref()
+        .ok()
+        .map(|fields| Plan::new(stored, fields, typed))
+        .transpose()
 }
 
 /// `GET /ui/routers/{id}/edit`: the edit form, or the read-only view of a `kcc.toml`
@@ -142,11 +181,9 @@ pub(crate) async fn edit_page(
         Ok(entry) => entry,
         Err(refusal) => return refusal.page(shell),
     };
-    let page = FormPage::edit(
-        shell,
-        Draft::from_profile(&entry.profile),
-        FieldErrors::default(),
-    );
+    let draft = Draft::from_profile(&entry.profile);
+    let page = FormPage::edit(shell, draft, FieldErrors::default())
+        .with_stored(Stored::of(fleet.credentials(), &entry.profile));
     match entry.source {
         ProfileSource::Config => errors::render(&page.read_only()),
         ProfileSource::State | _ => errors::render(&page),
@@ -155,8 +192,9 @@ pub(crate) async fn edit_page(
 
 /// `POST /ui/routers/{id}/edit`: updates a Web UI profile.
 ///
-/// An empty password keeps the stored one unless the address, login or TLS mode moves;
-/// such a move also drops the read-only poll credentials and their sealed record.
+/// An empty secret field keeps the stored secret unless the address, login or TLS mode
+/// moves or the sign-in mode switches between password and token ([`Plan`]); a move also
+/// drops the read-only login and its sealed record unless they are entered again.
 pub(crate) async fn update(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -177,7 +215,7 @@ pub(crate) async fn update(
         Err(refusal) => return refusal.page(shell),
     };
     let locale = user.locale();
-    let (submitted, password, parsed) = form.parse(locale, false);
+    let (submitted, typed, parsed) = form.parse(locale, false);
     let draft = submitted.with_id(id.clone());
     let mut errors = parsed.as_ref().err().cloned().unwrap_or_default();
     if let Ok(fields) = &parsed
@@ -185,39 +223,23 @@ pub(crate) async fn update(
     {
         errors.set_url(policy_refusal(locale, fields.url()));
     }
-    if let Ok(fields) = &parsed
-        && password.is_none()
-        && fields.moves_credential(&entry.profile)
-    {
-        errors.set_password(tr(locale, keys::WEB_ROUTER_ERROR_PASSWORD, None));
-    }
-    let (Ok(fields), false) = (parsed, errors.any()) else {
-        return unprocessable(&FormPage::edit(shell, draft, errors));
-    };
+    let store = fleet.credentials();
     let stored = entry.profile;
-    let mut profile = stored.clone();
+    let planned = plan(Some(&stored), &parsed, typed).unwrap_or_else(|refusal| {
+        refusal.mark(&mut errors, locale);
+        None
+    });
+    let (Ok(fields), Some(plan), false) = (parsed, planned, errors.any()) else {
+        let page = FormPage::edit(shell, draft, errors).with_stored(Stored::of(store, &stored));
+        return unprocessable(&page);
+    };
+    let mut profile = stored;
     fields.apply(&mut profile);
-    let drops_read = profile.moves_endpoint(&stored) && stored.read_login.is_some();
-    if drops_read {
-        profile.read_login = None;
-        profile.read_password_file = None;
-    }
-    let changed = password.is_some();
-    if let Some(secret) = password {
-        let file = match fleet
-            .credentials()
-            .sealed_path(&id, CredentialKind::Password)
-        {
-            Ok(path) => path,
-            Err(error) => return errors::internal(&error, shell),
-        };
-        if let Err(error) = fleet
-            .credentials()
-            .store(&id, CredentialKind::Password, &secret)
-        {
-            return errors::internal(&error, shell);
-        }
-        profile.password_file = Some(file);
+    if let Err(error) = plan
+        .point(store, &mut profile)
+        .and_then(|()| plan.seal(store, &id))
+    {
+        return errors::internal(&error, shell);
     }
     match fleet.registry().update(user.role(), profile.clone()).await {
         Ok(()) => {}
@@ -226,16 +248,13 @@ pub(crate) async fn update(
         }
         Err(error) => return errors::internal(&error, shell),
     }
-    if drops_read
-        && let Err(error) = fleet
-            .credentials()
-            .remove_kind(&id, CredentialKind::ReadPassword)
-    {
-        tracing::error!(router = %id, %error, "read-only router credential could not be removed");
+    if let Err(error) = plan.remove(store, &id) {
+        tracing::error!(router = %id, %error, "router credential could not be removed");
     }
+    let credentials = plan.changed();
     let change = ProfileAction::Update {
         profile: &profile,
-        password: changed,
+        credentials: &credentials,
     };
     audit(&state, &user, change).await;
     open(&format!("/ui/r/{id}"))

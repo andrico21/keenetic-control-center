@@ -1293,6 +1293,17 @@ h3 {
   display: none;
 }
 
+/* The optional read-only login: its own group under a neutral rule. */
+.form-group {
+  display: grid;
+  gap: var(--space-5);
+  min-inline-size: 0;
+  margin: 0;
+  padding: var(--space-5) 0 0;
+  border: 0;
+  border-block-start: 1px solid var(--color-border);
+}
+
 .form__actions {
   display: flex;
   flex-wrap: wrap;
@@ -2360,12 +2371,18 @@ h3 {
   padding-block: var(--space-2);
 }
 
-/* A dialog field with data-show appears only while the `kind` radio holds one of its values. */
+/* A field with data-show appears only while the `kind` radio, or the router form's sign-in
+   mode select, holds one of its values. */
 .form:has(input[name="kind"][value="tls"]:checked) [data-show]:not([data-show~="tls"]),
 .form:has(input[name="kind"][value="https"]:checked) [data-show]:not([data-show~="https"]),
 .form:has(input[name="kind"][value="plain"]:checked) [data-show]:not([data-show~="plain"]),
 .form:has(input[name="kind"][value="host"]:checked) [data-show]:not([data-show~="host"]),
-.form:has(input[name="kind"][value="interface"]:checked) [data-show]:not([data-show~="interface"]) {
+.form:has(input[name="kind"][value="interface"]:checked) [data-show]:not([data-show~="interface"]),
+.form:has(select[name="auth"] option[value="auto"]:checked) [data-show]:not([data-show~="auto"]),
+.form:has(select[name="auth"] option[value="ndw2"]:checked) [data-show]:not([data-show~="ndw2"]),
+.form:has(select[name="auth"] option[value="ndw4"]:checked) [data-show]:not([data-show~="ndw4"]),
+.form:has(select[name="auth"] option[value="digest"]:checked) [data-show]:not([data-show~="digest"]),
+.form:has(select[name="auth"] option[value="token"]:checked) [data-show]:not([data-show~="token"]) {
   display: none;
 }
 

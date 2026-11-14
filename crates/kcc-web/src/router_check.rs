@@ -33,7 +33,7 @@ use crate::{
     fleet::Fleet,
     page::{Localize, Shell, Theme},
     page_kit::{audit::Record, context::managed},
-    router_form::{FieldErrors, RouterForm, is_slug},
+    router_form::{FieldErrors, RouterForm, address::is_slug},
 };
 
 /// The id a connection test uses when the form has no valid one yet.
@@ -54,7 +54,8 @@ pub(crate) async fn test(
     };
     let editing = form.router().to_owned();
     let draft_id = form.id().to_owned();
-    let (_draft, password, parsed) = form.parse(user.locale(), false);
+    let (_draft, typed, parsed) = form.parse(user.locale(), false);
+    let password = typed.into_password();
     let id = if password.is_some() {
         is_slug(&draft_id).then_some(draft_id.as_str())
     } else {
