@@ -2,6 +2,13 @@
 //! change at the first sign-in, API keys with the MCP hot reload, the audit log and the
 //! server summary.
 
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
+mod support;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -16,24 +23,23 @@ mod tests {
     use core::{
         error::Error,
         net::SocketAddr,
-        sync::atomic::{AtomicU64, AtomicUsize, Ordering},
+        sync::atomic::{AtomicUsize, Ordering},
         time::Duration,
     };
     use std::fs;
 
     use axum::{
         Router,
-        body::{Body, to_bytes},
+        body::Body,
         http::{Method, Request, StatusCode, header},
         response::Response,
     };
     use kcc_app::{
-        accounts::{AccountStore, Clock, NewAccount},
+        accounts::{AccountStore, NewAccount},
         api_keys::api_key_entries,
         audit::{Actor, ActorKind, AuditEvent, AuditLog},
         permissions::{Permission, Role, RolesDocument, load_roles},
         persist::StateStore,
-        secrets::MasterKey,
         settings::Config,
     };
     use kcc_i18n::{
@@ -42,7 +48,6 @@ mod tests {
         locale::Locale,
     };
     use kcc_web::{
-        WebState, WebStateConfig,
         admin::{AdminServices, AuthReload, ReloadError, ServerFacts, TransportReload},
         session::CookieSecurity,
         web_router,
@@ -62,22 +67,13 @@ mod tests {
     use tower::ServiceExt as _;
     use url::form_urlencoded;
 
-    type TestResult = Result<(), Box<dyn Error>>;
-    const BODY_CAP: usize = 0x0010_0000;
-    const ORIGIN: &str = "http://127.0.0.1:8080";
+    use crate::support::{
+        base::{Core, Frozen, ORIGIN, PASSWORD},
+        outcome::TestResult,
+        page::{cookie_pair, header_text, meta_content, text},
+    };
+
     const ADMIN: &str = "alice";
-    const PASSWORD: &str = "correct horse battery staple";
-
-    #[derive(Debug, Default)]
-    struct FixedClock {
-        now: AtomicU64,
-    }
-
-    impl Clock for FixedClock {
-        fn unix_seconds(&self) -> u64 {
-            self.now.load(Ordering::SeqCst)
-        }
-    }
 
     /// Counts the reloads the pages ask for.
     #[derive(Debug, Default)]
@@ -128,7 +124,7 @@ mod tests {
     impl Fixture {
         /// The admin `alice` (in `locale`), the custom `roles` and the attached admin
         /// pages, reporting reloads to [`Fixture::reload`].
-        fn new(locale: &str, roles: Vec<Role>) -> Result<Self, Box<dyn Error>> {
+        fn new(locale: &str, roles: Vec<Role>) -> Result<Self, Box<dyn Error + Send + Sync>> {
             Ok(Self::build(locale, roles, &Options::default())?.0)
         }
 
@@ -139,57 +135,36 @@ mod tests {
             locale: &str,
             roles: Vec<Role>,
             options: &Options,
-        ) -> Result<Built, Box<dyn Error>> {
-            let directory = TempDir::new()?;
-            let state = StateStore::open(&directory.path().join("state"))?;
+        ) -> Result<Built, Box<dyn Error + Send + Sync>> {
+            let core = Core::new(Arc::new(Frozen(0)), &[(ADMIN, "admin", Some(locale))])?;
             if !roles.is_empty() {
-                state.update(|document: &mut RolesDocument| document.roles.extend(roles))?;
+                core.state
+                    .update(|document: &mut RolesDocument| document.roles.extend(roles))?;
             }
-            let clock: Arc<dyn Clock> = Arc::new(FixedClock::default());
-            let accounts = Arc::new(AccountStore::new(
-                state.clone(),
-                MasterKey::generate()?,
-                Duration::from_secs(60),
-                Arc::clone(&clock),
-            ));
-            accounts.create(
-                NewAccount::new(
-                    ADMIN.to_owned(),
-                    SecretString::from(PASSWORD),
-                    "admin".to_owned(),
-                )
-                .with_locale(locale.to_owned()),
-            )?;
             let reload = Arc::new(CountingReload::default());
             let transport_reload = options
                 .transport
-                .then(|| Arc::new(TransportReload::new(state.clone(), Vec::new())));
-            let audit = AuditLog::spawn(&state)?;
+                .then(|| Arc::new(TransportReload::new(core.state.clone(), Vec::new())));
             let bridge: Arc<dyn AuthReload> = match &transport_reload {
                 Some(kit) => Arc::<TransportReload>::clone(kit),
                 None => Arc::<CountingReload>::clone(&reload),
             };
-            let web_state = WebState::new(WebStateConfig {
-                default_locale: Locale::En,
-                accounts: Arc::clone(&accounts),
-                audit: audit.clone(),
-                roles: load_roles(&state)?,
-                session_idle: Duration::from_mins(30),
-                session_absolute: Duration::from_hours(12),
-                allowed_origins: vec![ORIGIN.to_owned()],
-                cookie_security: CookieSecurity::LoopbackHttp,
-                clock,
-            })
-            .with_admin(AdminServices {
-                state: state.clone(),
-                reload: Some(bridge),
-                server: ServerFacts::from_config("9.9.9".to_owned(), &options.config),
-            });
+            let web_state = core
+                .web(
+                    load_roles(&core.state)?,
+                    (Duration::from_mins(30), Duration::from_hours(12)),
+                    CookieSecurity::LoopbackHttp,
+                )
+                .with_admin(AdminServices {
+                    state: core.state.clone(),
+                    reload: Some(bridge),
+                    server: ServerFacts::from_config("9.9.9".to_owned(), &options.config),
+                });
             let fixture = Self {
-                _directory: directory,
-                state,
-                accounts,
-                audit,
+                _directory: core.directory,
+                state: core.state,
+                accounts: core.accounts,
+                audit: core.audit,
                 reload,
                 router: web_router(web_state),
             };
@@ -197,7 +172,7 @@ mod tests {
         }
 
         /// Adds an account that does not have to change its password.
-        fn add_user(&self, name: &str, role: &str) -> Result<(), Box<dyn Error>> {
+        fn add_user(&self, name: &str, role: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
             self.accounts.create(NewAccount::new(
                 name.to_owned(),
                 SecretString::from(PASSWORD),
@@ -206,11 +181,18 @@ mod tests {
             Ok(())
         }
 
-        async fn send(&self, request: Request<Body>) -> Result<Response, Box<dyn Error>> {
+        async fn send(
+            &self,
+            request: Request<Body>,
+        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
             Ok(self.router.clone().oneshot(request).await?)
         }
 
-        async fn get(&self, path: &str, cookie: &str) -> Result<Response, Box<dyn Error>> {
+        async fn get(
+            &self,
+            path: &str,
+            cookie: &str,
+        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
             self.send(
                 Request::get(path)
                     .header(header::COOKIE, cookie)
@@ -224,7 +206,7 @@ mod tests {
             browser: &Browser,
             path: &str,
             pairs: &[(&str, &str)],
-        ) -> Result<Response, Box<dyn Error>> {
+        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
             let body = {
                 let mut serializer = form_urlencoded::Serializer::new(String::new());
                 for (name, value) in pairs {
@@ -253,7 +235,7 @@ mod tests {
             name: &str,
             password: &str,
             page: &str,
-        ) -> Result<(Browser, Option<String>), Box<dyn Error>> {
+        ) -> Result<(Browser, Option<String>), Box<dyn Error + Send + Sync>> {
             let login = self.get("/ui/login", "").await?;
             let anonymous_cookie = cookie_pair(&login)?;
             let login_html = text(login).await?;
@@ -269,7 +251,7 @@ mod tests {
                 )
                 .await?;
             assert_eq!(response.status(), StatusCode::SEE_OTHER, "{name} signs in");
-            let location = header_text(&response, header::LOCATION);
+            let location = header_text(&response, header::LOCATION.as_str());
             let cookie = cookie_pair(&response)?;
             let landing = self.get(page, &cookie).await?;
             let html = text(landing).await?;
@@ -277,11 +259,11 @@ mod tests {
             Ok((Browser { cookie, csrf }, location))
         }
 
-        async fn admin(&self) -> Result<Browser, Box<dyn Error>> {
+        async fn admin(&self) -> Result<Browser, Box<dyn Error + Send + Sync>> {
             Ok(self.sign_in(ADMIN, PASSWORD, "/ui/admin/users").await?.0)
         }
 
-        fn audit_log(&self) -> Result<String, Box<dyn Error>> {
+        fn audit_log(&self) -> Result<String, Box<dyn Error + Send + Sync>> {
             Ok(fs::read_to_string(self.state.dir().join("audit.jsonl"))?)
         }
     }
@@ -297,32 +279,6 @@ mod tests {
             permissions.iter().copied(),
             scope.iter().map(|glob| (*glob).to_owned()).collect(),
         )
-    }
-
-    async fn text(response: Response) -> Result<String, Box<dyn Error>> {
-        let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
-        Ok(String::from_utf8(bytes.to_vec())?)
-    }
-
-    fn header_text(response: &Response, name: header::HeaderName) -> Option<String> {
-        response
-            .headers()
-            .get(name)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned)
-    }
-
-    fn cookie_pair(response: &Response) -> Result<String, Box<dyn Error>> {
-        header_text(response, header::SET_COOKIE)
-            .and_then(|value| value.split(';').next().map(str::to_owned))
-            .ok_or_else(|| "missing Set-Cookie".into())
-    }
-
-    fn meta_content(html: &str, name: &str) -> Option<String> {
-        let marker = format!("<meta name=\"{name}\" content=\"");
-        html.split_once(&marker)
-            .and_then(|(_, tail)| tail.split_once('"'))
-            .map(|(value, _)| value.to_owned())
     }
 
     #[tokio::test]
@@ -381,7 +337,7 @@ mod tests {
         );
         let manager_landing = fixture.get("/ui/admin", &manager.cookie).await?;
         assert_eq!(
-            header_text(&manager_landing, header::LOCATION).as_deref(),
+            header_text(&manager_landing, header::LOCATION.as_str()).as_deref(),
             Some("/ui/admin/users"),
             "landing opens the users page"
         );
@@ -408,7 +364,7 @@ mod tests {
             .await?;
         assert_eq!(created.status(), StatusCode::OK, "created");
         assert_eq!(
-            header_text(&created, "hx-trigger-after-swap".parse()?).as_deref(),
+            header_text(&created, "hx-trigger-after-swap").as_deref(),
             Some("kcc:dialog-close"),
             "the dialog closes"
         );
@@ -427,7 +383,7 @@ mod tests {
         assert_eq!(landing.as_deref(), Some("/ui/account"), "first stop");
         let blocked = fixture.get("/ui/", &bob.cookie).await?;
         assert_eq!(
-            header_text(&blocked, header::LOCATION).as_deref(),
+            header_text(&blocked, header::LOCATION.as_str()).as_deref(),
             Some("/ui/account"),
             "every other page waits for the new password"
         );
@@ -448,7 +404,7 @@ mod tests {
             )
             .await?;
         assert_eq!(
-            header_text(&changed, "hx-redirect".parse()?).as_deref(),
+            header_text(&changed, "hx-redirect").as_deref(),
             Some("/ui/"),
             "into the dashboard"
         );
@@ -456,7 +412,7 @@ mod tests {
         assert_ne!(rotated, bob.cookie, "the session id rotates");
         let old = fixture.get("/ui/", &bob.cookie).await?;
         assert_eq!(
-            header_text(&old, header::LOCATION).as_deref(),
+            header_text(&old, header::LOCATION.as_str()).as_deref(),
             Some("/ui/login"),
             "the restricted session ended"
         );
@@ -763,7 +719,7 @@ mod tests {
         assert_eq!(fixture.reload.rbac.load(Ordering::SeqCst), 2, "RBAC reload");
         let ended = fixture.get("/ui/account", &dave.cookie).await?;
         assert_eq!(
-            header_text(&ended, header::LOCATION).as_deref(),
+            header_text(&ended, header::LOCATION.as_str()).as_deref(),
             Some("/ui/login"),
             "sessions holding the edited role end"
         );
@@ -778,7 +734,10 @@ mod tests {
     impl ServerHandler for Probe {}
 
     /// The HTTP status of an MCP `initialize` request carrying `key` as bearer token.
-    async fn mcp_status(address: SocketAddr, key: &str) -> Result<u16, Box<dyn Error>> {
+    async fn mcp_status(
+        address: SocketAddr,
+        key: &str,
+    ) -> Result<u16, Box<dyn Error + Send + Sync>> {
         let body = r#"{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"admin-pages","version":"1.0.0"}}}"#;
         let request = format!(
             "POST /mcp HTTP/1.1\r\nHost: {address}\r\nAuthorization: Bearer {key}\r\n\
@@ -848,7 +807,7 @@ mod tests {
             .await?;
         assert_eq!(created.status(), StatusCode::OK, "created");
         assert_eq!(
-            header_text(&created, header::CACHE_CONTROL).as_deref(),
+            header_text(&created, header::CACHE_CONTROL.as_str()).as_deref(),
             Some("no-store, max-age=0"),
             "the response with the key is never stored"
         );
@@ -896,7 +855,7 @@ mod tests {
 
     /// A fixture with audited changes (a web user creation, an MCP save on `lab-1`) and
     /// the auditor `ann` (`Read` + `ViewAudit`) signed in.
-    async fn audited() -> Result<(Fixture, Browser), Box<dyn Error>> {
+    async fn audited() -> Result<(Fixture, Browser), Box<dyn Error + Send + Sync>> {
         let auditor = role(
             "auditor",
             &[Permission::Read, Permission::ViewAudit],
@@ -935,7 +894,7 @@ mod tests {
         let (fixture, reader) = audited().await?;
         let landing = fixture.get("/ui/admin", &reader.cookie).await?;
         assert_eq!(
-            header_text(&landing, header::LOCATION).as_deref(),
+            header_text(&landing, header::LOCATION.as_str()).as_deref(),
             Some("/ui/admin/audit"),
             "the landing opens the audit log"
         );
@@ -985,12 +944,12 @@ mod tests {
             .await?;
         assert_eq!(export.status(), StatusCode::OK, "export");
         assert_eq!(
-            header_text(&export, header::CONTENT_TYPE).as_deref(),
+            header_text(&export, header::CONTENT_TYPE.as_str()).as_deref(),
             Some("application/x-ndjson; charset=utf-8"),
             "JSONL"
         );
         assert!(
-            header_text(&export, header::CONTENT_DISPOSITION)
+            header_text(&export, header::CONTENT_DISPOSITION.as_str())
                 .is_some_and(|value| value.starts_with("attachment;")),
             "a download"
         );

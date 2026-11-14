@@ -5,11 +5,14 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
-use kcc_testkit::FaultInjection;
 
 use crate::{
-    form, interface, said,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    interface,
+    support::{
+        outcome::TestResult,
+        page::{form, header_text, said, text},
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// The page under test.
@@ -193,45 +196,6 @@ async fn an_invalid_description_is_refused_before_anything_is_sent() -> TestResu
             .iter()
             .any(|entry| entry.action == "web.interface_description"
                 && entry.outcome == "validation_failed"),
-        "audited"
-    );
-    Ok(())
-}
-
-#[tokio::test]
-async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
-    let fixture =
-        Fixture::with_faults(FaultInjection::default().fail_parse_matching("description", 1))
-            .await?;
-    let operator = fixture.login("operator").await?;
-    let response = fixture
-        .post(
-            "/ui/r/home/network/description?name=Bridge0",
-            &operator,
-            &form(&[("value", "Upstairs LAN")]),
-        )
-        .await?;
-    assert_eq!(response.status(), StatusCode::OK, "answered");
-    let body = text(response).await?;
-    assert!(
-        body.contains(&said(Locale::En, keys::WEB_KIT_REJECTED)),
-        "localized: {body}"
-    );
-    let said_block = body
-        .split_once("<ul class=\"router-said__list\">")
-        .and_then(|(_, tail)| tail.split_once("</ul>"))
-        .map(|(list, _)| list.to_owned())
-        .ok_or("no router-said list")?;
-    assert!(said_block.contains("<li>"), "the router's message");
-    assert!(
-        !said_block.contains("Upstairs"),
-        "no request body: {said_block}"
-    );
-    assert!(!body.contains("unsaved-badge"), "no badge for a refusal");
-    assert!(
-        fixture.audit()?.iter().any(
-            |entry| entry.action == "web.interface_description" && entry.outcome == "rci_error"
-        ),
         "audited"
     );
     Ok(())

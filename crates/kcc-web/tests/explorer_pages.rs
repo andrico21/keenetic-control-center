@@ -3,50 +3,19 @@
 //! change workflow, validation failures that send nothing, router refusals, confirmations,
 //! the fail-safe guard, background jobs and the R-MCP2 incident payload.
 
-#[path = "explorer_pages/support.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
 mod support;
 
 #[cfg(test)]
 #[path = "explorer_pages/raw_management.rs"]
 mod raw_management;
 
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    locale::Locale,
-};
-use url::form_urlencoded::byte_serialize;
-
 /// The R-MCP2 incident payload: a positional array where RCI needs an object.
 pub(crate) const INCIDENT: &str = r#"{"ip":{"route":["10.0.5.0","255.255.255.255","Wireguard2"]}}"#;
-
-/// `text` as askama escapes it.
-pub(crate) fn html(text: &str) -> String {
-    text.replace('&', "&#38;")
-        .replace('<', "&#60;")
-        .replace('>', "&#62;")
-        .replace('"', "&#34;")
-        .replace('\'', "&#39;")
-}
-
-/// An English message, escaped for HTML.
-pub(crate) fn en(key: MessageKey) -> String {
-    html(&tr(Locale::En, key, None))
-}
-
-/// `pairs` form-encoded.
-pub(crate) fn form(pairs: &[(&str, &str)]) -> String {
-    pairs
-        .iter()
-        .map(|(name, value)| {
-            format!(
-                "{}={}",
-                byte_serialize(name.as_bytes()).collect::<String>(),
-                byte_serialize(value.as_bytes()).collect::<String>()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("&")
-}
 
 #[cfg(test)]
 #[expect(

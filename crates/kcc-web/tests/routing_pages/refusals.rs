@@ -7,77 +7,35 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::keys;
-use kcc_testkit::{FakeRouter, FaultInjection, model::Profile};
+use kcc_testkit::{FakeRouter, model::Profile};
 use serde_json::json;
 
 use crate::{
-    audited, form, post, said,
-    support::{Fixture, TestResult, header_text},
+    post,
+    support::{
+        outcome::TestResult,
+        page::{en, form, header_text},
+        refusal::{Refusal, router_refusals},
+        web::Fixture,
+    },
 };
 
-/// What the fake router answers a line it was told to refuse.
-const REFUSAL: &str = "injected parser failure.";
-
-/// Posts `fields` to `path` on a router that refuses the first CLI line containing `line`,
-/// and checks the answer, the router's configuration and the audit record of `action`.
-async fn refused(line: &str, (path, fields): (&str, &[(&str, &str)]), action: &str) -> TestResult {
-    let faults = FaultInjection::default().fail_parse_matching(line, 1);
-    let fixture = Fixture::with_faults(faults).await?;
-    let admin = fixture.login("admin").await?;
-    let before = fixture.handle().running_config_text();
-    let answer = post(&fixture, &admin, (path, fields), StatusCode::OK).await?;
-    assert!(
-        answer.contains(&said(keys::WEB_KIT_REJECTED)),
-        "{path}: {answer}"
-    );
-    assert!(answer.contains(REFUSAL), "the router's words: {answer}");
-    assert_eq!(
-        fixture.handle().running_config_text(),
-        before,
-        "{path} changed nothing"
-    );
-    assert!(audited(&fixture, action, "rci_error")?, "{action} audited");
-    Ok(())
-}
-
+/// A route, a port forward and a firewall rule the router refuses show its words.
 #[tokio::test]
-async fn a_route_the_router_refuses_shows_what_the_router_said() -> TestResult {
-    let path = "/ui/r/home/routing/route/new?family=ipv4";
-    let fields = [
+async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
+    let route = form(&[
         ("network", "198.51.100.0"),
         ("mask", "255.255.255.0"),
         ("gateway", "192.0.2.254"),
-    ];
-    refused(
-        "ip route 198.51.100.0",
-        (path, &fields),
-        "web.routing_route_add",
-    )
-    .await
-}
-
-#[tokio::test]
-async fn a_port_forward_the_router_refuses_shows_what_the_router_said() -> TestResult {
-    let path = "/ui/r/home/nat/forward/new";
-    let fields = [
+    ]);
+    let forward = form(&[
         ("protocol", "tcp"),
         ("interface", "ISP"),
         ("port", "8443"),
         ("target", "192.0.2.44"),
         ("to_port", "443"),
-    ];
-    refused(
-        "ip static tcp ISP 8443",
-        (path, &fields),
-        "web.nat_forward_add",
-    )
-    .await
-}
-
-#[tokio::test]
-async fn a_firewall_rule_the_router_refuses_shows_what_the_router_said() -> TestResult {
-    let path = "/ui/r/home/firewall/rule/new";
-    let fields = [
+    ]);
+    let rule = form(&[
         ("list", "WebAcl"),
         ("action", "deny"),
         ("protocol", "udp"),
@@ -85,12 +43,33 @@ async fn a_firewall_rule_the_router_refuses_shows_what_the_router_said() -> Test
         ("source_mask", "255.255.255.0"),
         ("destination", "203.0.113.5"),
         ("destination_mask", "255.255.255.255"),
-    ];
-    refused(
-        "access-list WebAcl deny",
-        (path, &fields),
-        "web.firewall_rule_add",
-    )
+    ]);
+    let row = |action, refused, post| Refusal {
+        action,
+        refused,
+        account: "admin",
+        post,
+        unsaid: refused,
+        absent: &[],
+        unchanged: true,
+    };
+    router_refusals(&[
+        row(
+            "web.routing_route_add",
+            "ip route 198.51.100.0",
+            ("/ui/r/home/routing/route/new?family=ipv4", &route),
+        ),
+        row(
+            "web.nat_forward_add",
+            "ip static tcp ISP 8443",
+            ("/ui/r/home/nat/forward/new", &forward),
+        ),
+        row(
+            "web.firewall_rule_add",
+            "access-list WebAcl deny",
+            ("/ui/r/home/firewall/rule/new", &rule),
+        ),
+    ])
     .await
 }
 
@@ -115,18 +94,18 @@ async fn a_malformed_firewall_rule_is_refused_before_anything_is_sent() -> TestR
     let invalid = StatusCode::UNPROCESSABLE_ENTITY;
     let gapped = rule("tcp", "255.0.255.0", "443");
     let mask = post(&fixture, &admin, (new, &gapped), invalid).await?;
-    assert!(mask.contains(&said(keys::WEB_ROUTING_ERROR_MASK)), "{mask}");
+    assert!(mask.contains(&en(keys::WEB_ROUTING_ERROR_MASK)), "{mask}");
     assert!(mask.contains("value=\"255.0.255.0\""), "the value as typed");
     let ported = rule("icmp", "255.255.255.255", "443");
     let port = post(&fixture, &admin, (new, &ported), invalid).await?;
-    assert!(port.contains(&said(keys::WEB_NAT_ERROR_PORTS)), "{port}");
+    assert!(port.contains(&en(keys::WEB_NAT_ERROR_PORTS)), "{port}");
     assert_eq!(
         fixture.handle().running_config_text(),
         before,
         "nothing changed"
     );
     assert!(
-        audited(&fixture, "web.firewall_rule_add", "validation_failed")?,
+        fixture.audited("web.firewall_rule_add", "validation_failed")?,
         "audited"
     );
     Ok(())
@@ -168,7 +147,7 @@ async fn unplanned((path, fields): (&str, &[(&str, &str)]), action: &str) -> Tes
         "{path} changed nothing"
     );
     assert!(
-        audited(&fixture, action, "validation_failed")?,
+        fixture.audited(action, "validation_failed")?,
         "{action} audited with the catalog's findings"
     );
     Ok(())

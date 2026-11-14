@@ -6,47 +6,20 @@
 //! 200 active connections, the IPv6 access-list note on a 4.3.9 router, and no secret on
 //! any page.
 
-#[path = "explorer_pages/support.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
 mod support;
 
 use axum::{http::StatusCode, response::Response};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    locale::Locale,
+
+use crate::support::{
+    outcome::TestResult,
+    page::{form, text},
+    web::{Browser, Fixture},
 };
-use url::form_urlencoded::byte_serialize;
-
-use crate::support::{Browser, Fixture, TestResult, text};
-
-/// `text` as askama escapes it.
-pub(crate) fn html(source: &str) -> String {
-    source
-        .replace('&', "&#38;")
-        .replace('<', "&#60;")
-        .replace('>', "&#62;")
-        .replace('"', "&#34;")
-        .replace('\'', "&#39;")
-}
-
-/// A message in English, escaped for HTML.
-pub(crate) fn said(key: MessageKey) -> String {
-    html(&tr(Locale::En, key, None))
-}
-
-/// `pairs` form-encoded.
-pub(crate) fn form(pairs: &[(&str, &str)]) -> String {
-    pairs
-        .iter()
-        .map(|(name, value)| {
-            format!(
-                "{}={}",
-                byte_serialize(name.as_bytes()).collect::<String>(),
-                byte_serialize(value.as_bytes()).collect::<String>()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("&")
-}
 
 /// `POST path` with `pairs` as `browser`, answered with `expected`: the body.
 ///
@@ -91,18 +64,6 @@ async fn answered(path: &str, response: Response, expected: StatusCode) -> TestR
     } else {
         Err(format!("{path}: {status} instead of {expected}: {body}").into())
     }
-}
-
-/// Whether the audit log has `action` ending as `outcome`.
-///
-/// # Errors
-///
-/// Fails the test when the audit log does not verify.
-pub(crate) fn audited(fixture: &Fixture, action: &str, outcome: &str) -> TestResult<bool> {
-    Ok(fixture
-        .audit()?
-        .iter()
-        .any(|entry| entry.action == action && entry.outcome == outcome))
 }
 
 #[cfg(test)]

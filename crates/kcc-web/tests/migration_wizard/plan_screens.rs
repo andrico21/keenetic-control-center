@@ -14,7 +14,11 @@ use kcc_i18n::{
 use crate::{
     flow::{form_values, moved, value_of},
     start,
-    support::{Browser, Fixture, TestResult, text},
+    support::{
+        outcome::TestResult,
+        page::text,
+        web::{Browser, Fixture},
+    },
 };
 
 /// One row of the review.
@@ -61,7 +65,7 @@ pub(crate) async fn to_mapped_review(
 ) -> TestResult<String> {
     let page = start(fixture, browser).await?;
     let taken = fixture
-        .post_source(&format!("{page}/source"), browser, fields, file)
+        .post_multipart(&format!("{page}/source"), browser, (fields, file))
         .await?;
     moved(&taken, &page)?;
     for step in ["target", "target/continue"] {
@@ -71,7 +75,7 @@ pub(crate) async fn to_mapped_review(
             &[]
         };
         let answer = fixture
-            .post(&format!("{page}/{step}"), browser, pairs)
+            .post_form(&format!("{page}/{step}"), browser, pairs)
             .await?;
         moved(&answer, &page)?;
     }
@@ -96,7 +100,7 @@ pub(crate) async fn to_mapped_review(
         .collect::<Vec<_>>();
     moved(
         &fixture
-            .post(&format!("{page}/mapping"), browser, &pairs)
+            .post_form(&format!("{page}/mapping"), browser, &pairs)
             .await?,
         &page,
     )?;
@@ -111,7 +115,7 @@ pub(crate) async fn to_file_preview(
 ) -> TestResult<String> {
     moved(
         &fixture
-            .post(&format!("{page}/review/continue"), browser, &[])
+            .post_form(&format!("{page}/review/continue"), browser, &[])
             .await?,
         page,
     )?;
@@ -119,7 +123,7 @@ pub(crate) async fn to_file_preview(
     let reconnect = value_of(&inputs, "name=\"reconnect_url\"").unwrap_or_default();
     moved(
         &fixture
-            .post(
+            .post_form(
                 &format!("{page}/inputs"),
                 browser,
                 &[("reconnect_url", &reconnect)],

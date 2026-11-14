@@ -15,9 +15,10 @@ use futures_util::{StreamExt as _, stream::BoxStream};
 use kcc_i18n::keys;
 use tokio::time::{Instant, timeout_at};
 
-use crate::{
-    audited, en, form,
-    support::{Browser, Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, text},
+    web::{Browser, Fixture},
 };
 
 /// The page under test.
@@ -88,7 +89,7 @@ async fn a_ping_streams_its_replies_until_it_ends() -> TestResult {
     );
     assert!(received.contains("Reply in 1 ms"), "localized: {received}");
     assert!(
-        audited(&fixture, "web.diagnostics_ping", "started")?,
+        fixture.audited("web.diagnostics_ping", "started")?,
         "audited"
     );
     Ok(())
@@ -117,7 +118,7 @@ async fn stop_ends_the_router_process_with_delete() -> TestResult {
         "the router process was stopped with DELETE"
     );
     assert!(
-        audited(&fixture, "web.diagnostics_cancel", "success")?,
+        fixture.audited("web.diagnostics_cancel", "success")?,
         "audited"
     );
     Ok(())
@@ -150,7 +151,7 @@ async fn a_bad_host_is_refused_before_anything_is_sent() -> TestResult {
         "no diagnostic started"
     );
     assert!(
-        audited(&fixture, "web.diagnostics_ping", "validation_failed")?,
+        fixture.audited("web.diagnostics_ping", "validation_failed")?,
         "audited"
     );
     Ok(())

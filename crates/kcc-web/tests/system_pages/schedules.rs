@@ -6,9 +6,10 @@
 use axum::http::StatusCode;
 use kcc_i18n::keys;
 
-use crate::{
-    audited, en, form,
-    support::{Fixture, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, header_text, text},
+    web::Fixture,
 };
 
 /// The page under test.
@@ -95,8 +96,8 @@ async fn a_schedule_and_an_action_are_added() -> TestResult {
         fixture.handle().running_config_text()
     );
     assert!(
-        audited(&fixture, "web.schedule_create", "success")?
-            && audited(&fixture, "web.schedule_action", "success")?,
+        fixture.audited("web.schedule_create", "success")?
+            && fixture.audited("web.schedule_action", "success")?,
         "audited"
     );
     Ok(())
@@ -145,7 +146,7 @@ async fn values_the_router_cannot_take_are_refused_before_anything_is_sent() -> 
         "nothing changed"
     );
     assert!(
-        audited(&fixture, "web.schedule_create", "validation_failed")?,
+        fixture.audited("web.schedule_create", "validation_failed")?,
         "audited"
     );
     Ok(())

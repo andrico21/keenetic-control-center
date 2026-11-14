@@ -12,9 +12,10 @@ use std::io::{self, Write as _};
 use axum::http::StatusCode;
 use kcc_testkit::{FakeRouter, migration, model::Profile};
 
-use crate::{
-    form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, text},
+    web::Fixture,
 };
 
 /// Both consoles and positive/negative raw encodings require management protection.

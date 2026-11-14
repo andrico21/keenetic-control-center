@@ -5,9 +5,10 @@ use kcc_i18n::keys;
 use kcc_testkit::{FakeRouter, migration, model::Profile};
 
 use super::commands;
-use crate::{
-    en, form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, text},
+    web::Fixture,
 };
 
 /// A router with neither a known mode nor a fail-safe timer shows the mode-unknown message.

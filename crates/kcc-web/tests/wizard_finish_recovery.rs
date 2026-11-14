@@ -1,11 +1,14 @@
 //! HTTP receipts for migration closing failures.
-extern crate alloc;
 
 #[path = "migration_wizard/flow.rs"]
 mod flow;
+#[expect(
+    dead_code,
+    reason = "closing tests build the fixture with its mode and faults only"
+)]
 #[path = "migration_wizard/setup.rs"]
 mod setup;
-#[path = "migration_wizard/support.rs"]
+#[path = "support/mod.rs"]
 #[expect(
     dead_code,
     reason = "closing tests use only the HTTP and audit parts of the shared fixture"
@@ -13,7 +16,12 @@ mod setup;
 mod support;
 
 use axum::response::Response;
-use support::{Browser, Fixture, TestResult, header_text};
+
+use crate::support::{
+    outcome::TestResult,
+    page::header_text,
+    web::{Browser, Fixture},
+};
 
 /// Starts the wizard through its public HTTP route.
 ///
@@ -23,7 +31,7 @@ use support::{Browser, Fixture, TestResult, header_text};
 async fn start(fixture: &Fixture, browser: &Browser) -> TestResult<String> {
     redirected(
         &fixture
-            .post("/ui/migrate", browser, &[("mode", "migrate")])
+            .post_form("/ui/migrate", browser, &[("mode", "migrate")])
             .await?,
     )
 }
@@ -50,8 +58,13 @@ mod tests {
 
     use super::{
         flow,
-        support::{Browser, Fixture, TestResult, text},
+        support::{
+            outcome::TestResult,
+            page::text,
+            web::{Browser, Fixture},
+        },
     };
+    use crate::setup;
 
     /// Closing faults keep the wizard timer visible in the page and audit.
     // NOT cancel-safe: the fixture applies settings before requesting commit.
@@ -61,7 +74,7 @@ mod tests {
         } else {
             FaultInjection::default().fail_parse_matching(step, 1)
         };
-        let fixture = Fixture::with_mode(mode, faults).await?;
+        let fixture = setup::with_mode(mode, faults).await?;
         flow::seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let page = flow::to_review(&fixture, &admin).await?;
@@ -69,7 +82,7 @@ mod tests {
         let stream = flow::apply(&fixture, &admin, &page).await?;
         assert!(stream.contains(&tr(Locale::En, keys::MIGRATE_APPLY_VERIFIED, None)));
         let results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
         assert_eq!(results.status(), StatusCode::OK);
 
@@ -81,7 +94,7 @@ mod tests {
         } else {
             (format!("{page}/commit"), Vec::new())
         };
-        let response = fixture.post(&endpoint, &admin, &form).await?;
+        let response = fixture.post_form(&endpoint, &admin, &form).await?;
 
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = text(response).await?;
@@ -98,7 +111,7 @@ mod tests {
             "{body}"
         );
         assert_eq!(
-            fixture.handle("ultra")?.recovery_armed(),
+            fixture.router("ultra")?.recovery_armed(),
             !(lost && (mode == "router" || step == "no system reboot"))
         );
         let entries = fixture.audit()?;
@@ -156,7 +169,7 @@ mod tests {
         let faults = fail_after.map_or_else(FaultInjection::default, |count| {
             FaultInjection::default().fail_after_requests(count)
         });
-        let fixture = Fixture::with_mode("extender", faults).await?;
+        let fixture = setup::with_mode("extender", faults).await?;
         flow::seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let page = flow::to_review(&fixture, &admin).await?;
@@ -164,11 +177,11 @@ mod tests {
         let stream = flow::apply(&fixture, &admin, &page).await?;
         assert!(stream.contains(&tr(Locale::En, keys::MIGRATE_APPLY_VERIFIED, None)));
         let results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
         assert_eq!(results.status(), StatusCode::OK);
         let response = fixture
-            .post(
+            .post_form(
                 &format!("{page}/rollback"),
                 &admin,
                 &[("confirm", "yes"), ("confirm_name", "ultra")],
@@ -185,7 +198,7 @@ mod tests {
     async fn silent_extender_wizard_rollback_reports_restarting() -> TestResult {
         let (baseline, _admin, _page, _rolled) = extender_rollback(None).await?;
         let reboot = baseline
-            .handle("ultra")?
+            .router("ultra")?
             .request_log()
             .iter()
             .position(|record| record.command() == Some("system reboot"))
@@ -202,10 +215,10 @@ mod tests {
             "{shown}"
         );
         assert!(!shown.contains(&format!("{page}/rollback\"")), "{shown}");
-        let silent = fixture.handle("ultra")?.request_count();
+        let silent = fixture.router("ultra")?.request_count();
         drop(
             fixture
-                .post(
+                .post_form(
                     &format!("{page}/rollback"),
                     &admin,
                     &[("confirm", "yes"), ("confirm_name", "ultra")],
@@ -213,7 +226,7 @@ mod tests {
                 .await?,
         );
         assert_eq!(
-            fixture.handle("ultra")?.request_count(),
+            fixture.router("ultra")?.request_count(),
             silent,
             "no second reboot is sent"
         );
@@ -231,7 +244,7 @@ mod tests {
         use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
         use tokio::{task::JoinHandle, time::sleep};
 
-        let fixture = Fixture::with_mode("router", FaultInjection::default()).await?;
+        let fixture = setup::with_mode("router", FaultInjection::default()).await?;
         flow::seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let page = flow::to_review(&fixture, &admin).await?;
@@ -239,7 +252,7 @@ mod tests {
         let stream = flow::apply(&fixture, &admin, &page).await?;
         assert!(stream.contains(&tr(Locale::En, keys::MIGRATE_APPLY_VERIFIED, None)));
         let _results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
 
         // Hold the audit append lock past the request budget (30 s).
@@ -250,7 +263,9 @@ mod tests {
         });
 
         // Commit should be answered with 200 (the held bracket outcome), not 408.
-        let response = fixture.post(&format!("{page}/commit"), &admin, &[]).await?;
+        let response = fixture
+            .post_form(&format!("{page}/commit"), &admin, &[])
+            .await?;
         let status = response.status();
         assert_ne!(
             status,

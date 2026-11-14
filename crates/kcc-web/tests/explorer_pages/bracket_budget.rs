@@ -19,9 +19,10 @@ use tokio::{
 };
 
 use super::{commands, edges, fixture};
-use crate::{
-    en, form,
-    support::{Browser, Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, text},
+    web::{Browser, Fixture},
 };
 
 /// The CLI console's management change: `Bridge0` removed.

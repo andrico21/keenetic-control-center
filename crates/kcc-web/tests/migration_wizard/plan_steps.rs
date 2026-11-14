@@ -12,18 +12,21 @@ mod tests {
     use kcc_i18n::keys;
 
     use crate::{
-        en,
         flow::{
             NEW_PASSWORD, SOURCE_PASSWORD, indices, seed_source, to_preview, to_review, value_of,
         },
         redirected,
         secrets::{absent, source_hash},
-        support::{Fixture, TestResult, header_text, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en, header_text, text},
+        },
     };
 
     #[tokio::test]
     async fn review_keeps_target_bridge_members_that_cli_and_mcp_plan() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
 
@@ -52,7 +55,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_review_waits_for_conflicts_and_the_inputs_for_passwords() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let hash = source_hash(&fixture)?;
         let admin = fixture.login("admin").await?;
@@ -67,7 +70,7 @@ mod tests {
         }
         assert!(!review.contains(&hash), "the password hash is redacted");
         let refused = fixture
-            .post(&format!("{page}/review/continue"), &admin, &[])
+            .post_form(&format!("{page}/review/continue"), &admin, &[])
             .await?;
         assert_eq!(
             refused.status(),
@@ -79,7 +82,7 @@ mod tests {
             .ok_or("a conflict")?;
         let field = format!("resolve-{conflict}");
         let saved = fixture
-            .post(
+            .post_form(
                 &format!("{page}/review"),
                 &admin,
                 &[("shown", &conflict), (&field, "source")],
@@ -91,7 +94,7 @@ mod tests {
             "saved as it changes"
         );
         let reviewed = fixture
-            .post(&format!("{page}/review/continue"), &admin, &[])
+            .post_form(&format!("{page}/review/continue"), &admin, &[])
             .await?;
         assert_eq!(redirected(&reviewed)?, page, "on to the inputs");
         let inputs = text(fixture.get(&page, &admin).await?).await?;
@@ -116,7 +119,7 @@ mod tests {
         );
         let reconnect = value_of(&inputs, "name=\"reconnect_url\"").ok_or("reconnect field")?;
         let missing = fixture
-            .post(
+            .post_form(
                 &format!("{page}/inputs"),
                 &admin,
                 &[("reconnect_url", &reconnect)],
@@ -138,7 +141,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_preview_orders_the_plan_and_no_file_holds_a_secret() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let hash = source_hash(&fixture)?;
         let admin = fixture.login("admin").await?;
@@ -177,7 +180,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_reload_or_a_new_session_resumes_at_the_current_step() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let page = to_review(&fixture, &admin).await?;

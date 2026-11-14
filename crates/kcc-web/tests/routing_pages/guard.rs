@@ -7,8 +7,12 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::FaultInjection;
 
 use crate::{
-    audited, get, html, post, said,
-    support::{Fixture, ROUTER, TestResult},
+    get, post,
+    support::{
+        outcome::TestResult,
+        page::{en, html},
+        web::{Fixture, ROUTER},
+    },
 };
 
 #[tokio::test]
@@ -32,7 +36,7 @@ async fn a_router_wide_clear_shows_the_guard_banner_and_keeps_every_route() -> T
     );
     assert!(answer.contains("role=\"alert\""), "announced at once");
     assert!(
-        answer.contains(&said(keys::WEB_ROUTING_GUARD_TITLE)),
+        answer.contains(&en(keys::WEB_ROUTING_GUARD_TITLE)),
         "its title"
     );
     let mut args = FluentArgs::new();
@@ -43,7 +47,7 @@ async fn a_router_wide_clear_shows_the_guard_banner_and_keeps_every_route() -> T
         "nothing was lost, two routes back: {answer}"
     );
     assert!(
-        answer.contains(&said(keys::WEB_ROUTING_GUARD_KEPT)),
+        answer.contains(&en(keys::WEB_ROUTING_GUARD_KEPT)),
         "the route stays"
     );
     for restored in [
@@ -57,7 +61,7 @@ async fn a_router_wide_clear_shows_the_guard_banner_and_keeps_every_route() -> T
         );
     }
     assert!(
-        !answer.contains(&said(keys::WEB_KIT_DONE_UNSAVED)),
+        !answer.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
         "no success toast"
     );
     let after = fixture.handle().running_config_text();
@@ -65,7 +69,7 @@ async fn a_router_wide_clear_shows_the_guard_banner_and_keeps_every_route() -> T
         assert!(after.contains(line), "every pre-change route: {line}");
     }
     assert!(
-        audited(&fixture, "web.routing_route_wipe", "restored")?,
+        fixture.audited("web.routing_route_wipe", "restored")?,
         "audited"
     );
     let page = get(&fixture, &admin, "/ui/r/home/routing", StatusCode::OK).await?;

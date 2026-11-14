@@ -1,8 +1,6 @@
 //! The migration wizard over HTTP against fake routers: the steps from a KN-1010 to a
 //! KN-1811, resuming after a reload, and the guards around them.
 
-extern crate alloc;
-
 #[path = "migration_wizard/apply_failure.rs"]
 mod apply_failure;
 #[path = "migration_wizard/apply_flow.rs"]
@@ -29,28 +27,22 @@ mod secrets;
 mod setup;
 #[path = "migration_wizard/steps.rs"]
 mod steps;
-#[path = "migration_wizard/support.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
 mod support;
 #[path = "migration_wizard/switch_ports.rs"]
 mod switch_ports;
 
 use axum::response::Response;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    locale::Locale,
+
+use crate::support::{
+    outcome::TestResult,
+    page::header_text,
+    web::{Browser, Fixture},
 };
-
-use crate::support::{Browser, Fixture, TestResult, header_text};
-
-/// An English message as askama escapes it.
-pub(crate) fn en(key: MessageKey) -> String {
-    tr(Locale::En, key, None)
-        .replace('&', "&#38;")
-        .replace('<', "&#60;")
-        .replace('>', "&#62;")
-        .replace('"', "&#34;")
-        .replace('\'', "&#39;")
-}
 
 /// Starts a migration as `browser` and returns its page path.
 ///
@@ -59,7 +51,7 @@ pub(crate) fn en(key: MessageKey) -> String {
 /// Returns a request failure or an answer without the redirect.
 pub(crate) async fn start(fixture: &Fixture, browser: &Browser) -> TestResult<String> {
     let response = fixture
-        .post("/ui/migrate", browser, &[("mode", "migrate")])
+        .post_form("/ui/migrate", browser, &[("mode", "migrate")])
         .await?;
     header_text(&response, "hx-redirect").ok_or_else(|| "no redirect to the migration".into())
 }

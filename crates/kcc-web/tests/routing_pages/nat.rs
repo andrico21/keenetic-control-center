@@ -8,8 +8,8 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    get, post, said,
-    support::{Fixture, TestResult},
+    get, post,
+    support::{outcome::TestResult, page::en, web::Fixture},
 };
 
 /// The data rows of the first table body in `page`.
@@ -37,7 +37,7 @@ async fn a_port_forward_is_added_and_removed_with_read_back() -> TestResult {
         StatusCode::OK,
     )
     .await?;
-    assert!(added.contains(&said(keys::WEB_KIT_DONE_UNSAVED)), "{added}");
+    assert!(added.contains(&en(keys::WEB_KIT_DONE_UNSAVED)), "{added}");
     assert!(
         added.contains("192.0.2.44") && added.contains("8443"),
         "read back: {added}"
@@ -77,7 +77,7 @@ async fn a_port_forward_is_added_and_removed_with_read_back() -> TestResult {
     )
     .await?;
     assert!(
-        refused.contains(&said(keys::WEB_NAT_ERROR_RANGE)),
+        refused.contains(&en(keys::WEB_NAT_ERROR_RANGE)),
         "{refused}"
     );
     Ok(())
@@ -141,21 +141,18 @@ async fn active_connections_come_in_router_pages_of_at_most_two_hundred() -> Tes
     assert!(first.contains("Connections 1 to 200"), "where the page is");
     assert!(first.contains("page=2"), "a next page: {first}");
     assert!(
-        !first.contains(&said(keys::WEB_ADMIN_PAGE_PREVIOUS)),
+        !first.contains(&en(keys::WEB_ADMIN_PAGE_PREVIOUS)),
         "no previous page"
     );
     let second = get(&fixture, &viewer, &format!("{base}?page=2"), StatusCode::OK).await?;
     assert_eq!(rows(&second), 200, "the second page");
-    assert!(
-        second.contains(&said(keys::WEB_ADMIN_PAGE_PREVIOUS)),
-        "back"
-    );
-    assert!(second.contains(&said(keys::WEB_ADMIN_PAGE_NEXT)), "on");
+    assert!(second.contains(&en(keys::WEB_ADMIN_PAGE_PREVIOUS)), "back");
+    assert!(second.contains(&en(keys::WEB_ADMIN_PAGE_NEXT)), "on");
     let third = get(&fixture, &viewer, &format!("{base}?page=3"), StatusCode::OK).await?;
     assert_eq!(rows(&third), 80, "the last 80 of 480");
     assert!(third.contains("Connections 401 to 480"), "{third}");
     assert!(
-        !third.contains(&said(keys::WEB_ADMIN_PAGE_NEXT)),
+        !third.contains(&en(keys::WEB_ADMIN_PAGE_NEXT)),
         "nothing after"
     );
     let pages: Vec<String> = fixture

@@ -5,8 +5,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    PAGE, SEGMENT, create, delete_dialog, said, segment, sent_lines,
-    support::{Fixture, TestResult, text},
+    PAGE, SEGMENT, create, delete_dialog, segment, sent_lines,
+    support::{
+        outcome::TestResult,
+        page::{en, text},
+        web::Fixture,
+    },
 };
 
 /// A mistyped name, and a name that is not the router's even if typed as sent, delete
@@ -29,7 +33,7 @@ async fn a_name_that_is_not_the_routers_deletes_nothing() -> TestResult {
     );
     let refused = text(wrong).await?;
     assert!(
-        refused.contains(&said(keys::WEB_ADMIN_ERROR_CONFIRM)),
+        refused.contains(&en(keys::WEB_ADMIN_ERROR_CONFIRM)),
         "says so: {refused}"
     );
     assert!(
@@ -154,7 +158,7 @@ async fn a_segment_changed_after_its_dialog_opened_is_not_deleted() -> TestResul
     );
     let body = text(refused).await?;
     assert!(
-        body.contains(&said(keys::WEB_SEGMENTS_DELETE_CHANGED)),
+        body.contains(&en(keys::WEB_SEGMENTS_DELETE_CHANGED)),
         "says why: {body}"
     );
     assert!(

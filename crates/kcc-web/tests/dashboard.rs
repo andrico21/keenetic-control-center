@@ -2,6 +2,13 @@
 //! fake router: per-role controls, the SSE cadence and idle stop under a paused clock,
 //! the outbound-policy refusal, write-only passwords and the support-tier notice.
 
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
+mod support;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -30,66 +37,35 @@ mod router_readers;
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
-    extern crate alloc;
 
-    use alloc::sync::Arc;
-    use core::{
-        error::Error,
-        net::SocketAddr,
-        str,
-        sync::atomic::{AtomicU64, Ordering},
-        time::Duration,
-    };
+    use core::{error::Error, str, time::Duration};
     use std::{fs, path::PathBuf};
 
-    use axum::{
-        Router,
-        body::{Body, to_bytes},
-        http::{Method, Request, StatusCode, header},
-        response::Response,
-    };
+    use axum::http::StatusCode;
     use fluent_bundle::FluentArgs;
     use futures_util::StreamExt as _;
     use kcc_app::{
-        accounts::{AccountStore, Clock, NewAccount},
-        audit::{AuditLog, verify_chain},
-        backups::BackupStore,
-        credentials::CredentialStore,
+        audit::verify_chain,
         permissions::{Permission, Role, built_in_roles},
-        persist::StateStore,
-        poller::Poller,
-        registry::{ManagedRouterProfile, ProfileSource, RouterRegistry},
-        secrets::MasterKey,
+        registry::{ManagedRouterProfile, ProfileSource},
         settings::{Config, OutboundConfig},
-        workflow::ChangeWorkflow,
     };
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
     use kcc_rci::{RciBody, RciPath};
     use kcc_testkit::{
-        DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle,
+        DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter,
         model::{Firmware, Model, Profile},
     };
-    use kcc_web::{
-        WebState, WebStateConfig, fleet::FleetServices, session::CookieSecurity, web_router,
-    };
-    use secrecy::SecretString;
     use serde_json::Value;
-    use tempfile::TempDir;
     use tokio::time::{Instant, sleep, timeout_at};
-    use tower::ServiceExt as _;
-    use url::Url;
 
-    /// Fallible test result.
-    pub(super) type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
-
-    /// Largest response body a test reads.
-    const BODY_CAP: usize = 0x0040_0000;
-
-    /// The only browser origin the fixture accepts.
-    const ORIGIN: &str = "http://127.0.0.1:8080";
-
-    /// Password of every fixture account.
-    const PASSWORD: &str = "correct horse battery staple";
+    use crate::support::{
+        base::Account,
+        build::{Setup, Wiring, admin},
+        outcome::TestResult,
+        page::{header_text, text},
+        web::Fixture,
+    };
 
     /// A second fake-router account whose password appears nowhere else.
     pub(super) const ROUTER_LOGIN: &str = "kcc";
@@ -97,253 +73,60 @@ mod tests {
     /// The password of [`ROUTER_LOGIN`].
     pub(super) const ROUTER_SECRET: &str = "router-secret-5f2c";
 
-    /// A frozen account and session clock; the tests drive time through tokio.
-    #[derive(Debug, Default)]
-    struct FrozenClock {
-        /// Unix seconds.
-        now: AtomicU64,
+    /// An account per built-in role, `router-manager`, `manage-only` and `russian` (an
+    /// administrator).
+    const ACCOUNTS: [Account<'static>; 6] = [
+        ("viewer", "viewer", None),
+        ("operator", "operator", None),
+        ("admin", "admin", None),
+        ("router-manager", "router-manager", None),
+        ("manage-only", "manage-only", None),
+        ("russian", "admin", Some("ru")),
+    ];
+
+    /// The router management pages over one fake router per `(id, profile)`, each with the
+    /// second account [`ROUTER_LOGIN`].
+    pub(super) async fn fleet(fakes: &[(&'static str, Profile)]) -> TestResult<Fixture> {
+        let mut outbound = OutboundConfig::default();
+        outbound.allow_loopback = true;
+        with_outbound(fakes, outbound).await
     }
 
-    impl Clock for FrozenClock {
-        fn unix_seconds(&self) -> u64 {
-            self.now.load(Ordering::SeqCst)
+    /// As [`fleet`], under the `outbound` policy.
+    // NOT cancel-safe: setup creates router and application tasks.
+    async fn with_outbound(
+        fakes: &[(&'static str, Profile)],
+        outbound: OutboundConfig,
+    ) -> TestResult<Fixture> {
+        let mut routers = Vec::new();
+        for (id, profile) in fakes {
+            let fake = FakeRouter::builder(*profile)
+                .user(DEFAULT_LOGIN, DEFAULT_PASSWORD, ["cli", "http-proxy"])
+                .user(ROUTER_LOGIN, ROUTER_SECRET, ["cli", "http-proxy"])
+                .build()?;
+            routers.push((*id, fake));
         }
+        Setup {
+            accounts: ACCOUNTS.to_vec(),
+            roles: roles(),
+            routers,
+            outbound,
+            now: 0,
+            wiring: Wiring::Fleet,
+        }
+        .build()
+        .await
     }
 
-    /// A signed-in browser: its session cookie and CSRF token.
-    pub(super) struct Browser {
-        /// `kcc_session=<id>`.
-        cookie: String,
-        /// Token for `X-CSRF-Token`.
-        csrf: String,
-    }
-
-    /// The Web UI over a registry of fake routers, with an account per built-in role and a
-    /// Russian-speaking administrator.
-    pub(super) struct Fixture {
-        /// State, credentials and router password file.
-        directory: TempDir,
-        /// The Web UI.
-        router: Router,
-        /// The registry behind it.
-        registry: Arc<RouterRegistry>,
-        /// Running fake routers by profile id.
-        routers: Vec<(String, Handle)>,
-    }
-
-    impl Fixture {
-        /// Serves one fake router per `(id, profile)` and registers it.
-        pub(super) async fn new(
-            fakes: &[(&str, Profile)],
-        ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-            let mut outbound = OutboundConfig::default();
-            outbound.allow_loopback = true;
-            Self::with_outbound(fakes, &outbound).await
-        }
-
-        async fn with_outbound(
-            fakes: &[(&str, Profile)],
-            outbound: &OutboundConfig,
-        ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-            let directory = TempDir::new()?;
-            let state = StateStore::open(&directory.path().join("state"))?;
-            let clock: Arc<dyn Clock> = Arc::new(FrozenClock::default());
-            let accounts = Arc::new(AccountStore::new(
-                state.clone(),
-                MasterKey::generate()?,
-                Duration::from_secs(60),
-                Arc::clone(&clock),
-            ));
-            for role in [
-                "viewer",
-                "operator",
-                "admin",
-                "router-manager",
-                "manage-only",
-            ] {
-                accounts.create(NewAccount::new(
-                    role.to_owned(),
-                    SecretString::from(PASSWORD),
-                    role.to_owned(),
-                ))?;
-            }
-            accounts.create(
-                NewAccount::new(
-                    "russian".to_owned(),
-                    SecretString::from(PASSWORD),
-                    "admin".to_owned(),
-                )
-                .with_locale("ru".to_owned()),
-            )?;
-            let password_file = kcc_testkit::write_secret_file(
-                directory.path(),
-                "router-password",
-                DEFAULT_PASSWORD,
-            )?;
-            let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));
-            let registry = Arc::new(
-                RouterRegistry::new(state.clone(), &[], outbound)?
-                    .with_credentials(Arc::clone(&credentials)),
-            );
-            let mut routers = Vec::new();
-            for (id, profile) in fakes {
-                let (address, handle) = FakeRouter::builder(*profile)
-                    .user(DEFAULT_LOGIN, DEFAULT_PASSWORD, ["cli", "http-proxy"])
-                    .user(ROUTER_LOGIN, ROUTER_SECRET, ["cli", "http-proxy"])
-                    .build()?
-                    .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
-                    .await?;
-                registry
-                    .create(
-                        &admin()?,
-                        ManagedRouterProfile::new(
-                            (*id).to_owned(),
-                            Url::parse(&format!("http://{address}"))?,
-                            DEFAULT_LOGIN.to_owned(),
-                            password_file.clone(),
-                        ),
-                    )
-                    .await?;
-                routers.push(((*id).to_owned(), handle));
-            }
-            let audit = AuditLog::spawn(&state)?;
-            let backups = Arc::new(BackupStore::new(
-                state.clone(),
-                MasterKey::from_bytes([7_u8; 32]),
-            ));
-            let workflow =
-                ChangeWorkflow::new(state.clone(), Arc::clone(&registry), backups, audit.clone());
-            let web = WebState::new(WebStateConfig {
-                default_locale: Locale::En,
-                accounts,
-                audit,
-                roles: roles(),
-                session_idle: Duration::from_secs(3_600),
-                session_absolute: Duration::from_secs(36_000),
-                allowed_origins: vec![ORIGIN.to_owned()],
-                cookie_security: CookieSecurity::LoopbackHttp,
-                clock,
-            })
-            .with_fleet(FleetServices {
-                registry: Arc::clone(&registry),
-                poller: Poller::new(Arc::clone(&registry)),
-                workflow,
-                credentials,
-                update_check: None,
-                backups: None,
-            });
-            Ok(Self {
-                directory,
-                router: web_router(web),
-                registry,
-                routers,
-            })
-        }
-
-        /// Sends one request through the Web UI.
-        async fn send(
-            &self,
-            request: Request<Body>,
-        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
-            Ok(self.router.clone().oneshot(request).await?)
-        }
-
-        /// `GET path` as `browser`.
-        pub(super) async fn get(
-            &self,
-            path: &str,
-            browser: &Browser,
-        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
-            self.send(
-                Request::get(path)
-                    .header(header::COOKIE, &browser.cookie)
-                    .body(Body::empty())?,
-            )
-            .await
-        }
-
-        /// A same-origin form `POST` as `browser`, as htmx sends it.
-        pub(super) async fn post(
-            &self,
-            path: &str,
-            browser: &Browser,
-            form: &str,
-        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
-            self.send(
-                Request::builder()
-                    .method(Method::POST)
-                    .uri(path)
-                    .header(header::COOKIE, &browser.cookie)
-                    .header(header::ORIGIN, ORIGIN)
-                    .header("sec-fetch-site", "same-origin")
-                    .header("x-csrf-token", &browser.csrf)
-                    .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-                    .body(Body::from(form.to_owned()))?,
-            )
-            .await
-        }
-
-        /// Signs `username` in and returns the authenticated browser.
-        pub(super) async fn login(
-            &self,
-            username: &str,
-        ) -> Result<Browser, Box<dyn Error + Send + Sync>> {
-            let page = self
-                .send(Request::get("/ui/login").body(Body::empty())?)
-                .await?;
-            let anonymous = Browser {
-                cookie: cookie_pair(&page)?,
-                csrf: meta(&text(page).await?).ok_or("login page CSRF")?,
-            };
-            let password = PASSWORD.replace(' ', "+");
-            let response = self
-                .post(
-                    "/ui/login",
-                    &anonymous,
-                    &format!("username={username}&password={password}"),
-                )
-                .await?;
-            assert_eq!(response.status(), StatusCode::SEE_OTHER, "{username} login");
-            let cookie = cookie_pair(&response)?;
-            let account = self
-                .send(
-                    Request::get("/ui/account")
-                        .header(header::COOKIE, &cookie)
-                        .body(Body::empty())?,
-                )
-                .await?;
-            let csrf = meta(&text(account).await?).ok_or("account page CSRF")?;
-            Ok(Browser { cookie, csrf })
-        }
-
-        /// Changes the running configuration of `id` so it has unsaved changes.
-        async fn make_unsaved(&self, id: &str) -> TestResult {
-            let client = self.registry.client(id).await?;
-            drop(
-                client
-                    .parse("interface Bridge0 description dashboard-test")
-                    .await?,
-            );
-            Ok(())
-        }
-
-        /// The state directory.
-        pub(super) fn state(&self) -> PathBuf {
-            self.directory.path().join("state")
-        }
-
-        /// The registry behind the Web UI.
-        pub(super) fn registry(&self) -> &RouterRegistry {
-            &self.registry
-        }
-
-        /// The handle of fake router `id`.
-        fn handle(&self, id: &str) -> Result<&Handle, Box<dyn Error + Send + Sync>> {
-            self.routers
-                .iter()
-                .find_map(|(router, handle)| (router == id).then_some(handle))
-                .ok_or_else(|| format!("no fake router {id}").into())
-        }
+    /// Changes the running configuration of `id` so it has unsaved changes.
+    async fn make_unsaved(fixture: &Fixture, id: &str) -> TestResult {
+        let client = fixture.registry().client(id).await?;
+        drop(
+            client
+                .parse("interface Bridge0 description dashboard-test")
+                .await?,
+        );
+        Ok(())
     }
 
     /// The built-in roles plus a router manager that can read every router and a role
@@ -366,53 +149,12 @@ mod tests {
             .collect()
     }
 
-    /// The built-in administrator role.
-    fn admin() -> Result<Role, Box<dyn Error + Send + Sync>> {
-        built_in_roles()
-            .into_iter()
-            .find(|role| role.name == "admin")
-            .ok_or_else(|| "no admin role".into())
-    }
-
-    /// The response body as text.
-    pub(super) async fn text(response: Response) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
-        Ok(String::from_utf8(bytes.to_vec())?)
-    }
-
-    /// The `name=value` pair of the response's `Set-Cookie`.
-    fn cookie_pair(response: &Response) -> Result<String, Box<dyn Error + Send + Sync>> {
-        response
-            .headers()
-            .get(header::SET_COOKIE)
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.split(';').next())
-            .map(str::to_owned)
-            .ok_or_else(|| "missing Set-Cookie".into())
-    }
-
-    /// The CSRF token of a rendered page.
-    fn meta(html: &str) -> Option<String> {
-        html.split_once("<meta name=\"csrf-token\" content=\"")
-            .and_then(|(_, tail)| tail.split_once('"'))
-            .map(|(token, _)| token.to_owned())
-    }
-
-    /// A header of `response` as text.
-    pub(super) fn header_text(response: &Response, name: &str) -> Option<String> {
-        response
-            .headers()
-            .get(name)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned)
-    }
-
     /// Viewers get no edit controls, operators get Save, administrators get everything,
     /// on the fleet grid, the dashboard and the router forms.
     #[tokio::test]
     async fn each_role_sees_only_the_controls_it_may_use() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
-        fixture.make_unsaved("home").await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
+        make_unsaved(&fixture, "home").await?;
         let banner = tr(Locale::En, keys::WEB_UNSAVED_TEXT, None);
         for (role, can_save, can_manage) in [
             ("viewer", false, false),
@@ -467,9 +209,9 @@ mod tests {
     /// and after the browser disconnects the poller stops within its 2-minute idle window.
     #[tokio::test(start_paused = true)]
     async fn fleet_stream_follows_the_poller_and_releases_it_on_disconnect() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("viewer").await?;
-        let handle = fixture.handle("home")?;
+        let handle = fixture.router("home")?;
         let start = Instant::now();
         let deadline = start
             .checked_add(Duration::from_secs(31))
@@ -518,7 +260,7 @@ mod tests {
     /// The dashboard stream opens with the traffic history, then sends the live region.
     #[tokio::test]
     async fn dashboard_stream_opens_with_history_then_the_live_region() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("viewer").await?;
         let response = fixture.get("/ui/sse/r/home/traffic", &browser).await?;
         assert_eq!(response.status(), StatusCode::OK, "stream opened");
@@ -553,7 +295,7 @@ mod tests {
     /// policy message, by the form and by the connection test, and nothing is stored.
     #[tokio::test]
     async fn metadata_address_is_refused_with_the_localized_policy_message() -> TestResult {
-        let fixture = Fixture::new(&[]).await?;
+        let fixture = fleet(&[]).await?;
         let browser = fixture.login("russian").await?;
         let secret = "metadata-password-123";
         let form = format!(
@@ -570,7 +312,7 @@ mod tests {
         assert!(page.contains(&refusal), "localized refusal: {page}");
         assert!(!page.contains(secret), "the password is never echoed");
         assert!(
-            fixture.registry.get("metadata").is_err(),
+            fixture.registry().get("metadata").is_err(),
             "no profile stored"
         );
         let tested = text(fixture.post("/ui/routers/test", &browser, &form).await?).await?;
@@ -585,7 +327,7 @@ mod tests {
     /// names the setting to change and the router's address, and stores nothing.
     #[tokio::test]
     async fn default_policy_refusal_names_the_setting_and_the_address() -> TestResult {
-        let fixture = Fixture::new(&[]).await?;
+        let fixture = fleet(&[]).await?;
         let browser = fixture.login("russian").await?;
         let form = "id=office&url=http%3A%2F%2F192.168.1.1&login=admin&password=office-password-1&tls=verify&tags=";
         let mut args = FluentArgs::new();
@@ -595,7 +337,10 @@ mod tests {
         assert_eq!(created.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let page = text(created).await?;
         assert!(page.contains(&refusal), "localized refusal: {page}");
-        assert!(fixture.registry.get("office").is_err(), "no profile stored");
+        assert!(
+            fixture.registry().get("office").is_err(),
+            "no profile stored"
+        );
         let tested = text(fixture.post("/ui/routers/test", &browser, form).await?).await?;
         assert!(
             tested.contains(&refusal),
@@ -608,7 +353,7 @@ mod tests {
     async fn loopback_literal_refusal_names_allow_loopback_in_russian() -> TestResult {
         let mut outbound = OutboundConfig::default();
         outbound.allowed_networks = vec!["127.0.0.0/8".parse()?];
-        let fixture = Fixture::with_outbound(&[], &outbound).await?;
+        let fixture = with_outbound(&[], outbound).await?;
         let browser = fixture.login("russian").await?;
         let form = "id=loopback&url=http%3A%2F%2F127.0.0.1&login=admin&password=loopback-password-1&tls=verify&tags=";
 
@@ -623,7 +368,7 @@ mod tests {
 
     #[tokio::test]
     async fn unspecified_address_refusal_says_no_setting_can_admit_it_in_russian() -> TestResult {
-        let fixture = Fixture::new(&[]).await?;
+        let fixture = fleet(&[]).await?;
         let browser = fixture.login("russian").await?;
         let form = "id=unspecified&url=http%3A%2F%2F0.0.0.0&login=admin&password=unspecified-password-1&tls=verify&tags=";
         let mut args = FluentArgs::new();
@@ -648,10 +393,10 @@ mod tests {
     /// renders its password, and leaves a credential-free audit event.
     #[tokio::test]
     async fn adding_a_router_stores_only_sealed_bytes_authenticates_and_audits() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("admin").await?;
         let address = fixture
-            .registry
+            .registry()
             .get("home")?
             .profile
             .url
@@ -674,7 +419,7 @@ mod tests {
             Some("/ui/r/lab"),
             "opens the new dashboard"
         );
-        let stored = fixture.registry.get("lab")?.profile;
+        let stored = fixture.registry().get("lab")?.profile;
         assert_eq!(stored.tags, ["lab", "spare"], "tags");
         assert!(stored.test_device, "test-device flag");
         assert!(
@@ -686,7 +431,7 @@ mod tests {
         );
         assert_eq!(
             fixture
-                .registry
+                .registry()
                 .test_connection(&stored)
                 .await?
                 .version
@@ -694,7 +439,7 @@ mod tests {
             Some("Keenetic Ultra".to_owned()),
             "sealed credential authenticates"
         );
-        assert_state_has_no_secret(fixture.directory.path().join("state"), ROUTER_SECRET)?;
+        assert_state_has_no_secret(fixture.state_dir(), ROUTER_SECRET)?;
         let edit = text(fixture.get("/ui/routers/lab/edit", &browser).await?).await?;
         assert!(
             edit.contains("name=\"password\" type=\"password\" value=\"\""),
@@ -704,7 +449,7 @@ mod tests {
             !edit.contains(ROUTER_SECRET),
             "the password is never rendered"
         );
-        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let events = verify_chain(&fixture.state_dir())?;
         let event = events
             .iter()
             .find(|entry| entry.action == "router.profile_create")
@@ -721,20 +466,16 @@ mod tests {
     /// rejected form leaves both the stored profile and the foreign router untouched.
     #[tokio::test]
     async fn editing_a_credential_binding_without_a_password_is_refused_atomically() -> TestResult {
-        let fixture = Fixture::new(&[
+        let fixture = fleet(&[
             ("home", Profile::default()),
             ("foreign", Profile::default()),
         ])
         .await?;
         let browser = fixture.login("router-manager").await?;
-        let original = fixture.registry.get("home")?.profile;
-        let foreign_url = fixture.registry.get("foreign")?.profile.url;
-        let foreign = fixture
-            .routers
-            .iter()
-            .find(|(id, _handle)| id == "foreign")
-            .ok_or("foreign fake missing")?;
-        let before = foreign.1.request_log().len();
+        let original = fixture.registry().get("home")?.profile;
+        let foreign_url = fixture.registry().get("foreign")?.profile.url;
+        let foreign = fixture.router("foreign")?;
+        let before = foreign.request_log().len();
         let encoded_url = foreign_url
             .as_str()
             .trim_end_matches('/')
@@ -754,11 +495,11 @@ mod tests {
             page.contains(&tr(Locale::En, keys::WEB_ROUTER_ERROR_PASSWORD, None)),
             "the password field names the required credential"
         );
-        let stored = fixture.registry.get("home")?.profile;
+        let stored = fixture.registry().get("home")?.profile;
         assert_eq!(stored.url, original.url, "endpoint remains unchanged");
         assert_eq!(stored.tags, original.tags, "the whole edit is atomic");
         assert_eq!(
-            foreign.1.request_log().len(),
+            foreign.request_log().len(),
             before,
             "the foreign endpoint receives no request"
         );
@@ -769,9 +510,9 @@ mod tests {
     /// password refuses it and the stored profile stays as it was.
     #[tokio::test]
     async fn editing_the_login_or_tls_mode_without_a_password_is_refused() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("router-manager").await?;
-        let original = fixture.registry.get("home")?.profile;
+        let original = fixture.registry().get("home")?.profile;
         let encoded_url = original
             .url
             .as_str()
@@ -799,7 +540,7 @@ mod tests {
                 page.contains(&tr(Locale::En, keys::WEB_ROUTER_ERROR_PASSWORD, None)),
                 "{binding}: the password field names the required credential"
             );
-            let stored = fixture.registry.get("home")?.profile;
+            let stored = fixture.registry().get("home")?.profile;
             assert_eq!(stored.login, original.login, "{binding}: login unchanged");
             assert_eq!(stored.tls, original.tls, "{binding}: TLS mode unchanged");
             assert_eq!(stored.tags, original.tags, "{binding}: the edit is atomic");
@@ -814,9 +555,9 @@ mod tests {
     /// Non-binding metadata changes keep the existing credential when the password is empty.
     #[tokio::test]
     async fn editing_tags_without_a_password_keeps_the_stored_credential() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("router-manager").await?;
-        let original = fixture.registry.get("home")?.profile;
+        let original = fixture.registry().get("home")?.profile;
         let encoded_url = original
             .url
             .as_str()
@@ -832,7 +573,7 @@ mod tests {
             .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
-        let stored = fixture.registry.get("home")?.profile;
+        let stored = fixture.registry().get("home")?.profile;
         assert_eq!(stored.url, original.url, "endpoint remains bound");
         assert_eq!(
             stored.password_file, original.password_file,
@@ -845,13 +586,13 @@ mod tests {
     /// A typed password authorizes moving the profile and credential to a new endpoint.
     #[tokio::test]
     async fn editing_an_endpoint_with_a_password_rebinds_the_credential() -> TestResult {
-        let fixture = Fixture::new(&[
+        let fixture = fleet(&[
             ("home", Profile::default()),
             ("foreign", Profile::default()),
         ])
         .await?;
         let browser = fixture.login("router-manager").await?;
-        let foreign_url = fixture.registry.get("foreign")?.profile.url;
+        let foreign_url = fixture.registry().get("foreign")?.profile.url;
         let encoded_url = foreign_url
             .as_str()
             .trim_end_matches('/')
@@ -866,11 +607,11 @@ mod tests {
             .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
-        let stored = fixture.registry.get("home")?.profile;
+        let stored = fixture.registry().get("home")?.profile;
         assert_eq!(stored.url, foreign_url, "endpoint is updated");
         assert_eq!(
             fixture
-                .registry
+                .registry()
                 .test_connection(&stored)
                 .await?
                 .version
@@ -884,15 +625,11 @@ mod tests {
     /// `ManageRouters` without `Read` cannot edit a profile of a router the role cannot see.
     #[tokio::test]
     async fn editing_a_profile_without_read_is_refused_without_a_request() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("manage-only").await?;
-        let original = fixture.registry.get("home")?.profile;
-        let home = fixture
-            .routers
-            .iter()
-            .find(|(id, _handle)| id == "home")
-            .ok_or("home fake missing")?;
-        let before = home.1.request_log().len();
+        let original = fixture.registry().get("home")?.profile;
+        let home = fixture.router("home")?;
+        let before = home.request_log().len();
         let encoded_url = original
             .url
             .as_str()
@@ -909,12 +646,12 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
         assert_eq!(
-            fixture.registry.get("home")?.profile,
+            fixture.registry().get("home")?.profile,
             original,
             "profile unchanged"
         );
         assert_eq!(
-            home.1.request_log().len(),
+            home.request_log().len(),
             before,
             "the router receives no request"
         );
@@ -926,23 +663,20 @@ mod tests {
         fixture: &Fixture,
         id: &str,
     ) -> Result<ManagedRouterProfile, Box<dyn Error + Send + Sync>> {
-        let read_file = kcc_testkit::write_secret_file(
-            fixture.directory.path(),
-            "read-password",
-            ROUTER_SECRET,
-        )?;
-        let mut profile = fixture.registry.get(id)?.profile;
+        let read_file =
+            kcc_testkit::write_secret_file(&fixture.directory(), "read-password", ROUTER_SECRET)?;
+        let mut profile = fixture.registry().get(id)?.profile;
         profile.read_login = Some(ROUTER_LOGIN.to_owned());
         profile.read_password_file = Some(read_file);
-        fixture.registry.update(&admin()?, profile).await?;
-        Ok(fixture.registry.get(id)?.profile)
+        fixture.registry().update(&admin()?, profile).await?;
+        Ok(fixture.registry().get(id)?.profile)
     }
 
     /// Moving the endpoint drops the stored read-only poll credentials, so they are never
     /// sent to an endpoint they were not stored for.
     #[tokio::test]
     async fn moving_the_endpoint_drops_the_read_only_poll_credentials() -> TestResult {
-        let fixture = Fixture::new(&[
+        let fixture = fleet(&[
             ("home", Profile::default()),
             ("foreign", Profile::default()),
         ])
@@ -953,7 +687,7 @@ mod tests {
             original.read_login.is_some(),
             "precondition: read login stored"
         );
-        let foreign_url = fixture.registry.get("foreign")?.profile.url;
+        let foreign_url = fixture.registry().get("foreign")?.profile.url;
         let encoded_url = foreign_url
             .as_str()
             .trim_end_matches('/')
@@ -968,7 +702,7 @@ mod tests {
             .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
-        let stored = fixture.registry.get("home")?.profile;
+        let stored = fixture.registry().get("home")?.profile;
         assert_eq!(stored.url, foreign_url, "endpoint is updated");
         assert_eq!(stored.read_login, None, "read login dropped");
         assert_eq!(
@@ -981,7 +715,7 @@ mod tests {
     /// A metadata-only edit keeps the stored read-only poll credentials.
     #[tokio::test]
     async fn editing_tags_keeps_the_read_only_poll_credentials() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("router-manager").await?;
         let original = with_read_credentials(&fixture, "home").await?;
         let encoded_url = original
@@ -999,7 +733,7 @@ mod tests {
             .await?;
 
         assert_eq!(response.status(), StatusCode::OK);
-        let stored = fixture.registry.get("home")?.profile;
+        let stored = fixture.registry().get("home")?.profile;
         assert_eq!(stored.tags, ["trusted"], "metadata is updated");
         assert_eq!(stored.read_login, original.read_login, "read login kept");
         assert_eq!(
@@ -1011,19 +745,15 @@ mod tests {
 
     #[tokio::test]
     async fn stored_password_test_ignores_a_foreign_submitted_endpoint_and_audits() -> TestResult {
-        let fixture = Fixture::new(&[
+        let fixture = fleet(&[
             ("home", Profile::default()),
             ("foreign", Profile::default()),
         ])
         .await?;
         let browser = fixture.login("admin").await?;
-        let foreign_url = fixture.registry.get("foreign")?.profile.url;
-        let foreign = fixture
-            .routers
-            .iter()
-            .find(|(id, _handle)| id == "foreign")
-            .ok_or("foreign fake missing")?;
-        let before = foreign.1.request_log().len();
+        let foreign_url = fixture.registry().get("foreign")?.profile.url;
+        let foreign = fixture.router("foreign")?;
+        let before = foreign.request_log().len();
         let encoded_url = foreign_url
             .as_str()
             .trim_end_matches('/')
@@ -1040,11 +770,11 @@ mod tests {
             "the stored profile still connects: {tested}"
         );
         assert_eq!(
-            foreign.1.request_log().len(),
+            foreign.request_log().len(),
             before,
             "the submitted foreign endpoint receives no request"
         );
-        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let events = verify_chain(&fixture.state_dir())?;
         let event = events
             .iter()
             .find(|entry| entry.action == "web.router_test")
@@ -1059,15 +789,11 @@ mod tests {
     /// and audits the stored profile id that the request attempted to use.
     #[tokio::test]
     async fn stored_password_test_refuses_a_mismatched_draft_id_without_a_request() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("admin").await?;
-        let home = fixture
-            .routers
-            .iter()
-            .find(|(id, _handle)| id == "home")
-            .ok_or("home fake missing")?;
-        let before = home.1.request_log().len();
-        let url = fixture.registry.get("home")?.profile.url;
+        let home = fixture.router("home")?;
+        let before = home.request_log().len();
+        let url = fixture.registry().get("home")?.profile.url;
         let encoded_url = url
             .as_str()
             .trim_end_matches('/')
@@ -1084,11 +810,11 @@ mod tests {
             "the mismatched id is refused"
         );
         assert_eq!(
-            home.1.request_log().len(),
+            home.request_log().len(),
             before,
             "the router receives no request"
         );
-        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let events = verify_chain(&fixture.state_dir())?;
         let event = events
             .iter()
             .find(|entry| entry.action == "web.router_test")
@@ -1100,31 +826,27 @@ mod tests {
 
     #[tokio::test]
     async fn stored_password_test_of_a_config_router_is_refused_and_audited() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
         let browser = fixture.login("admin").await?;
-        let url = fixture.registry.get("home")?.profile.url;
-        let password_file = fixture.directory.path().join("router-password");
+        let url = fixture.registry().get("home")?.profile.url;
+        let password_file = fixture.directory().join("router-password");
         let defined = Config::from_toml_str(&format!(
             "[[routers]]\nname = \"home\"\nurl = \"{url}\"\nlogin = \"{DEFAULT_LOGIN}\"\n\
              password_file = {:?}\n",
             password_file.display().to_string()
         ))?;
         assert_eq!(
-            fixture.registry.reload(&defined).await?,
+            fixture.registry().reload(&defined).await?,
             0,
             "the profile is identical; only its source changes"
         );
         assert_eq!(
-            fixture.registry.get("home")?.source,
+            fixture.registry().get("home")?.source,
             ProfileSource::Config,
             "the router is now defined in kcc.toml"
         );
-        let home = fixture
-            .routers
-            .iter()
-            .find(|(id, _handle)| id == "home")
-            .ok_or("home fake missing")?;
-        let before = home.1.request_log().len();
+        let home = fixture.router("home")?;
+        let before = home.request_log().len();
         let encoded_url = url
             .as_str()
             .trim_end_matches('/')
@@ -1145,11 +867,11 @@ mod tests {
             "no success: {tested}"
         );
         assert_eq!(
-            home.1.request_log().len(),
+            home.request_log().len(),
             before,
             "the stored credential is never used for a Config router"
         );
-        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let events = verify_chain(&fixture.state_dir())?;
         let tests: Vec<_> = events
             .iter()
             .filter(|entry| entry.action == "web.router_test")
@@ -1164,9 +886,9 @@ mod tests {
 
     #[tokio::test]
     async fn typed_password_test_of_a_new_endpoint_still_connects_and_audits() -> TestResult {
-        let fixture = Fixture::new(&[("foreign", Profile::default())]).await?;
+        let fixture = fleet(&[("foreign", Profile::default())]).await?;
         let browser = fixture.login("admin").await?;
-        let foreign_url = fixture.registry.get("foreign")?.profile.url;
+        let foreign_url = fixture.registry().get("foreign")?.profile.url;
         let encoded_url = foreign_url
             .as_str()
             .trim_end_matches('/')
@@ -1182,7 +904,7 @@ mod tests {
             tested.contains(&tr(Locale::En, keys::WEB_TEST_SUCCESS, None)),
             "the explicitly credentialed endpoint connects: {tested}"
         );
-        let events = verify_chain(&fixture.directory.path().join("state"))?;
+        let events = verify_chain(&fixture.state_dir())?;
         let matching = events
             .iter()
             .filter(|entry| entry.action == "web.router_test")
@@ -1224,7 +946,7 @@ mod tests {
     #[tokio::test]
     async fn only_documentation_based_firmware_shows_the_tier_notice() -> TestResult {
         let legacy = Profile::new(Model::Kn1811, Firmware::V4_3)?;
-        let fixture = Fixture::new(&[("legacy", legacy), ("current", Profile::default())]).await?;
+        let fixture = fleet(&[("legacy", legacy), ("current", Profile::default())]).await?;
         let browser = fixture.login("viewer").await?;
         let badge = tr(Locale::En, keys::WEB_TIER_DOCUMENTATION, None);
         let notice = tr(Locale::En, keys::WEB_TIER_DOCUMENTATION_TEXT, None);
@@ -1247,8 +969,8 @@ mod tests {
     /// workflow and answers with the localized toast.
     #[tokio::test]
     async fn operator_save_persists_the_running_configuration() -> TestResult {
-        let fixture = Fixture::new(&[("home", Profile::default())]).await?;
-        fixture.make_unsaved("home").await?;
+        let fixture = fleet(&[("home", Profile::default())]).await?;
+        make_unsaved(&fixture, "home").await?;
         let browser = fixture.login("operator").await?;
         let saved = fixture.post("/ui/r/home/save", &browser, "").await?;
         assert_eq!(saved.status(), StatusCode::OK, "save answered");
@@ -1260,7 +982,7 @@ mod tests {
         let viewer = fixture.login("viewer").await?;
         let denied = fixture.post("/ui/r/home/save", &viewer, "").await?;
         assert_eq!(denied.status(), StatusCode::FORBIDDEN, "viewer cannot save");
-        let client = fixture.registry.client("home").await?;
+        let client = fixture.registry().client("home").await?;
         let last_change = client
             .show(&RciPath::from_segments(["show", "last-change"])?, &())
             .await?;

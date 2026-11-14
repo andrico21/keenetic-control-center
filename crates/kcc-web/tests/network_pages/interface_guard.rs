@@ -12,8 +12,12 @@ use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::{Value, json};
 
 use crate::{
-    html, interface, last_change, said,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    interface, last_change,
+    support::{
+        outcome::TestResult,
+        page::{header_text, html, said, text},
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// Disabling `Bridge0`.

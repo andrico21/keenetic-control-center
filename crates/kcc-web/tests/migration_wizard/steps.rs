@@ -14,17 +14,19 @@ mod tests {
     use kcc_i18n::keys;
 
     use crate::{
-        en,
         flow::seed_source,
-        redirected, start,
-        support::{Fixture, TestResult, text},
+        redirected, setup, start,
+        support::{
+            outcome::TestResult,
+            page::{en, text},
+        },
     };
 
     /// Steps 1 to 3: the source router is read, the target checked, the maps proposed,
     /// an invalid map refused and a valid one taken.
     #[tokio::test]
     async fn the_source_target_and_maps_steps_read_check_and_map() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let page = start(&fixture, &admin).await?;
@@ -34,16 +36,15 @@ mod tests {
             "step 1: {first}"
         );
         let source = fixture
-            .post_source(
+            .post_multipart(
                 &format!("{page}/source"),
                 &admin,
-                &[("kind", "router"), ("router", "giga")],
-                None,
+                (&[("kind", "router"), ("router", "giga")], None),
             )
             .await?;
         assert_eq!(redirected(&source)?, page, "on to the target");
         let target = fixture
-            .post(&format!("{page}/target"), &admin, &[("router", "ultra")])
+            .post_form(&format!("{page}/target"), &admin, &[("router", "ultra")])
             .await?;
         assert_eq!(redirected(&target)?, page, "the target is read");
         let report = text(fixture.get(&page, &admin).await?).await?;
@@ -59,7 +60,7 @@ mod tests {
             "a verified firmware needs no acknowledgement"
         );
         let confirmed = fixture
-            .post(&format!("{page}/target/continue"), &admin, &[])
+            .post_form(&format!("{page}/target/continue"), &admin, &[])
             .await?;
         assert_eq!(redirected(&confirmed)?, page, "on to the maps");
         let maps = text(fixture.get(&page, &admin).await?).await?;
@@ -83,7 +84,7 @@ mod tests {
             ("interface-1", "9-not-a-name"),
         ];
         let refused = fixture
-            .post(&format!("{page}/mapping"), &admin, &fields)
+            .post_form(&format!("{page}/mapping"), &admin, &fields)
             .await?;
         assert_eq!(
             refused.status(),
@@ -103,7 +104,7 @@ mod tests {
         );
         fields.push(("interface-1", "Bridge19"));
         let mapped = fixture
-            .post(&format!("{page}/mapping"), &admin, &fields)
+            .post_form(&format!("{page}/mapping"), &admin, &fields)
             .await?;
         assert_eq!(redirected(&mapped)?, page, "on to the review");
         let stored = fs::read_dir(fixture.state_dir().join("migrations"))?.count();

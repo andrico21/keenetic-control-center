@@ -6,9 +6,10 @@
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
 
-use crate::{
-    form, said,
-    support::{Fixture, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, header_text, said, text},
+    web::Fixture,
 };
 
 /// The page under test.

@@ -15,16 +15,20 @@ mod tests {
     use serde_json::json;
 
     use crate::{
-        en,
         flow::{apply, moved, seed_source, stream, to_preview, to_review},
         plan_screens::to_file_review,
-        support::{Browser, Fixture, TestResult, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en, text},
+            web::{Browser, Fixture},
+        },
     };
 
     /// Parser commands `ultra` received after the first `before` requests.
     fn commands(fixture: &Fixture, before: usize) -> TestResult<Vec<String>> {
         Ok(fixture
-            .handle("ultra")?
+            .router("ultra")?
             .request_log()
             .iter()
             .skip(before)
@@ -47,12 +51,12 @@ mod tests {
     // NOT cancel-safe: the fixture applies router settings.
     #[tokio::test]
     async fn an_operator_applies_and_commits_but_cannot_roll_back() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let operator = fixture.login("operator").await?;
         let page = to_review(&fixture, &operator).await?;
         to_preview(&fixture, &operator, &page).await?;
-        let before = fixture.handle("ultra")?.request_log().len();
+        let before = fixture.router("ultra")?.request_log().len();
         let streamed = apply(&fixture, &operator, &page).await?;
         assert!(
             streamed.contains(&en(keys::MIGRATE_APPLY_VERIFIED)),
@@ -60,14 +64,14 @@ mod tests {
         );
         moved(
             &fixture
-                .post(&format!("{page}/results"), &operator, &[])
+                .post_form(&format!("{page}/results"), &operator, &[])
                 .await?,
             &page,
         )?;
-        let quiet = fixture.handle("ultra")?.request_count();
+        let quiet = fixture.router("ultra")?.request_count();
 
         let refused = fixture
-            .post(
+            .post_form(
                 &format!("{page}/rollback"),
                 &operator,
                 &[("confirm", "yes"), ("confirm_name", "ultra")],
@@ -75,11 +79,11 @@ mod tests {
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
-        assert_eq!(fixture.handle("ultra")?.request_count(), quiet);
+        assert_eq!(fixture.router("ultra")?.request_count(), quiet);
         assert_eq!(outcomes(&fixture, "web.migrate_rollback")?, ["forbidden"]);
         moved(
             &fixture
-                .post(&format!("{page}/commit"), &operator, &[])
+                .post_form(&format!("{page}/commit"), &operator, &[])
                 .await?,
             &page,
         )?;
@@ -94,7 +98,7 @@ mod tests {
             matches!(order, [Some(arm), Some(line), Some(commit)] if arm < line && line < commit),
             "{sent:?}"
         );
-        assert!(!fixture.handle("ultra")?.recovery_armed());
+        assert!(!fixture.router("ultra")?.recovery_armed());
         assert_eq!(outcomes(&fixture, "web.migrate_commit")?, ["done"]);
         Ok(())
     }
@@ -109,13 +113,13 @@ mod tests {
         let page = to_file_review(fixture, browser, &source).await?;
         moved(
             &fixture
-                .post(&format!("{page}/review/continue"), browser, &[])
+                .post_form(&format!("{page}/review/continue"), browser, &[])
                 .await?,
             &page,
         )?;
         moved(
             &fixture
-                .post(
+                .post_form(
                     &format!("{page}/inputs"),
                     browser,
                     &[("component", "wireguard")],
@@ -140,7 +144,7 @@ mod tests {
                 "features": "wifi2ghz,wifi5ghz,wpa3"},
         });
         let target = FakeRouter::builder(Profile::default()).show_fixture("version", version);
-        Fixture::with_target("router", target).await
+        setup::with_target("router", target).await
     }
 
     /// A plan that installs a component is refused for the operator before `ultra`
@@ -153,10 +157,10 @@ mod tests {
         let page = to_component_preview(&fixture, &operator).await?;
         let preview = text(fixture.get(&page, &operator).await?).await?;
         assert!(preview.contains("wireguard"), "the component: {preview}");
-        let before = fixture.handle("ultra")?.request_count();
+        let before = fixture.router("ultra")?.request_count();
 
         let refused = fixture
-            .post(&format!("{page}/apply"), &operator, &[("confirm", "yes")])
+            .post_form(&format!("{page}/apply"), &operator, &[("confirm", "yes")])
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
@@ -164,14 +168,14 @@ mod tests {
             text(refused).await?.contains("Destructive"),
             "the refusal names Destructive"
         );
-        assert_eq!(fixture.handle("ultra")?.request_count(), before);
+        assert_eq!(fixture.router("ultra")?.request_count(), before);
         assert_eq!(outcomes(&fixture, "web.migrate_apply")?, ["forbidden"]);
 
         let admin = fixture.login("admin").await?;
         let admin_page = to_component_preview(&fixture, &admin).await?;
         moved(
             &fixture
-                .post(
+                .post_form(
                     &format!("{admin_page}/apply"),
                     &admin,
                     &[("confirm", "yes")],

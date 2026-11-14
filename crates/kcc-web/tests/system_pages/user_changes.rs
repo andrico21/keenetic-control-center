@@ -1,20 +1,23 @@
 //! Router user changes.
 //!
-//! The tags of an account changed through the tag dialog, the typed-name delete that
-//! spares the account kcc signs in with, and a router refusal in the router's own words.
+//! The tags of an account changed through the tag dialog, the delete that spares the
+//! account kcc signs in with, and a router refusal in the router's own words.
 
 use axum::http::StatusCode;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use kcc_testkit::FaultInjection;
+use kcc_i18n::keys;
 
 use crate::{
-    audited, en, form, html,
-    support::{Fixture, TestResult, header_text, text},
+    support::{
+        outcome::TestResult,
+        page::{en, form, header_text, text},
+        refusal::{Refusal, router_refusals},
+        web::Fixture,
+    },
     users::{PAGE, add_lab, configured},
 };
 
 #[tokio::test]
-async fn tags_change_and_a_delete_needs_the_typed_name() -> TestResult {
+async fn tags_change_and_kccs_own_login_is_never_deleted() -> TestResult {
     let fixture = Fixture::new().await?;
     drop(add_lab(&fixture).await?);
     let admin = fixture.login("admin").await?;
@@ -43,34 +46,10 @@ async fn tags_change_and_a_delete_needs_the_typed_name() -> TestResult {
         [("lab".to_owned(), vec!["http".to_owned()])],
         "cli and readonly removed, http added"
     );
-    let delete = format!("{PAGE}/delete");
-    let asked = text(fixture.get(&format!("{delete}?name=lab"), &admin).await?).await?;
-    assert!(
-        asked.contains("name=\"confirm_name\""),
-        "typed name: {asked}"
-    );
     let before = fixture.handle().request_count();
-    let mistyped = fixture
-        .post(
-            &delete,
-            &admin,
-            &form(&[
-                ("object", "lab"),
-                ("confirm", "yes"),
-                ("confirm_name", "Lab"),
-            ]),
-        )
-        .await?;
-    assert_eq!(mistyped.status(), StatusCode::UNPROCESSABLE_ENTITY, "422");
-    assert!(
-        text(mistyped)
-            .await?
-            .contains(&en(keys::WEB_ADMIN_ERROR_CONFIRM)),
-        "mismatch"
-    );
     let protected = fixture
         .post(
-            &delete,
+            &format!("{PAGE}/delete"),
             &admin,
             &form(&[
                 ("object", "admin"),
@@ -86,50 +65,27 @@ async fn tags_change_and_a_delete_needs_the_typed_name() -> TestResult {
         "kcc's own login"
     );
     assert_eq!(fixture.handle().request_count(), before, "nothing sent");
-    let deleted = fixture
-        .post(
-            &delete,
-            &admin,
-            &form(&[
-                ("object", "lab"),
-                ("confirm", "yes"),
-                ("confirm_name", "lab"),
-            ]),
-        )
-        .await?;
-    assert_eq!(
-        header_text(&deleted, "hx-retarget").as_deref(),
-        Some("#page-outcome"),
-        "the outcome leaves the dialog"
-    );
-    assert!(configured(&fixture).await?.is_empty(), "gone");
     Ok(())
 }
 
 #[tokio::test]
 async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
-    let fixture =
-        Fixture::with_faults(FaultInjection::default().fail_parse_matching("user lab", 1)).await?;
-    let body = add_lab(&fixture).await?;
-    assert!(body.contains(&en(keys::WEB_KIT_REJECTED)), "{body}");
-    assert!(
-        body.contains(&en(keys::WEB_EXPLORER_ROUTER_SAID)),
-        "router said"
-    );
-    assert!(!body.contains("unsaved-badge"), "no badge for a failure");
-    assert!(
-        audited(&fixture, "web.router_user_create", "rci_error")?,
-        "audited"
-    );
-    assert!(
-        !body.contains(&html(&tr(
-            Locale::En,
-            keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
-            None
-        ))),
-        "the timer was disarmed"
-    );
-    Ok(())
+    let lab = form(&[
+        ("name", "lab"),
+        ("tag", "cli"),
+        ("tag", "readonly"),
+        ("confirm", "yes"),
+    ]);
+    router_refusals(&[Refusal {
+        action: "web.router_user_create",
+        refused: "user lab",
+        account: "admin",
+        post: (PAGE, &lab),
+        unsaid: "user lab",
+        absent: &["unsaved-badge"],
+        unchanged: false,
+    }])
+    .await
 }
 
 #[tokio::test]
@@ -153,11 +109,11 @@ async fn a_tag_change_the_domain_refuses_is_audited_with_its_reason() -> TestRes
         "the refusal in the dialog"
     );
     assert!(
-        audited(&fixture, "web.router_user_tags", "failed")?,
+        fixture.audited("web.router_user_tags", "failed")?,
         "audited with the domain's reason"
     );
     assert!(
-        !audited(&fixture, "web.router_user_tags", "validation_failed")?,
+        !fixture.audited("web.router_user_tags", "validation_failed")?,
         "not as a value that failed its check"
     );
     Ok(())
@@ -191,11 +147,11 @@ async fn a_delete_the_domain_refuses_is_audited_with_its_reason() -> TestResult 
         "the refusal in the dialog"
     );
     assert!(
-        audited(&fixture, "web.router_user_delete", "failed")?,
+        fixture.audited("web.router_user_delete", "failed")?,
         "audited with the domain's reason"
     );
     assert!(
-        !audited(&fixture, "web.router_user_delete", "validation_failed")?,
+        !fixture.audited("web.router_user_delete", "validation_failed")?,
         "not as a value that failed its check"
     );
     Ok(())

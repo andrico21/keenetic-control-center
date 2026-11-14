@@ -6,7 +6,7 @@ use std::io::{self, Write as _};
 use kcc_i18n::keys;
 
 use super::{CLI, NAME_FIELD, Raw, bracket, confirm, first_dialog, marker, signed_in};
-use crate::support::TestResult;
+use crate::support::outcome::TestResult;
 
 /// Each stake alone keeps its own dialog.
 ///

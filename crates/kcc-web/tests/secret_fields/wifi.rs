@@ -8,8 +8,12 @@ use kcc_i18n::keys;
 use tokio::time::{Instant, timeout_at};
 
 use crate::{
-    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
-    support::{Browser, Fixture, TestResult, text},
+    ROUTER, TraceCapture, dummy, nowhere, setup, stored,
+    support::{
+        outcome::TestResult,
+        page::{assert_native_post, en_with, text},
+        web::{Browser, Fixture},
+    },
 };
 
 /// The 5 GHz access point.
@@ -23,7 +27,7 @@ const SETTINGS: &str = "/ui/r/prod-1/wifi/settings?name=WifiMaster1%2FAccessPoin
 
 /// The stored password of the access point: `ns3 <blob>`.
 fn psk(fixture: &Fixture) -> TestResult<Option<String>> {
-    let config = fixture.handle(ROUTER)?.running_config_text();
+    let config = fixture.router(ROUTER)?.running_config_text();
     Ok(stored(
         &config,
         &format!("interface {POINT}"),
@@ -38,7 +42,7 @@ async fn post(
     (typed, again): (&str, &str),
 ) -> TestResult<(StatusCode, String)> {
     let response = fixture
-        .post(
+        .post_form(
             DIALOG,
             browser,
             &[("secret", typed), ("secret_again", again)],
@@ -75,7 +79,7 @@ fn shown_password(settings: &str) -> Option<&str> {
 #[tokio::test]
 async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
     let trace = TraceCapture::install();
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let operator = fixture.login("operator").await?;
     let mut served = Vec::new();
     let settings = text(fixture.get(SETTINGS, &operator).await?).await?;
@@ -89,7 +93,7 @@ async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
         "name=\"secret\" type=\"password\" value=\"\" autocomplete=\"new-password\"".to_owned(),
         format!(
             " minlength=\"8\" maxlength=\"63\" data-kcc-invalid=\"{}\"",
-            en(keys::WEB_SECRET_WIFI_RULE, &[])
+            en_with(keys::WEB_SECRET_WIFI_RULE, &[])
         ),
         "name=\"secret_again\" type=\"password\" value=\"\"".to_owned(),
     ] {
@@ -102,9 +106,9 @@ async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
     let secret = dummy("wifi", 1);
     let (status, answer) = post(&fixture, &operator, (&secret, &secret)).await?;
     assert_eq!(status, StatusCode::OK, "written: {answer}");
-    let what = en(keys::WEB_WIFI_PSK, &[]);
+    let what = en_with(keys::WEB_WIFI_PSK, &[]);
     assert!(
-        answer.contains(&en(keys::WEB_SECRET_DONE, &[("what", &what)])),
+        answer.contains(&en_with(keys::WEB_SECRET_DONE, &[("what", &what)])),
         "the read-back's verdict: {answer}"
     );
     assert!(answer.contains("id=\"unsaved-badge\""), "unsaved: {answer}");
@@ -119,7 +123,7 @@ async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
     let reread = text(fixture.get(SETTINGS, &operator).await?).await?;
     assert_eq!(
         shown_password(&reread),
-        Some(en(keys::WEB_INTERNET_SET, &[]).as_str()),
+        Some(en_with(keys::WEB_INTERNET_SET, &[]).as_str()),
         "the domain reads a stored password: {reread}"
     );
     let page = text(fixture.get("/ui/r/prod-1/wifi", &operator).await?).await?;
@@ -134,10 +138,10 @@ async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
 #[tokio::test]
 async fn a_short_or_mistyped_wifi_password_is_refused_before_any_request() -> TestResult {
     let trace = TraceCapture::install();
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let operator = fixture.login("operator").await?;
     drop(fixture.get(DIALOG, &operator).await?);
-    let before = fixture.handle(ROUTER)?.request_count();
+    let before = fixture.router(ROUTER)?.request_count();
     let short = dummy("w", 2).chars().take(7).collect::<String>();
     let (short_status, refused) = post(&fixture, &operator, (&short, &short)).await?;
     nowhere(&short, slice::from_ref(&refused), (&fixture, &trace))?;
@@ -149,7 +153,7 @@ async fn a_short_or_mistyped_wifi_password_is_refused_before_any_request() -> Te
     assert!(
         refused.contains(&format!(
             "<p class=\"field__error\" id=\"secret-new-error\">{}</p>",
-            en(keys::WEB_SECRET_WIFI_RULE, &[])
+            en_with(keys::WEB_SECRET_WIFI_RULE, &[])
         )),
         "the rule under the field: {refused}"
     );
@@ -166,11 +170,11 @@ async fn a_short_or_mistyped_wifi_password_is_refused_before_any_request() -> Te
         "different entries"
     );
     assert!(
-        mismatch.contains(&en(keys::WEB_SECRET_MISMATCH, &[])),
+        mismatch.contains(&en_with(keys::WEB_SECRET_MISMATCH, &[])),
         "says so: {mismatch}"
     );
     assert_eq!(
-        fixture.handle(ROUTER)?.request_count(),
+        fixture.router(ROUTER)?.request_count(),
         before,
         "the router heard nothing"
     );
@@ -191,23 +195,23 @@ async fn a_short_or_mistyped_wifi_password_is_refused_before_any_request() -> Te
 
 #[tokio::test]
 async fn empty_fields_keep_the_stored_wifi_password() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let operator = fixture.login("operator").await?;
     let secret = dummy("wifi", 5);
     let (set_status, _) = post(&fixture, &operator, (&secret, &secret)).await?;
     assert_eq!(set_status, StatusCode::OK, "set first");
     let kept = psk(&fixture)?.ok_or("no password stored")?;
-    let before = fixture.handle(ROUTER)?.request_count();
+    let before = fixture.router(ROUTER)?.request_count();
     let (kept_status, answer) = post(&fixture, &operator, ("", "")).await?;
     assert_eq!(kept_status, StatusCode::OK, "answered: {answer}");
     assert!(
-        answer.contains(&en(keys::WEB_SECRET_UNCHANGED, &[])),
+        answer.contains(&en_with(keys::WEB_SECRET_UNCHANGED, &[])),
         "nothing sent: {answer}"
     );
     let other = dummy("wifi", 6);
     let in_query = format!("{DIALOG}&secret={other}&secret_again={other}");
     let ignored = fixture
-        .post(
+        .post_form(
             &in_query,
             &operator,
             &[("secret", ""), ("secret_again", "")],
@@ -221,11 +225,11 @@ async fn empty_fields_keep_the_stored_wifi_password() -> TestResult {
     assert!(
         text(ignored)
             .await?
-            .contains(&en(keys::WEB_SECRET_UNCHANGED, &[])),
+            .contains(&en_with(keys::WEB_SECRET_UNCHANGED, &[])),
         "a value in the query string is never used"
     );
     assert_eq!(
-        fixture.handle(ROUTER)?.request_count(),
+        fixture.router(ROUTER)?.request_count(),
         before,
         "no request"
     );

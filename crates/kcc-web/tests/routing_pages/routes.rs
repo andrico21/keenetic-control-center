@@ -6,8 +6,12 @@ use kcc_i18n::keys;
 use url::form_urlencoded::byte_serialize;
 
 use crate::{
-    audited, get, post, said,
-    support::{Fixture, ROUTER, TestResult},
+    get, post,
+    support::{
+        outcome::TestResult,
+        page::en,
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// `value` encoded for a query string.
@@ -21,7 +25,7 @@ async fn ipv4_route_is_added_and_removed_with_read_back() -> TestResult {
     let admin = fixture.login("admin").await?;
     let page = get(&fixture, &admin, "/ui/r/home/routing", StatusCode::OK).await?;
     assert!(
-        page.contains(&said(keys::WEB_ROUTING_STATIC_EMPTY)),
+        page.contains(&en(keys::WEB_ROUTING_STATIC_EMPTY)),
         "no static route yet"
     );
     assert!(
@@ -43,7 +47,7 @@ async fn ipv4_route_is_added_and_removed_with_read_back() -> TestResult {
     )
     .await?;
     assert!(
-        added.contains(&said(keys::WEB_KIT_DONE_UNSAVED)),
+        added.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
         "toast: {added}"
     );
     assert!(added.contains("id=\"unsaved-badge\""), "the unsaved badge");
@@ -66,12 +70,12 @@ async fn ipv4_route_is_added_and_removed_with_read_back() -> TestResult {
     );
     let dialog = get(&fixture, &admin, remove, StatusCode::OK).await?;
     assert!(
-        dialog.contains(&said(keys::WEB_ROUTING_REMOVE_TEXT)),
+        dialog.contains(&en(keys::WEB_ROUTING_REMOVE_TEXT)),
         "asks first"
     );
     let removed = post(&fixture, &admin, (remove, &[]), StatusCode::OK).await?;
     assert!(
-        removed.contains(&said(keys::WEB_KIT_DONE_UNSAVED)),
+        removed.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
         "{removed}"
     );
     assert!(
@@ -82,16 +86,16 @@ async fn ipv4_route_is_added_and_removed_with_read_back() -> TestResult {
         "gone from the router"
     );
     assert!(
-        removed.contains(&said(keys::WEB_ROUTING_STATIC_EMPTY)),
+        removed.contains(&en(keys::WEB_ROUTING_STATIC_EMPTY)),
         "read back"
     );
     let again = post(&fixture, &admin, (remove, &[]), StatusCode::OK).await?;
     assert!(
-        again.contains(&said(keys::WEB_ROUTING_GONE)),
+        again.contains(&en(keys::WEB_ROUTING_GONE)),
         "a stale removal: {again}"
     );
     assert!(
-        audited(&fixture, "web.routing_route_remove", "success")?,
+        fixture.audited("web.routing_route_remove", "success")?,
         "audited"
     );
     Ok(())
@@ -130,7 +134,7 @@ async fn ipv6_route_is_added_and_removed_with_read_back() -> TestResult {
     );
     let removed = post(&fixture, &admin, (&remove, &[]), StatusCode::OK).await?;
     assert!(
-        removed.contains(&said(keys::WEB_KIT_DONE_UNSAVED)),
+        removed.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
         "{removed}"
     );
     assert!(
@@ -161,7 +165,7 @@ async fn a_malformed_route_is_refused_before_anything_is_sent() -> TestResult {
     )
     .await?;
     assert!(
-        refused.contains(&said(keys::WEB_ROUTING_ERROR_IPV4)),
+        refused.contains(&en(keys::WEB_ROUTING_ERROR_IPV4)),
         "field error"
     );
     assert!(
@@ -177,7 +181,7 @@ async fn a_malformed_route_is_refused_before_anything_is_sent() -> TestResult {
     )
     .await?;
     assert!(
-        no_via.contains(&said(keys::WEB_ROUTING_ERROR_VIA)),
+        no_via.contains(&en(keys::WEB_ROUTING_ERROR_VIA)),
         "a gateway or interface"
     );
     assert_eq!(
@@ -186,7 +190,7 @@ async fn a_malformed_route_is_refused_before_anything_is_sent() -> TestResult {
         "nothing changed"
     );
     assert!(
-        audited(&fixture, "web.routing_route_add", "validation_failed")?,
+        fixture.audited("web.routing_route_add", "validation_failed")?,
         "audited"
     );
     Ok(())
@@ -216,7 +220,7 @@ async fn the_routing_table_lists_learned_and_static_routes() -> TestResult {
     assert!(table.contains("boot"), "where the router got it");
     assert!(table.contains("203.0.113.0/24"), "the static route");
     assert!(
-        table.contains(&said(keys::WEB_ROUTING_SOURCE_STATIC)),
+        table.contains(&en(keys::WEB_ROUTING_SOURCE_STATIC)),
         "marked static"
     );
     let ipv6 = get(

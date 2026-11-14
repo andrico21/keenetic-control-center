@@ -8,7 +8,11 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use crate::{
     nav_links,
-    support::{Fixture, TestResult, header_text, text},
+    support::{
+        outcome::TestResult,
+        page::{header_text, text},
+        web::Fixture,
+    },
 };
 
 /// The browser origin the shared fixture accepts.

@@ -15,9 +15,12 @@ mod tests {
     use serde_json::{Value, json};
 
     use crate::{
-        en,
         flow::{DNS_LINES, apply, capture, finish, last_change, seed, start, to_preview},
-        support::{Fixture, TestResult, header_text, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en_with, header_text, text},
+        },
     };
 
     /// A refused keep leaves the run unfinished and reports its armed recovery timer.
@@ -25,7 +28,7 @@ mod tests {
     #[tokio::test]
     async fn refused_keep_reports_armed_recovery() -> TestResult {
         let fixture =
-            Fixture::with_faults(FaultInjection::default().fail_parse_matching("no system", 1))
+            setup::with_faults(FaultInjection::default().fail_parse_matching("no system", 1))
                 .await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
@@ -39,21 +42,23 @@ mod tests {
         let page = start(&fixture, &admin, &id).await?;
         to_preview(&fixture, &admin, &page, ("lab-1", "merge", &[])).await?;
         let stream = apply(&fixture, &admin, &page).await?;
-        assert!(stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])));
+        assert!(stream.contains(&en_with(keys::WEB_PRESETS_APPLIED, &[])));
         let results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
         assert_eq!(results.status(), StatusCode::OK);
 
-        let response = fixture.post(&format!("{page}/keep"), &admin, &[]).await?;
+        let response = fixture
+            .post_form(&format!("{page}/keep"), &admin, &[])
+            .await?;
 
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = text(response).await?;
         assert!(
-            body.contains(&en(keys::MANAGEMENT_DISARM_FAILED, &[])),
+            body.contains(&en_with(keys::MANAGEMENT_DISARM_FAILED, &[])),
             "{body}"
         );
-        assert!(fixture.handle("lab-1")?.recovery_armed());
+        assert!(fixture.router("lab-1")?.recovery_armed());
         assert_eq!(fixture.outcomes("web.preset_keep")?, ["failed"]);
         let audit = fixture.audit()?;
         let failed = audit
@@ -69,7 +74,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_preset_applies_in_merge_mode_and_stays_unsaved() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Office DNS")).await?;
@@ -82,7 +87,9 @@ mod tests {
                 "{line} is in the preview: {preview}"
             );
         }
-        let asked = fixture.post(&format!("{page}/apply"), &admin, &[]).await?;
+        let asked = fixture
+            .post_form(&format!("{page}/apply"), &admin, &[])
+            .await?;
         assert_eq!(
             header_text(&asked, "hx-retarget").as_deref(),
             Some("#dialog-content"),
@@ -96,16 +103,16 @@ mod tests {
             );
         }
         assert!(
-            stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])),
+            stream.contains(&en_with(keys::WEB_PRESETS_APPLIED, &[])),
             "verified: {stream}"
         );
         finish(&fixture, &admin, &page, ("keep", &[])).await?;
         let report = text(fixture.get(&page, &admin).await?).await?;
         assert!(
-            report.contains(&en(keys::WEB_PRESETS_FINISH_KEPT, &[])),
+            report.contains(&en_with(keys::WEB_PRESETS_FINISH_KEPT, &[])),
             "step 9: {report}"
         );
-        let target = fixture.handle("lab-1")?;
+        let target = fixture.router("lab-1")?;
         for line in DNS_LINES {
             assert!(target.running_config_text().contains(line), "{line} runs");
             assert!(
@@ -134,7 +141,7 @@ mod tests {
 
     #[tokio::test]
     async fn apply_names_missing_permissions_before_any_router_request() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let browser = fixture.login("without-write-save").await?;
         let id = capture(
@@ -146,10 +153,10 @@ mod tests {
         .await?;
         let page = start(&fixture, &browser, &id).await?;
         to_preview(&fixture, &browser, &page, ("lab-1", "merge", &[])).await?;
-        let before = fixture.handle("lab-1")?.request_count();
+        let before = fixture.router("lab-1")?.request_count();
 
         let refused = fixture
-            .post(&format!("{page}/apply"), &browser, &[("confirm", "yes")])
+            .post_form(&format!("{page}/apply"), &browser, &[("confirm", "yes")])
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
@@ -168,7 +175,7 @@ mod tests {
                 && !named(keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE),
             "the refusal names the missing permissions: {body}"
         );
-        assert_eq!(fixture.handle("lab-1")?.request_count(), before);
+        assert_eq!(fixture.router("lab-1")?.request_count(), before);
         assert_eq!(fixture.outcomes("web.preset_apply")?, ["forbidden"]);
         Ok(())
     }
@@ -192,7 +199,7 @@ mod tests {
                 &[][..],
             ),
         ] {
-            let fixture = Fixture::new().await?;
+            let fixture = setup::fixture().await?;
             seed(&fixture, "prod-1", &DNS_LINES).await?;
             let browser = fixture.login(username).await?;
             let id = capture(
@@ -231,7 +238,7 @@ mod tests {
             );
         }
 
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = capture(

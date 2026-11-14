@@ -10,8 +10,11 @@ use tokio::time::{Instant, timeout_at};
 
 use crate::{
     interfaces::DISABLE_BRIDGE,
-    said,
-    support::{Fixture, TestResult, header_text, text},
+    support::{
+        outcome::TestResult,
+        page::{header_text, said, text},
+        web::Fixture,
+    },
 };
 
 #[tokio::test]

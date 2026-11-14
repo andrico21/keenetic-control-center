@@ -8,8 +8,12 @@ use kcc_i18n::keys;
 use url::form_urlencoded::byte_serialize;
 
 use crate::{
-    audited, post, said,
-    support::{Browser, Fixture, TestResult},
+    post,
+    support::{
+        outcome::TestResult,
+        page::en,
+        web::{Browser, Fixture},
+    },
 };
 
 /// The permit rule the tests add, as the router stores it.
@@ -57,7 +61,7 @@ pub(crate) async fn two_rules(fixture: &Fixture, admin: &Browser) -> TestResult 
     let new = "/ui/r/home/firewall/rule/new";
     for fields in [&permit[..], &deny[..]] {
         let added = post(fixture, admin, (new, fields), StatusCode::OK).await?;
-        assert!(added.contains(&said(keys::WEB_KIT_DONE_UNSAVED)), "{added}");
+        assert!(added.contains(&en(keys::WEB_KIT_DONE_UNSAVED)), "{added}");
     }
     Ok(())
 }
@@ -75,14 +79,14 @@ async fn rules_are_added_and_moved_up_and_down_with_read_back() -> TestResult {
     drop(post(&fixture, &admin, (&down, &[]), StatusCode::OK).await?);
     assert!(order(&fixture, PERMIT, DENY)?, "moved down");
     assert!(
-        audited(&fixture, "web.firewall_rule_order", "success")?,
+        fixture.audited("web.firewall_rule_order", "success")?,
         "audited"
     );
     let before = fixture.handle().running_config_text();
     let moved_away = format!("{}&value=off", rule_url("state", 0, DENY));
     let stale = post(&fixture, &admin, (&moved_away, &[]), StatusCode::OK).await?;
     assert!(
-        stale.contains(&said(keys::WEB_ROUTING_GONE)),
+        stale.contains(&en(keys::WEB_ROUTING_GONE)),
         "moved away: {stale}"
     );
     assert_eq!(
@@ -103,7 +107,7 @@ async fn a_rule_is_switched_described_scheduled_and_removed_with_read_back() -> 
     let disabled = fixture.handle().running_config_text();
     assert!(disabled.contains("rule 1 disable"), "disabled: {disabled}");
     assert!(
-        switched.contains(&said(keys::WEB_FIREWALL_ENABLE)),
+        switched.contains(&en(keys::WEB_FIREWALL_ENABLE)),
         "offers Enable: {switched}"
     );
     let on = format!("{}&value=on", rule_url("state", 1, DENY));
@@ -136,7 +140,7 @@ async fn a_rule_is_switched_described_scheduled_and_removed_with_read_back() -> 
     assert!(!removed.contains(DENY), "removed: {removed}");
     assert!(removed.contains(PERMIT), "the other rule stays: {removed}");
     assert!(
-        audited(&fixture, "web.firewall_rule_remove", "success")?,
+        fixture.audited("web.firewall_rule_remove", "success")?,
         "audited"
     );
     Ok(())

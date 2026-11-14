@@ -8,8 +8,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    audited, cli_targets, en, form,
-    support::{Fixture, TestResult, header_text, text},
+    cli_targets,
+    support::{
+        outcome::TestResult,
+        page::{en, form, header_text, text},
+        web::Fixture,
+    },
 };
 
 /// The page under test.
@@ -81,7 +85,7 @@ async fn the_name_is_released_and_a_bad_name_is_refused() -> TestResult {
         before,
         "nothing sent"
     );
-    assert!(audited(&fixture, "web.keendns_drop", "success")?, "audited");
+    assert!(fixture.audited("web.keendns_drop", "success")?, "audited");
     Ok(())
 }
 
@@ -142,8 +146,8 @@ async fn management_changes_ask_first_and_run_inside_the_fail_safe_timer() -> Te
         .count();
     assert_eq!(fail_safe, 4, "armed and disarmed around both changes");
     assert!(
-        audited(&fixture, "web.keendns_access", "rci_error")?
-            && audited(&fixture, "web.keendns_proxy", "success")?,
+        fixture.audited("web.keendns_access", "rci_error")?
+            && fixture.audited("web.keendns_proxy", "success")?,
         "audited"
     );
     Ok(())

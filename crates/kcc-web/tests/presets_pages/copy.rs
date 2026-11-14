@@ -12,9 +12,12 @@ mod tests {
     use kcc_i18n::keys;
 
     use crate::{
-        en,
         flow::{apply, finish, moved, redirected, seed, to_preview},
-        support::{Fixture, TestResult, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en_with, text},
+        },
     };
 
     /// The static route the source router has.
@@ -22,13 +25,13 @@ mod tests {
 
     #[tokio::test]
     async fn static_routes_are_copied_once_and_saved() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &[ROUTE]).await?;
         let admin = fixture.login("admin").await?;
-        let page = redirected(&fixture.post("/ui/copy", &admin, &[]).await?)?;
+        let page = redirected(&fixture.post_form("/ui/copy", &admin, &[]).await?)?;
         moved(
             &fixture
-                .post(
+                .post_form(
                     &format!("{page}/source"),
                     &admin,
                     &[("router", "prod-1"), ("group", "static-routes")],
@@ -48,18 +51,18 @@ mod tests {
         to_preview(&fixture, &admin, &page, ("lab-1", "merge", &[])).await?;
         let stream = apply(&fixture, &admin, &page).await?;
         assert!(
-            stream.contains(ROUTE) && stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])),
+            stream.contains(ROUTE) && stream.contains(&en_with(keys::WEB_PRESETS_APPLIED, &[])),
             "the route was sent and verified: {stream}"
         );
         finish(&fixture, &admin, &page, ("save", &[])).await?;
         let report = text(fixture.get(&page, &admin).await?).await?;
         assert!(
-            report.contains(&en(keys::WEB_PRESETS_FINISH_SAVED, &[])),
+            report.contains(&en_with(keys::WEB_PRESETS_FINISH_SAVED, &[])),
             "step 9: {report}"
         );
         assert!(
             fixture
-                .handle("lab-1")?
+                .router("lab-1")?
                 .startup_config_text()
                 .contains(ROUTE),
             "the route is saved on the target"
@@ -67,7 +70,7 @@ mod tests {
         assert!(!sealed.exists(), "finishing deletes the copied settings");
         let list = text(fixture.get("/ui/presets", &admin).await?).await?;
         assert!(
-            list.contains(&en(keys::WEB_PRESETS_EMPTY, &[])),
+            list.contains(&en_with(keys::WEB_PRESETS_EMPTY, &[])),
             "a copy saves no preset: {list}"
         );
         assert_eq!(fixture.outcomes("web.preset_save")?, ["done"]);

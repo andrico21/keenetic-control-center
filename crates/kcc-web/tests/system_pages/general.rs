@@ -1,12 +1,16 @@
 //! The general page's time zone, time server and factory reset, with the system tabs.
 
 use axum::http::StatusCode;
-use fluent_bundle::FluentArgs;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::keys;
 
 use crate::{
-    audited, en, form, html,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    support::{
+        outcome::TestResult,
+        page::{en, form, text},
+        typed_name::{Ask, TypedName, typed_names},
+        web::Fixture,
+    },
+    users::{PAGE as USERS, add_lab, configured},
 };
 
 /// The page under test.
@@ -71,71 +75,88 @@ async fn time_zone_and_time_server_change_through_their_dialogs() -> TestResult 
         "applied: {server}"
     );
     assert!(
-        audited(&fixture, "web.system_ntp_server", "success")?,
+        fixture.audited("web.system_ntp_server", "success")?,
         "audited"
     );
     Ok(())
 }
 
+/// A factory reset, an eject and a router user delete need their typed names.
 #[tokio::test]
-async fn factory_reset_needs_the_exact_router_name() -> TestResult {
+async fn typed_names_are_exact() -> TestResult {
     let fixture = Fixture::new().await?;
-    let reset = format!("{PAGE}/reset");
     let button = "hx-post=\"/ui/r/home/system/general/reset\"";
     for (account, shown) in [("viewer", false), ("operator", false), ("admin", true)] {
         let browser = fixture.login(account).await?;
         let page = text(fixture.get(PAGE, &browser).await?).await?;
         assert_eq!(page.contains(button), shown, "{account}");
     }
-    let operator = fixture.login("operator").await?;
-    let denied = fixture.post(&reset, &operator, "").await?;
-    assert_eq!(denied.status(), StatusCode::FORBIDDEN, "operator");
     let admin = fixture.login("admin").await?;
-    let asked = fixture.post(&reset, &admin, "").await?;
+    let unknown = fixture
+        .post("/ui/r/home/system/storage/eject?media=Media9", &admin, "")
+        .await?;
+    assert_eq!(unknown.status(), StatusCode::NOT_FOUND, "unknown medium");
+    drop(add_lab(&fixture).await?);
+    let (reset, eject) = (
+        format!("{PAGE}/reset"),
+        "/ui/r/home/system/storage/eject?media=Media0",
+    );
+    let refused = ("rci_error", keys::WEB_KIT_REJECTED);
+    let confirmed = typed_names(
+        &fixture,
+        &[
+            TypedName {
+                action: "web.system_factory_reset",
+                account: "admin",
+                denied: Some("operator"),
+                ask: Ask::Post(&reset, ""),
+                title: Some(keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE),
+                post: &reset,
+                fields: &[],
+                names: ("Home", "home"),
+                ran: refused,
+                rereads: false,
+            },
+            TypedName {
+                action: "web.storage_eject",
+                account: "admin",
+                denied: Some("operator"),
+                ask: Ask::Post(eject, ""),
+                title: Some(keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE),
+                post: eject,
+                fields: &[],
+                names: ("Home", "home"),
+                ran: refused,
+                rereads: true,
+            },
+            TypedName {
+                action: "web.router_user_delete",
+                account: "admin",
+                denied: None,
+                ask: Ask::Get(&format!("{USERS}/delete?name=lab")),
+                title: None,
+                post: &format!("{USERS}/delete"),
+                fields: &[("object", "lab")],
+                names: ("Lab", "lab"),
+                ran: ("success", keys::WEB_KIT_DONE_UNSAVED),
+                rereads: false,
+            },
+        ],
+    )
+    .await?;
+    for answer in confirmed.iter().take(2) {
+        assert!(
+            answer.body.contains(&en(keys::WEB_EXPLORER_ROUTER_SAID)),
+            "router said: {}",
+            answer.body
+        );
+    }
+    let deleted = confirmed.last().ok_or("three rows")?;
     assert_eq!(
-        header_text(&asked, "hx-retarget").as_deref(),
-        Some("#dialog-content"),
-        "dialog"
+        deleted.retarget.as_deref(),
+        Some("#page-outcome"),
+        "the outcome leaves the dialog"
     );
-    assert!(
-        text(asked)
-            .await?
-            .contains(&en(keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE)),
-        "destructive"
-    );
-    let before = fixture.handle().request_count();
-    let mistyped = text(
-        fixture
-            .post(&reset, &admin, "confirm=yes&confirm_name=Home")
-            .await?,
-    )
-    .await?;
-    let mut args = FluentArgs::new();
-    args.set("router", ROUTER);
-    let mismatch = html(&tr(
-        Locale::En,
-        keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
-        Some(&args),
-    ));
-    assert!(mistyped.contains(&mismatch), "refused: {mistyped}");
-    assert_eq!(fixture.handle().request_count(), before, "nothing sent");
-    let refused = text(
-        fixture
-            .post(&reset, &admin, "confirm=yes&confirm_name=home")
-            .await?,
-    )
-    .await?;
-    assert!(
-        refused.contains(&en(keys::WEB_KIT_REJECTED)),
-        "the fake does not reset: {refused}"
-    );
-    assert!(
-        refused.contains(&en(keys::WEB_EXPLORER_ROUTER_SAID)),
-        "router said"
-    );
-    assert!(
-        audited(&fixture, "web.system_factory_reset", "rci_error")?,
-        "audited"
-    );
+    assert!(configured(&fixture).await?.is_empty(), "gone");
     Ok(())
 }

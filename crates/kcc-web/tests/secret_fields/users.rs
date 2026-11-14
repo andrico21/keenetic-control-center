@@ -5,8 +5,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
-    support::{Browser, Fixture, TestResult, text},
+    ROUTER, TraceCapture, dummy, nowhere, setup, stored,
+    support::{
+        outcome::TestResult,
+        page::{assert_native_post, en_with, text},
+        web::{Browser, Fixture},
+    },
 };
 
 /// The password dialog of `alice`.
@@ -14,7 +18,7 @@ const ALICE: &str = "/ui/r/prod-1/system/users/password?name=alice";
 
 /// The stored password digest of `name`: `md5 <hex>`.
 fn digest(fixture: &Fixture, name: &str) -> TestResult<Option<String>> {
-    let config = fixture.handle(ROUTER)?.running_config_text();
+    let config = fixture.router(ROUTER)?.running_config_text();
     Ok(stored(&config, &format!("user {name}"), "password "))
 }
 
@@ -24,14 +28,14 @@ async fn post(
     browser: &Browser,
     (path, fields): (&str, &[(&str, &str)]),
 ) -> TestResult<(StatusCode, String)> {
-    let response = fixture.post(path, browser, fields).await?;
+    let response = fixture.post_form(path, browser, fields).await?;
     Ok((response.status(), text(response).await?))
 }
 
 #[tokio::test]
 async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
     let trace = TraceCapture::install();
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let admin = fixture.login("admin").await?;
     let first = dummy("alice", 1);
     let add = text(fixture.get("/ui/r/prod-1/system/users/new", &admin).await?).await?;
@@ -71,9 +75,9 @@ async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
     ];
     let (change_status, changed) = post(&fixture, &admin, (ALICE, &change)).await?;
     assert_eq!(change_status, StatusCode::OK, "changed: {changed}");
-    let what = en(keys::WEB_INTERNET_PASSWORD, &[]);
+    let what = en_with(keys::WEB_INTERNET_PASSWORD, &[]);
     assert!(
-        changed.contains(&en(keys::WEB_SECRET_DONE, &[("what", &what)])),
+        changed.contains(&en_with(keys::WEB_SECRET_DONE, &[("what", &what)])),
         "the read-back's verdict: {changed}"
     );
     assert_ne!(digest(&fixture, "alice")?, Some(set), "a new password");
@@ -91,12 +95,12 @@ async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
 
 #[tokio::test]
 async fn native_get_ignores_secret_query_values_and_sends_nothing() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let admin = fixture.login("admin").await?;
     let named = [("name", "alice"), ("confirm", "yes")];
     let (add_status, _) = post(&fixture, &admin, ("/ui/r/prod-1/system/users", &named)).await?;
     assert_eq!(add_status, StatusCode::OK, "alice added");
-    let before = fixture.handle(ROUTER)?.request_count();
+    let before = fixture.router(ROUTER)?.request_count();
     let secret = ["native", "query", "secret"].join("-");
     let again = ["native", "query", "repeat"].join("-");
     let path = format!("{ALICE}&secret={secret}&secret_again={again}");
@@ -109,7 +113,7 @@ async fn native_get_ignores_secret_query_values_and_sends_nothing() -> TestResul
         "query secrets reflected"
     );
     assert_eq!(
-        fixture.handle(ROUTER)?.request_count(),
+        fixture.router(ROUTER)?.request_count(),
         before,
         "the router heard nothing"
     );
@@ -118,13 +122,13 @@ async fn native_get_ignores_secret_query_values_and_sends_nothing() -> TestResul
 
 #[tokio::test]
 async fn refused_entries_and_the_login_kcc_uses_send_nothing() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let admin = fixture.login("admin").await?;
     let named = [("name", "alice"), ("confirm", "yes")];
     let (add_status, _) = post(&fixture, &admin, ("/ui/r/prod-1/system/users", &named)).await?;
     assert_eq!(add_status, StatusCode::OK, "added without a password");
     drop(fixture.get(ALICE, &admin).await?);
-    let before = fixture.handle(ROUTER)?.request_count();
+    let before = fixture.router(ROUTER)?.request_count();
     let (typed, other) = (dummy("alice", 3), dummy("alice", 4));
     let mismatch = [
         ("confirm", "yes"),
@@ -138,7 +142,7 @@ async fn refused_entries_and_the_login_kcc_uses_send_nothing() -> TestResult {
         "different entries"
     );
     assert!(
-        differ.contains(&en(keys::WEB_SECRET_MISMATCH, &[])),
+        differ.contains(&en_with(keys::WEB_SECRET_MISMATCH, &[])),
         "says so: {differ}"
     );
     let unconfirmed = [("secret", typed.as_str()), ("secret_again", typed.as_str())];
@@ -149,7 +153,7 @@ async fn refused_entries_and_the_login_kcc_uses_send_nothing() -> TestResult {
         "no confirmation"
     );
     assert!(
-        asked.contains(&en(keys::WEB_SECRET_CONFIRM, &[])),
+        asked.contains(&en_with(keys::WEB_SECRET_CONFIRM, &[])),
         "says so: {asked}"
     );
     let login = "/ui/r/prod-1/system/users/password?name=admin";
@@ -165,17 +169,17 @@ async fn refused_entries_and_the_login_kcc_uses_send_nothing() -> TestResult {
         "kcc's own login"
     );
     assert!(
-        protected.contains(&en(keys::WEB_SECRET_USER_PROTECTED, &[])),
+        protected.contains(&en_with(keys::WEB_SECRET_USER_PROTECTED, &[])),
         "the localized refusal: {protected}"
     );
     let shown = text(fixture.get(login, &admin).await?).await?;
     assert!(
-        shown.contains(&en(keys::WEB_SECRET_USER_PROTECTED, &[]))
+        shown.contains(&en_with(keys::WEB_SECRET_USER_PROTECTED, &[]))
             && !shown.contains("name=\"secret\""),
         "the dialog explains instead of asking: {shown}"
     );
     assert_eq!(
-        fixture.handle(ROUTER)?.request_count(),
+        fixture.router(ROUTER)?.request_count(),
         before,
         "the router heard nothing"
     );
@@ -199,7 +203,7 @@ async fn refused_entries_and_the_login_kcc_uses_send_nothing() -> TestResult {
 
 #[tokio::test]
 async fn an_operator_sees_no_password_control_and_is_refused() -> TestResult {
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let admin = fixture.login("admin").await?;
     let named = [("name", "alice"), ("confirm", "yes")];
     let (add_status, _) = post(&fixture, &admin, ("/ui/r/prod-1/system/users", &named)).await?;

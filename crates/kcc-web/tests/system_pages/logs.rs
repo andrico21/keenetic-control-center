@@ -9,9 +9,10 @@ use axum::http::StatusCode;
 use futures_util::StreamExt as _;
 use tokio::time::{Instant, timeout_at};
 
-use crate::{
-    audited,
-    support::{Fixture, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{header_text, text},
+    web::Fixture,
 };
 
 /// The page under test.
@@ -94,6 +95,6 @@ async fn the_log_downloads_as_a_text_file() -> TestResult {
         "a file"
     );
     assert_eq!(text(response).await?, "router log text\n", "the lines");
-    assert!(audited(&fixture, "web.log_download", "success")?, "audited");
+    assert!(fixture.audited("web.log_download", "success")?, "audited");
     Ok(())
 }

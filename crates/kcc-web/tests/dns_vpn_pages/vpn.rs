@@ -10,8 +10,13 @@ use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::json;
 
 use crate::{
-    form, key, said,
-    support::{Fixture, TestResult, header_text, text},
+    key,
+    support::{
+        outcome::TestResult,
+        page::{form, said, text},
+        typed_name::{Ask, TypedName, typed_names},
+        web::Fixture,
+    },
 };
 
 /// The connections tab.
@@ -112,47 +117,34 @@ async fn a_connection_is_created_switched_and_deleted() -> TestResult {
         );
         assert!(switched.contains(&pill), "{next}: {switched}");
     }
-    let asked = text(
-        fixture
-            .get(&format!("{PAGE}/delete?tunnel=Wireguard3"), &operator)
-            .await?,
+    let confirmed = typed_names(
+        &fixture,
+        &[TypedName {
+            action: "web.vpn_delete",
+            account: "operator",
+            denied: None,
+            ask: Ask::Get(&format!("{PAGE}/delete?tunnel=Wireguard3")),
+            title: None,
+            post: &format!("{PAGE}/delete"),
+            fields: &[("object", "Wireguard3")],
+            names: ("Wireguard", "Wireguard3"),
+            ran: ("success", keys::WEB_KIT_DONE_UNSAVED),
+            rereads: true,
+        }],
     )
     .await?;
-    assert!(
-        asked.contains("name=\"confirm_name\""),
-        "the name to type: {asked}"
-    );
-    let wrong = form(&[
-        ("object", "Wireguard3"),
-        ("confirm", "yes"),
-        ("confirm_name", "Wireguard"),
-    ]);
-    let mistyped = fixture
-        .post(&format!("{PAGE}/delete"), &operator, &wrong)
-        .await?;
-    assert_eq!(
-        mistyped.status(),
-        StatusCode::UNPROCESSABLE_ENTITY,
-        "names are exact"
-    );
-    let right = form(&[
-        ("object", "Wireguard3"),
-        ("confirm", "yes"),
-        ("confirm_name", "Wireguard3"),
-    ]);
-    let deleted = fixture
-        .post(&format!("{PAGE}/delete"), &operator, &right)
-        .await?;
-    assert_eq!(
-        header_text(&deleted, "hx-retarget").as_deref(),
-        Some("#page-outcome"),
-        "the outcome lands in the page"
-    );
-    let gone = text(deleted).await?;
-    assert!(
-        !gone.contains("vpn/peers/Wireguard3"),
-        "the row left: {gone}"
-    );
+    for deleted in confirmed {
+        assert_eq!(
+            deleted.retarget.as_deref(),
+            Some("#page-outcome"),
+            "the outcome lands in the page"
+        );
+        assert!(
+            !deleted.body.contains("vpn/peers/Wireguard3"),
+            "the row left: {}",
+            deleted.body
+        );
+    }
     assert!(
         !fixture
             .handle()

@@ -6,140 +6,23 @@
 
 #[expect(
     dead_code,
-    reason = "the shared explorer fixture; this suite needs only part of it"
+    reason = "the shared Web UI test support; this suite needs part of it"
 )]
-#[path = "explorer_pages/support.rs"]
+#[path = "support/mod.rs"]
 mod support;
 
-use axum::{
-    body::Body,
-    http::{Method, Request, header, request::Builder},
-    response::Response,
+use axum::response::Response;
+
+use crate::support::{
+    outcome::TestResult,
+    web::{Browser, Fixture},
 };
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    locale::Locale,
-};
-use url::form_urlencoded::byte_serialize;
-
-use crate::support::{Fixture, TestResult, header_text, text};
-
-/// The only browser origin the fixture accepts.
-const ORIGIN: &str = "http://127.0.0.1:8080";
-
-/// Password of every fixture account.
-const PASSWORD: &str = "correct horse battery staple";
 
 /// The page under test.
 pub(crate) const PAGE: &str = "/ui/r/home/config";
 
 /// Multipart boundary of the test uploads.
 const BOUNDARY: &str = "kcc-config-boundary";
-
-/// A signed-in browser: its session cookie and CSRF token.
-pub(crate) struct Signed {
-    /// `kcc_session=<id>`.
-    cookie: String,
-    /// Token for `X-CSRF-Token`.
-    csrf: String,
-}
-
-/// The `name=value` pair of the response's `Set-Cookie`.
-///
-/// # Errors
-///
-/// Returns an error when the response sets no cookie.
-fn cookie(response: &Response) -> TestResult<String> {
-    header_text(response, "set-cookie")
-        .and_then(|value| value.split(';').next().map(str::to_owned))
-        .ok_or_else(|| "missing Set-Cookie".into())
-}
-
-/// The CSRF token of a rendered page.
-///
-/// # Errors
-///
-/// Returns an error when the page carries no token.
-fn meta(page: &str) -> TestResult<String> {
-    page.split_once("<meta name=\"csrf-token\" content=\"")
-        .and_then(|(_, tail)| tail.split_once('"'))
-        .map(|(token, _)| token.to_owned())
-        .ok_or_else(|| "no CSRF token".into())
-}
-
-/// Signs `username` in.
-///
-/// # Errors
-///
-/// Returns a failed request or a missing cookie or token.
-pub(crate) async fn sign_in(fixture: &Fixture, username: &str) -> TestResult<Signed> {
-    let page = fixture
-        .send(Request::get("/ui/login").body(Body::empty())?)
-        .await?;
-    let anonymous = cookie(&page)?;
-    let token = meta(&text(page).await?)?;
-    let login = same_origin(Method::POST, "/ui/login", (&anonymous, &token))
-        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .body(Body::from(format!(
-            "username={username}&password={}",
-            PASSWORD.replace(' ', "+")
-        )))?;
-    let session = cookie(&fixture.send(login).await?)?;
-    let account = fixture
-        .send(
-            Request::get("/ui/account")
-                .header(header::COOKIE, &session)
-                .body(Body::empty())?,
-        )
-        .await?;
-    Ok(Signed {
-        cookie: session,
-        csrf: meta(&text(account).await?)?,
-    })
-}
-
-/// A same-origin request builder carrying `cookie` and `csrf`, as htmx sends it.
-fn same_origin(method: Method, path: &str, (cookie, csrf): (&str, &str)) -> Builder {
-    Request::builder()
-        .method(method)
-        .uri(path)
-        .header(header::COOKIE, cookie)
-        .header(header::ORIGIN, ORIGIN)
-        .header("sec-fetch-site", "same-origin")
-        .header("hx-request", "true")
-        .header("x-csrf-token", csrf)
-}
-
-/// `GET path` as `signed`.
-///
-/// # Errors
-///
-/// Returns a failed request.
-pub(crate) async fn get(fixture: &Fixture, signed: &Signed, path: &str) -> TestResult<Response> {
-    fixture
-        .send(
-            Request::get(path)
-                .header(header::COOKIE, &signed.cookie)
-                .body(Body::empty())?,
-        )
-        .await
-}
-
-/// A form `POST` of `body` to `path` as `signed`.
-///
-/// # Errors
-///
-/// Returns a failed request.
-pub(crate) async fn post(
-    fixture: &Fixture,
-    signed: &Signed,
-    (path, body): (&str, &str),
-) -> TestResult<Response> {
-    let request = same_origin(Method::POST, path, (&signed.cookie, &signed.csrf))
-        .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-        .body(Body::from(body.to_owned()))?;
-    fixture.send(request).await
-}
 
 /// Uploads `file` as `name` to the backup upload, as htmx sends it.
 ///
@@ -148,7 +31,7 @@ pub(crate) async fn post(
 /// Returns a failed request.
 pub(crate) async fn upload(
     fixture: &Fixture,
-    signed: &Signed,
+    browser: &Browser,
     (name, file): (&str, &[u8]),
 ) -> TestResult<Response> {
     let mut body = format!(
@@ -158,59 +41,10 @@ pub(crate) async fn upload(
     .into_bytes();
     body.extend_from_slice(file);
     body.extend_from_slice(format!("\r\n--{BOUNDARY}--\r\n").as_bytes());
-    let request = same_origin(
-        Method::POST,
-        &format!("{PAGE}/backups/upload"),
-        (&signed.cookie, &signed.csrf),
-    )
-    .header(
-        header::CONTENT_TYPE,
-        format!("multipart/form-data; boundary={BOUNDARY}"),
-    )
-    .header(header::CONTENT_LENGTH, body.len())
-    .body(Body::from(body))?;
-    fixture.send(request).await
-}
-
-/// `text` as askama escapes it.
-pub(crate) fn html(text: &str) -> String {
-    text.replace('&', "&#38;")
-        .replace('<', "&#60;")
-        .replace('>', "&#62;")
-        .replace('"', "&#34;")
-        .replace('\'', "&#39;")
-}
-
-/// An English message, escaped for HTML.
-pub(crate) fn en(key: MessageKey) -> String {
-    html(&tr(Locale::En, key, None))
-}
-
-/// `pairs` form-encoded.
-pub(crate) fn form(pairs: &[(&str, &str)]) -> String {
-    pairs
-        .iter()
-        .map(|(name, value)| {
-            format!(
-                "{}={}",
-                byte_serialize(name.as_bytes()).collect::<String>(),
-                byte_serialize(value.as_bytes()).collect::<String>()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("&")
-}
-
-/// Whether the audit log has `action` ending as `outcome`.
-///
-/// # Errors
-///
-/// Returns the audit log's read or chain failure.
-pub(crate) fn audited(fixture: &Fixture, action: &str, outcome: &str) -> TestResult<bool> {
-    Ok(fixture
-        .audit()?
-        .iter()
-        .any(|entry| entry.action == action && entry.outcome == outcome))
+    let kind = format!("multipart/form-data; boundary={BOUNDARY}");
+    fixture
+        .post_body(&format!("{PAGE}/backups/upload"), browser, (&kind, body))
+        .await
 }
 
 /// The backup file names a page offers, newest first, from its comparison form.

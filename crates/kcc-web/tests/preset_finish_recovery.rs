@@ -1,5 +1,4 @@
 //! HTTP receipts for preset closing failures.
-extern crate alloc;
 
 #[path = "presets_pages/flow.rs"]
 #[expect(
@@ -7,9 +6,13 @@ extern crate alloc;
     reason = "closing tests use the shared apply flow, not successful finish helpers"
 )]
 mod flow;
+#[expect(
+    dead_code,
+    reason = "closing tests build the fixture with its mode and faults only"
+)]
 #[path = "presets_pages/setup.rs"]
 mod setup;
-#[path = "presets_pages/support.rs"]
+#[path = "support/mod.rs"]
 #[expect(
     dead_code,
     reason = "closing tests use only the HTTP and audit parts of the shared fixture"
@@ -30,8 +33,13 @@ mod tests {
 
     use super::{
         flow,
-        support::{Browser, Fixture, TestResult, text},
+        support::{
+            outcome::TestResult,
+            page::text,
+            web::{Browser, Fixture},
+        },
     };
+    use crate::setup;
 
     /// Closing faults keep the preset timer visible in the page and audit.
     // NOT cancel-safe: the fixture applies settings before requesting save.
@@ -41,7 +49,7 @@ mod tests {
         } else {
             FaultInjection::default().fail_parse_matching(step, 1)
         };
-        let fixture = Fixture::with_mode(mode, faults).await?;
+        let fixture = setup::with_mode(mode, faults).await?;
         flow::seed(&fixture, "prod-1", &flow::DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id =
@@ -51,7 +59,7 @@ mod tests {
         let stream = flow::apply(&fixture, &admin, &page).await?;
         assert!(stream.contains(&tr(Locale::En, keys::WEB_PRESETS_APPLIED, None)));
         let results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
         assert_eq!(results.status(), StatusCode::OK);
 
@@ -63,7 +71,7 @@ mod tests {
         } else {
             (format!("{page}/save"), Vec::new())
         };
-        let response = fixture.post(&endpoint, &admin, &form).await?;
+        let response = fixture.post_form(&endpoint, &admin, &form).await?;
 
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = text(response).await?;
@@ -80,7 +88,7 @@ mod tests {
             "{body}"
         );
         assert_eq!(
-            fixture.handle("lab-1")?.recovery_armed(),
+            fixture.router("lab-1")?.recovery_armed(),
             !(lost && (mode == "router" || step == "no system reboot"))
         );
         let entries = fixture.audit()?;
@@ -138,7 +146,7 @@ mod tests {
         let faults = fail_after.map_or_else(FaultInjection::default, |count| {
             FaultInjection::default().fail_after_requests(count)
         });
-        let fixture = Fixture::with_mode("extender", faults).await?;
+        let fixture = setup::with_mode("extender", faults).await?;
         flow::seed(&fixture, "prod-1", &flow::DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = flow::capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Silent DNS")).await?;
@@ -147,11 +155,11 @@ mod tests {
         let stream = flow::apply(&fixture, &admin, &page).await?;
         assert!(stream.contains(&tr(Locale::En, keys::WEB_PRESETS_APPLIED, None)));
         let results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
         assert_eq!(results.status(), StatusCode::OK);
         let response = fixture
-            .post(
+            .post_form(
                 &format!("{page}/rollback"),
                 &admin,
                 &[("confirm", "yes"), ("confirm_name", "lab-1")],
@@ -168,7 +176,7 @@ mod tests {
     async fn silent_extender_preset_rollback_reports_restarting() -> TestResult {
         let (baseline, _admin, _page, _rolled) = extender_rollback(None).await?;
         let reboot = baseline
-            .handle("lab-1")?
+            .router("lab-1")?
             .request_log()
             .iter()
             .position(|record| record.command() == Some("system reboot"))
@@ -185,10 +193,10 @@ mod tests {
             "{shown}"
         );
         assert!(!shown.contains(&format!("{page}/rollback\"")), "{shown}");
-        let silent = fixture.handle("lab-1")?.request_count();
+        let silent = fixture.router("lab-1")?.request_count();
         drop(
             fixture
-                .post(
+                .post_form(
                     &format!("{page}/rollback"),
                     &admin,
                     &[("confirm", "yes"), ("confirm_name", "lab-1")],
@@ -196,7 +204,7 @@ mod tests {
                 .await?,
         );
         assert_eq!(
-            fixture.handle("lab-1")?.request_count(),
+            fixture.router("lab-1")?.request_count(),
             silent,
             "no second reboot is sent"
         );
@@ -214,7 +222,7 @@ mod tests {
         use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
         use tokio::{task::JoinHandle, time::sleep};
 
-        let fixture = Fixture::with_mode("router", FaultInjection::default()).await?;
+        let fixture = setup::with_mode("router", FaultInjection::default()).await?;
         flow::seed(&fixture, "prod-1", &flow::DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = flow::capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Budget DNS")).await?;
@@ -223,7 +231,7 @@ mod tests {
         let stream = flow::apply(&fixture, &admin, &page).await?;
         assert!(stream.contains(&tr(Locale::En, keys::WEB_PRESETS_APPLIED, None)));
         let _results = fixture
-            .post(&format!("{page}/results"), &admin, &[])
+            .post_form(&format!("{page}/results"), &admin, &[])
             .await?;
 
         // Hold the audit append lock past the request budget (30 s).
@@ -234,7 +242,9 @@ mod tests {
         });
 
         // Save should be answered with 200 (the held bracket outcome), not 408.
-        let response = fixture.post(&format!("{page}/save"), &admin, &[]).await?;
+        let response = fixture
+            .post_form(&format!("{page}/save"), &admin, &[])
+            .await?;
         let status = response.status();
         assert_ne!(
             status,

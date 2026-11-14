@@ -3,9 +3,10 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 use serde_json::json;
 
-use crate::{
-    en, form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, text},
+    web::Fixture,
 };
 
 /// Empty namespace subtrees cannot ride a Show request through the Web read route.

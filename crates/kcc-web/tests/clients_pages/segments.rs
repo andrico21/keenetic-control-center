@@ -6,9 +6,10 @@ use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 
-use crate::{
-    form, html, router_said, said,
-    support::{Fixture, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, header_text, html, router_said, said, text},
+    web::Fixture,
 };
 
 /// The page under test.

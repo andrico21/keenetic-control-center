@@ -5,8 +5,12 @@ use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
 
 use crate::{
-    form, key, said,
-    support::{Fixture, TestResult, text},
+    key,
+    support::{
+        outcome::TestResult,
+        page::{form, said, text},
+        web::Fixture,
+    },
     upload::{sign_in, upload},
 };
 

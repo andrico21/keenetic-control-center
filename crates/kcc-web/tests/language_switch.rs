@@ -7,9 +7,9 @@
 
 #[expect(
     dead_code,
-    reason = "the shared explorer fixture; this suite needs only part of it"
+    reason = "the shared Web UI test support; this suite needs part of it"
 )]
-#[path = "explorer_pages/support.rs"]
+#[path = "support/mod.rs"]
 mod support;
 
 #[cfg(test)]
@@ -24,13 +24,13 @@ mod tests {
         body::Body,
         http::{Method, Request, StatusCode, header},
     };
-    use kcc_i18n::{
-        bundle::{MessageKey, tr},
-        keys,
-        locale::Locale,
-    };
+    use kcc_i18n::{keys, locale::Locale};
 
-    use crate::support::{Browser, Fixture, TestResult, header_text, text};
+    use crate::support::{
+        outcome::TestResult,
+        page::{header_text, said, text},
+        web::{Browser, Fixture},
+    };
 
     /// The password of every account of the shared fixture.
     const PASSWORD: &str = "correct horse battery staple";
@@ -49,16 +49,6 @@ mod tests {
         html.split_once("<html lang=\"")
             .and_then(|(_, tail)| tail.split_once('"'))
             .map(|(tag, _)| tag)
-    }
-
-    /// `key` in `locale`, escaped as askama escapes it.
-    fn said(locale: Locale, key: MessageKey) -> String {
-        tr(locale, key, None)
-            .replace('&', "&#38;")
-            .replace('<', "&#60;")
-            .replace('>', "&#62;")
-            .replace('"', "&#34;")
-            .replace('\'', "&#39;")
     }
 
     /// [`PAGE`] as `browser` sees it now.

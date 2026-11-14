@@ -8,9 +8,10 @@
 
 use axum::http::StatusCode;
 
-use crate::{
-    form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, text},
+    web::Fixture,
 };
 
 /// Every destructive request shape asks for the router name and refuses a raw writer who

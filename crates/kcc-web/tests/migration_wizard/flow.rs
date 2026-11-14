@@ -11,7 +11,11 @@ use tokio::time::timeout;
 
 use crate::{
     redirected, start,
-    support::{Browser, Fixture, TestResult, text},
+    support::{
+        outcome::TestResult,
+        page::text,
+        web::{Browser, Fixture},
+    },
 };
 
 /// The longest a test waits for an apply's stream to close.
@@ -47,23 +51,22 @@ pub(crate) async fn seed_source(fixture: &Fixture) -> TestResult {
 pub(crate) async fn to_review(fixture: &Fixture, browser: &Browser) -> TestResult<String> {
     let page = start(fixture, browser).await?;
     let source = fixture
-        .post_source(
+        .post_multipart(
             &format!("{page}/source"),
             browser,
-            &[("kind", "router"), ("router", "giga")],
-            None,
+            (&[("kind", "router"), ("router", "giga")], None),
         )
         .await?;
     moved(&source, &page)?;
     moved(
         &fixture
-            .post(&format!("{page}/target"), browser, &[("router", "ultra")])
+            .post_form(&format!("{page}/target"), browser, &[("router", "ultra")])
             .await?,
         &page,
     )?;
     moved(
         &fixture
-            .post(&format!("{page}/target/continue"), browser, &[])
+            .post_form(&format!("{page}/target/continue"), browser, &[])
             .await?,
         &page,
     )?;
@@ -75,7 +78,7 @@ pub(crate) async fn to_review(fixture: &Fixture, browser: &Browser) -> TestResul
         .collect::<Vec<_>>();
     moved(
         &fixture
-            .post(&format!("{page}/mapping"), browser, &pairs)
+            .post_form(&format!("{page}/mapping"), browser, &pairs)
             .await?,
         &page,
     )?;
@@ -97,7 +100,7 @@ pub(crate) async fn to_preview(fixture: &Fixture, browser: &Browser, page: &str)
         .collect::<Vec<_>>();
     moved(
         &fixture
-            .post(&format!("{page}/review/continue"), browser, &borrowed)
+            .post_form(&format!("{page}/review/continue"), browser, &borrowed)
             .await?,
         page,
     )?;
@@ -105,7 +108,7 @@ pub(crate) async fn to_preview(fixture: &Fixture, browser: &Browser, page: &str)
     let reconnect = value_of(&inputs, "name=\"reconnect_url\"").unwrap_or_default();
     moved(
         &fixture
-            .post(
+            .post_form(
                 &format!("{page}/inputs"),
                 browser,
                 &[("password-0", NEW_PASSWORD), ("reconnect_url", &reconnect)],
@@ -130,7 +133,7 @@ pub(crate) fn moved(response: &Response, page: &str) -> TestResult {
 pub(crate) async fn apply(fixture: &Fixture, browser: &Browser, page: &str) -> TestResult<String> {
     moved(
         &fixture
-            .post(&format!("{page}/apply"), browser, &[("confirm", "yes")])
+            .post_form(&format!("{page}/apply"), browser, &[("confirm", "yes")])
             .await?,
         page,
     )?;

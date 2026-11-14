@@ -4,9 +4,9 @@
 
 #[expect(
     dead_code,
-    reason = "the shared explorer fixture; this suite needs only part of it"
+    reason = "the shared Web UI test support; this suite needs part of it"
 )]
-#[path = "explorer_pages/support.rs"]
+#[path = "support/mod.rs"]
 mod support;
 
 #[cfg(test)]
@@ -18,24 +18,12 @@ mod support;
 )]
 mod tests {
     use axum::http::StatusCode;
-    use url::form_urlencoded::byte_serialize;
 
-    use crate::support::{Fixture, TestResult, text};
-
-    /// `pairs` form-encoded.
-    fn form(pairs: &[(&str, &str)]) -> String {
-        pairs
-            .iter()
-            .map(|(name, value)| {
-                format!(
-                    "{}={}",
-                    byte_serialize(name.as_bytes()).collect::<String>(),
-                    byte_serialize(value.as_bytes()).collect::<String>()
-                )
-            })
-            .collect::<Vec<_>>()
-            .join("&")
-    }
+    use crate::support::{
+        outcome::TestResult,
+        page::{form, text},
+        web::Fixture,
+    };
 
     #[tokio::test]
     async fn routers_and_permissions_are_checked_before_anything_runs() -> TestResult {
@@ -164,49 +152,6 @@ mod tests {
             !serde_json::to_string(&audit)?.contains(secret),
             "the audit log holds field names only"
         );
-        Ok(())
-    }
-
-    /// A typed-name dialog posts the typed name as `confirm_name` beside `confirm=yes`,
-    /// and a wrong typed name is refused in the dialog before the router hears anything.
-    #[tokio::test]
-    async fn a_typed_name_is_posted_as_confirm_name_and_a_wrong_one_is_refused() -> TestResult {
-        let fixture = Fixture::new().await?;
-        let admin = fixture.login("admin").await?;
-        let asked = text(
-            fixture
-                .get("/ui/r/home/internet/delete?name=ISP", &admin)
-                .await?,
-        )
-        .await?;
-        assert!(
-            asked.contains("<input type=\"hidden\" name=\"confirm\" value=\"yes\">"),
-            "the acknowledgement: {asked}"
-        );
-        assert!(
-            asked.contains("name=\"confirm_name\""),
-            "the typed name: {asked}"
-        );
-        assert!(!asked.contains("name=\"name\""), "no field `name`: {asked}");
-        let before = fixture.handle().request_count();
-        let wrong = form(&[
-            ("object", "ISP"),
-            ("confirm", "yes"),
-            ("confirm_name", "isp"),
-        ]);
-        let refused = fixture
-            .post("/ui/r/home/internet/delete", &admin, &wrong)
-            .await?;
-        assert_eq!(
-            refused.status(),
-            StatusCode::UNPROCESSABLE_ENTITY,
-            "names are exact"
-        );
-        assert!(
-            text(refused).await?.contains("id=\"confirm-name-error\""),
-            "the dialog shows the mismatch"
-        );
-        assert_eq!(fixture.handle().request_count(), before, "nothing sent");
         Ok(())
     }
 }

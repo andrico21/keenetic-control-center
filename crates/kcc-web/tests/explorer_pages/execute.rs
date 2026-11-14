@@ -4,9 +4,10 @@
 use axum::http::StatusCode;
 use kcc_i18n::keys;
 
-use crate::{
-    en, form,
-    support::{Fixture, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, header_text, text},
+    web::Fixture,
 };
 
 /// A read runs through the shared client without the change workflow; a long answer

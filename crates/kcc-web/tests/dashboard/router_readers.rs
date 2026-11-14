@@ -6,15 +6,19 @@ use kcc_testkit::{DEFAULT_LOGIN, model::Profile};
 use serde_json::json;
 
 use crate::{
-    router_credentials::{audit_holds, audited, dummy, form, origin, sealed},
-    tests::{Fixture, ROUTER_LOGIN, ROUTER_SECRET, TestResult, text},
+    router_credentials::{audit_holds, audited, dummy, origin, sealed},
+    support::{
+        outcome::TestResult,
+        page::{form, text},
+    },
+    tests::{ROUTER_LOGIN, ROUTER_SECRET, fleet},
 };
 
 /// A read-only pair saved on the edit form is sealed and is what the poller signs in
 /// with: a wrong reader password fails the poll while the management login still works.
 #[tokio::test]
 async fn a_read_only_pair_saved_on_the_form_is_what_the_poller_signs_in_with() -> TestResult {
-    let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+    let fixture = fleet(&[("home", Profile::default())]).await?;
     let browser = fixture.login("router-manager").await?;
     let url = origin(&fixture, "home")?;
     let wrong = dummy("reader")?;
@@ -68,7 +72,7 @@ async fn a_read_only_pair_saved_on_the_form_is_what_the_poller_signs_in_with() -
 /// "Remove read-only login" clears both fields and deletes the sealed record.
 #[tokio::test]
 async fn removing_the_read_only_login_clears_it_and_its_sealed_record() -> TestResult {
-    let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+    let fixture = fleet(&[("home", Profile::default())]).await?;
     let browser = fixture.login("router-manager").await?;
     let url = origin(&fixture, "home")?;
     let reader = dummy("reader")?;

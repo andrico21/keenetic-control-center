@@ -6,9 +6,9 @@ use kcc_testkit::FaultInjection;
 use serde_json::json;
 
 use super::fixture;
-use crate::{
-    form, html,
-    support::{TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, html, text},
 };
 
 /// Batch recovery reports application only for accepted changes and keeps refusals; an

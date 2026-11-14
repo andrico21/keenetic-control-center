@@ -8,8 +8,13 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    audited, get, post, said,
-    support::{Fixture, ROUTER, TestResult},
+    get, post,
+    support::{
+        outcome::TestResult,
+        page::en,
+        typed_name::{Ask, TypedName, typed_names},
+        web::{Fixture, ROUTER},
+    },
 };
 
 #[tokio::test]
@@ -23,7 +28,7 @@ async fn a_policy_is_added_with_an_interface_in_order_and_multipath() -> TestRes
     let fields = [("name", "Policy9"), ("description", "uplink")];
     let created = post(&fixture, &admin, (new, &fields), StatusCode::OK).await?;
     assert!(
-        created.contains(&said(keys::WEB_KIT_DONE_UNSAVED)),
+        created.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
         "{created}"
     );
     assert!(
@@ -37,7 +42,7 @@ async fn a_policy_is_added_with_an_interface_in_order_and_multipath() -> TestRes
     let multipath = "/ui/r/home/routing/policy/multipath?name=Policy9&value=on";
     let on = post(&fixture, &admin, (multipath, &[]), StatusCode::OK).await?;
     assert!(
-        on.contains(&said(keys::WEB_ROUTING_MULTIPATH_OFF)),
+        on.contains(&en(keys::WEB_ROUTING_MULTIPATH_OFF)),
         "now offers Off"
     );
     let running = fixture.handle().running_config_text();
@@ -71,41 +76,26 @@ async fn an_interface_is_taken_off_and_a_policy_deleted_once_its_name_is_typed()
         "taken off: {running}"
     );
     let delete = "/ui/r/home/routing/policy/delete";
-    let wrong = [
-        ("object", "Policy9"),
-        ("confirm", "yes"),
-        ("confirm_name", "Policy8"),
-    ];
-    let refused = post(
-        &fixture,
-        &admin,
-        (delete, &wrong),
-        StatusCode::UNPROCESSABLE_ENTITY,
-    )
-    .await?;
-    assert!(
-        refused.contains(&said(keys::WEB_ADMIN_ERROR_CONFIRM)),
-        "{refused}"
+    drop(
+        typed_names(
+            &fixture,
+            &[TypedName {
+                action: "web.routing_policy_delete",
+                account: "admin",
+                denied: None,
+                ask: Ask::Get(&format!("{delete}?name=Policy9")),
+                title: None,
+                post: delete,
+                fields: &[("object", "Policy9")],
+                names: ("Policy8", "Policy9"),
+                ran: ("success", keys::WEB_KIT_DONE_UNSAVED),
+                rereads: true,
+            }],
+        )
+        .await?,
     );
-    assert!(
-        fixture
-            .handle()
-            .running_config_text()
-            .contains("ip policy Policy9"),
-        "kept"
-    );
-    let typed = [
-        ("object", "Policy9"),
-        ("confirm", "yes"),
-        ("confirm_name", "Policy9"),
-    ];
-    drop(post(&fixture, &admin, (delete, &typed), StatusCode::OK).await?);
     let after = fixture.handle().running_config_text();
     assert!(!after.contains("ip policy Policy9"), "deleted: {after}");
-    assert!(
-        audited(&fixture, "web.routing_policy_delete", "success")?,
-        "audited"
-    );
     Ok(())
 }
 
@@ -124,7 +114,7 @@ async fn a_policy_name_with_a_space_is_refused_before_anything_is_sent() -> Test
     )
     .await?;
     assert!(
-        refused.contains(&said(keys::WEB_ROUTING_ERROR_NAME)),
+        refused.contains(&en(keys::WEB_ROUTING_ERROR_NAME)),
         "{refused}"
     );
     let words = [("name", "Policy7"), ("description", "two words")];
@@ -135,7 +125,7 @@ async fn a_policy_name_with_a_space_is_refused_before_anything_is_sent() -> Test
         StatusCode::UNPROCESSABLE_ENTITY,
     )
     .await?;
-    assert!(word.contains(&said(keys::WEB_ROUTING_ERROR_WORD)), "{word}");
+    assert!(word.contains(&en(keys::WEB_ROUTING_ERROR_WORD)), "{word}");
     assert_eq!(
         fixture.handle().running_config_text(),
         before,

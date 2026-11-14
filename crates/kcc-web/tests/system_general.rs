@@ -3,7 +3,11 @@
 //! caught by the read-back, a value refused before anything is sent, a router refusal,
 //! and the restart that needs the router name.
 
-#[path = "explorer_pages/support.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
 mod support;
 
 #[cfg(test)]
@@ -16,33 +20,21 @@ mod support;
 mod tests {
     use axum::http::StatusCode;
     use fluent_bundle::FluentArgs;
-    use kcc_i18n::{
-        bundle::{MessageKey, tr},
-        keys,
-        locale::Locale,
-    };
+    use kcc_i18n::{bundle::tr, keys, locale::Locale};
     use kcc_rci::{RciBody, RciPath};
     use kcc_testkit::FaultInjection;
     use url::form_urlencoded::byte_serialize;
 
-    use crate::support::{Fixture, ROUTER, TestResult, header_text, text};
+    use crate::support::{
+        outcome::TestResult,
+        page::{header_text, html, said, text},
+        refusal::{Refusal, router_refusals},
+        typed_name::{Ask, TypedName, typed_names},
+        web::{Fixture, ROUTER},
+    };
 
     /// The page under test.
     const PAGE: &str = "/ui/r/home/system/general";
-
-    /// `text` as askama escapes it.
-    fn html(text: &str) -> String {
-        text.replace('&', "&#38;")
-            .replace('<', "&#60;")
-            .replace('>', "&#62;")
-            .replace('"', "&#34;")
-            .replace('\'', "&#39;")
-    }
-
-    /// A message in `locale`, escaped for HTML.
-    fn said(locale: Locale, key: MessageKey) -> String {
-        html(&tr(locale, key, None))
-    }
 
     /// `value` as the one field of a dialog form.
     fn value(value: &str) -> String {
@@ -246,110 +238,47 @@ mod tests {
     async fn restart_is_destructive_and_needs_the_router_name() -> TestResult {
         let fixture = Fixture::new().await?;
         let reboot = format!("{PAGE}/reboot");
-        let operator = fixture.login("operator").await?;
-        let denied = fixture.post(&reboot, &operator, "").await?;
-        assert_eq!(denied.status(), StatusCode::FORBIDDEN, "operator");
-        let admin = fixture.login("admin").await?;
-        let asked = fixture.post(&reboot, &admin, "").await?;
-        assert_eq!(
-            header_text(&asked, "hx-retarget").as_deref(),
-            Some("#dialog-content"),
-            "dialog"
-        );
-        let prompt = text(asked).await?;
-        assert!(
-            prompt.contains(&said(Locale::En, keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE)),
-            "asks: {prompt}"
-        );
-        assert!(prompt.contains("name=\"confirm_name\""), "the name field");
-        let mistyped = text(
-            fixture
-                .post(&reboot, &admin, "confirm=yes&confirm_name=Home")
-                .await?,
+        let confirmed = typed_names(
+            &fixture,
+            &[TypedName {
+                action: "web.system_reboot",
+                account: "admin",
+                denied: Some("operator"),
+                ask: Ask::Post(&reboot, ""),
+                title: Some(keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE),
+                post: &reboot,
+                fields: &[],
+                names: ("Home", "home"),
+                ran: ("success", keys::WEB_KIT_DONE_TERMINAL),
+                rereads: false,
+            }],
         )
         .await?;
-        let mut args = FluentArgs::new();
-        args.set("router", ROUTER);
-        let mismatch = html(&tr(
-            Locale::En,
-            keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
-            Some(&args),
-        ));
-        assert!(mistyped.contains(&mismatch), "mismatch: {mistyped}");
+        for restarted in confirmed {
+            assert!(!restarted.body.contains("unsaved-badge"), "state unknown");
+        }
         assert!(
-            !fixture
+            fixture
                 .audit()?
-                .iter()
-                .any(|entry| entry.action == "router.change_cli_terminal"),
-            "nothing ran yet"
-        );
-        let done = fixture
-            .post(&reboot, &admin, "confirm=yes&confirm_name=home")
-            .await?;
-        assert_eq!(done.status(), StatusCode::OK, "restarted");
-        let body = text(done).await?;
-        assert!(
-            body.contains(&said(Locale::En, keys::WEB_KIT_DONE_TERMINAL)),
-            "the router is on it: {body}"
-        );
-        assert!(!body.contains("unsaved-badge"), "state unknown, no badge");
-        let audit = fixture.audit()?;
-        assert!(
-            audit
                 .iter()
                 .any(|entry| entry.action == "router.change_cli_terminal"
                     && entry.target.as_deref() == Some("system reboot")),
             "terminal change"
-        );
-        assert!(
-            audit
-                .iter()
-                .any(|entry| entry.action == "web.system_reboot" && entry.outcome == "success"),
-            "audited"
         );
         Ok(())
     }
 
     #[tokio::test]
     async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
-        let fixture =
-            Fixture::with_faults(FaultInjection::default().fail_parse_matching("system reboot", 1))
-                .await?;
-        let admin = fixture.login("admin").await?;
-        let response = fixture
-            .post(
-                &format!("{PAGE}/reboot"),
-                &admin,
-                "confirm=yes&confirm_name=home",
-            )
-            .await?;
-        assert_eq!(response.status(), StatusCode::OK, "answered");
-        let body = text(response).await?;
-        assert!(
-            body.contains(&said(Locale::En, keys::WEB_KIT_REJECTED)),
-            "localized: {body}"
-        );
-        assert!(
-            body.contains(&said(Locale::En, keys::WEB_EXPLORER_ROUTER_SAID)),
-            "router said block"
-        );
-        let said_block = body
-            .split_once("<ul class=\"router-said__list\">")
-            .and_then(|(_, tail)| tail.split_once("</ul>"))
-            .map(|(list, _)| list.to_owned())
-            .ok_or("no router-said list")?;
-        assert!(said_block.contains("<li>"), "the router's message");
-        assert!(
-            !said_block.contains("system reboot"),
-            "no request body: {said_block}"
-        );
-        assert!(
-            fixture
-                .audit()?
-                .iter()
-                .any(|entry| entry.action == "web.system_reboot" && entry.outcome == "rci_error"),
-            "audited"
-        );
-        Ok(())
+        router_refusals(&[Refusal {
+            action: "web.system_reboot",
+            refused: "system reboot",
+            account: "admin",
+            post: (&format!("{PAGE}/reboot"), "confirm=yes&confirm_name=home"),
+            unsaid: "system reboot",
+            absent: &[],
+            unchanged: true,
+        }])
+        .await
     }
 }

@@ -6,9 +6,9 @@
 
 #[expect(
     dead_code,
-    reason = "the shared explorer fixture; this suite needs only part of it"
+    reason = "the shared Web UI test support; this suite needs part of it"
 )]
-#[path = "explorer_pages/support.rs"]
+#[path = "support/mod.rs"]
 mod support;
 
 use core::net::SocketAddr;
@@ -19,7 +19,11 @@ use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, model::Pr
 use tempfile::TempDir;
 use url::Url;
 
-use crate::support::{Browser, Fixture, TestResult, header_text, text};
+use crate::support::{
+    outcome::TestResult,
+    page::{header_text, text},
+    web::{Browser, Fixture},
+};
 
 /// The router page each router section opens, by section slug.
 pub(crate) const ROUTER_PAGES: [(&str, &str); 8] = [

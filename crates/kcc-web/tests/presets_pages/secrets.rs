@@ -15,9 +15,13 @@ mod tests {
     use axum::http::StatusCode;
 
     use crate::{
-        assert_native_post,
         flow::{DNS_LINES, apply, finish, redirected, seed, start},
-        support::{Browser, Fixture, TestResult, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{assert_native_post, text},
+            web::{Browser, Fixture},
+        },
     };
 
     /// The source user's password.
@@ -74,18 +78,18 @@ mod tests {
             .post_multipart(
                 "/ui/presets/new",
                 browser,
-                &[("kind", "router"), ("router", "prod-1")],
+                (&[("kind", "router"), ("router", "prod-1")], None),
             )
             .await?;
         let draft = redirected(&read)?;
         served.push(page(fixture, browser, &draft).await?);
         let preview = fixture
-            .post(&format!("{draft}/preview"), browser, &groups)
+            .post_form(&format!("{draft}/preview"), browser, &groups)
             .await?;
         served.push(text(preview).await?);
         let mut named = groups.to_vec();
         named.push(("name", "Branch office"));
-        let preset = redirected(&fixture.post(&draft, browser, &named).await?)?;
+        let preset = redirected(&fixture.post_form(&draft, browser, &named).await?)?;
         served.push(page(fixture, browser, &preset).await?);
         served.push(page(fixture, browser, "/ui/presets").await?);
         Ok(preset.rsplit('/').next().ok_or("preset id")?.to_owned())
@@ -107,7 +111,7 @@ mod tests {
             ("review/continue", Vec::new()),
         ] {
             let response = fixture
-                .post(&format!("{run}/{path}"), browser, &pairs)
+                .post_form(&format!("{run}/{path}"), browser, &pairs)
                 .await?;
             if response.status() != StatusCode::OK {
                 return Err(format!("{path}: {}", response.status()).into());
@@ -117,7 +121,7 @@ mod tests {
         assert_native_post(&inputs)?;
         let typed = [("password-0", TARGET_PASSWORD)];
         let response = fixture
-            .post(&format!("{run}/inputs"), browser, &typed)
+            .post_form(&format!("{run}/inputs"), browser, &typed)
             .await?;
         assert_eq!(response.status(), StatusCode::OK, "inputs accepted");
         served.push(page(fixture, browser, &run).await?);
@@ -142,12 +146,12 @@ mod tests {
 
     #[tokio::test]
     async fn no_secret_value_reaches_a_user_without_reveal_secrets() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let key = format!("{}=", "S".repeat(43));
         let tunnel = format!("interface Wireguard0 wireguard private-key {key}");
         let user = format!("user alice password plain {SOURCE_PASSWORD}");
         seed(&fixture, "prod-1", &[DNS_LINES[0], &tunnel, &user]).await?;
-        let startup = fixture.handle("prod-1")?.startup_config_text();
+        let startup = fixture.router("prod-1")?.startup_config_text();
         let encoded = word_after(&startup, "private-key ns3 ")?;
         let hash = word_after(&startup, "password md5 ")?;
         let secrets = [
@@ -161,13 +165,13 @@ mod tests {
         let mut served = Vec::new();
         let id = captured(&fixture, &migrator, &mut served).await?;
         let refused = fixture
-            .post(&format!("/ui/presets/{id}/reveal"), &migrator, &[])
+            .post_form(&format!("/ui/presets/{id}/reveal"), &migrator, &[])
             .await?;
         assert_eq!(refused.status(), StatusCode::FORBIDDEN, "no Reveal");
         let run = applied(&fixture, &migrator, &id, &mut served).await?;
         assert!(
             !fixture
-                .handle("lab-1")?
+                .router("lab-1")?
                 .running_config_text()
                 .contains(&encoded),
             "the target made its own key; the captured one was not copied"
@@ -196,7 +200,7 @@ mod tests {
         }
         let admin = fixture.login("admin").await?;
         let revealed = fixture
-            .post(&format!("/ui/presets/{id}/reveal"), &admin, &[])
+            .post_form(&format!("/ui/presets/{id}/reveal"), &admin, &[])
             .await?;
         assert!(
             text(revealed).await?.contains(&encoded),

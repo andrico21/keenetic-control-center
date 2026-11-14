@@ -8,8 +8,12 @@ use kcc_i18n::keys;
 use serde_json::{Value, json};
 
 use crate::{
-    audited, cli_targets, en, form,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    cli_targets,
+    support::{
+        outcome::TestResult,
+        page::{en, form, header_text, text},
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// The page under test.
@@ -85,7 +89,7 @@ async fn each_role_sees_the_accounts_and_only_its_controls() -> TestResult {
     let dialog = fixture.get(&format!("{PAGE}/new"), &operator).await?;
     assert_eq!(dialog.status(), StatusCode::FORBIDDEN, "no dialog either");
     assert!(
-        audited(&fixture, "web.router_user_create", "forbidden")?,
+        fixture.audited("web.router_user_create", "forbidden")?,
         "audited"
     );
     let missing = fixture.get("/ui/r/cottage/system/users", &operator).await?;
@@ -143,7 +147,7 @@ async fn an_account_is_added_with_its_tags_inside_the_fail_safe_timer() -> TestR
         .count();
     assert_eq!(fail_safe, 2, "armed, then disarmed");
     assert!(
-        audited(&fixture, "web.router_user_create", "success")?,
+        fixture.audited("web.router_user_create", "success")?,
         "audited"
     );
     Ok(())
@@ -180,7 +184,7 @@ async fn an_invalid_name_is_refused_before_anything_is_sent() -> TestResult {
     );
     assert_eq!(fixture.handle().request_count(), before, "nothing sent");
     assert!(
-        audited(&fixture, "web.router_user_create", "validation_failed")?,
+        fixture.audited("web.router_user_create", "validation_failed")?,
         "audited"
     );
     Ok(())

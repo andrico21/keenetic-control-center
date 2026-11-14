@@ -1,8 +1,9 @@
 //! Mixed persistence labels across the real explorer and console routes.
 
-use crate::{
-    form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, text},
+    web::Fixture,
 };
 
 /// A CLI console accepts one command, so its pre-run label is pure or absent.

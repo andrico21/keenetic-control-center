@@ -4,12 +4,17 @@
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
 use kcc_rci::{RciBody, RciPath};
-use kcc_testkit::FaultInjection;
 use serde_json::Value;
 
 use crate::{
-    form, router_said, row, said,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    dhcp::POOL,
+    row,
+    support::{
+        outcome::TestResult,
+        page::{form, header_text, said, text},
+        refusal::{Refusal, router_refusals},
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// The page under test.
@@ -234,35 +239,30 @@ async fn an_invalid_name_is_refused_before_anything_is_sent() -> TestResult {
     Ok(())
 }
 
+/// A refused client name and a refused pool show only the router's words.
 #[tokio::test]
 async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
-    let fixture =
-        Fixture::with_faults(FaultInjection::default().fail_parse_matching("known host", 1))
-            .await?;
-    let operator = fixture.login("operator").await?;
-    let response = fixture
-        .post(
-            &action("name", UNREGISTERED),
-            &operator,
-            &form(&[("value", "office-pc")]),
-        )
-        .await?;
-    assert_eq!(response.status(), StatusCode::OK, "answered");
-    let body = text(response).await?;
-    assert!(
-        body.contains(&said(Locale::En, keys::WEB_KIT_REJECTED)),
-        "localized: {body}"
-    );
-    let list = router_said(&body).ok_or("no router-said list")?;
-    assert!(list.contains("<li>"), "the router's message");
-    assert!(!list.contains("known host"), "no request: {list}");
-    assert!(!body.contains("clients-region"), "nothing read back");
-    assert!(
-        fixture
-            .audit()?
-            .iter()
-            .any(|entry| entry.action == "web.clients_register" && entry.outcome == "rci_error"),
-        "audited"
-    );
-    Ok(())
+    let name = action("name", UNREGISTERED);
+    let pool = form(&POOL);
+    router_refusals(&[
+        Refusal {
+            action: "web.clients_register",
+            refused: "known host",
+            account: "operator",
+            post: (&name, "value=office-pc"),
+            unsaid: "known host",
+            absent: &["clients-region"],
+            unchanged: true,
+        },
+        Refusal {
+            action: "web.dhcp_pool",
+            refused: "ip dhcp pool",
+            account: "operator",
+            post: ("/ui/r/home/dhcp/pools/edit", &pool),
+            unsaid: "Pool23",
+            absent: &["dhcp-region"],
+            unchanged: false,
+        },
+    ])
+    .await
 }

@@ -7,9 +7,10 @@
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
-use crate::{
-    en, form, html,
-    support::{Fixture, ROUTER, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, html, text},
+    web::{Fixture, ROUTER},
 };
 
 #[path = "persists/mixed.rs"]

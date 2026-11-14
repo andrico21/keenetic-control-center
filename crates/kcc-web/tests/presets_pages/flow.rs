@@ -11,7 +11,11 @@ use kcc_rci::{RciBody, RciPath};
 use serde_json::Value;
 use tokio::time::timeout;
 
-use crate::support::{Browser, Fixture, TestResult, header_text, text};
+use crate::support::{
+    outcome::TestResult,
+    page::{header_text, text},
+    web::{Browser, Fixture},
+};
 
 /// The longest a test waits for an apply's stream to close.
 const STREAM_BOUND: Duration = Duration::from_secs(120);
@@ -69,7 +73,7 @@ pub(crate) async fn capture(
         .post_multipart(
             "/ui/presets/new",
             browser,
-            &[("kind", "router"), ("router", router)],
+            (&[("kind", "router"), ("router", router)], None),
         )
         .await?;
     let draft = redirected(&read)?;
@@ -78,7 +82,7 @@ pub(crate) async fn capture(
         .map(|group| ("group", *group))
         .collect::<Vec<_>>();
     pairs.push(("name", name));
-    let saved = fixture.post(&draft, browser, &pairs).await?;
+    let saved = fixture.post_form(&draft, browser, &pairs).await?;
     let page = redirected(&saved)?;
     page.strip_prefix("/ui/presets/")
         .map(str::to_owned)
@@ -88,7 +92,7 @@ pub(crate) async fn capture(
 /// Starts applying preset `id` as `browser` and returns the run's page.
 pub(crate) async fn start(fixture: &Fixture, browser: &Browser, id: &str) -> TestResult<String> {
     let started = fixture
-        .post(&format!("/ui/presets/{id}/apply"), browser, &[])
+        .post_form(&format!("/ui/presets/{id}/apply"), browser, &[])
         .await?;
     redirected(&started)
 }
@@ -109,7 +113,7 @@ pub(crate) async fn to_preview(
         ("inputs", passwords.to_vec()),
     ] {
         let response = fixture
-            .post(&format!("{page}/{path}"), browser, &pairs)
+            .post_form(&format!("{page}/{path}"), browser, &pairs)
             .await?;
         if response.status() != StatusCode::OK {
             let status = response.status();
@@ -124,7 +128,7 @@ pub(crate) async fn to_preview(
 pub(crate) async fn apply(fixture: &Fixture, browser: &Browser, page: &str) -> TestResult<String> {
     moved(
         &fixture
-            .post(&format!("{page}/apply"), browser, &[("confirm", "yes")])
+            .post_form(&format!("{page}/apply"), browser, &[("confirm", "yes")])
             .await?,
         page,
     )?;
@@ -145,13 +149,13 @@ pub(crate) async fn finish(
 ) -> TestResult {
     moved(
         &fixture
-            .post(&format!("{page}/results"), browser, &[])
+            .post_form(&format!("{page}/results"), browser, &[])
             .await?,
         page,
     )?;
     moved(
         &fixture
-            .post(&format!("{page}/{way}"), browser, pairs)
+            .post_form(&format!("{page}/{way}"), browser, pairs)
             .await?,
         page,
     )

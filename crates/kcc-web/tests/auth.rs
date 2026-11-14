@@ -1,5 +1,12 @@
 //! Web authentication, session, CSRF, authorization, timeout, and bind-policy tests.
 
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
+mod support;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -20,23 +27,19 @@ mod tests {
 
     use axum::{
         Router,
-        body::{Body, to_bytes},
+        body::Body,
         http::{Method, Request, StatusCode, header},
         response::Response,
     };
-    use kcc_app::{
-        accounts::{AccountStore, Clock, NewAccount},
-        audit::AuditLog,
-        permissions::built_in_roles,
-        persist::StateStore,
-        secrets::MasterKey,
-        settings::Config,
-    };
-    use kcc_i18n::locale::Locale;
-    use kcc_web::{WebState, WebStateConfig, session::CookieSecurity, web_router};
-    use secrecy::SecretString;
-    use tempfile::TempDir;
+    use kcc_app::{accounts::Clock, permissions::built_in_roles, settings::Config};
+    use kcc_web::{session::CookieSecurity, web_router};
     use tower::ServiceExt as _;
+
+    use crate::support::{
+        base::{Core, ORIGIN, PASSWORD},
+        outcome::TestResult,
+        page::{cookie_pair, header_text, meta_content, text},
+    };
 
     #[derive(Debug)]
     struct ExpectedValidationError;
@@ -49,11 +52,7 @@ mod tests {
 
     impl Error for ExpectedValidationError {}
 
-    type TestResult = Result<(), Box<dyn Error>>;
-    const BODY_CAP: usize = 0x0010_0000;
     const USERNAME: &str = "alice";
-    const PASSWORD: &str = "correct horse battery staple";
-    const ORIGIN: &str = "http://127.0.0.1:8080";
 
     #[derive(Debug, Default)]
     struct MockClock {
@@ -73,58 +72,40 @@ mod tests {
     }
 
     struct Fixture {
-        _directory: TempDir,
+        _core: Core,
         router: Router,
         clock: Arc<MockClock>,
     }
 
     impl Fixture {
-        fn new(role: &str, security: CookieSecurity) -> Result<Self, Box<dyn Error>> {
-            let directory = TempDir::new()?;
-            let state = StateStore::open(&directory.path().join("state"))?;
+        fn new(role: &str, security: CookieSecurity) -> TestResult<Self> {
             let clock = Arc::new(MockClock::default());
-            let account_clock: Arc<dyn Clock> = Arc::<MockClock>::clone(&clock);
-            let accounts = Arc::new(AccountStore::new(
-                state.clone(),
-                MasterKey::generate()?,
-                Duration::from_secs(60),
-                account_clock,
-            ));
-            accounts.create(NewAccount::new(
-                USERNAME.to_owned(),
-                SecretString::from(PASSWORD),
-                role.to_owned(),
-            ))?;
-            let audit = AuditLog::spawn(&state)?;
-            let session_clock: Arc<dyn Clock> = Arc::<MockClock>::clone(&clock);
-            let web_state = WebState::new(WebStateConfig {
-                default_locale: Locale::En,
-                accounts,
-                audit,
-                roles: Vec::from(built_in_roles()),
-                session_idle: Duration::from_secs(30),
-                session_absolute: Duration::from_secs(300),
-                allowed_origins: vec![ORIGIN.to_owned()],
-                cookie_security: security,
-                clock: session_clock,
-            });
+            let core = Core::new(Arc::<MockClock>::clone(&clock), &[(USERNAME, role, None)])?;
+            let web_state = core.web(
+                Vec::from(built_in_roles()),
+                (Duration::from_secs(30), Duration::from_secs(300)),
+                security,
+            );
             Ok(Self {
-                _directory: directory,
+                _core: core,
                 router: web_router(web_state),
                 clock,
             })
         }
 
-        async fn send(&self, request: Request<Body>) -> Result<Response, Box<dyn Error>> {
+        async fn send(
+            &self,
+            request: Request<Body>,
+        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
             Ok(self.router.clone().oneshot(request).await?)
         }
 
-        async fn login_page(&self) -> Result<(String, String), Box<dyn Error>> {
+        async fn login_page(&self) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
             let response = self
                 .send(Request::get("/ui/login").body(Body::empty())?)
                 .await?;
             let cookie = cookie_pair(&response)?;
-            let html = response_text(response).await?;
+            let html = text(response).await?;
             let csrf = meta_content(&html, "csrf-token").ok_or("missing CSRF meta")?;
             Ok((cookie, csrf))
         }
@@ -134,7 +115,7 @@ mod tests {
             cookie: &str,
             csrf: &str,
             password: &str,
-        ) -> Result<Response, Box<dyn Error>> {
+        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
             let body = format!(
                 "username={USERNAME}&password={}",
                 password.replace(' ', "+")
@@ -153,7 +134,7 @@ mod tests {
             .await
         }
 
-        async fn authenticated(&self) -> Result<(String, String), Box<dyn Error>> {
+        async fn authenticated(&self) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
             let (anonymous_cookie, login_csrf) = self.login_page().await?;
             let response = self.login(&anonymous_cookie, &login_csrf, PASSWORD).await?;
             let cookie = cookie_pair(&response)?;
@@ -164,7 +145,7 @@ mod tests {
                         .body(Body::empty())?,
                 )
                 .await?;
-            let html = response_text(page).await?;
+            let html = text(page).await?;
             let csrf = meta_content(&html, "csrf-token").ok_or("missing authenticated CSRF")?;
             Ok((cookie, csrf))
         }
@@ -178,7 +159,8 @@ mod tests {
         let response = fixture.login(&anonymous_cookie, &csrf, PASSWORD).await?;
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "login redirect");
-        let set_cookie = header_text(&response, header::SET_COOKIE).ok_or("missing cookie")?;
+        let set_cookie =
+            header_text(&response, header::SET_COOKIE.as_str()).ok_or("missing cookie")?;
         assert!(
             set_cookie.starts_with("__Host-kcc_session="),
             "{set_cookie}"
@@ -206,7 +188,7 @@ mod tests {
                 StatusCode::UNAUTHORIZED,
                 "attempt {attempt}"
             );
-            let html = response_text(response).await?;
+            let html = text(response).await?;
             assert!(
                 html.contains("Invalid username or password."),
                 "attempt {attempt}"
@@ -219,7 +201,7 @@ mod tests {
                 )
                 .await?;
             cookie = cookie_pair(&page)?;
-            csrf = meta_content(&response_text(page).await?, "csrf-token")
+            csrf = meta_content(&text(page).await?, "csrf-token")
                 .ok_or("missing CSRF after failure")?;
         }
 
@@ -230,7 +212,7 @@ mod tests {
             "locked valid login"
         );
         assert!(
-            response_text(response)
+            text(response)
                 .await?
                 .contains("Invalid username or password."),
             "lockout stays uniform"
@@ -290,10 +272,7 @@ mod tests {
             .await?;
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "permission");
-        assert!(
-            response_text(response).await?.contains("Access denied"),
-            "403 page"
-        );
+        assert!(text(response).await?.contains("Access denied"), "403 page");
         Ok(())
     }
 
@@ -313,7 +292,7 @@ mod tests {
 
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "expired session");
         assert_eq!(
-            header_text(&response, header::LOCATION).as_deref(),
+            header_text(&response, header::LOCATION.as_str()).as_deref(),
             Some("/ui/login"),
             "login redirect"
         );
@@ -337,31 +316,5 @@ mod tests {
             "{error}"
         );
         Ok(())
-    }
-
-    async fn response_text(response: Response) -> Result<String, Box<dyn Error>> {
-        let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
-        Ok(String::from_utf8(bytes.to_vec())?)
-    }
-
-    fn header_text(response: &Response, name: header::HeaderName) -> Option<String> {
-        response
-            .headers()
-            .get(name)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned)
-    }
-
-    fn cookie_pair(response: &Response) -> Result<String, Box<dyn Error>> {
-        header_text(response, header::SET_COOKIE)
-            .and_then(|value| value.split(';').next().map(str::to_owned))
-            .ok_or_else(|| "missing Set-Cookie".into())
-    }
-
-    fn meta_content(html: &str, name: &str) -> Option<String> {
-        let marker = format!("<meta name=\"{name}\" content=\"");
-        html.split_once(&marker)
-            .and_then(|(_, tail)| tail.split_once('\"'))
-            .map(|(value, _)| value.to_owned())
     }
 }

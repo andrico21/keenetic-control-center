@@ -6,47 +6,20 @@
 //! words; the interfaces page also proves the management guard around taking `Bridge0`
 //! down.
 
-#[path = "explorer_pages/support.rs"]
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
 mod support;
 
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    locale::Locale,
-};
 use kcc_rci::{ObjectName, RciBody, RciPath};
 use serde_json::Value;
-use url::form_urlencoded::byte_serialize;
 
-use crate::support::{Fixture, ROUTER, TestResult};
-
-/// `text` as askama escapes it.
-pub(crate) fn html(text: &str) -> String {
-    text.replace('&', "&#38;")
-        .replace('<', "&#60;")
-        .replace('>', "&#62;")
-        .replace('"', "&#34;")
-        .replace('\'', "&#39;")
-}
-
-/// A message in `locale`, escaped for HTML.
-pub(crate) fn said(locale: Locale, key: MessageKey) -> String {
-    html(&tr(locale, key, None))
-}
-
-/// `pairs` form-encoded.
-pub(crate) fn form(pairs: &[(&str, &str)]) -> String {
-    pairs
-        .iter()
-        .map(|(name, value)| {
-            format!(
-                "{}={}",
-                byte_serialize(name.as_bytes()).collect::<String>(),
-                byte_serialize(value.as_bytes()).collect::<String>()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("&")
-}
+use crate::support::{
+    outcome::TestResult,
+    web::{Fixture, ROUTER},
+};
 
 /// The fake router's `show interface` answer for `name`.
 ///

@@ -24,9 +24,10 @@ use kcc_i18n::{
 };
 use kcc_testkit::{FakeRouter, migration, model::Profile};
 
-use crate::{
-    en, form, html,
-    support::{Browser, Fixture, ROUTER, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, header_text, html, text},
+    web::{Browser, Fixture, ROUTER},
 };
 
 /// The CLI console's send endpoint.

@@ -5,12 +5,12 @@
 //! the catalog before anything is sent.
 
 use axum::http::StatusCode;
-use fluent_bundle::FluentArgs;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::keys;
 
-use crate::{
-    audited, en, html,
-    support::{Fixture, ROUTER, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, text},
+    web::Fixture,
 };
 
 /// The page under test.
@@ -43,60 +43,6 @@ async fn each_role_sees_the_media_and_only_the_actions_the_catalog_has() -> Test
 }
 
 #[tokio::test]
-async fn eject_needs_the_router_name_and_shows_the_router_refusal() -> TestResult {
-    let fixture = Fixture::new().await?;
-    let eject = format!("{PAGE}/eject?media=Media0");
-    let operator = fixture.login("operator").await?;
-    let denied = fixture.post(&eject, &operator, "").await?;
-    assert_eq!(denied.status(), StatusCode::FORBIDDEN, "operator");
-    let admin = fixture.login("admin").await?;
-    let unknown = fixture
-        .post(&format!("{PAGE}/eject?media=Media9"), &admin, "")
-        .await?;
-    assert_eq!(unknown.status(), StatusCode::NOT_FOUND, "unknown medium");
-    let asked = text(fixture.post(&eject, &admin, "").await?).await?;
-    assert!(
-        asked.contains("hx-post=\"/ui/r/home/system/storage/eject?media=Media0\""),
-        "asks and sends the medium again: {asked}"
-    );
-    let before = fixture.handle().request_count();
-    let mistyped = text(
-        fixture
-            .post(&eject, &admin, "confirm=yes&confirm_name=Home")
-            .await?,
-    )
-    .await?;
-    let mut args = FluentArgs::new();
-    args.set("router", ROUTER);
-    let mismatch = html(&tr(
-        Locale::En,
-        keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
-        Some(&args),
-    ));
-    assert!(mistyped.contains(&mismatch), "refused: {mistyped}");
-    let refused = text(
-        fixture
-            .post(&eject, &admin, "confirm=yes&confirm_name=home")
-            .await?,
-    )
-    .await?;
-    assert!(refused.contains(&en(keys::WEB_KIT_REJECTED)), "{refused}");
-    assert!(
-        refused.contains(&en(keys::WEB_EXPLORER_ROUTER_SAID)),
-        "router said"
-    );
-    assert!(
-        fixture.handle().request_count() > before,
-        "the confirmed eject reached the router"
-    );
-    assert!(
-        audited(&fixture, "web.storage_eject", "rci_error")?,
-        "audited"
-    );
-    Ok(())
-}
-
-#[tokio::test]
 async fn a_format_the_catalog_lacks_is_refused_before_anything_is_sent() -> TestResult {
     let fixture = Fixture::new().await?;
     let admin = fixture.login("admin").await?;
@@ -122,7 +68,7 @@ async fn a_format_the_catalog_lacks_is_refused_before_anything_is_sent() -> Test
         "nothing sent"
     );
     assert!(
-        audited(&fixture, "web.storage_format", "validation_failed")?,
+        fixture.audited("web.storage_format", "validation_failed")?,
         "audited"
     );
     Ok(())

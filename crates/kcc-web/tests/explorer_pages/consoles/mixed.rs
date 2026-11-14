@@ -3,9 +3,10 @@ use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{BatchKind, batch_outcome};
-use crate::{
-    form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, text},
+    web::Fixture,
 };
 
 /// A read beside writes changes neither the persistence claim nor applied counts.

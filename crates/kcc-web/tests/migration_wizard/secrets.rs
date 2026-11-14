@@ -7,7 +7,7 @@
 
 use std::{fs, path::Path};
 
-use crate::support::{Fixture, TestResult};
+use crate::support::{outcome::TestResult, web::Fixture};
 
 /// Every file below `dir`, by path, as text.
 pub(crate) fn files(dir: &Path) -> TestResult<Vec<(String, String)>> {
@@ -41,7 +41,7 @@ pub(crate) fn absent(dir: &Path, secrets: &[&str]) -> TestResult {
 /// The source router's stored password hash of `alice`.
 pub(crate) fn source_hash(fixture: &Fixture) -> TestResult<String> {
     Ok(fixture
-        .handle("giga")?
+        .router("giga")?
         .startup_config_text()
         .split("password md5 ")
         .nth(1)

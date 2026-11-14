@@ -4,8 +4,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
-    support::{Fixture, TestResult, text},
+    ROUTER, TraceCapture, dummy, nowhere, setup, stored,
+    support::{
+        outcome::TestResult,
+        page::{assert_native_post, en_with, text},
+        web::Fixture,
+    },
 };
 
 /// The connection's dialog and write.
@@ -13,7 +17,7 @@ const DIALOG: &str = "/ui/r/prod-1/internet/password?name=PPPoE0";
 
 /// The stored password of `PPPoE0`: `ns3 <blob>`.
 fn password(fixture: &Fixture) -> TestResult<Option<String>> {
-    let config = fixture.handle(ROUTER)?.running_config_text();
+    let config = fixture.router(ROUTER)?.running_config_text();
     Ok(stored(
         &config,
         "interface PPPoE0",
@@ -23,7 +27,7 @@ fn password(fixture: &Fixture) -> TestResult<Option<String>> {
 
 /// A PPPoE connection with a password set on the router itself.
 async fn seeded() -> TestResult<Fixture> {
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let client = fixture.registry().client(ROUTER).await?;
     let first = dummy("seed", 9);
     drop(
@@ -58,7 +62,7 @@ async fn a_connection_password_reaches_the_router_and_nothing_else() -> TestResu
     let before = password(&fixture)?.ok_or("no seeded password")?;
     let secret = dummy("wan", 1);
     let response = fixture
-        .post(
+        .post_form(
             DIALOG,
             &operator,
             &[("secret", &secret), ("secret_again", &secret)],
@@ -67,16 +71,16 @@ async fn a_connection_password_reaches_the_router_and_nothing_else() -> TestResu
     let status = response.status();
     let answer = text(response).await?;
     assert_eq!(status, StatusCode::OK, "written: {answer}");
-    let what = en(keys::WEB_INTERNET_PASSWORD, &[]);
+    let what = en_with(keys::WEB_INTERNET_PASSWORD, &[]);
     assert!(
-        answer.contains(&en(keys::WEB_SECRET_DONE, &[("what", &what)])),
+        answer.contains(&en_with(keys::WEB_SECRET_DONE, &[("what", &what)])),
         "the read-back's verdict: {answer}"
     );
     let written = password(&fixture)?.ok_or("no password stored")?;
     assert!(written.starts_with("ns3 "), "encoded");
     assert_ne!(written, before, "a new value");
     let empty = fixture
-        .post(DIALOG, &operator, &[("secret", ""), ("secret_again", "")])
+        .post_form(DIALOG, &operator, &[("secret", ""), ("secret_again", "")])
         .await?;
     assert_eq!(empty.status(), StatusCode::OK, "nothing to send");
     let kept = text(empty).await?;
@@ -111,7 +115,7 @@ async fn only_ppp_connections_take_a_password() -> TestResult {
     assert!(!ipoe.contains("internet/password"), "IPoE has no password");
     let secret = dummy("wan", 2);
     let refused = fixture
-        .post(
+        .post_form(
             "/ui/r/prod-1/internet/password?name=ISP",
             &operator,
             &[("secret", &secret), ("secret_again", &secret)],
@@ -122,7 +126,7 @@ async fn only_ppp_connections_take_a_password() -> TestResult {
         StatusCode::NOT_FOUND,
         "not a PPP connection"
     );
-    let config = fixture.handle(ROUTER)?.running_config_text();
+    let config = fixture.router(ROUTER)?.running_config_text();
     assert_eq!(
         stored(&config, "interface ISP", "authentication password "),
         None,

@@ -5,20 +5,20 @@
 //! command, so a refusal is injected for every action.
 
 use axum::http::StatusCode;
-use fluent_bundle::FluentArgs;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 use kcc_testkit::FaultInjection;
 
-use crate::{
-    html, said,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{said, text},
+    web::Fixture,
 };
 
 /// The page under test.
 const PAGE: &str = "/ui/r/home/mesh";
 
 /// Restarting the fixture's member.
-const RESTART: &str = "/ui/r/home/mesh/action?name=Extender0&do=restart";
+pub(crate) const RESTART: &str = "/ui/r/home/mesh/action?name=Extender0&do=restart";
 
 #[tokio::test]
 async fn each_role_sees_the_members_and_only_its_actions() -> TestResult {
@@ -52,72 +52,6 @@ async fn each_role_sees_the_members_and_only_its_actions() -> TestResult {
             "{account} restart"
         );
     }
-    Ok(())
-}
-
-#[tokio::test]
-async fn a_member_restart_needs_the_router_name() -> TestResult {
-    let fixture =
-        Fixture::with_faults(FaultInjection::default().fail_parse_matching("mws member", 1))
-            .await?;
-    let operator = fixture.login("operator").await?;
-    let denied = fixture.post(RESTART, &operator, "").await?;
-    assert_eq!(denied.status(), StatusCode::FORBIDDEN, "operator");
-    let admin = fixture.login("admin").await?;
-    let asked = fixture.post(RESTART, &admin, "").await?;
-    assert_eq!(
-        header_text(&asked, "hx-retarget").as_deref(),
-        Some("#dialog-content"),
-        "dialog"
-    );
-    let prompt = text(asked).await?;
-    assert!(
-        prompt.contains(&said(Locale::En, keys::WEB_KIT_CONFIRM_DESTRUCTIVE_TITLE)),
-        "asks: {prompt}"
-    );
-    assert!(prompt.contains("name=\"confirm_name\""), "the name field");
-    let mistyped = text(
-        fixture
-            .post(RESTART, &admin, "confirm=yes&confirm_name=Home")
-            .await?,
-    )
-    .await?;
-    let mut args = FluentArgs::new();
-    args.set("router", ROUTER);
-    let mismatch = html(&tr(
-        Locale::En,
-        keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
-        Some(&args),
-    ));
-    assert!(mistyped.contains(&mismatch), "mismatch: {mistyped}");
-    assert!(
-        !fixture
-            .audit()?
-            .iter()
-            .any(|entry| entry.action.starts_with("router.change")),
-        "nothing ran yet"
-    );
-    let done = text(
-        fixture
-            .post(RESTART, &admin, "confirm=yes&confirm_name=home")
-            .await?,
-    )
-    .await?;
-    assert!(
-        done.contains(&said(Locale::En, keys::WEB_KIT_REJECTED)),
-        "the router's answer: {done}"
-    );
-    assert!(
-        done.contains("<ul class=\"router-said__list\">"),
-        "its words"
-    );
-    assert!(
-        fixture
-            .audit()?
-            .iter()
-            .any(|entry| entry.action == "web.mesh_reboot" && entry.outcome == "rci_error"),
-        "audited"
-    );
     Ok(())
 }
 

@@ -5,19 +5,18 @@
 
 #[expect(
     dead_code,
-    reason = "the shared explorer fixture; this suite needs only part of it"
+    reason = "the shared Web UI test support; this suite needs part of it"
 )]
-#[path = "explorer_pages/support.rs"]
+#[path = "support/mod.rs"]
 mod support;
 
 use axum::http::StatusCode;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    locale::Locale,
-};
-use url::form_urlencoded::byte_serialize;
 
-use crate::support::{Browser, Fixture, TestResult, text};
+use crate::support::{
+    outcome::TestResult,
+    page::{form, text},
+    web::{Browser, Fixture},
+};
 
 /// The page under test.
 pub(crate) const PAGE: &str = "/ui/r/home/segments";
@@ -34,35 +33,6 @@ pub(crate) const SEGMENT: [(&str, &str); 9] = [
     ("access_point", "WifiMaster0/AccessPoint1"),
     ("policy", ""),
 ];
-
-/// `text` as askama escapes it.
-pub(crate) fn html(text: &str) -> String {
-    text.replace('&', "&#38;")
-        .replace('<', "&#60;")
-        .replace('>', "&#62;")
-        .replace('"', "&#34;")
-        .replace('\'', "&#39;")
-}
-
-/// A message in English, escaped for HTML.
-pub(crate) fn said(key: MessageKey) -> String {
-    html(&tr(Locale::En, key, None))
-}
-
-/// `pairs` form-encoded.
-pub(crate) fn form(pairs: &[(&str, &str)]) -> String {
-    pairs
-        .iter()
-        .map(|(name, value)| {
-            format!(
-                "{}={}",
-                byte_serialize(name.as_bytes()).collect::<String>(),
-                byte_serialize(value.as_bytes()).collect::<String>()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join("&")
-}
 
 /// The panel of segment `id` in `html`, from its `<section` to its `</section>`.
 pub(crate) fn segment<'page>(html: &'page str, id: &str) -> Option<&'page str> {

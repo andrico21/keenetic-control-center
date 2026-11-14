@@ -12,9 +12,10 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use crate::{
-    form, html,
-    support::{Fixture, TestResult, header_text, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{form, header_text, html, text},
+    web::Fixture,
 };
 
 /// Destructive requests the `raw-writer` role may not send.

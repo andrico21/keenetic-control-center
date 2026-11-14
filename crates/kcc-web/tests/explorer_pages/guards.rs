@@ -11,54 +11,38 @@ use kcc_rci::{RciBody, RciPath};
 use serde_json::Value;
 use tokio::time::{Instant, timeout_at};
 
-use crate::{
-    en, form, html,
-    support::{Fixture, ROUTER, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, html, text},
+    typed_name::{Ask, TypedName, typed_names},
+    web::{Fixture, ROUTER},
 };
 
 /// A destructive command needs the exact router name; an operator may not run it.
 #[tokio::test]
 async fn destructive_commands_need_the_router_name() -> TestResult {
     let fixture = Fixture::new().await?;
-    let admin = fixture.login("admin").await?;
-    drop(fixture.get("/ui/r/home/explorer", &admin).await?);
-    let before = fixture.handle().request_count();
-    let path = [
-        ("path", "system configuration factory-reset"),
-        ("confirm", "yes"),
-    ];
-    let asked = text(
-        fixture
-            .post("/ui/r/home/explorer/execute", &admin, &form(&path))
-            .await?,
-    )
-    .await?;
-    assert!(
-        asked.contains("name=\"confirm_name\""),
-        "name field: {asked}"
+    let execute = "/ui/r/home/explorer/execute";
+    let path = ("path", "system configuration factory-reset");
+    let ask = form(&[path, ("confirm", "yes")]);
+    drop(
+        typed_names(
+            &fixture,
+            &[TypedName {
+                action: "web.explorer_execute",
+                account: "admin",
+                denied: Some("operator"),
+                ask: Ask::Post(execute, &ask),
+                title: None,
+                post: execute,
+                fields: &[path],
+                names: ("Home", "home"),
+                ran: ("success", keys::WEB_EXPLORER_DONE_UNSAVED),
+                rereads: false,
+            }],
+        )
+        .await?,
     );
-    let mut wrong = path.to_vec();
-    wrong.push(("confirm_name", "Home"));
-    let refused = text(
-        fixture
-            .post("/ui/r/home/explorer/execute", &admin, &form(&wrong))
-            .await?,
-    )
-    .await?;
-    let mut args = FluentArgs::new();
-    args.set("router", ROUTER);
-    let error = html(&tr(
-        Locale::En,
-        keys::WEB_EXPLORER_CONFIRM_NAME_ERROR,
-        Some(&args),
-    ));
-    assert!(refused.contains(&error), "mismatch: {refused}");
-    assert_eq!(fixture.handle().request_count(), before, "nothing sent");
-    let operator = fixture.login("operator").await?;
-    let denied = fixture
-        .post("/ui/r/home/explorer/execute", &operator, &form(&path))
-        .await?;
-    assert_eq!(denied.status(), StatusCode::FORBIDDEN, "operator");
     Ok(())
 }
 

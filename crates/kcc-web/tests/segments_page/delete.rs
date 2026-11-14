@@ -5,8 +5,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    PAGE, SEGMENT, create, delete_dialog, said, segment,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    PAGE, SEGMENT, create, delete_dialog, segment,
+    support::{
+        outcome::TestResult,
+        page::{en, header_text, text},
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// Create, list, delete: the router's settings and running configuration come back.
@@ -35,7 +39,7 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
         assert!(listed.contains(expected), "{expected} in {listed}");
     }
     assert!(
-        !listed.contains(&said(keys::WEB_SEGMENTS_INCOMPLETE)),
+        !listed.contains(&en(keys::WEB_SEGMENTS_INCOMPLETE)),
         "complete: {listed}"
     );
     let (dialog, action) = delete_dialog(&fixture, &admin, "23").await?;
@@ -68,11 +72,11 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
     );
     let answer = text(deleted).await?;
     assert!(
-        answer.contains(&said(keys::WEB_KIT_DONE)),
+        answer.contains(&en(keys::WEB_KIT_DONE)),
         "applied, and nothing is left unsaved: {answer}"
     );
     assert!(
-        answer.contains(&said(keys::WEB_SEGMENTS_EMPTY)),
+        answer.contains(&en(keys::WEB_SEGMENTS_EMPTY)),
         "the list read back is empty: {answer}"
     );
     assert_eq!(
@@ -107,10 +111,10 @@ async fn a_partial_segment_is_listed_and_deletable() -> TestResult {
     let page = text(fixture.get(PAGE, &admin).await?).await?;
     let listed = segment(&page, "23").ok_or("the partial segment's panel")?;
     assert!(
-        listed.contains(&said(keys::WEB_SEGMENTS_INCOMPLETE)),
+        listed.contains(&en(keys::WEB_SEGMENTS_INCOMPLETE)),
         "flagged: {listed}"
     );
-    assert!(listed.contains(&said(keys::COMMON_NO)), "no NAT: {listed}");
+    assert!(listed.contains(&en(keys::COMMON_NO)), "no NAT: {listed}");
     let (_dialog, action) = delete_dialog(&fixture, &admin, "23").await?;
     let deleted = fixture
         .post(&action, &admin, "object=home&confirm=yes&confirm_name=home")
@@ -118,7 +122,7 @@ async fn a_partial_segment_is_listed_and_deletable() -> TestResult {
     assert_eq!(deleted.status(), StatusCode::OK, "deleted");
     let answer = text(deleted).await?;
     assert!(
-        answer.contains(&said(keys::WEB_KIT_DONE)),
+        answer.contains(&en(keys::WEB_KIT_DONE)),
         "applied: {answer}"
     );
     assert_eq!(

@@ -13,9 +13,10 @@ use kcc_rci::{RciBody, RciPath};
 use serde_json::Value;
 use tokio::time::{Instant, timeout_at};
 
-use crate::{
-    audited, en,
-    support::{Fixture, ROUTER, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, text},
+    web::{Fixture, ROUTER},
 };
 
 /// The page under test.
@@ -103,7 +104,7 @@ async fn a_component_is_queued_and_read_back() -> TestResult {
     }
     assert_eq!(removing(&fixture).await?, ["wireguard"], "queued");
     assert!(
-        audited(&fixture, "web.components_remove", "success")?,
+        fixture.audited("web.components_remove", "success")?,
         "audited"
     );
     Ok(())
@@ -125,7 +126,7 @@ async fn the_update_check_shows_what_the_router_said() -> TestResult {
         "router said"
     );
     assert!(
-        audited(&fixture, "web.components_check", "rci_error")?,
+        fixture.audited("web.components_check", "rci_error")?,
         "audited"
     );
     Ok(())
@@ -192,7 +193,7 @@ async fn the_commit_needs_the_router_name_and_runs_as_a_job() -> TestResult {
         "the commit went through the change workflow"
     );
     assert!(
-        audited(&fixture, "web.components_commit", "started")?,
+        fixture.audited("web.components_commit", "started")?,
         "audited"
     );
     Ok(())

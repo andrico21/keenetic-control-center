@@ -12,8 +12,12 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::FaultInjection;
 
 use crate::{
-    INCIDENT, en, form, html,
-    support::{Fixture, TestResult, header_text, text},
+    INCIDENT,
+    support::{
+        outcome::TestResult,
+        page::{en, form, header_text, html, text},
+        web::Fixture,
+    },
 };
 
 /// A batch item used by the partial-outcome position matrix.

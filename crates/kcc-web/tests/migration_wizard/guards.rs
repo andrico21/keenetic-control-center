@@ -14,10 +14,13 @@ mod tests {
     use secrecy::SecretString;
 
     use crate::{
-        en, redirected,
+        redirected,
         secrets::absent,
-        start,
-        support::{Fixture, TestResult, text},
+        setup, start,
+        support::{
+            outcome::TestResult,
+            page::{en, text},
+        },
     };
 
     /// An uploaded source on firmware 4.3.0 with secrets of every kind the state must
@@ -47,12 +50,12 @@ mod tests {
 
     #[tokio::test]
     async fn a_viewer_cannot_open_or_start_a_migration() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let viewer = fixture.login("viewer").await?;
         let page = fixture.get("/ui/migrate", &viewer).await?;
         assert_eq!(page.status(), StatusCode::FORBIDDEN, "the page");
         let started = fixture
-            .post("/ui/migrate", &viewer, &[("mode", "migrate")])
+            .post_form("/ui/migrate", &viewer, &[("mode", "migrate")])
             .await?;
         assert_eq!(started.status(), StatusCode::FORBIDDEN, "the start");
         assert!(
@@ -64,21 +67,20 @@ mod tests {
 
     #[tokio::test]
     async fn a_target_outside_the_scope_is_refused_before_any_request() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let scoped = fixture.login("scoped").await?;
         let page = start(&fixture, &scoped).await?;
         let source = fixture
-            .post_source(
+            .post_multipart(
                 &format!("{page}/source"),
                 &scoped,
-                &[("kind", "router"), ("router", "giga")],
-                None,
+                (&[("kind", "router"), ("router", "giga")], None),
             )
             .await?;
         assert_eq!(redirected(&source)?, page, "giga is in the scope");
-        let before = fixture.handle("ultra")?.request_count();
+        let before = fixture.router("ultra")?.request_count();
         let refused = fixture
-            .post(&format!("{page}/target"), &scoped, &[("router", "ultra")])
+            .post_form(&format!("{page}/target"), &scoped, &[("router", "ultra")])
             .await?;
         assert_eq!(
             refused.status(),
@@ -91,7 +93,7 @@ mod tests {
             "the reason: {body}"
         );
         assert_eq!(
-            fixture.handle("ultra")?.request_count(),
+            fixture.router("ultra")?.request_count(),
             before,
             "not one request reached the router outside the scope"
         );
@@ -107,20 +109,19 @@ mod tests {
 
     #[tokio::test]
     async fn older_target_firmware_is_refused() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let page = start(&fixture, &admin).await?;
         let source = fixture
-            .post_source(
+            .post_multipart(
                 &format!("{page}/source"),
                 &admin,
-                &[("kind", "router"), ("router", "giga")],
-                None,
+                (&[("kind", "router"), ("router", "giga")], None),
             )
             .await?;
         assert_eq!(redirected(&source)?, page, "the source is read");
         let refused = fixture
-            .post(&format!("{page}/target"), &admin, &[("router", "legacy")])
+            .post_form(&format!("{page}/target"), &admin, &[("router", "legacy")])
             .await?;
         assert_eq!(
             refused.status(),
@@ -137,21 +138,20 @@ mod tests {
 
     #[tokio::test]
     async fn a_documentation_tier_needs_the_audited_acknowledgement() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let page = start(&fixture, &admin).await?;
         let secrets = secret_source()?;
         let source = fixture
-            .post_source(
+            .post_multipart(
                 &format!("{page}/source"),
                 &admin,
-                &[("kind", "file")],
-                Some(&secrets.config),
+                (&[("kind", "file")], Some(&secrets.config)),
             )
             .await?;
         assert_eq!(redirected(&source)?, page, "the file is taken");
         let target = fixture
-            .post(&format!("{page}/target"), &admin, &[("router", "legacy")])
+            .post_form(&format!("{page}/target"), &admin, &[("router", "legacy")])
             .await?;
         assert_eq!(redirected(&target)?, page, "4.3.9 is not older than 4.3.0");
         let report = text(fixture.get(&page, &admin).await?).await?;
@@ -161,7 +161,7 @@ mod tests {
             "the tier warning and its checkbox: {report}"
         );
         let blocked = fixture
-            .post(&format!("{page}/target/continue"), &admin, &[])
+            .post_form(&format!("{page}/target/continue"), &admin, &[])
             .await?;
         assert_eq!(
             blocked.status(),
@@ -175,7 +175,7 @@ mod tests {
             "says why"
         );
         let acknowledged = fixture
-            .post(
+            .post_form(
                 &format!("{page}/target/continue"),
                 &admin,
                 &[("acknowledge", "yes")],
@@ -200,11 +200,12 @@ mod tests {
 
     #[tokio::test]
     async fn the_restore_link_offers_and_starts_a_restore_of_the_backup() -> TestResult {
-        let fixture = Fixture::new().await?;
-        let startup = fixture.handle("ultra")?.startup_config_text();
-        let backup = fixture
-            .backups()?
-            .create("ultra", "manual", &SecretString::from(startup))?;
+        let fixture = setup::fixture().await?;
+        let startup = fixture.router("ultra")?.startup_config_text();
+        let backup =
+            fixture
+                .backup_store()?
+                .create("ultra", "manual", &SecretString::from(startup))?;
         let admin = fixture.login("admin").await?;
         let link = format!(
             "/ui/migrate?mode=restore&router=ultra&backup={}",
@@ -248,7 +249,7 @@ mod tests {
             "a missing backup is not offered"
         );
         let started = fixture
-            .post(
+            .post_form(
                 "/ui/migrate",
                 &admin,
                 &[

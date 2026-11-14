@@ -26,8 +26,12 @@ mod tests {
 
     use crate::{
         flow::{form_values, moved},
-        start,
-        support::{Browser, Fixture, TestResult, text},
+        setup, start,
+        support::{
+            outcome::TestResult,
+            page::text,
+            web::{Browser, Fixture},
+        },
     };
 
     /// The switch-port line of the segment.
@@ -77,14 +81,16 @@ mod tests {
             Source::Router => {
                 let fields = [("kind", "router"), ("router", "giga")];
                 (
-                    fixture.post_source(&path, browser, &fields, None).await?,
+                    fixture
+                        .post_multipart(&path, browser, (&fields, None))
+                        .await?,
                     "ultra",
                 )
             }
             Source::File(file) => {
                 let fields = [("kind", "file")];
                 let read = fixture
-                    .post_source(&path, browser, &fields, Some(file))
+                    .post_multipart(&path, browser, (&fields, Some(file)))
                     .await?;
                 (read, "legacy")
             }
@@ -93,13 +99,16 @@ mod tests {
         let chosen = [("router", target)];
         moved(
             &fixture
-                .post(&format!("{page}/target"), browser, &chosen)
+                .post_form(&format!("{page}/target"), browser, &chosen)
                 .await?,
             &page,
         )?;
         let acknowledged = [("acknowledge", "yes")];
         let next = format!("{page}/target/continue");
-        moved(&fixture.post(&next, browser, &acknowledged).await?, &page)?;
+        moved(
+            &fixture.post_form(&next, browser, &acknowledged).await?,
+            &page,
+        )?;
         Ok(page)
     }
 
@@ -126,7 +135,7 @@ mod tests {
             .map(|(name, value)| (name.as_str(), value.as_str()))
             .collect::<Vec<_>>();
         fixture
-            .post(&format!("{page}/mapping"), browser, &pairs)
+            .post_form(&format!("{page}/mapping"), browser, &pairs)
             .await
     }
 
@@ -152,7 +161,7 @@ mod tests {
     async fn cli_plan(fixture: &Fixture, source: &Source) -> TestResult<(MigrationPlan, usize)> {
         let (mut config, target) = match source {
             Source::Router => {
-                let text = fixture.handle("giga")?.startup_config_text();
+                let text = fixture.router("giga")?.startup_config_text();
                 (SourceConfig::from_bytes(text.as_bytes())?, "ultra")
             }
             Source::File(file) => (SourceConfig::from_bytes(file.as_bytes())?, "legacy"),
@@ -197,7 +206,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_switch_port_defaults_continue_and_plan_as_the_cli_and_mcp() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture).await?;
         let admin = fixture.login("admin").await?;
         for source in [Source::Router, Source::File(segment_file()?)] {
@@ -227,7 +236,7 @@ mod tests {
 
     #[tokio::test]
     async fn typed_interface_names_stay_checked_in_every_locale() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture).await?;
         for (account, locale) in [
             ("admin", Locale::En),

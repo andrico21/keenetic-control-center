@@ -3,7 +3,7 @@ use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{BatchKind, batch_outcome};
-use crate::{html, support::TestResult};
+use crate::support::{outcome::TestResult, page::html};
 
 /// Every item refused: the reply lists each item's refusal in the router's words and
 /// shows no answer viewer, which held only `[ null, null ]` (F3 O-7).

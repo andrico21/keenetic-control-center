@@ -18,10 +18,9 @@ use tempfile::TempDir;
 use url::Url;
 
 use crate::{
-    audited,
     firewall::two_rules,
-    get, post, said,
-    support::{Fixture, TestResult},
+    get, post,
+    support::{outcome::TestResult, page::en, web::Fixture},
 };
 
 /// The catalog path of the fail-safe timer's arm and disarm lines.
@@ -55,7 +54,7 @@ async fn management_firewall_binding_brackets_both_modes() -> TestResult {
         ] {
             let asked = post(&fixture, &admin, (path, &[]), StatusCode::OK).await?;
             assert!(
-                asked.contains(&said(keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE)),
+                asked.contains(&en(keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE)),
                 "dialog"
             );
             for role in ["operator", "writer"] {
@@ -153,7 +152,7 @@ async fn a_list_is_applied_to_an_uplink_and_taken_off_with_read_back() -> TestRe
     )
     .await?;
     assert!(
-        bound.contains(&said(keys::WEB_KIT_DONE_UNSAVED)),
+        bound.contains(&en(keys::WEB_KIT_DONE_UNSAVED)),
         "a plain write: {bound}"
     );
     assert_eq!(applied(&fixture), 1, "applied");
@@ -168,7 +167,7 @@ async fn a_list_is_applied_to_an_uplink_and_taken_off_with_read_back() -> TestRe
     drop(post(&fixture, &operator, (unbind, &[]), StatusCode::OK).await?);
     assert_eq!(applied(&fixture), 0, "taken off");
     assert!(
-        audited(&fixture, "web.firewall_unbind", "success")?,
+        fixture.audited("web.firewall_unbind", "success")?,
         "audited"
     );
     Ok(())
@@ -188,7 +187,7 @@ async fn applying_a_list_to_kcc_s_own_interface_asks_and_runs_in_the_fail_safe_t
         StatusCode::OK,
     )
     .await?;
-    let title = said(keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE);
+    let title = en(keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE);
     assert!(asked.contains(&title), "asks first: {asked}");
     assert!(
         asked.contains("name=\"confirm\" value=\"yes\""),
@@ -207,7 +206,7 @@ async fn applying_a_list_to_kcc_s_own_interface_asks_and_runs_in_the_fail_safe_t
         .await?,
     );
     let done = post(&fixture, &admin, (bind, &confirmed), StatusCode::OK).await?;
-    assert!(done.contains(&said(keys::WEB_KIT_DONE_UNSAVED)), "{done}");
+    assert!(done.contains(&en(keys::WEB_KIT_DONE_UNSAVED)), "{done}");
     assert_eq!(applied(&fixture), 1, "applied to Bridge0");
     let timer = fixture
         .audit()?
@@ -248,7 +247,7 @@ async fn a_4_3_9_router_without_ipv6_lists_gets_the_explorer_note() -> TestResul
     let viewer = fixture.login("viewer").await?;
     let page = get(&fixture, &viewer, "/ui/r/legacy/firewall", StatusCode::OK).await?;
     assert!(
-        page.contains(&said(keys::WEB_FIREWALL_IPV6_MISSING)),
+        page.contains(&en(keys::WEB_FIREWALL_IPV6_MISSING)),
         "the note: {page}"
     );
     assert!(
@@ -256,11 +255,11 @@ async fn a_4_3_9_router_without_ipv6_lists_gets_the_explorer_note() -> TestResul
         "the explorer link"
     );
     assert!(
-        !page.contains(&said(keys::WEB_FIREWALL_IPV6_READONLY)),
+        !page.contains(&en(keys::WEB_FIREWALL_IPV6_READONLY)),
         "no IPv6 lists"
     );
     assert!(
-        !page.contains(&said(keys::WEB_FIREWALL_ADD)),
+        !page.contains(&en(keys::WEB_FIREWALL_ADD)),
         "a viewer adds nothing"
     );
     handle.shutdown().await?;

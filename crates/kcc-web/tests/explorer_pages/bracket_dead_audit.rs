@@ -9,9 +9,10 @@ use kcc_i18n::keys;
 use kcc_testkit::FaultInjection;
 
 use super::{ARMED_KEYS, commands, edges, fixture};
-use crate::{
-    en, form,
-    support::{Browser, Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, text},
+    web::{Browser, Fixture},
 };
 
 /// The CLI console's management change.

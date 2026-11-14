@@ -15,9 +15,13 @@ mod tests {
     use kcc_i18n::keys;
 
     use crate::{
-        en,
         flow::{capture, seed, start, to_preview},
-        support::{Browser, Fixture, TestResult, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en_with, text},
+            web::{Browser, Fixture},
+        },
     };
 
     /// The switch-port line of the segment.
@@ -33,12 +37,12 @@ mod tests {
         let page = start(fixture, browser, &id).await?;
         drop(
             fixture
-                .post(&format!("{page}/target"), browser, &[("router", "lab-1")])
+                .post_form(&format!("{page}/target"), browser, &[("router", "lab-1")])
                 .await?,
         );
         drop(
             fixture
-                .post(&format!("{page}/target/continue"), browser, &[])
+                .post_form(&format!("{page}/target/continue"), browser, &[])
                 .await?,
         );
         Ok(page)
@@ -46,7 +50,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_numeric_switch_port_source_plans() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         seed(&fixture, "prod-1", &[PORT_LINE, ROUTE]).await?;
         let id = capture(&fixture, &admin, "prod-1", (&["static-routes"], "Port")).await?;
@@ -61,12 +65,12 @@ mod tests {
 
     #[tokio::test]
     async fn a_typed_port_name_stays_checked() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let page = at_options(&fixture, &admin).await?;
 
         let response = fixture
-            .post(
+            .post_form(
                 &format!("{page}/options"),
                 &admin,
                 &[("mode", "merge"), ("interface-0", "99x")],
@@ -76,7 +80,10 @@ mod tests {
         assert_eq!(response.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let body = text(response).await?;
         assert!(
-            body.contains(&en(keys::WEB_MIGRATE_MAP_ERROR_NAME, &[("name", "99x")])),
+            body.contains(&en_with(
+                keys::WEB_MIGRATE_MAP_ERROR_NAME,
+                &[("name", "99x")]
+            )),
             "{body}"
         );
         Ok(())

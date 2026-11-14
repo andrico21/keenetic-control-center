@@ -12,10 +12,7 @@ use tokio::{
     time::{sleep, timeout},
 };
 
-use crate::{
-    form,
-    support::{Fixture, TestResult},
-};
+use crate::support::{outcome::TestResult, page::form, web::Fixture};
 
 /// The CLI console's ordinary write.
 const LINE: &str = "system country DE";

@@ -11,9 +11,9 @@ mod tests {
     use kcc_i18n::{keys, locale::Locale};
 
     use crate::{
-        en,
         plan_screens::{counts, to_file_preview, to_file_review},
-        support::{Fixture, TestResult},
+        setup,
+        support::{outcome::TestResult, page::en},
     };
 
     /// A source whose only lines no firmware can build: nothing is sent.
@@ -26,7 +26,7 @@ mod tests {
     #[tokio::test]
     async fn the_preview_offers_apply_only_with_a_command_to_send() -> TestResult {
         for (source, sent, offered) in [(NOTHING, 0, false), (ONE, 1, true)] {
-            let fixture = Fixture::new().await?;
+            let fixture = setup::fixture().await?;
             let admin = fixture.login("admin").await?;
             let page = to_file_review(&fixture, &admin, source).await?;
             let preview = to_file_preview(&fixture, &admin, &page).await?;

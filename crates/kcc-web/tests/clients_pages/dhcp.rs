@@ -4,18 +4,21 @@
 
 use axum::http::StatusCode;
 use kcc_i18n::{keys, locale::Locale};
-use kcc_testkit::FaultInjection;
 
 use crate::{
-    form, router_said, row, said,
-    support::{Fixture, TestResult, header_text, text},
+    row,
+    support::{
+        outcome::TestResult,
+        page::{form, header_text, said, text},
+        web::Fixture,
+    },
 };
 
 /// The pools view.
 const PAGE: &str = "/ui/r/home/dhcp";
 
 /// A valid pool on the fixture's home network.
-const POOL: [(&str, &str); 8] = [
+pub(crate) const POOL: [(&str, &str); 8] = [
     ("name", "Pool23"),
     ("begin", "192.0.2.80"),
     ("end", "192.0.2.120"),
@@ -188,34 +191,6 @@ async fn a_static_lease_outside_every_pool_shows_the_field_error() -> TestResult
             .iter()
             .any(|entry| entry.action == "web.dhcp_static_lease"
                 && entry.outcome == "validation_failed"),
-        "audited"
-    );
-    Ok(())
-}
-
-#[tokio::test]
-async fn a_router_refusal_of_a_pool_shows_what_the_router_said() -> TestResult {
-    let fixture =
-        Fixture::with_faults(FaultInjection::default().fail_parse_matching("ip dhcp pool", 1))
-            .await?;
-    let operator = fixture.login("operator").await?;
-    let response = fixture
-        .post(&format!("{PAGE}/pools/edit"), &operator, &form(&POOL))
-        .await?;
-    assert_eq!(response.status(), StatusCode::OK, "answered");
-    let body = text(response).await?;
-    assert!(
-        body.contains(&said(Locale::En, keys::WEB_KIT_REJECTED)),
-        "localized: {body}"
-    );
-    let list = router_said(&body).ok_or("no router-said list")?;
-    assert!(!list.contains("Pool23"), "no request: {list}");
-    assert!(!body.contains("dhcp-region"), "nothing read back");
-    assert!(
-        fixture
-            .audit()?
-            .iter()
-            .any(|entry| entry.action == "web.dhcp_pool" && entry.outcome == "rci_error"),
         "audited"
     );
     Ok(())

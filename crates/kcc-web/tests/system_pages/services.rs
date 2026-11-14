@@ -11,8 +11,12 @@ use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::{Value, json};
 
 use crate::{
-    audited, cli_targets, en,
-    support::{Fixture, ROUTER, TestResult, header_text, text},
+    cli_targets,
+    support::{
+        outcome::TestResult,
+        page::{en, header_text, text},
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// The page under test.
@@ -194,10 +198,7 @@ async fn an_ordinary_service_is_turned_on_and_read_back() -> TestResult {
             .all(|target| target != "system configuration fail-safe timer"),
         "no fail-safe for an ordinary service"
     );
-    assert!(
-        audited(&fixture, "web.system_service", "success")?,
-        "audited"
-    );
+    assert!(fixture.audited("web.system_service", "success")?, "audited");
     Ok(())
 }
 
@@ -209,7 +210,7 @@ async fn ssh_asks_first_and_runs_inside_the_fail_safe_timer() -> TestResult {
     let denied = fixture.post(&toggle, &viewer, "").await?;
     assert_eq!(denied.status(), StatusCode::FORBIDDEN, "viewer");
     assert!(
-        audited(&fixture, "web.system_service", "forbidden")?,
+        fixture.audited("web.system_service", "forbidden")?,
         "audited"
     );
     let operator = fixture.login("operator").await?;
@@ -263,7 +264,7 @@ async fn unknown_services_and_router_refusals() -> TestResult {
         "router said"
     );
     assert!(
-        audited(&fixture, "web.system_service", "rci_error")?,
+        fixture.audited("web.system_service", "rci_error")?,
         "audited"
     );
     Ok(())

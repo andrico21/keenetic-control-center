@@ -12,7 +12,10 @@ mod tests {
 
     use axum::http::StatusCode;
 
-    use crate::support::{Fixture, TestResult, text};
+    use crate::{
+        setup,
+        support::{outcome::TestResult, page::text, web::Fixture},
+    };
 
     /// The id of the stored record.
     const ID: &str = "1600000000-8899aabbccddeeff";
@@ -41,7 +44,7 @@ mod tests {
 
     #[tokio::test]
     async fn an_earlier_run_record_opens_and_resumes() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let migrator = fixture.login("migrator").await?;
         let file = plant(&fixture, STORED)?;
         let page = format!("/ui/presets/runs/{ID}");
@@ -65,7 +68,7 @@ mod tests {
         let file_again = plant(&fixture, &review)?;
         assert_eq!(file_again, file, "the same record");
         let back = fixture
-            .post(&format!("{page}/back"), &migrator, &[("step", "options")])
+            .post_form(&format!("{page}/back"), &migrator, &[("step", "options")])
             .await?;
         assert_eq!(
             back.headers()
@@ -80,7 +83,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_run_record_with_an_unknown_field_does_not_open() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let migrator = fixture.login("migrator").await?;
         let unknown = STORED.replacen("\"schema\": 1,", "\"schema\": 1,\n  \"later\": true,", 1);
         drop(plant(&fixture, &unknown)?);

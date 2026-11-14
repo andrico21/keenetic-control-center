@@ -16,14 +16,18 @@ mod tests {
     use kcc_i18n::keys;
 
     use crate::{
-        en,
         flow::{DNS_LINES, apply, capture, finish, moved, redirected, seed, start, to_preview},
-        support::{Fixture, TestResult, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en_with, text},
+            web::Fixture,
+        },
     };
 
     #[tokio::test]
     async fn a_viewer_sees_no_change_control_and_every_change_is_refused() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Office DNS")).await?;
@@ -46,14 +50,14 @@ mod tests {
             "/ui/copy".to_owned(),
         ];
         for path in &posts {
-            let response = fixture.post(path, &viewer, &[]).await?;
+            let response = fixture.post_form(path, &viewer, &[]).await?;
             assert_eq!(response.status(), StatusCode::FORBIDDEN, "{path}");
         }
         let read = fixture
             .post_multipart(
                 "/ui/presets/new",
                 &viewer,
-                &[("kind", "router"), ("router", "prod-1")],
+                (&[("kind", "router"), ("router", "prod-1")], None),
             )
             .await?;
         assert_eq!(read.status(), StatusCode::FORBIDDEN, "no source is read");
@@ -64,7 +68,7 @@ mod tests {
     /// Parser commands `lab-1` received after the first `before` requests.
     fn commands(fixture: &Fixture, before: usize) -> TestResult<Vec<String>> {
         Ok(fixture
-            .handle("lab-1")?
+            .router("lab-1")?
             .request_log()
             .iter()
             .skip(before)
@@ -81,19 +85,19 @@ mod tests {
             ("keep", "no system configuration fail-safe timer"),
             ("save", "system configuration fail-safe commit"),
         ] {
-            let fixture = Fixture::new().await?;
+            let fixture = setup::fixture().await?;
             seed(&fixture, "prod-1", &DNS_LINES).await?;
             let operator = fixture.login("operator").await?;
             let id = capture(&fixture, &operator, "prod-1", (&["dns-secure"], "Office")).await?;
             let page = start(&fixture, &operator, &id).await?;
             to_preview(&fixture, &operator, &page, ("lab-1", "merge", &[])).await?;
-            let before = fixture.handle("lab-1")?.request_log().len();
+            let before = fixture.router("lab-1")?.request_log().len();
 
             let stream = apply(&fixture, &operator, &page).await?;
             finish(&fixture, &operator, &page, (way, &[])).await?;
 
             assert!(
-                stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])),
+                stream.contains(&en_with(keys::WEB_PRESETS_APPLIED, &[])),
                 "{way}: {stream}"
             );
             let sent = commands(&fixture, before)?;
@@ -107,7 +111,7 @@ mod tests {
                 matches!(order, [Some(arm), Some(line), Some(closed)] if arm < line && line < closed),
                 "{way}: {sent:?}"
             );
-            assert!(!fixture.handle("lab-1")?.recovery_armed(), "{way}");
+            assert!(!fixture.router("lab-1")?.recovery_armed(), "{way}");
             assert_eq!(fixture.outcomes("web.preset_apply")?, ["started"]);
             assert_eq!(fixture.outcomes(&format!("web.preset_{way}"))?, ["done"]);
         }
@@ -119,7 +123,7 @@ mod tests {
     // NOT cancel-safe: the fixture applies router settings.
     #[tokio::test]
     async fn an_operators_rollback_is_refused_before_any_router_request() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let operator = fixture.login("operator").await?;
         let id = capture(&fixture, &operator, "prod-1", (&["dns-secure"], "Office")).await?;
@@ -127,12 +131,12 @@ mod tests {
         to_preview(&fixture, &operator, &page, ("lab-1", "merge", &[])).await?;
         let stream = apply(&fixture, &operator, &page).await?;
         assert!(
-            stream.contains(&en(keys::WEB_PRESETS_APPLIED, &[])),
+            stream.contains(&en_with(keys::WEB_PRESETS_APPLIED, &[])),
             "{stream}"
         );
         moved(
             &fixture
-                .post(&format!("{page}/results"), &operator, &[])
+                .post_form(&format!("{page}/results"), &operator, &[])
                 .await?,
             &page,
         )?;
@@ -141,10 +145,10 @@ mod tests {
             !results.contains(&format!("hx-post=\"{page}/rollback\"")),
             "no rollback control for the operator: {results}"
         );
-        let before = fixture.handle("lab-1")?.request_count();
+        let before = fixture.router("lab-1")?.request_count();
 
         let refused = fixture
-            .post(
+            .post_form(
                 &format!("{page}/rollback"),
                 &operator,
                 &[("confirm", "yes"), ("confirm_name", "lab-1")],
@@ -152,15 +156,15 @@ mod tests {
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
-        assert_eq!(fixture.handle("lab-1")?.request_count(), before);
-        assert!(fixture.handle("lab-1")?.recovery_armed());
+        assert_eq!(fixture.router("lab-1")?.request_count(), before);
+        assert!(fixture.router("lab-1")?.recovery_armed());
         assert_eq!(fixture.outcomes("web.preset_rollback")?, ["forbidden"]);
         Ok(())
     }
 
     #[tokio::test]
     async fn a_role_scoped_to_lab_cannot_touch_prod_and_sends_nothing() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Office DNS")).await?;
@@ -179,12 +183,12 @@ mod tests {
             assert_eq!(page.status(), StatusCode::NOT_FOUND, "{path}");
         }
         let started = fixture
-            .post(&format!("/ui/presets/{id}/apply"), &scoped, &[])
+            .post_form(&format!("/ui/presets/{id}/apply"), &scoped, &[])
             .await?;
         assert_eq!(started.status(), StatusCode::NOT_FOUND, "no run of it");
-        let page = redirected(&fixture.post("/ui/copy", &scoped, &[]).await?)?;
+        let page = redirected(&fixture.post_form("/ui/copy", &scoped, &[]).await?)?;
         let source = fixture
-            .post(
+            .post_form(
                 &format!("{page}/source"),
                 &scoped,
                 &[("router", "prod-1"), ("group", "dns-secure")],
@@ -194,7 +198,7 @@ mod tests {
         assert!(
             text(source)
                 .await?
-                .contains(&en(keys::WEB_MIGRATE_SOURCE_ERROR_ROUTER, &[])),
+                .contains(&en_with(keys::WEB_MIGRATE_SOURCE_ERROR_ROUTER, &[])),
             "prod-1 is refused as the source"
         );
         assert_eq!(fixture.request_counts(), before, "no router was asked");
@@ -204,13 +208,13 @@ mod tests {
 
     #[tokio::test]
     async fn newer_settings_are_refused_by_an_older_target() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let id = capture(&fixture, &admin, "prod-1", (&["dns-secure"], "Office DNS")).await?;
         let page = start(&fixture, &admin, &id).await?;
         let refused = fixture
-            .post(&format!("{page}/target"), &admin, &[("router", "lab-2")])
+            .post_form(&format!("{page}/target"), &admin, &[("router", "lab-2")])
             .await?;
         assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let html = text(refused).await?;
@@ -222,7 +226,7 @@ mod tests {
         assert_eq!(fixture.outcomes("web.preset_target")?, ["refused"]);
         moved(
             &fixture
-                .post(&format!("{page}/target"), &admin, &[("router", "lab-1")])
+                .post_form(&format!("{page}/target"), &admin, &[("router", "lab-1")])
                 .await?,
             &page,
         )?;

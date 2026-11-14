@@ -11,9 +11,10 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 use serde_json::json;
 
-use crate::{
-    en, form,
-    support::{Fixture, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, text},
+    web::Fixture,
 };
 
 #[path = "bracket_batch.rs"]

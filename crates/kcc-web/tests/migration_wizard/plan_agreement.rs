@@ -23,7 +23,8 @@ mod tests {
         plan_screens::{
             Row, counts, escaped, rows, to_file_preview, to_file_review, to_mapped_review,
         },
-        support::{Fixture, TestResult, text},
+        setup,
+        support::{outcome::TestResult, page::text},
     };
 
     /// The two lines of finding F4 N74: a VLAN id and a command no firmware has.
@@ -46,7 +47,7 @@ mod tests {
             ("without-save", Locale::Ru),
             ("without-write-save", Locale::Kk),
         ] {
-            let fixture = Fixture::new().await?;
+            let fixture = setup::fixture().await?;
             let browser = fixture.login(username).await?;
             let page = to_file_review(&fixture, &browser, F4).await?;
             let review = text(fixture.get(&page, &browser).await?).await?;
@@ -79,7 +80,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_supported_line_is_sent_and_an_unsupported_one_left_out() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let source = "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\ninterface Bridge19\n description migrated-office\n!\nsystem f4bogus-command on\n";
         let page = to_file_review(&fixture, &admin, source).await?;
@@ -96,7 +97,7 @@ mod tests {
 
     #[tokio::test]
     async fn the_maps_still_shape_the_classification() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let source = "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\ninterface Vlan5\n description lab\n vlan-id 5\n!\ninterface Bridge1\n include GigabitEthernet0/1\n!\n";
         let file = (&[("kind", "file")][..], Some(source));
@@ -143,7 +144,7 @@ mod tests {
 
     #[tokio::test]
     async fn review_and_preview_agree_with_the_cli_and_mcp_plan() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let page = to_file_review(&fixture, &admin, MIXED).await?;
         let review = rows(&text(fixture.get(&page, &admin).await?).await?);
@@ -209,11 +210,11 @@ mod tests {
 
     #[tokio::test]
     async fn review_and_plan_agree_once_the_vlan_lines_are_excluded() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         let admin = fixture.login("admin").await?;
         let page = to_file_review(&fixture, &admin, MIXED).await?;
         let saved = fixture
-            .post(&format!("{page}/review"), &admin, &[("shown", "0")])
+            .post_form(&format!("{page}/review"), &admin, &[("shown", "0")])
             .await?;
         assert_eq!(saved.status(), StatusCode::NO_CONTENT, "excluded");
         let review = rows(&text(fixture.get(&page, &admin).await?).await?);

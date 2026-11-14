@@ -13,12 +13,16 @@ mod tests {
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
     use crate::{
-        en,
         flow::{
             NEW_PASSWORD, SOURCE_PASSWORD, apply, moved, seed_source, stream, to_preview, to_review,
         },
         secrets::{absent, source_hash},
-        support::{Fixture, TestResult, header_text, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en, header_text, text},
+            web::Fixture,
+        },
     };
 
     /// The `line` events of a stream.
@@ -41,13 +45,15 @@ mod tests {
 
     #[tokio::test]
     async fn the_nine_steps_end_with_the_target_committed() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let hash = source_hash(&fixture)?;
         let admin = fixture.login("admin").await?;
         let page = to_review(&fixture, &admin).await?;
         to_preview(&fixture, &admin, &page).await?;
-        let asked = fixture.post(&format!("{page}/apply"), &admin, &[]).await?;
+        let asked = fixture
+            .post_form(&format!("{page}/apply"), &admin, &[])
+            .await?;
         assert_eq!(
             header_text(&asked, "hx-retarget").as_deref(),
             Some("#dialog-content"),
@@ -83,7 +89,7 @@ mod tests {
         assert_eq!(lines(&replayed), sent, "the stream replays every line");
         moved(
             &fixture
-                .post(&format!("{page}/results"), &admin, &[])
+                .post_form(&format!("{page}/results"), &admin, &[])
                 .await?,
             &page,
         )?;
@@ -94,7 +100,9 @@ mod tests {
             "Commit, and the fail-safe countdown: {results}"
         );
         moved(
-            &fixture.post(&format!("{page}/commit"), &admin, &[]).await?,
+            &fixture
+                .post_form(&format!("{page}/commit"), &admin, &[])
+                .await?,
             &page,
         )?;
         let report = text(fixture.get(&page, &admin).await?).await?;
@@ -102,7 +110,7 @@ mod tests {
             report.contains(&en(keys::WEB_MIGRATE_FINISH_COMMITTED)),
             "step 9: {report}"
         );
-        let saved = fixture.handle("ultra")?.startup_config_text();
+        let saved = fixture.router("ultra")?.startup_config_text();
         for line in ["description migrated-office", "description office-network"] {
             assert!(saved.contains(line), "{line} is saved on the target");
         }
@@ -138,15 +146,15 @@ mod tests {
 
     #[tokio::test]
     async fn apply_names_missing_permissions_before_any_router_request() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let browser = fixture.login("without-write-save").await?;
         let page = to_review(&fixture, &browser).await?;
         to_preview(&fixture, &browser, &page).await?;
-        let before = fixture.handle("ultra")?.request_count();
+        let before = fixture.router("ultra")?.request_count();
 
         let refused = fixture
-            .post(&format!("{page}/apply"), &browser, &[("confirm", "yes")])
+            .post_form(&format!("{page}/apply"), &browser, &[("confirm", "yes")])
             .await?;
 
         assert_eq!(refused.status(), StatusCode::FORBIDDEN);
@@ -165,7 +173,7 @@ mod tests {
                 && !named(keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE),
             "the refusal names the missing permissions: {body}"
         );
-        assert_eq!(fixture.handle("ultra")?.request_count(), before);
+        assert_eq!(fixture.router("ultra")?.request_count(), before);
         assert_eq!(outcomes(&fixture, "web.migrate_apply")?, ["forbidden"]);
         Ok(())
     }
@@ -189,7 +197,7 @@ mod tests {
                 &[][..],
             ),
         ] {
-            let fixture = Fixture::new().await?;
+            let fixture = setup::fixture().await?;
             seed_source(&fixture).await?;
             let browser = fixture.login(username).await?;
             let page = to_review(&fixture, &browser).await?;
@@ -221,7 +229,7 @@ mod tests {
             );
         }
 
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let page = to_review(&fixture, &admin).await?;
@@ -236,7 +244,7 @@ mod tests {
 
     #[tokio::test]
     async fn a_second_apply_to_the_router_waits_for_the_first_to_finish() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed_source(&fixture).await?;
         let admin = fixture.login("admin").await?;
         let first = to_review(&fixture, &admin).await?;
@@ -249,7 +257,7 @@ mod tests {
             "{applied}"
         );
         let busy = fixture
-            .post(&format!("{second}/apply"), &admin, &[("confirm", "yes")])
+            .post_form(&format!("{second}/apply"), &admin, &[("confirm", "yes")])
             .await?;
         assert_eq!(busy.status(), StatusCode::UNPROCESSABLE_ENTITY, "refused");
         assert_eq!(
@@ -269,18 +277,18 @@ mod tests {
         );
         moved(
             &fixture
-                .post(&format!("{first}/results"), &admin, &[])
+                .post_form(&format!("{first}/results"), &admin, &[])
                 .await?,
             &first,
         )?;
         moved(
             &fixture
-                .post(&format!("{first}/commit"), &admin, &[])
+                .post_form(&format!("{first}/commit"), &admin, &[])
                 .await?,
             &first,
         )?;
         let changed = fixture
-            .post(&format!("{second}/apply"), &admin, &[("confirm", "yes")])
+            .post_form(&format!("{second}/apply"), &admin, &[("confirm", "yes")])
             .await?;
         assert_eq!(
             changed.status(),

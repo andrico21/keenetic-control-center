@@ -6,15 +6,19 @@ use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use crate::{
-    PAGE, audited, backup_names, en, form, get, html, post, sign_in,
-    support::{Fixture, ROUTER, TestResult, text},
+    PAGE, backup_names,
+    support::{
+        outcome::TestResult,
+        page::{en, form, html, text},
+        web::{Fixture, ROUTER},
+    },
     upload,
 };
 
 #[tokio::test]
 async fn a_raw_restore_refuses_another_model_before_anything_is_sent() -> TestResult {
     let fixture = Fixture::new().await?;
-    let admin = sign_in(&fixture, "admin").await?;
+    let admin = fixture.login("admin").await?;
     let giga = "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\nsystem\n description giga\n!\n";
     assert_eq!(
         upload(&fixture, &admin, ("giga.txt", giga.as_bytes()))
@@ -23,17 +27,17 @@ async fn a_raw_restore_refuses_another_model_before_anything_is_sent() -> TestRe
         StatusCode::OK,
         "stored"
     );
-    let page = text(get(&fixture, &admin, PAGE).await?).await?;
+    let page = text(fixture.get(PAGE, &admin).await?).await?;
     let name = backup_names(&page).into_iter().next().ok_or("one backup")?;
     let restore = format!("{PAGE}/backups/raw-restore?name={name}");
-    let operator = sign_in(&fixture, "operator").await?;
+    let operator = fixture.login("operator").await?;
     assert_eq!(
-        post(&fixture, &operator, (&restore, "")).await?.status(),
+        fixture.post(&restore, &operator, "").await?.status(),
         StatusCode::FORBIDDEN,
         "admin only"
     );
     let named = form(&[("confirm", "yes"), ("confirm_name", "home")]);
-    let refused = text(post(&fixture, &admin, (&restore, &named)).await?).await?;
+    let refused = text(fixture.post(&restore, &admin, &named).await?).await?;
     let mut args = FluentArgs::new();
     args.set("model", "KN-1010");
     args.set("router", "home");
@@ -54,7 +58,7 @@ async fn a_raw_restore_refuses_another_model_before_anything_is_sent() -> TestRe
         "the saved configuration is unchanged"
     );
     assert!(
-        audited(&fixture, "web.config_raw_restore", "hardware_mismatch")?,
+        fixture.audited("web.config_raw_restore", "hardware_mismatch")?,
         "audited"
     );
     Ok(())
@@ -63,10 +67,10 @@ async fn a_raw_restore_refuses_another_model_before_anything_is_sent() -> TestRe
 #[tokio::test]
 async fn the_wizard_link_follows_the_served_routes() -> TestResult {
     let fixture = Fixture::new().await?;
-    let admin = sign_in(&fixture, "admin").await?;
-    let wizard = get(&fixture, &admin, "/ui/migrate").await?.status() != StatusCode::NOT_FOUND;
-    drop(post(&fixture, &admin, (&format!("{PAGE}/backups"), "")).await?);
-    let page = text(get(&fixture, &admin, PAGE).await?).await?;
+    let admin = fixture.login("admin").await?;
+    let wizard = fixture.get("/ui/migrate", &admin).await?.status() != StatusCode::NOT_FOUND;
+    drop(fixture.post(&format!("{PAGE}/backups"), &admin, "").await?);
+    let page = text(fixture.get(PAGE, &admin).await?).await?;
     let name = backup_names(&page).into_iter().next().ok_or("one backup")?;
     let link = format!(
         "href=\"/ui/migrate?source=backup&#38;router=home&#38;backup={name}&#38;target=home\""
@@ -77,8 +81,8 @@ async fn the_wizard_link_follows_the_served_routes() -> TestResult {
         !wizard,
         "the notice instead"
     );
-    let reader = sign_in(&fixture, "viewer").await?;
-    let read = text(get(&fixture, &reader, PAGE).await?).await?;
+    let reader = fixture.login("viewer").await?;
+    let read = text(fixture.get(PAGE, &reader).await?).await?;
     assert!(
         !read.contains("/ui/migrate?") && !read.contains(&en(keys::WEB_CONFIG_WIZARD_MISSING)),
         "neither without Migrate"
@@ -89,9 +93,9 @@ async fn the_wizard_link_follows_the_served_routes() -> TestResult {
 #[tokio::test]
 async fn a_backup_of_the_same_model_restores_raw_after_the_router_name() -> TestResult {
     let fixture = Fixture::new().await?;
-    let admin = sign_in(&fixture, "admin").await?;
-    drop(post(&fixture, &admin, (&format!("{PAGE}/backups"), "")).await?);
-    let page = text(get(&fixture, &admin, PAGE).await?).await?;
+    let admin = fixture.login("admin").await?;
+    drop(fixture.post(&format!("{PAGE}/backups"), &admin, "").await?);
+    let page = text(fixture.get(PAGE, &admin).await?).await?;
     let name = backup_names(&page).into_iter().next().ok_or("one backup")?;
     let client = fixture.registry().client(ROUTER).await?;
     drop(
@@ -101,7 +105,7 @@ async fn a_backup_of_the_same_model_restores_raw_after_the_router_name() -> Test
     );
     drop(client.parse("system configuration save").await?);
     let restore = format!("{PAGE}/backups/raw-restore?name={name}");
-    let asked = text(post(&fixture, &admin, (&restore, "")).await?).await?;
+    let asked = text(fixture.post(&restore, &admin, "").await?).await?;
     assert!(
         asked.contains("name=\"confirm_name\""),
         "asks first: {asked}"
@@ -114,7 +118,7 @@ async fn a_backup_of_the_same_model_restores_raw_after_the_router_name() -> Test
         "nothing restored yet"
     );
     let named = form(&[("confirm", "yes"), ("confirm_name", "home")]);
-    let done = text(post(&fixture, &admin, (&restore, &named)).await?).await?;
+    let done = text(fixture.post(&restore, &admin, &named).await?).await?;
     let trail: Vec<String> = fixture
         .audit()?
         .into_iter()
@@ -133,7 +137,7 @@ async fn a_backup_of_the_same_model_restores_raw_after_the_router_name() -> Test
         "the backup is the saved configuration again"
     );
     assert!(
-        audited(&fixture, "web.config_raw_restore", "success")?,
+        fixture.audited("web.config_raw_restore", "success")?,
         "audited"
     );
     Ok(())

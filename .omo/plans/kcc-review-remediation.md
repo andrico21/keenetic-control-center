@@ -674,7 +674,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | test: one bracket matrix at the core, thin wiring per surface
   Recommended task executor category: unspecified-high - test consolidation across three crates with a coverage ledger
 
-- [ ] 47. Shared kcc-web test fixtures and table-driven page contracts
+- [x] 47. Shared kcc-web test fixtures and table-driven page contracts
   What to do / Must NOT do: Create one shared test support module for kcc-web (`crates/kcc-web/tests/support/mod.rs`, included with `#[path]` by each test binary): the byte-identical `html()`/`form()` helpers of `clients_pages.rs`, `dns_vpn_pages.rs`, `explorer_pages.rs`, `network_pages.rs`, `system_pages.rs`, `segments_page.rs`, `config_pages.rs`; merge `presets_pages/support.rs` and `migration_wizard/support.rs` (52 differing lines; parameterize them); move the inline fixtures of `dashboard.rs:1-373`, `admin_pages.rs:1-327`, `auth.rs:1-172`, `foundation.rs:1-145` into the shared builder. Replace the seven copies of `a_router_refusal_shows_only_what_the_router_said` and the 24 typed-name (`confirm_name`) tests with one table-driven test per page family. Ledger as in todo 46. Must NOT: weaken an assertion.
   Closes: GAP-12
   Parallelization: Wave W7 | Blocked by: 46 | Blocks: 48 | Can parallelize with: -

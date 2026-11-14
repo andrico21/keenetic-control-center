@@ -3,7 +3,7 @@
 
 use crate::{
     ROUTER_PAGES, add_lab_routers, every_link_lands, nav_links, open_ok,
-    support::{Fixture, TestResult, text},
+    support::{outcome::TestResult, page::text, web::Fixture},
 };
 
 /// On a router's page every section link opens that router's page of the section.

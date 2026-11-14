@@ -15,9 +15,15 @@ use kcc_app::{
 };
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, model::Profile};
 use serde_json::{Value, json};
-use url::form_urlencoded::Serializer;
 
-use crate::tests::{Fixture, TestResult, header_text, text};
+use crate::{
+    support::{
+        outcome::TestResult,
+        page::{form, header_text, text},
+        web::Fixture,
+    },
+    tests::fleet,
+};
 
 /// A dummy secret that appears nowhere else, built at run time.
 pub(super) fn dummy(label: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -25,14 +31,9 @@ pub(super) fn dummy(label: &str) -> Result<String, Box<dyn Error + Send + Sync>>
     Ok(format!("{label}-{nanos:x}-dummy"))
 }
 
-/// `pairs` form-encoded.
-pub(super) fn form(pairs: &[(&str, &str)]) -> String {
-    Serializer::new(String::new()).extend_pairs(pairs).finish()
-}
-
 /// The sealed record `name` in the fixture's credential directory.
 pub(super) fn sealed(fixture: &Fixture, name: &str) -> PathBuf {
-    fixture.state().join("router-credentials").join(name)
+    fixture.state_dir().join("router-credentials").join(name)
 }
 
 /// The stored origin of `id` without its trailing slash.
@@ -52,7 +53,7 @@ pub(super) fn audited(
     fixture: &Fixture,
     action: &str,
 ) -> Result<Value, Box<dyn Error + Send + Sync>> {
-    verify_chain(&fixture.state())?
+    verify_chain(&fixture.state_dir())?
         .into_iter()
         .rev()
         .find(|entry| entry.action == action)
@@ -65,7 +66,7 @@ pub(super) fn audit_holds(
     fixture: &Fixture,
     secret: &str,
 ) -> Result<bool, Box<dyn Error + Send + Sync>> {
-    let log = fs::read_to_string(fixture.state().join(AUDIT_FILE_NAME))?;
+    let log = fs::read_to_string(fixture.state_dir().join(AUDIT_FILE_NAME))?;
     Ok(log.contains(secret))
 }
 
@@ -73,7 +74,7 @@ pub(super) fn audit_holds(
 /// shows it, the audit entry names the kind alone.
 #[tokio::test]
 async fn adding_a_token_router_seals_the_token_and_never_renders_it() -> TestResult {
-    let fixture = Fixture::new(&[]).await?;
+    let fixture = fleet(&[]).await?;
     let browser = fixture.login("admin").await?;
     let token = dummy("token")?;
     let body = form(&[
@@ -137,7 +138,7 @@ async fn adding_a_token_router_seals_the_token_and_never_renders_it() -> TestRes
 /// is refused on its field and changes nothing.
 #[tokio::test]
 async fn moving_a_token_router_or_switching_its_mode_needs_the_new_credential() -> TestResult {
-    let fixture = Fixture::new(&[("foreign", Profile::default())]).await?;
+    let fixture = fleet(&[("foreign", Profile::default())]).await?;
     let browser = fixture.login("admin").await?;
     let token = dummy("token")?;
     let add = form(&[
@@ -205,7 +206,7 @@ async fn moving_a_token_router_or_switching_its_mode_needs_the_new_credential() 
 /// the audit entry names both kinds and no value.
 #[tokio::test]
 async fn switching_to_a_token_seals_it_and_removes_the_password() -> TestResult {
-    let fixture = Fixture::new(&[("home", Profile::default())]).await?;
+    let fixture = fleet(&[("home", Profile::default())]).await?;
     let browser = fixture.login("admin").await?;
     let url = origin(&fixture, "home")?;
     let password = form(&[

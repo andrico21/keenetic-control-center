@@ -4,9 +4,10 @@
 use axum::http::StatusCode;
 use kcc_i18n::keys;
 
-use crate::{
-    en, form, html,
-    support::{Fixture, ROUTER, TestResult, text},
+use crate::support::{
+    outcome::TestResult,
+    page::{en, form, html, text},
+    web::{Fixture, ROUTER},
 };
 
 /// Viewers and operators browse the explorer read-only; only administrators get the

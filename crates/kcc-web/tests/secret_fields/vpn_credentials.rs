@@ -5,8 +5,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    ROUTER, TraceCapture, assert_native_post, dummy, en, nowhere, stored,
-    support::{Browser, Fixture, TestResult, text},
+    ROUTER, TraceCapture, dummy, nowhere, setup, stored,
+    support::{
+        outcome::TestResult,
+        page::{assert_native_post, en_with, text},
+        web::{Browser, Fixture},
+    },
 };
 
 /// Posts the new value `secret` twice with `fields` to `path` as `browser`.
@@ -17,13 +21,13 @@ async fn set(
 ) -> TestResult<(StatusCode, String)> {
     let mut pairs = fields.to_vec();
     pairs.extend([("secret", secret), ("secret_again", secret)]);
-    let response = fixture.post(path, browser, &pairs).await?;
+    let response = fixture.post_form(path, browser, &pairs).await?;
     Ok((response.status(), text(response).await?))
 }
 
 /// An L2TP/IPsec connection with a password set on the router itself.
 async fn seeded() -> TestResult<Fixture> {
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let client = fixture.registry().client(ROUTER).await?;
     let first = dummy("seed", 8);
     drop(
@@ -47,7 +51,7 @@ async fn client_credentials_reach_the_router_and_nothing_else() -> TestResult {
         assert!(page.contains(action), "the row offers {action}: {page}");
     }
     let config = |current: &Fixture, prefix: &str| -> TestResult<Option<String>> {
-        let lines = current.handle(ROUTER)?.running_config_text();
+        let lines = current.router(ROUTER)?.running_config_text();
         Ok(stored(&lines, "interface L2TP0", prefix))
     };
     let seeded_password = config(&fixture, "authentication password ")?;
@@ -78,7 +82,7 @@ async fn client_credentials_reach_the_router_and_nothing_else() -> TestResult {
         let (status, _) = set(&fixture, &operator, (path, &[], &password)).await?;
         assert_eq!(status, StatusCode::NOT_FOUND, "{path}: not on the router");
     }
-    let config_now = fixture.handle(ROUTER)?.running_config_text();
+    let config_now = fixture.router(ROUTER)?.running_config_text();
     assert!(
         !config_now.contains("L2TP9") && !config_now.contains("xauth"),
         "nothing written"
@@ -92,11 +96,11 @@ async fn client_credentials_reach_the_router_and_nothing_else() -> TestResult {
 #[tokio::test]
 async fn server_credentials_reach_the_router_and_nothing_else() -> TestResult {
     let trace = TraceCapture::install();
-    let fixture = Fixture::new().await?;
+    let fixture = setup::fixture().await?;
     let admin = fixture.login("admin").await?;
     let named = [("name", "bob"), ("confirm", "yes")];
     let added = fixture
-        .post("/ui/r/prod-1/system/users", &admin, &named)
+        .post_form("/ui/r/prod-1/system/users", &admin, &named)
         .await?;
     assert_eq!(added.status(), StatusCode::OK, "bob added");
     let page = text(fixture.get("/ui/r/prod-1/vpn/servers", &admin).await?).await?;
@@ -115,7 +119,7 @@ async fn server_credentials_reach_the_router_and_nothing_else() -> TestResult {
     )
     .await?;
     assert_eq!(status, StatusCode::OK, "IKE key written: {keyed}");
-    let keyed_config = fixture.handle(ROUTER)?.running_config_text();
+    let keyed_config = fixture.router(ROUTER)?.running_config_text();
     assert!(
         keyed_config.contains("crypto ike key VirtualIPServer ns3 "),
         "stored encoded"
@@ -140,10 +144,10 @@ async fn server_credentials_reach_the_router_and_nothing_else() -> TestResult {
         StatusCode::OK,
         "account password written: {changed}"
     );
-    let user_config = fixture.handle(ROUTER)?.running_config_text();
+    let user_config = fixture.router(ROUTER)?.running_config_text();
     let digest = stored(&user_config, "user bob", "password md5 ").ok_or("no digest")?;
     assert_eq!(digest.len(), 32, "a digest of the expected length");
-    let before = fixture.handle(ROUTER)?.request_count();
+    let before = fixture.router(ROUTER)?.request_count();
     let login = [("account", "admin"), ("confirm", "yes")];
     let (refused_status, refused) = set(&fixture, &admin, (path, &login, &password)).await?;
     assert_eq!(
@@ -152,11 +156,11 @@ async fn server_credentials_reach_the_router_and_nothing_else() -> TestResult {
         "kcc's own login"
     );
     assert!(
-        refused.contains(&en(keys::WEB_SECRET_USER_PROTECTED, &[])),
+        refused.contains(&en_with(keys::WEB_SECRET_USER_PROTECTED, &[])),
         "localized"
     );
     assert_eq!(
-        fixture.handle(ROUTER)?.request_count(),
+        fixture.router(ROUTER)?.request_count(),
         before,
         "nothing sent"
     );
@@ -197,7 +201,7 @@ async fn a_viewer_sees_no_secret_control_and_is_refused() -> TestResult {
         }
     }
     let secret = dummy("viewer", 1);
-    let before = fixture.handle(ROUTER)?.request_count();
+    let before = fixture.router(ROUTER)?.request_count();
     for path in [
         "/ui/r/prod-1/wifi/psk?name=WifiMaster1%2FAccessPoint0",
         "/ui/r/prod-1/internet/password?name=L2TP0",
@@ -224,7 +228,7 @@ async fn a_viewer_sees_no_secret_control_and_is_refused() -> TestResult {
     let (status, _) = set(&fixture, &scoped, (path, &[], &secret)).await?;
     assert_eq!(status, StatusCode::FORBIDDEN, "outside the role's routers");
     assert_eq!(
-        fixture.handle(ROUTER)?.request_count(),
+        fixture.router(ROUTER)?.request_count(),
         before,
         "the router heard nothing"
     );

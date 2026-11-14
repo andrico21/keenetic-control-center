@@ -2,6 +2,13 @@
 //! policy, the generic localized 404 page, and the template lint (no inline style or
 //! script, no `hx-on`, no visible text outside `t(...)`).
 
+#[expect(
+    dead_code,
+    reason = "the shared Web UI test support; this suite needs part of it"
+)]
+#[path = "support/mod.rs"]
+mod support;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -23,22 +30,16 @@ mod tests {
         response::Response,
     };
     use base64::{Engine as _, engine::general_purpose::STANDARD};
-    use kcc_app::{
-        accounts::{AccountStore, Clock, SystemClock},
-        audit::AuditLog,
-        permissions::built_in_roles,
-        persist::StateStore,
-        secrets::MasterKey,
-    };
-    use kcc_i18n::locale::Locale;
-    use kcc_web::{
-        BODY_LIMIT, WebState, WebStateConfig, nav::Section, session::CookieSecurity, web_router,
-    };
+    use kcc_app::{accounts::SystemClock, permissions::built_in_roles};
+    use kcc_web::{BODY_LIMIT, nav::Section, session::CookieSecurity, web_router};
     use sha2::{Digest as _, Sha256};
     use tower::ServiceExt as _;
 
-    /// Fallible test result.
-    type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
+    use crate::support::{
+        base::Core,
+        outcome::TestResult,
+        page::{header_text, text},
+    };
 
     /// Largest response body a test reads.
     const BODY_CAP: usize = 0x0040_0000;
@@ -68,28 +69,15 @@ mod tests {
     const TEMPLATE_DELIMITERS: [(&str, &str); 3] = [("{#", "#}"), ("{%", "%}"), ("{{", "}}")];
 
     /// The router under test, with English as the configured default locale.
-    fn router() -> Result<Router, Box<dyn Error + Send + Sync>> {
-        let directory = tempfile::tempdir()?.keep();
-        let state = StateStore::open(&directory.join("state"))?;
-        let clock: Arc<dyn Clock> = Arc::new(SystemClock::default());
-        let accounts = Arc::new(AccountStore::new(
-            state.clone(),
-            MasterKey::generate()?,
-            Duration::from_secs(60),
-            Arc::clone(&clock),
-        ));
-        let audit = AuditLog::spawn(&state)?;
-        Ok(web_router(WebState::new(WebStateConfig {
-            default_locale: Locale::En,
-            accounts,
-            audit,
-            roles: Vec::from(built_in_roles()),
-            session_idle: Duration::from_secs(30),
-            session_absolute: Duration::from_secs(300),
-            allowed_origins: vec!["http://127.0.0.1:8080".to_owned()],
-            cookie_security: CookieSecurity::LoopbackHttp,
-            clock,
-        })))
+    fn router() -> TestResult<Router> {
+        let core = Core::new(Arc::new(SystemClock::default()), &[])?;
+        let web = core.web(
+            Vec::from(built_in_roles()),
+            (Duration::from_secs(30), Duration::from_secs(300)),
+            CookieSecurity::LoopbackHttp,
+        );
+        drop(core.directory.keep());
+        Ok(web_router(web))
     }
 
     /// Sends one request through the router.
@@ -98,7 +86,7 @@ mod tests {
         path: &str,
         headers: &[(HeaderName, &str)],
         body: Body,
-    ) -> Result<Response, Box<dyn Error + Send + Sync>> {
+    ) -> TestResult<Response> {
         let mut request = Request::builder().method(method).uri(path);
         for (name, value) in headers {
             request = request.header(name, *value);
@@ -107,26 +95,8 @@ mod tests {
     }
 
     /// Sends `GET path` with `headers`.
-    async fn get(
-        path: &str,
-        headers: &[(HeaderName, &str)],
-    ) -> Result<Response, Box<dyn Error + Send + Sync>> {
+    async fn get(path: &str, headers: &[(HeaderName, &str)]) -> TestResult<Response> {
         send(Method::GET, path, headers, Body::empty()).await
-    }
-
-    /// The response body as text.
-    async fn text(response: Response) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
-        Ok(String::from_utf8(bytes.to_vec())?)
-    }
-
-    /// One response header as text.
-    fn header_text(response: &Response, name: &HeaderName) -> Option<String> {
-        response
-            .headers()
-            .get(name)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned)
     }
 
     /// The opening tags named `name` (`<script`, `<link`, ...) in `html`, up to their `>`.
@@ -149,7 +119,7 @@ mod tests {
             let response = get(path, &[]).await?;
             assert_eq!(response.status(), StatusCode::SEE_OTHER, "{path}");
             assert_eq!(
-                header_text(&response, &header::LOCATION).as_deref(),
+                header_text(&response, header::LOCATION.as_str()).as_deref(),
                 Some("/ui/login"),
                 "{path}"
             );
@@ -176,12 +146,12 @@ mod tests {
         let response = get(src, &[]).await?;
         assert_eq!(response.status(), StatusCode::OK, "{src}");
         assert_eq!(
-            header_text(&response, &header::CONTENT_TYPE).as_deref(),
+            header_text(&response, header::CONTENT_TYPE.as_str()).as_deref(),
             Some("text/javascript; charset=utf-8"),
             "script content type"
         );
         assert_eq!(
-            header_text(&response, &header::CACHE_CONTROL).as_deref(),
+            header_text(&response, header::CACHE_CONTROL.as_str()).as_deref(),
             Some("public, max-age=31536000, immutable"),
             "immutable cache"
         );
@@ -200,7 +170,7 @@ mod tests {
         let css = get(href, &[]).await?;
         assert_eq!(css.status(), StatusCode::OK, "{href}");
         assert_eq!(
-            header_text(&css, &header::CONTENT_TYPE).as_deref(),
+            header_text(&css, header::CONTENT_TYPE.as_str()).as_deref(),
             Some("text/css; charset=utf-8"),
             "stylesheet content type"
         );
@@ -223,7 +193,7 @@ mod tests {
         .await?;
         assert_eq!(response.status(), StatusCode::SEE_OTHER, "status");
         assert_eq!(
-            header_text(&response, &header::LOCATION).as_deref(),
+            header_text(&response, header::LOCATION.as_str()).as_deref(),
             Some("/ui/login"),
             "authentication precedes path disclosure"
         );
@@ -265,7 +235,7 @@ mod tests {
                 section.href()
             );
             assert_eq!(
-                header_text(&response, &header::LOCATION).as_deref(),
+                header_text(&response, header::LOCATION.as_str()).as_deref(),
                 Some("/ui/login"),
                 "{}",
                 section.href()

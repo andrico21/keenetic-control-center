@@ -13,14 +13,17 @@ mod tests {
     use kcc_i18n::keys;
 
     use crate::{
-        en,
         flow::{DNS_LINES, redirected, seed},
-        support::{Fixture, TestResult, text},
+        setup,
+        support::{
+            outcome::TestResult,
+            page::{en_with, text},
+        },
     };
 
     #[tokio::test]
     async fn a_dns_secure_preset_is_captured_from_a_router() -> TestResult {
-        let fixture = Fixture::new().await?;
+        let fixture = setup::fixture().await?;
         seed(&fixture, "prod-1", &DNS_LINES).await?;
         let admin = fixture.login("admin").await?;
         let form = text(fixture.get("/ui/presets/new", &admin).await?).await?;
@@ -32,12 +35,12 @@ mod tests {
             .post_multipart(
                 "/ui/presets/new",
                 &admin,
-                &[("kind", "router"), ("router", "prod-1")],
+                (&[("kind", "router"), ("router", "prod-1")], None),
             )
             .await?;
         let draft = redirected(&read)?;
         let groups = text(fixture.get(&draft, &admin).await?).await?;
-        let counted = en(keys::WEB_PRESETS_GROUP_COUNT, &[("count", "2")]);
+        let counted = en_with(keys::WEB_PRESETS_GROUP_COUNT, &[("count", "2")]);
         assert!(
             groups.contains("value=\"dns-secure\"")
                 && groups.contains(&format!(
@@ -47,7 +50,7 @@ mod tests {
         );
         let preview = text(
             fixture
-                .post(
+                .post_form(
                     &format!("{draft}/preview"),
                     &admin,
                     &[("group", "dns-secure")],
@@ -59,7 +62,7 @@ mod tests {
             assert!(preview.contains(line), "{line} is captured: {preview}");
         }
         let unnamed = fixture
-            .post(&draft, &admin, &[("group", "dns-secure")])
+            .post_form(&draft, &admin, &[("group", "dns-secure")])
             .await?;
         assert_eq!(
             unnamed.status(),
@@ -69,11 +72,11 @@ mod tests {
         assert!(
             text(unnamed)
                 .await?
-                .contains(&en(keys::WEB_PRESETS_ERROR_NAME, &[])),
+                .contains(&en_with(keys::WEB_PRESETS_ERROR_NAME, &[])),
             "says why"
         );
         let saved = fixture
-            .post(
+            .post_form(
                 &draft,
                 &admin,
                 &[("group", "dns-secure"), ("name", "Office DNS")],

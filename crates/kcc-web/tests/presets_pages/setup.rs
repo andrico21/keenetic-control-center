@@ -1,66 +1,61 @@
-//! Building the fixture's parts: its accounts and roles, and the fake routers registered
-//! as profiles.
+//! The presets pages' fixture: its accounts and roles, and the fake routers it serves.
 #![expect(
     clippy::missing_errors_doc,
     reason = "test support is not rendered API documentation; every error fails the test"
 )]
 
-use alloc::sync::Arc;
-use core::{net::SocketAddr, time::Duration};
-use std::path::Path;
-
-use kcc_app::{
-    accounts::{AccountStore, Clock, NewAccount},
-    permissions::{Permission, Role, built_in_roles},
-    persist::StateStore,
-    registry::{ManagedRouterProfile, RouterRegistry},
-    secrets::MasterKey,
-};
+use kcc_app::permissions::{Permission, Role, built_in_roles};
 use kcc_testkit::{
-    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, FaultInjection, Handle, migration,
+    FakeRouter, FaultInjection, migration,
     model::{Firmware, Model, Profile},
 };
-use secrecy::SecretString;
-use url::Url;
 
-use crate::support::TestResult;
+use crate::support::{
+    base::Account,
+    build::{Setup, Wiring},
+    outcome::TestResult,
+    web::Fixture,
+};
 
 /// One account per built-in role, `migrator` (every permission but `RevealSecrets`) and
 /// `scoped` (`migrator`'s permissions on `lab-*` routers only).
-pub(crate) fn accounts(
-    state: &StateStore,
-    clock: &Arc<dyn Clock>,
-    password: &str,
-) -> TestResult<Arc<AccountStore>> {
-    let accounts = Arc::new(AccountStore::new(
-        state.clone(),
-        MasterKey::generate()?,
-        Duration::from_secs(60),
-        Arc::clone(clock),
-    ));
-    for (name, role, locale) in [
-        ("viewer", "viewer", "en"),
-        ("operator", "operator", "en"),
-        ("admin", "admin", "en"),
-        ("migrator", "migrator", "en"),
-        ("scoped", "lab-migrator", "en"),
-        ("without-save", "without-save", "ru"),
-        ("without-write-save", "without-write-save", "kk"),
-    ] {
-        accounts.create(
-            NewAccount::new(
-                name.to_owned(),
-                SecretString::from(password.to_owned()),
-                role.to_owned(),
-            )
-            .with_locale(locale.to_owned()),
-        )?;
+const ACCOUNTS: [Account<'static>; 7] = [
+    ("viewer", "viewer", Some("en")),
+    ("operator", "operator", Some("en")),
+    ("admin", "admin", Some("en")),
+    ("migrator", "migrator", Some("en")),
+    ("scoped", "lab-migrator", Some("en")),
+    ("without-save", "without-save", Some("ru")),
+    ("without-write-save", "without-write-save", Some("kk")),
+];
+
+/// The fixture.
+pub(crate) async fn fixture() -> TestResult<Fixture> {
+    with_faults(FaultInjection::default()).await
+}
+
+/// The fixture with target-router faults for recovery outcomes.
+// NOT cancel-safe: fixture services may start before cancellation.
+pub(crate) async fn with_faults(faults: FaultInjection) -> TestResult<Fixture> {
+    with_mode("router", faults).await
+}
+
+/// The fixture whose target `lab-1` reports `mode` and has `faults`.
+// NOT cancel-safe: fixture services may start before cancellation.
+pub(crate) async fn with_mode(mode: &str, faults: FaultInjection) -> TestResult<Fixture> {
+    Setup {
+        accounts: ACCOUNTS.to_vec(),
+        roles: roles(),
+        routers: routers(mode, faults)?,
+        wiring: Wiring::Wizards,
+        ..Setup::default()
     }
-    Ok(accounts)
+    .build()
+    .await
 }
 
 /// The built-in roles, `migrator` and `lab-migrator`.
-pub(crate) fn roles() -> Vec<Role> {
+fn roles() -> Vec<Role> {
     let applying = [
         Permission::Read,
         Permission::Write,
@@ -101,19 +96,14 @@ pub(crate) fn roles() -> Vec<Role> {
     roles
 }
 
-/// Serves `prod-1`, `lab-1` (in router mode) and `lab-2`, and registers them in
-/// `registry` with password files in `directory`.
-pub(crate) async fn routers(
-    directory: &Path,
-    registry: &RouterRegistry,
-    (mode, faults): (&str, FaultInjection),
-) -> TestResult<Vec<(&'static str, Handle)>> {
+/// `prod-1`, `lab-1` (in `mode`, with `faults`) and `lab-2`.
+fn routers(mode: &str, faults: FaultInjection) -> TestResult<Vec<(&'static str, FakeRouter)>> {
     let router_mode = || {
         let mut fixture = migration::Fixture::default();
         fixture.mode = Some(mode.to_owned());
         fixture
     };
-    let routers = [
+    Ok(vec![
         (
             "prod-1",
             FakeRouter::builder(Profile::default())
@@ -131,28 +121,5 @@ pub(crate) async fn routers(
             "lab-2",
             FakeRouter::builder(Profile::new(Model::Kn1811, Firmware::V4_3)?).build()?,
         ),
-    ];
-    let admin = built_in_roles()
-        .into_iter()
-        .find(|role| role.name == "admin")
-        .ok_or("no admin role")?;
-    let mut handles = Vec::new();
-    for (id, fake) in routers {
-        let (address, handle) = fake.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
-        let password_file =
-            kcc_testkit::write_secret_file(directory, &format!("{id}-password"), DEFAULT_PASSWORD)?;
-        registry
-            .create(
-                &admin,
-                ManagedRouterProfile::new(
-                    id.to_owned(),
-                    Url::parse(&format!("http://{address}"))?,
-                    DEFAULT_LOGIN.to_owned(),
-                    password_file,
-                ),
-            )
-            .await?;
-        handles.push((id, handle));
-    }
-    Ok(handles)
+    ])
 }

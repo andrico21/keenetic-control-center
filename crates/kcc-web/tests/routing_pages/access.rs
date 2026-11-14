@@ -8,8 +8,12 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    audited, get, post, said,
-    support::{Fixture, ROUTER, TestResult},
+    get, post,
+    support::{
+        outcome::TestResult,
+        page::en,
+        web::{Fixture, ROUTER},
+    },
 };
 
 /// Every page of the family.
@@ -109,12 +113,12 @@ async fn a_viewer_reads_every_page_and_is_refused_every_change() -> TestResult {
     for page in PAGES {
         let body = get(&fixture, &viewer, page, StatusCode::OK).await?;
         for control in [
-            said(keys::WEB_ROUTING_ADD),
-            said(keys::WEB_ROUTING_POLICY_ADD),
-            said(keys::WEB_NAT_ADD),
-            said(keys::WEB_FIREWALL_ADD),
-            said(keys::WEB_FIREWALL_BIND),
-            said(keys::WEB_ROUTING_REMOVE),
+            en(keys::WEB_ROUTING_ADD),
+            en(keys::WEB_ROUTING_POLICY_ADD),
+            en(keys::WEB_NAT_ADD),
+            en(keys::WEB_FIREWALL_ADD),
+            en(keys::WEB_FIREWALL_BIND),
+            en(keys::WEB_ROUTING_REMOVE),
         ] {
             assert!(!body.contains(&control), "{page} shows {control}");
         }
@@ -135,7 +139,7 @@ async fn a_viewer_reads_every_page_and_is_refused_every_change() -> TestResult {
         "web.firewall_rule_add",
         "web.firewall_bind",
     ] {
-        assert!(audited(&fixture, action, "forbidden")?, "{action} audited");
+        assert!(fixture.audited(action, "forbidden")?, "{action} audited");
     }
     Ok(())
 }

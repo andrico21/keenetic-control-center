@@ -4,15 +4,19 @@ use axum::http::StatusCode;
 use kcc_i18n::keys;
 
 use crate::{
-    PAGE, audited, en, form, get, post, sign_in,
-    support::{Fixture, TestResult, text},
+    PAGE,
+    support::{
+        outcome::TestResult,
+        page::{en, form, text},
+        web::Fixture,
+    },
 };
 
 #[tokio::test]
 async fn each_role_sees_the_state_and_only_the_controls_it_may_use() -> TestResult {
     let fixture = Fixture::new().await?;
-    let admin = sign_in(&fixture, "admin").await?;
-    let created = post(&fixture, &admin, (&format!("{PAGE}/backups"), "")).await?;
+    let admin = fixture.login("admin").await?;
+    let created = fixture.post(&format!("{PAGE}/backups"), &admin, "").await?;
     assert_eq!(created.status(), StatusCode::OK, "a backup to act on");
     let create = "hx-post=\"/ui/r/home/config/backups\"";
     let upload = "hx-get=\"/ui/r/home/config/upload\"";
@@ -24,8 +28,8 @@ async fn each_role_sees_the_state_and_only_the_controls_it_may_use() -> TestResu
         ("operator", true, false),
         ("admin", true, true),
     ] {
-        let signed = sign_in(&fixture, account).await?;
-        let response = get(&fixture, &signed, PAGE).await?;
+        let signed = fixture.login(account).await?;
+        let response = fixture.get(PAGE, &signed).await?;
         assert_eq!(response.status(), StatusCode::OK, "{account}");
         let page = text(response).await?;
         for shown in [
@@ -57,7 +61,7 @@ async fn each_role_sees_the_state_and_only_the_controls_it_may_use() -> TestResu
 #[tokio::test]
 async fn a_viewer_cannot_change_anything() -> TestResult {
     let fixture = Fixture::new().await?;
-    let viewer = sign_in(&fixture, "viewer").await?;
+    let viewer = fixture.login("viewer").await?;
     for path in [
         "/backups",
         "/backups/upload",
@@ -67,24 +71,24 @@ async fn a_viewer_cannot_change_anything() -> TestResult {
         "/commit",
         "/rollback",
     ] {
-        let response = post(&fixture, &viewer, (&format!("{PAGE}{path}"), "")).await?;
+        let response = fixture.post(&format!("{PAGE}{path}"), &viewer, "").await?;
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "{path}");
     }
-    let dialog = get(&fixture, &viewer, &format!("{PAGE}/upload")).await?;
+    let dialog = fixture.get(&format!("{PAGE}/upload"), &viewer).await?;
     assert_eq!(dialog.status(), StatusCode::FORBIDDEN, "upload dialog");
-    let full = get(
-        &fixture,
-        &viewer,
-        &format!("{PAGE}/backups/download?name=1700000000-manual.txt&full=yes"),
-    )
-    .await?;
+    let full = fixture
+        .get(
+            &format!("{PAGE}/backups/download?name=1700000000-manual.txt&full=yes"),
+            &viewer,
+        )
+        .await?;
     assert_eq!(full.status(), StatusCode::FORBIDDEN, "secrets");
     assert!(
-        audited(&fixture, "web.config_backup_create", "forbidden")?,
+        fixture.audited("web.config_backup_create", "forbidden")?,
         "refusals are audited"
     );
     assert!(
-        audited(&fixture, "web.config_backup_download", "forbidden")?,
+        fixture.audited("web.config_backup_download", "forbidden")?,
         "the secret download refusal too"
     );
     assert_eq!(fixture.backups()?, 0, "nothing stored");
@@ -94,31 +98,31 @@ async fn a_viewer_cannot_change_anything() -> TestResult {
 #[tokio::test]
 async fn the_router_must_exist_and_be_in_scope() -> TestResult {
     let fixture = Fixture::new().await?;
-    let admin = sign_in(&fixture, "admin").await?;
+    let admin = fixture.login("admin").await?;
     for missing in ["/ui/r/nope/config", "/ui/r/Bad!/config"] {
-        let response = get(&fixture, &admin, missing).await?;
+        let response = fixture.get(missing, &admin).await?;
         assert_eq!(response.status(), StatusCode::NOT_FOUND, "{missing}");
     }
-    let outsider = sign_in(&fixture, "outsider").await?;
-    let page = get(&fixture, &outsider, PAGE).await?;
+    let outsider = fixture.login("outsider").await?;
+    let page = fixture.get(PAGE, &outsider).await?;
     assert_eq!(page.status(), StatusCode::FORBIDDEN, "out of scope");
-    let create = post(&fixture, &outsider, (&format!("{PAGE}/backups"), "")).await?;
+    let create = fixture
+        .post(&format!("{PAGE}/backups"), &outsider, "")
+        .await?;
     assert_eq!(create.status(), StatusCode::FORBIDDEN, "no action either");
-    let landing = text(get(&fixture, &admin, "/ui/configuration").await?).await?;
+    let landing = text(fixture.get("/ui/configuration", &admin).await?).await?;
     assert!(
         landing.contains("href=\"/ui/r/home/config\""),
         "the landing links the page: {landing}"
     );
     let confirmed = form(&[("confirm", "yes"), ("confirm_name", "home")]);
-    let gone = post(
-        &fixture,
-        &admin,
-        (
+    let gone = fixture
+        .post(
             &format!("{PAGE}/backups/delete?name=1700000000-manual.txt"),
+            &admin,
             &confirmed,
-        ),
-    )
-    .await?;
+        )
+        .await?;
     assert_eq!(gone.status(), StatusCode::NOT_FOUND, "unknown backup");
     Ok(())
 }

@@ -17,8 +17,12 @@ use kcc_i18n::{
 };
 
 use crate::{
-    html, key, said,
-    support::{Fixture, TestResult, header_text, text},
+    key,
+    support::{
+        outcome::TestResult,
+        page::{header_text, html, said, text},
+        web::Fixture,
+    },
 };
 
 /// The only browser origin the fixture accepts.

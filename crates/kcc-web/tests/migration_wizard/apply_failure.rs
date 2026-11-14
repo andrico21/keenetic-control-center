@@ -14,19 +14,21 @@ mod tests {
     use kcc_testkit::FaultInjection;
 
     use crate::{
-        en,
         flow::{apply, form_values, moved, seed_source, to_preview, to_review},
-        start,
-        support::{Fixture, TestResult, text},
+        setup, start,
+        support::{
+            outcome::TestResult,
+            page::{en, text},
+        },
     };
 
     #[tokio::test]
     async fn a_refused_setting_stops_the_apply_and_the_rollback_restores_the_router() -> TestResult
     {
         let faults = FaultInjection::default().fail_parse_matching("migrated-office", 1);
-        let fixture = Fixture::with_target_faults(faults).await?;
+        let fixture = setup::with_target_faults(faults).await?;
         seed_source(&fixture).await?;
-        let before = fixture.handle("ultra")?.startup_config_text();
+        let before = fixture.router("ultra")?.startup_config_text();
         let admin = fixture.login("admin").await?;
         let page = to_review(&fixture, &admin).await?;
         to_preview(&fixture, &admin, &page).await?;
@@ -36,7 +38,9 @@ mod tests {
                 && stopped.contains(&en(keys::WEB_MIGRATE_FAILURE_STOPPED)),
             "the refused line and why the apply stopped: {stopped}"
         );
-        let stop = fixture.post(&format!("{page}/stop"), &admin, &[]).await?;
+        let stop = fixture
+            .post_form(&format!("{page}/stop"), &admin, &[])
+            .await?;
         assert!(
             text(stop)
                 .await?
@@ -45,7 +49,7 @@ mod tests {
         );
         moved(
             &fixture
-                .post(&format!("{page}/results"), &admin, &[])
+                .post_form(&format!("{page}/results"), &admin, &[])
                 .await?,
             &page,
         )?;
@@ -56,13 +60,13 @@ mod tests {
             "roll back, never commit a stopped apply: {results}"
         );
         let rollback = format!("{page}/rollback");
-        let asked = fixture.post(&rollback, &admin, &[]).await?;
+        let asked = fixture.post_form(&rollback, &admin, &[]).await?;
         assert!(
             text(asked).await?.contains("name=\"confirm_name\""),
             "the router name is asked"
         );
         let wrong = fixture
-            .post(
+            .post_form(
                 &rollback,
                 &admin,
                 &[("confirm", "yes"), ("confirm_name", "giga")],
@@ -73,7 +77,7 @@ mod tests {
             "a wrong name is refused"
         );
         let rolled = fixture
-            .post(
+            .post_form(
                 &rollback,
                 &admin,
                 &[("confirm", "yes"), ("confirm_name", "ultra")],
@@ -85,7 +89,7 @@ mod tests {
             report.contains(&en(keys::WEB_MIGRATE_FINISH_ROLLED_BACK)),
             "step 9: {report}"
         );
-        let target = fixture.handle("ultra")?;
+        let target = fixture.router("ultra")?;
         assert_eq!(
             target.startup_config_text(),
             before,
@@ -104,7 +108,7 @@ mod tests {
     -> TestResult {
         let unsupported = "future command value";
         let faults = FaultInjection::default().fail_parse_matching(unsupported, 1);
-        let fixture = Fixture::with_target_faults(faults).await?;
+        let fixture = setup::with_target_faults(faults).await?;
         let admin = fixture.login("admin").await?;
         let page = start(&fixture, &admin).await?;
         let source = format!(
@@ -112,24 +116,23 @@ mod tests {
         );
         moved(
             &fixture
-                .post_source(
+                .post_multipart(
                     &format!("{page}/source"),
                     &admin,
-                    &[("kind", "file")],
-                    Some(&source),
+                    (&[("kind", "file")], Some(&source)),
                 )
                 .await?,
             &page,
         )?;
         moved(
             &fixture
-                .post(&format!("{page}/target"), &admin, &[("router", "ultra")])
+                .post_form(&format!("{page}/target"), &admin, &[("router", "ultra")])
                 .await?,
             &page,
         )?;
         moved(
             &fixture
-                .post(&format!("{page}/target/continue"), &admin, &[])
+                .post_form(&format!("{page}/target/continue"), &admin, &[])
                 .await?,
             &page,
         )?;
@@ -141,7 +144,7 @@ mod tests {
             .collect::<Vec<_>>();
         moved(
             &fixture
-                .post(&format!("{page}/mapping"), &admin, &pairs)
+                .post_form(&format!("{page}/mapping"), &admin, &pairs)
                 .await?,
             &page,
         )?;
@@ -166,7 +169,7 @@ mod tests {
         );
         moved(
             &fixture
-                .post(&format!("{page}/results"), &admin, &[])
+                .post_form(&format!("{page}/results"), &admin, &[])
                 .await?,
             &page,
         )?;
@@ -176,7 +179,9 @@ mod tests {
             "the verified apply can commit: {results}"
         );
         moved(
-            &fixture.post(&format!("{page}/commit"), &admin, &[]).await?,
+            &fixture
+                .post_form(&format!("{page}/commit"), &admin, &[])
+                .await?,
             &page,
         )?;
         let report = text(fixture.get(&page, &admin).await?).await?;
@@ -184,7 +189,7 @@ mod tests {
             report.contains(&en(keys::WEB_MIGRATE_FINISH_COMMITTED)),
             "the migration finishes committed: {report}"
         );
-        let target = fixture.handle("ultra")?;
+        let target = fixture.router("ultra")?;
         let running = target.running_config_text();
         assert!(
             !running.contains(unsupported) && running.contains("description migrated-office"),
