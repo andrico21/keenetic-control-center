@@ -6,7 +6,6 @@
 //! tags are checked here before anything is sent. Adding an account also offers its
 //! password in two write-only fields, which never show a value.
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
@@ -27,25 +26,21 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         confirm::FAIL_SAFE_MINUTES,
-        context::fragment_shell,
+        form::{Choice, FormDialog, Input},
         request::missing,
-        respond::{self, Answer},
+        respond::Answer,
     },
 };
 
 /// Longest account name accepted, in characters.
 const NAME_CHARS: usize = 32;
 
-/// The add and tag dialog.
-#[derive(Template)]
-#[template(path = "partials/system_user_dialog.html")]
+/// The add and tag dialog, built on the kit's form engine when it is shown.
 pub(crate) struct UserDialog {
-    /// Locale carrier.
-    shell: Shell,
+    /// The viewer's locale.
+    locale: Locale,
     /// Localized title.
     title: String,
     /// Where the form posts.
@@ -54,65 +49,22 @@ pub(crate) struct UserDialog {
     fixed_name: Option<String>,
     /// The name as typed.
     name_value: String,
-    /// Localized error under the name; empty when none.
-    name_error: String,
     /// The tags the catalog offers and whether each is checked.
-    choices: Vec<TagChoice>,
-    /// Localized error under the tags; empty when none.
-    tags_error: String,
-    /// Localized error under the password; empty when none.
-    password_error: String,
-    /// The fail-safe explanation.
-    fail_safe: String,
+    choices: Vec<(String, bool)>,
     /// The submit button.
     submit: MessageKey,
-}
-
-localized!(UserDialog);
-
-/// One tag checkbox.
-#[derive(Debug, Clone)]
-struct TagChoice {
-    /// The tag.
-    tag: String,
-    /// Whether it is checked.
-    checked: bool,
-}
-
-impl TagChoice {
-    /// The tag.
-    fn tag(&self) -> &str {
-        &self.tag
-    }
-
-    /// Whether it is checked.
-    const fn checked(&self) -> bool {
-        self.checked
-    }
 }
 
 impl UserDialog {
     /// The dialog with `offered` tags unchecked, its title and target still to set.
     pub(crate) fn base(locale: Locale, offered: &[String]) -> Self {
-        let mut args = FluentArgs::new();
-        args.set("minutes", FAIL_SAFE_MINUTES.to_string());
         Self {
-            shell: fragment_shell(locale),
+            locale,
             title: String::new(),
             post_to: String::new(),
             fixed_name: None,
             name_value: String::new(),
-            name_error: String::new(),
-            choices: offered
-                .iter()
-                .map(|tag| TagChoice {
-                    tag: tag.clone(),
-                    checked: false,
-                })
-                .collect(),
-            tags_error: String::new(),
-            password_error: String::new(),
-            fail_safe: tr(locale, keys::WEB_SYSTEM_USERS_FAIL_SAFE, Some(&args)),
+            choices: offered.iter().map(|tag| (tag.clone(), false)).collect(),
             submit: keys::WEB_SYSTEM_USERS_ADD,
         }
     }
@@ -120,7 +72,7 @@ impl UserDialog {
     /// The dialog adding an account to `router`.
     pub(crate) fn adding(self, router: &str) -> Self {
         Self {
-            title: tr(self.shell.locale(), keys::WEB_SYSTEM_USERS_ADD_TITLE, None),
+            title: tr(self.locale, keys::WEB_SYSTEM_USERS_ADD_TITLE, None),
             post_to: format!("/ui/r/{router}/system/users"),
             ..self
         }
@@ -132,11 +84,7 @@ impl UserDialog {
         args.set("name", account.name().to_owned());
         let current: Vec<&str> = account.tags().iter().map(String::as_str).collect();
         Self {
-            title: tr(
-                self.shell.locale(),
-                keys::WEB_SYSTEM_USERS_TAGS_TITLE,
-                Some(&args),
-            ),
+            title: tr(self.locale, keys::WEB_SYSTEM_USERS_TAGS_TITLE, Some(&args)),
             post_to: format!("/ui/r/{router}/system/users/tags"),
             fixed_name: Some(account.name().to_owned()),
             submit: keys::COMMON_APPLY,
@@ -147,8 +95,8 @@ impl UserDialog {
 
     /// Checks exactly the `checked` tags.
     pub(crate) fn checking(mut self, checked: &[&str]) -> Self {
-        for choice in &mut self.choices {
-            choice.checked = checked.contains(&choice.tag.as_str());
+        for (tag, on) in &mut self.choices {
+            *on = checked.contains(&tag.as_str());
         }
         self
     }
@@ -159,14 +107,64 @@ impl UserDialog {
         self
     }
 
+    /// The dialog's form: the confirmation, the name, the tags, a new account's password
+    /// in two write-only fields and the fail-safe note.
+    fn form(self) -> FormDialog {
+        let mut args = FluentArgs::new();
+        args.set("minutes", FAIL_SAFE_MINUTES.to_string());
+        let fail_safe = tr(self.locale, keys::WEB_SYSTEM_USERS_FAIL_SAFE, Some(&args));
+        let dialog = FormDialog::titled(self.locale, self.title, self.post_to)
+            .ids("user")
+            .submit(self.submit)
+            .with_input(Input::hidden("confirm", "yes".to_owned()));
+        let named = match &self.fixed_name {
+            Some(fixed) => dialog.with_input(Input::hidden("name", fixed.clone())),
+            None => dialog.with_input(
+                Input::field("name", keys::WEB_SYSTEM_USERS_NAME, self.name_value)
+                    .help(keys::WEB_SYSTEM_USERS_NAME_HELP),
+            ),
+        };
+        let tags = self
+            .choices
+            .iter()
+            .map(|(tag, on)| Choice::plain(tag).checked(*on))
+            .collect();
+        let tagged = named.with_input(
+            Input::text("tag", keys::WEB_SYSTEM_USERS_TAGS)
+                .checks(tags)
+                .id("user-tags")
+                .mono(),
+        );
+        let secured = if self.fixed_name.is_none() {
+            tagged
+                .with_input(
+                    Input::secret("secret", keys::WEB_SECRET_PASSWORD)
+                        .id("user-password")
+                        .help(keys::WEB_SECRET_ADD_HELP),
+                )
+                .with_input(
+                    Input::secret("secret_again", keys::WEB_SECRET_REPEAT)
+                        .id("user-password-again"),
+                )
+        } else {
+            tagged
+        };
+        secured.closing(fail_safe)
+    }
+
+    /// The dialog, the answer to its `GET`.
+    pub(crate) fn show(self) -> Response {
+        self.form().show()
+    }
+
     /// The dialog with `message` under `field`, as 422 in the shared dialog.
-    pub(crate) fn refused(mut self, field: Field, message: String) -> Answer {
-        match field {
-            Field::Name => self.name_error = message,
-            Field::Tags => self.tags_error = message,
-            Field::Password => self.password_error = message,
-        }
-        respond::in_dialog(respond::unprocessable(&self)).into()
+    pub(crate) fn refused(self, field: Field, message: String) -> Answer {
+        let name = match field {
+            Field::Name => "name",
+            Field::Tags => "tag",
+            Field::Password => "secret_again",
+        };
+        self.form().with_error(name, message).invalid().into()
     }
 }
 
@@ -194,7 +192,7 @@ pub(crate) async fn new_dialog(
     let action = CREATE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
     let dialog = UserDialog::base(action.locale(), &offered_tags(&domain.catalog)).adding(&router);
-    Ok(errors::render(&dialog))
+    Ok(dialog.show())
 }
 
 /// `GET /ui/r/{router}/system/users/tags?name=`: the tag dialog of one account.
@@ -215,7 +213,7 @@ pub(crate) async fn tags_dialog(
     let account = find(&domain, name).await.ok_or_else(missing)?;
     let offered = offered_tags(&domain.catalog);
     let dialog = UserDialog::base(action.locale(), &offered).tagging(&router, &account);
-    Ok(errors::render(&dialog))
+    Ok(dialog.show())
 }
 
 /// The submitted `name` and `tags`, checked against the `offered` tags.

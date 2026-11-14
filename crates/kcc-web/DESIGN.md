@@ -462,7 +462,7 @@ and the admin pages run on it too. One module per responsibility:
 | `action` | The kit call: `Operation::write(&DESCRIPTOR, "hostname", "web.system_hostname").open(&state, &user, &router)` resolves the router (404), re-checks the operation's permissions (audited 403) and loads the catalog; the `Action` then gives `context()`, `confirm(risk, &confirmation, resubmit)`, `abandon(reason)`, `run(risk, Change)` and `run_with(risk, work)` for domain functions such as `system::reboot`; it audits how the action ended, once. |
 | `change` | `Change::{Request, Batch, Cli, Delete}` through the leased `ChangeSet` (backup, conflict check, read-back, audit), the fail-safe timer armed around a management change; `Change::audit_params()`: catalog paths and field names only. |
 | `outcome`, `failure` | `Outcome` (tone, headline, problems, router said, toasts, unsaved badge, status, audit id), `Toast`, `Failure`; `workflow_failure`, `rci_failure` and `plan_failure` map errors in the family's words, keeping only the router's message text and naming the field a read-back did not find (`VerificationFailed`). |
-| `dialog` | `FieldDialog`: the one-field edit dialog (`partials/kit_field_dialog.html`); `show()` answers its `GET`, `invalid()` the field error as 422 in the dialog. |
+| `form` | `FormDialog`: the one dialog form engine of every domain page (`partials/kit_form.html`), from the one-field edit to a whole configuration; inputs are `form::input::Input` values (`new` a required line of at most 128 characters, `text`, `field` the shared field component, `hidden`, `secret` write-only and never filled, `file`, `check`, then `select`, `radio`, `checks`, `number`, `max_chars`, `optional`, `rule`, `help`, `shown_for`, `id`, `grouped`); `new`/`titled` give ids `form-<name>` (`ids(prefix)` for others), `network` the network pages' conventions (ids `net-<name>`, help named before the error, the `GET` answer retargeted into the dialog); `show()` answers its `GET`, `invalid()` the field errors as 422 in the dialog; as the submission's `Form` a finding shows under its input (one naming no input as the form's problem) and a change the domain could not plan in the outcome region, under an input (`refusing_at`) or as the form's problem (`refusing_in_dialog`, placed by `problem_at`). The secret dialog (`secret_pages::dialog::SecretDialog`) stays its own component: its typed-twice pair carries the length rule on both fields and a refusal replaces the whole form. |
 | `secret`, `reveal` | `write_only(typed)`: an empty field keeps the stored secret; `is_secret`/`mask` for raw answers; `Reveal::new(state, user, router).show(name, read)`: the separate Reveal action (`RevealSecrets`, audited either way, the value only in its dialog, `partials/kit_reveal.html`). |
 | `audit` | `Record`: one audit event per action (actor, router, target, outcome); parameters are field names (`field_names`), never values. |
 | `facts` | `FactsCache` and `RouterFacts`: the router's catalog and safety mode, cached for 600 s, so validation never contacts the router. |
@@ -489,7 +489,7 @@ Adding a domain page (`src/system_general.rs` is the reference):
    Section::X, Some(&router))`, resolves `context::target`, reads the domain's typed models
    through `Target::context`, and passes `Controls::new(role, router).with_operations(...)`
    to the template, which shows a control only where `allows(name)`.
-3. Form: a `FieldDialog` (or the page's own dialog) for `GET .../{field}`; parse the posted
+3. Form: a `form::FormDialog` with one `Input::field` for `GET .../{field}`; parse the posted
    value at the boundary (`check`), a refusal re-renders the dialog with `invalid()`.
 4. Plan: `let action = OPERATION.open(&state, &user, &router).await?;`, then the domain's
    planner on `action.context().await?` gives a `ChangeOp`, converted by its
@@ -645,7 +645,7 @@ drawer (Edit replaces its content), a browser poll of the router (the chart list
 - Network tab bar (`partials/net_tabs.html`): the admin tab styles; Interfaces, Internet,
   Wi-Fi, Mesh, the current page marked. The navigation marks Network for the first two and
   Wi-Fi for the others.
-- Form dialog (`partials/net_form.html`, `net_form::FormDialog`): text, number and select
+- Form dialog (`partials/kit_form.html`, `page_kit::form::FormDialog::network`): text, number and select
   inputs; each constraint (`required`, `maxlength`, `min`, `max`) carries its localized rule
   in `data-kcc-invalid`, which `app.js` gives to the browser's own check, so an invalid value
   is never sent; the server checks the same rule and answers 422 with the field error.
@@ -699,7 +699,7 @@ scrolling table, a hover-only row action.
 - Row and panel actions (`partials/dns_vpn_macros.html`, `region::Act`): ghost buttons that
   open a dialog, post hidden fields (`.inline-form`, outcome in `#page-outcome`) or link;
   Delete is `button--danger-ghost` and asks for the object's name (kit typed-name dialog).
-- Dialog form (`partials/dns_vpn_form.html`, `form::FormDialog`): label above, help and
+- Dialog form (`partials/kit_form.html`, `page_kit::form::FormDialog`): label above, help and
   error below each input; selects and radio groups (`.choice`); inputs with `data-show`
   appear only while the `kind` radio holds one of their values (CSS `:has`); the upload form
   is `multipart/form-data` with a file input (`.field__file`).
@@ -763,8 +763,8 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Explorer and console actions need JavaScript | `pages/explorer.html`, `pages/console_*.html` | Preview, Run, Check and Send are htmx posts carrying the CSRF header; search and the explorer's `?path=` page work without it | Same as the menus |
 | Group tree loads on open | `pages/explorer.html` | A `<details>` opened without JavaScript stays empty; search still finds every command | Server-rendered group pages if asked |
 | Domain page changes need JavaScript | `pages/system_general.html`, `partials/kit_*.html` | Edit dialogs, Restart and their confirmations are htmx requests carrying the CSRF header; the settings read without it | Same as the menus |
-| Localized constraint messages need JavaScript | `partials/net_form.html` | Without `app.js` the browser shows its own message for a failed constraint; the server still refuses the value with the localized rule | None needed |
-| The WireGuard import needs JavaScript | `partials/dns_vpn_form.html` | The upload is an htmx `multipart/form-data` post with the CSRF header; an upload over 64 KiB comes back as 413 with the dialog, which `app.js` swaps like a 422 | Same as the menus |
+| Localized constraint messages need JavaScript | `partials/kit_form.html` | Without `app.js` the browser shows its own message for a failed constraint; the server still refuses the value with the localized rule | None needed |
+| The WireGuard import needs JavaScript | `partials/kit_form.html` | The upload is an htmx `multipart/form-data` post with the CSRF header; an upload over 64 KiB comes back as 413 with the dialog, which `app.js` swaps like a 422 | Same as the menus |
 | System pages' live parts need JavaScript | `partials/system_job.html`, `pages/system_logs.html` | Job lines and new log lines arrive over server-sent events through the htmx SSE extension; without it the page shows the lines of its load and the job's panel only | Same as the menus |
 | Diagnostic fields filter by `:has()` | `pages/system_diagnostics.html` | A browser without `:has()` shows every tool's fields; the server reads only the chosen tool's | None needed |
 | A refused domain-page change names no permission | `#refused-toast` in `base.html` | Domain handlers still answer the generic 403 page, so the toast can only say the role does not allow it and nothing changed; the consoles and the explorer name the permission in place | Domain handlers answer with `errors::refusal` for their outcome region |
@@ -1238,5 +1238,5 @@ password before anything is sent.
 
 | Item | Location | Why accepted | Owner / Exit |
 |---|---|---|---|
-| Secret dialogs need JavaScript | `partials/secret_dialog.html`, `partials/system_user_dialog.html`, `partials/dns_vpn_form.html` | The dialogs open and post through htmx with the CSRF header; without JavaScript the pages still show Set or Not set | Same as the menus |
+| Secret dialogs need JavaScript | `partials/secret_dialog.html`, `partials/kit_form.html` | The dialogs open and post through htmx with the CSRF header; without JavaScript the pages still show Set or Not set | Same as the menus |
 | The localized length message needs JavaScript | `partials/secret_dialog.html` | Without `app.js` the browser shows its own message for a Wi-Fi password outside 8 to 63 characters; the server still refuses it with the localized rule before anything is sent | None needed |

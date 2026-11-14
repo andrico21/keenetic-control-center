@@ -1,15 +1,14 @@
 //! The static lease form: a MAC address bound to an IPv4 address, refused when the
 //! address is outside every pool's subnet or already belongs to another device.
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, Query, State},
     http::HeaderMap,
-    response::{IntoResponse as _, Response},
+    response::Response,
 };
 use kcc_domain::{ChangeOp, DomainError, dhcp};
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
@@ -19,18 +18,15 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Applied,
-        context::fragment_shell,
         failure::plan_failure,
         family::Family,
-        outcome::Failure,
+        form::{FormDialog, Input, Problem},
         request::Params,
-        respond::{self, Answer},
-        submit::{self, Invalid, Planned, Submission, rejected::Rejected},
+        respond::Answer,
+        submit::{Invalid, Planned, Submission, rejected::Rejected},
     },
 };
 
@@ -48,45 +44,32 @@ pub(crate) struct LeaseForm {
     address: String,
 }
 
-/// The static lease dialog.
-#[derive(Template)]
-#[template(path = "partials/dhcp_lease_dialog.html")]
-struct LeaseDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// Where the form posts.
-    action: String,
-    /// The values shown.
-    form: LeaseForm,
-    /// Localized MAC error, empty when none.
-    mac_error: String,
-    /// Localized address error, empty when none.
-    address_error: String,
-    /// A refusal that names no field, such as the router's.
-    problem: String,
-}
-
-localized!(LeaseDialog);
-
-impl LeaseDialog {
-    /// The dialog of `form` on `router` in `locale`, without errors.
-    fn new(locale: Locale, router: &str, form: LeaseForm) -> Self {
-        Self {
-            shell: fragment_shell(locale),
-            action: format!("/ui/r/{router}/dhcp/leases/new"),
-            form,
-            mac_error: String::new(),
-            address_error: String::new(),
-            problem: String::new(),
-        }
-    }
-
-    /// The dialog again with `(mac, address)` field errors, as 422.
-    fn refuse(mut self, (mac, address): (Option<MessageKey>, Option<MessageKey>)) -> Answer {
-        self.mac_error = mac.map_or_else(String::new, |key| self.t(key));
-        self.address_error = address.map_or_else(String::new, |key| self.t(key));
-        respond::in_dialog(respond::unprocessable(&self)).into()
-    }
+/// The static lease dialog of `form` on `router` in `locale`: a field error comes back
+/// under its field, a refusal that names no field, such as the router's, above the
+/// fields.
+fn lease_form(locale: Locale, router: &str, form: &LeaseForm) -> FormDialog {
+    let field =
+        |name, label, value: &str, help| Input::field(name, label, value.to_owned()).help(help);
+    FormDialog::new(
+        locale,
+        keys::WEB_DHCP_LEASE_TITLE,
+        format!("/ui/r/{router}/dhcp/leases/new"),
+    )
+    .ids("lease")
+    .problem_at(Problem::Top)
+    .refusing_in_dialog()
+    .with_input(field(
+        "mac",
+        keys::WEB_DHCP_LEASE_MAC,
+        &form.mac,
+        keys::WEB_DHCP_LEASE_MAC_HELP,
+    ))
+    .with_input(field(
+        "address",
+        keys::WEB_DHCP_LEASE_ADDRESS,
+        &form.address,
+        keys::WEB_DHCP_LEASE_ADDRESS_HELP,
+    ))
 }
 
 /// `GET /ui/r/{router}/dhcp/leases/new[?mac=&address=]`: the static lease dialog.
@@ -101,11 +84,7 @@ pub(crate) async fn lease_dialog(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let opened = LEASE.open(&state, &user, &router).await?;
-    Ok(errors::render(&LeaseDialog::new(
-        opened.locale(),
-        &router,
-        prefill,
-    )))
+    Ok(lease_form(opened.locale(), &router, &prefill).show())
 }
 
 /// `POST /ui/r/{router}/dhcp/leases/new`: checks the lease, lets the DHCP domain check
@@ -125,10 +104,10 @@ pub(crate) async fn add_lease(
 ) -> Result<Response, Answer> {
     let action = LEASE.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let dialog = LeaseDialog::new(
+    let dialog = lease_form(
         locale,
         &router,
-        LeaseForm {
+        &LeaseForm {
             mac: form.mac.trim().to_owned(),
             address: form.address.trim().to_owned(),
         },
@@ -198,24 +177,6 @@ pub(crate) fn applied(operation: ChangeOp) -> Planned {
                 })
         })
     })
-}
-
-impl submit::Form for LeaseDialog {
-    fn answer_invalid(self, invalid: Invalid, _locale: Locale) -> Response {
-        let findings = invalid.into_findings();
-        let at = |name: &str| {
-            findings
-                .iter()
-                .find(|(field, _rule)| *field == name)
-                .map(|(_field, rule)| *rule)
-        };
-        self.refuse((at("mac"), at("address"))).into_response()
-    }
-
-    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
-        failure.message().clone_into(&mut self.problem);
-        self.refuse((None, None)).into_response()
-    }
 }
 
 /// The MAC address typed in `text`, lowercase: six pairs of hexadecimal digits separated

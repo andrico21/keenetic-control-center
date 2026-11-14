@@ -4,7 +4,6 @@
 //! the request again with the medium (and the filesystem) in its query string, and the
 //! change runs through the change workflow. An unknown medium is refused first.
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, RawQuery, State},
@@ -15,19 +14,17 @@ use kcc_domain::{
     ChangeOp, Result as DomainResult, RouterCtx,
     storage::{self, MaintenanceAction, MaintenanceRequest},
 };
-use kcc_i18n::keys;
+use kcc_i18n::{bundle::tr, keys};
 
 use super::shared::{NoDialog, merged, value};
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         action::{Action, Operation},
         change::Change,
         confirm::Resubmit,
-        context::fragment_shell,
+        form::{Choice, FormDialog, Input},
         request::{Params, missing, with_query},
         respond::Answer,
         submit::{Planned, Submission},
@@ -143,22 +140,6 @@ pub(crate) async fn check(
     .await)
 }
 
-/// The format dialog: the filesystem to create on one medium.
-#[derive(Template)]
-#[template(path = "partials/system_format_dialog.html")]
-struct FormatDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// Where the form posts.
-    post_to: String,
-    /// The medium.
-    media: String,
-    /// The filesystems offered.
-    filesystems: [&'static str; 3],
-}
-
-localized!(FormatDialog);
-
 /// `GET /ui/r/{router}/system/storage/format?media=`: the format dialog.
 ///
 /// # Errors
@@ -183,12 +164,20 @@ pub(crate) async fn format_dialog(
     if !known(&domain, &media).await {
         return Err(missing());
     }
-    Ok(errors::render(&FormatDialog {
-        shell: fragment_shell(action.locale()),
-        post_to: format!("/ui/r/{router}/system/storage/format"),
-        media,
-        filesystems: FILESYSTEMS,
-    }))
+    let locale = action.locale();
+    let filesystems = FILESYSTEMS.iter().map(|each| Choice::plain(each)).collect();
+    Ok(FormDialog::new(
+        locale,
+        keys::WEB_SYSTEM_STORAGE_FORMAT_TITLE,
+        format!("/ui/r/{router}/system/storage/format"),
+    )
+    .ids("format")
+    .submit(keys::WEB_SYSTEM_STORAGE_FORMAT)
+    .danger()
+    .with_input(Input::hidden("media", media))
+    .with_input(Input::text("filesystem", keys::WEB_SYSTEM_STORAGE_FILESYSTEM).select(filesystems))
+    .closing(tr(locale, keys::WEB_SYSTEM_STORAGE_FORMAT_TEXT, None))
+    .show())
 }
 
 /// `POST /ui/r/{router}/system/storage/format`: formats one medium with the chosen

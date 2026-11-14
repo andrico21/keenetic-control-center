@@ -30,10 +30,10 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_form::{Choice, FormDialog, Input},
     page_kit::{
         action::Operation,
         change::Applied,
+        form::{Choice, FormDialog, Input},
         request::{Params, rendered, shown_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -197,11 +197,11 @@ fn number(text: &str) -> Result<Option<u16>, MessageKey> {
 /// The Forward a port dialog on `router` with `values` and the router's interface `names`.
 fn form(locale: Locale, router: &str, values: &Params, names: &[String]) -> FormDialog {
     let value = |name: &str| values.text(name).to_owned();
-    let mut protocols = vec![Choice::keyed("", keys::WEB_NAT_ANY, locale)];
+    let mut protocols = vec![Choice::word(locale, "", keys::WEB_NAT_ANY)];
     protocols.extend(
         PROTOCOLS
             .iter()
-            .map(|(name, label)| Choice::keyed(name, *label, locale)),
+            .map(|(name, label)| Choice::word(locale, name, *label)),
     );
     let interfaces = names.iter().map(|name| Choice::plain(name)).collect();
     let port = |name: &'static str, label: MessageKey| {
@@ -211,8 +211,8 @@ fn form(locale: Locale, router: &str, values: &Params, names: &[String]) -> Form
             .rule(keys::WEB_ROUTING_ERROR_PORT)
     };
     let title = tr(locale, keys::WEB_NAT_ADD, None);
-    FormDialog::new(locale, title, format!("/ui/r/{router}/nat/forward/new"))
-        .with_submit(keys::WEB_NAT_ADD)
+    FormDialog::network(locale, title, format!("/ui/r/{router}/nat/forward/new"))
+        .submit(keys::WEB_NAT_ADD)
         .with_input(
             Input::new("protocol", keys::WEB_NAT_FIELD_PROTOCOL, value("protocol"))
                 .optional()

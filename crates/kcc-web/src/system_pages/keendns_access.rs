@@ -24,7 +24,6 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
     page_kit::{
         action::Operation,
         confirm::Resubmit,
@@ -101,7 +100,7 @@ pub(crate) async fn proxy_dialog(
         String::new(),
         "80".to_owned(),
     ]);
-    Ok(errors::render(&dialog))
+    Ok(dialog.show())
 }
 
 /// `POST /ui/r/{router}/system/keendns/proxy`: publishes a home device under the KeenDNS

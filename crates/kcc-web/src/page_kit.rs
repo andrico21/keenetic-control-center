@@ -19,7 +19,7 @@
 //!   error with the router's own message in a collapsible "router said" block.
 //! - [`change`]: the change workflow run (backup, conflict check, read-back, audit), with
 //!   the fail-safe timer around management changes.
-//! - [`dialog`]: the one-field edit dialog.
+//! - [`form`]: the dialog forms, from a one-field edit to a whole configuration.
 //! - [`audit`]: one record per action with field names, never values.
 //! - [`facts`]: the router's catalog, cached, so validation never contacts the router.
 //! - [`respond`]: the htmx answers: redirects, retargets, the shared dialog and the answer
@@ -34,10 +34,10 @@ pub(crate) mod audit;
 pub(crate) mod change;
 pub(crate) mod confirm;
 pub(crate) mod context;
-pub(crate) mod dialog;
 pub(crate) mod facts;
 pub(crate) mod failure;
 pub(crate) mod family;
+pub(crate) mod form;
 pub(crate) mod gate;
 pub(crate) mod outcome;
 pub(crate) mod request;

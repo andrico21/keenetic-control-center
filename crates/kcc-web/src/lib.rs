@@ -84,7 +84,6 @@ mod gauge;
 mod migrate_wizard;
 mod nat_page;
 mod net_change;
-mod net_form;
 mod net_interface_actions;
 mod net_interface_detail;
 mod net_interface_edits;

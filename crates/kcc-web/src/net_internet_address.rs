@@ -23,13 +23,13 @@ use crate::{
     WebState,
     authz::CurrentUser,
     net_change::{Subject, refreshed},
-    net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Link, links},
     page_kit::{
         action::Operation,
         change::Change,
         confirm::Resubmit,
+        form::{Choice, FormDialog, Input},
         request::Params,
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -96,10 +96,10 @@ impl Addressing {
     fn form(&self, subject: Subject<'_>) -> FormDialog {
         let locale = subject.locale();
         let modes = vec![
-            Choice::keyed("dhcp", keys::WEB_INTERNET_MODE_DHCP, locale),
-            Choice::keyed("static", keys::WEB_INTERNET_MODE_STATIC, locale),
+            Choice::word(locale, "dhcp", keys::WEB_INTERNET_MODE_DHCP),
+            Choice::word(locale, "static", keys::WEB_INTERNET_MODE_STATIC),
         ];
-        FormDialog::new(
+        FormDialog::network(
             locale,
             subject.title(keys::WEB_INTERNET_ADDRESS_TITLE),
             subject.url("internet/address", &[]),

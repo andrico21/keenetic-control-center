@@ -8,9 +8,9 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use crate::{
-    net_form::{Choice, FormDialog, Input},
-    page_kit::request::{Params, with_query},
+use crate::page_kit::{
+    form::{Choice, FormDialog, Input},
+    request::{Params, with_query},
 };
 
 /// Longest description, in characters.
@@ -40,8 +40,8 @@ pub(crate) fn word(typed: &str) -> Result<Option<String>, MessageKey> {
 /// The Add policy dialog on `router` with `values`.
 pub(crate) fn create_form(locale: Locale, router: &str, values: &Params) -> FormDialog {
     let title = tr(locale, keys::WEB_ROUTING_POLICY_ADD_TITLE, None);
-    FormDialog::new(locale, title, format!("/ui/r/{router}/routing/policy/new"))
-        .with_submit(keys::WEB_ROUTING_POLICY_ADD)
+    FormDialog::network(locale, title, format!("/ui/r/{router}/routing/policy/new"))
+        .submit(keys::WEB_ROUTING_POLICY_ADD)
         .with_input(
             Input::new(
                 "name",
@@ -73,8 +73,8 @@ pub(crate) fn description_form(
         &format!("/ui/r/{router}/routing/policy/description"),
         &[("name", name)],
     );
-    FormDialog::new(locale, title, post_to)
-        .with_submit(keys::COMMON_SAVE)
+    FormDialog::network(locale, title, post_to)
+        .submit(keys::COMMON_SAVE)
         .with_input(description_input(values))
 }
 
@@ -107,8 +107,8 @@ pub(crate) fn permit_form(
         &[("name", name)],
     );
     let choices = names.iter().map(|found| Choice::plain(found)).collect();
-    FormDialog::new(locale, title, post_to)
-        .with_submit(keys::WEB_ROUTING_POLICY_PERMIT)
+    FormDialog::network(locale, title, post_to)
+        .submit(keys::WEB_ROUTING_POLICY_PERMIT)
         .with_input(
             Input::new(
                 "interface",

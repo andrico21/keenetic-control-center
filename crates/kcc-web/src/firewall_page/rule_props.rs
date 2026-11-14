@@ -24,9 +24,9 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_form::{Choice, FormDialog, Input},
     page_kit::{
         action::Operation,
+        form::{Choice, FormDialog, Input},
         request::{Params, with_query},
         respond::Answer,
         submit::{Invalid, rejected::Rejected},
@@ -219,12 +219,12 @@ fn description_form(
     values: &Params,
 ) -> FormDialog {
     let title = named.title(locale, keys::WEB_FIREWALL_DESCRIPTION_TITLE);
-    FormDialog::new(
+    FormDialog::network(
         locale,
         title,
         rule_action(router, "description", named, pairs),
     )
-    .with_submit(keys::COMMON_SAVE)
+    .submit(keys::COMMON_SAVE)
     .with_input(
         Input::new(
             "description",
@@ -247,10 +247,10 @@ fn schedule_form(
     schedules: &[String],
 ) -> FormDialog {
     let title = named.title(locale, keys::WEB_FIREWALL_SCHEDULE_TITLE);
-    let mut choices = vec![Choice::keyed("", keys::WEB_FIREWALL_NO_SCHEDULE, locale)];
+    let mut choices = vec![Choice::word(locale, "", keys::WEB_FIREWALL_NO_SCHEDULE)];
     choices.extend(schedules.iter().map(|name| Choice::plain(name)));
-    FormDialog::new(locale, title, rule_action(router, "schedule", named, pairs))
-        .with_submit(keys::COMMON_SAVE)
+    FormDialog::network(locale, title, rule_action(router, "schedule", named, pairs))
+        .submit(keys::COMMON_SAVE)
         .with_input(
             Input::new(
                 "schedule",

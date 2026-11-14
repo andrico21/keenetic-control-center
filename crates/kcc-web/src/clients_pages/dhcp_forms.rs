@@ -3,7 +3,6 @@
 
 use core::{net::Ipv4Addr, ops::RangeInclusive, str::FromStr as _};
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, Query, State},
@@ -26,17 +25,15 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
-        context::fragment_shell,
         failure::plan_failure,
         family::Family,
-        outcome::{Failure, Outcome},
+        form::{Errors, FormDialog, Input, Problem},
+        outcome::Outcome,
         request::{Params, missing},
         respond::{self, Answer},
-        submit::{self, Invalid, Submission},
+        submit::{Invalid, Submission},
     },
 };
 
@@ -102,7 +99,7 @@ impl PoolForm {
     /// # Errors
     ///
     /// Returns why each refused field is refused.
-    fn check(&self) -> Result<PoolConfig, Problems> {
+    fn check(&self) -> Result<PoolConfig, Errors> {
         let named = Some(self.name.trim())
             .filter(|name| is_word(name, |letter| matches!(letter, '-' | '_' | '.')))
             .ok_or(keys::WEB_DHCP_ERROR_NAME);
@@ -127,15 +124,18 @@ impl PoolForm {
         let bound = Some(self.interface.trim())
             .filter(|interface| is_word(interface, |letter| matches!(letter, '/' | '-' | '_')))
             .ok_or(keys::WEB_DHCP_ERROR_INTERFACE);
-        let problems = Problems {
-            name: named.err(),
-            begin: first.err(),
-            end: last.err(),
-            gateway: router.err(),
-            dns: servers.as_ref().err().copied(),
-            lease: seconds.err(),
-            interface: bound.err(),
-        };
+        let problems: Errors = [
+            ("name", named.err()),
+            ("begin", first.err()),
+            ("end", last.err()),
+            ("gateway", router.err()),
+            ("dns", servers.as_ref().err().copied()),
+            ("lease", seconds.err()),
+            ("interface", bound.err()),
+        ]
+        .into_iter()
+        .filter_map(|(field, problem)| problem.map(|rule| (field, rule)))
+        .collect();
         match (named, first, last, router, servers, seconds, bound) {
             (Ok(name), Ok(begin), Ok(end), Ok(gateway), Ok(dns), Ok(lease), Ok(interface)) => {
                 Ok(PoolConfig::new(name.to_owned(), begin, end)
@@ -150,69 +150,53 @@ impl PoolForm {
     }
 }
 
-/// Why each field of a pool form is refused.
-#[derive(Debug, Default)]
-struct Problems {
-    /// Pool name.
-    name: Option<MessageKey>,
-    /// First address.
-    begin: Option<MessageKey>,
-    /// Last address.
-    end: Option<MessageKey>,
-    /// Default gateway.
-    gateway: Option<MessageKey>,
-    /// DNS server.
-    dns: Option<MessageKey>,
-    /// Lease time.
-    lease: Option<MessageKey>,
-    /// Interface.
-    interface: Option<MessageKey>,
-}
-
-/// The pool dialog.
-#[derive(Template)]
-#[template(path = "partials/dhcp_pool_dialog.html")]
-struct PoolDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// Dialog title.
-    title: String,
-    /// Where the form posts.
-    action: String,
-    /// The values shown.
-    form: PoolForm,
-    /// Field errors.
-    problems: Problems,
-    /// A refusal that names no field, such as the catalog's.
-    problem: String,
-}
-
-localized!(PoolDialog);
-
-impl PoolDialog {
-    /// The dialog of `form` on `router` in `locale`.
-    fn new(locale: Locale, router: &str, form: PoolForm) -> Self {
-        let title = if form.existing.is_some() {
-            let mut args = FluentArgs::new();
-            args.set("name", form.name.clone());
-            tr(locale, keys::WEB_DHCP_POOL_TITLE_EDIT, Some(&args))
-        } else {
-            tr(locale, keys::WEB_DHCP_POOL_TITLE_NEW, None)
-        };
-        Self {
-            shell: fragment_shell(locale),
-            title,
-            action: format!("/ui/r/{router}/dhcp/pools/edit"),
-            form,
-            problems: Problems::default(),
-            problem: String::new(),
-        }
-    }
-
-    /// The localized error of one field, empty when it has none.
-    fn problem_text(&self, problem: Option<&MessageKey>) -> String {
-        problem.map_or_else(String::new, |key| self.t(*key))
-    }
+/// The pool dialog of `form` on `router` in `locale`: field errors come back under their
+/// fields, a refusal that names no field, such as the catalog's, above them.
+fn pool_form(locale: Locale, router: &str, form: &PoolForm) -> FormDialog {
+    let title = if form.existing.is_some() {
+        let mut args = FluentArgs::new();
+        args.set("name", form.name.clone());
+        tr(locale, keys::WEB_DHCP_POOL_TITLE_EDIT, Some(&args))
+    } else {
+        tr(locale, keys::WEB_DHCP_POOL_TITLE_NEW, None)
+    };
+    let dialog = FormDialog::titled(locale, title, format!("/ui/r/{router}/dhcp/pools/edit"))
+        .ids("pool")
+        .problem_at(Problem::Top)
+        .refusing_in_dialog();
+    let named = if form.existing.is_some() {
+        dialog
+            .with_input(Input::hidden("name", form.name.clone()))
+            .with_input(Input::hidden("existing", "1".to_owned()))
+    } else {
+        dialog.with_input(
+            Input::field("name", keys::WEB_DHCP_POOL_NAME, form.name.clone())
+                .help(keys::WEB_DHCP_POOL_NAME_HELP),
+        )
+    };
+    let field = |name, label, value: &String| {
+        Input::field(name, label, value.clone()).grouped("lan-fields")
+    };
+    named
+        .with_input(field("begin", keys::WEB_DHCP_POOL_BEGIN, &form.begin))
+        .with_input(field("end", keys::WEB_DHCP_POOL_END, &form.end))
+        .with_input(field("gateway", keys::WEB_DHCP_POOL_GATEWAY, &form.gateway))
+        .with_input(
+            field("dns", keys::WEB_DHCP_POOL_DNS, &form.dns).help(keys::WEB_DHCP_POOL_DNS_HELP),
+        )
+        .with_input(
+            field("lease", keys::WEB_DHCP_POOL_LEASE, &form.lease)
+                .help(keys::WEB_DHCP_POOL_LEASE_HELP),
+        )
+        .with_input(
+            field("interface", keys::WEB_DHCP_POOL_INTERFACE, &form.interface)
+                .help(keys::WEB_DHCP_POOL_INTERFACE_HELP),
+        )
+        .with_input(Input::check(
+            "enabled",
+            keys::WEB_DHCP_POOL_ENABLED,
+            form.enabled.is_some(),
+        ))
 }
 
 /// `GET /ui/r/{router}/dhcp/pools/edit[?name=]`: the pool dialog, filled from the pool
@@ -250,7 +234,7 @@ pub(crate) async fn pool_dialog(
             PoolForm::of(pool)
         }
     };
-    Ok(errors::render(&PoolDialog::new(locale, &router, form)))
+    Ok(pool_form(locale, &router, &form).show())
 }
 
 /// `POST /ui/r/{router}/dhcp/pools/edit`: checks the pool, plans it with the DHCP
@@ -269,12 +253,8 @@ pub(crate) async fn save_pool(
 ) -> Result<Response, Answer> {
     let action = POOL.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let checked = form.check();
-    let mut dialog = PoolDialog::new(locale, &router, form);
-    let typed = checked.map_err(|problems| {
-        dialog.problems = problems;
-        Invalid::from(Vec::new())
-    });
+    let typed = form.check().map_err(Invalid::from);
+    let dialog = pool_form(locale, &router, &form);
     let params = Params::default();
     Ok(Submission::new(action, &params, dialog)
         .submit(
@@ -287,17 +267,6 @@ pub(crate) async fn save_pool(
             },
         )
         .await)
-}
-
-impl submit::Form for PoolDialog {
-    fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
-        respond::in_dialog(respond::unprocessable(&self))
-    }
-
-    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
-        failure.message().clone_into(&mut self.problem);
-        respond::in_dialog(respond::unprocessable(&self))
-    }
 }
 
 /// The IPv4 address typed in `text`.

@@ -20,13 +20,13 @@ use crate::{
     WebState,
     authz::CurrentUser,
     net_change::{Subject, refreshed},
-    net_form::{Choice, FormDialog, Input},
     net_interface_line::{Level, Line},
     net_pages::Call,
     page_kit::{
         action::Operation,
         change::Change,
         confirm::Resubmit,
+        form::{Choice, FormDialog, Input},
         request::{Params, with_query},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -52,7 +52,7 @@ const DESCRIPTION_CHARS: usize = 128;
 
 /// The description dialog of `subject` showing `value`.
 fn description_form(subject: Subject<'_>, value: String) -> FormDialog {
-    FormDialog::new(
+    FormDialog::network(
         subject.locale(),
         subject.title(keys::WEB_NETWORK_DESCRIPTION_TITLE),
         subject.url("network/description", &[]),
@@ -68,9 +68,9 @@ fn description_form(subject: Subject<'_>, value: String) -> FormDialog {
 fn security_form(subject: Subject<'_>, level: Level) -> FormDialog {
     let choices = Level::ALL
         .into_iter()
-        .map(|choice| Choice::keyed(choice.slug(), choice.label(), subject.locale()))
+        .map(|choice| Choice::word(subject.locale(), choice.slug(), choice.label()))
         .collect();
-    FormDialog::new(
+    FormDialog::network(
         subject.locale(),
         subject.title(keys::WEB_NETWORK_SECURITY_TITLE),
         subject.url("network/security-level", &[]),

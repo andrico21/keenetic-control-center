@@ -29,8 +29,13 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_form::{Choice, FormDialog, Input},
-    page_kit::{action::Operation, request::Params, respond::Answer, submit::Invalid},
+    page_kit::{
+        action::Operation,
+        form::{Choice, FormDialog, Input},
+        request::Params,
+        respond::Answer,
+        submit::Invalid,
+    },
     routing_page::{reply::unread, route_rows::mask},
     system_pages::shared::merged,
 };
@@ -156,12 +161,12 @@ fn check(values: &Params) -> Result<(String, Parsed), (&'static str, MessageKey)
 fn add_form(locale: Locale, router: &str, values: &Params) -> FormDialog {
     let value = |name: &str| values.text(name).to_owned();
     let actions = vec![
-        Choice::keyed("permit", keys::WEB_FIREWALL_ACTION_PERMIT, locale),
-        Choice::keyed("deny", keys::WEB_FIREWALL_ACTION_DENY, locale),
+        Choice::word(locale, "permit", keys::WEB_FIREWALL_ACTION_PERMIT),
+        Choice::word(locale, "deny", keys::WEB_FIREWALL_ACTION_DENY),
     ];
     let protocols = PROTOCOLS
         .iter()
-        .map(|(name, label)| Choice::keyed(name, *label, locale))
+        .map(|(name, label)| Choice::word(locale, name, *label))
         .collect();
     let address_input = |name: &'static str, label: MessageKey| {
         Input::new(name, label, value(name))
@@ -182,8 +187,8 @@ fn add_form(locale: Locale, router: &str, values: &Params) -> FormDialog {
             .rule(keys::WEB_ROUTING_ERROR_PORT)
     };
     let title = tr(locale, keys::WEB_FIREWALL_ADD, None);
-    FormDialog::new(locale, title, format!("/ui/r/{router}/firewall/rule/new"))
-        .with_submit(keys::WEB_FIREWALL_ADD)
+    FormDialog::network(locale, title, format!("/ui/r/{router}/firewall/rule/new"))
+        .submit(keys::WEB_FIREWALL_ADD)
         .with_input(
             Input::new("list", keys::WEB_FIREWALL_FIELD_LIST, value("list"))
                 .max_chars(64)

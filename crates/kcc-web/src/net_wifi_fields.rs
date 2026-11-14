@@ -14,9 +14,11 @@ use kcc_rci::ObjectName;
 
 use crate::{
     net_change::Subject,
-    net_form::{Choice, FormDialog, Input},
     net_wifi_rows::{access_points, radios},
-    page_kit::action::Operation,
+    page_kit::{
+        action::Operation,
+        form::{Choice, FormDialog, Input},
+    },
 };
 
 /// Longest network name accepted, in bytes.
@@ -140,7 +142,7 @@ impl Setting {
                 Input::new("value", keys::WEB_WIFI_SECURITY, value).select(
                     SECURITY
                         .iter()
-                        .map(|(slug, label, _)| Choice::keyed(slug, *label, subject.locale()))
+                        .map(|(slug, label, _)| Choice::word(subject.locale(), slug, *label))
                         .collect(),
                 ),
             ),
@@ -173,7 +175,7 @@ impl Setting {
                     .help(keys::WEB_WIFI_COUNTRY_HELP),
             ),
         };
-        FormDialog::new(
+        FormDialog::network(
             subject.locale(),
             subject.title(title),
             subject.url(&format!("wifi/edit/{}", self.slug()), &[]),

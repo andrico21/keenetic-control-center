@@ -146,7 +146,7 @@ pub(crate) async fn edit_dialog(
     let general = General::read(&domain).await;
     Ok(field
         .dialog(&router, user.locale())
-        .with_value(field.current(&general))
+        .with_value("value", field.current(&general))
         .show())
 }
 
@@ -168,7 +168,7 @@ pub(crate) async fn edit(
     let locale = action.locale();
     let dialog = field
         .dialog(&router, locale)
-        .with_value(form.value().to_owned());
+        .with_value("value", form.value().to_owned());
     Ok(Submission::new(action, &Params::default(), dialog)
         .submit(
             |_params| {

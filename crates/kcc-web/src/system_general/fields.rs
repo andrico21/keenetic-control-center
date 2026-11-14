@@ -6,7 +6,10 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::general::General;
-use crate::page_kit::{action::Operation, context::fragment_shell, dialog::FieldDialog};
+use crate::page_kit::{
+    action::Operation,
+    form::{FormDialog, Input},
+};
 
 /// Longest description accepted, in characters.
 const DESCRIPTION_CHARS: usize = 128;
@@ -89,16 +92,21 @@ impl Field {
         }
     }
 
-    /// The setting's dialog on `router`, posting back to its own route.
-    pub(crate) fn dialog(self, router: &str, locale: Locale) -> FieldDialog {
+    /// The setting's dialog on `router`, posting back to its own route; a change the
+    /// domain could not plan shows under its field.
+    pub(crate) fn dialog(self, router: &str, locale: Locale) -> FormDialog {
         let post_to = format!("/ui/r/{router}/system/general/{}", self.slug());
-        let dialog = FieldDialog::new(fragment_shell(locale), post_to, self.words());
-        match self {
-            Self::Hostname => dialog.with_help(keys::WEB_SYSTEM_HOSTNAME_HELP),
-            Self::Timezone => dialog.with_help(keys::WEB_SYSTEM_TIMEZONE_HELP),
-            Self::NtpServer => dialog.with_help(keys::WEB_SYSTEM_NTP_SERVER_HELP),
-            Self::Description => dialog,
-        }
+        let (title, label) = self.words();
+        let field = Input::field("value", label, String::new()).id("kit-field");
+        let input = match self {
+            Self::Hostname => field.help(keys::WEB_SYSTEM_HOSTNAME_HELP),
+            Self::Timezone => field.help(keys::WEB_SYSTEM_TIMEZONE_HELP),
+            Self::NtpServer => field.help(keys::WEB_SYSTEM_NTP_SERVER_HELP),
+            Self::Description => field,
+        };
+        FormDialog::new(locale, title, post_to)
+            .with_input(input)
+            .refusing_at("value")
     }
 
     /// The dialog's title and the field's label.

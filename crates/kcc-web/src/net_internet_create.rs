@@ -26,12 +26,12 @@ use crate::{
     WebState,
     authz::CurrentUser,
     net_change::{merged, refreshed},
-    net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
     page_kit::{
         action::Operation,
         change::Change,
+        form::{Choice, FormDialog, Input},
         request::Params,
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -85,11 +85,11 @@ impl Draft {
     fn form(&self, router: &str, locale: Locale, vias: &[String]) -> FormDialog {
         let kinds = Kind::ALL
             .into_iter()
-            .map(|kind| Choice::keyed(kind.slug(), kind.label(), locale))
+            .map(|kind| Choice::word(locale, kind.slug(), kind.label()))
             .collect();
-        let mut via_choices = vec![Choice::keyed("", keys::WEB_INTERNET_NOT_SET, locale)];
+        let mut via_choices = vec![Choice::word(locale, "", keys::WEB_INTERNET_NOT_SET)];
         via_choices.extend(vias.iter().map(|via| Choice::plain(via)));
-        FormDialog::new(
+        FormDialog::network(
             locale,
             tr(locale, keys::WEB_INTERNET_CREATE_TITLE, None),
             format!("/ui/r/{router}/internet/create"),
@@ -117,7 +117,7 @@ impl Draft {
             .rule(keys::WEB_INTERNET_IDENTITY_ERROR)
             .help(keys::WEB_INTERNET_IDENTITY_HELP),
         )
-        .with_submit(keys::WEB_INTERNET_ADD)
+        .submit(keys::WEB_INTERNET_ADD)
     }
 
     /// The connection, when every value is valid. `taken` are the router's interface

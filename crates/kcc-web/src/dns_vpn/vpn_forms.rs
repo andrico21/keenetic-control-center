@@ -3,12 +3,12 @@
 use kcc_domain::{vpn_clients, vpn_servers};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
-use super::{
-    form::{Choice, Errors, FormDialog},
-    vpn_checks,
-    vpn_checks::Planned,
+use super::{vpn_checks, vpn_checks::Planned};
+use crate::page_kit::{
+    action::Operation,
+    form::{Choice, Errors, FormDialog, Input},
+    request::Params,
 };
-use crate::page_kit::{action::Operation, request::Params};
 
 /// A VPN server with an address pool and DNS servers of its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -141,59 +141,94 @@ impl VpnForm {
                 Choice::word(locale, "off", keys::WEB_VPN_OFF),
             ]
         };
+        let dialog = |title| FormDialog::new(locale, title, post_to).refusing_in_dialog();
+        let text = |name, label, help| Input::text(name, label).help(help);
         match self {
-            Self::Create => FormDialog::new(locale, keys::WEB_VPN_CREATE, post_to)
+            Self::Create => dialog(keys::WEB_VPN_CREATE)
                 .intro(keys::WEB_VPN_CREATE_INTRO)
-                .text("name", keys::WEB_VPN_NAME)
-                .help(keys::WEB_VPN_NAME_HELP)
-                .text("port", keys::WEB_VPN_PORT)
-                .help(keys::WEB_VPN_PORT_HELP),
-            Self::Import => FormDialog::new(locale, keys::WEB_VPN_IMPORT, post_to)
+                .with_input(text("name", keys::WEB_VPN_NAME, keys::WEB_VPN_NAME_HELP))
+                .with_input(text("port", keys::WEB_VPN_PORT, keys::WEB_VPN_PORT_HELP)),
+            Self::Import => dialog(keys::WEB_VPN_IMPORT)
                 .intro(keys::WEB_VPN_IMPORT_INTRO)
                 .multipart()
                 .submit(keys::WEB_VPN_IMPORT_SUBMIT)
-                .text("name", keys::WEB_VPN_NAME)
-                .help(keys::WEB_VPN_NAME_HELP)
-                .file("file", keys::WEB_VPN_FILE)
-                .help(keys::WEB_VPN_FILE_HELP),
-            Self::Peer => FormDialog::new(locale, keys::WEB_VPN_PEER_TITLE, post_to)
-                .hidden("tunnel")
-                .text("key", keys::WEB_VPN_PUBLIC_KEY)
-                .help(keys::WEB_VPN_PUBLIC_KEY_HELP)
-                .text("endpoint", keys::WEB_VPN_ENDPOINT)
-                .help(keys::WEB_VPN_ENDPOINT_HELP)
-                .text("allowed", keys::WEB_VPN_ALLOWED_ADD)
-                .help(keys::WEB_VPN_ALLOWED_HELP)
-                .text("keepalive", keys::WEB_VPN_KEEPALIVE)
-                .help(keys::WEB_VPN_KEEPALIVE_HELP)
-                .secret("psk", keys::WEB_VPN_PRESHARED)
-                .help(keys::WEB_SECRET_PEER_HELP),
-            Self::Pool(server) => FormDialog::new(locale, server.title(), post_to)
-                .hidden("server")
-                .text("begin", keys::WEB_VPN_POOL_BEGIN)
-                .help(keys::WEB_VPN_POOL_BEGIN_HELP)
-                .text("size", keys::WEB_VPN_POOL_SIZE)
-                .help(keys::WEB_VPN_POOL_SIZE_HELP),
-            Self::Dns(server) => FormDialog::new(locale, server.title(), post_to)
-                .hidden("server")
-                .text("primary", keys::WEB_VPN_DNS_PRIMARY)
-                .help(keys::WEB_DNS_ADDRESS_HELP)
-                .text("secondary", keys::WEB_VPN_DNS_SECONDARY)
-                .help(keys::WEB_VPN_OPTIONAL),
-            Self::Ipsec => FormDialog::new(locale, keys::WEB_VPN_SERVER_IPSEC, post_to)
-                .text("map", keys::WEB_VPN_MAP)
-                .help(keys::WEB_VPN_MAP_HELP)
-                .radio("enabled", keys::WEB_VPN_VIRTUAL_IP, switch())
-                .text("begin", keys::WEB_VPN_POOL_BEGIN)
-                .help(keys::WEB_VPN_OPTIONAL)
-                .text("size", keys::WEB_VPN_POOL_SIZE)
-                .help(keys::WEB_VPN_OPTIONAL)
-                .text("primary", keys::WEB_VPN_DNS_PRIMARY)
-                .help(keys::WEB_VPN_OPTIONAL)
-                .text("secondary", keys::WEB_VPN_DNS_SECONDARY)
-                .help(keys::WEB_VPN_OPTIONAL),
+                .with_input(text("name", keys::WEB_VPN_NAME, keys::WEB_VPN_NAME_HELP))
+                .with_input(Input::file("file", keys::WEB_VPN_FILE).help(keys::WEB_VPN_FILE_HELP)),
+            Self::Peer => dialog(keys::WEB_VPN_PEER_TITLE)
+                .with_input(Input::hidden("tunnel", String::new()))
+                .with_input(text(
+                    "key",
+                    keys::WEB_VPN_PUBLIC_KEY,
+                    keys::WEB_VPN_PUBLIC_KEY_HELP,
+                ))
+                .with_input(text(
+                    "endpoint",
+                    keys::WEB_VPN_ENDPOINT,
+                    keys::WEB_VPN_ENDPOINT_HELP,
+                ))
+                .with_input(text(
+                    "allowed",
+                    keys::WEB_VPN_ALLOWED_ADD,
+                    keys::WEB_VPN_ALLOWED_HELP,
+                ))
+                .with_input(text(
+                    "keepalive",
+                    keys::WEB_VPN_KEEPALIVE,
+                    keys::WEB_VPN_KEEPALIVE_HELP,
+                ))
+                .with_input(
+                    Input::secret("psk", keys::WEB_VPN_PRESHARED).help(keys::WEB_SECRET_PEER_HELP),
+                ),
+            Self::Pool(server) => dialog(server.title())
+                .with_input(Input::hidden("server", String::new()))
+                .with_input(text(
+                    "begin",
+                    keys::WEB_VPN_POOL_BEGIN,
+                    keys::WEB_VPN_POOL_BEGIN_HELP,
+                ))
+                .with_input(text(
+                    "size",
+                    keys::WEB_VPN_POOL_SIZE,
+                    keys::WEB_VPN_POOL_SIZE_HELP,
+                )),
+            Self::Dns(server) => dialog(server.title())
+                .with_input(Input::hidden("server", String::new()))
+                .with_input(text(
+                    "primary",
+                    keys::WEB_VPN_DNS_PRIMARY,
+                    keys::WEB_DNS_ADDRESS_HELP,
+                ))
+                .with_input(text(
+                    "secondary",
+                    keys::WEB_VPN_DNS_SECONDARY,
+                    keys::WEB_VPN_OPTIONAL,
+                )),
+            Self::Ipsec => dialog(keys::WEB_VPN_SERVER_IPSEC)
+                .with_input(text("map", keys::WEB_VPN_MAP, keys::WEB_VPN_MAP_HELP))
+                .with_input(Input::text("enabled", keys::WEB_VPN_VIRTUAL_IP).radio(switch()))
+                .with_input(text(
+                    "begin",
+                    keys::WEB_VPN_POOL_BEGIN,
+                    keys::WEB_VPN_OPTIONAL,
+                ))
+                .with_input(text(
+                    "size",
+                    keys::WEB_VPN_POOL_SIZE,
+                    keys::WEB_VPN_OPTIONAL,
+                ))
+                .with_input(text(
+                    "primary",
+                    keys::WEB_VPN_DNS_PRIMARY,
+                    keys::WEB_VPN_OPTIONAL,
+                ))
+                .with_input(text(
+                    "secondary",
+                    keys::WEB_VPN_DNS_SECONDARY,
+                    keys::WEB_VPN_OPTIONAL,
+                )),
         }
     }
+
     /// The changes `values` ask for, or the field errors that stop them.
     ///
     /// # Errors

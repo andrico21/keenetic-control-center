@@ -4,7 +4,6 @@
 //! bit field (Monday the lowest bit, Sunday the highest); the time and the days are
 //! checked here before anything is sent.
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
@@ -26,16 +25,13 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Change,
-        context::fragment_shell,
-        outcome::Failure,
+        form::{Choice, FormDialog, Input},
         request::{Params, missing, shown_query},
-        respond::{self, Answer},
-        submit::{self, Invalid, Planned, Submission},
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
 };
 
@@ -52,32 +48,6 @@ const DAYS: [(&str, MessageKey); 7] = [
     ("sat", keys::WEB_SYSTEM_SCHEDULES_SATURDAY),
     ("sun", keys::WEB_SYSTEM_SCHEDULES_SUNDAY),
 ];
-
-/// The add-action dialog.
-#[derive(Template)]
-#[template(path = "partials/system_action_dialog.html")]
-struct ActionDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// Router profile id.
-    router: String,
-    /// Localized title naming the schedule.
-    title: String,
-    /// The schedule.
-    schedule: String,
-    /// Whether the action starts (else stops) what the schedule controls.
-    start: bool,
-    /// The time as typed.
-    time_value: String,
-    /// Localized error under the time; empty when none.
-    time_error: String,
-    /// The days and whether each is checked.
-    days: Vec<(&'static str, MessageKey, bool)>,
-    /// Localized error under the days; empty when none.
-    days_error: String,
-}
-
-localized!(ActionDialog);
 
 /// The minute and hour of `time`, written `HH:MM`.
 fn clock(time: &str) -> Option<(u8, u8)> {
@@ -99,24 +69,45 @@ fn weekdays(days: &[&str]) -> Option<u8> {
     (field != 0).then_some(field)
 }
 
-/// The add-action dialog of `schedule` on `router`, starting with nothing checked.
-fn action_dialog(router: &str, locale: Locale, schedule: &str) -> ActionDialog {
+/// The add-action dialog of `schedule` on `router`, showing `(start, time, days)` as
+/// chosen; a change the domain could not plan shows under the time.
+fn action_dialog(
+    (router, locale): (&str, Locale),
+    schedule: &str,
+    (start, time, days): (bool, &str, &[&str]),
+) -> FormDialog {
     let mut args = FluentArgs::new();
     args.set("name", schedule.to_owned());
-    ActionDialog {
-        shell: fragment_shell(locale),
-        router: router.to_owned(),
-        title: tr(locale, keys::WEB_SYSTEM_SCHEDULES_ACTION_TITLE, Some(&args)),
-        schedule: schedule.to_owned(),
-        start: true,
-        time_value: String::new(),
-        time_error: String::new(),
-        days: DAYS
-            .iter()
-            .map(|(day, label)| (*day, *label, false))
-            .collect(),
-        days_error: String::new(),
-    }
+    let actions = vec![
+        Choice::word(locale, "start", keys::WEB_SYSTEM_SCHEDULES_START),
+        Choice::word(locale, "stop", keys::WEB_SYSTEM_SCHEDULES_STOP),
+    ];
+    let checks = DAYS
+        .iter()
+        .map(|(day, label)| Choice::word(locale, day, *label).checked(days.contains(day)))
+        .collect();
+    FormDialog::titled(
+        locale,
+        tr(locale, keys::WEB_SYSTEM_SCHEDULES_ACTION_TITLE, Some(&args)),
+        format!("/ui/r/{router}/system/schedules/action"),
+    )
+    .ids("action")
+    .submit(keys::WEB_SYSTEM_SCHEDULES_ADD_ACTION)
+    .refusing_at("time")
+    .with_input(Input::hidden("name", schedule.to_owned()))
+    .with_input(
+        Input::text("action", keys::WEB_SYSTEM_SCHEDULES_ACTION)
+            .radio(actions)
+            .value(if start { "start" } else { "stop" }.to_owned()),
+    )
+    .with_input(
+        Input::field("time", keys::WEB_SYSTEM_SCHEDULES_TIME, time.to_owned()).typed("time"),
+    )
+    .with_input(
+        Input::text("day", keys::WEB_SYSTEM_SCHEDULES_DAYS)
+            .checks(checks)
+            .id("action-days"),
+    )
 }
 
 /// `GET /ui/r/{router}/system/schedules/action?name=`: the add-action dialog.
@@ -138,11 +129,7 @@ pub(crate) async fn action_form(
     if !known.iter().any(|schedule| schedule.name() == name) {
         return Err(missing());
     }
-    Ok(errors::render(&action_dialog(
-        &router,
-        action.locale(),
-        name,
-    )))
+    Ok(action_dialog((&router, action.locale()), name, (true, "", &[])).show())
 }
 
 /// `POST /ui/r/{router}/system/schedules/action`: adds a timed action to a schedule.
@@ -174,12 +161,7 @@ pub(crate) async fn add_action(
     let time = value(&pairs, "time").unwrap_or_default();
     let checked = values(&pairs, "day");
     let start = value(&pairs, "action") != Some("stop");
-    let mut dialog = action_dialog(&router, locale, &name);
-    dialog.start = start;
-    time.clone_into(&mut dialog.time_value);
-    for (day, _, checked_day) in &mut dialog.days {
-        *checked_day = checked.contains(day);
-    }
+    let dialog = action_dialog((&router, locale), &name, (start, time, &checked));
     let kind = if start {
         ScheduleAction::Start
     } else {
@@ -211,27 +193,6 @@ pub(crate) async fn add_action(
             async |ctx| viewer.refreshed(ctx).await,
         )
         .await)
-}
-
-/// The add-action dialog answers values that failed their check, and a change the domain
-/// could not plan, under the field they concern.
-impl submit::Form for ActionDialog {
-    fn answer_invalid(mut self, invalid: Invalid, locale: Locale) -> Response {
-        for (field, rule) in invalid.into_findings() {
-            let error = tr(locale, rule, None);
-            if field == "day" {
-                self.days_error = error;
-            } else {
-                self.time_error = error;
-            }
-        }
-        respond::in_dialog(respond::unprocessable(&self))
-    }
-
-    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
-        failure.message().clone_into(&mut self.time_error);
-        respond::in_dialog(respond::unprocessable(&self))
-    }
 }
 
 #[cfg(test)]

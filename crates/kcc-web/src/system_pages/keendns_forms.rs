@@ -1,7 +1,6 @@
 //! The KeenDNS name changes: book a name and release it, both writes; and what every
 //! KeenDNS change shares (its dialog and how it answers, its planned change).
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
@@ -18,16 +17,14 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Change,
         confirm::FAIL_SAFE_MINUTES,
-        context::fragment_shell,
+        form::{Choice, FormDialog, Input, Problem},
         outcome::Failure,
         request::{Params, missing},
-        respond::{self, Answer},
+        respond::Answer,
         submit::{self, Invalid, Planned, Submission},
     },
 };
@@ -44,59 +41,75 @@ pub(crate) const PROTOCOLS: [&str; 2] = ["http", "https"];
 /// Longest DNS label accepted.
 const LABEL_BYTES: usize = 63;
 
-/// A dialog of the KeenDNS page: booking a name or adding a proxy entry.
-#[derive(Template)]
-#[template(path = "partials/system_keendns_dialog.html")]
-pub(crate) struct NameDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// Router profile id.
-    router: String,
-    /// Whether it adds a proxy entry (else it books a name).
-    proxy: bool,
-    /// The fields as typed: name, domain or protocol, host, port.
-    values: [String; 4],
-    /// Localized error of the form; empty when none.
-    error: String,
-    /// The fail-safe explanation of a proxy entry.
-    fail_safe: String,
-    /// The protocols a proxy entry offers.
-    protocols: [&'static str; 2],
-}
-
-localized!(NameDialog);
+/// A dialog of the KeenDNS page: booking a name or adding a proxy entry. Its problem shows
+/// under the fields.
+pub(crate) struct NameDialog(FormDialog);
 
 impl NameDialog {
     /// The dialog in `locale`; `proxy` for a proxy entry.
     pub(crate) fn new(router: &str, locale: Locale, proxy: bool) -> Self {
-        let mut args = FluentArgs::new();
-        args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-        Self {
-            shell: fragment_shell(locale),
-            router: router.to_owned(),
-            proxy,
-            values: [String::new(), String::new(), String::new(), String::new()],
-            error: String::new(),
-            fail_safe: tr(locale, keys::WEB_SYSTEM_KEENDNS_FAIL_SAFE, Some(&args)),
-            protocols: PROTOCOLS,
-        }
-    }
-
-    /// The field `index` as typed.
-    fn field(&self, index: usize) -> &str {
-        self.values.get(index).map_or("", String::as_str)
+        let field = |name, label| Input::field(name, label, String::new());
+        let dialog = if proxy {
+            let mut args = FluentArgs::new();
+            args.set("minutes", FAIL_SAFE_MINUTES.to_string());
+            let protocols = PROTOCOLS
+                .iter()
+                .map(|protocol| Choice::plain(protocol))
+                .collect();
+            FormDialog::new(
+                locale,
+                keys::WEB_SYSTEM_KEENDNS_PROXY_ADD,
+                format!("/ui/r/{router}/system/keendns/proxy"),
+            )
+            .ids("proxy")
+            .with_input(Input::hidden("confirm", "yes".to_owned()))
+            .with_input(
+                field("name", keys::WEB_SYSTEM_KEENDNS_PROXY_NAME)
+                    .help(keys::WEB_SYSTEM_KEENDNS_PROXY_NAME_HELP),
+            )
+            .with_input(
+                Input::text("protocol", keys::WEB_SYSTEM_KEENDNS_PROXY_PROTOCOL).select(protocols),
+            )
+            .with_input(field("host", keys::WEB_SYSTEM_KEENDNS_PROXY_HOST))
+            .with_input(field("port", keys::WEB_SYSTEM_KEENDNS_PROXY_PORT))
+            .closing(tr(locale, keys::WEB_SYSTEM_KEENDNS_FAIL_SAFE, Some(&args)))
+        } else {
+            FormDialog::new(
+                locale,
+                keys::WEB_SYSTEM_KEENDNS_BOOK,
+                format!("/ui/r/{router}/system/keendns/book"),
+            )
+            .ids("keendns")
+            .submit(keys::WEB_SYSTEM_KEENDNS_BOOK)
+            .with_input(field("name", keys::WEB_SYSTEM_KEENDNS_LABEL).id("keendns-label"))
+            .with_input(
+                field("domain", keys::WEB_SYSTEM_KEENDNS_DOMAIN)
+                    .help(keys::WEB_SYSTEM_KEENDNS_DOMAIN_HELP),
+            )
+        };
+        Self(dialog.leading_break().problem_at(Problem::Below))
     }
 
     /// Fills the fields with `values`: name, domain or protocol, host, port.
-    pub(crate) fn filled(mut self, values: [String; 4]) -> Self {
-        self.values = values;
-        self
+    pub(crate) fn filled(self, [name, second, host, port]: [String; 4]) -> Self {
+        Self(
+            self.0
+                .with_value("name", name)
+                .with_value("domain", second.clone())
+                .with_value("protocol", second)
+                .with_value("host", host)
+                .with_value("port", port),
+        )
+    }
+
+    /// The dialog, the answer to its `GET`.
+    pub(crate) fn show(&self) -> Response {
+        self.0.show()
     }
 
     /// The dialog again with `message`, as 422 in the shared dialog.
-    pub(crate) fn refused(mut self, message: String) -> Answer {
-        self.error = message;
-        respond::in_dialog(respond::unprocessable(&self)).into()
+    pub(crate) fn refused(self, message: String) -> Answer {
+        self.0.problem(message).invalid().into()
     }
 }
 
@@ -154,11 +167,7 @@ pub(crate) async fn book_dialog(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let action = BOOK.open(&state, &user, &router).await?;
-    Ok(errors::render(&NameDialog::new(
-        &router,
-        action.locale(),
-        false,
-    )))
+    Ok(NameDialog::new(&router, action.locale(), false).show())
 }
 
 /// `POST /ui/r/{router}/system/keendns/book`: books a KeenDNS name.

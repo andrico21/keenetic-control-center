@@ -12,10 +12,9 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use super::{
     check,
     check::Optional,
-    form::Errors,
     vpn_forms::{Server, VpnForm},
 };
-use crate::page_kit::request::Params;
+use crate::page_kit::{form::Errors, request::Params};
 
 /// Checked VPN changes, ready to plan.
 #[derive(Debug, Clone, PartialEq, Eq)]

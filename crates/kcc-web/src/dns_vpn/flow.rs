@@ -8,7 +8,6 @@ use kcc_i18n::{bundle::tr, locale::Locale};
 use super::{
     dns_forms::DnsForm,
     dns_pages::offered,
-    form::FormDialog,
     screen::{Answered, Tab},
 };
 use crate::{
@@ -19,6 +18,7 @@ use crate::{
         context::{self, Caller, Refusal},
         failure::plan_failure,
         family::Family,
+        form::FormDialog,
         gate::Controls,
         outcome::{Failure, Outcome},
         request::{Params, missing},
@@ -168,18 +168,6 @@ impl Viewer {
     /// The page `path` of the router, such as `dns/records`.
     pub(crate) fn href(&self, path: &str) -> String {
         format!("/ui/r/{}/{path}", self.router)
-    }
-}
-
-/// A DNS or VPN dialog answers values that failed their check, and a change the domain
-/// could not plan, in itself.
-impl submit::Form for FormDialog {
-    fn answer_invalid(self, invalid: Invalid, _locale: Locale) -> Response {
-        self.errors(&invalid.into_findings()).invalid()
-    }
-
-    fn answer_refused(self, failure: Failure, _locale: Locale) -> Response {
-        self.problem(failure.message().to_owned()).invalid()
     }
 }
 

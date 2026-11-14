@@ -1,0 +1,107 @@
+{#- The dialog form of the domain pages: every input with its label, help, constraints and error. The outcome lands in the page's outcome region; errors come back into this dialog. A constraint carries, in data-kcc-invalid, the localized rule the browser shows when it fails; the server checks again. Inputs with data-show appear only for the chosen kind (CSS :has). A secret input is write-only: it never shows a value. -#}
+{%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- if leading_break %}
+{% endif -%}
+{% call ui::dialog_body(title) %}
+{%- if !intro.is_empty() %}
+<p class="dialog__text">{{ intro }}</p>
+{%- endif %}
+{%- if !problem.is_empty() && problem_at == Problem::Above %}
+<p class="notice" data-tone="error">{{ problem }}</p>
+{%- endif %}
+<form class="form" method="post" action="{{ post_to }}" hx-post="{{ post_to }}" hx-target="#page-outcome"{% if multipart %} hx-encoding="multipart/form-data"{% endif %}>
+  {%- if !problem.is_empty() && problem_at == Problem::Top %}
+  <p class="notice" data-tone="error">{{ problem }}</p>
+  {%- endif %}
+  {%- for input in inputs %}
+  {%- if let Some(class) = opens_group(loop.index0) %}
+  <div class="{{ class }}">
+  {%- endif %}
+  {%- if input.kind == Kind::Hidden %}
+  <input type="hidden" name="{{ input.name }}" value="{{ input.value }}">
+  {%- else if input.kind == Kind::Secret %}
+  {{ kit::secret_field(id(input), input.name, label(input), input.error, help(input)) }}
+  {%- else if input.kind == Kind::Field && input.group.is_some() %}
+    {{ ui::field(id(input), input.name, label(input), input.value, input.error, input.html_type(), "off", help(input)) }}
+  {%- else if input.kind == Kind::Field %}
+  {{ ui::field(id(input), input.name, label(input), input.value, input.error, input.html_type(), "off", help(input)) }}
+  {%- else if input.kind == Kind::Check %}
+  <div class="check">
+    <input class="check__input" type="checkbox" id="{{ id(input) }}" name="{{ input.name }}" value="on"{% if !input.value.is_empty() %} checked{% endif %}>
+    <label class="check__label" for="{{ id(input) }}">{{ label(input) }}</label>
+  </div>
+  {%- else if input.kind == Kind::Checks %}
+  {%- if !input.choices.is_empty() %}
+  <fieldset class="choice"{% if !input.error.is_empty() %} aria-describedby="{{ id(input) }}-error"{% endif %}>
+    <legend class="field__label">{{ label(input) }}</legend>
+    <div class="system-checks">
+      {%- for choice in input.choices %}
+      <label class="choice__option"><input type="checkbox" name="{{ input.name }}" value="{{ choice.value }}"{% if choice.checked %} checked{% endif %}><span{% if input.mono %} class="mono"{% endif %}>{{ choice.label }}</span></label>
+      {%- endfor %}
+    </div>
+    {%- if !input.error.is_empty() %}
+    <p class="field__error" id="{{ id(input) }}-error">{{ input.error }}</p>
+    {%- endif %}
+  </fieldset>
+  {%- endif %}
+  {%- else if input.kind == Kind::Radio %}
+  <fieldset class="choice"{% if !input.show.is_empty() %} data-show="{{ input.show }}"{% endif %}{% if !described_by(input).is_empty() %} aria-describedby="{{ described_by(input) }}"{% endif %}>
+    <legend class="field__label">{{ label(input) }}</legend>
+    {%- for (choice, chosen) in options(input) %}
+    <label class="choice__option"><input type="radio" name="{{ input.name }}" value="{{ choice.value }}"{% if chosen %} checked{% endif %}><span>{{ choice.label }}</span></label>
+    {%- endfor %}
+    {%- if input.help.is_some() %}
+    <p class="field__help" id="{{ id(input) }}-help">{{ help(input) }}</p>
+    {%- endif %}
+    {%- if !input.error.is_empty() %}
+    <p class="field__error" id="{{ id(input) }}-error">{{ input.error }}</p>
+    {%- endif %}
+  </fieldset>
+  {%- else %}
+  <div class="field"{% if !input.show.is_empty() %} data-show="{{ input.show }}"{% endif %}>
+    <label class="field__label" for="{{ id(input) }}">{{ label(input) }}</label>
+    {%- if input.kind == Kind::Select %}
+    <select class="field__input" id="{{ id(input) }}" name="{{ input.name }}"
+      {%- if !input.error.is_empty() %} aria-invalid="true"{% endif %}
+      {%- if !described_by(input).is_empty() %} aria-describedby="{{ described_by(input) }}"{% endif %}>
+      {%- for (choice, chosen) in options(input) %}
+      <option value="{{ choice.value }}"{% if chosen %} selected{% endif %}>{{ choice.label }}</option>
+      {%- endfor %}
+    </select>
+    {%- else if input.kind == Kind::File %}
+    <input class="field__input field__file" id="{{ id(input) }}" name="{{ input.name }}" type="file" accept=".conf,text/plain"
+      {%- if !input.error.is_empty() %} aria-invalid="true"{% endif %}
+      {%- if !described_by(input).is_empty() %} aria-describedby="{{ described_by(input) }}"{% endif %}>
+    {%- else %}
+    <input class="field__input" id="{{ id(input) }}" name="{{ input.name }}" type="{{ input.html_type() }}" value="{{ input.value }}" autocomplete="off" spellcheck="false"
+      {%- if input.required %} required{% endif %}
+      {%- if let Some(chars) = input.limit() %} maxlength="{{ chars }}"{% endif %}
+      {%- if let Some((low, high)) = input.bounds %} min="{{ low }}" max="{{ high }}" step="1"{% endif %}
+      {%- if let Some(text) = rule(input) %} data-kcc-invalid="{{ text }}"{% endif %}
+      {%- if !input.error.is_empty() %} aria-invalid="true"{% endif %}
+      {%- if !described_by(input).is_empty() %} aria-describedby="{{ described_by(input) }}"{% endif %}>
+    {%- endif %}
+    {%- if input.help.is_some() %}
+    <p class="field__help" id="{{ id(input) }}-help">{{ help(input) }}</p>
+    {%- endif %}
+    {%- if !input.error.is_empty() %}
+    <p class="field__error" id="{{ id(input) }}-error">{{ input.error }}</p>
+    {%- endif %}
+  </div>
+  {%- endif %}
+  {%- if closes_group(loop.index0) %}
+  </div>
+  {%- endif %}
+  {%- endfor %}
+  {%- if !problem.is_empty() && problem_at == Problem::Below %}
+  <p class="field__error" role="alert">{{ problem }}</p>
+  {%- endif %}
+  {%- if !closing.is_empty() %}
+  <p class="dialog__text">{{ closing }}</p>
+  {%- endif %}
+  <div class="dialog__actions">
+    <button class="button button--{{ button }}" type="submit">{{ submit }}</button>
+  </div>
+</form>
+{% endcall %}

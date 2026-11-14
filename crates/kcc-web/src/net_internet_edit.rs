@@ -17,12 +17,12 @@ use crate::{
     WebState,
     authz::CurrentUser,
     net_change::{Subject, refreshed},
-    net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
     page_kit::{
         action::Operation,
         change::Change,
+        form::{Choice, FormDialog, Input},
         request::{Params, missing},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -136,7 +136,7 @@ impl Setting {
                     .help(keys::WEB_INTERNET_PRIORITY_HELP),
             ),
         };
-        FormDialog::new(
+        FormDialog::network(
             subject.locale(),
             subject.title(title),
             subject.url(&format!("internet/edit/{}", self.slug()), &[]),

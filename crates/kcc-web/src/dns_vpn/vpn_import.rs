@@ -24,7 +24,6 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
 use super::{
-    form::FormDialog,
     screen::{Answered, read_back},
     vpn_conf,
     vpn_forms::VpnForm,
@@ -37,6 +36,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        form::FormDialog,
         outcome::{Failure, Outcome},
         request::{Params, shown_query},
         respond::Answer,

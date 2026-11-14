@@ -23,9 +23,9 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_form::{Choice, FormDialog, Input},
     page_kit::{
         action::Operation,
+        form::{Choice, FormDialog, Input},
         request::{Params, missing, rendered, shown_query, with_query},
         respond::Answer,
         submit::{Formless, Invalid, Submission},
@@ -289,8 +289,8 @@ fn remove_url(router: &str, rule: &Forward) -> String {
 fn translate_form(locale: Locale, router: &str, chosen: &str, names: &[String]) -> FormDialog {
     let title = tr(locale, keys::WEB_NAT_INTERFACE_ADD_TITLE, None);
     let choices = names.iter().map(|name| Choice::plain(name)).collect();
-    FormDialog::new(locale, title, format!("/ui/r/{router}/nat/interface/new"))
-        .with_submit(keys::WEB_NAT_INTERFACE_ADD)
+    FormDialog::network(locale, title, format!("/ui/r/{router}/nat/interface/new"))
+        .submit(keys::WEB_NAT_INTERFACE_ADD)
         .with_input(
             Input::new(
                 "interface",

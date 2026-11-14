@@ -10,9 +10,9 @@ use kcc_i18n::{
 };
 
 use super::route_rows::{Family, StaticRoute, mask, prefix};
-use crate::{
-    net_form::{Choice, FormDialog, Input},
-    page_kit::request::Params,
+use crate::page_kit::{
+    form::{Choice, FormDialog, Input},
+    request::Params,
 };
 
 /// The field naming the destination of `family`.
@@ -104,11 +104,11 @@ pub(crate) fn form(
         Family::V6 => (keys::WEB_ROUTING_ADD_TITLE_V6, keys::WEB_ROUTING_ERROR_IPV6),
     };
     let value = |name: &str| values.text(name).to_owned();
-    let mut choices = vec![Choice::keyed("", keys::WEB_ROUTING_NO_INTERFACE, locale)];
+    let mut choices = vec![Choice::word(locale, "", keys::WEB_ROUTING_NO_INTERFACE)];
     choices.extend(names.iter().map(|name| Choice::plain(name)));
     let post_to = format!("/ui/r/{router}/routing/route/new?family={}", family.slug());
-    let mut dialog = FormDialog::new(locale, tr(locale, title, None), post_to)
-        .with_submit(keys::WEB_ROUTING_ADD);
+    let mut dialog =
+        FormDialog::network(locale, tr(locale, title, None), post_to).submit(keys::WEB_ROUTING_ADD);
     dialog = match family {
         Family::V4 => dialog
             .with_input(

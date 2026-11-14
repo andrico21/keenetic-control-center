@@ -19,7 +19,6 @@ use super::{
     dns_read::{DnsState, Entry},
     dns_tabs,
     flow::{Answers, Closed, InRegion, Viewer, Visit, unreadable},
-    form::FormDialog,
     region::Region,
     screen::{Page, Tab, read_back},
 };
@@ -33,6 +32,7 @@ use crate::{
         context::Caller,
         failure::plan_failure,
         family::Family,
+        form::FormDialog,
         gate::Controls,
         request::{Params, missing, shown_query},
         respond::Answer,

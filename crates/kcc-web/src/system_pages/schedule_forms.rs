@@ -3,7 +3,6 @@
 //! The router's CLI takes a schedule's name and description as one word each, so both are
 //! checked here before anything is sent.
 
-use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
@@ -11,22 +10,19 @@ use axum::{
     response::Response,
 };
 use kcc_domain::schedules;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{schedules::Viewer, shared::value};
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Change,
-        context::fragment_shell,
-        outcome::Failure,
+        form::{FormDialog, Input},
         request::{Params, shown_query},
-        respond::{self, Answer},
-        submit::{self, Invalid, Planned, Submission},
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
 };
 
@@ -36,25 +32,27 @@ const CREATE: Operation = Operation::write(&schedules::DESCRIPTOR, "create", "we
 /// Longest name or description accepted, in characters.
 const WORD_CHARS: usize = 64;
 
-/// The add-schedule dialog.
-#[derive(Template)]
-#[template(path = "partials/system_schedule_dialog.html")]
-struct ScheduleDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// Router profile id.
-    router: String,
-    /// The name as typed.
-    name_value: String,
-    /// Localized error under the name; empty when none.
-    name_error: String,
-    /// The description as typed.
-    description_value: String,
-    /// Localized error under the description; empty when none.
-    description_error: String,
+/// The add-schedule dialog on `router` in `locale`, showing the `name` and `description`
+/// as typed; a change the domain could not plan shows under the name.
+fn schedule_dialog(router: &str, locale: Locale, (name, description): (&str, &str)) -> FormDialog {
+    let field = |field, label, value: &str| {
+        Input::field(field, label, value.to_owned()).help(keys::WEB_SYSTEM_SCHEDULES_WORD_HELP)
+    };
+    FormDialog::new(
+        locale,
+        keys::WEB_SYSTEM_SCHEDULES_ADD_TITLE,
+        format!("/ui/r/{router}/system/schedules"),
+    )
+    .ids("schedule")
+    .submit(keys::WEB_SYSTEM_SCHEDULES_ADD)
+    .refusing_at("name")
+    .with_input(field("name", keys::WEB_SYSTEM_SCHEDULES_NAME, name))
+    .with_input(field(
+        "description",
+        keys::WEB_SYSTEM_SCHEDULES_DESCRIPTION,
+        description,
+    ))
 }
-
-localized!(ScheduleDialog);
 
 /// Whether `value` is one word the router's CLI takes: 1 to 64 Latin letters, digits,
 /// dots, hyphens and underscores.
@@ -76,14 +74,7 @@ pub(crate) async fn new_dialog(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let action = CREATE.open(&state, &user, &router).await?;
-    Ok(errors::render(&ScheduleDialog {
-        shell: fragment_shell(action.locale()),
-        router,
-        name_value: String::new(),
-        name_error: String::new(),
-        description_value: String::new(),
-        description_error: String::new(),
-    }))
+    Ok(schedule_dialog(&router, action.locale(), ("", "")).show())
 }
 
 /// `POST /ui/r/{router}/system/schedules`: adds a schedule, with its description when one
@@ -104,14 +95,7 @@ pub(crate) async fn create(
     let locale = action.locale();
     let name = value(&pairs, "name").unwrap_or_default();
     let description = value(&pairs, "description").unwrap_or_default();
-    let dialog = ScheduleDialog {
-        shell: fragment_shell(locale),
-        router: router.clone(),
-        name_value: name.to_owned(),
-        name_error: String::new(),
-        description_value: description.to_owned(),
-        description_error: String::new(),
-    };
+    let dialog = schedule_dialog(&router, locale, (name, description));
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
     Ok(Submission::new(action, &Params::default(), dialog)
         .submit(
@@ -141,27 +125,6 @@ pub(crate) async fn create(
             async |domain| viewer.refreshed(domain).await,
         )
         .await)
-}
-
-/// The add-schedule dialog answers values that failed their check, and a change the
-/// domain could not plan, under the field they concern.
-impl submit::Form for ScheduleDialog {
-    fn answer_invalid(mut self, invalid: Invalid, locale: Locale) -> Response {
-        for (field, rule) in invalid.into_findings() {
-            let error = tr(locale, rule, None);
-            if field == "description" {
-                self.description_error = error;
-            } else {
-                self.name_error = error;
-            }
-        }
-        respond::in_dialog(respond::unprocessable(&self))
-    }
-
-    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
-        failure.message().clone_into(&mut self.name_error);
-        respond::in_dialog(respond::unprocessable(&self))
-    }
 }
 
 #[cfg(test)]

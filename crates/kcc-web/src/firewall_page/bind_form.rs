@@ -12,9 +12,9 @@ use super::{
     lists_region::direction_label,
     snapshot::{Binding, Snapshot},
 };
-use crate::{
-    net_form::{Choice, FormDialog, Input},
-    page_kit::request::Params,
+use crate::page_kit::{
+    form::{Choice, FormDialog, Input},
+    request::Params,
 };
 
 /// The direction a parameter names.
@@ -79,12 +79,12 @@ pub(crate) fn form(
         .collect();
     let interfaces = names.iter().map(|name| Choice::plain(name)).collect();
     let ways = vec![
-        Choice::keyed("in", keys::WEB_FIREWALL_DIRECTION_IN, locale),
-        Choice::keyed("out", keys::WEB_FIREWALL_DIRECTION_OUT, locale),
+        Choice::word(locale, "in", keys::WEB_FIREWALL_DIRECTION_IN),
+        Choice::word(locale, "out", keys::WEB_FIREWALL_DIRECTION_OUT),
     ];
     let title = tr(locale, keys::WEB_FIREWALL_BIND_TITLE, None);
-    FormDialog::new(locale, title, format!("/ui/r/{router}/firewall/bind"))
-        .with_submit(keys::WEB_FIREWALL_BIND)
+    FormDialog::network(locale, title, format!("/ui/r/{router}/firewall/bind"))
+        .submit(keys::WEB_FIREWALL_BIND)
         .with_input(Input::new("list", keys::WEB_FIREWALL_FIELD_LIST, value("list")).select(lists))
         .with_input(
             Input::new(

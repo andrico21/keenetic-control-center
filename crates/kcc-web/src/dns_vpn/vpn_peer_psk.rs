@@ -9,9 +9,9 @@ use kcc_domain::{Result as DomainResult, RouterCtx, vpn_clients};
 use kcc_i18n::keys;
 use secrecy::{ExposeSecret as _, SecretString};
 
-use super::{check::is_wireguard_key, form::Errors};
+use super::check::is_wireguard_key;
 use crate::{
-    page_kit::{request::Params, secret::write_only},
+    page_kit::{form::Errors, request::Params, secret::write_only},
     secret_pages::dialog::take,
 };
 

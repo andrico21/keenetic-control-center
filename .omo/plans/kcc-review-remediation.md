@@ -574,7 +574,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): submit pipeline for DNS, VPN, system and secret pages
   Recommended task executor category: unspecified-high - mechanical migration onto the new kit API
 
-- [ ] 35. One form engine for every dialog
+- [x] 35. One form engine for every dialog
   What to do / Must NOT do: Make `crates/kcc-web/src/dns_vpn/form.rs` (superset: hidden, secret, radio, file and `data-show` inputs) the kit engine `page_kit::form` with template `kit_form.html`, adding the constraints and ARIA wiring of `net_form.html` (`min`, `max`, `maxlength`, `data-kcc-invalid`, `aria-describedby`, `aria-invalid`). Replace `crates/kcc-web/src/net_form.rs` (12 user files) + `net_form.html`, `page_kit/dialog.rs` `FieldDialog` (users `clients_pages/client_act.rs`, `system_general/fields.rs`) and the seven hand-written dialogs `dhcp_pool_dialog.html`, `dhcp_lease_dialog.html`, `system_user_dialog.html`, `system_keendns_dialog.html`, `system_schedule_dialog.html`, `system_action_dialog.html`, `system_format_dialog.html` (secret inputs use the engine's secret kind). Must NOT: change field names, ids, validation attributes or the CSP (no inline script/style).
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 33, 34 | Blocks: 36 | Can parallelize with: -

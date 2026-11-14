@@ -6,10 +6,13 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use super::{
     dns_checks,
     dns_checks::{ENGINES, Planned},
-    form::{Choice, Errors, FormDialog},
     screen::Tab,
 };
-use crate::page_kit::{action::Operation, request::Params};
+use crate::page_kit::{
+    action::Operation,
+    form::{Choice, Errors, FormDialog, Input},
+    request::Params,
+};
 
 /// A dialog of the DNS tabs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -125,68 +128,85 @@ impl DnsForm {
         matches!(self, Self::Entry | Self::Route | Self::Assign)
     }
 
-    /// The dialog on `router` in `locale`, offering `choices`.
+    /// The dialog on `router` in `locale`, offering `choices`; a change the domain could
+    /// not plan comes back into it.
     pub(crate) fn dialog(self, router: &str, locale: Locale, choices: &Choices) -> FormDialog {
         let post_to = format!("/ui/r/{router}/dns/form/{}", self.slug());
-        let plain = |names: &[String]| names.iter().cloned().map(Choice::plain).collect();
+        let plain = |names: &[String]| names.iter().map(|name| Choice::plain(name)).collect();
+        let dialog = |title| FormDialog::new(locale, title, post_to).refusing_in_dialog();
         match self {
-            Self::Server => FormDialog::new(locale, keys::WEB_DNS_SERVER_ADD, post_to)
-                .radio("kind", keys::WEB_DNS_PROTOCOL, protocols(locale))
-                .text("address", keys::WEB_DNS_ADDRESS)
-                .help(keys::WEB_DNS_ADDRESS_HELP)
-                .shown_for("tls plain")
-                .text("port", keys::WEB_DNS_PORT)
-                .help(keys::WEB_DNS_PORT_HELP)
-                .shown_for("tls")
-                .text("sni", keys::WEB_DNS_SNI)
-                .help(keys::WEB_DNS_SNI_HELP)
-                .shown_for("tls")
-                .text("url", keys::WEB_DNS_URL)
-                .help(keys::WEB_DNS_URL_HELP)
-                .shown_for("https")
-                .select("format", keys::WEB_DNS_FORMAT, formats(locale))
-                .shown_for("https"),
-            Self::Record => FormDialog::new(locale, keys::WEB_DNS_RECORD_ADD, post_to)
-                .text("domain", keys::WEB_DNS_DOMAIN)
-                .help(keys::WEB_DNS_DOMAIN_HELP)
-                .text("address", keys::WEB_DNS_ADDRESS)
-                .help(keys::WEB_DNS_ADDRESS_HELP),
-            Self::List => FormDialog::new(locale, keys::WEB_DNS_LIST_ADD, post_to)
-                .text("name", keys::WEB_DNS_NAME)
-                .help(keys::WEB_DNS_NAME_HELP),
-            Self::Entry => FormDialog::new(locale, keys::WEB_DNS_ENTRY_ADD, post_to)
-                .select("list", keys::WEB_DNS_LIST, plain(&choices.lists))
-                .radio("kind", keys::WEB_DNS_ENTRY_KIND, entry_kinds(locale))
-                .text("domain", keys::WEB_DNS_DOMAIN)
-                .help(keys::WEB_DNS_ENTRY_HELP),
-            Self::Route => FormDialog::new(locale, keys::WEB_DNS_ROUTE_ADD, post_to)
-                .intro(keys::WEB_DNS_ROUTE_INTRO)
-                .select("list", keys::WEB_DNS_LIST, plain(&choices.lists))
-                .select(
-                    "interface",
-                    keys::WEB_DNS_INTERFACE,
-                    plain(&choices.interfaces),
-                ),
-            Self::Engine => FormDialog::new(locale, keys::WEB_DNS_ENGINE_TITLE, post_to).select(
-                "engine",
-                keys::WEB_DNS_ENGINE,
-                engines(locale),
-            ),
-            Self::Profile => FormDialog::new(locale, keys::WEB_DNS_PROFILE_ADD, post_to)
-                .text("name", keys::WEB_DNS_NAME)
-                .help(keys::WEB_DNS_NAME_HELP),
-            Self::Assign => FormDialog::new(locale, keys::WEB_DNS_ASSIGN_TITLE, post_to)
-                .radio("kind", keys::WEB_DNS_TARGET_KIND, target_kinds(locale))
-                .text("host", keys::WEB_DNS_HOST)
-                .help(keys::WEB_DNS_HOST_HELP)
-                .shown_for("host")
-                .select(
-                    "interface",
-                    keys::WEB_DNS_INTERFACE,
-                    plain(&choices.interfaces),
+            Self::Server => dialog(keys::WEB_DNS_SERVER_ADD)
+                .with_input(Input::text("kind", keys::WEB_DNS_PROTOCOL).radio(protocols(locale)))
+                .with_input(
+                    Input::text("address", keys::WEB_DNS_ADDRESS)
+                        .help(keys::WEB_DNS_ADDRESS_HELP)
+                        .shown_for("tls plain"),
                 )
-                .shown_for("interface")
-                .select("profile", keys::WEB_DNS_PROFILE, plain(&choices.profiles)),
+                .with_input(
+                    Input::text("port", keys::WEB_DNS_PORT)
+                        .help(keys::WEB_DNS_PORT_HELP)
+                        .shown_for("tls"),
+                )
+                .with_input(
+                    Input::text("sni", keys::WEB_DNS_SNI)
+                        .help(keys::WEB_DNS_SNI_HELP)
+                        .shown_for("tls"),
+                )
+                .with_input(
+                    Input::text("url", keys::WEB_DNS_URL)
+                        .help(keys::WEB_DNS_URL_HELP)
+                        .shown_for("https"),
+                )
+                .with_input(
+                    Input::text("format", keys::WEB_DNS_FORMAT)
+                        .select(formats(locale))
+                        .shown_for("https"),
+                ),
+            Self::Record => dialog(keys::WEB_DNS_RECORD_ADD)
+                .with_input(
+                    Input::text("domain", keys::WEB_DNS_DOMAIN).help(keys::WEB_DNS_DOMAIN_HELP),
+                )
+                .with_input(
+                    Input::text("address", keys::WEB_DNS_ADDRESS).help(keys::WEB_DNS_ADDRESS_HELP),
+                ),
+            Self::List => dialog(keys::WEB_DNS_LIST_ADD)
+                .with_input(Input::text("name", keys::WEB_DNS_NAME).help(keys::WEB_DNS_NAME_HELP)),
+            Self::Entry => dialog(keys::WEB_DNS_ENTRY_ADD)
+                .with_input(Input::text("list", keys::WEB_DNS_LIST).select(plain(&choices.lists)))
+                .with_input(
+                    Input::text("kind", keys::WEB_DNS_ENTRY_KIND).radio(entry_kinds(locale)),
+                )
+                .with_input(
+                    Input::text("domain", keys::WEB_DNS_DOMAIN).help(keys::WEB_DNS_ENTRY_HELP),
+                ),
+            Self::Route => dialog(keys::WEB_DNS_ROUTE_ADD)
+                .intro(keys::WEB_DNS_ROUTE_INTRO)
+                .with_input(Input::text("list", keys::WEB_DNS_LIST).select(plain(&choices.lists)))
+                .with_input(
+                    Input::text("interface", keys::WEB_DNS_INTERFACE)
+                        .select(plain(&choices.interfaces)),
+                ),
+            Self::Engine => dialog(keys::WEB_DNS_ENGINE_TITLE)
+                .with_input(Input::text("engine", keys::WEB_DNS_ENGINE).select(engines(locale))),
+            Self::Profile => dialog(keys::WEB_DNS_PROFILE_ADD)
+                .with_input(Input::text("name", keys::WEB_DNS_NAME).help(keys::WEB_DNS_NAME_HELP)),
+            Self::Assign => dialog(keys::WEB_DNS_ASSIGN_TITLE)
+                .with_input(
+                    Input::text("kind", keys::WEB_DNS_TARGET_KIND).radio(target_kinds(locale)),
+                )
+                .with_input(
+                    Input::text("host", keys::WEB_DNS_HOST)
+                        .help(keys::WEB_DNS_HOST_HELP)
+                        .shown_for("host"),
+                )
+                .with_input(
+                    Input::text("interface", keys::WEB_DNS_INTERFACE)
+                        .select(plain(&choices.interfaces))
+                        .shown_for("interface"),
+                )
+                .with_input(
+                    Input::text("profile", keys::WEB_DNS_PROFILE).select(plain(&choices.profiles)),
+                ),
         }
     }
     /// The change `values` ask for, or the field errors that stop it.

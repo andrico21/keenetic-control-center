@@ -10,7 +10,9 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use url::form_urlencoded::byte_serialize;
 
 use crate::page_kit::{
-    action::Operation, change::Applied, context::fragment_shell, dialog::FieldDialog,
+    action::Operation,
+    change::Applied,
+    form::{self, FormDialog},
 };
 
 /// The clients domain's writes the page offers, for the table's actions column.
@@ -89,7 +91,7 @@ impl Act {
     }
 
     /// The one-field dialog of an action that asks for a value.
-    pub(crate) fn dialog(self, router: &str, mac: &str, locale: Locale) -> Option<FieldDialog> {
+    pub(crate) fn dialog(self, router: &str, mac: &str, locale: Locale) -> Option<FormDialog> {
         let (slug, title, label, help) = match self {
             Self::Name => (
                 "name",
@@ -119,7 +121,13 @@ impl Act {
         };
         let query: String = byte_serialize(mac.as_bytes()).collect();
         let post_to = format!("/ui/r/{router}/clients/{slug}?mac={query}");
-        Some(FieldDialog::new(fragment_shell(locale), post_to, (title, label)).with_help(help))
+        Some(
+            FormDialog::new(locale, title, post_to).with_input(
+                form::Input::field("value", label, String::new())
+                    .id("kit-field")
+                    .help(help),
+            ),
+        )
     }
 
     /// The posted `value` checked for this action; else why it is refused. `None` for a

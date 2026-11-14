@@ -26,9 +26,9 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
-        dialog::FieldDialog,
         failure::plan_failure,
         family::Family,
+        form::FormDialog,
         gate::Controls,
         outcome::{Failure, Outcome},
         request::{Params, missing, rendered, shown_uri},
@@ -109,7 +109,7 @@ pub(crate) async fn dialog(
     let field = act
         .dialog(&router, &target.mac, locale)
         .ok_or_else(missing)?;
-    Ok(field.with_value(act.current(&client)).show())
+    Ok(field.with_value("value", act.current(&client)).show())
 }
 
 /// `POST /ui/r/{router}/clients/{action}?mac=`: checks the value, plans with the clients
@@ -133,7 +133,7 @@ pub(crate) async fn act(
     let locale = action.locale();
     let dialog = act
         .dialog(&router, &target.mac, locale)
-        .map(|field| field.with_value(form.value.clone()));
+        .map(|field| field.with_value("value", form.value.clone()));
     let params = Params::default();
     Ok(Submission::new(action, &params, ActForm(dialog))
         .submit_reading(
@@ -177,13 +177,13 @@ pub(crate) async fn act(
 
 /// The form of a row action: its one-field dialog, or none when the action has no
 /// dialog and answers in the page's outcome region.
-struct ActForm(Option<FieldDialog>);
+struct ActForm(Option<FormDialog>);
 
 impl ActForm {
     /// `message` under the dialog's field, or in the outcome region.
     fn refuse(self, message: String, locale: Locale) -> Response {
         match self.0 {
-            Some(field) => field.with_error(message).invalid(),
+            Some(field) => field.with_error("value", message).invalid(),
             None => answer(
                 Outcome::failed(Failure::new(message, "failed")),
                 None,
