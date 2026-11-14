@@ -19,7 +19,7 @@ use super::{
 };
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::respond,
 };
 
@@ -45,11 +45,7 @@ struct Screen {
     back: Option<&'static str>,
 }
 
-impl Localize for Screen {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Screen);
 
 /// One entry of the step list.
 struct StepItem {

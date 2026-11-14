@@ -26,7 +26,7 @@ use crate::{
     errors::{self, Kind},
     migrate_wizard::ids::fresh_id,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Caller, Refusal, fragment_shell},
@@ -44,11 +44,7 @@ struct Page {
     panel: String,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/presets/new/{draft}`: the groups of a read source.
 // cancel-safe: reads only.

@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     overview::fragment,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -35,11 +35,7 @@ struct Heartbeat {
     text: String,
 }
 
-impl Localize for Heartbeat {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Heartbeat);
 
 /// The share of the plan sent.
 #[derive(Template)]
@@ -56,11 +52,7 @@ struct Bar {
     label: String,
 }
 
-impl Localize for Bar {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Bar);
 
 /// One sent setting.
 #[derive(Template)]
@@ -81,11 +73,7 @@ struct Line {
     label: String,
 }
 
-impl Localize for Line {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Line);
 
 /// The end of the apply: its result and the way on.
 #[derive(Template)]
@@ -104,11 +92,7 @@ struct End {
     action: String,
 }
 
-impl Localize for End {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(End);
 
 /// The heartbeat at unix time `now` for a fail-safe timer of `seconds` that kcc last
 /// surely renewed at `active`, and whether the timer still runs.

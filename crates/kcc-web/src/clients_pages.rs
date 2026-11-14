@@ -44,7 +44,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use crate::{
     WebState, errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
         outcome::{Outcome, with_status},
@@ -178,11 +178,7 @@ struct ResultView {
     note: Option<String>,
 }
 
-impl Localize for ResultView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ResultView);
 
 /// The answer to a change: `outcome` with `refreshed` out of band and `note` beside it,
 /// the dialog closed.

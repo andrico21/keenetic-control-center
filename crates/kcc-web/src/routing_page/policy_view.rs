@@ -23,7 +23,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     clients_pages::rendered,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     system_pages::shared::with_query,
     table::rows::{Table, TableQuery},
@@ -45,11 +45,7 @@ pub(crate) struct PoliciesRegion {
     controls: Controls,
 }
 
-impl Localize for PoliciesRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(PoliciesRegion);
 
 impl PoliciesRegion {
     /// The region for an out-of-band swap.

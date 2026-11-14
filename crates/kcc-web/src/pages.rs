@@ -76,7 +76,7 @@ mod tests {
 
     use crate::{
         nav::Section,
-        page::{FleetEntry, Localize, RouterStatus, Shell, Theme},
+        page::{FleetEntry, Localize as _, RouterStatus, Shell, Theme},
         table::{Direction, Sort},
     };
 
@@ -94,11 +94,7 @@ mod tests {
         shell: Shell,
     }
 
-    impl Localize for ShellOnly {
-        fn shell(&self) -> &Shell {
-            &self.shell
-        }
-    }
+    localized!(ShellOnly);
 
     /// Every component macro with fixed sample data.
     #[derive(Template)]
@@ -121,11 +117,7 @@ mod tests {
         hostile: &'static str,
     }
 
-    impl Localize for Gallery {
-        fn shell(&self) -> &Shell {
-            &self.shell
-        }
-    }
+    localized!(Gallery);
 
     #[test]
     fn components_render_accessible_markup() -> TestResult {

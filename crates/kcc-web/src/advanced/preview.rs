@@ -35,7 +35,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::{self, fragment_shell},
 };
 
@@ -78,17 +78,9 @@ struct StoredView {
     more: String,
 }
 
-impl Localize for PreviewView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(PreviewView);
 
-impl Localize for StoredView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(StoredView);
 
 /// `POST /ui/r/{router}/explorer/preview`: the method, endpoint and JSON the form would
 /// send, with the validation result. Nothing is sent to the router.

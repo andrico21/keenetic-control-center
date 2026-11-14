@@ -19,7 +19,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller},
         family::Family,
@@ -44,11 +44,7 @@ struct Page {
     problem: Option<MessageKey>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/clients`: the table and the controls the role may use.
 pub(crate) async fn page(

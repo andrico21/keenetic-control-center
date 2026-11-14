@@ -19,7 +19,7 @@ use crate::{
     admin_roles::permission_list,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed, outcome::with_status, respond},
 };
 
@@ -33,11 +33,7 @@ struct Fragment {
     missing: String,
 }
 
-impl Localize for Fragment {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Fragment);
 
 /// The permissions of `needed` that `user` does not hold on `router`.
 pub(crate) fn missing(

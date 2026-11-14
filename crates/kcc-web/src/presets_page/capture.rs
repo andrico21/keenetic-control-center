@@ -32,7 +32,7 @@ use crate::{
         source_read,
     },
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Caller, Refusal, fragment_shell},
@@ -59,11 +59,7 @@ struct Capture {
     panel: String,
 }
 
-impl Localize for Capture {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Capture);
 
 /// `GET /ui/presets/new`: the source form.
 // cancel-safe: reads only.

@@ -28,7 +28,7 @@ use crate::{
     net_internet_order::reorder,
     net_pages::{Call, Tab, Tabs, Viewer},
     net_wan::{Link, links},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller, fragment_shell},
         family::Family,
@@ -55,11 +55,7 @@ struct Page {
     can_create: bool,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/internet`: the internet state, the connections and the ping-check
 /// profiles.
@@ -139,11 +135,7 @@ struct Listing {
     oob: bool,
 }
 
-impl Localize for Listing {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Listing);
 
 impl Listing {
     /// Reads the router of `domain` and cuts the page `query` asks for.

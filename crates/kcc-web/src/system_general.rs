@@ -43,7 +43,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::{Applied, Change},
@@ -105,17 +105,9 @@ struct ResultView {
     refreshed: Option<Facts>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
-impl Localize for ResultView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ResultView);
 
 /// `GET /ui/r/{router}/system/general`: the settings and the controls the role may use.
 pub(crate) async fn page(

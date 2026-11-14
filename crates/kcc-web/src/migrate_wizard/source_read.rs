@@ -20,12 +20,7 @@ use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
 
 use super::{access::Services, analysis::parse_source, kinds::Source, source::Field};
-use crate::{
-    authz::CurrentUser,
-    errors,
-    page::{Localize, Shell},
-    page_kit::context::fragment_shell,
-};
+use crate::{authz::CurrentUser, errors, page::Shell, page_kit::context::fragment_shell};
 
 /// What the form sent.
 #[derive(Default)]
@@ -90,11 +85,7 @@ struct Feedback {
     message: String,
 }
 
-impl Localize for Feedback {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Feedback);
 
 /// The fields of the form.
 ///

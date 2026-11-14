@@ -10,7 +10,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::Caller,
 };
 
@@ -26,11 +26,7 @@ struct Page {
     routers: Vec<String>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/configuration`: the routers and their configuration pages.
 pub(crate) async fn page(

@@ -16,7 +16,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller, fragment_shell},
         facts::RouterFacts,
@@ -96,11 +96,7 @@ struct ResultView {
     refreshed: Option<String>,
 }
 
-impl Localize for ResultView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ResultView);
 
 /// The answer to a change: the outcome in the page's outcome region, the `refreshed`
 /// region out of band, the shared dialog closed.

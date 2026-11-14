@@ -20,7 +20,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::{Action, Operation},
         change::Change,
@@ -65,11 +65,7 @@ pub(crate) struct NameDialog {
     protocols: [&'static str; 2],
 }
 
-impl Localize for NameDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(NameDialog);
 
 impl NameDialog {
     /// The dialog in `locale`; `proxy` for a proxy entry.

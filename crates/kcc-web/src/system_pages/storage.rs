@@ -25,7 +25,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::gate::Controls,
     table::{
         Direction, Sort,
@@ -53,11 +53,7 @@ struct Page {
     controls: Controls,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 impl Page {
     /// The endpoint of `action` on `medium`.

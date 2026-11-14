@@ -37,7 +37,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Applied,
@@ -71,11 +71,7 @@ struct Page {
     problem: Option<MessageKey>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/segments`: the segments kcc created, with Create segment and each
 /// segment's delete when the role may use them.

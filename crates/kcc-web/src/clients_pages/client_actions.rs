@@ -24,7 +24,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
         failure::plan_failure,
@@ -64,11 +64,7 @@ struct RemoveDialog {
     action: String,
 }
 
-impl Localize for RemoveDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(RemoveDialog);
 
 /// `GET /ui/r/{router}/clients/{action}?mac=`: the dialog of an action that asks first.
 ///

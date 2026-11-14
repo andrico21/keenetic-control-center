@@ -28,7 +28,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Change,
@@ -77,11 +77,7 @@ struct ActionDialog {
     days_error: String,
 }
 
-impl Localize for ActionDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ActionDialog);
 
 /// The minute and hour of `time`, written `HH:MM`.
 fn clock(time: &str) -> Option<(u8, u8)> {

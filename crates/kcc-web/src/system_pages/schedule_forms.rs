@@ -22,7 +22,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Change,
@@ -57,11 +57,7 @@ struct ScheduleDialog {
     description_error: String,
 }
 
-impl Localize for ScheduleDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ScheduleDialog);
 
 /// Whether `value` is one word the router's CLI takes: 1 to 64 Latin letters, digits,
 /// dots, hyphens and underscores.

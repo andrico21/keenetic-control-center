@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     migrate_wizard::screen::source_text,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -51,11 +51,7 @@ pub(super) struct Panel {
     total: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 /// One group's checkbox.
 struct Choice {
@@ -83,11 +79,7 @@ pub(super) struct Captured {
     total: String,
 }
 
-impl Localize for Captured {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Captured);
 
 /// What the form sent.
 pub(super) struct Submitted {

@@ -28,7 +28,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     table::{
         Direction, Sort,
@@ -56,11 +56,7 @@ struct Page {
     region: Option<Region>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// The queue and the components table; a change sends it again out of band.
 #[derive(Template)]
@@ -82,11 +78,7 @@ pub(crate) struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 /// Where a component stands.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

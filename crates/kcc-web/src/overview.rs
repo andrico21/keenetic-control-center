@@ -36,7 +36,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{FleetEntry, Localize, Shell, Theme},
+    page::{FleetEntry, Localize as _, Shell, Theme},
     prefs,
     sse::StreamPermit,
     telemetry::Feed,
@@ -67,11 +67,7 @@ struct FleetPage {
     cards: Vec<RouterView>,
 }
 
-impl Localize for FleetPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(FleetPage);
 
 /// One card's content, sent by the stream.
 #[derive(Template)]
@@ -83,11 +79,7 @@ struct CardFragment {
     card: RouterView,
 }
 
-impl Localize for CardFragment {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(CardFragment);
 
 /// `GET /ui/`: the fleet grid, or the dashboard of the router picked in the switcher.
 pub(crate) async fn page(

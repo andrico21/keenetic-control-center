@@ -455,3 +455,57 @@ This ensures we don't show an empty permission list when the real issue is the r
 - Child modules see the parent's private fields, which keeps `field_scoped_visibility_modifiers` happy when a template struct moves to a child file (`router_form/page.rs` reads `Draft`/`FieldErrors` fields directly).
 - Integration-test child modules of an inline `mod tests` in a test crate root resolve under `tests/tests/`; declare them at the crate root with `#[path = "dashboard/x.rs"]` and reach the fixture through `crate::tests::...` with `pub(super)` items (no `pub(super)` fields: add accessor methods).
 - No browser on this host (no chromium, `npx` missing for @playwright/mcp, podman off-limits for workers): visual QA fell back to curl captures of the rendered forms (`.omo/evidence/task-53-router-form-markup.log`).
+
+## [2026-11-14] Todo 45 progress
+- Golden net: `.omo/evidence/golden/` (333 .html + .status, MANIFEST.txt, SKIPPED.txt, capture.sh, README.txt), from clean master 578b17c.
+- Invocation from each consolidation todo's own worktree:
+  `CARGO_TARGET_DIR=/home/andrico/kcc-target-<id> bash /home/andrico/keenetic-control-center/.omo/evidence/golden/capture.sh /home/andrico/keenetic-control-center/.omo/evidence/golden-after-<N> <worktree>`
+  then `diff -r -x capture.sh -x README.txt .omo/evidence/golden .omo/evidence/golden-after-<N>` (empty except intended changes). ~15 s + build.
+- Route set comes from a multi-line-aware parse of crates/kcc-web/src (286 method+route pairs; the one-line grep in the plan sees only 127 lines): 224 covered, 62 skipped with reasons (SSE streams, later migrate/preset-run steps needing a second router-mode target, uploads, raw restore, job cancel, mesh, storage/components actions, secret-field POSTs, API key revoke, second-WAN actions). A new route shows up as UNCOVERED in MANIFEST/SKIPPED, so it surfaces in the diff.
+- Normalizer token classes: CSRF tokens, generated password, per-run ports, scratch path, wizard ids (<ID_MIG>/<ID_DRAFT>/<ID_PRESET>/<ID_RUN>/<WIZARD-ID>), job id middle part, CSP nonces, audit hashes, `cli:<OS-USER>`, unix seconds / ISO / displayed date-times within 2 days of the run (fake router's fixed 2026-01-01 clock is kept), "N s ago" ages (they use U+00A0, not a space), kcc server uptime on /ui/admin/server only.
+- Gotchas: POST needs x-csrf-token + Origin; first login lands on forced password change; migrate/preset source steps are multipart; the fake KN-1811 startup-config has 0 settings per preset group, so the preset capture runs after config/save of the UI changes; Pool2 from the DHCP POST collides with segment id 2 (use 3); router delete has no confirm field (kept last).
+
+## [2026-11-14] Todo 41 progress (worker r41)
+
+**Completed:** Macro-based Localize impl generation and Toast consolidation.
+
+### Macro implementation:
+- Added `#[macro_export] macro_rules! localized!` to `crates/kcc-web/src/lib.rs` (lines 35–51)
+- Generates `impl Localize for Type { #[inline] fn shell(&self) -> &Shell { &self.shell } }`
+- Supports variadic syntax: `localized!(Type1, Type2, ...);`
+
+### Trivial impl conversion:
+- Python conversion script identified 164 trivial impls across 123 files (all `fn shell(&self) -> &Shell { &self.shell }`)
+- Replaced all 164 with `localized!(Type);` macro calls
+- No manual rewrites needed; macro expansion is identical to original code
+
+### Toast consolidation:
+- Created `ToastView` template wrapper in `page_kit/outcome.rs` (lines 107–127)
+- Added `Toast::info(locale, key)` constructor for "info" tone variant
+- Removed local Toast structs from:
+  - `advanced/jobs.rs`: Removed 11-line struct + impl, updated cancel endpoint to use `Toast::{success,info}` + `ToastView::new()`
+  - `system_pages/jobs.rs`: Removed 11-line struct + impl, updated cancel endpoint to use `Toast::{success,info}` + `ToastView::new()`
+- Imports simplified: removed `Localize` where only macro-generated impls use it, replaced with `Localize as _` in 117 files
+
+### Verification:
+- ✅ Tests: 92/92 passing (kcc-web lib suite)
+- ✅ Clippy: Clean (no warnings or errors)
+- ✅ Format: `cargo +nightly-2026-10-03 fmt --check` passes
+- ✅ Golden diff: Empty (333 HTML pages captured, zero rendering changes)
+- ✅ Impl count: 3 occurrences (trait def, test Page, macro doc example) ≤ 5 ✓
+- ✅ Trivial impls: 1 (macro example doc) + 1 (test Page non-trivial)
+- ✅ Macro calls: 164 localized!() calls across codebase
+
+### Key insights:
+- Variadic macros with `$($ty:ty),+` work well for bulk codegen when all impls are identical
+- Toast consolidation eliminates duplication: two files had identical template logic, now shared through `ToastView`
+- Clippy's `unused_trait_names` warning forced explicit `as _` imports, making intent clear (import for trait bounds only, not direct use)
+- Golden snapshot harness proved HTML rendering unchanged despite macro expansion (333 pages, all identical byte-for-byte)
+
+### Files modified:
+- `crates/kcc-web/src/lib.rs`: +15 lines (macro definition + doc)
+- `crates/kcc-web/src/page_kit/outcome.rs`: +25 lines (Toast::info, ToastView struct + impl)
+- `crates/kcc-web/src/advanced/jobs.rs`: -12 lines (local Toast removed), +3 lines (Toast usage updated)
+- `crates/kcc-web/src/system_pages/jobs.rs`: -12 lines (local Toast removed), +3 lines (Toast usage updated)
+- 123 files: 164 trivial `impl Localize` → `localized!(Type);` replacements
+- 117 files: Imports updated to use `Localize as _` where only template trait bounds use it

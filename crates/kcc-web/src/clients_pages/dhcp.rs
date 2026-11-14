@@ -17,7 +17,7 @@ use super::{
 };
 use crate::{
     authz::CurrentUser,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     table::rows::{Table, TableQuery},
 };
@@ -102,11 +102,7 @@ pub(crate) struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 /// A DHCP view as the browser asked for it: the view and its filter, sort and page.
 #[derive(Debug, Default)]

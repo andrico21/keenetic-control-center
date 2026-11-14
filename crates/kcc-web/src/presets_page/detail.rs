@@ -23,7 +23,7 @@ use crate::{
     errors::{self, Kind},
     migrate_wizard::access::Services,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::{Caller, Refusal},
 };
 
@@ -53,11 +53,7 @@ struct Detail {
     may_reveal: bool,
 }
 
-impl Localize for Detail {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Detail);
 
 /// One group of the preset.
 struct Group {

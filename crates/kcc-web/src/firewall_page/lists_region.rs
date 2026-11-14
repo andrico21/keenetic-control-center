@@ -13,7 +13,7 @@ use super::{
     snapshot::{Binding, Entry, List},
 };
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     system_pages::shared::with_query,
 };
 
@@ -39,11 +39,7 @@ pub(crate) struct ListsRegion {
     ipv6: Option<Vec<List>>,
 }
 
-impl Localize for ListsRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ListsRegion);
 
 impl ListsRegion {
     /// The region of `lists` and `bindings` on `router` in `shell`; `ipv6` when the

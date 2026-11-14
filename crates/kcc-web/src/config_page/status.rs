@@ -16,7 +16,7 @@ use kcc_i18n::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{Target, fragment_shell},
         family::Family,
@@ -97,11 +97,7 @@ pub(crate) struct StatusRegion {
     oob: bool,
 }
 
-impl Localize for StatusRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(StatusRegion);
 
 impl StatusRegion {
     /// The region of `target` for `user`, read from the router now.

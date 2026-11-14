@@ -37,7 +37,7 @@ use crate::{
     admin_shared::Timestamp,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -65,11 +65,7 @@ pub(crate) struct Panel {
     errors: Errors,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 /// One option of a select.
 struct Choice {

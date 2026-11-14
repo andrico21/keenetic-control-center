@@ -11,7 +11,7 @@ use kcc_i18n::{
 
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, respond},
 };
 
@@ -158,11 +158,7 @@ pub(crate) struct FormDialog {
     multipart: bool,
 }
 
-impl Localize for FormDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(FormDialog);
 
 impl FormDialog {
     /// A form titled `title` posting to `post_to`, submitted with Apply.

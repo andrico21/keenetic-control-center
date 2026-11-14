@@ -39,7 +39,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record,
         context::{Caller, fragment_shell},
@@ -374,11 +374,7 @@ struct Unavailable {
     shell: Shell,
 }
 
-impl Localize for Unavailable {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Unavailable);
 
 /// Answers a page request without administration services: a notice page, or `503`
 /// for a change.

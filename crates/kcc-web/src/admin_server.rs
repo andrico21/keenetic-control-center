@@ -19,7 +19,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::Caller,
 };
 
@@ -57,11 +57,7 @@ struct ServerPage {
     catalogs: Vec<CatalogLine>,
 }
 
-impl Localize for ServerPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ServerPage);
 
 /// `GET /ui/admin/server`.
 pub(crate) async fn page(

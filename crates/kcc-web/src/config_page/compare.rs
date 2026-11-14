@@ -34,7 +34,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::{self, Caller, Target},
 };
 
@@ -76,11 +76,7 @@ struct DiffPage {
     split: bool,
 }
 
-impl Localize for DiffPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(DiffPage);
 
 impl DiffPage {
     /// What was compared with what, as a heading.

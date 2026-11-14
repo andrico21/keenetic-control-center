@@ -19,7 +19,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors::{self, Kind},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
 };
 
 /// The dialog of one Reveal: the secret with Copy, or why it could not be read.
@@ -46,11 +46,7 @@ impl fmt::Debug for RevealDialog {
     }
 }
 
-impl Localize for RevealDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(RevealDialog);
 
 impl RevealDialog {
     /// The secret, for the dialog's read-only field.

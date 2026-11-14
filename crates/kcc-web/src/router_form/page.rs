@@ -10,7 +10,7 @@ use kcc_app::{
 use kcc_i18n::{bundle::tr, keys};
 
 use super::{Draft, FieldErrors};
-use crate::page::{Localize, Shell};
+use crate::page::{Localize as _, Shell};
 
 /// Which credentials a profile already has, for the notes beside the empty secret fields.
 /// Only presence is known here, never a value or its length.
@@ -149,8 +149,4 @@ impl FormPage {
     }
 }
 
-impl Localize for FormPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(FormPage);

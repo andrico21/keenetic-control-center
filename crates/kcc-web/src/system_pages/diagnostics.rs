@@ -34,7 +34,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         audit::{Record, field_names},
@@ -63,11 +63,7 @@ struct Page {
     tools: [Tool; 4],
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/system/diagnostics`: the diagnostic form.
 pub(crate) async fn page(

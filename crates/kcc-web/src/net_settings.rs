@@ -10,7 +10,7 @@ use kcc_i18n::keys;
 
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::respond,
 };
 
@@ -106,11 +106,7 @@ pub(crate) struct SettingsDialog {
     buttons: Vec<Button>,
 }
 
-impl Localize for SettingsDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(SettingsDialog);
 
 impl SettingsDialog {
     /// The dialog titled `title` (localized) listing `facts`.

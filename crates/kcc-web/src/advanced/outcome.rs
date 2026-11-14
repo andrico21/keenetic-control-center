@@ -15,7 +15,7 @@ use super::{
 };
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
         family::Family,
@@ -107,11 +107,7 @@ struct ReplyView {
     reply: Reply,
 }
 
-impl Localize for ReplyView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ReplyView);
 
 impl Reply {
     /// A reply showing `outcome` and nothing else.

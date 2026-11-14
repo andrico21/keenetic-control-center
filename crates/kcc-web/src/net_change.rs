@@ -31,7 +31,7 @@ use crate::{
     errors, net_interfaces, net_internet, net_mesh,
     net_pages::{Call, Tab},
     net_wifi,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Action,
         change::Change,
@@ -187,11 +187,7 @@ struct ResultView {
     refreshed: Option<String>,
 }
 
-impl Localize for ResultView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ResultView);
 
 /// The answer to a change: the outcome in the page's outcome region, the region read back
 /// out of band, the dialog closed.

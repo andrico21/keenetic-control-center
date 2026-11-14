@@ -20,7 +20,7 @@ use super::{
     client_rows::{ClientRow, Medium, Presence},
 };
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     table::{
         SortHeader,
@@ -175,11 +175,7 @@ pub(crate) struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 impl Region {
     /// Shows the row actions `controls` allow.

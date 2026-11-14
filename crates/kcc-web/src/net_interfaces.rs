@@ -25,7 +25,7 @@ use crate::{
     net_change::{rendered, with_query},
     net_interface_line::Line,
     net_pages::{Call, Tab, Tabs, Viewer},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller, fragment_shell},
         family::Family,
@@ -50,11 +50,7 @@ struct Page {
     problem: Option<MessageKey>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/network`: the interfaces and the controls the role may use.
 pub(crate) async fn page(
@@ -126,11 +122,7 @@ struct Listing {
     oob: bool,
 }
 
-impl Localize for Listing {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Listing);
 
 impl Listing {
     /// Reads the interfaces of the router of `domain` and cuts the page `query` asks for.

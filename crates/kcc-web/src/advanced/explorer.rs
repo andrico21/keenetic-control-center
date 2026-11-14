@@ -28,7 +28,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller, fragment_shell},
         facts::RouterFacts,
@@ -159,29 +159,13 @@ struct CommandView {
     detail: Detail,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
-impl Localize for ResultsView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ResultsView);
 
-impl Localize for GroupView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(GroupView);
 
-impl Localize for CommandView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(CommandView);
 
 /// `GET /ui/r/{router}/explorer`: search, groups and, with `?path=`, one command.
 pub(crate) async fn page(

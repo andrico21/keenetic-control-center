@@ -14,7 +14,7 @@ use kcc_i18n::{
 use super::guard::Guard;
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Action,
         context::fragment_shell,
@@ -38,11 +38,7 @@ pub(crate) struct ConfirmDialog {
     action: String,
 }
 
-impl Localize for ConfirmDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ConfirmDialog);
 
 impl ConfirmDialog {
     /// The confirmation titled `title` (localized), explained by `text`, posting to
@@ -82,11 +78,7 @@ struct ResultView {
     refreshed: Option<String>,
 }
 
-impl Localize for ResultView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ResultView);
 
 /// The answer to a change: `outcome` in the page's outcome region, `refreshed` out of
 /// band, the shared dialog closed.

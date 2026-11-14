@@ -37,7 +37,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Caller, Refusal, fragment_shell},
@@ -87,11 +87,7 @@ struct Landing {
     rows: Vec<Row>,
 }
 
-impl Localize for Landing {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Landing);
 
 /// An offered restore.
 struct Restore {

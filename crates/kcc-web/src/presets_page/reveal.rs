@@ -29,7 +29,7 @@ use crate::{
     authz::CurrentUser,
     errors::{self, Kind},
     migrate_wizard::{access::Services, service::Wizards},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -50,11 +50,7 @@ struct Revealed {
     lines: Vec<SecretString>,
 }
 
-impl Localize for Revealed {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Revealed);
 
 impl Revealed {
     /// The dialog titled after `name`, showing `lines`.

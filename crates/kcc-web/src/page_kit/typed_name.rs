@@ -12,7 +12,7 @@ use kcc_i18n::{
 };
 use serde::Deserialize;
 
-use crate::page::{Localize, Shell};
+use crate::page::{Localize as _, Shell};
 
 /// A typed-name confirmation: `confirm` must repeat `name`.
 #[derive(Debug, Deserialize)]
@@ -61,11 +61,7 @@ pub(crate) struct TypedNameDialog {
     lists: Vec<(String, Vec<String>)>,
 }
 
-impl Localize for TypedNameDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(TypedNameDialog);
 
 impl TypedNameDialog {
     /// The confirmation posting `name` to `action`, with the `(title, text)` messages;

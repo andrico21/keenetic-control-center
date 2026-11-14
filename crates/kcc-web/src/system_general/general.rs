@@ -9,7 +9,7 @@ use serde::Deserialize;
 
 use super::fields::Field;
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
 };
 
@@ -155,11 +155,7 @@ pub(crate) struct Facts {
     oob: bool,
 }
 
-impl Localize for Facts {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Facts);
 
 impl Facts {
     /// The region of `general` on `router` in `locale`, with no Edit buttons.

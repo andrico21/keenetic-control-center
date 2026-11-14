@@ -16,7 +16,7 @@ use kcc_migrate::apply::ApplyError;
 
 use super::{access::Visit, events::recorded_text};
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
 };
 
@@ -86,11 +86,7 @@ pub(super) struct Panel {
     error: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 impl Panel {
     /// The results of `visit`'s apply.

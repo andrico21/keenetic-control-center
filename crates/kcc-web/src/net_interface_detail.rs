@@ -26,7 +26,7 @@ use crate::{
     net_interface_line::Line,
     net_interface_traffic::statistics,
     net_settings::Fact,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, fragment_shell},
         family::Family,
@@ -59,11 +59,7 @@ struct Drawer {
     units: String,
 }
 
-impl Localize for Drawer {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Drawer);
 
 /// One counter of the drawer.
 struct Counter {

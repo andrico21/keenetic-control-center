@@ -22,7 +22,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     clients_pages::{TabLink, rendered},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     system_pages::shared::with_query,
     table::rows::{Table, TableQuery},
@@ -46,11 +46,7 @@ pub(crate) struct StaticRegion {
     removable: bool,
 }
 
-impl Localize for StaticRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(StaticRegion);
 
 impl StaticRegion {
     /// The address of the removal dialog of `route`.
@@ -83,11 +79,7 @@ struct TableRegion {
     table: Table<TableRoute>,
 }
 
-impl Localize for TableRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(TableRegion);
 
 /// `GET /ui/r/{router}/routing`: the IPv4 static routes.
 pub(crate) async fn routes_v4(

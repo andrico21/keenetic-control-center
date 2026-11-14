@@ -19,7 +19,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller},
         family::Family,
@@ -48,11 +48,7 @@ struct Page {
     problem: Option<MessageKey>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// The parts of a request every DHCP view uses.
 struct Visit<'request> {

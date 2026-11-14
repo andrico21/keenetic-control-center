@@ -16,7 +16,7 @@ use crate::{
     errors,
     fleet::BackupServices,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller},
         outcome::Outcome,
@@ -39,11 +39,7 @@ struct Page {
     backups: BackupsRegion,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/config`: the router's configuration state and its backups.
 pub(crate) async fn page(

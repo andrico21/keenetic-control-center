@@ -18,7 +18,7 @@ use secrecy::{ExposeSecret as _, SecretString, zeroize::Zeroize as _};
 
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         confirm::FAIL_SAFE_MINUTES,
         context::fragment_shell,
@@ -194,11 +194,7 @@ pub(crate) struct SecretDialog {
     repeat_error: String,
 }
 
-impl Localize for SecretDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(SecretDialog);
 
 impl SecretDialog {
     /// The dialog titled `title` with `$name` set to `name`, posting to `post_to`, asking

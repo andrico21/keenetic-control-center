@@ -27,7 +27,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     table::{
         Direction, Sort,
@@ -56,11 +56,7 @@ struct Page {
     add: bool,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// The accounts table with its filter and pager; a change sends it again out of band.
 #[derive(Template)]
@@ -78,11 +74,7 @@ pub(crate) struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 /// The row actions a role may use on the accounts.
 #[derive(Debug, Clone, Copy)]

@@ -11,7 +11,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::rendered;
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -112,11 +112,7 @@ pub(crate) struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 impl Region {
     /// The segments kcc created on `domain`'s router, as the list of `router` in `locale`.

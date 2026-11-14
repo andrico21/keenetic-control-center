@@ -43,7 +43,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{LocaleOption, Localize, Shell, Theme},
+    page::{LocaleOption, Localize as _, Shell, Theme},
     page_kit::{
         context::{Caller, fragment_shell},
         outcome::Toast,
@@ -144,11 +144,7 @@ struct UsersRegion {
     toasts: Vec<Toast>,
 }
 
-impl Localize for UsersRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(UsersRegion);
 
 /// The users page.
 #[derive(Template)]
@@ -162,11 +158,7 @@ struct UsersPage {
     region: UsersRegion,
 }
 
-impl Localize for UsersPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(UsersPage);
 
 /// One choice of a role select.
 struct RoleOption {
@@ -198,11 +190,7 @@ struct NewUserDialog {
     role_error: String,
 }
 
-impl Localize for NewUserDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(NewUserDialog);
 
 /// The change-role dialog.
 #[derive(Template)]
@@ -220,11 +208,7 @@ struct RoleDialog {
     error: String,
 }
 
-impl Localize for RoleDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(RoleDialog);
 
 /// `GET /ui/admin/users`.
 pub(crate) async fn page(

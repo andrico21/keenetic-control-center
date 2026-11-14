@@ -25,7 +25,7 @@ use super::{
 use crate::{
     admin_roles::permission_list,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -69,11 +69,7 @@ pub(super) struct Panel {
     error: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 /// One phase of the plan.
 struct Phase {

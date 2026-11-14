@@ -33,7 +33,7 @@ use crate::{
     authz::CurrentUser,
     errors,
     overview::is_profile_id,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -71,11 +71,7 @@ pub(super) struct Panel {
     ack_error: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 impl Panel {
     /// The panel of `visit`, with the chosen target's report when it can be read.

@@ -78,11 +78,7 @@ struct ErrorPage {
     kind: Kind,
 }
 
-impl Localize for ErrorPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ErrorPage);
 
 /// The error page for `kind`, rendered inside `shell`, with `kind`'s status code.
 ///

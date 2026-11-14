@@ -15,7 +15,7 @@ use crate::{
     authz::CurrentUser,
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{fragment_shell, managed},
         respond::open,
@@ -95,8 +95,4 @@ impl DeleteDialog {
     }
 }
 
-impl Localize for DeleteDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(DeleteDialog);

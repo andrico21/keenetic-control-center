@@ -16,7 +16,7 @@ use super::{cells::Act, region::Region};
 use crate::{
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
         outcome::{Outcome, with_status},
@@ -150,11 +150,7 @@ pub(crate) struct Page {
     region: Region,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 impl Page {
     /// The page of `tab` on `router`, showing `region`, titled with the tab's label.
@@ -225,11 +221,7 @@ pub(crate) struct Answered {
     actions: Vec<Act>,
 }
 
-impl Localize for Answered {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Answered);
 
 impl Answered {
     /// The answer showing `outcome` in `locale`.

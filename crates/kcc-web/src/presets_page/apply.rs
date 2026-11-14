@@ -37,7 +37,7 @@ use crate::{
         confirm::{Confirm, Dialog, Words, refused},
         service::Wizards,
     },
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -58,11 +58,7 @@ pub(super) struct Running {
     stoppable: bool,
 }
 
-impl Localize for Running {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Running);
 
 impl Running {
     /// The panel of `visit`.
@@ -92,11 +88,7 @@ struct Answered {
     toast: Toast,
 }
 
-impl Localize for Answered {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Answered);
 
 /// `POST /ui/presets/runs/{run}/apply`: asks first, then starts the apply.
 ///

@@ -14,7 +14,7 @@ use kcc_i18n::{
 
 use super::segment_known::Known;
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -246,11 +246,7 @@ pub(crate) struct Details {
     known: Known,
 }
 
-impl Localize for Details {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Details);
 
 impl Details {
     /// The details of `form` on `router` in `locale`, choosing from `known`.

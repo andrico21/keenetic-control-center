@@ -28,7 +28,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Applied,
@@ -187,11 +187,7 @@ struct PoolDialog {
     problem: String,
 }
 
-impl Localize for PoolDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(PoolDialog);
 
 impl PoolDialog {
     /// The dialog of `form` on `router` in `locale`.

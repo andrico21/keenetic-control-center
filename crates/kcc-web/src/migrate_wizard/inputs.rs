@@ -10,7 +10,7 @@ use super::{
     access::Visit, needs::Needs, plan::Classified, target::problem_text, warnings::agreement_name,
 };
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -42,11 +42,7 @@ pub(super) struct Panel {
     problem: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 /// A password field.
 struct Password {

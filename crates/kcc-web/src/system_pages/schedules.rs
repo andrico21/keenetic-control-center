@@ -22,7 +22,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     table::{
         Direction, Sort,
@@ -48,11 +48,7 @@ struct Page {
     region: Option<Region>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// The schedules table; a change sends it again out of band.
 #[derive(Template)]
@@ -70,11 +66,7 @@ struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 impl Region {
     /// The action dialog of `schedule`.

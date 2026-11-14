@@ -23,7 +23,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell, Theme},
+    page::{Localize as _, Shell, Theme},
 };
 
 /// How long Save waits for the router before answering that it is still saving; the
@@ -44,11 +44,7 @@ struct SaveResult {
     saved: bool,
 }
 
-impl Localize for SaveResult {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(SaveResult);
 
 /// `POST /ui/r/{router}/save`: saves the running configuration through the change
 /// workflow and answers with a toast.

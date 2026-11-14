@@ -13,7 +13,7 @@ use super::{
     target::problem_text,
 };
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -41,11 +41,7 @@ pub(super) struct Panel {
     problem: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 /// One row of a map.
 struct Row {

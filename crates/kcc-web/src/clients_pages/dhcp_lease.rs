@@ -21,7 +21,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Applied,
@@ -64,11 +64,7 @@ struct LeaseDialog {
     problem: String,
 }
 
-impl Localize for LeaseDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(LeaseDialog);
 
 impl LeaseDialog {
     /// The dialog of `form` on `router` in `locale`, without errors.

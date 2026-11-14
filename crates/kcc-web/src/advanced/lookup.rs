@@ -14,7 +14,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Target, fragment_shell},
         facts::{FactsError, RouterFacts},
@@ -40,11 +40,7 @@ struct Notice {
     message: MessageKey,
 }
 
-impl Localize for Notice {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Notice);
 
 /// A router the user may read and its catalog facts, or the fragment answering instead.
 ///

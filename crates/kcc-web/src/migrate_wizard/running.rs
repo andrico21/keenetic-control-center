@@ -22,7 +22,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -43,11 +43,7 @@ pub(super) struct Panel {
     running: bool,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 impl Panel {
     /// The panel of `visit`.
@@ -77,11 +73,7 @@ struct Answered {
     toast: Toast,
 }
 
-impl Localize for Answered {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Answered);
 
 /// `POST /ui/migrate/{id}/stop`: cancels the apply's job; the engine stops before its
 /// next setting and the result offers the rollback.

@@ -32,7 +32,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, refusal},
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record,
         confirm::{Confirmation, Resubmit},
@@ -80,11 +80,7 @@ struct Page {
     can_escape: bool,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/console/cli`: the console.
 pub(crate) async fn page(

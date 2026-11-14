@@ -26,7 +26,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     clients_pages::rendered,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
     routing_page::frame::{Frame, Tab, Visit, protocol_text},
     system_pages::shared::with_query,
@@ -77,11 +77,7 @@ struct SessionsRegion {
     base: String,
 }
 
-impl Localize for SessionsRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(SessionsRegion);
 
 impl SessionsRegion {
     /// The sort header of `column`, keeping the filter and the page.

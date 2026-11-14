@@ -35,7 +35,7 @@ use crate::{
     authz::CurrentUser,
     errors,
     migrate_wizard::{access::Services, analysis::parse_source, kinds::Source, service::Wizards},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -61,11 +61,7 @@ pub(super) struct Panel {
     groups_error: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 impl Panel {
     /// The panel of run `id` with `router` and `groups` chosen.

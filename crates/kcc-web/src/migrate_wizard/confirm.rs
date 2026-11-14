@@ -72,11 +72,7 @@ pub(crate) struct Dialog {
     name_error: String,
 }
 
-impl Localize for Dialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Dialog);
 
 impl Dialog {
     /// A dialog with `words`, confirming to `action`.

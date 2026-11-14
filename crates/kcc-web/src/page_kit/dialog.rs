@@ -12,7 +12,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use super::respond;
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
 };
 
 /// A one-field edit dialog.
@@ -35,11 +35,7 @@ pub(crate) struct FieldDialog {
     field_error: String,
 }
 
-impl Localize for FieldDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(FieldDialog);
 
 impl FieldDialog {
     /// The dialog titled and labelled by `(title, label)`, posting to `post_to`.

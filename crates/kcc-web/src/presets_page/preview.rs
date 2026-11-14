@@ -22,7 +22,7 @@ use crate::{
     WebState,
     admin_roles::permission_list,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
 };
 
@@ -55,11 +55,7 @@ pub(super) struct Panel {
     error: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 impl Panel {
     /// The preview of `visit`'s plan for `state`'s user.

@@ -35,7 +35,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser, PASSWORD_CHANGE_PAGE},
     errors,
     overview::masthead,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::respond,
     prefs,
     session::{SessionId, SessionStore},
@@ -112,11 +112,7 @@ struct LoginPage {
     username: String,
 }
 
-impl Localize for LoginPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(LoginPage);
 
 /// Self-service account page.
 #[derive(Template)]
@@ -134,11 +130,7 @@ struct AccountPage {
     error: String,
 }
 
-impl Localize for AccountPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(AccountPage);
 
 /// `GET /ui/login`: renders login or the closed first-run instruction.
 pub(crate) async fn login_page(State(state): State<WebState>, headers: HeaderMap) -> Response {

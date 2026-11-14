@@ -12,7 +12,7 @@ use kcc_i18n::{keys, locale::Locale};
 
 use super::{Row, SortKey, Table, TableQuery};
 use crate::{
-    page::{Localize, Shell, Theme},
+    page::{Localize as _, Shell, Theme},
     table::{Direction, Sort, pager::PAGE_ROWS},
 };
 
@@ -32,11 +32,7 @@ struct Filtered {
     table: Table<Client>,
 }
 
-impl Localize for Filtered {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Filtered);
 
 /// A client row of the example table.
 #[derive(Debug, Clone)]

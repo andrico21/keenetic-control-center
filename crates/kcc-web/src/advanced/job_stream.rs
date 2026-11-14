@@ -23,7 +23,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     overview::{fragment, guarded},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::{self, fragment_shell},
 };
 
@@ -54,17 +54,9 @@ struct OutputView {
     note: MessageKey,
 }
 
-impl Localize for StatusView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(StatusView);
 
-impl Localize for OutputView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(OutputView);
 
 /// `GET /ui/sse/r/{router}/jobs/{job}`: the job's status changes, then the router's
 /// final answer and a `done` event that closes the stream.

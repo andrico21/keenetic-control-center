@@ -19,7 +19,7 @@ use kcc_i18n::{
 use super::{context::fragment_shell, family::Family, respond, stakes::Guard};
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
 };
 
 /// Minutes the fail-safe timer runs while a management change is applied.
@@ -140,11 +140,7 @@ struct Dialog {
     text_key: MessageKey,
 }
 
-impl Localize for Dialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Dialog);
 
 /// A request waiting for its confirmation: the dialog asking for what its guard checks.
 pub(crate) struct Prompt {

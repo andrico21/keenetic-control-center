@@ -16,7 +16,7 @@ use crate::{
     errors,
     migrate_wizard::access::Services,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::{Caller, Refusal},
 };
 
@@ -32,11 +32,7 @@ struct List {
     rows: Vec<Row>,
 }
 
-impl Localize for List {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(List);
 
 /// One preset of the list.
 struct Row {

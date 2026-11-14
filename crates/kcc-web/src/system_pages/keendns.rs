@@ -23,7 +23,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
 };
 
@@ -45,11 +45,7 @@ struct Page {
     controls: Controls,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// The name panel; a change sends it again out of band.
 #[derive(Template)]
@@ -82,11 +78,7 @@ enum Offer {
     Release,
 }
 
-impl Localize for StatusPanel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(StatusPanel);
 
 /// What the role may change on the KeenDNS page of `router`.
 pub(crate) fn controls(user: &CurrentUser, router: &str, domain: &RouterCtx) -> Controls {

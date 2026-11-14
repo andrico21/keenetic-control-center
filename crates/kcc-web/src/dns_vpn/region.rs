@@ -14,7 +14,7 @@ use super::{
     listing::{Line, Listing},
 };
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
     table::{Sort, SortHeader, pager::Pager, rows::Table},
 };
@@ -193,11 +193,7 @@ pub(crate) struct Region {
     oob: bool,
 }
 
-impl Localize for Region {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Region);
 
 impl Region {
     /// An empty region in `locale`.

@@ -504,7 +504,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(web): no Apply button for an empty migration
   Recommended task executor category: visual-engineering - template condition and copy on a wizard page
 
-- [ ] 45. Capture golden HTML of every Web page and change result before the kcc-web consolidation
+- [x] 45. Capture golden HTML of every Web page and change result before the kcc-web consolidation
   What to do / Must NOT do: Before any kcc-web consolidation todo (41, 30-40, 42), write an uncommitted capture script `.omo/evidence/golden/capture.sh` (`.omo/evidence/` is git-ignored) that starts `cargo run -p kcc-testkit --bin kcc-fake-router -- --model KN-1811 --bind 127.0.0.1:18080 --password-file <file>` and `kcc serve` on a scratch config/state dir, logs in with `curl` and a cookie jar (CSRF token from the login form), fetches every GET route listed by `grep -rhoE '\.route\("[^"]+"' crates/kcc-web/src | sort -u` (skip routes with path parameters unless the fake provides an id; record skipped routes), and POSTs one change per page family that the consolidation todos touch (net, Wi-Fi, LAN/DHCP, segments, routing, NAT, firewall, DNS, VPN, system, system general, config, explorer, migration wizard first step, presets first step), saving each body as `.omo/evidence/golden/<route-slug>.html`. Normalize volatile values (CSRF tokens, timestamps, job ids, nonces) with `sed` in the script. Every kcc-web consolidation todo re-runs the script into `.omo/evidence/golden-after-<N>/` and `diff -r` must be empty except the intended changes it names. Must NOT: commit the script or the snapshots; must not add a test crate dependency.
   Closes: GAP-10, GAP-14
   Parallelization: Wave W5 | Blocked by: 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 52, 53, 54 | Blocks: 41 | Can parallelize with: -
@@ -514,7 +514,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: N | (evidence only)
   Recommended task executor category: unspecified-low - shell capture harness, no product code
 
-- [ ] 41. Generate the `Localize` impls and use one `Toast`
+- [x] 41. Generate the `Localize` impls and use one `Toast`
   What to do / Must NOT do: Add a `macro_rules! localized` next to the `Localize` trait (`crates/kcc-web/src/page.rs:492-529`) that expands `localized!(A, B, ...)` into `impl Localize for X { fn shell(&self) -> &Shell { &self.shell } }`; replace the 165 hand-written impls (`grep -rn 'impl Localize for' crates/kcc-web/src`) that have exactly that body; keep any impl with a different body. Replace the duplicated stop-request `Toast` template structs in `crates/kcc-web/src/advanced/jobs.rs:55-74` and `crates/kcc-web/src/system_pages/jobs.rs:120-154` with `page_kit::outcome::Toast` (`crates/kcc-web/src/page_kit/outcome.rs:50-56`). Must NOT: add a proc-macro crate or change rendered HTML.
   Closes: GAP-10
   Parallelization: Wave W5 | Blocked by: 45 | Blocks: 30 | Can parallelize with: -

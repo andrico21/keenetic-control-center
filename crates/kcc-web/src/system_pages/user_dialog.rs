@@ -28,7 +28,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         confirm::FAIL_SAFE_MINUTES,
         context::fragment_shell,
@@ -67,11 +67,7 @@ pub(crate) struct UserDialog {
     submit: MessageKey,
 }
 
-impl Localize for UserDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(UserDialog);
 
 /// One tag checkbox.
 #[derive(Debug, Clone)]

@@ -10,7 +10,7 @@ use crate::{
     authz::CurrentUser,
     errors::{self, Kind},
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
 };
 
 /// The picker page.
@@ -27,11 +27,7 @@ struct Picker {
     routers: Vec<(String, String)>,
 }
 
-impl Localize for Picker {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Picker);
 
 /// The picker of `section` for `user` in `shell`, or the 404 page for a section that is not
 /// about one router.

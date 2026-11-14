@@ -32,6 +32,24 @@
 
 extern crate alloc;
 
+/// Macro to generate trivial `Localize` impls.
+///
+/// Usage: `localized!(Type1, Type2, ...);`.
+///
+/// Generates: `impl Localize for Type { fn shell(&self) -> &Shell { &self.shell } }`.
+macro_rules! localized {
+    ($($ty:ty),+ $(,)?) => {
+        $(
+            impl $crate::page::Localize for $ty {
+                #[inline]
+                fn shell(&self) -> &$crate::page::Shell {
+                    &self.shell
+                }
+            }
+        )+
+    };
+}
+
 pub mod admin;
 pub mod brackets;
 pub mod csp;

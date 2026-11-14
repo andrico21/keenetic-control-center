@@ -8,7 +8,7 @@ use kcc_i18n::{bundle::tr, keys};
 use super::{access::Visit, results::facts, steps::Finish};
 use crate::{
     admin_shared::Timestamp,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -34,11 +34,7 @@ pub(super) struct Panel {
     kept: Vec<String>,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 impl Panel {
     /// The report of `visit`.

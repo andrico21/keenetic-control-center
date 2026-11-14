@@ -31,7 +31,7 @@ use crate::{
     errors,
     net_change::{Params, Planned, answer, finish, missing, rendered, with_query},
     net_pages::{Call, Tab, Tabs, Viewer},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
         change::Applied,
@@ -73,11 +73,7 @@ struct Page {
     problem: Option<MessageKey>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/mesh`: the mesh members and the actions the role may run.
 pub(crate) async fn page(
@@ -147,11 +143,7 @@ struct Listing {
     oob: bool,
 }
 
-impl Localize for Listing {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Listing);
 
 impl Listing {
     /// Reads the members of the router of `domain`.

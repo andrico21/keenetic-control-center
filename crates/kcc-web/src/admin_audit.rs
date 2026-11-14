@@ -33,7 +33,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::Caller,
     table::pager::Pager,
 };
@@ -216,11 +216,7 @@ struct AuditPage {
     export: String,
 }
 
-impl Localize for AuditPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(AuditPage);
 
 /// `GET /ui/admin/audit`: chain status, filters and the newest entries.
 pub(crate) async fn page(

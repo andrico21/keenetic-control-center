@@ -22,7 +22,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         action::{Action, Operation},
         change::Change,
@@ -157,11 +157,7 @@ struct FormatDialog {
     filesystems: [&'static str; 3],
 }
 
-impl Localize for FormatDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(FormatDialog);
 
 /// `GET /ui/r/{router}/system/storage/format?media=`: the format dialog.
 ///

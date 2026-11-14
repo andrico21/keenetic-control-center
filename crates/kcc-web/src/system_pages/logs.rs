@@ -30,7 +30,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     overview::{fragment, guarded},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record,
         context::{self, fragment_shell},
@@ -60,11 +60,7 @@ struct Page {
     stream: String,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// Log lines sent by the stream: the whole list (`tail`) or new items (`lines`).
 #[derive(Template)]
@@ -78,11 +74,7 @@ struct LinesView {
     whole: bool,
 }
 
-impl Localize for LinesView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(LinesView);
 
 /// The filter text of a query, trimmed and cut to [`FILTER_CHARS`].
 fn filter_of(query: &[(String, String)]) -> String {

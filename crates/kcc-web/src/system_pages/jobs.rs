@@ -28,10 +28,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     overview::{fragment, guarded},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record,
         context::{self, fragment_shell},
+        outcome::{Toast, ToastView},
     },
 };
 
@@ -57,11 +58,7 @@ pub(crate) struct JobPanel {
     cancel: Option<String>,
 }
 
-impl Localize for JobPanel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(JobPanel);
 
 impl JobPanel {
     /// The panel of job `id` on `router`, with Stop.
@@ -118,38 +115,9 @@ struct LineView {
     text: String,
 }
 
-/// A toast answering a stop request.
-#[derive(Template)]
-#[template(
-    ext = "html",
-    source = "{%- import \"components.html\" as ui -%}{{ ui::toast(tone, t(*message)) }}"
-)]
-struct Toast {
-    /// Locale carrier.
-    shell: Shell,
-    /// Toast tone.
-    tone: &'static str,
-    /// The message.
-    message: MessageKey,
-}
+localized!(StatusView);
 
-impl Localize for StatusView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
-
-impl Localize for LineView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
-
-impl Localize for Toast {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(LineView);
 
 /// The job `job` of `router` when a system page started it.
 pub(crate) fn followed(jobs: &JobRunner, router: &str, job: &str) -> Option<JobRecord> {
@@ -281,17 +249,19 @@ pub(crate) async fn cancel(
     else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let (tone, message, outcome) = match jobs.cancel(&job).await {
-        Ok(()) => ("success", keys::WEB_EXPLORER_JOB_STOPPED, "success"),
-        Err(_not_running) => ("info", keys::WEB_EXPLORER_JOB_NOT_RUNNING, "not_running"),
+    let (toast, outcome) = match jobs.cancel(&job).await {
+        Ok(()) => (
+            Toast::success(user.locale(), keys::WEB_EXPLORER_JOB_STOPPED),
+            "success",
+        ),
+        Err(_not_running) => (
+            Toast::info(user.locale(), keys::WEB_EXPLORER_JOB_NOT_RUNNING),
+            "not_running",
+        ),
     };
     Record::on_router("web.diagnostics_cancel", &router, record.kind.clone())
         .with_params(json!({ "job": record.id }))
         .append(&state, &user, outcome)
         .await;
-    errors::render(&Toast {
-        shell: fragment_shell(user.locale()),
-        tone,
-        message,
-    })
+    errors::render(&ToastView::new(&toast, user.locale()))
 }

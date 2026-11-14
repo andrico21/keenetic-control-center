@@ -31,7 +31,7 @@ use crate::{
     authz::CurrentUser,
     errors,
     fleet::Fleet,
-    page::{Localize, Shell, Theme},
+    page::{Localize as _, Shell, Theme},
     page_kit::{audit::Record, context::managed},
     router_form::{FieldErrors, RouterForm, address::is_slug},
 };
@@ -235,11 +235,7 @@ impl TestResult {
     }
 }
 
-impl Localize for TestResult {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(TestResult);
 
 /// The message explaining why a connection test failed.
 pub(crate) const fn failure(error: &RegistryError) -> MessageKey {

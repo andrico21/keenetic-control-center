@@ -19,7 +19,7 @@ use crate::{
     clients_pages::TabLink,
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller},
         family::Family,
@@ -177,11 +177,7 @@ pub(crate) struct Frame {
     region: Option<String>,
 }
 
-impl Localize for Frame {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Frame);
 
 impl Frame {
     /// The page of `tab` on `router`, titled by the tab.

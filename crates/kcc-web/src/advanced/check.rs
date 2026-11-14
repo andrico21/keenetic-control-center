@@ -15,7 +15,7 @@ use serde_json::{Map, Value};
 use super::detail::encode;
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, failure::issue_sentence},
 };
 
@@ -127,11 +127,7 @@ pub(crate) struct Report {
     mixed_key: MessageKey,
 }
 
-impl Localize for Report {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Report);
 
 impl Report {
     /// A valid request summarized by `summary`.

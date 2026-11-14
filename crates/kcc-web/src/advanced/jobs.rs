@@ -6,7 +6,6 @@
 use alloc::sync::Arc;
 use std::sync::Mutex;
 
-use askama::Template;
 use axum::{
     extract::{Path, State},
     http::StatusCode,
@@ -29,12 +28,11 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
     page_kit::{
         audit::Record,
-        context::{self, Target, fragment_shell},
+        context::{self, Target},
         gate::allowed,
-        outcome::Failure,
+        outcome::{Failure, Toast, ToastView},
     },
 };
 
@@ -50,27 +48,6 @@ pub(crate) struct JobPanel {
     stream: String,
     /// Stop endpoint, when the user may stop the job.
     cancel: Option<String>,
-}
-
-/// A toast answering a stop request.
-#[derive(Template)]
-#[template(
-    ext = "html",
-    source = "{%- import \"components.html\" as ui -%}{{ ui::toast(tone, t(*message)) }}"
-)]
-struct Toast {
-    /// Locale carrier.
-    shell: Shell,
-    /// Toast tone.
-    tone: &'static str,
-    /// The message.
-    message: MessageKey,
-}
-
-impl Localize for Toast {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
 }
 
 impl JobPanel {
@@ -217,19 +194,21 @@ pub(crate) async fn cancel(
     if raw && !allowed(&user, &router, &[Permission::RawRci]) {
         return StatusCode::FORBIDDEN.into_response();
     }
-    let (tone, message, outcome) = match jobs.cancel(&job).await {
-        Ok(()) => ("success", keys::WEB_EXPLORER_JOB_STOPPED, "success"),
-        Err(_not_running) => ("info", keys::WEB_EXPLORER_JOB_NOT_RUNNING, "not_running"),
+    let (toast, outcome) = match jobs.cancel(&job).await {
+        Ok(()) => (
+            Toast::success(user.locale(), keys::WEB_EXPLORER_JOB_STOPPED),
+            "success",
+        ),
+        Err(_not_running) => (
+            Toast::info(user.locale(), keys::WEB_EXPLORER_JOB_NOT_RUNNING),
+            "not_running",
+        ),
     };
     Record::on_router("web.explorer_job_cancel", &router, record.kind.clone())
         .with_params(json!({ "job": record.id }))
         .append(&state, &user, outcome)
         .await;
-    errors::render(&Toast {
-        shell: fragment_shell(user.locale()),
-        tone,
-        message,
-    })
+    errors::render(&ToastView::new(&toast, user.locale()))
 }
 
 /// The explorer job `job` of `router`, if it exists.

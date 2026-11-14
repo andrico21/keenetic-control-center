@@ -35,7 +35,7 @@ use crate::{
     fleet::UpdateStatus,
     nav::Section,
     overview::{FIRST_POLL_WAIT, fragment, guarded, switcher},
-    page::{Localize, Shell, Theme},
+    page::{Localize as _, Shell, Theme},
     prefs,
     telemetry::Feed,
     traffic::TrafficPoint,
@@ -75,11 +75,7 @@ struct DashboardPage {
     oob: bool,
 }
 
-impl Localize for DashboardPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(DashboardPage);
 
 /// The live region, sent by the stream.
 #[derive(Template)]
@@ -97,11 +93,7 @@ struct LiveFragment {
     oob: bool,
 }
 
-impl Localize for LiveFragment {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(LiveFragment);
 
 /// The firmware-update line of the system panel.
 struct UpdateBadge {

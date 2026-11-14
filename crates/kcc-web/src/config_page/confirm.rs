@@ -17,7 +17,7 @@ use kcc_i18n::{
 
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         confirm::{Confirmation, Gate},
         context::fragment_shell,
@@ -44,11 +44,7 @@ pub(crate) struct ConfirmDialog {
     button: MessageKey,
 }
 
-impl Localize for ConfirmDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(ConfirmDialog);
 
 /// The words of one confirmation: title, text and button.
 pub(crate) type Words = (MessageKey, MessageKey, MessageKey);

@@ -6,7 +6,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{backup_rows::BackupRow, diff::Changes, text::Lines};
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
 };
 
@@ -55,11 +55,7 @@ pub(crate) struct CompareForm {
     split: bool,
 }
 
-impl Localize for CompareForm {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(CompareForm);
 
 impl CompareForm {
     /// The form over `rows`, comparing the newest backup with the running configuration.

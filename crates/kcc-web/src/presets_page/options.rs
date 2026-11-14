@@ -37,7 +37,7 @@ use crate::{
         names::{interface_kind, is_switch_port, valid_name},
         service::Wizards,
     },
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
@@ -67,11 +67,7 @@ pub(super) struct Panel {
     problem: String,
 }
 
-impl Localize for Panel {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Panel);
 
 /// One name the settings use, and its name on the router.
 struct Rename {

@@ -7,7 +7,7 @@ use kcc_i18n::{bundle::tr, keys};
 
 use super::{lists_region::direction_label, snapshot::Binding};
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     routing_page::frame::protocol_text,
     system_pages::shared::with_query,
     table::{
@@ -52,11 +52,7 @@ pub(crate) struct BindingsRegion {
     removable: bool,
 }
 
-impl Localize for BindingsRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(BindingsRegion);
 
 impl BindingsRegion {
     /// The region of `table` on `router` in `shell`, with Remove when `removable`.
@@ -204,11 +200,7 @@ pub(crate) struct UpnpRegion {
     table: Table<Redirect>,
 }
 
-impl Localize for UpnpRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(UpnpRegion);
 
 impl UpnpRegion {
     /// The region of `table` in `shell`.

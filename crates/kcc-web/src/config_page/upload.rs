@@ -31,7 +31,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, outcome::Outcome, respond, respond::Answer},
 };
 
@@ -53,11 +53,7 @@ struct UploadDialog {
     error: String,
 }
 
-impl Localize for UploadDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(UploadDialog);
 
 /// `GET /ui/r/{router}/config/upload`: the upload dialog.
 ///

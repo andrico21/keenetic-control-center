@@ -28,7 +28,7 @@ use crate::{
     net_pages::{Call, Tab, Tabs, Viewer},
     net_wifi_rows::{ApRow, RadioRow, access_points, radios},
     net_wifi_stations::{StationRow, stations},
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{self, Caller, fragment_shell},
         family::Family,
@@ -53,11 +53,7 @@ struct Page {
     problem: Option<MessageKey>,
 }
 
-impl Localize for Page {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Page);
 
 /// `GET /ui/r/{router}/wifi`: radios, access points and connected devices.
 pub(crate) async fn page(
@@ -133,11 +129,7 @@ struct Listing {
     oob: bool,
 }
 
-impl Localize for Listing {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(Listing);
 
 impl Listing {
     /// Reads the router of `domain` and cuts the page of devices `query` asks for.

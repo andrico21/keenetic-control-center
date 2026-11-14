@@ -24,7 +24,7 @@ use super::{
     store::{self, StoreError},
 };
 use crate::{
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     system_pages::shared::with_query,
     table::rows::{Table, TableQuery},
@@ -54,11 +54,7 @@ pub(crate) struct BackupsRegion {
     oob: bool,
 }
 
-impl Localize for BackupsRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(BackupsRegion);
 
 impl BackupsRegion {
     /// The region of `visit`, the table as `query` asks.

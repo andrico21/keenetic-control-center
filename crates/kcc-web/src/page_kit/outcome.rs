@@ -15,7 +15,7 @@ use kcc_i18n::{
 use super::{context::fragment_shell, family::Family};
 use crate::{
     errors,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
 };
 
 #[cfg(test)]
@@ -66,6 +66,11 @@ impl Toast {
         Self::new(Tone::Success, tr(locale, key, None))
     }
 
+    /// An info toast with `key` in `locale`.
+    pub(crate) fn info(locale: Locale, key: MessageKey) -> Self {
+        Self::new(Tone::Info, tr(locale, key, None))
+    }
+
     /// A warning toast with `key` in `locale`.
     pub(crate) fn warning(locale: Locale, key: MessageKey) -> Self {
         Self::new(Tone::Warning, tr(locale, key, None))
@@ -86,6 +91,34 @@ impl Toast {
         &self.message
     }
 }
+
+/// A template wrapper for rendering a toast.
+#[derive(Template)]
+#[template(
+    ext = "html",
+    source = "{%- import \"components.html\" as ui -%}{{ ui::toast(tone, message) }}"
+)]
+pub(crate) struct ToastView {
+    /// Locale carrier.
+    shell: Shell,
+    /// Toast tone.
+    tone: &'static str,
+    /// Localized message.
+    message: String,
+}
+
+impl ToastView {
+    /// Create a `ToastView` from a `Toast` in the given `locale`.
+    pub(crate) fn new(toast: &Toast, locale: Locale) -> Self {
+        Self {
+            shell: fragment_shell(locale),
+            tone: toast.tone(),
+            message: toast.message().to_owned(),
+        }
+    }
+}
+
+localized!(ToastView);
 
 /// Why a request failed, in the user's words.
 #[derive(Debug, Clone)]
@@ -170,11 +203,7 @@ struct OutcomeView {
     outcome: Outcome,
 }
 
-impl Localize for OutcomeView {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(OutcomeView);
 
 impl Outcome {
     /// An outcome in `tone` with `headline`, audited as `audit`, and nothing else.

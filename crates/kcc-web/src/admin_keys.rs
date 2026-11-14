@@ -34,7 +34,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{Caller, fragment_shell},
         outcome::Toast,
@@ -89,11 +89,7 @@ struct KeysRegion {
     toasts: Vec<Toast>,
 }
 
-impl Localize for KeysRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(KeysRegion);
 
 /// The API keys page.
 #[derive(Template)]
@@ -107,11 +103,7 @@ struct KeysPage {
     region: KeysRegion,
 }
 
-impl Localize for KeysPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(KeysPage);
 
 /// One choice of the role select.
 struct RoleOption {
@@ -139,11 +131,7 @@ struct NewKeyDialog {
     role_error: String,
 }
 
-impl Localize for NewKeyDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(NewKeyDialog);
 
 /// The one-time display of a new key, with the refreshed table out of band.
 #[derive(Template)]
@@ -164,11 +152,7 @@ impl CreatedDialog {
     }
 }
 
-impl Localize for CreatedDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(CreatedDialog);
 
 /// `GET /ui/admin/api-keys`.
 pub(crate) async fn page(

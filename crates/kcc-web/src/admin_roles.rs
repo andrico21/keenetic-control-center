@@ -44,7 +44,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     nav::Section,
-    page::{Localize, Shell},
+    page::{Localize as _, Shell},
     page_kit::{
         context::{Caller, fragment_shell},
         outcome::Toast,
@@ -206,11 +206,7 @@ struct RolesRegion {
     toasts: Vec<Toast>,
 }
 
-impl Localize for RolesRegion {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(RolesRegion);
 
 /// The roles page.
 #[derive(Template)]
@@ -224,11 +220,7 @@ struct RolesPage {
     region: RolesRegion,
 }
 
-impl Localize for RolesPage {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(RolesPage);
 
 /// One permission checkbox.
 struct PermissionCheck {
@@ -268,11 +260,7 @@ struct RoleDialog {
     scope_error: String,
 }
 
-impl Localize for RoleDialog {
-    fn shell(&self) -> &Shell {
-        &self.shell
-    }
-}
+localized!(RoleDialog);
 
 /// `GET /ui/admin/roles`.
 pub(crate) async fn page(
