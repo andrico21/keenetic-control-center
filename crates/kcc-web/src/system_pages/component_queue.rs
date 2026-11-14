@@ -10,13 +10,14 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_catalog::Risk;
-use kcc_domain::components::{self, QueueAction};
-use kcc_i18n::locale::Locale;
+use kcc_domain::{
+    ChangeOp, Result as DomainResult,
+    components::{self, QueueAction},
+};
 
 use super::{
     components::{Viewer, read},
-    shared::{merged, value},
+    shared::{NoDialog, merged, value},
 };
 use crate::{
     WebState,
@@ -24,11 +25,9 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        failure::plan_failure,
-        family::Family,
-        outcome::Outcome,
-        request::{missing, shown_query},
-        respond::{Answer, changed},
+        request::{Params, missing, shown_query},
+        respond::Answer,
+        submit::{Planned, Submission},
     },
 };
 
@@ -51,27 +50,14 @@ pub(crate) async fn check(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let action = CHECK.open(&state, &user, &router).await?;
-    let locale = action.locale();
-    let domain = action.context().await?;
-    let planned = components::plan_check_update(&domain)
-        .and_then(|operation| components::change_request(&operation));
-    let request = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            return Ok(invalid(failure.message(), locale));
-        }
-    };
-    let outcome = action.run(Risk::Write, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(action, &Params::default(), NoDialog)
+        .submit(
+            |_params| Ok(()),
+            async |(), ctx| planned(components::plan_check_update(ctx)?),
+            async |ctx| viewer.refreshed(ctx).await,
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/system/components/queue?name=&action=install|remove`: queues one
@@ -103,7 +89,6 @@ pub(crate) async fn queue(
     let action = Operation::write(&components::DESCRIPTOR, write, audit)
         .open(&state, &user, &router)
         .await?;
-    let locale = action.locale();
     let domain = action.context().await?;
     let name = value(&pairs, "name").unwrap_or_default().to_owned();
     let offered = read(&domain)
@@ -115,29 +100,22 @@ pub(crate) async fn queue(
         action.abandon("not_found").await;
         return Err(missing());
     }
-    let planned = components::plan_queue(&domain, wanted, &name)
-        .and_then(|operation| components::change_request(&operation));
-    let request = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            return Ok(invalid(failure.message(), locale));
-        }
-    };
-    let outcome = action.run(Risk::Write, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(action, &Params::default(), NoDialog)
+        .submit(
+            |_params| Ok(()),
+            async |(), ctx| planned(components::plan_queue(ctx, wanted, &name)?),
+            async |ctx| viewer.refreshed(ctx).await,
+        )
+        .await)
 }
 
-/// The answer to a change refused before anything was sent.
-fn invalid(problem: &str, locale: Locale) -> Response {
-    let outcome = Outcome::invalid(Family::Changes, locale, vec![problem.to_owned()]);
-    changed(outcome, None, None, locale)
+/// The components plan `operation` as the change that runs it.
+///
+/// # Errors
+///
+/// Returns the catalog's findings.
+fn planned(operation: ChangeOp) -> DomainResult<Planned> {
+    let request = components::change_request(&operation)?;
+    Ok(Planned::of(&[operation], Change::Cli(request)))
 }

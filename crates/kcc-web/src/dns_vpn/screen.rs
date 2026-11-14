@@ -219,6 +219,15 @@ struct Refreshed {
 
 localized!(Notes);
 
+/// The `region` and the page `actions` read back after a change, rendered to go out of
+/// band.
+pub(crate) fn read_back((region, actions): (Region, Vec<Act>)) -> Option<String> {
+    rendered(&Refreshed {
+        region: region.out_of_band(),
+        actions,
+    })
+}
+
 /// The answer to a change: its outcome, notes on what it left out, and the region and the
 /// page actions read back, out of band.
 pub(crate) struct Answered {
@@ -243,14 +252,10 @@ impl Answered {
         }
     }
 
-    /// Sends the region and the page actions, read back, out of band.
-    pub(crate) fn refreshed(mut self, read_back: Option<(Region, Vec<Act>)>) -> Self {
-        if let Some((region, actions)) = read_back {
-            self.refreshed = rendered(&Refreshed {
-                region: region.out_of_band(),
-                actions,
-            });
-        }
+    /// Sends `refreshed`, the region and the page actions read back and rendered, out of
+    /// band.
+    pub(crate) fn read_back(mut self, refreshed: Option<String>) -> Self {
+        self.refreshed = refreshed;
         self
     }
 

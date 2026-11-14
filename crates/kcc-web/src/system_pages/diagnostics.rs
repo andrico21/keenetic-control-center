@@ -21,6 +21,7 @@ use kcc_domain::diagnostics;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
+    locale::Locale,
 };
 use serde_json::json;
 
@@ -41,9 +42,26 @@ use crate::{
         failure::issue_sentence,
         family::Family,
         outcome::{Failure, Outcome},
+        request::Params,
         respond::Answer,
+        submit::{self, Invalid, Submission},
     },
 };
+
+/// The diagnostic form, whose values that failed their check are named in the outcome
+/// region.
+struct InOutcome;
+
+impl submit::Form for InOutcome {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let problems = invalid
+            .into_findings()
+            .into_iter()
+            .map(|(_field, rule)| tr(locale, rule, None))
+            .collect();
+        Outcome::invalid(Family::Changes, locale, problems).render(locale)
+    }
+}
 
 /// The page.
 #[derive(Template)]
@@ -108,18 +126,14 @@ pub(crate) async fn start(
         return Ok(Outcome::invalid(Family::Changes, locale, vec![problem]).render(locale));
     };
     let path = tool.kind().catalog_path();
-    let action = Operation::write(&diagnostics::DESCRIPTOR, tool.name(), tool.audit())
+    let opened = Operation::write(&diagnostics::DESCRIPTOR, tool.name(), tool.audit())
         .open(&state, &user, &router)
         .await?;
     let record = Record::on_router(tool.audit(), &router, path.to_owned());
-    let body = match tool.body(&pairs) {
-        Ok(body) => body,
-        Err(message) => {
-            action.abandon("validation_failed").await;
-            let problems = vec![tr(locale, message, None)];
-            return Ok(Outcome::invalid(Family::Changes, locale, problems).render(locale));
-        }
-    };
+    let params = Params::default();
+    let (action, body) = Submission::new(opened, &params, InOutcome)
+        .checked(|_params| tool.body(&pairs).map_err(|rule| Invalid::at("tool", rule)))
+        .await?;
     let audited = record.with_params(json!({ "fields": field_names(&body) }));
     let domain = action.context().await?;
     let validated = match domain.catalog.validate(path, HttpMethod::Post, &body) {

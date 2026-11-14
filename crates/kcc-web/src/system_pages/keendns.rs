@@ -122,11 +122,6 @@ impl<'call> Viewer<'call> {
         Self { user, router }
     }
 
-    /// The signed-in user.
-    pub(crate) const fn user(&self) -> &CurrentUser {
-        self.user
-    }
-
     /// The name panel read through `domain`.
     ///
     /// # Errors

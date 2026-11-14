@@ -9,14 +9,12 @@ use axum::{
     extract::{Path, Query, State},
     response::Response,
 };
-use kcc_app::workflow::CliChangeRequest;
-use kcc_catalog::Risk;
-use kcc_domain::{DomainError, Result as DomainResult, RouterCtx, router_users};
+use kcc_domain::{ChangeOp, Result as DomainResult, RouterCtx, router_users};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
-    dialog::{Entry, SecretDialog, entry},
-    reply::{unchanged, verified},
+    dialog::{SecretDialog, entry},
+    reply::{Secret, typed, unchanged},
 };
 use crate::{
     WebState,
@@ -26,10 +24,10 @@ use crate::{
         action::{Action, Operation},
         change::Change,
         confirm::Confirmation,
-        failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::{Answer, changed},
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
     system_pages::shared::profile_login,
 };
@@ -110,35 +108,42 @@ pub(crate) async fn password(
         return Err(shown.refused(protected(locale)).refusal());
     }
     let confirmed = Confirmation::from_pairs(&form).confirmed();
-    let secret = match entry(&mut form) {
-        Entry::Keep => return Ok(unchanged(action).await),
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            return Err(shown.mismatch());
-        }
-        Entry::New(typed) => typed,
+    let Some(checked) = typed(entry(&mut form)) else {
+        return Ok(unchanged(action).await);
     };
-    if !confirmed {
-        action.abandon("confirmation_required").await;
-        return Err(shown.secret_error(tr(locale, keys::WEB_SECRET_CONFIRM, None)));
-    }
-    let (known, domain) = account(action, name.as_str()).await?;
-    let planned = router_users::plan_password(&domain, name.as_str(), &login, secret)
-        .and_then(|operation| router_users::change_request(&operation));
-    run(known, planned, shown).await
+    let (known, asked) =
+        confirming(action, (checked.is_ok(), confirmed), (shown, name.as_str())).await?;
+    Ok(run(known, checked, asked, async |ctx, secret| {
+        router_users::plan_password(ctx, name.as_str(), &login, secret)
+    })
+    .await)
 }
 
-/// `action` with its router context, once the account `name` is known to exist there.
+/// `action` and `shown` back once a typed password may be sent.
+///
+/// A password typed twice (`typed`) needs the dialog's confirmation (`confirmed`) and an
+/// account `name` the router has; a value that failed its check goes on to the
+/// submission, which answers it.
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown account and the failure when the router cannot be read;
-/// both are audited.
+/// Answers `shown` asking for the confirmation, 404 for an unknown account and the failure
+/// when the router cannot be read; each is audited.
 // NOT cancel-safe: an abandoned append may still be written.
-pub(crate) async fn account<'call>(
+pub(crate) async fn confirming<'call>(
     action: Action<'call>,
-    name: &str,
-) -> Result<(Action<'call>, RouterCtx), Answer> {
+    (typed, confirmed): (bool, bool),
+    (shown, name): (SecretDialog, &str),
+) -> Result<(Action<'call>, SecretDialog), Answer> {
+    if !typed {
+        return Ok((action, shown));
+    }
+    if !confirmed {
+        let locale = action.locale();
+        action.abandon("confirmation_required").await;
+        let asked = tr(locale, keys::WEB_SECRET_CONFIRM, None);
+        return Err(shown.secret_error(asked));
+    }
     let domain = action.context().await?;
     match router_users::read_users(&domain).await {
         Ok(users)
@@ -146,7 +151,7 @@ pub(crate) async fn account<'call>(
                 .iter()
                 .any(|found| found.name.as_deref() == Some(name)) =>
         {
-            Ok((action, domain))
+            Ok((action, shown))
         }
         Ok(_) => {
             action.abandon("not_found").await;
@@ -160,35 +165,35 @@ pub(crate) async fn account<'call>(
     }
 }
 
-/// Runs a planned password change of a router account inside the fail-safe timer and
-/// answers with the read-back's verdict; a refused plan comes back into `shown`.
+/// Runs the password change of a router account inside the fail-safe timer.
 ///
-/// # Errors
-///
-/// Answers the dialog with the refusal or the planning error (422).
-// NOT cancel-safe: see `Action::run`.
-pub(crate) async fn run(
+/// `plan` plans it with the `checked` values, the password typed twice among them; the
+/// answer is the read-back's verdict, and a value that failed its check or a refused plan
+/// comes back into `shown`.
+// NOT cancel-safe: see `Action::run_planned`.
+pub(crate) async fn run<T, P>(
     action: Action<'_>,
-    planned: DomainResult<CliChangeRequest>,
+    checked: Result<T, Invalid>,
     shown: SecretDialog,
-) -> Result<Response, Answer> {
-    let locale = action.locale();
-    let request = match planned {
-        Ok(request) => request,
-        Err(DomainError::ProtectedAccount) => {
-            action.abandon("protected_account").await;
-            return Err(shown.refused(protected(locale)).refusal());
-        }
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Err(shown.secret_error(failure.message().to_owned()));
-        }
-    };
-    let outcome = verified(
-        action.run(Risk::Management, Change::Cli(request)).await,
-        locale,
-        keys::WEB_INTERNET_PASSWORD,
-    );
-    Ok(changed(outcome, None, None, locale))
+    plan: P,
+) -> Response
+where
+    P: AsyncFnOnce(&RouterCtx, T) -> DomainResult<ChangeOp>,
+{
+    let params = Params::default();
+    Submission::new(
+        action,
+        &params,
+        Secret::new(shown, keys::WEB_INTERNET_PASSWORD),
+    )
+    .submit(
+        |_params| checked,
+        async |typed_values, ctx| {
+            let operation = plan(ctx, typed_values).await?;
+            let request = router_users::change_request(&operation)?;
+            Ok(Planned::of(&[operation], Change::Cli(request)))
+        },
+        async |_ctx| None,
+    )
+    .await
 }

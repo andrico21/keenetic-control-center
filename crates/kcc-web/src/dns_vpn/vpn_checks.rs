@@ -1,11 +1,9 @@
 //! How the VPN dialogs' values are checked before anything is sent, and the VPN client
 //! or server changes each plans.
 
-use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
-use kcc_catalog::Risk;
+use kcc_app::workflow::CliChangeRequest;
 use kcc_domain::{
     ChangeOp, DomainError, Result as DomainResult, RouterCtx,
-    configuration::SafetyNet,
     vpn_clients::{self, VpnClientChange},
     vpn_servers::{self, VpnServerChange},
 };
@@ -17,10 +15,7 @@ use super::{
     form::Errors,
     vpn_forms::{Server, VpnForm},
 };
-use crate::{
-    authz::CurrentUser,
-    page_kit::{gate::allowed, request::Params},
-};
+use crate::page_kit::request::Params;
 
 /// Checked VPN changes, ready to plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -32,12 +27,16 @@ pub(crate) enum Planned {
 }
 
 impl Planned {
-    /// The one protected request of every change, planned for the router of `ctx`.
+    /// The one operation of every change, planned for the router of `ctx`, and its
+    /// protected request.
     ///
     /// # Errors
     ///
     /// Returns the catalog's findings.
-    pub(crate) async fn request(&self, ctx: &RouterCtx) -> DomainResult<PlannedRequest> {
+    pub(crate) async fn request(
+        &self,
+        ctx: &RouterCtx,
+    ) -> DomainResult<(ChangeOp, CliChangeRequest)> {
         let operation = match self {
             Self::Clients(changes) => {
                 let mut operation = None;
@@ -58,39 +57,7 @@ impl Planned {
             Self::Clients(_) => vpn_clients::change_request(&operation)?,
             Self::Servers(_) => vpn_servers::change_request(&operation)?,
         };
-        Ok(PlannedRequest {
-            request,
-            risk: operation.risk,
-        })
-    }
-}
-
-/// A protected aggregate request and the maximum risk of its constituent plans.
-pub(crate) struct PlannedRequest {
-    /// Protected CLI request.
-    request: CliChangeRequest,
-    /// Maximum planned risk.
-    risk: Risk,
-}
-
-impl PlannedRequest {
-    /// Builds a protected request with its maximum planned risk.
-    pub(crate) const fn new(request: CliChangeRequest, risk: Risk) -> Self {
-        Self { request, risk }
-    }
-
-    /// Splits this plan into its protected request and maximum risk.
-    pub(crate) fn into_parts(self) -> (CliChangeRequest, Risk) {
-        (self.request, self.risk)
-    }
-
-    /// Whether `user` may execute this plan on `router`.
-    pub(crate) fn allowed(&self, user: &CurrentUser, router: &str) -> bool {
-        allowed(
-            user,
-            router,
-            &SafetyNet::required(Permission::Write, self.risk),
-        )
+        Ok((operation, request))
     }
 }
 

@@ -5,10 +5,14 @@
 //! one the dialog showed: the dialog carries a fingerprint of its summary, compared with a
 //! fresh read; the segments domain then checks the router again inside the change set.
 
+use alloc::sync::Arc;
+use core::slice;
+use std::sync::Mutex;
+
 use axum::{
     Form,
     extract::{Path, Query, State},
-    response::Response,
+    response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
 use kcc_domain::{
@@ -35,8 +39,9 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::{Failure, Outcome},
-        request::missing,
+        request::{Params, missing},
         respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
@@ -122,40 +127,69 @@ pub(crate) async fn delete(
             tr(locale, keys::WEB_SEGMENTS_DELETE_CHANGED, None),
         ));
     }
-    let risk = match view.deletion_plan(&domain).await {
-        Ok(operation) => operation.risk,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            let shown = Outcome::failed(failure).render(locale);
-            return Err(Answer::from(respond::retarget(shown, "#page-outcome")));
-        }
-    };
-    let mut note = None;
-    let outcome = action
-        .run_with(
-            risk,
-            async |changes, context| match segments::delete_discovered(changes, context, &view)
-                .await
-            {
-                Ok(_summary) => changes
-                    .current_last_change()
-                    .await
-                    .map(|last| Applied::Done {
-                        unsaved: last.unsaved,
-                    }),
-                Err(error) => {
-                    let (said, source) = step_failure(error, locale);
-                    note = said;
-                    Err(source)
-                }
+    let deleting = Deleting::default();
+    let note = Arc::clone(&deleting.0);
+    let params = Params::default();
+    Ok(Submission::new(action, &params, deleting)
+        .landing_in("#page-outcome")
+        .refreshing_after_failure()
+        .submit(
+            |_params| Ok(()),
+            async |(), ctx| {
+                let operation = view.deletion_plan(ctx).await?;
+                Ok(Planned::working(
+                    slice::from_ref(&operation),
+                    move |changes, context| {
+                        Box::pin(async move {
+                            match segments::delete_discovered(changes, context, &view).await {
+                                Ok(_summary) => {
+                                    changes
+                                        .current_last_change()
+                                        .await
+                                        .map(|last| Applied::Done {
+                                            unsaved: last.unsaved,
+                                        })
+                                }
+                                Err(error) => {
+                                    let (said, source) = step_failure(error, locale);
+                                    if let Ok(mut slot) = note.lock() {
+                                        *slot = said;
+                                    }
+                                    Err(source)
+                                }
+                            }
+                        })
+                    },
+                ))
             },
+            async |ctx| Region::read_back(ctx, &router, locale).await,
         )
-        .await;
-    let listed = Region::read_back(&domain, &router, locale).await;
-    Ok(respond::retarget(
-        answer(outcome, listed, note, locale),
-        "#page-outcome",
-    ))
+        .await)
+}
+
+/// A delete as the form of its change: a refused plan and the outcome in the page's
+/// outcome region, the outcome with the step a failed delete stopped at, kept here.
+#[derive(Default)]
+struct Deleting(Arc<Mutex<Option<String>>>);
+
+impl submit::Form for Deleting {
+    fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
+        missing().into_response()
+    }
+
+    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
+        Outcome::failed(failure).render(locale)
+    }
+
+    fn answer_changed(
+        self,
+        outcome: Outcome,
+        refreshed: Option<String>,
+        locale: Locale,
+    ) -> Response {
+        let said = self.0.lock().ok().and_then(|mut slot| slot.take());
+        answer(outcome, refreshed, said, locale)
+    }
 }
 
 /// The segment `id` of `domain`'s router, if it has one.

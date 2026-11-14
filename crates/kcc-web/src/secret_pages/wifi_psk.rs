@@ -12,8 +12,8 @@ use kcc_i18n::{keys, locale::Locale};
 use kcc_rci::ObjectName;
 
 use super::{
-    dialog::{Entry, Length, SecretDialog, entry},
-    reply::{unchanged, verified},
+    dialog::{Length, SecretDialog, entry},
+    reply::{Secret, typed, unchanged},
 };
 use crate::{
     WebState,
@@ -25,10 +25,10 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::{Answer, changed},
+        respond::Answer,
+        submit::{Planned, Submission},
     },
 };
 
@@ -89,51 +89,36 @@ pub(crate) async fn psk(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = PSK.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let shown = dialog(&router, &name, locale);
-    let secret = match entry(&mut form) {
-        Entry::Keep => return Ok(unchanged(action).await),
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            return Err(shown.mismatch());
-        }
-        Entry::New(typed) if !LENGTH.fits(&typed) => {
-            action.abandon("validation_failed").await;
-            return Err(shown.out_of_bounds());
-        }
-        Entry::New(typed) => typed,
+    let Some(typed) = typed(entry(&mut form)) else {
+        return Ok(unchanged(action).await);
     };
-    let domain = action.context().await?;
-    match access_points(&domain).await {
-        Ok(points) if points.iter().any(|point| point.id() == name.as_str()) => {}
-        Ok(_) => {
-            action.abandon("not_found").await;
-            return Err(missing());
-        }
-        Err(_) => {
-            action.abandon("unreachable").await;
-            return Err(unusable(locale, Family::Changes.unreachable()));
+    let checked = typed.and_then(|secret| LENGTH.checked(secret));
+    if checked.is_ok() {
+        let domain = action.context().await?;
+        match access_points(&domain).await {
+            Ok(points) if points.iter().any(|point| point.id() == name.as_str()) => {}
+            Ok(_) => {
+                action.abandon("not_found").await;
+                return Err(missing());
+            }
+            Err(_) => {
+                action.abandon("unreachable").await;
+                return Err(unusable(locale, Family::Changes.unreachable()));
+            }
         }
     }
-    let planned = wifi::plan_wpa_psk(&domain, &name, secret)
-        .and_then(|operation| Ok((wifi::change_request(&name, &operation)?, operation.risk)));
-    let (request, risk) = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Err(shown.secret_error(failure.message().to_owned()));
-        }
-    };
-    let outcome = verified(
-        action.run(risk, Change::Cli(request)).await,
-        locale,
-        keys::WEB_WIFI_PSK,
-    );
+    let shown = Secret::new(dialog(&router, &name, locale), keys::WEB_WIFI_PSK);
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
-    let refreshed = if outcome.succeeded() {
-        net_wifi::refreshed(call, &domain).await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let params = Params::default();
+    Ok(Submission::new(action, &params, shown)
+        .submit(
+            |_params| checked,
+            async |secret, ctx| {
+                let operation = wifi::plan_wpa_psk(ctx, &name, secret)?;
+                let request = wifi::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| net_wifi::refreshed(call, ctx).await,
+        )
+        .await)
 }

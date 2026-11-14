@@ -11,8 +11,8 @@ use kcc_i18n::{keys, locale::Locale};
 use kcc_rci::ObjectName;
 
 use super::{
-    dialog::{Entry, SecretDialog, entry},
-    reply::{unchanged, verified},
+    dialog::{SecretDialog, entry},
+    reply::{Secret, typed, unchanged},
 };
 use crate::{
     WebState,
@@ -24,10 +24,10 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::{Answer, changed},
+        respond::Answer,
+        submit::{Planned, Submission},
     },
 };
 
@@ -84,50 +84,38 @@ pub(crate) async fn password(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = PASSWORD.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let shown = dialog(&router, &name, locale);
-    let secret = match entry(&mut form) {
-        Entry::Keep => return Ok(unchanged(action).await),
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            return Err(shown.mismatch());
-        }
-        Entry::New(typed) => typed,
+    let Some(checked) = typed(entry(&mut form)) else {
+        return Ok(unchanged(action).await);
     };
-    let domain = action.context().await?;
-    match links(&domain).await {
-        Ok(found)
-            if found
-                .iter()
-                .any(|link| link.id() == name.as_str() && link.kind().is_some_and(Kind::ppp)) => {}
-        Ok(_) => {
-            action.abandon("not_found").await;
-            return Err(missing());
-        }
-        Err(_) => {
-            action.abandon("unreachable").await;
-            return Err(unusable(locale, Family::Changes.unreachable()));
+    if checked.is_ok() {
+        let domain = action.context().await?;
+        match links(&domain).await {
+            Ok(found)
+                if found.iter().any(|link| {
+                    link.id() == name.as_str() && link.kind().is_some_and(Kind::ppp)
+                }) => {}
+            Ok(_) => {
+                action.abandon("not_found").await;
+                return Err(missing());
+            }
+            Err(_) => {
+                action.abandon("unreachable").await;
+                return Err(unusable(locale, Family::Changes.unreachable()));
+            }
         }
     }
-    let planned = wan::plan_password(&domain, &name, secret)
-        .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
-    let (request, risk) = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Err(shown.secret_error(failure.message().to_owned()));
-        }
-    };
-    let outcome = verified(
-        action.run(risk, Change::Cli(request)).await,
-        locale,
-        keys::WEB_INTERNET_PASSWORD,
-    );
+    let shown = Secret::new(dialog(&router, &name, locale), keys::WEB_INTERNET_PASSWORD);
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    let refreshed = if outcome.succeeded() {
-        net_internet::refreshed(call, &domain).await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let params = Params::default();
+    Ok(Submission::new(action, &params, shown)
+        .submit(
+            |_params| checked,
+            async |secret, ctx| {
+                let operation = wan::plan_password(ctx, &name, secret)?;
+                let request = wan::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| net_internet::refreshed(call, ctx).await,
+        )
+        .await)
 }

@@ -19,14 +19,13 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use kcc_app::permissions::Permission;
-use kcc_domain::{configuration::SafetyNet, vpn_clients};
+use kcc_domain::vpn_clients::{self, wireguard::WireGuardConfig};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
 use super::{
     form::FormDialog,
-    screen::Answered,
+    screen::{Answered, read_back},
     vpn_conf,
     vpn_forms::VpnForm,
     vpn_pages::{Spot, region},
@@ -35,16 +34,13 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
     page_kit::{
         action::Operation,
         change::Change,
-        context::fragment_shell,
-        failure::plan_failure,
-        family::Family,
-        gate::allowed,
+        outcome::{Failure, Outcome},
         request::{Params, shown_query},
         respond::Answer,
+        submit::{self, Invalid, Planned, Submission},
     },
     secret_pages::reply::confirmed,
 };
@@ -90,81 +86,121 @@ pub(crate) async fn import(
         Ok(fields) => upload(fields).await,
         Err(_rejection) => Err(Unread::Unreadable),
     };
-    let found = match read {
-        Ok(found) => found,
+    let (mut shown, mut checked) = match read {
+        Ok(found) => {
+            let shown = dialog(&router, locale, &found.name);
+            match vpn_conf::checked((&found.name, found.file.as_ref()), locale) {
+                Ok(ready) => (shown, Ok(ready)),
+                Err(problems) => {
+                    let invalid = problems
+                        .into_iter()
+                        .fold(shown, |form, (field, text)| form.error(field, &text));
+                    (invalid, Err(Invalid::from(Vec::new())))
+                }
+            }
+        }
         Err(Unread::TooLarge) => {
             action.abandon("too_large").await;
             return Err(too_large(&router, locale).into());
         }
         Err(Unread::Unreadable) => {
-            action.abandon("validation_failed").await;
             let text = tr(locale, keys::WEB_VPN_ERROR_FILE, None);
-            return Err(dialog(&router, locale, "")
-                .error("file", &text)
-                .invalid()
-                .into());
+            let unread = dialog(&router, locale, "").error("file", &text);
+            (unread, Err(Invalid::from(Vec::new())))
         }
     };
-    let shown = dialog(&router, locale, &found.name);
-    let (name, config) = match vpn_conf::checked((&found.name, found.file.as_ref()), locale) {
-        Ok(ready) => ready,
-        Err(problems) => {
-            action.abandon("validation_failed").await;
-            let invalid = problems
-                .into_iter()
-                .fold(shown, |form, (field, text)| form.error(field, &text));
-            return Err(invalid.invalid().into());
+    let mut unread = None;
+    if let Ok((name, _config)) = &checked {
+        // A new connection never reuses a name: that would regenerate a live tunnel's key.
+        match exists(&action.context().await?, name).await {
+            Ok(false) => {}
+            Ok(true) => {
+                let text = tr(locale, keys::WEB_VPN_ERROR_NAME_TAKEN, None);
+                shown = shown.error("name", &text);
+                checked = Err(Invalid::from(Vec::new()));
+            }
+            Err(error) => unread = Some(error),
         }
-    };
-    let ctx = action.context().await?;
-    // A new connection never reuses a name: that would regenerate a live tunnel's key.
-    let name_taken = exists(&ctx, &name).await;
-    let import_result = match name_taken {
-        Ok(false) => vpn_clients::plan_wireguard_import(&ctx, &name, &config)
-            .await
-            .and_then(|operation| {
+    }
+    let importing = Importing::new(
+        shown,
+        checked.as_ref().ok().map(|(_name, config)| config),
+        locale,
+    );
+    let params = Params::default();
+    Ok(Submission::new(action, &params, importing)
+        .submit(
+            |_params| checked,
+            async |(name, config), ctx| {
+                if let Some(error) = unread {
+                    return Err(error);
+                }
+                let operation = vpn_clients::plan_wireguard_import(ctx, &name, &config).await?;
                 let request = vpn_clients::change_request(&operation)?;
-                Ok((request, operation.risk))
-            }),
-        Ok(true) => {
-            action.abandon("validation_failed").await;
-            let text = tr(locale, keys::WEB_VPN_ERROR_NAME_TAKEN, None);
-            return Err(shown.error("name", &text).invalid().into());
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| {
+                let viewer = Spot::Connections
+                    .viewer(ctx, &user, &router)
+                    .with_table_query(shown_query(&headers));
+                read_back(region(ctx, &Spot::Connections, &viewer).await)
+            },
+        )
+        .await)
+}
+
+/// The import dialog as the form of the import.
+///
+/// Values that failed their check come back in the dialog, with their errors already on
+/// it; a refused import under the file. A success with keys from the file says the
+/// router reports them, and every answer to the import notes the file's fields it left
+/// out. It holds no key: the file goes from the check to the plan only.
+struct Importing {
+    /// The dialog, with the errors of values that failed their check.
+    dialog: FormDialog,
+    /// The headline of a success that imported keys from the file.
+    keyed: Option<String>,
+    /// The file's fields the import leaves out.
+    notes: Vec<String>,
+}
+
+impl Importing {
+    /// `dialog`, importing `config` when it passed its check, in `locale`.
+    fn new(dialog: FormDialog, config: Option<&WireGuardConfig>, locale: Locale) -> Self {
+        Self {
+            dialog,
+            keyed: config
+                .filter(|found| vpn_conf::keyed(found))
+                .map(|_found| tr(locale, keys::WEB_SECRET_IMPORT_DONE, None)),
+            notes: config.map_or_else(Vec::new, |found| vpn_conf::skipped(found, locale)),
         }
-        Err(error) => Err(error),
-    };
-    let (request, risk) = match import_result {
-        Ok(import_plan) => import_plan,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon("validation_failed").await;
-            return Err(shown.error("file", failure.message()).invalid().into());
-        }
-    };
-    if !allowed(
-        &user,
-        &router,
-        &SafetyNet::required(Permission::Write, risk),
-    ) {
-        action.abandon("forbidden").await;
-        return Err(errors::response(errors::Kind::Forbidden, fragment_shell(locale)).into());
     }
-    let viewer = Spot::Connections
-        .viewer(&ctx, &user, &router)
-        .with_table_query(shown_query(&headers));
-    let mut outcome = action.run(risk, Change::Cli(request)).await;
-    if vpn_conf::keyed(&config) {
-        outcome = confirmed(outcome, tr(locale, keys::WEB_SECRET_IMPORT_DONE, None));
+}
+
+impl submit::Form for Importing {
+    fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
+        self.dialog.invalid()
     }
-    let refreshed = if outcome.succeeded() {
-        Some(region(&ctx, &Spot::Connections, &viewer).await)
-    } else {
-        None
-    };
-    Ok(Answered::new(outcome, locale)
-        .refreshed(refreshed)
-        .notes(vpn_conf::skipped(&config, locale))
-        .respond())
+
+    fn answer_refused(self, failure: Failure, _locale: Locale) -> Response {
+        self.dialog.error("file", failure.message()).invalid()
+    }
+
+    fn answer_changed(
+        self,
+        outcome: Outcome,
+        refreshed: Option<String>,
+        locale: Locale,
+    ) -> Response {
+        let shown = match self.keyed {
+            Some(headline) => confirmed(outcome, headline),
+            None => outcome,
+        };
+        Answered::new(shown, locale)
+            .read_back(refreshed)
+            .notes(self.notes)
+            .respond()
+    }
 }
 
 /// The import dialog on `router`, its name field holding `name`.

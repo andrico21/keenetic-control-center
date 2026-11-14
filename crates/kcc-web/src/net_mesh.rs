@@ -13,7 +13,6 @@ use axum::{
     response::Response,
 };
 use kcc_app::workflow::WorkflowError;
-use kcc_catalog::Risk;
 use kcc_domain::{
     ChangeOp, DomainError, RouterCtx,
     mesh::{self, Member, RebootError},
@@ -21,7 +20,6 @@ use kcc_domain::{
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
-    locale::Locale,
 };
 use kcc_rci::ObjectName;
 
@@ -40,7 +38,7 @@ use crate::{
         family::Family,
         gate::Controls,
         request::{Params, missing, rendered, with_query},
-        respond::{Answer, changed},
+        respond::Answer,
         submit::{Formless, Planned, Submission},
     },
 };
@@ -270,7 +268,7 @@ pub(crate) async fn action(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
-// NOT cancel-safe: see `Action::run_with`.
+// NOT cancel-safe: see `Action::run_planned`.
 async fn restart(call: Call<'_>, member: &ObjectName, params: &Params) -> Result<Response, Answer> {
     let action = RESTART
         .open(call.state(), call.user(), call.router())
@@ -282,20 +280,24 @@ async fn restart(call: Call<'_>, member: &ObjectName, params: &Params) -> Result
         ),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(Risk::Destructive, &params.confirmation(), resubmit) {
-        return Ok(prompt);
-    }
-    let locale: Locale = action.locale();
-    let id = member.as_str();
-    let outcome = action
-        .run_with(Risk::Destructive, async |changes, domain| {
-            mesh::reboot_member(changes, domain, id, id)
-                .await
-                .map(|result| Applied::Terminal(result.responses))
-                .map_err(workflow_error)
-        })
-        .await;
-    Ok(changed(outcome, None, None, locale))
+    let id = member.as_str().to_owned();
+    Ok(Submission::new(action, params, Formless)
+        .confirming_planned(resubmit)
+        .submit(
+            |_params| Ok(()),
+            async |(), _ctx| {
+                Ok(Planned::described(move |changes, context| {
+                    Box::pin(async move {
+                        mesh::reboot_member(changes, context, &id, &id)
+                            .await
+                            .map(|result| Applied::Terminal(result.responses))
+                            .map_err(workflow_error)
+                    })
+                }))
+            },
+            async |_ctx| None,
+        )
+        .await)
 }
 
 /// The change-workflow error of a member restart that failed.

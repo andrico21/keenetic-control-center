@@ -12,7 +12,6 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_catalog::Risk;
 use kcc_domain::schedules::{self, ActionTime, ScheduleAction};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -33,10 +32,10 @@ use crate::{
         action::Operation,
         change::Change,
         context::fragment_shell,
-        failure::plan_failure,
-        family::Family,
-        request::{missing, shown_query},
-        respond::{self, Answer, changed},
+        outcome::Failure,
+        request::{Params, missing, shown_query},
+        respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission},
     },
 };
 
@@ -181,45 +180,58 @@ pub(crate) async fn add_action(
     for (day, _, checked_day) in &mut dialog.days {
         *checked_day = checked.contains(day);
     }
-    let when = clock(time);
-    let days = weekdays(&checked);
-    if when.is_none() {
-        dialog.time_error = tr(locale, keys::WEB_SYSTEM_SCHEDULES_TIME_ERROR, None);
-    }
-    if days.is_none() {
-        dialog.days_error = tr(locale, keys::WEB_SYSTEM_SCHEDULES_DAYS_ERROR, None);
-    }
-    let (Some((minute, hour)), Some(field)) = (when, days) else {
-        action.abandon("validation_failed").await;
-        return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
-    };
     let kind = if start {
         ScheduleAction::Start
     } else {
         ScheduleAction::Stop
     };
-    let planned =
-        schedules::plan_action(&domain, &name, ActionTime::new(kind, minute, hour, field))
-            .and_then(|operation| schedules::change_request(&operation));
-    let request = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            plan_failure(Family::Changes, locale, &error)
-                .message()
-                .clone_into(&mut dialog.time_error);
-            return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(action, &Params::default(), dialog)
+        .submit(
+            |_params| match (clock(time), weekdays(&checked)) {
+                (Some((minute, hour)), Some(field)) => {
+                    Ok(ActionTime::new(kind, minute, hour, field))
+                }
+                (when, days) => {
+                    let mut invalid = Vec::new();
+                    if when.is_none() {
+                        invalid.push(("time", keys::WEB_SYSTEM_SCHEDULES_TIME_ERROR));
+                    }
+                    if days.is_none() {
+                        invalid.push(("day", keys::WEB_SYSTEM_SCHEDULES_DAYS_ERROR));
+                    }
+                    Err(Invalid::from(invalid))
+                }
+            },
+            async |at, ctx| {
+                let operation = schedules::plan_action(ctx, &name, at)?;
+                let request = schedules::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| viewer.refreshed(ctx).await,
+        )
+        .await)
+}
+
+/// The add-action dialog answers values that failed their check, and a change the domain
+/// could not plan, under the field they concern.
+impl submit::Form for ActionDialog {
+    fn answer_invalid(mut self, invalid: Invalid, locale: Locale) -> Response {
+        for (field, rule) in invalid.into_findings() {
+            let error = tr(locale, rule, None);
+            if field == "day" {
+                self.days_error = error;
+            } else {
+                self.time_error = error;
+            }
         }
-    };
-    let outcome = action.run(Risk::Write, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+        respond::in_dialog(respond::unprocessable(&self))
+    }
+
+    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
+        failure.message().clone_into(&mut self.time_error);
+        respond::in_dialog(respond::unprocessable(&self))
+    }
 }
 
 #[cfg(test)]

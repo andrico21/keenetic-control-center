@@ -1,7 +1,10 @@
-//! What the system pages share: opening a page on its router and the query strings their
-//! actions carry.
+//! What the system pages share: opening a page on its router, the query strings their
+//! actions carry, and how a change without a dialog answers.
 
-use axum::http::HeaderMap;
+use axum::{
+    http::HeaderMap,
+    response::{IntoResponse as _, Response},
+};
 use kcc_domain::RouterCtx;
 use kcc_i18n::{bundle::MessageKey, locale::Locale};
 use url::form_urlencoded;
@@ -18,8 +21,10 @@ use crate::{
         context::{Caller, fragment_shell},
         facts::RouterFacts,
         family::Family,
-        request::last,
-        respond::Answer,
+        outcome::{Failure, Outcome},
+        request::{last, missing},
+        respond::{Answer, changed},
+        submit::{self, Invalid},
     },
 };
 
@@ -110,6 +115,33 @@ pub(crate) fn values<'pairs>(pairs: &'pairs [(String, String)], name: &str) -> V
 /// The 403 answer of an action the role may not take at the risk it would run at.
 pub(crate) fn forbidden(locale: Locale) -> Answer {
     errors::response(Kind::Forbidden, fragment_shell(locale)).into()
+}
+
+/// A change without a dialog of its own: values that fail their check name nothing the
+/// page has (404), and a change the domain could not plan is shown refused in the page's
+/// outcome region.
+pub(crate) struct NoDialog;
+
+impl submit::Form for NoDialog {
+    fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
+        missing().into_response()
+    }
+
+    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
+        refused(&failure, locale)
+    }
+}
+
+/// A change the domain could not plan, shown refused in the page's outcome region:
+/// nothing was sent.
+pub(crate) fn refused(failure: &Failure, locale: Locale) -> Response {
+    let problems = vec![failure.message().to_owned()];
+    changed(
+        Outcome::invalid(Family::Changes, locale, problems),
+        None,
+        None,
+        locale,
+    )
 }
 
 /// The login kcc signs in to `router` with, when `user` may read its profile.

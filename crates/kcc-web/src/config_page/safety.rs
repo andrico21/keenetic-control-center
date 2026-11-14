@@ -15,7 +15,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli, WorkflowError},
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::HttpMethod;
 use kcc_domain::configuration::{self, SafetyNet};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::json;
@@ -34,6 +34,7 @@ use crate::{
         confirm::Gate,
         outcome::{Failure, Outcome},
         respond::{Answer, changed},
+        submit::Planned,
     },
 };
 
@@ -69,11 +70,13 @@ pub(crate) async fn save(
 ) -> Result<Response, Answer> {
     let action = SAVE.open(&state, &user, &router).await?;
     let outcome = action
-        .run_with(Risk::Write, async |changes, _domain| {
-            configuration::save(changes)
-                .await
-                .map(|()| Applied::Done { unsaved: false })
-        })
+        .run_planned(Planned::described(|changes, _context| {
+            Box::pin(async move {
+                configuration::save(changes)
+                    .await
+                    .map(|()| Applied::Done { unsaved: false })
+            })
+        }))
         .await;
     Ok(Visit::new(&state, &user, &router)
         .answer_status(outcome)
@@ -95,11 +98,13 @@ pub(crate) async fn commit(
     let opened = COMMIT.open(&state, &user, &router).await?;
     let action = while_armed(opened).await?;
     let outcome = action
-        .run_with(Risk::Write, async |changes, _domain| {
-            SafetyNet::commit(changes)
-                .await
-                .map(|()| Applied::Done { unsaved: false })
-        })
+        .run_planned(Planned::described(|changes, _context| {
+            Box::pin(async move {
+                SafetyNet::commit(changes)
+                    .await
+                    .map(|()| Applied::Done { unsaved: false })
+            })
+        }))
         .await;
     Ok(Visit::new(&state, &user, &router)
         .answer_status(outcome)
@@ -134,21 +139,23 @@ pub(crate) async fn rollback(
         return Ok(ConfirmDialog::new(locale, action_url, (words, &args)).ask(wrong_name, &router));
     }
     let outcome = action
-        .run_with(Risk::Destructive, async |changes, domain| {
-            let validated = domain
-                .catalog
-                .validate(ROLLBACK_COMMAND, HttpMethod::Post, &json!({}))
-                .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
-            let request = CliChangeRequest::terminal(
-                vec![ValidatedCli::new(ROLLBACK_COMMAND.to_owned(), validated)],
-                Permission::Destructive,
-                json!({ "operation": ROLLBACK_COMMAND }),
-            );
-            changes
-                .apply_cli(request)
-                .await
-                .map(|result| Applied::Terminal(result.responses))
-        })
+        .run_planned(Planned::described(|changes, context| {
+            Box::pin(async move {
+                let validated = context
+                    .catalog
+                    .validate(ROLLBACK_COMMAND, HttpMethod::Post, &json!({}))
+                    .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
+                let request = CliChangeRequest::terminal(
+                    vec![ValidatedCli::new(ROLLBACK_COMMAND.to_owned(), validated)],
+                    Permission::Destructive,
+                    json!({ "operation": ROLLBACK_COMMAND }),
+                );
+                changes
+                    .apply_cli(request)
+                    .await
+                    .map(|result| Applied::Terminal(result.responses))
+            })
+        }))
         .await;
     Ok(changed(outcome, None, None, locale))
 }

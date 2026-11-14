@@ -4,12 +4,13 @@
 //! An account's password is a management change, like on the router users page, and the
 //! account kcc signs in with is refused before anything is sent.
 
+use core::slice;
+
 use axum::{
     Form,
     extract::{Path, State},
     response::Response,
 };
-use kcc_catalog::Risk;
 use kcc_domain::{
     RouterCtx, router_users,
     vpn_clients::secrets::{self, CredentialTarget},
@@ -19,9 +20,9 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::ObjectName;
 
 use super::{
-    dialog::{Entry, Plain, SecretDialog, entry, plain_value},
-    reply::{unchanged, verified},
-    user_password::{account, protected, run},
+    dialog::{Plain, SecretDialog, entry, plain_value},
+    reply::{Secret, typed, unchanged},
+    user_password::{confirming, protected, run},
 };
 use crate::{
     WebState,
@@ -31,9 +32,10 @@ use crate::{
         action::Operation,
         change::Applied,
         confirm::Confirmation,
-        failure::plan_failure,
         family::Family,
-        respond::{Answer, changed},
+        request::Params,
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
     system_pages::shared::profile_login,
 };
@@ -128,35 +130,39 @@ pub(crate) async fn psk(
     let action = IKE_KEY.open(&state, &user, &router).await?;
     let locale = action.locale();
     let typed_key = plain_value(&form, "key");
-    let shown = key_dialog(&router, &typed_key, locale);
-    let secret = match entry(&mut form) {
-        Entry::Keep => return Ok(unchanged(action).await),
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            return Err(shown.mismatch());
-        }
-        Entry::New(typed) => typed,
+    let shown = Secret::new(
+        key_dialog(&router, &typed_key, locale),
+        keys::WEB_VPN_PRESHARED,
+    );
+    let Some(typed) = typed(entry(&mut form)) else {
+        return Ok(unchanged(action).await);
     };
-    let Ok(key) = ObjectName::try_from(typed_key) else {
-        action.abandon("validation_failed").await;
-        return Err(shown.plain_error(tr(locale, keys::WEB_SECRET_IKE_NAME_ERROR, None)));
-    };
-    let domain = action.context().await?;
-    let target = CredentialTarget::Ike(key.clone());
-    if let Err(error) = secrets::plan(&domain, &target, secret.clone()) {
-        let failure = plan_failure(Family::Changes, locale, &error);
-        action.abandon(failure.audit()).await;
-        return Err(shown.secret_error(failure.message().to_owned()));
-    }
-    let applied = action
-        .run_with(Risk::Write, async move |changes, context| {
-            server_secrets::apply_ike_psk(changes, context, key, secret)
-                .await
-                .map(|()| Applied::Done { unsaved: true })
-        })
-        .await;
-    let outcome = verified(applied, locale, keys::WEB_VPN_PRESHARED);
-    Ok(changed(outcome, None, None, locale))
+    let checked = typed.and_then(|secret| {
+        let key = ObjectName::try_from(typed_key)
+            .map_err(|_error| Invalid::at("key", keys::WEB_SECRET_IKE_NAME_ERROR))?;
+        Ok((key, secret))
+    });
+    let params = Params::default();
+    Ok(Submission::new(action, &params, shown)
+        .submit(
+            |_params| checked,
+            async |(key, secret), ctx| {
+                let target = CredentialTarget::Ike(key.clone());
+                let operation = secrets::plan(ctx, &target, secret.clone())?;
+                Ok(Planned::working(
+                    slice::from_ref(&operation),
+                    move |changes, context| {
+                        Box::pin(async move {
+                            server_secrets::apply_ike_psk(changes, context, key, secret)
+                                .await
+                                .map(|()| Applied::Done { unsaved: true })
+                        })
+                    },
+                ))
+            },
+            async |_ctx| None,
+        )
+        .await)
 }
 
 /// The router accounts a VPN password may be set for: every account but the one kcc signs
@@ -225,24 +231,17 @@ pub(crate) async fn password(
         action.abandon("protected_account").await;
         return Err(shown.refused(protected(locale)).refusal());
     }
-    let secret = match entry(&mut form) {
-        Entry::Keep => return Ok(unchanged(action).await),
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            return Err(shown.mismatch());
-        }
-        Entry::New(typed) => typed,
+    let Some(typed) = typed(entry(&mut form)) else {
+        return Ok(unchanged(action).await);
     };
-    let Ok(name) = ObjectName::try_from(chosen) else {
-        action.abandon("validation_failed").await;
-        return Err(shown.plain_error(tr(locale, keys::WEB_SYSTEM_USERS_NAME_ERROR, None)));
-    };
-    if !confirmed {
-        action.abandon("confirmation_required").await;
-        return Err(shown.secret_error(tr(locale, keys::WEB_SECRET_CONFIRM, None)));
-    }
-    let (known, domain) = account(action, name.as_str()).await?;
-    let planned = server_secrets::plan_password(&domain, &name, &login, secret)
-        .and_then(|operation| server_secrets::password_request(&operation));
-    run(known, planned, shown).await
+    let checked = typed.and_then(|secret| {
+        let name = ObjectName::try_from(chosen.clone())
+            .map_err(|_error| Invalid::at("account", keys::WEB_SYSTEM_USERS_NAME_ERROR))?;
+        Ok((name, secret))
+    });
+    let (known, asked) = confirming(action, (checked.is_ok(), confirmed), (shown, &chosen)).await?;
+    Ok(run(known, checked, asked, async |ctx, (name, secret)| {
+        server_secrets::plan_password(ctx, &name, &login, secret)
+    })
+    .await)
 }

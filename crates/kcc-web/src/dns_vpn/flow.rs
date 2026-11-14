@@ -1,15 +1,14 @@
 //! The flow the DNS and VPN requests share: the page request, the viewer a region is
-//! built for, and running a planned change, answered with its outcome and the region
-//! read back.
+//! built for, and how their dialogs answer a submitted change.
 
-use kcc_app::workflow::CliChangeRequest;
-use kcc_catalog::Risk;
+use axum::response::{IntoResponse as _, Response};
 use kcc_domain::{OperationDescriptor, RouterCtx};
 use kcc_i18n::{bundle::tr, locale::Locale};
 
 use super::{
-    cells::Act,
-    region::Region,
+    dns_forms::DnsForm,
+    dns_pages::offered,
+    form::FormDialog,
     screen::{Answered, Tab},
 };
 use crate::{
@@ -17,11 +16,14 @@ use crate::{
     authz::CurrentUser,
     page::Shell,
     page_kit::{
-        action::Action,
-        change::Change,
         context::{self, Caller, Refusal},
+        failure::plan_failure,
         family::Family,
         gate::Controls,
+        outcome::{Failure, Outcome},
+        request::{Params, missing},
+        respond,
+        submit::{self, Invalid, unplanned::Unplanned},
     },
     table::rows::TableQuery,
 };
@@ -169,24 +171,86 @@ impl Viewer {
     }
 }
 
-/// Runs `request` for `action` and answers with its outcome; after a success the region
-/// and its page actions are read back with `read_back`.
-// NOT cancel-safe: see `Action::run`.
-pub(crate) async fn apply<F>(
-    action: Action<'_>,
-    request: CliChangeRequest,
-    risk: Risk,
-    read_back: F,
-) -> Answered
-where
-    F: AsyncFnOnce() -> (Region, Vec<Act>),
-{
-    let locale = action.locale();
-    let outcome = action.run(risk, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Some(read_back().await)
-    } else {
-        None
-    };
-    Answered::new(outcome, locale).refreshed(refreshed)
+/// A DNS or VPN dialog answers values that failed their check, and a change the domain
+/// could not plan, in itself.
+impl submit::Form for FormDialog {
+    fn answer_invalid(self, invalid: Invalid, _locale: Locale) -> Response {
+        self.errors(&invalid.into_findings()).invalid()
+    }
+
+    fn answer_refused(self, failure: Failure, _locale: Locale) -> Response {
+        self.problem(failure.message().to_owned()).invalid()
+    }
+}
+
+/// How the DNS dialog answers a submitted change.
+///
+/// Values that failed their check come back into the dialog read before the submission,
+/// a refused plan into the dialog read again with the plan's context; a dialog whose
+/// lists cannot be read answers with that failure in the page's outcome region.
+pub(crate) struct Answers<'call> {
+    /// The dialog for values that failed their check.
+    invalid: Option<FormDialog>,
+    /// The submitted dialog, on its router.
+    form: (DnsForm, &'call str),
+    /// The submitted values.
+    values: &'call Params,
+}
+
+impl<'call> Answers<'call> {
+    /// Values that failed their check answered in `invalid`, a refused plan in the dialog
+    /// of `form` on its router, filled with `values`.
+    pub(crate) const fn new(
+        invalid: Option<FormDialog>,
+        form: (DnsForm, &'call str),
+        values: &'call Params,
+    ) -> Self {
+        Self {
+            invalid,
+            form,
+            values,
+        }
+    }
+}
+
+impl submit::Form for Answers<'_> {
+    fn answer_invalid(self, invalid: Invalid, _locale: Locale) -> Response {
+        self.invalid.map_or_else(
+            || missing().into_response(),
+            |dialog| dialog.errors(&invalid.into_findings()).invalid(),
+        )
+    }
+
+    async fn answer_unplanned(self, unplanned: Unplanned<'_>, locale: Locale) -> Response {
+        let (form, router) = self.form;
+        match offered(form, unplanned.domain()).await {
+            Ok(choices) => form
+                .dialog(router, locale, &choices)
+                .values(self.values)
+                .problem(unplanned.into_failure().message().to_owned())
+                .invalid(),
+            Err(error) => unreadable(plan_failure(Family::Changes, locale, &error), locale),
+        }
+    }
+}
+
+/// How DNS interception answers: a choice it does not offer and a refused plan, both in
+/// the page's outcome region.
+pub(crate) struct InRegion;
+
+impl submit::Form for InRegion {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let problems = invalid
+            .into_findings()
+            .into_iter()
+            .map(|(_field, rule)| tr(locale, rule, None))
+            .collect();
+        Answered::new(Outcome::invalid(Family::Changes, locale, problems), locale).respond()
+    }
+}
+
+/// The answer of a dialog whose lists cannot be read: `failure` in the page's outcome
+/// region.
+pub(crate) fn unreadable(failure: Failure, locale: Locale) -> Response {
+    respond::retarget(Outcome::failed(failure).render(locale), "#page-outcome")
 }

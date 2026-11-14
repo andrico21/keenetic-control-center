@@ -17,7 +17,7 @@ use kcc_domain::{
 };
 use kcc_i18n::keys;
 
-use super::shared::{merged, value};
+use super::shared::{NoDialog, merged, value};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -26,13 +26,11 @@ use crate::{
     page_kit::{
         action::{Action, Operation},
         change::Change,
-        confirm::{Confirmation, Resubmit},
+        confirm::Resubmit,
         context::fragment_shell,
-        failure::plan_failure,
-        family::Family,
-        outcome::Outcome,
-        request::{missing, with_query},
-        respond::{Answer, changed},
+        request::{Params, missing, with_query},
+        respond::Answer,
+        submit::{Planned, Submission},
     },
 };
 
@@ -53,24 +51,31 @@ fn resubmit(path: &str, kept: &[(&str, &str)]) -> Resubmit {
     Resubmit::new(with_query(path, kept), "#page-outcome")
 }
 
-/// Runs the confirmed `planned` change of `action` and answers with its outcome; a plan
-/// the catalog refuses is shown as such and sends nothing.
-// NOT cancel-safe: see `Action::run`.
-async fn run(action: Action<'_>, planned: DomainResult<ChangeOp>) -> Response {
-    let locale = action.locale();
-    match planned.and_then(|operation| storage::change_request(&operation)) {
-        Ok(request) => {
-            let outcome = action.run(Risk::Destructive, Change::Cli(request)).await;
-            changed(outcome, None, None, locale)
-        }
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            let outcome =
-                Outcome::invalid(Family::Changes, locale, vec![failure.message().to_owned()]);
-            changed(outcome, None, None, locale)
-        }
-    }
+/// Plans the change with `plan` and runs it as `action` once the router name was typed.
+///
+/// Typing the name sends the request again by `again`; a plan the catalog refuses is
+/// shown as such and sends nothing.
+// NOT cancel-safe: see `Submission::submit`.
+async fn run<P>(
+    action: Action<'_>,
+    (pairs, again): (Vec<(String, String)>, Resubmit),
+    plan: P,
+) -> Response
+where
+    P: FnOnce(&RouterCtx) -> DomainResult<ChangeOp>,
+{
+    Submission::new(action, &Params::of(pairs), NoDialog)
+        .confirming(Risk::Destructive, again)
+        .submit(
+            |_params| Ok(()),
+            async |(), ctx| {
+                let operation = plan(ctx)?;
+                let request = storage::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |_ctx| None,
+        )
+        .await
 }
 
 /// `POST /ui/r/{router}/system/storage/eject?media=`: ejects one medium once the router
@@ -99,13 +104,10 @@ pub(crate) async fn eject(
     }
     let path = format!("/ui/r/{router}/system/storage/eject");
     let again = resubmit(&path, &[("media", &media)]);
-    if let Some(prompt) =
-        action.confirm(Risk::Destructive, &Confirmation::from_pairs(&pairs), again)
-    {
-        return Ok(prompt);
-    }
-    let planned = storage::plan_eject(&domain, &router, user.role(), &media, true);
-    Ok(run(action, planned).await)
+    Ok(run(action, (pairs, again), |ctx| {
+        storage::plan_eject(ctx, &router, user.role(), &media, true)
+    })
+    .await)
 }
 
 /// `POST /ui/r/{router}/system/storage/check?media=`: checks one medium's filesystem
@@ -134,14 +136,11 @@ pub(crate) async fn check(
     }
     let path = format!("/ui/r/{router}/system/storage/check");
     let again = resubmit(&path, &[("media", &media)]);
-    if let Some(prompt) =
-        action.confirm(Risk::Destructive, &Confirmation::from_pairs(&pairs), again)
-    {
-        return Ok(prompt);
-    }
-    let request = MaintenanceRequest::new(&router, user.role(), &media, None, true);
-    let planned = storage::plan_maintenance(&domain, MaintenanceAction::Check, request);
-    Ok(run(action, planned).await)
+    Ok(run(action, (pairs, again), |ctx| {
+        let request = MaintenanceRequest::new(&router, user.role(), &media, None, true);
+        storage::plan_maintenance(ctx, MaintenanceAction::Check, request)
+    })
+    .await)
 }
 
 /// The format dialog: the filesystem to create on one medium.
@@ -223,11 +222,10 @@ pub(crate) async fn format(
     }
     let path = format!("/ui/r/{router}/system/storage/format");
     let again = resubmit(&path, &[("media", &media), ("filesystem", &filesystem)]);
-    let confirmation = Confirmation::from_pairs(&pairs);
-    if let Some(prompt) = action.confirm(Risk::Destructive, &confirmation, again) {
-        return Ok(prompt);
-    }
-    let request = MaintenanceRequest::new(&router, user.role(), &media, Some(&filesystem), true);
-    let planned = storage::plan_maintenance(&domain, MaintenanceAction::Format, request);
-    Ok(run(action, planned).await)
+    Ok(run(action, (pairs, again), |ctx| {
+        let request =
+            MaintenanceRequest::new(&router, user.role(), &media, Some(&filesystem), true);
+        storage::plan_maintenance(ctx, MaintenanceAction::Format, request)
+    })
+    .await)
 }

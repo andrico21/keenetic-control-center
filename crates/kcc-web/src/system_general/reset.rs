@@ -10,7 +10,6 @@ use axum::{
     response::Response,
 };
 use kcc_app::workflow::WorkflowError;
-use kcc_catalog::Risk;
 use kcc_domain::{
     DomainError,
     system::{self, FactoryResetError},
@@ -22,8 +21,10 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        confirm::{Confirmation, Resubmit},
-        respond::{Answer, changed},
+        confirm::Resubmit,
+        request::Params,
+        respond::Answer,
+        submit::{Formless, Planned, Submission},
     },
 };
 
@@ -51,21 +52,26 @@ pub(crate) async fn reset(
         format!("/ui/r/{router}/system/general/reset"),
         "#page-outcome",
     );
-    let confirmation = Confirmation::from_pairs(&pairs);
-    if let Some(prompt) = action.confirm(Risk::Destructive, &confirmation, resubmit) {
-        return Ok(prompt);
-    }
-    let locale = action.locale();
-    let typed = confirmation.name().unwrap_or_default().to_owned();
-    let outcome = action
-        .run_with(Risk::Destructive, async |changes, domain| {
-            system::factory_reset(changes, domain, &router, &typed)
-                .await
-                .map(|result| Applied::Terminal(result.responses))
-                .map_err(workflow_error)
-        })
-        .await;
-    Ok(changed(outcome, None, None, locale))
+    let params = Params::of(pairs);
+    let typed = params.confirmation().name().unwrap_or_default().to_owned();
+    let named = router.clone();
+    Ok(Submission::new(action, &params, Formless)
+        .confirming_planned(resubmit)
+        .submit(
+            |_params| Ok(()),
+            async |(), _ctx| {
+                Ok(Planned::described(move |changes, context| {
+                    Box::pin(async move {
+                        system::factory_reset(changes, context, &named, &typed)
+                            .await
+                            .map(|result| Applied::Terminal(result.responses))
+                            .map_err(workflow_error)
+                    })
+                }))
+            },
+            async |_ctx| None,
+        )
+        .await)
 }
 
 /// The change-workflow error of a refused reset; the typed name was already checked, so a

@@ -10,36 +10,38 @@
 //! form shows it. The change runs at the risk of the domain's plan: a page has no risk of
 //! its own to pass. What runs is a change the workflow sends or the domain's own work on
 //! the leased change set ([`Planned::working`]); values checked against what the router
-//! has go through [`Submission::submit_reading`].
-
-use core::mem;
+//! has go through [`Submission::submit_reading`]. The page's form answers each end: values
+//! that failed their check, a change refused before it ran, and a change that ran, whose
+//! outcome the form may recast, such as a success's headline.
 
 use axum::response::{IntoResponse as _, Response};
-use kcc_app::workflow::ChangeSet;
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, DomainError, RouterCtx};
+use kcc_domain::{DomainError, RouterCtx};
 use kcc_i18n::{bundle::MessageKey, locale::Locale};
 
 use self::{
-    flow::{Ask, land},
+    flow::{Ask, Course},
     rejected::Rejected,
-    work::{Job, Working},
+    unplanned::Unplanned,
+    work::Job,
 };
 use super::{
     action::Action,
-    change::Change,
     confirm::Resubmit,
     failure::plan_failure,
     family::Family,
     outcome::{Failure, Outcome},
     request::{Params, missing},
-    respond::changed,
+    respond::{Answer, changed},
 };
 
+#[cfg(test)]
+mod answer_tests;
 mod flow;
 pub(crate) mod rejected;
 #[cfg(test)]
 mod submit_tests;
+pub(crate) mod unplanned;
 pub(crate) mod work;
 
 /// Submitted values that failed their check: each finding's field and the rule it broke.
@@ -75,8 +77,15 @@ pub(crate) trait Form: Sized {
         changed(Outcome::failed(failure), None, None, locale)
     }
 
+    /// The answer to a change the domain could not plan: as any refusal, unless the
+    /// form's words depend on the domain's error or on what the router has.
+    async fn answer_unplanned(self, unplanned: Unplanned<'_>, locale: Locale) -> Response {
+        self.answer_refused(unplanned.into_failure(), locale)
+    }
+
     /// The answer to a change that ran: `outcome`, then the page's region read back,
-    /// `refreshed`.
+    /// `refreshed`. A form that recasts the outcome, such as a success's headline, does
+    /// it here.
     fn answer_changed(
         self,
         outcome: Outcome,
@@ -97,57 +106,13 @@ impl Form for Formless {
     }
 }
 
-/// A change the domain planned, at the risk of the domain's plan.
+/// A change the domain planned, at the risk of the domain's plan; built in the `work`
+/// module, with what it runs.
 pub(crate) struct Planned {
     /// The highest risk of the planned operations.
     risk: Risk,
     /// What runs.
     job: Job,
-}
-
-impl Planned {
-    /// `change`, which carries `operations`, at the highest risk among them.
-    pub(crate) fn of(operations: &[ChangeOp], change: Change) -> Self {
-        Self {
-            risk: highest(operations),
-            job: Job::Change(change),
-        }
-    }
-
-    /// `work`, the domain's own run of `operations` on the leased change set (it sends
-    /// them and reads them back itself), at the highest risk among them.
-    pub(crate) fn working<W>(operations: &[ChangeOp], work: W) -> Self
-    where
-        W: for<'set> FnOnce(&'set mut ChangeSet, &'set RouterCtx) -> Working<'set> + Send + 'static,
-    {
-        Self::assessed(highest(operations), work)
-    }
-
-    /// `work` on the leased change set at `risk`, the risk the domain assessed for the
-    /// objects the change touches.
-    pub(crate) fn assessed<W>(risk: Risk, work: W) -> Self
-    where
-        W: for<'set> FnOnce(&'set mut ChangeSet, &'set RouterCtx) -> Working<'set> + Send + 'static,
-    {
-        Self {
-            risk,
-            job: Job::Work(Box::new(work)),
-        }
-    }
-
-    /// The risk the change runs at, and what runs.
-    pub(super) fn into_parts(self) -> (Risk, Job) {
-        (self.risk, self.job)
-    }
-}
-
-/// The highest risk among `operations`.
-fn highest(operations: &[ChangeOp]) -> Risk {
-    operations
-        .iter()
-        .map(|operation| operation.risk)
-        .max()
-        .unwrap_or(Risk::Read)
 }
 
 /// A form submitted to an opened operation.
@@ -158,12 +123,8 @@ pub(crate) struct Submission<'call, F> {
     params: &'call Params,
     /// The page's form.
     form: F,
-    /// When the submission asks for a confirmation.
-    ask: Ask,
-    /// Where the change's answer lands instead of the request's own target.
-    landing: Option<&'static str>,
-    /// Whether the page's region is read back after a failed change too.
-    refresh_failed: bool,
+    /// When it asks for a confirmation, where its answers land, what it reads back.
+    course: Course,
 }
 
 impl<'call, F: Form> Submission<'call, F> {
@@ -173,36 +134,58 @@ impl<'call, F: Form> Submission<'call, F> {
             action,
             params,
             form,
-            ask: Ask::Never,
-            landing: None,
-            refresh_failed: false,
+            course: Course::new(),
         }
     }
 
     /// Asks for the confirmation a change of `risk` needs once the values passed their
     /// check, before anything is read from the router; confirming sends `resubmit`.
     pub(crate) fn confirming(mut self, risk: Risk, resubmit: Resubmit) -> Self {
-        self.ask = Ask::First { risk, resubmit };
+        self.course.asking(Ask::First { risk, resubmit });
         self
     }
 
     /// Asks for the confirmation the planned change's risk needs before it runs;
     /// confirming sends `resubmit`.
     pub(crate) fn confirming_planned(mut self, resubmit: Resubmit) -> Self {
-        self.ask = Ask::Planned(resubmit);
+        self.course.asking(Ask::Planned(resubmit));
         self
     }
 
     /// Shows the answer to the change, refused or run, in `target`.
     pub(crate) const fn landing_in(mut self, target: &'static str) -> Self {
-        self.landing = Some(target);
+        self.course.landing_in(target);
+        self
+    }
+
+    /// Shows the answer to a change that ran in `target`; a refusal stays where the
+    /// request targets.
+    pub(crate) const fn landing_run_in(mut self, target: &'static str) -> Self {
+        self.course.landing_run_in(target);
         self
     }
 
     /// Reads the page's region back after a failed change too, as after a success.
     pub(crate) const fn refreshing_after_failure(mut self) -> Self {
-        self.refresh_failed = true;
+        self.course.refreshing_after_failure();
         self
+    }
+
+    /// Checks the values with `check` for a page that makes no change of its own, such
+    /// as a job start: the action and the checked values, to go on with.
+    ///
+    /// # Errors
+    ///
+    /// The form's answer to values that failed their check, audited `validation_failed`.
+    // NOT cancel-safe: an abandoned append may still be written.
+    pub(crate) async fn checked<T, C>(self, check: C) -> Result<(Action<'call>, T), Answer>
+    where
+        C: FnOnce(&Params) -> Result<T, Invalid>,
+    {
+        match check(self.params) {
+            Ok(checked) => Ok((self.action, checked)),
+            Err(invalid) => Err(self.invalid(invalid).await.into()),
+        }
     }
 
     /// Checks the values with `check`, plans the change with `plan`, runs it at the
@@ -272,7 +255,20 @@ impl<'call, F: Form> Submission<'call, F> {
     async fn refused(self, failure: Failure) -> Response {
         let locale = self.action.locale();
         self.action.abandon(failure.audit()).await;
-        land(self.form.answer_refused(failure, locale), self.landing)
+        self.course
+            .refused(self.form.answer_refused(failure, locale))
+    }
+
+    /// The answer to a change the domain refused to plan with `error`, audited with its
+    /// reason.
+    // NOT cancel-safe: an abandoned append may still be written.
+    async fn unplanned(self, error: &DomainError, domain: &RouterCtx) -> Response {
+        let locale = self.action.locale();
+        let failure = plan_failure(Family::Changes, locale, error);
+        self.action.abandon(failure.audit()).await;
+        let unplanned = Unplanned::new(error, failure, domain);
+        let answer = self.form.answer_unplanned(unplanned, locale).await;
+        self.course.refused(answer)
     }
 
     /// The answer to a change what the router has rules out, in the outcome region,
@@ -284,21 +280,14 @@ impl<'call, F: Form> Submission<'call, F> {
         let answer = self
             .form
             .answer_changed(Outcome::failed(failure), None, locale);
-        land(answer, self.landing)
+        self.course.refused(answer)
     }
 
     /// The confirmation asked for before anything is read, while it is not given.
     fn ask_first(&mut self) -> Option<Response> {
-        match mem::replace(&mut self.ask, Ask::Never) {
-            Ask::First { risk, resubmit } => {
-                self.action
-                    .confirm(risk, &self.params.confirmation(), resubmit)
-            }
-            later @ (Ask::Never | Ask::Planned(_)) => {
-                self.ask = later;
-                None
-            }
-        }
+        let (risk, resubmit) = self.course.first()?;
+        self.action
+            .confirm(risk, &self.params.confirmation(), resubmit)
     }
 
     /// Plans the `checked` values with `plan`, asks for the planned confirmation, runs
@@ -314,34 +303,28 @@ impl<'call, F: Form> Submission<'call, F> {
         P: AsyncFnOnce(T, &RouterCtx) -> Result<Planned, DomainError>,
         R: AsyncFnOnce(&RouterCtx) -> Option<String>,
     {
-        let locale = self.action.locale();
         let planned = match plan(checked, domain).await {
             Ok(planned) => planned,
-            Err(error) => {
-                return self
-                    .refused(plan_failure(Family::Changes, locale, &error))
-                    .await;
-            }
+            Err(error) => return self.unplanned(&error, domain).await,
         };
+        let locale = self.action.locale();
         let Self {
             action,
             params,
             form,
-            ask,
-            landing,
-            refresh_failed,
+            mut course,
         } = self;
-        if let Ask::Planned(resubmit) = ask
+        if let Some(resubmit) = course.planned()
             && let Some(prompt) = action.confirm(planned.risk, &params.confirmation(), resubmit)
         {
             return prompt;
         }
         let outcome = action.run_planned(planned).await;
-        let refreshed = if outcome.succeeded() || refresh_failed {
+        let refreshed = if course.reads_back(outcome.succeeded()) {
             refresh(domain).await
         } else {
             None
         };
-        land(form.answer_changed(outcome, refreshed, locale), landing)
+        course.ran(form.answer_changed(outcome, refreshed, locale))
     }
 }

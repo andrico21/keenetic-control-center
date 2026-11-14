@@ -564,7 +564,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): submit pipeline for NAT, routing, firewall and LAN pages
   Recommended task executor category: unspecified-high - mechanical migration onto the new kit API
 
-- [ ] 34. Submit pipeline for DNS, VPN, system and secret pages
+- [x] 34. Submit pipeline for DNS, VPN, system and secret pages
   What to do / Must NOT do: Move `crates/kcc-web/src/dns_vpn/*` (delete `dns_vpn::flow::apply`, `flow.rs:194-211`; `vpn_checks.rs:76`), `dns_pages.rs:170,213`, `system_pages/*` (`keendns_forms.rs:125-139,200,227`, `schedule_forms.rs:150`, `schedule_actions.rs:217`, `component_queue.rs:61,123`), `system_general*`, `secret_pages/*` (`vpn_server.rs:148`) onto `submit`; these are the remaining BACKLOG r17 F1-N73 sites. Must NOT: change HTML; secret pages keep write-only, typed-twice entry and never put secret values in audit params.
   Closes: GAP-10
   Parallelization: Wave W5 | Blocked by: 32 | Blocks: 35 | Can parallelize with: 33

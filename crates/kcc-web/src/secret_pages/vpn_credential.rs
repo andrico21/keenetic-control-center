@@ -5,12 +5,13 @@
 //! The VPN client domain writes it and reads the running configuration back for a stored
 //! value of a plausible length, never decoding it.
 
+use core::slice;
+
 use axum::{
     Form,
     extract::{Path, Query, State},
     response::Response,
 };
-use kcc_catalog::Risk;
 use kcc_domain::vpn_clients::{
     self, VpnClientStatus, VpnClientType,
     secrets::{self, CredentialTarget},
@@ -19,8 +20,8 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use kcc_rci::ObjectName;
 
 use super::{
-    dialog::{Entry, SecretDialog, entry},
-    reply::{unchanged, verified},
+    dialog::{SecretDialog, entry},
+    reply::{Secret, typed, unchanged},
 };
 use crate::{
     WebState,
@@ -29,10 +30,10 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::{Answer, changed},
+        respond::Answer,
+        submit::{Planned, Submission},
     },
 };
 
@@ -229,40 +230,43 @@ pub(crate) async fn credential(
     let (kind, name) = requested(query)?;
     let action = kind.operation().open(&state, &user, &router).await?;
     let locale = action.locale();
-    let shown = kind.dialog(&router, &name, locale);
-    let secret = match entry(&mut form) {
-        Entry::Keep => return Ok(unchanged(action).await),
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            return Err(shown.mismatch());
-        }
-        Entry::New(typed) => typed,
+    let shown = Secret::new(kind.dialog(&router, &name, locale), kind.label());
+    let Some(checked) = typed(entry(&mut form)) else {
+        return Ok(unchanged(action).await);
     };
-    let domain = action.context().await?;
-    match vpn_clients::read_clients(&domain).await {
-        Ok(clients) if kind.known(&clients, name.as_str()) => {}
-        Ok(_) => {
-            action.abandon("not_found").await;
-            return Err(missing());
-        }
-        Err(_) => {
-            action.abandon("unreachable").await;
-            return Err(unusable(locale, Family::Changes.unreachable()));
+    if checked.is_ok() {
+        let domain = action.context().await?;
+        match vpn_clients::read_clients(&domain).await {
+            Ok(clients) if kind.known(&clients, name.as_str()) => {}
+            Ok(_) => {
+                action.abandon("not_found").await;
+                return Err(missing());
+            }
+            Err(_) => {
+                action.abandon("unreachable").await;
+                return Err(unusable(locale, Family::Changes.unreachable()));
+            }
         }
     }
     let target = kind.target(name);
-    if let Err(error) = secrets::plan(&domain, &target, secret.clone()) {
-        let failure = plan_failure(Family::Changes, locale, &error);
-        action.abandon(failure.audit()).await;
-        return Err(shown.secret_error(failure.message().to_owned()));
-    }
-    let applied = action
-        .run_with(Risk::Write, async move |changes, context| {
-            secrets::apply(changes, context, &target, secret)
-                .await
-                .map(|()| Applied::Done { unsaved: true })
-        })
-        .await;
-    let outcome = verified(applied, locale, kind.label());
-    Ok(changed(outcome, None, None, locale))
+    let params = Params::default();
+    Ok(Submission::new(action, &params, shown)
+        .submit(
+            |_params| checked,
+            async |secret, ctx| {
+                let operation = secrets::plan(ctx, &target, secret.clone())?;
+                Ok(Planned::working(
+                    slice::from_ref(&operation),
+                    move |changes, context| {
+                        Box::pin(async move {
+                            secrets::apply(changes, context, &target, secret)
+                                .await
+                                .map(|()| Applied::Done { unsaved: true })
+                        })
+                    },
+                ))
+            },
+            async |_ctx| None,
+        )
+        .await)
 }

@@ -6,23 +6,22 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_catalog::Risk;
 use kcc_domain::{
     DomainError, RouterCtx,
     dns::{self, DnsChange},
     interfaces,
 };
-use kcc_i18n::{bundle::tr, keys};
+use kcc_i18n::keys;
 
 use super::{
     cells::Act,
     dns_forms::{Choices, DnsForm},
     dns_read::{DnsState, Entry},
-    dns_tabs, flow,
-    flow::{Closed, Viewer, Visit},
+    dns_tabs,
+    flow::{Answers, Closed, InRegion, Viewer, Visit, unreadable},
     form::FormDialog,
     region::Region,
-    screen::{Answered, Page, Tab},
+    screen::{Page, Tab, read_back},
 };
 use crate::{
     WebState,
@@ -30,13 +29,14 @@ use crate::{
     errors::{self, Kind},
     page_kit::{
         action::{Action, Operation},
+        change::Change,
         context::Caller,
         failure::plan_failure,
         family::Family,
         gate::Controls,
-        outcome::Outcome,
         request::{Params, missing, shown_query},
-        respond::{self, Answer},
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
     table::rows::TableQuery,
 };
@@ -145,33 +145,27 @@ pub(crate) async fn submit(
     let values = Params::of(pairs);
     let action = form.operation(&values).open(&state, &user, &router).await?;
     let locale = action.locale();
-    let planned = match form.check(&values) {
-        Ok(planned) => planned,
-        Err(problems) => {
-            let shown = again(form, &action, &values).await?;
-            action.abandon("validation_failed").await;
-            return Err(shown.errors(&problems).invalid().into());
-        }
+    let checked = form.check(&values);
+    let invalid = match &checked {
+        Ok(_) => None,
+        Err(_) => Some(again(form, &action, &values).await?),
     };
-    let ctx = action.context().await?;
-    let request = match planned
-        .plan(&ctx)
-        .and_then(|operation| dns::change_request(&operation))
-    {
-        Ok(request) => request,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            let shown = again(form, &action, &values).await?;
-            action.abandon("validation_failed").await;
-            return Err(shown.problem(failure.message().to_owned()).invalid().into());
-        }
-    };
-    let viewer = Viewer::new(&router, locale, controls(&ctx, &user, &router))
-        .with_table_query(shown_query(&headers));
-    let answered = flow::apply(action, request, Risk::Write, async || {
-        region(&ctx, form.tab(), &viewer).await
-    });
-    Ok(answered.await.respond())
+    let answers = Answers::new(invalid, (form, &router), &values);
+    Ok(Submission::new(action, &values, answers)
+        .submit(
+            |_values| checked.map_err(Invalid::from),
+            async |change, ctx| {
+                let operation = change.plan(ctx)?;
+                let request = dns::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| {
+                let viewer = Viewer::new(&router, locale, controls(ctx, &user, &router))
+                    .with_table_query(shown_query(&headers));
+                read_back(region(ctx, form.tab(), &viewer).await)
+            },
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/dns/intercept`: turns DNS interception on (`enabled=on`) or off.
@@ -189,32 +183,25 @@ pub(crate) async fn intercept(
     let values = Params::of(pairs);
     let action = INTERCEPT.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let enabled = match values.text("enabled") {
-        "on" => true,
-        "off" => false,
-        _ => {
-            action.abandon("validation_failed").await;
-            let problem = tr(locale, keys::WEB_DNS_ERROR_CHOICE, None);
-            let outcome = Outcome::invalid(Family::Changes, locale, vec![problem]);
-            return Ok(Answered::new(outcome, locale).respond());
-        }
-    };
-    let ctx = action.context().await?;
-    let planned = dns::plan_change(&ctx, &DnsChange::Intercept { enabled });
-    let request = match planned.and_then(|operation| dns::change_request(&operation)) {
-        Ok(request) => request,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Ok(Answered::new(Outcome::failed(failure), locale).respond());
-        }
-    };
-    let viewer = Viewer::new(&router, locale, controls(&ctx, &user, &router))
-        .with_table_query(shown_query(&headers));
-    let answered = flow::apply(action, request, Risk::Write, async || {
-        region(&ctx, Tab::Filtering, &viewer).await
-    });
-    Ok(answered.await.respond())
+    Ok(Submission::new(action, &values, InRegion)
+        .submit(
+            |submitted| match submitted.text("enabled") {
+                "on" => Ok(true),
+                "off" => Ok(false),
+                _ => Err(Invalid::at("enabled", keys::WEB_DNS_ERROR_CHOICE)),
+            },
+            async |enabled, ctx| {
+                let operation = dns::plan_change(ctx, &DnsChange::Intercept { enabled })?;
+                let request = dns::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| {
+                let viewer = Viewer::new(&router, locale, controls(ctx, &user, &router))
+                    .with_table_query(shown_query(&headers));
+                read_back(region(ctx, Tab::Filtering, &viewer).await)
+            },
+        )
+        .await)
 }
 
 /// What the role may change on `router` through the DNS domain, as `ctx`'s catalog has it.
@@ -234,33 +221,40 @@ async fn again(form: DnsForm, action: &Action<'_>, values: &Params) -> Result<Fo
     let locale = action.locale();
     let choices = if form.reads_choices() {
         let ctx = action.context().await?;
-        let read = async {
-            let state = DnsState::read(&ctx).await?;
-            let names = |entries: Vec<Entry>| {
-                entries
-                    .iter()
-                    .map(|entry| entry.name().to_owned())
-                    .collect()
-            };
-            let found = interfaces::read_interfaces(&ctx).await?;
-            Ok::<_, DomainError>(Choices::new(
-                names(state.lists()),
-                names(state.profiles()),
-                found.into_keys().collect(),
-            ))
-        };
-        match read.await {
-            Ok(choices) => choices,
-            Err(error) => {
-                let failure = plan_failure(Family::Changes, locale, &error);
-                let shown = Outcome::failed(failure).render(locale);
-                return Err(respond::retarget(shown, "#page-outcome").into());
-            }
-        }
+        offered(form, &ctx).await.map_err(|error| {
+            let failure = plan_failure(Family::Changes, locale, &error);
+            Answer::from(unreadable(failure, locale))
+        })?
     } else {
         Choices::default()
     };
     Ok(form
         .dialog(action.router(), locale, &choices)
         .values(values))
+}
+
+/// The lists, profiles and interfaces the dialog of `form` offers, read through `ctx`;
+/// none for a dialog that offers none.
+///
+/// # Errors
+///
+/// Returns the router's error.
+// cancel-safe: reads only.
+pub(super) async fn offered(form: DnsForm, ctx: &RouterCtx) -> Result<Choices, DomainError> {
+    if !form.reads_choices() {
+        return Ok(Choices::default());
+    }
+    let state = DnsState::read(ctx).await?;
+    let names = |entries: Vec<Entry>| {
+        entries
+            .iter()
+            .map(|entry| entry.name().to_owned())
+            .collect()
+    };
+    let found = interfaces::read_interfaces(ctx).await?;
+    Ok(Choices::new(
+        names(state.lists()),
+        names(state.profiles()),
+        found.into_keys().collect(),
+    ))
 }

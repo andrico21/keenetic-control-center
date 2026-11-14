@@ -10,9 +10,8 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_catalog::Risk;
 use kcc_domain::schedules;
-use kcc_i18n::{bundle::tr, keys};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{schedules::Viewer, shared::value};
 use crate::{
@@ -24,10 +23,10 @@ use crate::{
         action::Operation,
         change::Change,
         context::fragment_shell,
-        failure::plan_failure,
-        family::Family,
-        request::shown_query,
-        respond::{self, Answer, changed},
+        outcome::Failure,
+        request::{Params, shown_query},
+        respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission},
     },
 };
 
@@ -105,7 +104,7 @@ pub(crate) async fn create(
     let locale = action.locale();
     let name = value(&pairs, "name").unwrap_or_default();
     let description = value(&pairs, "description").unwrap_or_default();
-    let mut dialog = ScheduleDialog {
+    let dialog = ScheduleDialog {
         shell: fragment_shell(locale),
         router: router.clone(),
         name_value: name.to_owned(),
@@ -113,43 +112,56 @@ pub(crate) async fn create(
         description_value: description.to_owned(),
         description_error: String::new(),
     };
-    let word_error = tr(locale, keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR, None);
-    if !is_word(name) {
-        dialog.name_error.clone_from(&word_error);
-    }
-    if !description.is_empty() && !is_word(description) {
-        dialog.description_error = word_error;
-    }
-    if !dialog.name_error.is_empty() || !dialog.description_error.is_empty() {
-        action.abandon("validation_failed").await;
-        return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
-    }
-    let domain = action.context().await?;
-    let planned = if description.is_empty() {
-        schedules::plan_create(&domain, name)
-    } else {
-        schedules::plan_description(&domain, name, description)
-    }
-    .and_then(|operation| schedules::change_request(&operation));
-    let request = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            plan_failure(Family::Changes, locale, &error)
-                .message()
-                .clone_into(&mut dialog.name_error);
-            return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(action, &Params::default(), dialog)
+        .submit(
+            |_params| {
+                let mut invalid = Vec::new();
+                if !is_word(name) {
+                    invalid.push(("name", keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR));
+                }
+                if !description.is_empty() && !is_word(description) {
+                    invalid.push(("description", keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR));
+                }
+                if invalid.is_empty() {
+                    Ok(())
+                } else {
+                    Err(Invalid::from(invalid))
+                }
+            },
+            async |(), domain| {
+                let operation = if description.is_empty() {
+                    schedules::plan_create(domain, name)
+                } else {
+                    schedules::plan_description(domain, name, description)
+                }?;
+                let request = schedules::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| viewer.refreshed(domain).await,
+        )
+        .await)
+}
+
+/// The add-schedule dialog answers values that failed their check, and a change the
+/// domain could not plan, under the field they concern.
+impl submit::Form for ScheduleDialog {
+    fn answer_invalid(mut self, invalid: Invalid, locale: Locale) -> Response {
+        for (field, rule) in invalid.into_findings() {
+            let error = tr(locale, rule, None);
+            if field == "description" {
+                self.description_error = error;
+            } else {
+                self.name_error = error;
+            }
         }
-    };
-    let outcome = action.run(Risk::Write, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+        respond::in_dialog(respond::unprocessable(&self))
+    }
+
+    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
+        failure.message().clone_into(&mut self.name_error);
+        respond::in_dialog(respond::unprocessable(&self))
+    }
 }
 
 #[cfg(test)]

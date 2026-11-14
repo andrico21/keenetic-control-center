@@ -26,12 +26,8 @@ use axum::{
     response::Response,
     routing::{get, post},
 };
-use kcc_catalog::Risk;
 use kcc_domain::system;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-};
+use kcc_i18n::{bundle::MessageKey, keys};
 
 use self::{
     fields::{Field, ValueForm},
@@ -46,13 +42,13 @@ use crate::{
     page_kit::{
         action::Operation,
         change::{Applied, Change},
-        confirm::{Confirmation, Resubmit},
+        confirm::Resubmit,
         context::{self, Caller},
-        failure::plan_failure,
         family::Family,
         gate::Controls,
-        request::{missing, rendered},
-        respond::{Answer, changed},
+        request::{Params, missing, rendered},
+        respond::Answer,
+        submit::{Formless, Invalid, Planned, Submission},
     },
     system_pages::tabs::{Tab, TabBar},
 };
@@ -173,45 +169,30 @@ pub(crate) async fn edit(
     let dialog = field
         .dialog(&router, locale)
         .with_value(form.value().to_owned());
-    let value = match field.check(form.value()) {
-        Ok(value) => value,
-        Err(message) => {
-            action.abandon("validation_failed").await;
-            return Err(dialog
-                .with_error(tr(locale, message, None))
-                .invalid()
-                .into());
-        }
-    };
-    let domain = action.context().await?;
-    let planned = field
-        .plan(&domain, &value)
-        .and_then(|operation| Ok((system::change_request(&operation)?, operation.risk)));
-    let (request, risk) = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            return Err(dialog
-                .with_error(failure.message().to_owned())
-                .invalid()
-                .into());
-        }
-    };
-    let outcome = action.run(risk, Change::Request(request)).await;
-    let refreshed = if outcome.succeeded() {
-        let general = General::read(&domain).await;
-        let controls = Controls::new(user.role(), &router)
-            .with_operations(system::DESCRIPTOR.write_ops, Some(&domain.catalog));
-        rendered(
-            &Facts::new(locale, router, general)
-                .with_controls(controls)
-                .out_of_band(),
+    Ok(Submission::new(action, &Params::default(), dialog)
+        .submit(
+            |_params| {
+                field
+                    .check(form.value())
+                    .map_err(|rule| Invalid::at("value", rule))
+            },
+            async |value, domain| {
+                let operation = field.plan(domain, &value)?;
+                let request = system::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Request(request)))
+            },
+            async |domain| {
+                let general = General::read(domain).await;
+                let controls = Controls::new(user.role(), &router)
+                    .with_operations(system::DESCRIPTOR.write_ops, Some(&domain.catalog));
+                rendered(
+                    &Facts::new(locale, router.clone(), general)
+                        .with_controls(controls)
+                        .out_of_band(),
+                )
+            },
         )
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+        .await)
 }
 
 /// `POST /ui/r/{router}/system/general/reboot`: asks for the router name, then restarts
@@ -231,17 +212,20 @@ pub(crate) async fn reboot(
         format!("/ui/r/{router}/system/general/reboot"),
         "#page-outcome",
     );
-    let confirmation = Confirmation::from_pairs(&pairs);
-    if let Some(prompt) = action.confirm(Risk::Destructive, &confirmation, resubmit) {
-        return Ok(prompt);
-    }
-    let locale = action.locale();
-    let outcome = action
-        .run_with(Risk::Destructive, async |changes, domain| {
-            system::reboot(changes, domain)
-                .await
-                .map(|result| Applied::Terminal(result.responses))
-        })
-        .await;
-    Ok(changed(outcome, None, None, locale))
+    Ok(Submission::new(action, &Params::of(pairs), Formless)
+        .confirming_planned(resubmit)
+        .submit(
+            |_params| Ok(()),
+            async |(), _ctx| {
+                Ok(Planned::described(|changes, context| {
+                    Box::pin(async move {
+                        system::reboot(changes, context)
+                            .await
+                            .map(|result| Applied::Terminal(result.responses))
+                    })
+                }))
+            },
+            async |_ctx| None,
+        )
+        .await)
 }

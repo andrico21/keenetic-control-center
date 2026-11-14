@@ -12,7 +12,7 @@
     clippy::panic_in_result_fn,
     reason = "test code fails by panicking or returning an error"
 )]
-mod tests {
+pub(super) mod tests {
     use alloc::sync::Arc;
     use core::{error::Error, net::SocketAddr, time::Duration};
     use std::path::{Path, PathBuf};
@@ -51,13 +51,14 @@ mod tests {
     };
 
     /// The MTU of a connection, the write the tests submit.
-    const MTU: Operation = Operation::write(&wan::DESCRIPTOR, "mtu", "web.wan_mtu");
+    pub(in crate::page_kit::submit) const MTU: Operation =
+        Operation::write(&wan::DESCRIPTOR, "mtu", "web.wan_mtu");
 
     /// The profile id of the fake router.
-    const ROUTER: &str = "home";
+    pub(in crate::page_kit::submit) const ROUTER: &str = "home";
 
     /// What the test form answers with, so the answer shows it came from the form.
-    const FORM_STATUS: StatusCode = StatusCode::IM_A_TEAPOT;
+    pub(in crate::page_kit::submit) const FORM_STATUS: StatusCode = StatusCode::IM_A_TEAPOT;
 
     /// Largest body a test reads.
     const BODY_CAP: usize = 0x0010_0000;
@@ -87,7 +88,7 @@ mod tests {
     }
 
     /// The Web UI services over a fake router, its state directory and the router.
-    struct World {
+    pub(in crate::page_kit::submit) struct World {
         /// State and credentials.
         directory: TempDir,
         /// The services.
@@ -96,12 +97,14 @@ mod tests {
         handle: Handle,
         /// The administrator.
         admin: CurrentUser,
+        /// An operator, who may write but not take destructive risks.
+        operator: CurrentUser,
     }
 
     impl World {
         /// A fresh state over a default fake router.
         // NOT cancel-safe: setup starts the router and the audit writer.
-        async fn new() -> Result<Self, Box<dyn Error>> {
+        pub(in crate::page_kit::submit) async fn new() -> Result<Self, Box<dyn Error>> {
             let directory = TempDir::new()?;
             let store = StateStore::open(&directory.path().join("state"))?;
             let clock: Arc<dyn Clock> = Arc::new(Frozen);
@@ -123,7 +126,7 @@ mod tests {
                 .build()?
                 .serve(SocketAddr::from(([127, 0, 0, 1], 0)))
                 .await?;
-            let [_, _, admin] = built_in_roles();
+            let [_, operator, admin] = built_in_roles();
             registry
                 .create(
                     &admin,
@@ -170,17 +173,40 @@ mod tests {
                 web,
                 handle,
                 admin: CurrentUser::signed_in("ada".to_owned(), admin, Locale::En),
+                operator: CurrentUser::signed_in("oscar".to_owned(), operator, Locale::En),
             })
         }
 
+        /// The services.
+        pub(in crate::page_kit::submit) const fn web(&self) -> &WebState {
+            &self.web
+        }
+
+        /// The fake router.
+        pub(in crate::page_kit::submit) const fn handle(&self) -> &Handle {
+            &self.handle
+        }
+
+        /// The administrator.
+        pub(in crate::page_kit::submit) const fn admin(&self) -> &CurrentUser {
+            &self.admin
+        }
+
+        /// An operator, who may write but not take destructive risks.
+        pub(in crate::page_kit::submit) const fn operator(&self) -> &CurrentUser {
+            &self.operator
+        }
+
         /// The state directory.
-        fn state_dir(&self) -> PathBuf {
+        pub(in crate::page_kit::submit) fn state_dir(&self) -> PathBuf {
             self.directory.path().join("state")
         }
     }
 
     /// The outcomes audited for the MTU write so far.
-    fn outcomes(state_dir: &Path) -> Result<Vec<String>, Box<dyn Error>> {
+    pub(in crate::page_kit::submit) fn outcomes(
+        state_dir: &Path,
+    ) -> Result<Vec<String>, Box<dyn Error>> {
         Ok(verify_chain(state_dir)?
             .into_iter()
             .filter(|entry| entry.action == "web.wan_mtu")
@@ -189,7 +215,7 @@ mod tests {
     }
 
     /// The submitted MTU of `ISP`.
-    fn params(mtu: &str) -> Params {
+    pub(in crate::page_kit::submit) fn params(mtu: &str) -> Params {
         Params::of(vec![
             ("name".to_owned(), "ISP".to_owned()),
             ("value".to_owned(), mtu.to_owned()),
@@ -197,7 +223,7 @@ mod tests {
     }
 
     /// The MTU typed, or the field and rule it broke.
-    fn checked(params: &Params) -> Result<i64, Invalid> {
+    pub(in crate::page_kit::submit) fn checked(params: &Params) -> Result<i64, Invalid> {
         params
             .text("value")
             .parse::<i64>()
@@ -205,7 +231,9 @@ mod tests {
     }
 
     /// The answer's body as text.
-    async fn body(response: Response) -> Result<String, Box<dyn Error>> {
+    pub(in crate::page_kit::submit) async fn body(
+        response: Response,
+    ) -> Result<String, Box<dyn Error>> {
         let bytes = to_bytes(response.into_body(), BODY_CAP).await?;
         Ok(String::from_utf8(bytes.to_vec())?)
     }

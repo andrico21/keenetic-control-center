@@ -15,9 +15,9 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
-    check, flow,
-    screen::Answered,
-    vpn_checks::Planned,
+    check,
+    screen::{Answered, read_back},
+    vpn_checks::Planned as Changes,
     vpn_pages::{Spot, region},
     vpn_read::exists,
 };
@@ -27,12 +27,14 @@ use crate::{
     errors,
     page_kit::{
         action::{Action, Operation},
+        change::Change,
         context::fragment_shell,
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
         request::{Params, missing, shown_query},
         respond::{self, Answer},
+        submit::{self, Formless, Invalid, Planned, Submission},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
@@ -66,14 +68,17 @@ pub(crate) async fn switch(
 ) -> Result<Response, Answer> {
     let values = Params::of(pairs);
     let opened = STATE.open(&state, &user, &router).await?;
-    let (Some(name), Some(enabled)) = (check::object(values.text("tunnel")), on(&values)) else {
-        opened.abandon("validation_failed").await;
-        return Err(missing());
+    let parsed = check::object(values.text("tunnel")).zip(on(&values));
+    let (action, found) = match &parsed {
+        Some((name, _)) => known(opened, name).await?,
+        None => (opened, false),
     };
-    let action = known(opened, &name).await?;
-    let planned = Planned::Clients(vec![VpnClientChange::Enabled { name, enabled }]);
-    let reply = Reply::new(&headers, &user, Spot::Connections);
-    Ok(run(action, planned, reply).await)
+    let checked = parsed
+        .filter(|_| found)
+        .map(|(name, enabled)| Changes::Clients(vec![VpnClientChange::Enabled { name, enabled }]))
+        .ok_or_else(|| Invalid::at("tunnel", keys::WEB_VPN_ERROR_NAME));
+    let reply = Reply::new(&headers, &user, &router);
+    Ok(run(Submission::new(action, &values, Formless), checked, reply).await)
 }
 
 /// `POST /ui/r/{router}/vpn/service`: turns a VPN server's service on or off.
@@ -99,12 +104,11 @@ pub(crate) async fn service(
     };
     let write = Operation::write(&vpn_servers::DESCRIPTOR, operation, "web.vpn_service");
     let action = write.open(&state, &user, &router).await?;
-    let Some(enabled) = on(&values) else {
-        action.abandon("validation_failed").await;
-        return Err(missing());
-    };
-    let planned = Planned::Servers(vec![VpnServerChange::Service { service, enabled }]);
-    Ok(run(action, planned, Reply::new(&headers, &user, Spot::Servers)).await)
+    let checked = on(&values)
+        .map(|enabled| Changes::Servers(vec![VpnServerChange::Service { service, enabled }]))
+        .ok_or_else(|| Invalid::at("enabled", keys::WEB_DNS_ERROR_CHOICE));
+    let reply = Reply::new(&headers, &user, &router).reading(Spot::Servers);
+    Ok(run(Submission::new(action, &values, Formless), checked, reply).await)
 }
 
 /// `GET /ui/r/{router}/vpn/delete?tunnel=`: asks for the connection's name.
@@ -143,45 +147,42 @@ pub(crate) async fn delete(
 ) -> Result<Response, Answer> {
     let opened = DELETE.open(&state, &user, &router).await?;
     let locale = opened.locale();
-    let Some(name) = check::object(form.name()) else {
-        opened.abandon("validation_failed").await;
-        return Err(missing());
+    let named = check::object(form.name());
+    let (action, found) = match &named {
+        Some(name) => known(opened, name).await?,
+        None => (opened, false),
     };
-    let action = known(opened, &name).await?;
-    if !form.confirmed() {
-        action.abandon("validation_failed").await;
-        let mut dialog = confirmation(locale, &router, &name);
-        dialog.set_error(tr(locale, keys::WEB_ADMIN_ERROR_CONFIRM, None));
-        return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
-    }
-    let planned = Planned::Clients(vec![VpnClientChange::Delete { name }]);
-    let answer = run(
-        action,
-        planned,
-        Reply::new(&headers, &user, Spot::Connections),
-    )
-    .await;
-    Ok(respond::retarget(answer, "#page-outcome"))
+    let dialog = DeleteForm(confirmation(
+        locale,
+        &router,
+        named.as_deref().unwrap_or_default(),
+    ));
+    let checked = match named.filter(|_| found) {
+        Some(name) if form.confirmed() => {
+            Ok(Changes::Clients(vec![VpnClientChange::Delete { name }]))
+        }
+        Some(_) => Err(Invalid::at("confirm", keys::WEB_ADMIN_ERROR_CONFIRM)),
+        None => Err(Invalid::at("name", keys::WEB_VPN_ERROR_NAME)),
+    };
+    let params = Params::of(Vec::new());
+    let submission = Submission::new(action, &params, dialog).landing_in("#page-outcome");
+    let reply = Reply::new(&headers, &user, &router);
+    Ok(run(submission, checked, reply).await)
 }
 
-/// `action` again when `name` is one of the router's VPN connections.
+/// `action` again, and whether `name` is one of the router's VPN connections.
 ///
 /// These routes never switch or delete another interface.
 ///
 /// # Errors
 ///
-/// Answers the audited refusal: 404 for another name, the failure when the connections
-/// cannot be read.
+/// Answers the audited failure when the connections cannot be read.
 // NOT cancel-safe: an abandoned append may still be written.
-async fn known<'call>(action: Action<'call>, name: &str) -> Result<Action<'call>, Answer> {
+async fn known<'call>(action: Action<'call>, name: &str) -> Result<(Action<'call>, bool), Answer> {
     let locale = action.locale();
     let ctx = action.context().await?;
     match exists(&ctx, name).await {
-        Ok(true) => Ok(action),
-        Ok(false) => {
-            action.abandon("validation_failed").await;
-            Err(missing())
-        }
+        Ok(found) => Ok((action, found)),
         Err(error) => {
             let failure = plan_failure(Family::Changes, locale, &error);
             action.abandon(failure.audit()).await;
@@ -189,6 +190,23 @@ async fn known<'call>(action: Action<'call>, name: &str) -> Result<Action<'call>
                 .respond()
                 .into())
         }
+    }
+}
+
+/// The typed-name confirmation, as the form of the deletion: a mistyped name is shown in
+/// it, a connection the router does not have is 404.
+struct DeleteForm(TypedNameDialog);
+
+impl submit::Form for DeleteForm {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let Self(mut dialog) = self;
+        for (field, rule) in invalid.into_findings() {
+            if field != "confirm" {
+                return missing().into_response();
+            }
+            dialog.set_error(tr(locale, rule, None));
+        }
+        respond::in_dialog(respond::unprocessable(&dialog))
     }
 }
 
@@ -211,56 +229,66 @@ fn on(values: &Params) -> Option<bool> {
     }
 }
 
-/// Where an action's answer goes: the page that sent it, its user and the region to read
-/// back.
+/// Where an action's answer goes: the page that sent it, its user and router, and the
+/// region to read back.
 struct Reply<'request> {
     /// Request headers, for the page's table query.
     headers: &'request HeaderMap,
     /// The signed-in user.
     user: &'request CurrentUser,
+    /// Router profile id.
+    router: &'request str,
     /// The region read back.
     spot: Spot,
 }
 
 impl<'request> Reply<'request> {
-    /// The answer to `user` on the page of `headers`, reading `spot` back.
-    const fn new(headers: &'request HeaderMap, user: &'request CurrentUser, spot: Spot) -> Self {
+    /// The answer to `user` on the page of `headers` about `router`, reading the
+    /// connections back.
+    const fn new(
+        headers: &'request HeaderMap,
+        user: &'request CurrentUser,
+        router: &'request str,
+    ) -> Self {
         Self {
             headers,
             user,
-            spot,
+            router,
+            spot: Spot::Connections,
         }
+    }
+
+    /// Reads `spot` back instead.
+    fn reading(mut self, spot: Spot) -> Self {
+        self.spot = spot;
+        self
     }
 }
 
-/// Plans `planned` for `action`, runs it and answers as `reply` says.
-// NOT cancel-safe: see `Action::run`.
-async fn run(action: Action<'_>, changes: Planned, reply: Reply<'_>) -> Response {
-    let locale = action.locale();
-    let ctx = match action.context().await {
-        Ok(found) => found,
-        Err(answer) => return answer.into_response(),
-    };
-    let request_plan = match changes.request(&ctx).await {
-        Ok(request) => request,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Answered::new(Outcome::failed(failure), locale).respond();
-        }
-    };
-    if !request_plan.allowed(reply.user, action.router()) {
-        action.abandon("forbidden").await;
-        return errors::response(errors::Kind::Forbidden, fragment_shell(locale));
-    }
-    let spot = reply.spot;
-    let viewer = spot
-        .viewer(&ctx, reply.user, action.router())
-        .with_table_query(shown_query(reply.headers));
-    let (request, risk) = request_plan.into_parts();
-    flow::apply(action, request, risk, async || {
-        region(&ctx, &spot, &viewer).await
-    })
-    .await
-    .respond()
+/// Plans the `checked` changes for `submission`, runs them and answers as `reply` says.
+// NOT cancel-safe: see `Submission::submit`.
+async fn run<F>(
+    submission: Submission<'_, F>,
+    checked: Result<Changes, Invalid>,
+    reply: Reply<'_>,
+) -> Response
+where
+    F: submit::Form,
+{
+    submission
+        .submit(
+            |_values| checked,
+            async |changes, ctx| {
+                let (operation, request) = changes.request(ctx).await?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| {
+                let viewer = reply
+                    .spot
+                    .viewer(ctx, reply.user, reply.router)
+                    .with_table_query(shown_query(reply.headers));
+                read_back(region(ctx, &reply.spot, &viewer).await)
+            },
+        )
+        .await
 }

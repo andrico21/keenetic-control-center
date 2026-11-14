@@ -1,33 +1,34 @@
 //! The KeenDNS name changes: book a name and release it, both writes; and what every
-//! KeenDNS change shares (its dialog, its run and its answer).
+//! KeenDNS change shares (its dialog and how it answers, its planned change).
 
 use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
-    response::Response,
+    response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
-use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, Result as DomainResult, RouterCtx, keendns};
+use kcc_domain::{ChangeOp, Result as DomainResult, keendns};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
-use super::{keendns::Viewer, shared::value};
+use super::{
+    keendns::Viewer,
+    shared::{NoDialog, refused, value},
+};
 use crate::{
     WebState,
     authz::CurrentUser,
     errors,
     page::{Localize as _, Shell},
     page_kit::{
-        action::{Action, Operation},
+        action::Operation,
         change::Change,
         confirm::FAIL_SAFE_MINUTES,
         context::fragment_shell,
-        failure::plan_failure,
-        family::Family,
-        outcome::Outcome,
-        request::missing,
-        respond::{self, Answer, changed},
+        outcome::Failure,
+        request::{Params, missing},
+        respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission},
     },
 };
 
@@ -114,35 +115,32 @@ fn is_domain(value: &str) -> bool {
     value.len() <= 253 && value.split('.').all(is_label)
 }
 
-/// Runs `planned` as `action` at `risk`; a plan the catalog refuses sends nothing.
-// NOT cancel-safe: see `Action::run`.
-pub(crate) async fn run(
-    action: Action<'_>,
-    planned: DomainResult<ChangeOp>,
-    risk: Risk,
-) -> Outcome {
-    let locale = action.locale();
-    match planned.and_then(|operation| keendns::change_request(&operation)) {
-        Ok(request) => action.run(risk, Change::Cli(request)).await,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            Outcome::invalid(Family::Changes, locale, vec![failure.message().to_owned()])
-        }
+/// The KeenDNS dialog answers values that failed their check in itself; a change the
+/// domain could not plan is shown refused in the page's outcome region.
+impl submit::Form for NameDialog {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let message = invalid
+            .into_findings()
+            .into_iter()
+            .map(|(_field, rule)| tr(locale, rule, None))
+            .collect::<Vec<_>>()
+            .join(" ");
+        self.refused(message).into_response()
+    }
+
+    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
+        refused(&failure, locale)
     }
 }
 
-/// The answer to a KeenDNS change: the outcome and, after a success, the name panel
-/// `viewer` sees, read again through `domain`.
-// cancel-safe: reads only.
-pub(crate) async fn reply(outcome: Outcome, viewer: &Viewer<'_>, domain: &RouterCtx) -> Response {
-    let locale = viewer.user().locale();
-    let refreshed = if outcome.succeeded() {
-        viewer.refreshed(domain).await
-    } else {
-        None
-    };
-    changed(outcome, refreshed, None, locale)
+/// The KeenDNS plan `operation` as the change that runs it.
+///
+/// # Errors
+///
+/// Returns the catalog's findings.
+pub(crate) fn planned(operation: ChangeOp) -> DomainResult<Planned> {
+    let request = keendns::change_request(&operation)?;
+    Ok(Planned::of(&[operation], Change::Cli(request)))
 }
 
 /// `GET /ui/r/{router}/system/keendns/book`: the booking dialog.
@@ -185,14 +183,18 @@ pub(crate) async fn book(
         String::new(),
         String::new(),
     ]);
-    if !is_label(&name) || !is_domain(&zone) {
-        action.abandon("validation_failed").await;
-        return Err(dialog.refused(tr(locale, keys::WEB_SYSTEM_KEENDNS_NAME_ERROR, None)));
-    }
-    let domain = action.context().await?;
-    let planned = keendns::plan_book_name(&domain, &name, &zone);
-    let outcome = run(action, planned, Risk::Write).await;
-    Ok(reply(outcome, &Viewer::new(&user, &router), &domain).await)
+    let viewer = Viewer::new(&user, &router);
+    Ok(Submission::new(action, &Params::default(), dialog)
+        .submit(
+            |_params| {
+                (is_label(&name) && is_domain(&zone))
+                    .then_some(())
+                    .ok_or_else(|| Invalid::at("name", keys::WEB_SYSTEM_KEENDNS_NAME_ERROR))
+            },
+            async |(), ctx| planned(keendns::plan_book_name(ctx, &name, &zone)?),
+            async |ctx| viewer.refreshed(ctx).await,
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/system/keendns/drop`: releases the booked name.
@@ -217,9 +219,14 @@ pub(crate) async fn drop_name(
         action.abandon("not_found").await;
         return Err(missing());
     };
-    let planned = keendns::plan_drop_name(&domain, name, zone);
-    let outcome = run(action, planned, Risk::Write).await;
-    Ok(reply(outcome, &Viewer::new(&user, &router), &domain).await)
+    let viewer = Viewer::new(&user, &router);
+    Ok(Submission::new(action, &Params::default(), NoDialog)
+        .submit(
+            |_params| Ok(()),
+            async |(), ctx| planned(keendns::plan_drop_name(ctx, name, zone)?),
+            async |ctx| viewer.refreshed(ctx).await,
+        )
+        .await)
 }
 
 #[cfg(test)]

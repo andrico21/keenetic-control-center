@@ -13,10 +13,11 @@ use axum::{
 };
 use kcc_app::permissions::Permission;
 use kcc_domain::{configuration::SafetyNet, services};
+use kcc_i18n::keys;
 
 use super::{
     services::{Viewer, known},
-    shared::{forbidden, merged, value},
+    shared::{NoDialog, forbidden, merged, value},
 };
 use crate::{
     WebState,
@@ -24,13 +25,11 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        confirm::{Confirmation, Resubmit},
-        failure::plan_failure,
-        family::Family,
+        confirm::Resubmit,
         gate::allowed,
-        outcome::Outcome,
-        request::{missing, shown_query, with_query},
-        respond::{Answer, changed},
+        request::{Params, missing, shown_query, with_query},
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
 };
 
@@ -60,39 +59,30 @@ pub(crate) async fn toggle(
     let domain = action.context().await?;
     let name = value(&pairs, "name").unwrap_or_default().to_owned();
     let wanted = match value(&pairs, "on") {
-        Some("true") => true,
-        Some("false") => false,
-        Some(_) | None => {
-            action.abandon("validation_failed").await;
+        Some("true") => Some(true),
+        Some("false") => Some(false),
+        Some(_) | None => None,
+    };
+    if wanted.is_some() {
+        if !known(&domain.catalog).contains(&name) {
+            action.abandon("not_found").await;
             return Err(missing());
         }
-    };
-    if !known(&domain.catalog).contains(&name) {
-        action.abandon("not_found").await;
-        return Err(missing());
-    }
-    let risk = services::service_risk(&name);
-    if !allowed(
-        &user,
-        &router,
-        &SafetyNet::required(Permission::Write, risk),
-    ) {
-        action.abandon("forbidden").await;
-        return Err(forbidden(locale));
-    }
-    let planned = services::plan_service(&domain, &name, wanted)
-        .and_then(|operation| services::change_request(&operation));
-    let request = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            let outcome =
-                Outcome::invalid(Family::Changes, locale, vec![failure.message().to_owned()]);
-            return Ok(changed(outcome, None, None, locale));
+        let risk = services::service_risk(&name);
+        if !allowed(
+            &user,
+            &router,
+            &SafetyNet::required(Permission::Write, risk),
+        ) {
+            action.abandon("forbidden").await;
+            return Err(forbidden(locale));
         }
+    }
+    let on = if wanted == Some(true) {
+        "true"
+    } else {
+        "false"
     };
-    let on = if wanted { "true" } else { "false" };
     let resubmit = Resubmit::new(
         with_query(
             &format!("/ui/r/{router}/system/services/toggle"),
@@ -100,16 +90,17 @@ pub(crate) async fn toggle(
         ),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(risk, &Confirmation::from_pairs(&pairs), resubmit) {
-        return Ok(prompt);
-    }
-    let outcome = action.run(risk, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(action, &Params::of(pairs), NoDialog)
+        .confirming_planned(resubmit)
+        .submit(
+            |_params| wanted.ok_or_else(|| Invalid::at("on", keys::WEB_DNS_ERROR_CHOICE)),
+            async |enabled, ctx| {
+                let operation = services::plan_service(ctx, &name, enabled)?;
+                let request = services::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| viewer.refreshed(ctx).await,
+        )
+        .await)
 }

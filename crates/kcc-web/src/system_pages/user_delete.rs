@@ -4,6 +4,8 @@
 //! management change; the deletion then runs inside the router's fail-safe timer. The
 //! account kcc signs in with is refused before anything is sent.
 
+use core::future::ready;
+
 use axum::{
     Form,
     extract::{Path, State},
@@ -25,10 +27,12 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        confirm::{Confirmation, Resubmit},
+        confirm::Resubmit,
         context::fragment_shell,
-        request::{missing, shown_query},
-        respond::{self, Answer, changed},
+        outcome::Failure,
+        request::{Params, missing, shown_query},
+        respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission, unplanned::Unplanned},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
@@ -99,38 +103,49 @@ pub(crate) async fn delete(
         dialog.set_error(tr(locale, keys::WEB_ADMIN_ERROR_CONFIRM, None));
         return Err(respond::unprocessable(&dialog).into());
     }
-    let domain = action.context().await?;
     let login = profile_login(&state, &user, &router)
         .await
         .unwrap_or_default();
-    let planned = router_users::plan_delete(&domain, form.name(), &login)
-        .and_then(|operation| Ok((router_users::change_request(&operation)?, operation.risk)));
-    let (request, risk) = match planned {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            dialog.set_error(refusal_message(&error, locale));
-            return Err(respond::unprocessable(&dialog).into());
-        }
-    };
-    let typed = Confirmation::new(Some("yes"), None);
+    let typed = Params::of(vec![("confirm".to_owned(), "yes".to_owned())]);
     let resubmit = Resubmit::new(
         format!("/ui/r/{router}/system/users/delete"),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(risk, &typed, resubmit) {
-        return Ok(prompt);
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(action, &typed, Deleting(dialog))
+        .confirming_planned(resubmit)
+        .landing_run_in("#page-outcome")
+        .submit(
+            |_typed| Ok(()),
+            async |(), ctx| {
+                let operation = router_users::plan_delete(ctx, form.name(), &login)?;
+                let request = router_users::change_request(&operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |ctx| viewer.refreshed(&state, ctx).await,
+        )
+        .await)
+}
+
+/// The typed-name dialog as the form of a delete: a refusal comes back into it.
+struct Deleting(TypedNameDialog);
+
+impl submit::Form for Deleting {
+    fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
+        respond::unprocessable(&self.0)
     }
-    let outcome = action.run(risk, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&state, &domain)
-            .await
-    } else {
-        None
-    };
-    Ok(respond::retarget(
-        changed(outcome, refreshed, None, locale),
-        "#page-outcome",
-    ))
+
+    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
+        self.0.set_error(failure.message().to_owned());
+        respond::unprocessable(&self.0)
+    }
+
+    fn answer_unplanned(
+        mut self,
+        unplanned: Unplanned<'_>,
+        locale: Locale,
+    ) -> impl Future<Output = Response> {
+        self.0.set_error(refusal_message(unplanned.error(), locale));
+        ready(respond::unprocessable(&self.0))
+    }
 }

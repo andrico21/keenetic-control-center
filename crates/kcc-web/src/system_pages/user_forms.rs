@@ -17,7 +17,7 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_app::{permissions::Permission, workflow::CliChangeRequest};
+use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, DomainError, Result as DomainResult, RouterCtx, router_users};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
@@ -25,6 +25,7 @@ use secrecy::SecretString;
 
 use super::{
     shared::{merged, profile_login, value, values},
+    user_answers::UserForm,
     user_dialog::{Field, UserDialog, check},
     users::{Account, Viewer, accounts, offered_tags},
 };
@@ -38,8 +39,9 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
-        request::{missing, shown_query, with_query},
+        request::{Params, missing, shown_query, with_query},
         respond::{Answer, changed},
+        submit::{Invalid, Planned, Submission},
     },
     secret_pages::dialog::{Entry, entry},
 };
@@ -83,59 +85,46 @@ pub(crate) async fn create(
         .checking(&tags);
     let confirmation = Confirmation::from_pairs(&pairs);
     let password = match typed {
-        Entry::Keep => None,
-        Entry::New(secret) if confirmation.confirmed() => Some(secret),
+        Entry::Keep => Ok(None),
+        Entry::New(secret) if confirmation.confirmed() => Ok(Some(secret)),
         Entry::New(_) => {
             action.abandon("confirmation_required").await;
             let text = tr(locale, keys::WEB_SECRET_CONFIRM, None);
             return Err(dialog.refused(Field::Password, text));
         }
-        Entry::Mismatch => {
-            action.abandon("validation_failed").await;
-            let text = tr(locale, keys::WEB_SECRET_MISMATCH, None);
-            return Err(dialog.refused(Field::Password, text));
-        }
+        Entry::Mismatch => Err((Field::Password, keys::WEB_SECRET_MISMATCH)),
     };
-    let problem = match check(&name, &tags, &offered) {
-        Err(found) => Some(found),
-        Ok(()) if find(&domain, &name).await.is_some() => {
-            Some((Field::Name, keys::WEB_SYSTEM_USERS_NAME_TAKEN))
+    let checked = match password.and_then(|kept| check(&name, &tags, &offered).map(|()| kept)) {
+        Ok(_) if find(&domain, &name).await.is_some() => {
+            Err((Field::Name, keys::WEB_SYSTEM_USERS_NAME_TAKEN))
         }
-        Ok(()) => None,
+        found @ (Ok(_) | Err(_)) => found,
     };
-    if let Some((field, message)) = problem {
-        action.abandon("validation_failed").await;
-        return Err(dialog.refused(field, tr(locale, message, None)));
-    }
     let login = profile_login(&state, &user, &router)
         .await
         .unwrap_or_default();
-    let protected = password.map(|secret| (secret, login.as_str()));
-    let (request, risk) = match plan_account(&domain, (&name, &tags), protected) {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            return Err(dialog.refused(Field::Name, refusal_message(&error, locale)));
-        }
-    };
     let mut resubmitted = vec![("name", name.as_str())];
     resubmitted.extend(tags.iter().map(|tag| ("tag", *tag)));
     let resubmit = Resubmit::new(
         with_query(&format!("/ui/r/{router}/system/users"), &resubmitted),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(risk, &confirmation, resubmit) {
-        return Ok(prompt);
-    }
-    let outcome = action.run(risk, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&state, &domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(
+        action,
+        &Params::of(pairs.clone()),
+        UserForm::new(dialog, Field::Name),
+    )
+    .confirming_planned(resubmit)
+    .submit(
+        |_params| checked.map_err(|(field, rule)| Invalid::at(field.name(), rule)),
+        async |typed_password, ctx| {
+            let protected = typed_password.map(|secret| (secret, login.as_str()));
+            plan_account(ctx, (&name, &tags), protected)
+        },
+        async |ctx| viewer.refreshed(&state, ctx).await,
+    )
+    .await)
 }
 
 /// `POST /ui/r/{router}/system/users/tags`: sets the tags of one account to the checked
@@ -167,10 +156,7 @@ pub(crate) async fn set_tags(
     let dialog = UserDialog::base(locale, &offered)
         .tagging(&router, &account)
         .checking(&wanted);
-    if let Err((field, message)) = check(&name, &wanted, &offered) {
-        action.abandon("validation_failed").await;
-        return Err(dialog.refused(field, tr(locale, message, None)));
-    }
+    let checked = check(&name, &wanted, &offered);
     let changes: Vec<(&str, bool)> = offered
         .iter()
         .map(String::as_str)
@@ -179,7 +165,7 @@ pub(crate) async fn set_tags(
             (account.tags().iter().any(|held| held == tag) != wants).then_some((tag, wants))
         })
         .collect();
-    if changes.is_empty() {
+    if checked.is_ok() && changes.is_empty() {
         action.abandon("unchanged").await;
         let headline = tr(locale, keys::WEB_SYSTEM_UNCHANGED, None);
         return Ok(changed(
@@ -189,32 +175,25 @@ pub(crate) async fn set_tags(
             locale,
         ));
     }
-    let request = match plan_tags(&domain, &name, &changes) {
-        Ok(found) => found,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            return Err(dialog.refused(Field::Tags, refusal_message(&error, locale)));
-        }
-    };
     let mut resubmitted = vec![("name", name.as_str())];
     resubmitted.extend(wanted.iter().map(|tag| ("tag", *tag)));
     let resubmit = Resubmit::new(
         with_query(&format!("/ui/r/{router}/system/users/tags"), &resubmitted),
         "#page-outcome",
     );
-    let confirmation = Confirmation::from_pairs(&pairs);
-    if let Some(prompt) = action.confirm(Risk::Management, &confirmation, resubmit) {
-        return Ok(prompt);
-    }
-    let outcome = action.run(Risk::Management, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        Viewer::new(&user, &router, shown_query(&headers))
-            .refreshed(&state, &domain)
-            .await
-    } else {
-        None
-    };
-    Ok(changed(outcome, refreshed, None, locale))
+    let viewer = Viewer::new(&user, &router, shown_query(&headers));
+    Ok(Submission::new(
+        action,
+        &Params::of(pairs.clone()),
+        UserForm::new(dialog, Field::Tags),
+    )
+    .confirming_planned(resubmit)
+    .submit(
+        |_params| checked.map_err(|(field, rule)| Invalid::at(field.name(), rule)),
+        async |(), ctx| plan_tags(ctx, &name, &changes),
+        async |ctx| viewer.refreshed(&state, ctx).await,
+    )
+    .await)
 }
 
 /// The account `name` of the router of `domain`.
@@ -239,10 +218,11 @@ fn plan_account(
     domain: &RouterCtx,
     (name, tags): (&str, &[&str]),
     password: Option<(SecretString, &str)>,
-) -> DomainResult<(CliChangeRequest, Risk)> {
+) -> DomainResult<Planned> {
     let created = router_users::plan_create(domain, name, tags)?;
     let Some((secret, login)) = password else {
-        return Ok((router_users::change_request(&created)?, created.risk));
+        let request = router_users::change_request(&created)?;
+        return Ok(Planned::of(&[created], Change::Cli(request)));
     };
     let protected = router_users::plan_password(domain, name, login, secret)?;
     let risk = created.risk.max(protected.risk);
@@ -255,7 +235,8 @@ fn plan_account(
         protected.permission,
         false,
     );
-    Ok((router_users::change_request(&operation)?, risk))
+    let request = router_users::change_request(&operation)?;
+    Ok(Planned::of(&[operation], Change::Cli(request)))
 }
 
 /// One change setting `changes` (tag, wanted) on the account `name`: the account's
@@ -264,24 +245,22 @@ fn plan_account(
 /// # Errors
 ///
 /// Returns the domain's refusal, such as removing `cli` from `admin`.
-fn plan_tags(
-    domain: &RouterCtx,
-    name: &str,
-    changes: &[(&str, bool)],
-) -> DomainResult<CliChangeRequest> {
+fn plan_tags(domain: &RouterCtx, name: &str, changes: &[(&str, bool)]) -> DomainResult<Planned> {
     let mut requests = Vec::new();
     for (tag, wanted) in changes {
         let operation = router_users::plan_tag(domain, name, tag, *wanted)?;
         let skip = usize::from(!requests.is_empty());
         requests.extend(operation.requests.into_iter().skip(skip));
     }
-    router_users::change_request(&ChangeOp::new(
+    let operation = ChangeOp::new(
         requests,
         Vec::new(),
         Risk::Management,
         Permission::ManageUsers,
         false,
-    ))
+    );
+    let request = router_users::change_request(&operation)?;
+    Ok(Planned::of(&[operation], Change::Cli(request)))
 }
 
 /// The message of a domain refusal: the protected-account rule in its own words, else

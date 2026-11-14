@@ -25,14 +25,15 @@ use crate::{
         request::last,
         respond::{self, Answer},
         secret::write_only,
+        submit::Invalid,
     },
 };
 
 /// The form field of the new value.
-const SECRET: &str = "secret";
+pub(crate) const SECRET: &str = "secret";
 
 /// The form field repeating it.
-const REPEAT: &str = "secret_again";
+pub(crate) const REPEAT: &str = "secret_again";
 
 /// What the dialog's two secret fields ask for.
 pub(crate) enum Entry {
@@ -93,9 +94,17 @@ impl Length {
         }
     }
 
-    /// Whether `secret` has an allowed number of characters.
-    pub(crate) fn fits(self, secret: &SecretString) -> bool {
-        (self.minimum..=self.maximum).contains(&secret.expose_secret().chars().count())
+    /// `secret`, when it has an allowed number of characters.
+    ///
+    /// # Errors
+    ///
+    /// The rule, at the new value, for a secret too short or too long.
+    pub(crate) fn checked(self, secret: SecretString) -> Result<SecretString, Invalid> {
+        if (self.minimum..=self.maximum).contains(&secret.expose_secret().chars().count()) {
+            Ok(secret)
+        } else {
+            Err(Invalid::at(SECRET, self.rule))
+        }
     }
 }
 
@@ -307,12 +316,6 @@ impl SecretDialog {
     pub(crate) fn mismatch(mut self) -> Answer {
         self.repeat_error = tr(self.shell.locale(), keys::WEB_SECRET_MISMATCH, None);
         respond::in_dialog(respond::unprocessable(&self)).into()
-    }
-
-    /// The dialog again saying the length rule, as 422.
-    pub(crate) fn out_of_bounds(self) -> Answer {
-        let rule = self.rule();
-        self.secret_error(rule)
     }
 
     /// The dialog again with `error` under the non-secret field, as 422.

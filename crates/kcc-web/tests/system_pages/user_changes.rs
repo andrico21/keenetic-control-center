@@ -116,3 +116,68 @@ async fn a_router_refusal_shows_only_what_the_router_said() -> TestResult {
     );
     Ok(())
 }
+
+#[tokio::test]
+async fn a_tag_change_the_domain_refuses_is_audited_with_its_reason() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    let added = form(&[("name", "admin"), ("tag", "cli"), ("confirm", "yes")]);
+    drop(fixture.post(PAGE, &admin, &added).await?);
+    let refused = fixture
+        .post(
+            &format!("{PAGE}/tags"),
+            &admin,
+            &form(&[("name", "admin"), ("tag", "readonly"), ("confirm", "yes")]),
+        )
+        .await?;
+    assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY, "422");
+    assert!(
+        text(refused)
+            .await?
+            .contains(&en(keys::WEB_SYSTEM_USERS_PROTECTED)),
+        "the refusal in the dialog"
+    );
+    assert!(
+        audited(&fixture, "web.router_user_tags", "failed")?,
+        "audited with the domain's reason"
+    );
+    assert!(
+        !audited(&fixture, "web.router_user_tags", "validation_failed")?,
+        "not as a value that failed its check"
+    );
+    Ok(())
+}
+
+#[tokio::test]
+async fn a_delete_the_domain_refuses_is_audited_with_its_reason() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    let refused = fixture
+        .post(
+            &format!("{PAGE}/delete"),
+            &admin,
+            &form(&[("name", "admin"), ("confirm", "admin")]),
+        )
+        .await?;
+    assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY, "422");
+    assert_eq!(
+        header_text(&refused, "hx-retarget"),
+        None,
+        "the refusal stays in the dialog"
+    );
+    assert!(
+        text(refused)
+            .await?
+            .contains(&en(keys::WEB_SYSTEM_USERS_PROTECTED)),
+        "the refusal in the dialog"
+    );
+    assert!(
+        audited(&fixture, "web.router_user_delete", "failed")?,
+        "audited with the domain's reason"
+    );
+    assert!(
+        !audited(&fixture, "web.router_user_delete", "validation_failed")?,
+        "not as a value that failed its check"
+    );
+    Ok(())
+}

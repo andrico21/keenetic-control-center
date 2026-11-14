@@ -219,7 +219,7 @@ impl<'call> Action<'call> {
     /// Runs `change`, planned at `risk`, through the change workflow and audits how it
     /// ended.
     // NOT cancel-safe: see `change::apply_with`.
-    pub(crate) async fn run(self, risk: Risk, change: Change) -> Outcome {
+    async fn run(self, risk: Risk, change: Change) -> Outcome {
         let params = change.audit_params();
         let verified_change = match change {
             Change::Cli(request) => match verification::complete(request) {
@@ -243,7 +243,7 @@ impl<'call> Action<'call> {
     /// Runs `work`, a domain function on the leased change set, at `risk` and audits how
     /// it ended.
     // NOT cancel-safe: see `change::apply_with`.
-    pub(crate) async fn run_with<W>(self, risk: Risk, work: W) -> Outcome
+    async fn run_with<W>(self, risk: Risk, work: W) -> Outcome
     where
         W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Result<Applied, WorkflowError>,
     {

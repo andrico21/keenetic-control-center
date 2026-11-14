@@ -7,9 +7,17 @@
 
 use askama::Template;
 use axum::response::Response;
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 
-use super::respond;
+use super::{
+    outcome::Failure,
+    respond,
+    submit::{self, Invalid},
+};
 use crate::{
     errors,
     page::{Localize as _, Shell},
@@ -81,6 +89,24 @@ impl FieldDialog {
     /// The dialog again with its error: 422, shown in the shared dialog.
     pub(crate) fn invalid(&self) -> Response {
         respond::in_dialog(respond::unprocessable(self))
+    }
+}
+
+/// The one-field dialog answers values that failed their check, and a change the domain
+/// could not plan, under its field.
+impl submit::Form for FieldDialog {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let error = invalid
+            .into_findings()
+            .into_iter()
+            .map(|(_field, rule)| tr(locale, rule, None))
+            .collect::<Vec<_>>()
+            .join(" ");
+        self.with_error(error).invalid()
+    }
+
+    fn answer_refused(self, failure: Failure, _locale: Locale) -> Response {
+        self.with_error(failure.message().to_owned()).invalid()
     }
 }
 
