@@ -12,10 +12,7 @@ use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, Result as DomainResult, RouterCtx, keendns};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
-use super::{
-    keendns::Viewer,
-    shared::{answer, value},
-};
+use super::{keendns::Viewer, shared::value};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -30,7 +27,7 @@ use crate::{
         family::Family,
         outcome::Outcome,
         request::missing,
-        respond::{self, Answer},
+        respond::{self, Answer, changed},
     },
 };
 
@@ -145,7 +142,7 @@ pub(crate) async fn reply(outcome: Outcome, viewer: &Viewer<'_>, domain: &Router
     } else {
         None
     };
-    answer(outcome, refreshed, locale)
+    changed(outcome, refreshed, None, locale)
 }
 
 /// `GET /ui/r/{router}/system/keendns/book`: the booking dialog.

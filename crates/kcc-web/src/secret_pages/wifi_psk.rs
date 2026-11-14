@@ -18,7 +18,6 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change,
     net_change::unusable,
     net_pages::{Call, Tab},
     net_wifi,
@@ -29,7 +28,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -136,5 +135,5 @@ pub(crate) async fn psk(
     } else {
         None
     };
-    Ok(net_change::answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }

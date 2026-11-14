@@ -17,7 +17,7 @@ use kcc_domain::{
 };
 use kcc_i18n::keys;
 
-use super::shared::{answer, merged, value};
+use super::shared::{merged, value};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -32,7 +32,7 @@ use crate::{
         family::Family,
         outcome::Outcome,
         request::{missing, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -61,14 +61,14 @@ async fn run(action: Action<'_>, planned: DomainResult<ChangeOp>) -> Response {
     match planned.and_then(|operation| storage::change_request(&operation)) {
         Ok(request) => {
             let outcome = action.run(Risk::Destructive, Change::Cli(request)).await;
-            answer(outcome, None, locale)
+            changed(outcome, None, None, locale)
         }
         Err(error) => {
             action.abandon("validation_failed").await;
             let failure = plan_failure(Family::Changes, locale, &error);
             let outcome =
                 Outcome::invalid(Family::Changes, locale, vec![failure.message().to_owned()]);
-            answer(outcome, None, locale)
+            changed(outcome, None, None, locale)
         }
     }
 }

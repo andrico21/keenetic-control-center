@@ -22,8 +22,8 @@ use crate::{
         context::Caller,
         outcome::Outcome,
         request::{rendered, shown_query},
+        respond::changed,
     },
-    system_pages::shared::answer,
     table::rows::TableQuery,
 };
 
@@ -130,7 +130,7 @@ impl<'call> Visit<'call> {
         } else {
             None
         };
-        answer(outcome, refreshed, self.user.locale())
+        changed(outcome, refreshed, None, self.user.locale())
     }
 
     /// The answer to a change of the backups: the outcome, and after a success the
@@ -143,6 +143,6 @@ impl<'call> Visit<'call> {
         } else {
             None
         };
-        answer(outcome, refreshed, self.user.locale())
+        changed(outcome, refreshed, None, self.user.locale())
     }
 }

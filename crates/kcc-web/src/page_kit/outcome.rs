@@ -267,6 +267,13 @@ impl Outcome {
         }
     }
 
+    /// The same outcome, saying whether the router now has unsaved changes, such as after
+    /// a restore that ran when the change itself failed.
+    pub(crate) const fn with_unsaved(mut self, unsaved: bool) -> Self {
+        self.unsaved = unsaved;
+        self
+    }
+
     /// A partly completed request with a truthful persistence notice and audit outcome.
     pub(crate) fn partial(
         headline: String,

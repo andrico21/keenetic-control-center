@@ -5,7 +5,7 @@
 
 use super::route_rows::StaticRoute;
 
-/// The route-wipe guard's report, shown as the banner of `partials/routing_result.html`.
+/// The route-wipe guard's report, shown as the banner of `partials/routing_guard.html`.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Guard {
     /// The static routes the router had just before the change, as stored commands.

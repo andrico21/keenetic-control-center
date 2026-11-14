@@ -16,7 +16,7 @@ use kcc_i18n::locale::Locale;
 
 use super::{
     components::{Viewer, read},
-    shared::{answer, merged, value},
+    shared::{merged, value},
 };
 use crate::{
     WebState,
@@ -28,7 +28,7 @@ use crate::{
         family::Family,
         outcome::Outcome,
         request::{missing, shown_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -71,7 +71,7 @@ pub(crate) async fn check(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 /// `POST /ui/r/{router}/system/components/queue?name=&action=install|remove`: queues one
@@ -133,11 +133,11 @@ pub(crate) async fn queue(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 /// The answer to a change refused before anything was sent.
 fn invalid(problem: &str, locale: Locale) -> Response {
     let outcome = Outcome::invalid(Family::Changes, locale, vec![problem.to_owned()]);
-    answer(outcome, None, locale)
+    changed(outcome, None, None, locale)
 }

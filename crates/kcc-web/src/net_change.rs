@@ -3,7 +3,6 @@
 
 use core::net::Ipv4Addr;
 
-use askama::Template;
 use axum::response::Response;
 use fluent_bundle::FluentArgs;
 use kcc_app::workflow::CliChangeRequest;
@@ -11,7 +10,6 @@ use kcc_catalog::Risk;
 use kcc_domain::{DomainError, RouterCtx};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
-    keys,
     locale::Locale,
 };
 use kcc_rci::ObjectName;
@@ -20,22 +18,20 @@ use serde_json::Value;
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors, net_interfaces, net_internet, net_mesh,
+    net_interfaces, net_internet, net_mesh,
     net_pages::{Call, Tab},
     net_wifi,
-    page::{Localize as _, Shell},
     page_kit::{
         action::Action,
         change::Change,
         context,
-        context::fragment_shell,
         facts::RouterFacts,
         failure::plan_failure,
         family::Family,
-        outcome::{Failure, Outcome, with_status},
+        outcome::{Failure, Outcome},
         request::with_query,
         respond,
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -113,32 +109,6 @@ pub(crate) fn unusable(locale: Locale, message: MessageKey) -> Answer {
     respond::retarget(Outcome::failed(failure).render(locale), "#page-outcome").into()
 }
 
-/// The answer to a change: its outcome and, after a success, the page's region read back.
-#[derive(Template)]
-#[template(path = "partials/net_result.html")]
-struct ResultView {
-    /// Locale carrier.
-    shell: Shell,
-    /// The outcome.
-    outcome: Outcome,
-    /// The page's region read back, sent out of band.
-    refreshed: Option<String>,
-}
-
-localized!(ResultView);
-
-/// The answer to a change: the outcome in the page's outcome region, the region read back
-/// out of band, the dialog closed.
-pub(crate) fn answer(outcome: Outcome, refreshed: Option<String>, locale: Locale) -> Response {
-    let status = outcome.status();
-    let view = ResultView {
-        shell: fragment_shell(locale),
-        outcome,
-        refreshed,
-    };
-    respond::close_dialog(with_status(errors::render(&view), status))
-}
-
 /// A change planned on the router of `domain`, or why it could not be planned.
 pub(crate) struct Planned {
     /// The router to read back from.
@@ -167,7 +137,7 @@ pub(crate) async fn finish(call: Call<'_>, action: Action<'_>, planned: Planned)
         Err(error) => {
             let failure = plan_failure(Family::Changes, locale, &error);
             action.abandon(failure.audit()).await;
-            return answer(Outcome::failed(failure), None, locale);
+            return changed(Outcome::failed(failure), None, None, locale);
         }
     };
     let outcome = action.run(risk, Change::Cli(request)).await;
@@ -181,7 +151,7 @@ pub(crate) async fn finish(call: Call<'_>, action: Action<'_>, planned: Planned)
     } else {
         None
     };
-    answer(outcome, refreshed, locale)
+    changed(outcome, refreshed, None, locale)
 }
 
 /// The parser requests of one change as one request: their lines in order, every

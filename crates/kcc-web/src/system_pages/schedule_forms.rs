@@ -14,10 +14,7 @@ use kcc_catalog::Risk;
 use kcc_domain::schedules;
 use kcc_i18n::{bundle::tr, keys};
 
-use super::{
-    schedules::Viewer,
-    shared::{answer, value},
-};
+use super::{schedules::Viewer, shared::value};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -30,7 +27,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         request::shown_query,
-        respond::{self, Answer},
+        respond::{self, Answer, changed},
     },
 };
 
@@ -152,7 +149,7 @@ pub(crate) async fn create(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 #[cfg(test)]

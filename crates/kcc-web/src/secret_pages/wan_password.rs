@@ -17,7 +17,6 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change,
     net_change::unusable,
     net_internet,
     net_pages::{Call, Tab},
@@ -28,7 +27,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -130,5 +129,5 @@ pub(crate) async fn password(
     } else {
         None
     };
-    Ok(net_change::answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }

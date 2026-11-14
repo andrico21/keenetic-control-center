@@ -22,7 +22,7 @@ use kcc_i18n::{
 
 use super::{
     schedules::{Viewer, read},
-    shared::{answer, value, values},
+    shared::{value, values},
 };
 use crate::{
     WebState,
@@ -36,7 +36,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         request::{missing, shown_query},
-        respond::{self, Answer},
+        respond::{self, Answer, changed},
     },
 };
 
@@ -219,7 +219,7 @@ pub(crate) async fn add_action(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 #[cfg(test)]

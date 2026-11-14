@@ -515,3 +515,24 @@ This ensures we don't show an empty permission list when the real issue is the r
 - Kept on purpose: `table::pager::shown_page` (first `page` wins), `firewall_page::views::spot_of` (path match), system_pages `value`/`values`/`merged`, `secret_pages::dialog::plain_value`, `advanced::request::path_of` (trimming wrappers over `last`), `errors::refusal::missing`, `config_page::diff::missing`. dns_vpn flow builders renamed `with_table_query`.
 - Gotcha: a use-tree rewriter (flatten `use` statements, remap absolute paths, let rustfmt `imports_granularity=Crate` re-merge) made the ~100-file import move mechanical and re-runnable; qualified calls (`super::shared::x(`, `flow::shown_query(`) and items used inside their old home module need hand fixes after `cargo check`.
 - Golden net (333 pages) diff empty; clippy `absolute_paths` rejects `crate::a::b::f(` calls in bodies, import instead.
+
+## [2026-11-14] Todo 31 progress
+- API: `page_kit::respond::changed(outcome, refreshed: Option<String>, extra: Option<String>, locale) -> Response`
+  renders `respond::Changed` (`partials/kit_result.html`): `kit::result(outcome)`, then `"\n" + extra`, then
+  `"\n" + refreshed`, status = outcome's, shared dialog closed. `Changed::new(..).with_report(html)` shows a page's
+  own report in place of the outcome's notice (signals = toasts + badge still rendered). `Changed::status()`.
+  `Outcome::with_unsaved(bool)` added (the guard's restore can leave unsaved changes on a failed outcome).
+- net/system/system_general/config/secret pages call `changed(.., None, ..)` directly (the per-family `answer`
+  fns of net_change, system_pages::shared and system_general are gone). Regions that used to be rendered inside
+  the parent via Display (system_general `Facts`, dns_vpn `Region`) are pre-rendered with `request::rendered`.
+- Per-family differences kept outside the shared template (all byte-identical, golden proves it):
+  - lan: `clients_pages::answer` renders `note` with an inline template `Note` into `extra`.
+  - routing: these pages always sent a blank line before the outcome (`{%- else %}\n{{ kit::result }}`), so
+    `routing_page::reply::Answered` (inline source "\n{{ changed|safe }}") wraps `Changed`; the guard banner moved
+    to `partials/routing_guard.html` and goes in as `with_report`, its unsaved badge via `outcome.with_unsaved`.
+  - dns_vpn: `screen::Answered` stays a builder (same call sites); notes -> `partials/dns_vpn_notes.html` (extra),
+    region + page actions -> `partials/dns_vpn_refreshed.html` (refreshed string).
+- askama 0.16 pops ONE trailing newline from template files (askama_derive input.rs), so a fragment file ending in
+  `</section>\n` renders without it; `{{ x|safe }}` of a Template uses its Display (= render()).
+- Byte diffs are easy to miss by reading templates: `-%}`/`{%-` decide leading newlines; check the golden
+  (`head -c 600 <capture> | cat -A`) before choosing a template shape.

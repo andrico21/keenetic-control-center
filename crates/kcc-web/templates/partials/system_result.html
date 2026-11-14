@@ -1,6 +1,0 @@
-{#- The answer to a system-page change: the outcome, then the page's region read back, out of band. -#}
-{%- import "partials/kit_macros.html" as kit -%}
-{{ kit::result(outcome) }}
-{%- if let Some(region) = refreshed %}
-{{ region|safe }}
-{%- endif %}

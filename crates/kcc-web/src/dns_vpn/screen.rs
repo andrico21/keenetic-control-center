@@ -11,14 +11,9 @@ use kcc_i18n::{
 
 use super::{cells::Act, region::Region};
 use crate::{
-    errors,
     nav::Section,
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        outcome::{Outcome, with_status},
-        respond,
-    },
+    page_kit::{context::fragment_shell, outcome::Outcome, request::rendered, respond::changed},
 };
 
 /// One tab of the DNS and VPN pages.
@@ -201,42 +196,60 @@ impl Page {
     }
 }
 
-/// The answer to a change: its outcome, notes on what it left out, and the region read
-/// back out of band.
+/// Notes on what a change left out (`partials/dns_vpn_notes.html`).
 #[derive(Template)]
-#[template(path = "partials/dns_vpn_result.html")]
-pub(crate) struct Answered {
+#[template(path = "partials/dns_vpn_notes.html")]
+struct Notes {
     /// Locale carrier.
     shell: Shell,
+    /// The localized notes.
+    notes: Vec<String>,
+}
+
+/// The region read back and the page actions, both out of band
+/// (`partials/dns_vpn_refreshed.html`).
+#[derive(Template)]
+#[template(path = "partials/dns_vpn_refreshed.html")]
+struct Refreshed {
+    /// The region, marked out of band.
+    region: Region,
+    /// The page actions.
+    actions: Vec<Act>,
+}
+
+localized!(Notes);
+
+/// The answer to a change: its outcome, notes on what it left out, and the region and the
+/// page actions read back, out of band.
+pub(crate) struct Answered {
+    /// The viewer's locale.
+    locale: Locale,
     /// The outcome.
     outcome: Outcome,
     /// Localized notes shown with a success: what the change could not include.
     notes: Vec<String>,
-    /// The region read back, sent out of band.
-    refreshed: Option<Region>,
-    /// The page actions read back, sent out of band with the region.
-    actions: Vec<Act>,
+    /// The region and the page actions read back, rendered.
+    refreshed: Option<String>,
 }
-
-localized!(Answered);
 
 impl Answered {
     /// The answer showing `outcome` in `locale`.
     pub(crate) const fn new(outcome: Outcome, locale: Locale) -> Self {
         Self {
-            shell: fragment_shell(locale),
+            locale,
             outcome,
             notes: Vec::new(),
             refreshed: None,
-            actions: Vec::new(),
         }
     }
 
     /// Sends the region and the page actions, read back, out of band.
     pub(crate) fn refreshed(mut self, read_back: Option<(Region, Vec<Act>)>) -> Self {
         if let Some((region, actions)) = read_back {
-            self.refreshed = Some(region.out_of_band());
-            self.actions = actions;
+            self.refreshed = rendered(&Refreshed {
+                region: region.out_of_band(),
+                actions,
+            });
         }
         self
     }
@@ -249,7 +262,14 @@ impl Answered {
 
     /// The response: the outcome's status, the shared dialog closed.
     pub(crate) fn respond(self) -> Response {
-        let status = self.outcome.status();
-        respond::close_dialog(with_status(errors::render(&self), status))
+        let extra = if self.notes.is_empty() {
+            None
+        } else {
+            rendered(&Notes {
+                shell: fragment_shell(self.locale),
+                notes: self.notes,
+            })
+        };
+        changed(self.outcome, self.refreshed, extra, self.locale)
     }
 }

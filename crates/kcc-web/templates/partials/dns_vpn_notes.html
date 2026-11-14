@@ -1,0 +1,9 @@
+{#- Notes on what a DNS or VPN change left out. -#}
+<div class="notice" data-tone="info">
+  <p class="notice__title">{{ t(keys::WEB_VPN_IMPORT_SKIPPED) }}</p>
+  <ul class="issues">
+    {%- for note in notes %}
+    <li>{{ note }}</li>
+    {%- endfor %}
+  </ul>
+</div>

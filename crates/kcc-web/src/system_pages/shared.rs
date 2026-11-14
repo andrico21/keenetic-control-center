@@ -1,10 +1,9 @@
-//! What the system pages share: opening a page on its router, answering a change with
-//! its outcome and the region read back, and the query strings their actions carry.
+//! What the system pages share: opening a page on its router and the query strings their
+//! actions carry.
 
-use askama::Template;
-use axum::{http::HeaderMap, response::Response};
+use axum::http::HeaderMap;
 use kcc_domain::RouterCtx;
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{bundle::MessageKey, locale::Locale};
 use url::form_urlencoded;
 
 use crate::{
@@ -13,15 +12,13 @@ use crate::{
     errors,
     errors::Kind,
     nav::Section,
-    page::{Localize as _, Shell},
+    page::Shell,
     page_kit::{
         context,
         context::{Caller, fragment_shell},
         facts::RouterFacts,
         family::Family,
-        outcome::{Outcome, with_status},
         request::last,
-        respond,
         respond::Answer,
     },
 };
@@ -81,32 +78,6 @@ impl<'request> Visit<'request> {
             .map_err(|error| error.message(Family::Changes));
         Ok((shell, reading))
     }
-}
-
-/// The answer to a change: its outcome, then the page's region read back.
-#[derive(Template)]
-#[template(path = "partials/system_result.html")]
-struct ResultView {
-    /// Locale carrier.
-    shell: Shell,
-    /// The outcome.
-    outcome: Outcome,
-    /// The region read back, sent out of band after a success.
-    refreshed: Option<String>,
-}
-
-localized!(ResultView);
-
-/// The answer to a change: the outcome in the page's outcome region, the `refreshed`
-/// region out of band, the shared dialog closed.
-pub(crate) fn answer(outcome: Outcome, refreshed: Option<String>, locale: Locale) -> Response {
-    let status = outcome.status();
-    let view = ResultView {
-        shell: fragment_shell(locale),
-        outcome,
-        refreshed,
-    };
-    respond::close_dialog(with_status(errors::render(&view), status))
 }
 
 /// The pairs of a request's query string, then those of its form body.

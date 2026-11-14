@@ -42,13 +42,8 @@ use axum::{
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use crate::{
-    WebState, errors,
-    page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        outcome::{Outcome, with_status},
-        respond,
-    },
+    WebState,
+    page_kit::{outcome::Outcome, request::rendered, respond::changed},
 };
 
 /// The local network routes.
@@ -162,22 +157,16 @@ impl TabLink {
     }
 }
 
-/// The answer to a change: its outcome and, after a success, the page's region read back
-/// and sent out of band.
+/// A sentence about a change beyond its outcome, such as the failed segment step.
 #[derive(Template)]
-#[template(path = "partials/lan_result.html")]
-struct ResultView {
-    /// Locale carrier.
-    shell: Shell,
-    /// The outcome.
-    outcome: Outcome,
-    /// The region read back, rendered.
-    refreshed: Option<String>,
-    /// A sentence about the change beyond the outcome, such as the failed segment step.
-    note: Option<String>,
+#[template(
+    ext = "html",
+    source = "<p class=\"notice\" data-tone=\"error\">{{ text }}</p>"
+)]
+struct Note<'text> {
+    /// The sentence.
+    text: &'text str,
 }
-
-localized!(ResultView);
 
 /// The answer to a change: `outcome` with `refreshed` out of band and `note` beside it,
 /// the dialog closed.
@@ -187,12 +176,6 @@ pub(crate) fn answer(
     note: Option<String>,
     locale: Locale,
 ) -> Response {
-    let status = outcome.status();
-    let view = ResultView {
-        shell: fragment_shell(locale),
-        outcome,
-        refreshed,
-        note,
-    };
-    respond::close_dialog(with_status(errors::render(&view), status))
+    let extra = note.and_then(|text| rendered(&Note { text: &text }));
+    changed(outcome, refreshed, extra, locale)
 }

@@ -26,10 +26,14 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{self, unusable},
+    net_change::unusable,
     page_kit::{
-        action::Operation, change::Applied, confirm::Confirmation, failure::plan_failure,
-        family::Family, respond::Answer,
+        action::Operation,
+        change::Applied,
+        confirm::Confirmation,
+        failure::plan_failure,
+        family::Family,
+        respond::{Answer, changed},
     },
     system_pages::shared::profile_login,
 };
@@ -152,7 +156,7 @@ pub(crate) async fn psk(
         })
         .await;
     let outcome = verified(applied, locale, keys::WEB_VPN_PRESHARED);
-    Ok(net_change::answer(outcome, None, locale))
+    Ok(changed(outcome, None, None, locale))
 }
 
 /// The router accounts a VPN password may be set for: every account but the one kcc signs

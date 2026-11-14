@@ -41,9 +41,8 @@ use crate::{
         family::Family,
         outcome::{Failure, Outcome},
         request::with_query,
-        respond::Answer,
+        respond::{Answer, changed},
     },
-    system_pages::shared::answer,
 };
 
 /// Path of the migration wizard (todo 43).
@@ -147,7 +146,7 @@ pub(crate) async fn raw_restore(
         }
         Err(_elapsed) => Outcome::info(tr(locale, keys::WEB_CONFIG_RAW_PENDING, None), "pending"),
     };
-    Ok(answer(outcome, None, locale))
+    Ok(changed(outcome, None, None, locale))
 }
 
 /// Whether the backup `text` can be restored raw onto a router of `model`: it must name
@@ -218,5 +217,5 @@ async fn ask(opened: &Opened<'_>, name: &str, wrong_name: bool) -> Response {
 async fn stop(opened: Opened<'_>, name: &str, failure: Failure) -> Response {
     let locale = opened.user().locale();
     opened.finish((name, Value::Null), failure.audit()).await;
-    answer(Outcome::failed(failure), None, locale)
+    changed(Outcome::failed(failure), None, None, locale)
 }

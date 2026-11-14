@@ -33,9 +33,8 @@ use crate::{
         change::Applied,
         confirm::Gate,
         outcome::{Failure, Outcome},
-        respond::Answer,
+        respond::{Answer, changed},
     },
-    system_pages::shared::answer,
 };
 
 /// Save, audited as `web.config_save`.
@@ -151,7 +150,7 @@ pub(crate) async fn rollback(
                 .map(|result| Applied::Terminal(result.responses))
         })
         .await;
-    Ok(answer(outcome, None, locale))
+    Ok(changed(outcome, None, None, locale))
 }
 
 /// `action` back when the router's fail-safe timer runs.
@@ -183,5 +182,5 @@ async fn while_armed(action: Action<'_>) -> Result<Action<'_>, Answer> {
 
 /// The answer to an action stopped by `failure`.
 fn refused(locale: Locale, failure: Failure) -> Response {
-    answer(Outcome::failed(failure), None, locale)
+    changed(Outcome::failed(failure), None, None, locale)
 }

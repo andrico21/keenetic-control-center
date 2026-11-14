@@ -1,13 +1,24 @@
 //! The htmx answers pages share: sending the browser elsewhere, choosing where a fragment
-//! lands, and opening or closing the shared dialog.
+//! lands, opening or closing the shared dialog, and the answer to a change.
 
 use askama::Template;
 use axum::{
     http::{HeaderValue, StatusCode},
     response::{IntoResponse, Response},
 };
+use kcc_i18n::{keys, locale::Locale};
 
-use crate::{errors, page::Localize};
+use super::{
+    context::fragment_shell,
+    outcome::{Outcome, with_status},
+};
+use crate::{
+    errors,
+    page::{Localize, Shell},
+};
+
+#[cfg(test)]
+mod changed_tests;
 
 /// The response a handler answers with instead of going on: a refusal, a dialog with its
 /// field errors, an outcome. Handlers return `Result<Response, Answer>` and use `?`.
@@ -95,4 +106,66 @@ where
         ));
     }
     response
+}
+
+/// The answer to a change, for the page's outcome region: the outcome, then what the page
+/// says beyond it, then the page's region read back, out of band.
+#[derive(Template)]
+#[template(path = "partials/kit_result.html")]
+pub(crate) struct Changed {
+    /// Locale carrier.
+    shell: Shell,
+    /// The outcome.
+    outcome: Outcome,
+    /// The page's own report of what the change did, shown in place of the outcome's
+    /// notice.
+    report: Option<String>,
+    /// What the page says beyond the outcome, rendered.
+    extra: Option<String>,
+    /// The region read back, rendered for sending out of band.
+    refreshed: Option<String>,
+}
+
+localized!(Changed);
+
+impl Changed {
+    /// The answer showing `outcome` in `locale`, then `extra`, then `refreshed`.
+    pub(crate) const fn new(
+        outcome: Outcome,
+        refreshed: Option<String>,
+        extra: Option<String>,
+        locale: Locale,
+    ) -> Self {
+        Self {
+            shell: fragment_shell(locale),
+            outcome,
+            report: None,
+            extra,
+            refreshed,
+        }
+    }
+
+    /// Shows `report` in place of the outcome's notice; the outcome's toasts and the
+    /// unsaved badge still go out of band.
+    pub(crate) fn with_report(mut self, report: String) -> Self {
+        self.report = Some(report);
+        self
+    }
+
+    /// HTTP status of the answer: the outcome's.
+    pub(crate) const fn status(&self) -> StatusCode {
+        self.outcome.status()
+    }
+}
+
+/// The answer to a change: `outcome` in the page's outcome region with `extra` after it,
+/// the `refreshed` region out of band, the shared dialog closed.
+pub(crate) fn changed(
+    outcome: Outcome,
+    refreshed: Option<String>,
+    extra: Option<String>,
+    locale: Locale,
+) -> Response {
+    let view = Changed::new(outcome, refreshed, extra, locale);
+    close_dialog(with_status(errors::render(&view), view.status()))
 }

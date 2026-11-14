@@ -16,7 +16,7 @@ use kcc_domain::{configuration::SafetyNet, services};
 
 use super::{
     services::{Viewer, known},
-    shared::{answer, forbidden, merged, value},
+    shared::{forbidden, merged, value},
 };
 use crate::{
     WebState,
@@ -30,7 +30,7 @@ use crate::{
         gate::allowed,
         outcome::Outcome,
         request::{missing, shown_query, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -89,7 +89,7 @@ pub(crate) async fn toggle(
             let failure = plan_failure(Family::Changes, locale, &error);
             let outcome =
                 Outcome::invalid(Family::Changes, locale, vec![failure.message().to_owned()]);
-            return Ok(answer(outcome, None, locale));
+            return Ok(changed(outcome, None, None, locale));
         }
     };
     let on = if wanted { "true" } else { "false" };
@@ -111,5 +111,5 @@ pub(crate) async fn toggle(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }

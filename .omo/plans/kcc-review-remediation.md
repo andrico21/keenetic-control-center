@@ -534,7 +534,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): one request-helper module
   Recommended task executor category: unspecified-high - ~30 call sites across page families
 
-- [ ] 31. One change-result view and template
+- [x] 31. One change-result view and template
   What to do / Must NOT do: Add `page_kit::respond::changed(outcome, refreshed: Option<String>, extra: Option<String>, locale)` and one template `crates/kcc-web/templates/partials/kit_result.html` (`kit::result(outcome)` + optional `extra` + optional out-of-band `refreshed`). Replace the six views and templates: `net_change.rs:178-206` + `net_result.html`, `clients_pages.rs:166-203` + `lan_result.html` (its `note` goes into `extra`), `system_pages/shared.rs:88-115` + `system_result.html`, `routing_page/reply.rs:70-111` + `routing_result.html` (the route-wipe `guard` banner is rendered into `extra`), `system_general.rs:99-118,273-281` + `system_general_result.html`, `dns_vpn/screen.rs:210-266` + `dns_vpn_result.html` (`notes` and page actions into `extra`). Delete the six templates. Must NOT: change element ids, `hx-swap-oob` targets or text.
   Closes: GAP-10
   Parallelization: Wave W5 | Blocked by: 30 | Blocks: 32 | Can parallelize with: -

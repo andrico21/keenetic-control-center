@@ -22,7 +22,8 @@
 //! - [`dialog`]: the one-field edit dialog.
 //! - [`audit`]: one record per action with field names, never values.
 //! - [`facts`]: the router's catalog, cached, so validation never contacts the router.
-//! - [`respond`]: the htmx answers: redirects, retargets and the shared dialog.
+//! - [`respond`]: the htmx answers: redirects, retargets, the shared dialog and the answer
+//!   to a change (its outcome, what the page adds, the region read back).
 //! - [`request`]: what a page reads from a request: its parameters (the last value of a
 //!   name counts), the page the browser shows, and the addresses of its actions.
 //! - [`secret`] and [`reveal`]: write-only secret fields, and the audited Reveal action

@@ -958,7 +958,7 @@ Tokens: `--routing-table-min` (40rem) is the narrowest a table of these pages ge
 - Family tabs (`partials/routing_tabs.html`, `routing_page::frame::Tab`): the admin tab
   styles in the wrapping variant (`.tabs--wrap`); the navigation marks Routing for the first
   three and Firewall for port forwarding and the firewall.
-- Route-wipe banner (`.routing-guard` in `partials/routing_result.html`): a `role="alert"`
+- Route-wipe banner (`.routing-guard` in `partials/routing_guard.html`): a `role="alert"`
   section in the outcome region, in place of the outcome's notice, after the router answered
   one route's removal by clearing every route. When every route it had before is back: the
   warning wash, "The router cleared every route. kcc put them back.", the count sentence

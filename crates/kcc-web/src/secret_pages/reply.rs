@@ -9,10 +9,7 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use crate::{
-    net_change,
-    page_kit::{action::Action, outcome::Outcome},
-};
+use crate::page_kit::{action::Action, outcome::Outcome, respond::changed};
 
 /// `outcome` of writing the secret `what` (a field label); a success says what the
 /// read-back checked: the router reports a stored value, never which one.
@@ -38,5 +35,5 @@ pub(crate) async fn unchanged(action: Action<'_>) -> Response {
     let locale = action.locale();
     action.abandon("unchanged").await;
     let headline = tr(locale, keys::WEB_SECRET_UNCHANGED, None);
-    net_change::answer(Outcome::info(headline, "unchanged"), None, locale)
+    changed(Outcome::info(headline, "unchanged"), None, None, locale)
 }

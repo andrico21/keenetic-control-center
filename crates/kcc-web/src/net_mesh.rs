@@ -29,7 +29,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    net_change::{Planned, answer, finish},
+    net_change::{Planned, finish},
     net_pages::{Call, Tab, Tabs, Viewer},
     page::{Localize as _, Shell},
     page_kit::{
@@ -41,7 +41,7 @@ use crate::{
         family::Family,
         gate::Controls,
         request::{Params, missing, rendered, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -288,7 +288,7 @@ async fn restart(call: Call<'_>, member: &ObjectName, params: &Params) -> Result
                 .map_err(workflow_error)
         })
         .await;
-    Ok(answer(outcome, None, locale))
+    Ok(changed(outcome, None, None, locale))
 }
 
 /// The change-workflow error of a member restart that failed.

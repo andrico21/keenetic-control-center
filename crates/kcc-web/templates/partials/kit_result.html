@@ -1,0 +1,14 @@
+{#- The answer to a change: the outcome (or the page's own report in place of its notice), more about the change, then the page's region read back, out of band. -#}
+{%- import "partials/kit_macros.html" as kit -%}
+{%- if let Some(text) = report -%}
+{{ text|safe }}
+{{ kit::signals(outcome) }}
+{%- else -%}
+{{ kit::result(outcome) }}
+{%- endif %}
+{%- if let Some(more) = extra %}
+{{ more|safe }}
+{%- endif %}
+{%- if let Some(region) = refreshed %}
+{{ region|safe }}
+{%- endif %}

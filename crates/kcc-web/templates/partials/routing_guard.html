@@ -1,6 +1,4 @@
-{#- The answer to a routing, port forwarding or firewall change: the outcome, or the route-wipe guard's banner in its place, then the view's region read back, out of band. -#}
-{%- import "partials/kit_macros.html" as kit -%}
-{%- if let Some(banner) = guard %}
+{#- The route-wipe guard's report, shown in place of the outcome's notice: the routes kcc put back, or those still missing. -#}
 <section class="routing-guard" role="alert" aria-labelledby="routing-guard-title" data-tone="{{ banner.tone() }}">
   <h2 class="routing-guard__title" id="routing-guard-title">{% if banner.complete() %}{{ t(keys::WEB_ROUTING_GUARD_TITLE) }}{% else %}{{ t(keys::WEB_ROUTING_GUARD_FAILED_TITLE) }}{% endif %}</h2>
   {%- if banner.complete() %}
@@ -20,13 +18,3 @@
   </ul>
   {%- endif %}
 </section>
-{{ kit::signals(outcome) }}
-{%- if banner.unsaved() %}
-<span class="masthead__status" id="unsaved-badge" hx-swap-oob="true"><a class="badge" href="/ui/configuration">{{ t(keys::WEB_ROUTER_UNSAVED) }}</a></span>
-{%- endif %}
-{%- else %}
-{{ kit::result(outcome) }}
-{%- endif %}
-{%- if let Some(region) = refreshed %}
-{{ region|safe }}
-{%- endif %}

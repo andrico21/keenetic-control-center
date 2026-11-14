@@ -21,7 +21,6 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change,
     net_change::unusable,
     page_kit::{
         action::{Action, Operation},
@@ -30,7 +29,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         request::{Params, missing, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
     system_pages::shared::profile_login,
 };
@@ -191,5 +190,5 @@ pub(crate) async fn run(
         locale,
         keys::WEB_INTERNET_PASSWORD,
     );
-    Ok(net_change::answer(outcome, None, locale))
+    Ok(changed(outcome, None, None, locale))
 }

@@ -23,7 +23,7 @@ use crate::{
         action::Operation,
         change::Applied,
         confirm::{Confirmation, Resubmit},
-        respond::Answer,
+        respond::{Answer, changed},
     },
 };
 
@@ -65,7 +65,7 @@ pub(crate) async fn reset(
                 .map_err(workflow_error)
         })
         .await;
-    Ok(super::answer(outcome, None, locale))
+    Ok(changed(outcome, None, None, locale))
 }
 
 /// The change-workflow error of a refused reset; the typed name was already checked, so a

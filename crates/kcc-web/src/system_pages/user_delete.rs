@@ -14,7 +14,7 @@ use kcc_domain::router_users;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
-    shared::{answer, profile_login, value},
+    shared::{profile_login, value},
     user_forms::{find, refusal_message},
     users::Viewer,
 };
@@ -28,7 +28,7 @@ use crate::{
         confirm::{Confirmation, Resubmit},
         context::fragment_shell,
         request::{missing, shown_query},
-        respond::{self, Answer},
+        respond::{self, Answer, changed},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
@@ -130,7 +130,7 @@ pub(crate) async fn delete(
         None
     };
     Ok(respond::retarget(
-        answer(outcome, refreshed, locale),
+        changed(outcome, refreshed, None, locale),
         "#page-outcome",
     ))
 }

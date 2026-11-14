@@ -31,7 +31,6 @@ use kcc_domain::system;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
-    locale::Locale,
 };
 
 use self::{
@@ -48,13 +47,12 @@ use crate::{
         action::Operation,
         change::{Applied, Change},
         confirm::{Confirmation, Resubmit},
-        context::{self, Caller, fragment_shell},
+        context::{self, Caller},
         failure::plan_failure,
         family::Family,
         gate::Controls,
-        outcome::{Outcome, with_status},
-        request::missing,
-        respond::{self, Answer},
+        request::{missing, rendered},
+        respond::{Answer, changed},
     },
     system_pages::tabs::{Tab, TabBar},
 };
@@ -94,21 +92,7 @@ struct Page {
     reset: bool,
 }
 
-/// The answer to a change: its outcome and, after a success, the settings read back.
-#[derive(Template)]
-#[template(path = "partials/system_general_result.html")]
-struct ResultView {
-    /// Locale carrier.
-    shell: Shell,
-    /// The outcome.
-    outcome: Outcome,
-    /// The settings read back, sent out of band.
-    refreshed: Option<Facts>,
-}
-
 localized!(Page);
-
-localized!(ResultView);
 
 /// `GET /ui/r/{router}/system/general`: the settings and the controls the role may use.
 pub(crate) async fn page(
@@ -219,15 +203,15 @@ pub(crate) async fn edit(
         let general = General::read(&domain).await;
         let controls = Controls::new(user.role(), &router)
             .with_operations(system::DESCRIPTOR.write_ops, Some(&domain.catalog));
-        Some(
-            Facts::new(locale, router, general)
+        rendered(
+            &Facts::new(locale, router, general)
                 .with_controls(controls)
                 .out_of_band(),
         )
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 /// `POST /ui/r/{router}/system/general/reboot`: asks for the router name, then restarts
@@ -259,16 +243,5 @@ pub(crate) async fn reboot(
                 .map(|result| Applied::Terminal(result.responses))
         })
         .await;
-    Ok(answer(outcome, None, locale))
-}
-
-/// The answer to a change: the outcome, the settings read back, the dialog closed.
-fn answer(outcome: Outcome, refreshed: Option<Facts>, locale: Locale) -> Response {
-    let status = outcome.status();
-    let view = ResultView {
-        shell: fragment_shell(locale),
-        outcome,
-        refreshed,
-    };
-    respond::close_dialog(with_status(errors::render(&view), status))
+    Ok(changed(outcome, None, None, locale))
 }

@@ -1,7 +1,7 @@
 //! How the routing, port forwarding and firewall pages answer.
 //!
 //! The plain confirmation of a removal, and the answer to a change with its outcome (or the
-//! route-wipe guard's banner) and the view's region read back.
+//! route-wipe guard's report) and the view's region read back.
 
 use askama::Template;
 use axum::response::Response;
@@ -19,7 +19,9 @@ use crate::{
         action::Action,
         context::fragment_shell,
         outcome::{Failure, Outcome, with_status},
+        request::rendered,
         respond,
+        respond::Changed,
     },
 };
 
@@ -63,22 +65,27 @@ impl ConfirmDialog {
     }
 }
 
-/// The answer to a change: its outcome or the route-wipe guard's banner, then the view's
-/// region read back, out of band (`partials/routing_result.html`).
+/// The route-wipe guard's report (`partials/routing_guard.html`).
 #[derive(Template)]
-#[template(path = "partials/routing_result.html")]
-struct ResultView {
+#[template(path = "partials/routing_guard.html")]
+struct GuardView {
     /// Locale carrier.
     shell: Shell,
-    /// The outcome.
-    outcome: Outcome,
-    /// What the route-wipe guard did, shown instead of the outcome's notice.
-    guard: Option<Guard>,
-    /// The region read back.
-    refreshed: Option<String>,
+    /// What the guard did.
+    banner: Guard,
 }
 
-localized!(ResultView);
+/// The answer of these pages: the kit's answer to a change, after a blank line.
+#[derive(Template)]
+#[template(ext = "html", source = "\n{{ changed|safe }}")]
+struct Answered {
+    /// Locale carrier.
+    shell: Shell,
+    /// The kit's answer.
+    changed: Changed,
+}
+
+localized!(GuardView, Answered);
 
 /// The answer to a change: `outcome` in the page's outcome region, `refreshed` out of
 /// band, the shared dialog closed.
@@ -86,19 +93,33 @@ pub(crate) fn answer(outcome: Outcome, refreshed: Option<String>, locale: Locale
     guarded(outcome, None, refreshed, locale)
 }
 
-/// [`answer`] with the route-wipe guard's banner in place of the outcome's notice.
+/// [`answer`] with the route-wipe guard's report in place of the outcome's notice, and the
+/// unsaved badge when the restore left the router with unsaved changes.
 pub(crate) fn guarded(
     outcome: Outcome,
     guard: Option<Guard>,
     refreshed: Option<String>,
     locale: Locale,
 ) -> Response {
-    let status = outcome.status();
-    let view = ResultView {
+    let changed = match guard {
+        Some(banner) => {
+            let shown = outcome.with_unsaved(banner.unsaved());
+            let view = Changed::new(shown, refreshed, None, locale);
+            let report = rendered(&GuardView {
+                shell: fragment_shell(locale),
+                banner,
+            });
+            match report {
+                Some(text) => view.with_report(text),
+                None => view,
+            }
+        }
+        None => Changed::new(outcome, refreshed, None, locale),
+    };
+    let status = changed.status();
+    let view = Answered {
         shell: fragment_shell(locale),
-        outcome,
-        guard,
-        refreshed,
+        changed,
     };
     respond::close_dialog(with_status(errors::render(&view), status))
 }

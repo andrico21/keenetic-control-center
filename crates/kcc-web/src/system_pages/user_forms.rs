@@ -24,7 +24,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
 use super::{
-    shared::{answer, merged, profile_login, value, values},
+    shared::{merged, profile_login, value, values},
     user_dialog::{Field, UserDialog, check},
     users::{Account, Viewer, accounts, offered_tags},
 };
@@ -39,7 +39,7 @@ use crate::{
         family::Family,
         outcome::Outcome,
         request::{missing, shown_query, with_query},
-        respond::Answer,
+        respond::{Answer, changed},
     },
     secret_pages::dialog::{Entry, entry},
 };
@@ -135,7 +135,7 @@ pub(crate) async fn create(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 /// `POST /ui/r/{router}/system/users/tags`: sets the tags of one account to the checked
@@ -182,7 +182,12 @@ pub(crate) async fn set_tags(
     if changes.is_empty() {
         action.abandon("unchanged").await;
         let headline = tr(locale, keys::WEB_SYSTEM_UNCHANGED, None);
-        return Ok(answer(Outcome::info(headline, "unchanged"), None, locale));
+        return Ok(changed(
+            Outcome::info(headline, "unchanged"),
+            None,
+            None,
+            locale,
+        ));
     }
     let request = match plan_tags(&domain, &name, &changes) {
         Ok(found) => found,
@@ -209,7 +214,7 @@ pub(crate) async fn set_tags(
     } else {
         None
     };
-    Ok(answer(outcome, refreshed, locale))
+    Ok(changed(outcome, refreshed, None, locale))
 }
 
 /// The account `name` of the router of `domain`.
