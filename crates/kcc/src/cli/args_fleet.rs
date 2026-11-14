@@ -4,55 +4,20 @@ use std::path::PathBuf;
 
 use clap::{Subcommand, ValueEnum};
 
+use super::args_router::{AddArgs, EditArgs};
+
 /// Router profile commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
 pub enum RouterCommand {
     /// List the router profiles in scope.
     List,
-    /// Add a router profile (password from `--password-file`, `KCC_PASSWORD` or a prompt).
-    Add {
-        /// Profile id, `[a-z0-9-]{1,32}`.
-        id: String,
-        /// Router origin, e.g. `http://192.168.1.1`.
-        #[arg(long)]
-        url: String,
-        /// Router login.
-        #[arg(long, default_value = "admin")]
-        login: String,
-        /// Free-form label; repeat for several.
-        #[arg(long = "tag")]
-        tags: Vec<String>,
-        /// Allow live tests against this router.
-        #[arg(long)]
-        test_device: bool,
-        /// Accept exactly the TLS certificate with this SHA-256 (64 hex digits).
-        #[arg(long, value_name = "HEX")]
-        pin_sha256: Option<String>,
-    },
-    /// Change a router profile; options not given keep their value.
-    Edit {
-        /// Profile id.
-        id: String,
-        /// New router origin.
-        #[arg(long)]
-        url: Option<String>,
-        /// New router login.
-        #[arg(long)]
-        login: Option<String>,
-        /// Replace the labels; repeat for several.
-        #[arg(long = "tag")]
-        tags: Vec<String>,
-        /// Allow (`true`) or forbid (`false`) live tests.
-        #[arg(long, value_name = "BOOL")]
-        test_device: Option<bool>,
-        /// Pin the TLS certificate with this SHA-256.
-        #[arg(long, value_name = "HEX")]
-        pin_sha256: Option<String>,
-        /// Store a new password (from `--password-file`, `KCC_PASSWORD` or a prompt).
-        #[arg(long)]
-        new_password: bool,
-    },
+    /// Add a router profile; its credentials are sealed (password from `--password-file`,
+    /// `KCC_PASSWORD` or a prompt).
+    Add(AddArgs),
+    /// Change a router profile; options not given keep their value. A new URL, login or
+    /// TLS pin needs `--new-password` or `--new-token`.
+    Edit(EditArgs),
     /// Remove a router profile.
     Remove {
         /// Profile id.

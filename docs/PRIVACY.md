@@ -13,7 +13,8 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Data | Location | Form | Kept |
 |---|---|---|---|
 | Router profiles added in the Web UI or CLI: name, URL, login, managed credential path, TLS mode, tags | `routers.json` | plain JSON, no password | until you remove the router |
-| Router passwords typed into the Web UI or a CLI prompt | `router-credentials/<id>.sealed` | encrypted with the master key, router id as associated data | until you remove the router |
+| Router passwords typed into the Web UI, or given to `kcc router add/edit` (file, `KCC_PASSWORD` or prompt) | `router-credentials/<id>.sealed` | encrypted with the master key, router id as associated data | until you remove the router |
+| Router login tokens and read-only polling passwords given to `kcc router add/edit` | `router-credentials/<id>.token.sealed`, `router-credentials/<id>.read.sealed` | encrypted with the master key, `<id>:token` / `<id>:read` as associated data | until you remove the router or replace the credential |
 | Router profiles in `kcc.toml` and their password files | where you put them | as you keep them | as you keep them |
 | Web accounts: name, role, password hash, lockout state, language | `users.json` | hash encrypted | until deleted |
 | API keys: name, role, Argon2id hash | `api_keys.json` | hash only | until revoked |
@@ -87,9 +88,11 @@ credential files.
 
 `KCC_MASTER_KEY_FILE` points to the key outside the state directory. A backup or copy of
 state does not decrypt itself: restore the same key separately or the sealed router
-credentials and other encrypted records are permanently unrecoverable. Operator-managed
-`password_file`, `read_password_file` and `token_file` paths are never imported or
-rewritten by this store.
+credentials and other encrypted records are permanently unrecoverable. The
+`password_file`, `read_password_file` and `token_file` paths of `kcc.toml` routers are
+never imported by this store. The files given to `kcc router add/edit`
+(`--password-file`, `--token-file`, `--read-password-file`) are read once and may be
+deleted afterwards; kcc never deletes or rewrites them.
 
 Records queued for a sink are kept in memory only (up to `[logs] queue_max` per sink)
 and are lost at exit or on overflow.

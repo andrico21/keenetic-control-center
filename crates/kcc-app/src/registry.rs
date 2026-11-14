@@ -19,6 +19,9 @@ extern crate alloc;
 
 mod auth;
 mod budgets;
+mod stored;
+#[cfg(test)]
+mod transition_tests;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, str::FromStr as _};
@@ -32,15 +35,15 @@ use kcc_rci::{
     AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl, TlsMode,
     auth::Credentials, capabilities::RouterInfo, observe::RciObserver,
 };
-use secrecy::{ExposeSecret as _, SecretString};
+use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use tokio::sync::{Mutex, watch};
 use url::Url;
 
 use crate::{
-    credentials::{CredentialError, CredentialStore},
+    credentials::{CredentialError, CredentialKind, CredentialStore},
     permissions::{Permission, Role},
-    persist::{Migration, StateDoc, StateError, StateStore, write_atomic},
+    persist::{Migration, StateDoc, StateError, StateStore},
     settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls, is_valid_router_id},
 };
 
@@ -128,6 +131,24 @@ impl ManagedRouterProfile {
                 })
             }
         }
+    }
+
+    /// The file holding this profile's credential of `kind`, when it has one.
+    #[must_use]
+    pub fn credential_path(&self, kind: CredentialKind) -> Option<&Path> {
+        match kind {
+            CredentialKind::Password => self.password_file.as_deref(),
+            CredentialKind::Token => self.token_file.as_deref(),
+            CredentialKind::ReadPassword => self.read_password_file.as_deref(),
+        }
+    }
+
+    /// Whether this profile reaches a different endpoint than `before`: another URL,
+    /// login or TLS pin. Such a change needs the primary credential again and drops the
+    /// read-only credential unless it is given again.
+    #[must_use]
+    pub fn moves_endpoint(&self, before: &Self) -> bool {
+        self.url != before.url || self.login != before.login || self.tls != before.tls
     }
 }
 
@@ -284,7 +305,11 @@ impl RouterRegistry {
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(id).await);
-        options.auth = auth::options(&profile, CredentialUse::Primary)?;
+        options.auth = auth::options(
+            self.credentials.as_deref(),
+            &profile,
+            CredentialUse::Primary,
+        )?;
         Ok(Arc::new(
             RciClient::connect_bootstrap_with(
                 router_url(&profile)?,
@@ -297,6 +322,11 @@ impl RouterRegistry {
 
     /// Publishes a freshly authenticated client and replaces its primary password atomically.
     /// Only a leased workflow may call this transition.
+    ///
+    /// A Web UI or CLI profile gets the new password sealed and points at its sealed
+    /// record; a `kcc.toml` profile (or any profile without a credential store) gets its
+    /// own `password_file` rewritten. A token profile stores no password and keeps no
+    /// cached client, so its next client signs in with the stored token.
     // NOT cancel-safe: once persistence begins, the transition runs without await points.
     pub(crate) async fn transition(
         &self,
@@ -307,34 +337,23 @@ impl RouterRegistry {
         let endpoint =
             Url::parse(client.router_url().as_str()).map_err(|_error| RciError::Validation)?;
         let mut clients = self.clients.lock().await;
+        let source = if self.config.read().map_err(lock_error)?.contains_key(id) {
+            ProfileSource::Config
+        } else {
+            ProfileSource::State
+        };
         let mut profiles = self.profiles.write().map_err(lock_error)?;
         let mut profile = profiles
             .get(id)
             .cloned()
             .ok_or_else(|| RegistryError::NotFound { id: id.to_owned() })?;
-        if let Some(credential) = replacement
-            && let Some(password_file) = profile.password_file.clone()
-        {
-            let parent = password_file
-                .parent()
-                .ok_or_else(|| RegistryError::InvalidProfile {
-                    reason: "credential file has no parent".to_owned(),
-                })?;
-            let name = password_file
-                .file_name()
-                .and_then(|name| name.to_str())
-                .ok_or_else(|| RegistryError::InvalidProfile {
-                    reason: "credential file has no name".to_owned(),
-                })?;
-            if let Some(store) = &self.credentials
-                && store.manages(id, &password_file)?
-            {
-                store.store(id, &credential.password)?;
-                profile.password_file = Some(store.sealed_path(id)?);
-            } else {
-                write_atomic(parent, name, credential.password.expose_secret().as_bytes())?;
-            }
-            profile.login.clone_from(&credential.login);
+        if let Some(credential) = replacement {
+            stored::replace_password(
+                self.credentials.as_deref(),
+                source,
+                &mut profile,
+                credential,
+            )?;
         }
         profile.url = endpoint;
         self.store.update::<RoutersDocument, _, _>(|document| {
@@ -342,8 +361,13 @@ impl RouterRegistry {
                 stored.clone_from(&profile);
             }
         })?;
+        let token = profile.password_file.is_none();
         drop(profiles.insert(id.to_owned(), profile));
-        drop(clients.insert(id.to_owned(), client));
+        if token {
+            drop(clients.remove(id));
+        } else {
+            drop(clients.insert(id.to_owned(), client));
+        }
         Ok(())
     }
 
@@ -387,6 +411,32 @@ impl RouterRegistry {
     pub fn with_credentials(mut self, credentials: Arc<CredentialStore>) -> Self {
         self.credentials = Some(credentials);
         self
+    }
+
+    /// The Web UI and CLI profiles whose password still sits in an external plaintext
+    /// file instead of a sealed record, as `(router id, file)`.
+    ///
+    /// # Errors
+    ///
+    /// Returns registry lock or credential path errors.
+    pub fn external_password_files(&self) -> Result<Vec<(String, PathBuf)>, RegistryError> {
+        let mut external = Vec::new();
+        for entry in self.list()? {
+            if !matches!(entry.source, ProfileSource::State) {
+                continue;
+            }
+            let Some(file) = entry.profile.password_file else {
+                continue;
+            };
+            let managed = match &self.credentials {
+                Some(store) => store.manages(&entry.profile.id, CredentialKind::Password, &file)?,
+                None => false,
+            };
+            if !managed {
+                external.push((entry.profile.id, file));
+            }
+        }
+        Ok(external)
     }
 
     /// Follows changes of the profile set (create, update, delete, reload): the value is a
@@ -705,7 +755,7 @@ impl RouterRegistry {
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(&profile.id).await);
-        options.auth = auth::options(profile, CredentialUse::Primary)?;
+        options.auth = auth::options(self.credentials.as_deref(), profile, CredentialUse::Primary)?;
         RciClient::connect_with(router_url(profile)?, credentials, options)
             .await?
             .detect()
@@ -724,7 +774,7 @@ impl RouterRegistry {
         options.tls = tls_mode(&profile.tls)?;
         options.observer = self.observer(&profile.id);
         options.budget = Some(self.budgets.get(&profile.id).await);
-        options.auth = auth::options(profile, credential_use)?;
+        options.auth = auth::options(self.credentials.as_deref(), profile, credential_use)?;
         RciClient::connect_with(
             router_url(profile)?,
             self.credentials(profile, credential_use)?,
@@ -747,13 +797,12 @@ impl RouterRegistry {
             ));
         }
         let (login, path) = credential_parts(profile, credential_use)?;
-        if matches!(credential_use, CredentialUse::Primary)
-            && let Some(store) = &self.credentials
-            && store.manages(&profile.id, path)?
-        {
-            return Ok(Credentials::new(login.to_owned(), store.open(&profile.id)?));
-        }
-        credential_file(login, path)
+        let kind = match credential_use {
+            CredentialUse::Primary => CredentialKind::Password,
+            CredentialUse::ReadOnly => CredentialKind::ReadPassword,
+        };
+        let secret = stored::secret(self.credentials.as_deref(), &profile.id, kind, path)?;
+        Ok(Credentials::new(login.to_owned(), secret))
     }
 }
 
@@ -864,11 +913,6 @@ fn credential_parts(
         ),
     };
     Ok((login, path))
-}
-
-/// Reads one operator-managed plaintext credential file.
-fn credential_file(login: &str, path: &Path) -> Result<Credentials, RegistryError> {
-    Ok(Credentials::new(login.to_owned(), auth::secret_file(path)?))
 }
 
 /// Converts a profile URL into the protocol origin type.

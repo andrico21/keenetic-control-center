@@ -11,10 +11,12 @@ extern crate alloc;
 mod tests {
     use alloc::sync::Arc;
     use core::error::Error;
+    use std::process;
 
     use kcc_app::{
         audit::{Actor, ActorKind, AuditLog, verify_chain},
         backups::BackupStore,
+        credentials::{CredentialKind, CredentialStore},
         permissions::{Permission, Role},
         persist::StateStore,
         registry::{ManagedRouterProfile, RouterRegistry},
@@ -25,12 +27,14 @@ mod tests {
     use kcc_catalog::Catalog;
     use kcc_rci::auth::Credentials;
     use kcc_testkit::{FakeRouter, model::Profile};
-    use secrecy::SecretString;
+    use secrecy::{ExposeSecret as _, SecretString};
     use tempfile::TempDir;
     use tokio::fs;
     use url::Url;
 
-    /// First-password replay survives loss of passwordless access and updates registry credentials.
+    /// First-password replay survives loss of passwordless access and seals the new password:
+    /// the profile's external plaintext file stays as it was and the profile points at the
+    /// sealed record afterwards.
     // NOT cancel-safe: performs isolated configuration and credential writes.
     #[tokio::test]
     async fn bootstrap_transitions_the_leased_client_and_stored_password()
@@ -45,7 +49,14 @@ mod tests {
         let state = StateStore::open(&directory.path().join("state"))?;
         let mut outbound = OutboundConfig::default();
         outbound.allow_loopback = true;
-        let registry = Arc::new(RouterRegistry::new(state.clone(), &[], &outbound)?);
+        let credentials = Arc::new(CredentialStore::new(
+            state.clone(),
+            MasterKey::from_bytes([9_u8; 32]),
+        ));
+        let registry = Arc::new(
+            RouterRegistry::new(state.clone(), &[], &outbound)?
+                .with_credentials(Arc::clone(&credentials)),
+        );
         let role = Role::new("admin".to_owned(), Permission::ALL, Vec::new());
         registry
             .create(
@@ -77,7 +88,8 @@ mod tests {
             .await?;
         let client = changes.client();
         let catalog = Catalog::for_router(&client.detect().await?)?;
-        let password = "new-primary-password";
+        let secret = format!("new-primary-{}", process::id());
+        let password = secret.as_str();
         let validated = catalog
             .validate_secret(
                 "user password plain",
@@ -102,7 +114,18 @@ mod tests {
             .await?;
 
         assert_eq!(result.outcomes, vec![ReplayOutcome::Applied]);
-        assert_eq!(fs::read_to_string(&password_file).await?, password);
+        assert_eq!(fs::read_to_string(&password_file).await?, "");
+        assert_eq!(
+            credentials
+                .open("router", CredentialKind::Password)?
+                .expose_secret(),
+            password
+        );
+        let sealed = credentials.sealed_path("router", CredentialKind::Password)?;
+        let stored = registry.get("router")?.profile.password_file;
+        assert_eq!(stored.as_ref(), Some(&sealed));
+        let routers = fs::read_to_string(state.dir().join("routers.json")).await?;
+        assert!(routers.contains(&sealed.display().to_string()));
         assert!(!changes.client().is_bootstrap().await?);
         assert_eq!(registry.poll_info("router").await?.hw_id(), Some("KN-1811"));
         assert_eq!(backups.list("router")?.len(), 1);

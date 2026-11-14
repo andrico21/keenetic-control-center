@@ -329,6 +329,40 @@ pub const CLI_DONE: MessageKey = MessageKey::new("cli-done");
 /// `cli-router-out-of-scope` in `cli.ftl`.
 pub const CLI_ROUTER_OUT_OF_SCOPE: MessageKey = MessageKey::new("cli-router-out-of-scope");
 
+/// `cli-prompt-router-token` in `cli.ftl`.
+pub const CLI_PROMPT_ROUTER_TOKEN: MessageKey = MessageKey::new("cli-prompt-router-token");
+
+/// `cli-prompt-router-read-password` in `cli.ftl`.
+pub const CLI_PROMPT_ROUTER_READ_PASSWORD: MessageKey =
+    MessageKey::new("cli-prompt-router-read-password");
+
+/// `cli-router-token-needs-token-auth` in `cli.ftl`.
+pub const CLI_ROUTER_TOKEN_NEEDS_TOKEN_AUTH: MessageKey =
+    MessageKey::new("cli-router-token-needs-token-auth");
+
+/// `cli-router-read-needs-login` in `cli.ftl`.
+pub const CLI_ROUTER_READ_NEEDS_LOGIN: MessageKey = MessageKey::new("cli-router-read-needs-login");
+
+/// `cli-router-password-needs-password-auth` in `cli.ftl`.
+pub const CLI_ROUTER_PASSWORD_NEEDS_PASSWORD_AUTH: MessageKey =
+    MessageKey::new("cli-router-password-needs-password-auth");
+
+/// `cli-router-switch-needs-token` in `cli.ftl`.
+pub const CLI_ROUTER_SWITCH_NEEDS_TOKEN: MessageKey =
+    MessageKey::new("cli-router-switch-needs-token");
+
+/// `cli-router-switch-needs-password` in `cli.ftl`.
+pub const CLI_ROUTER_SWITCH_NEEDS_PASSWORD: MessageKey =
+    MessageKey::new("cli-router-switch-needs-password");
+
+/// `cli-router-credential-required` in `cli.ftl`.
+pub const CLI_ROUTER_CREDENTIAL_REQUIRED: MessageKey =
+    MessageKey::new("cli-router-credential-required");
+
+/// `cli-router-external-password` in `cli.ftl`.
+pub const CLI_ROUTER_EXTERNAL_PASSWORD: MessageKey =
+    MessageKey::new("cli-router-external-password");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6693,7 +6727,7 @@ pub const WEB_MIGRATE_NOTHING_TO_SEND: MessageKey = MessageKey::new("web-migrate
 pub const WEB_BRACKET_UNOWNED: MessageKey = MessageKey::new("web-bracket-unowned");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2134] = [
+pub static ALL: [MessageKey; 2143] = [
     CLI_ABOUT,
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
@@ -6802,6 +6836,15 @@ pub static ALL: [MessageKey; 2134] = [
     FAILSAFE_ROLLBACK_REBOOTING,
     CLI_DONE,
     CLI_ROUTER_OUT_OF_SCOPE,
+    CLI_PROMPT_ROUTER_TOKEN,
+    CLI_PROMPT_ROUTER_READ_PASSWORD,
+    CLI_ROUTER_TOKEN_NEEDS_TOKEN_AUTH,
+    CLI_ROUTER_READ_NEEDS_LOGIN,
+    CLI_ROUTER_PASSWORD_NEEDS_PASSWORD_AUTH,
+    CLI_ROUTER_SWITCH_NEEDS_TOKEN,
+    CLI_ROUTER_SWITCH_NEEDS_PASSWORD,
+    CLI_ROUTER_CREDENTIAL_REQUIRED,
+    CLI_ROUTER_EXTERNAL_PASSWORD,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

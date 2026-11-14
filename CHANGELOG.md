@@ -80,6 +80,21 @@ The first release, `0.1.0`, is in preparation and contains:
   `management_applied_fail_safe_armed` (bracketed changes) or
   `management_outcome_unknown_fail_safe_armed` (migration finish).
 
+- **Every router credential the CLI takes is sealed**: `kcc router add` and
+  `kcc router edit` read `--password-file` as input only and seal the password into
+  `<state>/router-credentials/<id>.sealed` (the file can be deleted afterwards); new
+  options `--auth <auto|ndw2|ndw4|token|digest>`, `--token-file` (sealed into
+  `<id>.token.sealed`, accepted only with `--auth token`), `--read-login` with
+  `--read-password-file` (sealed into `<id>.read.sealed`), and on edit `--new-token`,
+  `--new-read-password` and `--clear-read-login`. Changing a router's URL, login or TLS
+  pin needs the password or token again and clears the read-only login unless it is
+  given again, on the CLI and in the Web UI. A migration that changes the management
+  password of a Web UI or CLI router seals it instead of writing the profile's external
+  file. Router add/edit audit entries list the credential kinds that changed
+  (`"credentials": ["password", "token", "read"]`), never values. A state router that
+  still names an external password file is warned about once per CLI run and at
+  `kcc serve` startup.
+
 - **One message per migration failure**: the CLI, the Web UI, MCP and the engine report
   each migration failure with the same sentence. `ReplanRequired` asks to review the plan
   again everywhere (the preset page used to show the drift text), and the MCP migration

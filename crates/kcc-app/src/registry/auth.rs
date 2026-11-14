@@ -5,8 +5,9 @@ use std::path::Path;
 use kcc_rci::auth_options::{Mode, Options};
 use secrecy::SecretString;
 
-use super::{CredentialUse, ManagedRouterProfile, RegistryError};
+use super::{CredentialUse, ManagedRouterProfile, RegistryError, stored};
 use crate::{
+    credentials::{CredentialKind, CredentialStore},
     secrets::files::{SecretFileError, read_secret_file},
     settings::RouterAuth,
 };
@@ -29,8 +30,10 @@ pub(super) fn validate(profile: &ManagedRouterProfile) -> Result<(), RegistryErr
     })
 }
 
-/// Builds the RCI authentication policy; only the primary credential pair uses the token.
+/// Builds the RCI authentication policy; only the primary credential pair uses the token,
+/// opened from its sealed record when the profile points there.
 pub(super) fn options(
+    store: Option<&CredentialStore>,
     profile: &ManagedRouterProfile,
     credential_use: CredentialUse,
 ) -> Result<Options, RegistryError> {
@@ -44,7 +47,12 @@ pub(super) fn options(
     if matches!(credential_use, CredentialUse::Primary)
         && let Some(path) = &profile.token_file
     {
-        options.experimental_token = Some(secret_file(path)?);
+        options.experimental_token = Some(stored::secret(
+            store,
+            &profile.id,
+            CredentialKind::Token,
+            path,
+        )?);
     }
     Ok(options)
 }

@@ -166,9 +166,14 @@ impl Parsed {
         &self.url
     }
 
-    /// Whether applying these fields would move the profile's primary credential binding.
+    /// Whether applying these fields would move the profile's endpoint (the rule the
+    /// CLI applies too), which needs the primary credential again.
     pub(crate) fn moves_credential(&self, profile: &ManagedRouterProfile) -> bool {
-        self.url != profile.url || self.login != profile.login || self.tls != profile.tls
+        let mut moved = profile.clone();
+        moved.url.clone_from(&self.url);
+        moved.login.clone_from(&self.login);
+        moved.tls.clone_from(&self.tls);
+        moved.moves_endpoint(profile)
     }
 
     /// Copies the parsed fields into `profile`, keeping its id, password file and

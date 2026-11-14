@@ -284,6 +284,13 @@ impl Ctx {
             )?
             .with_credentials(Arc::clone(&credentials)),
         );
+        for (router, file) in registry.external_password_files()? {
+            let path = file.display().to_string();
+            self.out.note(&self.out.tr(
+                keys::CLI_ROUTER_EXTERNAL_PASSWORD,
+                &[("router", &router), ("path", &path)],
+            ));
+        }
         let audit = AuditLog::spawn_with_policy(
             &self.state,
             AuditPolicy::default().with_retention(self.config.audit.retention),

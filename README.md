@@ -97,7 +97,10 @@ and sets `no_new_privs`. Run it as an ordinary user.
    ```
 
    `kcc admin init` prints the administrator's password once; you change it at the
-   first login.
+   first login. `kcc router add` seals the password under the master key and keeps no
+   reference to `router.pw`, so you can delete the file afterwards. A login token
+   (`--auth token --token-file <file>`) and a read-only polling login
+   (`--read-login <name> --read-password-file <file>`) are sealed the same way.
 
 3. Start the server and open <http://127.0.0.1:8443/ui/> in a browser:
 
@@ -137,6 +140,14 @@ Global options: `--router <id>` picks the router when more than one is configure
 can cut kcc off from the router need `--yes`; destructive ones need
 `--confirm-destructive <router-id>`. Settings copy and migration commands are in
 [docs/MIGRATION.md](docs/MIGRATION.md).
+
+`kcc router add` and `kcc router edit` take the router's credentials as input only:
+`--password-file`, `--token-file` and `--read-password-file` are read once and sealed
+(without a file, `KCC_PASSWORD` or a hidden prompt supplies the secret). `--auth`
+picks `auto`, `ndw2`, `ndw4`, `token` or `digest`. On `router edit`, `--new-password`,
+`--new-token` and `--new-read-password` replace a credential and `--clear-read-login`
+drops the read-only login; changing the URL, login or TLS pin needs the password or
+token again in the same command and drops the read-only login unless it is given again.
 
 ## MCP for AI assistants
 
@@ -201,11 +212,13 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Secrets stay out of output.** Reports, logs, audit entries and MCP results carry
   redacted values; revealing a secret needs the `RevealSecrets` permission and is
   audited.
-- **Managed router passwords are sealed.** Passwords entered in the Web UI or through
-  `KCC_PASSWORD`/a CLI prompt are encrypted under the master key in
-  `<state>/router-credentials/<id>.sealed`. Back up `master.key` separately; state
-  cannot recover these credentials without it. Explicit `--password-file` and
-  `password_file` paths remain operator-managed files.
+- **Managed router credentials are sealed.** Every router password, login token and
+  read-only polling password given to the Web UI or to `kcc router add/edit` (from a
+  file, `KCC_PASSWORD` or a prompt) is encrypted under the master key in
+  `<state>/router-credentials/<id>.sealed`, `<id>.token.sealed` and `<id>.read.sealed`;
+  the input file can be deleted afterwards. Back up `master.key` separately; state
+  cannot recover these credentials without it. Only `kcc.toml` routers keep reading
+  their operator-managed `password_file`/`token_file`/`read_password_file`.
 
 The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 

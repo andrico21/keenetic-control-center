@@ -11,7 +11,10 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Redirect, Response},
 };
-use kcc_app::registry::{ManagedRouterProfile, ProfileSource, RegistryError};
+use kcc_app::{
+    credentials::CredentialKind,
+    registry::{ManagedRouterProfile, ProfileSource, RegistryError},
+};
 use kcc_i18n::{bundle::tr, keys};
 
 use crate::{
@@ -82,7 +85,10 @@ pub(crate) async fn create(
         return unprocessable(&FormPage::add(shell, draft, errors));
     };
     let id = draft.id().to_owned();
-    let file = match fleet.credentials().sealed_path(&id) {
+    let file = match fleet
+        .credentials()
+        .sealed_path(&id, CredentialKind::Password)
+    {
         Ok(path) => path,
         Err(error) => return errors::internal(&error, shell),
     };
@@ -104,7 +110,10 @@ pub(crate) async fn create(
         }
         Err(error) => return errors::internal(&error, shell),
     }
-    if let Err(error) = fleet.credentials().store(&id, &secret) {
+    if let Err(error) = fleet
+        .credentials()
+        .store(&id, CredentialKind::Password, &secret)
+    {
         if let Err(rollback) = fleet.registry().delete(user.role(), &id).await {
             tracing::error!(error = %rollback, "router profile rollback failed");
         }
@@ -147,7 +156,7 @@ pub(crate) async fn edit_page(
 /// `POST /ui/routers/{id}/edit`: updates a Web UI profile.
 ///
 /// An empty password keeps the stored one unless the address, login or TLS mode moves;
-/// moving the address or TLS mode drops the read-only poll credentials.
+/// such a move also drops the read-only poll credentials and their sealed record.
 pub(crate) async fn update(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -188,17 +197,24 @@ pub(crate) async fn update(
     let stored = entry.profile;
     let mut profile = stored.clone();
     fields.apply(&mut profile);
-    if profile.url != stored.url || profile.tls != stored.tls {
+    let drops_read = profile.moves_endpoint(&stored) && stored.read_login.is_some();
+    if drops_read {
         profile.read_login = None;
         profile.read_password_file = None;
     }
     let changed = password.is_some();
     if let Some(secret) = password {
-        let file = match fleet.credentials().sealed_path(&id) {
+        let file = match fleet
+            .credentials()
+            .sealed_path(&id, CredentialKind::Password)
+        {
             Ok(path) => path,
             Err(error) => return errors::internal(&error, shell),
         };
-        if let Err(error) = fleet.credentials().store(&id, &secret) {
+        if let Err(error) = fleet
+            .credentials()
+            .store(&id, CredentialKind::Password, &secret)
+        {
             return errors::internal(&error, shell);
         }
         profile.password_file = Some(file);
@@ -209,6 +225,13 @@ pub(crate) async fn update(
             return errors::response(Kind::Forbidden, shell);
         }
         Err(error) => return errors::internal(&error, shell),
+    }
+    if drops_read
+        && let Err(error) = fleet
+            .credentials()
+            .remove_kind(&id, CredentialKind::ReadPassword)
+    {
+        tracing::error!(router = %id, %error, "read-only router credential could not be removed");
     }
     let change = ProfileAction::Update {
         profile: &profile,

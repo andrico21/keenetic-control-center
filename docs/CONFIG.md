@@ -228,10 +228,16 @@ request with HTTP Digest (KeenDNS HTTP proxy), and `token` sends the contents of
 and `token_file`; `token_file` needs `auth = "token"` (or `auto`, which then means
 `token`). `auth` and `token_file` apply to `[[routers]]` entries only.
 
-These profile credential paths are operator-managed and are read unchanged. Router
-passwords entered through the Web UI or through `KCC_PASSWORD`/a CLI prompt instead use
-encrypted records under `<state>/router-credentials/`; the persisted profile path
-identifies that managed convention without changing the configuration schema.
+These profile credential paths are operator-managed and are read unchanged (a migration
+that changes the router's management password writes the new one into `password_file`,
+mode 0600). Routers added with the Web UI or `kcc router add` are different: every
+credential they take (password, login token, read-only polling password) is sealed into
+`<state>/router-credentials/<id>.sealed`, `<id>.token.sealed` or `<id>.read.sealed`,
+and the input file given with `--password-file`, `--token-file` or
+`--read-password-file` is never referenced again. `kcc router add/edit` take the same
+`--auth` modes as `auth` here. A state router stored by an older kcc with an external
+password file keeps working and is warned about once per CLI run and at `kcc serve`
+startup, naming `kcc router edit <id> --new-password --password-file <file>`.
 
 ## `[server]` (rmcp-server-kit)
 

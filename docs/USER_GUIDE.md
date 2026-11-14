@@ -48,9 +48,14 @@ and applies to https addresses only. Test connection logs in without storing any
 Routers defined in `kcc.toml` are read-only here.
 
 Passwords entered in this form are encrypted in the state directory and are never shown
-again. CLI passwords supplied through `KCC_PASSWORD` or the hidden prompt use the same
-sealed store. Files explicitly selected with `--password-file`, or configured as
-`password_file`, stay under operator control and are read in place. Back up the master
+again. `kcc router add` and `kcc router edit` use the same sealed store for every
+credential they take: the password (`--password-file`, `KCC_PASSWORD` or the hidden
+prompt), a login token (`--auth token --token-file <file>`) and a read-only polling
+login (`--read-login <name> --read-password-file <file>`). The files are input only and
+can be deleted afterwards. Changing a router's address, login or certificate pin needs
+its password or token again (`--new-password` or `--new-token`) and drops the read-only
+login unless it is given again. Only `password_file` paths in `kcc.toml` stay under
+operator control and are read in place. Back up the master
 key selected by `KCC_MASTER_KEY_FILE` separately from state; without it, restored sealed
 credentials and encrypted backups cannot be opened.
 

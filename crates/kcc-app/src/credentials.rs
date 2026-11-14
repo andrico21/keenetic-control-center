@@ -1,9 +1,10 @@
 //! Encrypted router credentials managed inside the application state directory.
 
+mod wipe;
+
 use core::fmt;
 use std::{
-    fs::{self, OpenOptions},
-    io::{self, Seek as _, Write as _},
+    fs, io,
     path::{Path, PathBuf},
 };
 
@@ -11,6 +12,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
+use self::wipe::{remove_if_present, secure_remove};
 use crate::{
     persist::{StateError, StateStore, create_private_dir, io_error, write_atomic},
     secrets::{CryptoError, MasterKey, SealedSecret},
@@ -68,6 +70,52 @@ pub enum MigrationState {
     Recovered,
 }
 
+/// The kind of one kcc-managed router credential; each kind is its own sealed record.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum CredentialKind {
+    /// Primary management password: `<id>.sealed`, the router id as associated data.
+    Password,
+    /// Login token: `<id>.token.sealed`, `<id>:token` as associated data.
+    Token,
+    /// Read-only polling password: `<id>.read.sealed`, `<id>:read` as associated data.
+    ReadPassword,
+}
+
+impl CredentialKind {
+    /// Every kind, in audit order.
+    pub const ALL: [Self; 3] = [Self::Password, Self::Token, Self::ReadPassword];
+
+    /// The stable name of the kind in audit entries.
+    #[inline]
+    #[must_use]
+    pub const fn audit_name(self) -> &'static str {
+        match self {
+            Self::Password => "password",
+            Self::Token => "token",
+            Self::ReadPassword => "read",
+        }
+    }
+
+    /// The record file name of `router`'s credential of this kind.
+    fn file_name(self, router: &str) -> String {
+        match self {
+            Self::Password => format!("{router}.sealed"),
+            Self::Token => format!("{router}.token.sealed"),
+            Self::ReadPassword => format!("{router}.read.sealed"),
+        }
+    }
+
+    /// The associated data binding a record to `router` and this kind.
+    fn owner(self, router: &str) -> String {
+        match self {
+            Self::Password => router.to_owned(),
+            Self::Token => format!("{router}:token"),
+            Self::ReadPassword => format!("{router}:read"),
+        }
+    }
+}
+
 /// One versioned sealed credential record.
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -104,23 +152,32 @@ impl CredentialStore {
         Self { state, key }
     }
 
-    /// Atomically seals and replaces one managed router credential.
+    /// Atomically seals and replaces one managed router credential of `kind`.
     ///
     /// # Errors
     /// Returns a typed storage or cryptographic failure.
     #[inline]
-    pub fn store(&self, router: &str, password: &SecretString) -> Result<(), CredentialError> {
+    pub fn store(
+        &self,
+        router: &str,
+        kind: CredentialKind,
+        secret: &SecretString,
+    ) -> Result<(), CredentialError> {
         let _lock = self.state.lock(&lock_name(router)?)?;
-        self.store_locked(router, password)
+        self.store_locked(router, kind, secret)
     }
 
-    /// Opens one managed router credential into zeroizing secret memory.
+    /// Opens one managed router credential of `kind` into zeroizing secret memory.
     ///
     /// # Errors
     /// Returns [`CredentialError::Missing`] or a typed record/cryptographic failure.
     #[inline]
-    pub fn open(&self, router: &str) -> Result<SecretString, CredentialError> {
-        let path = self.sealed_path(router)?;
+    pub fn open(
+        &self,
+        router: &str,
+        kind: CredentialKind,
+    ) -> Result<SecretString, CredentialError> {
+        let path = self.sealed_path(router, kind)?;
         let bytes = fs::read(&path).map_err(|source| {
             if source.kind() == io::ErrorKind::NotFound {
                 CredentialError::Missing
@@ -133,27 +190,45 @@ impl CredentialStore {
         if record.schema != SCHEMA {
             return Err(CredentialError::Record);
         }
-        self.key.open(router, &record.sealed).map_err(Into::into)
+        self.key
+            .open(&kind.owner(router), &record.sealed)
+            .map_err(Into::into)
     }
 
-    /// Removes managed sealed and legacy records; missing files are accepted.
+    /// Removes every managed sealed record of `router` and its legacy plaintext; missing
+    /// files are accepted.
     ///
     /// # Errors
     /// Returns a typed storage failure.
     #[inline]
     pub fn remove(&self, router: &str) -> Result<(), CredentialError> {
-        let _lock = self.state.lock(&lock_name(router)?)?;
-        remove_if_present(&self.sealed_path(router)?)?;
-        remove_if_present(&self.legacy_path(router)?)
+        CredentialKind::ALL
+            .into_iter()
+            .try_for_each(|kind| self.remove_kind(router, kind))
     }
 
-    /// Reports whether a sealed credential exists.
+    /// Removes the managed sealed record of `kind` (for a password, also the legacy
+    /// plaintext); a missing file is accepted.
     ///
     /// # Errors
     /// Returns a typed storage failure.
     #[inline]
-    pub fn exists(&self, router: &str) -> Result<bool, CredentialError> {
-        self.sealed_path(router)?
+    pub fn remove_kind(&self, router: &str, kind: CredentialKind) -> Result<(), CredentialError> {
+        let _lock = self.state.lock(&lock_name(router)?)?;
+        remove_if_present(&self.sealed_path(router, kind)?)?;
+        match kind {
+            CredentialKind::Password => remove_if_present(&self.legacy_path(router)?),
+            CredentialKind::Token | CredentialKind::ReadPassword => Ok(()),
+        }
+    }
+
+    /// Reports whether a sealed credential of `kind` exists.
+    ///
+    /// # Errors
+    /// Returns a typed storage failure.
+    #[inline]
+    pub fn exists(&self, router: &str, kind: CredentialKind) -> Result<bool, CredentialError> {
+        self.sealed_path(router, kind)?
             .try_exists()
             .map_err(|source| CredentialError::State(io_error(self.state.dir(), source)))
     }
@@ -174,11 +249,12 @@ impl CredentialStore {
             Err(source) => return Err(CredentialError::State(io_error(&legacy, source))),
         };
         let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
-        let recovered = self.sealed_path(router)?.exists();
+        let recovered = self.sealed_path(router, CredentialKind::Password)?.exists();
         if !recovered {
-            self.store_locked(router, &password)?;
+            self.store_locked(router, CredentialKind::Password, &password)?;
         }
-        if self.open(router)?.expose_secret() != password.expose_secret() {
+        if self.open(router, CredentialKind::Password)?.expose_secret() != password.expose_secret()
+        {
             return Err(CredentialError::MigrationConflict);
         }
         secure_remove(&legacy)?;
@@ -221,22 +297,33 @@ impl CredentialStore {
             .collect()
     }
 
-    /// Returns whether `path` is either managed credential convention for `router`.
+    /// Returns whether `path` is a managed convention of `router`'s credential of `kind`:
+    /// its sealed record, or for a password also the legacy plaintext path.
     ///
     /// # Errors
     /// Returns [`CredentialError::Record`] for an invalid router id.
     #[inline]
-    pub fn manages(&self, router: &str, path: &Path) -> Result<bool, CredentialError> {
-        Ok(path == self.sealed_path(router)? || path == self.legacy_path(router)?)
+    pub fn manages(
+        &self,
+        router: &str,
+        kind: CredentialKind,
+        path: &Path,
+    ) -> Result<bool, CredentialError> {
+        Ok(path == self.sealed_path(router, kind)?
+            || (kind == CredentialKind::Password && path == self.legacy_path(router)?))
     }
 
-    /// Returns the managed sealed record path for `router`.
+    /// Returns the managed sealed record path of `router`'s credential of `kind`.
     ///
     /// # Errors
     /// Returns [`CredentialError::Record`] for an invalid router id.
     #[inline]
-    pub fn sealed_path(&self, router: &str) -> Result<PathBuf, CredentialError> {
-        Ok(self.directory()?.join(format!("{router}.sealed")))
+    pub fn sealed_path(
+        &self,
+        router: &str,
+        kind: CredentialKind,
+    ) -> Result<PathBuf, CredentialError> {
+        Ok(self.directory()?.join(kind.file_name(router)))
     }
 
     /// Returns the legacy plaintext path for `router`.
@@ -262,16 +349,21 @@ impl CredentialStore {
     ///
     /// # Errors
     /// Returns a typed storage or cryptographic failure.
-    fn store_locked(&self, router: &str, password: &SecretString) -> Result<(), CredentialError> {
+    fn store_locked(
+        &self,
+        router: &str,
+        kind: CredentialKind,
+        secret: &SecretString,
+    ) -> Result<(), CredentialError> {
         let directory = self.directory()?;
         let record = CredentialRecord {
             schema: SCHEMA,
-            sealed: self.key.seal(router, password)?,
+            sealed: self.key.seal(&kind.owner(router), secret)?,
         };
         let mut bytes =
             serde_json::to_vec_pretty(&record).map_err(|_error| CredentialError::Record)?;
         bytes.push(b'\n');
-        write_atomic(&directory, &format!("{router}.sealed"), &bytes)?;
+        write_atomic(&directory, &kind.file_name(router), &bytes)?;
         Ok(())
     }
 }
@@ -290,48 +382,4 @@ fn lock_name(router: &str) -> Result<String, CredentialError> {
         return Err(CredentialError::Record);
     }
     Ok(format!("credential-{router}"))
-}
-
-/// Removes a credential path, accepting an already absent path.
-///
-/// # Errors
-/// Returns a typed storage failure.
-fn remove_if_present(path: &Path) -> Result<(), CredentialError> {
-    match fs::remove_file(path) {
-        Ok(()) => Ok(()),
-        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
-        Err(source) => Err(CredentialError::State(io_error(path, source))),
-    }
-}
-
-/// Overwrites a legacy plaintext file before removing it.
-///
-/// # Errors
-/// Returns a typed storage failure and leaves the path present when overwrite fails.
-fn secure_remove(path: &Path) -> Result<(), CredentialError> {
-    let length = fs::metadata(path)
-        .map_err(|source| CredentialError::State(io_error(path, source)))?
-        .len();
-    let mut file = OpenOptions::new()
-        .write(true)
-        .open(path)
-        .map_err(|source| CredentialError::State(io_error(path, source)))?;
-    let zeros = Zeroizing::new([0_u8; 8_192]);
-    let chunk_len = u64::try_from(zeros.len()).map_err(|_error| CredentialError::Record)?;
-    let mut remaining = length;
-    file.rewind()
-        .map_err(|source| CredentialError::State(io_error(path, source)))?;
-    while remaining != 0 {
-        let count =
-            usize::try_from(remaining.min(chunk_len)).map_err(|_error| CredentialError::Record)?;
-        let chunk = zeros.get(..count).ok_or(CredentialError::Record)?;
-        file.write_all(chunk)
-            .map_err(|source| CredentialError::State(io_error(path, source)))?;
-        remaining = remaining.saturating_sub(u64::try_from(count).unwrap_or(remaining));
-    }
-    file.set_len(0)
-        .and_then(|()| file.sync_all())
-        .map_err(|source| CredentialError::State(io_error(path, source)))?;
-    drop(file);
-    remove_if_present(path)
 }

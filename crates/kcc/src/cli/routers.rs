@@ -1,12 +1,6 @@
 //! Router profile commands.
 
-use std::path::{self, PathBuf};
-
-use kcc_app::{
-    permissions::Permission,
-    registry::{ManagedRouterProfile, ProfileSource},
-    settings::RouterTls,
-};
+use kcc_app::{permissions::Permission, registry::ProfileSource};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use serde_json::{Value, json};
@@ -17,8 +11,8 @@ use super::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     fleet::identity,
-    outbound,
-    secret::{confirm, read_secret},
+    outbound, router_secrets,
+    secret::confirm,
 };
 
 /// Runs a `router` command.
@@ -31,95 +25,8 @@ pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
     let services = ctx.services().await?;
     match command {
         RouterCommand::List => list(ctx, &services),
-        RouterCommand::Add {
-            id,
-            url: address,
-            login,
-            tags,
-            test_device,
-            pin_sha256,
-        } => {
-            let role = ctx
-                .principal()
-                .authorize(&[Permission::ManageRouters], &[&id])?;
-            let url = parse_url(&address)?;
-            outbound::check(services.registry(), &url).await?;
-            let (password_file, password) = password(ctx, &services, &id)?;
-            let mut profile = ManagedRouterProfile::new(id.clone(), url, login, password_file);
-            profile.tags = tags;
-            profile.test_device = test_device;
-            profile.tls = pin_sha256.map_or(RouterTls::Verify, RouterTls::PinSha256);
-            services.registry().create(&role, profile).await?;
-            if let Some(secret) = password
-                && let Err(error) = services.credentials().store(&id, &secret)
-            {
-                drop(services.registry().delete(&role, &id).await);
-                return Err(error.into());
-            }
-            ctx.audit(
-                &services,
-                "cli.router_add",
-                Some(&id),
-                Value::Null,
-                "success",
-            )
-            .await;
-            let out = ctx.out();
-            out.emit(
-                &json!({ "id": id, "added": true }),
-                &out.tr(keys::CLI_ROUTER_ADDED, &[("name", &id)]),
-            )
-        }
-        RouterCommand::Edit {
-            id,
-            url,
-            login,
-            tags,
-            test_device,
-            pin_sha256,
-            new_password,
-        } => {
-            let role = ctx
-                .principal()
-                .authorize(&[Permission::ManageRouters], &[&id])?;
-            let mut profile = services.registry().get(&id)?.profile;
-            if let Some(text) = url {
-                profile.url = parse_url(&text)?;
-            }
-            if let Some(name) = login {
-                profile.login = name;
-            }
-            if !tags.is_empty() {
-                profile.tags = tags;
-            }
-            if let Some(flag) = test_device {
-                profile.test_device = flag;
-            }
-            if let Some(pin) = pin_sha256 {
-                profile.tls = RouterTls::PinSha256(pin);
-            }
-            if new_password {
-                let (password_file, password) = password(ctx, &services, &id)?;
-                profile.password_file = Some(password_file);
-                if let Some(secret) = password {
-                    services.credentials().store(&id, &secret)?;
-                }
-            }
-            services.registry().update(&role, profile).await?;
-            ctx.audit(
-                &services,
-                "cli.router_edit",
-                Some(&id),
-                Value::Null,
-                "success",
-            )
-            .await;
-            let out = ctx.out();
-            out.emit(
-                &json!({ "id": id, "updated": true }),
-                &out.tr(keys::CLI_ROUTER_UPDATED, &[("name", &id)]),
-            )
-        }
+        RouterCommand::Add(args) => router_secrets::add(ctx, &services, args).await,
+        RouterCommand::Edit(args) => router_secrets::edit(ctx, &services, args).await,
         RouterCommand::Remove { id } => remove(ctx, &services, &id).await,
         RouterCommand::Test => test(ctx, &services).await,
     }
@@ -236,34 +143,12 @@ fn list(ctx: &Ctx, services: &Services) -> Outcome {
     )
 }
 
-/// The password file of a profile: `--password-file` as given, else a secret from
-/// `KCC_PASSWORD` or a prompt stored in `<state>/router-credentials/<id>.password`.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-fn password(
-    ctx: &Ctx,
-    services: &Services,
-    id: &str,
-) -> Outcome<(PathBuf, Option<secrecy::SecretString>)> {
-    if let Some(path) = ctx.globals().password_file() {
-        return Ok((path::absolute(path)?, None));
-    }
-    let secret = read_secret(
-        None,
-        &ctx.out()
-            .tr(keys::CLI_PROMPT_ROUTER_PASSWORD, &[("router", id)]),
-    )?;
-    Ok((services.credentials().sealed_path(id)?, Some(secret)))
-}
-
 /// Parses a router origin.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-fn parse_url(text: &str) -> Outcome<Url> {
+pub(super) fn parse_url(text: &str) -> Outcome<Url> {
     Url::parse(text).map_err(|error| Failure::text(Exit::Usage, &error))
 }
 

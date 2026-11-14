@@ -43,17 +43,28 @@ for a loopback test sink) and don't follow redirects either.
   directory can decrypt everything below; back it up separately.
 - **Encrypted with the master key** (XChaCha20-Poly1305, a random nonce per record, the
   owner name as associated data): web account password hashes, configuration backups,
-  stored presets, migration sources, typed migration passwords and router passwords
-  entered through the Web UI or CLI. Managed router records are
-  `<state>/router-credentials/<id>.sealed`, with the router id as associated data.
+  stored presets, migration sources, typed migration passwords and every router
+  credential given to the Web UI or to `kcc router add/edit`. Managed router records are
+  `<state>/router-credentials/<id>.sealed` (password, the router id as associated
+  data), `<id>.token.sealed` (login token, `<id>:token`) and `<id>.read.sealed`
+  (read-only polling password, `<id>:read`). A migration that changes the management
+  password of a Web UI or CLI router seals the new password the same way.
 - **Hashed**: web account passwords (Argon2id) and API keys (Argon2id, the key is shown
   once and never stored).
 - **Operator-managed files**: `password_file`, `read_password_file` and `token_file`
-  paths supplied in configuration or with `--password-file` remain files controlled by
-  the operator and are read unchanged; kcc does not copy them into state.
+  paths of `kcc.toml` routers remain files controlled by the operator and are read
+  unchanged; kcc does not copy them into state, and a migration that changes such a
+  router's password rewrites its `password_file` (mode 0600). CLI `--password-file`,
+  `--token-file` and `--read-password-file` given to `kcc router add/edit` are input
+  only: the contents are sealed and the file is never referenced again. A Web UI or CLI
+  router stored by an older kcc that still names an external password file keeps
+  working; the CLI and `kcc serve` warn about it once per run with the
+  `kcc router edit <id> --new-password --password-file <file>` command that seals it,
+  and kcc never deletes or rewrites that file.
 - **Owner-only secret files.** On Unix kcc applies the master-key rule to every secret
   file it reads: router `password_file`, `read_password_file` and `token_file`, CLI
-  `--password-file` and `--current-password-file` input, WireGuard `.conf` imports, log
+  `--password-file`, `--current-password-file`, `--token-file` and
+  `--read-password-file` input, WireGuard `.conf` imports, log
   sink `password_file`, `bearer_token_file` and `api_key_file`, and `[server]
   tls_key_path`. A file group or others can access (any bit of mode 077) is refused
   before it is read: the router connection or `kcc serve` startup fails, and a CLI

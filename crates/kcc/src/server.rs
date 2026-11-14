@@ -356,6 +356,7 @@ impl Services {
             profiles = profiles.with_rci_observers(self_metrics.rci_observers());
         }
         let registry = Arc::new(profiles);
+        crate::server_migrations::warn_external_password_files(&registry).map_err(error)?;
         crate::server_outbound::warn_closed_policy(
             &config.outbound,
             registry.list().map_err(error)?.len(),

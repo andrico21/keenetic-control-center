@@ -1,10 +1,12 @@
-//! Audit events for router credentials migrated at startup or on first CLI use.
+//! Audit events for router credentials migrated at startup or on first CLI use, and the
+//! startup warning of routers whose password still sits in an external plaintext file.
 
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::{
     audit::{Actor, ActorKind, AuditError, AuditEvent, AuditLog},
     credentials::MigrationState,
+    registry::{RegistryError, RouterRegistry},
 };
 
 /// Appends one audit event, naming only the router id, for each credential migrated
@@ -32,6 +34,23 @@ pub(super) async fn append_credential_events(
             .with_result("success".to_owned(), format!("{origin}-{timestamp}"));
             drop(audit.append(event).await?);
         }
+    }
+    Ok(())
+}
+
+/// Logs one warning per Web UI or CLI router that still reads its password from an
+/// external plaintext file, naming the command that seals it. The file is left alone.
+///
+/// # Errors
+/// Returns a registry error when the profiles cannot be listed.
+pub(super) fn warn_external_password_files(registry: &RouterRegistry) -> Result<(), RegistryError> {
+    for (router, file) in registry.external_password_files()? {
+        tracing::warn!(
+            router = %router,
+            file = %file.display(),
+            "router {router} reads its password from an external plaintext file; seal it with `kcc router edit {router} --new-password --password-file {}`",
+            file.display()
+        );
     }
     Ok(())
 }

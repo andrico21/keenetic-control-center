@@ -66,6 +66,10 @@ mod preset_finish;
 mod rci_transport;
 #[path = "cli/router_credentials.rs"]
 mod router_credentials;
+#[path = "cli/router_edits.rs"]
+mod router_edits;
+#[path = "cli/router_sealing.rs"]
+mod router_sealing;
 #[path = "cli/runtime_management.rs"]
 mod runtime_management;
 #[cfg(unix)]
