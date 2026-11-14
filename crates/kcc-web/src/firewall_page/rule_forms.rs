@@ -9,7 +9,11 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_domain::firewall::descriptor::DESCRIPTOR;
+use kcc_domain::firewall::{
+    descriptor::DESCRIPTOR,
+    model::{Action, Protocol},
+    rule_words::{RuleForm, Side},
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -20,7 +24,7 @@ use super::{
     checks::{address, list_name, port},
     expect::Expect,
     lines,
-    rule::{PROTOCOLS, Parsed, Side},
+    rule::PROTOCOLS,
     rule_actions::filtered,
     run::{Planned, Sender},
     snapshot,
@@ -121,20 +125,23 @@ pub(crate) async fn add(
 /// # Errors
 ///
 /// Returns the field to correct and why.
-fn check(values: &Params) -> Result<(String, Parsed), (&'static str, MessageKey)> {
+fn check(values: &Params) -> Result<(String, RuleForm), (&'static str, MessageKey)> {
     let text = |name: &str| values.text(name).trim().to_owned();
     let list = text("list");
     if !list_name(&list) {
         return Err(("list", keys::WEB_ROUTING_ERROR_NAME));
     }
-    let action = text("action");
-    if action != "permit" && action != "deny" {
-        return Err(("action", keys::WEB_ROUTING_ERROR_CHOICE));
-    }
-    let protocol = text("protocol");
-    if !PROTOCOLS.iter().any(|(name, _)| *name == protocol) {
-        return Err(("protocol", keys::WEB_ROUTING_ERROR_CHOICE));
-    }
+    let action = match text("action").as_str() {
+        "permit" => Action::Permit,
+        "deny" => Action::Deny,
+        _ => return Err(("action", keys::WEB_ROUTING_ERROR_CHOICE)),
+    };
+    let named = text("protocol");
+    let protocol = PROTOCOLS
+        .iter()
+        .find(|(known, _)| known.name() == named)
+        .map(|(known, _)| *known)
+        .ok_or(("protocol", keys::WEB_ROUTING_ERROR_CHOICE))?;
     let side = |fields: [&'static str; 3]| {
         let [host, netmask, number] = fields;
         if !address(&text(host)) {
@@ -144,7 +151,7 @@ fn check(values: &Params) -> Result<(String, Parsed), (&'static str, MessageKey)
             return Err((netmask, keys::WEB_ROUTING_ERROR_MASK));
         }
         let found = port(&text(number)).map_err(|key| (number, key))?;
-        if found.is_some() && !matches!(protocol.as_str(), "tcp" | "udp") {
+        if found.is_some() && !matches!(protocol, Protocol::Tcp | Protocol::Udp) {
             return Err((number, keys::WEB_NAT_ERROR_PORTS));
         }
         Ok(Side::new(text(host), text(netmask), found))
@@ -153,7 +160,7 @@ fn check(values: &Params) -> Result<(String, Parsed), (&'static str, MessageKey)
     let destination = side(["destination", "destination_mask", "destination_port"])?;
     Ok((
         list,
-        Parsed::new((action, Some(protocol)), source, destination),
+        RuleForm::new((action, Some(protocol)), source, destination),
     ))
 }
 
@@ -166,7 +173,7 @@ fn add_form(locale: Locale, router: &str, values: &Params) -> FormDialog {
     ];
     let protocols = PROTOCOLS
         .iter()
-        .map(|(name, label)| Choice::word(locale, name, *label))
+        .map(|(protocol, label)| Choice::word(locale, protocol.name(), *label))
         .collect();
     let address_input = |name: &'static str, label: MessageKey| {
         Input::new(name, label, value(name))

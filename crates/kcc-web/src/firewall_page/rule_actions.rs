@@ -11,9 +11,9 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_domain::{
-    DomainError,
-    firewall::{descriptor::DESCRIPTOR, model::ConfiguredRule},
+use kcc_domain::firewall::{
+    descriptor::DESCRIPTOR,
+    lists::{Firewall, ListEntry},
 };
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -26,7 +26,6 @@ use super::{
     expect::Expect,
     lines,
     run::{Planned, Sender, find},
-    snapshot::{Entry, Snapshot},
     views::Spot,
 };
 use crate::{
@@ -96,8 +95,8 @@ impl Named {
     /// The rule in `firewall`, when it still stands at its position.
     pub(crate) fn find<'snapshot>(
         &self,
-        firewall: &'snapshot Snapshot,
-    ) -> Option<&'snapshot Entry> {
+        firewall: &'snapshot Firewall,
+    ) -> Option<&'snapshot ListEntry> {
         firewall
             .list(&self.list)?
             .entry(self.index)
@@ -114,7 +113,7 @@ impl Named {
 }
 
 /// The interfaces whose traffic the list `list` of `firewall` filters.
-pub(crate) fn filtered(firewall: &Snapshot, list: &str) -> Vec<String> {
+pub(crate) fn filtered(firewall: &Firewall, list: &str) -> Vec<String> {
     firewall
         .bindings_of(list)
         .map(|binding| binding.interface().to_owned())
@@ -173,9 +172,9 @@ pub(crate) async fn remove(
                 let (firewall, entry) = find(domain, &named, locale).await?;
                 let rule = entry
                     .rule()
-                    .parsed()
+                    .form()
                     .ok_or_else(|| Invalid::from(Vec::new()))?;
-                let same = |found: &&Entry| found.rule().words() == entry.rule().words();
+                let same = |found: &&ListEntry| found.rule().words() == entry.rule().words();
                 let count = firewall
                     .list(named.list())
                     .map_or(0, |list| list.entries().iter().filter(same).count());
@@ -283,7 +282,7 @@ pub(crate) async fn switch(
         .submit_reading(
             async |_params, domain| {
                 let (firewall, entry) = find(domain, &named, locale).await?;
-                let identity = configured(&entry).map_err(|_error| Rejected::Missing)?;
+                let identity = entry.configured().ok_or(Rejected::Missing)?;
                 Ok(
                     lines::state(domain, named.list(), (&identity, enabled)).map(|request| {
                         let expect = Expect::Disabled {
@@ -299,21 +298,4 @@ pub(crate) async fn switch(
             async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
         )
         .await)
-}
-
-/// Converts a fresh Web snapshot entry to the domain's full rule identity.
-///
-/// # Errors
-/// Returns an invalid-response error when the stored rule has no typed identity.
-pub(crate) fn configured(entry: &Entry) -> Result<ConfiguredRule, DomainError> {
-    let rule = entry
-        .rule()
-        .parsed()
-        .ok_or(DomainError::InvalidResponse)?
-        .domain();
-    Ok(ConfiguredRule::new(rule, entry.index()).with_properties(
-        entry.disabled(),
-        entry.schedule(),
-        entry.description(),
-    ))
 }

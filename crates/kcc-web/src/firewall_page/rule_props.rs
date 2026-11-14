@@ -17,7 +17,7 @@ use super::{
     checks::description,
     expect::Expect,
     lines,
-    rule_actions::{Named, configured, filtered},
+    rule_actions::{Named, filtered},
     run::{Planned, Sender, find, located},
     views::Spot,
 };
@@ -93,7 +93,7 @@ pub(crate) async fn describe(
                 let text = description(submitted.text("description"))
                     .map_err(|rule| Invalid::at("description", rule))?;
                 let (firewall, entry) = find(domain, &named, locale).await?;
-                let identity = configured(&entry).map_err(|_error| Rejected::Missing)?;
+                let identity = entry.configured().ok_or(Rejected::Missing)?;
                 let planned =
                     lines::description(domain, named.list(), (&identity, text.as_deref()));
                 Ok(planned.map(|request| {
@@ -174,7 +174,7 @@ pub(crate) async fn schedule(
                     return Err(Invalid::at("schedule", keys::WEB_ROUTING_ERROR_CHOICE).into());
                 }
                 let (firewall, entry) = find(domain, &named, locale).await?;
-                let identity = configured(&entry).map_err(|_error| Rejected::Missing)?;
+                let identity = entry.configured().ok_or(Rejected::Missing)?;
                 let picked = Some(chosen).filter(|name| !name.is_empty());
                 let planned = lines::schedule(domain, named.list(), (&identity, picked.as_deref()));
                 Ok(planned.map(|request| {

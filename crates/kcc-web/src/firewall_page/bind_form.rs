@@ -1,17 +1,17 @@
 //! The dialog applying an access list to an interface, and the checks of its values.
 
 use fluent_bundle::FluentArgs;
-use kcc_domain::firewall::model::Direction;
+use kcc_domain::firewall::{
+    lists::{Binding, Firewall},
+    model::Direction,
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
     locale::Locale,
 };
 
-use super::{
-    lists_region::direction_label,
-    snapshot::{Binding, Snapshot},
-};
+use super::lists_region::direction_label;
 use crate::page_kit::{
     form::{Choice, FormDialog, Input},
     request::Params,
@@ -33,7 +33,7 @@ pub(crate) fn direction(text: &str) -> Option<Direction> {
 /// Returns the field to correct and why.
 pub(crate) fn check(
     values: &Params,
-    (firewall, names): (&Snapshot, &[String]),
+    (firewall, names): (&Firewall, &[String]),
 ) -> Result<(Binding, Direction), (&'static str, MessageKey)> {
     let list = values.text("list").trim();
     if firewall.list(list).is_none() {
@@ -45,7 +45,7 @@ pub(crate) fn check(
     }
     let side = values.text("direction").trim();
     let way = direction(side).ok_or(("direction", keys::WEB_ROUTING_ERROR_CHOICE))?;
-    let binding = Binding::new(interface.to_owned(), list.to_owned(), side.to_owned());
+    let binding = Binding::new(interface.to_owned(), list.to_owned(), way);
     if firewall.bindings().contains(&binding) {
         return Err(("interface", keys::WEB_ROUTING_ERROR_DUPLICATE));
     }
@@ -69,7 +69,7 @@ pub(crate) fn form(
     locale: Locale,
     router: &str,
     values: &Params,
-    (firewall, names): (&Snapshot, &[String]),
+    (firewall, names): (&Firewall, &[String]),
 ) -> FormDialog {
     let value = |name: &str| values.text(name).to_owned();
     let lists = firewall

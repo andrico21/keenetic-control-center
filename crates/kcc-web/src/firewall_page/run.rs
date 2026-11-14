@@ -15,14 +15,20 @@ use kcc_app::{
     workflow::{CliChangeRequest, WorkflowError},
 };
 use kcc_catalog::Risk;
-use kcc_domain::{DomainError, RouterCtx, firewall::management::interfaces_risk};
+use kcc_domain::{
+    DomainError, RouterCtx,
+    firewall::{
+        lists::{self, ListEntry},
+        management::interfaces_risk,
+    },
+};
 use kcc_i18n::locale::Locale;
 use url::form_urlencoded;
 
 use super::{
     expect::Expect,
     rule_actions::Named,
-    snapshot::{self, Entry, Snapshot},
+    snapshot,
     views::{Spot, refreshed},
 };
 use crate::{
@@ -226,7 +232,7 @@ pub(crate) async fn located<'call>(
     action: Action<'call>,
     domain: &RouterCtx,
     named: &Named,
-) -> Result<(Action<'call>, Snapshot, Entry), Answer> {
+) -> Result<(Action<'call>, lists::Firewall, ListEntry), Answer> {
     match find(domain, named, action.locale()).await {
         Ok((firewall, entry)) => Ok((action, firewall, entry)),
         Err(failure) => Err(refused(action, failure).await.into()),
@@ -244,7 +250,7 @@ pub(crate) async fn find(
     domain: &RouterCtx,
     named: &Named,
     locale: Locale,
-) -> Result<(Snapshot, Entry), Failure> {
+) -> Result<(lists::Firewall, ListEntry), Failure> {
     let firewall = snapshot::read(domain)
         .await
         .map_err(|message| unread(locale, message))?;

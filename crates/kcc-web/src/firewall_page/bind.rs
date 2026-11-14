@@ -10,7 +10,7 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_domain::firewall::{descriptor::DESCRIPTOR, model::Direction};
+use kcc_domain::firewall::{descriptor::DESCRIPTOR, lists::Binding, model::Direction};
 use kcc_i18n::{bundle::tr, keys};
 
 use super::{
@@ -19,7 +19,7 @@ use super::{
     expect::Expect,
     lines,
     run::{Planned, Sender},
-    snapshot::{self, Binding},
+    snapshot,
     views::spot_of,
 };
 use crate::{
@@ -218,7 +218,7 @@ fn named(pairs: &[(String, String)]) -> Result<(Binding, Direction), Answer> {
     let way = direction(side).ok_or_else(missing)?;
     if list_name(interface) {
         Ok((
-            Binding::new(interface.to_owned(), list.to_owned(), side.to_owned()),
+            Binding::new(interface.to_owned(), list.to_owned(), way),
             way,
         ))
     } else {

@@ -9,14 +9,14 @@ use axum::{
 use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
-    firewall::{descriptor::DESCRIPTOR, read},
+    firewall::{descriptor::DESCRIPTOR, lists::Firewall, read},
 };
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
     lists_region::ListsRegion,
     regions::{BindingsRegion, Redirect, UpnpRegion},
-    snapshot::{self, Snapshot},
+    snapshot,
 };
 use crate::{
     WebState,
@@ -183,7 +183,7 @@ pub(crate) async fn lists_region(
 
 /// The access lists region of `firewall`.
 fn lists_of(
-    firewall: &Snapshot,
+    firewall: &Firewall,
     (router, domain): (&str, &RouterCtx),
     allowed: (bool, bool),
     locale: Locale,

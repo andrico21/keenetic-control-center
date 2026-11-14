@@ -1,6 +1,6 @@
 //! What the router's firewall must show after a change, checked against a fresh read.
 
-use super::snapshot::{Binding, Snapshot};
+use kcc_domain::firewall::lists::{Binding, Firewall};
 
 /// What the router's firewall must show after a change.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +54,7 @@ pub(crate) enum Expect {
 
 impl Expect {
     /// Whether `snapshot` shows what the change promised.
-    pub(super) fn holds(&self, snapshot: &Snapshot) -> bool {
+    pub(super) fn holds(&self, snapshot: &Firewall) -> bool {
         match self {
             Self::Count { list, words, count } => {
                 let found = snapshot.list(list).map_or(0, |shown| {

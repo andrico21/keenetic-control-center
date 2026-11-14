@@ -2,10 +2,10 @@
 //! redirects.
 
 use askama::Template;
-use kcc_domain::firewall::model::UpnpRedirect;
+use kcc_domain::firewall::{lists::Binding, model::UpnpRedirect};
 use kcc_i18n::{bundle::tr, keys};
 
-use super::{lists_region::direction_label, snapshot::Binding};
+use super::lists_region::direction_label;
 use crate::{
     page::{Localize as _, Shell},
     page_kit::request::with_query,
@@ -25,16 +25,18 @@ impl Row for Binding {
 
     const DEFAULT: Sort = Sort::new("interface", Direction::Ascending);
 
+    #[inline]
     fn key(&self, column: &str) -> SortKey {
         match column {
-            "direction" => SortKey::text(self.direction()),
+            "direction" => SortKey::text(self.direction().name()),
             "list" => SortKey::text(self.list()),
             _ => SortKey::text(self.interface()),
         }
     }
 
+    #[inline]
     fn matches(&self, needle: &str) -> bool {
-        [self.interface(), self.list(), self.direction()]
+        [self.interface(), self.list(), self.direction().name()]
             .into_iter()
             .any(|text| text.to_lowercase().contains(needle))
     }
@@ -93,7 +95,7 @@ impl BindingsRegion {
                     &[
                         ("interface", binding.interface()),
                         ("list", binding.list()),
-                        ("direction", binding.direction()),
+                        ("direction", binding.direction().name()),
                     ],
                 );
                 let remove = Act::opens(tr(locale, keys::WEB_ROUTING_REMOVE, None), href).danger();

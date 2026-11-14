@@ -138,6 +138,7 @@ pub(super) fn classify(command: &[String]) -> Option<Shape> {
         (&["ip", "dhcp", "pool"][..], 4_usize, DHCP_POOL_RULES),
         (&["ip", "policy"][..], 3_usize, POLICY_RULES),
         (&["access-list"][..], 2_usize, ACCESS_LIST_RULES),
+        (&["ipv6", "access-list"][..], 3_usize, ACCESS_LIST_RULES),
         (&["user"][..], 2_usize, USER_RULES),
         (&["schedule"][..], 2_usize, SCHEDULE_RULES),
         (&["crypto", "map"][..], 3_usize, CRYPTO_MAP_RULES),

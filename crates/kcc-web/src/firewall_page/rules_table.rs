@@ -4,16 +4,17 @@
 use core::iter;
 
 use fluent_bundle::FluentArgs;
+use kcc_domain::firewall::{
+    lists::{AccessList, ListEntry},
+    rule_words::Side,
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
     locale::Locale,
 };
 
-use super::{
-    rule::Side,
-    snapshot::{Entry, List},
-};
+use super::rule::{action_label, address_text, protocol_label};
 use crate::{
     page_kit::request::with_query,
     table::{
@@ -32,9 +33,8 @@ fn said(locale: Locale, key: MessageKey) -> String {
 
 /// One side as people read it in `locale`: the address (or Any) and the port.
 fn side(locale: Locale, side: &Side) -> String {
-    let address = side
-        .address_text()
-        .unwrap_or_else(|| said(locale, keys::WEB_FIREWALL_ANY_ADDRESS));
+    let address =
+        address_text(side).unwrap_or_else(|| said(locale, keys::WEB_FIREWALL_ANY_ADDRESS));
     match side.port() {
         None => address,
         Some(port) => {
@@ -49,7 +49,7 @@ fn side(locale: Locale, side: &Side) -> String {
 }
 
 /// The address of the rule action `action` on `entry` of `list` on `router`.
-fn rule_url((router, action): (&str, &str), list: &List, entry: &Entry) -> String {
+fn rule_url((router, action): (&str, &str), list: &AccessList, entry: &ListEntry) -> String {
     let index = entry.index().to_string();
     let words = entry.rule().text();
     with_query(
@@ -60,11 +60,11 @@ fn rule_url((router, action): (&str, &str), list: &List, entry: &Entry) -> Strin
 
 /// The cells of `entry` showing the rule: decision, protocol, source and destination, or
 /// the stored words of a rule in another form across all four.
-fn rule_cells(locale: Locale, entry: &Entry) -> Vec<Cell> {
+fn rule_cells(locale: Locale, entry: &ListEntry) -> Vec<Cell> {
     let note = entry
         .disabled()
         .then(|| Piece::span("firewall-rules__note", said(locale, keys::COMMON_DISABLED)));
-    let Some(rule) = entry.rule().parsed() else {
+    let Some(rule) = entry.rule().form() else {
         let pieces = iter::once(Piece::text(entry.rule().text())).chain(note);
         return vec![
             Cell::of(pieces.collect())
@@ -72,8 +72,8 @@ fn rule_cells(locale: Locale, entry: &Entry) -> Vec<Cell> {
                 .attr("colspan", "4".to_owned()),
         ];
     };
-    let action = iter::once(Piece::text(said(locale, rule.action_label()))).chain(note);
-    let protocol = rule.protocol_label().map(|label| said(locale, label));
+    let action = iter::once(Piece::text(said(locale, action_label(rule.action())))).chain(note);
+    let protocol = protocol_label(rule.protocol()).map(|label| said(locale, label));
     vec![
         Cell::of(action.collect()),
         Cell::text(protocol.unwrap_or_default()),
@@ -85,7 +85,7 @@ fn rule_cells(locale: Locale, entry: &Entry) -> Vec<Cell> {
 /// The move buttons and the action menu of rule `row` of `list`, list `item`.
 fn rule_actions(
     router: &str,
-    (list, entry): (&List, &Entry),
+    (list, entry): (&AccessList, &ListEntry),
     (item, row, locale): (usize, usize, Locale),
 ) -> Vec<Act> {
     let moving = rule_url((router, "move"), list, entry);
@@ -116,7 +116,7 @@ fn rule_actions(
             rule_url((router, "schedule"), list, entry),
         ),
     ];
-    if entry.rule().parsed().is_some() {
+    if entry.rule().form().is_some() {
         let href = rule_url((router, "remove"), list, entry);
         entries.push(MenuItem::open(said(locale, keys::WEB_ROUTING_REMOVE), href).danger());
     }
@@ -133,7 +133,7 @@ fn rule_actions(
 /// the role may change `rules`, in `locale`.
 pub(crate) fn rules_view(
     router: &str,
-    (list, item): (&List, usize),
+    (list, item): (&AccessList, usize),
     (rules, locale): (bool, Locale),
 ) -> TableView {
     let empty = TableView::new("table routing-table firewall-rules").nested();

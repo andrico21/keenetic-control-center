@@ -634,7 +634,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): remaining tables on the shared renderer
   Recommended task executor category: visual-engineering - template conversion
 
-- [ ] 42. The firewall page reads rules through kcc-domain
+- [x] 42. The firewall page reads rules through kcc-domain
   What to do / Must NOT do: Extend `crates/kcc-domain/src/firewall/read.rs` (`configured_rules` `:35-42`, already used by `crates/kcc/src/cli/dom_admin.rs:95`) with the rule properties and interface bindings the page shows, and render `crates/kcc-web/src/firewall_page/` from it; delete the page's own `access-list`/`access-group` config-text parsing (`firewall_page/snapshot.rs:1-310`, `rule.rs:1-250`). NAT and routing already read through `kcc_domain::{nat,routing}::read` - follow them. Must NOT: change what the page shows.
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 40 | Blocks: 43 | Can parallelize with: -

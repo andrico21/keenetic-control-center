@@ -10,11 +10,10 @@ use kcc_domain::{
     firewall::{
         change::{self, RuleProperty},
         model::{ConfiguredRule, Direction},
+        rule_words::RuleForm,
     },
 };
 use serde_json::{Value, json};
-
-use super::rule::Parsed;
 
 /// The request of one firewall `line`, standing for `leaf`.
 fn request(line: String, leaf: ValidatedRequest) -> CliChangeRequest {
@@ -50,9 +49,9 @@ fn validated(
 pub(crate) fn add_rule(
     domain: &RouterCtx,
     list: &str,
-    rule: &Parsed,
+    rule: &RuleForm,
 ) -> Result<CliChangeRequest, DomainError> {
-    change::request(&change::plan_add_rule(domain, list, &rule.domain())?)
+    change::request(&change::plan_add_rule(domain, list, &rule.rule())?)
 }
 
 /// Removes the rule stored as `words` from the list `list`.
@@ -63,9 +62,9 @@ pub(crate) fn add_rule(
 pub(crate) fn remove_rule(
     domain: &RouterCtx,
     list: &str,
-    (rule, _words): (&Parsed, &[String]),
+    (rule, _words): (&RuleForm, &[String]),
 ) -> Result<CliChangeRequest, DomainError> {
-    change::request(&change::plan_remove_rule(domain, list, &rule.domain())?)
+    change::request(&change::plan_remove_rule(domain, list, &rule.rule())?)
 }
 
 /// Moves rule `index` of the list `list` to position `to`.

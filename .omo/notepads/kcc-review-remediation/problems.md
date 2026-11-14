@@ -18,3 +18,10 @@
 ## [2026-11-14] Backlog candidates (todos 39-40)
 - Five tables stay outside `kit_table.html`: wizard rename grids (`migrate_mapping.html`, `presets_macros.html`), wizard review grids with checkboxes/radios (`migrate_review.html`, `presets_review.html`), and the side-by-side config diff (`config_diff.html`). A form-control cell kind and a multi-tbody view would let them join; each serves only one or two pages.
 - Rust for the converted pages grew (+1114 pure LOC in todo 39, +1446 in todo 40) while templates shrank (-601, -803): the markup moved into typed builders, not a size reduction.
+
+## [2026-11-14] Backlog candidate (found during the guidelines adoption)
+- `xtask/` is a separate workspace excluded from `cargo fmt --all`; `cd xtask && cargo +nightly-2026-10-03 fmt -- --check` fails in the untouched `xtask/src/seccomp.rs`, `seccomp_gen.rs`, `seccomp_groups.rs`. No gate or CI job checks xtask formatting.
+
+## [2026-11-14] Backlog candidate (todo 42)
+- The domain firewall read is a running-config text read (same single request the page always sent); `kcc_domain::firewall::read::configured_rules` (JSON, three requests, IPv4 only) still exists for the CLI. Two readers of the same data remain; unifying them would change the CLI's request count.
+- A binding with a direction other than in/out is skipped by the new read (the old page labelled it "in"): the firmware only writes in/out.

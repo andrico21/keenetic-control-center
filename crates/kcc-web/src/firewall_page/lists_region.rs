@@ -3,15 +3,16 @@
 
 use askama::Template;
 use fluent_bundle::FluentArgs;
+use kcc_domain::firewall::{
+    lists::{AccessList, Binding},
+    model::Direction,
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
 };
 
-use super::{
-    rules_table::rules_view,
-    snapshot::{Binding, List},
-};
+use super::rules_table::rules_view;
 use crate::{
     page::{Localize as _, Shell},
     page_kit::request::with_query,
@@ -29,7 +30,7 @@ pub(crate) struct ListsRegion {
     /// Router profile id.
     router: String,
     /// The IPv4 lists, each with its rules table.
-    lists: Vec<(List, TableView)>,
+    lists: Vec<(AccessList, TableView)>,
     /// Every list applied to an interface.
     bindings: Vec<Binding>,
     /// Whether the role may change rules.
@@ -37,7 +38,7 @@ pub(crate) struct ListsRegion {
     /// Whether the role may apply lists.
     bind: bool,
     /// The IPv6 lists, when the router's catalog has them.
-    ipv6: Option<Vec<List>>,
+    ipv6: Option<Vec<AccessList>>,
 }
 
 localized!(ListsRegion);
@@ -47,7 +48,7 @@ impl ListsRegion {
     /// router's catalog has IPv6 lists; `(rules, bind)` as the role may change them.
     pub(crate) fn new(
         (shell, router): (Shell, String),
-        (lists, bindings, ipv6): (Vec<List>, Vec<Binding>, Option<Vec<List>>),
+        (lists, bindings, ipv6): (Vec<AccessList>, Vec<Binding>, Option<Vec<AccessList>>),
         (rules, bind): (bool, bool),
     ) -> Self {
         let locale = shell.locale();
@@ -78,7 +79,7 @@ impl ListsRegion {
     }
 
     /// Where `list` is applied, as people read it.
-    fn applied(&self, list: &List) -> Vec<String> {
+    fn applied(&self, list: &AccessList) -> Vec<String> {
         self.bindings
             .iter()
             .filter(|binding| binding.list() == list.name())
@@ -102,7 +103,7 @@ impl ListsRegion {
     }
 
     /// The address of the Add rule dialog for `list`.
-    fn add_url(&self, list: &List) -> String {
+    fn add_url(&self, list: &AccessList) -> String {
         with_query(
             &format!("/ui/r/{}/firewall/rule/new", self.router),
             &[("list", list.name())],
@@ -110,7 +111,7 @@ impl ListsRegion {
     }
 
     /// The address of the dialog applying `list` to an interface.
-    fn bind_url(&self, list: &List) -> String {
+    fn bind_url(&self, list: &AccessList) -> String {
         with_query(
             &format!("/ui/r/{}/firewall/bind", self.router),
             &[("list", list.name())],
@@ -119,10 +120,9 @@ impl ListsRegion {
 }
 
 /// The label of a binding direction.
-pub(crate) fn direction_label(direction: &str) -> MessageKey {
-    if direction == "out" {
-        keys::WEB_FIREWALL_DIRECTION_OUT
-    } else {
-        keys::WEB_FIREWALL_DIRECTION_IN
+pub(crate) const fn direction_label(direction: Direction) -> MessageKey {
+    match direction {
+        Direction::Out => keys::WEB_FIREWALL_DIRECTION_OUT,
+        Direction::In | _ => keys::WEB_FIREWALL_DIRECTION_IN,
     }
 }

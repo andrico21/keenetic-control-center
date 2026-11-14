@@ -13,10 +13,20 @@
 )]
 
 use alloc::collections::BTreeMap;
+use core::str;
 
+use kcc_config::{
+    config_text::{CliLine, Token, flatten, parse},
+    secrets::redact,
+};
+use kcc_rci::ConfigKind;
+use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 
-use super::model::{Action, ConfiguredRule, Direction, Protocol, Rule, UpnpRedirect};
+use super::{
+    lists::Firewall,
+    model::{Action, ConfiguredRule, Direction, Protocol, Rule, UpnpRedirect},
+};
 use crate::{DomainError, Result, RouterCtx, read_show};
 
 /// Reads named IPv4 access lists from the running configuration.
@@ -38,6 +48,35 @@ pub async fn configured_rules(router: &RouterCtx) -> Result<BTreeMap<String, Vec
     object
         .iter()
         .map(|(name, rows)| Ok((name.clone(), parse_list(rows)?)))
+        .collect()
+}
+
+/// Reads the IPv4 and IPv6 access lists with every rule's properties, and the lists applied
+/// to interfaces, from the running configuration.
+///
+/// The configuration text is parsed and its secrets redacted before anything else reads
+/// it; only lines made of plain words are kept, so no secret reaches the result.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
+pub async fn firewall(router: &RouterCtx) -> Result<Firewall> {
+    let bytes = router.client.download_config(ConfigKind::Running).await?;
+    let text =
+        str::from_utf8(bytes.expose_secret()).map_err(|_error| DomainError::InvalidResponse)?;
+    let ast = parse(text).map_err(|_error| DomainError::InvalidResponse)?;
+    let lines: Vec<Vec<String>> = flatten(&redact(&ast))
+        .iter()
+        .filter_map(plain_words)
+        .collect();
+    Ok(Firewall::from_lines(&lines))
+}
+
+/// The words of a configuration line made of plain words only.
+fn plain_words(line: &CliLine) -> Option<Vec<String>> {
+    line.tokens
+        .iter()
+        .map(|token| match token {
+            Token::Word(word) => Some(word.clone()),
+            Token::Ns3(_) | _ => None,
+        })
         .collect()
 }
 
