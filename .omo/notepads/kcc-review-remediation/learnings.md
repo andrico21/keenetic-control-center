@@ -843,3 +843,39 @@ Counts: kcc-web 444 -> 435 passed: removed 14 test names, added 5 (3 tables, 1 r
 - Multi-line refusals (dhcp pool, router user create) apply earlier lines before the refused one: their rows keep `unchanged: false`.
 - Sizes: kcc-web tests 24760 -> 23633 lines (-1127; support/ 1113 lines in 8 files). kcc-web 444 -> 435 passed; workspace 1416 -> 1407 passed (1416 - 14 + 5), 7 ignored.
 - Still over ~250 pure LOC (pre-existing, smaller now, not split here): dashboard.rs 862, admin_pages.rs 922, foundation.rs 444, auth.rs 268. integrations/ keeps its own fixture (different services: update check, log collector, poller).
+
+## [2026-11-15] Todo 48 progress (r48)
+Design: one binary tests/readback.rs (#[path] submodules in tests/readback/: model.rs row model+driver, access.rs, network.rs, system.rs rows, storage.rs own tests). Row = Row::new(name, planner fn returning boxed Send future of Vec<Step{Rci,Cli,Clients}>, Expect::Silent{path,field: Contains|Exact|StartsWith} | Expect::Saved{after: optional fresh-read check}). Two tests drive the table over PROFILES; row name + firmware in every assertion message. The driver stops at the first failing row.
+| # | old | new |
+|---|---|---|
+| 1 | readback_clients::silent_hotspot_policy_names_failed_field | readback.rs::silent_writes_name_the_failed_field[clients.silent_hotspot_policy] (2 steps, one fixture instead of a fresh one per step) |
+| 2 | readback_clients::hotspot_policies_are_visible_after_write | readback.rs::applied_writes_are_read_back[clients.hotspot_policies] |
+| 3 | readback_keendns::silent_cloud_level_names_failed_field | T1[keendns.silent_cloud_level] |
+| 4 | readback_keendns::remote_settings_are_read_back | T2[keendns.remote_settings] |
+| 5 | readback_logging::silent_log_server_names_failed_field | T1[logging.silent_server] |
+| 6 | readback_logging::logging_settings_are_read_back | T2[logging.settings] (6 steps: enable x3 then disable x3) |
+| 7 | readback_mesh::silent_mesh_acquisition_names_failed_field | T1[mesh.silent_acquisition] (Field::Exact "show/mws/member") |
+| 8 | readback_mesh::acquired_member_is_visible | T2[mesh.acquired_member] (+ after-check: member listed, change set still held) |
+| 9 | readback_ntp::silent_ntp_server_names_failed_field | T1[ntp.silent_server] (path "ntp", Contains "server") |
+| 10 | readback_ntp::ntp_settings_are_read_back | T2[ntp.settings] |
+| 11 | readback_schedules::silent_schedule_create_names_failed_field | T1[schedules.silent_create] |
+| 12 | readback_schedules::created_schedule_is_read_back | T2[schedules.create] (+ after-check: schedule listed) |
+| 13 | readback_services::silent_service_toggle_names_failed_field | T1[services.silent_toggle] |
+| 14 | readback_services::listener_fields_require_the_requested_values (faulted arm) | T1[services.silent_listener] (Field::StartsWith "/ip/") |
+| 14b | readback_services::listener_fields_require_the_requested_values (unfaulted arm) | T2[services.listener] |
+| 15 | readback_storage::unavailable_partition_writes_are_refused_without_dispatch | readback.rs storage::unavailable_partition_writes_are_refused_without_dispatch (own test, kept: counts router requests) |
+| 16 | readback_storage::eject_requires_the_documented_action_exclusion | readback.rs storage::eject_requires_the_documented_action_exclusion (own test, kept: no write) |
+| 17 | readback_users::silent_account_create_names_failed_field | T1[users.silent_account_create] |
+| 18 | readback_users::account_and_tags_are_visible_after_write | T2[users.account_and_tags] (+ after-check: account gone) |
+| 19 | readback_vpn_servers::silent_vpn_service_names_failed_field | T1[vpn_servers.silent_service] |
+| 20 | readback_vpn_servers::vpn_server_settings_are_read_back | T2[vpn_servers.settings] |
+| 21 | readback_vpn_servers::crypto_map_settings_are_read_back | T2[vpn_servers.crypto_map] (V4_3 DNS change asserted refused_by_catalog inside the planner) |
+| 22 | readback_wan::silent_wan_create_names_failed_field | T1[wan.silent_create] |
+| 23 | readback_wan::silent_wan_addressing_and_delete_name_failed_field | T1[wan.silent_addressing_and_delete] (3 steps, each must fail) |
+| 24 | profile_coverage::every_domain_suite_iterates_both_firmware_profiles | profile_coverage::every_domain_suite_iterates_the_firmware_profiles (renamed; tokenised check) + new profile_coverage::the_profile_list_matches_the_fake_router_lines |
+Table rows: 22 (11 silent no-op rows, 11 applied rows). Own tests: 2 (storage).
+Sizes (wc -l): before readback_*.rs 855 (profile_coverage 85) -> after readback.rs 54 + readback/{access 190, model 154, network 213, storage 56, system 123} = 790 (profile_coverage 183). Largest pure LOC: network.rs 190, access.rs 167, model.rs 113.
+Counts: kcc-domain 156 -> 138 = 156 - 23 old read-back tests + 4 (2 table tests + 2 storage) + 1 (new profile_coverage test). Expected workspace 1407 -> 1389 (1407 - 18; not run). Real kcc-domain total 138 (sum of per-binary results of the final run).
+Mutations (all reverted, empty src diff, binary green): drop verification in system::plan_post -> ntp.silent_server; logging::change_request -> logging.silent_server; services::change_request -> services.silent_toggle; router_users::change_request -> users.silent_account_create; keendns::change_request -> keendns.silent_cloud_level; vpn_servers::plan_change -> vpn_servers.silent_service. Mutations need drop(x); Vec::new() (unused/never-used lints are errors in the lib).
+profile_coverage: guard compiles support (mod support;) and checks PROFILES + UNPROFILED(V5_0, documented) == Model::Kn1811.firmware_lines(); suite source check strips comments and string literals and requires the whole token PROFILES after 'in' or before .iter()/.into_iter(). Demonstrated failing for: PROFILES without V5_1; scratch suite w/o PROFILES; suite mentioning it only in comment/string. Gotchas: root test file modules resolve relative to tests/, so submodules use #[path] (precedent verification_coverage.rs); clippy needs Row private fields + const fn new, 'ctx lifetime names, boxed futures must be Send (future_not_send).
+Counts: kcc-domain 156 -> 138; expected workspace 1407 -> 1389.

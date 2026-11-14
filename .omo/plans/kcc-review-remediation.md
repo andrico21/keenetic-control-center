@@ -684,7 +684,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | test(web): shared fixtures and table-driven page contracts
   Recommended task executor category: unspecified-high - large test refactor with a ledger
 
-- [ ] 48. Table-driven read-back suites in kcc-domain
+- [x] 48. Table-driven read-back suites in kcc-domain
   What to do / Must NOT do: Merge the 11 `crates/kcc-domain/tests/readback_*.rs` binaries (~830 lines, ~25 lines of boilerplate each) into one table-driven `readback.rs`, keeping every silent-no-op regression row (e.g. `readback_ntp.rs:20`). Replace the weak `"in PROFILES"` text check in `crates/kcc-domain/tests/profile_coverage.rs:40` with an assertion against the actual profile list. Ledger as in todo 46. Must NOT: drop a row.
   Closes: GAP-12
   Parallelization: Wave W7 | Blocked by: 47 | Blocks: 49 | Can parallelize with: -
