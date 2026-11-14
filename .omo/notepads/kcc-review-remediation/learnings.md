@@ -415,3 +415,36 @@ All gates pass: fmt, clippy, cancel-safety, 22 workflow tests
   metrics.rs): drop the expectation in the same change.
 - `match` arms that bind `path` inside a fn whose parameter is `path` trip `shadow_unrelated`; rename one side.
 - Do not `pgrep -f`/`pkill -f` with a pattern that appears in your own command line: it kills the tool shell.
+
+## [2025-11-14] Todo 25 progress
+
+**Implemented router-aware missing-permission messaging for CLI apply refusals:**
+
+### Changes made:
+1. Added `cli-router-out-of-scope` i18n key with translations in all 6 locales (en, ru, uk, de, be, kk)
+2. Updated `authorize_apply` in `context.rs:215-261` to detect when a role holds all permissions but the router is out of scope
+3. When detected, shows "Your role does not cover router { $router }." instead of empty permission list
+4. Exit code stays 10 (unchanged)
+
+### Test coverage:
+- New test `scoped_role_with_all_apply_permissions_shows_router_out_of_scope` verifies the case
+- All 90 CLI tests pass, all 14 i18n tests pass
+- No changes to other CLI apply/refusal paths (only one location in the codebase uses this pattern)
+
+### Key design decision:
+Separated permission check from scope check in authorization logic:
+- First check if all required permissions are granted (no scope)
+- Then check if router is in scope
+- Only show router-out-of-scope message if both conditions are met: permissions OK, but router not in scope
+
+This ensures we don't show an empty permission list when the real issue is the router scope.
+
+## [2026-11-14] Todo 21 progress (worker r21)
+- Done: one `ChangeRequest` (ChangeMethod Post/Delete), one `CliChangeRequest` (terminal flag), `apply` handles both methods, `apply_cli` handles terminal requests, `BatchItem::new(value)` only, `apply_batch` validates each item once and keeps the results for completion and audit target, read-back `verify` moved to workflow_verify.rs (now `Readback` + single exhaustive match; the dead `ConfigCommand|ConfigCommandAbsent|ConfigSecret => false` arm is gone because the configuration dispatch is that match's own arm). workflow.rs 1690 -> 1509 lines; workflow_verify.rs 228 pure LOC (warning band: split configuration matching out if it grows).
+- New test `batch_outcomes::tests::batch_items_are_validated_from_their_values` (kcc-app --test workflow); RED was the compile failure of `BatchItem::new(value)` against the two-argument shape.
+- Gotcha: removing `BatchItem.validated` ripples into every caller that computed gates/previews from it (kcc CLI rci.rs, kcc-web advanced/{deliver,rci,rci_check,execute}.rs, page_kit/change.rs, action.rs); `clippy::shadow_*` and `match_same_arms` fire on the mechanical rewrites.
+
+## [2026-11-14] Todo 52 progress
+- Done in worktree r52: per-kind sealed router credentials (`CredentialKind`), registry reads per kind, `transition` seals State-profile reconnect passwords and drops the cached client for token profiles, CLI `router add/edit` take every credential as input only (`--auth`, `--token-file`, `--read-login`, `--read-password-file`, `--new-token`, `--new-read-password`, `--clear-read-login`), endpoint rule shared through `ManagedRouterProfile::moves_endpoint`, audit `credentials` kinds, external-file warning (CLI note + serve tracing warn), 9 i18n keys x 6 locales, docs + CHANGELOG.
+- Gotchas: the kcc CLI has no tracing subscriber, so a CLI "log" line must be `Out::note` (i18n) on stderr; `field_scoped_visibility_modifiers` forbids `pub(super)` fields (use accessors / `into_parts`); `kcc_i18n::keys::MessageKey` is private, import `kcc_i18n::bundle::MessageKey`; `auth_fixture` token counts: `router test` detection GETs `/auth` once even with a token, so assert no ndw2/ndw4 login instead of `auth_get == 0`; FakeRouter's request log has no login name, so "poller logs in as reader" is proven by a fake whose admin password differs from the sealed primary (only the reader login can succeed).
+- Audit params: `reject_secret_parameters` refuses keys containing password/token/secret, so the audit key is `credentials` with kind names as values.

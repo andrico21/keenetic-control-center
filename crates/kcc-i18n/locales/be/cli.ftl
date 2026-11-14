@@ -114,3 +114,4 @@ cli-done-terminal = Роўтар выконвае дзеянне. Некальк
 cli-error-firewall-verification = Роўтар не паказаў чаканую канфігурацыю пасля змены; праверце яе перад паўторнай спробай.
 failsafe-rollback-rebooting = Роўтар перазагружаецца з захаванай канфігурацыяй.
 cli-done = Гатова.
+cli-router-out-of-scope = Ваша роль не ахоплівае роўтар { $router }.

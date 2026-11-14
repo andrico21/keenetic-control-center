@@ -15,3 +15,7 @@
 ## [2026-11-13] Todo 14 (worker r14)
 - The Web wizard and preset restarting tests (`silent_extender_wizard_rollback_reports_restarting`, `silent_extender_preset_rollback_reports_restarting`) fail on this branch alone: the finish routes' 30 s `TimeoutLayer` (todo 17 scope) answers 408 and drops the rollback before `wait_restored` (120 s) ends. With the layer lifted (scratch, reverted) both pass. They need todo 17 merged first (and its budget must let the rollback run to its end).
 - CLI one-shot `kcc migrate apply --finish rollback` on a silent extender is not covered at process level: the binary has no clock seam, so the restore wait costs 120 s real time. The engine path is covered by kcc-migrate `finish_recovery` (fake clock) and the CLI mapping by `apply_failure`.
+
+## [2026-11-14] Todo 52 (out of scope, left for follow-ups)
+- Web router audit (`router.profile_create/update`, crates/kcc-web/src/router_access.rs) still logs `credentials_changed: bool`, not the `credentials` kind list the CLI now writes; and the Web edit form cannot handle a token profile (storing a password leaves `token_file` set, so `validate` refuses it). Both belong to todo 53 (Web router form).
+- `kcc router edit --url` runs no outbound-policy check on the new URL (pre-existing; `router add` does).

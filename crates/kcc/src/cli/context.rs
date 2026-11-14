@@ -212,6 +212,26 @@ impl Ctx {
             Err(failure) => {
                 self.attempt(services, "cli.refused", Some(id), Attempt::Forbidden)
                     .await;
+
+                // Check if all required permissions are granted (without router scope check).
+                let all_permissions_granted = required
+                    .iter()
+                    .all(|perm| self.principal.role().grants(*perm));
+
+                // Check if the router is in the principal's scope.
+                let router_in_scope = self.principal.sees(id);
+
+                // If all permissions are granted but the router is out of scope,
+                // print the router-out-of-scope message instead of a missing permissions list.
+                if all_permissions_granted && !router_in_scope {
+                    return Err(Failure::message(
+                        failure.exit(),
+                        keys::CLI_ROUTER_OUT_OF_SCOPE,
+                        &[("router", id)],
+                    ));
+                }
+
+                // Compute the subset of actually missing permissions (without scope check).
                 let missing = required
                     .iter()
                     .copied()

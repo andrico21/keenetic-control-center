@@ -3,13 +3,14 @@
 
 use core::{error::Error, net::SocketAddr};
 
-use kcc_app::audit::read_entries;
+use fluent_bundle::FluentArgs;
+use kcc_app::{audit::read_entries, permissions::Permission};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials};
 use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, Handle, migration, model::Profile};
 use secrecy::SecretString;
 
-use super::{Env, TestResult, commands_after, router};
+use super::{Env, TestResult, add_role_with_scope, commands_after, router};
 use crate::support::Run;
 
 /// The `dns-secure` line the source router holds.
@@ -182,5 +183,51 @@ async fn operator_rollback_finish_and_viewer_apply_are_refused_before_any_router
         .filter(|entry| entry.action == "cli.refused" && entry.outcome == "forbidden")
         .count();
     assert_eq!(refusals, 3, "each refusal is audited");
+    pair.stop().await
+}
+
+/// A custom role with all apply permissions but scope `["other"]` applying to `lab-1`
+/// exits 10 with the out-of-scope message and no empty permission list.
+// NOT cancel-safe: the fixture applies router settings.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn scoped_role_with_all_apply_permissions_shows_router_out_of_scope() -> TestResult {
+    let pair = Pair::start().await?;
+
+    // Create a role with all apply permissions (Read, Migrate, Write, Save)
+    // but only scoped to ["other"], not ["lab-1", "src"]
+    add_role_with_scope(
+        &pair.env,
+        "scoped_operator",
+        &[
+            Permission::Read,
+            Permission::Migrate,
+            Permission::Write,
+            Permission::Save,
+        ],
+        vec!["other".to_owned()],
+    )?;
+
+    let run = pair.apply("scoped_operator", "save")?;
+
+    // Should exit 10 (forbidden)
+    assert_eq!(run.code, 10_i32, "{run:?}");
+
+    // The refusal should contain the new router-out-of-scope message,
+    // not an empty "Missing permissions: ." message
+    let mut args = FluentArgs::new();
+    args.set("router", "lab-1");
+    let expected_message = tr(Locale::En, keys::CLI_ROUTER_OUT_OF_SCOPE, Some(&args));
+
+    assert!(
+        run.stderr.contains(&expected_message),
+        "should contain out-of-scope message '{expected_message}': got {run:?}",
+    );
+
+    // Verify it does NOT contain an empty permission list
+    assert!(
+        !run.stderr.contains("Missing permissions: ."),
+        "should not contain empty permission list: {run:?}"
+    );
+
     pair.stop().await
 }

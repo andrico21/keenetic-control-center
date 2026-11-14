@@ -454,7 +454,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(cli): say "not saved yet" only when the router has unsaved configuration
   Recommended task executor category: unspecified-low - headline rule in two CLI files
 
-- [ ] 25. CLI apply refusals name the missing permission or the router scope
+- [x] 25. CLI apply refusals name the missing permission or the router scope
   What to do / Must NOT do: TDD. `crates/kcc/src/cli/context.rs:239-251` computes the missing subset without router scope while `principal.authorize` (`crates/kcc/src/cli/principal.rs:96-110`) checks it, so a role scoped away from the target prints "Missing permissions: ." (BACKLOG r17 F1-N77). Compute the subset with the same router-aware check; when the role holds every permission but not for this router, print a new key `cli-router-out-of-scope` (en: "Your role does not cover router { $router }."). Must NOT: change exit 10.
   Closes: GAP-9
   Parallelization: Wave W4 | Blocked by: 18, 24 | Blocks: 45 | Can parallelize with: 21, 22, 26, 28, 29, 52, 53

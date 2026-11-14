@@ -112,3 +112,4 @@ cli-done-terminal = The router is carrying it out. It may not answer for a few m
 cli-error-firewall-verification = The router did not show the expected configuration after the change; check it before retrying.
 failsafe-rollback-rebooting = The router is restarting with its saved configuration.
 cli-done = Done.
+cli-router-out-of-scope = Your role does not cover router { $router }.

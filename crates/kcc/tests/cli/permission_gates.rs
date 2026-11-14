@@ -37,11 +37,21 @@ async fn lab(mode: &str, role: &str) -> Result<(Env, Handle, SocketAddr), Box<dy
 
 /// Adds a custom role to the state document used by the CLI process.
 fn add_role(env: &Env, name: &str, permissions: &[Permission]) -> TestResult {
+    add_role_with_scope(env, name, permissions, vec!["*".to_owned()])
+}
+
+/// Adds a custom role with a specific router scope to the state document used by the CLI process.
+fn add_role_with_scope(
+    env: &Env,
+    name: &str,
+    permissions: &[Permission],
+    scope: Vec<String>,
+) -> TestResult {
     let mut roles = RolesDocument::default();
     roles.roles.push(Role::new(
         name.to_owned(),
         permissions.iter().copied(),
-        vec!["*".to_owned()],
+        scope,
     ));
     StateStore::open(&env.state_dir())?.write(&roles)?;
     Ok(())
