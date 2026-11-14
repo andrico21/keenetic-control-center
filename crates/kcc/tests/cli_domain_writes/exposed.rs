@@ -1,7 +1,7 @@
 //! Which CLI subcommand runs each write operation of `kcc_domain::registry()`.
 //!
 //! Operations the CLI does not offer are listed, with the reason, in
-//! [`super::exclusions::EXCLUDED`]; a test holds both tables to the registry and to the
+//! [`crate::excluded::EXCLUDED`]; a test holds both tables to the registry and to the
 //! clap command tree.
 
 use kcc_domain::DomainId::{
@@ -13,7 +13,7 @@ use kcc_domain::DomainId::{
 /// One registry write operation and the CLI subcommand that runs it.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct Exposure {
+pub(crate) struct Exposure {
     /// The curated domain.
     pub domain: DomainId,
     /// The registry operation name.
@@ -36,7 +36,7 @@ const fn on(domain: DomainId, op: &'static str, command: &'static str) -> Exposu
 /// `vpn_clients wireguard_peer_psk` has no planner of its own: the WireGuard import writes
 /// each peer's `PresharedKey` from the `.conf` file, so it is reached through
 /// `vpn wireguard-import`.
-pub const EXPOSED: &[Exposure] = &[
+pub(crate) const EXPOSED: &[Exposure] = &[
     on(System, "hostname", "system set-hostname"),
     on(System, "domainname", "system set-domain"),
     on(System, "description", "system set-description"),

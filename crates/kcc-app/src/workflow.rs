@@ -723,20 +723,6 @@ impl ChangeWorkflow {
         })
     }
 
-    /// Checks migration permission and scope for both source and target routers.
-    ///
-    /// # Errors
-    ///
-    /// Returns permission denial for either router.
-    pub fn authorize_migration(
-        role: &Role,
-        source: &str,
-        target: &str,
-    ) -> Result<(), WorkflowError> {
-        authorize(role, Permission::Migrate, source).map_err(map_permission)?;
-        authorize(role, Permission::Migrate, target).map_err(map_permission)
-    }
-
     /// The encrypted backup store this workflow writes its automatic backups to; a
     /// migration reads its stored backup sources from it.
     #[inline]

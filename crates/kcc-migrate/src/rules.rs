@@ -7,7 +7,7 @@ use std::sync::LazyLock;
 use kcc_catalog::Catalog;
 use kcc_config::{
     config_text::{Ast, CliLine, Token, flatten},
-    secrets::redact,
+    secrets::{expanded_words, redact},
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
@@ -213,73 +213,78 @@ pub enum RuleError {
     IncompleteRule,
 }
 
-/// Stateless evaluator for the embedded migration policy.
-#[derive(Clone, Copy, Debug, Default)]
-#[non_exhaustive]
-pub struct RuleEngine;
+/// Classifies every flattened source line exactly once in source order.
+///
+/// Explicit rules win over catalog absence; catalog absence wins over component checks;
+/// component checks win over the default copy fallback.
+///
+/// # Errors
+///
+/// Returns [`RuleError`] when the compile-time rule asset is malformed.
+#[inline]
+pub fn classify(
+    source: &Ast,
+    target: ClassificationTarget<'_>,
+    choices: &ClassificationChoices<'_>,
+) -> Result<Vec<ClassifiedItem>, RuleError> {
+    classify_settled(source, target, choices, |_item| {})
+}
 
-impl RuleEngine {
-    /// Validates and returns the embedded evaluator.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RuleError`] when the compile-time rule asset is malformed.
-    #[inline]
-    pub fn embedded() -> Result<Self, RuleError> {
-        embedded_rules().map(|_rules| Self)
-    }
-
-    /// Classifies every flattened source line exactly once in source order.
-    ///
-    /// Explicit rules win over catalog absence; catalog absence wins over component checks;
-    /// component checks win over the default copy fallback.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RuleError`] when the compile-time rule asset is malformed.
-    #[inline]
-    pub fn classify(
-        self,
-        source: &Ast,
-        target: ClassificationTarget<'_>,
-        choices: &ClassificationChoices<'_>,
-    ) -> Result<Vec<ClassifiedItem>, RuleError> {
-        self.classify_settled(source, target, choices, |_item| {})
-    }
-
-    /// Classifies like [`RuleEngine::classify`], applying `settle` to every line except
-    /// bridge memberships before they are decided, so a member counts as created only by
-    /// lines whose settled disposition still sends them.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`RuleError`] when the compile-time rule asset is malformed.
-    #[expect(
-        clippy::unused_self,
-        reason = "the validated engine value is the public classification capability"
-    )]
-    pub(crate) fn classify_settled(
-        self,
-        source: &Ast,
-        target: ClassificationTarget<'_>,
-        choices: &ClassificationChoices<'_>,
-        settle: impl Fn(&mut ClassifiedItem),
-    ) -> Result<Vec<ClassifiedItem>, RuleError> {
-        let rules = embedded_rules()?;
-        let lines = flatten(source);
-        let redacted_lines = flatten(&redact(source));
-        let target_lines = flatten(target.running_config);
-        let mappings = mappings(choices);
-        let mut classified_non_memberships = lines
-            .iter()
-            .zip(redacted_lines.iter())
-            .enumerate()
-            .map(|(source_index, (line, redacted_line))| {
-                if bridge_member(line).is_some() {
-                    return None;
-                }
+/// Classifies like [`classify`], applying `settle` to every line except bridge memberships
+/// before they are decided, so a member counts as created only by lines whose settled
+/// disposition still sends them.
+///
+/// # Errors
+///
+/// Returns [`RuleError`] when the compile-time rule asset is malformed.
+pub(crate) fn classify_settled(
+    source: &Ast,
+    target: ClassificationTarget<'_>,
+    choices: &ClassificationChoices<'_>,
+    settle: impl Fn(&mut ClassifiedItem),
+) -> Result<Vec<ClassifiedItem>, RuleError> {
+    let rules = embedded_rules()?;
+    let lines = flatten(source);
+    let redacted_lines = flatten(&redact(source));
+    let target_lines = flatten(target.running_config);
+    let mappings = mappings(choices);
+    let mut classified_non_memberships = lines
+        .iter()
+        .zip(redacted_lines.iter())
+        .enumerate()
+        .map(|(source_index, (line, redacted_line))| {
+            if bridge_member(line).is_some() {
+                return None;
+            }
+            let fully_redacted_line = redact_ns3(redacted_line);
+            Some(classify_line(
+                source_index,
+                line,
+                &fully_redacted_line,
+                source.header.model.as_deref(),
+                &target,
+                choices,
+                &target_lines,
+                &BTreeSet::new(),
+                &mappings,
+                rules,
+            ))
+        })
+        .collect::<Vec<_>>();
+    classified_non_memberships
+        .iter_mut()
+        .flatten()
+        .for_each(settle);
+    let planned_interfaces = planned_interfaces(&lines, &classified_non_memberships, &mappings);
+    Ok(lines
+        .iter()
+        .zip(redacted_lines.iter())
+        .zip(classified_non_memberships)
+        .enumerate()
+        .map(|(source_index, ((line, redacted_line), classified))| {
+            classified.unwrap_or_else(|| {
                 let fully_redacted_line = redact_ns3(redacted_line);
-                Some(classify_line(
+                classify_line(
                     source_index,
                     line,
                     &fully_redacted_line,
@@ -287,41 +292,13 @@ impl RuleEngine {
                     &target,
                     choices,
                     &target_lines,
-                    &BTreeSet::new(),
+                    &planned_interfaces,
                     &mappings,
                     rules,
-                ))
+                )
             })
-            .collect::<Vec<_>>();
-        classified_non_memberships
-            .iter_mut()
-            .flatten()
-            .for_each(settle);
-        let planned_interfaces = planned_interfaces(&lines, &classified_non_memberships, &mappings);
-        Ok(lines
-            .iter()
-            .zip(redacted_lines.iter())
-            .zip(classified_non_memberships)
-            .enumerate()
-            .map(|(source_index, ((line, redacted_line), classified))| {
-                classified.unwrap_or_else(|| {
-                    let fully_redacted_line = redact_ns3(redacted_line);
-                    classify_line(
-                        source_index,
-                        line,
-                        &fully_redacted_line,
-                        source.header.model.as_deref(),
-                        &target,
-                        choices,
-                        &target_lines,
-                        &planned_interfaces,
-                        &mappings,
-                        rules,
-                    )
-                })
-            })
-            .collect())
-    }
+        })
+        .collect())
 }
 
 /// Redacts every typed NS3 payload in addition to the command-specific secret registry.
@@ -776,19 +753,6 @@ fn command_path_matches(path: &str, words: &[&str]) -> bool {
     let mut actual = words.iter();
     path.split_whitespace()
         .all(|expected| actual.by_ref().any(|word| *word == expected))
-}
-
-/// Expands typed NS3 values to the two words used by CLI matching.
-fn expanded_words(tokens: &[Token]) -> Vec<&str> {
-    tokens
-        .iter()
-        .flat_map(|token| match token {
-            Token::Word(value) => [Some(value.as_str()), None],
-            Token::Ns3(value) => [Some("ns3"), Some(value.as_str())],
-            _ => [None, None],
-        })
-        .flatten()
-        .collect()
 }
 
 /// Returns an ordinary token's text.

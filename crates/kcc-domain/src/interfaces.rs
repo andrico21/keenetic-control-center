@@ -22,7 +22,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token, read_show,
 };
 
 /// Interface change execution and its read-back.
@@ -291,8 +291,7 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
                 .get("description")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?;
-            let encoded = serde_json::to_string(description)
-                .map_err(|_error| DomainError::InvalidResponse)?;
+            let encoded = cli_token::quoted_text(description)?;
             format!("interface {name} description {encoded}")
         }
         "interface security-level" => {

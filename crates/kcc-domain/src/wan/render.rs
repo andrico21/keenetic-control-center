@@ -5,7 +5,7 @@ use kcc_rci::ObjectName;
 use serde_json::{Value, json};
 
 use super::verification;
-use crate::{ChangeOp, DomainError, Result};
+use crate::{ChangeOp, DomainError, Result, cli_token};
 
 /// Converts a named WAN plan into a verified parser request.
 pub(super) fn request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChangeRequest> {
@@ -75,8 +75,7 @@ fn string_field<'value>(value: &'value Value, field: &str) -> Result<&'value str
 
 /// Quotes one string request field for the CLI parser.
 fn quoted_field(value: &Value, field: &str) -> Result<String> {
-    serde_json::to_string(string_field(value, field)?)
-        .map_err(|_error| DomainError::InvalidResponse)
+    cli_token::quoted(string_field(value, field)?)
 }
 
 /// Extracts an integer request field.

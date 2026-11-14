@@ -11,13 +11,60 @@
 use std::fs;
 
 use kcc_app::audit::AUDIT_FILE_NAME;
-use kcc_domain::wifi;
+use kcc_config::config_text::{Token, flatten, parse};
+use kcc_domain::{DomainError, wifi};
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
 
 mod support;
 
 use crate::support::{Fixture, PROFILES, TestResult, TraceCapture};
+
+/// An SSID carrying `"` and `\` is sent as the line the configuration printer writes for
+/// it, and parses back to the same one word.
+#[tokio::test]
+async fn ssid_with_quote_and_backslash_is_sent_as_the_printer_writes_it() -> TestResult {
+    let fixture = Fixture::spawn(PROFILES[0]).await?;
+    let name = ObjectName::try_from("WifiMaster0/AccessPoint0".to_owned())?;
+    let ssid = r#"say "hi" \ there"#;
+    let operation = wifi::plan_ssid(fixture.context(), &name, ssid)?;
+    let request = wifi::change_request(&name, &operation)?;
+    let line = request
+        .commands
+        .first()
+        .ok_or("one command")?
+        .expose_for_send()?;
+
+    let parsed = flatten(&parse(&line)?);
+    let [printed] = parsed.as_slice() else {
+        return Err("one line".into());
+    };
+    assert_eq!(*line, printed.to_string());
+    let words = ["interface", "WifiMaster0/AccessPoint0", "ssid", ssid];
+    assert_eq!(
+        printed.tokens,
+        words.map(|word| Token::Word(word.to_owned()))
+    );
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+/// An SSID carrying a control character is refused as an invalid CLI token.
+#[tokio::test]
+async fn ssid_with_a_control_character_is_refused() -> TestResult {
+    let fixture = Fixture::spawn(PROFILES[0]).await?;
+    let name = ObjectName::try_from("WifiMaster0/AccessPoint0".to_owned())?;
+    for ssid in ["tab\there", "line\nfeed", "nul\0byte"] {
+        let operation = wifi::plan_ssid(fixture.context(), &name, ssid)?;
+        let refused = wifi::change_request(&name, &operation);
+        assert!(
+            matches!(refused, Err(DomainError::InvalidCliToken)),
+            "{ssid:?}: {refused:?}"
+        );
+    }
+    fixture.shutdown().await?;
+    Ok(())
+}
 
 #[tokio::test]
 async fn ssid_change_is_verified_and_slash_read_uses_post() -> TestResult {

@@ -11,7 +11,7 @@ use kcc_rci::ObjectName;
 use secrecy::SecretString;
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, verification};
 
 /// Validates one Wi-Fi plan with optional selected-interface read-back.
 pub(super) fn plan(
@@ -146,7 +146,7 @@ fn string<'value>(value: &'value Value, field: &str) -> Result<&'value str> {
 
 /// Quotes a string field for the CLI parser.
 fn quoted(value: &Value, field: &str) -> Result<String> {
-    serde_json::to_string(string(value, field)?).map_err(|_error| DomainError::InvalidResponse)
+    cli_token::quoted(string(value, field)?)
 }
 
 /// Extracts an integer field.

@@ -14,7 +14,7 @@ mod tests {
         planner::{Choices, MigrationMaps, Planner},
         rules::{
             ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
-            InterfaceInventory, RuleEngine,
+            InterfaceInventory, classify,
         },
         source::SourceConfig,
     };
@@ -53,7 +53,7 @@ mod tests {
             None,
             InterfaceInventory::from(target_interfaces),
         );
-        Ok(RuleEngine::embedded()?.classify(&source, target_view, &choices)?)
+        Ok(classify(&source, target_view, &choices)?)
     }
 
     /// Classifies one bridge member against an optional target interface inventory.

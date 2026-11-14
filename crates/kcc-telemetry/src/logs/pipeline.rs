@@ -102,12 +102,16 @@ impl LogForwarder {
         }
     }
 
-    /// Starts workers with an injected clock.
+    /// Loads configured sinks and starts their bounded workers, which wait on `clock`
+    /// between flushes and between delivery retries.
     ///
     /// # Errors
     ///
-    /// Returns [`ForwarderError`] when construction fails.
-    async fn start_with_clock(
+    /// Returns [`ForwarderError`] when a sink or queue cannot be constructed.
+    #[inline]
+    // NOT cancel-safe: cancelled while loading a later sink, the workers already spawned
+    // for earlier sinks keep running detached because their cancellation token never fires.
+    pub async fn start_with_clock(
         config: &LogsConfig,
         metrics: Arc<SelfMetrics>,
         clock: Arc<dyn Clock>,

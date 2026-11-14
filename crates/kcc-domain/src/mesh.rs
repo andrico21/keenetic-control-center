@@ -21,7 +21,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token, read_show,
 };
 
 /// Tolerant mesh member.
@@ -260,5 +260,5 @@ fn quoted(value: &Value, field: &str) -> Result<String> {
         .get(field)
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)?;
-    serde_json::to_string(text).map_err(|_error| DomainError::InvalidResponse)
+    cli_token::quoted(text)
 }

@@ -70,16 +70,6 @@ pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> 
     decode_config_rows(&answer, "/ip/dhcp/host")
 }
 
-/// Reads startup static leases through `show sc ip dhcp host`.
-// cancel-safe: a single read request; cancellation changes nothing on the router.
-pub async fn read_startup_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
-    let answer = router
-        .client
-        .show_sc(json!({"ip":{"dhcp":{"host":{}}}}))
-        .await?;
-    decode_config_rows(&answer, "/ip/dhcp/host")
-}
-
 /// Reads current DHCP bindings.
 // cancel-safe: a single read request; cancellation changes nothing on the router.
 pub async fn read_bindings(router: &RouterCtx) -> Result<Vec<Binding>> {

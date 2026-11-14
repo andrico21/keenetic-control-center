@@ -1,7 +1,7 @@
 //! Registry write operations the CLI deliberately does not offer, each with its reason.
 //!
 //! An entry here is a documented gap, not a silent one: the coverage test fails when a
-//! registry write operation has neither a subcommand in [`super::coverage::EXPOSED`] nor
+//! registry write operation has neither a subcommand in [`crate::exposed::EXPOSED`] nor
 //! an entry here, and when an entry names an operation the registry no longer has.
 
 use kcc_domain::DomainId;
@@ -9,7 +9,7 @@ use kcc_domain::DomainId;
 /// One registry write operation the CLI does not offer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
-pub struct Exclusion {
+pub(crate) struct Exclusion {
     /// The curated domain.
     pub domain: DomainId,
     /// The registry operation name.
@@ -19,7 +19,7 @@ pub struct Exclusion {
 }
 
 /// Every registry write operation the CLI does not offer.
-pub const EXCLUDED: &[Exclusion] = &[Exclusion {
+pub(crate) const EXCLUDED: &[Exclusion] = &[Exclusion {
     domain: DomainId::Firewall,
     op: "ipv6_rule",
     reason: "kcc-domain has no planner or executor for IPv6 access-list rules (only the \

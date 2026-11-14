@@ -221,14 +221,6 @@ impl NewAccount {
         self.locale = locale;
         self
     }
-
-    /// Sets the initial administrative state.
-    #[inline]
-    #[must_use]
-    pub const fn with_disabled(mut self, disabled: bool) -> Self {
-        self.disabled = disabled;
-        self
-    }
 }
 
 /// Authentication result with no secret-bearing fields.

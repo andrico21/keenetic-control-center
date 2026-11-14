@@ -18,7 +18,7 @@ use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
 use super::verify::Verification;
-use crate::{ChangeOp, DomainError, Result, verification as readback};
+use crate::{ChangeOp, DomainError, Result, cli_token, verification as readback};
 
 /// Converts a validated firewall operation into protected CLI workflow input.
 pub(super) fn request(
@@ -131,10 +131,7 @@ fn render_property(words: &mut Vec<String>, request: &ValidatedRequest) -> Resul
             .to_string(),
     );
     if let Some(value) = request.value.get("description").and_then(Value::as_str) {
-        words.extend([
-            "description".to_owned(),
-            serde_json::to_string(value).map_err(|_error| DomainError::InvalidResponse)?,
-        ]);
+        words.extend(["description".to_owned(), cli_token::quoted_text(value)?]);
     } else if let Some(value) = request.value.get("schedule").and_then(Value::as_str) {
         words.extend(["schedule".to_owned(), value.to_owned()]);
     } else if let Some(value) = number(request, "order") {

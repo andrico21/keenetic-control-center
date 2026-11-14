@@ -181,27 +181,11 @@ impl HttpsUpstream {
         self
     }
 
-    /// Sets the resolver SNI/SPKI hash.
-    #[inline]
-    #[must_use]
-    pub fn with_hash(mut self, hash: &str) -> Self {
-        self.hash = Some(hash.to_owned());
-        self
-    }
-
     /// Restricts the upstream to an interface.
     #[inline]
     #[must_use]
     pub fn on_interface(mut self, interface: &str) -> Self {
         self.interface = Some(interface.to_owned());
-        self
-    }
-
-    /// Restricts the upstream to a DNS suffix.
-    #[inline]
-    #[must_use]
-    pub fn for_domain(mut self, domain: &str) -> Self {
-        self.domain = Some(domain.to_owned());
         self
     }
 }

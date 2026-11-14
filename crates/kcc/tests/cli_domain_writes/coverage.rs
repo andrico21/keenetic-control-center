@@ -5,8 +5,10 @@ extern crate alloc;
 use alloc::collections::BTreeSet;
 
 use clap::CommandFactory as _;
-use kcc::cli::{args::Cli, coverage::EXPOSED, exclusions::EXCLUDED};
+use kcc::cli::args::Cli;
 use kcc_domain::{DomainId, registry};
+
+use crate::{excluded::EXCLUDED, exposed::EXPOSED};
 
 /// Every subcommand path of the clap tree, as words after `kcc`.
 fn command_paths() -> BTreeSet<String> {

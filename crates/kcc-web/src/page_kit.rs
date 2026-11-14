@@ -27,8 +27,7 @@
 //!   to a change (its outcome, what the page adds, the region read back).
 //! - [`request`]: what a page reads from a request: its parameters (the last value of a
 //!   name counts), the page the browser shows, and the addresses of its actions.
-//! - [`secret`] and [`reveal`]: write-only secret fields, and the audited Reveal action
-//!   that alone shows a stored secret.
+//! - [`secret`]: write-only secret fields, and secret members masked in raw answers.
 
 pub(crate) mod action;
 pub(crate) mod audit;
@@ -43,13 +42,5 @@ pub(crate) mod gate;
 pub(crate) mod outcome;
 pub(crate) mod request;
 pub(crate) mod respond;
-#[cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the audited Reveal of the domain pages; its first page is the Wi-Fi PSK (todo 37)"
-    )
-)]
-pub(crate) mod reveal;
 pub(crate) mod secret;
 pub(crate) mod submit;

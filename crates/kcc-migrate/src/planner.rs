@@ -26,8 +26,8 @@ use crate::{
     apply::command,
     inventory::TargetInventory,
     rules::{
-        ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleEngine,
-        RuleError,
+        ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition, RuleError,
+        classify_settled,
     },
     source::SourceConfig,
 };
@@ -63,7 +63,7 @@ impl Planner {
             &choices.overwrite_scalars,
         );
         let classification_target = ClassificationTarget::from_inventory(target);
-        let mut classified = RuleEngine::embedded()?.classify_settled(
+        let mut classified = classify_settled(
             &source.ast,
             classification_target,
             &classification_choices,

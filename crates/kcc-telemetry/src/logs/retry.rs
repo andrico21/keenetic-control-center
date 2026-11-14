@@ -4,11 +4,6 @@ use core::{fmt::Debug, pin::Pin, time::Duration};
 
 use tokio::time::sleep;
 
-use super::{
-    sink::{DeliveryError, LokiClient},
-    types::LogRecord,
-};
-
 /// Maximum delay between sink delivery attempts.
 const MAX_BACKOFF: Duration = Duration::from_secs(60);
 
@@ -27,36 +22,6 @@ impl Clock for TokioClock {
     #[inline]
     fn wait(&self, duration: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + '_>> {
         Box::pin(sleep(duration))
-    }
-}
-
-/// Sends one Loki batch until it succeeds or reaches a permanent failure.
-///
-/// # Errors
-///
-/// Returns the first non-retriable delivery failure.
-///
-/// # Cancel safety
-///
-/// Cancellation during an HTTP request may cause the same batch to be retried after restart.
-#[inline]
-// NOT cancel-safe: a batch the server accepted before cancellation is resent by a later retry,
-// duplicating its lines in Loki.
-pub async fn send_loki(
-    client: &LokiClient,
-    records: &[LogRecord],
-    clock: &dyn Clock,
-) -> Result<(), DeliveryError> {
-    let mut attempt = 0_u32;
-    loop {
-        match client.send(records).await {
-            Ok(()) => return Ok(()),
-            Err(error) if error.is_retriable() => {
-                clock.wait(delay(attempt, error.retry_after())).await;
-                attempt = attempt.saturating_add(1);
-            }
-            Err(error) => return Err(error),
-        }
     }
 }
 

@@ -1,4 +1,4 @@
-//! Bounded CLI argument encoding for secret-bearing writes.
+//! CLI argument encoding: bounded for secret-bearing writes, unbounded for free text.
 
 use secrecy::SecretString;
 use thiserror::Error;
@@ -33,6 +33,29 @@ pub fn quote_cli_word(word: &str) -> Result<SecretString, QuoteError> {
     if word.len() > MAX_SECRET_BYTES {
         return Err(QuoteError::TooLong);
     }
+    encoded(word).map(SecretString::from)
+}
+
+/// Encodes one printable, non-secret text (a description) as one quoted CLI word.
+///
+/// The encoding is that of [`quote_cli_word`], with no byte limit of its own: the router
+/// bounds such text, and it may be longer than any secret.
+///
+/// # Errors
+///
+/// Returns [`QuoteError::ControlCharacter`] for control characters (including NUL, CR,
+/// LF and TAB), which the CLI parser cannot carry inside a word.
+#[inline]
+pub fn quote_cli_text(text: &str) -> Result<String, QuoteError> {
+    encoded(text)
+}
+
+/// `word` double quoted with `"` and `\` escaped.
+///
+/// # Errors
+///
+/// Returns [`QuoteError::ControlCharacter`] for control characters.
+fn encoded(word: &str) -> Result<String, QuoteError> {
     if word.chars().any(char::is_control) {
         return Err(QuoteError::ControlCharacter);
     }
@@ -45,7 +68,7 @@ pub fn quote_cli_word(word: &str) -> Result<SecretString, QuoteError> {
         encoded.push(character);
     }
     encoded.push('"');
-    Ok(SecretString::from(encoded))
+    Ok(encoded)
 }
 
 #[cfg(test)]
@@ -59,7 +82,7 @@ mod tests {
     };
     use secrecy::ExposeSecret as _;
 
-    use super::{QuoteError, quote_cli_word};
+    use super::{QuoteError, quote_cli_text, quote_cli_word};
     use crate::config_text::{Token, parse};
 
     proptest! {
@@ -96,5 +119,17 @@ mod tests {
             quote_cli_word(&"x".repeat(256)).is_ok(),
             "256 bytes must fit"
         );
+    }
+
+    /// Free text is quoted like a secret word, refuses controls, and has no byte limit.
+    #[test]
+    fn free_text_has_the_word_encoding_without_the_byte_limit() {
+        let long = "x".repeat(257);
+        assert_eq!(quote_cli_text(&long), Ok(format!("\"{long}\"")));
+        assert_eq!(
+            quote_cli_text(r#"a "b" \ c"#),
+            Ok(r#""a \"b\" \\ c""#.to_owned())
+        );
+        assert_eq!(quote_cli_text("a\tb"), Err(QuoteError::ControlCharacter));
     }
 }

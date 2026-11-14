@@ -10,7 +10,8 @@
 
 mod support;
 
-use kcc_domain::{mesh, mesh::RebootError};
+use kcc_config::config_text::{Token, flatten, parse};
+use kcc_domain::{DomainError, mesh, mesh::RebootError};
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -47,6 +48,50 @@ async fn unconfirmed_member_reboot_sends_no_request() -> TestResult {
         drop(changes);
         fixture.shutdown().await?;
     }
+    Ok(())
+}
+
+/// A candidate carrying `"` and `\` is sent as the line the configuration printer writes
+/// for it, and parses back to the same one word.
+#[tokio::test]
+async fn candidate_with_quote_and_backslash_is_sent_as_the_printer_writes_it() -> TestResult {
+    let fixture = Fixture::spawn(PROFILES[0]).await?;
+    let candidate = r#"cand "1" \ x"#;
+    let operation = mesh::plan_acquire(fixture.context(), candidate)?;
+    let request = mesh::change_request(&operation)?;
+    let line = request
+        .commands
+        .first()
+        .ok_or("one command")?
+        .expose_for_send()?;
+
+    let parsed = flatten(&parse(&line)?);
+    let [printed] = parsed.as_slice() else {
+        return Err("one line".into());
+    };
+    assert_eq!(*line, printed.to_string());
+    let words = ["mws", "acquire", candidate];
+    assert_eq!(
+        printed.tokens,
+        words.map(|word| Token::Word(word.to_owned()))
+    );
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+/// A member id carrying a control character is refused as an invalid CLI token.
+#[tokio::test]
+async fn member_with_a_control_character_is_refused() -> TestResult {
+    let fixture = Fixture::spawn(PROFILES[0]).await?;
+    for member in ["tab\there", "line\nfeed"] {
+        let operation = mesh::plan_update_check(fixture.context(), member)?;
+        let refused = mesh::change_request(&operation);
+        assert!(
+            matches!(refused, Err(DomainError::InvalidCliToken)),
+            "{member:?}: {refused:?}"
+        );
+    }
+    fixture.shutdown().await?;
     Ok(())
 }
 

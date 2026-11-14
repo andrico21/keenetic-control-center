@@ -19,8 +19,8 @@ mod tests {
     use kcc_migrate::{
         maps::{InterfaceMap, PortMap, RadioMap},
         rules::{
-            ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
-            InterfaceInventory, RuleEngine,
+            self, ClassificationChoices, ClassificationTarget, ClassifiedItem, Disposition,
+            InterfaceInventory,
         },
     };
     use kcc_rci::version::FirmwareVersion;
@@ -86,7 +86,7 @@ mod tests {
             &passwords,
             &overwrite_scalars,
         );
-        Ok(RuleEngine::embedded()?.classify(&source_ast, target_view, &choices)?)
+        Ok(rules::classify(&source_ast, target_view, &choices)?)
     }
 
     /// Builds physical-port choices.
@@ -405,7 +405,7 @@ mod tests {
             Some("Keenetic Ultra"),
             InterfaceInventory::Unavailable,
         );
-        let resolved = RuleEngine::embedded()?.classify(&source_ast, target_view, &choices)?;
+        let resolved = rules::classify(&source_ast, target_view, &choices)?;
         assert_eq!(resolved[0].disposition, Disposition::Remap);
         assert_eq!(
             resolved[0].after.as_deref(),
@@ -585,9 +585,8 @@ mod tests {
                 None,
                 InterfaceInventory::Unavailable,
             );
-            let engine = RuleEngine::embedded()?;
             let lines = flatten(&source);
-            let items = engine.classify(&source, target_view, &choices)?;
+            let items = rules::classify(&source, target_view, &choices)?;
 
             prop_assert_eq!(items.len(), lines.len());
             prop_assert_eq!(items.iter().map(|item| item.source_index).collect::<Vec<_>>(), (0..lines.len()).collect::<Vec<_>>());

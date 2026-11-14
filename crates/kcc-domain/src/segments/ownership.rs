@@ -9,6 +9,7 @@ use kcc_app::{
     },
 };
 use kcc_catalog::HttpMethod;
+use kcc_config::quoting::quote_cli_text;
 use serde_json::json;
 
 use super::{
@@ -34,7 +35,7 @@ pub(super) async fn persist(
             &json!({"description":marker}),
         )
         .map_err(|_issues| WorkflowError::InvalidResponse)?;
-    let quoted = serde_json::to_string(marker).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let quoted = quote_cli_text(marker).map_err(|_error| WorkflowError::InvalidResponse)?;
     drop(
         changes
             .apply_cli(CliChangeRequest::new(

@@ -2,8 +2,7 @@
 //!
 //! A secret a user types travels from its form field straight into a `SecretString`; an
 //! empty field keeps the stored secret, and no page renders a stored value
-//! (`kit::secret_field` has no value parameter). The one way to see a stored secret is
-//! the audited Reveal action ([`super::reveal`]). Raw requests and answers carry no
+//! (`kit::secret_field` has no value parameter). Raw requests and answers carry no
 //! secret flag, so their secret members are recognized by name and masked.
 
 use secrecy::SecretString;

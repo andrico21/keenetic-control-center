@@ -43,8 +43,11 @@ fn redact_path(tokens: &mut [Token]) {
     }
 }
 
-/// Expands typed NS3 tokens into their two CLI words for path matching.
-fn expanded_words(tokens: &[Token]) -> Vec<&str> {
+/// The CLI words of `tokens`, for matching a command path: an ordinary word as itself, a
+/// typed `ns3` token as the two words `ns3` and its payload.
+#[must_use]
+#[inline]
+pub fn expanded_words(tokens: &[Token]) -> Vec<&str> {
     let mut words = Vec::new();
     for token in tokens {
         match token {
