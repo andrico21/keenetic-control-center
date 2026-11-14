@@ -24,8 +24,6 @@ mod batch_outcomes;
 mod bracket;
 #[path = "cli/bracket_failures.rs"]
 mod bracket_failures;
-#[path = "cli/bracket_mode.rs"]
-mod bracket_mode;
 #[path = "cli/busy.rs"]
 mod busy;
 #[path = "cli/dns.rs"]

@@ -12,12 +12,13 @@ use kcc_app::{
     persist::{StateLock, StateStore},
 };
 use kcc_i18n::keys;
-use kcc_testkit::{FakeRouter, migration, model::Profile};
+use kcc_testkit::FaultInjection;
 use tokio::{
     task::JoinHandle,
     time::{Instant, sleep},
 };
 
+use super::{commands, edges, fixture};
 use crate::{
     en, form,
     support::{Browser, Fixture, TestResult, text},
@@ -30,19 +31,6 @@ const MANAGEMENT: &[(&str, &str)] = &[
     ("confirm_name", "home"),
 ];
 
-/// The fixture over a fake router in `mode`.
-// NOT cancel-safe: setup creates router and application tasks.
-async fn fixture(mode: &str) -> TestResult<Fixture> {
-    let mut scenario = migration::Fixture::default();
-    scenario.mode = Some(mode.to_owned());
-    Fixture::with_router(
-        FakeRouter::builder(Profile::default())
-            .build()?
-            .with_migration(scenario),
-    )
-    .await
-}
-
 /// Holds the audit append lock, as a contending `kcc` process would, for `held`.
 fn hold_audit_lock(fixture: &Fixture, held: Duration) -> TestResult<JoinHandle<()>> {
     let lock = StateStore::open(&fixture.state_dir())?.try_lock(AUDIT_FILE_NAME)?;
@@ -52,26 +40,13 @@ fn hold_audit_lock(fixture: &Fixture, held: Duration) -> TestResult<JoinHandle<(
     }))
 }
 
-/// The arm and disarm lines of `mode` and whether the router received both, in order.
+/// Whether the router received the arm and then the disarm of `mode`.
 fn armed_then_disarmed(fixture: &Fixture, mode: &str) -> bool {
-    let (arm, disarm) = if mode == "router" {
-        (
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        )
-    } else {
-        ("system reboot 300", "no system reboot")
-    };
-    let commands: Vec<String> = fixture
-        .handle()
-        .request_log()
-        .iter()
-        .filter_map(|record| record.command().map(str::to_owned))
-        .collect();
-    commands
-        .iter()
+    let [arm, disarm] = edges(mode);
+    let sent = commands(fixture);
+    sent.iter()
         .position(|command| command == arm)
-        .is_some_and(|at| commands.iter().skip(at).any(|command| command == disarm))
+        .is_some_and(|at| sent.iter().skip(at).any(|command| command == disarm))
 }
 
 /// The lock holder's audit entries are not written before this limit: the bracket's wait
@@ -117,7 +92,7 @@ fn actions_after_login(entries: &[AuditEntry]) -> Vec<&str> {
 #[tokio::test(start_paused = true)]
 async fn a_held_audit_lock_does_not_hold_back_the_management_bracket() -> TestResult {
     for mode in ["router", "extender"] {
-        let fixture = fixture(mode).await?;
+        let fixture = fixture(mode, FaultInjection::default()).await?;
         let browser = fixture.login("admin").await?;
         let lock = take_audit_lock(&fixture)?;
 
@@ -176,7 +151,7 @@ async fn a_held_audit_lock_does_not_hold_back_the_management_bracket() -> TestRe
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test(start_paused = true)]
 async fn an_ordinary_write_under_a_held_lock_is_reported_applied() -> TestResult {
-    let fixture = fixture("router").await?;
+    let fixture = fixture("router", FaultInjection::default()).await?;
     let browser = fixture.login("admin").await?;
     let lock = take_audit_lock(&fixture)?;
 
@@ -207,7 +182,7 @@ async fn an_ordinary_write_under_a_held_lock_is_reported_applied() -> TestResult
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 #[tokio::test(start_paused = true)]
 async fn a_login_under_a_held_lock_succeeds_and_is_audited_later() -> TestResult {
-    let fixture = fixture("router").await?;
+    let fixture = fixture("router", FaultInjection::default()).await?;
     let lock = take_audit_lock(&fixture)?;
 
     let started = Instant::now();
@@ -240,7 +215,7 @@ async fn a_login_under_a_held_lock_succeeds_and_is_audited_later() -> TestResult
 #[tokio::test(start_paused = true)]
 async fn a_queued_arm_receipt_does_not_cut_the_management_bracket() -> TestResult {
     for mode in ["router", "extender"] {
-        let fixture = fixture(mode).await?;
+        let fixture = fixture(mode, FaultInjection::default()).await?;
         let browser = fixture.login("admin").await?;
         let held = hold_audit_lock(&fixture, Duration::from_secs(100))?;
 

@@ -1,11 +1,8 @@
-//! Recovery outcomes across the MCP wire and audit boundary.
+//! A failed management bracket over MCP: the error code, message and audit flag of each fate
+//! of the shared bracket.
 
-#[path = "bracket_authority.rs"]
-mod authority;
 #[path = "bracket_batch.rs"]
 mod batch;
-#[path = "bracket_management_fate.rs"]
-mod management_fate;
 
 #[cfg(test)]
 #[expect(
@@ -15,270 +12,155 @@ mod management_fate;
     reason = "acceptance tests assert wire and audit contracts"
 )]
 mod tests {
-    use std::io::{self, Write as _};
-
     use kcc_i18n::{
         bundle::{MessageKey, tr},
         keys,
         locale::Locale,
     };
-    use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
-    use serde_json::json;
+    use kcc_testkit::FaultInjection;
+    use serde_json::{Value, json};
 
-    use crate::lab::{Lab, TestResult, admin};
+    use crate::{
+        bracket::{commands, edges, router},
+        lab::{Lab, TestResult, admin},
+    };
 
-    /// Exercises the real MCP adapter with both recovery modes.
+    /// One failed bracket: router mode, tool, arguments, faults, the error code, the
+    /// message, and whether the timer may still be armed.
+    type Row = (
+        &'static str,
+        &'static str,
+        Value,
+        FaultInjection,
+        &'static str,
+        Option<MessageKey>,
+        bool,
+    );
+
+    /// The failed brackets, one per fate and code.
+    fn rows() -> Vec<Row> {
+        let port = json!({"host":"lab-1","line":"ip http port 8430","confirm":true});
+        let user = json!({"host":"lab-1","line":"no user unused","confirm":true});
+        let interface = json!({"host":"lab-1","op":"security_level","name":"Bridge0","level":"private","confirm":true});
+        let timer = "system configuration fail-safe timer";
+        let parse = "kcc_cli_parse";
+        vec![
+            (
+                "router",
+                parse,
+                port.clone(),
+                FaultInjection::default().disconnect_after_parse("ip http port".to_owned()),
+                "management_outcome_unknown_fail_safe_armed",
+                Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
+                true,
+            ),
+            (
+                "router",
+                parse,
+                port.clone(),
+                FaultInjection::default().fail_parse_matching("no system", 1),
+                "management_applied_fail_safe_armed",
+                Some(keys::MANAGEMENT_DISARM_FAILED),
+                true,
+            ),
+            (
+                "router",
+                parse,
+                port.clone(),
+                FaultInjection::default().fail_parse_matching(timer, 2),
+                "management_not_sent_fail_safe_armed",
+                Some(keys::MANAGEMENT_NOT_SENT_ARMED),
+                true,
+            ),
+            (
+                "router",
+                parse,
+                port,
+                FaultInjection::default().fail_parse_matching(timer, 1),
+                "router_rejected",
+                Some(keys::MANAGEMENT_NOT_APPLIED),
+                false,
+            ),
+            (
+                "router",
+                parse,
+                user,
+                FaultInjection::default().fail_parse_matching("no ", 1),
+                "router_rejected",
+                None,
+                false,
+            ),
+            (
+                "extender",
+                "kcc_interfaces_write",
+                interface,
+                FaultInjection::default().disconnect_before_parse("no system".to_owned()),
+                "management_applied_fail_safe_armed",
+                Some(keys::MANAGEMENT_DISARM_FAILED),
+                true,
+            ),
+        ]
+    }
+
+    /// Each fate keeps its code and message on the wire and its flag in the audit entry;
+    /// an applied change whose disarm failed is still reported unsaved.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
-    async fn check(
-        faults: FaultInjection,
-        line: &str,
-        expected: (&str, Option<MessageKey>),
-    ) -> TestResult {
-        for mode in ["router", "extender"] {
-            let mut scenario = migration::Fixture::default();
-            scenario.mode = Some(mode.to_owned());
-            let fake = FakeRouter::builder(Profile::default())
-                .faults(faults.clone())
-                .build()?
-                .with_migration(scenario);
-            let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
-            let reply = lab
-                .call(
-                    "kcc_cli_parse",
-                    json!({"host":"lab-1","line":line,"confirm":true}),
-                    false,
-                )
-                .await?;
-            let armed = expected.1.is_some();
-            assert_eq!(
-                lab.router("lab-1")?.recovery_armed(),
-                armed,
-                "{mode}: fake recovery state"
-            );
-            assert_eq!(reply.error(), Some(expected.0), "{mode}: {reply:?}");
+    #[tokio::test]
+    async fn a_failed_bracket_names_the_timer_fate() -> TestResult {
+        for (mode, tool, arguments, faults, code, message, armed) in rows() {
+            let lab = Lab::start(vec![("lab-1", router(mode, faults)?)], admin()).await?;
+
+            let reply = lab.call(tool, arguments, false).await?;
+
+            let label = format!("{mode} {tool} {code}: {reply:?}");
+            assert_eq!(reply.error(), Some(code), "{label}");
             let failure = reply.failure().ok_or("expected failed tool call")?;
-            if let Some(key) = expected.1 {
-                assert_eq!(
-                    failure.get("message"),
-                    Some(&json!(tr(Locale::En, key, None))),
-                    "{mode}: {reply:?}"
-                );
-            } else {
-                assert_eq!(failure.get("message"), None, "no armed note after disarm");
+            let expected = message.map(|key| json!(tr(Locale::En, key, None)));
+            assert_eq!(failure.get("message"), expected.as_ref(), "{label}");
+            // A refused arm left no timer on the fake, though kcc cannot know that.
+            let running = armed && message != Some(keys::MANAGEMENT_NOT_SENT_ARMED);
+            assert_eq!(lab.router("lab-1")?.recovery_armed(), running, "{label}");
+            let sent = commands(&lab)?;
+            let [arm, disarm] = edges(mode);
+            assert_eq!(sent.first().map(String::as_str), Some(arm), "{label}");
+            // The lost connection takes the disarm with it.
+            let lost = message == Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED);
+            assert_eq!(
+                sent.last().map(String::as_str) == Some(disarm),
+                !lost,
+                "{label}"
+            );
+            let nothing_sent = [
+                keys::MANAGEMENT_NOT_SENT_ARMED,
+                keys::MANAGEMENT_NOT_APPLIED,
+            ]
+            .map(Some)
+            .contains(&message);
+            if nothing_sent {
+                assert_eq!(sent, [arm, disarm], "nothing else was sent: {label}");
+                let config = lab.router("lab-1")?.running_config_text();
+                assert!(!config.contains("port 8430"), "{label}");
             }
             let entries = lab.audit()?;
+            let action = format!("mcp.{tool}");
             let failed = entries
                 .iter()
-                .find(|entry| entry.action == "mcp.kcc_cli_parse")
+                .find(|entry| entry.action == action)
                 .ok_or("missing failed change audit")?;
-            assert_eq!(failed.outcome, "failed");
+            assert_eq!(failed.outcome, "failed", "{label}");
             assert_eq!(
                 failed.params_redacted.get("fail_safe_armed"),
                 armed.then_some(&json!(true)),
-                "{mode}: {failed:?}"
+                "{label}"
             );
-            writeln!(
-                io::stderr(),
-                "RECOVERY MCP {mode} {line}: code={} key={} audit={armed} fake={armed}",
-                expected.0,
-                expected.1.map_or("none", MessageKey::id)
-            )?;
-            lab.stop().await?;
-        }
-        Ok(())
-    }
-
-    /// Lost response keeps the unknown outcome and armed recovery on the wire.
-    // NOT cancel-safe: the fixture owns router and MCP tasks.
-    #[tokio::test]
-    async fn lost_change_reports_armed() -> TestResult {
-        check(
-            FaultInjection::default().disconnect_after_parse("ip http port".to_owned()),
-            "ip http port 8430",
-            (
-                "management_outcome_unknown_fail_safe_armed",
-                Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
-            ),
-        )
-        .await
-    }
-
-    /// A known applied mutation reports failed recovery cleanup.
-    // NOT cancel-safe: the fixture owns router and MCP tasks.
-    #[tokio::test]
-    async fn applied_change_reports_armed() -> TestResult {
-        check(
-            FaultInjection::default().fail_parse_matching("no system", 1),
-            "ip http port 8430",
-            (
-                "management_applied_fail_safe_armed",
-                Some(keys::MANAGEMENT_DISARM_FAILED),
-            ),
-        )
-        .await
-    }
-
-    /// Refusing the work and cleanup cannot erase armed recovery.
-    // NOT cancel-safe: the fixture owns router and MCP tasks.
-    #[tokio::test]
-    async fn refused_change_and_disarm_reports_armed() -> TestResult {
-        check(
-            FaultInjection::default().fail_parse_matching("no ", 2),
-            "no user unused",
-            (
-                "management_outcome_unknown_fail_safe_armed",
-                Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED),
-            ),
-        )
-        .await
-    }
-
-    /// Successful cleanup preserves the work refusal code.
-    // NOT cancel-safe: the fixture owns router and MCP tasks.
-    #[tokio::test]
-    async fn refused_change_disarmed_preserves_error() -> TestResult {
-        check(
-            FaultInjection::default().fail_parse_matching("no ", 1),
-            "no user unused",
-            ("router_rejected", None),
-        )
-        .await
-    }
-
-    /// A refused arm says nothing else was sent: with its disarm refused too, that the timer
-    /// may be armed; with its disarm accepted, the router's refusal and that the timer is off.
-    // NOT cancel-safe: the fixture owns router and MCP tasks.
-    #[tokio::test]
-    async fn refused_arm_reports_nothing_sent() -> TestResult {
-        let rows = [
-            (
-                2,
-                "management_not_sent_fail_safe_armed",
-                keys::MANAGEMENT_NOT_SENT_ARMED,
-            ),
-            (1, "router_rejected", keys::MANAGEMENT_NOT_APPLIED),
-        ];
-        for (mode, timer) in [
-            ("router", "system configuration fail-safe timer"),
-            ("extender", "system reboot"),
-        ] {
-            for (refusals, code, key) in rows {
-                let mut scenario = migration::Fixture::default();
-                scenario.mode = Some(mode.to_owned());
-                let fake = FakeRouter::builder(Profile::default())
-                    .faults(FaultInjection::default().fail_parse_matching(timer, refusals))
-                    .build()?
-                    .with_migration(scenario);
-                let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
-                let reply = lab
-                    .call(
-                        "kcc_cli_parse",
-                        json!({"host":"lab-1","line":"ip http port 8082","confirm":true}),
-                        false,
-                    )
+            // The lost connection of the interface row leaves no state to read.
+            if code == "management_applied_fail_safe_armed" && tool == "kcc_cli_parse" {
+                let state = lab
+                    .call("kcc_config_state", json!({"host":"lab-1"}), false)
                     .await?;
-                let label = format!("{mode} refusals={refusals}: {reply:?}");
-                assert_eq!(reply.error(), Some(code), "{label}");
-                assert_eq!(
-                    reply.failure().and_then(|failure| failure.get("message")),
-                    Some(&json!(tr(Locale::En, key, None))),
-                    "{label}"
-                );
-                let router = lab.router("lab-1")?;
-                let commands = router
-                    .request_log()
-                    .iter()
-                    .filter_map(|record| record.command().map(str::to_owned))
-                    .collect::<Vec<_>>();
-                assert_eq!(commands.len(), 2, "arm and disarm only: {commands:?}");
-                assert!(
-                    commands.iter().all(|line| line.contains(timer)),
-                    "{commands:?}"
-                );
-                assert!(!router.running_config_text().contains("port 8082"));
-                let entries = lab.audit()?;
-                let failed = entries
-                    .iter()
-                    .find(|entry| entry.action == "mcp.kcc_cli_parse")
-                    .ok_or("missing failed change audit")?;
-                assert_eq!(
-                    failed.params_redacted.get("fail_safe_armed"),
-                    (refusals == 2).then_some(&json!(true)),
-                    "{label}: {failed:?}"
-                );
-                lab.stop().await?;
+                assert_eq!(state.value()?.get("unsaved"), Some(&json!(true)), "{label}");
             }
-        }
-        Ok(())
-    }
-
-    /// Curated interface cleanup exposes armed native recovery in either router mode.
-    // NOT cancel-safe: the fixture owns router and MCP tasks.
-    #[tokio::test]
-    async fn interface_disarm_failure_reports_armed() -> TestResult {
-        for mode in ["router", "extender"] {
-            for faults in [
-                FaultInjection::default().fail_parse_matching("no system", 1),
-                FaultInjection::default().disconnect_before_parse("no system".to_owned()),
-            ] {
-                let mut scenario = migration::Fixture::default();
-                scenario.mode = Some(mode.to_owned());
-                let fake = FakeRouter::builder(Profile::default())
-                    .faults(faults)
-                    .build()?
-                    .with_migration(scenario);
-                let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
-                let reply = lab.call("kcc_interfaces_write", json!({"host":"lab-1","op":"security_level","name":"Bridge0","level":"private","confirm":true}), false).await?;
-                assert!(
-                    lab.router("lab-1")?.recovery_armed(),
-                    "{mode}: timer remains armed"
-                );
-                assert_eq!(
-                    reply.error(),
-                    Some("management_applied_fail_safe_armed"),
-                    "{mode}: {reply:?}"
-                );
-                assert_eq!(
-                    reply.failure().and_then(|value| value.get("message")),
-                    Some(&json!(tr(Locale::En, keys::MANAGEMENT_DISARM_FAILED, None)))
-                );
-                let (arm, disarm) = if mode == "router" {
-                    (
-                        "system configuration fail-safe timer reboot 300",
-                        "no system configuration fail-safe timer",
-                    )
-                } else {
-                    ("system reboot 300", "no system reboot")
-                };
-                let commands = lab
-                    .router("lab-1")?
-                    .request_log()
-                    .iter()
-                    .filter_map(|record| record.command().map(str::to_owned))
-                    .collect::<Vec<_>>();
-                assert_eq!(
-                    (
-                        commands.first().map(String::as_str),
-                        commands.last().map(String::as_str)
-                    ),
-                    (Some(arm), Some(disarm)),
-                    "{mode}: the recovery of the router's mode: {commands:?}"
-                );
-                let entries = lab.audit()?;
-                let failed = entries
-                    .iter()
-                    .find(|entry| entry.action == "mcp.kcc_interfaces_write")
-                    .ok_or("missing failed change audit")?;
-                assert_eq!(
-                    failed.params_redacted.get("fail_safe_armed"),
-                    Some(&json!(true))
-                );
-                writeln!(
-                    io::stderr(),
-                    "RECOVERY MCP interface {mode}: code=management_applied_fail_safe_armed key=management-disarm-failed audit=true fake=true"
-                )?;
-                lab.stop().await?;
-            }
+            lab.stop().await?;
         }
         Ok(())
     }

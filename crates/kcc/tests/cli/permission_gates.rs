@@ -36,7 +36,7 @@ async fn lab(mode: &str, role: &str) -> Result<(Env, Handle, SocketAddr), Box<dy
 }
 
 /// Adds a custom role to the state document used by the CLI process.
-fn add_role(env: &Env, name: &str, permissions: &[Permission]) -> TestResult {
+pub(crate) fn add_role(env: &Env, name: &str, permissions: &[Permission]) -> TestResult {
     add_role_with_scope(env, name, permissions, vec!["*".to_owned()])
 }
 
@@ -80,7 +80,7 @@ fn env_config(env: &Env, role: &str, address: SocketAddr) -> String {
 }
 
 /// Parser commands the fake received after the first `before` requests.
-fn commands_after(handle: &Handle, before: usize) -> Vec<String> {
+pub(crate) fn commands_after(handle: &Handle, before: usize) -> Vec<String> {
     handle
         .request_log()
         .iter()
@@ -90,7 +90,7 @@ fn commands_after(handle: &Handle, before: usize) -> Vec<String> {
 }
 
 /// The arm and disarm command lines of the recovery timer in `mode`.
-fn edges(mode: &str) -> (&'static str, &'static str) {
+pub(crate) fn edges(mode: &str) -> (&'static str, &'static str) {
     if mode == "router" {
         (
             "system configuration fail-safe timer reboot 300",

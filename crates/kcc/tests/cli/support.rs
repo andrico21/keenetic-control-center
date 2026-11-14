@@ -14,7 +14,7 @@ use tempfile::TempDir;
 use wait_timeout::ChildExt as _;
 
 /// Fallible test result.
-pub(crate) type TestResult = Result<(), Box<dyn Error>>;
+pub(crate) type TestResult<T = ()> = Result<T, Box<dyn Error>>;
 
 /// The OS user every test process runs as.
 pub(crate) const USER: &str = "tester";
