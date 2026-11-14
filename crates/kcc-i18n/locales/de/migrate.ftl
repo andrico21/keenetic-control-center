@@ -3,17 +3,10 @@
 migrate-title = Konfigurationsmigration
 migrate-source = Quellrouter
 migrate-target = Zielrouter
-migrate-plan = Migrationsplan
 migrate-step = Schritt { $current } von { $total }
-migrate-unsupported =
-    { $count ->
-        [one] { $count } Einstellung kann nicht migriert werden
-       *[other] { $count } Einstellungen können nicht migriert werden
-    }
 migrate-start = Migration starten
 migrate-done = Migration abgeschlossen.
 migrate-rollback = Zurücksetzen
-migrate-backup-created = Sicherung der Zielkonfiguration gespeichert.
 migrate-reason-copy = Unverändert kopiert.
 migrate-reason-remap = Mit der gewählten Zuordnung kopiert.
 migrate-reason-skip-hardware = Als Einstellung der Quellhardware übersprungen.
@@ -28,7 +21,6 @@ migrate-apply-restored = Die Migrationsprüfung ist fehlgeschlagen. kcc hat auto
 migrate-apply-router-rollback = Der Router hat nach Ablauf des Wiederherstellungstimers seine gespeicherte Konfiguration wiederhergestellt.
 migrate-apply-tier = Bestätigen Sie die Migration auf eine nur anhand der Dokumentation unterstützte Firmware.
 migrate-apply-agreement = Bestätigen Sie die aktuelle Routervereinbarung, bevor Sie fortfahren.
-migrate-apply-residual = Beibehaltene Einstellungen nur auf dem Zielrouter: { $count }.
 finish-saved-armed = Die Konfiguration wurde gespeichert, aber der Wiederherstellungstimer konnte nicht deaktiviert werden. Behandeln Sie den Timer als aktiv: Der Router kann mit seiner gespeicherten Konfiguration neu starten, die diese Änderungen enthält.
 migrate-committed-not-saved = Die Migration ist aktiv und der Wiederherstellungstimer ist deaktiviert, aber die Startkonfiguration wurde nicht gespeichert. Wiederholen Sie den Commit, um sie zu speichern.
 migrate-commit-not-sent-armed = Commit wurde nicht gesendet, weil der Rolle „Einstellungen speichern“ fehlt. Der Wiederherstellungstimer ist weiterhin aktiv, und die Migration bleibt für einen erneuten Versuch nach Korrektur der Rolle erhalten.

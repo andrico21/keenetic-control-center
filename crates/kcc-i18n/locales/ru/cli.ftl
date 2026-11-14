@@ -1,20 +1,10 @@
 # Machine-assisted translation - native review pending
 
-cli-about = Управление роутерами Keenetic и Netcraze из командной строки, веб-интерфейса и MCP.
 cli-router-added = Роутер { $name } добавлен.
 cli-router-removed = Роутер { $name } удалён.
 cli-no-routers = Роутеры не настроены.
-cli-connecting = Подключение к { $url }...
 cli-connected = Подключено к { $model } с прошивкой { $version }.
 cli-config-written = Конфигурация записана в { $path }.
-cli-dry-run = Пробный запуск: изменения не отправлялись на роутер.
-cli-changes-applied =
-    { $count ->
-        [one] Применено { $count } изменение.
-        [few] Применено { $count } изменения.
-        [many] Применено { $count } изменений.
-       *[other] Применено { $count } изменения.
-    }
 cli-router-updated = Роутер { $name } обновлён.
 cli-router-required = Выберите роутер с помощью --router: настроено несколько роутеров или ни одного.
 cli-error-generic = Команда не выполнена.
@@ -32,7 +22,6 @@ cli-secret-missing = Секрет не задан: используйте --pass
 cli-confirm-ask = Применить это изменение к { $router }? Введите yes для продолжения:
 cli-confirm-type = Это разрушительная операция. Введите идентификатор роутера { $router } для продолжения:
 cli-confirm-missing = Не подтверждено для { $router }: используйте --yes, а для разрушительных изменений --confirm-destructive с идентификатором роутера.
-cli-failsafe-left = Роутер перестал отвечать; его таймер защиты остаётся включённым и восстановит сохранённую конфигурацию.
 cli-col-id = ID
 cli-col-url = URL
 cli-col-login = Логин

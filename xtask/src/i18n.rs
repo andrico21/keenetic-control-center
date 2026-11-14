@@ -4,7 +4,8 @@
 //! `locales/en/*.ftl`. `i18n-check` compares every locale with English: same files, same
 //! message ids, same variables per message, no empty values, valid Fluent syntax, and
 //! the machine-translation header on every non-English file. Against the committed
-//! catalogs it also fails when `keys.rs` is stale.
+//! catalogs it also fails when `keys.rs` is stale or a message is used by no source
+//! under `crates/` (see [`unused`]).
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use std::{fs, io, path::Path};
@@ -15,6 +16,8 @@ use fluent_syntax::{
 };
 
 use crate::{Verdict, failure::GateError};
+
+mod unused;
 
 /// Catalog directory, relative to the repository root.
 const LOCALES_DIR: &str = "crates/kcc-i18n/locales";
@@ -110,6 +113,7 @@ where
     }
     if locales_dir.is_none() {
         check_keys_fresh(root, &mut problems, out)?;
+        unused::check_unused(root, &source, &mut problems)?;
     }
     for problem in &problems {
         writeln!(out, "{problem}")?;
@@ -431,7 +435,7 @@ where
     let mut all = Vec::new();
     for (file, catalog) in &catalogs {
         for message in &catalog.messages {
-            let name = message.id.to_ascii_uppercase().replace('-', "_");
+            let name = key_constant(&message.id);
             if let Some(previous) = names.insert(name.clone(), message.id.clone()) {
                 problems.push(format!(
                     "{SOURCE_LOCALE}/{file}: key {} and {previous} both map to {name}",
@@ -464,6 +468,11 @@ where
         }
         Ok(None)
     }
+}
+
+/// The generated constant name of a message id: upper case with `_` for `-`.
+fn key_constant(id: &str) -> String {
+    id.to_ascii_uppercase().replace('-', "_")
 }
 
 /// Appends one documented key constant, wrapped the way rustfmt would wrap it.

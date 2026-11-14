@@ -2,9 +2,6 @@
 
 use crate::bundle::MessageKey;
 
-/// `cli-about` in `cli.ftl`.
-pub const CLI_ABOUT: MessageKey = MessageKey::new("cli-about");
-
 /// `cli-router-added` in `cli.ftl`.
 pub const CLI_ROUTER_ADDED: MessageKey = MessageKey::new("cli-router-added");
 
@@ -14,20 +11,11 @@ pub const CLI_ROUTER_REMOVED: MessageKey = MessageKey::new("cli-router-removed")
 /// `cli-no-routers` in `cli.ftl`.
 pub const CLI_NO_ROUTERS: MessageKey = MessageKey::new("cli-no-routers");
 
-/// `cli-connecting` in `cli.ftl`.
-pub const CLI_CONNECTING: MessageKey = MessageKey::new("cli-connecting");
-
 /// `cli-connected` in `cli.ftl`.
 pub const CLI_CONNECTED: MessageKey = MessageKey::new("cli-connected");
 
 /// `cli-config-written` in `cli.ftl`.
 pub const CLI_CONFIG_WRITTEN: MessageKey = MessageKey::new("cli-config-written");
-
-/// `cli-dry-run` in `cli.ftl`.
-pub const CLI_DRY_RUN: MessageKey = MessageKey::new("cli-dry-run");
-
-/// `cli-changes-applied` in `cli.ftl`.
-pub const CLI_CHANGES_APPLIED: MessageKey = MessageKey::new("cli-changes-applied");
 
 /// `cli-router-updated` in `cli.ftl`.
 pub const CLI_ROUTER_UPDATED: MessageKey = MessageKey::new("cli-router-updated");
@@ -80,9 +68,6 @@ pub const CLI_CONFIRM_TYPE: MessageKey = MessageKey::new("cli-confirm-type");
 
 /// `cli-confirm-missing` in `cli.ftl`.
 pub const CLI_CONFIRM_MISSING: MessageKey = MessageKey::new("cli-confirm-missing");
-
-/// `cli-failsafe-left` in `cli.ftl`.
-pub const CLI_FAILSAFE_LEFT: MessageKey = MessageKey::new("cli-failsafe-left");
 
 /// `cli-col-id` in `cli.ftl`.
 pub const CLI_COL_ID: MessageKey = MessageKey::new("cli-col-id");
@@ -396,15 +381,6 @@ pub const COMMON_CLOSE: MessageKey = MessageKey::new("common-close");
 /// `common-back` in `common.ftl`.
 pub const COMMON_BACK: MessageKey = MessageKey::new("common-back");
 
-/// `common-refresh` in `common.ftl`.
-pub const COMMON_REFRESH: MessageKey = MessageKey::new("common-refresh");
-
-/// `common-loading` in `common.ftl`.
-pub const COMMON_LOADING: MessageKey = MessageKey::new("common-loading");
-
-/// `common-search` in `common.ftl`.
-pub const COMMON_SEARCH: MessageKey = MessageKey::new("common-search");
-
 /// `common-enabled` in `common.ftl`.
 pub const COMMON_ENABLED: MessageKey = MessageKey::new("common-enabled");
 
@@ -419,9 +395,6 @@ pub const COMMON_LANGUAGE: MessageKey = MessageKey::new("common-language");
 
 /// `common-items-count` in `common.ftl`.
 pub const COMMON_ITEMS_COUNT: MessageKey = MessageKey::new("common-items-count");
-
-/// `common-routers-count` in `common.ftl`.
-pub const COMMON_ROUTERS_COUNT: MessageKey = MessageKey::new("common-routers-count");
 
 /// `common-unit-bytes` in `common.ftl`.
 pub const COMMON_UNIT_BYTES: MessageKey = MessageKey::new("common-unit-bytes");
@@ -520,41 +493,8 @@ pub const DOMAINS_WIFI: MessageKey = MessageKey::new("domains-wifi");
 /// `domains-wifi-ssid` in `domains.ftl`.
 pub const DOMAINS_WIFI_SSID: MessageKey = MessageKey::new("domains-wifi-ssid");
 
-/// `domains-wifi-band` in `domains.ftl`.
-pub const DOMAINS_WIFI_BAND: MessageKey = MessageKey::new("domains-wifi-band");
-
 /// `domains-clients` in `domains.ftl`.
 pub const DOMAINS_CLIENTS: MessageKey = MessageKey::new("domains-clients");
-
-/// `domains-clients-online` in `domains.ftl`.
-pub const DOMAINS_CLIENTS_ONLINE: MessageKey = MessageKey::new("domains-clients-online");
-
-/// `domains-routing` in `domains.ftl`.
-pub const DOMAINS_ROUTING: MessageKey = MessageKey::new("domains-routing");
-
-/// `domains-static-routes` in `domains.ftl`.
-pub const DOMAINS_STATIC_ROUTES: MessageKey = MessageKey::new("domains-static-routes");
-
-/// `domains-vpn` in `domains.ftl`.
-pub const DOMAINS_VPN: MessageKey = MessageKey::new("domains-vpn");
-
-/// `domains-vpn-tunnels` in `domains.ftl`.
-pub const DOMAINS_VPN_TUNNELS: MessageKey = MessageKey::new("domains-vpn-tunnels");
-
-/// `domains-firewall` in `domains.ftl`.
-pub const DOMAINS_FIREWALL: MessageKey = MessageKey::new("domains-firewall");
-
-/// `domains-dns` in `domains.ftl`.
-pub const DOMAINS_DNS: MessageKey = MessageKey::new("domains-dns");
-
-/// `domains-dhcp` in `domains.ftl`.
-pub const DOMAINS_DHCP: MessageKey = MessageKey::new("domains-dhcp");
-
-/// `errors-internal` in `errors.ftl`.
-pub const ERRORS_INTERNAL: MessageKey = MessageKey::new("errors-internal");
-
-/// `errors-not-found` in `errors.ftl`.
-pub const ERRORS_NOT_FOUND: MessageKey = MessageKey::new("errors-not-found");
 
 /// `errors-forbidden` in `errors.ftl`.
 pub const ERRORS_FORBIDDEN: MessageKey = MessageKey::new("errors-forbidden");
@@ -562,26 +502,11 @@ pub const ERRORS_FORBIDDEN: MessageKey = MessageKey::new("errors-forbidden");
 /// `errors-auth-failed` in `errors.ftl`.
 pub const ERRORS_AUTH_FAILED: MessageKey = MessageKey::new("errors-auth-failed");
 
-/// `errors-account-locked` in `errors.ftl`.
-pub const ERRORS_ACCOUNT_LOCKED: MessageKey = MessageKey::new("errors-account-locked");
-
-/// `errors-router-unreachable` in `errors.ftl`.
-pub const ERRORS_ROUTER_UNREACHABLE: MessageKey = MessageKey::new("errors-router-unreachable");
-
 /// `errors-router-auth` in `errors.ftl`.
 pub const ERRORS_ROUTER_AUTH: MessageKey = MessageKey::new("errors-router-auth");
 
-/// `errors-invalid-input` in `errors.ftl`.
-pub const ERRORS_INVALID_INPUT: MessageKey = MessageKey::new("errors-invalid-input");
-
-/// `errors-unsupported-firmware` in `errors.ftl`.
-pub const ERRORS_UNSUPPORTED_FIRMWARE: MessageKey = MessageKey::new("errors-unsupported-firmware");
-
 /// `errors-timeout` in `errors.ftl`.
 pub const ERRORS_TIMEOUT: MessageKey = MessageKey::new("errors-timeout");
-
-/// `errors-csrf` in `errors.ftl`.
-pub const ERRORS_CSRF: MessageKey = MessageKey::new("errors-csrf");
 
 /// `errors-outbound-refused` in `errors.ftl`.
 pub const ERRORS_OUTBOUND_REFUSED: MessageKey = MessageKey::new("errors-outbound-refused");
@@ -630,14 +555,8 @@ pub const MIGRATE_SOURCE: MessageKey = MessageKey::new("migrate-source");
 /// `migrate-target` in `migrate.ftl`.
 pub const MIGRATE_TARGET: MessageKey = MessageKey::new("migrate-target");
 
-/// `migrate-plan` in `migrate.ftl`.
-pub const MIGRATE_PLAN: MessageKey = MessageKey::new("migrate-plan");
-
 /// `migrate-step` in `migrate.ftl`.
 pub const MIGRATE_STEP: MessageKey = MessageKey::new("migrate-step");
-
-/// `migrate-unsupported` in `migrate.ftl`.
-pub const MIGRATE_UNSUPPORTED: MessageKey = MessageKey::new("migrate-unsupported");
 
 /// `migrate-start` in `migrate.ftl`.
 pub const MIGRATE_START: MessageKey = MessageKey::new("migrate-start");
@@ -647,9 +566,6 @@ pub const MIGRATE_DONE: MessageKey = MessageKey::new("migrate-done");
 
 /// `migrate-rollback` in `migrate.ftl`.
 pub const MIGRATE_ROLLBACK: MessageKey = MessageKey::new("migrate-rollback");
-
-/// `migrate-backup-created` in `migrate.ftl`.
-pub const MIGRATE_BACKUP_CREATED: MessageKey = MessageKey::new("migrate-backup-created");
 
 /// `migrate-reason-copy` in `migrate.ftl`.
 pub const MIGRATE_REASON_COPY: MessageKey = MessageKey::new("migrate-reason-copy");
@@ -696,9 +612,6 @@ pub const MIGRATE_APPLY_TIER: MessageKey = MessageKey::new("migrate-apply-tier")
 /// `migrate-apply-agreement` in `migrate.ftl`.
 pub const MIGRATE_APPLY_AGREEMENT: MessageKey = MessageKey::new("migrate-apply-agreement");
 
-/// `migrate-apply-residual` in `migrate.ftl`.
-pub const MIGRATE_APPLY_RESIDUAL: MessageKey = MessageKey::new("migrate-apply-residual");
-
 /// `finish-saved-armed` in `migrate.ftl`.
 pub const FINISH_SAVED_ARMED: MessageKey = MessageKey::new("finish-saved-armed");
 
@@ -718,12 +631,6 @@ pub const MIGRATE_APPLY_REPLAN: MessageKey = MessageKey::new("migrate-apply-repl
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
-/// `web-nav-routers` in `web.ftl`.
-pub const WEB_NAV_ROUTERS: MessageKey = MessageKey::new("web-nav-routers");
-
-/// `web-nav-interfaces` in `web.ftl`.
-pub const WEB_NAV_INTERFACES: MessageKey = MessageKey::new("web-nav-interfaces");
-
 /// `web-nav-wifi` in `web.ftl`.
 pub const WEB_NAV_WIFI: MessageKey = MessageKey::new("web-nav-wifi");
 
@@ -738,12 +645,6 @@ pub const WEB_NAV_VPN: MessageKey = MessageKey::new("web-nav-vpn");
 
 /// `web-nav-migration` in `web.ftl`.
 pub const WEB_NAV_MIGRATION: MessageKey = MessageKey::new("web-nav-migration");
-
-/// `web-nav-audit` in `web.ftl`.
-pub const WEB_NAV_AUDIT: MessageKey = MessageKey::new("web-nav-audit");
-
-/// `web-nav-settings` in `web.ftl`.
-pub const WEB_NAV_SETTINGS: MessageKey = MessageKey::new("web-nav-settings");
 
 /// `web-login-title` in `web.ftl`.
 pub const WEB_LOGIN_TITLE: MessageKey = MessageKey::new("web-login-title");
@@ -771,9 +672,6 @@ pub const WEB_ROUTER_OFFLINE: MessageKey = MessageKey::new("web-router-offline")
 
 /// `web-confirm-destructive` in `web.ftl`.
 pub const WEB_CONFIRM_DESTRUCTIVE: MessageKey = MessageKey::new("web-confirm-destructive");
-
-/// `web-session-expired` in `web.ftl`.
-pub const WEB_SESSION_EXPIRED: MessageKey = MessageKey::new("web-session-expired");
 
 /// `web-skip-to-content` in `web.ftl`.
 pub const WEB_SKIP_TO_CONTENT: MessageKey = MessageKey::new("web-skip-to-content");
@@ -915,9 +813,6 @@ pub const WEB_BRAND_KEENETIC: MessageKey = MessageKey::new("web-brand-keenetic")
 
 /// `web-brand-netcraze` in `web.ftl`.
 pub const WEB_BRAND_NETCRAZE: MessageKey = MessageKey::new("web-brand-netcraze");
-
-/// `web-router-firmware` in `web.ftl`.
-pub const WEB_ROUTER_FIRMWARE: MessageKey = MessageKey::new("web-router-firmware");
 
 /// `web-router-waiting` in `web.ftl`.
 pub const WEB_ROUTER_WAITING: MessageKey = MessageKey::new("web-router-waiting");
@@ -1091,9 +986,6 @@ pub const WEB_ROUTER_PASSWORD_KEEP: MessageKey = MessageKey::new("web-router-pas
 /// `web-router-auth` in `web.ftl`.
 pub const WEB_ROUTER_AUTH: MessageKey = MessageKey::new("web-router-auth");
 
-/// `web-router-auth-text` in `web.ftl`.
-pub const WEB_ROUTER_AUTH_TEXT: MessageKey = MessageKey::new("web-router-auth-text");
-
 /// `web-router-tls` in `web.ftl`.
 pub const WEB_ROUTER_TLS: MessageKey = MessageKey::new("web-router-tls");
 
@@ -1173,14 +1065,8 @@ pub const WEB_ROUTER_ERROR_POLICY: MessageKey = MessageKey::new("web-router-erro
 pub const WEB_ROUTER_ERROR_UNREACHABLE: MessageKey =
     MessageKey::new("web-router-error-unreachable");
 
-/// `web-router-error-tls` in `web.ftl`.
-pub const WEB_ROUTER_ERROR_TLS: MessageKey = MessageKey::new("web-router-error-tls");
-
 /// `web-router-error-check` in `web.ftl`.
 pub const WEB_ROUTER_ERROR_CHECK: MessageKey = MessageKey::new("web-router-error-check");
-
-/// `web-router-error-save` in `web.ftl`.
-pub const WEB_ROUTER_ERROR_SAVE: MessageKey = MessageKey::new("web-router-error-save");
 
 /// `web-admin-title` in `web.ftl`.
 pub const WEB_ADMIN_TITLE: MessageKey = MessageKey::new("web-admin-title");
@@ -2225,15 +2111,6 @@ pub const WEB_KIT_TABLE_NO_MATCH: MessageKey = MessageKey::new("web-kit-table-no
 /// `web-kit-table-count` in `web.ftl`.
 pub const WEB_KIT_TABLE_COUNT: MessageKey = MessageKey::new("web-kit-table-count");
 
-/// `web-kit-reveal` in `web.ftl`.
-pub const WEB_KIT_REVEAL: MessageKey = MessageKey::new("web-kit-reveal");
-
-/// `web-kit-reveal-title` in `web.ftl`.
-pub const WEB_KIT_REVEAL_TITLE: MessageKey = MessageKey::new("web-kit-reveal-title");
-
-/// `web-kit-reveal-text` in `web.ftl`.
-pub const WEB_KIT_REVEAL_TEXT: MessageKey = MessageKey::new("web-kit-reveal-text");
-
 /// `web-system-general-title` in `web.ftl`.
 pub const WEB_SYSTEM_GENERAL_TITLE: MessageKey = MessageKey::new("web-system-general-title");
 
@@ -2326,9 +2203,6 @@ pub const WEB_CLIENTS_OFFLINE: MessageKey = MessageKey::new("web-clients-offline
 
 /// `web-clients-col-name` in `web.ftl`.
 pub const WEB_CLIENTS_COL_NAME: MessageKey = MessageKey::new("web-clients-col-name");
-
-/// `web-clients-col-state` in `web.ftl`.
-pub const WEB_CLIENTS_COL_STATE: MessageKey = MessageKey::new("web-clients-col-state");
 
 /// `web-clients-col-mac` in `web.ftl`.
 pub const WEB_CLIENTS_COL_MAC: MessageKey = MessageKey::new("web-clients-col-mac");
@@ -5210,9 +5084,6 @@ pub const WEB_MIGRATE_FINISH_ROLLED_BACK: MessageKey =
 /// `web-migrate-finish-closed` in `web.ftl`.
 pub const WEB_MIGRATE_FINISH_CLOSED: MessageKey = MessageKey::new("web-migrate-finish-closed");
 
-/// `web-migrate-failure-replan` in `web.ftl`.
-pub const WEB_MIGRATE_FAILURE_REPLAN: MessageKey = MessageKey::new("web-migrate-failure-replan");
-
 /// `web-migrate-failure-drift` in `web.ftl`.
 pub const WEB_MIGRATE_FAILURE_DRIFT: MessageKey = MessageKey::new("web-migrate-failure-drift");
 
@@ -6383,9 +6254,6 @@ pub const WEB_PRESETS_INPUTS_PASSWORDS_TEXT: MessageKey =
 /// `web-presets-preview-text` in `web.ftl`.
 pub const WEB_PRESETS_PREVIEW_TEXT: MessageKey = MessageKey::new("web-presets-preview-text");
 
-/// `web-presets-preview-nothing` in `web.ftl`.
-pub const WEB_PRESETS_PREVIEW_NOTHING: MessageKey = MessageKey::new("web-presets-preview-nothing");
-
 /// `web-presets-count-settings` in `web.ftl`.
 pub const WEB_PRESETS_COUNT_SETTINGS: MessageKey = MessageKey::new("web-presets-count-settings");
 
@@ -6782,16 +6650,12 @@ pub const WEB_ROUTER_ERROR_READ_PASSWORD: MessageKey =
     MessageKey::new("web-router-error-read-password");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2161] = [
-    CLI_ABOUT,
+pub static ALL: [MessageKey; 2117] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
-    CLI_CONNECTING,
     CLI_CONNECTED,
     CLI_CONFIG_WRITTEN,
-    CLI_DRY_RUN,
-    CLI_CHANGES_APPLIED,
     CLI_ROUTER_UPDATED,
     CLI_ROUTER_REQUIRED,
     CLI_ERROR_GENERIC,
@@ -6809,7 +6673,6 @@ pub static ALL: [MessageKey; 2161] = [
     CLI_CONFIRM_ASK,
     CLI_CONFIRM_TYPE,
     CLI_CONFIRM_MISSING,
-    CLI_FAILSAFE_LEFT,
     CLI_COL_ID,
     CLI_COL_URL,
     CLI_COL_LOGIN,
@@ -6911,15 +6774,11 @@ pub static ALL: [MessageKey; 2161] = [
     COMMON_EDIT,
     COMMON_CLOSE,
     COMMON_BACK,
-    COMMON_REFRESH,
-    COMMON_LOADING,
-    COMMON_SEARCH,
     COMMON_ENABLED,
     COMMON_DISABLED,
     COMMON_UNKNOWN,
     COMMON_LANGUAGE,
     COMMON_ITEMS_COUNT,
-    COMMON_ROUTERS_COUNT,
     COMMON_UNIT_BYTES,
     COMMON_UNIT_KILOBYTES,
     COMMON_UNIT_MEGABYTES,
@@ -6952,27 +6811,11 @@ pub static ALL: [MessageKey; 2161] = [
     DOMAINS_INTERFACE_DOWN,
     DOMAINS_WIFI,
     DOMAINS_WIFI_SSID,
-    DOMAINS_WIFI_BAND,
     DOMAINS_CLIENTS,
-    DOMAINS_CLIENTS_ONLINE,
-    DOMAINS_ROUTING,
-    DOMAINS_STATIC_ROUTES,
-    DOMAINS_VPN,
-    DOMAINS_VPN_TUNNELS,
-    DOMAINS_FIREWALL,
-    DOMAINS_DNS,
-    DOMAINS_DHCP,
-    ERRORS_INTERNAL,
-    ERRORS_NOT_FOUND,
     ERRORS_FORBIDDEN,
     ERRORS_AUTH_FAILED,
-    ERRORS_ACCOUNT_LOCKED,
-    ERRORS_ROUTER_UNREACHABLE,
     ERRORS_ROUTER_AUTH,
-    ERRORS_INVALID_INPUT,
-    ERRORS_UNSUPPORTED_FIRMWARE,
     ERRORS_TIMEOUT,
-    ERRORS_CSRF,
     ERRORS_OUTBOUND_REFUSED,
     ERRORS_OUTBOUND_METADATA,
     ERRORS_OUTBOUND_LOOPBACK,
@@ -6987,13 +6830,10 @@ pub static ALL: [MessageKey; 2161] = [
     MIGRATE_TITLE,
     MIGRATE_SOURCE,
     MIGRATE_TARGET,
-    MIGRATE_PLAN,
     MIGRATE_STEP,
-    MIGRATE_UNSUPPORTED,
     MIGRATE_START,
     MIGRATE_DONE,
     MIGRATE_ROLLBACK,
-    MIGRATE_BACKUP_CREATED,
     MIGRATE_REASON_COPY,
     MIGRATE_REASON_REMAP,
     MIGRATE_REASON_SKIP_HARDWARE,
@@ -7008,22 +6848,17 @@ pub static ALL: [MessageKey; 2161] = [
     MIGRATE_APPLY_ROUTER_ROLLBACK,
     MIGRATE_APPLY_TIER,
     MIGRATE_APPLY_AGREEMENT,
-    MIGRATE_APPLY_RESIDUAL,
     FINISH_SAVED_ARMED,
     MIGRATE_COMMITTED_NOT_SAVED,
     MIGRATE_COMMIT_NOT_SENT_ARMED,
     MIGRATE_ROLLBACK_SAVED,
     MIGRATE_APPLY_REPLAN,
     WEB_NAV_DASHBOARD,
-    WEB_NAV_ROUTERS,
-    WEB_NAV_INTERFACES,
     WEB_NAV_WIFI,
     WEB_NAV_CLIENTS,
     WEB_NAV_ROUTING,
     WEB_NAV_VPN,
     WEB_NAV_MIGRATION,
-    WEB_NAV_AUDIT,
-    WEB_NAV_SETTINGS,
     WEB_LOGIN_TITLE,
     WEB_LOGIN_USERNAME,
     WEB_LOGIN_PASSWORD,
@@ -7033,7 +6868,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_ROUTER_ONLINE,
     WEB_ROUTER_OFFLINE,
     WEB_CONFIRM_DESTRUCTIVE,
-    WEB_SESSION_EXPIRED,
     WEB_SKIP_TO_CONTENT,
     WEB_NAV_LABEL,
     WEB_NAV_MENU,
@@ -7081,7 +6915,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_FLEET_UNAVAILABLE,
     WEB_BRAND_KEENETIC,
     WEB_BRAND_NETCRAZE,
-    WEB_ROUTER_FIRMWARE,
     WEB_ROUTER_WAITING,
     WEB_ROUTER_UNREACHABLE,
     WEB_ROUTER_CONFIG_DEFINED,
@@ -7139,7 +6972,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_ROUTER_PASSWORD,
     WEB_ROUTER_PASSWORD_KEEP,
     WEB_ROUTER_AUTH,
-    WEB_ROUTER_AUTH_TEXT,
     WEB_ROUTER_TLS,
     WEB_ROUTER_TLS_VERIFY,
     WEB_ROUTER_TLS_PIN,
@@ -7166,9 +6998,7 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_ROUTER_ERROR_PIN,
     WEB_ROUTER_ERROR_POLICY,
     WEB_ROUTER_ERROR_UNREACHABLE,
-    WEB_ROUTER_ERROR_TLS,
     WEB_ROUTER_ERROR_CHECK,
-    WEB_ROUTER_ERROR_SAVE,
     WEB_ADMIN_TITLE,
     WEB_ADMIN_TAB_USERS,
     WEB_ADMIN_TAB_ROLES,
@@ -7500,9 +7330,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_KIT_TABLE_EMPTY,
     WEB_KIT_TABLE_NO_MATCH,
     WEB_KIT_TABLE_COUNT,
-    WEB_KIT_REVEAL,
-    WEB_KIT_REVEAL_TITLE,
-    WEB_KIT_REVEAL_TEXT,
     WEB_SYSTEM_GENERAL_TITLE,
     WEB_SYSTEM_IDENTITY,
     WEB_SYSTEM_DESCRIPTION,
@@ -7533,7 +7360,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_CLIENTS_ONLINE,
     WEB_CLIENTS_OFFLINE,
     WEB_CLIENTS_COL_NAME,
-    WEB_CLIENTS_COL_STATE,
     WEB_CLIENTS_COL_MAC,
     WEB_CLIENTS_COL_IP,
     WEB_CLIENTS_COL_INTERFACE,
@@ -8449,7 +8275,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_MIGRATE_FINISH_COMMITTED,
     WEB_MIGRATE_FINISH_ROLLED_BACK,
     WEB_MIGRATE_FINISH_CLOSED,
-    WEB_MIGRATE_FAILURE_REPLAN,
     WEB_MIGRATE_FAILURE_DRIFT,
     WEB_MIGRATE_FAILURE_SAME,
     WEB_MIGRATE_FAILURE_SOURCE,
@@ -8818,7 +8643,6 @@ pub static ALL: [MessageKey; 2161] = [
     WEB_PRESETS_REASON_EXCLUDED,
     WEB_PRESETS_INPUTS_PASSWORDS_TEXT,
     WEB_PRESETS_PREVIEW_TEXT,
-    WEB_PRESETS_PREVIEW_NOTHING,
     WEB_PRESETS_COUNT_SETTINGS,
     WEB_PRESETS_APPLY_BUTTON,
     WEB_PRESETS_APPLY_FORBIDDEN,

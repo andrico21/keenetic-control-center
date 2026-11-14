@@ -1,18 +1,10 @@
 # Command-line output.
 
-cli-about = Manage Keenetic and Netcraze routers from the command line, the Web UI and MCP.
 cli-router-added = Router { $name } added.
 cli-router-removed = Router { $name } removed.
 cli-no-routers = No routers are configured.
-cli-connecting = Connecting to { $url }...
 cli-connected = Connected to { $model } running firmware { $version }.
 cli-config-written = Configuration written to { $path }.
-cli-dry-run = Dry run: no changes were sent to the router.
-cli-changes-applied =
-    { $count ->
-        [one] { $count } change applied.
-       *[other] { $count } changes applied.
-    }
 cli-router-updated = Router { $name } updated.
 cli-router-required = Choose a router with --router; several or no routers are configured.
 cli-error-generic = The command failed.
@@ -30,7 +22,6 @@ cli-secret-missing = No secret given: use --password-file, the KCC_PASSWORD vari
 cli-confirm-ask = Apply this change to { $router }? Type yes to continue:
 cli-confirm-type = This is destructive. Type the router id { $router } to continue:
 cli-confirm-missing = Not confirmed for { $router }: use --yes, or --confirm-destructive with the router id for destructive changes.
-cli-failsafe-left = The router stopped answering; its fail-safe timer stays armed and will restore the saved configuration.
 cli-col-id = ID
 cli-col-url = URL
 cli-col-login = Login

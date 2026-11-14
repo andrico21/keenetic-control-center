@@ -11,9 +11,6 @@ common-delete = Выдаліць
 common-edit = Змяніць
 common-close = Закрыць
 common-back = Назад
-common-refresh = Абнавіць
-common-loading = Загрузка...
-common-search = Пошук
 common-enabled = Уключана
 common-disabled = Выключана
 common-unknown = Невядома
@@ -24,13 +21,6 @@ common-items-count =
         [few] { $count } элементы
         [many] { $count } элементаў
        *[other] { $count } элемента
-    }
-common-routers-count =
-    { $count ->
-        [one] { $count } роўтар
-        [few] { $count } роўтары
-        [many] { $count } роўтараў
-       *[other] { $count } роўтара
     }
 common-unit-bytes = { $value } Б
 common-unit-kilobytes = { $value } КБ

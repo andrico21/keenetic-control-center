@@ -1,20 +1,10 @@
 # Machine-assisted translation - native review pending
 
-cli-about = Кіраванне роўтарамі Keenetic і Netcraze з каманднага радка, вэб-інтэрфейсу і MCP.
 cli-router-added = Роўтар { $name } дададзены.
 cli-router-removed = Роўтар { $name } выдалены.
 cli-no-routers = Роўтары не наладжаны.
-cli-connecting = Падключэнне да { $url }...
 cli-connected = Падключана да { $model } з прашыўкай { $version }.
 cli-config-written = Канфігурацыя запісана ў { $path }.
-cli-dry-run = Пробны запуск: змены не адпраўляліся на роўтар.
-cli-changes-applied =
-    { $count ->
-        [one] Ужыта { $count } змена.
-        [few] Ужыта { $count } змены.
-        [many] Ужыта { $count } змен.
-       *[other] Ужыта { $count } змены.
-    }
 cli-router-updated = Роўтар { $name } абноўлены.
 cli-router-required = Выберыце роўтар з дапамогай --router: наладжана некалькі роўтараў або ніводнага.
 cli-error-generic = Каманда не выканана.
@@ -32,7 +22,6 @@ cli-secret-missing = Сакрэт не зададзены: выкарыстай�
 cli-confirm-ask = Ужыць гэтую змену да { $router }? Увядзіце yes, каб працягнуць:
 cli-confirm-type = Гэта разбуральная аперацыя. Увядзіце ідэнтыфікатар роўтара { $router }, каб працягнуць:
 cli-confirm-missing = Не пацверджана для { $router }: выкарыстайце --yes, а для разбуральных змен --confirm-destructive з ідэнтыфікатарам роўтара.
-cli-failsafe-left = Роўтар перастаў адказваць; яго таймер аховы застаецца ўключаным і адновіць захаваную канфігурацыю.
 cli-col-id = ID
 cli-col-url = URL
 cli-col-login = Лагін

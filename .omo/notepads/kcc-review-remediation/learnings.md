@@ -724,3 +724,20 @@ Core 49898c9 (Rust 1.100) adopted in worktree rgl. What it requires and what was
 - Deleted (41, six locales, keys.rs regenerated 7000+ -> -165 lines): the 39 plus `web-kit-reveal-title`, `web-kit-reveal-text` (family of `web-kit-reveal`, orphaned by the removal of page_kit/reveal.rs and kit_reveal.html in todo 43).
 - FINDINGS for the owner, NOT deleted (unused, orphaned by earlier commits, not todo 43): `web-router-auth-text` (last used before 578b17c), `web-migrate-failure-replan` (563c9dc), `web-presets-preview-nothing` (e9baacb). `cargo xtask i18n-check` stays RED until the owner deletes them or wires them up (same deletion in six locales + `cargo xtask i18n-gen`).
 - No bundle.rs test enumerates a deleted key (all_arguments lists variable names only); docs/I18N.md states no key count and lists no deleted key: unchanged.
+
+## 2026-11-14 Todo 44 follow-up: deleted orphaned i18n keys
+
+Three keys orphaned by prior remediation commits were deleted from all six locales (en, ru, uk, de, be, kk):
+- `web-router-auth-text` (orphaned by commit 578b17c)
+- `web-migrate-failure-replan` (orphaned by commit 563c9dc)
+- `web-presets-preview-nothing` (orphaned by commit e9baacb)
+
+Deleted from `crates/kcc-i18n/locales/{en,ru,uk,de,be,kk}/web.ftl` by editing each locale file, one key per locale per file, each removal confirmed in 5-line context.
+
+Regenerated `crates/kcc-i18n/src/keys.rs` with `cargo xtask i18n-gen` (idempotent).
+
+All verifications pass:
+- `cargo xtask i18n-check`: GREEN - 0 problems
+- `cargo test -p kcc-i18n --all-features`: 13 passed
+- `cargo clippy -p kcc-i18n --all-targets --all-features`: passed
+- `cargo +nightly-2026-10-03 fmt --all -- --check`: passed

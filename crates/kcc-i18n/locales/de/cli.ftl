@@ -1,18 +1,10 @@
 # Machine-assisted translation - native review pending
 
-cli-about = Keenetic- und Netcraze-Router über die Befehlszeile, die Weboberfläche und MCP verwalten.
 cli-router-added = Router { $name } hinzugefügt.
 cli-router-removed = Router { $name } entfernt.
 cli-no-routers = Es sind keine Router konfiguriert.
-cli-connecting = Verbindung zu { $url } wird hergestellt...
 cli-connected = Verbunden mit { $model } mit Firmware { $version }.
 cli-config-written = Konfiguration in { $path } geschrieben.
-cli-dry-run = Probelauf: Es wurden keine Änderungen an den Router gesendet.
-cli-changes-applied =
-    { $count ->
-        [one] { $count } Änderung übernommen.
-       *[other] { $count } Änderungen übernommen.
-    }
 cli-router-updated = Router { $name } aktualisiert.
 cli-router-required = Wählen Sie einen Router mit --router: Es sind mehrere oder keine Router konfiguriert.
 cli-error-generic = Der Befehl ist fehlgeschlagen.
@@ -30,7 +22,6 @@ cli-secret-missing = Kein Geheimnis angegeben: Verwenden Sie --password-file, di
 cli-confirm-ask = Diese Änderung auf { $router } anwenden? Geben Sie yes ein, um fortzufahren:
 cli-confirm-type = Dies ist destruktiv. Geben Sie die Router-ID { $router } ein, um fortzufahren:
 cli-confirm-missing = Für { $router } nicht bestätigt: Verwenden Sie --yes, für destruktive Änderungen --confirm-destructive mit der Router-ID.
-cli-failsafe-left = Der Router antwortet nicht mehr; sein Fail-Safe-Timer bleibt aktiv und stellt die gespeicherte Konfiguration wieder her.
 cli-col-id = ID
 cli-col-url = URL
 cli-col-login = Anmeldename

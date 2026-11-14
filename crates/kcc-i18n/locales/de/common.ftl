@@ -11,9 +11,6 @@ common-delete = Löschen
 common-edit = Bearbeiten
 common-close = Schließen
 common-back = Zurück
-common-refresh = Aktualisieren
-common-loading = Wird geladen...
-common-search = Suchen
 common-enabled = Aktiviert
 common-disabled = Deaktiviert
 common-unknown = Unbekannt
@@ -22,11 +19,6 @@ common-items-count =
     { $count ->
         [one] { $count } Element
        *[other] { $count } Elemente
-    }
-common-routers-count =
-    { $count ->
-        [one] { $count } Router
-       *[other] { $count } Router
     }
 common-unit-bytes = { $value } B
 common-unit-kilobytes = { $value } KB

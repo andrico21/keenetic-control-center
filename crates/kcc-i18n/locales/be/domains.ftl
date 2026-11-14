@@ -12,19 +12,4 @@ domains-interface-up = Актыўны
 domains-interface-down = Неактыўны
 domains-wifi = Wi-Fi
 domains-wifi-ssid = Назва сеткі (SSID)
-domains-wifi-band = Дыяпазон
 domains-clients = Кліенты
-domains-clients-online =
-    { $count ->
-        [one] { $count } кліент у сетцы
-        [few] { $count } кліенты ў сетцы
-        [many] { $count } кліентаў у сетцы
-       *[other] { $count } кліента ў сетцы
-    }
-domains-routing = Маршрутызацыя
-domains-static-routes = Статычныя маршруты
-domains-vpn = VPN
-domains-vpn-tunnels = VPN-тунэлі
-domains-firewall = Міжсеткавы экран
-domains-dns = DNS
-domains-dhcp = DHCP
