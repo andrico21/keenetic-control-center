@@ -13,25 +13,25 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_app::permissions::Permission;
-use kcc_domain::{DomainError, configuration::SafetyNet, wifi};
+use kcc_domain::{DomainError, wifi};
 use kcc_i18n::keys;
 
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
-    net_change::{Planned, Subject, finish, reader, unusable},
+    net_change::{Subject, reader, refreshed, unusable},
     net_pages::{Call, Tab},
     net_settings::{Button, Fact, SettingsDialog},
     net_wifi_rows::{ApRow, RadioRow, access_points, radios},
     page_kit::{
         action::Operation,
+        change::Change,
         context::fragment_shell,
         family::Family,
-        gate::{Controls, allowed},
+        gate::Controls,
         request::{Params, missing},
         respond::Answer,
+        submit::{Formless, Planned, Submission},
     },
 };
 
@@ -221,31 +221,26 @@ pub(crate) async fn toggle(
         Some("no") => false,
         Some(_) | None => return Err(missing()),
     };
-    let operation = match params.get("setting") {
-        Some("enabled") => UP,
-        Some("hidden") => HIDE,
+    let (operation, hide) = match params.get("setting") {
+        Some("enabled") => (UP, false),
+        Some("hidden") => (HIDE, true),
         Some(_) | None => return Err(missing()),
     };
     let action = operation.open(&state, &user, &router).await?;
-    let domain = action.context().await?;
-    let planned: Result<_, DomainError> = match params.get("setting") {
-        Some("enabled") => wifi::plan_up(&domain, &name, value).await,
-        Some("hidden") => wifi::plan_hide_ssid(&domain, &name, value),
-        Some(_) | None => return Err(missing()),
-    };
-    if let Ok(plan) = &planned
-        && !allowed(
-            &user,
-            &router,
-            &SafetyNet::required(Permission::Write, plan.risk),
-        )
-    {
-        action.abandon("forbidden").await;
-        return Err(
-            errors::response(errors::Kind::Forbidden, fragment_shell(user.locale())).into(),
-        );
-    }
-    let change = planned.and_then(|plan| Ok((wifi::change_request(&name, &plan)?, plan.risk)));
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(Submission::new(action, &params, Formless)
+        .submit(
+            |_params| Ok(()),
+            async |(), domain| {
+                let planned = if hide {
+                    wifi::plan_hide_ssid(domain, &name, value)?
+                } else {
+                    wifi::plan_up(domain, &name, value).await?
+                };
+                let request = wifi::change_request(&name, &planned)?;
+                Ok(Planned::of(&[planned], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }

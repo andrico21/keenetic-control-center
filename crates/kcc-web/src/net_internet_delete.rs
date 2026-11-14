@@ -15,14 +15,16 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    net_change::{Planned, finish},
+    net_change::refreshed,
     net_pages::{Call, Tab},
     page_kit::{
         action::Operation,
+        change::Change,
         context::fragment_shell,
         request::{Params, missing},
         respond,
         respond::Answer,
+        submit::{self, Invalid, Planned, Submission},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
@@ -41,6 +43,20 @@ fn delete_dialog(router: &str, name: &str, locale: Locale) -> TypedNameDialog {
             keys::WEB_INTERNET_DELETE_TEXT,
         ),
     )
+}
+
+/// The typed-name confirmation, as the form of the deletion: a mistyped name is shown
+/// in it.
+struct DeleteForm(TypedNameDialog);
+
+impl submit::Form for DeleteForm {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let Self(mut dialog) = self;
+        for (_field, rule) in invalid.into_findings() {
+            dialog.set_error(tr(locale, rule, None));
+        }
+        respond::in_dialog(respond::unprocessable(&dialog))
+    }
 }
 
 /// `GET /ui/r/{router}/internet/delete?name=`: the Delete confirmation.
@@ -80,17 +96,22 @@ pub(crate) async fn delete(
 ) -> Result<Response, Answer> {
     let name = ObjectName::try_from(form.name().to_owned()).map_err(|_error| missing())?;
     let action = DELETE.open(&state, &user, &router).await?;
-    if !form.confirmed() {
-        action.abandon("validation_failed").await;
-        let mut dialog = delete_dialog(&router, name.as_str(), user.locale());
-        dialog.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_CONFIRM, None));
-        return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
-    }
-    let domain = action.context().await?;
-    let change = wan::plan_delete(&domain, &name)
-        .await
-        .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
+    let dialog = DeleteForm(delete_dialog(&router, name.as_str(), action.locale()));
+    let params = Params::of(Vec::new());
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    let answered = finish(call, action, Planned::new(domain, change)).await;
-    Ok(respond::retarget(answered, "#page-outcome"))
+    Ok(Submission::new(action, &params, dialog)
+        .landing_in("#page-outcome")
+        .submit(
+            |_params| {
+                form.confirmed()
+                    .ok_or_else(|| Invalid::at("confirm", keys::WEB_ADMIN_ERROR_CONFIRM))
+            },
+            async |(), domain| {
+                let operation = wan::plan_delete(domain, &name).await?;
+                let request = wan::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }

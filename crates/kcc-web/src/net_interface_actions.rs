@@ -18,13 +18,15 @@ use kcc_rci::ObjectName;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Planned, finish},
+    net_change::refreshed,
     net_pages::Call,
     page_kit::{
         action::Operation,
+        change::Change,
         confirm::Resubmit,
         request::{Params, missing, with_query},
         respond::Answer,
+        submit::{Formless, Planned, Submission},
     },
 };
 
@@ -55,14 +57,17 @@ pub(crate) async fn state(
     match params.get("state") {
         Some("up") => {
             let action = UP.open(&state, &user, &router).await?;
-            let domain = action.context().await?;
-            let change = interfaces::plan_up(&domain, &name).and_then(|operation| {
-                Ok((
-                    interfaces::change_request(&name, &operation)?,
-                    operation.risk,
-                ))
-            });
-            Ok(finish(call, action, Planned::new(domain, change)).await)
+            Ok(Submission::new(action, &params, Formless)
+                .submit(
+                    |_params| Ok(()),
+                    async |(), domain| {
+                        let operation = interfaces::plan_up(domain, &name)?;
+                        let request = interfaces::change_request(&name, &operation)?;
+                        Ok(Planned::of(&[operation], Change::Cli(request)))
+                    },
+                    async |domain| refreshed(call, domain).await,
+                )
+                .await)
         }
         Some("down") => disable(call, &name, &params).await,
         Some(_) | None => Err(missing()),
@@ -75,7 +80,7 @@ pub(crate) async fn state(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
-// NOT cancel-safe: see `Action::run`.
+// NOT cancel-safe: see `Submission::submit`.
 async fn disable(call: Call<'_>, name: &ObjectName, params: &Params) -> Result<Response, Answer> {
     let action = DOWN.open(call.state(), call.user(), call.router()).await?;
     let resubmit = Resubmit::new(
@@ -85,18 +90,17 @@ async fn disable(call: Call<'_>, name: &ObjectName, params: &Params) -> Result<R
         ),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(Risk::Management, &params.confirmation(), resubmit) {
-        return Ok(prompt);
-    }
-    let domain = action.context().await?;
-    let change = match interfaces::detect_management(&domain, name).await {
-        Ok(verdict) => interfaces::plan_down(&domain, name, verdict).and_then(|operation| {
-            Ok((
-                interfaces::change_request(name, &operation)?,
-                operation.risk,
-            ))
-        }),
-        Err(error) => Err(error),
-    };
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(Submission::new(action, params, Formless)
+        .confirming(Risk::Management, resubmit)
+        .submit(
+            |_params| Ok(()),
+            async |(), domain| {
+                let verdict = interfaces::detect_management(domain, name).await?;
+                let operation = interfaces::plan_down(domain, name, verdict)?;
+                let request = interfaces::change_request(name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }

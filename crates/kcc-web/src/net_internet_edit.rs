@@ -16,16 +16,16 @@ use kcc_rci::ObjectName;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Planned, Subject, finish},
+    net_change::{Subject, refreshed},
     net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
     page_kit::{
         action::Operation,
-        failure::plan_failure,
-        family::Family,
+        change::Change,
         request::{Params, missing},
         respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
 };
 
@@ -263,31 +263,23 @@ pub(crate) async fn field(
         Vec::new()
     };
     let choices = vias(&found, &name);
-    let dialog = setting.form(subject, typed.to_owned(), &choices);
-    let checked = match setting.check(typed, &choices) {
-        Ok(checked) => checked,
-        Err(rule) => {
-            action.abandon("validation_failed").await;
-            return Err(dialog
-                .with_error("value", subject.text(rule))
-                .invalid()
-                .into());
-        }
-    };
-    let domain = action.context().await?;
-    let planned = checked
-        .plan(&domain, &name)
-        .await
-        .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
-    let change = match planned {
-        Ok(found_change) => found_change,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, subject.locale(), &error);
-            action.abandon(failure.audit()).await;
-            let message = failure.message().to_owned();
-            return Err(dialog.with_error("value", message).invalid().into());
-        }
-    };
+    let dialog = setting
+        .form(subject, typed.to_owned(), &choices)
+        .refusing_at("value");
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(finish(call, action, Planned::new(domain, Ok(change))).await)
+    Ok(Submission::new(action, &params, dialog)
+        .submit(
+            |submitted| {
+                setting
+                    .check(submitted.text("value"), &choices)
+                    .map_err(|rule| Invalid::at("value", rule))
+            },
+            async |checked, domain| {
+                let operation = checked.plan(domain, &name).await?;
+                let request = wan::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }

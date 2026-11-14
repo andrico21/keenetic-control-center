@@ -29,12 +29,11 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    net_change::{Planned, finish},
     net_pages::{Call, Tab, Tabs, Viewer},
     page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
-        change::Applied,
+        change::{Applied, Change},
         confirm::Resubmit,
         context,
         context::{Caller, fragment_shell},
@@ -42,6 +41,7 @@ use crate::{
         gate::Controls,
         request::{Params, missing, rendered, with_query},
         respond::{Answer, changed},
+        submit::{Formless, Planned, Submission},
     },
 };
 
@@ -252,10 +252,17 @@ pub(crate) async fn action(
         Some(_) | None => return Err(missing()),
     };
     let action = operation.open(&state, &user, &router).await?;
-    let domain = action.context().await?;
-    let change = plan(&domain, member.as_str())
-        .and_then(|planned| Ok((mesh::change_request(&planned)?, planned.risk)));
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(Submission::new(action, &params, Formless)
+        .submit(
+            |_params| Ok(()),
+            async |(), domain| {
+                let planned = plan(domain, member.as_str())?;
+                let request = mesh::change_request(&planned)?;
+                Ok(Planned::of(&[planned], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }
 
 /// Restarts `member` once the router name was typed.

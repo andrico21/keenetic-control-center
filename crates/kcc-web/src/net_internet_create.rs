@@ -10,8 +10,6 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_app::workflow::CliChangeRequest;
-use kcc_catalog::Risk;
 use kcc_domain::{
     DomainError, RouterCtx,
     interfaces::{self, ManagementVerdict},
@@ -27,11 +25,17 @@ use kcc_rci::ObjectName;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Planned, finish, merged},
+    net_change::{merged, refreshed},
     net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
-    page_kit::{action::Operation, request::Params, respond::Answer},
+    page_kit::{
+        action::Operation,
+        change::Change,
+        request::Params,
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
+    },
 };
 
 /// Adding a connection, audited as `web.wan_create`.
@@ -203,10 +207,7 @@ fn ipoe(found: &[Link]) -> Vec<String> {
 /// # Errors
 ///
 /// Returns the catalog's findings.
-async fn plan_create(
-    checked: &Checked,
-    domain: &RouterCtx,
-) -> Result<(CliChangeRequest, Risk), DomainError> {
+async fn plan_create(checked: &Checked, domain: &RouterCtx) -> Result<Planned, DomainError> {
     let name = &checked.name;
     let mut operations = vec![wan::plan_create(domain, name).await?];
     if checked.kind == Kind::Ipoe {
@@ -222,15 +223,11 @@ async fn plan_create(
     if let Some(identity) = &checked.identity {
         operations.push(wan::plan_identity(domain, name, identity)?);
     }
-    let risk = operations
-        .iter()
-        .map(|operation| operation.risk)
-        .fold(Risk::Write, Risk::max);
     let requests = operations
         .iter()
         .map(|operation| wan::change_request(name, operation))
         .collect::<Result<Vec<_>, _>>()?;
-    Ok((merged(requests)?, risk))
+    Ok(Planned::of(&operations, Change::Cli(merged(requests)?)))
 }
 
 /// `GET /ui/r/{router}/internet/create`: the Add connection dialog.
@@ -267,7 +264,8 @@ pub(crate) async fn create(
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
-    let draft = Draft::from_params(&Params::new(Vec::new(), form));
+    let params = Params::new(Vec::new(), form);
+    let draft = Draft::from_params(&params);
     let action = CREATE.open(&state, &user, &router).await?;
     let locale = action.locale();
     let domain = action.context().await?;
@@ -276,18 +274,14 @@ pub(crate) async fn create(
         .await
         .map(|found| found.into_keys().collect())
         .unwrap_or_default();
-    let checked = match draft.check(&taken, &vias) {
-        Ok(checked) => checked,
-        Err(problems) => {
-            action.abandon("validation_failed").await;
-            let dialog = problems.into_iter().fold(
-                draft.form(&router, locale, &vias),
-                |dialog, (field, rule)| dialog.with_error(field, tr(locale, rule, None)),
-            );
-            return Err(dialog.invalid().into());
-        }
-    };
-    let change = plan_create(&checked, &domain).await;
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(
+        Submission::new(action, &params, draft.form(&router, locale, &vias))
+            .submit(
+                |_params| draft.check(&taken, &vias).map_err(Invalid::from),
+                async |checked, planning| plan_create(&checked, planning).await,
+                async |planning| refreshed(call, planning).await,
+            )
+            .await,
+    )
 }

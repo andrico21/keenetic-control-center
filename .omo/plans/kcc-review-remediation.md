@@ -544,7 +544,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): one change-result view
   Recommended task executor category: visual-engineering - shared template replacing six partials
 
-- [ ] 32. One submit pipeline that reads the planned operation's risk (core + network family)
+- [x] 32. One submit pipeline that reads the planned operation's risk (core + network family)
   What to do / Must NOT do: Add to `crates/kcc-web/src/page_kit/action.rs` (today `Operation::open` `:79`, `abandon` `:196`, `run(risk, change)` `:203`, `run_with` `:227`) a `submit(form, check, plan, refresh) -> Response` where `check: FnOnce(&Params) -> Result<T, (field, MessageKey)>`, `plan: FnOnce(T) -> Result<ChangeOp, DomainError>`, `refresh: AsyncFnOnce() -> Option<String>`; it audits every plan failure with `page_kit::failure::plan_failure(..).audit()` (`page_kit/failure.rs:91-116`, so `forbidden` and `failed` are no longer logged as `validation_failed`) and runs the change with `ChangeOp.risk` - callers can no longer pass a literal `Risk` (BACKLOG r17 F1-N73). Remove `run(risk, ..)` from the public kit surface once callers are migrated (todos 33-34). Migrate the network family (`net_interface_edits.rs`, `net_internet_edit.rs`, `net_wifi_edit.rs`, `net_wifi_settings.rs`, `net_interface_actions.rs`, `net_change.rs`) and delete `net_change::finish` (`net_change.rs:229-251`). Must NOT: change HTML or field error placement.
   Closes: GAP-10
   Parallelization: Wave W5 | Blocked by: 21, 31 | Blocks: 33, 34 | Can parallelize with: -

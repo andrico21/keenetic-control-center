@@ -1,12 +1,10 @@
-//! What the actions of the network pages share: how a planned change runs and is
-//! answered, and the reading of router values.
+//! What the actions of the network pages share: the region read back after a change, and
+//! the reading of router values.
 
 use core::net::Ipv4Addr;
 
-use axum::response::Response;
 use fluent_bundle::FluentArgs;
 use kcc_app::workflow::CliChangeRequest;
-use kcc_catalog::Risk;
 use kcc_domain::{DomainError, RouterCtx};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -22,16 +20,13 @@ use crate::{
     net_pages::{Call, Tab},
     net_wifi,
     page_kit::{
-        action::Action,
-        change::Change,
         context,
         facts::RouterFacts,
-        failure::plan_failure,
         family::Family,
         outcome::{Failure, Outcome},
         request::with_query,
         respond,
-        respond::{Answer, changed},
+        respond::Answer,
     },
 };
 
@@ -109,49 +104,16 @@ pub(crate) fn unusable(locale: Locale, message: MessageKey) -> Answer {
     respond::retarget(Outcome::failed(failure).render(locale), "#page-outcome").into()
 }
 
-/// A change planned on the router of `domain`, or why it could not be planned.
-pub(crate) struct Planned {
-    /// The router to read back from.
-    domain: RouterCtx,
-    /// The parser request and its risk.
-    change: Result<(CliChangeRequest, Risk), DomainError>,
-}
-
-impl Planned {
-    /// `change`, planned on the router of `domain`.
-    pub(crate) const fn new(
-        domain: RouterCtx,
-        change: Result<(CliChangeRequest, Risk), DomainError>,
-    ) -> Self {
-        Self { domain, change }
+/// The region of the page of `call`, read back from the router of `domain` after a
+/// change.
+// cancel-safe: reads only.
+pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<String> {
+    match call.tab() {
+        Tab::Interfaces => net_interfaces::refreshed(call, domain).await,
+        Tab::Internet => net_internet::refreshed(call, domain).await,
+        Tab::Wifi => net_wifi::refreshed(call, domain).await,
+        Tab::Mesh => net_mesh::refreshed(call, domain).await,
     }
-}
-
-/// Runs a planned change and answers with its outcome and, after a success, the region of
-/// the page of `call` read back; a change that could not be planned is answered with why.
-// NOT cancel-safe: see `Action::run`.
-pub(crate) async fn finish(call: Call<'_>, action: Action<'_>, planned: Planned) -> Response {
-    let locale = action.locale();
-    let (request, risk) = match planned.change {
-        Ok(found) => found,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return changed(Outcome::failed(failure), None, None, locale);
-        }
-    };
-    let outcome = action.run(risk, Change::Cli(request)).await;
-    let refreshed = if outcome.succeeded() {
-        match call.tab() {
-            Tab::Interfaces => net_interfaces::refreshed(call, &planned.domain).await,
-            Tab::Internet => net_internet::refreshed(call, &planned.domain).await,
-            Tab::Wifi => net_wifi::refreshed(call, &planned.domain).await,
-            Tab::Mesh => net_mesh::refreshed(call, &planned.domain).await,
-        }
-    } else {
-        None
-    };
-    changed(outcome, refreshed, None, locale)
 }
 
 /// The parser requests of one change as one request: their lines in order, every

@@ -22,11 +22,18 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Planned, Subject, finish},
+    net_change::{Subject, refreshed},
     net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Link, links},
-    page_kit::{action::Operation, confirm::Resubmit, request::Params, respond::Answer},
+    page_kit::{
+        action::Operation,
+        change::Change,
+        confirm::Resubmit,
+        request::Params,
+        respond::Answer,
+        submit::{Invalid, Planned, Submission},
+    },
 };
 
 /// A static IPoE address, audited as `web.wan_address_static`.
@@ -170,43 +177,32 @@ pub(crate) async fn address(
     let write = if typed.is_static() { STATIC } else { DHCP };
     let action = write.open(&state, &user, &router).await?;
     let subject = Subject::new(&router, &name, action.locale());
-    let checked = match typed.check() {
-        Ok(checked) => checked,
-        Err(rule) => {
-            action.abandon("validation_failed").await;
-            let dialog = typed
-                .form(subject)
-                .with_error("address", subject.text(rule));
-            return Err(dialog.invalid().into());
-        }
-    };
-    let domain = action.context().await?;
+    let resubmit = Resubmit::new(
+        subject.url(
+            "internet/address",
+            &[
+                ("mode", &typed.mode),
+                ("address", &typed.address),
+                ("mask", &typed.mask),
+            ],
+        ),
+        "#page-outcome",
+    );
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    let verdict = match interfaces::detect_management(&domain, &name).await {
-        Ok(verdict) => verdict,
-        Err(error) => return Ok(finish(call, action, Planned::new(domain, Err(error))).await),
-    };
-    let planned = checked
-        .map_or_else(
-            || wan::plan_dhcp(&domain, &name, verdict),
-            |found| wan::plan_static_address(&domain, &name, found, verdict),
+    Ok(Submission::new(action, &params, typed.form(subject))
+        .confirming_planned(resubmit)
+        .submit(
+            |_params| typed.check().map_err(|rule| Invalid::at("address", rule)),
+            async |checked, domain| {
+                let verdict = interfaces::detect_management(domain, &name).await?;
+                let operation = checked.map_or_else(
+                    || wan::plan_dhcp(domain, &name, verdict),
+                    |found| wan::plan_static_address(domain, &name, found, verdict),
+                )?;
+                let request = wan::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
         )
-        .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
-    if let Ok((_, risk)) = &planned {
-        let resubmit = Resubmit::new(
-            subject.url(
-                "internet/address",
-                &[
-                    ("mode", &typed.mode),
-                    ("address", &typed.address),
-                    ("mask", &typed.mask),
-                ],
-            ),
-            "#page-outcome",
-        );
-        if let Some(prompt) = action.confirm(*risk, &params.confirmation(), resubmit) {
-            return Ok(prompt);
-        }
-    }
-    Ok(finish(call, action, Planned::new(domain, planned)).await)
+        .await)
 }

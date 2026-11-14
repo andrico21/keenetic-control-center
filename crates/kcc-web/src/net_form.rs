@@ -18,7 +18,12 @@ use kcc_i18n::{
 use crate::{
     errors,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, respond},
+    page_kit::{
+        context::fragment_shell,
+        outcome::Failure,
+        respond,
+        submit::{Form, Invalid},
+    },
 };
 
 /// Longest text input value when the input sets no other limit, in characters.
@@ -87,6 +92,15 @@ impl FormDialog {
         respond::in_dialog(respond::unprocessable(self))
     }
 
+    /// The dialog, which also shows a change the domain could not plan, under the input
+    /// named `field`.
+    pub(crate) const fn refusing_at(self, field: &'static str) -> FieldDialog {
+        FieldDialog {
+            dialog: self,
+            field,
+        }
+    }
+
     /// The localized label of `input`.
     fn label(&self, input: &Input) -> String {
         tr(self.shell.locale(), input.label, None)
@@ -100,6 +114,38 @@ impl FormDialog {
     /// The localized rule the browser shows when the constraint check of `input` fails.
     fn rule(&self, input: &Input) -> Option<String> {
         input.rule.map(|key| tr(self.shell.locale(), key, None))
+    }
+}
+
+impl Form for FormDialog {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        invalid
+            .into_findings()
+            .into_iter()
+            .fold(self, |dialog, (field, rule)| {
+                dialog.with_error(field, tr(locale, rule, None))
+            })
+            .invalid()
+    }
+}
+
+/// A dialog that shows a change the domain could not plan under one of its inputs.
+pub(crate) struct FieldDialog {
+    /// The dialog.
+    dialog: FormDialog,
+    /// The name of the input that shows the refusal.
+    field: &'static str,
+}
+
+impl Form for FieldDialog {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        self.dialog.answer_invalid(invalid, locale)
+    }
+
+    fn answer_refused(self, failure: Failure, _locale: Locale) -> Response {
+        self.dialog
+            .with_error(self.field, failure.message().to_owned())
+            .invalid()
     }
 }
 

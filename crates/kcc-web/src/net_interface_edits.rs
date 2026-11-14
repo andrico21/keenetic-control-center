@@ -14,22 +14,22 @@ use axum::{
 };
 use kcc_catalog::Risk;
 use kcc_domain::interfaces;
-use kcc_i18n::{bundle::tr, keys};
+use kcc_i18n::keys;
 
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Planned, Subject, finish},
+    net_change::{Subject, refreshed},
     net_form::{Choice, FormDialog, Input},
     net_interface_line::{Level, Line},
     net_pages::Call,
     page_kit::{
         action::Operation,
+        change::Change,
         confirm::Resubmit,
-        failure::plan_failure,
-        family::Family,
         request::{Params, with_query},
         respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
 };
 
@@ -125,32 +125,23 @@ pub(crate) async fn description(
     let params = Params::new(query, form);
     let name = params.object("name")?;
     let action = DESCRIPTION.open(&state, &user, &router).await?;
-    let locale = action.locale();
-    let typed = params.text("value");
-    let dialog = description_form(Subject::new(&router, &name, locale), typed.to_owned());
-    let Some(value) = checked_description(typed) else {
-        action.abandon("validation_failed").await;
-        let rule = tr(locale, keys::WEB_SYSTEM_DESCRIPTION_ERROR, None);
-        return Err(dialog.with_error("value", rule).invalid().into());
-    };
-    let domain = action.context().await?;
-    let checked = interfaces::plan_description(&domain, &name, &value).and_then(|operation| {
-        Ok((
-            interfaces::change_request(&name, &operation)?,
-            operation.risk,
-        ))
-    });
-    let change = match checked {
-        Ok(found) => found,
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            let message = failure.message().to_owned();
-            return Err(dialog.with_error("value", message).invalid().into());
-        }
-    };
+    let subject = Subject::new(&router, &name, action.locale());
+    let dialog = description_form(subject, params.text("value").to_owned()).refusing_at("value");
     let call = Call::new(&state, &user, &router, &headers);
-    Ok(finish(call, action, Planned::new(domain, Ok(change))).await)
+    Ok(Submission::new(action, &params, dialog)
+        .submit(
+            |typed| {
+                checked_description(typed.text("value"))
+                    .ok_or_else(|| Invalid::at("value", keys::WEB_SYSTEM_DESCRIPTION_ERROR))
+            },
+            async |value, domain| {
+                let operation = interfaces::plan_description(domain, &name, &value)?;
+                let request = interfaces::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }
 
 /// `GET /ui/r/{router}/network/security-level?name=`: the security-level dialog.
@@ -197,35 +188,35 @@ pub(crate) async fn security(
     let name = params.object("name")?;
     let action = SECURITY.open(&state, &user, &router).await?;
     let subject = Subject::new(&router, &name, action.locale());
-    let Some(level) = params.get("level").and_then(Level::from_slug) else {
-        action.abandon("validation_failed").await;
-        let rule = subject.text(keys::WEB_NETWORK_SECURITY_ERROR);
-        let dialog = security_form(subject, Level::Private);
-        return Err(dialog.with_error("level", rule).invalid().into());
-    };
     let resubmit = Resubmit::new(
         with_query(
             &format!("/ui/r/{router}/network/security-level"),
-            &[("name", name.as_str()), ("level", level.slug())],
+            &[("name", name.as_str()), ("level", params.text("level"))],
         ),
         "#page-outcome",
     );
-    if let Some(prompt) = action.confirm(Risk::Management, &params.confirmation(), resubmit) {
-        return Ok(prompt);
-    }
-    let domain = action.context().await?;
-    let change = match interfaces::detect_management(&domain, &name).await {
-        Ok(verdict) => interfaces::plan_security_level(&domain, &name, level.domain(), verdict)
-            .and_then(|operation| {
-                Ok((
-                    interfaces::change_request(&name, &operation)?,
-                    operation.risk,
-                ))
-            }),
-        Err(error) => Err(error),
-    };
     let call = Call::new(&state, &user, &router, &headers);
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(
+        Submission::new(action, &params, security_form(subject, Level::Private))
+            .confirming(Risk::Management, resubmit)
+            .submit(
+                |typed| {
+                    typed
+                        .get("level")
+                        .and_then(Level::from_slug)
+                        .ok_or_else(|| Invalid::at("level", keys::WEB_NETWORK_SECURITY_ERROR))
+                },
+                async |level, domain| {
+                    let verdict = interfaces::detect_management(domain, &name).await?;
+                    let operation =
+                        interfaces::plan_security_level(domain, &name, level.domain(), verdict)?;
+                    let request = interfaces::change_request(&name, &operation)?;
+                    Ok(Planned::of(&[operation], Change::Cli(request)))
+                },
+                async |domain| refreshed(call, domain).await,
+            )
+            .await,
+    )
 }
 
 /// The description typed, trimmed, when it is 1 to 128 characters on one line.

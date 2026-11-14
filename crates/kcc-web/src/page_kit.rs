@@ -52,4 +52,5 @@ pub(crate) mod respond;
 pub(crate) mod reveal;
 pub(crate) mod secret;
 pub(crate) mod stakes;
+pub(crate) mod submit;
 pub(crate) mod typed_name;

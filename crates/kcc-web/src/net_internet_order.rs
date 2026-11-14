@@ -10,20 +10,21 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_catalog::Risk;
 use kcc_domain::{DomainError, wan};
 use kcc_rci::ObjectName;
 
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Planned, finish, merged},
+    net_change::{merged, refreshed},
     net_pages::{Call, Tab},
     net_wan::{Link, links},
     page_kit::{
         action::Operation,
+        change::Change,
         request::{Params, missing},
         respond::Answer,
+        submit::{Formless, Invalid, Planned, Submission},
     },
 };
 
@@ -57,11 +58,18 @@ pub(crate) async fn default_route(
         Some(_) | None => return Err(missing()),
     };
     let action = DEFAULT_ROUTE.open(&state, &user, &router).await?;
-    let domain = action.context().await?;
-    let change = wan::plan_default_route(&domain, &name, enabled)
-        .and_then(|operation| Ok((wan::change_request(&name, &operation)?, operation.risk)));
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(Submission::new(action, &params, Formless)
+        .submit(
+            |_params| Ok(()),
+            async |(), domain| {
+                let operation = wan::plan_default_route(domain, &name, enabled)?;
+                let request = wan::change_request(&name, &operation)?;
+                Ok(Planned::of(&[operation], Change::Cli(request)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/internet/order?name=&move=up|down`: swaps the connection's
@@ -88,30 +96,36 @@ pub(crate) async fn order(
         Some(_) | None => return Err(missing()),
     };
     let action = PRIORITY.open(&state, &user, &router).await?;
-    let domain = action.context().await?;
+    let found = links(&action.context().await?).await;
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    let found = match links(&domain).await {
-        Ok(found) => found,
-        Err(error) => return Ok(finish(call, action, Planned::new(domain, Err(error))).await),
-    };
-    let moves = reorder(&found, name.as_str(), up);
-    if moves.is_empty() {
-        action.abandon("validation_failed").await;
-        return Err(missing());
-    }
-    let change = async {
-        let mut requests = Vec::new();
-        let mut risk = Risk::Write;
-        for (id, priority) in moves {
-            let object = ObjectName::try_from(id).map_err(|_error| DomainError::InvalidResponse)?;
-            let operation = wan::plan_priority(&domain, &object, priority).await?;
-            risk = risk.max(operation.risk);
-            requests.push(wan::change_request(&object, &operation)?);
-        }
-        merged(requests).map(|request| (request, risk))
-    }
-    .await;
-    Ok(finish(call, action, Planned::new(domain, change)).await)
+    Ok(Submission::new(action, &params, Formless)
+        .submit(
+            |_params| match found {
+                Ok(listed) => {
+                    let moves = reorder(&listed, name.as_str(), up);
+                    if moves.is_empty() {
+                        Err(Invalid::from(Vec::new()))
+                    } else {
+                        Ok(Ok(moves))
+                    }
+                }
+                Err(error) => Ok(Err(error)),
+            },
+            async |moves, domain| {
+                let mut operations = Vec::new();
+                let mut requests = Vec::new();
+                for (id, priority) in moves? {
+                    let object =
+                        ObjectName::try_from(id).map_err(|_error| DomainError::InvalidResponse)?;
+                    let operation = wan::plan_priority(domain, &object, priority).await?;
+                    requests.push(wan::change_request(&object, &operation)?);
+                    operations.push(operation);
+                }
+                Ok(Planned::of(&operations, Change::Cli(merged(requests)?)))
+            },
+            async |domain| refreshed(call, domain).await,
+        )
+        .await)
 }
 
 /// The priority changes that move `name` one place up (or down) among `links`.
