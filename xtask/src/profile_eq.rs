@@ -1,4 +1,5 @@
-//! `profile-eq`: the xtask `[lints]` tables must equal the root `[workspace.lints]`.
+//! `profile-eq`: the xtask `[lints]` tables must equal the root `[workspace.lints]`, and
+//! every workspace member must inherit them with `[lints] workspace = true`.
 //!
 //! Both manifests are parsed with `toml` and compared as data: a scalar level
 //! (`x = "deny"`) equals the table form (`x = { level = "deny" }`), and an absent
@@ -9,7 +10,7 @@ use std::{io, path::Path};
 
 use toml::{Table, Value};
 
-use crate::{Verdict, failure::GateError, manifest};
+use crate::{Verdict, failure::GateError, lint_inheritance, manifest};
 
 /// One lint's level and priority, normalised from either manifest form.
 type Setting = (Value, Value);
@@ -32,14 +33,16 @@ where
     let xtask_doc = manifest::read(&xtask_path)?;
     let expected = manifest::table_at(&root_doc, &manifest::WORKSPACE_LINTS, &root_path)?;
     let actual = manifest::table_at(&xtask_doc, &manifest::PACKAGE_LINTS, &xtask_path)?;
-    let diffs = compare(expected, actual);
+    let mut diffs = compare(expected, actual);
+    diffs.extend(lint_inheritance::violations(root, &root_doc)?);
     for diff in &diffs {
         writeln!(out, "profile-eq: {diff}")?;
     }
     if diffs.is_empty() {
         writeln!(
             out,
-            "profile-eq: xtask/Cargo.toml [lints] equals Cargo.toml [workspace.lints]"
+            "profile-eq: xtask/Cargo.toml [lints] equals Cargo.toml [workspace.lints], \
+             and every member sets [lints] workspace = true"
         )?;
         Ok(Verdict::Pass)
     } else {
@@ -210,6 +213,56 @@ mod tests {
             report.contains("rust.unused_results: extra in xtask"),
             "{report}"
         );
+        Ok(())
+    }
+
+    /// Runs the gate on matching tables with `crates/*` members holding `members`
+    /// (`(name, [lints] table body)`).
+    fn gate_members(members: &[(&str, &str)]) -> Result<(Verdict, String), Box<dyn Error>> {
+        let dir = TempDir::new()?;
+        fs::create_dir_all(dir.path().join("xtask"))?;
+        let root = ROOT.replace("members = []", "members = [\"crates/*\"]");
+        fs::write(dir.path().join("Cargo.toml"), root)?;
+        fs::write(dir.path().join("xtask").join("Cargo.toml"), XTASK)?;
+        for (name, lints) in members {
+            let crate_dir = dir.path().join("crates").join(name);
+            fs::create_dir_all(&crate_dir)?;
+            let manifest = format!("[package]\nname = \"{name}\"\n\n[lints]\n{lints}");
+            fs::write(crate_dir.join("Cargo.toml"), manifest)?;
+        }
+        let mut out = Vec::new();
+        let verdict = run(dir.path(), &mut out)?;
+        Ok((verdict, String::from_utf8(out)?))
+    }
+
+    /// Members that inherit the profile pass.
+    #[test]
+    fn inheriting_members_pass() -> Result<(), Box<dyn Error>> {
+        let (verdict, report) =
+            gate_members(&[("one", "workspace = true\n"), ("two", "workspace = true\n")])?;
+        assert_eq!(verdict, Verdict::Pass, "{report}");
+        Ok(())
+    }
+
+    /// An empty `[lints]` table, or `workspace = false`, satisfies Cargo's
+    /// `missing_lints_inheritance` but not the gate: the member is named.
+    #[test]
+    fn member_without_inheritance_fails() -> Result<(), Box<dyn Error>> {
+        let (verdict, report) = gate_members(&[
+            ("good", "workspace = true\n"),
+            ("empty", ""),
+            ("off", "workspace = false\n"),
+        ])?;
+        assert_eq!(verdict, Verdict::Fail, "{report}");
+        assert!(
+            report.contains("crates/empty/Cargo.toml: [lints] lacks workspace = true"),
+            "{report}"
+        );
+        assert!(
+            report.contains("crates/off/Cargo.toml: [lints] lacks workspace = true"),
+            "{report}"
+        );
+        assert!(!report.contains("crates/good/"), "{report}");
         Ok(())
     }
 

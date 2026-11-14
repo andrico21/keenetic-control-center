@@ -4,10 +4,15 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    # Same delay as the publish-age cooldown in .cargo/config.toml.
+    cooldown:
+      default-days: 3
   - package-ecosystem: "cargo"
     directory: "/xtask"
     schedule:
       interval: "weekly"
+    cooldown:
+      default-days: 3
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:

@@ -4,12 +4,12 @@
 //! allow-by-default rustc lint (`rustc -W help`) and every Clippy `restriction` lint
 //! (`rustup run stable clippy-driver -W help`), drop the names already in the root
 //! `[workspace.lints]` tables, print what is left, and require that it is exactly the
-//! documented exclusions.
+//! documented exclusions. The Cargo leg lives in [`crate::cargo_lints`].
 
 use alloc::collections::BTreeSet;
-use std::{io, path::Path, process::Command};
+use std::{io, path::Path};
 
-use crate::{Verdict, failure::GateError, manifest};
+use crate::{Verdict, cargo_lints, failure::GateError, manifest, tool_output::stdout_of};
 
 /// The documented exclusions (guidelines Section 9, "Exclusions"), without the
 /// `redundant_pub_crate` row, which the profile sets to `allow` and so lists.
@@ -41,18 +41,27 @@ pub(crate) const EXCLUSIONS: [&str; 25] = [
     "unneeded_field_pattern",
 ];
 
-/// Runs the gate: invokes rustc and clippy-driver, then checks `<root>/Cargo.toml`.
+/// Runs the gate: invokes rustc and clippy-driver, reads the Cargo lint reference from
+/// the `rust-docs` component, then checks `<root>/Cargo.toml`.
 ///
 /// # Errors
 ///
-/// Returns a [`GateError`] when a subprocess fails or the manifest cannot be read.
+/// Returns a [`GateError`] when a subprocess fails, the Cargo lint reference or the
+/// manifest cannot be read.
 pub(crate) fn run<W>(root: &Path, out: &mut W) -> Result<Verdict, GateError>
 where
     W: io::Write,
 {
-    let rustc_help = help_text("rustc", &["-W", "help"])?;
-    let clippy_help = help_text("rustup", &["run", "stable", "clippy-driver", "-W", "help"])?;
-    check(&root.join("Cargo.toml"), &rustc_help, &clippy_help, out)
+    let rustc_help = stdout_of("rustc", &["-W", "help"])?;
+    let clippy_help = stdout_of("rustup", &["run", "stable", "clippy-driver", "-W", "help"])?;
+    let manifest_path = root.join("Cargo.toml");
+    let rustc_and_clippy = check(&manifest_path, &rustc_help, &clippy_help, out)?;
+    let cargo = cargo_lints::run(&manifest_path, out)?;
+    Ok(if cargo == Verdict::Pass {
+        rustc_and_clippy
+    } else {
+        Verdict::Fail
+    })
 }
 
 /// Checks the manifest at `manifest_path` against the two `-W help` outputs.
@@ -126,33 +135,6 @@ where
         writeln!(out, "lint-completeness: FAILED")?;
         Ok(Verdict::Fail)
     }
-}
-
-/// Runs `program args` and returns its stdout.
-///
-/// # Errors
-///
-/// Returns [`GateError::Command`] when it cannot start, exits non-zero or prints
-/// non-UTF-8.
-fn help_text(program: &str, args: &[&str]) -> Result<String, GateError> {
-    let line = format!("{program} {}", args.join(" "));
-    let output = Command::new(program)
-        .args(args)
-        .output()
-        .map_err(|err| GateError::Command {
-            program: line.clone(),
-            detail: err.to_string(),
-        })?;
-    if !output.status.success() {
-        return Err(GateError::Command {
-            program: line,
-            detail: format!("exited with {}", output.status),
-        });
-    }
-    String::from_utf8(output.stdout).map_err(|err| GateError::Command {
-        program: line,
-        detail: err.to_string(),
-    })
 }
 
 /// Lint names whose default level is `allow` in `rustc -W help` output, with `-` as `_`.

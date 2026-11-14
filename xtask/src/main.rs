@@ -8,6 +8,7 @@ extern crate alloc;
 mod allow_gate;
 mod assets;
 mod cancel_safety;
+mod cargo_lints;
 mod catalog;
 mod catalog_build;
 mod catalog_extract;
@@ -15,6 +16,7 @@ mod catalog_fetch;
 mod failure;
 mod i18n;
 mod lint_completeness;
+mod lint_inheritance;
 mod manifest;
 mod metric_docs;
 mod profile_eq;
@@ -22,6 +24,7 @@ mod seccomp;
 mod seccomp_gen;
 mod seccomp_groups;
 mod tool_docs;
+mod tool_output;
 
 use std::{
     io::{self, Write as _},
@@ -48,12 +51,14 @@ struct Cli {
 /// One xtask subcommand. Later gates and generators are added as new variants.
 #[derive(Debug, Clone, Subcommand)]
 enum Task {
-    /// Check that the lint profile covers every allow-by-default rustc lint and every
-    /// Clippy `restriction` lint, except the documented exclusions.
+    /// Check that the lint profile covers every allow-by-default rustc lint, every
+    /// Clippy `restriction` lint and every Cargo lint outside the denied groups, except
+    /// the documented exclusions.
     LintCompleteness,
     /// Fail on any `#[allow(` or `#![allow(` attribute under `crates/` and `xtask/src`.
     AllowGate,
-    /// Fail when the xtask `[lints]` tables differ from the root `[workspace.lints]`.
+    /// Fail when the xtask `[lints]` tables differ from the root `[workspace.lints]`, or a
+    /// workspace member lacks `[lints] workspace = true`.
     ProfileEq,
     /// Fail when a non-test fully `pub` async fn under `crates/*/src` lacks a
     /// `// cancel-safe:` or `// NOT cancel-safe:` comment.

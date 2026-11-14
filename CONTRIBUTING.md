@@ -27,6 +27,15 @@ G0 plus `cargo deny check`, `cargo audit`, `cargo vet`, `cargo machete`,
 the MSRV build `cargo +1.100.0 build --workspace --all-features`. A new dependency needs
 `cargo vet` and `cargo deny` to pass.
 
+## Dependency cooldown
+
+`.cargo/config.toml` sets a 3-day publish-age cooldown: `cargo add` and `cargo update`
+skip versions published less than 3 days ago, and Dependabot waits the same 3 days.
+Versions already in `Cargo.lock` are not re-checked, so review lockfile diffs like code.
+A RUSTSEC fix younger than the cooldown takes the emergency path in the vendored core,
+`docs/rust-guidelines/RUST_GUIDELINES.md` Section 10 ("Hold new dependency versions back
+with a publish-age cooldown"), in one commit.
+
 ## Lint rules
 
 - The workspace lint profile is strict (Clippy pedantic, nursery and most of
