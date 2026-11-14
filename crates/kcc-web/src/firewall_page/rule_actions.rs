@@ -12,7 +12,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_domain::{
-    DomainError, RouterCtx,
+    DomainError,
     firewall::{descriptor::DESCRIPTOR, model::ConfiguredRule},
 };
 use kcc_i18n::{
@@ -23,23 +23,22 @@ use kcc_i18n::{
 
 use super::{
     checks::list_name,
+    expect::Expect,
     lines,
-    run::{Expect, Planned, Sender, submit},
-    snapshot::{self, Entry, Snapshot},
+    run::{Planned, Sender, find},
+    snapshot::{Entry, Snapshot},
     views::Spot,
 };
 use crate::{
     WebState,
     authz::CurrentUser,
     page_kit::{
-        action::{Action, Operation},
-        failure::plan_failure,
-        family::Family,
-        outcome::{Failure, Outcome},
-        request::missing,
+        action::Operation,
+        request::{Params, missing},
         respond::Answer,
+        submit::{Formless, Invalid, rejected::Rejected},
     },
-    routing_page::reply::{ConfirmDialog, answer},
+    routing_page::reply::ConfirmDialog,
     system_pages::shared::{merged, value},
 };
 
@@ -114,35 +113,6 @@ impl Named {
     }
 }
 
-/// The router's firewall and the rule `named`, when it still has it.
-///
-/// # Errors
-///
-/// Answers the audited "no longer there" outcome, or why the router could not be read.
-// NOT cancel-safe: an abandoned append may still be written.
-pub(crate) async fn located<'call>(
-    action: Action<'call>,
-    domain: &RouterCtx,
-    named: &Named,
-) -> Result<(Action<'call>, Snapshot, Entry), Answer> {
-    let locale = action.locale();
-    match snapshot::read(domain).await {
-        Ok(firewall) => {
-            if let Some(entry) = named.find(&firewall).cloned() {
-                return Ok((action, firewall, entry));
-            }
-            action.abandon("gone").await;
-            let failure = Failure::new(tr(locale, keys::WEB_ROUTING_GONE, None), "gone");
-            Err(answer(Outcome::failed(failure), None, locale).into())
-        }
-        Err(message) => {
-            action.abandon("unreachable").await;
-            let failure = Failure::new(tr(locale, message, None), "unreachable");
-            Err(answer(Outcome::failed(failure), None, locale).into())
-        }
-    }
-}
-
 /// The interfaces whose traffic the list `list` of `firewall` filters.
 pub(crate) fn filtered(firewall: &Snapshot, list: &str) -> Vec<String> {
     firewall
@@ -191,29 +161,41 @@ pub(crate) async fn remove(
 ) -> Result<Response, Answer> {
     let pairs = merged(query.as_deref(), form);
     let named = Named::from_pairs(&pairs)?;
-    let opened = REMOVE.open(&state, &user, &router).await?;
-    let domain = opened.context().await?;
-    let (action, firewall, entry) = located(opened, &domain, &named).await?;
-    let Some(rule) = entry.rule().parsed() else {
-        action.abandon("validation_failed").await;
-        return Err(missing());
-    };
-    let same = |found: &&Entry| found.rule().words() == entry.rule().words();
-    let count = firewall
-        .list(named.list())
-        .map_or(0, |list| list.entries().iter().filter(same).count());
-    let planned =
-        lines::remove_rule(&domain, named.list(), (rule, entry.rule().words())).map(|request| {
-            let expect = Expect::Count {
-                list: named.list().to_owned(),
-                words: entry.rule().words().to_vec(),
-                count: count.saturating_sub(1),
-            };
-            Planned::new(request, expect, filtered(&firewall, named.list()))
-        });
+    let action = REMOVE.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let params = Params::of(pairs.clone());
     let path = format!("/ui/r/{router}/firewall/rule/remove");
-    let sender = Sender::new(&user, &headers, (&path, &pairs));
-    finish(action, &domain, planned, sender).await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &params, Formless)
+        .submit_reading(
+            async |_params, domain| {
+                let (firewall, entry) = find(domain, &named, locale).await?;
+                let rule = entry
+                    .rule()
+                    .parsed()
+                    .ok_or_else(|| Invalid::from(Vec::new()))?;
+                let same = |found: &&Entry| found.rule().words() == entry.rule().words();
+                let count = firewall
+                    .list(named.list())
+                    .map_or(0, |list| list.entries().iter().filter(same).count());
+                Ok(
+                    lines::remove_rule(domain, named.list(), (rule, entry.rule().words())).map(
+                        |request| {
+                            let expect = Expect::Count {
+                                list: named.list().to_owned(),
+                                words: entry.rule().words().to_vec(),
+                                count: count.saturating_sub(1),
+                            };
+                            Planned::new(request, expect, filtered(&firewall, named.list()))
+                        },
+                    ),
+                )
+            },
+            async |planned, domain| sender.assess(domain, planned).await,
+            async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/firewall/rule/move?list=&index=&rule=&to=`: moves the rule to
@@ -236,27 +218,37 @@ pub(crate) async fn move_rule(
     let to = value(&pairs, "to")
         .and_then(|text| text.parse::<usize>().ok())
         .ok_or_else(missing)?;
-    let opened = ORDER.open(&state, &user, &router).await?;
-    let domain = opened.context().await?;
-    let (action, firewall, entry) = located(opened, &domain, &named).await?;
-    let size = firewall
-        .list(named.list())
-        .map_or(0, |list| list.entries().len());
-    if to >= size || to == named.index() {
-        action.abandon("validation_failed").await;
-        return Err(missing());
-    }
-    let planned = lines::order(&domain, named.list(), (named.index(), to)).map(|request| {
-        let expect = Expect::At {
-            list: named.list().to_owned(),
-            position: to,
-            words: entry.rule().words().to_vec(),
-        };
-        Planned::new(request, expect, filtered(&firewall, named.list()))
-    });
+    let action = ORDER.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let params = Params::of(pairs.clone());
     let path = format!("/ui/r/{router}/firewall/rule/move");
-    let sender = Sender::new(&user, &headers, (&path, &pairs));
-    finish(action, &domain, planned, sender).await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &params, Formless)
+        .submit_reading(
+            async |_params, domain| {
+                let (firewall, entry) = find(domain, &named, locale).await?;
+                let size = firewall
+                    .list(named.list())
+                    .map_or(0, |list| list.entries().len());
+                if to >= size || to == named.index() {
+                    return Err(Invalid::from(Vec::new()).into());
+                }
+                Ok(
+                    lines::order(domain, named.list(), (named.index(), to)).map(|request| {
+                        let expect = Expect::At {
+                            list: named.list().to_owned(),
+                            position: to,
+                            words: entry.rule().words().to_vec(),
+                        };
+                        Planned::new(request, expect, filtered(&firewall, named.list()))
+                    }),
+                )
+            },
+            async |planned, domain| sender.assess(domain, planned).await,
+            async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/firewall/rule/state?list=&index=&rule=&value=on|off`: enables or
@@ -281,21 +273,32 @@ pub(crate) async fn switch(
         Some("off") => false,
         _ => return Err(missing()),
     };
-    let opened = STATE.open(&state, &user, &router).await?;
-    let domain = opened.context().await?;
-    let (action, firewall, entry) = located(opened, &domain, &named).await?;
-    let identity = configured(&entry).map_err(|_error| missing())?;
-    let planned = lines::state(&domain, named.list(), (&identity, enabled)).map(|request| {
-        let expect = Expect::Disabled {
-            list: named.list().to_owned(),
-            index: named.index(),
-            disabled: !enabled,
-        };
-        Planned::new(request, expect, filtered(&firewall, named.list()))
-    });
+    let action = STATE.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let params = Params::of(pairs.clone());
     let path = format!("/ui/r/{router}/firewall/rule/state");
-    let sender = Sender::new(&user, &headers, (&path, &pairs));
-    finish(action, &domain, planned, sender).await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &params, Formless)
+        .submit_reading(
+            async |_params, domain| {
+                let (firewall, entry) = find(domain, &named, locale).await?;
+                let identity = configured(&entry).map_err(|_error| Rejected::Missing)?;
+                Ok(
+                    lines::state(domain, named.list(), (&identity, enabled)).map(|request| {
+                        let expect = Expect::Disabled {
+                            list: named.list().to_owned(),
+                            index: named.index(),
+                            disabled: !enabled,
+                        };
+                        Planned::new(request, expect, filtered(&firewall, named.list()))
+                    }),
+                )
+            },
+            async |planned, domain| sender.assess(domain, planned).await,
+            async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
+        )
+        .await)
 }
 
 /// Converts a fresh Web snapshot entry to the domain's full rule identity.
@@ -313,27 +316,4 @@ pub(crate) fn configured(entry: &Entry) -> Result<ConfiguredRule, DomainError> {
         entry.schedule(),
         entry.description(),
     ))
-}
-
-/// Submits `planned`, or answers why it could not be planned.
-///
-/// # Errors
-///
-/// Answers what [`submit`] answers.
-// NOT cancel-safe: see `Action::run_with`.
-pub(crate) async fn finish(
-    action: Action<'_>,
-    domain: &RouterCtx,
-    planned: Result<Planned, DomainError>,
-    sender: Sender<'_>,
-) -> Result<Response, Answer> {
-    match planned {
-        Ok(change) => submit(action, domain, change, (sender, Spot::Lists)).await,
-        Err(error) => {
-            let locale = action.locale();
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            Ok(answer(Outcome::failed(failure), None, locale))
-        }
-    }
 }

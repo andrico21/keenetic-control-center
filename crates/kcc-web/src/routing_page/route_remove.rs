@@ -4,6 +4,10 @@
 //! domain puts back each route the router had just before and stops; the page reads the
 //! routes back and says so prominently, naming what came back or what did not.
 
+use alloc::sync::Arc;
+use core::slice;
+use std::sync::Mutex;
+
 use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
@@ -11,15 +15,14 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::workflow::WorkflowError;
-use kcc_catalog::Risk;
-use kcc_domain::{DomainError, routing::change};
+use kcc_domain::{ChangeOp, DomainError, routing::change};
 use kcc_i18n::{bundle::tr, keys};
 use serde::Deserialize;
 
 use super::{
     frame::workflow_error,
     guard::Guard,
-    reply::{ConfirmDialog, answer, gone, guarded, unread},
+    reply::{ConfirmDialog, answer, gone, guarded, refused, unread},
     route_add::{operation, read_static},
     route_rows::{Family, StaticRoute, static_routes},
     route_views::{read_table, static_region},
@@ -30,9 +33,12 @@ use crate::{
     page_kit::{
         audit::Record,
         change::Applied,
+        failure::plan_failure,
+        family::Family as Words,
         outcome::{Failure, Outcome},
         request::{missing, rendered, shown_query, with_query},
         respond::Answer,
+        submit::Planned,
     },
 };
 
@@ -131,6 +137,41 @@ enum Ending {
     Miscounted,
 }
 
+/// `operation`, the removal of `route` through the route-wipe guard; how it ended beyond
+/// the kit's outcome goes to `ending`.
+fn removal(operation: &ChangeOp, route: StaticRoute, ending: Arc<Mutex<Ending>>) -> Planned {
+    let family = route.family();
+    Planned::working(slice::from_ref(operation), move |changes, context| {
+        Box::pin(async move {
+            let removed = match family {
+                Family::V4 => change::remove_ipv4(changes, context, &route.ipv4()).await,
+                Family::V6 => change::remove_ipv6(changes, context, &route.ipv6()).await,
+            };
+            let failed = |field: &str| WorkflowError::VerificationFailed {
+                field: field.to_owned(),
+            };
+            let ended = match removed {
+                Ok(result) => {
+                    return Ok(Applied::Cli {
+                        unsaved: result.unsaved,
+                        responses: result.responses,
+                    });
+                }
+                Err(DomainError::SafetyAbort) => {
+                    let last = changes.current_last_change().await;
+                    Ending::Wiped(last.map_or(true, |found| found.unsaved))
+                }
+                Err(DomainError::RouteCountMismatch) => Ending::Miscounted,
+                Err(other) => return Err(workflow_error(other)),
+            };
+            if let Ok(mut slot) = ending.lock() {
+                *slot = ended;
+            }
+            Err(failed(family.command()))
+        })
+    })
+}
+
 /// `POST /ui/r/{router}/routing/route/remove?...`: removes the route through the
 /// route-wipe guard and answers with its outcome, the guard's banner when it acted, and
 /// the routes read back.
@@ -155,39 +196,27 @@ pub(crate) async fn remove(
     let domain = action.context().await?;
     let before = match read_table(&domain, family).await {
         Ok(entries) => static_routes(family, &entries),
-        Err(message) => return Ok(unread(action, message).await),
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
     };
     if !before.contains(&route) {
-        return Ok(gone(action).await);
+        return Ok(refused(action, gone(locale)).await);
     }
-    let mut ending = Ending::Plain;
+    let planned = match family {
+        Family::V4 => change::plan_remove_ipv4(&domain, &route.ipv4()),
+        Family::V6 => change::plan_remove_ipv6(&domain, &route.ipv6()),
+    };
+    let operation = match planned {
+        Ok(operation) => operation,
+        Err(error) => {
+            let failure = plan_failure(Words::Changes, locale, &error);
+            return Ok(refused(action, failure).await);
+        }
+    };
+    let slot = Arc::new(Mutex::new(Ending::Plain));
     let outcome = action
-        .run_with(Risk::Write, async |changes, context| {
-            let removed = match family {
-                Family::V4 => change::remove_ipv4(changes, context, &route.ipv4()).await,
-                Family::V6 => change::remove_ipv6(changes, context, &route.ipv6()).await,
-            };
-            let failed = |field: &str| WorkflowError::VerificationFailed {
-                field: field.to_owned(),
-            };
-            match removed {
-                Ok(result) => Ok(Applied::Cli {
-                    unsaved: result.unsaved,
-                    responses: result.responses,
-                }),
-                Err(DomainError::SafetyAbort) => {
-                    let last = changes.current_last_change().await;
-                    ending = Ending::Wiped(last.map_or(true, |found| found.unsaved));
-                    Err(failed(family.command()))
-                }
-                Err(DomainError::RouteCountMismatch) => {
-                    ending = Ending::Miscounted;
-                    Err(failed(family.command()))
-                }
-                Err(other) => Err(workflow_error(other)),
-            }
-        })
+        .run_planned(removal(&operation, route, Arc::clone(&slot)))
         .await;
+    let ending = slot.lock().map_or(Ending::Plain, |found| *found);
     let refreshed = static_region(
         &domain,
         (&router, family),

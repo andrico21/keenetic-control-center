@@ -12,9 +12,8 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_catalog::Risk;
 use kcc_domain::{
-    ChangeOp, DomainError, RouterCtx,
+    ChangeOp, RouterCtx,
     nat::{change, descriptor::DESCRIPTOR, read},
 };
 use kcc_i18n::{
@@ -33,17 +32,15 @@ use crate::{
     authz::CurrentUser,
     net_form::{Choice, FormDialog, Input},
     page_kit::{
-        action::{Action, Operation},
+        action::Operation,
         change::Applied,
-        failure::plan_failure,
-        family::Family,
-        outcome::Outcome,
         request::{Params, rendered, shown_query},
         respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
     routing_page::{
         frame::{interface_names, workflow_error},
-        reply::{answer, unread},
+        reply::{Replying, unread},
     },
 };
 
@@ -81,74 +78,36 @@ pub(crate) async fn add(
 ) -> Result<Response, Answer> {
     let action = ADD.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let domain = action.context().await?;
-    let names = interface_names(&domain).await;
+    let names = interface_names(&action.context().await?).await;
     let values = Params::new(Vec::new(), pairs);
-    let refuse = |field: &str, message: String| {
-        form(locale, &router, &values, &names)
-            .with_error(field, message)
-            .invalid()
-    };
-    let checked = check(&values, &names).and_then(|rule| {
-        rule.domain_rule()
-            .map(|planned| (rule, planned))
-            .ok_or(("target", keys::WEB_NAT_ERROR_TARGET))
-    });
-    let (rule, planned) = match checked {
-        Ok(found) => found,
-        Err((field, key)) => {
-            action.abandon("validation_failed").await;
-            return Err(refuse(field, tr(locale, key, None)).into());
-        }
-    };
-    let known = match read::running_forwards(&domain).await {
-        Ok(found) => found,
-        Err(_error) => return Ok(unread(action, keys::WEB_KIT_UNREACHABLE).await),
-    };
-    if forwards(&known).contains(&rule) {
-        action.abandon("validation_failed").await;
-        let message = tr(locale, keys::WEB_ROUTING_ERROR_DUPLICATE, None);
-        return Err(refuse("port", message).into());
-    }
-    match change::plan_add_forward(&domain, &planned) {
-        Ok(op) => Ok(run(action, &domain, op, &headers).await),
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            Err(refuse("target", failure.message().to_owned()).into())
-        }
-    }
+    let dialog = Replying::new(form(locale, &router, &values, &names));
+    Ok(Submission::new(action, &values, dialog)
+        .submit_reading(
+            async |submitted, domain| {
+                let rule =
+                    check(submitted, &names).map_err(|(field, rule)| Invalid::at(field, rule))?;
+                let planned = rule
+                    .domain_rule()
+                    .ok_or_else(|| Invalid::at("target", keys::WEB_NAT_ERROR_TARGET))?;
+                let known = read::running_forwards(domain)
+                    .await
+                    .map_err(|_error| unread(locale, keys::WEB_KIT_UNREACHABLE))?;
+                if forwards(&known).contains(&rule) {
+                    return Err(Invalid::at("port", keys::WEB_ROUTING_ERROR_DUPLICATE).into());
+                }
+                Ok(planned)
+            },
+            async |planned, domain| Ok(applied(change::plan_add_forward(domain, &planned)?)),
+            async |domain| rules(domain, &router, &headers, locale).await,
+        )
+        .await)
 }
 
-/// Applies the NAT change `op`, read back by the NAT domain, and answers with the outcome
-/// and the rules read back.
-// NOT cancel-safe: see `Action::run_with`.
-pub(crate) async fn run(
-    action: Action<'_>,
-    domain: &RouterCtx,
-    op: ChangeOp,
-    headers: &HeaderMap,
-) -> Response {
-    let locale = action.locale();
-    let router = action.router();
-    let outcome = applied(action, op).await;
-    let refreshed = if outcome.succeeded() {
-        rules_region(domain, (router, &shown_query(headers)), (true, locale))
-            .await
-            .ok()
-            .map(RulesRegion::out_of_band)
-            .and_then(|region| rendered(&region))
-    } else {
-        None
-    };
-    answer(outcome, refreshed, locale)
-}
-
-/// Runs the NAT change `op` through the NAT domain's read-back.
-// NOT cancel-safe: see `Action::run_with`.
-pub(crate) async fn applied(action: Action<'_>, op: ChangeOp) -> Outcome {
-    action
-        .run_with(Risk::Write, async |changes, context| {
+/// The NAT change `op`, run and read back by the NAT domain.
+pub(crate) fn applied(op: ChangeOp) -> Planned {
+    let operations = [op.clone()];
+    Planned::working(&operations, move |changes, context| {
+        Box::pin(async move {
             change::apply(changes, context, &op)
                 .await
                 .map(|result| Applied::Cli {
@@ -157,12 +116,22 @@ pub(crate) async fn applied(action: Action<'_>, op: ChangeOp) -> Outcome {
                 })
                 .map_err(workflow_error)
         })
-        .await
+    })
 }
 
-/// The failure of a plan the NAT domain refused, in `locale`.
-pub(crate) fn refused(locale: Locale, error: &DomainError) -> Outcome {
-    Outcome::failed(plan_failure(Family::Changes, locale, error))
+/// The rules region of `router` read back for the page of `headers`, out of band.
+// cancel-safe: reads only.
+pub(crate) async fn rules(
+    domain: &RouterCtx,
+    router: &str,
+    headers: &HeaderMap,
+    locale: Locale,
+) -> Option<String> {
+    rules_region(domain, (router, &shown_query(headers)), (true, locale))
+        .await
+        .ok()
+        .map(RulesRegion::out_of_band)
+        .and_then(|region| rendered(&region))
 }
 
 /// The rule the dialog describes.

@@ -554,7 +554,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): one submit pipeline for the network pages
   Recommended task executor category: deep-low - new kit API designed from two existing half-abstractions
 
-- [ ] 33. Submit pipeline for NAT, routing, firewall, segments, clients and DHCP
+- [x] 33. Submit pipeline for NAT, routing, firewall, segments, clients and DHCP
   What to do / Must NOT do: Move `crates/kcc-web/src/nat_page/*` (`forward_forms.rs:77-153`), `routing_page/*` (`route_add.rs:102-164`), `firewall_page/*` (write handlers only; reads are todo 42), `segments_page*`, `clients_pages/*` (incl. `dhcp.rs`) onto `submit`. NAT and routing plan failures are now audited with their real reason (`forward_forms.rs:115-121`, `route_add.rs:141-147`), and a `forbidden` plan failure is no longer shown as a field error under "target"/"destination". Must NOT: change HTML except that correction.
   Closes: GAP-10
   Parallelization: Wave W5 | Blocked by: 32 | Blocks: 35, 39 | Can parallelize with: 34

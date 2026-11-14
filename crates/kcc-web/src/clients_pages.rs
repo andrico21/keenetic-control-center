@@ -26,6 +26,7 @@ mod dhcp_lease;
 mod dhcp_page;
 mod dhcp_rows;
 mod landing;
+mod segment_create;
 mod segment_delete;
 mod segment_form;
 mod segment_known;
@@ -71,7 +72,10 @@ pub(crate) fn routes() -> Router<WebState> {
             get(segments::details).post(segments::back),
         )
         .route("/ui/r/{router}/segments/review", post(segments::review))
-        .route("/ui/r/{router}/segments/create", post(segments::create))
+        .route(
+            "/ui/r/{router}/segments/create",
+            post(segment_create::create),
+        )
         .route(
             "/ui/r/{router}/segments/delete",
             get(segment_delete::dialog).post(segment_delete::delete),

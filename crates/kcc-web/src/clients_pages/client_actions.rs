@@ -10,7 +10,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_domain::{RouterCtx, clients};
-use kcc_i18n::{bundle::tr, keys};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 use url::form_urlencoded::byte_serialize;
 
@@ -26,12 +26,14 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         context::fragment_shell,
+        dialog::FieldDialog,
         failure::plan_failure,
         family::Family,
         gate::Controls,
         outcome::{Failure, Outcome},
-        request::{missing, rendered, shown_uri},
+        request::{Params, missing, rendered, shown_uri},
         respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission},
     },
 };
 
@@ -127,74 +129,85 @@ pub(crate) async fn act(
 ) -> Result<Response, Answer> {
     let act = Act::from_slug(&slug).ok_or_else(missing)?;
     let checked = act.check(&form.value).ok_or_else(missing)?;
-    let opened = act.operation().open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let refuse = |message: String| -> Answer {
-        match act.dialog(&router, &target.mac, locale) {
-            Some(field) => field
-                .with_value(form.value.clone())
-                .with_error(message)
-                .invalid()
-                .into(),
+    let action = act.operation().open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let dialog = act
+        .dialog(&router, &target.mac, locale)
+        .map(|field| field.with_value(form.value.clone()));
+    let params = Params::default();
+    Ok(Submission::new(action, &params, ActForm(dialog))
+        .submit_reading(
+            async |_params, domain| {
+                let input = checked.map_err(|rule| Invalid::at("value", rule))?;
+                match clients::read_client(domain, &target.mac).await {
+                    Ok(Some(client))
+                        if input != Input::Remove || client.registered == Some(true) =>
+                    {
+                        Ok((input, client))
+                    }
+                    Ok(found) => {
+                        let (reason, key) = if found.is_some() {
+                            ("not_registered", keys::WEB_CLIENTS_NOT_REGISTERED)
+                        } else {
+                            ("not_found", keys::WEB_CLIENTS_MISSING)
+                        };
+                        Err(Failure::new(tr(locale, key, None), reason).into())
+                    }
+                    Err(error) => {
+                        let failure = plan_failure(Family::Changes, locale, &error);
+                        Err(Failure::new(failure.message().to_owned(), "failed").into())
+                    }
+                }
+            },
+            async |(input, client), domain| {
+                let operation = input.plan(domain, &client)?;
+                let operations = [operation.clone()];
+                Ok(Planned::working(&operations, move |changes, context| {
+                    Box::pin(async move {
+                        clients::apply(changes, context, &operation)
+                            .await
+                            .map(|result| input.applied(result))
+                    })
+                }))
+            },
+            async |domain| read_back(domain, &user, &router, &headers).await,
+        )
+        .await)
+}
+
+/// The form of a row action: its one-field dialog, or none when the action has no
+/// dialog and answers in the page's outcome region.
+struct ActForm(Option<FieldDialog>);
+
+impl ActForm {
+    /// `message` under the dialog's field, or in the outcome region.
+    fn refuse(self, message: String, locale: Locale) -> Response {
+        match self.0 {
+            Some(field) => field.with_error(message).invalid(),
             None => answer(
                 Outcome::failed(Failure::new(message, "failed")),
                 None,
                 None,
                 locale,
-            )
-            .into(),
+            ),
         }
-    };
-    let input = match checked {
-        Ok(input) => input,
-        Err(message) => {
-            opened.abandon("validation_failed").await;
-            return Err(refuse(tr(locale, message, None)));
-        }
-    };
-    let domain = opened.context().await?;
-    let client = match clients::read_client(&domain, &target.mac).await {
-        Ok(Some(client)) if input != Input::Remove || client.registered == Some(true) => client,
-        Ok(found) => {
-            let (reason, key) = if found.is_some() {
-                ("not_registered", keys::WEB_CLIENTS_NOT_REGISTERED)
-            } else {
-                ("not_found", keys::WEB_CLIENTS_MISSING)
-            };
-            opened.abandon(reason).await;
-            let failure = Failure::new(tr(locale, key, None), reason);
-            return Ok(answer(Outcome::failed(failure), None, None, locale));
-        }
-        Err(error) => {
-            opened.abandon("failed").await;
-            let failure = plan_failure(Family::Changes, locale, &error);
-            return Ok(answer(Outcome::failed(failure), None, None, locale));
-        }
-    };
-    let operation = match input.plan(&domain, &client) {
-        Ok(operation) => operation,
-        Err(error) => {
-            opened.abandon("validation_failed").await;
-            return Err(refuse(
-                plan_failure(Family::Changes, locale, &error)
-                    .message()
-                    .to_owned(),
-            ));
-        }
-    };
-    let outcome = opened
-        .run_with(operation.risk, async |changes, context| {
-            clients::apply(changes, context, &operation)
-                .await
-                .map(|result| input.applied(result))
-        })
-        .await;
-    let refreshed = if outcome.succeeded() {
-        read_back(&domain, &user, &router, &headers).await
-    } else {
-        None
-    };
-    Ok(answer(outcome, refreshed, None, locale))
+    }
+}
+
+impl submit::Form for ActForm {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let message = invalid
+            .into_findings()
+            .into_iter()
+            .map(|(_field, rule)| tr(locale, rule, None))
+            .next()
+            .unwrap_or_default();
+        self.refuse(message, locale)
+    }
+
+    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
+        self.refuse(failure.message().to_owned(), locale)
+    }
 }
 
 /// The table region read back after a change, in the view the browser shows.

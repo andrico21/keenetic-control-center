@@ -6,17 +6,23 @@
 //! management change: it asks first, needs the `Destructive` permission and runs inside
 //! the router's fail-safe timer. Every other firewall change is a plain write.
 
-use axum::{http::HeaderMap, response::Response};
+use axum::{
+    http::HeaderMap,
+    response::{IntoResponse as _, Response},
+};
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, WorkflowError},
 };
 use kcc_catalog::Risk;
-use kcc_domain::{RouterCtx, firewall::management::interfaces_risk};
+use kcc_domain::{DomainError, RouterCtx, firewall::management::interfaces_risk};
+use kcc_i18n::locale::Locale;
 use url::form_urlencoded;
 
 use super::{
-    snapshot::{self, Binding, Snapshot},
+    expect::Expect,
+    rule_actions::Named,
+    snapshot::{self, Entry, Snapshot},
     views::{Spot, refreshed},
 };
 use crate::{
@@ -24,145 +30,16 @@ use crate::{
     page_kit::{
         action::Action,
         change::Applied,
-        confirm::{Confirmation, Resubmit},
+        confirm::Resubmit,
         gate::allowed,
+        outcome::{Failure, Outcome},
+        request::Params,
         respond::Answer,
+        submit::{Form, Invalid, Planned as Assessed, Submission},
     },
-    routing_page::reply::answer,
+    routing_page::reply::{Replying, gone, refused, unread},
     system_pages::shared::forbidden,
 };
-
-/// What the router's firewall must show after a change.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum Expect {
-    /// The list holds the rule `words` exactly `count` times.
-    Count {
-        /// The list.
-        list: String,
-        /// The rule's words.
-        words: Vec<String>,
-        /// How many times.
-        count: usize,
-    },
-    /// The rule `words` stands at `position` of the list.
-    At {
-        /// The list.
-        list: String,
-        /// The position, from 0.
-        position: usize,
-        /// The rule's words.
-        words: Vec<String>,
-    },
-    /// Rule `index` of the list is disabled, or not.
-    Disabled {
-        /// The list.
-        list: String,
-        /// The rule's position.
-        index: usize,
-        /// Whether it is disabled.
-        disabled: bool,
-    },
-    /// Rule `index` of the list has `value` as its description or schedule.
-    Property {
-        /// The list.
-        list: String,
-        /// The rule's position.
-        index: usize,
-        /// `description` or `schedule`.
-        keyword: &'static str,
-        /// The value; `None` for none.
-        value: Option<String>,
-    },
-    /// The binding is there, or not.
-    Bound {
-        /// The binding.
-        binding: Binding,
-        /// Whether it is there.
-        present: bool,
-    },
-}
-
-impl Expect {
-    /// Whether `snapshot` shows what the change promised.
-    fn holds(&self, snapshot: &Snapshot) -> bool {
-        match self {
-            Self::Count { list, words, count } => {
-                let found = snapshot.list(list).map_or(0, |shown| {
-                    shown
-                        .entries()
-                        .iter()
-                        .filter(|entry| entry.rule().words() == words.as_slice())
-                        .count()
-                });
-                found == *count
-            }
-            Self::At {
-                list,
-                position,
-                words,
-            } => snapshot
-                .list(list)
-                .and_then(|shown| shown.entry(*position))
-                .is_some_and(|entry| entry.rule().words() == words.as_slice()),
-            Self::Disabled {
-                list,
-                index,
-                disabled,
-            } => snapshot
-                .list(list)
-                .and_then(|shown| shown.entry(*index))
-                .is_some_and(|entry| entry.disabled() == *disabled),
-            Self::Property {
-                list,
-                index,
-                keyword,
-                value,
-            } => snapshot
-                .list(list)
-                .and_then(|shown| shown.entry(*index))
-                .is_some_and(|entry| {
-                    let shown = if *keyword == "description" {
-                        entry.description()
-                    } else {
-                        entry.schedule()
-                    };
-                    shown == value.as_deref()
-                }),
-            Self::Bound { binding, present } => snapshot.bindings().contains(binding) == *present,
-        }
-    }
-
-    /// What a failed read-back names.
-    fn field(&self) -> String {
-        match self {
-            Self::Count {
-                list,
-                words: _,
-                count: _,
-            }
-            | Self::At {
-                list,
-                position: _,
-                words: _,
-            }
-            | Self::Disabled {
-                list,
-                index: _,
-                disabled: _,
-            }
-            | Self::Property {
-                list,
-                index: _,
-                keyword: _,
-                value: _,
-            } => format!("access-list {list}"),
-            Self::Bound {
-                binding,
-                present: _,
-            } => format!("interface {} ip access-group", binding.interface()),
-        }
-    }
-}
 
 /// A firewall change ready to run: its request, what it must show afterwards and the
 /// interfaces whose traffic it changes.
@@ -198,28 +75,32 @@ pub(crate) struct Sender<'request> {
     user: &'request CurrentUser,
     /// The page's headers.
     headers: &'request HeaderMap,
-    /// The action's path.
+    /// Router profile id.
+    router: &'request str,
+    /// The path the change was posted to.
     path: &'request str,
-    /// The query and form pairs.
+    /// The request's pairs, query and form.
     pairs: &'request [(String, String)],
 }
 
 impl<'request> Sender<'request> {
-    /// The change `user` sent from the page of `headers` to `path` with `pairs`.
+    /// `user` posting `pairs` to `path` of `router` from the page of `headers`.
     pub(crate) const fn new(
         user: &'request CurrentUser,
         headers: &'request HeaderMap,
-        (path, pairs): (&'request str, &'request [(String, String)]),
+        (router, path, pairs): (&'request str, &'request str, &'request [(String, String)]),
     ) -> Self {
         Self {
             user,
             headers,
+            router,
             path,
             pairs,
         }
     }
 
-    /// The address the confirmation sends the change to again, with its values.
+    /// The address that sends the request again once confirmed: the pairs but the
+    /// confirmation's own.
     fn resubmit(&self) -> String {
         let mut query = form_urlencoded::Serializer::new(String::new());
         for (name, value) in self.pairs {
@@ -230,66 +111,143 @@ impl<'request> Sender<'request> {
         }
         format!("{}?{}", self.path, query.finish())
     }
-}
 
-/// Asks first when `planned` is a management change, runs it, reads the firewall back and
-/// answers with the outcome and the `spot` region read back.
-///
-/// # Errors
-///
-/// Answers 403, audited, when a management change needs a permission the role lacks.
-// NOT cancel-safe: see `Action::run_with`.
-pub(crate) async fn submit(
-    action: Action<'_>,
-    domain: &RouterCtx,
-    planned: Planned,
-    (sender, spot): (Sender<'_>, Spot),
-) -> Result<Response, Answer> {
-    let locale = action.locale();
-    let router = action.router();
-    let risk = interfaces_risk(domain, &planned.interfaces).await;
-    let needed = [Permission::Write, Permission::Destructive];
-    if risk >= Risk::Management && !allowed(sender.user, router, &needed) {
-        action.abandon("forbidden").await;
-        return Err(forbidden(locale));
+    /// `params` submitted from `form` to `action`, confirmed at the planned risk when it
+    /// asks for it, answered as the firewall page answers.
+    pub(crate) fn submission<'call, F>(
+        &self,
+        action: Action<'call>,
+        params: &'call Params,
+        form: F,
+    ) -> Submission<'call, Firewall<F>>
+    where
+        F: Form,
+    {
+        let resubmit = Resubmit::new(self.resubmit(), "#page-outcome");
+        Submission::new(action, params, Firewall(Replying::new(form))).confirming_planned(resubmit)
     }
-    let confirmation = Confirmation::from_pairs(sender.pairs);
-    let resubmit = Resubmit::new(sender.resubmit(), "#page-outcome");
-    if let Some(prompt) = action.confirm(risk, &confirmation, resubmit) {
-        return Ok(prompt);
-    }
-    let Planned {
-        request,
-        expect,
-        interfaces: _,
-    } = planned;
-    let outcome = action
-        .run_with(risk, async |changes, context| {
-            let result = changes.apply_cli(request).await?;
-            let fresh = snapshot::read(context)
-                .await
-                .map_err(|_message| WorkflowError::InvalidResponse)?;
-            if !expect.holds(&fresh) {
-                return Err(WorkflowError::VerificationFailed {
-                    field: expect.field(),
-                });
-            }
-            Ok(Applied::Cli {
-                unsaved: result.unsaved,
-                responses: result.responses,
+
+    /// `planned`, at the risk the firewall domain assesses for the interfaces whose
+    /// traffic it changes, run and read back from a fresh running configuration.
+    ///
+    /// # Errors
+    ///
+    /// Returns why it was refused: the domain's own reason, or `PermissionDenied` for a
+    /// management change the role may not make.
+    // cancel-safe: reads only.
+    pub(crate) async fn assess(
+        &self,
+        domain: &RouterCtx,
+        planned: Result<Planned, DomainError>,
+    ) -> Result<Assessed, DomainError> {
+        let Planned {
+            request,
+            expect,
+            interfaces,
+        } = planned?;
+        let risk = interfaces_risk(domain, &interfaces).await;
+        let needed = [Permission::Write, Permission::Destructive];
+        if risk >= Risk::Management && !allowed(self.user, self.router, &needed) {
+            return Err(DomainError::PermissionDenied);
+        }
+        Ok(Assessed::assessed(risk, move |changes, context| {
+            Box::pin(async move {
+                let result = changes.apply_cli(request).await?;
+                let fresh = snapshot::read(context)
+                    .await
+                    .map_err(|_message| WorkflowError::InvalidResponse)?;
+                if !expect.holds(&fresh) {
+                    return Err(WorkflowError::VerificationFailed {
+                        field: expect.field(),
+                    });
+                }
+                Ok(Applied::Cli {
+                    unsaved: result.unsaved,
+                    responses: result.responses,
+                })
             })
-        })
-        .await;
-    let shown = if outcome.succeeded() {
+        }))
+    }
+
+    /// The region at `spot` read back for the sender's page, out of band.
+    // cancel-safe: reads only.
+    pub(crate) async fn refreshed(
+        &self,
+        domain: &RouterCtx,
+        spot: Spot,
+        locale: Locale,
+    ) -> Option<String> {
         refreshed(
             domain,
-            (router, sender.user),
-            (spot, sender.headers),
+            (self.router, self.user),
+            (spot, self.headers),
             locale,
         )
         .await
-    } else {
-        None
-    };
-    Ok(answer(outcome, shown, locale))
+    }
+}
+
+/// A form of the firewall page, answering a management change the role may not make 403.
+///
+/// Values that failed their check are answered by the page's own form, other refusals and
+/// changes as the routing pages answer them.
+pub(crate) struct Firewall<F>(Replying<F>);
+
+impl<F: Form> Form for Firewall<F> {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        self.0.answer_invalid(invalid, locale)
+    }
+
+    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
+        if failure.audit() == "forbidden" {
+            forbidden(locale).into_response()
+        } else {
+            self.0.answer_refused(failure, locale)
+        }
+    }
+
+    fn answer_changed(
+        self,
+        outcome: Outcome,
+        refreshed: Option<String>,
+        locale: Locale,
+    ) -> Response {
+        self.0.answer_changed(outcome, refreshed, locale)
+    }
+}
+
+/// The router's firewall and the rule `named`, when it still has it.
+///
+/// # Errors
+///
+/// Answers the audited "no longer there" outcome, or why the router could not be read.
+// NOT cancel-safe: an abandoned append may still be written.
+pub(crate) async fn located<'call>(
+    action: Action<'call>,
+    domain: &RouterCtx,
+    named: &Named,
+) -> Result<(Action<'call>, Snapshot, Entry), Answer> {
+    match find(domain, named, action.locale()).await {
+        Ok((firewall, entry)) => Ok((action, firewall, entry)),
+        Err(failure) => Err(refused(action, failure).await.into()),
+    }
+}
+
+/// The router's firewall and the rule `named`, read with `domain`.
+///
+/// # Errors
+///
+/// Returns the failure, in `locale`, of a rule the router no longer has or of a router
+/// that could not be read.
+// cancel-safe: reads only.
+pub(crate) async fn find(
+    domain: &RouterCtx,
+    named: &Named,
+    locale: Locale,
+) -> Result<(Snapshot, Entry), Failure> {
+    let firewall = snapshot::read(domain)
+        .await
+        .map_err(|message| unread(locale, message))?;
+    let entry = named.find(&firewall).cloned().ok_or_else(|| gone(locale))?;
+    Ok((firewall, entry))
 }

@@ -18,17 +18,19 @@ use kcc_i18n::{
 
 use super::{
     checks::{address, list_name, port},
+    expect::Expect,
     lines,
     rule::{PROTOCOLS, Parsed, Side},
-    rule_actions::{filtered, finish},
-    run::{Expect, Planned, Sender},
+    rule_actions::filtered,
+    run::{Planned, Sender},
     snapshot,
+    views::Spot,
 };
 use crate::{
     WebState,
     authz::CurrentUser,
     net_form::{Choice, FormDialog, Input},
-    page_kit::{action::Operation, request::Params, respond::Answer},
+    page_kit::{action::Operation, request::Params, respond::Answer, submit::Invalid},
     routing_page::{reply::unread, route_rows::mask},
     system_pages::shared::merged,
 };
@@ -70,52 +72,43 @@ pub(crate) async fn add(
     let pairs = merged(query.as_deref(), form);
     let action = ADD.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let values = Params::new(pairs.clone(), Vec::new());
-    let refuse = |field: &str, key: MessageKey| {
-        add_form(locale, &router, &values)
-            .with_error(field, tr(locale, key, None))
-            .invalid()
-    };
-    let (list, rule) = match check(&values) {
-        Ok(found) => found,
-        Err((field, key)) => {
-            action.abandon("validation_failed").await;
-            return Err(refuse(field, key).into());
-        }
-    };
-    let domain = action.context().await?;
-    let firewall = match snapshot::read(&domain).await {
-        Ok(found) => found,
-        Err(message) => return Ok(unread(action, message).await),
-    };
-    let words = rule.words();
-    let count = firewall.list(&list).map_or(0, |found| {
-        found
-            .entries()
-            .iter()
-            .filter(|entry| entry.rule().words() == words.as_slice())
-            .count()
-    });
-    if count > 0 {
-        action.abandon("validation_failed").await;
-        return Err(refuse("source", keys::WEB_ROUTING_ERROR_DUPLICATE).into());
-    }
-    let planned = lines::add_rule(&domain, &list, &rule).map(|request| {
-        let expect = Expect::Count {
-            list: list.clone(),
-            words,
-            count: 1,
-        };
-        Planned::new(request, expect, filtered(&firewall, &list))
-    });
+    let values = Params::of(pairs.clone());
     let path = format!("/ui/r/{router}/firewall/rule/new");
-    finish(
-        action,
-        &domain,
-        planned,
-        Sender::new(&user, &headers, (&path, &pairs)),
-    )
-    .await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &values, add_form(locale, &router, &values))
+        .submit_reading(
+            async |submitted, domain| {
+                let (list, rule) =
+                    check(submitted).map_err(|(field, rule)| Invalid::at(field, rule))?;
+                let firewall = snapshot::read(domain)
+                    .await
+                    .map_err(|message| unread(locale, message))?;
+                let words = rule.words();
+                let count = firewall.list(&list).map_or(0, |found| {
+                    found
+                        .entries()
+                        .iter()
+                        .filter(|entry| entry.rule().words() == words.as_slice())
+                        .count()
+                });
+                if count > 0 {
+                    return Err(Invalid::at("source", keys::WEB_ROUTING_ERROR_DUPLICATE).into());
+                }
+                Ok(lines::add_rule(domain, &list, &rule).map(|request| {
+                    let interfaces = filtered(&firewall, &list);
+                    let expect = Expect::Count {
+                        list,
+                        words,
+                        count: 1,
+                    };
+                    Planned::new(request, expect, interfaces)
+                }))
+            },
+            async |planned, domain| sender.assess(domain, planned).await,
+            async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
+        )
+        .await)
 }
 
 /// The list and rule the Add rule dialog describes.

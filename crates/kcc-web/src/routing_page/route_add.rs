@@ -3,6 +3,8 @@
 //! An IPv4 route goes to a network and mask, an IPv6 route to a prefix, through a gateway,
 //! an interface or both; the routing domain plans it and the routing table reads it back.
 
+use core::slice;
+
 use axum::{
     Form,
     extract::{Path, Query, State},
@@ -10,17 +12,16 @@ use axum::{
     response::Response,
 };
 use kcc_app::workflow::{CliChangeRequest, WorkflowError};
-use kcc_catalog::Risk;
 use kcc_domain::{
-    RouterCtx,
+    ChangeOp, RouterCtx,
     routing::{change, descriptor::DESCRIPTOR, read},
 };
-use kcc_i18n::{bundle::tr, keys};
+use kcc_i18n::keys;
 use serde::Deserialize;
 
 use super::{
     frame::{interface_names, workflow_error},
-    reply::answer,
+    reply::Replying,
     route_form::{check, destination_field, form},
     route_rows::{Family, StaticRoute, static_routes},
     route_views::{read_table, static_region},
@@ -29,13 +30,11 @@ use crate::{
     WebState,
     authz::CurrentUser,
     page_kit::{
-        action::{Action, Operation},
+        action::Operation,
         change::Applied,
-        failure::plan_failure,
-        family::Family as Words,
-        outcome::Outcome,
         request::{Params, missing, rendered, shown_query},
         respond::Answer,
+        submit::{Invalid, Planned, Submission},
     },
 };
 
@@ -111,69 +110,54 @@ pub(crate) async fn add(
         .await?;
     let locale = action.locale();
     let values = Params::new(Vec::new(), pairs);
-    let domain = action.context().await?;
-    let names = interface_names(&domain).await;
-    let refuse = |field: &str, message: String| {
-        form(locale, (&router, family), &values, &names)
-            .with_error(field, message)
-            .invalid()
-    };
-    let route = match check(family, &values, &names) {
-        Ok(route) => route,
-        Err((field, message)) => {
-            action.abandon("validation_failed").await;
-            return Err(refuse(field, tr(locale, message, None)).into());
-        }
-    };
-    let known = read_static(&domain, family).await;
-    if known.contains(&route) {
-        action.abandon("validation_failed").await;
-        let message = tr(locale, keys::WEB_ROUTING_ERROR_DUPLICATE, None);
-        return Err(refuse(destination_field(family), message).into());
-    }
-    let planned = match family {
-        Family::V4 => change::plan_add_ipv4(&domain, &route.ipv4()),
-        Family::V6 => change::plan_add_ipv6(&domain, &route.ipv6()),
-    }
-    .and_then(|operation| change::request(&operation));
-    let request = match planned {
-        Ok(request) => request,
-        Err(error) => {
-            action.abandon("validation_failed").await;
-            let failure = plan_failure(Words::Changes, locale, &error);
-            return Err(refuse(destination_field(family), failure.message().to_owned()).into());
-        }
-    };
-    let outcome = run(action, &route, request).await;
-    let refreshed = if outcome.succeeded() {
-        static_region(
-            &domain,
-            (&router, family),
-            &shown_query(&headers),
-            (true, locale),
+    let names = interface_names(&action.context().await?).await;
+    let dialog = Replying::new(form(locale, (&router, family), &values, &names));
+    Ok(Submission::new(action, &values, dialog)
+        .submit_reading(
+            async |submitted, domain| {
+                let route = check(family, submitted, &names)
+                    .map_err(|(field, rule)| Invalid::at(field, rule))?;
+                if read_static(domain, family).await.contains(&route) {
+                    let field = destination_field(family);
+                    return Err(Invalid::at(field, keys::WEB_ROUTING_ERROR_DUPLICATE).into());
+                }
+                Ok(route)
+            },
+            async |route, domain| {
+                let operation = match family {
+                    Family::V4 => change::plan_add_ipv4(domain, &route.ipv4()),
+                    Family::V6 => change::plan_add_ipv6(domain, &route.ipv6()),
+                }?;
+                let request = change::request(&operation)?;
+                Ok(added(&operation, route, request))
+            },
+            async |domain| {
+                static_region(
+                    domain,
+                    (&router, family),
+                    &shown_query(&headers),
+                    (true, locale),
+                )
+                .await
+                .ok()
+                .and_then(|region| rendered(&region.out_of_band()))
+            },
         )
-        .await
-        .ok()
-        .and_then(|region| rendered(&region.out_of_band()))
-    } else {
-        None
-    };
-    Ok(answer(outcome, refreshed, locale))
+        .await)
 }
 
-/// Adds `route` with `request` and reads it back from the routing table.
-// NOT cancel-safe: see `Action::run_with`.
-async fn run(action: Action<'_>, route: &StaticRoute, request: CliChangeRequest) -> Outcome {
+/// `operation`, adding `route` with `request` and reading it back from the routing table.
+fn added(operation: &ChangeOp, route: StaticRoute, request: CliChangeRequest) -> Planned {
     let family = route.family();
-    action
-        .run_with(Risk::Write, async |changes, domain| {
+    Planned::working(slice::from_ref(operation), move |changes, domain| {
+        Box::pin(async move {
             let result = changes.apply_cli(request).await?;
             let table = match family {
                 Family::V4 => read::ipv4_table(domain).await,
                 Family::V6 => read::ipv6_table(domain).await,
             }
             .map_err(workflow_error)?;
-            if static_routes(family, &table).contains(route) {
+            if static_routes(family, &table).contains(&route) {
                 Ok(Applied::Cli {
                     unsaved: result.unsaved,
                     responses: result.responses,
@@ -184,7 +168,7 @@ async fn run(action: Action<'_>, route: &StaticRoute, request: CliChangeRequest)
                 })
             }
         })
-        .await
+    })
 }
 
 /// The static routes of `family` the router has now; none when it does not answer.

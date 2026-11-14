@@ -16,8 +16,9 @@ use kcc_i18n::{bundle::tr, keys};
 use super::{
     bind_form::{check, direction, form, where_text},
     checks::list_name,
+    expect::Expect,
     lines,
-    run::{Expect, Planned, Sender, submit},
+    run::{Planned, Sender},
     snapshot::{self, Binding},
     views::spot_of,
 };
@@ -27,15 +28,13 @@ use crate::{
     net_change::unusable,
     page_kit::{
         action::Operation,
-        failure::plan_failure,
-        family::Family,
-        outcome::Outcome,
         request::{Params, missing},
         respond::Answer,
+        submit::{Formless, Invalid},
     },
     routing_page::{
         frame::interface_names,
-        reply::{ConfirmDialog, answer, gone, unread},
+        reply::{ConfirmDialog, gone, refused, unread},
     },
     system_pages::shared::{merged, value},
 };
@@ -92,43 +91,37 @@ pub(crate) async fn bind(
     let domain = action.context().await?;
     let firewall = match snapshot::read(&domain).await {
         Ok(found) => found,
-        Err(message) => return Ok(unread(action, message).await),
+        Err(message) => return Ok(refused(action, unread(locale, message)).await),
     };
     let names = interface_names(&domain).await;
-    let values = Params::new(pairs.clone(), Vec::new());
-    let checked = check(&values, (&firewall, &names));
-    let (binding, way) = match checked {
-        Ok(found) => found,
-        Err((field, key)) => {
-            action.abandon("validation_failed").await;
-            let dialog = form(locale, &router, &values, (&firewall, &names));
-            return Err(dialog
-                .with_error(field, tr(locale, key, None))
-                .invalid()
-                .into());
-        }
-    };
-    let planned = match lines::bind(&domain, (binding.interface(), binding.list()), way, true) {
-        Ok(request) => {
-            let interfaces = vec![binding.interface().to_owned()];
-            Planned::new(
-                request,
-                Expect::Bound {
-                    binding,
-                    present: true,
-                },
-                interfaces,
-            )
-        }
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Ok(answer(Outcome::failed(failure), None, locale));
-        }
-    };
+    let values = Params::of(pairs.clone());
+    let dialog = form(locale, &router, &values, (&firewall, &names));
     let path = format!("/ui/r/{router}/firewall/bind");
-    let sender = Sender::new(&user, &headers, (&path, &pairs));
-    submit(action, &domain, planned, (sender, spot_of(&headers))).await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &values, dialog)
+        .submit(
+            |submitted| {
+                check(submitted, (&firewall, &names))
+                    .map_err(|(field, rule)| Invalid::at(field, rule))
+            },
+            async |(binding, way), context| {
+                let planned =
+                    lines::bind(context, (binding.interface(), binding.list()), way, true).map(
+                        |request| {
+                            let interfaces = vec![binding.interface().to_owned()];
+                            let expect = Expect::Bound {
+                                binding,
+                                present: true,
+                            };
+                            Planned::new(request, expect, interfaces)
+                        },
+                    );
+                sender.assess(context, planned).await
+            },
+            async |context| sender.refreshed(context, spot_of(&headers), locale).await,
+        )
+        .await)
 }
 
 /// `GET /ui/r/{router}/firewall/unbind?interface=&list=&direction=`: asks first.
@@ -176,35 +169,39 @@ pub(crate) async fn unbind(
     let (binding, way) = named(&pairs)?;
     let action = UNBIND.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let domain = action.context().await?;
-    let firewall = match snapshot::read(&domain).await {
-        Ok(found) => found,
-        Err(message) => return Ok(unread(action, message).await),
-    };
-    if !firewall.bindings().contains(&binding) {
-        return Ok(gone(action).await);
-    }
-    let planned = match lines::bind(&domain, (binding.interface(), binding.list()), way, false) {
-        Ok(request) => {
-            let interfaces = vec![binding.interface().to_owned()];
-            Planned::new(
-                request,
-                Expect::Bound {
-                    binding,
-                    present: false,
-                },
-                interfaces,
-            )
-        }
-        Err(error) => {
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            return Ok(answer(Outcome::failed(failure), None, locale));
-        }
-    };
+    let params = Params::of(pairs.clone());
     let path = format!("/ui/r/{router}/firewall/unbind");
-    let sender = Sender::new(&user, &headers, (&path, &pairs));
-    submit(action, &domain, planned, (sender, spot_of(&headers))).await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &params, Formless)
+        .submit_reading(
+            async |_params, domain| {
+                let firewall = snapshot::read(domain)
+                    .await
+                    .map_err(|message| unread(locale, message))?;
+                if firewall.bindings().contains(&binding) {
+                    Ok(())
+                } else {
+                    Err(gone(locale).into())
+                }
+            },
+            async |(), domain| {
+                let planned =
+                    lines::bind(domain, (binding.interface(), binding.list()), way, false).map(
+                        |request| {
+                            let interfaces = vec![binding.interface().to_owned()];
+                            let expect = Expect::Bound {
+                                binding: binding.clone(),
+                                present: false,
+                            };
+                            Planned::new(request, expect, interfaces)
+                        },
+                    );
+                sender.assess(domain, planned).await
+            },
+            async |domain| sender.refreshed(domain, spot_of(&headers), locale).await,
+        )
+        .await)
 }
 
 /// The binding `pairs` name.

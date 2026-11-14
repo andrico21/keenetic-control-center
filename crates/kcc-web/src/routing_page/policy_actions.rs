@@ -5,23 +5,25 @@ use axum::{
     Form,
     extract::{Path, Query, State},
     http::HeaderMap,
-    response::{IntoResponse as _, Response},
+    response::Response,
 };
 use kcc_app::workflow::WorkflowError;
-use kcc_catalog::Risk;
-use kcc_domain::policies::{
-    change::{apply, plan},
-    descriptor::DESCRIPTOR,
-    model::PolicyPermit,
+use kcc_domain::{
+    ChangeOp,
+    policies::{
+        change::{apply, plan},
+        descriptor::DESCRIPTOR,
+        model::PolicyPermit,
+    },
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
     frame::workflow_error,
-    policy_change::{NameQuery, find, gone, known, planned_change, refreshed},
+    policy_change::{NameQuery, applied, find, known, refreshed, submission},
     policy_rows::configured,
-    reply::answer,
+    reply::gone,
 };
 use crate::{
     WebState,
@@ -31,9 +33,10 @@ use crate::{
         action::Operation,
         change::Applied,
         context::fragment_shell,
-        request::missing,
+        request::{Params, missing},
         respond,
         respond::Answer,
+        submit::{self, Formless, Invalid, Planned},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
@@ -81,17 +84,22 @@ pub(crate) async fn multipath(
         "off" => false,
         _ => return Err(missing()),
     };
-    let opened = MULTIPATH.open(&state, &user, &router).await?;
-    let domain = opened.context().await?;
-    let (action, policy) = known(opened, &domain, &query.name).await?;
-    let planned = plan::multipath(&domain, policy.name(), enabled);
-    Ok(planned_change(
-        action,
-        &domain,
-        planned.map(|op| vec![op]),
-        (&headers, &user),
-    )
-    .await)
+    let action = MULTIPATH.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let params = Params::default();
+    Ok(submission(action, &params, Formless)
+        .submit_reading(
+            async |_params, domain| Ok(known(domain, &query.name, locale).await?),
+            async |policy, domain| {
+                Ok(applied(vec![plan::multipath(
+                    domain,
+                    policy.name(),
+                    enabled,
+                )?]))
+            },
+            async |domain| refreshed(domain, (&router, &user), &headers, locale).await,
+        )
+        .await)
 }
 
 /// `POST /ui/r/{router}/routing/policy/unpermit?name=&interface=`: takes the interface off
@@ -107,30 +115,39 @@ pub(crate) async fn unpermit(
     headers: HeaderMap,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
-    let opened = UNPERMIT.open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let domain = opened.context().await?;
-    let (action, policy) = known(opened, &domain, &query.name).await?;
-    if policy.permit(&query.interface).is_none() {
-        action.abandon("gone").await;
-        return Ok(answer(gone(locale), None, locale));
-    }
-    let planned = match plan::permit(
-        &domain,
-        policy.name(),
-        &PolicyPermit::new(&query.interface),
-        false,
-    ) {
-        Ok(op) => op,
-        Err(error) => {
-            return Ok(planned_change(action, &domain, Err(error), (&headers, &user)).await);
-        }
-    };
-    let name = policy.name().to_owned();
-    let interface = query.interface.clone();
-    let outcome = action
-        .run_with(Risk::Write, async |changes, context| {
-            let result = apply::apply(changes, context, &planned)
+    let action = UNPERMIT.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let params = Params::default();
+    Ok(submission(action, &params, Formless)
+        .submit_reading(
+            async |_params, domain| {
+                let policy = known(domain, &query.name, locale).await?;
+                if policy.permit(&query.interface).is_none() {
+                    return Err(gone(locale).into());
+                }
+                Ok(policy)
+            },
+            async |policy, domain| {
+                let permit = PolicyPermit::new(&query.interface);
+                let op = plan::permit(domain, policy.name(), &permit, false)?;
+                Ok(unpermitted(
+                    op,
+                    policy.name().to_owned(),
+                    query.interface.clone(),
+                ))
+            },
+            async |domain| refreshed(domain, (&router, &user), &headers, locale).await,
+        )
+        .await)
+}
+
+/// `op`, taking `interface` off the policy `name`, read back from the running
+/// configuration.
+fn unpermitted(op: ChangeOp, name: String, interface: String) -> Planned {
+    let operations = [op.clone()];
+    Planned::working(&operations, move |changes, context| {
+        Box::pin(async move {
+            let result = apply::apply(changes, context, &op)
                 .await
                 .map_err(workflow_error)?;
             let lines = configured(context).await.map_err(workflow_error)?;
@@ -151,9 +168,7 @@ pub(crate) async fn unpermit(
                 responses: result.responses,
             })
         })
-        .await;
-    let shown = refreshed(&domain, (&router, &user), &headers, locale).await;
-    Ok(answer(outcome, shown, locale))
+    })
 }
 
 /// `GET /ui/r/{router}/routing/policy/delete?name=`: asks for the policy's name.
@@ -188,28 +203,38 @@ pub(crate) async fn delete(
     user: CurrentUser,
     Form(form): Form<TypedNameForm>,
 ) -> Result<Response, Answer> {
-    let opened = DELETE.open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let domain = opened.context().await?;
-    let (action, policy) = match known(opened, &domain, form.name()).await {
-        Ok(found) => found,
-        Err(refused) => return Ok(respond::retarget(refused.into_response(), "#page-outcome")),
-    };
-    if !form.confirmed() {
-        action.abandon("validation_failed").await;
-        let mut dialog = confirmation(locale, &router, policy.name());
-        dialog.set_error(tr(locale, keys::WEB_ADMIN_ERROR_CONFIRM, None));
-        return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
+    let action = DELETE.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let params = Params::default();
+    let dialog = Confirming(confirmation(locale, &router, form.name()));
+    Ok(submission(action, &params, dialog)
+        .landing_in("#page-outcome")
+        .submit_reading(
+            async |_params, domain| {
+                let policy = known(domain, form.name(), locale).await?;
+                if form.confirmed() {
+                    Ok(policy)
+                } else {
+                    Err(Invalid::at("confirm_name", keys::WEB_ADMIN_ERROR_CONFIRM).into())
+                }
+            },
+            async |policy, domain| Ok(applied(vec![plan::remove(domain, policy.name())?])),
+            async |domain| refreshed(domain, (&router, &user), &headers, locale).await,
+        )
+        .await)
+}
+
+/// The typed-name confirmation of a deletion, shown again with why it was not enough.
+struct Confirming(TypedNameDialog);
+
+impl submit::Form for Confirming {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        let Self(mut dialog) = self;
+        for (_field, rule) in invalid.into_findings() {
+            dialog.set_error(tr(locale, rule, None));
+        }
+        respond::in_dialog(respond::unprocessable(&dialog))
     }
-    let planned = plan::remove(&domain, policy.name());
-    let answered = planned_change(
-        action,
-        &domain,
-        planned.map(|op| vec![op]),
-        (&headers, &user),
-    )
-    .await;
-    Ok(respond::retarget(answered, "#page-outcome"))
 }
 
 /// The typed-name confirmation deleting the policy `name` of `router`.

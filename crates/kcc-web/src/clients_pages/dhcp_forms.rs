@@ -20,8 +20,8 @@ use kcc_i18n::{
 use serde::Deserialize;
 
 use super::{
-    answer,
     dhcp::{DhcpView, Shown},
+    dhcp_lease::applied,
 };
 use crate::{
     WebState,
@@ -30,13 +30,13 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
-        change::Applied,
         context::fragment_shell,
         failure::plan_failure,
         family::Family,
-        outcome::Outcome,
-        request::missing,
+        outcome::{Failure, Outcome},
+        request::{Params, missing},
         respond::{self, Answer},
+        submit::{self, Invalid, Submission},
     },
 };
 
@@ -267,47 +267,37 @@ pub(crate) async fn save_pool(
     user: CurrentUser,
     Form(form): Form<PoolForm>,
 ) -> Result<Response, Answer> {
-    let opened = POOL.open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let config = match form.check() {
-        Ok(config) => config,
-        Err(problems) => {
-            opened.abandon("validation_failed").await;
-            let mut dialog = PoolDialog::new(locale, &router, form);
-            dialog.problems = problems;
-            return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
-        }
-    };
-    let domain = opened.context().await?;
-    let operation = match dhcp::plan_pool(&domain, &config) {
-        Ok(operation) => operation,
-        Err(error) => {
-            opened.abandon("validation_failed").await;
-            let mut dialog = PoolDialog::new(locale, &router, form);
-            plan_failure(Family::Changes, locale, &error)
-                .message()
-                .clone_into(&mut dialog.problem);
-            return Err(respond::in_dialog(respond::unprocessable(&dialog)).into());
-        }
-    };
-    let outcome = opened
-        .run_with(operation.risk, async |changes, context| {
-            dhcp::apply(changes, context, &operation)
-                .await
-                .map(|result| Applied::Cli {
-                    unsaved: result.unsaved,
-                    responses: result.responses,
-                })
-        })
-        .await;
-    let refreshed = if outcome.succeeded() {
-        Shown::of_page(&headers, &router, DhcpView::Pools)
-            .read_back(&domain, &user, &router)
-            .await
-    } else {
-        None
-    };
-    Ok(answer(outcome, refreshed, None, locale))
+    let action = POOL.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let checked = form.check();
+    let mut dialog = PoolDialog::new(locale, &router, form);
+    let typed = checked.map_err(|problems| {
+        dialog.problems = problems;
+        Invalid::from(Vec::new())
+    });
+    let params = Params::default();
+    Ok(Submission::new(action, &params, dialog)
+        .submit(
+            |_params| typed,
+            async |config, domain| Ok(applied(dhcp::plan_pool(domain, &config)?)),
+            async |domain| {
+                Shown::of_page(&headers, &router, DhcpView::Pools)
+                    .read_back(domain, &user, &router)
+                    .await
+            },
+        )
+        .await)
+}
+
+impl submit::Form for PoolDialog {
+    fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {
+        respond::in_dialog(respond::unprocessable(&self))
+    }
+
+    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
+        failure.message().clone_into(&mut self.problem);
+        respond::in_dialog(respond::unprocessable(&self))
+    }
 }
 
 /// The IPv4 address typed in `text`.

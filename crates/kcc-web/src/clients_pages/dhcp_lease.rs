@@ -6,14 +6,13 @@ use axum::{
     Form,
     extract::{Path, Query, State},
     http::HeaderMap,
-    response::Response,
+    response::{IntoResponse as _, Response},
 };
-use kcc_domain::{DomainError, dhcp};
+use kcc_domain::{ChangeOp, DomainError, dhcp};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
-    answer,
     dhcp::{DhcpView, Shown},
     dhcp_forms::address,
 };
@@ -28,7 +27,10 @@ use crate::{
         context::fragment_shell,
         failure::plan_failure,
         family::Family,
+        outcome::Failure,
+        request::Params,
         respond::{self, Answer},
+        submit::{self, Invalid, Planned, Submission, rejected::Rejected},
     },
 };
 
@@ -121,8 +123,8 @@ pub(crate) async fn add_lease(
     user: CurrentUser,
     Form(form): Form<LeaseForm>,
 ) -> Result<Response, Answer> {
-    let opened = LEASE.open(&state, &user, &router).await?;
-    let locale = opened.locale();
+    let action = LEASE.open(&state, &user, &router).await?;
+    let locale = action.locale();
     let dialog = LeaseDialog::new(
         locale,
         &router,
@@ -131,44 +133,63 @@ pub(crate) async fn add_lease(
             address: form.address.trim().to_owned(),
         },
     );
-    let (mac, ip) = match (mac_address(&form.mac), address(&form.address)) {
-        (Some(mac), Ok(ip)) => (mac, ip),
-        (mac, ip) => {
-            opened.abandon("validation_failed").await;
-            let mac_error = mac.is_none().then_some(keys::WEB_DHCP_ERROR_MAC);
-            return Err(dialog.refuse((mac_error, ip.err())));
+    let params = Params::default();
+    Ok(Submission::new(action, &params, dialog)
+        .submit_reading(
+            async |_params, domain| {
+                let (mac, ip) = match (mac_address(&form.mac), address(&form.address)) {
+                    (Some(mac), Ok(ip)) => (mac, ip),
+                    (mac, ip) => {
+                        let findings = mac
+                            .is_none()
+                            .then_some(("mac", keys::WEB_DHCP_ERROR_MAC))
+                            .into_iter()
+                            .chain(ip.err().map(|rule| ("address", rule)))
+                            .collect::<Vec<_>>();
+                        return Err(Invalid::from(findings).into());
+                    }
+                };
+                dhcp::plan_static_lease(domain, &mac, ip)
+                    .await
+                    .map_err(|error| refusal(locale, &error))
+            },
+            async |operation, _domain| Ok(applied(operation)),
+            async |domain| {
+                Shown::of_page(&headers, &router, DhcpView::Leases)
+                    .read_back(domain, &user, &router)
+                    .await
+            },
+        )
+        .await)
+}
+
+/// Why the DHCP domain refused a static lease: the address field for an address outside
+/// every pool or already in use, else the refusal itself.
+fn refusal(locale: Locale, error: &DomainError) -> Rejected {
+    match error {
+        DomainError::StaticLeaseOutsidePool => {
+            Invalid::at("address", keys::WEB_DHCP_ERROR_OUTSIDE).into()
         }
-    };
-    let domain = opened.context().await?;
-    let operation = match dhcp::plan_static_lease(&domain, &mac, ip).await {
-        Ok(operation) => operation,
-        Err(error) => {
-            opened.abandon("validation_failed").await;
-            let field = match error {
-                DomainError::StaticLeaseOutsidePool => Some(keys::WEB_DHCP_ERROR_OUTSIDE),
-                DomainError::StaticLeaseAddressInUse => Some(keys::WEB_DHCP_ERROR_IN_USE),
-                DomainError::Rci(_)
-                | DomainError::InvalidResponse
-                | DomainError::Validation { issues: _ }
-                | DomainError::ConfirmationMismatch
-                | DomainError::ProtectedAccount
-                | DomainError::InvalidCliToken
-                | DomainError::ConfirmationRequired
-                | DomainError::PermissionDenied
-                | _ => None,
-            };
-            if field.is_some() {
-                return Err(dialog.refuse((None, field)));
-            }
-            let mut refused = dialog;
-            plan_failure(Family::Changes, locale, &error)
-                .message()
-                .clone_into(&mut refused.problem);
-            return Err(refused.refuse((None, None)));
+        DomainError::StaticLeaseAddressInUse => {
+            Invalid::at("address", keys::WEB_DHCP_ERROR_IN_USE).into()
         }
-    };
-    let outcome = opened
-        .run_with(operation.risk, async |changes, context| {
+        DomainError::Rci(_)
+        | DomainError::InvalidResponse
+        | DomainError::Validation { issues: _ }
+        | DomainError::ConfirmationMismatch
+        | DomainError::ProtectedAccount
+        | DomainError::InvalidCliToken
+        | DomainError::ConfirmationRequired
+        | DomainError::PermissionDenied
+        | _ => Rejected::Refused(plan_failure(Family::Changes, locale, error)),
+    }
+}
+
+/// The DHCP change `operation`, run and read back by the DHCP domain.
+pub(crate) fn applied(operation: ChangeOp) -> Planned {
+    let operations = [operation.clone()];
+    Planned::working(&operations, move |changes, context| {
+        Box::pin(async move {
             dhcp::apply(changes, context, &operation)
                 .await
                 .map(|result| Applied::Cli {
@@ -176,15 +197,25 @@ pub(crate) async fn add_lease(
                     responses: result.responses,
                 })
         })
-        .await;
-    let refreshed = if outcome.succeeded() {
-        Shown::of_page(&headers, &router, DhcpView::Leases)
-            .read_back(&domain, &user, &router)
-            .await
-    } else {
-        None
-    };
-    Ok(answer(outcome, refreshed, None, locale))
+    })
+}
+
+impl submit::Form for LeaseDialog {
+    fn answer_invalid(self, invalid: Invalid, _locale: Locale) -> Response {
+        let findings = invalid.into_findings();
+        let at = |name: &str| {
+            findings
+                .iter()
+                .find(|(field, _rule)| *field == name)
+                .map(|(_field, rule)| *rule)
+        };
+        self.refuse((at("mac"), at("address"))).into_response()
+    }
+
+    fn answer_refused(mut self, failure: Failure, _locale: Locale) -> Response {
+        failure.message().clone_into(&mut self.problem);
+        self.refuse((None, None)).into_response()
+    }
 }
 
 /// The MAC address typed in `text`, lowercase: six pairs of hexadecimal digits separated

@@ -30,7 +30,7 @@ use super::{
     outcome::{Failure, Outcome},
     respond::Answer,
     stakes::Stakes,
-    submit::Planned,
+    submit::{Planned, work::Job},
 };
 use crate::{
     WebState,
@@ -200,24 +200,26 @@ impl<'call> Action<'call> {
         self.record.append(self.state, self.user, reason).await;
     }
 
+    /// Runs `planned` at the risk the domain planned it at, through the change workflow,
+    /// and audits how it ended.
+    // NOT cancel-safe: see `change::apply_with`.
+    pub(crate) async fn run_planned(self, planned: Planned) -> Outcome {
+        let (risk, job) = planned.into_parts();
+        match job {
+            Job::Change(change) => self.run(risk, change).await,
+            Job::Work(work) => {
+                self.run_with(risk, async move |changes, context| {
+                    work(changes, context).await
+                })
+                .await
+            }
+        }
+    }
+
     /// Runs `change`, planned at `risk`, through the change workflow and audits how it
     /// ended.
     // NOT cancel-safe: see `change::apply_with`.
     pub(crate) async fn run(self, risk: Risk, change: Change) -> Outcome {
-        self.run_at(risk, change).await
-    }
-
-    /// Runs `planned` at the risk the domain planned it at, through the change workflow,
-    /// and audits how it ended.
-    // NOT cancel-safe: see `change::apply_with`.
-    pub(super) async fn run_planned(self, planned: Planned) -> Outcome {
-        let (risk, change) = planned.into_parts();
-        self.run_at(risk, change).await
-    }
-
-    /// Runs `change` at `risk` through the change workflow and audits how it ended.
-    // NOT cancel-safe: see `change::apply_with`.
-    async fn run_at(self, risk: Risk, change: Change) -> Outcome {
         let params = change.audit_params();
         let verified_change = match change {
             Change::Cli(request) => match verification::complete(request) {

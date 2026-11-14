@@ -41,12 +41,12 @@ mod tests {
     use tempfile::TempDir;
     use url::Url;
 
-    use super::super::{Form, Invalid, Submission};
+    use super::super::{Form, Invalid, Submission, rejected::Rejected};
     use crate::{
         WebState, WebStateConfig,
         authz::CurrentUser,
         fleet::{BackupServices, FleetServices},
-        page_kit::{action::Operation, request::Params},
+        page_kit::{action::Operation, outcome::Failure, request::Params},
         session::CookieSecurity,
     };
 
@@ -248,6 +248,40 @@ mod tests {
             assert_ne!(answer.status(), FORM_STATUS, "the outcome region answers");
         }
         assert_eq!(outcomes(&world.state_dir())?, ["forbidden", "failed"]);
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn values_read_against_the_router_are_audited_by_why_they_stop()
+    -> Result<(), Box<dyn Error>> {
+        let world = World::new().await?;
+        let typed = params("1400");
+        let mut statuses = Vec::new();
+        for rejected in [
+            Rejected::Invalid(Invalid::at("value", keys::WEB_INTERNET_MTU_ERROR)),
+            Rejected::Failed(Failure::new(String::new(), "gone")),
+            Rejected::Missing,
+        ] {
+            let opened = MTU.open(&world.web, &world.admin, ROUTER).await.ok();
+            let action = opened.ok_or("the write opens")?;
+            let before = world.handle.request_count();
+            let answer = Submission::new(action, &typed, Probe)
+                .submit_reading(
+                    async move |_typed, _domain| Err::<(), _>(rejected),
+                    async |(), _domain| Err(DomainError::InvalidResponse),
+                    async |_domain| None,
+                )
+                .await;
+            assert_eq!(world.handle.request_count(), before, "nothing sent");
+            statuses.push(answer.status());
+        }
+        let [invalid, failed, missing] = statuses.as_slice() else {
+            return Err("three answers".into());
+        };
+        assert_eq!(*invalid, FORM_STATUS, "the form answers invalid values");
+        assert_ne!(*failed, FORM_STATUS, "the outcome region answers");
+        assert_eq!(*missing, StatusCode::NOT_FOUND, "nothing to change");
+        assert_eq!(outcomes(&world.state_dir())?, ["validation_failed", "gone"]);
         Ok(())
     }
 }

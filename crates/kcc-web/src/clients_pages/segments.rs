@@ -13,10 +13,9 @@ use axum::{
     response::Response,
 };
 use fluent_bundle::FluentArgs;
-use kcc_app::{permissions::Permission, workflow::WorkflowError};
+use kcc_app::workflow::WorkflowError;
 use kcc_domain::{
     DomainError, RouterCtx,
-    configuration::SafetyNet,
     segments::{self, SegmentError},
 };
 use kcc_i18n::{
@@ -26,7 +25,7 @@ use kcc_i18n::{
 };
 
 use super::{
-    Tab, TabLink, answer,
+    Tab, TabLink,
     segment_form::{Details, Problems, SegmentForm},
     segment_known::Known,
     segment_list::Region,
@@ -40,18 +39,18 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
-        change::Applied,
         context::{self, Caller},
         failure::plan_failure,
         family::Family,
-        gate::{Controls, allowed},
+        gate::Controls,
         outcome::Outcome,
         respond::{self, Answer},
     },
 };
 
 /// The segment creation, audited as `web.segments_create`.
-const CREATE: Operation = Operation::write(&segments::DESCRIPTOR, "create", "web.segments_create");
+pub(super) const CREATE: Operation =
+    Operation::write(&segments::DESCRIPTOR, "create", "web.segments_create");
 
 /// The segments page.
 #[derive(Template)]
@@ -190,81 +189,13 @@ pub(crate) async fn review(
     Ok(errors::render(&Review::new(locale, router, &form, &spec)))
 }
 
-/// `POST /ui/r/{router}/segments/create`: checks the details again, creates the segment
-/// step by step and answers with its outcome; a failed step names itself.
-///
-/// # Errors
-///
-/// Answers the details with their field errors (422), and what the kit answers when the
-/// router or the permission is missing.
-pub(crate) async fn create(
-    State(state): State<WebState>,
-    Path(router): Path<String>,
-    user: CurrentUser,
-    Form(pairs): Form<Vec<(String, String)>>,
-) -> Result<Response, Answer> {
-    let opened = CREATE.open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let domain = opened.context().await?;
-    let known = known(&domain, locale).await?;
-    let form = SegmentForm::from_pairs(&pairs);
-    let checked = match form.check(&known, locale) {
-        Err(problems) => Err((*problems, String::new())),
-        Ok(spec) => match segments::plan_create(&domain, &spec).await {
-            Ok(plan) => Ok((spec, plan.risk)),
-            Err(error) => {
-                let failure = plan_failure(Family::Changes, locale, &error);
-                Err((Problems::default(), failure.message().to_owned()))
-            }
-        },
-    };
-    let (spec, risk) = match checked {
-        Ok(found) => found,
-        Err((problems, problem)) => {
-            opened.abandon("validation_failed").await;
-            let details = Details::new(locale, router, form, known);
-            return Err(refuse(details, problems, problem));
-        }
-    };
-    if !allowed(
-        &user,
-        &router,
-        &SafetyNet::required(Permission::Write, risk),
-    ) {
-        opened.abandon("forbidden").await;
-        return Err(
-            errors::response(errors::Kind::Forbidden, context::fragment_shell(locale)).into(),
-        );
-    }
-    let mut note = None;
-    let outcome = opened
-        .run_with(risk, async |changes, context| {
-            match segments::create(changes, context, &spec).await {
-                Ok(_created) => changes
-                    .current_last_change()
-                    .await
-                    .map(|last| Applied::Done {
-                        unsaved: last.unsaved,
-                    }),
-                Err(error) => {
-                    let (said, source) = step_failure(error, locale);
-                    note = said;
-                    Err(source)
-                }
-            }
-        })
-        .await;
-    let listed = Region::read_back(&domain, &router, locale).await;
-    Ok(answer(outcome, listed, note, locale))
-}
-
 /// What the router already has.
 ///
 /// # Errors
 ///
 /// Answers the read's failure, shown in the page's outcome region.
 // cancel-safe: reads only.
-async fn known(domain: &RouterCtx, locale: Locale) -> Result<Known, Answer> {
+pub(super) async fn known(domain: &RouterCtx, locale: Locale) -> Result<Known, Answer> {
     Known::read(domain).await.map_err(|error| {
         let failure = plan_failure(Family::Changes, locale, &error);
         let shown = Outcome::failed(failure).render(locale);
@@ -273,7 +204,7 @@ async fn known(domain: &RouterCtx, locale: Locale) -> Result<Known, Answer> {
 }
 
 /// The details again with `problems` and the refusal `problem`, as 422 in the dialog.
-fn refuse(details: Details, problems: Problems, problem: String) -> Answer {
+pub(super) fn refuse(details: Details, problems: Problems, problem: String) -> Answer {
     let refused = details.refused(problems, problem);
     respond::in_dialog(respond::unprocessable(&refused)).into()
 }

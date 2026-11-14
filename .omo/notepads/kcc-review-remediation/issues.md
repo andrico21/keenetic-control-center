@@ -26,3 +26,8 @@
 - `crates/kcc-web/src/router_form/address.rs::is_slug` duplicates `kcc_app::registry` `valid_router_id`/`is_valid_router_id`.
 - `crates/kcc-web/tests/dashboard.rs` is ~1250 lines (pre-existing); the new tests went into `tests/dashboard/router_{credentials,readers}.rs`.
 - No PNG screenshots for todo 53 (no browser tooling for workers); todo 45's golden capture or the orchestrator's browser should look at the router form at 390 px dark / 1280 px light.
+
+## [2026-11-14] Todo 34: kit changes needed to finish the migration (submit.rs is todo 33's)
+1. Outcome recast: `Submission` needs a hook to replace a successful run's headline (secret pages' `reply::verified`/`confirmed`, VPN import's `confirmed`) and to add an extra region (VPN import's skipped-field notes, `Answered::notes`). Blocks wifi_psk, wan_password, user_password, vpn_server password, vpn_import.
+2. Landing for the run's answer only: user_delete shows a refused plan in its dialog (no retarget) but lands the run's outcome in #page-outcome; `landing_in` retargets both. Blocks user_delete.
+3. `Form::answer_refused` gets only `Failure`; pages whose refusal words depend on the DomainError (router users' ProtectedAccount text) or on a router read (DNS dialog lists) keep them in a local OnceLock/Mutex filled by the plan closure. Passing `&DomainError` (or letting the plan return its refusal answer) removes those slots.

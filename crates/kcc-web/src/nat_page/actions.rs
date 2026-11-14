@@ -16,7 +16,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
-    forward_forms::{applied, refused, run},
+    forward_forms::{applied, rules},
     forwards::{Forward, forwards},
     interfaces::{InterfacesRegion, interfaces_region, nat_interfaces},
 };
@@ -26,13 +26,13 @@ use crate::{
     net_form::{Choice, FormDialog, Input},
     page_kit::{
         action::Operation,
-        outcome::Outcome,
         request::{Params, missing, rendered, shown_query, with_query},
         respond::Answer,
+        submit::{Formless, Invalid, Submission},
     },
     routing_page::{
         frame::interface_names,
-        reply::{ConfirmDialog, answer, gone, unread},
+        reply::{ConfirmDialog, Replying, gone, unread},
     },
 };
 
@@ -128,22 +128,23 @@ pub(crate) async fn remove(
     let planned = rule.domain_rule().ok_or_else(missing)?;
     let action = REMOVE.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let domain = action.context().await?;
-    let known = match read::running_forwards(&domain).await {
-        Ok(found) => found,
-        Err(_error) => return Ok(unread(action, keys::WEB_KIT_UNREACHABLE).await),
-    };
-    if !forwards(&known).contains(&rule) {
-        return Ok(gone(action).await);
-    }
-    match change::plan_remove_forward(&domain, &planned) {
-        Ok(op) => Ok(run(action, &domain, op, &headers).await),
-        Err(error) => {
-            let outcome = refused(locale, &error);
-            action.abandon(outcome.audit()).await;
-            Ok(answer(outcome, None, locale))
-        }
-    }
+    let params = Params::default();
+    Ok(Submission::new(action, &params, Replying::new(Formless))
+        .submit_reading(
+            async |_params, domain| {
+                let known = read::running_forwards(domain)
+                    .await
+                    .map_err(|_error| unread(locale, keys::WEB_KIT_UNREACHABLE))?;
+                if forwards(&known).contains(&rule) {
+                    Ok(())
+                } else {
+                    Err(gone(locale).into())
+                }
+            },
+            async |(), domain| Ok(applied(change::plan_remove_forward(domain, &planned)?)),
+            async |domain| rules(domain, &router, &headers, locale).await,
+        )
+        .await)
 }
 
 /// `GET /ui/r/{router}/nat/interface/new`: the dialog choosing an interface.
@@ -177,43 +178,28 @@ pub(crate) async fn translate(
 ) -> Result<Response, Answer> {
     let action = TRANSLATE.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let domain = action.context().await?;
-    let names = interface_names(&domain).await;
+    let names = interface_names(&action.context().await?).await;
     let values = Params::new(Vec::new(), pairs);
     let interface = values.text("interface").trim().to_owned();
-    let translated = match nat_interfaces(&domain).await {
-        Ok(found) => found,
-        Err(message) => return Ok(unread(action, message).await),
-    };
-    let problem = if !names.contains(&interface) {
-        Some(keys::WEB_ROUTING_ERROR_CHOICE)
-    } else if translated.contains(&interface) {
-        Some(keys::WEB_ROUTING_ERROR_DUPLICATE)
-    } else {
-        None
-    };
-    if let Some(key) = problem {
-        action.abandon("validation_failed").await;
-        let dialog = translate_form(locale, &router, &interface, &names);
-        return Err(dialog
-            .with_error("interface", tr(locale, key, None))
-            .invalid()
-            .into());
-    }
-    match change::plan_add_interface(&domain, &interface) {
-        Ok(op) => Ok(interfaces_answer(
-            applied(action, op).await,
-            &domain,
-            (&router, &headers),
-            locale,
+    let dialog = Replying::new(translate_form(locale, &router, &interface, &names));
+    Ok(Submission::new(action, &values, dialog)
+        .submit_reading(
+            async |_values, domain| {
+                let translated = nat_interfaces(domain)
+                    .await
+                    .map_err(|message| unread(locale, message))?;
+                if !names.contains(&interface) {
+                    Err(Invalid::at("interface", keys::WEB_ROUTING_ERROR_CHOICE).into())
+                } else if translated.contains(&interface) {
+                    Err(Invalid::at("interface", keys::WEB_ROUTING_ERROR_DUPLICATE).into())
+                } else {
+                    Ok(())
+                }
+            },
+            async |(), domain| Ok(applied(change::plan_add_interface(domain, &interface)?)),
+            async |domain| interfaces(domain, &router, &headers, locale).await,
         )
-        .await),
-        Err(error) => {
-            let outcome = refused(locale, &error);
-            action.abandon(outcome.audit()).await;
-            Ok(answer(outcome, None, locale))
-        }
-    }
+        .await)
 }
 
 /// `GET /ui/r/{router}/nat/interface/remove?name=`: asks first.
@@ -254,48 +240,38 @@ pub(crate) async fn untranslate(
 ) -> Result<Response, Answer> {
     let action = UNTRANSLATE.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let domain = action.context().await?;
-    let translated = match nat_interfaces(&domain).await {
-        Ok(found) => found,
-        Err(message) => return Ok(unread(action, message).await),
-    };
-    if !translated.contains(&query.name) {
-        return Ok(gone(action).await);
-    }
-    match change::plan_remove_interface(&domain, &query.name) {
-        Ok(op) => Ok(interfaces_answer(
-            applied(action, op).await,
-            &domain,
-            (&router, &headers),
-            locale,
+    let params = Params::default();
+    Ok(Submission::new(action, &params, Replying::new(Formless))
+        .submit_reading(
+            async |_params, domain| {
+                let translated = nat_interfaces(domain)
+                    .await
+                    .map_err(|message| unread(locale, message))?;
+                if translated.contains(&query.name) {
+                    Ok(())
+                } else {
+                    Err(gone(locale).into())
+                }
+            },
+            async |(), domain| Ok(applied(change::plan_remove_interface(domain, &query.name)?)),
+            async |domain| interfaces(domain, &router, &headers, locale).await,
         )
-        .await),
-        Err(error) => {
-            let outcome = refused(locale, &error);
-            action.abandon(outcome.audit()).await;
-            Ok(answer(outcome, None, locale))
-        }
-    }
+        .await)
 }
 
-/// The answer to an address translation change: `outcome` and the interfaces read back.
+/// The interfaces region of `router` read back for the page of `headers`, out of band.
 // cancel-safe: reads only.
-async fn interfaces_answer(
-    outcome: Outcome,
+async fn interfaces(
     domain: &RouterCtx,
-    (router, headers): (&str, &HeaderMap),
+    router: &str,
+    headers: &HeaderMap,
     locale: Locale,
-) -> Response {
-    let refreshed = if outcome.succeeded() {
-        interfaces_region(domain, (router, &shown_query(headers)), (true, locale))
-            .await
-            .ok()
-            .map(InterfacesRegion::out_of_band)
-            .and_then(|region| rendered(&region))
-    } else {
-        None
-    };
-    answer(outcome, refreshed, locale)
+) -> Option<String> {
+    interfaces_region(domain, (router, &shown_query(headers)), (true, locale))
+        .await
+        .ok()
+        .map(InterfacesRegion::out_of_band)
+        .and_then(|region| rendered(&region))
 }
 
 /// The address of the removal of `rule` on `router`.

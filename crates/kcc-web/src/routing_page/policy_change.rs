@@ -1,33 +1,30 @@
 //! How a connection-policy change runs: the policy found on the router, the change
 //! planned and applied through the policies domain's read-back, and the policies read back.
 
-use axum::{http::HeaderMap, response::Response};
+use axum::http::HeaderMap;
 use kcc_app::workflow::WorkflowError;
-use kcc_catalog::Risk;
 use kcc_domain::{
-    ChangeOp, DomainError, RouterCtx,
+    ChangeOp, RouterCtx,
     policies::{change::apply, descriptor::DESCRIPTOR},
 };
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::locale::Locale;
 use serde::Deserialize;
 
 use super::{
     frame::workflow_error,
     policy_rows::{Policy, read_policies},
     policy_view::policies_region,
-    reply::answer,
+    reply::{Replying, gone},
 };
 use crate::{
     authz::CurrentUser,
     page_kit::{
         action::Action,
         change::Applied,
-        failure::plan_failure,
-        family::Family,
         gate::Controls,
-        outcome::{Failure, Outcome},
-        request::{rendered, shown_query},
-        respond::Answer,
+        outcome::Failure,
+        request::{Params, rendered, shown_query},
+        submit::{Form, Planned, Submission},
     },
 };
 
@@ -56,57 +53,25 @@ pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Option<Policy> {
         .find(|policy| policy.name() == name)
 }
 
-/// `action` again with the policy `name`, when the router has it.
+/// The policy `name` of the router.
 ///
 /// # Errors
 ///
-/// Answers the audited "no longer there" outcome otherwise.
-// NOT cancel-safe: an abandoned append may still be written.
-pub(crate) async fn known<'call>(
-    action: Action<'call>,
+/// Returns the failure, in `locale`, of a policy the router no longer has.
+// cancel-safe: reads only.
+pub(crate) async fn known(
     domain: &RouterCtx,
     name: &str,
-) -> Result<(Action<'call>, Policy), Answer> {
-    if let Some(policy) = find(domain, name).await {
-        return Ok((action, policy));
-    }
-    let locale = action.locale();
-    action.abandon("gone").await;
-    Err(answer(gone(locale), None, locale).into())
+    locale: Locale,
+) -> Result<Policy, Failure> {
+    find(domain, name).await.ok_or_else(|| gone(locale))
 }
 
-/// Runs the policy changes `planned`, or answers why they could not be planned.
-// NOT cancel-safe: see `Action::run_with`.
-pub(crate) async fn planned_change(
-    action: Action<'_>,
-    domain: &RouterCtx,
-    planned: Result<Vec<ChangeOp>, DomainError>,
-    page: (&HeaderMap, &CurrentUser),
-) -> Response {
-    match planned {
-        Ok(ops) => finish(action, domain, ops, page).await,
-        Err(error) => {
-            let locale = action.locale();
-            let failure = plan_failure(Family::Changes, locale, &error);
-            action.abandon(failure.audit()).await;
-            answer(Outcome::failed(failure), None, locale)
-        }
-    }
-}
-
-/// Applies `ops` in order, each read back by the policies domain, and answers with the
-/// outcome and the policies read back.
-// NOT cancel-safe: see `Action::run_with`.
-async fn finish(
-    action: Action<'_>,
-    domain: &RouterCtx,
-    ops: Vec<ChangeOp>,
-    (headers, user): (&HeaderMap, &CurrentUser),
-) -> Response {
-    let locale = action.locale();
-    let router = action.router();
-    let outcome = action
-        .run_with(Risk::Write, async |changes, context| {
+/// The policy changes `ops`, applied in order, each read back by the policies domain.
+pub(crate) fn applied(ops: Vec<ChangeOp>) -> Planned {
+    let planned = ops.clone();
+    Planned::working(&planned, move |changes, context| {
+        Box::pin(async move {
             let mut last = None;
             for op in &ops {
                 last = Some(
@@ -121,9 +86,20 @@ async fn finish(
                 responses: result.responses,
             })
         })
-        .await;
-    let refreshed = refreshed(domain, (router, user), headers, locale).await;
-    answer(outcome, refreshed, locale)
+    })
+}
+
+/// `params` submitted from `form` to `action`, answered as the routing page answers, the
+/// policies read back after the change, run or failed.
+pub(crate) const fn submission<'call, F>(
+    action: Action<'call>,
+    params: &'call Params,
+    form: F,
+) -> Submission<'call, Replying<F>>
+where
+    F: Form,
+{
+    Submission::new(action, params, Replying::new(form)).refreshing_after_failure()
 }
 
 /// The policies region read back for the page of `headers`, out of band.
@@ -140,12 +116,4 @@ pub(crate) async fn refreshed(
         .await
         .ok()
         .and_then(|region| rendered(&region.out_of_band()))
-}
-
-/// The failure of a policy the router no longer has, in `locale`.
-pub(crate) fn gone(locale: Locale) -> Outcome {
-    Outcome::failed(Failure::new(
-        tr(locale, keys::WEB_ROUTING_GONE, None),
-        "gone",
-    ))
 }

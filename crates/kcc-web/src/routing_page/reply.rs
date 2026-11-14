@@ -22,6 +22,7 @@ use crate::{
         request::rendered,
         respond,
         respond::Changed,
+        submit::{Form, Invalid},
     },
 };
 
@@ -124,21 +125,51 @@ pub(crate) fn guarded(
     respond::close_dialog(with_status(errors::render(&view), status))
 }
 
-/// The audited answer to a change whose router could not be read first: `message` in the
-/// page's outcome region, nothing sent.
+/// A form of these pages: values that failed their check are answered by the page's own
+/// form, refusals and changes as these pages answer them ([`answer`]).
+pub(crate) struct Replying<F>(F);
+
+impl<F> Replying<F> {
+    /// `form`, answering refusals and changes as these pages do.
+    pub(crate) const fn new(form: F) -> Self {
+        Self(form)
+    }
+}
+
+impl<F: Form> Form for Replying<F> {
+    fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
+        self.0.answer_invalid(invalid, locale)
+    }
+
+    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
+        answer(Outcome::failed(failure), None, locale)
+    }
+
+    fn answer_changed(
+        self,
+        outcome: Outcome,
+        refreshed: Option<String>,
+        locale: Locale,
+    ) -> Response {
+        answer(outcome, refreshed, locale)
+    }
+}
+
+/// The audited answer to a change refused before anything was sent: `failure` in the
+/// page's outcome region.
 // NOT cancel-safe: an abandoned append may still be written.
-pub(crate) async fn unread(action: Action<'_>, message: MessageKey) -> Response {
+pub(crate) async fn refused(action: Action<'_>, failure: Failure) -> Response {
     let locale = action.locale();
-    action.abandon("unreachable").await;
-    let failure = Failure::new(tr(locale, message, None), "unreachable");
+    action.abandon(failure.audit()).await;
     answer(Outcome::failed(failure), None, locale)
 }
 
-/// The audited answer to a change of something the router no longer has.
-// NOT cancel-safe: an abandoned append may still be written.
-pub(crate) async fn gone(action: Action<'_>) -> Response {
-    let locale = action.locale();
-    action.abandon("gone").await;
-    let failure = Failure::new(tr(locale, keys::WEB_ROUTING_GONE, None), "gone");
-    answer(Outcome::failed(failure), None, locale)
+/// The failure of a change whose router could not be read first: `message`, nothing sent.
+pub(crate) fn unread(locale: Locale, message: MessageKey) -> Failure {
+    Failure::new(tr(locale, message, None), "unreachable")
+}
+
+/// The failure of a change of something the router no longer has.
+pub(crate) fn gone(locale: Locale) -> Failure {
+    Failure::new(tr(locale, keys::WEB_ROUTING_GONE, None), "gone")
 }

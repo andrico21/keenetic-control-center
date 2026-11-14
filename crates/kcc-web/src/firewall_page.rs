@@ -22,6 +22,7 @@
 mod bind;
 mod bind_form;
 mod checks;
+mod expect;
 mod lines;
 mod lists_region;
 mod regions;

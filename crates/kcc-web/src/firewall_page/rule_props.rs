@@ -11,13 +11,15 @@ use axum::{
     response::Response,
 };
 use kcc_domain::{RouterCtx, firewall::descriptor::DESCRIPTOR, schedules};
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{keys, locale::Locale};
 
 use super::{
     checks::description,
+    expect::Expect,
     lines,
-    rule_actions::{Named, configured, filtered, finish, located},
-    run::{Expect, Planned, Sender},
+    rule_actions::{Named, configured, filtered},
+    run::{Planned, Sender, find, located},
+    views::Spot,
 };
 use crate::{
     WebState,
@@ -25,8 +27,9 @@ use crate::{
     net_form::{Choice, FormDialog, Input},
     page_kit::{
         action::Operation,
-        request::{Params, missing, with_query},
+        request::{Params, with_query},
         respond::Answer,
+        submit::{Invalid, rejected::Rejected},
     },
     system_pages::shared::{merged, value},
 };
@@ -77,41 +80,36 @@ pub(crate) async fn describe(
 ) -> Result<Response, Answer> {
     let pairs = merged(query.as_deref(), form);
     let named = Named::from_pairs(&pairs)?;
-    let opened = DESCRIBE.open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let values = Params::new(pairs.clone(), Vec::new());
-    let text = match description(values.text("description")) {
-        Ok(found) => found,
-        Err(key) => {
-            opened.abandon("validation_failed").await;
-            let dialog = description_form(locale, (&router, &named, &pairs), &values);
-            return Err(dialog
-                .with_error("description", tr(locale, key, None))
-                .invalid()
-                .into());
-        }
-    };
-    let domain = opened.context().await?;
-    let (action, firewall, entry) = located(opened, &domain, &named).await?;
-    let identity = configured(&entry).map_err(|_error| missing())?;
-    let planned =
-        lines::description(&domain, named.list(), (&identity, text.as_deref())).map(|request| {
-            let expect = Expect::Property {
-                list: named.list().to_owned(),
-                index: named.index(),
-                keyword: "description",
-                value: text.clone(),
-            };
-            Planned::new(request, expect, filtered(&firewall, named.list()))
-        });
+    let action = DESCRIBE.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let values = Params::of(pairs.clone());
+    let dialog = description_form(locale, (&router, &named, &pairs), &values);
     let path = format!("/ui/r/{router}/firewall/rule/description");
-    finish(
-        action,
-        &domain,
-        planned,
-        Sender::new(&user, &headers, (&path, &pairs)),
-    )
-    .await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &values, dialog)
+        .submit_reading(
+            async |submitted, domain| {
+                let text = description(submitted.text("description"))
+                    .map_err(|rule| Invalid::at("description", rule))?;
+                let (firewall, entry) = find(domain, &named, locale).await?;
+                let identity = configured(&entry).map_err(|_error| Rejected::Missing)?;
+                let planned =
+                    lines::description(domain, named.list(), (&identity, text.as_deref()));
+                Ok(planned.map(|request| {
+                    let expect = Expect::Property {
+                        list: named.list().to_owned(),
+                        index: named.index(),
+                        keyword: "description",
+                        value: text,
+                    };
+                    Planned::new(request, expect, filtered(&firewall, named.list()))
+                }))
+            },
+            async |planned, domain| sender.assess(domain, planned).await,
+            async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
+        )
+        .await)
 }
 
 /// `GET /ui/r/{router}/firewall/rule/schedule?list=&index=&rule=`: the schedule dialog.
@@ -160,39 +158,39 @@ pub(crate) async fn schedule(
 ) -> Result<Response, Answer> {
     let pairs = merged(query.as_deref(), form);
     let named = Named::from_pairs(&pairs)?;
-    let opened = SCHEDULE.open(&state, &user, &router).await?;
-    let locale = opened.locale();
-    let domain = opened.context().await?;
-    let schedules = schedule_names(&domain).await;
-    let chosen = value(&pairs, "schedule").unwrap_or_default().to_owned();
-    if !chosen.is_empty() && !schedules.contains(&chosen) {
-        opened.abandon("validation_failed").await;
-        let values = Params::new(pairs.clone(), Vec::new());
-        let dialog = schedule_form(locale, (&router, &named, &pairs), &values, &schedules);
-        let message = tr(locale, keys::WEB_ROUTING_ERROR_CHOICE, None);
-        return Err(dialog.with_error("schedule", message).invalid().into());
-    }
-    let (action, firewall, entry) = located(opened, &domain, &named).await?;
-    let identity = configured(&entry).map_err(|_error| missing())?;
-    let picked = Some(chosen).filter(|name| !name.is_empty());
-    let planned =
-        lines::schedule(&domain, named.list(), (&identity, picked.as_deref())).map(|request| {
-            let expect = Expect::Property {
-                list: named.list().to_owned(),
-                index: named.index(),
-                keyword: "schedule",
-                value: picked.clone(),
-            };
-            Planned::new(request, expect, filtered(&firewall, named.list()))
-        });
+    let action = SCHEDULE.open(&state, &user, &router).await?;
+    let locale = action.locale();
+    let schedules = schedule_names(&action.context().await?).await;
+    let values = Params::of(pairs.clone());
+    let dialog = schedule_form(locale, (&router, &named, &pairs), &values, &schedules);
     let path = format!("/ui/r/{router}/firewall/rule/schedule");
-    finish(
-        action,
-        &domain,
-        planned,
-        Sender::new(&user, &headers, (&path, &pairs)),
-    )
-    .await
+    let sender = Sender::new(&user, &headers, (&router, &path, &pairs));
+    Ok(sender
+        .submission(action, &values, dialog)
+        .submit_reading(
+            async |_submitted, domain| {
+                let chosen = value(&pairs, "schedule").unwrap_or_default().to_owned();
+                if !chosen.is_empty() && !schedules.contains(&chosen) {
+                    return Err(Invalid::at("schedule", keys::WEB_ROUTING_ERROR_CHOICE).into());
+                }
+                let (firewall, entry) = find(domain, &named, locale).await?;
+                let identity = configured(&entry).map_err(|_error| Rejected::Missing)?;
+                let picked = Some(chosen).filter(|name| !name.is_empty());
+                let planned = lines::schedule(domain, named.list(), (&identity, picked.as_deref()));
+                Ok(planned.map(|request| {
+                    let expect = Expect::Property {
+                        list: named.list().to_owned(),
+                        index: named.index(),
+                        keyword: "schedule",
+                        value: picked,
+                    };
+                    Planned::new(request, expect, filtered(&firewall, named.list()))
+                }))
+            },
+            async |planned, domain| sender.assess(domain, planned).await,
+            async |domain| sender.refreshed(domain, Spot::Lists, locale).await,
+        )
+        .await)
 }
 
 /// The router's schedule names; none when it does not say.
