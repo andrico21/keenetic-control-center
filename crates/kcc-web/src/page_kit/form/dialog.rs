@@ -203,12 +203,12 @@ impl FormDialog {
 
     /// The localized label of `input`; empty for a hidden one.
     pub(super) fn label(&self, input: &Input) -> String {
-        input.label.map(|key| self.t(key)).unwrap_or_default()
+        input.label.map_or_default(|key| self.t(key))
     }
 
     /// The localized help of `input`; empty when none.
     pub(super) fn help(&self, input: &Input) -> String {
-        input.help.map(|key| self.t(key)).unwrap_or_default()
+        input.help.map_or_default(|key| self.t(key))
     }
 
     /// The localized rule the browser shows when the constraint check of `input` fails.

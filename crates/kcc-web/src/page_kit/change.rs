@@ -115,16 +115,14 @@ impl Change {
                     HttpMethod::Post,
                     request.body.expose_for_send().expose_secret(),
                 )
-                .map(|validated| validated.persisted_paths)
-                .unwrap_or_default(),
+                .map_or_default(|validated| validated.persisted_paths),
             Self::Delete(request) => catalog
                 .validate(
                     &request.catalog_path,
                     HttpMethod::Delete,
                     request.body.expose_for_send().expose_secret(),
                 )
-                .map(|validated| validated.persisted_paths)
-                .unwrap_or_default(),
+                .map_or_default(|validated| validated.persisted_paths),
         }
     }
 }

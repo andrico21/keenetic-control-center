@@ -198,8 +198,7 @@ pub(crate) async fn schedule(
 async fn schedule_names(domain: &RouterCtx) -> Vec<String> {
     schedules::read_schedules(domain)
         .await
-        .map(|found| found.into_iter().filter_map(|item| item.name).collect())
-        .unwrap_or_default()
+        .map_or_default(|found| found.into_iter().filter_map(|item| item.name).collect())
 }
 
 /// The address of the rule action `action` that `pairs` name on `router`.

@@ -84,10 +84,7 @@ impl PoolForm {
             end: pool.range_end.unwrap_or_default(),
             gateway: pool.default_router.unwrap_or_default(),
             dns: pool.dns_servers.into_iter().next().unwrap_or_default(),
-            lease: pool
-                .lease
-                .map(|seconds| seconds.to_string())
-                .unwrap_or_default(),
+            lease: pool.lease.map_or_default(|seconds| seconds.to_string()),
             interface: pool.interface.unwrap_or_default(),
             enabled: (pool.enabled == Some(true)).then(|| "on".to_owned()),
             existing: Some("1".to_owned()),

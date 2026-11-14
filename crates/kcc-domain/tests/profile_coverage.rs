@@ -33,7 +33,7 @@ fn every_domain_suite_iterates_both_firmware_profiles() -> Result<(), Box<dyn Er
         if suite == GUARD || SINGLE_PROFILE.iter().any(|(name, _reason)| *name == suite) {
             continue;
         }
-        let mut sources = vec![path.clone()];
+        let mut sources = vec![path];
         collect_sources(&root.join(&suite), &mut sources)?;
         let mut iterates = false;
         for source in sources {

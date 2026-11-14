@@ -215,7 +215,7 @@ pub(crate) fn offered_tags(catalog: &Catalog) -> Vec<String> {
     catalog
         .lookup(TAG_COMMAND)
         .and_then(|command| command.arguments.get("tag"))
-        .map(|argument| {
+        .map_or_default(|argument| {
             argument
                 .values
                 .iter()
@@ -223,7 +223,6 @@ pub(crate) fn offered_tags(catalog: &Catalog) -> Vec<String> {
                 .cloned()
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// Who looks at the accounts of which router, and the table query of the page.

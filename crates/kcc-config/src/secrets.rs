@@ -165,8 +165,7 @@ mod tests {
         let lines: Vec<String> = parsed
             .as_ref()
             .map(redact)
-            .map(|ast| flatten(&ast))
-            .unwrap_or_default()
+            .map_or_default(|ast| flatten(&ast))
             .into_iter()
             .map(|line| line.to_string())
             .collect();

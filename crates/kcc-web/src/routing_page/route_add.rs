@@ -176,6 +176,5 @@ fn added(operation: &ChangeOp, route: StaticRoute, request: CliChangeRequest) ->
 pub(crate) async fn read_static(domain: &RouterCtx, family: Family) -> Vec<StaticRoute> {
     read_table(domain, family)
         .await
-        .map(|entries| static_routes(family, &entries))
-        .unwrap_or_default()
+        .map_or_default(|entries| static_routes(family, &entries))
 }

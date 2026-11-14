@@ -46,7 +46,7 @@ step machete
 cargo machete crates xtask
 
 step msrv
-cargo +1.99.1 build --workspace --all-features
+cargo +1.100.0 build --workspace --all-features
 
 step gates
 cargo xtask lint-completeness

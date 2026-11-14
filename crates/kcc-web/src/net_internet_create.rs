@@ -272,8 +272,7 @@ pub(crate) async fn create(
     let vias = ipoe(&links(&domain).await.unwrap_or_default());
     let taken: Vec<String> = interfaces::read_interfaces(&domain)
         .await
-        .map(|found| found.into_keys().collect())
-        .unwrap_or_default();
+        .map_or_default(|found| found.into_keys().collect());
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
     Ok(
         Submission::new(action, &params, draft.form(&router, locale, &vias))

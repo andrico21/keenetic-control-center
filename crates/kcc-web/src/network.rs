@@ -149,12 +149,12 @@ pub(crate) fn wan_rows(interfaces_summary: &Value) -> Vec<WanRow> {
             if !wan.contains(&id) {
                 return None;
             }
-            let address = text(entry.get("address"))
-                .map(|address| match prefix(entry.get("mask")) {
+            let address = text(entry.get("address")).map_or_default(|address| {
+                match prefix(entry.get("mask")) {
                     Some(bits) => format!("{address}/{bits}"),
                     None => address,
-                })
-                .unwrap_or_default();
+                }
+            });
             Some(WanRow {
                 label: text(entry.get("description"))
                     .filter(|description| !description.is_empty())

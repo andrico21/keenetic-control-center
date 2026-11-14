@@ -32,10 +32,6 @@ pub(crate) const BRACKET_GRACE: Duration = Duration::from_secs(10);
 ///
 /// The kit's error, or the terminated audit writer.
 // NOT cancel-safe: dropped, `serving` detaches the kit's shutdown tasks.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select macro expansion contains runtime-internal remainder arithmetic"
-)]
 pub(crate) async fn serve_until_shutdown<F, S>(
     serving: F,
     audit: &AuditLog,

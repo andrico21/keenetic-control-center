@@ -165,14 +165,13 @@ fn field(parent: &str, name: &str, property: &Value, locale: Locale) -> Field {
     let options: Vec<String> = property
         .get("enum")
         .and_then(Value::as_array)
-        .map(|values| {
+        .map_or_default(|values| {
             values
                 .iter()
                 .filter_map(Value::as_str)
                 .map(str::to_owned)
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     let integer = property.get("type").and_then(Value::as_str) == Some("integer");
     let kind = if property.get("const") == Some(&Value::Bool(true)) && name == "no" {
         Kind::Negate

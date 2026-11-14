@@ -239,9 +239,7 @@ pub(super) fn captured(locale: Locale, draft: &Draft, groups: &[String]) -> Capt
     let lines = if chosen.is_empty() {
         Vec::new()
     } else {
-        source_ast(draft)
-            .map(|ast| selected(&ast, &chosen).iter().map(shown).collect())
-            .unwrap_or_default()
+        source_ast(draft).map_or_default(|ast| selected(&ast, &chosen).iter().map(shown).collect())
     };
     Captured {
         shell: fragment_shell(locale),

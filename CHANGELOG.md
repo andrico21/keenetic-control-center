@@ -114,6 +114,10 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Rust 1.100.0**: the minimum supported Rust version (`rust-version`) and the pinned
+  toolchain of CI, the release and container builds and the `Containerfile` builder
+  are now 1.100.0.
+
 - **Audit format of refused and failed attempts**: every surface records them the same
   way: outcome `forbidden` with `reason: "forbidden"`, `refused` with a `reason` code,
   or `failed` with an `error` code, plus `fail_safe_armed: true` only when the recovery

@@ -111,8 +111,7 @@ pub(super) fn count(locale: Locale, count: usize) -> String {
 pub(super) fn selected(source: &Ast, groups: &[&str]) -> Vec<CliLine> {
     SettingsGroupEngine::embedded()
         .and_then(|engine| engine.select(source, groups))
-        .map(|selection| selection.lines)
-        .unwrap_or_default()
+        .map_or_default(|selection| selection.lines)
 }
 
 /// The redacted lines of each of `preset`'s groups, in its groups' order: a line every

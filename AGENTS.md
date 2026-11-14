@@ -31,7 +31,7 @@ Gate G1 (release): G0 plus `cargo deny check`, `cargo audit`, `cargo vet`,
 `cargo machete`, `cargo xtask lint-completeness`, `cargo xtask i18n-check`,
 `cargo xtask assets-check`, `cargo xtask cancel-safety`, `taplo fmt --check`, per-library default-feature
 `cargo clippy -p <crate> --all-targets -- -D warnings` and `cargo test -p <crate>`, and
-MSRV `cargo +1.99.1 build --workspace --all-features`.
+MSRV `cargo +1.100.0 build --workspace --all-features`.
 
 Guidelines checksum: `(cd docs/rust-guidelines && sha256sum -c SHA256SUMS)`.
 

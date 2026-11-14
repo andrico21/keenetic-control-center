@@ -344,7 +344,5 @@ fn described(id: &str, help: bool, error: &str) -> String {
 
 /// The non-secret field `name` of `pairs`, trimmed; empty when absent.
 pub(crate) fn plain_value(pairs: &[(String, String)], name: &str) -> String {
-    last(pairs, name)
-        .map(|value| value.trim().to_owned())
-        .unwrap_or_default()
+    last(pairs, name).map_or_default(|value| value.trim().to_owned())
 }

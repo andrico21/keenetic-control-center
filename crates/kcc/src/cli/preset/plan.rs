@@ -198,8 +198,7 @@ fn plan_failure(
             &inventory
                 .info
                 .firmware
-                .map(|version| version.to_string())
-                .unwrap_or_default(),
+                .map_or_default(|version| version.to_string()),
         ),
         PresetPlanError::DocumentationTierAcknowledgementRequired => {
             Failure::message(Exit::Policy, keys::MIGRATE_APPLY_TIER, &[])

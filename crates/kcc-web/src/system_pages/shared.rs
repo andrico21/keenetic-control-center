@@ -87,13 +87,11 @@ impl<'request> Visit<'request> {
 
 /// The pairs of a request's query string, then those of its form body.
 pub(crate) fn merged(query: Option<&str>, form: Vec<(String, String)>) -> Vec<(String, String)> {
-    let mut pairs: Vec<(String, String)> = query
-        .map(|text| {
-            form_urlencoded::parse(text.as_bytes())
-                .into_owned()
-                .collect()
-        })
-        .unwrap_or_default();
+    let mut pairs: Vec<(String, String)> = query.map_or_default(|text| {
+        form_urlencoded::parse(text.as_bytes())
+            .into_owned()
+            .collect()
+    });
     pairs.extend(form);
     pairs
 }

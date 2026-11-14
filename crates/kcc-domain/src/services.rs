@@ -296,12 +296,11 @@ fn command_line(request: &ValidatedRequest) -> String {
                 .find(|(key, _value)| key.as_str() != "no")
                 .map(|(_key, value)| value)
         })
-        .map(|value| match value {
+        .map_or_default(|value| match value {
             Value::String(text) => text.clone(),
             Value::Number(number) => number.to_string(),
             Value::Null | Value::Bool(_) | Value::Array(_) | Value::Object(_) => String::new(),
-        })
-        .unwrap_or_default();
+        });
     let separator = if argument.is_empty() { "" } else { " " };
     format!("{prefix}{}{separator}{argument}", request.path)
 }

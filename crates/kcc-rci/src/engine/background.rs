@@ -111,10 +111,6 @@ impl Handle {
     /// Returns timeout, cancellation cleanup, request or response errors.
     // NOT cancel-safe: token cancellation sends DELETE; directly dropping cannot await cleanup.
     #[inline]
-    #[expect(
-        clippy::integer_division_remainder_used,
-        reason = "tokio::select expansion uses remainder arithmetic"
-    )]
     pub async fn poll(&self, token: &CancellationToken) -> Result<RciBody, RciError> {
         let operation = async {
             loop {

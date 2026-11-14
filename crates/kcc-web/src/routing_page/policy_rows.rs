@@ -206,17 +206,13 @@ fn words(rows: &Value) -> Vec<Vec<String>> {
             .map(str::to_owned)
             .collect()
     };
-    rows.as_array()
-        .map(|list| {
-            list.iter()
-                .filter_map(|row| match row {
-                    Value::Array(found) => Some(text(found)),
-                    Value::Object(fields) => {
-                        fields.get("command").and_then(Value::as_array).map(text)
-                    }
-                    Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => None,
-                })
-                .collect()
-        })
-        .unwrap_or_default()
+    rows.as_array().map_or_default(|list| {
+        list.iter()
+            .filter_map(|row| match row {
+                Value::Array(found) => Some(text(found)),
+                Value::Object(fields) => fields.get("command").and_then(Value::as_array).map(text),
+                Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => None,
+            })
+            .collect()
+    })
 }

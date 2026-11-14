@@ -195,9 +195,7 @@ impl Preset {
             .map(ToString::to_string)
             .collect::<Vec<_>>()
             .join("\n");
-        redacted.lines = parse(&text)
-            .map(|ast| flatten(&redact(&ast)))
-            .unwrap_or_default();
+        redacted.lines = parse(&text).map_or_default(|ast| flatten(&redact(&ast)));
         for token in redacted
             .lines
             .iter_mut()

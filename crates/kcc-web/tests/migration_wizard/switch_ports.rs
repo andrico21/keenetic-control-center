@@ -132,22 +132,19 @@ mod tests {
 
     /// Each plan item as `(line, disposition, reason)`.
     fn dispositions(plan: &Value) -> Vec<(Value, Value, Value)> {
-        plan["items"]
-            .as_array()
-            .map(|items| {
-                items
-                    .iter()
-                    .map(|item| {
-                        let field = |name: &str| item[name].clone();
-                        (
-                            field("source_index"),
-                            field("disposition"),
-                            field("reason_key"),
-                        )
-                    })
-                    .collect()
-            })
-            .unwrap_or_default()
+        plan["items"].as_array().map_or_default(|items| {
+            items
+                .iter()
+                .map(|item| {
+                    let field = |name: &str| item[name].clone();
+                    (
+                        field("source_index"),
+                        field("disposition"),
+                        field("reason_key"),
+                    )
+                })
+                .collect()
+        })
     }
 
     /// The plan `migrate plan` and `kcc_migration_plan` make (no maps, the source as

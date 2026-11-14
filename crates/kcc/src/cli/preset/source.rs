@@ -116,10 +116,7 @@ async fn read_bytes(
             Ok(read(from.strip_prefix("file:").ok_or_else(usage)?).await?)
         }
         (PresetSourceKind::Backup, Some(id)) => {
-            let name = from
-                .rsplit_once('/')
-                .map(|(_, name)| name)
-                .unwrap_or_default();
+            let name = from.rsplit_once('/').map_or_default(|(_, name)| name);
             Ok(services
                 .backups()
                 .get(id, name)?

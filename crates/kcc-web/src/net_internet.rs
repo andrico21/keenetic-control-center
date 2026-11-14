@@ -161,8 +161,7 @@ impl Listing {
             .await
             .ok()
             .and_then(|checks| checks.profile)
-            .map(|value| profiles(&value))
-            .unwrap_or_default();
+            .map_or_default(|value| profiles(&value));
         let (router, locale, controls) = viewer.into_parts();
         Ok(Self {
             shell: fragment_shell(locale),

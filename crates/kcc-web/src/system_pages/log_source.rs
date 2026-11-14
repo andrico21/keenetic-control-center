@@ -153,10 +153,7 @@ pub(crate) fn new_lines(previous: &[String], current: &[String]) -> Vec<String> 
                 .is_some_and(|(tail, head)| tail == head)
         })
         .unwrap_or(0);
-    current
-        .get(overlap..)
-        .map(<[String]>::to_vec)
-        .unwrap_or_default()
+    current.get(overlap..).map_or_default(<[String]>::to_vec)
 }
 
 #[cfg(test)]

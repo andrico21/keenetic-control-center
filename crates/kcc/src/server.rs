@@ -481,12 +481,7 @@ impl Services {
             clock: Arc::clone(&self.clock),
         })
         .with_role_source(self.roles.clone())
-        .with_log_feeds(
-            self.logs
-                .as_ref()
-                .map(LogService::feeds)
-                .unwrap_or_default(),
-        )
+        .with_log_feeds(self.logs.as_ref().map_or_default(LogService::feeds))
         .with_fleet(FleetServices {
             registry: Arc::clone(&self.registry),
             poller: Arc::clone(&self.poller),

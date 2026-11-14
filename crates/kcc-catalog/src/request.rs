@@ -243,8 +243,7 @@ fn classify(catalog: &Catalog, path: &str, pointer: &str, protected: &mut Secret
         .redacted()
         .pointer(pointer)
         .and_then(Value::as_object)
-        .map(|object| object.keys().cloned().collect::<Vec<_>>())
-        .unwrap_or_default();
+        .map_or_default(|object| object.keys().cloned().collect::<Vec<_>>());
     for key in keys {
         let child_path = if path.is_empty() {
             key.clone()

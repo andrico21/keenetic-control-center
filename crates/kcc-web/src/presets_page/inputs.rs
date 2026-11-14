@@ -181,9 +181,7 @@ pub(super) async fn submit(
         Err(Refused::Apply(PresetApplyError::PlanNotReady)) => {
             visit.save().map_err(|error| internal(&error))?;
             let mut panel = Panel::new(&visit, &[]).await;
-            panel.blocked = kept
-                .map(|plan| blocked(&plan.items, &visit, locale))
-                .unwrap_or_default();
+            panel.blocked = kept.map_or_default(|plan| blocked(&plan.items, &visit, locale));
             Err(respond::unprocessable(&panel).into())
         }
         Err(Refused::Plan(error)) => {

@@ -188,10 +188,6 @@ async fn run(collection: Collection) {
 
 /// Polls bounded snapshots until cancellation.
 // cancel-safe: snapshot POST is a read operation and emitted records are independently deduped.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select macro expansion contains internal remainder arithmetic"
-)]
 async fn poll_loop(collection: &Collection, dedupe: &mut Window) {
     loop {
         tokio::select! {
@@ -242,10 +238,6 @@ async fn stream_loop(collection: &Collection, dedupe: &mut Window) {
 }
 
 /// Reads one stream until cancellation or a request failure.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select macro expansion contains internal remainder arithmetic"
-)]
 async fn consume_stream(
     collection: &Collection,
     dedupe: &mut Window,

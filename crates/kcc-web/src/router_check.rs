@@ -177,8 +177,7 @@ impl TestResult {
                     .join(" "),
                 firmware: info
                     .firmware
-                    .map(|firmware| firmware.to_string())
-                    .unwrap_or_default(),
+                    .map_or_default(|firmware| firmware.to_string()),
                 tier: match info.support_tier() {
                     SupportTier::HardwareVerified => keys::WEB_TIER_VERIFIED,
                     SupportTier::DocumentationBased => keys::WEB_TIER_DOCUMENTATION,

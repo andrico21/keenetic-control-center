@@ -226,13 +226,12 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
         services: root
             .get("service")
             .and_then(Value::as_array)
-            .map(|services| {
+            .map_or_default(|services| {
                 services
                     .iter()
                     .filter_map(|value| decode_opt(Some(value)))
                     .collect()
-            })
-            .unwrap_or_default(),
+            }),
     })
 }
 

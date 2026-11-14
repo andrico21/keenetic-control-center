@@ -46,10 +46,6 @@ use kcc_rci::{RciClient, SecretBytes, auth::Credentials};
 pub use raw::RawRestore;
 use serde_json::json;
 use tokio::sync::oneshot;
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "the task specifies ApplyError and matching public apply types"
-)]
 pub use types::{
     ApplyOptions, ApplyReport, ApplyRequest, ApplySource, ApplyWarning, Clock, StopPolicy,
     SystemClock, WireGuardPublicKey,

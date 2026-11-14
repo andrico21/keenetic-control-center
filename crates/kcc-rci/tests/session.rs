@@ -270,10 +270,10 @@ proptest! {
         let header = format!("{scheme} {key}=\"{value}\"");
         let first = WwwAuthenticate::parse(&header);
         prop_assert!(first.is_ok());
-        let canonical = first.map(|parsed| parsed.to_string()).unwrap_or_default();
+        let canonical = first.map_or_default(|parsed| parsed.to_string());
         let second = WwwAuthenticate::parse(&canonical);
         prop_assert!(second.is_ok());
-        prop_assert_eq!(second.map(|parsed| parsed.to_string()).unwrap_or_default(), canonical);
+        prop_assert_eq!(second.map_or_default(|parsed| parsed.to_string()), canonical);
     }
 
     /// Every arbitrary input is handled as either a parse result or a typed error, never a panic.

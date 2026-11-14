@@ -140,10 +140,9 @@ async fn rows(visit: &Visit<'_>, locale: Locale) -> Result<Vec<Row>, String> {
         .iter()
         .map(|item| {
             let fate = Fate::of(item, record.excluded().contains(&item.index));
-            let before = lines.get(item.index).map_or_else(
-                || item.expose_command().map(redacted).unwrap_or_default(),
-                shown,
-            );
+            let before = lines
+                .get(item.index)
+                .map_or_else(|| item.expose_command().map_or_default(redacted), shown);
             let after = item
                 .expose_result()
                 .map(redacted)

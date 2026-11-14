@@ -209,8 +209,7 @@ pub(super) fn missing_components(analysis: &Analysis, maps: &Maps) -> Vec<String
             &BTreeMap::default(),
             &BTreeSet::default(),
         )
-        .map(|items| component_names(&items))
-        .unwrap_or_default();
+        .map_or_default(|items| component_names(&items));
     names.sort();
     names.dedup();
     names

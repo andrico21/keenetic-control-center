@@ -143,8 +143,9 @@ impl Kind {
                 .ipsec
                 .as_ref()
                 .and_then(|ipsec| ipsec.profile.clone())
-                .map(|profile| vec![(Self::ProfileKey, profile.clone()), (Self::Xauth, profile)])
-                .unwrap_or_default(),
+                .map_or_default(|profile| {
+                    vec![(Self::ProfileKey, profile.clone()), (Self::Xauth, profile)]
+                }),
             VpnClientType::WireGuard
             | VpnClientType::OpenVpn
             | VpnClientType::ZeroTier

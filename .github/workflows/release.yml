@@ -90,7 +90,7 @@ jobs:
           persist-credentials: false
       - uses: dtolnay/rust-toolchain@7e38f4b43b4db5c8dd498af069a4f6196df1d067 # master
         with:
-          toolchain: 1.99.1
+          toolchain: 1.100.0
           targets: ${{ matrix.target }}
       - if: matrix.zigbuild
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1

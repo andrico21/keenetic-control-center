@@ -210,8 +210,7 @@ fn record(histories: &Histories, router: &str, point: TrafficPoint) {
 fn history_of(histories: &Histories, router: &str) -> Vec<TrafficPoint> {
     lock(histories)
         .get(router)
-        .map(|points| points.iter().copied().collect())
-        .unwrap_or_default()
+        .map_or_default(|points| points.iter().copied().collect())
 }
 
 /// The histories; a panic while holding the lock cannot leave a history unordered, so a

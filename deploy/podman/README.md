@@ -8,7 +8,7 @@ itself refuses to start as root (exit 77) and clears every capability set at sta
 
 | File | Purpose |
 |---|---|
-| `Containerfile` (repository root) | builder `rust:1.99.1-alpine` and runtime `distroless/static-debian13`, both pinned by digest |
+| `Containerfile` (repository root) | builder `rust:1.100.0-alpine` and runtime `distroless/static-debian13`, both pinned by digest |
 | `deploy/podman/kcc.container` | Quadlet unit for `systemctl --user` |
 | `deploy/podman/run.sh` | the same flags for a plain `podman run` |
 | `deploy/podman/kcc.toml.example` | configuration for the container layout |

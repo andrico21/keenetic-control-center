@@ -108,7 +108,7 @@ pub(crate) async fn read(mut fields: Multipart) -> Result<Submitted, MessageKey>
             Some("router") => found.router = field.text().await.map_err(|error| unread(&error))?,
             Some("backup") => found.backup = field.text().await.map_err(|error| unread(&error))?,
             Some("file") => {
-                let file_name = field.file_name().map(display_name).unwrap_or_default();
+                let file_name = field.file_name().map_or_default(display_name);
                 let bytes = field.bytes().await.map_err(|error| unread(&error))?;
                 if !bytes.is_empty() {
                     found.file = Some((file_name, bytes.to_vec()));

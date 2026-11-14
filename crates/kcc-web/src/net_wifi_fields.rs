@@ -242,8 +242,7 @@ impl Setting {
                 .catalog
                 .lookup("interface channel width")
                 .and_then(|command| command.arguments.get("width"))
-                .map(|argument| argument.values.clone())
-                .unwrap_or_default(),
+                .map_or_default(|argument| argument.values.clone()),
             Self::Ssid | Self::Security | Self::Channel | Self::Power | Self::Country => Vec::new(),
         }
     }

@@ -130,9 +130,7 @@ impl Shown {
         };
         Self::new(
             DhcpView::of_page(&page, router).unwrap_or(fallback),
-            Query::<TableQuery>::try_from_uri(&page)
-                .map(|Query(query)| query)
-                .unwrap_or_default(),
+            Query::<TableQuery>::try_from_uri(&page).map_or_default(|Query(query)| query),
         )
     }
 

@@ -112,8 +112,7 @@ pub(crate) fn audit(ctx: &Ctx, command: &AuditCommand) -> Outcome {
             let count = entries.len().to_string();
             let anchor = entries
                 .first()
-                .map(|entry| entry.prev_hash.as_str())
-                .unwrap_or_default();
+                .map_or_default(|entry| entry.prev_hash.as_str());
             out.emit(
                 &json!({ "valid": true, "entries": entries.len(), "anchor": anchor }),
                 &out.tr(keys::CLI_AUDIT_VALID, &[("count", &count)]),

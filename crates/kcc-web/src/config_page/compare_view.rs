@@ -73,8 +73,7 @@ impl CompareForm {
             title: keys::WEB_CONFIG_COMPARE_TITLE,
             from: choices
                 .first()
-                .map(|choice| choice.value.clone())
-                .unwrap_or_default(),
+                .map_or_default(|choice| choice.value.clone()),
             choices,
             to: RUNNING.to_owned(),
             split: false,

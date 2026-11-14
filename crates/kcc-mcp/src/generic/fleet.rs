@@ -170,8 +170,7 @@ pub(crate) async fn catalog_describe(
     let persisted_paths = catalog
         .lookup(&input.path)
         .filter(|command| command.persists_immediately)
-        .map(|_command| vec![input.path.clone()])
-        .unwrap_or_default();
+        .map_or_default(|_command| vec![input.path.clone()]);
     let persists = !persisted_paths.is_empty();
     Ok(labelled(
         json!({ "path": input.path, "schema": schema, "persisted_paths": persisted_paths }),

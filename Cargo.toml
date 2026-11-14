@@ -18,9 +18,8 @@ strip = "symbols"
 
 [workspace.package]
 edition = "2024"
-rust-version = "1.99.1"
+rust-version = "1.100.0"
 license = "MIT OR Apache-2.0"
-publish = false
 repository = "https://github.com/andrico21/keenetic-control-center"
 
 [workspace.lints.rust]

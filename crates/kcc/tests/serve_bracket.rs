@@ -6,12 +6,11 @@
 //! it has disarmed.
 #![cfg(unix)]
 #![expect(
-    clippy::integer_division_remainder_used,
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
     clippy::tests_outside_test_module,
-    reason = "integration tests drive the built process; tokio::select expands to `%`"
+    reason = "integration tests drive the built process"
 )]
 
 #[path = "serve_bracket/mcp.rs"]

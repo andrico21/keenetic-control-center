@@ -950,10 +950,7 @@ impl Shared {
                 segments.push(next.as_str());
                 params = deeper;
             }
-            let pairs = params
-                .as_object()
-                .map(tree::string_pairs)
-                .unwrap_or_default();
+            let pairs = params.as_object().map_or_default(tree::string_pairs);
             if let Some(found) = self.show(&segments.join("/"), tree::selector(&pairs)) {
                 let nested = segments.iter().skip(1).rev().fold(found, |inner, segment| {
                     let mut map = Map::new();

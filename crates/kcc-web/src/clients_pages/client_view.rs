@@ -125,12 +125,8 @@ impl View {
             return Self::default();
         };
         Self::new(
-            Query::<TableQuery>::try_from_uri(page)
-                .map(|Query(query)| query)
-                .unwrap_or_default(),
-            &Query::<FilterQuery>::try_from_uri(page)
-                .map(|Query(filters)| filters)
-                .unwrap_or_default(),
+            Query::<TableQuery>::try_from_uri(page).map_or_default(|Query(query)| query),
+            &Query::<FilterQuery>::try_from_uri(page).map_or_default(|Query(filters)| filters),
         )
     }
 

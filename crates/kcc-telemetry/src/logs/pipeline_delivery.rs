@@ -132,10 +132,6 @@ impl Worker {
 }
 
 /// Runs one sink worker.
-#[expect(
-    clippy::integer_division_remainder_used,
-    reason = "tokio::select expansion"
-)]
 pub(super) async fn worker(worker: Worker) {
     loop {
         if lock(&worker.queue).is_empty() {

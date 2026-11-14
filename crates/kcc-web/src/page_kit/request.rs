@@ -98,12 +98,11 @@ pub(crate) fn shown_uri(headers: &HeaderMap) -> Option<Uri> {
 pub(crate) fn shown_query(headers: &HeaderMap) -> TableQuery {
     let fields: Map<String, Value> = shown_url(headers)
         .and_then(|value| Url::parse(value).ok())
-        .map(|url| {
+        .map_or_default(|url| {
             url.query_pairs()
                 .map(|(name, value)| (name.into_owned(), Value::String(value.into_owned())))
                 .collect()
-        })
-        .unwrap_or_default();
+        });
     serde_json::from_value(Value::Object(fields)).unwrap_or_default()
 }
 

@@ -855,7 +855,7 @@ mod tests {
         assert_eq!(config_out.as_ref().err(), None, "config anonymizes");
         let output = format!(
             "{}\n{}",
-            json_out.map(|value| value.to_string()).unwrap_or_default(),
+            json_out.map_or_default(|value| value.to_string()),
             config_out.unwrap_or_default()
         );
         for original in originals() {

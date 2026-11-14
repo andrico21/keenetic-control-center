@@ -487,13 +487,10 @@ fn parse_section(
         || description_lower.contains("permanently stored");
     let synopsis_text = synopsis_block(lines);
     let synopsis = synopsis_text.as_deref().and_then(parse_synopsis);
-    let argument_names = synopsis_text
-        .as_deref()
-        .map(argument_names)
-        .unwrap_or_default();
+    let argument_names = synopsis_text.as_deref().map_or_default(argument_names);
     let mut arguments = parse_arguments(lines, &argument_names);
     if path.ends_with("security-level") && arguments.is_empty() {
-        let levels = synopsis.as_ref().map(security_levels).unwrap_or_default();
+        let levels = synopsis.as_ref().map_or_default(security_levels);
         if !levels.is_empty() {
             drop(arguments.insert("level".to_owned(), ValueType::Keyword(levels)));
         }

@@ -36,7 +36,7 @@ mod tests {
             "canonicalization must be idempotent"
         );
 
-        let lines = parsed.as_ref().map(flatten).unwrap_or_default();
+        let lines = parsed.as_ref().map_or_default(flatten);
         assert!(
             lines
                 .iter()
