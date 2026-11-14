@@ -509,3 +509,9 @@ This ensures we don't show an empty permission list when the real issue is the r
 - `crates/kcc-web/src/system_pages/jobs.rs`: -12 lines (local Toast removed), +3 lines (Toast usage updated)
 - 123 files: 164 trivial `impl Localize` → `localized!(Type);` replacements
 - 117 files: Imports updated to use `Localize as _` where only template trait bounds use it
+
+## [2026-11-14] Todo 30 progress
+- New kit module `page_kit/request.rs`: `Params` (new/of/get/text/object/confirmation), `last(pairs, name)` (the one last-value scan, untrimmed), `with_query`, `shown_url` (only HX-Current-URL reader), `shown_uri`, `shown_query`, `rendered`, `missing`. Pages import from `crate::page_kit::request`.
+- Kept on purpose: `table::pager::shown_page` (first `page` wins), `firewall_page::views::spot_of` (path match), system_pages `value`/`values`/`merged`, `secret_pages::dialog::plain_value`, `advanced::request::path_of` (trimming wrappers over `last`), `errors::refusal::missing`, `config_page::diff::missing`. dns_vpn flow builders renamed `with_table_query`.
+- Gotcha: a use-tree rewriter (flatten `use` statements, remap absolute paths, let rustfmt `imports_granularity=Crate` re-merge) made the ~100-file import move mechanical and re-runnable; qualified calls (`super::shared::x(`, `flow::shown_query(`) and items used inside their old home module need hand fixes after `cargo check`.
+- Golden net (333 pages) diff empty; clippy `absolute_paths` rejects `crate::a::b::f(` calls in bodies, import instead.

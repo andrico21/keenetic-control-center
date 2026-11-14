@@ -4,10 +4,11 @@ use kcc_domain::{vpn_clients, vpn_servers};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
-    form::{Choice, Errors, FormDialog, Values},
-    vpn_checks::{self, Planned},
+    form::{Choice, Errors, FormDialog},
+    vpn_checks,
+    vpn_checks::Planned,
 };
-use crate::page_kit::action::Operation;
+use crate::page_kit::{action::Operation, request::Params};
 
 /// A VPN server with an address pool and DNS servers of its own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -76,8 +77,8 @@ pub(crate) enum VpnForm {
 
 impl VpnForm {
     /// The dialog named by the route segment `slug`; a server's from the field `server`.
-    pub(crate) fn from_slug(slug: &str, values: &Values) -> Option<Self> {
-        let server = || Server::from_slug(values.get("server"));
+    pub(crate) fn from_slug(slug: &str, values: &Params) -> Option<Self> {
+        let server = || Server::from_slug(values.text("server"));
         match slug {
             "create" => Some(Self::Create),
             "import" => Some(Self::Import),
@@ -198,7 +199,7 @@ impl VpnForm {
     /// # Errors
     ///
     /// Returns every field whose value is not valid.
-    pub(crate) fn check(self, values: &Values) -> Result<Planned, Errors> {
+    pub(crate) fn check(self, values: &Params) -> Result<Planned, Errors> {
         vpn_checks::check(self, values)
     }
 }

@@ -25,8 +25,7 @@ use super::{
 };
 use crate::{
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls},
-    system_pages::shared::with_query,
+    page_kit::{context::fragment_shell, gate::Controls, request::with_query},
     table::rows::{Table, TableQuery},
 };
 

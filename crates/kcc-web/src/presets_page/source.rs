@@ -39,6 +39,7 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
+        request::last,
         respond::{self, Answer},
     },
 };
@@ -135,11 +136,7 @@ pub(super) async fn submit(
         return Ok(screen::moved(visit.record()));
     }
     let locale = user.locale();
-    let router = form
-        .iter()
-        .rev()
-        .find(|(name, _)| name == "router")
-        .map_or_else(String::new, |(_, value)| value.trim().to_owned());
+    let router = last(&form, "router").map_or_else(String::new, |value| value.trim().to_owned());
     let groups = form
         .iter()
         .filter(|(name, _)| name == "group")

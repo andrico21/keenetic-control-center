@@ -25,8 +25,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
 use super::{
-    flow,
-    form::{FormDialog, Values},
+    form::FormDialog,
     screen::Answered,
     vpn_conf,
     vpn_forms::VpnForm,
@@ -38,8 +37,14 @@ use crate::{
     authz::CurrentUser,
     errors,
     page_kit::{
-        action::Operation, change::Change, context::fragment_shell, failure::plan_failure,
-        family::Family, gate::allowed, respond::Answer,
+        action::Operation,
+        change::Change,
+        context::fragment_shell,
+        failure::plan_failure,
+        family::Family,
+        gate::allowed,
+        request::{Params, shown_query},
+        respond::Answer,
     },
     secret_pages::reply::confirmed,
 };
@@ -146,7 +151,7 @@ pub(crate) async fn import(
     }
     let viewer = Spot::Connections
         .viewer(&ctx, &user, &router)
-        .with_query(flow::shown_query(&headers));
+        .with_table_query(shown_query(&headers));
     let mut outcome = action.run(risk, Change::Cli(request)).await;
     if vpn_conf::keyed(&config) {
         outcome = confirmed(outcome, tr(locale, keys::WEB_SECRET_IMPORT_DONE, None));
@@ -166,7 +171,7 @@ pub(crate) async fn import(
 fn dialog(router: &str, locale: Locale, name: &str) -> FormDialog {
     VpnForm::Import
         .dialog(router, locale)
-        .values(&Values::new(vec![("name".to_owned(), name.to_owned())]))
+        .values(&Params::of(vec![("name".to_owned(), name.to_owned())]))
 }
 
 /// The import dialog with the size error, as 413.

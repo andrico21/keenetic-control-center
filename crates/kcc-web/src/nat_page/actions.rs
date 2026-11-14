@@ -23,15 +23,17 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    clients_pages::rendered,
-    net_change::{Params, missing},
     net_form::{Choice, FormDialog, Input},
-    page_kit::{action::Operation, outcome::Outcome, respond::Answer},
+    page_kit::{
+        action::Operation,
+        outcome::Outcome,
+        request::{Params, missing, rendered, shown_query, with_query},
+        respond::Answer,
+    },
     routing_page::{
         frame::interface_names,
         reply::{ConfirmDialog, answer, gone, unread},
     },
-    system_pages::shared::{shown_query, with_query},
 };
 
 /// A rule removed, audited as `web.nat_forward_remove`.

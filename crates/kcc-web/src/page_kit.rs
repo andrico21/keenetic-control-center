@@ -23,6 +23,8 @@
 //! - [`audit`]: one record per action with field names, never values.
 //! - [`facts`]: the router's catalog, cached, so validation never contacts the router.
 //! - [`respond`]: the htmx answers: redirects, retargets and the shared dialog.
+//! - [`request`]: what a page reads from a request: its parameters (the last value of a
+//!   name counts), the page the browser shows, and the addresses of its actions.
 //! - [`secret`] and [`reveal`]: write-only secret fields, and the audited Reveal action
 //!   that alone shows a stored secret.
 
@@ -37,6 +39,7 @@ pub(crate) mod failure;
 pub(crate) mod family;
 pub(crate) mod gate;
 pub(crate) mod outcome;
+pub(crate) mod request;
 pub(crate) mod respond;
 #[cfg_attr(
     not(test),

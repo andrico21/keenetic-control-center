@@ -22,7 +22,7 @@ use kcc_i18n::{
 
 use super::{
     schedules::{Viewer, read},
-    shared::{answer, missing, shown_query, value, values},
+    shared::{answer, value, values},
 };
 use crate::{
     WebState,
@@ -35,6 +35,7 @@ use crate::{
         context::fragment_shell,
         failure::plan_failure,
         family::Family,
+        request::{missing, shown_query},
         respond::{self, Answer},
     },
 };

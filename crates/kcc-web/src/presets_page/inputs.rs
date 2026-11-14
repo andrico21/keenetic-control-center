@@ -37,6 +37,7 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
+        request::last,
         respond::{self, Answer},
     },
 };
@@ -139,11 +140,7 @@ pub(super) async fn submit(
     let mut refused = Vec::new();
     for (index, name) in users.iter().enumerate() {
         let field = format!("password-{index}");
-        let typed = form
-            .iter()
-            .rev()
-            .find(|(key, _)| *key == field)
-            .map_or("", |(_, value)| value.as_str());
+        let typed = last(&form, &field).unwrap_or_default();
         let error = if typed.is_empty() {
             (!passwords.contains_key(name)).then_some(keys::WEB_MIGRATE_INPUTS_PASSWORD_MISSING)
         } else if typed.chars().count() > PASSWORD_MAX || typed.chars().any(char::is_control) {

@@ -40,9 +40,10 @@ use crate::{
         context,
         family::Family,
         outcome::{Failure, Outcome},
+        request::with_query,
         respond::Answer,
     },
-    system_pages::shared::{answer, with_query},
+    system_pages::shared::answer,
 };
 
 /// Path of the migration wizard (todo 43).

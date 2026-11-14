@@ -11,8 +11,9 @@ use super::{
     region::{Panel, Region},
     vpn_forms::Server,
     vpn_read::shown,
-    vpn_tabs::{state, with_query},
+    vpn_tabs::state,
 };
+use crate::page_kit::request::with_query;
 
 /// Whether the router service `name` is on.
 fn running(status: &VpnServerStatus, name: &str) -> bool {
@@ -50,11 +51,10 @@ fn server_panel(
     };
     let edit = |form: &str| {
         viewer.allows(operation.0).then(|| {
-            with_query(
-                viewer,
+            viewer.href(&with_query(
                 &format!("vpn/form/{form}"),
                 &[("server", server.slug())],
-            )
+            ))
         })
     };
     let panel = Panel::new(locale, &format!("vpn-{}", server.slug()), server.title())

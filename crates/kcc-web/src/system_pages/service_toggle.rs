@@ -16,7 +16,7 @@ use kcc_domain::{configuration::SafetyNet, services};
 
 use super::{
     services::{Viewer, known},
-    shared::{answer, forbidden, merged, missing, shown_query, value, with_query},
+    shared::{answer, forbidden, merged, value},
 };
 use crate::{
     WebState,
@@ -29,6 +29,7 @@ use crate::{
         family::Family,
         gate::allowed,
         outcome::Outcome,
+        request::{missing, shown_query, with_query},
         respond::Answer,
     },
 };

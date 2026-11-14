@@ -22,16 +22,19 @@ use crate::{
     WebState,
     authz::CurrentUser,
     dashboard, errors,
-    net_change::{Params, missing, scalar, with_query},
+    net_change::scalar,
     net_interface_line::Line,
     net_interface_traffic::statistics,
     net_settings::Fact,
     page::{Localize as _, Shell},
     page_kit::{
-        context::{self, fragment_shell},
+        context,
+        context::fragment_shell,
         family::Family,
         gate::Controls,
-        respond::{self, Answer},
+        request::{Params, missing, with_query},
+        respond,
+        respond::Answer,
     },
 };
 

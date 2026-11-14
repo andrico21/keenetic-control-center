@@ -2,13 +2,10 @@
 //! built for, and running a planned change, answered with its outcome and the region
 //! read back.
 
-use axum::http::HeaderMap;
 use kcc_app::workflow::CliChangeRequest;
 use kcc_catalog::Risk;
 use kcc_domain::{OperationDescriptor, RouterCtx};
 use kcc_i18n::{bundle::tr, locale::Locale};
-use serde_json::{Map, Value};
-use url::Url;
 
 use super::{
     cells::Act,
@@ -57,7 +54,7 @@ impl<'call> Visit<'call> {
     }
 
     /// The table shows what `query` asks for.
-    pub(crate) fn with_query(mut self, query: TableQuery) -> Self {
+    pub(crate) fn with_table_query(mut self, query: TableQuery) -> Self {
         self.query = query;
         self
     }
@@ -99,7 +96,8 @@ impl<'call> Visit<'call> {
             Ok((facts, ctx)) => {
                 let controls = Controls::new(self.user.role(), self.router)
                     .with_operations(operations, Some(facts.catalog()));
-                let viewer = Viewer::new(self.router, locale, controls).with_query(self.query);
+                let viewer =
+                    Viewer::new(self.router, locale, controls).with_table_query(self.query);
                 Ok((ctx, viewer))
             }
             Err(error) => Err(Closed::Unreadable(tr(
@@ -145,7 +143,7 @@ impl Viewer {
     }
 
     /// The table shows what `query` asks for.
-    pub(crate) fn with_query(mut self, query: TableQuery) -> Self {
+    pub(crate) fn with_table_query(mut self, query: TableQuery) -> Self {
         self.query = query;
         self
     }
@@ -169,23 +167,6 @@ impl Viewer {
     pub(crate) fn href(&self, path: &str) -> String {
         format!("/ui/r/{}/{path}", self.router)
     }
-}
-
-/// The table query of the page the browser shows, from htmx's `HX-Current-URL`, so a
-/// region read back after a change keeps its filter, sort and page.
-pub(crate) fn shown_query(headers: &HeaderMap) -> TableQuery {
-    let pairs: Map<String, Value> = headers
-        .get("hx-current-url")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| Url::parse(value).ok())
-        .map(|url| {
-            url.query_pairs()
-                .filter(|(name, _)| matches!(name.as_ref(), "q" | "sort" | "dir" | "page"))
-                .map(|(name, value)| (name.into_owned(), Value::String(value.into_owned())))
-                .collect()
-        })
-        .unwrap_or_default();
-    serde_json::from_value(Value::Object(pairs)).unwrap_or_default()
 }
 
 /// Runs `request` for `action` and answers with its outcome; after a success the region

@@ -28,18 +28,21 @@
 
 use axum::{
     Router,
-    extract::Query,
-    http::{HeaderMap, Uri},
+    http::HeaderMap,
     routing::{get, post},
 };
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use crate::{
-    WebState, authz::CurrentUser, nav::Section, net_interface_actions, net_interface_detail,
-    net_interface_edits, net_interface_traffic, net_interfaces, net_internet, net_internet_address,
-    net_internet_create, net_internet_delete, net_internet_edit, net_internet_order,
-    net_internet_settings, net_mesh, net_wifi, net_wifi_edit, net_wifi_settings,
-    page_kit::gate::Controls, table::rows::TableQuery,
+    WebState,
+    authz::CurrentUser,
+    nav::Section,
+    net_interface_actions, net_interface_detail, net_interface_edits, net_interface_traffic,
+    net_interfaces, net_internet, net_internet_address, net_internet_create, net_internet_delete,
+    net_internet_edit, net_internet_order, net_internet_settings, net_mesh, net_wifi,
+    net_wifi_edit, net_wifi_settings,
+    page_kit::{gate::Controls, request},
+    table::rows::TableQuery,
 };
 
 /// The routes of the network pages.
@@ -291,15 +294,10 @@ impl<'call> Call<'call> {
         self.tab
     }
 
-    /// The table query of the page the browser shows (`HX-Current-URL`), so a table sent
-    /// again after a change keeps its filter, order and page.
+    /// The table query of the page the browser shows, so a table sent again after a
+    /// change keeps its filter, order and page.
     pub(crate) fn shown_query(self) -> TableQuery {
-        self.headers
-            .get("hx-current-url")
-            .and_then(|value| value.to_str().ok())
-            .and_then(|value| value.parse::<Uri>().ok())
-            .and_then(|uri| Query::<TableQuery>::try_from_uri(&uri).ok())
-            .map_or_else(TableQuery::default, |Query(query)| query)
+        request::shown_query(self.headers)
     }
 
     /// Who reads the page, with what the role may change there.

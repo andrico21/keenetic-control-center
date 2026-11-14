@@ -24,15 +24,16 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    net_change::{rendered, with_query},
     net_pages::{Call, Tab, Tabs, Viewer},
     net_wifi_rows::{ApRow, RadioRow, access_points, radios},
     net_wifi_stations::{StationRow, stations},
     page::{Localize as _, Shell},
     page_kit::{
-        context::{self, Caller, fragment_shell},
+        context,
+        context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
+        request::{rendered, with_query},
     },
     table::rows::{Table, TableQuery},
 };

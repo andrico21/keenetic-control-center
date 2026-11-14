@@ -31,8 +31,6 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    clients_pages::rendered,
-    net_change::Params,
     net_form::{Choice, FormDialog, Input},
     page_kit::{
         action::{Action, Operation},
@@ -40,13 +38,13 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
+        request::{Params, rendered, shown_query},
         respond::Answer,
     },
     routing_page::{
         frame::{interface_names, workflow_error},
         reply::{answer, unread},
     },
-    system_pages::shared::shown_query,
 };
 
 /// A rule added, audited as `web.nat_forward_add`.

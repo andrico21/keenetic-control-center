@@ -20,7 +20,7 @@ use kcc_domain::{RouterCtx, router_users};
 use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
-    shared::{Visit, profile_login, rendered},
+    shared::{Visit, profile_login},
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -28,7 +28,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        request::{rendered, with_query},
+    },
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
@@ -155,7 +159,7 @@ impl Account {
 impl Region {
     /// The tag dialog of `account`.
     fn tags_url(&self, account: &Account) -> String {
-        super::shared::with_query(
+        with_query(
             &format!("/ui/r/{}/system/users/tags", self.router),
             &[("name", &account.name)],
         )
@@ -163,7 +167,7 @@ impl Region {
 
     /// The delete dialog of `account`.
     fn delete_url(&self, account: &Account) -> String {
-        super::shared::with_query(
+        with_query(
             &format!("/ui/r/{}/system/users/delete", self.router),
             &[("name", &account.name)],
         )
@@ -171,7 +175,7 @@ impl Region {
 
     /// The password dialog of `account`.
     fn password_url(&self, account: &Account) -> String {
-        super::shared::with_query(
+        with_query(
             &format!("/ui/r/{}/system/users/password", self.router),
             &[("name", &account.name)],
         )

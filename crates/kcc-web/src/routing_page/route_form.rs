@@ -11,8 +11,8 @@ use kcc_i18n::{
 
 use super::route_rows::{Family, StaticRoute, mask, prefix};
 use crate::{
-    net_change::Params,
     net_form::{Choice, FormDialog, Input},
+    page_kit::request::Params,
 };
 
 /// The field naming the destination of `family`.

@@ -22,10 +22,13 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Params, missing},
     net_form::{Choice, FormDialog, Input},
-    page_kit::{action::Operation, respond::Answer},
-    system_pages::shared::{merged, value, with_query},
+    page_kit::{
+        action::Operation,
+        request::{Params, missing, with_query},
+        respond::Answer,
+    },
+    system_pages::shared::{merged, value},
 };
 
 /// A rule's description, audited as `web.firewall_rule_description`.

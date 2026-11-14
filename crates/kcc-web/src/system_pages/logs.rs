@@ -22,7 +22,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
     log_source::source,
-    shared::{Visit, value, with_query},
+    shared::{Visit, value},
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -34,6 +34,7 @@ use crate::{
     page_kit::{
         audit::Record,
         context::{self, fragment_shell},
+        request::with_query,
     },
 };
 

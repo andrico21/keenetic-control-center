@@ -9,10 +9,9 @@ use kcc_domain::{
 };
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
-use super::rendered;
 use crate::{
     page::{Localize as _, Shell},
-    page_kit::context::fragment_shell,
+    page_kit::{context::fragment_shell, request::rendered},
 };
 
 /// One segment as the list shows it.

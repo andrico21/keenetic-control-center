@@ -9,6 +9,8 @@ use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use url::{Url, form_urlencoded};
 
+use crate::page_kit::request;
+
 /// Rows per table page.
 pub const PAGE_ROWS: usize = 50;
 
@@ -100,9 +102,7 @@ impl Pager {
 #[inline]
 #[must_use]
 pub fn shown_page(headers: &HeaderMap) -> usize {
-    headers
-        .get("hx-current-url")
-        .and_then(|value| value.to_str().ok())
+    request::shown_url(headers)
         .and_then(|value| Url::parse(value).ok())
         .and_then(|url| {
             url.query_pairs()

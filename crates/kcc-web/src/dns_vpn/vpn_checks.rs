@@ -12,11 +12,15 @@ use kcc_domain::{
 use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
-    check::{self, Optional},
-    form::{Errors, Values},
+    check,
+    check::Optional,
+    form::Errors,
     vpn_forms::{Server, VpnForm},
 };
-use crate::{authz::CurrentUser, page_kit::gate::allowed};
+use crate::{
+    authz::CurrentUser,
+    page_kit::{gate::allowed, request::Params},
+};
 
 /// Checked VPN changes, ready to plan.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -107,7 +111,7 @@ fn merge(aggregate: &mut Option<ChangeOp>, mut operation: ChangeOp) {
 /// # Errors
 ///
 /// Returns every field whose value is not valid.
-pub(crate) fn check(form: VpnForm, values: &Values) -> Result<Planned, Errors> {
+pub(crate) fn check(form: VpnForm, values: &Params) -> Result<Planned, Errors> {
     let mut errors = Errors::new();
     let planned = match form {
         VpnForm::Create | VpnForm::Import => created(values, &mut errors),
@@ -116,12 +120,12 @@ pub(crate) fn check(form: VpnForm, values: &Values) -> Result<Planned, Errors> {
             let begin = required(
                 &mut errors,
                 ("begin", keys::WEB_DNS_ERROR_ADDRESS),
-                check::ip(values.get("begin")),
+                check::ip(values.text("begin")),
             );
             let size = optional(
                 &mut errors,
                 ("size", keys::WEB_VPN_ERROR_SIZE),
-                check::optional_number(values.get("size"), 1),
+                check::optional_number(values.text("size"), 1),
             );
             Planned::Servers(vec![match server {
                 Server::Vpn => VpnServerChange::VpnPool { begin, size },
@@ -133,7 +137,7 @@ pub(crate) fn check(form: VpnForm, values: &Values) -> Result<Planned, Errors> {
             let primary = required(
                 &mut errors,
                 ("primary", keys::WEB_DNS_ERROR_ADDRESS),
-                check::ip(values.get("primary")),
+                check::ip(values.text("primary")),
             );
             let secondary = optional_ip(&mut errors, "secondary", values);
             Planned::Servers(vec![match server {
@@ -176,22 +180,22 @@ fn optional<T>(
 }
 
 /// The optional IP address in the field `name`.
-fn optional_ip(errors: &mut Errors, name: &'static str, values: &Values) -> Option<String> {
-    let parsed = check::optional(values.get(name), check::ip);
+fn optional_ip(errors: &mut Errors, name: &'static str, values: &Params) -> Option<String> {
+    let parsed = check::optional(values.text(name), check::ip);
     optional(errors, (name, keys::WEB_DNS_ERROR_ADDRESS), parsed)
 }
 
 /// A new WireGuard connection: created, with a router-generated key and the optional port.
-fn created(values: &Values, errors: &mut Errors) -> Planned {
+fn created(values: &Params, errors: &mut Errors) -> Planned {
     let name = required(
         errors,
         ("name", keys::WEB_VPN_ERROR_NAME),
-        check::tunnel(values.get("name")),
+        check::tunnel(values.text("name")),
     );
     let port = optional(
         errors,
         ("port", keys::WEB_DNS_ERROR_PORT),
-        check::port(values.get("port")),
+        check::port(values.text("port")),
     );
     let mut changes = vec![
         VpnClientChange::Create { name: name.clone() },
@@ -204,27 +208,27 @@ fn created(values: &Values, errors: &mut Errors) -> Planned {
 }
 
 /// A WireGuard peer: its key, then the endpoint, allowed ranges and keepalive given.
-fn peer(values: &Values, errors: &mut Errors) -> Planned {
+fn peer(values: &Params, errors: &mut Errors) -> Planned {
     let name = required(
         errors,
         ("tunnel", keys::WEB_VPN_ERROR_NAME),
-        check::tunnel(values.get("tunnel")),
+        check::tunnel(values.text("tunnel")),
     );
     let public_key = required(
         errors,
         ("key", keys::WEB_VPN_ERROR_KEY),
-        check::wireguard_key(values.get("key")),
+        check::wireguard_key(values.text("key")),
     );
-    let parsed = check::optional(values.get("endpoint"), check::endpoint);
+    let parsed = check::optional(values.text("endpoint"), check::endpoint);
     let endpoint = optional(errors, ("endpoint", keys::WEB_VPN_ERROR_ENDPOINT), parsed);
-    let ranges = check::ipv4_ranges(values.get("allowed"));
+    let ranges = check::ipv4_ranges(values.text("allowed"));
     if ranges.is_none() {
         errors.push(("allowed", keys::WEB_VPN_ERROR_ALLOWED));
     }
     let keepalive = optional(
         errors,
         ("keepalive", keys::WEB_VPN_ERROR_KEEPALIVE),
-        check::optional_number(values.get("keepalive"), 1),
+        check::optional_number(values.text("keepalive"), 1),
     );
     let mut changes = vec![VpnClientChange::WireGuardPeer {
         name: name.clone(),
@@ -257,18 +261,18 @@ fn peer(values: &Values, errors: &mut Errors) -> Planned {
 }
 
 /// The IPsec/IKEv2 virtual IP settings of one crypto map.
-fn ipsec(values: &Values, errors: &mut Errors) -> Planned {
+fn ipsec(values: &Params, errors: &mut Errors) -> Planned {
     let name = required(
         errors,
         ("map", keys::WEB_VPN_ERROR_MAP),
-        check::object(values.get("map")),
+        check::object(values.text("map")),
     );
-    let enabled = values.get("enabled") != "off";
+    let enabled = values.text("enabled") != "off";
     let begin = optional_ip(errors, "begin", values);
     let size = optional(
         errors,
         ("size", keys::WEB_VPN_ERROR_SIZE),
-        check::optional_number(values.get("size"), 1),
+        check::optional_number(values.text("size"), 1),
     );
     let primary = optional_ip(errors, "primary", values);
     let secondary = optional_ip(errors, "secondary", values);

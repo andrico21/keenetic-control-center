@@ -18,7 +18,6 @@ use super::{
     answer,
     client_act::{Act, Input},
     client_view::View,
-    current_page, missing, rendered,
 };
 use crate::{
     WebState,
@@ -31,6 +30,7 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::{Failure, Outcome},
+        request::{missing, rendered, shown_uri},
         respond::{self, Answer},
     },
 };
@@ -211,7 +211,7 @@ async fn read_back(
         .ok()?;
     let controls = Controls::new(user.role(), router)
         .with_operations(clients::DESCRIPTOR.write_ops, Some(&domain.catalog));
-    let region = View::of_page(current_page(headers).as_ref())
+    let region = View::of_page(shown_uri(headers).as_ref())
         .region(user.locale(), router.to_owned(), list)
         .with_controls(controls)
         .out_of_band();

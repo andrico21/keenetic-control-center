@@ -27,11 +27,11 @@ use kcc_rci::ObjectName;
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Params, Planned, finish, merged},
+    net_change::{Planned, finish, merged},
     net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Kind, Link, links},
-    page_kit::{action::Operation, respond::Answer},
+    page_kit::{action::Operation, request::Params, respond::Answer},
 };
 
 /// Adding a connection, audited as `web.wan_create`.

@@ -8,8 +8,8 @@ use kcc_i18n::{bundle::tr, keys};
 use super::{lists_region::direction_label, snapshot::Binding};
 use crate::{
     page::{Localize as _, Shell},
+    page_kit::request::with_query,
     routing_page::frame::protocol_text,
-    system_pages::shared::with_query,
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table},

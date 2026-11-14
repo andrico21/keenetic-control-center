@@ -9,11 +9,11 @@ use kcc_domain::{Result as DomainResult, RouterCtx, vpn_clients};
 use kcc_i18n::keys;
 use secrecy::{ExposeSecret as _, SecretString};
 
-use super::{
-    check::is_wireguard_key,
-    form::{Errors, Values},
+use super::{check::is_wireguard_key, form::Errors};
+use crate::{
+    page_kit::{request::Params, secret::write_only},
+    secret_pages::dialog::take,
 };
-use crate::{page_kit::secret::write_only, secret_pages::dialog::take};
 
 /// The form field of the key.
 const FIELD: &str = "psk";
@@ -46,10 +46,10 @@ pub(crate) struct PeerKey {
 
 impl PeerKey {
     /// The key `psk` for the peer the dialog's checked `values` name.
-    pub(crate) fn new(values: &Values, psk: SecretString) -> Self {
+    pub(crate) fn new(values: &Params, psk: SecretString) -> Self {
         Self {
-            tunnel: values.get("tunnel").trim().to_owned(),
-            public_key: values.get("key").trim().to_owned(),
+            tunnel: values.text("tunnel").trim().to_owned(),
+            public_key: values.text("key").trim().to_owned(),
             psk,
         }
     }

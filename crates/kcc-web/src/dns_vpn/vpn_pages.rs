@@ -13,14 +13,14 @@ use kcc_i18n::{bundle::tr, keys};
 
 use super::{
     cells::Act,
-    check,
-    flow::{self, Closed, Viewer, Visit},
-    form::Values,
+    check, flow,
+    flow::{Closed, Viewer, Visit},
     region::Region,
-    screen::{Page, Tab, missing},
+    screen::{Page, Tab},
     vpn_checks,
     vpn_forms::VpnForm,
-    vpn_peer_psk::{self, PeerKey},
+    vpn_peer_psk,
+    vpn_peer_psk::PeerKey,
     vpn_read::{exists, free_wireguard},
     vpn_servers_tab, vpn_tabs,
 };
@@ -34,6 +34,7 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::Outcome,
+        request::{Params, missing, shown_query},
         respond::{self, Answer},
     },
     table::rows::TableQuery,
@@ -78,7 +79,7 @@ pub(crate) async fn connections(
 ) -> Response {
     let caller = Caller::new(&headers, &current, &user);
     show(
-        Visit::new(&state, &user, &router).with_query(query),
+        Visit::new(&state, &user, &router).with_table_query(query),
         caller,
         Spot::Connections,
     )
@@ -107,7 +108,7 @@ pub(crate) async fn peers(
     user: CurrentUser,
 ) -> Response {
     let caller = Caller::new(&headers, &current, &user);
-    let visit = Visit::new(&state, &user, &router).with_query(query);
+    let visit = Visit::new(&state, &user, &router).with_table_query(query);
     match check::tunnel(&tunnel) {
         Some(name) => show(visit, caller, Spot::Peers(name)).await,
         None => errors::response(Kind::NotFound, visit.shell(caller, Tab::Connections).await),
@@ -195,7 +196,7 @@ pub(crate) async fn dialog(
     Query(mut prefill): Query<Vec<(String, String)>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
-    let form = VpnForm::from_slug(&slug, &Values::new(prefill.clone())).ok_or_else(missing)?;
+    let form = VpnForm::from_slug(&slug, &Params::of(prefill.clone())).ok_or_else(missing)?;
     let action = form.operation().open(&state, &user, &router).await?;
     let locale = action.locale();
     if matches!(form, VpnForm::Create | VpnForm::Import) {
@@ -211,7 +212,7 @@ pub(crate) async fn dialog(
     }
     Ok(form
         .dialog(&router, locale)
-        .values(&Values::new(prefill))
+        .values(&Params::of(prefill))
         .show())
 }
 
@@ -232,7 +233,7 @@ pub(crate) async fn submit(
     Form(mut pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
     let psk = vpn_peer_psk::typed(&mut pairs);
-    let values = Values::new(pairs);
+    let values = Params::of(pairs);
     let form = VpnForm::from_slug(&slug, &values)
         .filter(|found| *found != VpnForm::Import)
         .ok_or_else(missing)?;
@@ -255,7 +256,7 @@ pub(crate) async fn submit(
     let ctx = action.context().await?;
     // A new connection never reuses a name: that would regenerate a live tunnel's key.
     let taken = match form {
-        VpnForm::Create => exists(&ctx, values.get("name").trim()).await,
+        VpnForm::Create => exists(&ctx, values.text("name").trim()).await,
         VpnForm::Import | VpnForm::Peer | VpnForm::Pool(_) | VpnForm::Dns(_) | VpnForm::Ipsec => {
             Ok(false)
         }
@@ -295,13 +296,13 @@ pub(crate) async fn submit(
         return Err(errors::response(Kind::Forbidden, fragment_shell(locale)).into());
     }
     let spot = match form {
-        VpnForm::Peer => Spot::Peers(values.get("tunnel").trim().to_owned()),
+        VpnForm::Peer => Spot::Peers(values.text("tunnel").trim().to_owned()),
         VpnForm::Create | VpnForm::Import => Spot::Connections,
         VpnForm::Pool(_) | VpnForm::Dns(_) | VpnForm::Ipsec => Spot::Servers,
     };
     let viewer = spot
         .viewer(&ctx, &user, &router)
-        .with_query(flow::shown_query(&headers));
+        .with_table_query(shown_query(&headers));
     let (request, risk) = request_plan.into_parts();
     let answered = flow::apply(action, request, risk, async || {
         region(&ctx, &spot, &viewer).await

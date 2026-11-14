@@ -18,11 +18,11 @@ use super::{
     cells::Act,
     dns_forms::{Choices, DnsForm},
     dns_read::{DnsState, Entry},
-    dns_tabs,
-    flow::{self, Closed, Viewer, Visit},
-    form::{FormDialog, Values},
+    dns_tabs, flow,
+    flow::{Closed, Viewer, Visit},
+    form::FormDialog,
     region::Region,
-    screen::{Answered, Page, Tab, missing},
+    screen::{Answered, Page, Tab},
 };
 use crate::{
     WebState,
@@ -35,6 +35,7 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::Outcome,
+        request::{Params, missing, shown_query},
         respond::{self, Answer},
     },
     table::rows::TableQuery,
@@ -54,7 +55,7 @@ pub(crate) async fn servers(
 ) -> Response {
     let caller = Caller::new(&headers, &current, &user);
     show(
-        Visit::new(&state, &user, &router).with_query(query),
+        Visit::new(&state, &user, &router).with_table_query(query),
         caller,
         Tab::Servers,
     )
@@ -71,7 +72,7 @@ pub(crate) async fn tab(
     user: CurrentUser,
 ) -> Response {
     let caller = Caller::new(&headers, &current, &user);
-    let visit = Visit::new(&state, &user, &router).with_query(query);
+    let visit = Visit::new(&state, &user, &router).with_table_query(query);
     match Tab::dns(&slug) {
         Some(found) => show(visit, caller, found).await,
         None => errors::response(Kind::NotFound, visit.shell(caller, Tab::Servers).await),
@@ -121,7 +122,7 @@ pub(crate) async fn dialog(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let form = DnsForm::from_slug(&slug).ok_or_else(missing)?;
-    let values = Values::new(prefill);
+    let values = Params::of(prefill);
     let action = form.operation(&values).open(&state, &user, &router).await?;
     Ok(again(form, &action, &values).await?.show())
 }
@@ -141,7 +142,7 @@ pub(crate) async fn submit(
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
     let form = DnsForm::from_slug(&slug).ok_or_else(missing)?;
-    let values = Values::new(pairs);
+    let values = Params::of(pairs);
     let action = form.operation(&values).open(&state, &user, &router).await?;
     let locale = action.locale();
     let planned = match form.check(&values) {
@@ -166,7 +167,7 @@ pub(crate) async fn submit(
         }
     };
     let viewer = Viewer::new(&router, locale, controls(&ctx, &user, &router))
-        .with_query(flow::shown_query(&headers));
+        .with_table_query(shown_query(&headers));
     let answered = flow::apply(action, request, Risk::Write, async || {
         region(&ctx, form.tab(), &viewer).await
     });
@@ -185,10 +186,10 @@ pub(crate) async fn intercept(
     user: CurrentUser,
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
-    let values = Values::new(pairs);
+    let values = Params::of(pairs);
     let action = INTERCEPT.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let enabled = match values.get("enabled") {
+    let enabled = match values.text("enabled") {
         "on" => true,
         "off" => false,
         _ => {
@@ -209,7 +210,7 @@ pub(crate) async fn intercept(
         }
     };
     let viewer = Viewer::new(&router, locale, controls(&ctx, &user, &router))
-        .with_query(flow::shown_query(&headers));
+        .with_table_query(shown_query(&headers));
     let answered = flow::apply(action, request, Risk::Write, async || {
         region(&ctx, Tab::Filtering, &viewer).await
     });
@@ -229,7 +230,7 @@ fn controls(ctx: &RouterCtx, user: &CurrentUser, router: &str) -> Controls {
 ///
 /// Answers the failure, in the page's outcome region, when the router cannot be read.
 // cancel-safe: reads only.
-async fn again(form: DnsForm, action: &Action<'_>, values: &Values) -> Result<FormDialog, Answer> {
+async fn again(form: DnsForm, action: &Action<'_>, values: &Params) -> Result<FormDialog, Answer> {
     let locale = action.locale();
     let choices = if form.reads_choices() {
         let ctx = action.context().await?;

@@ -1,17 +1,10 @@
-//! What the actions of the network pages share: their parameters, how a planned change
-//! runs and is answered, and the reading of router values.
-//!
-//! The parameters of an action are its query string and its form body together
-//! ([`Params`]), so the confirmation dialog of a change made from another dialog can send
-//! the values again from its own address.
+//! What the actions of the network pages share: how a planned change runs and is
+//! answered, and the reading of router values.
 
 use core::net::Ipv4Addr;
 
 use askama::Template;
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse as _, Response},
-};
+use axum::response::Response;
 use fluent_bundle::FluentArgs;
 use kcc_app::workflow::CliChangeRequest;
 use kcc_catalog::Risk;
@@ -23,7 +16,6 @@ use kcc_i18n::{
 };
 use kcc_rci::ObjectName;
 use serde_json::Value;
-use url::form_urlencoded;
 
 use crate::{
     WebState,
@@ -35,57 +27,17 @@ use crate::{
     page_kit::{
         action::Action,
         change::Change,
-        confirm::Confirmation,
-        context::{self, fragment_shell},
+        context,
+        context::fragment_shell,
         facts::RouterFacts,
         failure::plan_failure,
         family::Family,
         outcome::{Failure, Outcome, with_status},
-        respond::{self, Answer},
+        request::with_query,
+        respond,
+        respond::Answer,
     },
 };
-
-/// The parameters of an action: its query string, then its form body; the last value of
-/// a name counts.
-#[derive(Debug, Default)]
-pub(crate) struct Params(Vec<(String, String)>);
-
-impl Params {
-    /// The parameters of a request with `query` and `form`.
-    pub(crate) fn new(query: Vec<(String, String)>, form: Vec<(String, String)>) -> Self {
-        Self(query.into_iter().chain(form).collect())
-    }
-
-    /// The value of `name`.
-    pub(crate) fn get(&self, name: &str) -> Option<&str> {
-        self.0
-            .iter()
-            .rev()
-            .find(|(key, _)| key == name)
-            .map(|(_, value)| value.as_str())
-    }
-
-    /// The value of `name`, empty when absent.
-    pub(crate) fn text(&self, name: &str) -> &str {
-        self.get(name).unwrap_or_default()
-    }
-
-    /// The object named by `name`.
-    ///
-    /// # Errors
-    ///
-    /// Answers 404 when the name is absent or is not a valid object name.
-    pub(crate) fn object(&self, name: &str) -> Result<ObjectName, Answer> {
-        self.get(name)
-            .and_then(|value| ObjectName::try_from(value.to_owned()).ok())
-            .ok_or_else(missing)
-    }
-
-    /// The confirmation the request carries.
-    pub(crate) fn confirmation(&self) -> Confirmation {
-        Confirmation::from_pairs(&self.0)
-    }
-}
 
 /// The object a dialog or a change is about, in the reader's language.
 #[derive(Debug, Clone, Copy)]
@@ -132,20 +84,6 @@ impl<'call> Subject<'call> {
     pub(crate) fn text(self, key: MessageKey) -> String {
         tr(self.locale, key, None)
     }
-}
-
-/// `path` with `pairs` as its query string.
-pub(crate) fn with_query(path: &str, pairs: &[(&str, &str)]) -> String {
-    let mut query = form_urlencoded::Serializer::new(String::new());
-    for (name, value) in pairs {
-        let _: &mut form_urlencoded::Serializer<'_, String> = query.append_pair(name, value);
-    }
-    format!("{path}?{}", query.finish())
-}
-
-/// The answer to a request naming an object or a value the page does not have.
-pub(crate) fn missing() -> Answer {
-    StatusCode::NOT_FOUND.into_response().into()
 }
 
 /// The router of a read-only dialog: its catalog facts and the context to read with.
@@ -260,18 +198,6 @@ pub(crate) fn merged(requests: Vec<CliChangeRequest>) -> Result<CliChangeRequest
         first.verify.extend(request.verify);
     }
     Ok(first)
-}
-
-/// `region` rendered for an out-of-band refresh; a failed render is logged and leaves the
-/// page as it is.
-pub(crate) fn rendered<T>(region: &T) -> Option<String>
-where
-    T: Template,
-{
-    region
-        .render()
-        .inspect_err(|error| tracing::error!(%error, "network page region failed to render"))
-        .ok()
 }
 
 /// A string or a number of a router answer as text; an empty string or any other value is

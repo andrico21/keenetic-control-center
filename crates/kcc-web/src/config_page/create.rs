@@ -29,9 +29,9 @@ use crate::{
         failure::rci_failure,
         family::Family,
         outcome::{Failure, Outcome},
+        request::{missing, with_query},
         respond::Answer,
     },
-    system_pages::shared::{missing, with_query},
 };
 
 /// The backup a request names.

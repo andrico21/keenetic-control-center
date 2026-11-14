@@ -29,6 +29,7 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
+        request::last,
         respond::{self, Answer},
     },
 };
@@ -140,11 +141,7 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usiz
             .get(index)
             .is_some_and(|item| item.output.is_some() || item.needed_input.is_some());
         let field = format!("resolve-{index}");
-        let chosen = form
-            .iter()
-            .rev()
-            .find(|(name, _)| *name == field)
-            .map(|(_, value)| value.as_str());
+        let chosen = last(form, &field);
         match (classified.conflicts(index), chosen, excludable) {
             (true, Some("source"), _) => visit.record_mut().decide(index, false, true),
             (true, Some("router"), _) => visit.record_mut().decide(index, true, false),

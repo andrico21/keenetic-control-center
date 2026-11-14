@@ -2,10 +2,7 @@
 //! answer to a change, which is its outcome with the region read back.
 
 use askama::Template;
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse as _, Response},
-};
+use axum::response::Response;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -20,7 +17,7 @@ use crate::{
     page_kit::{
         context::fragment_shell,
         outcome::{Outcome, with_status},
-        respond::{self, Answer},
+        respond,
     },
 };
 
@@ -255,9 +252,4 @@ impl Answered {
         let status = self.outcome.status();
         respond::close_dialog(with_status(errors::render(&self), status))
     }
-}
-
-/// The answer to a form or a page the route does not have.
-pub(crate) fn missing() -> Answer {
-    StatusCode::NOT_FOUND.into_response().into()
 }

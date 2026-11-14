@@ -28,6 +28,7 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
+        request::last,
         respond::{self, Answer},
     },
 };
@@ -102,12 +103,8 @@ fn checked(
     form: &[(String, String)],
     locale: Locale,
 ) -> (Maps, Option<Vec<Vec<String>>>) {
-    let value = |field: &str| {
-        form.iter()
-            .rev()
-            .find(|(name, _)| name == field)
-            .map_or_else(String::new, |(_, chosen)| chosen.trim().to_owned())
-    };
+    let value =
+        |field: &str| last(form, field).map_or_else(String::new, |chosen| chosen.trim().to_owned());
     let mut failed = false;
     let mut decided = Vec::new();
     let mut errors = Vec::new();

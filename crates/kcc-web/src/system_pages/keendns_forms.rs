@@ -14,7 +14,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
     keendns::Viewer,
-    shared::{answer, missing, value},
+    shared::{answer, value},
 };
 use crate::{
     WebState,
@@ -29,6 +29,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
+        request::missing,
         respond::{self, Answer},
     },
 };

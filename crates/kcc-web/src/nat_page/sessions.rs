@@ -25,11 +25,12 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    clients_pages::rendered,
     page::{Localize as _, Shell},
-    page_kit::context::fragment_shell,
+    page_kit::{
+        context::fragment_shell,
+        request::{rendered, with_query},
+    },
     routing_page::frame::{Frame, Tab, Visit, protocol_text},
-    system_pages::shared::with_query,
     table::{Direction, Sort, SortHeader, rows::Row as _},
 };
 

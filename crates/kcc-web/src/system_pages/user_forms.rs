@@ -24,7 +24,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use secrecy::SecretString;
 
 use super::{
-    shared::{answer, merged, missing, profile_login, shown_query, value, values, with_query},
+    shared::{answer, merged, profile_login, value, values},
     user_dialog::{Field, UserDialog, check},
     users::{Account, Viewer, accounts, offered_tags},
 };
@@ -38,6 +38,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
+        request::{missing, shown_query, with_query},
         respond::Answer,
     },
     secret_pages::dialog::{Entry, entry},

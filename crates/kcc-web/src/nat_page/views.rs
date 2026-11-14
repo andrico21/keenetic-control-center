@@ -23,11 +23,14 @@ use super::forwards::{Forward, forwards};
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    clients_pages::{TabLink, rendered},
+    clients_pages::TabLink,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        request::{rendered, with_query},
+    },
     routing_page::frame::{Frame, Tab, Visit, view},
-    system_pages::shared::with_query,
     table::rows::{Table, TableQuery},
 };
 

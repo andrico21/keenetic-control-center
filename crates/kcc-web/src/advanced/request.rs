@@ -11,7 +11,10 @@ use super::{
     check::{Problem, from_issues, root_object},
     form::PREFIX,
 };
-use crate::page_kit::secret::{is_secret, mask};
+use crate::page_kit::{
+    request::last,
+    secret::{is_secret, mask},
+};
 
 /// How a validated explorer request is sent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -35,11 +38,7 @@ pub(crate) struct Request {
 
 /// The command path of a submitted form.
 pub(crate) fn path_of(pairs: &[(String, String)]) -> &str {
-    pairs
-        .iter()
-        .rev()
-        .find(|(name, _)| name == "path")
-        .map_or("", |(_, value)| value.trim())
+    last(pairs, "path").map_or("", str::trim)
 }
 
 /// The request of a submitted form, validated against `catalog`.

@@ -10,11 +10,8 @@ use kcc_domain::{
 use kcc_i18n::keys;
 use serde_json::{Map, Value};
 
-use super::{
-    check,
-    dns_forms::DnsForm,
-    form::{Errors, Values},
-};
+use super::{check, dns_forms::DnsForm, form::Errors};
+use crate::page_kit::request::Params;
 
 /// The filtering engines, by their router names.
 pub(crate) const ENGINES: [(&str, FilterEngine); 5] = [
@@ -93,7 +90,7 @@ fn validated(ctx: &RouterCtx, path: &str, body: &Value) -> DomainResult<ChangeOp
 /// # Errors
 ///
 /// Returns every field whose value is not valid.
-pub(crate) fn check(form: DnsForm, values: &Values) -> Result<Planned, Errors> {
+pub(crate) fn check(form: DnsForm, values: &Params) -> Result<Planned, Errors> {
     let mut errors = Errors::new();
     let mut field = |name: &'static str, parsed: Option<String>, error| {
         if parsed.is_none() {
@@ -106,34 +103,34 @@ pub(crate) fn check(form: DnsForm, values: &Values) -> Result<Planned, Errors> {
         DnsForm::Record => Planned::Change(DnsChange::StaticHost {
             domain: field(
                 "domain",
-                check::domain(values.get("domain")),
+                check::domain(values.text("domain")),
                 keys::WEB_DNS_ERROR_DOMAIN,
             ),
             address: field(
                 "address",
-                check::ip(values.get("address")),
+                check::ip(values.text("address")),
                 keys::WEB_DNS_ERROR_ADDRESS,
             ),
         }),
         DnsForm::List => Planned::Change(DnsChange::FqdnGroup {
             name: field(
                 "name",
-                check::name(values.get("name")),
+                check::name(values.text("name")),
                 keys::WEB_DNS_ERROR_NAME,
             ),
         }),
         DnsForm::Entry => {
             let name = field(
                 "list",
-                check::object(values.get("list")),
+                check::object(values.text("list")),
                 keys::WEB_DNS_ERROR_CHOICE,
             );
             let address = field(
                 "domain",
-                check::domain(values.get("domain")),
+                check::domain(values.text("domain")),
                 keys::WEB_DNS_ERROR_DOMAIN,
             );
-            match values.get("kind") {
+            match values.text("kind") {
                 "exclude" => Planned::Change(DnsChange::FqdnExclude { name, address }),
                 _ => Planned::Change(DnsChange::FqdnInclude { name, address }),
             }
@@ -141,18 +138,18 @@ pub(crate) fn check(form: DnsForm, values: &Values) -> Result<Planned, Errors> {
         DnsForm::Route => Planned::Route(
             field(
                 "list",
-                check::object(values.get("list")),
+                check::object(values.text("list")),
                 keys::WEB_DNS_ERROR_CHOICE,
             ),
             field(
                 "interface",
-                check::object(values.get("interface")),
+                check::object(values.text("interface")),
                 keys::WEB_DNS_ERROR_CHOICE,
             ),
         ),
         DnsForm::Engine => match ENGINES
             .iter()
-            .find(|(name, _)| *name == values.get("engine"))
+            .find(|(name, _)| *name == values.text("engine"))
         {
             Some((_, engine)) => Planned::Change(DnsChange::FilterEngine(*engine)),
             None => return Err(vec![("engine", keys::WEB_DNS_ERROR_CHOICE)]),
@@ -160,7 +157,7 @@ pub(crate) fn check(form: DnsForm, values: &Values) -> Result<Planned, Errors> {
         DnsForm::Profile => Planned::Change(DnsChange::FilterProfile {
             name: field(
                 "name",
-                check::name(values.get("name")),
+                check::name(values.text("name")),
                 keys::WEB_DNS_ERROR_NAME,
             ),
         }),
@@ -178,12 +175,12 @@ pub(crate) fn check(form: DnsForm, values: &Values) -> Result<Planned, Errors> {
 /// # Errors
 ///
 /// Returns every field whose value is not valid.
-fn server(values: &Values) -> Result<Planned, Errors> {
-    let address = check::ip(values.get("address"));
-    match values.get("kind") {
+fn server(values: &Params) -> Result<Planned, Errors> {
+    let address = check::ip(values.text("address"));
+    match values.text("kind") {
         "tls" => {
-            let port = check::port(values.get("port"));
-            let server_name = check::optional(values.get("sni"), check::domain);
+            let port = check::port(values.text("port"));
+            let server_name = check::optional(values.text("sni"), check::domain);
             let mut errors = Errors::new();
             if address.is_none() {
                 errors.push(("address", keys::WEB_DNS_ERROR_ADDRESS));
@@ -200,9 +197,9 @@ fn server(values: &Values) -> Result<Planned, Errors> {
             }
         }
         "https" => {
-            let url = check::https_url(values.get("url"))
+            let url = check::https_url(values.text("url"))
                 .ok_or_else(|| vec![("url", keys::WEB_DNS_ERROR_URL)])?;
-            let upstream = match values.get("format") {
+            let upstream = match values.text("format") {
                 "" => HttpsUpstream::new(&url),
                 format @ ("dnsm" | "json") => HttpsUpstream::new(&url).with_format(format),
                 _ => return Err(vec![("format", keys::WEB_DNS_ERROR_CHOICE)]),
@@ -221,15 +218,15 @@ fn server(values: &Values) -> Result<Planned, Errors> {
 /// # Errors
 ///
 /// Returns every field whose value is not valid.
-fn assignment(values: &Values) -> Result<Planned, Errors> {
-    let profile = check::object(values.get("profile"));
-    let (target, error) = match values.get("kind") {
+fn assignment(values: &Params) -> Result<Planned, Errors> {
+    let profile = check::object(values.text("profile"));
+    let (target, error) = match values.text("kind") {
         "interface" => (
-            check::object(values.get("interface")),
+            check::object(values.text("interface")),
             ("interface", keys::WEB_DNS_ERROR_CHOICE),
         ),
         _ => (
-            check::mac(values.get("host")),
+            check::mac(values.text("host")),
             ("host", keys::WEB_DNS_ERROR_MAC),
         ),
     };
@@ -240,7 +237,7 @@ fn assignment(values: &Values) -> Result<Planned, Errors> {
     if profile.is_none() {
         errors.push(("profile", keys::WEB_DNS_ERROR_CHOICE));
     }
-    match (target, profile, values.get("kind")) {
+    match (target, profile, values.text("kind")) {
         (Some(interface), Some(name), "interface") => {
             Ok(Planned::Change(DnsChange::AssignInterfaceProfile {
                 interface,

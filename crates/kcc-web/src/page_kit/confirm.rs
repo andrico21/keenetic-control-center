@@ -20,6 +20,7 @@ use super::{context::fragment_shell, family::Family, respond, stakes::Guard};
 use crate::{
     errors,
     page::{Localize as _, Shell},
+    page_kit::request::last,
 };
 
 /// Minutes the fail-safe timer runs while a management change is applied.
@@ -37,14 +38,7 @@ pub(crate) struct Confirmation {
 impl Confirmation {
     /// Reads `confirm` and `confirm_name` from form pairs; the last value of each counts.
     pub(crate) fn from_pairs(pairs: &[(String, String)]) -> Self {
-        let value = |wanted: &str| {
-            pairs
-                .iter()
-                .rev()
-                .find(|(name, _)| name == wanted)
-                .map(|(_, value)| value.as_str())
-        };
-        Self::new(value("confirm"), value("confirm_name"))
+        Self::new(last(pairs, "confirm"), last(pairs, "confirm_name"))
     }
 
     /// A confirmation from the dialog fields.

@@ -27,15 +27,13 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    clients_pages::rendered,
-    net_change::missing,
     page_kit::{
         audit::Record,
         change::Applied,
         outcome::{Failure, Outcome},
+        request::{missing, rendered, shown_query, with_query},
         respond::Answer,
     },
-    system_pages::shared::{shown_query, with_query},
 };
 
 /// The route a removal names, as the static routes table links it.

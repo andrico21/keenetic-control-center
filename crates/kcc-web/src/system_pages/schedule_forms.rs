@@ -16,7 +16,7 @@ use kcc_i18n::{bundle::tr, keys};
 
 use super::{
     schedules::Viewer,
-    shared::{answer, shown_query, value},
+    shared::{answer, value},
 };
 use crate::{
     WebState,
@@ -29,6 +29,7 @@ use crate::{
         context::fragment_shell,
         failure::plan_failure,
         family::Family,
+        request::shown_query,
         respond::{self, Answer},
     },
 };

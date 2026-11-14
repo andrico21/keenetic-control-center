@@ -19,7 +19,7 @@ use kcc_i18n::{bundle::tr, keys};
 use super::{
     keendns::Viewer,
     keendns_forms::{NameDialog, PROTOCOLS, is_label, reply, run},
-    shared::{merged, missing, value, with_query},
+    shared::{merged, value},
 };
 use crate::{
     WebState,
@@ -28,6 +28,7 @@ use crate::{
     page_kit::{
         action::Operation,
         confirm::{Confirmation, Resubmit},
+        request::{missing, with_query},
         respond::Answer,
     },
 };

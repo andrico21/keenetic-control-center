@@ -7,7 +7,6 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
-use url::form_urlencoded;
 
 use super::{
     cells::{Act, Cell, Pill},
@@ -18,6 +17,7 @@ use super::{
     vpn_read::{allowed, details, endpoint, is_up, type_label},
 };
 use crate::{
+    page_kit::request::with_query,
     secret_pages::vpn_credential::Kind,
     table::{Direction, Sort, rows::Table},
 };
@@ -68,15 +68,6 @@ impl Listing for Peers {
     fn empty(&self) -> MessageKey {
         keys::WEB_VPN_PEERS_EMPTY
     }
-}
-
-/// `path` of the router with the query `pairs`.
-pub(crate) fn with_query(viewer: &Viewer, path: &str, pairs: &[(&str, &str)]) -> String {
-    let mut query = form_urlencoded::Serializer::new(String::new());
-    for (name, value) in pairs {
-        let _: &mut form_urlencoded::Serializer<'_, String> = query.append_pair(name, value);
-    }
-    viewer.href(&format!("{path}?{}", query.finish()))
 }
 
 /// The state pill of a connection or a server.
@@ -130,12 +121,12 @@ pub(crate) fn connections(clients: &[VpnClientStatus], viewer: &Viewer) -> (Regi
             for (kind, object) in Kind::offered(client) {
                 if viewer.allows(kind.write()) {
                     let pairs = [("kind", kind.slug()), ("name", object.as_str())];
-                    let href = with_query(viewer, "vpn/credential", &pairs);
+                    let href = viewer.href(&with_query("vpn/credential", &pairs));
                     line = line.with(Act::open(locale, kind.action(), href));
                 }
             }
             if viewer.allows("delete") {
-                let href = with_query(viewer, "vpn/delete", &named);
+                let href = viewer.href(&with_query("vpn/delete", &named));
                 line = line.with(Act::open(locale, keys::COMMON_DELETE, href).danger());
             }
             line
@@ -195,7 +186,7 @@ pub(crate) fn peers(client: &VpnClientStatus, viewer: &Viewer) -> (Region, Vec<A
                 line.with(Act::open(
                     locale,
                     keys::COMMON_EDIT,
-                    with_query(viewer, "vpn/form/peer", &pairs),
+                    viewer.href(&with_query("vpn/form/peer", &pairs)),
                 ))
             } else {
                 line
@@ -233,7 +224,7 @@ pub(crate) fn peers(client: &VpnClientStatus, viewer: &Viewer) -> (Region, Vec<A
         );
     let actions = edits
         .then(|| {
-            let href = with_query(viewer, "vpn/form/peer", &[("tunnel", &client.id)]);
+            let href = viewer.href(&with_query("vpn/form/peer", &[("tunnel", &client.id)]));
             Act::open(locale, keys::WEB_VPN_PEER_ADD, href).primary()
         })
         .into_iter()

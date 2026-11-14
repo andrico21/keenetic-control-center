@@ -22,7 +22,6 @@ use serde::Deserialize;
 use super::{
     answer,
     dhcp::{DhcpView, Shown},
-    missing,
 };
 use crate::{
     WebState,
@@ -36,6 +35,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
+        request::missing,
         respond::{self, Answer},
     },
 };

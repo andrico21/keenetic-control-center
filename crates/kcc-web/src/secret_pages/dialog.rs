@@ -22,6 +22,7 @@ use crate::{
     page_kit::{
         confirm::FAIL_SAFE_MINUTES,
         context::fragment_shell,
+        request::last,
         respond::{self, Answer},
         secret::write_only,
     },
@@ -340,10 +341,7 @@ fn described(id: &str, help: bool, error: &str) -> String {
 
 /// The non-secret field `name` of `pairs`, trimmed; empty when absent.
 pub(crate) fn plain_value(pairs: &[(String, String)], name: &str) -> String {
-    pairs
-        .iter()
-        .rev()
-        .find(|(field, _)| field == name)
-        .map(|(_, value)| value.trim().to_owned())
+    last(pairs, name)
+        .map(|value| value.trim().to_owned())
         .unwrap_or_default()
 }

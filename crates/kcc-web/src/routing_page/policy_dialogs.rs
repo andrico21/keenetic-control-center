@@ -9,9 +9,8 @@ use kcc_i18n::{
 };
 
 use crate::{
-    net_change::Params,
     net_form::{Choice, FormDialog, Input},
-    system_pages::shared::with_query,
+    page_kit::request::{Params, with_query},
 };
 
 /// Longest description, in characters.

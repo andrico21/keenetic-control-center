@@ -22,11 +22,11 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use crate::{
     WebState,
     authz::CurrentUser,
-    net_change::{Params, Planned, Subject, finish},
+    net_change::{Planned, Subject, finish},
     net_form::{Choice, FormDialog, Input},
     net_pages::{Call, Tab},
     net_wan::{Link, links},
-    page_kit::{action::Operation, confirm::Resubmit, respond::Answer},
+    page_kit::{action::Operation, confirm::Resubmit, request::Params, respond::Answer},
 };
 
 /// A static IPoE address, audited as `web.wan_address_static`.

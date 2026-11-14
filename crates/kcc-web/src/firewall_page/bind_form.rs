@@ -13,8 +13,8 @@ use super::{
     snapshot::{Binding, Snapshot},
 };
 use crate::{
-    net_change::Params,
     net_form::{Choice, FormDialog, Input},
+    page_kit::request::Params,
 };
 
 /// The direction a parameter names.

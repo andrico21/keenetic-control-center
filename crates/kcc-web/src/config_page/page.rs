@@ -18,10 +18,12 @@ use crate::{
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
-        context::{self, Caller},
+        context,
+        context::Caller,
         outcome::Outcome,
+        request::{rendered, shown_query},
     },
-    system_pages::shared::{answer, rendered, shown_query},
+    system_pages::shared::answer,
     table::rows::TableQuery,
 };
 

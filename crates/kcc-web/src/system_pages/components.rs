@@ -21,7 +21,7 @@ use kcc_domain::{
 use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
-    shared::{Visit, rendered, with_query},
+    shared::Visit,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -29,7 +29,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        request::{rendered, with_query},
+    },
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},

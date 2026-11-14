@@ -22,8 +22,8 @@ use askama::Template;
 use axum::{
     Form, Router,
     extract::{Path, State},
-    http::{HeaderMap, StatusCode},
-    response::{IntoResponse as _, Response},
+    http::HeaderMap,
+    response::Response,
     routing::{get, post},
 };
 use kcc_catalog::Risk;
@@ -53,6 +53,7 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::{Outcome, with_status},
+        request::missing,
         respond::{self, Answer},
     },
     system_pages::tabs::{Tab, TabBar},
@@ -270,9 +271,4 @@ fn answer(outcome: Outcome, refreshed: Option<Facts>, locale: Locale) -> Respons
         refreshed,
     };
     respond::close_dialog(with_status(errors::render(&view), status))
-}
-
-/// The answer to a field the page does not have.
-fn missing() -> Answer {
-    StatusCode::NOT_FOUND.into_response().into()
 }

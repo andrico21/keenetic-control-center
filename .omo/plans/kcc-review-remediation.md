@@ -524,7 +524,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): generate Localize impls and reuse the kit Toast
   Recommended task executor category: quick - mechanical replacement
 
-- [ ] 30. One request-helper module for the Web pages
+- [x] 30. One request-helper module for the Web pages
   What to do / Must NOT do: Create `crates/kcc-web/src/page_kit/request.rs` with `Params` (last value of a form field), `with_query`, `shown_query(headers)` (the `HX-Current-URL` reader), `rendered` and `missing`, and replace every copy: last-value helpers (`net_change.rs:60-66`, `dns_vpn/form.rs:32-38`, `system_pages/shared.rs:171-178`, `page_kit/confirm.rs:41-50`, `secret_pages/dialog.rs:349`, `migrate_wizard/inputs_submit.rs:139`, `presets_page/inputs.rs:148`, and any other `grep -rn 'rev().find\|last_value\|fn value(' crates/kcc-web/src` hit with the same body), `with_query` (`net_change.rs:138-144`, `system_pages/shared.rs:150`, `dns_vpn/vpn_tabs.rs:74-80`), `HX-Current-URL` readers (`clients_pages.rs:217-222`, `net_pages.rs:296-303`, `system_pages/shared.rs:131-146`, `dns_vpn/flow.rs:175-189`, `table/pager.rs:101-113`, `firewall_page/views.rs:42-53`, `clients_pages/client_view.rs`, `clients_pages/dhcp.rs`), `rendered` (`clients_pages.rs:207`, `system_pages/shared.rs:159`, `net_change.rs:275`), `missing` (`net_change.rs:284`, `clients_pages.rs`, `system_pages/shared.rs`, `dns_vpn/screen.rs:268`, `system_general.rs:284`; only the copies with the identical body). Remove the cross-family helper imports (`nat_page/forward_forms.rs:31-50`). Must NOT: change parsing behavior (last value wins, same trimming).
   Closes: GAP-10
   Parallelization: Wave W5 | Blocked by: 41 | Blocks: 31 | Can parallelize with: -

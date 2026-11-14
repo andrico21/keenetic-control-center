@@ -2,29 +2,28 @@
 //! its outcome and the region read back, and the query strings their actions carry.
 
 use askama::Template;
-use axum::{
-    http::{HeaderMap, StatusCode},
-    response::{IntoResponse as _, Response},
-};
+use axum::{http::HeaderMap, response::Response};
 use kcc_domain::RouterCtx;
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
-use serde_json::{Map, Value};
-use url::{Url, form_urlencoded};
+use url::form_urlencoded;
 
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    errors::{self, Kind},
+    errors,
+    errors::Kind,
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
-        context::{self, Caller, fragment_shell},
+        context,
+        context::{Caller, fragment_shell},
         facts::RouterFacts,
         family::Family,
         outcome::{Outcome, with_status},
-        respond::{self, Answer},
+        request::last,
+        respond,
+        respond::Answer,
     },
-    table::rows::TableQuery,
 };
 
 /// The router a system page reads: its catalog facts and the domain context, or why the
@@ -110,47 +109,6 @@ pub(crate) fn answer(outcome: Outcome, refreshed: Option<String>, locale: Locale
     respond::close_dialog(with_status(errors::render(&view), status))
 }
 
-/// `region` rendered for sending out of band; a failed render is logged and leaves the
-/// page as it is.
-pub(crate) fn rendered<T>(region: &T) -> Option<String>
-where
-    T: Template,
-{
-    match region.render() {
-        Ok(html) => Some(html),
-        Err(error) => {
-            tracing::error!(%error, "system page region failed to render");
-            None
-        }
-    }
-}
-
-/// The table query of the page the browser shows, from htmx's `HX-Current-URL`, so a
-/// table refreshed after a change keeps its filter, sort and page.
-pub(crate) fn shown_query(headers: &HeaderMap) -> TableQuery {
-    let fields: Map<String, Value> = headers
-        .get("hx-current-url")
-        .and_then(|value| value.to_str().ok())
-        .and_then(|value| Url::parse(value).ok())
-        .map(|url| {
-            url.query_pairs()
-                .map(|(name, value)| (name.into_owned(), Value::String(value.into_owned())))
-                .collect()
-        })
-        .unwrap_or_default();
-    serde_json::from_value(Value::Object(fields)).unwrap_or_default()
-}
-
-/// `path` with `pairs` as its query string; the values are names and choices, never
-/// secrets.
-pub(crate) fn with_query(path: &str, pairs: &[(&str, &str)]) -> String {
-    let mut query = form_urlencoded::Serializer::new(String::new());
-    for (name, value) in pairs {
-        let _: &mut form_urlencoded::Serializer<'_, String> = query.append_pair(name, value);
-    }
-    format!("{path}?{}", query.finish())
-}
-
 /// The pairs of a request's query string, then those of its form body.
 pub(crate) fn merged(query: Option<&str>, form: Vec<(String, String)>) -> Vec<(String, String)> {
     let mut pairs: Vec<(String, String)> = query
@@ -166,11 +124,7 @@ pub(crate) fn merged(query: Option<&str>, form: Vec<(String, String)>) -> Vec<(S
 
 /// The last value of `name` in `pairs`, trimmed.
 pub(crate) fn value<'pairs>(pairs: &'pairs [(String, String)], name: &str) -> Option<&'pairs str> {
-    pairs
-        .iter()
-        .rev()
-        .find(|(key, _)| key == name)
-        .map(|(_, found)| found.trim())
+    last(pairs, name).map(str::trim)
 }
 
 /// Every value of `name` in `pairs`, trimmed, in order.
@@ -185,11 +139,6 @@ pub(crate) fn values<'pairs>(pairs: &'pairs [(String, String)], name: &str) -> V
 /// The 403 answer of an action the role may not take at the risk it would run at.
 pub(crate) fn forbidden(locale: Locale) -> Answer {
     errors::response(Kind::Forbidden, fragment_shell(locale)).into()
-}
-
-/// The 404 answer of an object the page does not have.
-pub(crate) fn missing() -> Answer {
-    StatusCode::NOT_FOUND.into_response().into()
 }
 
 /// The login kcc signs in to `router` with, when `user` may read its profile.
@@ -213,7 +162,8 @@ pub(crate) async fn profile_login(
     reason = "test code is not rendered API documentation"
 )]
 mod tests {
-    use super::{merged, value, values, with_query};
+    use super::{merged, value, values};
+    use crate::page_kit::request::with_query;
 
     #[test]
     fn action_queries_round_trip_through_the_resubmitted_url() {

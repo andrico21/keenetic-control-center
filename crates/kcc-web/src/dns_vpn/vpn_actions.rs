@@ -16,8 +16,7 @@ use serde::Deserialize;
 
 use super::{
     check, flow,
-    form::Values,
-    screen::{Answered, missing},
+    screen::Answered,
     vpn_checks::Planned,
     vpn_pages::{Spot, region},
     vpn_read::exists,
@@ -32,6 +31,7 @@ use crate::{
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
+        request::{Params, missing, shown_query},
         respond::{self, Answer},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
@@ -64,9 +64,9 @@ pub(crate) async fn switch(
     user: CurrentUser,
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
-    let values = Values::new(pairs);
+    let values = Params::of(pairs);
     let opened = STATE.open(&state, &user, &router).await?;
-    let (Some(name), Some(enabled)) = (check::object(values.get("tunnel")), on(&values)) else {
+    let (Some(name), Some(enabled)) = (check::object(values.text("tunnel")), on(&values)) else {
         opened.abandon("validation_failed").await;
         return Err(missing());
     };
@@ -89,8 +89,8 @@ pub(crate) async fn service(
     user: CurrentUser,
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
-    let values = Values::new(pairs);
-    let (service, operation) = match values.get("service") {
+    let values = Params::of(pairs);
+    let (service, operation) = match values.text("service") {
         "vpn" => (VpnServerService::Vpn, "vpn_service"),
         "sstp" => (VpnServerService::Sstp, "sstp_service"),
         "oc" => (VpnServerService::OpenConnect, "openconnect_service"),
@@ -203,8 +203,8 @@ fn confirmation(locale: Locale, router: &str, name: &str) -> TypedNameDialog {
 }
 
 /// The field `enabled`: `on` or `off`.
-fn on(values: &Values) -> Option<bool> {
-    match values.get("enabled") {
+fn on(values: &Params) -> Option<bool> {
+    match values.text("enabled") {
         "on" => Some(true),
         "off" => Some(false),
         _ => None,
@@ -256,7 +256,7 @@ async fn run(action: Action<'_>, changes: Planned, reply: Reply<'_>) -> Response
     let spot = reply.spot;
     let viewer = spot
         .viewer(&ctx, reply.user, action.router())
-        .with_query(flow::shown_query(reply.headers));
+        .with_table_query(shown_query(reply.headers));
     let (request, risk) = request_plan.into_parts();
     flow::apply(action, request, risk, async || {
         region(&ctx, &spot, &viewer).await

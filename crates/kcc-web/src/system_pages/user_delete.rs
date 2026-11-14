@@ -14,7 +14,7 @@ use kcc_domain::router_users;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
-    shared::{answer, profile_login, shown_query, value},
+    shared::{answer, profile_login, value},
     user_forms::{find, refusal_message},
     users::Viewer,
 };
@@ -27,6 +27,7 @@ use crate::{
         change::Change,
         confirm::{Confirmation, Resubmit},
         context::fragment_shell,
+        request::{missing, shown_query},
         respond::{self, Answer},
         typed_name::{TypedNameDialog, TypedNameForm},
     },
@@ -67,9 +68,7 @@ pub(crate) async fn delete_dialog(
     let action = DELETE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
     let name = value(&query, "name").unwrap_or_default();
-    let account = find(&domain, name)
-        .await
-        .ok_or_else(super::shared::missing)?;
+    let account = find(&domain, name).await.ok_or_else(missing)?;
     Ok(errors::render(&confirmation(
         &router,
         action.locale(),

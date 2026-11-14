@@ -12,31 +12,11 @@ use kcc_i18n::{
 use crate::{
     errors,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, respond},
+    page_kit::{context::fragment_shell, request::Params, respond},
 };
 
 /// Field errors: the field name and its message.
 pub(crate) type Errors = Vec<(&'static str, MessageKey)>;
-
-/// The submitted fields of a form; the last value of a repeated name counts.
-#[derive(Debug, Default)]
-pub(crate) struct Values(Vec<(String, String)>);
-
-impl Values {
-    /// The fields of one submission.
-    pub(crate) const fn new(pairs: Vec<(String, String)>) -> Self {
-        Self(pairs)
-    }
-
-    /// The value of `name` as typed; empty when absent.
-    pub(crate) fn get(&self, name: &str) -> &str {
-        self.0
-            .iter()
-            .rev()
-            .find(|(field, _)| field == name)
-            .map_or("", |(_, value)| value.as_str())
-    }
-}
 
 /// What kind of control an input is.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -269,10 +249,10 @@ impl FormDialog {
     }
 
     /// Fills every input with its submitted value; files and secrets stay empty.
-    pub(crate) fn values(mut self, values: &Values) -> Self {
+    pub(crate) fn values(mut self, values: &Params) -> Self {
         for input in &mut self.inputs {
             if !matches!(input.kind, Kind::File | Kind::Secret) {
-                values.get(input.name).clone_into(&mut input.value);
+                values.text(input.name).clone_into(&mut input.value);
             }
         }
         self

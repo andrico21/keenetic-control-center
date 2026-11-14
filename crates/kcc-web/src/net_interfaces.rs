@@ -22,14 +22,15 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
-    net_change::{rendered, with_query},
     net_interface_line::Line,
     net_pages::{Call, Tab, Tabs, Viewer},
     page::{Localize as _, Shell},
     page_kit::{
-        context::{self, Caller, fragment_shell},
+        context,
+        context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
+        request::{rendered, with_query},
     },
     table::rows::{Table, TableQuery},
 };

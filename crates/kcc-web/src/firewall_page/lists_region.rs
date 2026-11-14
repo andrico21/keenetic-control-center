@@ -14,7 +14,7 @@ use super::{
 };
 use crate::{
     page::{Localize as _, Shell},
-    system_pages::shared::with_query,
+    page_kit::request::with_query,
 };
 
 /// The access lists and their rules (`partials/firewall_lists.html`).

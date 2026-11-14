@@ -36,8 +36,7 @@ mod segments;
 use askama::Template;
 use axum::{
     Router,
-    http::{HeaderMap, StatusCode, Uri},
-    response::{IntoResponse as _, Response},
+    response::Response,
     routing::{get, post},
 };
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
@@ -48,7 +47,7 @@ use crate::{
     page_kit::{
         context::fragment_shell,
         outcome::{Outcome, with_status},
-        respond::{self, Answer},
+        respond,
     },
 };
 
@@ -196,28 +195,4 @@ pub(crate) fn answer(
         note,
     };
     respond::close_dialog(with_status(errors::render(&view), status))
-}
-
-/// `region` rendered for an out-of-band swap; a render failure is logged and the outcome
-/// stands alone.
-pub(crate) fn rendered<T>(region: &T) -> Option<String>
-where
-    T: Template,
-{
-    region
-        .render()
-        .inspect_err(|error| tracing::error!(%error, "region render failed"))
-        .ok()
-}
-
-/// The page the browser shows, from htmx's `HX-Current-URL`, so a region read back after
-/// a change keeps its filter, sort and page.
-pub(crate) fn current_page(headers: &HeaderMap) -> Option<Uri> {
-    let shown = headers.get("hx-current-url")?.to_str().ok()?;
-    shown.parse().ok()
-}
-
-/// The answer to an object or a route segment the page does not have.
-pub(crate) fn missing() -> Answer {
-    StatusCode::NOT_FOUND.into_response().into()
 }

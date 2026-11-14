@@ -4,11 +4,12 @@ use kcc_domain::dns;
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
-    dns_checks::{self, ENGINES, Planned},
-    form::{Choice, Errors, FormDialog, Values},
+    dns_checks,
+    dns_checks::{ENGINES, Planned},
+    form::{Choice, Errors, FormDialog},
     screen::Tab,
 };
-use crate::page_kit::action::Operation;
+use crate::page_kit::{action::Operation, request::Params};
 
 /// A dialog of the DNS tabs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,9 +91,9 @@ impl DnsForm {
 
     /// The DNS write the dialog runs, with its audit action id; a server's depends on
     /// the protocol chosen in `values`.
-    pub(crate) fn operation(self, values: &Values) -> Operation {
+    pub(crate) fn operation(self, values: &Params) -> Operation {
         let (name, action) = match self {
-            Self::Server => match values.get("kind") {
+            Self::Server => match values.text("kind") {
                 "tls" => ("tls_upstream", "web.dns_server"),
                 "https" => ("https_upstream", "web.dns_server"),
                 _ => ("name_server", "web.dns_server"),
@@ -193,7 +194,7 @@ impl DnsForm {
     /// # Errors
     ///
     /// Returns every field whose value is not valid.
-    pub(crate) fn check(self, values: &Values) -> Result<Planned, Errors> {
+    pub(crate) fn check(self, values: &Params) -> Result<Planned, Errors> {
         dns_checks::check(self, values)
     }
 }

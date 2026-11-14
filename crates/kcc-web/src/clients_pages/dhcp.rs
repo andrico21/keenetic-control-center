@@ -11,14 +11,17 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use url::form_urlencoded::{Serializer, byte_serialize};
 
 use super::{
-    TabLink, current_page,
+    TabLink,
     dhcp_rows::{HostRow, PoolRow, names},
-    rendered,
 };
 use crate::{
     authz::CurrentUser,
     page::{Localize as _, Shell},
-    page_kit::{context::fragment_shell, gate::Controls},
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        request::{rendered, shown_uri},
+    },
     table::rows::{Table, TableQuery},
 };
 
@@ -122,7 +125,7 @@ impl Shown {
     /// The view of the page the browser shows on `router`, from htmx's `HX-Current-URL`;
     /// `fallback` without one.
     pub(crate) fn of_page(headers: &HeaderMap, router: &str, fallback: DhcpView) -> Self {
-        let Some(page) = current_page(headers) else {
+        let Some(page) = shown_uri(headers) else {
             return Self::new(fallback, TableQuery::default());
         };
         Self::new(

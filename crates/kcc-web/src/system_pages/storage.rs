@@ -18,7 +18,7 @@ use kcc_domain::{RouterCtx, storage};
 use kcc_i18n::{bundle::MessageKey, format, keys, locale::Locale};
 
 use super::{
-    shared::{Visit, with_query},
+    shared::Visit,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -26,7 +26,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::gate::Controls,
+    page_kit::{gate::Controls, request::with_query},
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},

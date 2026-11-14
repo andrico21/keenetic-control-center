@@ -41,6 +41,7 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
+        request::last,
         respond::{self, Answer},
     },
 };
@@ -140,12 +141,7 @@ pub(super) async fn submit(
     let Ok((preset, inventory)) = read else {
         return Err(respond::unprocessable(&Panel::new(&visit)).into());
     };
-    let value = |field: &str| {
-        form.iter()
-            .rev()
-            .find(|(name, _)| name == field)
-            .map(|(_, typed)| typed.trim().to_owned())
-    };
+    let value = |field: &str| last(&form, field).map(|typed| typed.trim().to_owned());
     let mode = match value("mode").as_deref() {
         Some("mirror") => Mode::Mirror,
         Some(_) | None => Mode::Merge,

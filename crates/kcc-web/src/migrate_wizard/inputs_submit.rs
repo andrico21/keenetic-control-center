@@ -36,6 +36,7 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
+        request::last,
         respond::{self, Answer},
     },
 };
@@ -134,12 +135,7 @@ fn checked(
     passwords: &mut BTreeMap<String, SecretString>,
     locale: Locale,
 ) -> (Option<Inputs>, Shown) {
-    let value = |field: &str| {
-        form.iter()
-            .rev()
-            .find(|(name, _)| name == field)
-            .map(|(_, typed)| typed.as_str())
-    };
+    let value = |field: &str| last(form, field);
     let values = |field: &str| {
         form.iter()
             .filter(|(name, _)| name == field)

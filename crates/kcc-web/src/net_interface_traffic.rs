@@ -28,9 +28,8 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     dashboard,
-    net_change::Params,
     overview::guarded,
-    page_kit::context,
+    page_kit::{context, request::Params},
     traffic::TrafficSampler,
 };
 

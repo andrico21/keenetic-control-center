@@ -21,10 +21,14 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    clients_pages::{TabLink, rendered},
-    page_kit::{context::fragment_shell, gate::Controls},
+    clients_pages::TabLink,
+    page_kit::{
+        context::fragment_shell,
+        gate::Controls,
+        request,
+        request::{rendered, shown_query},
+    },
     routing_page::frame::{Frame, Tab, Visit, view},
-    system_pages::shared::shown_query,
     table::rows::{Table, TableQuery},
 };
 
@@ -40,10 +44,7 @@ pub(crate) enum Spot {
 /// The region of the page that sent a request: the bindings when the browser shows the
 /// interfaces view (htmx's `HX-Current-URL`), the access lists otherwise.
 pub(crate) fn spot_of(headers: &HeaderMap) -> Spot {
-    let shown = headers
-        .get("hx-current-url")
-        .and_then(|found| found.to_str().ok())
-        .unwrap_or_default();
+    let shown = request::shown_url(headers).unwrap_or_default();
     let path = shown.split(['?', '#']).next().unwrap_or_default();
     if path.ends_with("/firewall/interfaces") {
         Spot::Bindings

@@ -19,7 +19,6 @@ use super::{
 };
 use crate::{
     authz::CurrentUser,
-    clients_pages::rendered,
     page_kit::{
         action::Action,
         change::Applied,
@@ -27,9 +26,9 @@ use crate::{
         family::Family,
         gate::Controls,
         outcome::{Failure, Outcome},
+        request::{rendered, shown_query},
         respond::Answer,
     },
-    system_pages::shared::shown_query,
 };
 
 /// The policy an action names.

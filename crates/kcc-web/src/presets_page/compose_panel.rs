@@ -16,7 +16,7 @@ use super::{
 use crate::{
     migrate_wizard::screen::source_text,
     page::{Localize as _, Shell},
-    page_kit::context::fragment_shell,
+    page_kit::{context::fragment_shell, request::last},
 };
 
 /// The longest name, in characters.
@@ -95,10 +95,7 @@ impl Submitted {
     /// The fields of `form`.
     pub(super) fn of(form: &[(String, String)]) -> Self {
         let value = |field: &str| {
-            form.iter()
-                .rev()
-                .find(|(name, _)| name == field)
-                .map_or_else(String::new, |(_, typed)| typed.trim().to_owned())
+            last(form, field).map_or_else(String::new, |typed| typed.trim().to_owned())
         };
         Self {
             groups: form
