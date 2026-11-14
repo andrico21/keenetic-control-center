@@ -6,14 +6,13 @@ use kcc_i18n::{bundle::tr, keys};
 use serde_json::Value;
 
 use super::{
-    cells::Act,
     flow::Viewer,
     region::{Panel, Region},
     vpn_forms::Server,
     vpn_read::shown,
     vpn_tabs::state,
 };
-use crate::page_kit::request::with_query;
+use crate::{page_kit::request::with_query, table::acts::Act};
 
 /// Whether the router service `name` is on.
 fn running(status: &VpnServerStatus, name: &str) -> bool {

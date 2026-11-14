@@ -153,7 +153,7 @@ pub(crate) async fn upnp(
             Ok(rows) => {
                 let shown = rows.iter().map(Redirect::new).collect();
                 let table = Table::new(shown, &query, format!("/ui/r/{router}/firewall/upnp"));
-                Ok(rendered(&UpnpRegion::new(fragment_shell(locale), table)))
+                Ok(rendered(&UpnpRegion::new(fragment_shell(locale), &table)))
             }
             Err(error) => {
                 tracing::warn!(%error, "firewall page: UPnP redirects unavailable");
@@ -221,8 +221,8 @@ pub(crate) async fn bindings_region(
     );
     Ok(BindingsRegion::new(
         fragment_shell(locale),
-        router.to_owned(),
-        (table, removable),
+        router,
+        (&table, removable),
     ))
 }
 

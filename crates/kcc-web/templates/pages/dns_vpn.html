@@ -1,6 +1,5 @@
 {% extends "base.html" %}
 {%- import "partials/kit_macros.html" as kit -%}
-{%- import "partials/dns_vpn_macros.html" as dv -%}
 {%- block title %}{{ title }}{% endblock %}
 {%- block content %}
 <div class="page domain-page">
@@ -12,13 +11,13 @@
     </ul>
   </nav>
   {%- if let Some(link) = back %}
-  <p class="domain-back">{{ dv::act(link, "") }}</p>
+  <p class="domain-back">{{ kit::act(link, "", "") }}</p>
   {%- endif %}
   <div class="page-head">
     <h1 class="page__title">{{ title }}</h1>
     <div class="page-head__actions" id="page-actions">
       {%- for action in actions %}
-      {{ dv::act(action, "") }}
+      {{ kit::act(action, "", "") }}
       {%- endfor %}
     </div>
   </div>

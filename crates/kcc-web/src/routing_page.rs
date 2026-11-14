@@ -31,4 +31,5 @@ mod route_remove;
 pub(crate) mod route_rows;
 mod route_views;
 mod table_rows;
+mod tables;
 pub(crate) mod wiring;

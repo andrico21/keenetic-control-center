@@ -1,34 +1,4 @@
 {#- The interfaces with address translation: filter, table with Remove, pager; a change sends the region again out of band. -#}
-{%- import "components.html" as ui -%}
-{%- import "partials/kit_macros.html" as kit -%}
 <div class="lan-region routing-region" id="routing-region"{% if oob %} hx-swap-oob="true"{% endif %}>
-  {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
-  {%- if table.rows().is_empty() %}
-  <p class="page__text">{% if table.filter().is_empty() %}{{ t(keys::WEB_NAT_INTERFACES_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table routing-table routing-table--narrow">
-      <thead>
-        <tr>
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_INTERFACE), table.header("interface")) }}
-          {%- if removable %}
-          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_CLIENTS_ACTIONS) }}</span></th>
-          {%- endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {%- for row in table.rows() %}
-        <tr>
-          <th scope="row" class="mono" id="nat-interface-{{ loop.index }}">{{ row.name() }}</th>
-          {%- if removable %}
-          <td class="lan-actions"><button class="button button--danger-ghost" type="button" hx-get="{{ remove_url(row) }}" hx-target="#dialog-content" aria-describedby="nat-interface-{{ loop.index }}">{{ t(keys::WEB_ROUTING_REMOVE) }}</button></td>
-          {%- endif %}
-        </tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- let pager = table.pager() %}
-  {%- include "partials/kit_pager.html" %}
-  {%- endif %}
+  {%- include "partials/kit_table.html" %}
 </div>

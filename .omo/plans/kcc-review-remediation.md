@@ -614,7 +614,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): shared wizard results and finish
   Recommended task executor category: deep-low - second half of the wizard extraction
 
-- [ ] 39. One table renderer (DNS/VPN, routing, NAT, firewall, network)
+- [x] 39. One table renderer (DNS/VPN, routing, NAT, firewall, network)
   What to do / Must NOT do: Promote `crates/kcc-web/src/dns_vpn/region.rs:22-40` `TableView` and `dns_vpn/cells.rs:12-25,158` `Cell`/`Pill`/`Act` into `crate::table` (`crates/kcc-web/src/table.rs`, `table/rows.rs`, `table/pager.rs`) with template `kit_table.html` (filter, empty text, `table-wrap`, sortable headers, row header with id, action buttons with `aria-describedby`, pager); move DNS/VPN onto it and convert `routing_static.html`, `nat_rules.html`, the firewall rule tables and the network tables. Must NOT: change ids, sort parameters, ARIA attributes or pager links.
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 33, 38 | Blocks: 40 | Can parallelize with: -

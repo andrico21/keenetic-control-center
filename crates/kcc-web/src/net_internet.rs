@@ -12,11 +12,11 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use fluent_bundle::FluentArgs;
 use kcc_domain::{DomainError, RouterCtx, internet, wan};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
+    locale::Locale,
 };
 use serde_json::Value;
 
@@ -25,18 +25,22 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     net_change::scalar,
-    net_internet_order::reorder,
     net_pages::{Call, Tab, Tabs, Viewer},
-    net_wan::{Link, links},
+    net_tables::connections_view,
+    net_wan::links,
     page::{Localize as _, Shell},
     page_kit::{
         context,
         context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
-        request::{rendered, with_query},
+        request::rendered,
     },
-    table::rows::{Row as _, Table, TableQuery},
+    table::{
+        cells::Cell,
+        rows::{Table, TableQuery},
+        view::{Head, TableView},
+    },
 };
 
 /// The page.
@@ -123,16 +127,12 @@ pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Stri
 struct Listing {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// Whether the router reaches the internet, when reported.
     online: Option<bool>,
     /// The page of connections shown.
-    table: Table<Link>,
+    table: TableView,
     /// The ping-check profiles.
-    profiles: Vec<Profile>,
-    /// What the role may change.
-    controls: Controls,
+    ping: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -163,13 +163,12 @@ impl Listing {
             .and_then(|checks| checks.profile)
             .map_or_default(|value| profiles(&value));
         let (router, locale, controls) = viewer.into_parts();
+        let table = Table::new(found, query, format!("/ui/r/{router}/internet"));
         Ok(Self {
             shell: fragment_shell(locale),
-            table: Table::new(found, query, format!("/ui/r/{router}/internet")),
-            router,
+            table: connections_view(&router, &table, (&controls, locale)),
             online,
-            profiles,
-            controls,
+            ping: ping_view(&profiles, locale),
             oob: false,
         })
     }
@@ -190,50 +189,9 @@ impl Listing {
         tr(self.shell.locale(), key, None)
     }
 
-    /// "3 of 12" while a filter hides rows.
-    fn count(&self) -> Option<String> {
-        (!self.table.filter().is_empty()).then(|| {
-            let mut args = FluentArgs::new();
-            args.set("count", self.table.matched());
-            args.set("total", self.table.total());
-            tr(self.shell.locale(), keys::WEB_KIT_TABLE_COUNT, Some(&args))
-        })
-    }
-
-    /// The settings dialog of `link`.
-    fn settings_url(&self, link: &Link) -> String {
-        with_query(
-            &format!("/ui/r/{}/internet/settings", self.router),
-            &[("name", link.id())],
-        )
-    }
-
-    /// The Delete dialog of `link`, when the role may delete.
-    fn delete_url(&self, link: &Link) -> Option<String> {
-        self.controls.allows("delete").then(|| {
-            with_query(
-                &format!("/ui/r/{}/internet/delete", self.router),
-                &[("name", link.id())],
-            )
-        })
-    }
-
-    /// Move up (or down) for `link`, when the table shows the priority order, the role may
-    /// change priorities and a neighbour can swap with it.
-    fn move_url(&self, link: &Link, up: bool) -> Option<String> {
-        let ordered = self.table.sort() == Link::DEFAULT && self.table.filter().is_empty();
-        (ordered
-            && self.controls.allows("priority")
-            && !reorder(self.table.rows(), link.id(), up).is_empty())
-        .then(|| {
-            with_query(
-                &format!("/ui/r/{}/internet/order", self.router),
-                &[
-                    ("name", link.id()),
-                    ("move", if up { "up" } else { "down" }),
-                ],
-            )
-        })
+    /// The ping-check profiles table.
+    const fn ping_table(&self) -> &TableView {
+        &self.ping
     }
 }
 
@@ -293,4 +251,32 @@ fn hosts(value: Option<&Value>) -> Option<String> {
         | Value::String(_)
         | Value::Object(_)) => scalar(Some(other)),
     }
+}
+
+/// The ping-check profiles: name, hosts, mode and interval of each.
+fn ping_view(profiles: &[Profile], locale: Locale) -> TableView {
+    let mut view = TableView::new("table").nested();
+    if profiles.is_empty() {
+        return view.blank(
+            "panel__note",
+            tr(locale, keys::WEB_INTERNET_PING_NONE, None),
+        );
+    }
+    for key in [
+        keys::WEB_INTERNET_PING_PROFILE,
+        keys::WEB_INTERNET_PING_HOSTS,
+        keys::WEB_INTERNET_PING_MODE,
+        keys::WEB_INTERNET_PING_INTERVAL,
+    ] {
+        view = view.head(Head::plain(tr(locale, key, None)));
+    }
+    for profile in profiles {
+        view = view.row(vec![
+            Cell::code(profile.name.clone()).head(),
+            Cell::reported(locale, profile.hosts.clone()).class("mono"),
+            Cell::reported(locale, profile.mode.clone()),
+            Cell::reported(locale, profile.interval.clone()).class("numeric"),
+        ]);
+    }
+    view
 }

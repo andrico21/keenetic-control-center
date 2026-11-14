@@ -1,36 +1,4 @@
 {#- The routing table of one address family: filter, table, pager. Static routes are marked as such; every other route shows where the router got it. -#}
-{%- import "components.html" as ui -%}
-{%- import "partials/kit_macros.html" as kit -%}
 <div class="lan-region routing-region" id="routing-region">
-  {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
-  {%- if table.rows().is_empty() %}
-  <p class="page__text">{% if table.filter().is_empty() %}{{ t(keys::WEB_ROUTING_TABLE_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table routing-table">
-      <thead>
-        <tr>
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_DESTINATION), table.header("destination")) }}
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_GATEWAY), table.header("gateway")) }}
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_INTERFACE), table.header("interface")) }}
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_METRIC), table.header("metric")) }}
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_SOURCE), table.header("source")) }}
-        </tr>
-      </thead>
-      <tbody>
-        {%- for row in table.rows() %}
-        <tr>
-          <th scope="row" class="mono">{{ row.destination() }}</th>
-          <td class="mono">{% if let Some(gateway) = row.gateway() %}{{ gateway }}{% endif %}</td>
-          <td class="mono">{% if let Some(interface) = row.interface() %}{{ interface }}{% endif %}</td>
-          <td>{% if let Some(metric) = row.metric() %}{{ metric }}{% endif %}</td>
-          <td>{% if row.is_static() %}{{ t(keys::WEB_ROUTING_SOURCE_STATIC) }}{% else if let Some(source) = row.source() %}<span class="mono">{{ source }}</span>{% endif %}</td>
-        </tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- let pager = table.pager() %}
-  {%- include "partials/kit_pager.html" %}
-  {%- endif %}
+  {%- include "partials/kit_table.html" %}
 </div>

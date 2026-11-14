@@ -24,7 +24,6 @@
 //!   off; `GET|POST /ui/r/{router}/vpn/delete`: a connection deleted, its name typed.
 //! - `POST /ui/r/{router}/vpn/import`: the `.conf` upload, from [`uploads`].
 
-mod cells;
 mod check;
 mod dns_checks;
 mod dns_filtering;

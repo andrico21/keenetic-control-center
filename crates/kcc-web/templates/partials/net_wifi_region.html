@@ -1,124 +1,24 @@
 {#- Radios, access points and connected devices; a change sends them again out of band. -#}
-{%- import "components.html" as ui -%}
-{%- import "partials/kit_macros.html" as kit -%}
 <div class="net-region" id="net-region"{% if oob %} hx-swap-oob="true"{% endif %}>
-  {%- if radios.is_empty() && points.is_empty() %}
+  {%- if radios.rows().is_empty() && points.rows().is_empty() %}
   <p class="panel__note">{{ t(keys::WEB_WIFI_NONE) }}</p>
   {%- endif %}
-  {%- if !radios.is_empty() %}
+  {%- if !radios.rows().is_empty() %}
   <section class="net-section" aria-labelledby="radios-title">
     <h2 class="net-section__title" id="radios-title">{{ t(keys::WEB_WIFI_RADIOS) }}</h2>
-    <div class="table-wrap">
-      <table class="table net-table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(keys::WEB_WIFI_RADIO) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_BAND) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_CHANNEL) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_WIDTH) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_POWER) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_COUNTRY) }}</th>
-            <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for radio in radios %}
-          <tr>
-            <th scope="row" class="mono" id="radio-{{ loop.index }}">{{ radio.id() }}</th>
-            <td>{% if let Some(text) = radio.band() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td class="numeric">{% if let Some(text) = radio.channel() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{% if let Some(text) = radio.width() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td class="numeric">{% if let Some(text) = radio.power() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{% if let Some(text) = radio.country() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td><button class="button button--ghost" type="button" hx-get="{{ settings_url(radio.id()) }}" hx-target="#dialog-content" aria-describedby="radio-{{ loop.index }}">{{ t(keys::WEB_INTERNET_SETTINGS) }}</button></td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
+    {%- let table = self.radio_table() %}
+    {%- include "partials/kit_table.html" %}
   </section>
   {%- endif %}
-  {%- if !points.is_empty() %}
+  {%- if !points.rows().is_empty() %}
   <section class="net-section" aria-labelledby="points-title">
     <h2 class="net-section__title" id="points-title">{{ t(keys::WEB_WIFI_ACCESS_POINTS) }}</h2>
-    <div class="table-wrap">
-      <table class="table net-table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(keys::DOMAINS_WIFI_SSID) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_SECURITY) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_PSK) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_HIDDEN) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_STATE) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_SCHEDULE) }}</th>
-            <th scope="col">{{ t(keys::WEB_WIFI_SEGMENT) }}</th>
-            <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_ADMIN_ACTIONS) }}</span></th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for point in points %}
-          <tr>
-            <th scope="row" id="point-{{ loop.index }}">{% if let Some(text) = point.ssid() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}<span class="net-table__note mono">{{ point.id() }}</span></th>
-            <td>{% if let Some(text) = point.security() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{{ point.password_text(shell.locale()) }}</td>
-            <td>{% if let Some(text) = point.hidden_text(shell.locale()) %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{% if let Some(text) = point.state_text(shell.locale()) %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{% if let Some(text) = point.schedule() %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{% if let Some(text) = point.segment() %}<span class="mono">{{ text }}</span>{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>
-              <div class="admin-actions">
-                <button class="button button--ghost" type="button" hx-get="{{ settings_url(point.id()) }}" hx-target="#dialog-content" aria-describedby="point-{{ loop.index }}">{{ t(keys::WEB_INTERNET_SETTINGS) }}</button>
-                {%- if let Some((href, label)) = toggle(point) %}
-                <button class="button button--ghost" type="button" hx-post="{{ href }}" hx-target="#page-outcome" aria-describedby="point-{{ loop.index }}">{{ label }}</button>
-                {%- endif %}
-              </div>
-            </td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
+    {%- let table = self.point_table() %}
+    {%- include "partials/kit_table.html" %}
   </section>
   {%- endif %}
   <section class="net-section" aria-labelledby="stations-title">
     <h2 class="net-section__title" id="stations-title">{{ t(keys::WEB_WIFI_STATIONS) }}</h2>
-    {{ kit::filter(table, t(keys::WEB_WIFI_STATIONS_FILTER)) }}
-    {%- if let Some(text) = count() %}
-    <p class="net-region__count">{{ text }}</p>
-    {%- endif %}
-    {%- if table.total() == 0 %}
-    <p class="panel__note">{{ t(keys::WEB_WIFI_STATIONS_NONE) }}</p>
-    {%- else if table.matched() == 0 %}
-    <p class="panel__note">{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}</p>
-    {%- else %}
-    <div class="table-wrap">
-      <table class="table net-table">
-        <thead>
-          <tr>
-            {{ ui::sort_header(t(keys::WEB_NETWORK_MAC), table.header("mac")) }}
-            {{ ui::sort_header(t(keys::WEB_WIFI_ACCESS_POINT), table.header("access-point")) }}
-            {{ ui::sort_header(t(keys::DOMAINS_WIFI_SSID), table.header("ssid")) }}
-            {{ ui::sort_header(t(keys::WEB_WIFI_SIGNAL), table.header("signal")) }}
-            {{ ui::sort_header(t(keys::WEB_WIFI_RX_RATE), table.header("rx")) }}
-            {{ ui::sort_header(t(keys::WEB_WIFI_TX_RATE), table.header("tx")) }}
-          </tr>
-        </thead>
-        <tbody>
-          {%- for station in table.rows() %}
-          <tr>
-            <th scope="row" class="mono">{{ station.mac() }}</th>
-            <td class="mono">{% if let Some(text) = station.interface() %}{{ text }}{% endif %}</td>
-            <td>{% if let Some(text) = station.ssid() %}{{ text }}{% endif %}</td>
-            <td class="numeric">{% if let Some(text) = station.signal_text(shell.locale()) %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td class="numeric">{% if let Some(text) = station.rx_text(shell.locale()) %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td class="numeric">{% if let Some(text) = station.tx_text(shell.locale()) %}{{ text }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- let pager = table.pager() %}
-    {%- include "partials/kit_pager.html" %}
-    {%- endif %}
+    {%- include "partials/kit_table.html" %}
   </section>
 </div>

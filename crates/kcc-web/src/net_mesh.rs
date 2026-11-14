@@ -15,12 +15,9 @@ use axum::{
 use kcc_app::workflow::WorkflowError;
 use kcc_domain::{
     ChangeOp, DomainError, RouterCtx,
-    mesh::{self, Member, RebootError},
+    mesh::{self, RebootError},
 };
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-};
+use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::ObjectName;
 
 use crate::{
@@ -28,6 +25,7 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     net_pages::{Call, Tab, Tabs, Viewer},
+    net_tables::mesh_view,
     page::{Localize as _, Shell},
     page_kit::{
         action::Operation,
@@ -41,6 +39,7 @@ use crate::{
         respond::Answer,
         submit::{Formless, Planned, Submission},
     },
+    table::view::TableView,
 };
 
 /// Checking a member for updates, audited as `web.mesh_update_check`.
@@ -133,12 +132,8 @@ pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Stri
 struct Listing {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// The members.
-    members: Vec<Member>,
-    /// What the role may change.
-    controls: Controls,
+    table: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -157,9 +152,7 @@ impl Listing {
         let (router, locale, controls) = viewer.into_parts();
         Ok(Self {
             shell: fragment_shell(locale),
-            router,
-            members,
-            controls,
+            table: mesh_view(&router, &members, (&controls, locale)),
             oob: false,
         })
     }
@@ -169,61 +162,6 @@ impl Listing {
         self.oob = true;
         self
     }
-
-    /// The status of `member`: its status-pill value and its text in the reader's
-    /// language.
-    fn status(&self, member: &Member) -> Status {
-        let (value, key) = match member.online {
-            Some(true) => ("online", keys::WEB_ROUTER_ONLINE),
-            Some(false) => ("offline", keys::WEB_ROUTER_OFFLINE),
-            None => ("unknown", keys::WEB_ROUTER_UNKNOWN),
-        };
-        Status {
-            value,
-            text: tr(self.shell.locale(), key, None),
-        }
-    }
-
-    /// The member actions the role may run on `member`.
-    fn actions(&self, member: &Member) -> Vec<MemberAction> {
-        let Some(id) = member.id.as_deref() else {
-            return Vec::new();
-        };
-        [
-            ("update_check", "check", keys::WEB_MESH_CHECK, false),
-            ("update_start", "update", keys::WEB_MESH_UPDATE, false),
-            ("member_reboot", "restart", keys::WEB_MESH_RESTART, true),
-        ]
-        .into_iter()
-        .filter(|(operation, _, _, _)| self.controls.allows(operation))
-        .map(|(_, action, label, destructive)| MemberAction {
-            href: with_query(
-                &format!("/ui/r/{}/mesh/action", self.router),
-                &[("name", id), ("do", action)],
-            ),
-            label: tr(self.shell.locale(), label, None),
-            destructive,
-        })
-        .collect()
-    }
-}
-
-/// The status of a member.
-struct Status {
-    /// The status-pill value.
-    value: &'static str,
-    /// The localized text.
-    text: String,
-}
-
-/// One action on a member.
-struct MemberAction {
-    /// Where it posts.
-    href: String,
-    /// The localized label.
-    label: String,
-    /// Whether it is destructive, which asks for the router name.
-    destructive: bool,
 }
 
 /// `POST /ui/r/{router}/mesh/action?name=&do=check|update|restart`: a member action.

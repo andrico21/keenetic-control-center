@@ -1,8 +1,8 @@
 {#- A DNS or VPN region read back after a change, with the page actions, both out of band. -#}
-{%- import "partials/dns_vpn_macros.html" as dv -%}
+{%- import "partials/kit_macros.html" as kit -%}
 {{ region|safe }}
 <div class="page-head__actions" id="page-actions" hx-swap-oob="true">
   {%- for action in actions %}
-  {{ dv::act(action, "") }}
+  {{ kit::act(action, "", "") }}
   {%- endfor %}
 </div>

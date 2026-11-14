@@ -31,7 +31,12 @@ use crate::{
         request::{rendered, with_query},
     },
     routing_page::frame::{Frame, Tab, Visit, protocol_text},
-    table::{Direction, Sort, SortHeader, rows::Row as _},
+    table::{
+        Direction, Sort, SortHeader,
+        cells::Cell,
+        rows::Row as _,
+        view::{Head, TableView},
+    },
 };
 
 /// The last page a link may ask for, so an offset stays small.
@@ -141,27 +146,49 @@ impl SessionsRegion {
         tr(locale, keys::WEB_NAT_SESSIONS_STATUS, Some(&args))
     }
 
-    /// The bytes `value` as people read them.
-    fn bytes(&self, value: Option<u64>) -> String {
-        value.map_or_else(String::new, |count| {
-            format::bytes(self.shell.locale(), count)
-        })
-    }
-
-    /// The protocol of `row` as people read it.
-    fn protocol(&self, row: &Session) -> String {
-        row.protocol()
-            .map_or_else(String::new, |name| protocol_text(self.shell.locale(), name))
-    }
-
-    /// The bytes `row` received, as people read them.
-    fn received(&self, row: &Session) -> String {
-        self.bytes(row.received())
-    }
-
-    /// The bytes `row` sent, as people read them.
-    fn sent_bytes(&self, row: &Session) -> String {
-        self.bytes(row.sent())
+    /// The table of the shown rows, or why none shows.
+    fn table_view(&self) -> TableView {
+        let locale = self.shell.locale();
+        let mut view = TableView::new("table routing-table nat-sessions");
+        if self.rows.is_empty() {
+            let shown = if self.filter.is_empty() {
+                keys::WEB_NAT_SESSIONS_EMPTY
+            } else {
+                keys::WEB_KIT_TABLE_NO_MATCH
+            };
+            return view.blank("page__text", tr(locale, shown, None));
+        }
+        for (column, key) in [
+            ("source", keys::WEB_NAT_COL_SOURCE),
+            ("destination", keys::WEB_NAT_COL_DESTINATION),
+            ("translated", keys::WEB_NAT_COL_TRANSLATED),
+            ("protocol", keys::WEB_ROUTING_COL_PROTOCOL),
+            ("interface", keys::WEB_ROUTING_COL_INTERFACE),
+            ("state", keys::WEB_NAT_COL_STATE),
+            ("received", keys::WEB_NAT_COL_RECEIVED),
+            ("sent", keys::WEB_NAT_COL_SENT),
+        ] {
+            view = view.head(Head::sorted(tr(locale, key, None), self.header(column)));
+        }
+        let bytes = |value: Option<u64>| {
+            Cell::optional(value.map(|count| format::bytes(locale, count))).class("numeric")
+        };
+        for row in &self.rows {
+            let protocol = row.protocol().map(|name| protocol_text(locale, name));
+            view = view.row(vec![
+                Cell::optional(row.source().map(str::to_owned))
+                    .class("mono")
+                    .head(),
+                Cell::optional(row.destination().map(str::to_owned)).class("mono"),
+                Cell::optional(row.translated().map(str::to_owned)).class("mono"),
+                Cell::text(protocol.unwrap_or_default()),
+                Cell::optional(row.interface().map(str::to_owned)).class("mono"),
+                Cell::optional(row.state().map(str::to_owned)),
+                bytes(row.received()),
+                bytes(row.sent()),
+            ]);
+        }
+        view
     }
 }
 

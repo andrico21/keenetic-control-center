@@ -31,7 +31,12 @@ use crate::{
         request::{rendered, with_query},
     },
     routing_page::frame::{Frame, Tab, Visit, view},
-    table::rows::{Table, TableQuery},
+    table::{
+        acts::Act,
+        cells::{Cell, Layout},
+        rows::{Table, TableQuery},
+        view::{Head, TableView},
+    },
 };
 
 /// The forwarding rules (`partials/nat_rules.html`).
@@ -42,12 +47,8 @@ pub(crate) struct RulesRegion {
     shell: Shell,
     /// Whether the region replaces the page's region out of band.
     oob: bool,
-    /// Router profile id.
-    router: String,
     /// The shown page of rules.
-    table: Table<Forward>,
-    /// Whether the role may remove rules.
-    removable: bool,
+    table: TableView,
 }
 
 localized!(RulesRegion);
@@ -58,50 +59,73 @@ impl RulesRegion {
         self.oob = true;
         self
     }
+}
 
-    /// The address of the removal dialog of `rule`.
-    fn remove_url(&self, rule: &Forward) -> String {
-        let pairs = rule.pairs();
-        let borrowed: Vec<(&str, &str)> = pairs
-            .iter()
-            .map(|(name, value)| (*name, value.as_str()))
-            .collect();
-        with_query(
-            &format!("/ui/r/{}/nat/forward/remove", self.router),
-            &borrowed,
-        )
+/// The forwarding rules on `router`, with Remove where the NAT domain can express the
+/// rule when `removable`, in `locale`.
+fn rules_view(
+    router: &str,
+    table: &Table<Forward>,
+    (removable, locale): (bool, Locale),
+) -> TableView {
+    let mut view = TableView::filtered(
+        "table routing-table",
+        table,
+        (locale, keys::WEB_NAT_RULES_EMPTY),
+    );
+    for (column, key) in [
+        ("ports", keys::WEB_NAT_COL_PORTS),
+        ("protocol", keys::WEB_ROUTING_COL_PROTOCOL),
+        ("interface", keys::WEB_NAT_COL_INTERFACE),
+        ("target", keys::WEB_NAT_COL_TARGET),
+        ("target_port", keys::WEB_NAT_COL_TARGET_PORT),
+    ] {
+        view = view.head(Head::sorted(tr(locale, key, None), table.header(column)));
     }
-
-    /// The protocol of `rule` as people read it.
-    fn protocol(&self, rule: &Forward) -> String {
-        tr(
-            self.shell.locale(),
-            rule.protocol_label().unwrap_or(keys::WEB_NAT_ANY),
-            None,
-        )
+    if removable {
+        view = view.head(Head::hidden(tr(locale, keys::WEB_CLIENTS_ACTIONS, None)));
     }
-
-    /// The external ports of `rule` as people read them.
-    fn ports(&self, rule: &Forward) -> String {
-        match rule.ports() {
-            None => tr(self.shell.locale(), keys::WEB_NAT_ANY, None),
+    for (index, rule) in table.rows().iter().enumerate() {
+        let id = format!("forward-{}", index.saturating_add(1));
+        let ports = match rule.ports() {
+            None => tr(locale, keys::WEB_NAT_ANY, None),
             Some((first, None)) => first.to_string(),
             Some((first, Some(last))) => {
                 let mut args = FluentArgs::new();
                 args.set("first", first.to_string());
                 args.set("last", last.to_string());
-                tr(self.shell.locale(), keys::WEB_NAT_PORT_RANGE, Some(&args))
+                tr(locale, keys::WEB_NAT_PORT_RANGE, Some(&args))
             }
-        }
-    }
-
-    /// The target port of `rule` as people read it.
-    fn target_port(&self, rule: &Forward) -> String {
-        rule.to_port().map_or_else(
-            || tr(self.shell.locale(), keys::WEB_NAT_SAME_PORT, None),
+        };
+        let target_port = rule.to_port().map_or_else(
+            || tr(locale, keys::WEB_NAT_SAME_PORT, None),
             |port| port.to_string(),
-        )
+        );
+        let protocol = rule.protocol_label().unwrap_or(keys::WEB_NAT_ANY);
+        let mut cells = vec![
+            Cell::code(ports).attr("id", id.clone()).head(),
+            Cell::text(tr(locale, protocol, None)),
+            Cell::code(rule.incoming().to_owned()),
+            Cell::code(rule.target().to_owned()),
+            Cell::code(target_port),
+        ];
+        if removable {
+            let act = if rule.domain_rule().is_some() {
+                let pairs = rule.pairs();
+                let borrowed: Vec<(&str, &str)> = pairs
+                    .iter()
+                    .map(|(name, value)| (*name, value.as_str()))
+                    .collect();
+                let href = with_query(&format!("/ui/r/{router}/nat/forward/remove"), &borrowed);
+                Act::opens(tr(locale, keys::WEB_ROUTING_REMOVE, None), href).danger()
+            } else {
+                Act::note(tr(locale, keys::WEB_NAT_EXPLORER_ONLY, None))
+            };
+            cells.push(Cell::acts(Layout::Block, vec![act], id).class("lan-actions"));
+        }
+        view = view.row(cells);
     }
+    view
 }
 
 /// `GET /ui/r/{router}/nat`: the forwarding rules.
@@ -159,12 +183,11 @@ pub(crate) async fn rules_region(
     let rules = read::running_forwards(domain)
         .await
         .map_err(|error| unreachable(&error))?;
+    let table = Table::new(forwards(&rules), query, format!("/ui/r/{router}/nat"));
     Ok(RulesRegion {
         shell: fragment_shell(locale),
         oob: false,
-        router: router.to_owned(),
-        table: Table::new(forwards(&rules), query, format!("/ui/r/{router}/nat")),
-        removable,
+        table: rules_view(router, &table, (removable, locale)),
     })
 }
 

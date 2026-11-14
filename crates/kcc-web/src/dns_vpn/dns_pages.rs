@@ -14,7 +14,6 @@ use kcc_domain::{
 use kcc_i18n::keys;
 
 use super::{
-    cells::Act,
     dns_forms::{Choices, DnsForm},
     dns_read::{DnsState, Entry},
     dns_tabs,
@@ -38,7 +37,7 @@ use crate::{
         respond::Answer,
         submit::{Invalid, Planned, Submission},
     },
-    table::rows::TableQuery,
+    table::{acts::Act, rows::TableQuery},
 };
 
 /// Interception on or off, audited as `web.dns_intercept`.

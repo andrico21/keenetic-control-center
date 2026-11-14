@@ -3,7 +3,7 @@
   {%- if lists.is_empty() %}
   <p class="page__text">{{ t(keys::WEB_FIREWALL_LISTS_EMPTY) }}</p>
   {%- endif %}
-  {%- for list in lists %}
+  {%- for (list, table) in lists %}
   {%- let item = loop.index %}
   <section class="firewall-list" aria-labelledby="acl-{{ item }}">
     <div class="firewall-list__head">
@@ -26,66 +26,7 @@
     <p class="firewall-list__applied"><span class="muted">{{ t(keys::WEB_FIREWALL_APPLIED) }}:</span>
       {%- for place in places %} <span class="flag" data-tone="info">{{ place }}</span>{% endfor %}</p>
     {%- endif %}
-    {%- if list.entries().is_empty() %}
-    <p class="page__text">{{ t(keys::WEB_FIREWALL_RULES_EMPTY) }}</p>
-    {%- else %}
-    <div class="table-wrap">
-      <table class="table routing-table firewall-rules">
-        <thead>
-          <tr>
-            <th scope="col" class="numeric">{{ t(keys::WEB_FIREWALL_COL_POSITION) }}</th>
-            <th scope="col">{{ t(keys::WEB_FIREWALL_COL_ACTION) }}</th>
-            <th scope="col">{{ t(keys::WEB_ROUTING_COL_PROTOCOL) }}</th>
-            <th scope="col">{{ t(keys::WEB_NAT_COL_SOURCE) }}</th>
-            <th scope="col">{{ t(keys::WEB_NAT_COL_DESTINATION) }}</th>
-            <th scope="col">{{ t(keys::WEB_ROUTING_COL_DESCRIPTION) }}</th>
-            {%- if rules %}
-            <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_CLIENTS_ACTIONS) }}</span></th>
-            {%- endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {%- for entry in list.entries() %}
-          <tr>
-            <th scope="row" class="numeric" id="acl-{{ item }}-rule-{{ loop.index }}">{{ entry.position() }}</th>
-            {%- if entry.rule().parsed().is_some() %}
-            <td>{{ action(entry) }}{% if entry.disabled() %}<span class="firewall-rules__note">{{ t(keys::COMMON_DISABLED) }}</span>{% endif %}</td>
-            <td>{{ protocol(entry) }}</td>
-            <td class="mono">{{ source(entry) }}</td>
-            <td class="mono">{{ destination(entry) }}</td>
-            {%- else %}
-            <td class="mono" colspan="4">{{ entry.rule().text() }}{% if entry.disabled() %}<span class="firewall-rules__note">{{ t(keys::COMMON_DISABLED) }}</span>{% endif %}</td>
-            {%- endif %}
-            <td>{% if let Some(text) = entry.description() %}{{ text }}{% endif %}{% if let Some(name) = entry.schedule() %}<span class="firewall-rules__note">{{ t(keys::WEB_FIREWALL_COL_SCHEDULE) }}: <span class="mono">{{ name }}</span></span>{% endif %}</td>
-            {%- if rules %}
-            <td class="lan-actions">
-              <div class="firewall-rules__actions">
-                {%- if let Some(href) = up_url(list, entry) %}
-                <button class="button button--ghost" type="button" hx-post="{{ href }}" hx-target="#page-outcome" aria-describedby="acl-{{ item }} acl-{{ item }}-rule-{{ loop.index }}">{{ t(keys::WEB_FIREWALL_MOVE_UP) }}</button>
-                {%- endif %}
-                {%- if let Some(href) = down_url(list, entry) %}
-                <button class="button button--ghost" type="button" hx-post="{{ href }}" hx-target="#page-outcome" aria-describedby="acl-{{ item }} acl-{{ item }}-rule-{{ loop.index }}">{{ t(keys::WEB_FIREWALL_MOVE_DOWN) }}</button>
-                {%- endif %}
-                <button class="button button--ghost" type="button" popovertarget="acl-{{ item }}-menu-{{ loop.index }}" aria-describedby="acl-{{ item }} acl-{{ item }}-rule-{{ loop.index }}">{{ t(keys::WEB_CLIENTS_ACTIONS) }}</button>
-                <div class="menu lan-menu" id="acl-{{ item }}-menu-{{ loop.index }}" popover>
-                  <ul class="menu__list">
-                    <li><button class="menu__item" type="button" hx-post="{{ state_url(list, entry) }}" hx-target="#page-outcome" popovertarget="acl-{{ item }}-menu-{{ loop.index }}" popovertargetaction="hide">{% if entry.disabled() %}{{ t(keys::WEB_FIREWALL_ENABLE) }}{% else %}{{ t(keys::WEB_FIREWALL_DISABLE) }}{% endif %}</button></li>
-                    <li><button class="menu__item" type="button" hx-get="{{ rule_url("description", list, entry) }}" hx-target="#dialog-content">{{ t(keys::WEB_ROUTING_COL_DESCRIPTION) }}</button></li>
-                    <li><button class="menu__item" type="button" hx-get="{{ rule_url("schedule", list, entry) }}" hx-target="#dialog-content">{{ t(keys::WEB_FIREWALL_SCHEDULE) }}</button></li>
-                    {%- if entry.rule().parsed().is_some() %}
-                    <li><button class="menu__item menu__item--danger" type="button" hx-get="{{ rule_url("remove", list, entry) }}" hx-target="#dialog-content">{{ t(keys::WEB_ROUTING_REMOVE) }}</button></li>
-                    {%- endif %}
-                  </ul>
-                </div>
-              </div>
-            </td>
-            {%- endif %}
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- endif %}
+    {%- include "partials/kit_table.html" %}
   </section>
   {%- endfor %}
   <section class="firewall-list" aria-labelledby="acl-ipv6">

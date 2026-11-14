@@ -11,12 +11,8 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use fluent_bundle::FluentArgs;
 use kcc_domain::{DomainError, RouterCtx, interfaces};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-};
+use kcc_i18n::{bundle::MessageKey, keys};
 
 use crate::{
     WebState,
@@ -24,15 +20,19 @@ use crate::{
     errors,
     net_interface_line::Line,
     net_pages::{Call, Tab, Tabs, Viewer},
+    net_tables::interfaces_view,
     page::{Localize as _, Shell},
     page_kit::{
         context,
         context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
-        request::{rendered, with_query},
+        request::rendered,
     },
-    table::rows::{Table, TableQuery},
+    table::{
+        rows::{Table, TableQuery},
+        view::TableView,
+    },
 };
 
 /// The page.
@@ -113,12 +113,8 @@ pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Stri
 struct Listing {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// The page of interfaces shown.
-    table: Table<Line>,
-    /// What the role may change.
-    controls: Controls,
+    table: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -143,11 +139,10 @@ impl Listing {
             .into_iter()
             .map(|(id, interface)| Line::new(id, &interface))
             .collect();
+        let table = Table::new(lines, query, format!("/ui/r/{router}/network"));
         Ok(Self {
             shell: fragment_shell(locale),
-            table: Table::new(lines, query, format!("/ui/r/{router}/network")),
-            router,
-            controls,
+            table: interfaces_view(&router, &table, (&controls, locale)),
             oob: false,
         })
     }
@@ -156,40 +151,5 @@ impl Listing {
     const fn out_of_band(mut self) -> Self {
         self.oob = true;
         self
-    }
-
-    /// "3 of 12" while a filter hides rows.
-    fn count(&self) -> Option<String> {
-        (!self.table.filter().is_empty()).then(|| {
-            let mut args = FluentArgs::new();
-            args.set("count", self.table.matched());
-            args.set("total", self.table.total());
-            tr(self.shell.locale(), keys::WEB_KIT_TABLE_COUNT, Some(&args))
-        })
-    }
-
-    /// The drawer of `line`.
-    fn detail_url(&self, line: &Line) -> String {
-        with_query(
-            &format!("/ui/r/{}/network/detail", self.router),
-            &[("name", line.id())],
-        )
-    }
-
-    /// Enable or Disable for `line`, when the role may run it: the address and the
-    /// localized label.
-    fn state_action(&self, line: &Line) -> Option<(String, String)> {
-        let (operation, label) = if line.enabled() == Some(false) {
-            ("up", keys::WEB_NETWORK_ENABLE)
-        } else {
-            ("down", keys::WEB_NETWORK_DISABLE)
-        };
-        self.controls.allows(operation).then(|| {
-            let href = with_query(
-                &format!("/ui/r/{}/network/state", self.router),
-                &[("name", line.id()), ("state", operation)],
-            );
-            (href, tr(self.shell.locale(), label, None))
-        })
     }
 }

@@ -1,14 +1,21 @@
 //! The tables of the DNS and VPN tabs: typed rows of cells that the shared table module
-//! filters, sorts and cuts into pages of 50.
+//! filters, sorts and cuts into pages of 50, and the view of their shown page.
 
 use core::marker::PhantomData;
 
-use kcc_i18n::bundle::MessageKey;
+use fluent_bundle::FluentArgs;
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 
-use super::cells::{Act, Cell};
 use crate::table::{
     Sort,
-    rows::{Row, SortKey},
+    acts::Act,
+    cells::{Cell, Layout},
+    rows::{Row, SortKey, Table},
+    view::{Head, TableView},
 };
 
 /// What one table lists: its sortable columns, their header labels, its first order, its
@@ -62,11 +69,6 @@ impl<L> Line<L> {
         self.actions.push(action);
         self
     }
-
-    /// The row's cells and actions, for rendering.
-    pub(crate) fn parts(&self) -> (Vec<Cell>, Vec<Act>) {
-        (self.cells.clone(), self.actions.clone())
-    }
 }
 
 impl<L: Listing> Row for Line<L> {
@@ -84,4 +86,58 @@ impl<L: Listing> Row for Line<L> {
     fn matches(&self, needle: &str) -> bool {
         self.search.contains(needle)
     }
+}
+
+/// The shown page of `table`, an `listing` table, in `locale`.
+///
+/// While the table has no rows it shows the empty text; otherwise the filter, the count
+/// while a filter is set, and the page of rows, each named by its first cell and followed
+/// by its actions when any row has some.
+pub(crate) fn table_view<L>(listing: &L, table: &Table<Line<L>>, locale: Locale) -> TableView
+where
+    L: Listing,
+{
+    let named = TableView::new("table domain-table").labelled(tr(locale, listing.name(), None));
+    if table.total() == 0 {
+        return named.blank("table-empty", tr(locale, listing.empty(), None));
+    }
+    let mut view = named.search(tr(locale, keys::WEB_KIT_TABLE_FILTER, None), table);
+    if !table.filter().is_empty() {
+        let mut args = FluentArgs::new();
+        args.set("count", table.matched());
+        args.set("total", table.total());
+        view = view.count(
+            "table-count",
+            tr(locale, keys::WEB_KIT_TABLE_COUNT, Some(&args)),
+        );
+    }
+    if table.rows().is_empty() {
+        return view.blank(
+            "table-empty",
+            tr(locale, keys::WEB_KIT_TABLE_NO_MATCH, None),
+        );
+    }
+    for (column, key) in L::COLUMNS.iter().zip(L::LABELS) {
+        view = view.head(Head::sorted(tr(locale, *key, None), table.header(column)));
+    }
+    let actions = table.rows().iter().any(|line| !line.actions.is_empty());
+    if actions {
+        view = view.head(Head::hidden(tr(locale, keys::WEB_ADMIN_ACTIONS, None)));
+    }
+    for (index, line) in table.rows().iter().enumerate() {
+        let id = format!("row-{}", index.saturating_add(1));
+        let mut cells: Vec<Cell> = line.cells.clone();
+        if let Some(first) = cells.first_mut() {
+            *first = first.clone().head_with_id(id.clone());
+        }
+        if actions {
+            cells.push(Cell::acts(
+                Layout::Wrapped("row-actions"),
+                line.actions.clone(),
+                id,
+            ));
+        }
+        view = view.row(cells);
+    }
+    view.paged(table.pager().clone())
 }

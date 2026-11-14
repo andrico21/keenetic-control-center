@@ -12,7 +12,10 @@ use crate::{
     routing_page::frame::protocol_text,
     table::{
         Direction, Sort,
+        acts::Act,
+        cells::{Cell, Layout},
         rows::{Row, SortKey, Table},
+        view::{Head, TableView},
     },
 };
 
@@ -44,12 +47,8 @@ pub(crate) struct BindingsRegion {
     shell: Shell,
     /// Whether the region replaces the page's region out of band.
     oob: bool,
-    /// Router profile id.
-    router: String,
     /// The shown page of bindings.
-    table: Table<Binding>,
-    /// Whether the role may stop applying lists.
-    removable: bool,
+    table: TableView,
 }
 
 localized!(BindingsRegion);
@@ -58,15 +57,53 @@ impl BindingsRegion {
     /// The region of `table` on `router` in `shell`, with Remove when `removable`.
     pub(crate) fn new(
         shell: Shell,
-        router: String,
-        (table, removable): (Table<Binding>, bool),
+        router: &str,
+        (table, removable): (&Table<Binding>, bool),
     ) -> Self {
+        let locale = shell.locale();
+        let mut view = TableView::filtered(
+            "table routing-table",
+            table,
+            (locale, keys::WEB_FIREWALL_BINDINGS_EMPTY),
+        );
+        for (column, key) in [
+            ("interface", keys::WEB_ROUTING_COL_INTERFACE),
+            ("direction", keys::WEB_FIREWALL_COL_DIRECTION),
+            ("list", keys::WEB_FIREWALL_COL_LIST),
+        ] {
+            view = view.head(Head::sorted(tr(locale, key, None), table.header(column)));
+        }
+        if removable {
+            view = view.head(Head::hidden(tr(locale, keys::WEB_CLIENTS_ACTIONS, None)));
+        }
+        for (index, binding) in table.rows().iter().enumerate() {
+            let id = format!("binding-{}", index.saturating_add(1));
+            let direction = direction_label(binding.direction());
+            let mut cells = vec![
+                Cell::code(binding.interface().to_owned())
+                    .attr("id", id.clone())
+                    .head(),
+                Cell::text(tr(locale, direction, None)),
+                Cell::code(binding.list().to_owned()),
+            ];
+            if removable {
+                let href = with_query(
+                    &format!("/ui/r/{router}/firewall/unbind"),
+                    &[
+                        ("interface", binding.interface()),
+                        ("list", binding.list()),
+                        ("direction", binding.direction()),
+                    ],
+                );
+                let remove = Act::opens(tr(locale, keys::WEB_ROUTING_REMOVE, None), href).danger();
+                cells.push(Cell::acts(Layout::Inline, vec![remove], id).class("lan-actions"));
+            }
+            view = view.row(cells);
+        }
         Self {
             shell,
             oob: false,
-            router,
-            table,
-            removable,
+            table: view,
         }
     }
 
@@ -74,27 +111,6 @@ impl BindingsRegion {
     pub(crate) const fn out_of_band(mut self) -> Self {
         self.oob = true;
         self
-    }
-
-    /// The direction of `binding` as people read it.
-    fn direction(&self, binding: &Binding) -> String {
-        tr(
-            self.shell.locale(),
-            direction_label(binding.direction()),
-            None,
-        )
-    }
-
-    /// The address of the dialog that stops applying `binding`.
-    fn remove_url(&self, binding: &Binding) -> String {
-        with_query(
-            &format!("/ui/r/{}/firewall/unbind", self.router),
-            &[
-                ("interface", binding.interface()),
-                ("list", binding.list()),
-                ("direction", binding.direction()),
-            ],
-        )
     }
 }
 
@@ -197,20 +213,37 @@ pub(crate) struct UpnpRegion {
     /// Locale carrier.
     shell: Shell,
     /// The shown page of redirects.
-    table: Table<Redirect>,
+    table: TableView,
 }
 
 localized!(UpnpRegion);
 
 impl UpnpRegion {
     /// The region of `table` in `shell`.
-    pub(crate) const fn new(shell: Shell, table: Table<Redirect>) -> Self {
-        Self { shell, table }
-    }
-
-    /// The protocol of `row` as people read it.
-    fn protocol(&self, row: &Redirect) -> String {
-        row.protocol()
-            .map_or_else(String::new, |name| protocol_text(self.shell.locale(), name))
+    pub(crate) fn new(shell: Shell, table: &Table<Redirect>) -> Self {
+        let locale = shell.locale();
+        let empty = (locale, keys::WEB_FIREWALL_UPNP_EMPTY);
+        let mut view = TableView::filtered("table routing-table", table, empty);
+        for (column, key) in [
+            ("external", keys::WEB_FIREWALL_COL_EXTERNAL_PORT),
+            ("protocol", keys::WEB_ROUTING_COL_PROTOCOL),
+            ("internal", keys::WEB_FIREWALL_COL_INTERNAL),
+            ("internal_port", keys::WEB_FIREWALL_COL_INTERNAL_PORT),
+            ("description", keys::WEB_ROUTING_COL_DESCRIPTION),
+        ] {
+            view = view.head(Head::sorted(tr(locale, key, None), table.header(column)));
+        }
+        let port = |value: Option<u16>| Cell::optional(value.map(|found| found.to_string()));
+        for row in table.rows() {
+            let protocol = row.protocol().map(|name| protocol_text(locale, name));
+            view = view.row(vec![
+                port(row.external_port()).class("numeric").head(),
+                Cell::text(protocol.unwrap_or_default()),
+                Cell::optional(row.internal_address().map(str::to_owned)).class("mono"),
+                port(row.internal_port()).class("numeric"),
+                Cell::optional(row.description().map(str::to_owned)),
+            ]);
+        }
+        Self { shell, table: view }
     }
 }

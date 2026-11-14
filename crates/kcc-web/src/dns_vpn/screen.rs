@@ -9,11 +9,12 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use super::{cells::Act, region::Region};
+use super::region::Region;
 use crate::{
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, outcome::Outcome, request::rendered, respond::changed},
+    table::acts::Act,
 };
 
 /// One tab of the DNS and VPN pages.

@@ -13,29 +13,29 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use fluent_bundle::FluentArgs;
 use kcc_domain::{DomainError, RouterCtx, wifi};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-};
+use kcc_i18n::{bundle::MessageKey, keys};
 
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors,
     net_pages::{Call, Tab, Tabs, Viewer},
-    net_wifi_rows::{ApRow, RadioRow, access_points, radios},
-    net_wifi_stations::{StationRow, stations},
+    net_wifi_rows::{access_points, radios},
+    net_wifi_stations::stations,
+    net_wifi_tables::{points_view, radios_view, stations_view},
     page::{Localize as _, Shell},
     page_kit::{
         context,
         context::{Caller, fragment_shell},
         family::Family,
         gate::Controls,
-        request::{rendered, with_query},
+        request::rendered,
     },
-    table::rows::{Table, TableQuery},
+    table::{
+        rows::{Table, TableQuery},
+        view::TableView,
+    },
 };
 
 /// The page.
@@ -116,16 +116,12 @@ pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Stri
 struct Listing {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// The radios.
-    radios: Vec<RadioRow>,
+    radios: TableView,
     /// The access points.
-    points: Vec<ApRow>,
+    points: TableView,
     /// The page of devices shown.
-    table: Table<StationRow>,
-    /// What the role may change.
-    controls: Controls,
+    table: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
@@ -148,13 +144,12 @@ impl Listing {
         let points = access_points(domain).await?;
         let devices = stations(domain).await?;
         let (router, locale, controls) = viewer.into_parts();
+        let table = Table::new(devices, query, format!("/ui/r/{router}/wifi"));
         Ok(Self {
             shell: fragment_shell(locale),
-            table: Table::new(devices, query, format!("/ui/r/{router}/wifi")),
-            router,
-            radios: found_radios,
-            points,
-            controls,
+            radios: radios_view(&router, &found_radios, locale),
+            points: points_view(&router, &points, (&controls, locale)),
+            table: stations_view(&table, locale),
             oob: false,
         })
     }
@@ -165,43 +160,13 @@ impl Listing {
         self
     }
 
-    /// "3 of 12" while a filter hides devices.
-    fn count(&self) -> Option<String> {
-        (!self.table.filter().is_empty()).then(|| {
-            let mut args = FluentArgs::new();
-            args.set("count", self.table.matched());
-            args.set("total", self.table.total());
-            tr(self.shell.locale(), keys::WEB_KIT_TABLE_COUNT, Some(&args))
-        })
+    /// The radios table.
+    const fn radio_table(&self) -> &TableView {
+        &self.radios
     }
 
-    /// The settings dialog of the radio or access point `name`.
-    fn settings_url(&self, name: &str) -> String {
-        with_query(
-            &format!("/ui/r/{}/wifi/settings", self.router),
-            &[("name", name)],
-        )
-    }
-
-    /// Enable or Disable for `point`, when the role may run it: the address and the
-    /// localized label.
-    fn toggle(&self, point: &ApRow) -> Option<(String, String)> {
-        let enable = point.enabled() == Some(false);
-        let label = if enable {
-            keys::WEB_NETWORK_ENABLE
-        } else {
-            keys::WEB_NETWORK_DISABLE
-        };
-        self.controls.allows("up").then(|| {
-            let href = with_query(
-                &format!("/ui/r/{}/wifi/toggle", self.router),
-                &[
-                    ("name", point.id()),
-                    ("setting", "enabled"),
-                    ("value", if enable { "yes" } else { "no" }),
-                ],
-            );
-            (href, tr(self.shell.locale(), label, None))
-        })
+    /// The access points table.
+    const fn point_table(&self) -> &TableView {
+        &self.points
     }
 }

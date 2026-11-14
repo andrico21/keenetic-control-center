@@ -7,28 +7,23 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Response},
 };
-use fluent_bundle::FluentArgs;
 use kcc_domain::{RouterCtx, policies::descriptor::DESCRIPTOR};
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
     frame::{Frame, Tab, Visit},
-    policy_rows::{Permit, Policy, read_policies},
+    policy_rows::read_policies,
+    tables::policies_view,
 };
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::Controls,
-        request::{rendered, with_query},
+    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    table::{
+        rows::{Table, TableQuery},
+        view::TableView,
     },
-    table::rows::{Table, TableQuery},
 };
 
 /// The policies table (`partials/routing_policies.html`).
@@ -39,12 +34,8 @@ pub(crate) struct PoliciesRegion {
     shell: Shell,
     /// Whether the region replaces the page's region out of band.
     oob: bool,
-    /// Router profile id.
-    router: String,
     /// The shown page of policies.
-    table: Table<Policy>,
-    /// What the role may change.
-    controls: Controls,
+    table: TableView,
 }
 
 localized!(PoliciesRegion);
@@ -54,57 +45,6 @@ impl PoliciesRegion {
     pub(crate) const fn out_of_band(mut self) -> Self {
         self.oob = true;
         self
-    }
-
-    /// The address of the policy action `action` on `policy`, with `extra` parameters.
-    fn url(&self, action: &str, policy: &Policy, extra: &[(&str, &str)]) -> String {
-        let mut pairs = vec![("name", policy.name())];
-        pairs.extend_from_slice(extra);
-        with_query(
-            &format!("/ui/r/{}/routing/policy/{action}", self.router),
-            &pairs,
-        )
-    }
-
-    /// The address of the dialog of `action` (`description`, `permit`, `delete`) on
-    /// `policy`.
-    fn action_url(&self, action: &str, policy: &Policy) -> String {
-        self.url(action, policy, &[])
-    }
-
-    /// The address that takes `permit` off `policy`.
-    fn unpermit_url(&self, policy: &Policy, permit: &Permit) -> String {
-        self.url("unpermit", policy, &[("interface", permit.interface())])
-    }
-
-    /// The address that turns multipath of `policy` on or off.
-    fn multipath_url(&self, policy: &Policy) -> String {
-        let value = if policy.multipath() { "off" } else { "on" };
-        self.url("multipath", policy, &[("value", value)])
-    }
-
-    /// The label of `permit`: the interface, with its order when set.
-    fn permit_label(&self, permit: &Permit) -> String {
-        permit.order().map_or_else(
-            || permit.interface().to_owned(),
-            |order| {
-                let mut args = FluentArgs::new();
-                args.set("name", permit.interface().to_owned());
-                args.set("value", order.to_string());
-                tr(
-                    self.shell.locale(),
-                    keys::WEB_ROUTING_POLICY_ORDER,
-                    Some(&args),
-                )
-            },
-        )
-    }
-
-    /// Whether the role may use any row action.
-    fn editable(&self) -> bool {
-        ["policy", "description", "permit", "multipath"]
-            .into_iter()
-            .any(|name| self.controls.allows(name))
     }
 }
 
@@ -154,11 +94,10 @@ pub(crate) async fn policies_region(
     (controls, locale): (Controls, Locale),
 ) -> Result<PoliciesRegion, MessageKey> {
     let policies = read_policies(domain).await?;
+    let table = Table::new(policies, query, format!("/ui/r/{router}/routing/policies"));
     Ok(PoliciesRegion {
         shell: fragment_shell(locale),
         oob: false,
-        router: router.to_owned(),
-        table: Table::new(policies, query, format!("/ui/r/{router}/routing/policies")),
-        controls,
+        table: policies_view(router, &table, (&controls, locale)),
     })
 }

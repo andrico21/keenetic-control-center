@@ -15,20 +15,20 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 
 use super::{
     frame::{Frame, Tab, Visit, view},
-    route_rows::{Family, StaticRoute, static_routes},
-    table_rows::{TableRoute, table_routes},
+    route_rows::{Family, static_routes},
+    table_rows::table_routes,
+    tables::{route_table_view, static_view},
 };
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     clients_pages::TabLink,
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::Controls,
-        request::{rendered, with_query},
+    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
+    table::{
+        rows::{Table, TableQuery},
+        view::TableView,
     },
-    table::rows::{Table, TableQuery},
 };
 
 /// The static routes of one family (`partials/routing_static.html`).
@@ -39,32 +39,13 @@ pub(crate) struct StaticRegion {
     shell: Shell,
     /// Whether the region replaces the page's region out of band.
     oob: bool,
-    /// Router profile id.
-    router: String,
     /// The shown page of routes.
-    table: Table<StaticRoute>,
-    /// Whether the family has a metric column (IPv4).
-    metrics: bool,
-    /// Whether the role may remove routes of this family.
-    removable: bool,
+    table: TableView,
 }
 
 localized!(StaticRegion);
 
 impl StaticRegion {
-    /// The address of the removal dialog of `route`.
-    fn remove_url(&self, route: &StaticRoute) -> String {
-        let pairs = route.pairs();
-        let borrowed: Vec<(&str, &str)> = pairs
-            .iter()
-            .map(|(name, value)| (*name, value.as_str()))
-            .collect();
-        with_query(
-            &format!("/ui/r/{}/routing/route/remove", self.router),
-            &borrowed,
-        )
-    }
-
     /// The region for an out-of-band swap.
     pub(crate) const fn out_of_band(mut self) -> Self {
         self.oob = true;
@@ -79,7 +60,7 @@ struct TableRegion {
     /// Locale carrier.
     shell: Shell,
     /// The shown page of routes.
-    table: Table<TableRoute>,
+    table: TableView,
 }
 
 localized!(TableRegion);
@@ -187,13 +168,14 @@ async fn table(
     let frame = Frame::new(shell, router, Tab::Table).with_views(keys::WEB_ROUTING_FAMILY, views);
     let region = match reading {
         Ok((_facts, domain)) => read_table(&domain, family).await.map(|entries| {
+            let shown = Table::new(
+                table_routes(family, &entries),
+                query,
+                view_path(router, "routing/table", family),
+            );
             rendered(&TableRegion {
                 shell: fragment_shell(locale),
-                table: Table::new(
-                    table_routes(family, &entries),
-                    query,
-                    view_path(router, "routing/table", family),
-                ),
+                table: route_table_view(&shown, locale),
             })
         }),
         Err(problem) => Err(problem),
@@ -215,17 +197,15 @@ pub(crate) async fn static_region(
     (removable, locale): (bool, Locale),
 ) -> Result<StaticRegion, MessageKey> {
     let entries = read_table(domain, family).await?;
+    let shown = Table::new(
+        static_routes(family, &entries),
+        query,
+        view_path(router, "routing", family),
+    );
     Ok(StaticRegion {
         shell: fragment_shell(locale),
         oob: false,
-        router: router.to_owned(),
-        table: Table::new(
-            static_routes(family, &entries),
-            query,
-            view_path(router, "routing", family),
-        ),
-        metrics: family == Family::V4,
-        removable,
+        table: static_view((router, family), &shown, (removable, locale)),
     })
 }
 

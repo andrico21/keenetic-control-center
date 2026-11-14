@@ -7,7 +7,11 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_domain::{RouterCtx, nat::read};
-use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 
 use super::views::{View, allows, unreachable, views};
 use crate::{
@@ -21,7 +25,10 @@ use crate::{
     routing_page::frame::{Frame, Tab, Visit},
     table::{
         Direction, Sort,
+        acts::Act,
+        cells::{Cell, Layout},
         rows::{Row, SortKey, Table, TableQuery},
+        view::{Head, TableView},
     },
 };
 
@@ -61,12 +68,8 @@ pub(crate) struct InterfacesRegion {
     shell: Shell,
     /// Whether the region replaces the page's region out of band.
     oob: bool,
-    /// Router profile id.
-    router: String,
     /// The shown page of interfaces.
-    table: Table<NatInterface>,
-    /// Whether the role may remove them.
-    removable: bool,
+    table: TableView,
 }
 
 localized!(InterfacesRegion);
@@ -77,14 +80,42 @@ impl InterfacesRegion {
         self.oob = true;
         self
     }
+}
 
-    /// The address of the removal dialog of `row`.
-    fn remove_url(&self, row: &NatInterface) -> String {
-        with_query(
-            &format!("/ui/r/{}/nat/interface/remove", self.router),
-            &[("name", row.name())],
-        )
+/// The interfaces with address translation on `router`, with Remove when `removable`, in
+/// `locale`.
+fn interfaces_view(
+    router: &str,
+    table: &Table<NatInterface>,
+    (removable, locale): (bool, Locale),
+) -> TableView {
+    let class = "table routing-table routing-table--narrow";
+    let mut view = TableView::filtered(class, table, (locale, keys::WEB_NAT_INTERFACES_EMPTY))
+        .head(Head::sorted(
+            tr(locale, keys::WEB_ROUTING_COL_INTERFACE, None),
+            table.header("interface"),
+        ));
+    if removable {
+        view = view.head(Head::hidden(tr(locale, keys::WEB_CLIENTS_ACTIONS, None)));
     }
+    for (index, row) in table.rows().iter().enumerate() {
+        let id = format!("nat-interface-{}", index.saturating_add(1));
+        let mut cells = vec![
+            Cell::code(row.name().to_owned())
+                .attr("id", id.clone())
+                .head(),
+        ];
+        if removable {
+            let href = with_query(
+                &format!("/ui/r/{router}/nat/interface/remove"),
+                &[("name", row.name())],
+            );
+            let remove = Act::opens(tr(locale, keys::WEB_ROUTING_REMOVE, None), href).danger();
+            cells.push(Cell::acts(Layout::Inline, vec![remove], id).class("lan-actions"));
+        }
+        view = view.row(cells);
+    }
+    view
 }
 
 /// `GET /ui/r/{router}/nat/interfaces`: the interfaces with address translation.
@@ -137,12 +168,11 @@ pub(crate) async fn interfaces_region(
         .into_iter()
         .map(|name| NatInterface { name })
         .collect();
+    let table = Table::new(rows, query, format!("/ui/r/{router}/nat/interfaces"));
     Ok(InterfacesRegion {
         shell: fragment_shell(locale),
         oob: false,
-        router: router.to_owned(),
-        table: Table::new(rows, query, format!("/ui/r/{router}/nat/interfaces")),
-        removable,
+        table: interfaces_view(router, &table, (removable, locale)),
     })
 }
 

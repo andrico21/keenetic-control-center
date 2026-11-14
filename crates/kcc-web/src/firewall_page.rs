@@ -30,6 +30,7 @@ mod rule;
 mod rule_actions;
 mod rule_forms;
 mod rule_props;
+mod rules_table;
 mod run;
 mod snapshot;
 mod views;

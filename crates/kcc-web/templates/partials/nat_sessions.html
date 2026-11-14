@@ -1,5 +1,4 @@
 {#- One router page of active connections (at most 200): a filter and sorting within the page, the table, and links to the router's previous and next page. -#}
-{%- import "components.html" as ui -%}
 <div class="lan-region routing-region" id="routing-region">
   <form class="table-filter" role="search" method="get" action="{{ base }}">
     <label class="field__label" for="table-filter">{{ t(keys::WEB_KIT_TABLE_FILTER) }}</label>
@@ -15,40 +14,8 @@
     </div>
   </form>
   <p class="page__text" id="nat-sessions-note">{{ t(keys::WEB_NAT_SESSIONS_NOTE) }}</p>
-  {%- if rows.is_empty() %}
-  <p class="page__text">{% if filter.is_empty() %}{{ t(keys::WEB_NAT_SESSIONS_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table routing-table nat-sessions">
-      <thead>
-        <tr>
-          {{ ui::sort_header(t(keys::WEB_NAT_COL_SOURCE), header("source")) }}
-          {{ ui::sort_header(t(keys::WEB_NAT_COL_DESTINATION), header("destination")) }}
-          {{ ui::sort_header(t(keys::WEB_NAT_COL_TRANSLATED), header("translated")) }}
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_PROTOCOL), header("protocol")) }}
-          {{ ui::sort_header(t(keys::WEB_ROUTING_COL_INTERFACE), header("interface")) }}
-          {{ ui::sort_header(t(keys::WEB_NAT_COL_STATE), header("state")) }}
-          {{ ui::sort_header(t(keys::WEB_NAT_COL_RECEIVED), header("received")) }}
-          {{ ui::sort_header(t(keys::WEB_NAT_COL_SENT), header("sent")) }}
-        </tr>
-      </thead>
-      <tbody>
-        {%- for row in rows %}
-        <tr>
-          <th scope="row" class="mono">{% if let Some(text) = row.source() %}{{ text }}{% endif %}</th>
-          <td class="mono">{% if let Some(text) = row.destination() %}{{ text }}{% endif %}</td>
-          <td class="mono">{% if let Some(text) = row.translated() %}{{ text }}{% endif %}</td>
-          <td>{{ protocol(row) }}</td>
-          <td class="mono">{% if let Some(text) = row.interface() %}{{ text }}{% endif %}</td>
-          <td>{% if let Some(text) = row.state() %}{{ text }}{% endif %}</td>
-          <td class="numeric">{{ received(row) }}</td>
-          <td class="numeric">{{ sent_bytes(row) }}</td>
-        </tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- endif %}
+  {%- let table = self.table_view() %}
+  {%- include "partials/kit_table.html" %}
   {%- if multiple() %}
   <nav class="pager" aria-label="{{ t(keys::WEB_ADMIN_PAGES) }}">
     {%- if let Some(href) = previous() %}

@@ -12,7 +12,6 @@ use kcc_domain::{OperationDescriptor, RouterCtx, vpn_clients, vpn_servers};
 use kcc_i18n::{bundle::tr, keys};
 
 use super::{
-    cells::Act,
     check,
     flow::{Closed, Viewer, Visit},
     region::Region,
@@ -38,7 +37,7 @@ use crate::{
         respond::{self, Answer},
         submit::{Invalid, Planned, Submission},
     },
-    table::rows::TableQuery,
+    table::{acts::Act, rows::TableQuery},
 };
 
 /// Which VPN region a request shows or reads back.

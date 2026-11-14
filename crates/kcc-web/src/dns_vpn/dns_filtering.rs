@@ -7,15 +7,14 @@ use kcc_i18n::{
 };
 
 use super::{
-    cells::{Act, Cell},
     dns_forms::engine_label,
     dns_read::DnsState,
     dns_tabs::{dialog, value},
     flow::Viewer,
-    listing::{Line, Listing},
-    region::{Panel, Region, TableView},
+    listing::{Line, Listing, table_view},
+    region::{Panel, Region},
 };
-use crate::table::{Direction, Sort, rows::Table};
+use crate::table::{Direction, Sort, acts::Act, cells::Cell, rows::Table};
 
 /// The profile assignments table.
 #[derive(Debug, Clone, Copy)]
@@ -112,6 +111,6 @@ pub(crate) fn filtering(state: &DnsState, viewer: &Viewer) -> (Region, Vec<Act>)
     let region = Region::new(locale)
         .panel(settings)
         .panel(listed)
-        .table(TableView::of(&Assignments, &table, locale));
+        .table(table_view(&Assignments, &table, locale));
     (region, actions)
 }

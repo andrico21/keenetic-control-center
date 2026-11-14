@@ -5,15 +5,14 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use url::form_urlencoded;
 
 use super::{
-    cells::{Act, Cell},
     dns_filtering,
     dns_read::{DnsState, Entry, Protocol},
     flow::Viewer,
-    listing::{Line, Listing},
-    region::{Region, TableView},
+    listing::{Line, Listing, table_view},
+    region::Region,
     screen::Tab,
 };
-use crate::table::{Direction, Sort, rows::Table};
+use crate::table::{Direction, Sort, acts::Act, cells::Cell, rows::Table};
 
 /// The servers table.
 #[derive(Debug, Clone, Copy)]
@@ -157,7 +156,7 @@ fn servers(state: &DnsState, viewer: &Viewer) -> (Region, Vec<Act>) {
         .then(|| dialog(viewer, keys::WEB_DNS_SERVER_ADD, "server"))
         .into_iter()
         .collect();
-    let region = Region::new(locale).table(TableView::of(&Servers, &table, locale));
+    let region = Region::new(locale).table(table_view(&Servers, &table, locale));
     (region, actions)
 }
 
@@ -180,7 +179,7 @@ fn records(state: &DnsState, viewer: &Viewer) -> (Region, Vec<Act>) {
         .then(|| dialog(viewer, keys::WEB_DNS_RECORD_ADD, "record"))
         .into_iter()
         .collect();
-    let region = Region::new(locale).table(TableView::of(&Records, &table, locale));
+    let region = Region::new(locale).table(table_view(&Records, &table, locale));
     (region, actions)
 }
 
@@ -217,7 +216,7 @@ fn lists(state: &DnsState, viewer: &Viewer) -> (Region, Vec<Act>) {
         .then(|| dialog(viewer, keys::WEB_DNS_LIST_ADD, "list"))
         .into_iter()
         .collect();
-    let region = Region::new(locale).table(TableView::of(&Lists, &table, locale));
+    let region = Region::new(locale).table(table_view(&Lists, &table, locale));
     (region, actions)
 }
 
@@ -240,6 +239,6 @@ fn routes(state: &DnsState, viewer: &Viewer) -> (Region, Vec<Act>) {
         .then(|| dialog(viewer, keys::WEB_DNS_ROUTE_ADD, "route"))
         .into_iter()
         .collect();
-    let region = Region::new(locale).table(TableView::of(&Routes, &table, locale));
+    let region = Region::new(locale).table(table_view(&Routes, &table, locale));
     (region, actions)
 }

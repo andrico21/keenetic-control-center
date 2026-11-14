@@ -9,17 +9,21 @@ use kcc_i18n::{
 };
 
 use super::{
-    cells::{Act, Cell, Pill},
     check,
     flow::Viewer,
-    listing::{Line, Listing},
-    region::{Panel, Region, TableView},
+    listing::{Line, Listing, table_view},
+    region::{Panel, Region},
     vpn_read::{allowed, details, endpoint, is_up, type_label},
 };
 use crate::{
     page_kit::request::with_query,
     secret_pages::vpn_credential::Kind,
-    table::{Direction, Sort, rows::Table},
+    table::{
+        Direction, Sort,
+        acts::Act,
+        cells::{Cell, Pill},
+        rows::Table,
+    },
 };
 
 /// The connections table.
@@ -141,7 +145,7 @@ pub(crate) fn connections(clients: &[VpnClientStatus], viewer: &Viewer) -> (Regi
     } else {
         Vec::new()
     };
-    let region = Region::new(locale).table(TableView::of(&Connections, &table, locale));
+    let region = Region::new(locale).table(table_view(&Connections, &table, locale));
     (region, actions)
 }
 
@@ -231,6 +235,6 @@ pub(crate) fn peers(client: &VpnClientStatus, viewer: &Viewer) -> (Region, Vec<A
         .collect();
     let region = Region::new(locale)
         .panel(side)
-        .table(TableView::of(&Peers, &table, locale));
+        .table(table_view(&Peers, &table, locale));
     (region, actions)
 }

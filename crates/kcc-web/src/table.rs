@@ -8,8 +8,11 @@
 //! [`rows::Table`] does all of it for typed rows ([`rows::Row`]): the filter, the sort and
 //! the page of [`pager::PAGE_ROWS`] rows, whose [`pager::Pager`] links keep the others.
 
+pub(crate) mod acts;
+pub(crate) mod cells;
 pub mod pager;
 pub mod rows;
+pub(crate) mod view;
 
 use url::form_urlencoded;
 
