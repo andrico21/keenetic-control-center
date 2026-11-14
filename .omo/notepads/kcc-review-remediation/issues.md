@@ -35,3 +35,7 @@
 ## [2026-11-14] Todo 39: rustup stable is now 1.100.0 (found by r39)
 - `cargo` 1.100 warns `unused field publish in workspace.package` (root Cargo.toml:23); with `.cargo/config.toml` `[build] warnings = "deny"` every cargo command exits 101 after a successful build. Workaround used: `CARGO_BUILD_WARNINGS=warn` or `cargo +1.99.1`.
 - clippy 1.100 with `-D warnings` fails before kcc-web: kcc-rci `src/engine/background.rs:115` unfulfilled `#[expect(clippy::integer_division_remainder_used)]` (tokio::select), kcc-catalog `src/request.rs:242` `map(_).unwrap_or_default()`; likely more. Out of todo 39's scope; the gate needs a pinned toolchain or a follow-up todo.
+
+## [2026-11-14] xtask workspace is not rustfmt-clean (found during guidelines sync, not fixed)
+`(cd xtask && cargo +nightly-2026-10-03 fmt --check)` reports drift in xtask/src/seccomp.rs, seccomp_gen.rs, seccomp_groups.rs (about 160 changed lines). G0's `cargo +nightly-2026-10-03 fmt --all -- --check` runs from the root and does not cover the separate xtask workspace, so neither CI nor G0 catches it. Fix: format those files and add `cargo +nightly-2026-10-03 fmt --manifest-path xtask/Cargo.toml -- --check` (or the equivalent) to the fmt job.
+Also: on this host, plain `cargo audit` fails because ~/.cargo/advisory-db is a non-git clone left by an older cargo-deny. `cargo audit --db ~/.cargo/audit-advisory-db` (the scripts/ci-local.sh form) passes.

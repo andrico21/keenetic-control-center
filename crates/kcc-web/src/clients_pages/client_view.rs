@@ -13,19 +13,21 @@ use kcc_i18n::{
     locale::Locale,
 };
 use serde::Deserialize;
-use url::form_urlencoded::byte_serialize;
 
 use super::{
     client_act::NAMES,
     client_rows::{ClientRow, Medium, Presence},
+    client_table,
 };
 use crate::{
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls},
     table::{
         SortHeader,
+        head::Head,
         pager::Pager,
         rows::{Table, TableQuery},
+        view::TableView,
     },
 };
 
@@ -236,15 +238,20 @@ impl Region {
         }
     }
 
-    /// Whether the role may run any row action.
-    fn actions(&self) -> bool {
-        NAMES.iter().any(|name| self.controls.allows(name))
-    }
-
-    /// The route of `action` on the client of `row`.
-    fn action_url(&self, action: &str, row: &ClientRow) -> String {
-        let mac: String = byte_serialize(row.mac().as_bytes()).collect();
-        format!("/ui/r/{}/clients/{action}?mac={mac}", self.router)
+    /// The clients table, or why it is empty.
+    fn clients(&self) -> TableView {
+        let locale = self.shell.locale();
+        if let Some(message) = self.empty() {
+            return TableView::new(client_table::CLASS)
+                .blank("page__text", tr(locale, message, None));
+        }
+        let heads = client_table::COLUMNS
+            .iter()
+            .map(|(column, key)| Head::sorted(tr(locale, *key, None), self.header(column)))
+            .collect();
+        let actions = NAMES.iter().any(|name| self.controls.allows(name));
+        let viewer = (self.router.as_str(), &self.controls, locale);
+        client_table::view(heads, &self.table, (viewer, actions))
     }
 }
 

@@ -14,20 +14,11 @@
 {%- for warning in kept %}
 <p class="wizard-warning" data-tone="warning">{{ warning }}</p>
 {%- endfor %}
-{%- if !keys.is_empty() %}
+{%- if let Some(table) = public_keys %}
 <section class="wizard-phase" aria-labelledby="report-keys-title">
   <h3 class="wizard-phase__title" id="report-keys-title">{{ t(keys::WEB_PRESETS_KEYS_TITLE) }}</h3>
   <p class="page__text">{{ t(keys::WEB_PRESETS_KEYS_TEXT) }}</p>
-  <div class="table-wrap presets-keys">
-    <table class="table">
-      <thead><tr><th scope="col">{{ t(keys::WEB_PRESETS_KEYS_INTERFACE) }}</th><th scope="col">{{ t(keys::WEB_PRESETS_KEYS_KEY) }}</th></tr></thead>
-      <tbody>
-        {%- for (interface, key) in keys %}
-        <tr><th scope="row" class="mono">{{ interface }}</th><td><code class="wizard-line">{{ key }}</code></td></tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
+  {%- include "partials/kit_table.html" %}
 </section>
 {%- endif %}
 {%- if let Some(title) = downloads_title %}

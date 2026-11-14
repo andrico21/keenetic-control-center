@@ -17,9 +17,11 @@ use crate::{
     page_kit::{gate::Controls, request::with_query},
     table::{
         acts::{Act, MenuItem},
-        cells::{Cell, Layout, Ordered, Piece},
+        cells::{Cell, Layout, Ordered},
+        head::Head,
+        piece::Piece,
         rows::Table,
-        view::{Head, TableView},
+        view::TableView,
     },
 };
 

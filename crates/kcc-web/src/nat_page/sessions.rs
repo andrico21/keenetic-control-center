@@ -32,10 +32,7 @@ use crate::{
     },
     routing_page::frame::{Frame, Tab, Visit, protocol_text},
     table::{
-        Direction, Sort, SortHeader,
-        cells::Cell,
-        rows::Row as _,
-        view::{Head, TableView},
+        Direction, Sort, SortHeader, cells::Cell, head::Head, rows::Row as _, view::TableView,
     },
 };
 

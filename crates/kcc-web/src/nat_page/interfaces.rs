@@ -27,8 +27,9 @@ use crate::{
         Direction, Sort,
         acts::Act,
         cells::{Cell, Layout},
+        head::Head,
         rows::{Row, SortKey, Table, TableQuery},
-        view::{Head, TableView},
+        view::TableView,
     },
 };
 

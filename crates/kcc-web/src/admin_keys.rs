@@ -6,6 +6,8 @@
 //! stored keys in the running MCP transport at once. Nobody creates a key with a role
 //! above their own or revokes a key whose role is above their own.
 
+mod table;
+
 use core::{error::Error, fmt};
 
 use askama::Template;
@@ -41,7 +43,10 @@ use crate::{
         outcome::Toast,
         respond,
     },
-    table::pager::{Pager, shown_page},
+    table::{
+        pager::{Pager, shown_page},
+        view::TableView,
+    },
 };
 
 /// Longest API key name.
@@ -80,7 +85,7 @@ struct KeysRegion {
     /// Locale carrier.
     shell: Shell,
     /// The shown page of keys.
-    rows: Vec<KeyRow>,
+    table: TableView,
     /// Table pagination.
     pager: Pager,
     /// Whether this is an out-of-band update.
@@ -385,7 +390,7 @@ async fn region(
     let (rows, pager) = Pager::paginate(all, page, Tab::Keys.href().to_owned(), Vec::new());
     Ok(KeysRegion {
         shell: fragment_shell(user.locale()),
-        rows,
+        table: table::keys(&rows, locale),
         pager,
         oob,
         toasts,

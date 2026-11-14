@@ -1,5 +1,7 @@
-//! A table as rendered by `partials/kit_table.html`: the filter box, a count, the text
-//! shown instead of an empty table, the header cells, the rows and the pager.
+//! A table as rendered by `partials/kit_table.html`.
+//!
+//! The filter box, a count, the text shown instead of an empty table, the header cells,
+//! the rows and the pager; a compact table puts the header and each row on one line.
 
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{
@@ -9,39 +11,11 @@ use kcc_i18n::{
 };
 
 use super::{
-    Sort, SortHeader,
     cells::Cell,
+    head::{Head, Search},
     pager::Pager,
     rows::{Row, Table},
 };
-
-/// The filter box of a table: its label and the state it keeps.
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub(crate) struct Search {
-    /// The localized label.
-    label: String,
-    /// Path of the table's page.
-    base: String,
-    /// The filter text.
-    filter: String,
-    /// The sort order.
-    sort: Sort,
-}
-
-/// One header cell: sortable, plain, or a hidden label over the actions.
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub(crate) struct Head {
-    /// The localized label.
-    label: String,
-    /// The sort link and state of a sortable column.
-    sort: Option<SortHeader>,
-    /// The class of a plain header cell.
-    class: Option<&'static str>,
-    /// Whether the label is for screen readers only.
-    hidden: bool,
-}
 
 /// One rendered table.
 #[derive(Debug, Clone)]
@@ -55,6 +29,10 @@ pub(crate) struct TableView {
     count: Option<(&'static str, String)>,
     /// What shows instead of the table: its class and text.
     blank: Option<(&'static str, String)>,
+    /// The class of the `div` around the table; none for a bare table.
+    wrap: Option<&'static str>,
+    /// Whether the header and each row sit on one line.
+    compact: bool,
     /// The table's class.
     class: &'static str,
     /// The table's accessible name.
@@ -67,86 +45,6 @@ pub(crate) struct TableView {
     pager: Option<Pager>,
 }
 
-impl Search {
-    /// The localized label.
-    pub(crate) fn label(&self) -> &str {
-        &self.label
-    }
-
-    /// Path of the table's page.
-    pub(crate) fn base(&self) -> &str {
-        &self.base
-    }
-
-    /// The filter text.
-    pub(crate) fn filter(&self) -> &str {
-        &self.filter
-    }
-
-    /// The sort order.
-    pub(crate) const fn sort(&self) -> Sort {
-        self.sort
-    }
-}
-
-impl Head {
-    /// A column sorted through `sort`.
-    pub(crate) const fn sorted(label: String, sort: SortHeader) -> Self {
-        Self {
-            label,
-            sort: Some(sort),
-            class: None,
-            hidden: false,
-        }
-    }
-
-    /// A column that does not sort.
-    pub(crate) const fn plain(label: String) -> Self {
-        Self {
-            label,
-            sort: None,
-            class: None,
-            hidden: false,
-        }
-    }
-
-    /// The column over the row actions, labelled for screen readers.
-    pub(crate) const fn hidden(label: String) -> Self {
-        Self {
-            label,
-            sort: None,
-            class: None,
-            hidden: true,
-        }
-    }
-
-    /// The plain column with the class `class`.
-    pub(crate) const fn with_class(mut self, class: &'static str) -> Self {
-        self.class = Some(class);
-        self
-    }
-
-    /// The localized label.
-    pub(crate) fn label(&self) -> &str {
-        &self.label
-    }
-
-    /// The sort link and state of a sortable column.
-    pub(crate) const fn sort(&self) -> Option<&SortHeader> {
-        self.sort.as_ref()
-    }
-
-    /// The class of a plain header cell.
-    pub(crate) const fn class_name(&self) -> Option<&'static str> {
-        self.class
-    }
-
-    /// Whether the label is for screen readers only.
-    pub(crate) const fn is_hidden(&self) -> bool {
-        self.hidden
-    }
-}
-
 impl TableView {
     /// An empty table of class `class`.
     pub(crate) const fn new(class: &'static str) -> Self {
@@ -155,6 +53,8 @@ impl TableView {
             search: None,
             count: None,
             blank: None,
+            wrap: Some("table-wrap"),
+            compact: false,
             class,
             label: None,
             heads: Vec::new(),
@@ -223,6 +123,33 @@ impl TableView {
         self
     }
 
+    /// The table inside a `div` of class `class` instead of `table-wrap`.
+    pub(crate) const fn wrapped(mut self, class: &'static str) -> Self {
+        self.wrap = Some(class);
+        self
+    }
+
+    /// The table without a `div` around it.
+    pub(crate) const fn bare(mut self) -> Self {
+        self.wrap = None;
+        self
+    }
+
+    /// The table with its header and each row on one line, cells holding text and
+    /// elements only.
+    pub(crate) const fn compact(mut self) -> Self {
+        self.compact = true;
+        self
+    }
+
+    /// The text shown instead of the table in class `class`.
+    pub(crate) const fn noted(mut self, class: &'static str) -> Self {
+        if let Some(blank) = self.blank.as_mut() {
+            blank.0 = class;
+        }
+        self
+    }
+
     /// The table with the accessible name `label`.
     pub(crate) fn labelled(mut self, label: String) -> Self {
         self.label = Some(label);
@@ -234,12 +161,7 @@ impl TableView {
     where
         R: Row,
     {
-        self.search = Some(Search {
-            label,
-            base: table.base().to_owned(),
-            filter: table.filter().to_owned(),
-            sort: table.sort(),
-        });
+        self.search = Some(Search::over(label, table));
         self
     }
 
@@ -283,6 +205,25 @@ impl TableView {
         format!("{}{}", self.pad, " ".repeat(depth))
     }
 
+    /// A new line `depth` spaces into the table's region.
+    pub(crate) fn lead(&self, depth: usize) -> String {
+        format!("\n{}", self.indent(depth))
+    }
+
+    /// A new line `depth` spaces into the table's region; nothing without a depth.
+    pub(crate) fn lead_at(&self, depth: Option<usize>) -> String {
+        depth.map_or_default(|spaces| self.lead(spaces))
+    }
+
+    /// A new line `depth` spaces into the table's region; nothing in a compact table.
+    pub(crate) fn break_at(&self, depth: usize) -> String {
+        if self.compact {
+            String::new()
+        } else {
+            self.lead(depth)
+        }
+    }
+
     /// The filter box.
     pub(crate) const fn search_box(&self) -> Option<&Search> {
         self.search.as_ref()
@@ -296,6 +237,11 @@ impl TableView {
     /// What shows instead of the table: its class and text.
     pub(crate) const fn blank_text(&self) -> Option<&(&'static str, String)> {
         self.blank.as_ref()
+    }
+
+    /// The class of the `div` around the table.
+    pub(crate) const fn wrap(&self) -> Option<&'static str> {
+        self.wrap
     }
 
     /// The table's class.

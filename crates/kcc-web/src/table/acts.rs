@@ -1,10 +1,27 @@
 //! The action buttons of a page head, a panel or a table row: a dialog opener, a form, an
-//! htmx post, a link, a note in their place, or a menu of further actions.
+//! htmx post, a link or a download, a note in their place, or a menu of further actions.
 
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     locale::Locale,
 };
+
+/// What a menu entry does.
+#[derive(Debug, Clone)]
+enum Entry {
+    /// Opens a dialog.
+    Open,
+    /// Posts, then hides the menu.
+    Post,
+    /// Hides the menu, then posts: the menu attributes come first.
+    Hide,
+    /// Goes to another page.
+    Link,
+    /// Downloads a file.
+    Download,
+    /// A form posting hidden fields.
+    Form(Vec<(&'static str, String)>),
+}
 
 /// One entry of an action menu.
 #[derive(Debug, Clone)]
@@ -14,8 +31,8 @@ pub(crate) struct MenuItem {
     label: String,
     /// Where the request goes.
     href: String,
-    /// Whether the entry posts (and hides the menu) instead of opening a dialog.
-    post: bool,
+    /// What the entry does.
+    entry: Entry,
     /// Whether the entry removes something.
     danger: bool,
 }
@@ -31,10 +48,14 @@ enum Method {
     Send,
     /// Goes to another page.
     Link,
+    /// Downloads a file.
+    Download,
+    /// A form posting hidden fields whose answer replaces nothing on the page.
+    Quiet(Vec<(&'static str, String)>),
     /// Says why there is no action.
     Note,
-    /// Opens the menu whose element id is the action's `href`.
-    Menu(Vec<MenuItem>),
+    /// Opens the menu of this class whose element id is the action's `href`.
+    Menu(&'static str, Vec<MenuItem>),
 }
 
 /// One action button.
@@ -52,24 +73,47 @@ pub(crate) struct Act {
 }
 
 impl MenuItem {
-    /// An entry opening the dialog at `href`.
-    pub(crate) const fn open(label: String, href: String) -> Self {
+    /// An entry reading `label` that does `entry` with `href`.
+    const fn new(label: String, href: String, entry: Entry) -> Self {
         Self {
             label,
             href,
-            post: false,
+            entry,
             danger: false,
         }
     }
 
+    /// An entry opening the dialog at `href`.
+    pub(crate) const fn open(label: String, href: String) -> Self {
+        Self::new(label, href, Entry::Open)
+    }
+
     /// An entry posting to `href`.
     pub(crate) const fn post(label: String, href: String) -> Self {
-        Self {
-            label,
-            href,
-            post: true,
-            danger: false,
-        }
+        Self::new(label, href, Entry::Post)
+    }
+
+    /// An entry posting to `href` that names the menu it hides first.
+    pub(crate) const fn hides(label: String, href: String) -> Self {
+        Self::new(label, href, Entry::Hide)
+    }
+
+    /// An entry going to `href`.
+    pub(crate) const fn link(label: String, href: String) -> Self {
+        Self::new(label, href, Entry::Link)
+    }
+
+    /// An entry downloading `href`.
+    pub(crate) const fn download(label: String, href: String) -> Self {
+        Self::new(label, href, Entry::Download)
+    }
+
+    /// An entry whose form posts `fields` to `href`.
+    pub(crate) fn form(
+        label: String,
+        (href, fields): (String, Vec<(&'static str, String)>),
+    ) -> Self {
+        Self::new(label, href, Entry::Form(fields))
     }
 
     /// An entry that removes something.
@@ -88,9 +132,41 @@ impl MenuItem {
         &self.href
     }
 
-    /// Whether the entry posts (and hides the menu) instead of opening a dialog.
+    /// Whether the entry posts, then hides the menu.
     pub(crate) const fn is_post(&self) -> bool {
-        self.post
+        matches!(self.entry, Entry::Post)
+    }
+
+    /// Whether the entry hides the menu, then posts.
+    pub(crate) const fn is_hide(&self) -> bool {
+        matches!(self.entry, Entry::Hide)
+    }
+
+    /// Whether the entry is a link or a download.
+    pub(crate) const fn is_link(&self) -> bool {
+        matches!(self.entry, Entry::Link | Entry::Download)
+    }
+
+    /// Whether the entry downloads a file.
+    pub(crate) const fn is_download(&self) -> bool {
+        matches!(self.entry, Entry::Download)
+    }
+
+    /// The hidden fields of a form entry.
+    pub(crate) fn form_fields(&self) -> Option<&[(&'static str, String)]> {
+        match &self.entry {
+            Entry::Form(fields) => Some(fields),
+            Entry::Open | Entry::Post | Entry::Hide | Entry::Link | Entry::Download => None,
+        }
+    }
+
+    /// Where the entry's line starts in a menu indented by `indent`: a form entry two
+    /// columns left of it.
+    pub(crate) fn lead<'indent>(&self, indent: &'indent str) -> &'indent str {
+        match self.entry {
+            Entry::Form(_) => indent.get(2..).unwrap_or(indent),
+            Entry::Open | Entry::Post | Entry::Hide | Entry::Link | Entry::Download => indent,
+        }
     }
 
     /// Whether the entry removes something.
@@ -145,6 +221,26 @@ impl Act {
         }
     }
 
+    /// A link downloading `href`.
+    pub(crate) fn download(locale: Locale, label: MessageKey, href: String) -> Self {
+        Self {
+            method: Method::Download,
+            ..Self::open(locale, label, href)
+        }
+    }
+
+    /// A button whose form posts `fields` to `href` and swaps nothing.
+    pub(crate) fn quiet(
+        locale: Locale,
+        label: MessageKey,
+        (href, fields): (String, Vec<(&'static str, String)>),
+    ) -> Self {
+        Self {
+            method: Method::Quiet(fields),
+            ..Self::open(locale, label, href)
+        }
+    }
+
     /// A muted note reading `label` in place of an action.
     pub(crate) const fn note(label: String) -> Self {
         Self {
@@ -156,12 +252,21 @@ impl Act {
     }
 
     /// A button reading `label` that opens the menu `id` of `items`.
-    pub(crate) const fn menu(label: String, id: String, items: Vec<MenuItem>) -> Self {
+    pub(crate) fn menu(label: String, id: String, items: Vec<MenuItem>) -> Self {
+        Self::menu_of(label, (id, "menu lan-menu"), items)
+    }
+
+    /// A button reading `label` that opens the menu `id` of class `class` of `items`.
+    pub(crate) fn menu_of(
+        label: String,
+        (id, class): (String, &'static str),
+        items: Vec<MenuItem>,
+    ) -> Self {
         Self {
             label,
             href: id,
             style: "button--ghost",
-            method: Method::Menu(items),
+            method: Method::Menu(class, items),
         }
     }
 
@@ -207,8 +312,13 @@ impl Act {
     /// Hidden fields of a form post; empty otherwise.
     pub(crate) fn fields(&self) -> &[(&'static str, String)] {
         match &self.method {
-            Method::Post(fields) => fields,
-            Method::Open | Method::Send | Method::Link | Method::Note | Method::Menu(_) => &[],
+            Method::Post(fields) | Method::Quiet(fields) => fields,
+            Method::Open
+            | Method::Send
+            | Method::Link
+            | Method::Download
+            | Method::Note
+            | Method::Menu(..) => &[],
         }
     }
 
@@ -222,9 +332,19 @@ impl Act {
         matches!(self.method, Method::Send)
     }
 
-    /// Whether the action is a link.
+    /// Whether the action is a form post that swaps nothing.
+    pub(crate) const fn is_quiet(&self) -> bool {
+        matches!(self.method, Method::Quiet(_))
+    }
+
+    /// Whether the action is a link or a download.
     pub(crate) const fn is_link(&self) -> bool {
-        matches!(self.method, Method::Link)
+        matches!(self.method, Method::Link | Method::Download)
+    }
+
+    /// Whether the action downloads a file.
+    pub(crate) const fn is_download(&self) -> bool {
+        matches!(self.method, Method::Download)
     }
 
     /// Whether the action is a note.
@@ -232,11 +352,17 @@ impl Act {
         matches!(self.method, Method::Note)
     }
 
-    /// The entries of a menu.
-    pub(crate) fn menu_items(&self) -> Option<&[MenuItem]> {
+    /// The class and entries of a menu.
+    pub(crate) fn menu_items(&self) -> Option<(&'static str, &[MenuItem])> {
         match &self.method {
-            Method::Menu(items) => Some(items),
-            Method::Open | Method::Post(_) | Method::Send | Method::Link | Method::Note => None,
+            Method::Menu(class, items) => Some((class, items)),
+            Method::Open
+            | Method::Post(_)
+            | Method::Quiet(_)
+            | Method::Send
+            | Method::Link
+            | Method::Download
+            | Method::Note => None,
         }
     }
 }

@@ -1,5 +1,6 @@
 //! The cells of a rendered table: a header or data cell with its attributes, holding text
-//! and spans, a list of values, an ordered list of items with buttons, or row actions.
+//! and elements, a list of values, elements one per line, an ordered list of items with
+//! buttons, or row actions.
 
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -7,7 +8,11 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use super::{acts::Act, rows::SortKey};
+use super::{
+    acts::Act,
+    piece::{Line, Piece},
+    rows::SortKey,
+};
 
 /// The look of a state pill: the `data-status` value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,19 +22,6 @@ pub(crate) enum Pill {
     On,
     /// Disabled, or not reported.
     Off,
-}
-
-/// One inline piece of a cell: bare text, or a span with attributes around the text and
-/// an optional inner span (class and text) after it.
-#[derive(Debug, Clone)]
-#[non_exhaustive]
-pub(crate) struct Piece {
-    /// Attributes of the span, in output order; empty for bare text.
-    attrs: Vec<(&'static str, String)>,
-    /// The text.
-    text: String,
-    /// An inner span after the text: its class and text.
-    inner: Option<(&'static str, String)>,
 }
 
 /// The items of an ordered cell list and its classes.
@@ -56,6 +48,26 @@ pub(crate) enum Layout {
     Wrapped(&'static str),
 }
 
+impl Layout {
+    /// The class of the `div` around the actions.
+    pub(crate) const fn wrapper(self) -> Option<&'static str> {
+        match self {
+            Self::Wrapped(class) => Some(class),
+            Self::Inline | Self::Block => None,
+        }
+    }
+
+    /// How far into the region each action's own line starts; none for actions on the
+    /// cell's line.
+    pub(crate) const fn depth(self) -> Option<usize> {
+        match self {
+            Self::Inline => None,
+            Self::Block => Some(12),
+            Self::Wrapped(_) => Some(14),
+        }
+    }
+}
+
 /// What a cell holds.
 #[derive(Debug, Clone)]
 enum Body {
@@ -63,6 +75,8 @@ enum Body {
     Inline(Vec<Piece>),
     /// Values, one per line (`ul.cell-lines`).
     Lines(Vec<String>),
+    /// Elements, one per line.
+    Stack(Vec<Line>),
     /// An ordered list of items with their actions.
     Ordered(Ordered),
     /// Row actions, the layout and what they describe themselves by.
@@ -81,52 +95,6 @@ pub(crate) struct Cell {
     body: Body,
     /// Whether the router reported nothing.
     missing: bool,
-}
-
-impl Piece {
-    /// Bare text.
-    pub(crate) const fn text(text: String) -> Self {
-        Self {
-            attrs: Vec::new(),
-            text,
-            inner: None,
-        }
-    }
-
-    /// `text` in a span of `class`.
-    pub(crate) fn span(class: &'static str, text: String) -> Self {
-        Self {
-            attrs: vec![("class", class.to_owned())],
-            ..Self::text(text)
-        }
-    }
-
-    /// The span with the attribute `name` set to `value` after the others.
-    pub(crate) fn attr(mut self, name: &'static str, value: String) -> Self {
-        self.attrs.push((name, value));
-        self
-    }
-
-    /// The span with an inner span of `class` reading `text` after its text.
-    pub(crate) fn with_inner(mut self, class: &'static str, text: String) -> Self {
-        self.inner = Some((class, text));
-        self
-    }
-
-    /// Attributes of the span, in output order; empty for bare text.
-    pub(crate) fn attrs(&self) -> &[(&'static str, String)] {
-        &self.attrs
-    }
-
-    /// The text.
-    pub(crate) fn content(&self) -> &str {
-        &self.text
-    }
-
-    /// The inner span after the text: its class and text.
-    pub(crate) const fn inner(&self) -> Option<&(&'static str, String)> {
-        self.inner.as_ref()
-    }
 }
 
 impl Ordered {
@@ -235,6 +203,14 @@ impl Cell {
         }
     }
 
+    /// Elements, one per line.
+    pub(crate) fn stack(lines: Vec<Line>) -> Self {
+        Self {
+            body: Body::Stack(lines),
+            ..Self::of(Vec::new())
+        }
+    }
+
     /// An ordered list of items.
     pub(crate) fn ordered(list: Ordered) -> Self {
         Self {
@@ -295,7 +271,15 @@ impl Cell {
     pub(crate) fn pieces(&self) -> &[Piece] {
         match &self.body {
             Body::Inline(pieces) => pieces,
-            Body::Lines(_) | Body::Ordered(_) | Body::Acts(..) => &[],
+            Body::Lines(_) | Body::Stack(_) | Body::Ordered(_) | Body::Acts(..) => &[],
+        }
+    }
+
+    /// The lines of a cell holding elements one per line.
+    pub(crate) fn stacked(&self) -> Option<&[Line]> {
+        match &self.body {
+            Body::Stack(lines) => Some(lines),
+            Body::Inline(_) | Body::Lines(_) | Body::Ordered(_) | Body::Acts(..) => None,
         }
     }
 
@@ -303,7 +287,7 @@ impl Cell {
     pub(crate) fn lines(&self) -> &[String] {
         match &self.body {
             Body::Lines(lines) => lines,
-            Body::Inline(_) | Body::Ordered(_) | Body::Acts(..) => &[],
+            Body::Inline(_) | Body::Stack(_) | Body::Ordered(_) | Body::Acts(..) => &[],
         }
     }
 
@@ -311,7 +295,7 @@ impl Cell {
     pub(crate) const fn ordered_list(&self) -> Option<&Ordered> {
         match &self.body {
             Body::Ordered(list) => Some(list),
-            Body::Inline(_) | Body::Lines(_) | Body::Acts(..) => None,
+            Body::Inline(_) | Body::Lines(_) | Body::Stack(_) | Body::Acts(..) => None,
         }
     }
 
@@ -319,7 +303,7 @@ impl Cell {
     pub(crate) fn actions(&self) -> Option<(Layout, &[Act], &str)> {
         match &self.body {
             Body::Acts(layout, acts, described_by) => Some((*layout, acts, described_by)),
-            Body::Inline(_) | Body::Lines(_) | Body::Ordered(_) => None,
+            Body::Inline(_) | Body::Lines(_) | Body::Stack(_) | Body::Ordered(_) => None,
         }
     }
 
@@ -327,7 +311,8 @@ impl Cell {
     pub(crate) fn shown_text(&self) -> String {
         match &self.body {
             Body::Lines(lines) => lines.first().cloned().unwrap_or_default(),
-            Body::Inline(pieces) => pieces.iter().map(|piece| piece.text.as_str()).collect(),
+            Body::Inline(pieces) => pieces.iter().map(Piece::content).collect(),
+            Body::Stack(lines) => lines.iter().map(|line| line.piece().content()).collect(),
             Body::Ordered(_) | Body::Acts(..) => String::new(),
         }
     }
@@ -336,7 +321,7 @@ impl Cell {
     pub(crate) fn status(&self) -> Option<&str> {
         self.pieces().first().and_then(|piece| {
             piece
-                .attrs
+                .attrs()
                 .iter()
                 .find_map(|(name, value)| (*name == "data-status").then_some(value.as_str()))
         })
@@ -355,7 +340,9 @@ impl Cell {
     pub(crate) fn shown(&self) -> String {
         match &self.body {
             Body::Lines(lines) => lines.join(" "),
-            Body::Inline(_) | Body::Ordered(_) | Body::Acts(..) => self.shown_text(),
+            Body::Inline(_) | Body::Stack(_) | Body::Ordered(_) | Body::Acts(..) => {
+                self.shown_text()
+            }
         }
     }
 }

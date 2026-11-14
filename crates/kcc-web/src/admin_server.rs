@@ -21,15 +21,8 @@ use crate::{
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::context::Caller,
+    table::{cells::Cell, head::Head, view::TableView},
 };
-
-/// One firmware line of the built-in command catalog.
-struct CatalogLine {
-    /// Firmware line, such as `5.1`.
-    version: String,
-    /// Command groups described for it.
-    groups: String,
-}
 
 /// The server page.
 #[derive(Template)]
@@ -54,7 +47,7 @@ struct ServerPage {
     /// Whether the audit writer accepts entries.
     audit_writer: String,
     /// Built-in command catalog lines.
-    catalogs: Vec<CatalogLine>,
+    catalogs: TableView,
 }
 
 localized!(ServerPage);
@@ -131,8 +124,9 @@ fn writable(dir: &Path) -> bool {
     }
 }
 
-/// The firmware lines of the built-in catalog with their command-group counts.
-fn catalogs(shell: &Shell) -> Vec<CatalogLine> {
+/// The table of the firmware lines of the built-in catalog with their command-group
+/// counts.
+fn catalogs(shell: &Shell) -> TableView {
     let mut lines: BTreeMap<&str, u64> = BTreeMap::new();
     for (path, _) in FILES {
         if let Some(version) = path
@@ -144,11 +138,26 @@ fn catalogs(shell: &Shell) -> Vec<CatalogLine> {
             *count = count.saturating_add(1);
         }
     }
-    lines
-        .into_iter()
-        .map(|(version, groups)| CatalogLine {
-            version: version.to_owned(),
-            groups: format::integer(shell.locale(), groups),
-        })
-        .collect()
+    let locale = shell.locale();
+    let mut view = TableView::new("table")
+        .bare()
+        .compact()
+        .nested()
+        .head(Head::plain(tr(
+            locale,
+            keys::WEB_ADMIN_SERVER_CATALOG_LINE,
+            None,
+        )))
+        .head(Head::plain(tr(
+            locale,
+            keys::WEB_ADMIN_SERVER_CATALOG_GROUPS,
+            None,
+        )));
+    for (version, groups) in lines {
+        view = view.row(vec![
+            Cell::code(version.to_owned()),
+            Cell::text(format::integer(locale, groups)),
+        ]);
+    }
+    view
 }

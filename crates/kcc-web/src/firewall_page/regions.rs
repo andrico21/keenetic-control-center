@@ -14,8 +14,9 @@ use crate::{
         Direction, Sort,
         acts::Act,
         cells::{Cell, Layout},
+        head::Head,
         rows::{Row, SortKey, Table},
-        view::{Head, TableView},
+        view::TableView,
     },
 };
 

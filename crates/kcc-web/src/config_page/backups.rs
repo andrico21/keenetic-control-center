@@ -26,7 +26,14 @@ use super::{
 use crate::{
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::Controls, request::with_query},
-    table::rows::{Table, TableQuery},
+    table::{
+        acts::{Act, MenuItem},
+        cells::{Cell, Layout},
+        head::Head,
+        piece::Piece,
+        rows::{Table, TableQuery},
+        view::TableView,
+    },
 };
 
 /// The backups region.
@@ -146,6 +153,91 @@ impl BackupsRegion {
     fn may_restore_raw(&self) -> bool {
         self.controls
             .permits(&[Permission::Destructive, Permission::Migrate])
+    }
+
+    /// The backups table, or the note in its place; none when the backups could not be
+    /// listed.
+    fn backups(&self) -> Option<TableView> {
+        let table = self.table.as_ref()?;
+        let locale = self.shell.locale();
+        let said = |key: MessageKey| tr(locale, key, None);
+        let empty = keys::WEB_CONFIG_BACKUPS_EMPTY;
+        let mut view =
+            TableView::filtered("table backups-table", table, (locale, empty)).noted("panel__note");
+        for (column, key) in [
+            ("created", keys::WEB_CONFIG_CREATED),
+            ("kind", keys::WEB_CONFIG_KIND),
+            ("reason", keys::WEB_CONFIG_REASON),
+        ] {
+            view = view.head(Head::sorted(said(key), table.header(column)));
+        }
+        view = view
+            .head(Head::plain(said(keys::WEB_CONFIG_SIZE)).with_class("numeric"))
+            .head(Head::hidden(said(keys::WEB_CONFIG_ACTIONS)));
+        for (index, row) in table.rows().iter().enumerate() {
+            let item = index.saturating_add(1);
+            let created = Piece::element("time", row.created_text().to_owned())
+                .attr("class", "backups-table__time".to_owned())
+                .attr("datetime", row.created_iso().to_owned())
+                .flagged("data-kcc-time");
+            let age = Piece::span("backups-table__age", row.age().to_owned());
+            let reason = if row.reason_raw() {
+                Piece::span("mono", row.reason().to_owned())
+            } else {
+                Piece::text(row.reason().to_owned())
+            };
+            view = view.row(vec![
+                Cell::of(vec![created, age])
+                    .attr("id", format!("backup-{item}"))
+                    .head(),
+                Cell::text(row.kind().to_owned()),
+                Cell::of(vec![reason]),
+                Cell::text(self.size(row).to_owned()).class("numeric"),
+                Cell::acts(
+                    Layout::Block,
+                    self.row_acts(row, item),
+                    format!("backup-{item}"),
+                )
+                .class("backups-actions"),
+            ]);
+        }
+        Some(view)
+    }
+
+    /// The actions of `row`, row `item`: the download, and the menu of the others.
+    fn row_acts(&self, row: &BackupRow, item: usize) -> Vec<Act> {
+        let locale = self.shell.locale();
+        let said = |key: MessageKey| tr(locale, key, None);
+        let download = if self.may_reveal() {
+            Act::download(locale, keys::WEB_CONFIG_DOWNLOAD, self.download_full(row))
+        } else {
+            let href = self.download_redacted(row);
+            Act::download(locale, keys::WEB_CONFIG_DOWNLOAD_REDACTED, href)
+        };
+        let mut items = Vec::new();
+        if self.may_reveal() {
+            let label = said(keys::WEB_CONFIG_DOWNLOAD_REDACTED);
+            items.push(MenuItem::download(label, self.download_redacted(row)));
+        }
+        let compare = said(keys::WEB_CONFIG_COMPARE_RUNNING);
+        items.push(MenuItem::link(compare, self.compare_running(row)));
+        if self.may_use_wizard() {
+            let label = said(keys::WEB_CONFIG_RESTORE_WIZARD);
+            items.push(MenuItem::link(label, self.wizard(row)));
+        }
+        if self.may_restore_raw() {
+            let label = said(keys::WEB_CONFIG_RAW_RESTORE);
+            items.push(MenuItem::hides(label, self.act("raw-restore", row)).danger());
+        }
+        if self.may_delete() {
+            let label = said(keys::COMMON_DELETE);
+            items.push(MenuItem::hides(label, self.act("delete", row)).danger());
+        }
+        let menu = (format!("backup-menu-{item}"), "menu lan-menu backups-menu");
+        vec![
+            download,
+            Act::menu_of(said(keys::WEB_CONFIG_ACTIONS), menu, items),
+        ]
     }
 
     /// The size of `row`, or empty when it could not be read.

@@ -30,20 +30,8 @@
   </p>
   {%- endif %}
   <h3 class="explorer__heading">{{ t(keys::WEB_EXPLORER_ARGUMENTS) }}</h3>
-  {%- if detail.arguments().is_empty() %}
-  <p class="panel__note">{{ t(keys::WEB_EXPLORER_ARGUMENTS_NONE) }}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table">
-      <thead><tr><th scope="col">{{ t(keys::WEB_EXPLORER_ARGUMENT) }}</th><th scope="col">{{ t(keys::WEB_EXPLORER_TYPE) }}</th><th scope="col">{{ t(keys::WEB_EXPLORER_VALUES) }}</th></tr></thead>
-      <tbody>
-        {%- for argument in detail.arguments() %}
-        <tr><td class="mono">{{ argument.name() }}</td><td>{{ argument.kind() }}</td><td class="mono">{{ argument.values() }}</td></tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- endif %}
+  {%- let table = detail.arguments() %}
+  {%- include "partials/kit_table.html" %}
   <form class="form command-form" id="explorer-form" method="post" action="/ui/r/{{ router }}/explorer/execute" hx-post="/ui/r/{{ router }}/explorer/execute" hx-target="#explorer-result">
     <input type="hidden" name="path" value="{{ detail.path() }}">
     {%- if let Some(group) = detail.form().own() %}

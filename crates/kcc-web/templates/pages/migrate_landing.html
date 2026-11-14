@@ -29,34 +29,7 @@
   {%- endif %}
   <section class="wizard-list" aria-labelledby="migrations-title">
     <h2 class="wizard-list__title" id="migrations-title">{{ t(keys::WEB_MIGRATE_LIST_TITLE) }}</h2>
-    {%- if rows.is_empty() %}
-    <p class="table-empty">{{ t(keys::WEB_MIGRATE_LIST_EMPTY) }}</p>
-    {%- else %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(keys::WEB_MIGRATE_LIST_STARTED) }}</th>
-            <th scope="col">{{ t(keys::WEB_MIGRATE_LIST_KIND) }}</th>
-            <th scope="col">{{ t(keys::WEB_MIGRATE_SUMMARY_SOURCE) }}</th>
-            <th scope="col">{{ t(keys::MIGRATE_TARGET) }}</th>
-            <th scope="col">{{ t(keys::WEB_MIGRATE_LIST_STEP) }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for row in rows %}
-          <tr>
-            <th scope="row"><a href="{{ row.href }}">{% if let Some(time) = row.started %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% else %}{{ t(keys::WEB_MIGRATE_LIST_OPEN) }}{% endif %}</a></th>
-            <td>{{ row.kind }}</td>
-            <td>{{ row.source }}</td>
-            <td class="mono">{{ row.target }}</td>
-            <td>{{ row.step }}</td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- endif %}
+    {%- include "partials/kit_table.html" %}
   </section>
 </div>
 {%- endblock %}

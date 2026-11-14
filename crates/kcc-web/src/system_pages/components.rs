@@ -22,6 +22,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
     shared::Visit,
+    tables,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -29,14 +30,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::Controls,
-        request::{rendered, with_query},
-    },
+    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
+        view::TableView,
     },
 };
 
@@ -71,11 +69,9 @@ pub(crate) struct Region {
     /// Router profile id.
     router: String,
     /// The components shown.
-    table: Table<Component>,
+    table: TableView,
     /// The queued changes, in name order.
     queued: Vec<Component>,
-    /// Whether the role may queue changes.
-    queue: bool,
     /// Whether the role may commit the queue.
     commit: bool,
     /// Whether the region replaces the page's out of band.
@@ -151,12 +147,12 @@ impl Component {
     }
 
     /// The state's label.
-    const fn label(&self) -> MessageKey {
+    pub(super) const fn label(&self) -> MessageKey {
         self.stage.label()
     }
 
     /// Whether a change is queued for it.
-    const fn queued(&self) -> bool {
+    pub(super) const fn queued(&self) -> bool {
         matches!(self.stage, Stage::Installing | Stage::Removing)
     }
 
@@ -168,21 +164,6 @@ impl Component {
             Stage::Installed => Some(QueueAction::Remove),
             Stage::Installing | Stage::Removing => None,
         }
-    }
-}
-
-impl Region {
-    /// The row's queue button: its endpoint and label.
-    fn queue_button(&self, component: &Component) -> Option<(String, MessageKey)> {
-        let (word, label) = match component.action()? {
-            QueueAction::Install => ("install", keys::WEB_SYSTEM_COMPONENTS_INSTALL),
-            QueueAction::Remove | _ => ("remove", keys::WEB_SYSTEM_COMPONENTS_REMOVE),
-        };
-        let href = with_query(
-            &format!("/ui/r/{}/system/components/queue", self.router),
-            &[("name", &component.name), ("action", word)],
-        );
-        Some((href, label))
     }
 }
 
@@ -257,16 +238,17 @@ impl<'call> Viewer<'call> {
             .cloned()
             .collect();
         queued.sort_by(|left, right| left.name.cmp(&right.name));
+        let table = Table::new(
+            rows,
+            &self.query,
+            format!("/ui/r/{}/system/components", self.router),
+        );
+        let queue = controls.allows("install") && controls.allows("remove");
         Region {
             shell: fragment_shell(self.user.locale()),
             router: self.router.to_owned(),
-            table: Table::new(
-                rows,
-                &self.query,
-                format!("/ui/r/{}/system/components", self.router),
-            ),
+            table: tables::components(&table, queue, (self.router, self.user.locale())),
             queued,
-            queue: controls.allows("install") && controls.allows("remove"),
             commit: controls.allows("commit"),
             oob: false,
         }

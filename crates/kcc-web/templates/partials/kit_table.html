@@ -1,4 +1,4 @@
-{#- One table (`table::view::TableView`) inside a page region: the filter box, a count, the text shown instead of an empty table, then the table with sortable headers, row headers, cells and row actions, and the pager. A template includes it with the view bound to `table`; every line carries the view's pad, so a table nested one level deeper keeps its indentation. -#}
+{#- One table (`table::view::TableView`) inside a page region: the filter box, a count, the text shown instead of an empty table, then the table (in its `div`, or bare) with sortable headers, row headers, cells and row actions, and the pager; a compact table puts its header and each row on one line. A template includes it with the view bound to `table`; every line carries the view's pad, so a table nested one level deeper keeps its indentation. -#}
 {%- import "components.html" as ui -%}
 {%- import "partials/kit_macros.html" as kit -%}
 {%- let p = table.pad() %}
@@ -11,37 +11,22 @@
 {%- if let Some(blank) = table.blank_text() %}
 {{ p }}  <p class="{{ blank.0 }}">{{ blank.1 }}</p>
 {%- else %}
-{{ p }}  <div class="table-wrap">
+{%- if let Some(wrap) = table.wrap() %}
+{{ p }}  <div class="{{ wrap }}">
+{%- endif %}
 {{ p }}    <table class="{{ table.class() }}"{% if let Some(label) = table.label() %} aria-label="{{ label }}"{% endif %}>
-{{ p }}      <thead>
-{{ p }}        <tr>
-{%- for head in table.heads() %}
-{{ p }}          {% if let Some(sort) = head.sort() %}{{ ui::sort_header(head.label(), sort) }}{% else %}<th scope="col"{% if let Some(class) = head.class_name() %} class="{{ class }}"{% endif %}>{% if head.is_hidden() %}<span class="visually-hidden">{{ head.label() }}</span>{% else %}{{ head.label() }}{% endif %}</th>{% endif %}
-{%- endfor %}
-{{ p }}        </tr>
-{{ p }}      </thead>
+{{ p }}      <thead>{{ table.break_at(8) }}<tr>
+{%- for head in table.heads() %}{{ table.break_at(10) }}{{ kit::head(head) }}{% endfor %}
+{{- table.break_at(8) }}</tr>{{ table.break_at(6) }}</thead>
 {{ p }}      <tbody>
 {%- for row in table.rows() %}
 {{ p }}        <tr>
-{%- for cell in row %}
-{{ p }}          <{% if cell.is_head() %}th scope="row"{% else %}td{% endif %}{% for attr in cell.attrs() %} {{ attr.0 }}="{{ attr.1 }}"{% endfor %}>
+{%- for cell in row %}{{ table.break_at(10) }}<{% if cell.is_head() %}th scope="row"{% else %}td{% endif %}{% for attr in cell.attrs() %} {{ attr.0 }}="{{ attr.1 }}"{% endfor %}>
 {%- if let Some((layout, acts, described_by)) = cell.actions() %}
-{%- match layout %}
-{%- when crate::table::cells::Layout::Inline %}
-{%- for act in acts %}{{ kit::act(act, described_by, table.indent(10)) }}{% endfor %}
-{%- when crate::table::cells::Layout::Block %}
-{%- for act in acts %}
-{{ p }}            {{ kit::act(act, described_by, table.indent(12)) }}
-{%- endfor %}
-{{ table.indent(10) }}
-{%- when crate::table::cells::Layout::Wrapped(class) %}
-{{ p }}            <div class="{{ class }}">
-{%- for act in acts %}
-{{ p }}              {{ kit::act(act, described_by, table.indent(14)) }}
-{%- endfor %}
-{{ p }}            </div>
-{{ table.indent(10) }}
-{%- endmatch %}
+{%- if let Some(class) = layout.wrapper() %}{{ table.lead(12) }}<div class="{{ class }}">{% endif %}
+{%- for act in acts %}{{ table.lead_at(layout.depth()) }}{{ kit::act(act, described_by, table.indent(layout.depth().unwrap_or(10))) }}{% endfor %}
+{%- if layout.wrapper().is_some() %}{{ table.lead(12) }}</div>{% endif %}
+{%- if layout.depth().is_some() %}{{ table.lead(10) }}{% endif %}
 {%- else if let Some(list) = cell.ordered_list() %}
 {{ p }}            <ol class="{{ list.class() }}">
 {%- for item in list.items() %}
@@ -54,6 +39,19 @@
 {%- endfor %}
 {{ p }}            </ol>
 {{ table.indent(10) }}
+{%- else if let Some(lines) = cell.stacked() %}
+{%- for line in lines %}
+{%- if line.is_open() %}
+{{ p }}            <{{ line.piece().name() }}{% for attr in line.piece().attrs() %} {{ attr.0 }}="{{ attr.1 }}"{% endfor %}>
+{%- for child in line.piece().children() %}
+{{ p }}              {{ kit::piece(child) }}
+{%- endfor %}
+{{ p }}            </{{ line.piece().name() }}>
+{%- else %}
+{{ p }}            {{ kit::piece(line.piece()) }}
+{%- endif %}
+{%- endfor %}
+{{ table.indent(10) }}
 {%- else if !cell.lines().is_empty() -%}
 <ul class="cell-lines">
 {%- for line in cell.lines() %}
@@ -65,11 +63,13 @@
 {%- endif -%}
 </{% if cell.is_head() %}th{% else %}td{% endif %}>
 {%- endfor %}
-{{ p }}        </tr>
+{{- table.break_at(8) }}</tr>
 {%- endfor %}
 {{ p }}      </tbody>
 {{ p }}    </table>
+{%- if table.wrap().is_some() %}
 {{ p }}  </div>
+{%- endif %}
 {%- if let Some(pager) = table.pager() %}
 {%- include "partials/kit_pager.html" %}
 {%- endif %}

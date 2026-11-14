@@ -1,6 +1,4 @@
 {#- The queued component changes with the commit, then the components table; a change sends the region again out of band. -#}
-{%- import "components.html" as ui -%}
-{%- import "partials/kit_macros.html" as kit -%}
 <div class="system-region" id="components-region"{% if oob %} hx-swap-oob="true"{% endif %}>
   <section class="panel" aria-labelledby="queue-title">
     <h2 class="panel__title" id="queue-title">{{ t(keys::WEB_SYSTEM_COMPONENTS_QUEUE) }}</h2>
@@ -20,40 +18,6 @@
   </section>
   <section class="system-region" aria-labelledby="components-title">
     <h2 class="visually-hidden" id="components-title">{{ t(keys::WEB_SYSTEM_COMPONENTS_LIST) }}</h2>
-    {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
-    {%- if table.rows().is_empty() %}
-    <p class="panel__note">{% if table.filter().is_empty() %}{{ t(keys::WEB_KIT_TABLE_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
-    {%- else %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_COMPONENTS_NAME), table.header("name")) }}
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_SERVICES_STATE), table.header("state")) }}
-            {%- if queue %}
-            <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_SYSTEM_ACTIONS) }}</span></th>
-            {%- endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {%- for row in table.rows() %}
-          <tr>
-            <th scope="row" id="component-{{ loop.index }}"><span class="mono">{{ row.name() }}</span></th>
-            <td>{% if row.queued() %}<span class="flag">{{ t(row.label()) }}</span>{% else %}{{ t(row.label()) }}{% endif %}</td>
-            {%- if queue %}
-            <td>
-              {%- if let Some((href, label)) = queue_button(row) %}
-              <button class="button button--ghost" type="button" hx-post="{{ href }}" hx-target="#page-outcome" aria-describedby="component-{{ loop.index }}">{{ t(**label) }}</button>
-              {%- endif %}
-            </td>
-            {%- endif %}
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- endif %}
-    {%- let pager = table.pager() %}
-    {%- include "partials/kit_pager.html" %}
+    {%- include "partials/kit_table.html" %}
   </section>
 </div>

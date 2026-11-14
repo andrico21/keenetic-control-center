@@ -12,9 +12,13 @@ use serde_json::Value;
 
 use crate::{
     gauge::{Gauge, memory},
-    network::{AccessPointRow, RadioRow, WanRow, access_points, internet, radios, wan_rows},
+    network::{
+        AccessPointRow, RadioRow, WanRow, access_points, access_points_table, internet, radios,
+        wan_rows, wan_table,
+    },
     page::RouterStatus,
     page_kit::gate::Controls,
+    table::view::TableView,
     telemetry::FeedState,
     traffic::number,
 };
@@ -260,6 +264,16 @@ impl RouterView {
     /// Access points.
     pub(crate) fn access_points(&self) -> &[AccessPointRow] {
         &self.access_points
+    }
+
+    /// The table of the WAN connections in `locale`.
+    pub(crate) fn wan_table(&self, locale: Locale) -> TableView {
+        wan_table(&self.wan, locale)
+    }
+
+    /// The table of the access points in `locale`.
+    pub(crate) fn access_points_table(&self, locale: Locale) -> TableView {
+        access_points_table(&self.access_points, locale)
     }
 
     /// Whether running configuration differs from startup.

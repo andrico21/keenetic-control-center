@@ -3,7 +3,10 @@
 
 use askama::Template;
 use axum::response::Response;
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+};
 
 use crate::{
     WebState,
@@ -11,6 +14,7 @@ use crate::{
     errors::{self, Kind},
     nav::Section,
     page::{Localize as _, Shell},
+    table::{cells::Cell, fleet::routers_table, piece::Piece, view::TableView},
 };
 
 /// The picker page.
@@ -19,12 +23,10 @@ use crate::{
 struct Picker {
     /// Page shell, its section marked current.
     shell: Shell,
-    /// The section's name, the page title and each router's link.
+    /// The section's name, the page title.
     label: MessageKey,
-    /// Whether fleet services are attached.
-    available: bool,
-    /// The routers the role may read: id and the section's page on it.
-    routers: Vec<(String, String)>,
+    /// The routers the role may read, each with the section's page on it.
+    table: TableView,
 }
 
 localized!(Picker);
@@ -41,27 +43,40 @@ pub(super) async fn page(
     let Some(page) = section.router_page() else {
         return errors::response(Kind::NotFound, shell);
     };
-    let mut picker = Picker {
-        shell: shell.with_section(section),
-        label: section.label(),
-        available: false,
-        routers: Vec::new(),
+    let shown = shell.with_section(section);
+    let label = section.label();
+    let locale = shown.locale();
+    let picker = |routers: Option<Vec<String>>| {
+        let rows = routers.map(|ids| {
+            ids.into_iter()
+                .map(|router| {
+                    let href = format!("/ui/r/{router}/{page}");
+                    let link = Piece::link(href, tr(locale, label, None));
+                    (router, Cell::of(vec![link]))
+                })
+                .collect()
+        });
+        routers_table((locale, keys::WEB_CLIENTS_LANDING_PAGES), rows)
     };
     let Some(fleet) = state.fleet() else {
-        return errors::render(&picker);
+        let table = picker(None);
+        return errors::render(&Picker {
+            shell: shown,
+            label,
+            table,
+        });
     };
     match fleet.visible(user.role()).await {
         Ok(entries) => {
-            picker.available = true;
-            picker.routers = entries
-                .into_iter()
-                .map(|entry| {
-                    let href = format!("/ui/r/{}/{page}", entry.profile.id);
-                    (entry.profile.id, href)
-                })
-                .collect();
-            errors::render(&picker)
+            let table = picker(Some(
+                entries.into_iter().map(|entry| entry.profile.id).collect(),
+            ));
+            errors::render(&Picker {
+                shell: shown,
+                label,
+                table,
+            })
         }
-        Err(error) => errors::internal(&error, picker.shell),
+        Err(error) => errors::internal(&error, shown),
     }
 }

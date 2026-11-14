@@ -18,9 +18,11 @@ use crate::{
     page_kit::{gate::Controls, request::with_query},
     table::{
         acts::Act,
-        cells::{Cell, Layout, Piece},
+        cells::{Cell, Layout},
+        head::Head,
+        piece::Piece,
         rows::{Row as _, Table},
-        view::{Head, TableView},
+        view::TableView,
     },
 };
 

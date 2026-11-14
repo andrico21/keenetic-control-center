@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{%- import "components.html" as ui -%}
 {%- import "partials/kit_macros.html" as kit -%}
 {%- block title %}{{ t(tabs.title()) }}{% endblock %}
 {%- block content %}
@@ -16,83 +15,13 @@
   {%- if let Some(table) = media %}
   <section class="system-region" aria-labelledby="media-title">
     <h2 class="panel__title" id="media-title">{{ t(keys::WEB_SYSTEM_STORAGE_MEDIA) }}</h2>
-    {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
-    {%- if table.rows().is_empty() %}
-    <p class="panel__note">{% if table.filter().is_empty() %}{{ t(keys::WEB_SYSTEM_STORAGE_NO_MEDIA) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
-    {%- else %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_STORAGE_ID), table.header("id")) }}
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_STORAGE_LABEL), table.header("label")) }}
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_STORAGE_FILESYSTEM), table.header("filesystem")) }}
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_STORAGE_SIZE), table.header("size")) }}
-            {{ ui::sort_header(t(keys::WEB_SYSTEM_STORAGE_FREE), table.header("free")) }}
-            {%- if acts() %}
-            <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_SYSTEM_ACTIONS) }}</span></th>
-            {%- endif %}
-          </tr>
-        </thead>
-        <tbody>
-          {%- for row in table.rows() %}
-          <tr>
-            <th scope="row" id="medium-{{ loop.index }}"><span class="mono">{{ row.id() }}</span></th>
-            <td>{% if let Some(label) = row.label() %}{{ label }}{% else %}<span class="muted">{{ t(keys::WEB_KIT_NOT_REPORTED) }}</span>{% endif %}</td>
-            <td>{% if let Some(filesystem) = row.filesystem() %}<span class="mono">{{ filesystem }}</span>{% endif %}</td>
-            <td class="numeric">{% if let Some(size) = row.size_text() %}{{ size }}{% endif %}</td>
-            <td class="numeric">{% if let Some(free) = row.free_text() %}{{ free }}{% endif %}</td>
-            {%- if acts() %}
-            <td>
-              <div class="admin-actions">
-                {%- if controls.allows("partition_check") %}
-                <button class="button button--ghost" type="button" hx-post="{{ action_url("check", row) }}" hx-target="#page-outcome" aria-describedby="medium-{{ loop.index }}">{{ t(keys::WEB_SYSTEM_STORAGE_CHECK) }}</button>
-                {%- endif %}
-                {%- if controls.allows("eject") %}
-                <button class="button button--danger-ghost" type="button" hx-post="{{ action_url("eject", row) }}" hx-target="#page-outcome" aria-describedby="medium-{{ loop.index }}">{{ t(keys::WEB_SYSTEM_STORAGE_EJECT) }}</button>
-                {%- endif %}
-                {%- if controls.allows("partition_format") %}
-                <button class="button button--danger-ghost" type="button" hx-get="{{ action_url("format", row) }}" hx-target="#dialog-content" aria-describedby="medium-{{ loop.index }}">{{ t(keys::WEB_SYSTEM_STORAGE_FORMAT) }}</button>
-                {%- endif %}
-              </div>
-            </td>
-            {%- endif %}
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- endif %}
-    {%- let pager = table.pager() %}
-    {%- include "partials/kit_pager.html" %}
+    {%- include "partials/kit_table.html" %}
   </section>
   {%- endif %}
   <section class="system-region" aria-labelledby="usb-title">
     <h2 class="panel__title" id="usb-title">{{ t(keys::WEB_SYSTEM_STORAGE_USB) }}</h2>
-    {%- if usb.is_empty() %}
-    <p class="panel__note">{{ t(keys::WEB_SYSTEM_STORAGE_NO_USB) }}</p>
-    {%- else %}
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th scope="col">{{ t(keys::WEB_SYSTEM_STORAGE_ID) }}</th>
-            <th scope="col">{{ t(keys::WEB_SYSTEM_STORAGE_DEVICE) }}</th>
-            <th scope="col">{{ t(keys::WEB_SYSTEM_SERVICES_STATE) }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {%- for device in usb %}
-          <tr>
-            <th scope="row"><span class="mono">{{ device.id() }}</span></th>
-            <td>{{ device.name() }}</td>
-            <td>{% if device.connected() %}<span class="status" data-status="online">{{ t(keys::WEB_SYSTEM_STORAGE_CONNECTED) }}</span>{% else %}<span class="status" data-status="unknown">{{ t(keys::WEB_SYSTEM_STORAGE_DISCONNECTED) }}</span>{% endif %}</td>
-          </tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
-    {%- endif %}
+    {%- let table = usb %}
+    {%- include "partials/kit_table.html" %}
   </section>
 </div>
 {%- endblock %}

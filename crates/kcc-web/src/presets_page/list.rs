@@ -17,6 +17,13 @@ use crate::{
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::context::{Caller, Refusal},
+    table::{
+        acts::Act,
+        cells::{Cell, Layout},
+        head::Head,
+        piece::Piece,
+        view::TableView,
+    },
     wizard::services::Services,
 };
 
@@ -29,7 +36,7 @@ struct List {
     /// Whether the role may capture and copy (`Migrate`).
     may_create: bool,
     /// The presets, by name.
-    rows: Vec<Row>,
+    table: TableView,
 }
 
 localized!(List);
@@ -93,8 +100,59 @@ pub(super) async fn page(
     errors::render(&List {
         shell,
         may_create: user.role().grants(Permission::Migrate),
-        rows,
+        table: presets_table(rows, locale),
     })
+}
+
+/// The table of the presets `rows` in `locale`, with Apply and Delete where the role may;
+/// a note in its place when there is none.
+fn presets_table(rows: Vec<Row>, locale: Locale) -> TableView {
+    let mut view = TableView::new("table").wrapped("table-wrap presets-table");
+    if rows.is_empty() {
+        return view.blank("table-empty", tr(locale, keys::WEB_PRESETS_EMPTY, None));
+    }
+    for key in [
+        keys::WEB_PRESETS_COL_NAME,
+        keys::WEB_PRESETS_COL_GROUPS,
+        keys::WEB_PRESETS_COL_SOURCE,
+        keys::WEB_PRESETS_COL_CAPTURED,
+        keys::WEB_PRESETS_COL_CREATOR,
+    ] {
+        view = view.head(Head::plain(tr(locale, key, None)));
+    }
+    view = view.head(Head::hidden(tr(
+        locale,
+        keys::WEB_PRESETS_COL_ACTIONS,
+        None,
+    )));
+    for row in rows {
+        let id = format!("preset-{}", row.id);
+        let page = format!("/ui/presets/{}", row.id);
+        let mut acts = Vec::new();
+        if row.may_change {
+            acts.push(Act::link(
+                locale,
+                keys::WEB_PRESETS_APPLY,
+                format!("{page}/apply"),
+            ));
+            let delete = Act::open(locale, keys::WEB_PRESETS_DELETE, format!("{page}/delete"));
+            acts.push(delete.danger());
+        }
+        let captured = row
+            .captured
+            .map(|time| Piece::time(time.iso().to_owned(), time.text().to_owned()));
+        view = view.row(vec![
+            Cell::of(vec![Piece::link(page, row.name)])
+                .attr("id", id.clone())
+                .head(),
+            Cell::text(row.groups),
+            Cell::text(row.source),
+            Cell::of(captured.into_iter().collect()),
+            Cell::text(row.creator),
+            Cell::acts(Layout::Block, acts, id).class("presets-table__actions"),
+        ]);
+    }
+    view
 }
 
 /// Whether the user of `services` may apply and delete `preset`: `Migrate`, on its

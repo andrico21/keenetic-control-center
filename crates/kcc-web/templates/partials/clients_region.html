@@ -1,5 +1,4 @@
 {#- The filter form and the clients table; a change sends the region again out of band. -#}
-{%- import "components.html" as ui -%}
 <div class="lan-region" id="clients-region"{% if oob %} hx-swap-oob="true"{% endif %}>
   <form class="lan-filter" role="search" method="get" action="{{ table.base() }}">
     <div class="field lan-filter__search">
@@ -32,94 +31,9 @@
     </div>
   </form>
   <p class="lan-count">{{ count() }}</p>
-  {%- if let Some(message) = empty() %}
-  <p class="page__text">{{ t(**message) }}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table lan-table">
-      <thead>
-        <tr>
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_NAME), header("name")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_MAC), header("mac")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_IP), header("ip")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_INTERFACE), header("interface")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_SIGNAL), header("signal")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_TRAFFIC), header("traffic")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_POLICY), header("policy")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_ACCESS), header("access")) }}
-          {{ ui::sort_header(t(keys::WEB_CLIENTS_COL_SCHEDULE), header("schedule")) }}
-          {%- if actions() %}
-          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_CLIENTS_ACTIONS) }}</span></th>
-          {%- endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {%- for row in table.rows() %}
-        <tr>
-          <th scope="row" id="client-{{ loop.index }}">
-            <span class="lan-name">
-              {%- if let Some(name) = row.name() %}{{ name }}{% else %}<span class="muted">{{ t(keys::WEB_CLIENTS_UNNAMED) }}</span>{% endif -%}
-            </span>
-            <span class="lan-flags">
-              {%- if row.online() %}
-              <span class="status" data-status="online">{{ t(keys::WEB_CLIENTS_ONLINE) }}</span>
-              {%- else %}
-              <span class="status" data-status="unknown">{{ t(keys::WEB_CLIENTS_OFFLINE) }}</span>
-              {%- endif %}
-              {%- if !row.registered() %}
-              <span class="flag" data-tone="info">{{ t(keys::WEB_CLIENTS_UNREGISTERED) }}</span>
-              {%- endif %}
-            </span>
-          </th>
-          <td class="mono">{{ row.mac() }}</td>
-          <td class="mono">{% if let Some(ip) = row.ip() %}{{ ip }}{% endif %}</td>
-          <td class="mono">{% if let Some(interface) = row.interface() %}{{ interface }}{% endif %}</td>
-          <td class="numeric">{% if let Some(signal) = row.signal() %}{{ signal }}{% else %}<span class="muted">{{ t(keys::WEB_CLIENTS_WIRED) }}</span>{% endif %}</td>
-          <td class="numeric">{% if let Some(traffic) = row.traffic() %}{{ traffic }}{% endif %}</td>
-          <td>{% if let Some(policy) = row.policy() %}{{ policy }}{% endif %}</td>
-          <td>{% if row.blocked() %}<span class="flag" data-tone="error">{{ t(keys::WEB_CLIENTS_BLOCKED) }}</span>{% else %}{{ t(keys::WEB_CLIENTS_ALLOWED) }}{% endif %}</td>
-          <td>{% if let Some(schedule) = row.schedule() %}{{ schedule }}{% endif %}</td>
-          {%- if actions() %}
-          <td class="lan-actions">
-            <button class="button button--ghost" type="button" popovertarget="client-menu-{{ loop.index }}" aria-describedby="client-{{ loop.index }}">{{ t(keys::WEB_CLIENTS_ACTIONS) }}</button>
-            <div class="menu lan-menu" id="client-menu-{{ loop.index }}" popover>
-              <ul class="menu__list">
-                {%- if controls.allows("register") %}
-                <li><button class="menu__item" type="button" hx-get="{{ action_url("name", row) }}" hx-target="#dialog-content">{% if row.registered() %}{{ t(keys::WEB_CLIENTS_ACTION_RENAME) }}{% else %}{{ t(keys::WEB_CLIENTS_ACTION_REGISTER) }}{% endif %}</button></li>
-                {%- endif %}
-                {%- if controls.allows("access") %}
-          <li><form method="post" action="{{ action_url("access", row) }}" hx-post="{{ action_url("access", row) }}" hx-target="#page-outcome">
-                  {%- if row.blocked() %}
-                  <input type="hidden" name="value" value="permit"><button class="menu__item" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_PERMIT) }}</button>
-                  {%- else %}
-                  <input type="hidden" name="value" value="deny"><button class="menu__item" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_BLOCK) }}</button>
-                  {%- endif %}
-                </form></li>
-                {%- endif %}
-                {%- if controls.allows("policy") %}
-                <li><button class="menu__item" type="button" hx-get="{{ action_url("policy", row) }}" hx-target="#dialog-content">{{ t(keys::WEB_CLIENTS_ACTION_POLICY) }}</button></li>
-                {%- endif %}
-                {%- if controls.allows("schedule") %}
-                <li><button class="menu__item" type="button" hx-get="{{ action_url("schedule", row) }}" hx-target="#dialog-content">{{ t(keys::WEB_CLIENTS_ACTION_SCHEDULE) }}</button></li>
-                {%- endif %}
-                {%- if controls.allows("priority") %}
-                <li><button class="menu__item" type="button" hx-get="{{ action_url("priority", row) }}" hx-target="#dialog-content">{{ t(keys::WEB_CLIENTS_ACTION_PRIORITY) }}</button></li>
-                {%- endif %}
-                {%- if controls.allows("wake") %}
-          <li><form method="post" action="{{ action_url("wake", row) }}" hx-post="{{ action_url("wake", row) }}" hx-target="#page-outcome"><button class="menu__item" type="submit">{{ t(keys::WEB_CLIENTS_ACTION_WAKE) }}</button></form></li>
-                {%- endif %}
-                {%- if controls.allows("remove") && row.registered() %}
-                <li><button class="menu__item menu__item--danger" type="button" hx-get="{{ action_url("remove", row) }}" hx-target="#dialog-content">{{ t(keys::WEB_CLIENTS_ACTION_REMOVE) }}</button></li>
-                {%- endif %}
-              </ul>
-            </div>
-          </td>
-          {%- endif %}
-        </tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
+  {%- let table = self.clients() %}
+  {%- include "partials/kit_table.html" %}
+  {%- if empty().is_none() %}
   {%- let pager = pager() %}
   {%- include "partials/kit_pager.html" %}
   {%- endif %}

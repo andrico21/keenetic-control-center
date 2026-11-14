@@ -88,19 +88,42 @@
 </form>
 {%- endmacro -%}
 
-{#- One inline piece of a table cell (`table::cells::Piece`): bare text, or a span with its attributes around the text and an optional inner span. -#}
-{%- macro piece(piece) -%}
-{%- if piece.attrs().is_empty() -%}
-{{ piece.content() }}
+{#- A child element of a piece: bare text, or an element with its attributes around its own text. -#}
+{%- macro leaf(piece) -%}
+{%- if let Some(tag) = piece.tag() -%}
+<{{ tag }}{% for attr in piece.attrs() %} {{ attr.0 }}="{{ attr.1 }}"{% endfor %}{% if let Some(flag) = piece.flag() %} {{ flag }}{% endif %}>{{ piece.content() }}</{{ tag }}>
 {%- else -%}
-<span{% for attr in piece.attrs() %} {{ attr.0 }}="{{ attr.1 }}"{% endfor %}>{{ piece.content() }}{% if let Some(inner) = piece.inner() %}<span class="{{ inner.0 }}">{{ inner.1 }}</span>{% endif %}</span>
+{{ piece.content() }}
 {%- endif -%}
 {%- endmacro -%}
 
-{#- One action (`table::acts::Act`): a button opening a dialog, a form posting hidden fields or a button posting without one (the outcome lands in the page's outcome region), a link, a muted note in place of an action, or a button opening a menu; `described_by` names what it acts on, empty for none; `indent` starts the menu's further lines. -#}
+{#- One inline piece of a table cell (`table::piece::Piece`): bare text, or an element with its attributes around its text and the elements after it. -#}
+{%- macro piece(piece) -%}
+{%- if let Some(tag) = piece.tag() -%}
+<{{ tag }}{% for attr in piece.attrs() %} {{ attr.0 }}="{{ attr.1 }}"{% endfor %}{% if let Some(flag) = piece.flag() %} {{ flag }}{% endif %}>{{ piece.content() }}{% for child in piece.children() %}{{ leaf(child) }}{% endfor %}</{{ tag }}>
+{%- else -%}
+{{ piece.content() }}
+{%- endif -%}
+{%- endmacro -%}
+
+{#- One header cell (`table::head::Head`): a sort link, or a plain label, hidden for screen readers over the actions. -#}
+{%- macro head(head) -%}
+{% if let Some(sort) = head.sort() %}{{ ui::sort_header(head.label(), sort) }}{% else %}<th scope="col"{% if let Some(class) = head.class_name() %} class="{{ class }}"{% endif %}>{% if head.is_hidden() %}<span class="visually-hidden">{{ head.label() }}</span>{% else %}{{ head.label() }}{% endif %}</th>{% endif %}
+{%- endmacro -%}
+
+{#- One entry of an action menu (`table::acts::MenuItem`) that is not a form: a link, a download, or a button opening a dialog or posting; `menu` is the menu's element id. -#}
+{%- macro menu_item(item, menu) -%}
+{%- if item.is_link() -%}
+<a class="menu__item" href="{{ item.href() }}"{% if item.is_download() %} download{% endif %}>{{ item.label() }}</a>
+{%- else -%}
+<button class="menu__item{% if item.is_danger() %} menu__item--danger{% endif %}" type="button" {% if item.is_post() %}hx-post="{{ item.href() }}" hx-target="#page-outcome" popovertarget="{{ menu }}" popovertargetaction="hide"{% else if item.is_hide() %}popovertarget="{{ menu }}" popovertargetaction="hide" hx-post="{{ item.href() }}" hx-target="#page-outcome"{% else %}hx-get="{{ item.href() }}" hx-target="#dialog-content"{% endif %}>{{ item.label() }}</button>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- One action (`table::acts::Act`): a button opening a dialog, a form posting hidden fields or a button posting without one (the outcome lands in the page's outcome region), a form posting hidden fields that swaps nothing, a link or a download, a muted note in place of an action, or a button opening a menu; `described_by` names what it acts on, empty for none; `indent` starts the further lines of a quiet form or a menu. -#}
 {%- macro act(action, described_by, indent) -%}
 {%- if action.is_link() -%}
-<a class="button {{ action.style() }}" href="{{ action.href() }}"{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</a>
+<a class="button {{ action.style() }}" href="{{ action.href() }}"{% if action.is_download() %} download{% endif %}{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</a>
 {%- else if action.is_post() -%}
 <form class="inline-form" method="post" action="{{ action.href() }}" hx-post="{{ action.href() }}" hx-target="#page-outcome">
   {%- for field in action.fields() %}
@@ -108,16 +131,33 @@
   {%- endfor %}
   <button class="button {{ action.style() }}" type="submit"{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</button>
 </form>
+{%- else if action.is_quiet() -%}
+<form method="post" action="{{ action.href() }}" hx-post="{{ action.href() }}" hx-swap="none">
+{%- for field in action.fields() %}
+{{ indent }}  <input type="hidden" name="{{ field.0 }}" value="{{ field.1 }}">
+{%- endfor %}
+{{ indent }}  <button class="button {{ action.style() }}" type="submit"{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</button>
+{{ indent }}</form>
 {%- else if action.is_send() -%}
 <button class="button {{ action.style() }}" type="button" hx-post="{{ action.href() }}" hx-target="#page-outcome"{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</button>
 {%- else if action.is_note() -%}
 <span class="muted">{{ action.label() }}</span>
-{%- else if let Some(items) = action.menu_items() -%}
+{%- else if let Some((class, items)) = action.menu_items() -%}
 <button class="button {{ action.style() }}" type="button" popovertarget="{{ action.href() }}"{% if !described_by.is_empty() %} aria-describedby="{{ described_by }}"{% endif %}>{{ action.label() }}</button>
-{{ indent }}<div class="menu lan-menu" id="{{ action.href() }}" popover>
+{{ indent }}<div class="{{ class }}" id="{{ action.href() }}" popover>
 {{ indent }}  <ul class="menu__list">
 {%- for item in items %}
-{{ indent }}    <li><button class="menu__item{% if item.is_danger() %} menu__item--danger{% endif %}" type="button" {% if item.is_post() %}hx-post="{{ item.href() }}" hx-target="#page-outcome" popovertarget="{{ action.href() }}" popovertargetaction="hide"{% else %}hx-get="{{ item.href() }}" hx-target="#dialog-content"{% endif %}>{{ item.label() }}</button></li>
+{%- if let Some(fields) = item.form_fields() %}
+{%- if fields.is_empty() %}
+{{ item.lead(indent) }}<li><form method="post" action="{{ item.href() }}" hx-post="{{ item.href() }}" hx-target="#page-outcome"><button class="menu__item" type="submit">{{ item.label() }}</button></form></li>
+{%- else %}
+{{ item.lead(indent) }}<li><form method="post" action="{{ item.href() }}" hx-post="{{ item.href() }}" hx-target="#page-outcome">
+{{ indent }}      {% for field in fields %}<input type="hidden" name="{{ field.0 }}" value="{{ field.1 }}">{% endfor %}<button class="menu__item" type="submit">{{ item.label() }}</button>
+{{ indent }}    </form></li>
+{%- endif %}
+{%- else %}
+{{ indent }}    <li>{{ menu_item(item, action.href()) }}</li>
+{%- endif %}
 {%- endfor %}
 {{ indent }}  </ul>
 {{ indent }}</div>

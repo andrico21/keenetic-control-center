@@ -28,9 +28,11 @@ use crate::{
         context::{Caller, Refusal, fragment_shell},
         respond::Answer,
     },
+    table::{cells::Cell, view::TableView},
     wizard::{
         flow::{Flow as _, Stage as _},
         ids::fresh_id,
+        runs::{runs_table, started},
         screen,
         service::Wizards,
         services::Services,
@@ -53,24 +55,10 @@ struct Landing {
     /// Start's label.
     start_label: String,
     /// The user's runs, newest first.
-    rows: Vec<Row>,
+    table: TableView,
 }
 
 localized!(Landing);
-
-/// One run of the list.
-struct Row {
-    /// Its page.
-    href: String,
-    /// When it started.
-    started: Option<Timestamp>,
-    /// The settings it applies.
-    settings: String,
-    /// The router they go to.
-    target: String,
-    /// The step it is at.
-    step: String,
-}
 
 /// `GET /ui/copy`: the user's runs and Start copying.
 // cancel-safe: every change comes after the last await.
@@ -98,7 +86,7 @@ pub(super) async fn copy_page(
         intro: tr(locale, keys::WEB_PRESETS_COPY_INTRO, None),
         start: "/ui/copy".to_owned(),
         start_label: tr(locale, keys::WEB_PRESETS_COPY_START, None),
-        rows: rows.iter().map(|record| row(record, locale)).collect(),
+        table: runs_view(&rows, locale),
         shell,
     })
 }
@@ -136,7 +124,7 @@ pub(super) async fn preset_page(
         intro: tr(locale, keys::WEB_PRESETS_APPLY_INTRO, None),
         start: format!("/ui/presets/{id}/apply"),
         start_label: tr(locale, keys::WEB_PRESETS_APPLY_START, None),
-        rows: rows.iter().map(|record| row(record, locale)).collect(),
+        table: runs_view(&rows, locale),
         shell,
     })
 }
@@ -275,17 +263,29 @@ where
     records
 }
 
-/// The list row of `record`.
-fn row(record: &Record, locale: Locale) -> Row {
-    Row {
-        href: screen::href::<Record>(record.id()),
-        started: Timestamp::at(record.created_at()),
-        settings: summary::settings_text(record, locale),
-        target: record.target().unwrap_or_default().to_owned(),
-        step: format!(
+/// The table of the runs `records` in `locale`.
+fn runs_view(records: &[Record], locale: Locale) -> TableView {
+    let columns = [
+        keys::WEB_PRESETS_RUNS_STARTED,
+        keys::WEB_PRESETS_RUNS_SETTINGS,
+        keys::MIGRATE_TARGET,
+        keys::WEB_PRESETS_RUNS_STEP,
+    ];
+    let rows = records.iter().map(|record| row(record, locale)).collect();
+    runs_table((&columns, keys::WEB_PRESETS_RUNS_EMPTY), rows, locale)
+}
+
+/// The list row of `record`: started, settings, target and step.
+fn row(record: &Record, locale: Locale) -> Vec<Cell> {
+    let href = screen::href::<Record>(record.id());
+    vec![
+        started(href, Timestamp::at(record.created_at()), locale),
+        Cell::text(summary::settings_text(record, locale)),
+        Cell::code(record.target().unwrap_or_default().to_owned()),
+        Cell::text(format!(
             "{}. {}",
             record.step().number(),
             tr(locale, record.step().label(), None)
-        ),
-    }
+        )),
+    ]
 }

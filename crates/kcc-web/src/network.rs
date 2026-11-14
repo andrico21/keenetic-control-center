@@ -4,9 +4,15 @@
 use core::net::Ipv4Addr;
 
 use kcc_app::poller::{Snapshot, wan_interface_ids};
-use kcc_i18n::{bundle::MessageKey, keys};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 use kcc_rci::capabilities::RouterInfo;
 use serde_json::Value;
+
+use crate::table::{cells::Cell, head::Head, piece::Piece, view::TableView};
 
 /// One Internet-facing connection.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -90,6 +96,62 @@ impl AccessPointRow {
     pub(crate) const fn up(&self) -> bool {
         self.up
     }
+}
+
+/// A compact table, one level deeper than a panel's, headed by `heads` in `locale`.
+fn panel_table(heads: [MessageKey; 3], locale: Locale) -> TableView {
+    heads
+        .into_iter()
+        .fold(TableView::new("table").compact().nested(), |view, key| {
+            view.head(Head::plain(tr(locale, key, None)))
+        })
+}
+
+/// The WAN connections of `rows` in `locale`: name, address and link.
+pub(crate) fn wan_table(rows: &[WanRow], locale: Locale) -> TableView {
+    let heads = [
+        keys::WEB_WAN_INTERFACE,
+        keys::WEB_WAN_ADDRESS,
+        keys::WEB_WAN_LINK,
+    ];
+    rows.iter().fold(panel_table(heads, locale), |view, wan| {
+        let mut name = vec![Piece::text(wan.label().to_owned())];
+        if wan.label() != wan.id() {
+            name.push(Piece::text(" ".to_owned()));
+            name.push(Piece::span("mono muted", wan.id().to_owned()));
+        }
+        let link = if wan.up() {
+            keys::DOMAINS_INTERFACE_UP
+        } else {
+            keys::DOMAINS_INTERFACE_DOWN
+        };
+        view.row(vec![
+            Cell::of(name),
+            Cell::code(wan.address().to_owned()),
+            Cell::word(locale, link),
+        ])
+    })
+}
+
+/// The access points of `rows` in `locale`: network name, interface and state.
+pub(crate) fn access_points_table(rows: &[AccessPointRow], locale: Locale) -> TableView {
+    let heads = [
+        keys::DOMAINS_WIFI_SSID,
+        keys::WEB_WIFI_RADIO,
+        keys::WEB_WIFI_STATE,
+    ];
+    rows.iter().fold(panel_table(heads, locale), |view, point| {
+        let state = if point.up() {
+            keys::COMMON_ENABLED
+        } else {
+            keys::COMMON_DISABLED
+        };
+        view.row(vec![
+            Cell::text(point.ssid().to_owned()),
+            Cell::code(point.id().to_owned()),
+            Cell::word(locale, state),
+        ])
+    })
 }
 
 /// The radios of a detected router, with their bands as reported.

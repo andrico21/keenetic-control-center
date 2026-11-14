@@ -3,21 +3,6 @@
 {%- block content %}
 <div class="page">
   <h1 class="page__title">{{ t(keys::WEB_NAV_ADVANCED) }}</h1>
-  {%- if !available %}
-  <p class="page__text">{{ t(keys::WEB_FLEET_UNAVAILABLE) }}</p>
-  {%- else if routers.is_empty() %}
-  <p class="page__text">{{ t(keys::WEB_EXPLORER_LANDING_EMPTY) }}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table">
-      <thead><tr><th scope="col">{{ t(keys::WEB_EXPLORER_ROUTER) }}</th><th scope="col">{{ t(keys::WEB_EXPLORER_TOOLS) }}</th></tr></thead>
-      <tbody>
-        {%- for router in routers %}
-        <tr><td><a href="/ui/r/{{ router }}">{{ router }}</a></td><td><span class="tool-links"><a href="/ui/r/{{ router }}/explorer">{{ t(keys::WEB_EXPLORER_TITLE) }}</a> <a href="/ui/r/{{ router }}/console/rci">{{ t(keys::WEB_CONSOLE_RCI_TITLE) }}</a> <a href="/ui/r/{{ router }}/console/cli">{{ t(keys::WEB_CONSOLE_CLI_TITLE) }}</a></span></td></tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- endif %}
+  {%- include "partials/kit_table.html" %}
 </div>
 {%- endblock %}

@@ -9,6 +9,8 @@
 
 extern crate alloc;
 
+mod table;
+
 use alloc::sync::Arc;
 use core::{error::Error, fmt};
 
@@ -50,7 +52,10 @@ use crate::{
         outcome::Toast,
         respond,
     },
-    table::pager::{Pager, shown_page},
+    table::{
+        pager::{Pager, shown_page},
+        view::TableView,
+    },
 };
 
 /// The add-account form.
@@ -135,7 +140,7 @@ struct UsersRegion {
     /// Locale carrier.
     shell: Shell,
     /// The shown page of accounts.
-    rows: Vec<UserRow>,
+    table: TableView,
     /// Table pagination.
     pager: Pager,
     /// Whether this is an out-of-band update.
@@ -689,7 +694,7 @@ async fn region(
     let (rows, pager) = Pager::paginate(all, page, Tab::Users.href().to_owned(), Vec::new());
     Ok(UsersRegion {
         shell: fragment_shell(user.locale()),
-        rows,
+        table: table::accounts(&rows, user.locale()),
         pager,
         oob,
         toasts,

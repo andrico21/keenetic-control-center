@@ -16,6 +16,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
     shared::Visit,
+    tables,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -23,14 +24,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::Controls,
-        request::{rendered, with_query},
-    },
+    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
+        view::TableView,
     },
 };
 
@@ -60,27 +58,13 @@ localized!(Page);
 struct Region {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// The schedules shown.
-    table: Table<Schedule>,
-    /// Whether the role may add actions.
-    act: bool,
+    table: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
 
 localized!(Region);
-
-impl Region {
-    /// The action dialog of `schedule`.
-    fn action_url(&self, schedule: &Schedule) -> String {
-        with_query(
-            &format!("/ui/r/{}/system/schedules/action", self.router),
-            &[("name", &schedule.name)],
-        )
-    }
-}
 
 /// One schedule as the table shows it.
 #[derive(Debug, Clone)]
@@ -126,12 +110,12 @@ impl Schedule {
     }
 
     /// Description.
-    fn description(&self) -> Option<&str> {
+    pub(super) fn description(&self) -> Option<&str> {
         self.description.as_deref()
     }
 
     /// Whether it is active now, when the router said.
-    const fn active(&self) -> Option<bool> {
+    pub(super) const fn active(&self) -> Option<bool> {
         self.active
     }
 }
@@ -191,15 +175,15 @@ impl<'call> Viewer<'call> {
 
     /// The region for `rows`.
     fn region(&self, rows: Vec<Schedule>, controls: &Controls) -> Region {
+        let table = Table::new(
+            rows,
+            &self.query,
+            format!("/ui/r/{}/system/schedules", self.router),
+        );
+        let act = controls.allows("action");
         Region {
             shell: fragment_shell(self.user.locale()),
-            router: self.router.to_owned(),
-            table: Table::new(
-                rows,
-                &self.query,
-                format!("/ui/r/{}/system/schedules", self.router),
-            ),
-            act: controls.allows("action"),
+            table: tables::schedules(&table, act, (self.router, self.user.locale())),
             oob: false,
         }
     }

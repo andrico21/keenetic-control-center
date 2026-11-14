@@ -21,6 +21,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
     shared::{Visit, profile_login},
+    tables,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -28,14 +29,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::Controls,
-        request::{rendered, with_query},
-    },
+    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
+        view::TableView,
     },
 };
 
@@ -68,35 +66,13 @@ localized!(Page);
 pub(crate) struct Region {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// The accounts shown.
-    table: Table<Account>,
-    /// The row actions the role may use.
-    actions: RowActions,
+    table: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
 
 localized!(Region);
-
-/// The row actions a role may use on the accounts.
-#[derive(Debug, Clone, Copy)]
-struct RowActions {
-    /// Edit tags.
-    edit_tags: bool,
-    /// Set password (not on the account kcc signs in with).
-    set_password: bool,
-    /// Delete (not on the account kcc signs in with).
-    delete: bool,
-}
-
-impl RowActions {
-    /// Whether the rows have any action.
-    const fn any(self) -> bool {
-        self.edit_tags || self.set_password || self.delete
-    }
-}
 
 /// One router account as the table shows it; its password never leaves the domain.
 #[derive(Debug, Clone)]
@@ -153,32 +129,6 @@ impl Account {
     /// Whether kcc signs in to the router with this account.
     pub(crate) const fn signs_in(&self) -> bool {
         self.signs_in
-    }
-}
-
-impl Region {
-    /// The tag dialog of `account`.
-    fn tags_url(&self, account: &Account) -> String {
-        with_query(
-            &format!("/ui/r/{}/system/users/tags", self.router),
-            &[("name", &account.name)],
-        )
-    }
-
-    /// The delete dialog of `account`.
-    fn delete_url(&self, account: &Account) -> String {
-        with_query(
-            &format!("/ui/r/{}/system/users/delete", self.router),
-            &[("name", &account.name)],
-        )
-    }
-
-    /// The password dialog of `account`.
-    fn password_url(&self, account: &Account) -> String {
-        with_query(
-            &format!("/ui/r/{}/system/users/password", self.router),
-            &[("name", &account.name)],
-        )
     }
 }
 
@@ -258,19 +208,19 @@ impl<'call> Viewer<'call> {
     /// The accounts region for `rows`.
     fn region(&self, rows: Vec<Account>, catalog: &Catalog) -> Region {
         let controls = self.controls(catalog);
+        let table = Table::new(
+            rows,
+            &self.query,
+            format!("/ui/r/{}/system/users", self.router),
+        );
+        let actions = (
+            controls.allows("set_tag"),
+            controls.allows("set_password"),
+            controls.allows("delete"),
+        );
         Region {
             shell: fragment_shell(self.user.locale()),
-            router: self.router.to_owned(),
-            table: Table::new(
-                rows,
-                &self.query,
-                format!("/ui/r/{}/system/users", self.router),
-            ),
-            actions: RowActions {
-                edit_tags: controls.allows("set_tag"),
-                set_password: controls.allows("set_password"),
-                delete: controls.allows("delete"),
-            },
+            table: tables::accounts(&table, actions, (self.router, self.user.locale())),
             oob: false,
         }
     }

@@ -471,31 +471,42 @@ Tables live beside the sort helper in the public `table` module: `table::rows::T
 `Row::key`) and pages (`table::pager::PAGE_ROWS` = 50) typed rows; its sort headers keep the
 filter and its page links keep both.
 
-One renderer draws every converted table: a page builds a `table::view::TableView` and
-includes `partials/kit_table.html` with the view bound to `table`. The view holds, in output
-order, the filter box (`search`, the shared `filter` macro), a count line (`count`), the text
-shown instead of the table (`blank`), the `.table-wrap` table with its class and optional
-`aria-label`, the header cells (`table::view::Head`: sortable through `ui::sort_header`,
-plain with an optional class, or the visually hidden label over the actions), the rows of
-`table::cells::Cell` and the pager. A cell is a data cell or the row header
-(`th scope="row"`), with its attributes (class, id, colspan) in the order the page sets
-them, holding text and spans (`Piece`: a status pill, a muted "not reported", a mono value,
-a note), values one per line (`ul.cell-lines`), an ordered list of items with their buttons,
-or row actions (`table::acts::Act`: a dialog opener, a form post, an htmx post, a link, a
-muted note, or a popover menu of `MenuItem`s) laid out inline, one per line, or in a
-wrapping `div`; actions carry `aria-describedby` with the row header's id. Two constructors
-cover the common shapes: `TableView::filtered` (filter, the page's empty text or "no match"
-in `.page__text`, pager) and `TableView::counted` (filter, "N of M" while filtering, the
-empty or no-match note in `.panel__note`, pager); `nested()` indents a table that sits one
-level deeper, inside a section. DNS and VPN, routing, port forwarding, firewall and network
-tables use it.
+One renderer draws every data table: a page builds a `table::view::TableView` and includes
+`partials/kit_table.html` with the view bound to `table`. The view holds, in output order,
+the filter box (`search`, the shared `filter` macro), a count line (`count`), the text shown
+instead of the table (`blank`, its class changed with `noted`), the table in its `div`
+(`.table-wrap` by default, another class with `wrapped`, none with `bare`) with its class
+and optional `aria-label`, the header cells (`table::head::Head`: sortable through
+`ui::sort_header`, plain with an optional class, or the visually hidden label over the
+actions), the rows of `table::cells::Cell` and the pager. A cell is a data cell or the row
+header (`th scope="row"`), with its attributes (class, id, colspan) in the order the page
+sets them, holding text and elements (`table::piece::Piece`: bare text, or a `span`, `a`,
+`time`, `code`, `details` ... with its attributes, an optional valueless attribute such as
+`data-kcc-time`, its text and child elements: a status pill, a muted "not reported", a mono
+value, a link, a time), elements one per line (`table::piece::Line`, an open element puts
+its children one per line too), values one per line (`ul.cell-lines`), an ordered list of
+items with their buttons, or row actions (`table::acts::Act`: a dialog opener, a form post,
+a quiet form post that swaps nothing, an htmx post, a link, a download, a muted note, or a
+popover menu of `MenuItem`s: dialog, post, hiding post, link, download or form entries)
+laid out inline, one per line, or in a wrapping `div`; actions carry `aria-describedby`
+with the row header's id. A `compact()` table puts its header and each row on one line,
+its cells holding text and elements only. Two constructors cover the common shapes:
+`TableView::filtered` (filter, the page's empty text or "no match" in `.page__text`, pager)
+and `TableView::counted` (filter, "N of M" while filtering, the empty or no-match note in
+`.panel__note`, pager); `nested()` indents a table that sits one level deeper, inside a
+section; `table::fleet::routers_table` is the routers table of a section landing page.
+Every table template uses it except the four form grids, whose cells are form controls
+(`migrate_mapping.html`, `migrate_review.html`, `presets_review.html`,
+`presets_macros.html`), and the side-by-side configuration diff (`config_diff.html`, one
+`tbody` per change).
 
 Markup (`partials/kit_macros.html`): `outcome_region()` (`#page-outcome`, where actions
 answer), `result(outcome)` (a failure stays in the region with the router's words; a success
 says so in its toast and empties the region), `report`, `signals` (toasts and the unsaved
 badge, out of band), `toasts`, `setting(id, label, value, dialog_url)` (one row of a settings
 list), `secret_field(id, name, label, error, help)` (no value parameter) and
-`filter(table, label)`, `piece(piece)` (one inline piece of a table cell) and
+`filter(table, label)`, `piece(piece)` and `leaf(piece)` (one inline piece of a table cell
+and its child elements), `head(head)` (one header cell), `menu_item(item, menu)` and
 `act(action, described_by, indent)` (one action button); `partials/kit_pager.html` with a
 `pager` in scope; `partials/kit_table.html` with a `table` in scope.
 

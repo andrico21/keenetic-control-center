@@ -7,6 +7,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::Value;
 
 use super::form::Kind;
+use crate::table::{cells::Cell, head::Head, view::TableView};
 
 /// One row of the arguments table.
 #[derive(Debug, Clone)]
@@ -84,19 +85,35 @@ impl ArgumentRow {
             values: argument.values.join(", "),
         }
     }
+}
 
-    /// Argument name.
-    pub(crate) fn name(&self) -> &str {
-        &self.name
+/// The table of a command's `arguments` in `locale`: name, type and accepted keywords; a
+/// note in its place when the command has none.
+pub(crate) fn arguments_table<'arg, A>(arguments: A, locale: Locale) -> TableView
+where
+    A: Iterator<Item = &'arg Argument>,
+{
+    let rows: Vec<ArgumentRow> = arguments
+        .map(|argument| ArgumentRow::new(argument, locale))
+        .collect();
+    let mut view = TableView::new("table").compact();
+    if rows.is_empty() {
+        let none = tr(locale, keys::WEB_EXPLORER_ARGUMENTS_NONE, None);
+        return view.blank("panel__note", none);
     }
-
-    /// Localized type.
-    pub(crate) fn kind(&self) -> &str {
-        &self.kind
+    for key in [
+        keys::WEB_EXPLORER_ARGUMENT,
+        keys::WEB_EXPLORER_TYPE,
+        keys::WEB_EXPLORER_VALUES,
+    ] {
+        view = view.head(Head::plain(tr(locale, key, None)));
     }
-
-    /// Accepted keywords.
-    pub(crate) fn values(&self) -> &str {
-        &self.values
+    for row in rows {
+        view = view.row(vec![
+            Cell::code(row.name),
+            Cell::text(row.kind),
+            Cell::code(row.values),
+        ]);
     }
+    view
 }

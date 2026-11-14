@@ -9,6 +9,8 @@
 
 extern crate alloc;
 
+mod table;
+
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{error::Error, fmt};
 
@@ -51,7 +53,10 @@ use crate::{
         outcome::Toast,
         respond,
     },
-    table::pager::{Pager, shown_page},
+    table::{
+        pager::{Pager, shown_page},
+        view::TableView,
+    },
 };
 
 /// Most router-scope globs per custom role.
@@ -197,7 +202,7 @@ struct RolesRegion {
     /// Locale carrier.
     shell: Shell,
     /// The shown page of roles.
-    rows: Vec<RoleRow>,
+    table: TableView,
     /// Table pagination.
     pager: Pager,
     /// Whether this is an out-of-band update.
@@ -696,7 +701,7 @@ async fn region(
     let (rows, pager) = Pager::paginate(all, page, Tab::Roles.href().to_owned(), Vec::new());
     Ok(RolesRegion {
         shell: fragment_shell(user.locale()),
-        rows,
+        table: table::roles(&rows, user.locale()),
         pager,
         oob,
         toasts,

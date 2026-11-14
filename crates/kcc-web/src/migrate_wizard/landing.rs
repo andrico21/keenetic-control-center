@@ -35,11 +35,12 @@ use crate::{
         outcome::{Failure, Outcome},
         respond::Answer,
     },
+    table::{cells::Cell, view::TableView},
     wizard::{
         analysis::parse_source,
         flow::{Flow as _, Stage as _},
         ids::fresh_id,
-        screen,
+        runs, screen,
         service::Wizards,
         services::Services,
         store::Sealed,
@@ -84,7 +85,7 @@ struct Landing {
     /// Whether the query asked for a restore that cannot be offered.
     restore_refused: bool,
     /// The user's migrations, newest first.
-    rows: Vec<Row>,
+    table: TableView,
 }
 
 localized!(Landing);
@@ -97,22 +98,6 @@ struct Restore {
     backup: String,
     /// The sentence describing it.
     text: String,
-}
-
-/// One migration of the list.
-struct Row {
-    /// Its page.
-    href: String,
-    /// When it started.
-    started: Option<Timestamp>,
-    /// Migration or restore.
-    kind: String,
-    /// Where the configuration comes from.
-    source: String,
-    /// The router it goes to.
-    target: String,
-    /// The step it is at.
-    step: String,
 }
 
 /// `GET /ui/migrate`: the page.
@@ -152,10 +137,18 @@ pub(super) async fn page(
         Ok(records) => records.iter().map(|record| row(record, locale)).collect(),
         Err(error) => return Refusal::Failed(Box::new(error)).page(shell),
     };
+    let columns = [
+        keys::WEB_MIGRATE_LIST_STARTED,
+        keys::WEB_MIGRATE_LIST_KIND,
+        keys::WEB_MIGRATE_SUMMARY_SOURCE,
+        keys::MIGRATE_TARGET,
+        keys::WEB_MIGRATE_LIST_STEP,
+    ];
+    let empty = keys::WEB_MIGRATE_LIST_EMPTY;
     errors::render(&Landing {
         restore_refused: asked && restore.is_none(),
         restore,
-        rows,
+        table: runs::runs_table((&columns, empty), rows, locale),
         shell,
     })
 }
@@ -266,24 +259,26 @@ async fn offered(
     Some((router.to_owned(), backup.to_owned(), text))
 }
 
-/// The list row of `record`.
-fn row(record: &Record, locale: Locale) -> Row {
+/// The list row of `record`: started, kind, source, target and step.
+fn row(record: &Record, locale: Locale) -> Vec<Cell> {
     let kind = match record.mode() {
         Mode::Migrate => keys::WEB_MIGRATE_KIND_MIGRATION,
         Mode::Restore => keys::WEB_MIGRATE_KIND_RESTORE,
     };
-    Row {
-        href: screen::href::<Record>(record.id()),
-        started: Timestamp::at(record.created_at()),
-        kind: tr(locale, kind, None),
-        source: record
-            .source()
-            .map_or_else(String::new, |source| source_text(source, locale)),
-        target: record.target().unwrap_or_default().to_owned(),
-        step: format!(
+    let href = screen::href::<Record>(record.id());
+    vec![
+        runs::started(href, Timestamp::at(record.created_at()), locale),
+        Cell::word(locale, kind),
+        Cell::text(
+            record
+                .source()
+                .map_or_else(String::new, |source| source_text(source, locale)),
+        ),
+        Cell::code(record.target().unwrap_or_default().to_owned()),
+        Cell::text(format!(
             "{}. {}",
             record.step().number(),
             tr(locale, record.step().label(), None)
-        ),
-    }
+        )),
+    ]
 }

@@ -18,6 +18,7 @@
 mod client_act;
 mod client_actions;
 mod client_rows;
+mod client_table;
 mod client_view;
 mod clients;
 mod dhcp;
@@ -25,6 +26,7 @@ mod dhcp_forms;
 mod dhcp_lease;
 mod dhcp_page;
 mod dhcp_rows;
+mod dhcp_table;
 mod landing;
 mod segment_create;
 mod segment_delete;

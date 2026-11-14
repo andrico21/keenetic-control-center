@@ -20,6 +20,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
     shared::Visit,
+    tables,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -27,14 +28,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{
-        context::fragment_shell,
-        gate::Controls,
-        request::{rendered, with_query},
-    },
+    page_kit::{context::fragment_shell, gate::Controls, request::rendered},
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
+        view::TableView,
     },
 };
 
@@ -62,43 +60,17 @@ localized!(Page);
 struct Region {
     /// Locale carrier.
     shell: Shell,
-    /// Router profile id.
-    router: String,
     /// The services shown.
-    table: Table<Service>,
-    /// Whether the role may switch ordinary services.
-    plain: bool,
-    /// Whether the role may switch management services.
-    management: bool,
+    table: TableView,
     /// Whether the region replaces the page's out of band.
     oob: bool,
 }
 
 localized!(Region);
 
-impl Region {
-    /// Whether the role may switch `service`.
-    const fn switchable(&self, service: &Service) -> bool {
-        if service.management {
-            self.management
-        } else {
-            self.plain
-        }
-    }
-
-    /// The endpoint switching `service` to the other state.
-    fn toggle_url(&self, service: &Service) -> String {
-        let wanted = if service.on { "false" } else { "true" };
-        with_query(
-            &format!("/ui/r/{}/system/services/toggle", self.router),
-            &[("name", &service.name), ("on", wanted)],
-        )
-    }
-}
-
 /// One service as the table shows it.
 #[derive(Debug, Clone)]
-struct Service {
+pub(super) struct Service {
     /// Catalog service name, such as `ssh`.
     name: String,
     /// Whether the configuration turns it on.
@@ -125,17 +97,17 @@ impl Row for Service {
 
 impl Service {
     /// Catalog service name.
-    fn name(&self) -> &str {
+    pub(super) fn name(&self) -> &str {
         &self.name
     }
 
     /// Whether the configuration turns it on.
-    const fn on(&self) -> bool {
+    pub(super) const fn on(&self) -> bool {
         self.on
     }
 
     /// Whether it carries management access.
-    const fn management(&self) -> bool {
+    pub(super) const fn management(&self) -> bool {
         self.management
     }
 }
@@ -200,16 +172,18 @@ impl<'call> Viewer<'call> {
     /// The services region for `rows`.
     fn region(&self, rows: Vec<Service>) -> Region {
         let controls = Controls::new(self.user.role(), self.router);
+        let table = Table::new(
+            rows,
+            &self.query,
+            format!("/ui/r/{}/system/services", self.router),
+        );
+        let switches = (
+            controls.permits(&SafetyNet::required(Permission::Write, Risk::Write)),
+            controls.permits(&SafetyNet::required(Permission::Write, Risk::Management)),
+        );
         Region {
             shell: fragment_shell(self.user.locale()),
-            router: self.router.to_owned(),
-            table: Table::new(
-                rows,
-                &self.query,
-                format!("/ui/r/{}/system/services", self.router),
-            ),
-            plain: controls.permits(&SafetyNet::required(Permission::Write, Risk::Write)),
-            management: controls.permits(&SafetyNet::required(Permission::Write, Risk::Management)),
+            table: tables::services(&table, switches, (self.router, self.user.locale())),
             oob: false,
         }
     }

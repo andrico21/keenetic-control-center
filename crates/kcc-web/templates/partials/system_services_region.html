@@ -1,41 +1,5 @@
 {#- The router's services: filter, table and pager, with Turn on or Turn off where the role may; a change sends the region again out of band. -#}
-{%- import "components.html" as ui -%}
-{%- import "partials/kit_macros.html" as kit -%}
 <section class="system-region" id="services-region" aria-labelledby="services-title"{% if oob %} hx-swap-oob="true"{% endif %}>
   <h2 class="visually-hidden" id="services-title">{{ t(keys::WEB_SYSTEM_SERVICES_LIST) }}</h2>
-  {{ kit::filter(table, t(keys::WEB_KIT_TABLE_FILTER)) }}
-  {%- if table.rows().is_empty() %}
-  <p class="panel__note">{% if table.filter().is_empty() %}{{ t(keys::WEB_KIT_TABLE_EMPTY) }}{% else %}{{ t(keys::WEB_KIT_TABLE_NO_MATCH) }}{% endif %}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table">
-      <thead>
-        <tr>
-          {{ ui::sort_header(t(keys::WEB_SYSTEM_SERVICES_NAME), table.header("name")) }}
-          {{ ui::sort_header(t(keys::WEB_SYSTEM_SERVICES_STATE), table.header("state")) }}
-          {%- if plain || management %}
-          <th scope="col"><span class="visually-hidden">{{ t(keys::WEB_SYSTEM_ACTIONS) }}</span></th>
-          {%- endif %}
-        </tr>
-      </thead>
-      <tbody>
-        {%- for row in table.rows() %}
-        <tr>
-          <th scope="row" id="service-{{ loop.index }}"><span class="mono">{{ row.name() }}</span>{% if row.management() %} <span class="flag" data-tone="info">{{ t(keys::WEB_SYSTEM_SERVICES_MANAGEMENT) }}</span>{% endif %}</th>
-          <td>{% if row.on() %}<span class="status" data-status="online">{{ t(keys::WEB_SYSTEM_SERVICES_ON) }}</span>{% else %}<span class="status" data-status="unknown">{{ t(keys::WEB_SYSTEM_SERVICES_OFF) }}</span>{% endif %}</td>
-          {%- if plain || management %}
-          <td>
-            {%- if switchable(row) %}
-            <button class="button button--ghost" type="button" hx-post="{{ toggle_url(row) }}" hx-target="#page-outcome" aria-describedby="service-{{ loop.index }}">{% if row.on() %}{{ t(keys::WEB_SYSTEM_SERVICES_TURN_OFF) }}{% else %}{{ t(keys::WEB_SYSTEM_SERVICES_TURN_ON) }}{% endif %}</button>
-            {%- endif %}
-          </td>
-          {%- endif %}
-        </tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- endif %}
-  {%- let pager = table.pager() %}
-  {%- include "partials/kit_pager.html" %}
+  {%- include "partials/kit_table.html" %}
 </section>

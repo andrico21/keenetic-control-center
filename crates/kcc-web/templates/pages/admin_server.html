@@ -23,14 +23,8 @@
     </section>
     <section class="panel" aria-labelledby="server-catalogs">
       <h2 class="panel__title" id="server-catalogs">{{ t(keys::WEB_ADMIN_SERVER_CATALOGS) }}</h2>
-      <table class="table">
-        <thead><tr><th scope="col">{{ t(keys::WEB_ADMIN_SERVER_CATALOG_LINE) }}</th><th scope="col">{{ t(keys::WEB_ADMIN_SERVER_CATALOG_GROUPS) }}</th></tr></thead>
-        <tbody>
-          {%- for line in catalogs %}
-          <tr><td class="mono">{{ line.version }}</td><td>{{ line.groups }}</td></tr>
-          {%- endfor %}
-        </tbody>
-      </table>
+      {%- let table = catalogs %}
+      {%- include "partials/kit_table.html" %}
     </section>
   </div>
   <section class="panel admin-config" aria-labelledby="server-config">

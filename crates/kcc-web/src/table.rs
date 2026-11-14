@@ -10,7 +10,10 @@
 
 pub(crate) mod acts;
 pub(crate) mod cells;
+pub(crate) mod fleet;
+pub(crate) mod head;
 pub mod pager;
+pub(crate) mod piece;
 pub mod rows;
 pub(crate) mod view;
 

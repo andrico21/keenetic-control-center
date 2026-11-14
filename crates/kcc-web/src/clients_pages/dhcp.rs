@@ -13,6 +13,7 @@ use url::form_urlencoded::{Serializer, byte_serialize};
 use super::{
     TabLink,
     dhcp_rows::{HostRow, PoolRow, names},
+    dhcp_table,
 };
 use crate::{
     authz::CurrentUser,
@@ -22,7 +23,10 @@ use crate::{
         gate::Controls,
         request::{rendered, shown_uri},
     },
-    table::rows::{Table, TableQuery},
+    table::{
+        rows::{Table, TableQuery},
+        view::TableView,
+    },
 };
 
 /// One view of the DHCP page.
@@ -215,6 +219,24 @@ impl Region {
     pub(crate) const fn out_of_band(mut self) -> Self {
         self.oob = true;
         self
+    }
+
+    /// The table of the view, or the note in its place.
+    fn table_view(&self) -> TableView {
+        let locale = self.shell.locale();
+        match &self.listing {
+            Listing::Pools(table) => {
+                let edit = |row: &PoolRow| self.edit_url(row);
+                let link: dhcp_table::RowLink<'_, PoolRow> =
+                    self.controls.allows("pool").then_some(&edit);
+                dhcp_table::pools(table, link, locale)
+            }
+            Listing::Hosts(table) => {
+                let reserve = |row: &HostRow| self.reserve_url(row);
+                let link: dhcp_table::RowLink<'_, HostRow> = self.reserve().then_some(&reserve);
+                dhcp_table::hosts(table, ((self.detailed(), self.expiring()), link), locale)
+            }
+        }
     }
 
     /// Whether the hosts carry an interface and a state: active leases and ARP.

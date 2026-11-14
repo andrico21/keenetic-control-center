@@ -10,10 +10,13 @@ use kcc_i18n::{
 };
 use url::form_urlencoded::byte_serialize;
 
-use super::{check::risk_key, form::Form, meta, types::ArgumentRow};
-use crate::page_kit::{
-    facts::RouterFacts,
-    gate::{Controls, command_permissions},
+use super::{check::risk_key, form::Form, meta, types::arguments_table};
+use crate::{
+    page_kit::{
+        facts::RouterFacts,
+        gate::{Controls, command_permissions},
+    },
+    table::view::TableView,
 };
 
 /// One command in a result or group list.
@@ -57,8 +60,8 @@ pub(crate) struct Detail {
     manual: Option<(String, String)>,
     /// The router model's manual and its localized label.
     model_manual: Option<(String, String)>,
-    /// Argument rows.
-    arguments: Vec<ArgumentRow>,
+    /// The arguments table.
+    arguments: TableView,
     /// The generated form.
     form: Form,
     /// Whether and why not the command can run.
@@ -164,11 +167,7 @@ pub(crate) fn detail(scope: &Scope<'_>, path: &str) -> Option<Detail> {
         models_label: tr(locale, keys::WEB_EXPLORER_MODELS_COUNT, Some(&count)),
         manual,
         model_manual,
-        arguments: command
-            .arguments
-            .values()
-            .map(|argument| ArgumentRow::new(argument, locale))
-            .collect(),
+        arguments: arguments_table(command.arguments.values(), locale),
         form: Form::build(&schema, locale),
         runnable: match (permitted, background && !scope.jobs) {
             (_, true) => Runnable::NoJobs,
@@ -307,8 +306,8 @@ impl Detail {
         self.model_manual.as_ref()
     }
 
-    /// Argument rows.
-    pub(crate) fn arguments(&self) -> &[ArgumentRow] {
+    /// The arguments table.
+    pub(crate) const fn arguments(&self) -> &TableView {
         &self.arguments
     }
 

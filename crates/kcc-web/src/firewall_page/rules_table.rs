@@ -18,8 +18,10 @@ use crate::{
     page_kit::request::with_query,
     table::{
         acts::{Act, MenuItem},
-        cells::{Cell, Layout, Piece},
-        view::{Head, TableView},
+        cells::{Cell, Layout},
+        head::Head,
+        piece::Piece,
+        view::TableView,
     },
 };
 

@@ -13,6 +13,7 @@ use crate::{
     admin_shared::Timestamp,
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
+    table::{cells::Cell, head::Head, piece::Piece, view::TableView},
 };
 
 /// The step's panel.
@@ -35,8 +36,8 @@ pub(crate) struct Panel {
     facts: Vec<(String, String)>,
     /// One warning per interface whose captured private key was copied.
     kept: Vec<String>,
-    /// New WireGuard public keys: interface and key.
-    keys: Vec<(String, String)>,
+    /// The table of the new WireGuard public keys, when there are some.
+    public_keys: Option<TableView>,
     /// The downloads' heading, when the report can be downloaded.
     downloads_title: Option<String>,
     /// The files to download: file name and link text.
@@ -82,7 +83,7 @@ impl Panel {
             finished: (at > 0).then(|| Timestamp::at(at)).flatten(),
             facts,
             kept: Vec::new(),
-            keys: Vec::new(),
+            public_keys: None,
             downloads_title: None,
             downloads: Vec::new(),
             list: F::LIST,
@@ -109,7 +110,26 @@ impl Panel {
     /// interfaces whose captured private key was copied, `kept`.
     pub(crate) fn with_keys(mut self, public: &[(String, String)], kept: &[String]) -> Self {
         let locale = self.shell.locale();
-        public.clone_into(&mut self.keys);
+        self.public_keys = (!public.is_empty()).then(|| {
+            let mut view = TableView::new("table")
+                .wrapped("table-wrap presets-keys")
+                .compact()
+                .head(Head::plain(tr(
+                    locale,
+                    keys::WEB_PRESETS_KEYS_INTERFACE,
+                    None,
+                )))
+                .head(Head::plain(tr(locale, keys::WEB_PRESETS_KEYS_KEY, None)));
+            for (interface, public_key) in public {
+                let code = Piece::element("code", public_key.clone())
+                    .attr("class", "wizard-line".to_owned());
+                view = view.row(vec![
+                    Cell::code(interface.clone()).head(),
+                    Cell::of(vec![code]),
+                ]);
+            }
+            view
+        });
         self.kept = kept
             .iter()
             .map(|name| {

@@ -60,16 +60,8 @@
     <p class="panel__note">{{ t(keys::WEB_WAN_NONE) }}</p>
     {%- else %}
     <h3 class="panel__subtitle">{{ t(keys::WEB_WAN_TITLE) }}</h3>
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr><th scope="col">{{ t(keys::WEB_WAN_INTERFACE) }}</th><th scope="col">{{ t(keys::WEB_WAN_ADDRESS) }}</th><th scope="col">{{ t(keys::WEB_WAN_LINK) }}</th></tr></thead>
-        <tbody>
-          {%- for wan in router.wan() %}
-          <tr><td>{{ wan.label() }}{% if wan.label() != wan.id() %} <span class="mono muted">{{ wan.id() }}</span>{% endif %}</td><td class="mono">{{ wan.address() }}</td><td>{% if wan.up() %}{{ t(keys::DOMAINS_INTERFACE_UP) }}{% else %}{{ t(keys::DOMAINS_INTERFACE_DOWN) }}{% endif %}</td></tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
+    {%- let table = router.wan_table(shell.locale()) %}
+    {%- include "partials/kit_table.html" %}
     {%- endif %}
   </section>
   <section class="panel" aria-labelledby="wifi-title">
@@ -87,16 +79,8 @@
     {%- endif %}
     {%- if !router.access_points().is_empty() %}
     <h3 class="panel__subtitle">{{ t(keys::WEB_WIFI_ACCESS_POINTS) }}</h3>
-    <div class="table-wrap">
-      <table class="table">
-        <thead><tr><th scope="col">{{ t(keys::DOMAINS_WIFI_SSID) }}</th><th scope="col">{{ t(keys::WEB_WIFI_RADIO) }}</th><th scope="col">{{ t(keys::WEB_WIFI_STATE) }}</th></tr></thead>
-        <tbody>
-          {%- for access_point in router.access_points() %}
-          <tr><td>{{ access_point.ssid() }}</td><td class="mono">{{ access_point.id() }}</td><td>{% if access_point.up() %}{{ t(keys::COMMON_ENABLED) }}{% else %}{{ t(keys::COMMON_DISABLED) }}{% endif %}</td></tr>
-          {%- endfor %}
-        </tbody>
-      </table>
-    </div>
+    {%- let table = router.access_points_table(shell.locale()) %}
+    {%- include "partials/kit_table.html" %}
     {%- endif %}
   </section>
 </div>

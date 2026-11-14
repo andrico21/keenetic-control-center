@@ -624,7 +624,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): shared table renderer for routing, NAT, firewall, network and DNS/VPN
   Recommended task executor category: visual-engineering - table markup and accessibility
 
-- [ ] 40. Remaining tables on the shared renderer
+- [x] 40. Remaining tables on the shared renderer
   What to do / Must NOT do: Convert every other template in `grep -rln '<table' crates/kcc-web/templates` (clients, DHCP, segments, system, configuration/backups, audit, admin, jobs, explorer, wizard) to `kit_table.html`; a table that cannot be expressed (e.g. a key-value fact sheet) stays and is listed with its reason in the commit body. Must NOT: change ids, sorting, ARIA or pager links.
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 39 | Blocks: 42 | Can parallelize with: -

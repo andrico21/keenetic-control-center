@@ -19,6 +19,7 @@ use kcc_i18n::{bundle::MessageKey, format, keys, locale::Locale};
 
 use super::{
     shared::Visit,
+    storage_tables,
     tabs::{Tab, TabBar},
 };
 use crate::{
@@ -26,10 +27,11 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::{gate::Controls, request::with_query},
+    page_kit::gate::Controls,
     table::{
         Direction, Sort,
         rows::{Row, SortKey, Table, TableQuery},
+        view::TableView,
     },
 };
 
@@ -46,35 +48,16 @@ struct Page {
     /// Why the storage could not be read.
     problem: Option<MessageKey>,
     /// The media.
-    media: Option<Table<Medium>>,
+    media: Option<TableView>,
     /// The USB devices.
-    usb: Vec<Device>,
-    /// The maintenance actions the role may run and the catalog has.
-    controls: Controls,
+    usb: TableView,
 }
 
 localized!(Page);
 
-impl Page {
-    /// The endpoint of `action` on `medium`.
-    fn action_url(&self, action: &str, medium: &Medium) -> String {
-        with_query(
-            &format!("/ui/r/{}/system/storage/{action}", self.router),
-            &[("media", &medium.id)],
-        )
-    }
-
-    /// Whether any maintenance action is shown.
-    fn acts(&self) -> bool {
-        ["eject", "partition_check", "partition_format"]
-            .into_iter()
-            .any(|name| self.controls.allows(name))
-    }
-}
-
 /// One mounted medium.
 #[derive(Debug, Clone)]
-struct Medium {
+pub(super) struct Medium {
     /// Router media id, such as `Media0`.
     id: String,
     /// Volume label.
@@ -124,34 +107,34 @@ impl Row for Medium {
 
 impl Medium {
     /// Router media id.
-    fn id(&self) -> &str {
+    pub(super) fn id(&self) -> &str {
         &self.id
     }
 
     /// Volume label.
-    fn label(&self) -> Option<&str> {
+    pub(super) fn label(&self) -> Option<&str> {
         self.label.as_deref()
     }
 
     /// Filesystem.
-    fn filesystem(&self) -> Option<&str> {
+    pub(super) fn filesystem(&self) -> Option<&str> {
         self.filesystem.as_deref()
     }
 
     /// Size, as people read it.
-    fn size_text(&self) -> Option<&str> {
+    pub(super) fn size_text(&self) -> Option<&str> {
         self.size_text.as_deref()
     }
 
     /// Free space, as people read it.
-    fn free_text(&self) -> Option<&str> {
+    pub(super) fn free_text(&self) -> Option<&str> {
         self.free_text.as_deref()
     }
 }
 
 /// One USB device.
 #[derive(Debug, Clone)]
-struct Device {
+pub(super) struct Device {
     /// Router USB id.
     id: String,
     /// Vendor and product.
@@ -162,17 +145,17 @@ struct Device {
 
 impl Device {
     /// Router USB id.
-    fn id(&self) -> &str {
+    pub(super) fn id(&self) -> &str {
         &self.id
     }
 
     /// Vendor and product.
-    fn name(&self) -> &str {
+    pub(super) fn name(&self) -> &str {
         &self.name
     }
 
     /// Whether it is connected.
-    const fn connected(&self) -> bool {
+    pub(super) const fn connected(&self) -> bool {
         self.connected
     }
 }
@@ -247,18 +230,19 @@ pub(crate) async fn page(
         router: router.clone(),
         problem: None,
         media: None,
-        usb: Vec::new(),
-        controls: Controls::default(),
+        usb: storage_tables::usb(&[], user.locale()),
     };
     match reading {
         Ok((facts, domain)) => {
-            page.controls = Controls::new(user.role(), &router)
+            let controls = Controls::new(user.role(), &router)
                 .with_operations(storage::DESCRIPTOR.write_ops, Some(facts.catalog()));
             match read(&domain, user.locale()).await {
                 Ok((media, usb)) => {
                     let base = format!("/ui/r/{router}/system/storage");
-                    page.media = Some(Table::new(media, &query, base));
-                    page.usb = usb;
+                    let table = Table::new(media, &query, base);
+                    let viewer = (router.as_str(), user.locale());
+                    page.media = Some(storage_tables::media(&table, &controls, viewer));
+                    page.usb = storage_tables::usb(&usb, user.locale());
                 }
                 Err(message) => page.problem = Some(message),
             }

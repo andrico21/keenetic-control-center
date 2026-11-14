@@ -34,8 +34,9 @@ use crate::{
     table::{
         acts::Act,
         cells::{Cell, Layout},
+        head::Head,
         rows::{Table, TableQuery},
-        view::{Head, TableView},
+        view::TableView,
     },
 };
 

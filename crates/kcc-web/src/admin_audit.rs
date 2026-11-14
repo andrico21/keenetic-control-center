@@ -6,6 +6,8 @@
 //! first, and the filtered entries download as JSONL in chain order. Entries carry
 //! only the redacted parameters the writers recorded.
 
+mod table;
+
 use core::time::Duration;
 use std::time::UNIX_EPOCH;
 
@@ -35,7 +37,7 @@ use crate::{
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::context::Caller,
-    table::pager::Pager,
+    table::{pager::Pager, view::TableView},
 };
 
 /// Seconds in a day, the width of one date filter step.
@@ -209,7 +211,7 @@ struct AuditPage {
     /// To-date error.
     to_error: String,
     /// The shown page of entries.
-    rows: Vec<EntryRow>,
+    table: TableView,
     /// Table pagination.
     pager: Pager,
     /// The export link with the same filter.
@@ -269,7 +271,7 @@ pub(crate) async fn page(
         action: filter.action,
         from: filter.from_text,
         to: filter.to_text,
-        rows,
+        table: table::entries(&rows, locale),
         pager,
         shell,
     };

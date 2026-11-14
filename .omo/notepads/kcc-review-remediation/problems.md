@@ -14,3 +14,7 @@
 
 ## [2026-11-14] Backlog candidates (todo 38)
 - Wizard finish routes: migration keeps /commit, /rollback, /{way} and presets one /{way}; the shared core serves both but 3 entry handlers remain. Unifying migration onto the presets shape would change edge behavior (content-type of commit, dialog order, unknown way 404 order): owner decision.
+
+## [2026-11-14] Backlog candidates (todos 39-40)
+- Five tables stay outside `kit_table.html`: wizard rename grids (`migrate_mapping.html`, `presets_macros.html`), wizard review grids with checkboxes/radios (`migrate_review.html`, `presets_review.html`), and the side-by-side config diff (`config_diff.html`). A form-control cell kind and a multi-tbody view would let them join; each serves only one or two pages.
+- Rust for the converted pages grew (+1114 pure LOC in todo 39, +1446 in todo 40) while templates shrank (-601, -803): the markup moved into typed builders, not a size reduction.

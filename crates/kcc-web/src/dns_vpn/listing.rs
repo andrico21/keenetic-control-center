@@ -14,8 +14,9 @@ use crate::table::{
     Sort,
     acts::Act,
     cells::{Cell, Layout},
+    head::Head,
     rows::{Row, SortKey, Table},
-    view::{Head, TableView},
+    view::TableView,
 };
 
 /// What one table lists: its sortable columns, their header labels, its first order, its

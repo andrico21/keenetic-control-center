@@ -19,42 +19,7 @@
       <a class="button button--ghost" href="/ui/admin/audit">{{ t(keys::WEB_ADMIN_AUDIT_CLEAR) }}</a>
     </div>
   </form>
-  {%- if rows.is_empty() %}
-  <p class="page__text">{{ t(keys::WEB_ADMIN_AUDIT_EMPTY) }}</p>
-  {%- else %}
-  <div class="table-wrap">
-    <table class="table audit-table">
-      <thead>
-        <tr>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_TIME) }}</th>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_ACTOR) }}</th>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_ACTION) }}</th>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_ROUTER) }}</th>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_TARGET) }}</th>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_OUTCOME) }}</th>
-          <th scope="col">{{ t(keys::WEB_ADMIN_AUDIT_DETAILS) }}</th>
-        </tr>
-      </thead>
-      <tbody>
-        {%- for row in rows %}
-        <tr>
-          <td class="audit-time">{% if let Some(time) = row.time %}<time datetime="{{ time.iso() }}" data-kcc-time>{{ time.text() }}</time>{% endif %}</td>
-          <td><span class="mono">{{ row.actor }}</span> <span class="muted">{{ t(*row.kind) }}</span></td>
-          <td class="mono">{{ row.action }}</td>
-          <td class="mono">{{ row.router }}</td>
-          <td class="mono">{{ row.target }}</td>
-          <td class="mono">{{ row.outcome }}</td>
-          <td>
-            {%- if !row.params.is_empty() %}
-            <details class="audit-params"><summary>{{ t(keys::WEB_ADMIN_AUDIT_PARAMS) }}</summary><pre class="mono">{{ row.params }}</pre></details>
-            {%- endif %}
-          </td>
-        </tr>
-        {%- endfor %}
-      </tbody>
-    </table>
-  </div>
-  {%- endif %}
+  {%- include "partials/kit_table.html" %}
   {%- include "partials/kit_pager.html" %}
 </div>
 {%- endblock %}

@@ -24,6 +24,7 @@ pub(crate) mod results;
 pub(crate) mod resume;
 pub(crate) mod run;
 pub(crate) mod running;
+pub(crate) mod runs;
 pub(crate) mod screen;
 pub(crate) mod service;
 pub(crate) mod services;

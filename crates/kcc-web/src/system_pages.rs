@@ -57,6 +57,8 @@ mod services;
 pub(crate) mod shared;
 mod storage;
 mod storage_actions;
+mod storage_tables;
+mod tables;
 pub(crate) mod tabs;
 mod user_answers;
 mod user_delete;
