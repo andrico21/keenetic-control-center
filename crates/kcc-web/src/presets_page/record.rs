@@ -14,7 +14,7 @@ use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    events, resume,
+    resume,
     review::View,
     steps::{Finish, Mode, Origin, Step},
     summary,
@@ -25,7 +25,7 @@ use crate::{
     page::Shell,
     wizard::{
         flow::{Flow, Moves, SCHEMA},
-        run::{Ended, Run},
+        run::Run,
         visit::Visit,
     },
 };
@@ -294,10 +294,6 @@ impl Flow for Record {
             | Finish::RollbackRestarting
             | Finish::Closed => false,
         }
-    }
-
-    fn ended_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
-        events::end_words(ended, locale)
     }
 
     fn title(&self) -> MessageKey {

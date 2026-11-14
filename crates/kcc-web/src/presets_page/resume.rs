@@ -5,7 +5,7 @@ use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
     access::Visit,
-    inputs, options, preview, results,
+    inputs, options, preview,
     review::{self, View},
     source,
     steps::Step,
@@ -14,7 +14,7 @@ use super::{
 use crate::{
     WebState,
     page::Shell,
-    wizard::{flow::Flow as _, report::Panel, running, screen},
+    wizard::{flow::Flow as _, report::Panel, results, running, screen},
 };
 
 /// The report's files to download.

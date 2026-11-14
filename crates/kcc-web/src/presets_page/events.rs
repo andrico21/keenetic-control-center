@@ -1,30 +1,10 @@
-//! How a run's apply reads at its end on the live stream (`crate::wizard::events`) and
-//! on the results: the run's own words where they differ from the migration wizard's.
+//! How a run's failed apply reads on the live stream (`crate::wizard::events`) and on the
+//! results: the run's own words where they differ from the migration wizard's.
 
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_migrate::apply::ApplyError;
 
-use crate::wizard::run::{Ended, failure_text as wizard_text};
-
-/// The notice tone and sentence of an apply that ended as `ended` records (none: kcc
-/// restarted while it ran).
-pub(super) fn end_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
-    let (tone, key) = match ended {
-        Some(found) if found.verified() => ("success", keys::WEB_PRESETS_APPLIED),
-        Some(found) => (
-            "error",
-            found
-                .failure()
-                .map_or(keys::WEB_PRESETS_FAILURE_FAILED, recorded_text),
-        ),
-        None => ("error", keys::WEB_PRESETS_RUN_INTERRUPTED),
-    };
-    (tone, tr(locale, key, None))
-}
+use crate::wizard::run::failure_text as wizard_text;
 
 /// The sentence explaining `failure` on a run's pages: the run's own words where they
 /// differ from the wizard's.
@@ -59,12 +39,6 @@ pub(super) const fn failure_text(failure: ApplyError) -> MessageKey {
     }
 }
 
-/// The sentence explaining the failure a record names `name`; a name this kcc does not
-/// know reads as a stopped run.
-pub(super) fn recorded_text(name: &str) -> MessageKey {
-    ApplyError::from_name(name).map_or(keys::WEB_PRESETS_FAILURE_FAILED, failure_text)
-}
-
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -76,8 +50,13 @@ mod tests {
     use kcc_i18n::{bundle::tr, keys, locale::Locale};
     use kcc_migrate::apply::ApplyError;
 
-    use super::end_words;
-    use crate::wizard::run::{Ended, failure_name};
+    use crate::{
+        presets_page::record::Record,
+        wizard::{
+            finishing::Finishing as _,
+            run::{Ended, failure_name},
+        },
+    };
 
     /// A run that needs a new plan says so, not that the routers drifted.
     #[test]
@@ -86,7 +65,7 @@ mod tests {
         let ended: Ended = serde_json::from_str(&format!(
             "{{\"at\":2,\"verified\":false,\"failure\":\"{name}\",\"applied\":0,\"failed\":0}}"
         ))?;
-        let (tone, words) = end_words(Some(&ended), Locale::En);
+        let (tone, words) = Record::ended_words(Some(&ended), Locale::En);
         assert_eq!(tone, "error");
         assert_eq!(words, tr(Locale::En, keys::MIGRATE_APPLY_REPLAN, None));
         Ok(())

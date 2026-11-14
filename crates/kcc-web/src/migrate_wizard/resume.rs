@@ -8,13 +8,13 @@ use super::{
     access::Visit,
     inputs::{self, Shown},
     kinds::Step,
-    mapping, preview, results,
+    mapping, preview,
     review::{self, View},
     source, target,
 };
 use crate::{
     page::Shell,
-    wizard::{flow::Flow as _, report::Panel, running, screen, store::Kept},
+    wizard::{flow::Flow as _, report::Panel, results, running, screen, store::Kept},
 };
 
 /// The report's files to download, once the report was kept.

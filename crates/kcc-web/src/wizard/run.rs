@@ -153,12 +153,6 @@ pub(crate) const fn failure_text(failure: ApplyError) -> MessageKey {
     }
 }
 
-/// The sentence explaining the failure a record names `name`; a name this kcc does not
-/// know reads as a stopped migration.
-pub(crate) fn recorded_text(name: &str) -> MessageKey {
-    ApplyError::from_name(name).map_or(keys::MIGRATE_APPLY_FAILED, failure_text)
-}
-
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -170,7 +164,8 @@ mod tests {
     use kcc_i18n::keys;
     use kcc_migrate::apply::ApplyError;
 
-    use super::{Ended, Run, failure_name, recorded_text};
+    use super::{Ended, Run, failure_name};
+    use crate::{migrate_wizard::record::Record, wizard::finishing::Finishing as _};
 
     /// A record written by an earlier kcc, with a failure name of today or one kcc no
     /// longer knows, loads and explains its failure.
@@ -197,7 +192,7 @@ mod tests {
             );
             let run: Run = serde_json::from_str(&stored)?;
             let failure = run.ended().and_then(Ended::failure);
-            assert_eq!(failure.map(recorded_text), Some(key), "{name}");
+            assert_eq!(failure.map(Record::recorded_text), Some(key), "{name}");
         }
         Ok(())
     }

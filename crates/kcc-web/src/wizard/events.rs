@@ -32,7 +32,7 @@ use tokio::{
 
 use super::{
     beats,
-    flow::Flow,
+    finishing::Finishing,
     live::{Live, Progress},
     service::Wizards,
     services::Services,
@@ -115,7 +115,7 @@ pub(crate) async fn events<F>(
     user: CurrentUser,
 ) -> Response
 where
-    F: Flow,
+    F: Finishing,
 {
     let services = match Services::of(&state, &user) {
         Ok(found) => found,

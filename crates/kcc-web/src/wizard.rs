@@ -6,21 +6,27 @@
 //! side (`service`), opens a run for one request (`services`, `visit`), and moves every
 //! wizard through the same steps: the record's step machine (`flow`), the page around a
 //! step's panel (`screen`), resuming at the current step, Back and the result (`resume`),
-//! the apply followed live with Stop (`running`, `live`, `run`, `events`, `beats`) and
-//! the report (`report`); `analysis` holds what both wizards' analyses share.
+//! the apply followed live with Stop (`running`, `live`, `run`, `events`, `beats`), the
+//! result and the final choice (`results`, `finish`, `settle`, each wizard's ending a
+//! [`finishing::Finishing`]) and the report (`report`); `analysis` holds what both
+//! wizards' analyses share.
 
 pub(crate) mod analysis;
 pub(crate) mod beats;
 pub(crate) mod events;
+pub(crate) mod finish;
+pub(crate) mod finishing;
 pub(crate) mod flow;
 pub(crate) mod ids;
 pub(crate) mod live;
 pub(crate) mod report;
+pub(crate) mod results;
 pub(crate) mod resume;
 pub(crate) mod run;
 pub(crate) mod running;
 pub(crate) mod screen;
 pub(crate) mod service;
 pub(crate) mod services;
+pub(crate) mod settle;
 pub(crate) mod store;
 pub(crate) mod visit;

@@ -18,12 +18,12 @@ use axum::{
 use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
-    apply, downloads, finish, inputs_submit, landing, mapping_submit, record::Record,
-    review_submit, source, source_read, target, target_confirm,
+    apply, downloads, inputs_submit, landing, mapping_submit, record::Record, review_submit,
+    source, source_read, target, target_confirm,
 };
 use crate::{
     BODY_LIMIT, WebState, brackets, protect,
-    wizard::{events, resume, running, service::Wizards},
+    wizard::{events, finish, resume, running, service::Wizards, settle},
 };
 
 /// Every wizard route.
@@ -49,9 +49,12 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
         .route("/ui/migrate/{id}/apply", post(apply::apply))
         .route("/ui/migrate/{id}/stop", post(running::stop::<Record>))
         .route("/ui/migrate/{id}/results", post(resume::results::<Record>))
-        .route("/ui/migrate/{id}/commit", post(finish::commit))
-        .route("/ui/migrate/{id}/rollback", post(finish::rollback))
-        .route("/ui/migrate/{id}/{way}", post(finish::settle))
+        .route("/ui/migrate/{id}/commit", post(finish::commit::<Record>))
+        .route(
+            "/ui/migrate/{id}/rollback",
+            post(finish::rollback::<Record>),
+        )
+        .route("/ui/migrate/{id}/{way}", post(settle::way::<Record>))
         .route_layer(RequestBodyLimitLayer::new(BODY_LIMIT));
     let upload = Router::new()
         .route("/ui/migrate/{id}/source", post(source::submit))

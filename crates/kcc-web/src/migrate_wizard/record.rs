@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
 use super::{
     analysis::Analysis,
     kinds::{Finish, Inputs, Maps, Mode, Source, Step},
-    results, resume,
+    resume,
     review::View,
     summary,
 };
@@ -24,7 +24,7 @@ use crate::{
     page::Shell,
     wizard::{
         flow::{Flow, Moves, SCHEMA},
-        run::{Ended, Run},
+        run::Run,
         visit::Visit,
     },
 };
@@ -302,10 +302,6 @@ impl Flow for Record {
 
     fn succeeded(how: Finish) -> bool {
         how == Finish::Committed
-    }
-
-    fn ended_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
-        results::end_words(ended, locale)
     }
 
     fn title(&self) -> MessageKey {

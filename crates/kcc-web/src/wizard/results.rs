@@ -1,12 +1,12 @@
 //! Step 8: the result of the apply and the final choice.
 //!
-//! Commit saves the verified changes; Roll back restores the saved configuration (the
-//! router name typed; it needs `Destructive`). The countdown shows how long the router's
-//! fail-safe timer still runs. An apply that changed nothing to keep offers to plan
-//! again or to finish.
+//! The wizard's keep buttons (a migration commits; a preset run keeps unsaved or saves)
+//! finish the verified changes; Roll back restores the saved configuration (the router
+//! name typed; it needs `Destructive`). The countdown shows how long the router's
+//! fail-safe timer still runs. An apply that changed nothing to keep offers to plan again
+//! (a migration that needs a new plan), go back to the preview, or finish.
 
 use askama::Template;
-use kcc_app::permissions::Permission;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -14,18 +14,14 @@ use kcc_i18n::{
 };
 use kcc_migrate::apply::ApplyError;
 
-use super::{access::Visit, preview::commit_permissions};
+use super::{
+    finishing::{Finishing, ROLLBACK},
+    visit::Visit,
+};
 use crate::{
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
-    wizard::{
-        flow::Flow as _,
-        run::{Ended, recorded_text},
-    },
 };
-
-/// What a rollback needs on the target.
-pub(super) const ROLLBACK: [Permission; 2] = [Permission::Migrate, Permission::Destructive];
 
 /// Failures after which nothing on the router changed: the apply can start again.
 const BEFORE_CHANGES: [ApplyError; 11] = [
@@ -50,7 +46,7 @@ const DIALOG: &str = "#dialog-content";
 
 /// One of the step's buttons.
 struct Act {
-    /// What it posts to: `commit`, `replan`, `retry`, `rollback` or `close`.
+    /// What it posts to, such as `commit`, `retry`, `rollback` or `close`.
     way: &'static str,
     /// Its label.
     label: String,
@@ -62,11 +58,13 @@ struct Act {
 
 /// The step's panel.
 #[derive(Template)]
-#[template(path = "partials/migrate_results.html")]
-pub(super) struct Panel {
+#[template(path = "partials/wizard_results.html")]
+pub(crate) struct Panel {
     /// Locale carrier.
     shell: Shell,
-    /// Migration id.
+    /// Where the wizard's run pages are.
+    prefix: &'static str,
+    /// Run id.
     id: String,
     /// Notice tone of the result.
     tone: &'static str,
@@ -76,8 +74,10 @@ pub(super) struct Panel {
     facts: Vec<(String, String)>,
     /// Whether the changes wait under the router's timer.
     pending: bool,
-    /// Whether they wait but the role may not roll them back.
-    rollback_forbidden: bool,
+    /// The sentence under the counts while they wait, if the wizard has one.
+    waiting: Option<String>,
+    /// The note shown when they wait but the role may not roll them back.
+    forbidden: Option<String>,
     /// The buttons, primary first.
     actions: Vec<Act>,
     /// Why the last choice failed.
@@ -89,9 +89,11 @@ localized!(Panel);
 impl Panel {
     /// The results of `visit`'s apply.
     // cancel-safe: reads only.
-    pub(super) async fn new(visit: &Visit<'_>) -> Self {
-        let services = visit.services();
-        let user = services.user();
+    pub(crate) async fn new<F>(visit: &Visit<'_, F>) -> Self
+    where
+        F: Finishing,
+    {
+        let user = visit.services().user();
         let locale = user.locale();
         let record = visit.record();
         let target = record.target().unwrap_or_default();
@@ -108,23 +110,25 @@ impl Panel {
             .as_ref()
             .and_then(|end| end.failure().map(str::to_owned));
         let (tone, key) = match (&held, failure.as_deref()) {
-            (Some((true, false)), _) => ("success", keys::MIGRATE_APPLY_VERIFIED),
-            (_, Some(name)) => ("error", recorded_text(name)),
-            (Some(_), None) => ("error", keys::MIGRATE_APPLY_FAILED),
-            (None, None) => ("error", keys::WEB_MIGRATE_RUN_INTERRUPTED),
+            (Some((true, false)), _) => ("success", F::VERIFIED),
+            (_, Some(name)) => ("error", F::recorded_text(name)),
+            (Some(_), None) => ("error", F::FAILED),
+            (None, None) => ("error", F::INTERRUPTED),
         };
         let pending = matches!(held, Some((_, false)));
+        let verified = matches!(held, Some((true, false)));
         let known = failure.as_deref().and_then(ApplyError::from_name);
         let failed_before = |errors: &[ApplyError]| {
             held.is_none() && known.is_some_and(|error| errors.contains(&error))
         };
-        let replan = failed_before(&[ApplyError::ReplanRequired]);
+        let replan = F::REPLANS && failed_before(&[ApplyError::ReplanRequired]);
         let rollback = pending && allowed(user, target, &ROLLBACK);
+        let keeping = F::KEEPING.iter().map(|&(choice, way, label, style)| {
+            let permitted =
+                F::choice(choice).is_some_and(|(_, needed, _)| allowed(user, target, &needed));
+            (verified && permitted, (way, label, style, STEP))
+        });
         let shown = [
-            (
-                matches!(held, Some((true, false))) && allowed(user, target, &commit_permissions()),
-                ("commit", keys::WEB_MIGRATE_COMMIT, "primary", STEP),
-            ),
             (
                 replan,
                 ("replan", keys::WEB_MIGRATE_REPLAN, "primary", STEP),
@@ -144,14 +148,16 @@ impl Panel {
         ];
         Self {
             shell: fragment_shell(locale),
+            prefix: F::PREFIX,
             id: record.id().to_owned(),
             tone,
             message: tr(locale, key, None),
             facts: ended.map_or_else(Vec::new, |end| facts(end.applied(), end.failed(), locale)),
             pending,
-            rollback_forbidden: pending && !rollback,
-            actions: shown
-                .into_iter()
+            waiting: F::WAITING.map(|text| tr(locale, text, None)),
+            forbidden: (pending && !rollback).then(|| tr(locale, F::ROLLBACK_FORBIDDEN, None)),
+            actions: keeping
+                .chain(shown)
                 .filter(|(show, _)| *show)
                 .map(|(_, button)| act(locale, button))
                 .collect(),
@@ -160,7 +166,7 @@ impl Panel {
     }
 
     /// The panel with the reason the last choice failed.
-    pub(super) fn refusing(mut self, error: String) -> Self {
+    pub(crate) fn refusing(mut self, error: String) -> Self {
         self.error = error;
         self
     }
@@ -188,19 +194,4 @@ fn facts(applied: usize, failed: usize, locale: Locale) -> Vec<(String, String)>
     .into_iter()
     .map(|(key, count)| (tr(locale, key, None), count.to_string()))
     .collect()
-}
-
-/// How the apply as `ended` records it reads at its end: notice tone and sentence.
-pub(super) fn end_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
-    let (tone, key) = match ended {
-        Some(found) if found.verified() => ("success", keys::MIGRATE_APPLY_VERIFIED),
-        Some(found) => (
-            "error",
-            found
-                .failure()
-                .map_or(keys::MIGRATE_APPLY_FAILED, recorded_text),
-        ),
-        None => ("error", keys::WEB_MIGRATE_RUN_INTERRUPTED),
-    };
-    (tone, tr(locale, key, None))
 }

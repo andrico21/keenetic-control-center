@@ -604,7 +604,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): shared wizard engine for records, steps, resume and report
   Recommended task executor category: deep-low - generic extraction over two large modules with an on-disk contract
 
-- [ ] 38. One wizard engine: results and finish
+- [x] 38. One wizard engine: results and finish
   What to do / Must NOT do: Move `migrate_wizard/results.rs` (188) / `presets_page/results.rs` (191), the two `Finish` enums and finish handlers (`migrate_wizard/finish.rs`, `presets_page/finish.rs`) into `wizard/`; merge `migrate_results.html` and `presets_results.html` into one parameterized template (URL prefix, button set, message keys such as `WEB_MIGRATE_ROLLBACK_FORBIDDEN` vs `WEB_PRESETS_ROLLBACK_FORBIDDEN`). Must NOT: change routes, HTML or finish permissions.
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 37 | Blocks: 39 | Can parallelize with: -

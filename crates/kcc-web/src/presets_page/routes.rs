@@ -17,14 +17,14 @@ use axum::{
 use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
-    apply, capture, compose, delete, detail, downloads, drafts::Drafts, finish, inputs, landing,
-    list, options, record::Record, reveal, review_submit, source, target_submit,
+    apply, capture, compose, delete, detail, downloads, drafts::Drafts, inputs, landing, list,
+    options, record::Record, reveal, review_submit, source, target_submit,
 };
 use crate::{
     BODY_LIMIT, WebState, brackets,
     migrate_wizard::source_read,
     protect,
-    wizard::{events, resume, running, service::Wizards},
+    wizard::{events, finish, resume, running, service::Wizards},
 };
 
 /// Every preset route.
@@ -78,7 +78,10 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
             "/ui/presets/runs/{run}/download/{file}",
             get(downloads::download),
         )
-        .route("/ui/presets/runs/{run}/{way}", post(finish::finish))
+        .route(
+            "/ui/presets/runs/{run}/{way}",
+            post(finish::choose::<Record>),
+        )
         .route_layer(RequestBodyLimitLayer::new(BODY_LIMIT));
     let upload = Router::new()
         .route("/ui/presets/new", get(capture::page).post(capture::read))

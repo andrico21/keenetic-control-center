@@ -10,10 +10,7 @@ use axum::response::Response;
 use kcc_i18n::{bundle::MessageKey, locale::Locale};
 use serde::{Serialize, de::DeserializeOwned};
 
-use super::{
-    run::{Ended, Run},
-    visit::Visit,
-};
+use super::{run::Run, visit::Visit};
 use crate::{WebState, nav::Section, page::Shell};
 
 /// Version of every wizard's record format.
@@ -118,9 +115,6 @@ pub(crate) trait Flow: Serialize + DeserializeOwned + Send + Sync + 'static {
 
     /// Whether a run that finished `how` kept its changes.
     fn succeeded(how: Self::Finish) -> bool;
-
-    /// How the apply as `ended` records it reads at its end: notice tone and sentence.
-    fn ended_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String);
 
     /// The title of the run's page.
     fn title(&self) -> MessageKey;
