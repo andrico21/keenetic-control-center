@@ -17,12 +17,14 @@ use kcc_rci::{SecretBytes, version::FirmwareVersion};
 use secrecy::ExposeSecret as _;
 
 use super::{
-    access::Visit,
+    access::{Migration as _, Visit},
     kinds::Source,
     plan::{Built, Classified},
-    store::Sealed,
 };
-use crate::WebState;
+use crate::{
+    WebState,
+    wizard::{flow::Flow as _, store::Sealed},
+};
 
 /// Why the apply cannot start.
 #[derive(Debug, Clone, PartialEq, Eq)]

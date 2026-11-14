@@ -26,10 +26,9 @@ use kcc_i18n::{
 use serde_json::json;
 
 use super::{
-    access::{Services, Visit},
+    access::{Migration as _, Visit},
     kinds::{Mode, Source, Step},
-    screen,
-    service::Wizards,
+    record::Record,
     source_read,
 };
 use crate::{
@@ -43,6 +42,7 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The step's panel.
@@ -229,7 +229,7 @@ impl Panel {
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     multipart: Result<Multipart, MultipartRejection>,
 ) -> Result<Response, Answer> {

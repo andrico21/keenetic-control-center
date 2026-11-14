@@ -21,11 +21,9 @@ use kcc_rci::version::FirmwareVersion;
 use serde::Deserialize;
 
 use super::{
-    access::{Services, Visit},
-    analysis::Problem,
+    access::{Migration as _, Visit},
     kinds::{Mode, Step},
-    screen,
-    service::Wizards,
+    record::Record,
     warnings::Report,
 };
 use crate::{
@@ -39,6 +37,7 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::{analysis::Problem, flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The step's panel.
@@ -180,7 +179,7 @@ pub(super) struct Choice {
 pub(super) async fn choose(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(choice): Form<Choice>,
 ) -> Result<Response, Answer> {

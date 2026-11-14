@@ -14,18 +14,19 @@ use super::{
     fates::{Fate, reason},
     lines::{redacted, shown},
     plan::{Basis, plan_problem},
-    screen,
+    record::Record,
     target::problem_text,
 };
 use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
     table::pager::Pager,
+    wizard::{flow::Flow as _, screen},
 };
 
 /// The review's filter and page.
 #[derive(Debug, Default, Deserialize)]
-pub(super) struct View {
+pub(crate) struct View {
     /// The fate shown; all when absent.
     #[serde(default)]
     show: Option<String>,
@@ -110,7 +111,7 @@ impl Panel {
         let (rows, pager) = Pager::paginate(
             picked,
             view.page.unwrap_or(1),
-            screen::href(&panel.id),
+            screen::href::<Record>(&panel.id),
             query,
         );
         panel.rows = rows;
@@ -169,7 +170,7 @@ fn filters(
     id: &str,
     locale: Locale,
 ) -> Vec<(String, String, bool)> {
-    let base = screen::href(id);
+    let base = screen::href::<Record>(id);
     let all = (
         base.clone(),
         format!(

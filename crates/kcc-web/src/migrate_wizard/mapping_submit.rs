@@ -14,12 +14,11 @@ use kcc_migrate::maps::{InterfaceMap, PortMap, RadioMap};
 use serde_json::json;
 
 use super::{
-    access::{Services, Visit},
+    access::{Migration as _, Visit},
     kinds::{Maps, Step},
     mapping::Panel,
     maps::{Kind, Refusal as MapRefusal, Sides, map_of, pairs},
-    screen,
-    service::Wizards,
+    record::Record,
 };
 use crate::{
     WebState,
@@ -31,6 +30,7 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// `POST /ui/migrate/{id}/mapping`: checks the maps and moves on to the review.
@@ -41,7 +41,7 @@ use crate::{
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

@@ -1,14 +1,14 @@
 //! The wizards' in-memory side.
 //!
-//! One request at a time per migration, and the analysis each migration works on (its
-//! parsed source and the target's inventory), read from the routers once and kept while
-//! the migration is open.
+//! One request at a time per run, and what each run works on (a migration's parsed
+//! source and its target's inventory, a router's inventory), read from the routers once
+//! and kept while the run is open.
 //!
 //! Everything here can be rebuilt from the files (`store`) and the routers, so a restart
 //! loses no choice: the next request reads the routers again.
 //!
-//! The presets' apply runs keep their own [`Wizards`]: the turns, the target's inventory
-//! and the live apply work the same way for both wizards.
+//! Each wizard keeps its own [`Wizards`]: the turns, the inventories and the live apply
+//! work the same way for every wizard.
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use std::sync::{Mutex, MutexGuard, PoisonError};
@@ -16,22 +16,39 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 use kcc_migrate::inventory::TargetInventory;
 use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard};
 
-use super::{analysis::Analysis, live::Live};
+use super::{flow::Flow, live::Live};
 
-/// Migrations kept in memory; the oldest one is forgotten first.
+/// Runs kept in memory; the oldest one is forgotten first.
 const KEPT: usize = 64;
 
-/// The in-memory side of every open migration of one Web UI.
-#[derive(Default)]
-pub(crate) struct Wizards {
-    /// Migration id and its session, oldest first.
-    sessions: Mutex<Vec<(String, Arc<Session>)>>,
-    /// Target router and the migration applying to it, until that one finishes.
+/// The in-memory side of every open run of one wizard of one Web UI.
+pub(crate) struct Wizards<F>
+where
+    F: Flow,
+{
+    /// Run id and its session, oldest first.
+    sessions: Mutex<Vec<(String, Arc<Session<F>>)>>,
+    /// Target router and the run applying to it, until that one finishes.
     active: Mutex<BTreeMap<String, String>>,
 }
 
-impl Wizards {
-    /// Reserves `target` for migration `id`; `false` when another migration holds it.
+impl<F> Default for Wizards<F>
+where
+    F: Flow,
+{
+    fn default() -> Self {
+        Self {
+            sessions: Mutex::default(),
+            active: Mutex::default(),
+        }
+    }
+}
+
+impl<F> Wizards<F>
+where
+    F: Flow,
+{
+    /// Reserves `target` for run `id`; `false` when another run holds it.
     pub(crate) fn claim(&self, target: &str, id: &str) -> bool {
         lock(&self.active)
             .entry(target.to_owned())
@@ -39,7 +56,7 @@ impl Wizards {
             == id
     }
 
-    /// Frees `target` when migration `id` holds it.
+    /// Frees `target` when run `id` holds it.
     pub(crate) fn release(&self, target: &str, id: &str) {
         let mut active = lock(&self.active);
         if active.get(target).is_some_and(|holder| holder == id) {
@@ -47,8 +64,8 @@ impl Wizards {
         }
     }
 
-    /// The session of migration `id`, created on first use.
-    pub(crate) fn session(&self, id: &str) -> Arc<Session> {
+    /// The session of run `id`, created on first use.
+    pub(crate) fn session(&self, id: &str) -> Arc<Session<F>> {
         let mut sessions = lock(&self.sessions);
         if let Some((_, found)) = sessions.iter().find(|(known, _)| known == id) {
             return Arc::clone(found);
@@ -66,13 +83,15 @@ impl Wizards {
     }
 }
 
-/// One migration's in-memory side.
-#[derive(Default)]
-pub(crate) struct Session {
-    /// Held by the request working on the migration, so two tabs never interleave.
+/// One run's in-memory side.
+pub(crate) struct Session<F>
+where
+    F: Flow,
+{
+    /// Held by the request working on the run, so two tabs never interleave.
     turn: Arc<AsyncMutex<()>>,
     /// The analysis of the current source and target, keyed by the target it read.
-    analysis: Mutex<BTreeMap<String, Arc<Analysis>>>,
+    analysis: Mutex<BTreeMap<String, Arc<F::Analysis>>>,
     /// A router's inventory, keyed by the router: a router source's own, for the maps, or
     /// a preset run's target.
     inventories: Mutex<BTreeMap<String, Arc<TargetInventory>>>,
@@ -80,20 +99,37 @@ pub(crate) struct Session {
     live: Mutex<Option<Arc<Live>>>,
 }
 
-impl Session {
-    /// Waits for the migration's turn; requests on one migration run one at a time, and
+impl<F> Default for Session<F>
+where
+    F: Flow,
+{
+    fn default() -> Self {
+        Self {
+            turn: Arc::default(),
+            analysis: Mutex::default(),
+            inventories: Mutex::default(),
+            live: Mutex::default(),
+        }
+    }
+}
+
+impl<F> Session<F>
+where
+    F: Flow,
+{
+    /// Waits for the run's turn; requests on one run are served one at a time, and
     /// each reads the record only once it holds the turn.
     pub(crate) async fn turn(&self) -> OwnedMutexGuard<()> {
         Arc::clone(&self.turn).lock_owned().await
     }
 
     /// The kept analysis of `target`.
-    pub(super) fn analysis(&self, target: &str) -> Option<Arc<Analysis>> {
+    pub(crate) fn analysis(&self, target: &str) -> Option<Arc<F::Analysis>> {
         lock(&self.analysis).get(target).cloned()
     }
 
     /// Keeps `analysis` of `target`, replacing any other.
-    pub(super) fn keep(&self, target: &str, analysis: Arc<Analysis>) {
+    pub(crate) fn keep(&self, target: &str, analysis: Arc<F::Analysis>) {
         let mut kept = lock(&self.analysis);
         kept.clear();
         drop(kept.insert(target.to_owned(), analysis));

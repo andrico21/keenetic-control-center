@@ -19,8 +19,14 @@ use kcc_i18n::{
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
 
-use super::{access::Services, analysis::parse_source, kinds::Source, source::Field};
-use crate::{authz::CurrentUser, errors, page::Shell, page_kit::context::fragment_shell};
+use super::{kinds::Source, source::Field};
+use crate::{
+    authz::CurrentUser,
+    errors,
+    page::Shell,
+    page_kit::context::fragment_shell,
+    wizard::{analysis::parse_source, services::Services},
+};
 
 /// What the form sent.
 #[derive(Default)]

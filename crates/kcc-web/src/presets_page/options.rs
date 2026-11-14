@@ -23,8 +23,8 @@ use kcc_migrate::{inventory::TargetInventory, presets::model::Preset};
 use serde_json::json;
 
 use super::{
-    access::Visit,
-    screen,
+    access::{PresetRun as _, Visit},
+    record::Record,
     steps::{Mode, Step},
     target::problem_text,
 };
@@ -32,11 +32,7 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{
-        access::Services,
-        names::{interface_kind, is_switch_port, valid_name},
-        service::Wizards,
-    },
+    migrate_wizard::names::{interface_kind, is_switch_port, valid_name},
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
@@ -44,6 +40,7 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The step's panel.
@@ -119,7 +116,7 @@ impl Panel {
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

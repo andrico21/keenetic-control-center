@@ -7,20 +7,32 @@
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
+use axum::response::Response;
+use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use serde::{Deserialize, Serialize};
 
 use super::{
-    kinds::{Inputs, Maps, Mode, Source, Step},
-    run::{Finish, Run},
+    analysis::Analysis,
+    kinds::{Finish, Inputs, Maps, Mode, Source, Step},
+    results, resume,
+    review::View,
+    summary,
 };
-
-/// Version of the record format.
-const SCHEMA: u32 = 1;
+use crate::{
+    WebState,
+    nav::Section,
+    page::Shell,
+    wizard::{
+        flow::{Flow, Moves, SCHEMA},
+        run::{Ended, Run},
+        visit::Visit,
+    },
+};
 
 /// The record of one migration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(super) struct Record {
+pub(crate) struct Record {
     /// Version of this format.
     schema: u32,
     /// Migration id, also its directory name.
@@ -79,7 +91,7 @@ pub(super) struct Record {
 
 impl Record {
     /// A new migration at its first step.
-    pub(super) const fn new(id: String, owner: String, created_at: u64) -> Self {
+    pub(crate) const fn new(id: String, owner: String, created_at: u64) -> Self {
         Self {
             schema: SCHEMA,
             id,
@@ -121,34 +133,9 @@ impl Record {
         }
     }
 
-    /// Whether this record is in the format this version reads.
-    pub(super) const fn current(&self) -> bool {
-        self.schema == SCHEMA
-    }
-
-    /// Migration id.
-    pub(super) fn id(&self) -> &str {
-        &self.id
-    }
-
-    /// The account that started it.
-    pub(super) fn owner(&self) -> &str {
-        &self.owner
-    }
-
-    /// Unix time it started.
-    pub(super) const fn created_at(&self) -> u64 {
-        self.created_at
-    }
-
     /// Migration or restore.
     pub(super) const fn mode(&self) -> Mode {
         self.mode
-    }
-
-    /// The step shown now.
-    pub(super) const fn step(&self) -> Step {
-        self.step
     }
 
     /// Where the source configuration came from.
@@ -159,11 +146,6 @@ impl Record {
     /// The source firmware typed in, when the source names none.
     pub(super) fn source_firmware(&self) -> Option<&str> {
         self.source_firmware.as_deref()
-    }
-
-    /// The router migrated to.
-    pub(super) fn target(&self) -> Option<&str> {
-        self.target.as_deref()
     }
 
     /// Whether the documentation-based firmware tier was acknowledged.
@@ -237,54 +219,6 @@ impl Record {
         ) = inputs.into_parts();
     }
 
-    /// Moves on to the preview of the plan `plan`.
-    pub(super) fn preview_ready(&mut self, plan: String) {
-        self.preview = Some(plan);
-        self.step = Step::Preview;
-    }
-
-    /// The id of the plan the preview showed.
-    pub(super) fn preview(&self) -> Option<&str> {
-        self.preview.as_deref()
-    }
-
-    /// The apply job.
-    pub(super) const fn run(&self) -> Option<&Run> {
-        self.run.as_ref()
-    }
-
-    /// The apply job, to record how it ended.
-    pub(super) const fn run_mut(&mut self) -> Option<&mut Run> {
-        self.run.as_mut()
-    }
-
-    /// How the migration finished, and when.
-    pub(super) const fn finished(&self) -> Option<(Finish, u64)> {
-        self.finished
-    }
-
-    /// Starts the apply `run`.
-    pub(super) fn start_run(&mut self, run: Run) {
-        self.run = Some(run);
-        self.step = Step::Apply;
-    }
-
-    /// Shows the result of an apply that ended, or that no longer runs because kcc
-    /// restarted (`interrupted`).
-    pub(super) fn show_results(&mut self, interrupted: bool) -> bool {
-        let ended = interrupted || self.run.as_ref().is_some_and(|run| run.ended().is_some());
-        if ended && self.step == Step::Apply {
-            self.step = Step::Results;
-        }
-        ended
-    }
-
-    /// Finishes the migration as `how` at `at`.
-    pub(super) const fn finish(&mut self, how: Finish, at: u64) {
-        self.finished = Some((how, at));
-        self.step = Step::Report;
-    }
-
     /// Plans again from `step` (the preview, or the maps after components were
     /// installed), forgetting an apply that changed nothing to keep.
     pub(super) fn plan_again(&mut self, step: Step) {
@@ -294,16 +228,6 @@ impl Record {
             self.components.clear();
         }
         self.step = step;
-    }
-
-    /// Every router the record names, for the scope check of each request.
-    pub(super) fn routers(&self) -> Vec<&str> {
-        self.source
-            .as_ref()
-            .and_then(Source::router)
-            .into_iter()
-            .chain(self.target.as_deref())
-            .collect()
     }
 
     /// Takes `source` and moves on to the target; every later choice depended on the old
@@ -339,25 +263,6 @@ impl Record {
         self.step = Step::Review;
     }
 
-    /// Shows `step` again, when it comes before the current one and is still editable:
-    /// nothing after the preview goes back, and a restore's source is fixed.
-    pub(super) fn go_back(&mut self, step: Step) -> bool {
-        let fixed_source = self.mode == Mode::Restore && step == Step::Source;
-        let allowed = step < self.step && self.step <= Step::Preview && !fixed_source;
-        if allowed {
-            self.step = step;
-        }
-        allowed
-    }
-
-    /// The step Back shows: the one before the current, while choices can still change.
-    pub(super) fn previous(&self) -> Option<Step> {
-        let index = Step::ALL.iter().position(|step| *step == self.step)?;
-        let previous = *Step::ALL.get(index.checked_sub(1)?)?;
-        let fixed_source = self.mode == Mode::Restore && previous == Step::Source;
-        (self.step <= Step::Preview && !fixed_source).then_some(previous)
-    }
-
     /// Clears what was chosen for one target.
     fn forget_target_choices(&mut self) {
         self.acknowledged = false;
@@ -369,6 +274,69 @@ impl Record {
         self.agreements.clear();
         self.passwords.clear();
         self.preview = None;
+    }
+}
+
+impl Flow for Record {
+    type Step = Step;
+    type Finish = Finish;
+    type Analysis = Analysis;
+    type View = View;
+
+    const PREVIEW: Step = Step::Preview;
+    const APPLY: Step = Step::Apply;
+    const RESULTS: Step = Step::Results;
+    const REPORT: Step = Step::Report;
+    const FILE: &'static str = "wizard.json";
+    const PREFIX: &'static str = "/ui/migrate";
+    const LIST: &'static str = "/ui/migrate";
+    const ALL: MessageKey = keys::WEB_MIGRATE_ALL;
+    const STEPS_LABEL: MessageKey = keys::WEB_MIGRATE_STEPS_LABEL;
+    const SECTION: Section = Section::Migration;
+    const CLOSED: Finish = Finish::Closed;
+    const STOP: &'static str = "web.migrate_stop";
+
+    fn finish_text(how: Finish) -> MessageKey {
+        how.text()
+    }
+
+    fn succeeded(how: Finish) -> bool {
+        how == Finish::Committed
+    }
+
+    fn ended_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
+        results::end_words(ended, locale)
+    }
+
+    fn title(&self) -> MessageKey {
+        summary::title(self.mode)
+    }
+
+    fn summary(&self, locale: Locale) -> Vec<(String, String)> {
+        summary::summary(self, locale)
+    }
+
+    fn show(
+        visit: &Visit<'_, Self>,
+        shell: Shell,
+        (view, _state): (&View, &WebState),
+    ) -> impl Future<Output = Response> + Send {
+        resume::show(visit, shell, view)
+    }
+
+    record_fields!();
+
+    fn fixed(&self, step: Step) -> bool {
+        self.mode == Mode::Restore && step == Step::Source
+    }
+
+    fn routers(&self) -> Vec<&str> {
+        self.source
+            .as_ref()
+            .and_then(Source::router)
+            .into_iter()
+            .chain(self.target.as_deref())
+            .collect()
     }
 }
 

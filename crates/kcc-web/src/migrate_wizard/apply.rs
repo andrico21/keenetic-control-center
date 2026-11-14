@@ -18,12 +18,11 @@ use kcc_migrate::apply::ApplyOptions;
 use serde_json::json;
 
 use super::{
-    access::{Services, Visit},
+    access::Visit,
     kinds::Step,
     launch::{Failure, launch},
     preview::{Panel, apply_permissions},
-    screen,
-    service::Wizards,
+    record::Record,
 };
 use crate::{
     WebState,
@@ -35,6 +34,7 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// `POST /ui/migrate/{id}/apply`: asks first, then starts the apply.
@@ -46,7 +46,7 @@ use crate::{
 pub(super) async fn apply(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {

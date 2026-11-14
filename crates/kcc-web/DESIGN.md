@@ -853,6 +853,12 @@ keyboard-focusable); anti-patterns: a fixed-height scrolling step panel, a step 
 hides where the user is, a live line list with its own scroll box (it grows with the
 document), status colour outside pills, notices and warnings.
 
+Engine (`src/wizard/`): the migration wizard and the preset runs are two `Flow`s of one
+engine; each record (`wizard.json`, `preset.json`) keeps its own on-disk shape and names
+its steps, routes and words, and the engine renders the shared parts once: the page
+around a step (`pages/wizard.html`), step 7 (`partials/wizard_apply.html`) and the report
+(`partials/wizard_report.html`). Step panels that differ stay with their wizard.
+
 Tokens: `--wizard-mark` (1.5rem) is the step list's number box; `--wizard-scroll` (16rem)
 the tallest an agreement's text grows before it scrolls itself; `--wizard-review-min`
 (44rem) the narrowest the review table gets before its `.table-wrap` scrolls sideways.

@@ -594,7 +594,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): one confirmation module and template
   Recommended task executor category: visual-engineering - shared dialog template and its Rust model
 
-- [ ] 37. One wizard engine for migration and presets: record, steps, resume and report
+- [x] 37. One wizard engine for migration and presets: record, steps, resume and report
   What to do / Must NOT do: Create `crates/kcc-web/src/wizard/` generic over a `Flow` trait (step enum, record payload, route prefix, finish actions with their permissions) and move the shared step machine of `migrate_wizard/record.rs:125-354` and `presets_page/record.rs:121-341` (`current`, `id`, `owner`, `step`, `go_back`, `previous`, `start_run`, `show_results`, `finish`, `preview_ready`, `run_mut`), `resume.rs` (113/116 lines) and `report.rs` (81/75) into it; the shared services presets import from the migration wizard (`Services`, `Wizards`, `Store`, `run::Run`, `analysis`; e.g. `presets_page/landing.rs:28`, `record.rs:15`) move to `wizard/`. Keep the panels that differ (migration mapping; preset options, compose, capture). Persisted records keep their exact on-disk shape (`deny_unknown_fields`, `migrate_wizard/run.rs:26-39`). Must NOT: change routes, HTML or record files.
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 14, 17, 18, 28, 29, 36 | Blocks: 38 | Can parallelize with: -

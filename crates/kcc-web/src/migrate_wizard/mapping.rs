@@ -7,7 +7,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_migrate::inventory::{PhysicalPort, PortRole, Radio, RadioBand};
 
 use super::{
-    access::Visit,
+    access::{Migration as _, Visit},
     kinds::Maps,
     maps::{Kind, Sides, pairs},
     target::problem_text,
@@ -15,6 +15,7 @@ use super::{
 use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
+    wizard::flow::Flow as _,
 };
 
 /// The step's panel.

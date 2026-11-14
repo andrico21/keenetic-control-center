@@ -11,17 +11,17 @@ use axum::{
 };
 use serde_json::json;
 
-use super::{access::Visit, fates::Fate, plan::Basis, screen, steps::Step};
+use super::{access::Visit, fates::Fate, plan::Basis, record::Record, steps::Step};
 use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{access::Services, service::Wizards},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// `POST /ui/presets/runs/{run}/review`: saves the shown page's choices.
@@ -33,7 +33,7 @@ use crate::{
 pub(super) async fn save(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
@@ -59,7 +59,7 @@ pub(super) async fn save(
 pub(super) async fn proceed(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

@@ -21,6 +21,8 @@ mod plan_screens;
 mod plan_steps;
 #[path = "migration_wizard/preview.rs"]
 mod preview;
+#[path = "migration_wizard/records.rs"]
+mod records;
 #[path = "migration_wizard/secrets.rs"]
 mod secrets;
 #[path = "migration_wizard/setup.rs"]

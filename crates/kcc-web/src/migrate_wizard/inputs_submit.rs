@@ -20,14 +20,13 @@ use secrecy::SecretString;
 use serde_json::json;
 
 use super::{
-    access::{Services, Visit},
+    access::{Migration as _, Visit},
     inputs::{Panel, Shown},
     kinds::{Inputs, Step},
     needs::Needs,
     plan::{Built, Classified},
     reasons::reason,
-    screen,
-    service::Wizards,
+    record::Record,
 };
 use crate::{
     WebState,
@@ -39,6 +38,7 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The longest password kcc passes to a router, in characters.
@@ -57,7 +57,7 @@ const PASSWORD_MAX: usize = 256;
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

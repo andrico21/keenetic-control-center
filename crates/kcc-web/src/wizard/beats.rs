@@ -1,17 +1,12 @@
 //! The events of the live stream: the heartbeat with the fail-safe countdown, the share
 //! sent, each sent setting with the router's answer, and the end with the way on.
-//!
-//! The presets' apply runs send the same events.
 
 use askama::Template;
 use axum::response::sse::Event;
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
-use super::{
-    live::Outcome,
-    run::{Ended, recorded_text},
-};
+use super::live::Outcome;
 use crate::{
     overview::fragment,
     page::{Localize as _, Shell},
@@ -150,26 +145,9 @@ pub(super) fn line(locale: Locale, (number, text): (usize, String), outcome: Out
     )
 }
 
-/// The `end` of migration `id` as `ended` records it, and the `done` that closes the
-/// stream.
-pub(super) fn end(locale: Locale, id: &str, ended: Option<&Ended>) -> [Event; 2] {
-    let (tone, key) = match ended {
-        Some(found) if found.verified() => ("success", keys::MIGRATE_APPLY_VERIFIED),
-        Some(found) => (
-            "error",
-            found
-                .failure()
-                .map_or(keys::MIGRATE_APPLY_FAILED, recorded_text),
-        ),
-        None => ("error", keys::WEB_MIGRATE_RUN_INTERRUPTED),
-    };
-    let message = tr(locale, key, None);
-    closing(locale, format!("/ui/migrate/{id}/results"), (tone, message))
-}
-
 /// The `end` saying `message` in the notice `tone`, with Review the result posting to
 /// `action`, and the `done` that closes the stream.
-pub(crate) fn closing(
+pub(super) fn closing(
     locale: Locale,
     action: String,
     (tone, message): (&'static str, String),

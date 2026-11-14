@@ -24,6 +24,7 @@ use crate::{
     errors,
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
+    wizard::flow::Flow as _,
 };
 
 /// What applying a preset needs; a preset never installs components.

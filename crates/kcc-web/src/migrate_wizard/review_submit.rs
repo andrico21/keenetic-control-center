@@ -15,12 +15,11 @@ use kcc_i18n::{bundle::tr, keys};
 use serde_json::json;
 
 use super::{
-    access::{Services, Visit},
+    access::{Migration as _, Visit},
     kinds::Step,
     plan::Classified,
+    record::Record,
     review::{Panel, View},
-    screen,
-    service::Wizards,
 };
 use crate::{
     WebState,
@@ -32,6 +31,7 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// `POST /ui/migrate/{id}/review`: saves the shown page's choices.
@@ -42,7 +42,7 @@ use crate::{
 pub(super) async fn save(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
@@ -67,7 +67,7 @@ pub(super) async fn save(
 pub(super) async fn proceed(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

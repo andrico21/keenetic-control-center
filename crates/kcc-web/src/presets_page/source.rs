@@ -27,20 +27,24 @@ use super::{
     access::Visit,
     capture::facts,
     lines::group_words,
-    saved, screen,
+    record::Record,
+    saved,
     steps::{Origin, Step},
 };
 use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{access::Services, analysis::parse_source, kinds::Source, service::Wizards},
+    migrate_wizard::kinds::Source,
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
         request::last,
         respond::{self, Answer},
+    },
+    wizard::{
+        analysis::parse_source, flow::Flow as _, screen, service::Wizards, services::Services,
     },
 };
 
@@ -124,7 +128,7 @@ impl Panel {
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

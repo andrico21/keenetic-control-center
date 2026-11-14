@@ -16,8 +16,9 @@ use super::{
 };
 use crate::{
     fleet::Fleet,
-    migrate_wizard::{
-        access::Services,
+    wizard::{
+        flow::Flow as _,
+        services::Services,
         store::{Sealed, StoreError},
     },
 };

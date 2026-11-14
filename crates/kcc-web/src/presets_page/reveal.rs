@@ -22,13 +22,13 @@ use secrecy::{ExposeSecret, SecretString};
 use serde_json::json;
 
 use super::{
-    access::Visit, lines::secret, list::may_change, plan::Basis, saved, screen::settings_text,
+    access::Visit, lines::secret, list::may_change, plan::Basis, record::Record, saved,
+    summary::settings_text,
 };
 use crate::{
     WebState,
     authz::CurrentUser,
     errors::{self, Kind},
-    migrate_wizard::{access::Services, service::Wizards},
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
@@ -36,6 +36,7 @@ use crate::{
         gate::allowed,
         respond::Answer,
     },
+    wizard::{flow::Flow as _, service::Wizards, services::Services},
 };
 
 /// The dialog of one Reveal: the lines carrying a secret, in plaintext.
@@ -126,7 +127,7 @@ pub(super) async fn preset(
 pub(super) async fn commands(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;

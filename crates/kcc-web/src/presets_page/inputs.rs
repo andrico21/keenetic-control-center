@@ -24,7 +24,7 @@ use super::{
     access::Visit,
     fates::blocking,
     plan::{Basis, Refused, plan_problem},
-    screen,
+    record::Record,
     steps::Step,
     target::problem_text,
 };
@@ -32,7 +32,6 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors::{self, Kind},
-    migrate_wizard::{access::Services, service::Wizards},
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
@@ -40,6 +39,7 @@ use crate::{
         request::last,
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The longest password kcc passes to a router, in characters.
@@ -116,7 +116,7 @@ impl Panel {
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {

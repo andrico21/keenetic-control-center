@@ -24,7 +24,6 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
-    migrate_wizard::ids::fresh_id,
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
@@ -32,6 +31,7 @@ use crate::{
         context::{Caller, Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::ids::fresh_id,
 };
 
 /// The page around the panel.

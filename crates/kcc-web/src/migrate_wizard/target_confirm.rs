@@ -12,13 +12,7 @@ use kcc_i18n::{bundle::tr, keys};
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{
-    access::{Services, Visit},
-    kinds::Step,
-    screen,
-    service::Wizards,
-    target::Panel,
-};
+use super::{access::Visit, kinds::Step, record::Record, target::Panel};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -28,6 +22,7 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The acknowledgement of the firmware tier.
@@ -47,7 +42,7 @@ pub(super) struct Confirm {
 pub(super) async fn confirm(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Confirm>,
 ) -> Result<Response, Answer> {

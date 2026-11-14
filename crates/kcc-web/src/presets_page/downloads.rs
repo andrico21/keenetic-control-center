@@ -19,19 +19,19 @@ use serde_json::json;
 use super::{
     access::Visit,
     record::Record,
-    screen::settings_text,
     steps::{Finish, Origin},
+    summary::settings_text,
 };
 use crate::{
     WebState,
     admin_shared::Timestamp,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{access::Services, run::Ended, service::Wizards},
     page_kit::{
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
+    wizard::{flow::Flow as _, run::Ended, service::Wizards, services::Services},
 };
 
 /// `GET /ui/presets/runs/{run}/download/{file}`: the report, as an attachment.
@@ -43,7 +43,7 @@ use crate::{
 pub(super) async fn download(
     State(state): State<WebState>,
     Path((id, file)): Path<(String, String)>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let content_type = match file.as_str() {

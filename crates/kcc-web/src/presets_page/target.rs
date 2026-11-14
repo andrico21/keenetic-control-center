@@ -16,11 +16,15 @@ use kcc_i18n::{
 use kcc_migrate::inventory::TargetInventory;
 use kcc_rci::capabilities::{SupportTier, SystemMode};
 
-use super::{access::Visit, steps::Origin};
+use super::{
+    access::{PresetRun as _, Visit},
+    steps::Origin,
+};
 use crate::{
-    migrate_wizard::{analysis::Problem, warnings::mode_text},
+    migrate_wizard::warnings::mode_text,
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
+    wizard::{analysis::Problem, flow::Flow as _},
 };
 
 /// The step's panel.

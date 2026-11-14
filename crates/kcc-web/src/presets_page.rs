@@ -8,7 +8,7 @@
 //!
 //! Applying a preset (`/ui/presets/{id}/apply`) and copying settings once (`/ui/copy`,
 //! a transient preset sealed in the run's directory and deleted when the run finishes or
-//! after 24 hours) share one wizard, the migration wizard's machinery: runs are kept in
+//! after 24 hours) share one wizard on the wizard engine (`crate::wizard`): runs are kept in
 //! `<state>/migrations/<id>/` (record `preset.json`), secrets are sealed with the backup
 //! key, the apply is followed live over server-sent events, and only one run applies to
 //! a router at a time.
@@ -46,7 +46,6 @@ mod options;
 mod plan;
 mod preview;
 mod record;
-mod report;
 mod results;
 mod resume;
 mod reveal;
@@ -54,8 +53,8 @@ mod review;
 mod review_submit;
 pub(crate) mod routes;
 mod saved;
-mod screen;
 mod source;
 mod steps;
+mod summary;
 mod target;
 mod target_submit;

@@ -13,7 +13,7 @@ use kcc_i18n::{
 };
 use kcc_migrate::presets::{groups::SettingsGroupEngine, model::Preset};
 
-use crate::migrate_wizard::analysis::shown_line;
+use crate::wizard::analysis::shown_line;
 
 /// What a line shows when it cannot be redacted line by line.
 const REDACTED: &str = "<redacted>";

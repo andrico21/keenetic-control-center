@@ -15,13 +15,13 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors::{self, Kind},
-    migrate_wizard::access::Services,
     page_kit::{
         audit::Record as Audit,
         confirm::{Dialog, TypedNameForm},
         context::{Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::services::Services,
 };
 
 /// `GET /ui/presets/{id}/delete`: the typed-name confirmation.

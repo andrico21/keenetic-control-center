@@ -4,7 +4,10 @@
     reason = "test code is not rendered API documentation"
 )]
 use super::Record;
-use crate::migrate_wizard::kinds::{Source, Step};
+use crate::{
+    migrate_wizard::kinds::{Source, Step},
+    wizard::flow::Flow as _,
+};
 
 #[test]
 fn going_back_stops_at_the_preview_and_a_restore_source() {

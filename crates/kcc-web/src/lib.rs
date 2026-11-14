@@ -50,6 +50,60 @@ macro_rules! localized {
     };
 }
 
+/// Macro to generate the record accessors of a wizard's `Flow` impl.
+///
+/// Usage: `record_fields!();` inside `impl Flow for Record`, where the record has the
+/// fields `schema`, `id`, `owner`, `created_at`, `step`, `target`, `preview`, `run` and
+/// `finished`, and `Moves` and `Run` are in scope.
+macro_rules! record_fields {
+    () => {
+        fn schema(&self) -> u32 {
+            self.schema
+        }
+
+        fn id(&self) -> &str {
+            &self.id
+        }
+
+        fn owner(&self) -> &str {
+            &self.owner
+        }
+
+        fn created_at(&self) -> u64 {
+            self.created_at
+        }
+
+        fn step(&self) -> Self::Step {
+            self.step
+        }
+
+        fn target(&self) -> Option<&str> {
+            self.target.as_deref()
+        }
+
+        fn preview(&self) -> Option<&str> {
+            self.preview.as_deref()
+        }
+
+        fn run(&self) -> Option<&Run> {
+            self.run.as_ref()
+        }
+
+        fn finished(&self) -> Option<(Self::Finish, u64)> {
+            self.finished
+        }
+
+        fn moves(&mut self) -> Moves<'_, Self> {
+            Moves::new(
+                &mut self.step,
+                &mut self.preview,
+                &mut self.run,
+                &mut self.finished,
+            )
+        }
+    };
+}
+
 pub mod admin;
 pub mod brackets;
 pub mod csp;
@@ -126,6 +180,7 @@ mod system_pages;
 mod telemetry;
 mod traffic;
 mod view;
+mod wizard;
 
 use alloc::sync::Arc;
 use core::{fmt, time::Duration};

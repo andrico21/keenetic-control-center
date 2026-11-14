@@ -21,10 +21,10 @@ use crate::{
     admin_shared::Timestamp,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
-    migrate_wizard::access::Services,
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::context::{Caller, Refusal},
+    wizard::services::Services,
 };
 
 /// The preset page.

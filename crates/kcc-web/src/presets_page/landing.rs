@@ -15,23 +15,26 @@ use kcc_app::permissions::Permission;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde_json::json;
 
-use super::{
-    record::{FILE, Record},
-    saved, screen,
-    steps::Origin,
-};
+use super::{record::Record, saved, steps::Origin, summary};
 use crate::{
     WebState,
     admin_shared::Timestamp,
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
-    migrate_wizard::{access::Services, ids::fresh_id, service::Wizards, store::Store},
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         context::{Caller, Refusal, fragment_shell},
         respond::Answer,
+    },
+    wizard::{
+        flow::{Flow as _, Stage as _},
+        ids::fresh_id,
+        screen,
+        service::Wizards,
+        services::Services,
+        store::Store,
     },
 };
 
@@ -146,7 +149,7 @@ pub(super) async fn preset_page(
 // NOT cancel-safe: see `start`.
 pub(super) async fn copy_start(
     State(state): State<WebState>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
@@ -171,7 +174,7 @@ pub(super) async fn copy_start(
 pub(super) async fn preset_start(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
@@ -198,7 +201,7 @@ pub(super) async fn preset_start(
 // NOT cancel-safe: an abandoned append may still be written.
 async fn start(
     state: &WebState,
-    (services, runs): (Services<'_>, &Wizards),
+    (services, runs): (Services<'_>, &Wizards<Record>),
     origin: Origin,
     source_router: Option<String>,
 ) -> Result<Response, Answer> {
@@ -216,7 +219,7 @@ async fn start(
         Origin::Copy => "copy",
     };
     let record = Record::new((id, user.username().to_owned()), now, origin, source_router);
-    if let Err(error) = services.store().save_named(record.id(), FILE, &record) {
+    if let Err(error) = services.store().save(&record) {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }
     drop(runs.session(record.id()));
@@ -264,30 +267,20 @@ fn runs<F>(store: &Store, owner: &str, keep: F) -> Vec<Record>
 where
     F: Fn(&Record) -> bool,
 {
-    let ids = store.ids().unwrap_or_else(|error| {
+    let mut records = store.list::<Record>(owner).unwrap_or_else(|error| {
         tracing::warn!(%error, "preset runs could not be listed");
         Vec::new()
     });
-    let mut records = ids
-        .iter()
-        .filter_map(|id| store.load_named::<Record>(id, FILE).ok().flatten())
-        .filter(|record| record.current() && record.owner() == owner && keep(record))
-        .collect::<Vec<_>>();
-    records.sort_by(|left, right| {
-        right
-            .created_at()
-            .cmp(&left.created_at())
-            .then_with(|| right.id().cmp(left.id()))
-    });
+    records.retain(|record| keep(record));
     records
 }
 
 /// The list row of `record`.
 fn row(record: &Record, locale: Locale) -> Row {
     Row {
-        href: screen::href(record.id()),
+        href: screen::href::<Record>(record.id()),
         started: Timestamp::at(record.created_at()),
-        settings: screen::settings_text(record, locale),
+        settings: summary::settings_text(record, locale),
         target: record.target().unwrap_or_default().to_owned(),
         step: format!(
             "{}. {}",

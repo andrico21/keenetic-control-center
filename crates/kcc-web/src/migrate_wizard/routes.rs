@@ -18,18 +18,21 @@ use axum::{
 use tower_http::limit::RequestBodyLimitLayer;
 
 use super::{
-    apply, downloads, events, finish, inputs_submit, landing, mapping_submit, resume,
-    review_submit, running, service::Wizards, source, source_read, target, target_confirm,
+    apply, downloads, finish, inputs_submit, landing, mapping_submit, record::Record,
+    review_submit, source, source_read, target, target_confirm,
 };
-use crate::{BODY_LIMIT, WebState, brackets, protect};
+use crate::{
+    BODY_LIMIT, WebState, brackets, protect,
+    wizard::{events, resume, running, service::Wizards},
+};
 
 /// Every wizard route.
 pub(crate) fn router(state: &WebState) -> Router<WebState> {
-    let wizards = Arc::new(Wizards::default());
+    let wizards = Arc::new(Wizards::<Record>::default());
     let pages = Router::new()
         .route("/ui/migrate", get(landing::page).post(landing::start))
-        .route("/ui/migrate/{id}", get(resume::page))
-        .route("/ui/migrate/{id}/back", post(resume::back))
+        .route("/ui/migrate/{id}", get(resume::page::<Record>))
+        .route("/ui/migrate/{id}/back", post(resume::back::<Record>))
         .route("/ui/migrate/{id}/target", post(target::choose))
         .route(
             "/ui/migrate/{id}/target/continue",
@@ -44,8 +47,8 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
         .route("/ui/migrate/{id}/inputs", post(inputs_submit::submit))
         .route("/ui/migrate/{id}/download/{file}", get(downloads::download))
         .route("/ui/migrate/{id}/apply", post(apply::apply))
-        .route("/ui/migrate/{id}/stop", post(running::stop))
-        .route("/ui/migrate/{id}/results", post(running::results))
+        .route("/ui/migrate/{id}/stop", post(running::stop::<Record>))
+        .route("/ui/migrate/{id}/results", post(resume::results::<Record>))
         .route("/ui/migrate/{id}/commit", post(finish::commit))
         .route("/ui/migrate/{id}/rollback", post(finish::rollback))
         .route("/ui/migrate/{id}/{way}", post(finish::settle))
@@ -58,7 +61,7 @@ pub(crate) fn router(state: &WebState) -> Router<WebState> {
     let bounded =
         protect(pages.merge(upload), state).route_layer(middleware::from_fn(brackets::budget));
     let streams = protect(
-        Router::new().route("/ui/migrate/{id}/events", get(events::events)),
+        Router::new().route("/ui/migrate/{id}/events", get(events::events::<Record>)),
         state,
     );
     bounded.merge(streams).route_layer(Extension(wizards))

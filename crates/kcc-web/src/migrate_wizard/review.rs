@@ -11,7 +11,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
-    access::Visit,
+    access::{Migration as _, Visit},
     plan::Classified,
     reasons::{Fate, Resolution, reason},
     target::problem_text,
@@ -20,11 +20,12 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
     table::pager::Pager,
+    wizard::flow::Flow as _,
 };
 
 /// The review's filter and page.
 #[derive(Debug, Default, Deserialize)]
-pub(super) struct View {
+pub(crate) struct View {
     /// The fate shown; all when absent.
     #[serde(default)]
     show: Option<String>,

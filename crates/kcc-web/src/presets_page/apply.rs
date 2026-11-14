@@ -6,12 +6,10 @@
 
 use alloc::sync::Arc;
 
-use askama::Template;
 use axum::{
     Extension, Form,
     extract::{Path, State},
-    http::StatusCode,
-    response::{IntoResponse as _, Response},
+    response::Response,
 };
 use fluent_bundle::FluentArgs;
 use kcc_i18n::{
@@ -25,67 +23,21 @@ use super::{
     access::Visit,
     launch::{Failure, launch},
     preview::{Panel, apply_permissions},
-    screen,
+    record::Record,
     steps::Step,
 };
 use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{access::Services, screen::refused, service::Wizards},
-    page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
         confirm::{Confirmation, Dialog, Resubmit, Words},
         context::{Refusal, fragment_shell},
-        outcome::Toast,
         respond::Answer,
     },
+    wizard::{flow::Flow as _, screen, screen::refused, service::Wizards, services::Services},
 };
-
-/// Step 7's panel: the live apply.
-#[derive(Template)]
-#[template(path = "partials/presets_apply.html")]
-pub(super) struct Running {
-    /// Locale carrier.
-    shell: Shell,
-    /// Run id.
-    id: String,
-    /// Whether the job still runs: Stop shows.
-    stoppable: bool,
-}
-
-localized!(Running);
-
-impl Running {
-    /// The panel of `visit`.
-    pub(super) fn new(visit: &Visit<'_>) -> Self {
-        let stoppable = visit
-            .session()
-            .live()
-            .is_some_and(|live| live.watch().borrow().running());
-        Self {
-            shell: fragment_shell(visit.services().user().locale()),
-            id: visit.record().id().to_owned(),
-            stoppable,
-        }
-    }
-}
-
-/// A toast answering Stop.
-#[derive(Template)]
-#[template(
-    ext = "html",
-    source = "{%- import \"components.html\" as ui -%}{{ ui::toast(toast.tone(), toast.message()) }}"
-)]
-struct Answered {
-    /// Locale carrier.
-    shell: Shell,
-    /// The toast.
-    toast: Toast,
-}
-
-localized!(Answered);
 
 /// `POST /ui/presets/runs/{run}/apply`: asks first, then starts the apply.
 ///
@@ -97,7 +49,7 @@ localized!(Answered);
 pub(super) async fn apply(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
@@ -167,76 +119,4 @@ async fn refusal(visit: &Visit<'_>, state: &WebState, key: MessageKey) -> Answer
         .await
         .refusing(tr(locale, key, None));
     refused(&panel).into()
-}
-
-/// `POST /ui/presets/runs/{run}/stop`: cancels the apply's job; the engine stops before
-/// its next setting and the result offers the rollback.
-///
-/// # Errors
-///
-/// Answers the refusal of the run and 409 when no apply runs.
-// NOT cancel-safe: the job may stop before its audit append.
-pub(super) async fn stop(
-    State(state): State<WebState>,
-    Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
-    user: CurrentUser,
-) -> Result<Response, Answer> {
-    let services = Services::of(&state, &user).map_err(Refusal::status)?;
-    let visit = Visit::open(services, &runs, &id)
-        .await
-        .map_err(Refusal::status)?;
-    let (Some(run), Some(jobs)) = (visit.record().run(), state.advanced().jobs()) else {
-        return Err(StatusCode::CONFLICT.into_response().into());
-    };
-    let locale = user.locale();
-    let cancelled = jobs.cancel(run.job()).await;
-    let target = visit.record().target().unwrap_or_default().to_owned();
-    drop(visit);
-    let (toast, outcome) = match cancelled {
-        Ok(()) => (
-            Toast::success(locale, keys::WEB_MIGRATE_STOPPING),
-            "stopping",
-        ),
-        Err(_ended) => (
-            Toast::warning(locale, keys::WEB_EXPLORER_JOB_NOT_RUNNING),
-            "not_running",
-        ),
-    };
-    Audit::on_router("web.preset_stop", &target, id)
-        .append(&state, &user, outcome)
-        .await;
-    Ok(errors::render(&Answered {
-        shell: fragment_shell(locale),
-        toast,
-    }))
-}
-
-/// `POST /ui/presets/runs/{run}/results`: opens step 8 once the apply ended.
-///
-/// # Errors
-///
-/// Answers the refusal of the run and 409 while the apply runs.
-// cancel-safe: reads, then one record write.
-pub(super) async fn results(
-    State(state): State<WebState>,
-    Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
-    user: CurrentUser,
-) -> Result<Response, Answer> {
-    let services = Services::of(&state, &user).map_err(Refusal::status)?;
-    let mut visit = Visit::open(services, &runs, &id)
-        .await
-        .map_err(Refusal::status)?;
-    if visit.record().step() != Step::Apply {
-        return Ok(screen::moved(visit.record()));
-    }
-    let interrupted = visit.session().live().is_none();
-    if !visit.record_mut().show_results(interrupted) {
-        return Err(StatusCode::CONFLICT.into_response().into());
-    }
-    visit
-        .save()
-        .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(user.locale()))))?;
-    Ok(screen::moved(visit.record()))
 }

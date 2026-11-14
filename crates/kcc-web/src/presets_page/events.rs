@@ -1,18 +1,6 @@
-//! The live progress of a run's apply: `GET /ui/presets/runs/{run}/events`.
-//!
-//! The migration wizard's stream (`Feed`) ending with the run's recorded end: every
-//! setting sent so far (a reload replays them), each new one and the share sent, a
-//! heartbeat every 10 seconds with the fail-safe countdown, then `end` and `done`.
-//! `?view=countdown` sends the heartbeat only, for the results step.
+//! How a run's apply reads at its end on the live stream (`crate::wizard::events`) and
+//! on the results: the run's own words where they differ from the migration wizard's.
 
-use alloc::sync::Arc;
-
-use axum::{
-    Extension,
-    extract::{Path, Query, State},
-    http::StatusCode,
-    response::{IntoResponse as _, Response},
-};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -20,69 +8,7 @@ use kcc_i18n::{
 };
 use kcc_migrate::apply::ApplyError;
 
-use super::{
-    access::Visit,
-    record::{FILE, Record},
-};
-use crate::{
-    WebState,
-    authz::{CurrentSession, CurrentUser},
-    migrate_wizard::{
-        access::Services,
-        beats::closing,
-        events::{Ending, Feed, View},
-        run::{Ended, failure_text as wizard_text},
-        service::Wizards,
-    },
-    overview::guarded,
-};
-
-/// `GET /ui/presets/runs/{run}/events`: the apply's progress.
-// cancel-safe: reads only; the returned stream owns its state.
-pub(super) async fn events(
-    State(state): State<WebState>,
-    Path(id): Path<String>,
-    Query(view): Query<View>,
-    Extension(runs): Extension<Arc<Wizards>>,
-    current: CurrentSession,
-    user: CurrentUser,
-) -> Response {
-    let services = match Services::of(&state, &user) {
-        Ok(found) => found,
-        Err(refusal) => return refusal.status(),
-    };
-    let visit = match Visit::open(services, &runs, &id).await {
-        Ok(found) => found,
-        Err(refusal) => return refusal.status(),
-    };
-    let Some(run) = visit.record().run() else {
-        return StatusCode::NOT_FOUND.into_response();
-    };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
-        return StatusCode::TOO_MANY_REQUESTS.into_response();
-    };
-    let store = services.store();
-    let locale = user.locale();
-    let ending: Ending = Box::new(move || {
-        let ended = store
-            .load_named::<Record>(&id, FILE)
-            .ok()
-            .flatten()
-            .and_then(|record| record.run()?.ended().cloned());
-        closing(
-            locale,
-            format!("/ui/presets/runs/{id}/results"),
-            end_words(ended.as_ref(), locale),
-        )
-    });
-    let apply = (
-        visit.session().live(),
-        (run.started_at(), run.safety_seconds()),
-    );
-    drop(visit);
-    let feed = Feed::new(&state, locale, apply, ending);
-    guarded(feed.stream(view.countdown()), permit).into_response()
-}
+use crate::wizard::run::{Ended, failure_text as wizard_text};
 
 /// The notice tone and sentence of an apply that ended as `ended` records (none: kcc
 /// restarted while it ran).
@@ -151,7 +77,7 @@ mod tests {
     use kcc_migrate::apply::ApplyError;
 
     use super::end_words;
-    use crate::migrate_wizard::run::{Ended, failure_name};
+    use crate::wizard::run::{Ended, failure_name};
 
     /// A run that needs a new plan says so, not that the routers drifted.
     #[test]

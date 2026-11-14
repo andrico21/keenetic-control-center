@@ -1,5 +1,5 @@
 //! The kinds of things a migration's record names: its steps, its mode, where its source
-//! came from, and its maps.
+//! came from, its maps, and how it finished.
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
@@ -7,10 +7,12 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_migrate::maps::{InterfaceMap, PortMap, RadioMap};
 use serde::{Deserialize, Serialize};
 
+use crate::wizard::flow::Stage;
+
 /// One step of the wizard, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
-pub(super) enum Step {
+pub(crate) enum Step {
     /// Where the configuration comes from.
     Source,
     /// The router it goes to, and that router's warnings.
@@ -31,9 +33,8 @@ pub(super) enum Step {
     Report,
 }
 
-impl Step {
-    /// Every step in order.
-    pub(super) const ALL: [Self; 9] = [
+impl Stage for Step {
+    const ALL: [Self; 9] = [
         Self::Source,
         Self::Target,
         Self::Mapping,
@@ -45,17 +46,7 @@ impl Step {
         Self::Report,
     ];
 
-    /// The step's number, 1 to 9.
-    pub(super) fn number(self) -> u32 {
-        Self::ALL
-            .iter()
-            .position(|step| *step == self)
-            .and_then(|index| u32::try_from(index).ok())
-            .map_or(1, |index| index.saturating_add(1))
-    }
-
-    /// The step's name in forms, as serialized.
-    pub(super) const fn slug(self) -> &'static str {
+    fn slug(self) -> &'static str {
         match self {
             Self::Source => "source",
             Self::Target => "target",
@@ -69,8 +60,7 @@ impl Step {
         }
     }
 
-    /// The step's name in the step list.
-    pub(super) const fn label(self) -> MessageKey {
+    fn label(self) -> MessageKey {
         match self {
             Self::Source => keys::WEB_MIGRATE_STEP_SOURCE,
             Self::Target => keys::WEB_MIGRATE_STEP_TARGET,
@@ -220,5 +210,35 @@ impl Inputs {
             self.agreements,
             self.passwords,
         )
+    }
+}
+
+/// How a migration finished.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub(crate) enum Finish {
+    /// The changes were saved on the router.
+    Committed,
+    /// kcc rolled the router back to its saved configuration.
+    RolledBack,
+    /// The router restored its saved configuration when its timer ran out.
+    RolledBackByRouter,
+    /// The router accepted the rollback and is restarting with its saved configuration.
+    RollbackRestarting,
+    /// The apply ended without changes to finish: it failed before the first change, or
+    /// kcc restarted while it ran.
+    Closed,
+}
+
+impl Finish {
+    /// The sentence saying how the migration finished.
+    pub(super) const fn text(self) -> MessageKey {
+        match self {
+            Self::Committed => keys::WEB_MIGRATE_FINISH_COMMITTED,
+            Self::RolledBack => keys::WEB_MIGRATE_FINISH_ROLLED_BACK,
+            Self::RolledBackByRouter => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
+            Self::RollbackRestarting => keys::MIGRATE_ROLLBACK_SAVED,
+            Self::Closed => keys::WEB_MIGRATE_FINISH_CLOSED,
+        }
     }
 }

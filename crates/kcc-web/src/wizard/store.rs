@@ -1,6 +1,7 @@
-//! The wizard's files under `<state>/migrations/<id>/`.
+//! The wizards' files under `<state>/migrations/<id>/`.
 //!
-//! - `wizard.json`: the record (`record`), which never holds a secret.
+//! - the record, named by its wizard ([`Flow::FILE`]: `wizard.json` for a migration,
+//!   `preset.json` for a preset run), which never holds a secret.
 //! - `source.sealed` and `passwords.sealed`: the source configuration and the typed
 //!   passwords, sealed with the backup key (XChaCha20-Poly1305, the backups' scheme) under
 //!   the owner names `migration:<id>:source` and `migration:<id>:passwords`, so neither
@@ -10,9 +11,8 @@
 //! On unix the directories are `0700` and the files `0600`; every file is written to a
 //! temporary name, synced and renamed into place.
 //!
-//! The presets' apply runs (`crate::presets_page`) keep their own record beside these
-//! files under its own name (`Store::save_named`), so neither wizard opens the other's
-//! runs, and seal a copied (transient) preset as [`Sealed::Preset`].
+//! Each wizard reads only records under its own file name, so neither opens the other's
+//! runs; a preset run seals a copied (transient) preset as [`Sealed::Preset`].
 
 use std::{
     fs::{self, DirBuilder, OpenOptions},
@@ -25,10 +25,7 @@ use secrecy::SecretString;
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
-use super::{ids::is_id, record::Record};
-
-/// The record's file name.
-const RECORD: &str = "wizard.json";
+use super::{flow::Flow, ids::is_id};
 
 /// A sealed part of a migration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -63,7 +60,7 @@ impl Sealed {
 
 /// A redacted file kept from the apply on, when the plan can no longer be built again.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(super) enum Kept {
+pub(crate) enum Kept {
     /// The report of the applied plan, as JSON.
     Report,
     /// The applied plan's redacted form.
@@ -114,8 +111,11 @@ impl Store {
     /// # Errors
     ///
     /// Returns read failures and malformed records.
-    pub(super) fn load(&self, id: &str) -> Result<Option<Record>, StoreError> {
-        let Some(record) = self.load_named::<Record>(id, RECORD)? else {
+    pub(crate) fn load<F>(&self, id: &str) -> Result<Option<F>, StoreError>
+    where
+        F: Flow,
+    {
+        let Some(record) = self.load_named::<F>(id, F::FILE)? else {
             return Ok(None);
         };
         Ok((record.current() && record.id() == id).then_some(record))
@@ -126,8 +126,11 @@ impl Store {
     /// # Errors
     ///
     /// Returns write failures.
-    pub(super) fn save(&self, record: &Record) -> Result<(), StoreError> {
-        self.save_named(record.id(), RECORD, record)
+    pub(crate) fn save<F>(&self, record: &F) -> Result<(), StoreError>
+    where
+        F: Flow,
+    {
+        self.save_named(record.id(), F::FILE, record)
     }
 
     /// Every readable record of `owner`, newest first.
@@ -135,7 +138,10 @@ impl Store {
     /// # Errors
     ///
     /// Returns directory read failures.
-    pub(super) fn list(&self, owner: &str) -> Result<Vec<Record>, StoreError> {
+    pub(crate) fn list<F>(&self, owner: &str) -> Result<Vec<F>, StoreError>
+    where
+        F: Flow,
+    {
         let entries = match fs::read_dir(&self.root) {
             Ok(entries) => entries,
             Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
@@ -147,7 +153,7 @@ impl Store {
             let Some(id) = name.to_str() else {
                 continue;
             };
-            if let Ok(Some(record)) = self.load(id)
+            if let Ok(Some(record)) = self.load::<F>(id)
                 && record.owner() == owner
             {
                 records.push(record);
@@ -199,8 +205,7 @@ impl Store {
         Ok(Some(key.open(&part.owner(id), &sealed)?))
     }
 
-    /// Writes `value` as JSON to `file` of run `id`, creating its directory: the record
-    /// of another wizard, kept beside these files under its own name.
+    /// Writes `value` as JSON to `file` of run `id`, creating its directory.
     ///
     /// # Errors
     ///
@@ -272,7 +277,7 @@ impl Store {
     /// # Errors
     ///
     /// Returns write failures.
-    pub(super) fn keep(&self, id: &str, file: Kept, text: &str) -> Result<(), StoreError> {
+    pub(crate) fn keep(&self, id: &str, file: Kept, text: &str) -> Result<(), StoreError> {
         self.write(id, file.file(), text.as_bytes())
     }
 
@@ -281,7 +286,7 @@ impl Store {
     /// # Errors
     ///
     /// Returns read failures and a file that is not UTF-8.
-    pub(super) fn kept(&self, id: &str, file: Kept) -> Result<Option<String>, StoreError> {
+    pub(crate) fn kept(&self, id: &str, file: Kept) -> Result<Option<String>, StoreError> {
         if !is_id(id) {
             return Ok(None);
         }

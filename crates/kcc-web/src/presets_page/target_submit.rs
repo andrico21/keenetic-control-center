@@ -13,8 +13,8 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::{
-    access::Visit,
-    screen,
+    access::{PresetRun as _, Visit},
+    record::Record,
     steps::{Origin, Step},
     target::{Panel, problem_text},
 };
@@ -22,13 +22,13 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{access::Services, service::Wizards},
     overview::is_profile_id,
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
 };
 
 /// The router choice.
@@ -50,7 +50,7 @@ pub(super) struct Choice {
 pub(super) async fn choose(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(choice): Form<Choice>,
 ) -> Result<Response, Answer> {
@@ -124,7 +124,7 @@ pub(super) struct Acknowledgement {
 pub(super) async fn confirm(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Acknowledgement>,
 ) -> Result<Response, Answer> {

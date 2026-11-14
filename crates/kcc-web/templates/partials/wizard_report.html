@@ -1,4 +1,4 @@
-{#- Step 9: how the run finished, the new WireGuard public keys to register on the VPN servers, and the report. -#}
+{#- Step 9: how the run finished, what it sent, the new WireGuard public keys to register on the VPN servers (preset runs), and the report to download. -#}
 <h2 class="wizard-step__title" id="wizard-step-title">{{ t(keys::WEB_MIGRATE_REPORT_TITLE) }}</h2>
 <div class="notice" data-tone="{{ tone }}">
   <p class="notice__title">{{ message }}</p>
@@ -30,11 +30,14 @@
   </div>
 </section>
 {%- endif %}
+{%- if let Some(title) = downloads_title %}
 <section class="wizard-downloads" aria-labelledby="report-downloads-title">
-  <h3 class="wizard-phase__title" id="report-downloads-title">{{ t(keys::WEB_PRESETS_DOWNLOADS) }}</h3>
+  <h3 class="wizard-phase__title" id="report-downloads-title">{{ title }}</h3>
   <ul class="wizard-downloads__list">
-    <li><a href="/ui/presets/runs/{{ id }}/download/report.md" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_MARKDOWN) }}</a></li>
-    <li><a href="/ui/presets/runs/{{ id }}/download/report.json" download>{{ t(keys::WEB_MIGRATE_DOWNLOAD_JSON) }}</a></li>
+    {%- for (file, label) in downloads %}
+    <li><a href="{{ prefix }}/{{ id }}/download/{{ file }}" download>{{ label }}</a></li>
+    {%- endfor %}
   </ul>
 </section>
-<p class="page__text"><a href="/ui/presets">{{ t(keys::WEB_PRESETS_ALL) }}</a></p>
+{%- endif %}
+<p class="page__text"><a href="{{ list }}">{{ all }}</a></p>

@@ -16,13 +16,11 @@ use kcc_i18n::{bundle::tr, keys};
 use kcc_migrate::apply::{Applier, ApplyError};
 
 use super::{
-    access::{Services, Visit},
-    kinds::Step,
+    access::Visit,
+    kinds::{Finish, Step},
     preview::commit_permissions,
+    record::Record,
     results::{Panel, ROLLBACK},
-    run::{Finish, failure_text},
-    screen,
-    service::Wizards,
 };
 use crate::{
     WebState,
@@ -36,6 +34,7 @@ use crate::{
         gate::allowed,
         respond::Answer,
     },
+    wizard::{flow::Flow as _, run::failure_text, screen, service::Wizards, services::Services},
 };
 
 /// The choice a finishing request makes.
@@ -56,7 +55,7 @@ enum Choice {
 pub(super) async fn commit(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     finish(&state, &wizards, &user, (&id, Choice::Commit)).await
@@ -72,7 +71,7 @@ pub(super) async fn commit(
 pub(super) async fn rollback(
     State(state): State<WebState>,
     Path(id): Path<String>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
@@ -112,7 +111,7 @@ pub(super) async fn rollback(
 // NOT cancel-safe: a commit or rollback sent to the router may finish without its record.
 async fn finish(
     state: &WebState,
-    wizards: &Arc<Wizards>,
+    wizards: &Arc<Wizards<Record>>,
     user: &CurrentUser,
     (id, choice): (&str, Choice),
 ) -> Result<Response, Answer> {
@@ -188,7 +187,7 @@ async fn finish(
 /// Answers 500 when the record cannot be saved.
 fn end(
     state: &WebState,
-    wizards: &Wizards,
+    wizards: &Wizards<Record>,
     visit: &mut Visit<'_>,
     (id, how): (&str, Finish),
 ) -> Result<(), Answer> {
@@ -215,7 +214,7 @@ fn end(
 pub(super) async fn settle(
     State(state): State<WebState>,
     Path((id, way)): Path<(String, String)>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;

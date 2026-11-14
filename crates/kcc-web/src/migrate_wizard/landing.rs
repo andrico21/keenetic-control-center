@@ -21,16 +21,7 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{
-    access::Services,
-    analysis::parse_source,
-    ids::fresh_id,
-    kinds::Mode,
-    record::Record,
-    screen::{self, source_text},
-    service::Wizards,
-    store::Sealed,
-};
+use super::{kinds::Mode, record::Record, summary::source_text};
 use crate::{
     WebState,
     admin_shared::Timestamp,
@@ -43,6 +34,15 @@ use crate::{
         context::{Caller, Refusal, fragment_shell},
         outcome::{Failure, Outcome},
         respond::Answer,
+    },
+    wizard::{
+        analysis::parse_source,
+        flow::{Flow as _, Stage as _},
+        ids::fresh_id,
+        screen,
+        service::Wizards,
+        services::Services,
+        store::Sealed,
     },
 };
 
@@ -180,7 +180,7 @@ pub(super) struct Start {
 /// Answers 503 without the fleet, and the refusal of a restore that cannot be started.
 pub(super) async fn start(
     State(state): State<WebState>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(start): Form<Start>,
 ) -> Result<Response, Answer> {
@@ -273,7 +273,7 @@ fn row(record: &Record, locale: Locale) -> Row {
         Mode::Restore => keys::WEB_MIGRATE_KIND_RESTORE,
     };
     Row {
-        href: screen::href(record.id()),
+        href: screen::href::<Record>(record.id()),
         started: Timestamp::at(record.created_at()),
         kind: tr(locale, kind, None),
         source: record

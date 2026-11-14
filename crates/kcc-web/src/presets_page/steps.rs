@@ -5,6 +5,8 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_migrate::presets::plan::PresetMode;
 use serde::{Deserialize, Serialize};
 
+use crate::wizard::flow::Stage;
+
 /// One step of the apply wizard, in order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -29,9 +31,8 @@ pub(super) enum Step {
     Report,
 }
 
-impl Step {
-    /// Every step in order.
-    pub(super) const ALL: [Self; 9] = [
+impl Stage for Step {
+    const ALL: [Self; 9] = [
         Self::Source,
         Self::Target,
         Self::Options,
@@ -43,17 +44,7 @@ impl Step {
         Self::Report,
     ];
 
-    /// The step's number, 1 to 9.
-    pub(super) fn number(self) -> u32 {
-        Self::ALL
-            .iter()
-            .position(|step| *step == self)
-            .and_then(|index| u32::try_from(index).ok())
-            .map_or(1, |index| index.saturating_add(1))
-    }
-
-    /// The step's name in forms, as serialized.
-    pub(super) const fn slug(self) -> &'static str {
+    fn slug(self) -> &'static str {
         match self {
             Self::Source => "source",
             Self::Target => "target",
@@ -67,8 +58,7 @@ impl Step {
         }
     }
 
-    /// The step's name in the step list.
-    pub(super) const fn label(self) -> MessageKey {
+    fn label(self) -> MessageKey {
         match self {
             Self::Source => keys::WEB_PRESETS_STEP_SOURCE,
             Self::Target => keys::WEB_PRESETS_STEP_TARGET,

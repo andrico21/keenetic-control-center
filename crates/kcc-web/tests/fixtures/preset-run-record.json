@@ -1,0 +1,51 @@
+{
+  "schema": 1,
+  "id": "1600000000-8899aabbccddeeff",
+  "owner": "migrator",
+  "created_at": 1700000000,
+  "origin": {
+    "kind": "preset",
+    "id": "1600000000-0123456789abcdef",
+    "name": "Branch office"
+  },
+  "step": "report",
+  "source_router": "prod-1",
+  "target": "lab-1",
+  "acknowledged": false,
+  "mode": "merge",
+  "keep_keys": false,
+  "interfaces": {
+    "Wireguard0": "Wireguard0"
+  },
+  "policies": {},
+  "excluded": [],
+  "passwords": [
+    "alice"
+  ],
+  "preview": "b8e3012e1900478d1c27e129d734427a",
+  "run": {
+    "job": "job-fixture-2",
+    "started_at": 1700000000,
+    "safety_seconds": 900,
+    "ended": {
+      "at": 1700000000,
+      "verified": true,
+      "failure": null,
+      "applied": 3,
+      "failed": 0
+    }
+  },
+  "keys": [
+    [
+      "Wireguard0",
+      "fixture-public-key-1"
+    ]
+  ],
+  "kept_keys": [
+    "Wireguard0"
+  ],
+  "finished": [
+    "kept-unsaved",
+    1700000000
+  ]
+}

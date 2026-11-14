@@ -25,8 +25,6 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors::{self, Kind},
     migrate_wizard::{
-        access::Services,
-        ids::fresh_id,
         kinds::Source,
         source::{self, Field, Panel},
         source_read,
@@ -38,6 +36,7 @@ use crate::{
         context::{Caller, Refusal, fragment_shell},
         respond::{self, Answer},
     },
+    wizard::{ids::fresh_id, services::Services},
 };
 
 /// Where the source form posts.

@@ -1,4 +1,4 @@
-//! The live progress of an apply: `GET /ui/migrate/{id}/events`.
+//! The live progress of an apply: `GET {PREFIX}/{id}/events`.
 //!
 //! Every setting the job sent so far (so a reload replays them), then each new one and
 //! the share sent; a heartbeat every 10 seconds tells how long the router's fail-safe
@@ -7,8 +7,7 @@
 //! recorded end comes at once. `?view=countdown` sends the heartbeat only, for the
 //! results step, and `done` once the timer ran out.
 //!
-//! [`Feed`] is the stream itself; the presets' apply runs follow their applies with it
-//! too, each wizard naming its own recorded end.
+//! [`Feed`] is the stream itself; each wizard names its own recorded end.
 
 use alloc::sync::Arc;
 use core::{pin::pin, time::Duration};
@@ -32,10 +31,12 @@ use tokio::{
 };
 
 use super::{
-    access::{Services, Visit},
     beats,
+    flow::Flow,
     live::{Live, Progress},
     service::Wizards,
+    services::Services,
+    visit::Visit,
 };
 use crate::{
     WebState,
@@ -103,15 +104,19 @@ impl Feed {
     }
 }
 
-/// `GET /ui/migrate/{id}/events`: the apply's progress.
-pub(super) async fn events(
+/// `GET {PREFIX}/{id}/events`: the apply's progress.
+// cancel-safe: reads only; the returned stream owns its state.
+pub(crate) async fn events<F>(
     State(state): State<WebState>,
     Path(id): Path<String>,
     Query(view): Query<View>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<F>>>,
     current: CurrentSession,
     user: CurrentUser,
-) -> Response {
+) -> Response
+where
+    F: Flow,
+{
     let services = match Services::of(&state, &user) {
         Ok(found) => found,
         Err(refusal) => return refusal.status(),
@@ -130,11 +135,15 @@ pub(super) async fn events(
     let locale = user.locale();
     let ending: Ending = Box::new(move || {
         let ended = store
-            .load(&id)
+            .load::<F>(&id)
             .ok()
             .flatten()
             .and_then(|record| record.run()?.ended().cloned());
-        beats::end(locale, &id, ended.as_ref())
+        beats::closing(
+            locale,
+            format!("{}/{id}/results", F::PREFIX),
+            F::ended_words(ended.as_ref(), locale),
+        )
     });
     let apply = (
         visit.session().live(),

@@ -19,6 +19,8 @@ mod guards;
 mod options;
 #[path = "presets_pages/preview.rs"]
 mod preview;
+#[path = "presets_pages/records.rs"]
+mod records;
 #[path = "presets_pages/secrets.rs"]
 mod secrets;
 #[path = "presets_pages/setup.rs"]

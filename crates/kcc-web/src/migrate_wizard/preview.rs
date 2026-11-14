@@ -16,7 +16,7 @@ use kcc_i18n::{
 use kcc_migrate::planner::PlannedLine;
 
 use super::{
-    access::Visit,
+    access::{Migration as _, Visit},
     plan::{Built, Classified},
     reasons::Fate,
     record::Record,
@@ -27,6 +27,7 @@ use crate::{
     errors,
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
+    wizard::flow::Flow as _,
 };
 
 /// What applying `record`'s plan needs: installing components first also needs

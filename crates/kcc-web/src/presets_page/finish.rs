@@ -22,8 +22,9 @@ use serde_json::json;
 use super::{
     access::Visit,
     events::failure_text,
+    record::Record,
     results::{KEEP, Panel, ROLLBACK, SAVE},
-    saved, screen,
+    saved,
     steps::{Finish, Step},
 };
 use crate::{
@@ -31,7 +32,6 @@ use crate::{
     authz::CurrentUser,
     brackets,
     errors::{self, Kind},
-    migrate_wizard::{access::Services, screen::refused, service::Wizards},
     page_kit::{
         audit::Record as Audit,
         confirm::{Ask, Confirmation, Dialog, Resubmit, Typed, Words},
@@ -39,6 +39,7 @@ use crate::{
         gate::allowed,
         respond::Answer,
     },
+    wizard::{flow::Flow as _, screen, screen::refused, service::Wizards, services::Services},
 };
 
 /// The final choice of applied settings.
@@ -74,7 +75,7 @@ impl Choice {
 pub(super) async fn finish(
     State(state): State<WebState>,
     Path((id, way)): Path<(String, String)>,
-    Extension(runs): Extension<Arc<Wizards>>,
+    Extension(runs): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
     Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
@@ -170,7 +171,7 @@ pub(super) async fn finish(
 /// Answers 500 when the record cannot be saved.
 fn end(
     state: &WebState,
-    runs: &Wizards,
+    runs: &Wizards<Record>,
     visit: &mut Visit<'_>,
     (id, how): (&str, Finish),
 ) -> Result<(), Answer> {
@@ -198,7 +199,7 @@ fn end(
 // cancel-safe: every change comes after the last await.
 async fn settle(
     state: &WebState,
-    runs: &Arc<Wizards>,
+    runs: &Arc<Wizards<Record>>,
     user: &CurrentUser,
     (id, way): (&str, &str),
 ) -> Result<Response, Answer> {

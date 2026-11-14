@@ -18,6 +18,7 @@ use super::{access::Visit, events::recorded_text};
 use crate::{
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
+    wizard::flow::Flow as _,
 };
 
 /// What keeping the settings unsaved needs on the target: disarming the timer.

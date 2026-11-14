@@ -14,12 +14,20 @@ use tokio::sync::oneshot;
 use super::{
     access::Visit,
     apply_request::{Prepared, Refused},
-    live::Live,
-    run::Run,
-    service::{Session, Wizards},
-    store::{Kept, Store, StoreError},
+    record::Record,
 };
-use crate::{WebState, authz::CurrentUser, page_kit::audit::Record as Audit};
+use crate::{
+    WebState,
+    authz::CurrentUser,
+    page_kit::audit::Record as Audit,
+    wizard::{
+        flow::Flow as _,
+        live::Live,
+        run::Run,
+        service::{Session, Wizards},
+        store::{Kept, Store, StoreError},
+    },
+};
 
 /// Why an apply did not start.
 pub(super) enum Failure {
@@ -40,7 +48,7 @@ pub(super) async fn launch(
     visit: &mut Visit<'_>,
     state: &WebState,
     jobs: &Arc<JobRunner>,
-    wizards: &Arc<Wizards>,
+    wizards: &Arc<Wizards<Record>>,
 ) -> Result<(String, usize), Failure> {
     let prepared = match Prepared::new(visit, state).await {
         Ok(found) => found,
@@ -109,9 +117,9 @@ struct Settling {
     /// Who started it.
     user: CurrentUser,
     /// The wizards, to free the target.
-    wizards: Arc<Wizards>,
+    wizards: Arc<Wizards<Record>>,
     /// The migration's session, for its turn.
-    session: Arc<Session>,
+    session: Arc<Session<Record>>,
     /// The apply.
     live: Arc<Live>,
     /// The migrations directory.
@@ -136,7 +144,7 @@ async fn settle(context: Settling, done: oneshot::Receiver<Result<Applier, Apply
     let report = applier.as_ref().map(|found| found.report().clone());
     let verified = report.as_ref().is_some_and(|known| known.verified);
     let now = context.state.unix_seconds();
-    if let Ok(Some(mut record)) = context.store.load(&context.id)
+    if let Ok(Some(mut record)) = context.store.load::<Record>(&context.id)
         && let Some(run) = record.run_mut()
     {
         let outcome = match (&report, failure) {

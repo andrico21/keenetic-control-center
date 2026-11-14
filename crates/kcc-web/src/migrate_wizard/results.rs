@@ -14,10 +14,14 @@ use kcc_i18n::{
 };
 use kcc_migrate::apply::ApplyError;
 
-use super::{access::Visit, preview::commit_permissions, run::recorded_text};
+use super::{access::Visit, preview::commit_permissions};
 use crate::{
     page::{Localize as _, Shell},
     page_kit::{context::fragment_shell, gate::allowed},
+    wizard::{
+        flow::Flow as _,
+        run::{Ended, recorded_text},
+    },
 };
 
 /// What a rollback needs on the target.
@@ -184,4 +188,19 @@ fn facts(applied: usize, failed: usize, locale: Locale) -> Vec<(String, String)>
     .into_iter()
     .map(|(key, count)| (tr(locale, key, None), count.to_string()))
     .collect()
+}
+
+/// How the apply as `ended` records it reads at its end: notice tone and sentence.
+pub(super) fn end_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
+    let (tone, key) = match ended {
+        Some(found) if found.verified() => ("success", keys::MIGRATE_APPLY_VERIFIED),
+        Some(found) => (
+            "error",
+            found
+                .failure()
+                .map_or(keys::MIGRATE_APPLY_FAILED, recorded_text),
+        ),
+        None => ("error", keys::WEB_MIGRATE_RUN_INTERRUPTED),
+    };
+    (tone, tr(locale, key, None))
 }

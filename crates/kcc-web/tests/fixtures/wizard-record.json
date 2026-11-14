@@ -1,0 +1,94 @@
+{
+  "schema": 1,
+  "id": "1600000000-0011223344556677",
+  "owner": "admin",
+  "created_at": 1700000000,
+  "mode": "migrate",
+  "step": "report",
+  "source": {
+    "kind": "router",
+    "router": "giga"
+  },
+  "source_firmware": null,
+  "target": "ultra",
+  "acknowledged": false,
+  "maps": {
+    "ports": {
+      "entries": [
+        {
+          "source": "GigabitEthernet0/0",
+          "target": "GigabitEthernet0/0"
+        },
+        {
+          "source": "GigabitEthernet0/1",
+          "target": "GigabitEthernet0/1"
+        },
+        {
+          "source": "GigabitEthernet0/2",
+          "target": "GigabitEthernet0/2"
+        },
+        {
+          "source": "GigabitEthernet0/3",
+          "target": "GigabitEthernet0/3"
+        },
+        {
+          "source": "GigabitEthernet0/4",
+          "target": "GigabitEthernet0/4"
+        }
+      ]
+    },
+    "radios": {
+      "entries": [
+        {
+          "source": "WifiMaster0",
+          "target": "WifiMaster0"
+        },
+        {
+          "source": "WifiMaster1",
+          "target": "WifiMaster1"
+        }
+      ]
+    },
+    "interfaces": {
+      "entries": [
+        {
+          "source": "Bridge0",
+          "target": "Bridge0"
+        },
+        {
+          "source": "Bridge19",
+          "target": "Bridge19"
+        }
+      ]
+    }
+  },
+  "excluded": [],
+  "overwrite": [
+    0
+  ],
+  "components": [],
+  "reconnect_url": "http://203.0.113.10",
+  "agreements": {
+    "eula": "Fixture agreement text."
+  },
+  "passwords": [
+    "alice"
+  ],
+  "preview": "714e86e3bbbaaad3f928fcfba82b4f2f",
+  "run": {
+    "job": "job-fixture-1",
+    "started_at": 1700000000,
+    "safety_seconds": 900,
+    "ended": {
+      "at": 1700000000,
+      "verified": true,
+      "failure": null,
+      "applied": 3,
+      "failed": 0
+    }
+  },
+  "finished": [
+    "committed",
+    1700000000
+  ]
+}

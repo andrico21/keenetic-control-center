@@ -1,5 +1,4 @@
-//! The apply of a migration as its record keeps it: the job, how it ended, and how the
-//! migration finished.
+//! The apply of a run as its record keeps it: the job and how it ended.
 //!
 //! It holds counts and the engine's value-free failure names only.
 
@@ -36,36 +35,6 @@ pub(crate) struct Ended {
     applied: usize,
     /// Settings the router refused.
     failed: usize,
-}
-
-/// How a migration finished.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub(super) enum Finish {
-    /// The changes were saved on the router.
-    Committed,
-    /// kcc rolled the router back to its saved configuration.
-    RolledBack,
-    /// The router restored its saved configuration when its timer ran out.
-    RolledBackByRouter,
-    /// The router accepted the rollback and is restarting with its saved configuration.
-    RollbackRestarting,
-    /// The apply ended without changes to finish: it failed before the first change, or
-    /// kcc restarted while it ran.
-    Closed,
-}
-
-impl Finish {
-    /// The sentence saying how the migration finished.
-    pub(super) const fn text(self) -> MessageKey {
-        match self {
-            Self::Committed => keys::WEB_MIGRATE_FINISH_COMMITTED,
-            Self::RolledBack => keys::WEB_MIGRATE_FINISH_ROLLED_BACK,
-            Self::RolledBackByRouter => keys::MIGRATE_APPLY_ROUTER_ROLLBACK,
-            Self::RollbackRestarting => keys::MIGRATE_ROLLBACK_SAVED,
-            Self::Closed => keys::WEB_MIGRATE_FINISH_CLOSED,
-        }
-    }
 }
 
 impl Run {
@@ -186,7 +155,7 @@ pub(crate) const fn failure_text(failure: ApplyError) -> MessageKey {
 
 /// The sentence explaining the failure a record names `name`; a name this kcc does not
 /// know reads as a stopped migration.
-pub(super) fn recorded_text(name: &str) -> MessageKey {
+pub(crate) fn recorded_text(name: &str) -> MessageKey {
     ApplyError::from_name(name).map_or(keys::MIGRATE_APPLY_FAILED, failure_text)
 }
 

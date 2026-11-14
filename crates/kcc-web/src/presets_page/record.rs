@@ -9,13 +9,26 @@
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
+use axum::response::Response;
+use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use serde::{Deserialize, Serialize};
 
-use super::steps::{Finish, Mode, Origin, Step};
-use crate::migrate_wizard::run::Run;
-
-/// Version of the record format.
-const SCHEMA: u32 = 1;
+use super::{
+    events, resume,
+    review::View,
+    steps::{Finish, Mode, Origin, Step},
+    summary,
+};
+use crate::{
+    WebState,
+    nav::Section,
+    page::Shell,
+    wizard::{
+        flow::{Flow, Moves, SCHEMA},
+        run::{Ended, Run},
+        visit::Visit,
+    },
+};
 
 /// The record's file name in the run's directory.
 pub(super) const FILE: &str = "preset.json";
@@ -117,44 +130,14 @@ impl Record {
         }
     }
 
-    /// Whether this record is in the format this version reads.
-    pub(super) const fn current(&self) -> bool {
-        self.schema == SCHEMA
-    }
-
-    /// Run id.
-    pub(super) fn id(&self) -> &str {
-        &self.id
-    }
-
-    /// The account that started it.
-    pub(super) fn owner(&self) -> &str {
-        &self.owner
-    }
-
-    /// Unix time it started.
-    pub(super) const fn created_at(&self) -> u64 {
-        self.created_at
-    }
-
     /// A saved preset or a copy.
     pub(super) const fn origin(&self) -> &Origin {
         &self.origin
     }
 
-    /// The step shown now.
-    pub(super) const fn step(&self) -> Step {
-        self.step
-    }
-
     /// The router the settings come from.
     pub(super) fn source_router(&self) -> Option<&str> {
         self.source_router.as_deref()
-    }
-
-    /// The router the settings go to.
-    pub(super) fn target(&self) -> Option<&str> {
-        self.target.as_deref()
     }
 
     /// Whether the documentation-based firmware tier was acknowledged.
@@ -192,16 +175,6 @@ impl Record {
         &self.passwords
     }
 
-    /// The id of the plan the preview showed.
-    pub(super) fn preview(&self) -> Option<&str> {
-        self.preview.as_deref()
-    }
-
-    /// The apply job.
-    pub(super) const fn run(&self) -> Option<&Run> {
-        self.run.as_ref()
-    }
-
     /// New WireGuard public keys: interface and key.
     pub(super) fn keys(&self) -> &[(String, String)] {
         &self.keys
@@ -210,20 +183,6 @@ impl Record {
     /// Interfaces whose captured private key was copied.
     pub(super) fn kept_keys(&self) -> &[String] {
         &self.kept_keys
-    }
-
-    /// How the run finished, and when.
-    pub(super) const fn finished(&self) -> Option<(Finish, u64)> {
-        self.finished
-    }
-
-    /// Every router the record names, for the scope check of each request.
-    pub(super) fn routers(&self) -> Vec<&str> {
-        self.source_router
-            .as_deref()
-            .into_iter()
-            .chain(self.target.as_deref())
-            .collect()
     }
 
     /// Takes the copy's source router and moves on to the target.
@@ -281,73 +240,16 @@ impl Record {
         self.passwords = users;
     }
 
-    /// Moves on to the preview of the plan `plan`.
-    pub(super) fn preview_ready(&mut self, plan: String) {
-        self.preview = Some(plan);
-        self.step = Step::Preview;
-    }
-
-    /// The apply job, to record how it ended.
-    pub(super) const fn run_mut(&mut self) -> Option<&mut Run> {
-        self.run.as_mut()
-    }
-
     /// Records the WireGuard keys the apply made, and those it copied.
     pub(super) fn set_keys(&mut self, keys: Vec<(String, String)>, kept: Vec<String>) {
         self.keys = keys;
         self.kept_keys = kept;
     }
 
-    /// Starts the apply `run`.
-    pub(super) fn start_run(&mut self, run: Run) {
-        self.run = Some(run);
-        self.step = Step::Apply;
-    }
-
-    /// Shows the result of an apply that ended, or that no longer runs because kcc
-    /// restarted (`interrupted`).
-    pub(super) fn show_results(&mut self, interrupted: bool) -> bool {
-        let ended = interrupted || self.run.as_ref().is_some_and(|run| run.ended().is_some());
-        if ended && self.step == Step::Apply {
-            self.step = Step::Results;
-        }
-        ended
-    }
-
-    /// Finishes the run as `how` at `at`.
-    pub(super) const fn finish(&mut self, how: Finish, at: u64) {
-        self.finished = Some((how, at));
-        self.step = Step::Report;
-    }
-
     /// Plans again from the preview, forgetting an apply that changed nothing.
     pub(super) fn plan_again(&mut self) {
         self.run = None;
         self.step = Step::Preview;
-    }
-
-    /// Shows `step` again, when it comes before the current one and is still editable:
-    /// nothing after the preview goes back, and a preset's source is fixed.
-    pub(super) fn go_back(&mut self, step: Step) -> bool {
-        let fixed = self.fixed_source() && step == Step::Source;
-        let allowed = step < self.step && self.step <= Step::Preview && !fixed;
-        if allowed {
-            self.step = step;
-        }
-        allowed
-    }
-
-    /// The step Back shows: the one before the current, while choices can still change.
-    pub(super) fn previous(&self) -> Option<Step> {
-        let index = Step::ALL.iter().position(|step| *step == self.step)?;
-        let previous = *Step::ALL.get(index.checked_sub(1)?)?;
-        let fixed = self.fixed_source() && previous == Step::Source;
-        (self.step <= Step::Preview && !fixed).then_some(previous)
-    }
-
-    /// Whether the source is fixed: a saved preset's.
-    const fn fixed_source(&self) -> bool {
-        matches!(self.origin, Origin::Preset { id: _, name: _ })
     }
 
     /// Clears what was chosen for one target.
@@ -358,5 +260,73 @@ impl Record {
         self.excluded.clear();
         self.passwords.clear();
         self.preview = None;
+    }
+}
+
+impl Flow for Record {
+    type Step = Step;
+    type Finish = Finish;
+    type Analysis = ();
+    type View = View;
+
+    const PREVIEW: Step = Step::Preview;
+    const APPLY: Step = Step::Apply;
+    const RESULTS: Step = Step::Results;
+    const REPORT: Step = Step::Report;
+    const FILE: &'static str = FILE;
+    const PREFIX: &'static str = "/ui/presets/runs";
+    const LIST: &'static str = "/ui/presets";
+    const ALL: MessageKey = keys::WEB_PRESETS_ALL;
+    const STEPS_LABEL: MessageKey = keys::WEB_PRESETS_STEPS_LABEL;
+    const SECTION: Section = Section::Presets;
+    const CLOSED: Finish = Finish::Closed;
+    const STOP: &'static str = "web.preset_stop";
+
+    fn finish_text(how: Finish) -> MessageKey {
+        how.text()
+    }
+
+    fn succeeded(how: Finish) -> bool {
+        match how {
+            Finish::KeptUnsaved | Finish::Saved => true,
+            Finish::RolledBack
+            | Finish::RolledBackByRouter
+            | Finish::RollbackRestarting
+            | Finish::Closed => false,
+        }
+    }
+
+    fn ended_words(ended: Option<&Ended>, locale: Locale) -> (&'static str, String) {
+        events::end_words(ended, locale)
+    }
+
+    fn title(&self) -> MessageKey {
+        summary::title(&self.origin)
+    }
+
+    fn summary(&self, locale: Locale) -> Vec<(String, String)> {
+        summary::summary(self, locale)
+    }
+
+    fn show(
+        visit: &Visit<'_, Self>,
+        shell: Shell,
+        request: (&View, &WebState),
+    ) -> impl Future<Output = Response> + Send {
+        resume::show(visit, shell, request)
+    }
+
+    record_fields!();
+
+    fn fixed(&self, step: Step) -> bool {
+        matches!(self.origin, Origin::Preset { id: _, name: _ }) && step == Step::Source
+    }
+
+    fn routers(&self) -> Vec<&str> {
+        self.source_router
+            .as_deref()
+            .into_iter()
+            .chain(self.target.as_deref())
+            .collect()
     }
 }

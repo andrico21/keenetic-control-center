@@ -23,14 +23,15 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    migrate_wizard::{
+    page_kit::audit::Record as Audit,
+    wizard::{
         analysis::Problem,
+        flow::Flow as _,
         live::Live,
         run::Run,
         service::{Session, Wizards},
         store::{Store, StoreError},
     },
-    page_kit::audit::Record as Audit,
 };
 
 /// Why an apply did not start.
@@ -52,7 +53,7 @@ pub(super) async fn launch(
     visit: &mut Visit<'_>,
     state: &WebState,
     jobs: &Arc<JobRunner>,
-    runs: &Arc<Wizards>,
+    runs: &Arc<Wizards<Record>>,
 ) -> Result<(String, usize), Failure> {
     let services = visit.services();
     visit.session().forget();
@@ -129,9 +130,9 @@ struct Settling {
     /// Who started it.
     user: CurrentUser,
     /// The runs, to free the target.
-    runs: Arc<Wizards>,
+    runs: Arc<Wizards<Record>>,
     /// The run's session, for its turn.
-    session: Arc<Session>,
+    session: Arc<Session<Record>>,
     /// The apply.
     live: Arc<Live>,
     /// The runs' directory.

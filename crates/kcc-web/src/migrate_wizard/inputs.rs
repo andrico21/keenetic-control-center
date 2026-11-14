@@ -7,11 +7,16 @@ use fluent_bundle::FluentArgs;
 use kcc_i18n::{bundle::tr, keys};
 
 use super::{
-    access::Visit, needs::Needs, plan::Classified, target::problem_text, warnings::agreement_name,
+    access::{Migration as _, Visit},
+    needs::Needs,
+    plan::Classified,
+    target::problem_text,
+    warnings::agreement_name,
 };
 use crate::{
     page::{Localize as _, Shell},
     page_kit::context::fragment_shell,
+    wizard::flow::Flow as _,
 };
 
 /// The step's panel.

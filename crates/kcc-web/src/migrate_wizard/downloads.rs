@@ -15,10 +15,9 @@ use axum::{
 use kcc_migrate::report::MigrationReport;
 
 use super::{
-    access::{Services, Visit},
+    access::{Migration as _, Visit},
     plan::Built,
-    service::Wizards,
-    store::Kept,
+    record::Record,
 };
 use crate::{
     WebState,
@@ -28,6 +27,7 @@ use crate::{
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
+    wizard::{service::Wizards, services::Services, store::Kept},
 };
 
 /// `GET /ui/migrate/{id}/download/{file}`: one of the plan's files, as an attachment.
@@ -39,7 +39,7 @@ use crate::{
 pub(super) async fn download(
     State(state): State<WebState>,
     Path((id, file)): Path<(String, String)>,
-    Extension(wizards): Extension<Arc<Wizards>>,
+    Extension(wizards): Extension<Arc<Wizards<Record>>>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let content_type = match file.as_str() {
