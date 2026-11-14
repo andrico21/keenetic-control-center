@@ -584,7 +584,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): one form engine
   Recommended task executor category: visual-engineering - form markup and accessibility attributes
 
-- [ ] 36. One confirmation module and template
+- [x] 36. One confirmation module and template
   What to do / Must NOT do: Merge `crates/kcc-web/src/page_kit/{confirm.rs,family.rs,stakes.rs,typed_name.rs}` and `crates/kcc-web/src/migrate_wizard/confirm.rs` (its `Confirm` duplicates `Confirmation`) into `page_kit/confirm.rs` (submodules allowed if a file would exceed the guidelines' size rule); one template `kit_confirm.html` with optional typed-name, list and persistence blocks replacing `kit_name_confirm.html`, `migrate_confirm.html`, `routing_confirm.html`, `config_confirm.html`. The typed router name is posted as `confirm_name` in every form (check `kit_name_confirm.html:11-14` today; the reader is `page_kit/confirm.rs:41-50`); the acknowledgement stays `confirm=yes`. Must NOT: change which actions need a typed name or the confirmation texts.
   Closes: GAP-10
   Parallelization: Wave W6 | Blocked by: 35 | Blocks: 37 | Can parallelize with: -

@@ -30,7 +30,6 @@ pub(crate) mod analysis;
 mod apply;
 mod apply_request;
 pub(crate) mod beats;
-pub(crate) mod confirm;
 mod downloads;
 pub(crate) mod events;
 mod finish;

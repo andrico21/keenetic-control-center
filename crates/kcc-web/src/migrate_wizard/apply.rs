@@ -19,7 +19,6 @@ use serde_json::json;
 
 use super::{
     access::{Services, Visit},
-    confirm::{Confirm, Dialog, Words, refused},
     kinds::Step,
     launch::{Failure, launch},
     preview::{Panel, apply_permissions},
@@ -32,6 +31,7 @@ use crate::{
     errors,
     page_kit::{
         audit::Record as Audit,
+        confirm::{Confirmation, Dialog, Resubmit, Words},
         context::{Refusal, fragment_shell},
         respond::Answer,
     },
@@ -48,7 +48,7 @@ pub(super) async fn apply(
     Path(id): Path<String>,
     Extension(wizards): Extension<Arc<Wizards>>,
     user: CurrentUser,
-    Form(form): Form<Confirm>,
+    Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
     let mut visit = Visit::open(services, &wizards, &id)
@@ -110,7 +110,8 @@ fn ask(locale: Locale, id: &str, target: &str) -> Response {
         tr(locale, keys::WEB_MIGRATE_APPLY_CONFIRM_TEXT, Some(&args)),
         tr(locale, keys::WEB_MIGRATE_APPLY, None),
     );
-    Dialog::new(locale, words, format!("/ui/migrate/{id}/apply")).show()
+    let resubmit = Resubmit::new(format!("/ui/migrate/{id}/apply"), "#wizard-step");
+    Dialog::new(locale, words, resubmit).show()
 }
 
 /// The preview again with `key` as its reason, as 422 in the step.
@@ -118,5 +119,5 @@ fn ask(locale: Locale, id: &str, target: &str) -> Response {
 async fn refusal(visit: &Visit<'_>, key: MessageKey) -> Answer {
     let locale = visit.services().user().locale();
     let panel = Panel::new(visit).await.refusing(tr(locale, key, None));
-    refused(&panel).into()
+    screen::refused(&panel).into()
 }

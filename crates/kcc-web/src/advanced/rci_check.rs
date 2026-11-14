@@ -9,7 +9,9 @@ use serde_json::{Value, json};
 
 use super::check::{MAX_BATCH, Problem, from_issues};
 use crate::page_kit::{
-    audit::field_names, confirm::Confirmation, failure::method_name, stakes::Stakes,
+    audit::field_names,
+    confirm::{Confirmation, Stakes},
+    failure::method_name,
 };
 
 /// Longest body text read from the console.

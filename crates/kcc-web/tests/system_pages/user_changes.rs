@@ -45,13 +45,20 @@ async fn tags_change_and_a_delete_needs_the_typed_name() -> TestResult {
     );
     let delete = format!("{PAGE}/delete");
     let asked = text(fixture.get(&format!("{delete}?name=lab"), &admin).await?).await?;
-    assert!(asked.contains("name=\"confirm\""), "typed name: {asked}");
+    assert!(
+        asked.contains("name=\"confirm_name\""),
+        "typed name: {asked}"
+    );
     let before = fixture.handle().request_count();
     let mistyped = fixture
         .post(
             &delete,
             &admin,
-            &form(&[("name", "lab"), ("confirm", "Lab")]),
+            &form(&[
+                ("object", "lab"),
+                ("confirm", "yes"),
+                ("confirm_name", "Lab"),
+            ]),
         )
         .await?;
     assert_eq!(mistyped.status(), StatusCode::UNPROCESSABLE_ENTITY, "422");
@@ -65,7 +72,11 @@ async fn tags_change_and_a_delete_needs_the_typed_name() -> TestResult {
         .post(
             &delete,
             &admin,
-            &form(&[("name", "admin"), ("confirm", "admin")]),
+            &form(&[
+                ("object", "admin"),
+                ("confirm", "yes"),
+                ("confirm_name", "admin"),
+            ]),
         )
         .await?;
     assert!(
@@ -79,7 +90,11 @@ async fn tags_change_and_a_delete_needs_the_typed_name() -> TestResult {
         .post(
             &delete,
             &admin,
-            &form(&[("name", "lab"), ("confirm", "lab")]),
+            &form(&[
+                ("object", "lab"),
+                ("confirm", "yes"),
+                ("confirm_name", "lab"),
+            ]),
         )
         .await?;
     assert_eq!(
@@ -156,7 +171,11 @@ async fn a_delete_the_domain_refuses_is_audited_with_its_reason() -> TestResult 
         .post(
             &format!("{PAGE}/delete"),
             &admin,
-            &form(&[("name", "admin"), ("confirm", "admin")]),
+            &form(&[
+                ("object", "admin"),
+                ("confirm", "yes"),
+                ("confirm_name", "admin"),
+            ]),
         )
         .await?;
     assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY, "422");

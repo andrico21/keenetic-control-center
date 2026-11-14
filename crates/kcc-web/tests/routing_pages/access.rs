@@ -60,7 +60,11 @@ const CHANGES: [(&str, &[(&str, &str)]); 17] = [
     ),
     (
         "/ui/r/home/routing/policy/delete",
-        &[("name", "Policy0"), ("confirm", "Policy0")],
+        &[
+            ("object", "Policy0"),
+            ("confirm", "yes"),
+            ("confirm_name", "Policy0"),
+        ],
     ),
     (
         "/ui/r/home/nat/forward/new",

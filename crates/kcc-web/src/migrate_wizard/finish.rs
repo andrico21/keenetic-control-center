@@ -17,7 +17,6 @@ use kcc_migrate::apply::{Applier, ApplyError};
 
 use super::{
     access::{Services, Visit},
-    confirm::{Confirm, Dialog, Words, refused},
     kinds::Step,
     preview::commit_permissions,
     results::{Panel, ROLLBACK},
@@ -32,6 +31,7 @@ use crate::{
     errors::{self, Kind},
     page_kit::{
         audit::Record as Audit,
+        confirm::{Ask, Confirmation, Dialog, Resubmit, Typed, Words},
         context::{Refusal, fragment_shell},
         gate::allowed,
         respond::Answer,
@@ -74,7 +74,7 @@ pub(super) async fn rollback(
     Path(id): Path<String>,
     Extension(wizards): Extension<Arc<Wizards>>,
     user: CurrentUser,
-    Form(form): Form<Confirm>,
+    Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
     let visit = Visit::open(services, &wizards, &id)
@@ -97,7 +97,9 @@ pub(super) async fn rollback(
             String::new()
         };
         let action = format!("/ui/migrate/{id}/rollback");
-        return Ok(Dialog::new(locale, words, action).with_name(error).show());
+        let asked = Ask::Typed(Typed::router(locale).with_error(error));
+        let resubmit = Resubmit::new(action, "#wizard-step");
+        return Ok(Dialog::new(locale, words, resubmit).asking(asked).show());
     }
     finish(&state, &wizards, &user, (&id, Choice::Rollback)).await
 }
@@ -169,7 +171,7 @@ async fn finish(
         }
         let reason = tr(locale, failure_text(error), None);
         let panel = Panel::new(&visit).await.refusing(reason);
-        return Err(refused(&panel).into());
+        return Err(screen::refused(&panel).into());
     }
     let done: Option<Applier> = slot.take();
     drop(slot);

@@ -31,13 +31,10 @@ use crate::{
     authz::CurrentUser,
     brackets,
     errors::{self, Kind},
-    migrate_wizard::{
-        access::Services,
-        confirm::{Confirm, Dialog, Words, refused},
-        service::Wizards,
-    },
+    migrate_wizard::{access::Services, screen::refused, service::Wizards},
     page_kit::{
         audit::Record as Audit,
+        confirm::{Ask, Confirmation, Dialog, Resubmit, Typed, Words},
         context::{Refusal, fragment_shell},
         gate::allowed,
         respond::Answer,
@@ -79,7 +76,7 @@ pub(super) async fn finish(
     Path((id, way)): Path<(String, String)>,
     Extension(runs): Extension<Arc<Wizards>>,
     user: CurrentUser,
-    Form(form): Form<Confirm>,
+    Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
     let choice = match way.as_str() {
         "keep" => Choice::Keep,
@@ -112,7 +109,9 @@ pub(super) async fn finish(
             String::new()
         };
         let action = format!("/ui/presets/runs/{id}/rollback");
-        return Ok(Dialog::new(locale, words, action).with_name(error).show());
+        let asked = Ask::Typed(Typed::router(locale).with_error(error));
+        let resubmit = Resubmit::new(action, "#wizard-step");
+        return Ok(Dialog::new(locale, words, resubmit).asking(asked).show());
     }
     let (action, needed, finished) = choice.facts();
     let audit = Audit::on_router(action, &target, id.clone());

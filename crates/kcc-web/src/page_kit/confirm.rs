@@ -1,38 +1,67 @@
 //! Confirmations: what a submitted form says about its confirmation, whether a request may
-//! run, and the dialog that asks first.
+//! run, and the one dialog that asks first (`partials/kit_confirm.html`).
 //!
-//! The dialog's confirm button sends the original request again with `confirm=yes` (and
-//! the typed router name for destructive changes), so the server decides every time;
-//! nothing is trusted because a dialog was shown. The original form's values travel by
-//! `hx-include` from the page, so a typed secret never passes through the dialog.
+//! The dialog's confirm button sends the original request again with `confirm=yes` and,
+//! when a name must be typed, the typed name as `confirm_name`, so the server decides every
+//! time; nothing is trusted because a dialog was shown. The original form's values travel
+//! by `hx-include` from the page, so a typed secret never passes through the dialog.
+//!
+//! A request's [`Stakes`] give the [`Guard`] a page family puts on it once: the gate checks
+//! a submitted [`Confirmation`] against that guard and the [`Prompt`] asks for exactly what
+//! it checks, so the two cannot disagree. Pages with their own words build the [`Dialog`]
+//! directly: the typed-name delete of an object that is not a router, the configuration
+//! page's destructive actions, the wizards' Apply and Roll back, and the removals of the
+//! routing, port forwarding and firewall pages.
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+mod confirm_tests;
+mod dialog;
+mod prompt;
+mod stakes;
 
 use askama::Template;
-use axum::response::Response;
-use fluent_bundle::FluentArgs;
+use kcc_catalog::Risk;
 use kcc_domain::configuration::MANAGEMENT_SECONDS;
-use kcc_i18n::{
-    bundle::{MessageKey, tr},
-    keys,
-    locale::Locale,
-};
+use kcc_i18n::{bundle::MessageKey, keys};
+use serde::Deserialize;
 
-use super::{context::fragment_shell, family::Family, respond, stakes::Guard};
-use crate::{
-    errors,
-    page::{Localize as _, Shell},
-    page_kit::request::last,
-};
+use super::{family::Family, request::last};
+use crate::page::{Localize as _, Shell};
 
 /// Minutes the fail-safe timer runs while a management change is applied.
 pub(crate) const FAIL_SAFE_MINUTES: u64 = MANAGEMENT_SECONDS.div_euclid(60);
 
-/// The confirmation a submitted form carries.
-#[derive(Debug, Clone, Default)]
+/// The confirmation a submitted form carries: `confirm` and `confirm_name`.
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(from = "Sent")]
 pub(crate) struct Confirmation {
     /// Whether the dialog's confirm button sent the form.
     confirmed: bool,
-    /// The router name typed into the dialog.
+    /// The name typed into the dialog.
     name: Option<String>,
+}
+
+/// The dialog's fields as sent, before they are read.
+#[derive(Deserialize)]
+struct Sent {
+    /// `yes` from the dialog's confirm button.
+    #[serde(default)]
+    confirm: Option<String>,
+    /// The name typed into the dialog.
+    #[serde(default)]
+    confirm_name: Option<String>,
+}
+
+impl From<Sent> for Confirmation {
+    fn from(sent: Sent) -> Self {
+        Self::new(sent.confirm.as_deref(), sent.confirm_name.as_deref())
+    }
 }
 
 impl Confirmation {
@@ -54,9 +83,35 @@ impl Confirmation {
         self.confirmed
     }
 
-    /// The router name typed into the dialog, trimmed.
+    /// The name typed into the dialog, trimmed.
     pub(crate) fn name(&self) -> Option<&str> {
         self.name.as_deref()
+    }
+}
+
+/// The answer to a typed-name dialog: the object the dialog asked about, and its name
+/// typed back.
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct TypedNameForm {
+    /// The name of the object the dialog asked about.
+    object: String,
+    /// `yes` from the dialog's confirm button.
+    confirm: String,
+    /// The name as typed by the user.
+    confirm_name: String,
+}
+
+impl TypedNameForm {
+    /// The name of the object the dialog asked about.
+    pub(crate) fn name(&self) -> &str {
+        &self.object
+    }
+
+    /// Whether the dialog was confirmed with the object's name typed exactly.
+    pub(crate) fn confirmed(&self) -> bool {
+        let confirmation = Confirmation::new(Some(&self.confirm), Some(&self.confirm_name));
+        confirmation.confirmed() && confirmation.name() == Some(self.object.as_str())
     }
 }
 
@@ -100,38 +155,70 @@ impl Resubmit {
     }
 }
 
-/// The confirmation dialog.
+/// A dialog's words, localized: its title, the explanation and the confirm button.
+pub(crate) struct Words {
+    /// The title.
+    title: String,
+    /// The explanation.
+    text: String,
+    /// The confirm button.
+    button: String,
+}
+
+/// What the dialog's form sends besides the original request.
+pub(crate) enum Ask {
+    /// Nothing: the button alone confirms (a removal on the routing, port forwarding and
+    /// firewall pages).
+    Button,
+    /// `confirm=yes`.
+    Acknowledge,
+    /// `confirm=yes` and the name typed as `confirm_name`.
+    Typed(Typed),
+}
+
+/// The name field of a dialog that needs a name typed.
+pub(crate) struct Typed {
+    /// The field's localized label.
+    label: String,
+    /// Localized instruction under the field, empty when the text already gives it.
+    help: String,
+    /// Localized mismatch or refusal message, empty when none.
+    error: String,
+    /// The name of the object the dialog asks about, sent back as `object` for a handler
+    /// that has no other way to know it.
+    object: Option<String>,
+}
+
+/// What the dialog says about saving the request.
+pub(crate) enum Saved {
+    /// Nothing.
+    Unsaid,
+    /// The router persists the request at once.
+    Persists,
+    /// The router persists part of the request at once: the localized explanation naming
+    /// the persisted paths.
+    Mixed(String),
+}
+
+/// The confirmation dialog, shown in the shared `<dialog>`.
 #[derive(Template)]
 #[template(path = "partials/kit_confirm.html")]
-struct Dialog {
+pub(crate) struct Dialog {
     /// Locale carrier.
     shell: Shell,
-    /// Localized title.
-    title: String,
-    /// Localized explanation.
-    text: String,
-    /// Whether the router name must be typed.
-    needs_name: bool,
-    /// Localized instruction under the name field, empty when the text already gives it.
-    name_help: String,
-    /// Localized mismatch error, empty when none.
-    name_error: String,
+    /// The words.
+    words: Words,
+    /// Message key of the explanation, as the stable marker of a kit confirmation.
+    text_key: Option<MessageKey>,
+    /// What the dialog says about saving.
+    saved: Saved,
+    /// Lists under the text, such as what a delete removes and what it keeps: each a lead
+    /// sentence and the object names it introduces.
+    lists: Vec<(String, Vec<String>)>,
     /// Where confirm sends the request.
     resubmit: Resubmit,
-    /// Whether the change is destructive (the confirm button's style).
-    destructive: bool,
-    /// The confirm button.
-    confirm: MessageKey,
-    /// Whether the router persists the request at once.
-    persists: bool,
-    /// Persisted leaf paths when the rest still needs a save.
-    persisted_paths: Vec<String>,
-    /// Localized mixed-persistence explanation.
-    mixed_persistence: String,
-    /// Message selected for the pre-run notice and its stable HTML marker.
-    mixed_key: MessageKey,
-    /// Message selected for the confirmation paragraph.
-    text_key: MessageKey,
+    /// What the form sends.
+    ask: Ask,
 }
 
 localized!(Dialog);
@@ -152,177 +239,29 @@ pub(crate) struct Prompt {
     persisted_paths: Vec<String>,
 }
 
-impl Prompt {
-    /// Asks on `router` for the confirmation `guard` checks, in `family`'s words; only the
-    /// gate's own decision makes one (`Family::ask`).
-    pub(super) fn new(family: Family, guard: Guard, router: &str) -> Self {
-        Self {
-            family,
-            guard,
-            router: router.to_owned(),
-            wrong_name: false,
-            persists: false,
-            persisted_paths: Vec::new(),
-        }
-    }
-
-    /// Reports that the typed router name did not match.
-    pub(super) const fn with_wrong_name(mut self, wrong_name: bool) -> Self {
-        self.wrong_name = wrong_name;
-        self
-    }
-
-    /// Labels a request the router persists at once (no save, no fail-safe rollback).
-    pub(crate) const fn with_persists(mut self, persists: bool) -> Self {
-        self.persists = persists;
-        self
-    }
-
-    /// Labels persisted leaf paths when the rest of the request still needs a save.
-    pub(crate) fn with_persisted_paths(mut self, persisted_paths: Vec<String>) -> Self {
-        self.persisted_paths = persisted_paths;
-        self
-    }
-
-    /// The dialog, shown in the shared `<dialog>`; confirming sends `resubmit`.
-    pub(crate) fn render(self, resubmit: Resubmit, locale: Locale) -> Response {
-        let mut args = FluentArgs::new();
-        args.set("router", self.router.clone());
-        args.set("name", self.router.clone());
-        args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-        let (title, unsaved_text) = self.family.dialog(self.guard);
-        // The router saves such a change itself, so the dialog does not call it unsaved.
-        let text = if self.persists && self.guard == Guard::Write {
-            keys::WEB_EXPLORER_CONFIRM_PERSIST_TEXT
-        } else if !self.persisted_paths.is_empty() && self.guard == Guard::Write {
-            keys::WEB_EXPLORER_CONFIRM_MIXED_TEXT
-        } else {
-            unsaved_text
-        };
-        let needs_name = self.guard.needs_name();
-        // The timer's text does not ask for the name, so the field says what to type.
-        let name_help = if self.guard == Guard::DestructiveManagement {
-            tr(locale, keys::WEB_ADMIN_CONFIRM_HELP, Some(&args))
-        } else {
-            String::new()
-        };
-        let mixed_key = keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE;
-        let mixed_persistence = if self.persisted_paths.is_empty() {
-            String::new()
-        } else {
-            let mut mixed_args = FluentArgs::new();
-            mixed_args.set("paths", self.persisted_paths.join(", "));
-            tr(locale, mixed_key, Some(&mixed_args))
-        };
-        let dialog = Dialog {
-            shell: fragment_shell(locale),
-            title: tr(locale, title, Some(&args)),
-            text: tr(locale, text, Some(&args)),
-            needs_name,
-            name_help,
-            name_error: if self.wrong_name {
-                tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&args))
-            } else {
-                String::new()
-            },
-            resubmit,
-            destructive: needs_name,
-            confirm: self.family.confirm(),
-            persists: self.persists,
-            persisted_paths: self.persisted_paths,
-            mixed_persistence,
-            mixed_key,
-            text_key: text,
-        };
-        respond::in_dialog(errors::render(&dialog))
-    }
+/// What a request puts at stake: its catalog risk and whether it can change how kcc
+/// reaches the router, which runs it inside the recovery timer.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Stakes {
+    /// The request's risk.
+    risk: Risk,
+    /// Whether it can change how kcc reaches the router, so it runs inside the recovery
+    /// timer.
+    management: bool,
 }
 
-#[cfg(test)]
-#[expect(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    reason = "test code is not rendered API documentation"
-)]
-#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
-mod tests {
-    use core::error::Error;
-
-    use axum::body::to_bytes;
-    use fluent_bundle::FluentArgs;
-    use kcc_i18n::{bundle::tr, keys, locale::Locale};
-
-    use super::{FAIL_SAFE_MINUTES, Prompt, Resubmit};
-    use crate::page_kit::{family::Family, stakes::Guard};
-
-    /// Mixed persistence never replaces the management risk warning.
-    // cancel-safe: only renders and reads an in-memory response body.
-    #[tokio::test]
-    async fn mixed_management_keeps_management_paragraph() -> Result<(), Box<dyn Error>> {
-        let response = Prompt::new(Family::Commands, Guard::Management, "home")
-            .with_persisted_paths(vec!["system country".to_owned()])
-            .render(
-                Resubmit::new("/ui/r/home/console/rci/send".to_owned(), "#rci-result"),
-                Locale::En,
-            );
-        let body = to_bytes(response.into_body(), 0x0001_0000).await?;
-        let page = String::from_utf8(body.to_vec())?;
-        assert!(page.contains("data-message-key=\"web-explorer-confirm-management-text\""));
-        assert!(!page.contains("data-message-key=\"web-explorer-confirm-mixed-text\""));
-        Ok(())
-    }
-
-    /// The prompt for `guard` on the router `home`, as served.
-    async fn prompt(guard: Guard) -> Result<(Option<String>, String), Box<dyn Error>> {
-        let resubmit = Resubmit::new("/ui/r/home/system/general/http".to_owned(), "#page-outcome");
-        let response = Prompt::new(Family::Changes, guard, "home").render(resubmit, Locale::En);
-        let target = response
-            .headers()
-            .get("hx-retarget")
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned);
-        let body = to_bytes(response.into_body(), 0x0001_0000).await?;
-        Ok((target, String::from_utf8(body.to_vec())?))
-    }
-
-    #[tokio::test]
-    async fn management_explains_the_timer_and_destructive_asks_for_the_name()
-    -> Result<(), Box<dyn Error>> {
-        let mut args = FluentArgs::new();
-        args.set("router", "home");
-        args.set("minutes", FAIL_SAFE_MINUTES.to_string());
-        let (target, management) = prompt(Guard::Management).await?;
-        assert_eq!(target.as_deref(), Some("#dialog-content"), "in the dialog");
-        let text = tr(
-            Locale::En,
-            keys::WEB_KIT_CONFIRM_MANAGEMENT_TEXT,
-            Some(&args),
-        )
-        .replace('\'', "&#39;");
-        assert!(
-            management.contains(&text),
-            "the fail-safe timer: {management}"
-        );
-        assert!(
-            management
-                .contains("hx-post=\"/ui/r/home/system/general/http\" hx-target=\"#page-outcome\""),
-            "confirming sends the request again"
-        );
-        assert!(
-            management.contains("<input type=\"hidden\" name=\"confirm\" value=\"yes\">"),
-            "with the confirmation"
-        );
-        assert!(!management.contains("confirm_name"), "no name to type");
-        assert!(
-            management.contains("button--primary"),
-            "not a danger button"
-        );
-        let (_, destructive) = prompt(Guard::Destructive).await?;
-        assert!(
-            destructive.contains("name=\"confirm_name\""),
-            "the router name"
-        );
-        assert!(destructive.contains("button--danger"), "a danger button");
-        Ok(())
-    }
+/// What confirming a request takes, and what its dialog explains.
+///
+/// A destructive management change needs the router name typed and runs inside the timer;
+/// its one dialog says both.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Guard {
+    /// The confirm button; the dialog describes the change.
+    Write,
+    /// The confirm button; the dialog explains the recovery timer.
+    Management,
+    /// The router name typed; the dialog says the change cannot be undone.
+    Destructive,
+    /// The router name typed; the dialog explains the recovery timer the change runs in.
+    DestructiveManagement,
 }

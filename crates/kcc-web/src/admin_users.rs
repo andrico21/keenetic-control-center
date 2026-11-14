@@ -45,10 +45,10 @@ use crate::{
     nav::Section,
     page::{LocaleOption, Localize as _, Shell, Theme},
     page_kit::{
+        confirm::{Dialog, TypedNameForm},
         context::{Caller, fragment_shell},
         outcome::Toast,
         respond,
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
     table::pager::{Pager, shown_page},
 };
@@ -743,9 +743,9 @@ fn role_dialog_for(
 }
 
 /// The typed-name delete confirmation for `username`.
-fn delete_confirmation(user: &CurrentUser, username: &str) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(user.locale()),
+fn delete_confirmation(user: &CurrentUser, username: &str) -> Dialog {
+    Dialog::typed_name(
+        user.locale(),
         "/ui/admin/users/delete".to_owned(),
         username,
         (

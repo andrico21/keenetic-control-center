@@ -20,12 +20,11 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        context::fragment_shell,
+        confirm::{Dialog, TypedNameForm},
         request::{Params, missing},
         respond,
         respond::Answer,
         submit::{self, Invalid, Planned, Submission},
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
 
@@ -33,9 +32,9 @@ use crate::{
 const DELETE: Operation = Operation::write(&wan::DESCRIPTOR, "delete", "web.wan_delete");
 
 /// The typed-name confirmation deleting `name` on `router` in `locale`.
-fn delete_dialog(router: &str, name: &str, locale: Locale) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(locale),
+fn delete_dialog(router: &str, name: &str, locale: Locale) -> Dialog {
+    Dialog::typed_name(
+        locale,
         format!("/ui/r/{router}/internet/delete"),
         name,
         (
@@ -47,7 +46,7 @@ fn delete_dialog(router: &str, name: &str, locale: Locale) -> TypedNameDialog {
 
 /// The typed-name confirmation, as the form of the deletion: a mistyped name is shown
 /// in it.
-struct DeleteForm(TypedNameDialog);
+struct DeleteForm(Dialog);
 
 impl submit::Form for DeleteForm {
     fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
@@ -104,7 +103,7 @@ pub(crate) async fn delete(
         .submit(
             |_params| {
                 form.confirmed()
-                    .ok_or_else(|| Invalid::at("confirm", keys::WEB_ADMIN_ERROR_CONFIRM))
+                    .ok_or_else(|| Invalid::at("confirm_name", keys::WEB_ADMIN_ERROR_CONFIRM))
             },
             async |(), domain| {
                 let operation = wan::plan_delete(domain, &name).await?;

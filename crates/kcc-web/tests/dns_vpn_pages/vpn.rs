@@ -119,10 +119,14 @@ async fn a_connection_is_created_switched_and_deleted() -> TestResult {
     )
     .await?;
     assert!(
-        asked.contains("name=\"confirm\""),
+        asked.contains("name=\"confirm_name\""),
         "the name to type: {asked}"
     );
-    let wrong = form(&[("name", "Wireguard3"), ("confirm", "Wireguard")]);
+    let wrong = form(&[
+        ("object", "Wireguard3"),
+        ("confirm", "yes"),
+        ("confirm_name", "Wireguard"),
+    ]);
     let mistyped = fixture
         .post(&format!("{PAGE}/delete"), &operator, &wrong)
         .await?;
@@ -131,7 +135,11 @@ async fn a_connection_is_created_switched_and_deleted() -> TestResult {
         StatusCode::UNPROCESSABLE_ENTITY,
         "names are exact"
     );
-    let right = form(&[("name", "Wireguard3"), ("confirm", "Wireguard3")]);
+    let right = form(&[
+        ("object", "Wireguard3"),
+        ("confirm", "yes"),
+        ("confirm_name", "Wireguard3"),
+    ]);
     let deleted = fixture
         .post(&format!("{PAGE}/delete"), &operator, &right)
         .await?;
@@ -285,7 +293,11 @@ async fn management_tunnel_changes_are_refused_or_bracketed() -> TestResult {
             let body = if change == "state" {
                 form(&[("tunnel", "Wireguard7"), ("enabled", "off")])
             } else {
-                form(&[("name", "Wireguard7"), ("confirm", "Wireguard7")])
+                form(&[
+                    ("object", "Wireguard7"),
+                    ("confirm", "yes"),
+                    ("confirm_name", "Wireguard7"),
+                ])
             };
             for account in ["viewer"] {
                 let browser = fixture.login(account).await?;

@@ -10,11 +10,12 @@
 //!   fleet switcher with that router selected.
 //! - [`gate`]: the permissions an operation needs; [`gate::Controls`] hides what the role
 //!   may not do and every handler checks again before it acts.
-//! - [`family`] and [`confirm`]: which changes ask first and in which words; management
-//!   changes explain the fail-safe timer, destructive ones need the router name typed.
-//!   [`stakes`] is the one decision both follow, so a destructive management change asks
-//!   for the name in the timer's words. [`typed_name`] is the same for objects that are
-//!   not routers.
+//! - [`confirm`]: which changes ask first and in which words, and the one confirmation
+//!   dialog; management changes explain the fail-safe timer, destructive ones need the
+//!   router name typed. A request's stakes are the one decision the gate and the dialog
+//!   follow, so a destructive management change asks for the name in the timer's words.
+//!   The typed-name delete of objects that are not routers uses the same dialog.
+//! - [`family`]: the page family, whose words the confirmations and the outcomes use.
 //! - [`outcome`] and [`failure`]: a success toast and the unsaved badge, or a localized
 //!   error with the router's own message in a collapsible "router said" block.
 //! - [`change`]: the change workflow run (backup, conflict check, read-back, audit), with
@@ -51,6 +52,4 @@ pub(crate) mod respond;
 )]
 pub(crate) mod reveal;
 pub(crate) mod secret;
-pub(crate) mod stakes;
 pub(crate) mod submit;
-pub(crate) mod typed_name;

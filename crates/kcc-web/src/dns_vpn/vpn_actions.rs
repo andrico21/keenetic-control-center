@@ -28,14 +28,13 @@ use crate::{
     page_kit::{
         action::{Action, Operation},
         change::Change,
-        context::fragment_shell,
+        confirm::{Dialog, TypedNameForm},
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
         request::{Params, missing, shown_query},
         respond::{self, Answer},
         submit::{self, Formless, Invalid, Planned, Submission},
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
 
@@ -161,7 +160,7 @@ pub(crate) async fn delete(
         Some(name) if form.confirmed() => {
             Ok(Changes::Clients(vec![VpnClientChange::Delete { name }]))
         }
-        Some(_) => Err(Invalid::at("confirm", keys::WEB_ADMIN_ERROR_CONFIRM)),
+        Some(_) => Err(Invalid::at("confirm_name", keys::WEB_ADMIN_ERROR_CONFIRM)),
         None => Err(Invalid::at("name", keys::WEB_VPN_ERROR_NAME)),
     };
     let params = Params::of(Vec::new());
@@ -195,13 +194,13 @@ async fn known<'call>(action: Action<'call>, name: &str) -> Result<(Action<'call
 
 /// The typed-name confirmation, as the form of the deletion: a mistyped name is shown in
 /// it, a connection the router does not have is 404.
-struct DeleteForm(TypedNameDialog);
+struct DeleteForm(Dialog);
 
 impl submit::Form for DeleteForm {
     fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
         let Self(mut dialog) = self;
         for (field, rule) in invalid.into_findings() {
-            if field != "confirm" {
+            if field != "confirm_name" {
                 return missing().into_response();
             }
             dialog.set_error(tr(locale, rule, None));
@@ -211,9 +210,9 @@ impl submit::Form for DeleteForm {
 }
 
 /// The typed-name confirmation deleting the connection `name` of `router`.
-fn confirmation(locale: Locale, router: &str, name: &str) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(locale),
+fn confirmation(locale: Locale, router: &str, name: &str) -> Dialog {
+    Dialog::typed_name(
+        locale,
         format!("/ui/r/{router}/vpn/delete"),
         name,
         (keys::WEB_VPN_DELETE_TITLE, keys::WEB_VPN_DELETE_TEXT),

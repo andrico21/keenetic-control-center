@@ -32,14 +32,11 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
-    migrate_wizard::{
-        access::Services,
-        confirm::{Confirm, Dialog, Words, refused},
-        service::Wizards,
-    },
+    migrate_wizard::{access::Services, screen::refused, service::Wizards},
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record as Audit,
+        confirm::{Confirmation, Dialog, Resubmit, Words},
         context::{Refusal, fragment_shell},
         outcome::Toast,
         respond::Answer,
@@ -102,7 +99,7 @@ pub(super) async fn apply(
     Path(id): Path<String>,
     Extension(runs): Extension<Arc<Wizards>>,
     user: CurrentUser,
-    Form(form): Form<Confirm>,
+    Form(form): Form<Confirmation>,
 ) -> Result<Response, Answer> {
     let services = Services::of(&state, &user).map_err(Refusal::status)?;
     let mut visit = Visit::open(services, &runs, &id)
@@ -132,7 +129,8 @@ pub(super) async fn apply(
             tr(locale, keys::WEB_PRESETS_APPLY_CONFIRM_TEXT, Some(&args)),
             tr(locale, keys::WEB_PRESETS_APPLY_BUTTON, None),
         );
-        return Ok(Dialog::new(locale, words, format!("/ui/presets/runs/{id}/apply")).show());
+        let resubmit = Resubmit::new(format!("/ui/presets/runs/{id}/apply"), "#wizard-step");
+        return Ok(Dialog::new(locale, words, resubmit).show());
     }
     if !runs.claim(&target, &id) {
         audit.append(&state, &user, "busy").await;

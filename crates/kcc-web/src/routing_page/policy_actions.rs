@@ -32,12 +32,11 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        context::fragment_shell,
+        confirm::{Dialog, TypedNameForm},
         request::{Params, missing},
         respond,
         respond::Answer,
         submit::{self, Formless, Invalid, Planned},
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
 
@@ -225,7 +224,7 @@ pub(crate) async fn delete(
 }
 
 /// The typed-name confirmation of a deletion, shown again with why it was not enough.
-struct Confirming(TypedNameDialog);
+struct Confirming(Dialog);
 
 impl submit::Form for Confirming {
     fn answer_invalid(self, invalid: Invalid, locale: Locale) -> Response {
@@ -238,9 +237,9 @@ impl submit::Form for Confirming {
 }
 
 /// The typed-name confirmation deleting the policy `name` of `router`.
-fn confirmation(locale: Locale, router: &str, name: &str) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(locale),
+fn confirmation(locale: Locale, router: &str, name: &str) -> Dialog {
+    Dialog::typed_name(
+        locale,
         format!("/ui/r/{router}/routing/policy/delete"),
         name,
         (

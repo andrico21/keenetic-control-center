@@ -22,14 +22,13 @@ use serde_json::{Value, json};
 use super::{
     audit::Record,
     change::{self, Applied, Change, Landed, Plan, Refused},
-    confirm::{Confirmation, Resubmit},
+    confirm::{Confirmation, Resubmit, Stakes},
     context::{self, Target, fragment_shell},
     facts::{FactsError, RouterFacts},
     family::Family,
     gate::allowed,
     outcome::{Failure, Outcome},
     respond::Answer,
-    stakes::Stakes,
     submit::{Planned, work::Job},
 };
 use crate::{
@@ -188,8 +187,8 @@ impl<'call> Action<'call> {
         resubmit: Resubmit,
     ) -> Option<Response> {
         let effective = risk.max(self.descriptor.risk);
-        self.family
-            .ask(Stakes::new(effective), confirmation, self.router())
+        Stakes::new(effective)
+            .ask(self.family, confirmation, self.router())
             .map(|prompt| prompt.render(resubmit, self.locale()))
     }
 

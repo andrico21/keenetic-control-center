@@ -22,7 +22,7 @@ use super::{
 };
 use crate::{
     errors,
-    page::{Localize as _, Shell},
+    page::{Localize, Shell},
     page_kit::respond,
 };
 
@@ -158,4 +158,16 @@ fn summary(record: &Record, locale: Locale) -> Vec<Fact> {
         value: target.to_owned(),
     });
     source.into_iter().chain(target).collect()
+}
+
+/// `panel` as the step's answer to a confirmed request that failed (422): shown in the
+/// step, whatever the request targeted, with the dialog closed.
+pub(crate) fn refused<T>(panel: &T) -> Response
+where
+    T: Template + Localize,
+{
+    respond::close_dialog(respond::retarget(
+        respond::unprocessable(panel),
+        "#wizard-step",
+    ))
 }

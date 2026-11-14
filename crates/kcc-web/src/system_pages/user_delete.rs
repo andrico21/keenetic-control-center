@@ -27,13 +27,11 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        confirm::Resubmit,
-        context::fragment_shell,
+        confirm::{Dialog, Resubmit, TypedNameForm},
         outcome::Failure,
         request::{Params, missing, shown_query},
         respond::{self, Answer},
         submit::{self, Invalid, Planned, Submission, unplanned::Unplanned},
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
 
@@ -45,9 +43,9 @@ const DELETE: Operation = Operation::write(
 );
 
 /// The typed-name dialog deleting the account `name` of `router`.
-fn confirmation(router: &str, locale: Locale, name: &str) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(locale),
+fn confirmation(router: &str, locale: Locale, name: &str) -> Dialog {
+    Dialog::typed_name(
+        locale,
         format!("/ui/r/{router}/system/users/delete"),
         name,
         (
@@ -128,7 +126,7 @@ pub(crate) async fn delete(
 }
 
 /// The typed-name dialog as the form of a delete: a refusal comes back into it.
-struct Deleting(TypedNameDialog);
+struct Deleting(Dialog);
 
 impl submit::Form for Deleting {
     fn answer_invalid(self, _invalid: Invalid, _locale: Locale) -> Response {

@@ -44,7 +44,7 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
         "interface Bridge23",
         "ip dhcp pool Pool23",
         "GigabitEthernet0/1",
-        "name=\"name\" value=\"home\"",
+        "name=\"object\" value=\"home\"",
     ] {
         assert!(dialog.contains(expected), "{expected} in {dialog}");
     }
@@ -53,7 +53,7 @@ async fn a_created_segment_is_listed_then_deleted_back_to_the_start() -> TestRes
         "{action}"
     );
     let deleted = fixture
-        .post(&action, &admin, "name=home&confirm=home")
+        .post(&action, &admin, "object=home&confirm=yes&confirm_name=home")
         .await?;
     assert_eq!(deleted.status(), StatusCode::OK, "deleted");
     assert_eq!(
@@ -113,7 +113,7 @@ async fn a_partial_segment_is_listed_and_deletable() -> TestResult {
     assert!(listed.contains(&said(keys::COMMON_NO)), "no NAT: {listed}");
     let (_dialog, action) = delete_dialog(&fixture, &admin, "23").await?;
     let deleted = fixture
-        .post(&action, &admin, "name=home&confirm=home")
+        .post(&action, &admin, "object=home&confirm=yes&confirm_name=home")
         .await?;
     assert_eq!(deleted.status(), StatusCode::OK, "deleted");
     let answer = text(deleted).await?;

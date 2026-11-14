@@ -36,10 +36,10 @@ use crate::{
     nav::Section,
     page::{Localize as _, Shell},
     page_kit::{
+        confirm::{Dialog, TypedNameForm},
         context::{Caller, fragment_shell},
         outcome::Toast,
         respond,
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
     table::pager::{Pager, shown_page},
 };
@@ -424,9 +424,9 @@ fn new_key_dialog(
 }
 
 /// The typed-name revoke confirmation for `name`.
-fn confirmation(user: &CurrentUser, name: &str) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(user.locale()),
+fn confirmation(user: &CurrentUser, name: &str) -> Dialog {
+    Dialog::typed_name(
+        user.locale(),
         "/ui/admin/api-keys/revoke".to_owned(),
         name,
         (

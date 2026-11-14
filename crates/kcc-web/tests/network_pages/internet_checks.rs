@@ -124,7 +124,7 @@ async fn deleting_needs_the_connection_name() -> TestResult {
     )
     .await?;
     assert!(
-        asked.contains("name=\"confirm\""),
+        asked.contains("name=\"confirm_name\""),
         "the name field: {asked}"
     );
     let before = fixture.handle().request_count();
@@ -132,7 +132,11 @@ async fn deleting_needs_the_connection_name() -> TestResult {
         .post(
             &format!("{PAGE}/delete"),
             &operator,
-            &form(&[("name", "PPPoE0"), ("confirm", "pppoe0")]),
+            &form(&[
+                ("object", "PPPoE0"),
+                ("confirm", "yes"),
+                ("confirm_name", "pppoe0"),
+            ]),
         )
         .await?;
     assert_eq!(
@@ -151,7 +155,11 @@ async fn deleting_needs_the_connection_name() -> TestResult {
         .post(
             &format!("{PAGE}/delete"),
             &operator,
-            &form(&[("name", "PPPoE0"), ("confirm", "PPPoE0")]),
+            &form(&[
+                ("object", "PPPoE0"),
+                ("confirm", "yes"),
+                ("confirm_name", "PPPoE0"),
+            ]),
         )
         .await?;
     assert_eq!(deleted.status(), StatusCode::OK, "deleted");

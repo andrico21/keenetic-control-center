@@ -571,7 +571,11 @@ mod tests {
             ),
             (
                 "/ui/admin/users/delete",
-                vec![("name", ADMIN), ("confirm", ADMIN)],
+                vec![
+                    ("object", ADMIN),
+                    ("confirm", "yes"),
+                    ("confirm_name", ADMIN),
+                ],
             ),
         ] {
             let response = fixture.post(&admin, path, &pairs).await?;
@@ -652,7 +656,11 @@ mod tests {
             .post(
                 &carol,
                 "/ui/admin/users/delete",
-                &[("name", ADMIN), ("confirm", ADMIN)],
+                &[
+                    ("object", ADMIN),
+                    ("confirm", "yes"),
+                    ("confirm_name", ADMIN),
+                ],
             )
             .await?;
         assert_eq!(delete.status(), StatusCode::UNPROCESSABLE_ENTITY, "delete");
@@ -662,7 +670,11 @@ mod tests {
             .post(
                 &carol,
                 "/ui/admin/users/delete",
-                &[("name", ADMIN), ("confirm", "alicia")],
+                &[
+                    ("object", ADMIN),
+                    ("confirm", "yes"),
+                    ("confirm_name", "alicia"),
+                ],
             )
             .await?;
         assert_eq!(mistyped.status(), StatusCode::UNPROCESSABLE_ENTITY, "typo");
@@ -725,7 +737,11 @@ mod tests {
             .post(
                 &admin,
                 "/ui/admin/roles/delete",
-                &[("name", "lab-ops"), ("confirm", "lab-ops")],
+                &[
+                    ("object", "lab-ops"),
+                    ("confirm", "yes"),
+                    ("confirm_name", "lab-ops"),
+                ],
             )
             .await?;
         assert_eq!(held.status(), StatusCode::UNPROCESSABLE_ENTITY, "held");
@@ -861,7 +877,11 @@ mod tests {
             .post(
                 &admin,
                 "/ui/admin/api-keys/revoke",
-                &[("name", "probe"), ("confirm", "probe")],
+                &[
+                    ("object", "probe"),
+                    ("confirm", "yes"),
+                    ("confirm_name", "probe"),
+                ],
             )
             .await?;
         assert_eq!(revoked.status(), StatusCode::OK, "revoked");

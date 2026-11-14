@@ -17,6 +17,7 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         action::Action,
+        confirm::{Ask, Dialog, Resubmit, Words},
         context::fragment_shell,
         outcome::{Failure, Outcome, with_status},
         request::rendered,
@@ -27,42 +28,24 @@ use crate::{
 };
 
 /// The confirmation of a removal: what goes and the button that removes it; the answer
-/// lands in the page's outcome region (`partials/routing_confirm.html`).
-#[derive(Template)]
-#[template(path = "partials/routing_confirm.html")]
-pub(crate) struct ConfirmDialog {
-    /// Locale carrier.
-    shell: Shell,
-    /// The question naming the object.
-    title: String,
-    /// What the removal does.
-    text: MessageKey,
-    /// Where the confirming button posts.
-    action: String,
-}
-
-localized!(ConfirmDialog);
+/// lands in the page's outcome region.
+pub(crate) struct ConfirmDialog(Dialog);
 
 impl ConfirmDialog {
     /// The confirmation titled `title` (localized), explained by `text`, posting to
     /// `action`.
-    pub(crate) const fn new(
-        locale: Locale,
-        title: String,
-        text: MessageKey,
-        action: String,
-    ) -> Self {
-        Self {
-            shell: fragment_shell(locale),
+    pub(crate) fn new(locale: Locale, title: String, text: MessageKey, action: String) -> Self {
+        let words = Words::new(
             title,
-            text,
-            action,
-        }
+            tr(locale, text, None),
+            tr(locale, keys::WEB_ROUTING_REMOVE, None),
+        );
+        Self(Dialog::new(locale, words, Resubmit::new(action, "#page-outcome")).asking(Ask::Button))
     }
 
     /// The dialog, the answer to its `GET`.
     pub(crate) fn show(&self) -> Response {
-        respond::in_dialog(errors::render(self))
+        self.0.show()
     }
 }
 

@@ -29,11 +29,10 @@ use crate::{
     errors::refusal,
     page_kit::{
         audit::{Record, field_names},
-        confirm::{Confirmation, Resubmit},
+        confirm::{Confirmation, Resubmit, Stakes},
         family::Family,
         gate::{allowed, command_permissions},
         respond,
-        stakes::Stakes,
     },
 };
 
@@ -77,7 +76,7 @@ pub(crate) async fn execute(
     }
     let confirmation = Confirmation::from_pairs(&pairs);
     let stakes = Stakes::of(built.validated());
-    if let Some(prompt) = Family::Commands.ask(stakes, &confirmation, &router) {
+    if let Some(prompt) = stakes.ask(Family::Commands, &confirmation, &router) {
         let resubmit = Resubmit::new(
             format!("/ui/r/{router}/explorer/execute"),
             "#explorer-result",

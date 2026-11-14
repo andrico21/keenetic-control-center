@@ -1,19 +1,36 @@
-{#- Confirmation of a change; confirm sends the original request again with confirm=yes. -#}
+{#- The one confirmation dialog: confirm sends the original request again with confirm=yes, and the typed name as confirm_name when one is asked for; a removal's button alone confirms. -#}
 {%- import "components.html" as ui -%}
-{% call ui::dialog_body(title) %}
-<p class="dialog__text" data-message-key="{{ text_key.id() }}">{{ text }}</p>
-{%- if persists %}
+{% call ui::dialog_body(words.title) %}
+<p class="dialog__text"{% if let Some(key) = text_key %} data-message-key="{{ key.id() }}"{% endif %}>{{ words.text }}</p>
+{%- match saved %}
+{%- when Saved::Unsaid %}
+{%- when Saved::Persists %}
 <p class="notice" data-tone="info" data-persistence="persists">{{ t(keys::WEB_EXPLORER_PERSISTS_IMMEDIATELY) }}</p>
-{%- else if !persisted_paths.is_empty() %}
-<p class="notice" data-tone="info" data-persistence="mixed" data-message-key="{{ mixed_key.id() }}">{{ mixed_persistence }}</p>
-{%- endif %}
+{%- when Saved::Mixed with (mixed) %}
+<p class="notice" data-tone="info" data-persistence="mixed" data-message-key="{{ keys::WEB_EXPLORER_MIXED_PERSISTENCE_BEFORE.id() }}">{{ mixed }}</p>
+{%- endmatch %}
+{%- for (lead, items) in lists %}
+<p class="dialog__text">{{ lead }}</p>
+<ul class="plain-list">
+  {%- for item in items %}
+  <li><code>{{ item }}</code></li>
+  {%- endfor %}
+</ul>
+{%- endfor %}
 <form class="form" method="post" action="{{ resubmit.action }}" hx-post="{{ resubmit.action }}"{% if let Some(include) = resubmit.include %} hx-include="{{ include }}"{% endif %} hx-target="{{ resubmit.target }}">
+{%- match ask %}
+{%- when Ask::Button %}
+{%- when Ask::Acknowledge %}
   <input type="hidden" name="confirm" value="yes">
-  {%- if needs_name %}
-  {{ ui::field("confirm-name", "confirm_name", t(keys::WEB_EXPLORER_CONFIRM_NAME), "", name_error, "text", "off", name_help) }}
+{%- when Ask::Typed with (typed) %}
+  <input type="hidden" name="confirm" value="yes">
+  {%- if let Some(object) = typed.object %}
+  <input type="hidden" name="object" value="{{ object }}">
   {%- endif %}
+  {{ ui::field("confirm-name", "confirm_name", typed.label, "", typed.error, "text", "off", typed.help) }}
+{%- endmatch %}
   <div class="dialog__actions">
-    <button class="button {% if destructive %}button--danger{% else %}button--primary{% endif %}" type="submit">{{ t(*confirm) }}</button>
+    <button class="button {% if ask.danger() %}button--danger{% else %}button--primary{% endif %}" type="submit">{{ words.button }}</button>
   </div>
 </form>
 {% endcall %}

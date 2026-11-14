@@ -35,14 +35,13 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        context::fragment_shell,
+        confirm::{Dialog, TypedNameForm},
         failure::plan_failure,
         family::Family,
         outcome::{Failure, Outcome},
         request::{Params, missing},
         respond::{self, Answer},
         submit::{self, Invalid, Planned, Submission},
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
 
@@ -211,7 +210,7 @@ async fn find(domain: &RouterCtx, id: u16, locale: Locale) -> Result<Option<Segm
 
 /// The confirmation deleting `view` from `router`: what goes, which ports stay, and the
 /// router's name to type.
-fn confirmation(router: &str, view: &SegmentView, locale: Locale) -> TypedNameDialog {
+fn confirmation(router: &str, view: &SegmentView, locale: Locale) -> Dialog {
     let summary = view.delete_summary();
     let lead = |key: MessageKey, value: u16| {
         let mut args = FluentArgs::new();
@@ -223,8 +222,8 @@ fn confirmation(router: &str, view: &SegmentView, locale: Locale) -> TypedNameDi
         view.id,
         fingerprint(view)
     );
-    TypedNameDialog::new(
-        fragment_shell(locale),
+    Dialog::typed_name(
+        locale,
         action,
         router,
         (
@@ -244,7 +243,7 @@ fn confirmation(router: &str, view: &SegmentView, locale: Locale) -> TypedNameDi
 }
 
 /// `dialog` again with `error`, as 422 in the dialog.
-fn refuse(mut dialog: TypedNameDialog, error: String) -> Answer {
+fn refuse(mut dialog: Dialog, error: String) -> Answer {
     dialog.set_error(error);
     respond::in_dialog(respond::unprocessable(&dialog)).into()
 }

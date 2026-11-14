@@ -162,7 +162,10 @@ pub(crate) async fn send(
         return refusal::refused(locale, &missing, "#rci-result");
     }
     let confirmation = form.confirmation();
-    if let Some(prompt) = Family::Commands.ask(checked.stakes(), &confirmation, &router) {
+    if let Some(prompt) = checked
+        .stakes()
+        .ask(Family::Commands, &confirmation, &router)
+    {
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/rci/send"), "#rci-result")
             .with_include("#rci-form");
         return prompt

@@ -35,12 +35,11 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::{
         audit::Record,
-        confirm::{Confirmation, Resubmit},
+        confirm::{Confirmation, Resubmit, Stakes},
         context::{self, Caller},
         family::Family,
         gate::{allowed, command_permissions},
         respond,
-        stakes::Stakes,
     },
 };
 
@@ -193,7 +192,7 @@ pub(crate) async fn send(
         return refusal::refused(locale, &missing, "#cli-result");
     }
     let confirmation = Confirmation::new(form.confirm.as_deref(), form.confirm_name.as_deref());
-    if let Some(prompt) = Family::Commands.ask(Stakes::of(&validated), &confirmation, &router) {
+    if let Some(prompt) = Stakes::of(&validated).ask(Family::Commands, &confirmation, &router) {
         let resubmit = Resubmit::new(format!("/ui/r/{router}/console/cli/send"), "#cli-result")
             .with_include("#cli-form");
         return prompt

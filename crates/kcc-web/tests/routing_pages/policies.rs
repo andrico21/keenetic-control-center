@@ -71,7 +71,11 @@ async fn an_interface_is_taken_off_and_a_policy_deleted_once_its_name_is_typed()
         "taken off: {running}"
     );
     let delete = "/ui/r/home/routing/policy/delete";
-    let wrong = [("name", "Policy9"), ("confirm", "Policy8")];
+    let wrong = [
+        ("object", "Policy9"),
+        ("confirm", "yes"),
+        ("confirm_name", "Policy8"),
+    ];
     let refused = post(
         &fixture,
         &admin,
@@ -90,7 +94,11 @@ async fn an_interface_is_taken_off_and_a_policy_deleted_once_its_name_is_typed()
             .contains("ip policy Policy9"),
         "kept"
     );
-    let typed = [("name", "Policy9"), ("confirm", "Policy9")];
+    let typed = [
+        ("object", "Policy9"),
+        ("confirm", "yes"),
+        ("confirm_name", "Policy9"),
+    ];
     drop(post(&fixture, &admin, (delete, &typed), StatusCode::OK).await?);
     let after = fixture.handle().running_config_text();
     assert!(!after.contains("ip policy Policy9"), "deleted: {after}");

@@ -363,7 +363,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   out of band plus `#toasts` toasts, so the page never reloads.
 - Row actions: ghost buttons in `.admin-actions` (forms are `display: contents`), each
   `aria-describedby` the row header; destructive ones are `button--danger-ghost` and open
-  the typed-name confirmation dialog (`partials/kit_name_confirm.html`).
+  the typed-name confirmation dialog (`partials/kit_confirm.html`).
 - State flags: the status pill (Active online, Disabled neutral) plus `.flag` pills for
   Locked (warning) and Password change pending (info); text always names the state.
 
@@ -455,10 +455,8 @@ and the admin pages run on it too. One module per responsibility:
 |---|---|
 | `context` | `Caller::shell(state, section, router)`: the full-page shell with the fleet switcher (router selected); `target(state, user, router)`: the router of the route parameter (`is_profile_id`, then the role's visible profiles) or a `Refusal` (`page()`: 404, 403 or the logged 500; `status()` for fragments); `Target::context(state)`: the catalog facts and the `RouterCtx` to read and plan with; `managed()` (`ManageRouters`); `fragment_shell(locale)`. |
 | `gate` | `command_permissions(risk)` for raw commands; `operation_permissions(permission, risk)` for curated ones (management and destructive also need `Destructive`: kcc arms the fail-safe timer); `Controls::new(role, router).with_operations(&DESCRIPTOR.write_ops, catalog)`: what templates use to hide controls (`allows("hostname")`); `allowed(user, router, permissions)`: the handler re-check before acting (403). |
-| `family` | `Family::Commands` (explorer, consoles: every change asks, messages speak of commands) and `Family::Changes` (domain pages: management and destructive changes ask, messages speak of changes); `ask(stakes, &confirmation, router)` gives the `Prompt` to show, or `None` to run, from the one guard the stakes give, so the dialog asks for exactly what the gate checks; `gate(risk, ...)` is the same decision for a page with its own dialog. |
-| `stakes` | `Stakes::new(risk)`, `Stakes::of(&validated)`: the risk, and whether a management command runs the request inside the recovery timer; `Guard`: the confirm button, the timer words, the typed name, or the typed name with the timer words. |
-| `confirm` | `Confirmation` (from the form), `Gate`, `Prompt` + `Resubmit`: the dialog in `#dialog-content` (`partials/kit_confirm.html`); confirming re-posts the original request (form values by `hx-include` from the page, so a secret never passes through the dialog); management explains the fail-safe timer, destructive needs the router name typed; decided on the server every time. |
-| `typed_name` | `TypedNameForm` and `TypedNameDialog`: the typed-name delete of objects that are not routers (`partials/kit_name_confirm.html`). |
+| `family` | `Family::Commands` (explorer, consoles: messages speak of commands) and `Family::Changes` (domain pages: messages speak of changes): the words of the outcomes, and the family the confirmations decide for. |
+| `confirm` | Everything about confirmations, and the one dialog `partials/kit_confirm.html`. `Confirmation` reads `confirm=yes` and the typed name `confirm_name` (from pairs, or as a `Form`); `Stakes::new(risk)`, `Stakes::of(&validated)`: the risk, and whether a management command runs the request inside the recovery timer; `stakes.guard(family)` gives the `Guard` (the confirm button, the timer words, the typed name, or the typed name with the timer words), `stakes.ask(family, &confirmation, router)` the `Prompt` to show (or `None` to run) and `stakes.gate(family, ...)` the same decision for a page with its own dialog, so the dialog asks for exactly what the gate checks. `Dialog::new(locale, Words, Resubmit)` is the dialog every confirmation shows (`asking(Ask::{Button, Acknowledge, Typed(Typed)})`: the button alone, `confirm=yes`, or `confirm=yes` with a name field posted as `confirm_name`; `with_list`, `saying(Saved)`, `with_text_key`); `Dialog::typed_name` and `TypedNameForm` are the typed-name delete of objects that are not routers (the object's name travels back as `object`). Confirming re-posts the original request (form values by `hx-include` from the page, so a secret never passes through the dialog); decided on the server every time. |
 | `action` | The kit call: `Operation::write(&DESCRIPTOR, "hostname", "web.system_hostname").open(&state, &user, &router)` resolves the router (404), re-checks the operation's permissions (audited 403) and loads the catalog; the `Action` then gives `context()`, `confirm(risk, &confirmation, resubmit)`, `abandon(reason)`, `run(risk, Change)` and `run_with(risk, work)` for domain functions such as `system::reboot`; it audits how the action ended, once. |
 | `change` | `Change::{Request, Batch, Cli, Delete}` through the leased `ChangeSet` (backup, conflict check, read-back, audit), the fail-safe timer armed around a management change; `Change::audit_params()`: catalog paths and field names only. |
 | `outcome`, `failure` | `Outcome` (tone, headline, problems, router said, toasts, unsaved badge, status, audit id), `Toast`, `Failure`; `workflow_failure`, `rci_failure` and `plan_failure` map errors in the family's words, keeping only the router's message text and naming the field a read-back did not find (`VerificationFailed`). |
@@ -807,7 +805,7 @@ unchanged lines between the changes, a secret value anywhere on the page.
   removed line on the danger wash with a `-` glyph, an added one on the success wash with
   `+`, each with a visually hidden "Removed:" or "Added:"; side by side, removed lines sit
   left of the added lines of the same run, runs separated by a canvas gap.
-- Confirmation (`partials/config_confirm.html`): the kit's destructive confirmation with
+- Confirmation (`partials/kit_confirm.html`): the kit's destructive confirmation with
   this page's own words, the router name typed; confirming re-posts the action.
 - Upload dialog (`partials/config_upload.html`): one file input (`.field__file`) with its
   1 MiB help; a refused file comes back in the dialog with the reason (not text, the line
@@ -965,7 +963,7 @@ Tokens: `--routing-table-min` (40rem) is the narrowest a table of these pages ge
   ending "Nothing was lost:", the restored routes as stored commands in the mono face, and
   that the route asked for is still there. When some are missing: the danger wash and the
   missing routes. Tone by wash only, never an edge stripe; text says the state first.
-- Removal confirmation (`partials/routing_confirm.html`): title naming the object, what the
+- Removal confirmation (`partials/kit_confirm.html`, its button alone): title naming the object, what the
   removal does, one danger button; the answer lands in the outcome region.
 - Policy interfaces (`.routing-permits`): an ordered list in the policy's row, each interface
   with its order and a ghost Remove described by the policy and the interface.
@@ -1142,7 +1140,7 @@ settings-group checkbox column gets.
   where the role may delete. Layout: `repeat(auto-fill, minmax(min(100%, --panel-min),
   1fr))`, so a lone segment keeps a panel's width and every fact and Delete stay in view
   from 320 px up; a ten-column table pushed Delete past the right edge at 1280 px.
-- Segment delete dialog: the kit's `TypedNameDialog` with `with_list`: the router objects
+- Segment delete dialog: the kit's typed-name `confirm::Dialog` with `with_list`: the router objects
   that go (`SegmentView::delete_summary().owned_contexts`) and the ports that stay
   (`preserved_ports`, only the VLAN leaves them), each as `code` in a `.plain-list`; the
   router's name is typed; Delete segment is `button--danger`. The form posts to

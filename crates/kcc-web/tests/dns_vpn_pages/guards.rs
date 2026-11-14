@@ -27,7 +27,11 @@ async fn connection_routes_touch_only_vpn_connections() -> TestResult {
         StatusCode::NOT_FOUND,
         "not a VPN connection"
     );
-    let typed = form(&[("name", "Bridge0"), ("confirm", "Bridge0")]);
+    let typed = form(&[
+        ("object", "Bridge0"),
+        ("confirm", "yes"),
+        ("confirm_name", "Bridge0"),
+    ]);
     let deleted = fixture
         .post(&format!("{PAGE}/delete"), &admin, &typed)
         .await?;

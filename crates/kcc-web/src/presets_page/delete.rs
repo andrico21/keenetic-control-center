@@ -18,9 +18,9 @@ use crate::{
     migrate_wizard::access::Services,
     page_kit::{
         audit::Record as Audit,
+        confirm::{Dialog, TypedNameForm},
         context::{Refusal, fragment_shell},
         respond::{self, Answer},
-        typed_name::{TypedNameDialog, TypedNameForm},
     },
 };
 
@@ -113,9 +113,9 @@ fn deletable(services: Services<'_>, id: &str) -> Result<Preset, Answer> {
 }
 
 /// The confirmation of deleting `preset`.
-fn confirmation(locale: Locale, preset: &Preset) -> TypedNameDialog {
-    TypedNameDialog::new(
-        fragment_shell(locale),
+fn confirmation(locale: Locale, preset: &Preset) -> Dialog {
+    Dialog::typed_name(
+        locale,
         format!("/ui/presets/{}/delete", preset.id),
         &preset.name,
         (
