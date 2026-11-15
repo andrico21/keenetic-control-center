@@ -184,7 +184,7 @@ mod traffic;
 mod view;
 mod wizard;
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
 
 use axum::{
@@ -194,7 +194,7 @@ use axum::{
     routing::{get, post},
 };
 use kcc_app::{
-    accounts::{AccountStore, Clock},
+    accounts::{AccountStore, Clock, standing::AccountStanding},
     audit::AuditLog,
     jobs::JobRunner,
     permissions::Role,
@@ -208,7 +208,7 @@ use crate::{
     admin::AdminServices,
     admin_shared::Admin,
     fleet::{Fleet, FleetServices},
-    session::{CookieSecurity, SessionStore},
+    session::{CookieSecurity, SessionStore, account::StandingsError},
     sse::StreamLimiter,
 };
 
@@ -343,6 +343,23 @@ impl WebState {
     #[inline]
     pub async fn active_sessions(&self) -> usize {
         self.sessions.active().await
+    }
+
+    /// Re-reads every account and ends the signed-in sessions it no longer backs: the
+    /// account is gone or disabled, holds another role, or has another password than the
+    /// session signed in with. Sign-ins and own password changes wait while it runs.
+    /// Returns the accounts read and the number of sessions ended.
+    ///
+    /// # Errors
+    ///
+    /// [`StandingsError`] when `users.json` cannot be read or parsed; no session ends.
+    // cancel-safe: as `SessionStore::end_stale`.
+    #[inline]
+    pub async fn end_stale_sessions(
+        &self,
+    ) -> Result<(BTreeMap<String, AccountStanding>, usize), StandingsError> {
+        let accounts = Arc::clone(&self.accounts);
+        self.sessions.end_stale(move || accounts.standings()).await
     }
 
     /// Attaches the router fleet: the overview, router dashboards and forms, and their

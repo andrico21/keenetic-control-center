@@ -229,9 +229,10 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 - kcc refuses to change the password of the router account it logs in with and sends
   nothing to the router. Change that password on the router, then run
   `kcc router edit <id> --new-password`.
-- An API key created with `kcc apikey create` reaches a running `kcc serve` only after
-  `SIGHUP` (Unix) or a restart; keys created on the Web UI administration page apply
-  at once.
+- API keys and accounts changed with the CLI (`kcc apikey create|revoke`,
+  `kcc user disable`, `kcc user passwd`) reach a running `kcc serve` within about
+  2 seconds, the time between its checks of the state files; changes on the Web UI
+  administration page apply at once.
 - OpenVPN credentials can't be written (the 5.1 catalog has no command for them); IPv6
   access lists are read-only (no catalog has `ipv6 access-list`).
 - MCP migration plans, transient MCP presets and unsaved preset drafts in the Web UI live

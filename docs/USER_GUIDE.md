@@ -262,6 +262,10 @@ Your own account page (`/ui/account`) changes your password and language. After
 `kcc admin init`, or an administrative reset, the first sign-in must change the
 password.
 
+Changes made with the CLI (`kcc apikey revoke`, `kcc user disable`, `kcc user passwd`)
+reach a running `kcc serve` within about 2 seconds: a revoked key is refused, and the
+account's signed-in sessions end when it is disabled or its password is reset.
+
 ## Metrics
 
 The Web UI doesn't chart Prometheus metrics. Enable `[metrics]` and use the Grafana

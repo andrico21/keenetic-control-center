@@ -301,6 +301,13 @@ The first release, `0.1.0`, is in preparation and contains:
   an unknown user and audited with the actor `<invalid-username>` instead of the submitted
   text. Every audit actor id is cut to 64 bytes, so failed logins can no longer grow
   `audit.jsonl` by up to 1 MiB each.
+- **CLI key and account changes reach a running server.** `kcc serve` checks
+  `api_keys.json` and `users.json` every 2 seconds and on `SIGHUP`: a key revoked with
+  `kcc apikey revoke` is refused within about 2 seconds, and the Web sessions of an account
+  disabled with `kcc user disable`, reset with `kcc user passwd`, deleted, or given
+  another role in `users.json` end. They used to last until restart or session expiry,
+  even after `SIGHUP`. A key's last-use record does not reload anything; an unreadable
+  file keeps the last good state with a warning.
 
 ### Upgrade notes
 

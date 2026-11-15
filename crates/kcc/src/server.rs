@@ -55,6 +55,8 @@ use rmcp_server_kit::{
 };
 use serde_json::json;
 
+use crate::state_watch::StateWatch;
+
 /// Generic process failure.
 #[derive(Debug, thiserror::Error)]
 #[error("{0}")]
@@ -153,20 +155,21 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
             .with_role_source(services.roles.clone()),
     );
     let _updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
-    let _sessions = if config.web.enabled {
-        let web_state = services.web_state(&config, tls, Arc::clone(&auth_reload))?;
-        let sessions = services
-            .metrics
-            .clone()
-            .map(|metrics| crate::server_tasks::track_sessions(web_state.clone(), metrics));
-        server_with_origins = server_with_origins.with_extra_router(web_router(web_state));
-        sessions
+    let web_state = if config.web.enabled {
+        Some(services.web_state(&config, tls, Arc::clone(&auth_reload))?)
     } else {
         None
     };
+    let _sessions = web_state.as_ref().and_then(|web| {
+        let metrics = services.metrics.clone()?;
+        Some(crate::server_tasks::track_sessions(web.clone(), metrics))
+    });
+    if let Some(web) = &web_state {
+        server_with_origins = server_with_origins.with_extra_router(web_router(web.clone()));
+    }
     server_with_origins = with_reload(
         server_with_origins,
-        Arc::clone(&auth_reload),
+        StateWatch::new(Arc::clone(&auth_reload), web_state),
         path,
         Arc::clone(&services.registry),
     );
@@ -528,57 +531,60 @@ fn readiness_check(state_dir: PathBuf, audit: AuditLog) -> ReadinessCheck {
     })
 }
 
-/// Stores the transport's reload handle in `auth`'s slot for the Web UI's administration
-/// pages, and wires Unix SIGHUP reload.
+/// Hands the transport's reload handle to the Web UI and starts `watch` with SIGHUP.
 ///
-/// A SIGHUP reloads the API keys, the roles (MCP RBAC, the MCP handlers and the Web UI),
-/// and the router profiles.
+/// The handle goes to the slot of `watch`'s transport, for the administration pages;
+/// `watch` applies key and account changes made outside the server. A SIGHUP applies
+/// the API keys and accounts as the watcher does, then reloads the roles (MCP RBAC, the
+/// MCP handlers and the Web UI) and the router profiles.
 #[cfg(unix)]
 fn with_reload(
     config: McpServerConfig,
-    auth: Arc<TransportReload>,
+    watch: StateWatch,
     path: PathBuf,
     registry: Arc<RouterRegistry>,
 ) -> McpServerConfig {
-    let slot = auth.slot();
+    let slot = watch.transport().slot();
+    let auth = Arc::clone(watch.transport());
     config.with_reload_callback(move |handle| {
         if slot.set(handle).is_err() {
             tracing::error!("the MCP transport delivered a second reload handle; keeping the first");
         }
-        drop(tokio::spawn(async move {
-            let mut signals = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::hangup()) {
-                Ok(signals) => signals,
-                Err(error) => { tracing::error!(%error, "cannot install SIGHUP reload handler"); return; }
-            };
-            while signals.recv().await.is_some() {
-                if let Err(error) = reload(&auth, &path, &registry).await {
+        drop(tokio::spawn(watch.run(move || {
+            let (transport, file, routers) =
+                (Arc::clone(&auth), path.clone(), Arc::clone(&registry));
+            async move {
+                if let Err(error) = reload(&transport, &file, &routers).await {
                     tracing::error!(%error, "SIGHUP reload rejected; previous configuration remains active");
                 }
             }
-        }));
+        })));
     })
 }
 
-/// Stores the transport's reload handle in `slot` for the Web UI's administration
-/// pages; SIGHUP reload is unavailable on non-Unix platforms.
+/// Hands the transport's reload handle to the Web UI and starts `watch`.
+///
+/// SIGHUP reload is unavailable on non-Unix platforms.
 #[cfg(not(unix))]
 fn with_reload(
     config: McpServerConfig,
-    auth: Arc<TransportReload>,
+    watch: StateWatch,
     _path: PathBuf,
     _registry: Arc<RouterRegistry>,
 ) -> McpServerConfig {
-    let slot = auth.slot();
+    let slot = watch.transport().slot();
     config.with_reload_callback(move |handle| {
         if slot.set(handle).is_err() {
             tracing::error!(
                 "the MCP transport delivered a second reload handle; keeping the first"
             );
         }
+        drop(tokio::spawn(watch.run()));
     })
 }
 
-/// Applies one validated reload generation.
+/// Applies one validated reload generation of `kcc.toml` and the roles.
+// NOT cancel-safe: the router profiles may be replaced before the roles.
 #[cfg(unix)]
 async fn reload(
     auth: &TransportReload,
@@ -589,9 +595,7 @@ async fn reload(
     drop(config.apply_env_overrides().map_err(error)?);
     config.validate().map_err(error)?;
     let roles = load_roles(auth.state()).map_err(error)?;
-    let keys = api_key_entries(auth.state()).map_err(error)?;
     let invalidated = registry.reload(&config).await.map_err(error)?;
-    auth.install_keys(keys).map_err(error)?;
     auth.install_roles(roles).map_err(error)?;
     tracing::info!(invalidated, "configuration reloaded from SIGHUP");
     Ok(())

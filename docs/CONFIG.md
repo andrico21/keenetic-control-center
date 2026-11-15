@@ -25,9 +25,12 @@ separately: sealed router credentials and other encrypted state are unrecoverabl
 the same 32-byte key.
 
 **Reload.** On Unix, `SIGHUP` makes `kcc serve` re-read the file and apply API keys,
-roles (to MCP and to signed-in Web UI sessions) and router profiles (added routers are
-exported to `/metrics` at once, removed ones dropped); a rejected file keeps the previous
-one. Other changes need a restart.
+accounts (the Web sessions of a deleted or disabled account, or one with another role or
+password, end), roles (to MCP and to signed-in Web UI sessions) and router profiles
+(added routers are exported to `/metrics` at once, removed ones dropped); a rejected file
+keeps the previous one, and keys and accounts still apply. `kcc serve` also applies API
+key and account changes by itself within about 2 seconds, without `SIGHUP`. Other changes
+need a restart.
 
 ## Top level
 

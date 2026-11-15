@@ -38,7 +38,7 @@ use crate::{
     page::{Localize as _, Shell},
     page_kit::respond,
     prefs,
-    session::{SessionId, SessionStore},
+    session::{SessionId, SessionStore, account::SignedIn},
 };
 
 /// Monotonic correlation id source for Web audit events.
@@ -182,12 +182,19 @@ pub(crate) async fn login(
     let password = SecretString::from(form.password);
     let accounts = Arc::clone(state.accounts());
     let auth_username = username.clone();
-    let authentication =
-        match spawn_blocking(move || accounts.authenticate(&auth_username, &password)).await {
-            Ok(Ok(value)) => value,
-            Ok(Err(error)) => return internal(error),
-            Err(error) => return internal(error),
-        };
+    let reading = state.sessions().reading_account().await;
+    let checked = spawn_blocking(move || {
+        let fingerprint = accounts.fingerprint(&auth_username)?;
+        accounts
+            .authenticate(&auth_username, &password)
+            .map(|authentication| (authentication, fingerprint))
+    })
+    .await;
+    let (authentication, fingerprint) = match checked {
+        Ok(Ok(value)) => value,
+        Ok(Err(error)) => return internal(error),
+        Err(error) => return internal(error),
+    };
     match authentication {
         Authentication::Authenticated { role, locale } => {
             let Some(resolved_role) = state.role(&role) else {
@@ -195,16 +202,13 @@ pub(crate) async fn login(
             };
             let resolved_locale =
                 Locale::from_tag(&locale).unwrap_or_else(|| state.default_locale());
-            let (id, _session) = match state
+            let account = SignedIn::new(username.clone(), resolved_role, fingerprint);
+            let signed_in = state
                 .sessions()
-                .login(
-                    old_id.as_ref(),
-                    username.clone(),
-                    resolved_role,
-                    resolved_locale,
-                )
-                .await
-            {
+                .login(old_id.as_ref(), account, resolved_locale)
+                .await;
+            drop(reading);
+            let (id, _session) = match signed_in {
                 Ok(value) => value,
                 Err(error) => return internal(error),
             };
@@ -230,9 +234,11 @@ pub(crate) async fn login(
             response
         }
         Authentication::Invalid | Authentication::Disabled => {
+            drop(reading);
             login_failure(&state, &headers, old_id, username, "invalid").await
         }
         Authentication::Locked { until: _ } => {
+            drop(reading);
             login_failure(&state, &headers, old_id, username, "locked").await
         }
         _ => internal("unsupported authentication result"),
@@ -284,12 +290,20 @@ pub(crate) async fn change_password(
     let auth_username = username.clone();
     let current_password = SecretString::from(form.current_password);
     let new_password = SecretString::from(form.new_password);
-    let authentication = match spawn_blocking(move || {
-        accounts.change_password(&auth_username, &current_password, &new_password)
+    let reading = state.sessions().reading_account().await;
+    let changed = spawn_blocking(move || {
+        accounts.change_password_for_session(&auth_username, &current_password, &new_password)
     })
-    .await
-    {
-        Ok(Ok(value)) => value,
+    .await;
+    if let Ok(Ok((_, Some(fingerprint)))) = &changed {
+        state
+            .sessions()
+            .set_fingerprint(current.id(), *fingerprint)
+            .await;
+    }
+    drop(reading);
+    let authentication = match changed {
+        Ok(Ok((value, _fingerprint))) => value,
         Ok(Err(AccountError::InvalidPasswordLength)) => {
             let error = Some(keys::WEB_ADMIN_ERROR_PASSWORD_LENGTH);
             return account_response(&state, &headers, &current, &user, false, error).await;

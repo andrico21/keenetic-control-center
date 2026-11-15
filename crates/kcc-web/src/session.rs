@@ -2,19 +2,33 @@
 
 extern crate alloc;
 
-use alloc::sync::{Arc, Weak};
+use alloc::{
+    collections::BTreeMap,
+    sync::{Arc, Weak},
+};
 use core::{fmt, time::Duration};
 use std::collections::HashMap;
 
 use axum::http::{HeaderMap, HeaderValue, header, header::InvalidHeaderValue};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
-use kcc_app::{accounts::Clock, permissions::Role};
+use kcc_app::{
+    accounts::{
+        AccountError, Clock,
+        standing::{AccountStanding, PasswordFingerprint},
+    },
+    permissions::Role,
+};
 use kcc_i18n::locale::Locale;
 use rand::{TryRng as _, rngs::SysRng};
 use tokio::{
-    sync::RwLock,
+    sync::{RwLock, RwLockReadGuard},
+    task::spawn_blocking,
     time::{Instant, MissedTickBehavior, interval},
 };
+
+use self::account::{SignedIn, StandingsError};
+
+pub mod account;
 
 /// Bytes of entropy in a session id and a CSRF token.
 const TOKEN_BYTES: usize = 32;
@@ -72,6 +86,8 @@ pub struct Session {
     csrf_token: String,
     /// Whether the account must choose a new password before using anything else.
     password_change: bool,
+    /// Fingerprint of the password the session signed in with or last set.
+    fingerprint: Option<PasswordFingerprint>,
 }
 
 impl fmt::Debug for Session {
@@ -85,6 +101,7 @@ impl fmt::Debug for Session {
             last_seen,
             csrf_token: _,
             password_change,
+            fingerprint,
         } = self;
         f.debug_struct("Session")
             .field("username", username)
@@ -94,6 +111,7 @@ impl fmt::Debug for Session {
             .field("last_seen", last_seen)
             .field("csrf_token", &"[REDACTED]")
             .field("password_change", password_change)
+            .field("fingerprint", fingerprint)
             .finish()
     }
 }
@@ -139,6 +157,21 @@ impl Session {
     #[must_use]
     pub(crate) const fn password_change_required(&self) -> bool {
         self.password_change
+    }
+
+    /// Whether `standings` still back this session: its account exists, is enabled,
+    /// holds the session's role and has the password the session knows. Sessions before
+    /// login are always backed.
+    fn backed_by(&self, standings: &BTreeMap<String, AccountStanding>) -> bool {
+        let (Some(username), Some(role)) = (&self.username, &self.role) else {
+            return true;
+        };
+        standings.get(username).is_some_and(|standing| {
+            !standing.disabled
+                && standing.role == role.name
+                && self.fingerprint.is_some()
+                && standing.fingerprint == self.fingerprint
+        })
     }
 }
 
@@ -237,6 +270,9 @@ struct Inner {
     default_locale: Locale,
     /// Injectable Unix clock.
     clock: Arc<dyn Clock>,
+    /// Shared by sign-ins and own password changes while they read an account and record
+    /// it in a session; exclusive while sessions are checked against the accounts.
+    account_reads: RwLock<()>,
 }
 
 impl SessionStore {
@@ -256,6 +292,7 @@ impl SessionStore {
                 absolute_timeout,
                 default_locale,
                 clock,
+                account_reads: RwLock::new(()),
             }),
         };
         store.spawn_sweeper();
@@ -268,7 +305,7 @@ impl SessionStore {
     ///
     /// Returns [`SessionError::Random`] if id or CSRF token generation fails.
     pub(crate) async fn create_anonymous(&self) -> Result<(SessionId, Session), SessionError> {
-        self.insert(None, None, self.inner.default_locale).await
+        self.insert(None, self.inner.default_locale).await
     }
 
     /// Rotates an existing id into an authenticated session, preventing fixation.
@@ -281,14 +318,54 @@ impl SessionStore {
     pub(crate) async fn login(
         &self,
         old_id: Option<&SessionId>,
-        username: String,
-        role: Role,
+        account: SignedIn,
         locale: Locale,
     ) -> Result<(SessionId, Session), SessionError> {
         if let Some(id) = old_id {
             drop(self.inner.sessions.write().await.remove(id));
         }
-        self.insert(Some(username), Some(role), locale).await
+        self.insert(Some(account), locale).await
+    }
+
+    /// Holds off [`Self::end_stale`] while the caller reads an account and records it in
+    /// a session, so no session is checked against an account read older than its own.
+    // cancel-safe: waits for a lock only.
+    pub(crate) async fn reading_account(&self) -> RwLockReadGuard<'_, ()> {
+        self.inner.account_reads.read().await
+    }
+
+    /// Records the password `fingerprint` the session `id` now knows, after its own
+    /// password change.
+    pub(crate) async fn set_fingerprint(&self, id: &SessionId, fingerprint: PasswordFingerprint) {
+        if let Some(session) = self.inner.sessions.write().await.get_mut(id) {
+            session.fingerprint = Some(fingerprint);
+        }
+    }
+
+    /// Reads the accounts with `read` and ends every signed-in session they no longer
+    /// back: the account is gone or disabled, holds another role, or has another
+    /// password than the session knows. Returns the accounts read and the number of
+    /// sessions ended.
+    ///
+    /// # Errors
+    ///
+    /// [`StandingsError`] when `read` fails; no session ends then.
+    // cancel-safe: sessions end only after the read completed, in one step.
+    pub(crate) async fn end_stale<F>(
+        &self,
+        read: F,
+    ) -> Result<(BTreeMap<String, AccountStanding>, usize), StandingsError>
+    where
+        F: FnOnce() -> Result<BTreeMap<String, AccountStanding>, AccountError> + Send + 'static,
+    {
+        let _exclusive = self.inner.account_reads.write().await;
+        let standings = spawn_blocking(read).await??;
+        let mut sessions = self.inner.sessions.write().await;
+        let before = sessions.len();
+        sessions.retain(|_id, session| session.backed_by(&standings));
+        let ended = before.saturating_sub(sessions.len());
+        drop(sessions);
+        Ok((standings, ended))
     }
 
     /// Returns a live session and refreshes its idle deadline.
@@ -353,9 +430,8 @@ impl SessionStore {
         };
         let locale = current.locale;
         self.invalidate(id).await;
-        let replacement = self
-            .insert(Some(username.clone()), Some(role), locale)
-            .await?;
+        let account = SignedIn::new(username.clone(), role, current.fingerprint);
+        let replacement = self.insert(Some(account), locale).await?;
         self.invalidate_other_user_sessions(&username, &replacement.0)
             .await;
         Ok(Some(replacement))
@@ -438,12 +514,15 @@ impl SessionStore {
     /// Returns [`SessionError::Random`] when the operating system RNG fails.
     async fn insert(
         &self,
-        username: Option<String>,
-        role: Option<Role>,
+        account: Option<SignedIn>,
         locale: Locale,
     ) -> Result<(SessionId, Session), SessionError> {
         let id = SessionId::generate()?;
         let now = self.inner.clock.unix_seconds();
+        let (username, role, fingerprint) = match account.map(SignedIn::into_parts) {
+            Some((username, role, fingerprint)) => (Some(username), Some(role), fingerprint),
+            None => (None, None, None),
+        };
         let session = Session {
             username,
             role,
@@ -452,6 +531,7 @@ impl SessionStore {
             last_seen: now,
             csrf_token: random_token()?,
             password_change: false,
+            fingerprint,
         };
         drop(
             self.inner
@@ -522,3 +602,7 @@ fn cookie<'headers>(headers: &'headers HeaderMap, name: &str) -> Option<&'header
         .filter_map(|pair| pair.trim().split_once('='))
         .find_map(|(key, value)| (key == name).then_some(value))
 }
+
+#[cfg(test)]
+#[path = "session_tests.rs"]
+mod tests;

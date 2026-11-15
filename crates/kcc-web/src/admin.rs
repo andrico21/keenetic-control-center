@@ -10,7 +10,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::{fmt, time::Duration};
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock, PoisonError};
 
 use kcc_app::{
     api_keys::api_key_entries,
@@ -70,6 +70,9 @@ pub struct TransportReload {
     tools: Vec<ToolSpec>,
     /// The role set the MCP handlers and the Web UI authorize against.
     roles: Option<RoleSource>,
+    /// Serializes key reloads, so a reload that read the file earlier cannot install its
+    /// keys over a later one.
+    key_reloads: Mutex<()>,
 }
 
 impl fmt::Debug for TransportReload {
@@ -93,6 +96,7 @@ impl TransportReload {
             state,
             tools,
             roles: None,
+            key_reloads: Mutex::new(()),
         }
     }
 
@@ -159,6 +163,10 @@ impl AuthReload for TransportReload {
     #[inline]
     fn reload_keys(&self) -> Result<(), ReloadError> {
         let _ready: &ReloadHandle = self.handle()?;
+        let _serialized = self
+            .key_reloads
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner);
         self.install_keys(api_key_entries(&self.state).map_err(failed)?)
     }
 

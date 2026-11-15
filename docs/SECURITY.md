@@ -105,6 +105,13 @@ for a loopback test sink) and don't follow redirects either.
 - Sessions end after `[web] session_idle` (30 minutes) of inactivity and
   `session_absolute` (12 hours) after login. Login replaces the session id; a password
   or role change ends the account's other sessions.
+- `kcc serve` checks `api_keys.json` and `users.json` every 2 seconds, so a change made
+  outside the server (the CLI, an edited or restored state file) applies within about
+  2 seconds without `SIGHUP`: a revoked key is refused, and the Web sessions of an
+  account that was deleted or disabled, got another role, or got another password end.
+  Your own password change keeps the session you made it in. A rewrite that changes no
+  key, role, disabled flag or password (a key's last-use time) reloads nothing. A file
+  kcc cannot read keeps the last good state, logs one warning and is retried.
 - Every state-changing request needs the session-bound `X-CSRF-Token` header, exactly
   one allowed `Origin` and a same-origin `Sec-Fetch-Site`.
 - `[web] login_max_failures` failed logins (5) lock the account for `lockout`

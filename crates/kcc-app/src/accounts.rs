@@ -2,7 +2,7 @@
 
 extern crate alloc;
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeMap, sync::Arc};
 use core::{
     fmt::{self, Debug},
     time::Duration,
@@ -16,6 +16,7 @@ use argon2::{
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 
+use self::standing::{AccountStanding, PasswordFingerprint};
 use crate::{
     permissions::Role,
     persist::{Migration, StateDoc, StateError, StateStore},
@@ -23,6 +24,7 @@ use crate::{
 };
 
 mod reset;
+pub mod standing;
 
 /// Required Argon2id memory in KiB.
 pub const ARGON2_MEMORY_KIB: u32 = 19_456;
@@ -456,15 +458,33 @@ impl AccountStore {
         current_password: &SecretString,
         new_password: &SecretString,
     ) -> Result<Authentication, AccountError> {
+        self.change_password_for_session(username, current_password, new_password)
+            .map(|(authentication, _fingerprint)| authentication)
+    }
+
+    /// As [`Self::change_password`], also returning the new password's fingerprint for
+    /// the session that stays signed in; `None` when the change was refused.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::change_password`].
+    #[inline]
+    pub fn change_password_for_session(
+        &self,
+        username: &str,
+        current_password: &SecretString,
+        new_password: &SecretString,
+    ) -> Result<(Authentication, Option<PasswordFingerprint>), AccountError> {
         let authentication = self.authenticate(username, current_password)?;
         if !matches!(
             authentication,
             Authentication::Authenticated { role: _, locale: _ }
         ) {
-            return Ok(authentication);
+            return Ok((authentication, None));
         }
         validate_password(username, new_password)?;
         let hash = hash_password(new_password)?;
+        let fingerprint = PasswordFingerprint::of(&hash);
         let sealed = self.key.seal(username, &SecretString::from(hash))?;
         self.state.update(|document: &mut UsersDocument| {
             if let Some(account) = document
@@ -478,7 +498,7 @@ impl AccountStore {
                 account.must_change_password = false;
             }
         })?;
-        Ok(authentication)
+        Ok((authentication, Some(fingerprint)))
     }
 
     /// Replaces another account's password under the account-administration permission.
@@ -525,6 +545,27 @@ impl AccountStore {
                 true
             })
             .map_err(AccountError::from)
+    }
+
+    /// Every account's role, disabled flag and password fingerprint, by username.
+    ///
+    /// # Errors
+    ///
+    /// Returns a state error when `users.json` cannot be read or parsed.
+    #[inline]
+    pub fn standings(&self) -> Result<BTreeMap<String, AccountStanding>, AccountError> {
+        standing::all(self)
+    }
+
+    /// The fingerprint of `username`'s password; `None` when there is no such account or
+    /// its stored hash cannot be opened.
+    ///
+    /// # Errors
+    ///
+    /// Returns a state error when `users.json` cannot be read or parsed.
+    #[inline]
+    pub fn fingerprint(&self, username: &str) -> Result<Option<PasswordFingerprint>, AccountError> {
+        standing::of_account(self, username)
     }
 
     /// Every account, without password hashes, in stored order.
