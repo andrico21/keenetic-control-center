@@ -905,3 +905,10 @@ Findings for the owner: (1) kcc serve/stdio refusals are untyped English ServerE
 - Docs: ARCHITECTURE gained "The shared bracket seam" (replaced a stale management_permissions paragraph); SECURITY raw-MCP/management wording fixed for D-Q1; CONFIG env-override sentence narrowed. CHANGELOG: Changed/Fixed additions, new Security and Upgrade notes sections. UPSTREAM: file already existed at docs/rust-guidelines/UPSTREAM.md; item 3 expanded and the overlay link fixed.
 - Labels: plan grep 26 -> 0 (DESIGN.md headings, app.css, restore.rs, BEHAVIOUR.md). Wide grep: reworded todo/R-labels in FTL group comments (6 locales), DESIGN.md, BEHAVIOUR.md, rules.toml, app.css, a few Rust doc comments, live-e2e.sh. Left on purpose: `.omo/evidence/task-NN-...` strings in live tests and docs (functional file names, and AGENTS.md documents that convention).
 - Not done: no hardware claims were added; the GET /rci/system/reboot 404 question is carried verbatim from the plan with no code reference.
+
+## F2 r1 (2026-11-15)
+- cargo-mutants on this workspace: `CARGO_BUILD_WARNINGS=warn` is not enough, because `[workspace.lints]` reaches rustc as `--deny=unused` and body-replacement mutants become unviable. Use `RUSTFLAGS=--cap-lints=warn` (env only).
+- Restoring a mutated copy with `git archive | tar -x` keeps the old commit mtime, so cargo reuses the mutated artifact: `touch` the restored files before any control run.
+
+## [2026-11-15] Final wave round 1 backlog
+Backlog now has 52 top-level items (was 39). Added under Known gaps, Cleanup, Tests; merged 1 into the golden-page item. Skipped: F1 B1, B2, B3, B5 (covered), B6; F3 B12 kept as one Tests line.

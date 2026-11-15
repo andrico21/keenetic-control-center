@@ -227,3 +227,8 @@ Design notes: (1) CLI finish paths (config failsafe commit/rollback, migrate fin
 - Read-only pair on edit: empty fields keep the stored pair; a typed password sets the pair (login required); a login different from the stored one needs its password; only "Remove read-only login" removes it (the existing test posting no read fields keeps the pair). A move without the pair re-entered drops it, as before.
 - "Stored" notes: token and read-only password via `CredentialStore::exists`; the password field keeps its existing help, now shown only when the profile has a password (a token profile has none).
 - `/ui/routers/test` unchanged: it tests a typed password with automatic sign-in or the stored profile; it does not test a typed token (follow-up).
+
+## [2026-11-15] Final wave round 1
+- All four reviewers APPROVE at d4220ef with no blocker, so the plan's convergence rule needs neither a second finding round nor a confirmation round (there are no frozen rows to confirm). F2 ran G1 on a clean checkout at that commit, so no further gate run is required for the verdicts.
+- Reviewer backlog candidates go to docs/BACKLOG.md (docs-only commit after the verdicts; the code at d4220ef is unchanged by it).
+- F1-F4 stay unticked in the plan until the owner gives the explicit okay.
