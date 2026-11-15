@@ -1,6 +1,9 @@
 //! Data-driven migration-line classification.
 
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+};
 use core::fmt;
 use std::sync::LazyLock;
 
@@ -16,7 +19,7 @@ use thiserror::Error;
 use crate::{
     interface_names,
     inventory::TargetInventory,
-    maps::{InterfaceMap, MapEntry, PortMap, RadioMap},
+    maps::{InterfaceMap, MapEntry, PortMap, RadioMap, WordMapping},
 };
 
 /// Embedded migration rules parsed once per process.
@@ -378,10 +381,12 @@ fn classify_line(
 ) -> ClassifiedItem {
     let words = expanded_words(&line.tokens);
     if let Some(member) = bridge_member(line)
-        && let mapped_member = mappings.get(member).copied().unwrap_or(member)
-        && !planned_interfaces.contains(mapped_member)
+        && let mapped_member = mapped(mappings, member)
+        && !planned_interfaces.contains(mapped_member.as_ref())
         && match target.interfaces {
-            InterfaceInventory::Available(interfaces) => !interfaces.contains(mapped_member),
+            InterfaceInventory::Available(interfaces) => {
+                !interfaces.contains(mapped_member.as_ref())
+            }
             InterfaceInventory::Unavailable => true,
         }
     {
@@ -412,7 +417,7 @@ fn classify_line(
                 source_index,
                 line,
                 redacted_line,
-                rule,
+                conflict_rule(rule, rules, line, target_lines, choices, mappings),
                 target,
                 choices,
                 mappings,
@@ -461,7 +466,7 @@ fn planned_interfaces(
                     if !interface_names::is_physical(name)
                         && matches!(item.disposition, Disposition::Copy | Disposition::Remap) =>
                 {
-                    Some(mappings.get(*name).copied().unwrap_or(name).to_owned())
+                    Some(mapped(mappings, name).into_owned())
                 }
                 ([_, ..] | [], Some(_) | None) => None,
             }
@@ -506,17 +511,18 @@ fn explicit_item(
     if matches!(rule.condition, Some(Condition::RealmDiffers)) {
         return password_item(source_index, line, redacted_line, rule, choices);
     }
-    let (after, output) = match rule.disposition {
-        Disposition::Copy => (
-            Some(redacted_line.to_string()),
-            Some(SecretString::from(line.to_string())),
-        ),
-        Disposition::Remap => {
+    let (disposition, after, output) = match rule.disposition {
+        Disposition::Copy | Disposition::Remap => {
             let mut mapped = line.clone();
             let mut redacted_mapped = redacted_line.clone();
             apply_mappings(&mut mapped.tokens, mappings);
             apply_mappings(&mut redacted_mapped.tokens, mappings);
             (
+                if mapped == *line {
+                    rule.disposition
+                } else {
+                    Disposition::Remap
+                },
                 Some(redacted_mapped.to_string()),
                 Some(SecretString::from(mapped.to_string())),
             )
@@ -525,13 +531,13 @@ fn explicit_item(
         | Disposition::SkipIdentity
         | Disposition::NeedsInput
         | Disposition::Unsupported
-        | Disposition::Conflict => (None, None),
+        | Disposition::Conflict => (rule.disposition, None, None),
     };
     let mut classified = item(
         source_index,
         line,
         redacted_line.to_string(),
-        rule.disposition,
+        disposition,
         &rule.id,
         &rule.reason_key,
         after,
@@ -635,11 +641,13 @@ fn condition_matches(
             .tokens
             .iter()
             .any(|token| matches!(token, Token::Ns3(_))),
-        Some(Condition::ReferencesMappedName) => line.tokens.iter().any(|token| {
-            word(token)
-                .is_some_and(|value| mappings.get(value).is_some_and(|mapped| *mapped != value))
-        }),
-        Some(Condition::ScalarConflict) => scalar_conflict(line, target_lines, overwrite_scalars),
+        Some(Condition::ReferencesMappedName) => line
+            .tokens
+            .iter()
+            .any(|token| word(token).is_some_and(|value| mapped(mappings, value) != value)),
+        Some(Condition::ScalarConflict) => {
+            scalar_conflict(line, line, target_lines, overwrite_scalars)
+        }
     }
 }
 
@@ -665,15 +673,44 @@ fn mapping(entry: &MapEntry) -> Option<(&str, &str)> {
         .map(|target| (entry.source.as_str(), target))
 }
 
-/// Replaces every exact mapped ordinary token.
+/// Returns the word `value` becomes under the edited mappings.
+fn mapped<'word>(mappings: &BTreeMap<&str, &str>, value: &'word str) -> Cow<'word, str> {
+    WordMapping::find(mappings, value).map_or(Cow::Borrowed(value), |found| {
+        Cow::Owned(format!("{}{}", found.decision(), found.rest()))
+    })
+}
+
+/// Replaces every mapped ordinary token.
 fn apply_mappings(tokens: &mut [Token], mappings: &BTreeMap<&str, &str>) {
     for token in tokens {
         if let Token::Word(value) = token
-            && let Some(mapped) = mappings.get(value.as_str())
+            && let Cow::Owned(replacement) = mapped(mappings, value)
         {
-            (*mapped).clone_into(value);
+            *value = replacement;
         }
     }
+}
+
+/// Selects the scalar-conflict rule instead of a copy rule when the line, once mapped,
+/// would replace a different target value the operator did not choose to overwrite.
+fn conflict_rule<'rules>(
+    rule: &'rules Rule,
+    rules: &'rules [Rule],
+    line: &CliLine,
+    target_lines: &[CliLine],
+    choices: &ClassificationChoices<'_>,
+    mappings: &BTreeMap<&str, &str>,
+) -> &'rules Rule {
+    if rule.disposition != Disposition::Copy {
+        return rule;
+    }
+    let mut sent = line.clone();
+    apply_mappings(&mut sent.tokens, mappings);
+    rules
+        .iter()
+        .find(|candidate| matches!(candidate.condition, Some(Condition::ScalarConflict)))
+        .filter(|_conflict| scalar_conflict(line, &sent, target_lines, choices.overwrite_scalars))
+        .unwrap_or(rule)
 }
 
 /// Converts a hash-bearing user command into a plaintext-password command.
@@ -697,9 +734,11 @@ fn replace_password(tokens: &mut [Token], password: &str) {
     }
 }
 
-/// Detects a different target value for the same scalar command key.
+/// Detects a different target value for the scalar command key of `sent`, the line sent for
+/// `source`, unless the operator chose to overwrite the key of `source`.
 fn scalar_conflict(
     source: &CliLine,
+    sent: &CliLine,
     target_lines: &[CliLine],
     overwrite_scalars: &BTreeSet<String>,
 ) -> bool {
@@ -711,17 +750,20 @@ fn scalar_conflict(
     ) {
         return false;
     }
-    let Some((source_value, source_key)) = source_words.split_last() else {
+    let Some((_source_value, source_key)) = source_words.split_last() else {
         return false;
     };
-    let key = source_key.join(" ");
-    !overwrite_scalars.contains(&key)
+    let sent_words = expanded_words(&sent.tokens);
+    let Some((sent_value, sent_key)) = sent_words.split_last() else {
+        return false;
+    };
+    !overwrite_scalars.contains(&source_key.join(" "))
         && target_lines.iter().any(|target| {
             let target_words = expanded_words(&target.tokens);
             target_words
                 .split_last()
                 .is_some_and(|(target_value, target_key)| {
-                    target_key == source_key && target_value != source_value
+                    target_key == sent_key && target_value != sent_value
                 })
         })
 }

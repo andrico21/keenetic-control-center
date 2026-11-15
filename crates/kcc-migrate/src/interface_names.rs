@@ -10,6 +10,13 @@ pub(crate) fn is_physical(name: &str) -> bool {
         || physical_wifi(name)
 }
 
+/// Recognizes a Wi-Fi radio name, `WifiMaster<n>`.
+pub(crate) fn is_radio(name: &str) -> bool {
+    name.strip_prefix("WifiMaster").is_some_and(|number| {
+        !number.is_empty() && number.bytes().all(|byte| byte.is_ascii_digit())
+    })
+}
+
 /// Recognizes a base Gigabit Ethernet port while excluding logical suffixes.
 fn physical_gigabit_ethernet(name: &str) -> bool {
     let Some(suffix) = name.strip_prefix("GigabitEthernet") else {

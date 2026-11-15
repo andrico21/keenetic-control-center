@@ -114,7 +114,12 @@ kcc copy --from home --to lab --groups dns-secure --finish rollback
    (`backup:<router>/<name>`) or a saved file (`file:<path>`).
 2. **Target inventory**: kcc reads the target's model, firmware, ports, radios,
    interfaces and current configuration without changing anything.
-3. **Mapping**: source ports, radios and interfaces are mapped onto the target's.
+3. **Mapping**: source ports, radios and interfaces are mapped onto the target's. A
+   mapping applies to every line that names the object, including lines with encrypted
+   secrets or WireGuard keys. A radio mapping (`WifiMaster0` -> `WifiMaster1`) also
+   moves the radio's access points (`WifiMaster0/AccessPoint1` ->
+   `WifiMaster1/AccessPoint1`) unless an access point has its own mapping. Presets use
+   the same mapping rule.
 4. **Classification**: every source line gets a disposition (below).
 5. **Plan**: lines in replay order, with redacted reports in JSON, Markdown and HTML.
 6. **Apply** under the fail-safe timer, line by line, then verification.
@@ -143,7 +148,7 @@ Factory-reset the target first for a predictable result.
 | `skip-identity` | left out: carries the source's identity |
 | `needs-input` | blocks until you supply a value or decision |
 | `unsupported` | left out: the target catalog can't validate it |
-| `conflict` | blocks: the target has a different value; choose which wins |
+| `conflict` | blocks: the target has a different value, an encrypted secret included; choose which wins |
 
 Bridge membership is retained when the target already reports the member or when the
 same plan has an executable setting that creates the mapped logical interface. To keep

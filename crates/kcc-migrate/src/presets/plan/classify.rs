@@ -9,7 +9,7 @@ use super::{PresetInput, PresetPlanItem};
 use crate::{
     apply,
     inventory::TargetInventory,
-    maps::MapEntry,
+    maps::{MapEntry, WordMapping},
     planner::{Choices, MigrationMaps},
     presets::model::Preset,
     rules::Disposition,
@@ -28,21 +28,24 @@ pub(super) fn source_item(
     let mut mapped = line.clone();
     let mut changed = false;
     for token in &mut mapped.tokens {
-        if let Token::Word(value) = token
-            && let Some(decision) = mappings.get(value.as_str())
-        {
-            let Some(replacement) = decision else {
-                return input_item(
-                    index,
-                    PresetInput::Mapping {
-                        source: value.clone(),
-                    },
-                );
-            };
-            if value != replacement {
-                (*replacement).clone_into(value);
-                changed = true;
-            }
+        let Token::Word(value) = token else {
+            continue;
+        };
+        let Some(found) = WordMapping::find(mappings, value) else {
+            continue;
+        };
+        let Some(target_name) = found.decision() else {
+            return input_item(
+                index,
+                PresetInput::Mapping {
+                    source: found.name().to_owned(),
+                },
+            );
+        };
+        let replacement = format!("{target_name}{}", found.rest());
+        if *value != replacement {
+            *value = replacement;
+            changed = true;
         }
     }
     if let Some(user) = realm_password_user(&mapped, preset, target) {

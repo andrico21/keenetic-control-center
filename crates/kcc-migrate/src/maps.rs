@@ -4,7 +4,10 @@ use alloc::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::inventory::{LogicalInterface, PhysicalPort, PortRole, Radio};
+use crate::{
+    interface_names,
+    inventory::{LogicalInterface, PhysicalPort, PortRole, Radio},
+};
 
 /// One editable mapping decision.
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -110,6 +113,54 @@ impl InterfaceMap {
             })
             .collect();
         Self { entries }
+    }
+}
+
+/// The mapping decision that applies to one configuration word.
+pub(crate) struct WordMapping<'word, Decision> {
+    /// The mapped object name the word starts with.
+    name: &'word str,
+    /// The rest of the word after `name`, kept as it is: empty or `/<child>`.
+    rest: &'word str,
+    /// The decision recorded for `name`.
+    decision: Decision,
+}
+
+impl<'word, Decision: Copy> WordMapping<'word, Decision> {
+    /// Finds the decision for `word`: its exact entry, or else, for a Wi-Fi access point
+    /// `WifiMaster<n>/<child>`, the entry of its radio `WifiMaster<n>`.
+    pub(crate) fn find(mappings: &BTreeMap<&str, Decision>, word: &'word str) -> Option<Self> {
+        if let Some(decision) = mappings.get(word) {
+            return Some(Self {
+                name: word,
+                rest: "",
+                decision: *decision,
+            });
+        }
+        let (name, rest) = word.split_at_checked(word.find('/')?)?;
+        if !interface_names::is_radio(name) {
+            return None;
+        }
+        mappings.get(name).map(|decision| Self {
+            name,
+            rest,
+            decision: *decision,
+        })
+    }
+
+    /// The mapped object name the word starts with.
+    pub(crate) const fn name(&self) -> &'word str {
+        self.name
+    }
+
+    /// The rest of the word after [`Self::name`]: empty or `/<child>`.
+    pub(crate) const fn rest(&self) -> &'word str {
+        self.rest
+    }
+
+    /// The decision recorded for [`Self::name`].
+    pub(crate) const fn decision(&self) -> Decision {
+        self.decision
     }
 }
 

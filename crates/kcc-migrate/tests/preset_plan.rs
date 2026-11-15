@@ -14,7 +14,10 @@ mod tests {
     use alloc::sync::Arc;
     use core::{error::Error, net::SocketAddr, str::FromStr as _};
 
-    use kcc_config::config_text::{flatten, parse};
+    use kcc_config::{
+        config_text::{flatten, parse},
+        ns3,
+    };
     use kcc_migrate::{
         inventory::{InventoryClient, TargetInventory, source_version},
         maps::MapEntry,
@@ -135,6 +138,54 @@ mod tests {
                 })
         }));
         assert!(!planned.is_ready());
+        handle.shutdown().await?;
+        Ok(())
+    }
+
+    /// H4a: a radio mapping moves the SSID, PSK and schedule lines of the radio's access
+    /// points.
+    #[tokio::test]
+    async fn radio_mapping_moves_access_point_lines() -> Result<(), Box<dyn Error>> {
+        let (target, handle) = inventory(Profile::latest(Model::Kn3810), "4.3.0").await?;
+        let secret = ns3::encode(&SecretString::from("Zq".repeat(6)))?;
+        let preset = captured(
+            "wifi",
+            "5.1.1",
+            &format!(
+                "interface WifiMaster0/AccessPoint1\n ssid Office\n authentication wpa-psk ns3 {secret}\n schedule WorkHours\n"
+            ),
+        )?;
+        let mut maps = MigrationMaps::default();
+        maps.radios.entries.push(MapEntry::new(
+            "WifiMaster0".to_owned(),
+            Some("WifiMaster1".to_owned()),
+        ));
+
+        let planned = plan(
+            &preset,
+            &target,
+            PresetMode::Merge,
+            &maps,
+            &Choices::default(),
+        )?;
+
+        assert_eq!(
+            planned
+                .items
+                .iter()
+                .map(|item| item.expose_result())
+                .collect::<Vec<_>>(),
+            [
+                Some("interface WifiMaster1/AccessPoint1 ssid Office"),
+                Some(
+                    format!(
+                        "interface WifiMaster1/AccessPoint1 authentication wpa-psk ns3 {secret}"
+                    )
+                    .as_str()
+                ),
+                Some("interface WifiMaster1/AccessPoint1 schedule WorkHours"),
+            ]
+        );
         handle.shutdown().await?;
         Ok(())
     }

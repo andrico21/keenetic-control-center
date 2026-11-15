@@ -247,6 +247,15 @@ The first release, `0.1.0`, is in preparation and contains:
 - A recovery bracket never leaves a timer armed without saying so: a migration or
   component install that fails after the arm disarms it or reports it, and a refused
   arm whose disarm was accepted says nothing was applied and the timer is off.
+- **Migration and preset mappings reach secret lines and access points**: a line that
+  carries an encrypted (`ns3`) secret or a WireGuard private key now follows the
+  interface, port and radio mappings like its sibling lines (it used to go to the
+  source-named interface) and is reported `remap` when a mapping changed it; such a line
+  is also checked for a scalar conflict, so replacing a different secret on the target
+  blocks until you choose to overwrite it. A radio mapping `WifiMaster<n>` ->
+  `WifiMaster<m>` now also moves that radio's access points
+  (`WifiMaster<n>/AccessPoint<k>` -> `WifiMaster<m>/AccessPoint<k>`) in migrations and
+  presets; an exact access-point mapping still wins.
 
 ### Security
 
