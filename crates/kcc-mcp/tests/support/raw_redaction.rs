@@ -10,9 +10,110 @@
 mod tests {
     use kcc_app::permissions::{Permission, Role};
     use kcc_testkit::{FakeRouter, model::Profile};
-    use serde_json::json;
+    use serde_json::{Value, json};
 
     use crate::lab::{Lab, TestResult, admin};
+
+    /// Dummy secrets built at run time: a PPPoE `ns3` blob, a plaintext Wi-Fi PSK and an
+    /// IKE `ns3` blob.
+    fn dummies() -> [String; 3] {
+        [("Pp", 1_u8), ("Ww", 2), ("Ii", 3)]
+            .map(|(pair, index)| format!("{}{index}", pair.repeat(15)))
+    }
+
+    /// A router whose `show running-config` lines and `show interface` answer hold the
+    /// `secrets`, and the configuration lines it answers.
+    fn configured(secrets: &[String; 3]) -> TestResult<(FakeRouter, Vec<String>)> {
+        let [ppp, psk, ike] = secrets;
+        let lines = vec![
+            "interface PPPoE0".to_owned(),
+            format!("    authentication password ns3 {ppp}"),
+            "interface WifiMaster0/AccessPoint0".to_owned(),
+            format!("    authentication wpa-psk {psk}"),
+            format!("crypto ike key office ns3 {ike} any"),
+        ];
+        let router = FakeRouter::builder(Profile::default())
+            .show_fixture("running-config", json!({ "message": lines }))
+            .show_fixture(
+                "interface",
+                json!({"PPPoE0": {"id": "PPPoE0", "type": "PPPoE",
+                    "authentication": {"password": {"ns3": ppp}}}}),
+            )
+            .build()?;
+        Ok((router, lines))
+    }
+
+    /// The reply of `kcc_rci_read` for `show <command>` on `lab-1`.
+    async fn read(lab: &Lab, command: &str) -> TestResult<Value> {
+        let reply = lab
+            .call(
+                "kcc_rci_read",
+                json!({"host": "lab-1", "catalog_path": format!("show {command}"),
+                    "path": ["show", command]}),
+                false,
+            )
+            .await?;
+        Ok(reply.value()?.clone())
+    }
+
+    /// SEC1-01, E-01: a role without `RevealSecrets` reads `show running-config` and
+    /// `show interface` with every secret redacted.
+    ///
+    /// The configuration lines and the nested `{"password": {"ns3": ..}}` member both
+    /// show `<redacted>`, and no secret appears anywhere in the reply.
+    // NOT cancel-safe: the fixture owns router and MCP tasks until explicit shutdown.
+    #[tokio::test]
+    async fn read_role_gets_configuration_secrets_redacted() -> TestResult {
+        let secrets = dummies();
+        let (router, _lines) = configured(&secrets)?;
+        let viewer = Role::new(
+            "viewer".to_owned(),
+            [Permission::Read],
+            vec!["*".to_owned()],
+        );
+        let lab = Lab::start(vec![("lab-1", router)], viewer).await?;
+        let config = read(&lab, "running-config").await?;
+        assert_eq!(
+            config.pointer("/value/message/1"),
+            Some(&json!("    authentication password <redacted>")),
+            "{config}"
+        );
+        assert_eq!(
+            config.pointer("/value/message/3"),
+            Some(&json!("    authentication wpa-psk <redacted>")),
+            "{config}"
+        );
+        let interface = read(&lab, "interface").await?;
+        assert_eq!(
+            interface.pointer("/value/PPPoE0/authentication/password"),
+            Some(&json!("<redacted>")),
+            "{interface}"
+        );
+        for reply in [&config, &interface] {
+            let text = reply.to_string();
+            for secret in &secrets {
+                assert!(!text.contains(secret.as_str()), "{secret} leaks: {text}");
+            }
+        }
+        lab.stop().await
+    }
+
+    /// SEC1-01: a role holding `RevealSecrets` on the router reads the configuration lines
+    /// as the router sent them.
+    // NOT cancel-safe: the fixture owns router and MCP tasks until explicit shutdown.
+    #[tokio::test]
+    async fn reveal_role_gets_configuration_lines_unchanged() -> TestResult {
+        let secrets = dummies();
+        let (router, lines) = configured(&secrets)?;
+        let lab = Lab::start(vec![("lab-1", router)], admin()).await?;
+        let config = read(&lab, "running-config").await?;
+        assert_eq!(
+            config.pointer("/value/message"),
+            Some(&json!(lines)),
+            "{config}"
+        );
+        lab.stop().await
+    }
 
     /// Raw interface output masks secret fields even when the caller can write them.
     // NOT cancel-safe: the fixture owns router and MCP tasks until explicit shutdown.

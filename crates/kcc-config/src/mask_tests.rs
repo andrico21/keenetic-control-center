@@ -9,7 +9,10 @@ use core::error::Error;
 
 use serde_json::{Value, json};
 
-use super::{REDACTED_MARK, is_secret_name, mask_json, redact_text, redacted_copy};
+use super::{
+    REDACTED_MARK, is_secret_name, mask_json, mask_reply, redact_text, redact_text_with,
+    redacted_copy,
+};
 
 /// SEC1-04: one rule names a secret member however it is spelt: hyphen or
 /// underscore, any case, the short forms and the registry's argument names.
@@ -165,4 +168,46 @@ fn the_redacted_copy_keeps_settings_and_loses_every_secret() -> Result<(), Box<d
     );
     assert!(!copy.contains("Md5 checksum"), "no stale checksum: {copy}");
     Ok(())
+}
+
+/// The caller's marker replaces exactly the words `redact_text` would replace, in
+/// readable and unreadable lines alike.
+#[test]
+fn redact_text_with_uses_the_callers_marker() {
+    let blob = "QUJD".repeat(6);
+    let text = format!(
+        "interface PPPoE0\n    authentication password ns3 {blob}\n    description \"open\n"
+    );
+    assert_eq!(
+        redact_text_with(&text, "********"),
+        "interface PPPoE0\n    authentication password ********\n    ********\n"
+    );
+    assert_eq!(
+        redact_text_with(&text, "<redacted>"),
+        redact_text(&text),
+        "the default marker is the plain form"
+    );
+}
+
+/// A router answer loses its secret-named members and the secrets in its strings: the
+/// configuration lines of an array, a lone text and a nested member.
+#[test]
+fn mask_reply_masks_members_and_configuration_strings() {
+    let blob = "QUJD".repeat(6);
+    let mut reply = json!({
+        "message": ["interface PPPoE0", format!("    authentication password ns3 {blob}")],
+        "text": format!("crypto ike key office ns3 {blob} any"),
+        "PPPoE0": {"authentication": {"password": {"ns3": blob}}},
+        "count": 2_u8,
+    });
+    mask_reply(&mut reply, "<redacted>");
+    assert_eq!(
+        reply,
+        json!({
+            "message": ["interface PPPoE0", "    authentication password <redacted>"],
+            "text": "crypto ike key office <redacted> any",
+            "PPPoE0": {"authentication": {"password": "<redacted>"}},
+            "count": 2_u8,
+        })
+    );
 }

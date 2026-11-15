@@ -4,7 +4,9 @@
 //! [`mask_json`] replaces every member whose name [`is_secret_name`] recognizes, whatever
 //! it holds, with the caller's marker. [`redact_text`] and [`redacted_config`] replace
 //! every secret the registry in [`crate::secrets`] knows, and every `ns3` payload, with
-//! `<redacted>`.
+//! `<redacted>`; [`redact_text_with`] does the same with the caller's marker.
+//! [`mask_reply`] combines both for a router answer shown to someone who may not see its
+//! secrets.
 
 use serde_json::Value;
 
@@ -71,28 +73,67 @@ pub fn mask_json(value: &mut Value, marker: &str) {
     }
 }
 
+/// Replaces every secret-named member of `value`, as [`mask_json`] does, and redacts every
+/// string in it as configuration text, as [`redact_text_with`] does, both with `marker`.
+///
+/// This is how a router answer is shown to someone who may not see its secrets: the
+/// configuration lines of `show running-config` arrive as an array of strings, and a text
+/// answer as one string.
+#[inline]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "callers import it unqualified next to `mask_json`; `reply` names the input"
+)]
+pub fn mask_reply(value: &mut Value, marker: &str) {
+    mask_json(value, marker);
+    redact_strings(value, marker);
+}
+
+/// Redacts every string below `value` as configuration text.
+fn redact_strings(value: &mut Value, marker: &str) {
+    match value {
+        Value::String(text) => *text = redact_text_with(text, marker),
+        Value::Array(items) => items
+            .iter_mut()
+            .for_each(|item| redact_strings(item, marker)),
+        Value::Object(object) => object
+            .values_mut()
+            .for_each(|member| redact_strings(member, marker)),
+        Value::Null | Value::Bool(_) | Value::Number(_) => {}
+    }
+}
+
 /// `text`, configuration text or any run of its lines, with every registered secret and
-/// every `ns3` payload replaced by `<redacted>`.
+/// every `ns3` payload replaced by `<redacted>`; [`redact_text_with`] with that marker.
+#[must_use]
+#[inline]
+pub fn redact_text(text: &str) -> String {
+    redact_text_with(text, REDACTED)
+}
+
+/// `text`, configuration text or any run of its lines, with every registered secret and
+/// every `ns3` payload replaced by the word `marker`.
 ///
 /// Each line is matched together with the block lines above it, so an indented line is
 /// redacted inside its block and a lone line on its own. A line holding no secret is
 /// kept byte for byte, as are comments, header lines and line endings. A line that
-/// cannot be read keeps only its indentation and `<redacted>`.
+/// cannot be read keeps only its indentation and `marker`.
 #[must_use]
 #[inline]
-pub fn redact_text(text: &str) -> String {
+pub fn redact_text_with(text: &str, marker: &str) -> String {
     let mut output = String::with_capacity(text.len());
     let mut blocks = Vec::new();
     for line in text.split_inclusive('\n') {
         let content = line.trim_end_matches(['\n', '\r']);
-        output.push_str(&redact_line(content, &mut blocks));
+        output.push_str(&redact_line(content, marker, &mut blocks));
         output.push_str(line.strip_prefix(content).unwrap_or_default());
     }
     output
 }
 
-/// One line of [`redact_text`], given the open blocks above it as indentation and words.
-fn redact_line(line: &str, blocks: &mut Vec<(usize, Vec<Token>)>) -> String {
+/// One line of [`redact_text_with`], given the open blocks above it as indentation and
+/// words.
+fn redact_line(line: &str, marker: &str, blocks: &mut Vec<(usize, Vec<Token>)>) -> String {
     let command = line.trim_start();
     if command.is_empty() || command.starts_with('!') {
         return line.to_owned();
@@ -110,7 +151,7 @@ fn redact_line(line: &str, blocks: &mut Vec<(usize, Vec<Token>)>) -> String {
         .map(|node| node.tokens)
     else {
         blocks.push((indent.len(), Vec::new()));
-        return format!("{indent}{REDACTED}");
+        return format!("{indent}{marker}");
     };
     let mut path: Vec<Token> = blocks
         .iter()
@@ -120,6 +161,11 @@ fn redact_line(line: &str, blocks: &mut Vec<(usize, Vec<Token>)>) -> String {
     redact_path(&mut path);
     let mut shown = path.split_off(path.len().saturating_sub(own.len()));
     plain_marker(&mut shown);
+    for (word, original) in shown.iter_mut().zip(&own) {
+        if word != original {
+            *word = Token::Word(marker.to_owned());
+        }
+    }
     let unchanged = shown == own;
     blocks.push((indent.len(), own));
     if unchanged {

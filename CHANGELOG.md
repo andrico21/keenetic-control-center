@@ -257,6 +257,18 @@ The first release, `0.1.0`, is in preparation and contains:
   holds an object, such as `show interface`'s `{"password": {"ns3": ...}}`, which the Web
   used to show. The markers are unchanged: `<redacted>` on MCP and the CLI, `********`
   on the Web. The command explorer's form treats the same names as secret fields.
+- **Raw router answers are redacted for roles without `RevealSecrets`.** The answers of
+  MCP `kcc_rci_read`, `kcc_rci_batch` and `kcc_cli_parse`, of the Web command
+  explorer, its jobs and the RCI and CLI consoles, and of `kcc show` and
+  `kcc rci get|post|batch` used to carry the router's stored secrets, such as the
+  `ns3` lines of `show running-config`, to any role with `Read`. Unless the role holds
+  `RevealSecrets` on that router, every string of such an answer is now redacted as
+  configuration text as well (`<redacted>` on MCP and the CLI, `********` on the Web); a
+  string that cannot be read as configuration lines shows only the marker. With
+  `RevealSecrets` the strings come as the router sent them, and explorer jobs now show
+  their answer that way too. MCP keeps masking secret-named members for every role.
+- Read batches of the RCI console, `kcc rci post|batch` and `kcc_rci_batch` send each
+  item as validated instead of its printable copy with secret arguments replaced.
 - **Configuration text redaction** (backup downloads and diffs on the Web, MCP and the
   CLI, the configuration page, stored lines, preset and migration reviews, anonymized
   fixtures) replaces the pre-shared key of `crypto ike key <name> <psk>` instead of the

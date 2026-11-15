@@ -4,7 +4,7 @@
 //! by level; above a size cap the complete answer is offered as a download instead.
 
 use fluent_bundle::FluentArgs;
-use kcc_config::mask::mask_json;
+use kcc_config::mask::{mask_reply, redact_text_with};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -64,18 +64,19 @@ pub(crate) struct Viewer {
 pub(crate) struct Rendered {
     /// What the page shows.
     viewer: Viewer,
-    /// The complete text, secrets redacted.
+    /// The complete text, secrets redacted unless shown to someone who may see them.
     full: String,
     /// Whether the text is JSON.
     json: bool,
 }
 
 impl Rendered {
-    /// The viewer of `body`; secret members are masked unless `reveal`.
+    /// The viewer of `body`; its secrets are masked unless `reveal`.
     pub(crate) fn body(body: &RciBody, reveal: bool, locale: Locale) -> Self {
         match body {
             RciBody::Json(response) => Self::response(response, reveal, locale),
-            RciBody::Text(text) => Self::text(text, locale),
+            RciBody::Text(text) if reveal => Self::text(text, locale),
+            RciBody::Text(text) => Self::text(&redact_text_with(text, MASK), locale),
             _ => Self::text("", locale),
         }
     }
@@ -85,7 +86,8 @@ impl Rendered {
         Self::json(&response.value, &response.statuses, reveal, locale)
     }
 
-    /// The viewer of a JSON value and its statuses.
+    /// The viewer of a JSON value and its statuses; secret members and the secrets in its
+    /// strings are masked unless `reveal`.
     pub(crate) fn json(
         value: &Value,
         statuses: &[(JsonPointer, StatusItem)],
@@ -94,7 +96,7 @@ impl Rendered {
     ) -> Self {
         let mut shown = value.clone();
         if !reveal {
-            mask_json(&mut shown, MASK);
+            mask_reply(&mut shown, MASK);
         }
         let full = serde_json::to_string_pretty(&shown).unwrap_or_default();
         let mut viewer = paged(&full, locale);

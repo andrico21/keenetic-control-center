@@ -20,7 +20,7 @@ use super::{
     change::{Gate, labelled, run_completed, run_headlined},
     context::{Ctx, Services, Target},
     exit::{Detail, Exit, Failure, Outcome},
-    fleet::{body_value, print_body},
+    fleet::{body_value, mask_unless_revealed, print_body},
 };
 
 /// Largest request body read from `--data`.
@@ -56,7 +56,7 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
             } else {
                 target.router().client.get(&resource, &value).await?
             };
-            print_body(ctx, body)
+            print_body(ctx, &target, body)
         }
         RciCommand::Delete { path, data } => {
             let target = ctx.target(&services, &[Permission::RawRci]).await?;
@@ -220,7 +220,7 @@ async fn send(
     let audit_pending = audit.as_ref().is_some_and(AuditReceipt::is_pending);
     report(
         ctx,
-        responses,
+        shown(ctx, target, responses),
         (unsaved, completed_persists, &completed_paths, audit_pending),
         recovery_failure,
     )
@@ -262,10 +262,27 @@ async fn read_batch(
     );
     let values = items
         .iter()
-        .map(|(item, _validated)| item.value.redacted().clone())
+        .map(|(item, _validated)| item.value.expose_for_send().expose_secret().clone())
         .collect();
     let responses = target.router().client.batch(values).await?;
-    report(ctx, responses, (false, false, &[], false), None)
+    report(
+        ctx,
+        shown(ctx, target, responses),
+        (false, false, &[], false),
+        None,
+    )
+}
+
+/// `responses` of `target` with their secrets redacted unless the principal may see them.
+fn shown(
+    ctx: &Ctx,
+    target: &Target,
+    mut responses: Vec<Result<RciResponse, RciError>>,
+) -> Vec<Result<RciResponse, RciError>> {
+    for response in responses.iter_mut().flatten() {
+        mask_unless_revealed(ctx, target, &mut response.value);
+    }
+    responses
 }
 
 /// Prints per-item results; any failed item makes the command partial (exit 7).

@@ -239,7 +239,9 @@ rules.
 model, shows each command's arguments and runs it with validated input. Background
 commands run as jobs. The RCI and CLI consoles send raw requests that are still
 validated against the catalog; they need the RawRci permission. Writes go through the
-change workflow; answers are masked unless you hold RevealSecrets.
+change workflow. Answers, the configuration lines of `show running-config` included,
+show secrets as `********` unless you hold RevealSecrets on that router. On the CLI,
+`kcc show` and `kcc rci` print them as `<redacted>` under the same rule.
 
 ## Administration
 

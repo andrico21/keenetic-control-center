@@ -2,6 +2,7 @@
 
 use kcc_app::permissions::Permission;
 use kcc_catalog::{HttpMethod, ValidationIssue};
+use kcc_config::mask::mask_reply;
 use kcc_i18n::keys;
 use kcc_rci::{
     RciBody, RciPath,
@@ -11,7 +12,7 @@ use serde_json::{Value, json};
 
 use super::{
     args_fleet::CatalogCommand,
-    context::Ctx,
+    context::{Ctx, Target},
     exit::{Detail, Exit, Failure, Outcome},
 };
 
@@ -79,7 +80,7 @@ pub(crate) async fn show(ctx: &Ctx, words: &[String]) -> Outcome {
         )
     })?;
     let body = target.router().client.show(&resource, &json!({})).await?;
-    print_body(ctx, body)
+    print_body(ctx, &target, body)
 }
 
 /// Runs a catalog command.
@@ -119,13 +120,15 @@ pub(crate) async fn catalog(ctx: &Ctx, command: CatalogCommand) -> Outcome {
     }
 }
 
-/// Prints a router answer: JSON as JSON, text as text.
+/// Prints a router answer of `target`: JSON as JSON, text as text, its secrets redacted
+/// unless the principal may see them ([`mask_unless_revealed`]).
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-pub(crate) fn print_body(ctx: &Ctx, body: RciBody) -> Outcome {
-    let value = body_value(body);
+pub(crate) fn print_body(ctx: &Ctx, target: &Target, body: RciBody) -> Outcome {
+    let mut value = body_value(body);
+    mask_unless_revealed(ctx, target, &mut value);
     let human = match &value {
         Value::String(text) => text.clone(),
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::Array(_) | Value::Object(_) => {
@@ -133,6 +136,18 @@ pub(crate) fn print_body(ctx: &Ctx, body: RciBody) -> Outcome {
         }
     };
     ctx.out().emit(&value, &human)
+}
+
+/// Redacts every secret of `reply`, a router answer of `target` ([`mask_reply`]), unless
+/// the principal holds `RevealSecrets` on that router.
+pub(crate) fn mask_unless_revealed(ctx: &Ctx, target: &Target, reply: &mut Value) {
+    if ctx
+        .principal()
+        .authorize(&[Permission::RevealSecrets], &[target.id()])
+        .is_err()
+    {
+        mask_reply(reply, "<redacted>");
+    }
 }
 
 /// A router answer as one JSON value.

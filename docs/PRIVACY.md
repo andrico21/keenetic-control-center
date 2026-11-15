@@ -64,7 +64,12 @@ forwards these results to its model provider, whose retention policy then applie
   they hold. A key is secret-shaped when it contains password, passwd, passphrase,
   token, secret, API key, private key, ns3, PSK or preshared, ends in `-key`, or is
   `key`, `pin` or `community`; case is ignored and `-` counts as `_`. The Web UI masks
-  raw answers by the same rule, with `********`. MCP tools never reveal secrets.
+  raw answers by the same rule, with `********`.
+- The raw tools (`kcc_rci_read`, `kcc_rci_batch`, `kcc_cli_parse`) also redact the
+  secrets in every string of the router's answer, such as the lines of
+  `show running-config`, unless the role holds RevealSecrets on that router. With
+  RevealSecrets those strings arrive as the router sent them, stored secrets included,
+  so give an assistant's key RevealSecrets only when its model may see them.
 - `[privacy] redact_clients_in_mcp = true` replaces MAC addresses, and values under keys
   containing `mac`, `hostname`, `host_name`, `ip` or `address`, with stable pseudonyms
   for the life of the server process. Client display names (`name`) and free-form

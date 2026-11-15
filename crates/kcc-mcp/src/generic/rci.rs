@@ -18,6 +18,7 @@ use super::persists::{applied, batch_applied, cli_applied};
 use crate::{
     KccMcp, McpFailure, RouterId, authorize_routers,
     support::{
+        access::reply_for,
         errors::{map_rci, map_workflow, rci_body_value, statuses},
         raw_change,
         shape::noting,
@@ -191,7 +192,7 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
     validate_fields(input.fields.as_deref())?;
     let ReadKind::Get = input.kind;
-    let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
+    let (identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let catalog = server.catalog(host.as_str()).await?;
     let _validated = checked(&catalog, &input.catalog_path, HttpMethod::Get, &input.value)?;
     let client = client(server, &host).await?;
@@ -206,7 +207,7 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
         client.get(&path, &input.value).await
     }
     .map_err(|error| map_rci(&error))?;
-    Ok(rci_body_value(body))
+    Ok(reply_for(&identity, &host, rci_body_value(body)))
 }
 
 /// Applies a catalog-validated mutation without saving.
@@ -343,18 +344,17 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         authorize_routers(&identity, Permission::Read, core::slice::from_ref(&host))?;
         let values = items
             .iter()
-            .map(|item| item.value.redacted().clone())
+            .map(|item| item.value.expose_for_send().expose_secret().clone())
             .collect();
         let responses = client(server, &host)
             .await?
             .batch(values)
             .await
             .map_err(|error| map_rci(&error))?;
-        return Ok(batch_applied(
-            batch_values(responses),
-            false,
-            false,
-            Vec::new(),
+        return Ok(reply_for(
+            &identity,
+            &host,
+            batch_applied(batch_values(responses), false, false, Vec::new()),
         ));
     }
     let mut completion = None;
@@ -381,11 +381,15 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         return outcome.and(Err(McpFailure::Internal));
     };
     let document = noting(
-        batch_applied(
-            batch_values(result.responses),
-            result.unsaved,
-            result.persists_immediately,
-            result.persisted_paths,
+        reply_for(
+            &identity,
+            &host,
+            batch_applied(
+                batch_values(result.responses),
+                result.unsaved,
+                result.persists_immediately,
+                result.persisted_paths,
+            ),
         ),
         &result.audit,
     );
@@ -469,7 +473,11 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
     )
     .await?;
     Ok(noting(
-        cli_applied(result.responses, result.unsaved, persistence),
+        reply_for(
+            &identity,
+            &host,
+            cli_applied(result.responses, result.unsaved, persistence),
+        ),
         &result.audit,
     ))
 }

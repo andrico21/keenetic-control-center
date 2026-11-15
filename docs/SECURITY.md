@@ -119,8 +119,10 @@ Permissions are Read, Write, Save, Destructive, Migrate, RawRci, RevealSecrets,
 ManageRouters, ManageUsers and ViewAudit. Built-in roles: `viewer` (Read), `operator`
 (Read, Write, Save, Migrate) and `admin` (everything); custom roles add router-name
 globs. Every front end checks the exact permission and router scope before any router
-request, and the change workflow checks again. A user can grant only roles whose
-permissions they hold, and the last enabled admin can't be removed.
+request, and the change workflow checks again. Raw router answers (explorer, consoles,
+`kcc show`, `kcc rci`, the MCP raw tools) show stored secrets only to a role holding
+RevealSecrets on that router; every other role sees them redacted. A user can grant
+only roles whose permissions they hold, and the last enabled admin can't be removed.
 
 `Migrate` permits planning and reviewing migrations, presets and settings copies. Every
 apply is authorized before any router request by one function shared by the CLI, the Web

@@ -251,7 +251,9 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
                     .read_batch(
                         items
                             .into_iter()
-                            .map(|(item, _validated)| item.value.redacted().clone())
+                            .map(|(item, _validated)| {
+                                item.value.expose_for_send().expose_secret().clone()
+                            })
                             .collect(),
                     )
                     .await

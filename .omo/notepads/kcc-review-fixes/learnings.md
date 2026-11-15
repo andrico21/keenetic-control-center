@@ -22,3 +22,24 @@
 - Gotcha: whole-member masking also masks container members named like secrets in Web request previews (`crypto ike key` preview now shows `"key": "********"`).
 - Gotcha: `Interface.extra.authentication` is read by the Web AP rows for password presence; C-04 keeps `authentication` as presence-only (`{"wpa-psk": true}`) instead of dropping it.
 - [2026-11-16] Todo 6 done in wt/r6: green on kcc-config/mcp/web/kcc/domain + migrate/testkit; the superset test stores kcc-style secrets on every fake profile first (the bare fixtures hold none, so a comparison over them alone is vacuous) and asserts each former classifier masked >0. Target dir and r6 logs removed.
+
+## [2026-11-16] Todo 7 progress (worktree wt/r7, H1 / D-H1)
+- New kcc-config API: `mask::redact_text_with(text, marker)` (`redact_text` = it with `<redacted>`; changed tokens become the bare marker word) and `mask::mask_reply(value, marker)` = `mask_json` + every JSON string redacted as configuration text (an unreadable string becomes the marker).
+- One decision per layer: MCP `support::access::reply_for(identity, host, value)` (rci_read, rci_batch read and change results, cli_parse); Web `Rendered::{body,json}` with the existing `Dispatch::reveal()` (job stream now computes `reveal` per listener instead of `false`); CLI `fleet::mask_unless_revealed(ctx, target, value)` (print_body for `show`/`rci get`, `rci::shown` for batch reports). Each uses the router-scoped check; any failure masks.
+- MCP `shape` still masks secret-named members for every role (pre-existing contract, test `raw_interface_read_redacts_planted_secret`); RevealSecrets only lifts the string redaction.
+- W4-14 is not observable end to end: no Show command (the only Read risk) has a path or argument the SecretValue registry protects (`show crypto ike key` takes no arguments). Read batches (Web RCI console, CLI `rci post|batch`, MCP `kcc_rci_batch`) now send `expose_for_send()`; evidence is a grep.
+- The fake router serves `show running-config` only through `show_fixture("running-config", {"message": [...]})`; it has no CLI `parse "show ..."`, so the CLI console has no end-to-end test (it shares `Rendered::body` with the explorer).
+- Explorer "stored lines" view left as is: it already redacts for every role (`<redacted>`).
+
+## [2026-11-16] Todo 2 progress (D-01 / NEW-1, worktree wt/r2)
+- `firewall/change/render.rs::render_property` now takes the `OwnedRuleProperty` from `Verification::property()` (new accessor in verify.rs) and has one arm per variant; it returns `DomainError::InvalidResponse` when the variant's negation disagrees with the validated body's `no` member or the plan is not a property plan. `Description(None)`/`Schedule(None)` render `no access-list L rule N description|schedule`.
+- Web no-op: new kit variant `page_kit::submit::rejected::Rejected::Unchanged` -> `Submission::unchanged` (abandon "unchanged", info outcome `WEB_SYSTEM_UNCHANGED`, no new i18n key). `firewall_page/rule_props.rs` returns it when the fresh `ConfiguredRule` already has the submitted description/schedule (covers "nothing to clear" and re-saving the same value).
+- MCP (`kcc_firewall_write` refuses `index`/`description`) and the CLI (`rule-property` only sets values) cannot express a clear, so D-01 is unreachable there; their property paths share the fixed renderer.
+- The fake router already applies `no access-list ... rule N description|schedule` (testkit cli_engine/acl_rules.rs); no fake change needed.
+- Gotcha: editing domain sources while a detached RED build is still compiling lets the build pick up the fix; restore HEAD content (new mtime forces a rebuild) and rerun the RED.
+- [2026-11-16] Todo 7 done in wt/r7: kcc-mcp/kcc-web/kcc tests green (exit 0), fmt+clippy clean; target dir and r7 logs removed.
+- [2026-11-16] Todo 2 done: kcc-domain+kcc-web tests green (65 binaries), kcc cli_domain_writes green, clippy 4 crates clean, cancel-safety ok. Target dir and r2 logs removed.
+
+## [2026-11-16] Orchestrator notes (merge flow)
+- A worker worktree cut from a temporary wip base must have its patch generated with a product pathspec: `git diff --binary master wt/rN -- crates docs CHANGELOG.md Cargo.lock Cargo.toml`, otherwise it carries reverse hunks of the .omo state files that master gained since.
+- Todo 7 notes: MCP raw tools (kcc_rci_read, kcc_rci_batch, kcc_cli_parse) redact every string as config text for roles without RevealSecrets; a string that cannot be read as configuration lines (for example an unterminated quote) shows only the marker. Accepted fail-closed; candidate for BACKLOG if viewers report over-masking.

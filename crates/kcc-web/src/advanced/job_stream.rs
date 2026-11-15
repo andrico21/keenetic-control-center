@@ -11,7 +11,10 @@ use futures_util::{
     StreamExt as _,
     stream::{self, BoxStream},
 };
-use kcc_app::jobs::{JobEvent, JobStatus};
+use kcc_app::{
+    jobs::{JobEvent, JobStatus},
+    permissions::Permission,
+};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
@@ -24,7 +27,10 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     overview::{fragment, guarded},
     page::{Localize as _, Shell},
-    page_kit::context::{self, fragment_shell},
+    page_kit::{
+        context::{self, fragment_shell},
+        gate::allowed,
+    },
 };
 
 /// The status pill of a job.
@@ -82,6 +88,7 @@ pub(crate) async fn stream(
     let events = Events {
         state: state.clone(),
         locale: user.locale(),
+        reveal: allowed(&user, &router, &[Permission::RevealSecrets]),
         id: record.id.clone(),
     };
     guarded(events.stream(receiver, record.status), permit).into_response()
@@ -93,6 +100,8 @@ struct Events {
     state: WebState,
     /// Listener locale.
     locale: Locale,
+    /// Whether the listener may see the secrets in the answer.
+    reveal: bool,
     /// Job id.
     id: String,
 }
@@ -144,7 +153,11 @@ impl Events {
         let answer = self.state.advanced().output(&self.id);
         let viewer = answer
             .filter(|_| status == JobStatus::Completed)
-            .map(|body| Rendered::body(&body, false, self.locale).into_parts().0);
+            .map(|body| {
+                Rendered::body(&body, self.reveal, self.locale)
+                    .into_parts()
+                    .0
+            });
         let note = match status {
             JobStatus::Cancelled => keys::WEB_EXPLORER_JOB_CANCELLED,
             JobStatus::Completed => keys::WEB_EXPLORER_EMPTY_RESPONSE,

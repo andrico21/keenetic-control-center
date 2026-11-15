@@ -62,6 +62,8 @@ mod policy;
 mod preset_finish;
 #[path = "cli/rci_transport.rs"]
 mod rci_transport;
+#[path = "cli/reveal.rs"]
+mod reveal;
 #[path = "cli/router_credentials.rs"]
 mod router_credentials;
 #[path = "cli/router_edits.rs"]

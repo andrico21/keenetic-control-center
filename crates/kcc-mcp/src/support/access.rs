@@ -3,11 +3,14 @@
 use kcc_app::{
     audit::{Actor, ActorKind},
     permissions::Permission,
+    registry::authorize,
     workflow::ChangeSet,
 };
 use kcc_catalog::{Catalog, Risk};
+use kcc_config::mask::mask_reply;
 use kcc_domain::RouterCtx;
 use rmcp_server_kit::rbac::{current_identity, current_role};
+use serde_json::Value;
 
 use super::errors::map_workflow;
 use crate::{KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers};
@@ -138,4 +141,13 @@ impl KccMcp {
         }
         Ok(())
     }
+}
+
+/// `reply`, a router answer from `host`, as `identity` may see it: as the router sent it
+/// with `RevealSecrets` on `host`, otherwise with every secret redacted ([`mask_reply`]).
+pub(crate) fn reply_for(identity: &McpIdentity, host: &RouterId, mut reply: Value) -> Value {
+    if authorize(&identity.role, Permission::RevealSecrets, host.as_str()).is_err() {
+        mask_reply(&mut reply, "<redacted>");
+    }
+    reply
 }
