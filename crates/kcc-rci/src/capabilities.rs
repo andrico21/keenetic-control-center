@@ -16,7 +16,7 @@ use crate::{
 
 /// Firmware lines exercised by the live hardware suites.
 ///
-/// A line is added only after the todo-51 live suites pass on it, recorded in
+/// A line is added only after the live suites pass on it, recorded in
 /// `docs/FIRMWARE.md`.
 pub const HARDWARE_VERIFIED: &[(u16, u16)] = &[(5, 1)];
 

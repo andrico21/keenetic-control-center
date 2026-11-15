@@ -151,7 +151,7 @@ web-router-error-policy = kcc бұл мекенжайға қосылмайды. 
 web-router-error-unreachable = Роутер жауап бермеді. Мекенжайды және kcc үшін оның желісінің қолжетімділігін тексеріңіз.
 web-router-error-check = Роутер жауап берді, бірақ kcc құрылғыны анықтай алмады.
 
-# todo 44
+# Administration
 web-admin-title = Әкімшілік
 web-admin-tab-users = Пайдаланушылар
 web-admin-tab-roles = Рөлдер
@@ -316,7 +316,7 @@ web-admin-server-stopped = Тоқтатылған
 web-admin-server-catalogs = Командалар каталогтары
 web-admin-server-catalog-line = Микробағдарлама желісі
 web-admin-server-catalog-groups = Командалар топтары
-# todo 42
+# Command explorer
 web-explorer-title = Командалар шолғышы
 web-explorer-catalog = { $model } үшін { $version } командалар каталогы
 web-explorer-catalog-union = { $version } командалар каталогы, барлық модельдер
@@ -520,7 +520,7 @@ web-system-restart-title = Қайта іске қосу
 web-system-restart-text = Қайта іске қосу роутер арқылы өтетін барлық қосылымды бірнеше минутқа үзеді және сақталмаған өзгерістерді жояды.
 web-system-restart = Роутерді қайта іске қосу
 
-# todo 36
+# Local network pages
 web-clients-title = Клиенттер
 web-clients-tabs = Жергілікті желі
 web-clients-landing-pages = Беттер
@@ -671,7 +671,7 @@ web-segments-error-port = Роутер хабарлаған коммутатор
 web-segments-error-access-point = Роутер хабарлаған кіру нүктесін таңдаңыз.
 web-segments-failed-step = { $name } қадамы сәтсіз аяқталды; kcc жасалған нысандарды жойды.
 web-segments-rollback-failed = { $name } қадамы сәтсіз аяқталды, ал жасалған нысандарды жою { $value } қадамында тоқтады. Роутерде сегменттің бір бөлігі қалуы мүмкін.
-# todo 37
+# Network pages
 web-network-tabs = Желі беттері
 web-network-tab-mesh = Mesh жүйесі
 web-network-title = Интерфейстер
@@ -815,7 +815,7 @@ web-mesh-status = Күйі
 web-mesh-check = Жаңартуларды тексеру
 web-mesh-update = Микробағдарламаны жаңарту
 web-mesh-restart = Қайта іске қосу
-# todo 39
+# DNS and VPN pages
 web-dns-tab-servers = DNS серверлері
 web-dns-tab-filtering = Сүзгілеу
 web-dns-tab-records = Статикалық жазбалар
@@ -1012,7 +1012,7 @@ web-vpn-conf-endpoint = Пир { $peer }: Endpoint порты бар IP меке
 web-vpn-skip-address = Address: қосылым мекенжайын роутерде орнатыңыз; kcc әзірге оны орната алмайды.
 web-vpn-skip-dns = DNS: kcc әзірге қосылымның DNS серверлерін орната алмайды.
 web-vpn-skip-asc = Jc, Jmin, Jmax, S1–S4, H1–H4, I1–I5: kcc әзірге оларды орната алмайды.
-# todo 40
+# System pages
 web-system-tabs = Жүйе беттері
 web-system-users-title = Роутер пайдаланушылары
 web-system-services-title = Қызметтер

@@ -153,7 +153,7 @@ web-router-error-policy = kcc не подключается к этому адр
 web-router-error-unreachable = Роутер не ответил. Проверьте адрес и доступность его сети для kcc.
 web-router-error-check = Роутер ответил, но kcc не удалось определить устройство.
 
-# todo 44
+# Administration
 web-admin-title = Администрирование
 web-admin-tab-users = Пользователи
 web-admin-tab-roles = Роли
@@ -318,7 +318,7 @@ web-admin-server-stopped = Остановлена
 web-admin-server-catalogs = Каталоги команд
 web-admin-server-catalog-line = Линейка прошивки
 web-admin-server-catalog-groups = Группы команд
-# todo 42
+# Command explorer
 web-explorer-title = Обозреватель команд
 web-explorer-catalog = Каталог команд { $version } для { $model }
 web-explorer-catalog-union = Каталог команд { $version }, все модели
@@ -530,7 +530,7 @@ web-system-restart-title = Перезагрузка
 web-system-restart-text = Перезагрузка на несколько минут прерывает все соединения через роутер и отменяет несохранённые изменения.
 web-system-restart = Перезагрузить роутер
 
-# todo 36
+# Local network pages
 web-clients-title = Клиенты
 web-clients-tabs = Локальная сеть
 web-clients-landing-pages = Страницы
@@ -681,7 +681,7 @@ web-segments-error-port = Выберите порты коммутатора, о
 web-segments-error-access-point = Выберите точку доступа, о которой сообщил роутер.
 web-segments-failed-step = Шаг { $name } не удался; kcc удалил созданные объекты.
 web-segments-rollback-failed = Шаг { $name } не удался, а удаление созданных объектов остановилось на шаге { $value }. На роутере может остаться часть сегмента.
-# todo 37
+# Network pages
 web-network-tabs = Сетевые страницы
 web-network-tab-mesh = Mesh-система
 web-network-title = Интерфейсы
@@ -825,7 +825,7 @@ web-mesh-status = Состояние
 web-mesh-check = Проверить обновления
 web-mesh-update = Обновить прошивку
 web-mesh-restart = Перезагрузить
-# todo 39
+# DNS and VPN pages
 web-dns-tab-servers = DNS-серверы
 web-dns-tab-filtering = Фильтрация
 web-dns-tab-records = Статические записи
@@ -1024,7 +1024,7 @@ web-vpn-conf-endpoint = Пир { $peer }: Endpoint должен быть IP-ад
 web-vpn-skip-address = Address: задайте адрес подключения на роутере; kcc пока не умеет его задавать.
 web-vpn-skip-dns = DNS: kcc пока не умеет задавать DNS-серверы подключения.
 web-vpn-skip-asc = Jc, Jmin, Jmax, S1–S4, H1–H4, I1–I5: kcc пока не умеет их задавать.
-# todo 40
+# System pages
 web-system-tabs = Системные страницы
 web-system-users-title = Пользователи роутера
 web-system-services-title = Службы

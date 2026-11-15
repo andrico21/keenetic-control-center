@@ -16,7 +16,7 @@ the command catalog and the test tiers.
 | `kcc-app` | `kcc.toml`, the state store, encryption, accounts, API keys, roles, router registry, change workflow, backups, jobs, audit log, shared poller |
 | `kcc-telemetry` | Prometheus exporter and router log collection and forwarding |
 | `kcc-i18n` | every user-visible string in en, ru, uk, de, be and kk |
-| `kcc-web` | the Web UI (axum, askama templates, htmx) |
+| `kcc-web` | the Web UI (axum, askama templates, htmx). Shared kits: `page_kit` (`submit`, `form`, `confirm`, `respond`, `request`) runs every write page, `crate::table` renders every table, `crate::wizard` is the one engine of the migration wizard and the preset runs |
 | `kcc-mcp` | the MCP server: tool registry, toolsets, argument validation, result shaping |
 | `kcc-testkit` | the fake router, fake log sinks, fixtures and the capture tool |
 | `kcc` | the binary: CLI, `serve`, `mcp stdio`, privilege floor |
@@ -78,24 +78,62 @@ operation. Migrations and preset applies use the same pieces through `kcc-migrat
 applier: fail-safe for the whole run, one line at a time, verification, then commit or
 rollback ([MIGRATION.md](MIGRATION.md)).
 
-Management brackets authorize the operation and `SafetyNet::management_permissions()`
-before arming. Arming, disarming, keep-alive and rollback share `Destructive`; commit
-retains `Save`. CLI, Web and raw and curated MCP writes use this same recovery
-permission set. MCP's shared planned-write executor chooses the bracket from the
-actual `ChangeOp` risk, including WAN addressing and firewall bindings classified
-in `kcc-domain`. Firewall list changes inspect all affected interfaces and fail
-closed if discovery fails. HTTP, SSH and Telnet service toggles also receive their
-management classification from the domain, shared with the Web and CLI. One
-rule picks the recovery mechanism for every surface, from the system mode and the
-`show last-change` read when the change set begins: router mode uses the native timer;
-extender, access-point and repeater modes use a cancellable scheduled reboot; a router
-that reports no mode uses the native timer when its last-change state carries a
-fail-safe object with a boolean `active` member; any other router is refused before
-anything is sent. The timer is 300 seconds everywhere. The
-curated interface guard retains native recovery and its positive arm verification
-until a scheduled-reboot verification contract is established. If cleanup fails after
-application, the result reports the applied change and tells the caller to treat
-recovery as still armed, rather than reporting a refused change.
+## The shared bracket seam
+
+Every management change on every surface runs through one function,
+`kcc_domain::configuration::bracket::guarded`, so the CLI, MCP and the Web UI arm,
+work, disarm and report the same way.
+
+- **Arm, work, disarm.** `guarded` refuses an unheld request or a dead audit writer
+  before anything is sent. Then it arms the router's recovery timer, runs the caller's
+  work, and always sends a disarm afterwards, whatever the work returned. The timer is
+  300 seconds everywhere. Only a dropped future or a panic skips the disarm, and then the
+  router's own timer restores the saved configuration.
+- **One permission.** Arm, work and disarm are authorized by the permission of the change
+  the timer protects (`Write`, `RawRci`, `Migrate`, ...), plus `Destructive` only for a
+  destructive risk (`SafetyNet::required`). A role that may make a change may close its
+  bracket.
+- **Recovery mode from fresh facts.** `SafetyMode::decide` (and `SafetyMode::for_change`,
+  which reads the change set's captured facts) picks the mechanism: router mode uses the
+  native `system configuration fail-safe timer`; extender, access-point and repeater
+  modes use a cancellable scheduled reboot; a router that reports no mode gets the native
+  timer only when `show last-change` carries a fail-safe object with a boolean `active`
+  member. Any other router is refused before anything is sent (CLI exit 10, MCP
+  `router_mode_unknown`, Web toast `management-mode-unknown`).
+- **What a failure says.** A failed bracket carries `recovery::Failure`, whose `fate()` is
+  `None` when the timer is off, or an `ArmedFate` when it may still be armed: `NotSent`
+  (the arm and its disarm both failed, nothing else was sent), `Applied` (the change was
+  applied, the disarm failed), `Unknown` (the change may or may not have applied, the
+  disarm failed) or `Saved` (the configuration was saved, the disarm failed).
+  `Failure::message_key()` gives the sentence; a refused arm whose disarm was accepted
+  reads "not applied, timer off".
+- **One closing step.** `configuration::close` (`Close::{KeepUnsaved, Save, Rollback}`)
+  ends a bracket for a keep, a save or a rollback in either mode: it disarms, commits and
+  saves, or sends the native rollback (router mode) or reboots at once (scheduled-reboot
+  mode). The migration engine, preset runs and `kcc config failsafe` all use it.
+- **The open-bracket count.** `kcc_app::brackets::Brackets`, owned by `ChangeWorkflow`,
+  counts open brackets on every surface. `kcc serve` and `kcc mcp stdio` wait for it
+  (at most 10 s, `BRACKET_GRACE` in `crates/kcc/src/server_shutdown.rs`) before they exit,
+  then give the audit writer 5 s to flush.
+- **Audit waits.** Inside a bracket the change set defers its audit receipts
+  (`ChangeSet::defer_audit`): the arm, the work and the disarm are queued in order and
+  return at once, so another process holding the audit append lock cannot delay the
+  disarm. After the disarm the bracket waits at most `BRACKET_AUDIT_WAIT` (20 s). An
+  ordinary write waits `AUDIT_WAIT` (30 s) per receipt, and a Web sign-in
+  `LOGIN_AUDIT_WAIT` (5 s). The constants live in `crates/kcc-app/src/audit/receipt.rs`.
+  A change the router applied whose entry is still queued is reported as applied with a
+  pending note, because the writer keeps the entry and writes it later, in order.
+- **Surfaces.** The CLI (`crates/kcc/src/cli/change.rs`, `cli/exit.rs`) maps a failure to
+  an exit code and a headline, and adds `audit_pending` to `--json`. MCP
+  (`crates/kcc-mcp/src/support/raw_change.rs`, `support/errors.rs`) maps the fate to
+  `management_not_sent_fail_safe_armed`, `management_applied_fail_safe_armed`,
+  `management_saved_fail_safe_armed` or `management_outcome_unknown_fail_safe_armed`, and
+  adds `"audit_pending": true` to write results. The Web UI (`crates/kcc-web/src/page_kit/change.rs`)
+  holds the request with `brackets::hold` before its first router request, so the server
+  owns it until it ends (`crates/kcc-web/src/brackets.rs`), and shows the fate's sentence
+  as a toast.
+- **Migrations and presets** arm one longer bracket for the whole run in `kcc-migrate`'s
+  applier and close it with the same `close` step ([MIGRATION.md](MIGRATION.md)).
 
 ## Command catalog
 

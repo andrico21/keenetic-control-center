@@ -3,7 +3,7 @@
 //! The page reads the router's log through [`LogSource`]. When the router's log
 //! collector runs (`[logs] enabled` and the router selected), it owns the router's one
 //! `show log` stream and the page follows it ([`CollectorLog`]) without a request of its
-//! own. Otherwise it is [`PollingLog`]: the todo-21 reader (`logging::read_log`, a POST
+//! own. Otherwise it is [`PollingLog`]: the POST reader (`logging::read_log`, a POST
 //! of `show log`) asked again at most every [`POLL_INTERVAL`], with the lines already
 //! seen left out.
 

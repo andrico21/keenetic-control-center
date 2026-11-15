@@ -29,7 +29,7 @@ use zeroize::Zeroizing;
 /// Fallible test result.
 type TestResult = Result<(), Box<dyn Error>>;
 
-/// The task-51 firmware matrix in the workspace evidence directory.
+/// The firmware matrix in the workspace evidence directory.
 fn matrix_path() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../.omo/evidence/task-51-keenetic-control-center.json")

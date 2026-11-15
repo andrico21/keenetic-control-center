@@ -13,7 +13,7 @@ A token a page needs and cannot find is added here first, then to the stylesheet
   this is a Carbon-*inspired* token set in one hand-written stylesheet, not Carbon itself.
 - StyleGallery: `CATALOG.md` + `fixed-sidenav-shell` read; picked `sticky-aside` for the shell
   (see section 4).
-- Lazyweb: skipped - todo 33 builds the shell and primitives only, no product screen yet.
+- Lazyweb: skipped - the first work built the shell and primitives only, no product screen yet.
   Todo 35 (first data pages): the Lazyweb and StyleGallery tooling was not available in this
   environment; the fleet grid and dashboard follow Carbon's dashboard conventions (tonal
   tiles, label/value lists, one data-visualization palette) on the existing tokens.
@@ -27,8 +27,8 @@ small tinted pills. Nothing decorates; every element reports state or offers an 
 
 Brief for the shell (every page): primary action is the page's own (the shell has none of its
 own); priority 1 is the page title in `main`, 2 the selected router and its status, 3 the
-navigation. Left out on purpose: logo art, icons, breadcrumbs, a footer, a user avatar (todo 34
-adds the account menu), decorative badges. Required content: fleet switcher (or "no routers"
+navigation. Left out on purpose: logo art, icons, breadcrumbs, a footer, a user avatar (the account menu comes
+later), decorative badges. Required content: fleet switcher (or "no routers"
 note), router status pill, unsaved-changes badge, language menu, theme menu, the 13 navigation
 links, skip link, toast region, dialog container.
 
@@ -157,7 +157,7 @@ scrolling panel, the chart inside the live region (it would be re-created on eve
 Layout (router form `/ui/routers/...`): single column, 40rem max, actions in one row that
 wraps; scroll owner: the document.
 
-Layout (admin pages `/ui/admin/*`, todo 44): stacked sections - tab bar, page head (title
+Layout (admin pages `/ui/admin/*`): stacked sections - tab bar, page head (title
 and the primary action), then the table region (or the filter form above the audit table,
 or the server panels); tables sit in `.table-wrap`, which scrolls sideways only for the
 table itself; scroll owner: the document; anti-patterns: a fixed-height scrolling table,
@@ -194,7 +194,7 @@ anti-patterns: a success banner repeating its toast, settings rows whose height 
 their button, an Edit button for a setting the page cannot change.
 
 Layout (system pages `/ui/r/{router}/system/{users,services,components,storage,schedules,
-keendns}`, todo 40): stacked sections - page head (title and the page's primary action),
+keendns}`): stacked sections - page head (title and the page's primary action),
 router link, the system tab bar (wrapping onto more rows on a phone), the outcome region, then the page's region: a filter, a `.table-wrap` table and the pager (the
 components page puts the firmware and queue panels first; KeenDNS shows panels only); the
 page grid is `minmax(0, 1fr)` so a table never widens the page; scroll owner: the
@@ -218,7 +218,7 @@ buttons), output that only arrives at the end of the page.
 `.table-wrap` scrolls sideways; `--lan-field-min` (14rem) is the narrowest field of a dialog
 field grid and of the clients filter.
 
-Layout (local network pages `/ui/r/{router}/{clients,dhcp,segments}`, todo 36): stacked
+Layout (local network pages `/ui/r/{router}/{clients,dhcp,segments}`): stacked
 sections - the family tabs (Clients, DHCP, Segments), page head (title and the view's primary
 action), router link, the DHCP view switch, the outcome region, then the region
 (`#clients-region`, `#dhcp-region`: filter, count, the table in `.table-wrap`, pager); scroll
@@ -330,7 +330,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 - Surface: the tone-specific toast token is opaque in both themes. Dark tokens composite the
   16% tone wash over Chrome so the tone remains visible without underlying text bleeding through.
 
-### Page briefs (todo 35)
+### Page briefs: fleet and routers
 
 - Fleet overview. Primary action: open a router (card title link); "Add router" is primary
   only in the empty state, secondary otherwise, and shown only with ManageRouters.
@@ -381,7 +381,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   (12rem minimum per field), Apply (primary) and Clear (ghost); invalid dates show a
   field error and are ignored.
 
-### Page briefs (todo 44)
+### Page briefs: administration
 
 - Users. Primary action: Add user. Priorities: 1 the accounts and their state, 2 roles,
   3 row actions. Left out on purpose: last sign-in tiles, avatars, bulk actions. Required
@@ -401,7 +401,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 - Server. No primary action. Priorities: 1 version and uptime, 2 state directory health,
   3 configuration summary and command catalogs. Left out on purpose: secrets, credential
   paths, router logins.
-### Command explorer and consoles (todo 42)
+### Command explorer and consoles
 
 - Command list (`.command-list`, `.command-link`): rows separated by hairlines; the path in
   the mono face, the kind as a muted caption. A link opens the detail in place (htmx) and
@@ -428,7 +428,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
   command does both in one dialog (the timer text, then the name field with "Type <router>
   to confirm." as its help); the confirm button posts the original form again.
 
-### Page briefs (todo 42)
+### Page briefs: command explorer and consoles
 
 - Command explorer. Primary action: Run (read) or Run command (change), only when the role
   holds the command's permission. Secondary: Preview request, Show how the router stores
@@ -447,7 +447,7 @@ restyled with these tokens; markup lives in `templates/base.html` and the macros
 
 ### Domain page kit (`src/page_kit/`)
 
-The machinery every router page shares, so a domain page (todos 36-41, 43) is a route, a
+The machinery every router page shares, so a domain page is a route, a
 view model, a form, a plan and one kit call. The explorer, the consoles, the router pages
 and the admin pages run on it too. One module per responsibility:
 
@@ -544,7 +544,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 - `#page-outcome`, `aria-live="polite"`, hidden while it holds nothing; actions target it.
   Failures stay there (notice, the router's words); successes only toast.
 
-### Refusal (`errors::refusal`, todo 121)
+### Refusal (`errors::refusal`)
 - A request the role may not make answers 403, which htmx does not show by itself. Where
   the handler knows the region of its result (the CLI and RCI consoles, the explorer), the
   403 carries a fragment for it (`partials/refusal.html`): the outcome section with an
@@ -567,7 +567,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
   the time server (`Write`), Restart router and Reset to factory settings (`Destructive`,
   router name typed), the outcome region.
 
-### System pages (todo 40)
+### System pages
 
 - Tab bar (`partials/system_tabs.html`, `system_pages::tabs::TabBar`): the admin tabs'
   anatomy (`.tabs`), one link per system page of the router, the current one marked with
@@ -585,7 +585,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 - Diagnostic form (`.diagnostics-form`): a tool radio group, then the tool's fields; CSS
   `:has()` hides the other tools' fields (they are ignored by the server anyway).
 
-### Page briefs (todo 40)
+### Page briefs: system pages
 
 - Router users. Primary action: Add user (management, so only roles with `ManageUsers` and
   `Destructive`). Priorities: 1 the accounts, 2 their tags, 3 row actions. Left out on
@@ -618,7 +618,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
   hops), ARP ping (address, interface, count), iperf3 (host, port, duration), the
   jobs-unavailable notice when no job runner is attached.
 
-### Local network pages (todo 36)
+### Local network pages
 
 - Family tabs (`partials/lan_tabs.html`): the admin tab markup and style for one router's
   Clients, DHCP and Segments pages; `/ui/clients` lists every router with the same links.
@@ -637,7 +637,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
   review as an ordered list (`.lan-steps`) with Back (ghost) and Create segment (primary);
   the server checks the details again at every step.
 
-### Page briefs (todo 36)
+### Page briefs: local network pages
 
 - Clients. Primary action: none at page level; each row has its Actions menu. Priorities:
   1 who is there (name, online, registered), 2 where (MAC, IP, interface or access point,
@@ -657,7 +657,7 @@ with the unsaved badge, one validation failure that sends nothing, one router er
 - Segments. Primary action: Create segment. Required content: the wizard (number, VLAN ID,
   router address, mask, DHCP range, switch ports, access point, connection policy; the
   review; Back, Create segment) and the note that listing and deleting arrive later.
-### Network pages (todo 37)
+### Network pages
 
 Layout (network pages `/ui/r/{router}/{network,internet,wifi,mesh}`): stacked sections - the
 network tab bar, page head (title; Add connection on the internet page), router link, the
@@ -689,7 +689,7 @@ drawer (Edit replaces its content), a browser poll of the router (the chart list
   caption line (`.net-table__note`); actions are ghost buttons in `.admin-actions`, each
   `aria-describedby` the row header; Delete and Restart are `button--danger-ghost`.
 
-Page briefs (todo 37):
+Page briefs (network pages):
 
 - Interfaces. Primary action: none; each row has its own. Priorities: 1 link and state,
   2 address and type, 3 security level. Left out on purpose: per-row counters (the drawer has
@@ -713,7 +713,7 @@ Page briefs (todo 37):
 - Mesh. Primary action: none. Priorities: 1 members and status, 2 their actions. Required
   content: name, identifier, MAC, status; Check for updates and Update firmware (`Write`);
   Restart (`Destructive`, router name typed).
-### DNS and VPN pages (todo 39, `src/dns_vpn/`)
+### DNS and VPN pages (`src/dns_vpn/`)
 
 Layout (DNS `/ui/r/{router}/dns[/filtering|records|lists|routes]` and VPN
 `/ui/r/{router}/vpn[/servers]`, `/ui/r/{router}/vpn/peers/{tunnel}`): stacked sections - tab
@@ -737,7 +737,7 @@ scrolling table, a hover-only row action.
 - State in tables: the status pill (Enabled online, Disabled and Unknown neutral); secrets
   only as Set / Not set, never a value.
 
-### Page briefs (todo 39)
+### Page briefs: DNS and VPN
 
 - DNS servers. Primary action: Add server (protocol DNS over TLS, DNS over HTTPS or plain).
   Priorities: 1 the servers the router asks, 2 protocol, 3 options. Left out on purpose:
@@ -787,7 +787,7 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 
 | Item | Location | Why accepted | Owner / Exit |
 |---|---|---|---|
-| Theme and language menus do nothing without JavaScript | `base.html` | The Web UI requires htmx anyway; cookies are written client-side so no state-changing endpoint exists before CSRF (todo 34) | Todo 34 may add a POST fallback |
+| Theme and language menus do nothing without JavaScript | `base.html` | The Web UI requires htmx anyway; cookies are written client-side so no state-changing endpoint exists before CSRF | A POST fallback may be added |
 | The traffic chart is a canvas | `pages/dashboard.html` | uPlot draws on canvas; the chart has `role="img"` and a label, and the legend states the newest rates as text | A data table view if users ask for history values |
 | Router forms need JavaScript | `pages/router_form.html` | Every state-changing request carries the CSRF header that `app.js` adds to htmx requests | Same as the menus |
 | API key Copy needs the Clipboard API | `partials/admin_key_created.html` | Without it (or without JavaScript) the key stays selected in its read-only field for a manual copy | None needed |
@@ -800,7 +800,7 @@ WCAG 2.2 AA: contrast per section 2; visible focus everywhere, never covered; ta
 | Diagnostic fields filter by `:has()` | `pages/system_diagnostics.html` | A browser without `:has()` shows every tool's fields; the server reads only the chosen tool's | None needed |
 | A refused domain-page change names no permission | `#refused-toast` in `base.html` | Domain handlers still answer the generic 403 page, so the toast can only say the role does not allow it and nothing changed; the consoles and the explorer name the permission in place | Domain handlers answer with `errors::refusal` for their outcome region |
 
-## Configuration and backups page (todo 41, `src/config_page/`)
+## Configuration and backups page (`src/config_page/`)
 
 Layout (configuration `/ui/r/{router}/config`): stacked sections - page head, router link,
 the outcome region, the state panels (`#config-status`: Changes and Fail-safe timer in the
@@ -844,7 +844,7 @@ unchanged lines between the changes, a secret value anywhere on the page.
   1 MiB help; a refused file comes back in the dialog with the reason (not text, the line
   that does not parse, a checksum mismatch, no commands, a redacted copy, too large).
 
-Page briefs (todo 41):
+Page briefs (configuration and backups):
 
 - Configuration and backups. Primary action: Save while the running configuration has
   unsaved changes and no fail-safe timer runs; Keep changes while it runs; none otherwise
@@ -868,7 +868,7 @@ Page briefs (todo 41):
 |---|---|---|---|
 | Configuration actions need JavaScript | `pages/config.html`, `partials/config_*.html` | Save, Keep changes, Roll back, Create, Upload, Delete and Raw restore are htmx requests carrying the CSRF header; the page, the downloads and the comparison work without it | Same as the menus |
 | A raw restore answers after 25 seconds at most | `src/config_page/restore.rs` | The restore restarts the router and continues as its own task; the page says so and the audit log records how it ended | A job panel for raw restores if users ask |
-## Migration wizard (todo 43, `src/migrate_wizard/`)
+## Migration wizard (`src/migrate_wizard/`)
 
 Layout (`/ui/migrate`): stacked sections - page head (title and Start migration), the
 intro, the outcome region, the restore offer panel (only when the configuration page's
@@ -944,7 +944,7 @@ the tallest an agreement's text grows before it scrolls itself; `--wizard-review
   the dialog), Finish.
 - Report: how it finished, when, the counts, the report downloads, All migrations.
 
-### Page briefs (todo 43)
+### Page briefs: migrations
 
 - Migrations. Primary action: Start migration (Start restore when the link offers one;
   Start migration is then secondary). Priorities: 1 the restore offer when present, 2
@@ -967,7 +967,7 @@ the tallest an agreement's text grows before it scrolls itself; `--wizard-review
   counts, countdown, Commit / Roll back / Review the plan again / Back to the preview /
   Finish; (9) how it finished, when, counts, downloads.
 
-## Routing, port forwarding and firewall pages (todo 38, `src/routing_page/`, `src/nat_page/`, `src/firewall_page/`)
+## Routing, port forwarding and firewall pages (`src/routing_page/`, `src/nat_page/`, `src/firewall_page/`)
 
 Layout (static routes `/ui/r/{router}/routing[/ipv6]`, routing table
 `/ui/r/{router}/routing/table[/ipv6]`, connection policies `/ui/r/{router}/routing/policies`,
@@ -1017,7 +1017,7 @@ Tokens: `--routing-table-min` (40rem) is the narrowest a table of these pages ge
   201 to 400"; the filter form keeps the page, and the note under it says that sorting and the
   filter apply to the page shown.
 
-Page briefs (todo 38):
+Page briefs (routing):
 
 - Static routes. Primary action: Add route (`Write`). Priorities: 1 destination, 2 gateway and
   interface, 3 metric. Left out on purpose: learned routes (the routing table has them),
@@ -1054,7 +1054,7 @@ Page briefs (todo 38):
 | Routing, port forwarding and firewall changes need JavaScript | `pages/routing.html`, `partials/routing_*.html`, `partials/nat_*.html`, `partials/firewall_*.html` | Dialogs, removals, moves and switches are htmx requests carrying the CSRF header; the tables, filters, sorting and pages work without it | Same as the menus |
 | Tables of these pages scroll sideways on a phone with no edge fade or shadow | `.table-wrap` around `.routing-table` in `partials/routing_*.html`, `partials/nat_*.html`, `partials/firewall_*.html` | The shared `.table-wrap` has no scroll cue on any page, and a cue for this family alone would make tables differ between pages; a column cut at the edge is the only hint, and where a column ends right at the edge (active connections at 390 px) nothing shows that more follows | The page kit, for every `.table-wrap` at once |
 | Connection states and route sources show the router's own words (established, boot) | State column of `partials/nat_sessions.html`, Source column of `partials/routing_table.html` | The firmware documents no list of these values, so a translation would be a guess that can name the wrong state; the DHCP leases page shows lease states the same way | The page kit and the domains, once the firmware documents the values |
-## Presets and copying settings (todo 59, `src/presets_page/`)
+## Presets and copying settings (`src/presets_page/`)
 
 The navigation gains Presets (`/ui/presets`) after Migration: the shell now has 14 links.
 
@@ -1107,7 +1107,7 @@ settings-group checkbox column gets.
   mono) to register on the VPN servers, the kept-key warnings, the Markdown and JSON
   report.
 
-### Page briefs (todo 59)
+### Page briefs: presets
 
 - Presets. Primary action: New preset (`Migrate`); Copy settings is secondary.
   Priorities: 1 the presets (name, groups), 2 where each came from and when, 3 Apply and
@@ -1141,7 +1141,7 @@ settings-group checkbox column gets.
 | The captured settings update needs JavaScript | `partials/presets_compose.html` | Without htmx the captured lines stay as first shown; Save still captures exactly the checked groups | None needed |
 | The presets list and the review table scroll sideways on a phone | `pages/presets_list.html`, `partials/presets_review.html` | Both use the shared `.table-wrap` pattern (the review is the migration review's `.wizard-review` table, at least `--wizard-review-min`); at 390 px the list's Created by, Apply and Delete and the review's Fate and Apply sit past the right edge with no scroll cue; the preset page repeats Apply and Delete | A stacked phone layout or a scroll cue shared by every `.table-wrap` table |
 
-## Sign-in shell, router-aware navigation, segments list and delete (todo 70)
+## Sign-in shell, router-aware navigation, segments list and delete
 
 - Bare shell (`Shell::signed_out`, built by `prefs::shell`, so the sign-in page and its
   refused answer): the masthead keeps the brand and the language and theme menus; no Menu
@@ -1198,7 +1198,7 @@ settings-group checkbox column gets.
 | A long fact value wraps under its label | `partials/segments_region.html` | The shared `.facts` row wraps a value that does not fit beside its label (a DHCP range at 390 px) onto its own line, start-aligned | A `.facts` variant that keeps wrapped values end-aligned, if the dashboard wants it too |
 | Router picker links are text-sized | `pages/navpicker.html` | The router and section links are inline links in table cells (about 49x17 px at 320 px wide), the shape every landing table (Clients, Configuration, Advanced) uses; the rows are 49 px apart, so no other target sits within a 24 px circle (WCAG 2.5.8 spacing exception) | Taller row links if the landing tables change together |
 
-WCAG 2.2 AA result for the todo-70 surfaces (probe `wcag.mjs` and `shots.mjs` in Chromium,
+WCAG 2.2 AA result for the sign-in shell, navigation and segment surfaces (probe `wcag.mjs` and `shots.mjs` in Chromium,
 logged in `.omo/evidence/task-70-keenetic-control-center.log`):
 
 | Check | Result | Evidence |
@@ -1210,11 +1210,11 @@ logged in `.omo/evidence/task-70-keenetic-control-center.log`):
 | Reflow and text spacing 1.4.10/1.4.12 | PASS | Sign-in, picker, segments and the delete dialog at 320 px in both themes and at 1280 px, with and without the text-spacing overrides: no sideways scroll, no clipping |
 | Dragging, authentication, help, entry 2.5.7/3.3.8/3.2.6/3.3.7 | PASS | No drag; the sign-in page accepts paste and password managers (plain username and password fields); the typed router name is shown in the help text, not recalled |
 | State-stable controls | PASS | Delete is 75x44 px idle, hovered and focused |
-## Write-only secret fields (todo 71, `src/secret_pages/`)
+## Write-only secret fields (`src/secret_pages/`)
 
-Supersedes the "Left out on purpose" entries of the todo 37 and 40 briefs about passwords
+Supersedes the "Left out on purpose" entries of the network and system page briefs about passwords
 (Wi-Fi password, connection password, router-account passwords: they are editable now)
-and the todo 39 note that the import does not send keys and that VPN credentials have no
+and the DNS and VPN note that the import does not send keys and that VPN credentials have no
 form.
 
 Layout (secret dialog, `partials/secret_dialog.html`, `secret_pages::dialog::SecretDialog`):
@@ -1243,7 +1243,7 @@ confirmation, the note above it says so).
 - Refusal: the account kcc signs in with gets a warning notice instead of the form (GET)
   and the same notice as 422 (POST), before any router request.
 
-Page briefs (todo 71):
+Page briefs (Wi-Fi password):
 
 - Wi-Fi password (`/ui/r/{router}/wifi/psk?name=`, from an access point's settings).
   Primary action: Apply. Priorities: 1 the new password, 2 its repetition, 3 the 8-63 rule.
@@ -1269,7 +1269,7 @@ Page briefs (todo 71):
   WireGuard import: the file's keys are sent and verified; the success toast says so and
   the notes list only address, DNS and ASC.
 
-Accessibility (section 8, todo 71): every secret input has a visible `<label for>`,
+Accessibility (section 8): every secret input has a visible `<label for>`,
 `type="password"` and `autocomplete="new-password"` (a password manager may fill it, paste
 is never blocked), and `aria-describedby` naming its help and, after a refused try, its
 error, with `aria-invalid="true"`; the refusal for kcc's own login is a `role="alert"`

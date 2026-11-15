@@ -151,7 +151,7 @@ web-router-error-policy = kcc verbindet sich nicht mit dieser Adresse. Router m�
 web-router-error-unreachable = Der Router hat nicht geantwortet. Prüfen Sie die Adresse und ob kcc sein Netz erreicht.
 web-router-error-check = Der Router hat geantwortet, aber kcc konnte das Gerät nicht erkennen.
 
-# todo 44
+# Administration
 web-admin-title = Verwaltung
 web-admin-tab-users = Benutzer
 web-admin-tab-roles = Rollen
@@ -316,7 +316,7 @@ web-admin-server-stopped = Angehalten
 web-admin-server-catalogs = Befehlskataloge
 web-admin-server-catalog-line = Firmware-Linie
 web-admin-server-catalog-groups = Befehlsgruppen
-# todo 42
+# Command explorer
 web-explorer-title = Befehls-Explorer
 web-explorer-catalog = Befehlskatalog { $version } für { $model }
 web-explorer-catalog-union = Befehlskatalog { $version }, alle Modelle
@@ -520,7 +520,7 @@ web-system-restart-title = Neustart
 web-system-restart-text = Ein Neustart unterbricht einige Minuten lang alle Verbindungen über den Router und verwirft ungespeicherte Änderungen.
 web-system-restart = Router neu starten
 
-# todo 36
+# Local network pages
 web-clients-title = Clients
 web-clients-tabs = Lokales Netz
 web-clients-landing-pages = Seiten
@@ -671,7 +671,7 @@ web-segments-error-port = Wählen Sie Switch-Ports, die der Router gemeldet hat.
 web-segments-error-access-point = Wählen Sie einen Zugangspunkt, den der Router gemeldet hat.
 web-segments-failed-step = Der Schritt { $name } ist fehlgeschlagen; kcc hat die erstellten Objekte entfernt.
 web-segments-rollback-failed = Der Schritt { $name } ist fehlgeschlagen, und das Entfernen der erstellten Objekte brach bei { $value } ab. Der Router behält möglicherweise einen Teil des Segments.
-# todo 37
+# Network pages
 web-network-tabs = Netzwerkseiten
 web-network-tab-mesh = Mesh
 web-network-title = Schnittstellen
@@ -815,7 +815,7 @@ web-mesh-status = Status
 web-mesh-check = Nach Updates suchen
 web-mesh-update = Firmware aktualisieren
 web-mesh-restart = Neu starten
-# todo 39
+# DNS and VPN pages
 web-dns-tab-servers = DNS-Server
 web-dns-tab-filtering = Filterung
 web-dns-tab-records = Statische Einträge
@@ -1012,7 +1012,7 @@ web-vpn-conf-endpoint = Peer { $peer }: Endpoint muss eine IP-Adresse mit Port s
 web-vpn-skip-address = Address: Setzen Sie die Adresse der Verbindung auf dem Router; kcc kann sie noch nicht setzen.
 web-vpn-skip-dns = DNS: kcc kann die DNS-Server einer Verbindung noch nicht setzen.
 web-vpn-skip-asc = Jc, Jmin, Jmax, S1 bis S4, H1 bis H4, I1 bis I5: kcc kann sie noch nicht setzen.
-# todo 40
+# System pages
 web-system-tabs = Systemseiten
 web-system-users-title = Router-Benutzer
 web-system-services-title = Dienste

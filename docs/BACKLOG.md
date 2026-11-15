@@ -1,44 +1,66 @@
 # Backlog
 
-Findings of the final verification wave that do not meet the blocker bar of the plan's
-convergence rule (`.omo/plans/keenetic-control-center.md`, "Final verification wave").
-One line each: round, finding, file:line, suggested fix. Reports are under
-`.omo/evidence/F<n>-keenetic-control-center-r<round>.md`.
+Open items that do not block a release. One line each: where it is (`file:line`) and why
+it stays open. Line numbers are those of the tree at the time of writing.
 
-## Round 17
+## Not proven on hardware
 
-- r17 F1-N73 (also structural note of F2): Web pages still pass a literal `Risk::Write` after a planner call or take the risk beside the operation, so a planner that starts classifying would be dropped on that surface. `kcc-web/src/dns_vpn/flow.rs:194`, `dns_vpn/vpn_checks.rs:76`, `system_pages/keendns_forms.rs:125-139,200,227`, `dns_pages.rs:170,213`, `component_queue.rs:61,123`, `schedule_forms.rs:150`, `schedule_actions.rs:217`, `nat_page/forward_forms.rs:153`, `secret_pages/vpn_server.rs:148`. Fix: make `flow::apply`/`keendns_forms::run` take the `ChangeOp` (or a `PlannedRequest` constructible only from operations) and read `.risk` inside.
-- r17 F1-N74: no per-surface test for a writer that dies between the arm and the first audit append, nor for the dead-writer refusal. `crates/*/tests` (only `kcc-app/tests/workflow.rs:145-147` has the fixture). Fix: add CLI, MCP and Web tests with the `spawn_with_limit(.., 1)` + directory-at-rotation-path fixture.
-- r17 F1-N75: the interface guard's armed report is no longer tested after row 133. `kcc/tests/cli/interface_refusals.rs`, `kcc-mcp/tests/support/interface_refusals.rs`, `kcc-domain/src/interfaces/guard.rs:131-139`. Fix: add `fail_parse_matching("interface Bridge0 security-level", 1)` + `fail_parse_matching("no system", 1)` and keep the message, code and audit assertions.
-- r17 F1-N76, F3-N76, F4-N78: MCP answers an accepted-then-silent extender rollback with `router_unreachable` and keeps the migration open, so a retry reboots the router again; the four surfaces disagree. `kcc-mcp/src/migration_tools/apply.rs:51-53`, `support/shape.rs:88-97`. Fix: a distinct code carrying `MIGRATE_ROLLBACK_SAVED` that closes the entry; add the CLI one-shot, explicit CLI, MCP, Web wizard and preset page tests with the fake clock.
-- r17 F1-N77, F2-N73, F3-N74, F4-N77: the CLI apply refusal prints "Missing permissions: ." for a role whose router scope excludes the target. `kcc/src/cli/context.rs:247-251` (the subset ignores router scope while `principal.authorize` checks it, `cli/principal.rs:96-110`). Fix: compute the subset with the same router-aware check, or say "not allowed on this router" when it is empty.
-- r17 F2-N74: a refused arm whose cleanup is also refused reports "The management change may or may not have been applied" although the change was never sent. `kcc/src/cli/change.rs:200-216`, `kcc-mcp/src/support/raw_change.rs:87-97`, `kcc-web/src/page_kit/change.rs:391-405`, `kcc-domain/src/interfaces/guard.rs:99-117`, `kcc-domain/src/configuration/recovery.rs`. Fix: carry "work not sent" through `recovery::Failure` and map arm-failed + cleanup-failed to a "change not sent; the timer may be armed" key (cf. `MIGRATE_COMMIT_NOT_SENT_ARMED`).
-- r17 F2-N76, F4-N76 (pre-existing): a change the router applied while its audit append timed out leaves no `router.change` entry and is reported as a router failure. `kcc-app/src/workflow.rs:871-899,933-955`, `kcc/src/cli/exit.rs:302`, `kcc-web/src/page_kit/failure.rs:46-53`, `kcc-mcp/src/support/errors.rs:37-43`. Fix: a distinct outcome "applied, audit entry could not be written"; keep it adjacent to the fix of the Web bracket cancellation (blocker B1 of round 17).
-- r17 F2-N77: surviving mutants in the physical-name classifier. `kcc-migrate/src/interface_names.rs:8,37` (`Usb*`, `Ethernet*`, `WifiMaster0/<other>`). Fix: add `UsbLte0`, `UsbModem0`, `Ethernet<n>` absent-member rows and a `WifiMaster0/WifiStation0` row (owner decides its expectation) to `kcc-migrate/tests/bridge_members.rs`.
-- r17 F3-N75: a CLI apply onto a router whose lease another process holds says the run started and then "Migration stopped. Review the result before choosing rollback.", exit 1, with no audit entry; the job id can later be finished with a native rollback. `kcc/src/cli/preset/*`, `kcc/src/cli/migrate_apply.rs`, `kcc-migrate/src/apply/preflight.rs`. Fix: answer "router busy" (exit 5) with an audit entry and no finishable job record.
-- r17 F4-N73: a logical interface whose only context line the target cannot build still counts as created by the plan, so its bridge membership is copied (the router then refuses it). `kcc-migrate/src/rules.rs:256-279` vs `kcc-migrate/src/planner.rs:64`, `planner/buildability.rs:12-27`. Fix: decide membership lines after `retain_supported`, from the final dispositions.
+No live suite has run against a real router yet: every `live_*` test logs `live-skip` and
+returns, and `docs/FIRMWARE.md:10` still says "live verification not yet run" for 5.1 (the
+firmware doc test accepts that text). Until a test router is available, these behaviors
+rest on the manuals and the fake router only:
 
-## Row 136-138 follow-ups (reported by the implementing agents)
+- The Windows path for sealed credentials and key files (owner-only ACLs, `crates/kcc-app/src/persist.rs:559-608`) has only been built, not run, on Windows. The macOS, Windows and aarch64 CI legs are likewise unproven.
+- Whether a real router answers 404 to `GET /rci/system/reboot`, and whether the scheduled-reboot fallback (extender, access-point and repeater modes) and the native fail-safe timer behave as the manual describes (`spikes/live-router/RESULT.md:21-23`, probes 7, 7b and 8, are marked NOT-RUN).
+- Whether a real router executes a space-joined root key such as `{"system reboot":{}}`, and whether it accepts an empty object at a namespace (the raw request rules in `docs/SECURITY.md` are written to be safe either way).
+- Whether the members of a real LAN bridge are `include` or `inherit` lines, and whether a real `show interface` answer is keyed by interface id (`crates/kcc-migrate/src/rules.rs`).
+- Whether a real router refuses an `include` of an unknown member, accepts WireGuard leaves on a bridge, or deletes `Bridge0` (`crates/kcc-domain/src/interfaces/guard.rs`).
+- The shape of a real `show running-config` answer (`crates/kcc-domain/src/firewall/read.rs:45-60` reads it as text) and whether the router accepts every abbreviation the catalog allows.
+- `crates/kcc-migrate/src/interface_names.rs:4` decides whether an interface name is physical or logical with a name-shape heuristic taken from the documentation. The unit test pins the documented shapes only.
+- `crates/kcc-domain/src/configuration.rs:112-117`: the recovery mode for a router that reports no system mode assumes that 4.3 and 5.0 report a boolean `fail-safe.active` in `show last-change`. This is from the documentation. If it is wrong, kcc refuses the change with `router_mode_unknown`, which is the safe direction.
 
-- r17 row-137 agent: the wizard review classifies the whole source while the plan classifies the source without lines the operator excluded, so the membership of an interface whose lines were all excluded can differ between review and plan (excluding the `Vlan5` lines still plans `interface Bridge1 include Vlan5`). `kcc-web/src/migrate_wizard/plan.rs`, `kcc-migrate/src/rules.rs`. Fix: decide membership lines from the final dispositions after exclusions (same fix family as r17 F4-N73).
-- r17 row-138 agent: `kcc-web/src/presets_page/options.rs` uses the same `valid_name` for interface rows and was not examined for numeric switch-port sources. Fix: check the preset options step with a source that has `interface 1 ...` and apply the row-138 port-row treatment if it shows the same pre-fill/validator mismatch.
-- r17 row-136 agent: `kcc-web/src/page_kit/change.rs` still reports an ordinary (non-management) write that the router applied while its audit receipt timed out as a router failure; the management path is protected by the owner task. Same item as r17 F2-N76 / F4-N76 above.
+## Upstream (rmcp-server-kit)
 
-## Confirmation round (HEAD `0d00606`, all four reviewers APPROVE)
+- `crates/kcc/src/server.rs:139` builds the server configuration without `max_concurrent_requests`, and the kit logs that it is unset. A bound would cap held requests besides the per-router lease. The setting is the kit's to expose or default.
+- The kit's HTTP listener has no header read timeout, so a connection that sends a request line and then goes silent stays open for more than 70 seconds. It cannot be set from `crates/kcc/src/server.rs:139`.
+- The kit logs a transport-level 403 (an MCP request refused before any tool runs) itself; it is not written to `audit.jsonl` (`crates/kcc-mcp/src/support/audit.rs:11` audits tool-level refusals only).
+- `docs/rust-guidelines/UPSTREAM.md` lists the guideline changes the owner still has to propose by hand.
 
-Reports: `.omo/evidence/F<n>-keenetic-control-center-confirm.md`.
+## Known gaps
 
-- confirm F4-5, F1-4: part (c) of row 136 (in-request audit appends bounded by the remaining budget) was not implemented; a held Web bracket can answer after ~88 s under a held audit lock (documented in `docs/MONITORING.md`). Fix: an in-request append deadline.
-- confirm F2-1..F2-4: brackets/shutdown test gaps that leave mutants alive on correct code: `brackets.rs:110` (`Claim::hold` refusing an ENDED claim), `:73` (`Brackets::drain` predicate, timing-dependent), `:182` (`own` panic/cancel discrimination), `server_shutdown.rs:66` (the "still closing at exit" warning unasserted).
-- confirm F2-6: `page_kit/change.rs:393-398` names an unowned management change "audit writer unavailable"; unreachable in production (every Web route is under `own`). Fix: a dedicated reason.
-- confirm F2-7: the kit logs `max_concurrent_requests is unset`; held requests now outlive the budget, so an explicit `with_max_concurrent_requests` would bound them besides the per-router lease.
-- confirm F3-1, F4-2: after a lock-held or dead-writer bracket the Web answer and the audit say the timer "stays armed" although the disarm was accepted (`config state` armed: no). Over-cautious wording; nothing was applied. Fix: report "not applied, timer disarmed" when the arm was refused or the disarm accepted.
-- confirm F3-2, F3-3, F4-carried: an ordinary Web write applied while the client left or its audit receipt timed out is answered 408 with no entry (same class as r17 F2-N76/F4-N76; identical before row 136).
-- confirm F3-4: a Web login while another process holds the audit lock takes ~27 s (the login audit append waits for the lock).
-- confirm F3-5: the Web migration preview still offers "Apply the migration" when "Commands to send" is 0.
-- confirm F3-6: `kcc copy ... --yes --finish save` prints "changes are not saved yet" before it finishes with save (the known CLI action-tense item).
-- confirm F3-7: `kcc serve` exits ~4.4 s after "jobs drained" on SIGTERM with nothing in flight.
-- confirm F4-3: `migrate_wizard/routes.rs:59` and `presets_page/routes.rs:85` keep `TimeoutLayer` (30 s, 408) instead of `brackets::budget`; a finish route cut at 30 s leaves the migration's own timer armed (pre-existing; the fail-safe still recovers).
-- confirm F4-4: slow-header connections (request line, then silence) stay open for more than 70 s; the kit's `run_server`, unchanged by the delta. Fix: a header read timeout in the kit configuration.
-- confirm F4 fake: `kcc-testkit/src/projection/interface.rs:35` keeps the first-inserted of `up`/`down` once both leaves exist, so later curated `interfaces down` read-backs fail on that fake (the fake, not kcc).
-- confirm F1-1, F1-2, F1-3: task-138 receipt M2 has no own `before` line; `maps.rs` sits at 250 pure LOC; an aborted unheld task maps to 503 in `brackets.rs:189` (unobservable).
+- `crates/kcc/src/server.rs:203-206`: on SIGTERM with nothing in flight, `kcc serve` exits about 4.4 s after it logs "jobs drained". The cause has not been traced.
+- The CLI has no SIGINT or SIGTERM handling during a safety bracket (`crates/kcc/src/cli/change.rs:228`). If the process is killed, the router's own timer restores the saved configuration; `kcc serve` and `kcc mcp stdio` do wait for their brackets.
+- The Web standalone rollback is not mode-aware (`crates/kcc-web/src/config_page/safety.rs:121,170-188`): on a router in scheduled-reboot mode it refuses ("not armed") instead of rebooting like the CLI does.
+- `crates/kcc-web/src/page_kit/facts.rs:14`: the Web facts cache holds a router's catalog for 600 s, so a firmware change is noticed up to ten minutes late.
+- `crates/kcc-web/src/dns_vpn/dns_checks.rs:82` builds its change with a fixed `Risk::Write`; it is the only Web page that does not take its risk from the domain planner.
+- A 403 pre-check was dropped from two Web paths that now run through the shared submit step (`crates/kcc-web/src/dns_vpn/vpn_import.rs:76` and the VPN dialog in `vpn_forms.rs`): a role with `Write` but not the planned risk's permission sees the kit's forbidden outcome instead of the 403 page, and reboot, reset and mesh-restart ask for confirmation only after the context is read.
+- The wizard finish routes still have three entry handlers for the migration (`/commit`, `/rollback`, `/{way}` in `crates/kcc-web/src/migrate_wizard/routes.rs:52-57`) and one for presets (`/{way}`, `presets_page/routes.rs:82-84`). Making them one changes edge behavior (the content type of commit, the order of dialogs, the order of the unknown-way 404), so it needs a decision.
+- The firewall page reads rules as running-config text (`crates/kcc-domain/src/firewall/read.rs:60`), while the CLI still uses `configured_rules` (`read.rs:45`: JSON, three requests, IPv4 only). Two readers of the same data remain; unifying them would change the CLI's request count.
+- `crates/kcc-domain/src/firewall/lists.rs:197-198` skips an interface binding whose direction is not `in` or `out`. The firmware only writes those two.
+- The master key (`crates/kcc-app/src/secrets.rs:336`) is the plaintext root of trust: anyone who can read that file can open the state store. Podman's default file secret driver also keeps the deployed secrets unencrypted on the host (`deploy/podman/README.md:51`). Wrapping the key with `systemd-creds` or a TPM is a possible future step.
+- `ApplyNeeds::raw_restore` (`crates/kcc-domain/src/configuration/apply_needs.rs:13,31`), the flag that adds `Destructive` for a raw restore, has no production caller yet; the Web raw restore holds `Destructive` through its own constant.
+- One CLI refusal has no machine-readable handle: an absent firewall rule property prints a sentence with exit code 4 and no code (`crates/kcc/tests/cli_domain_writes/admin.rs:99` pins the exit code only).
+
+## Decisions kept on purpose
+
+- The session keepalive was removed. It was code in `crates/kcc-rci/src/session.rs` meant to send a periodic request so an idle router session would not expire, but nothing ever started it. If a long-lived server needs idle sessions kept open, it has to be rebuilt and wired in.
+- The Argon2 budget for the ndw4 sign-in math is fixed at one derivation at a time (`crates/kcc-rci/src/ndw4_keys.rs:17`); the setter for it was removed because nothing called it. A fleet that signs in to many routers at once therefore derives their keys one after another.
+- Two small helpers were not replaced by crates: the edit-distance function (`crates/kcc-catalog/src/validate.rs:380`, instead of `strsim`) and the router network check (`crates/kcc-rci/src/outbound.rs:44`, instead of `ipnet`). Both are short, tested and need no new dependency.
+- Two glob matchers with different semantics exist, and neither is shared: `crates/kcc-migrate/src/rules.rs:766-800` (rule globs: case-sensitive, a segment may end in `*`) and `crates/kcc-migrate/src/presets/glob.rs:4-52` (preset group patterns: case-insensitive, a segment may have a `*` in the middle, plus a catalog-path matcher). Merging them would change what existing rules and presets match.
+
+## Cleanup
+
+- `crates/kcc-web/src/secret_pages/dialog.rs:177` (`SecretDialog`) stays a second dialog engine: its typed-twice password pair has its own markup (autocapitalize, rules on both fields, help under the first only, ids `secret-new` and `secret-repeat`) that the shared form engine's secret kind does not reproduce byte for byte.
+- `crates/kcc-web/src/routing_page/route_remove.rs:217` runs through `Action::run_planned` outside the shared submit step, because the route-wipe guard needs reads and an extra audit entry after the run.
+- `crates/kcc-app/src/workflow.rs` is still about 1500 lines. It should split by responsibility (leases, receipts, batch, replay).
+- Five tables are still hand-written instead of using `kit_table.html`: `partials/migrate_mapping.html`, `partials/presets_macros.html`, `partials/migrate_review.html`, `partials/presets_review.html` (rename grids and review grids with checkboxes and radios) and `pages/config_diff.html` (side-by-side diff). A form-control cell kind and a multi-body view would let them join; each serves only one or two pages.
+- The Web consolidation saved less than the line count suggests: the two wizards' directories shrank by about 2600 lines, but `crates/kcc-web/src/wizard/` holds almost all of them. The real net saving is about 26 lines of Rust and three templates; the rest is moved code. The converted pages' Rust also grew while their templates shrank, because the markup moved into typed builders.
+- `crates/kcc-web/src/migrate_wizard/maps.rs` is at 248 pure lines, two under the ceiling.
+- `crates/kcc-web/src/brackets.rs:135` maps an aborted, unheld request to 503. The client has gone, so nobody can observe it.
+- The evidence log of the preset-port fix has no separate "before" line for its second mutation check (`.omo/evidence/task-138-keenetic-control-center.log:19`). Cosmetic.
+- `xtask/` is a separate workspace, outside `cargo fmt --all`; `cd xtask && cargo +nightly-2026-10-03 fmt -- --check` fails in the untouched `xtask/src/seccomp.rs`, `seccomp_gen.rs` and `seccomp_groups.rs`, and no CI job checks it.
+
+## Tests
+
+- The golden-page harness does not cover everything. On the KN-1811 fake, created PPPoE and PPTP connections are not listed back, so its `internet/password` and `vpn/credential` submits answer 404. Later steps of the migration wizard and preset runs, SSE streams, raw restore and one-time API keys are not captured.
+- Some tests still wait in real time: `crates/kcc-telemetry/tests/logs.rs:239,257,290,292`, `crates/kcc/tests/metrics_serve/runtime.rs:249` (a 500 ms poll loop), `crates/kcc-web/tests/dashboard.rs:249,251`, `crates/kcc-web/tests/explorer_pages/bracket_ordinary.rs:54`, `bracket_budget.rs:39`, and the finish-recovery tests `preset_finish_recovery.rs:240` and `wizard_finish_recovery.rs:261`. Each should wait on the exact state change or a paused clock.

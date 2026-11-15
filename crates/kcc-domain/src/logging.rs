@@ -62,7 +62,7 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
     required_components: &[],
 };
 
-/// Reads router log text through the todo-21 POST-aware reader.
+/// Reads router log text through the POST-aware reader.
 // cancel-safe: only reads the log; a dropped continuation poll leaves
 // just a read-only request behind.
 pub async fn read_log(router: &RouterCtx, max_lines: u32) -> Result<String> {

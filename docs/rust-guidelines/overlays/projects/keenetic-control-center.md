@@ -67,7 +67,7 @@
    operator-configured `OAuthSsrfAllowlist` precedent: router profiles are admin-only,
    the operator sets `allowed_networks`, metadata addresses are always refused, and each
    target is resolved once and pinned. **Task:** propose an http-services clarification
-   for operator-configured management targets upstream (tracked in `UPSTREAM.md`). Until
+   for operator-configured management targets upstream (tracked in [`docs/rust-guidelines/UPSTREAM.md`](../../UPSTREAM.md)). Until
    it lands, rule (a) is the only accepted shape; it is not a licence to widen outbound
    access.
 2. **cargo-machete and taplo are pinned too** (opened 2026-11-14, accepted). Core

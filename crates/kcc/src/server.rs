@@ -74,7 +74,7 @@ impl ServerError {
     }
 }
 
-/// Process outcome mapped to the todo-47 exit-code contract.
+/// Process outcome mapped to the exit-code contract.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum Outcome {

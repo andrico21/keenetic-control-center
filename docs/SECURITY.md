@@ -164,9 +164,11 @@ Nonempty namespaces defer to their descendants. `{"show":{}}` remains Read becau
 unclassified body also fails closed as a write. These are conservative authorization
 and accounting rules, not claims about a real router's effect for an empty namespace.
 
-All mutating raw MCP tools, including `kcc_cli_parse`, require the `Destructive`
-permission, explicit confirmation and the server switch for management or destructive
-requests. Preliminary authorization uses the maximum risk
+All mutating raw MCP tools, including `kcc_cli_parse`, require `RawRci` and the router
+scope, plus the `Destructive` permission when the request's risk is destructive. A
+management or destructive request also needs explicit confirmation and the server
+switch. A role that may make a management change may also arm and disarm the recovery
+timer around it, so management risk alone never needs `Destructive`. Preliminary authorization uses the maximum risk
 from every embedded firmware catalog that accepts the input; router-specific validation
 still runs afterwards. A management node always requires the recovery timer, including
 when a destructive sibling determines the request's maximum risk. This applies to raw
@@ -192,15 +194,15 @@ role, IPv4 or IPv6 address, DHCP-client route, global-route priority, MAC addres
 IPv4 static route changes are also Management because any of them can replace the address,
 return route or link identity through which kcc reaches the router. The raw classification
 works on the command path, so it cannot tell a default route from any other static route:
-every raw `ip route` item needs `Destructive` and the recovery timer, while the curated
-routing operation remains an ordinary Write. The `no`, DELETE or
-CLI-removal spellings of all of these retain the Destructive floor while still requiring the recovery
-timer. Client hotspot deny/policy selection and DNS-proxy assignment remain ordinary Write:
+every raw `ip route` item has Management risk and runs under the recovery timer, while the
+curated routing operation remains an ordinary Write. The `no`, DELETE or CLI-removal
+spellings of all of these keep the Destructive floor (they need `Destructive` and the
+server switch) while still running under the recovery timer. Client hotspot deny/policy selection and DNS-proxy assignment remain ordinary Write:
 they affect client forwarding or name resolution, not kcc's management path. Interface
 description, SSID, radio/RF settings, MAC band/BSSID/VHT tuning and other non-address
-interface writes likewise remain ordinary Write and do not require `Destructive`; the
+interface writes likewise remain ordinary Write and run without the recovery timer; the
 `interface` command is only their structured ancestor and does not raise their risk. The
-deliberate raw over-classification requiring `Destructive` and recovery therefore covers
+deliberate raw over-classification as Management, which runs under the recovery timer, therefore covers
 every interface creation/removal and up/down operation, every static route, and the raw
 interface security, address, route, identity, membership, role, access-group and schedule
 families listed above, even when runtime topology could prove a particular target ordinary.

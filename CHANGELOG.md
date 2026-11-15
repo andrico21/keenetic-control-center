@@ -143,6 +143,66 @@ The first release, `0.1.0`, is in preparation and contains:
   needs `Destructive`. MCP raw management changes still need
   `[mcp] allow_destructive = true`.
 
+- **Management changes need only their own permission**: on the CLI, the Web UI and MCP,
+  a role that holds a change's own permission (`Write`, `RawRci`, `Migrate`) can make a
+  management change and arm and disarm the recovery timer around it. `Destructive` is
+  checked only for a destructive risk (removals, deletions, the raw timer commands) and
+  for explicit timer control. Interface changes no longer arm a timer of their own: they
+  run in the same bracket as every other management change, which uses the scheduled
+  reboot on an extender, access point or repeater and the native timer in router mode.
+  The server switch is unchanged: raw management changes over MCP still need
+  `[mcp] allow_destructive = true` and `confirm: true`.
+
+- **The recovery mode comes from fresh router facts**: every surface chooses the native
+  fail-safe timer or the scheduled reboot with one rule (see `router_mode_unknown`
+  above). A router whose mode is unknown is refused before anything is sent: the CLI
+  exits 10, the Web UI shows a message saying so, and MCP answers `router_mode_unknown`.
+
+- **Finishing a bracket is one step**: `kcc config failsafe commit` in router mode now
+  sends the native commit and then saves, as migration and preset finishes do.
+  `kcc config failsafe rollback` and `kcc preset finish <run> rollback` on a router in
+  extender, access-point or repeater mode reboot it at once instead of sending the native
+  rollback, and say so (`failsafe-rollback-rebooting`).
+
+- **Web changes end even when the browser leaves**: every Web write is owned by the server
+  from the moment it reaches the router, so an ordinary write the router applied is
+  audited and a management change is disarmed whatever the browser does. The migration
+  and preset finish routes use the same budget (they no longer answer 408 at 30 s and
+  drop the rollback). `kcc serve` and `kcc mcp stdio` wait for the open brackets of every
+  surface (at most 10 s) before they exit. A write the server could not own is refused
+  before anything is sent, with its own message.
+
+- **`kcc migrate apply` asks before it touches the router**: it asks for confirmation on
+  the terminal, or takes `--yes`. A refusal exits 10, sends nothing and is audited as
+  `cli.refused` with `reason: "confirm_required"`. Scripts that call `kcc migrate apply`
+  without a terminal must add `--yes`.
+
+- **The CLI says "Done." or "not saved yet" by what happened**: a command that sends no
+  configuration (for example `kcc components check-update`) prints `Done.`, and the
+  "not saved yet" line appears only when the router reports unsaved configuration. CLI
+  apply refusals name the missing permission, or say the role is not allowed on this
+  router.
+
+- **Control characters in names and descriptions are refused**: `kcc` no longer sends a
+  tab, newline, NUL or other control character in an interface description, firewall rule
+  description, Wi-Fi name, mesh member or similar text to the router CLI. It used to turn
+  them into escapes the router read as letters. Quoting of ordinary text, quotes,
+  backslashes and Unicode is unchanged.
+
+- **`StopTimeout=80` in the Quadlet unit** (`deploy/podman/kcc.container`): the stop timeout
+  now covers the whole shutdown budget (server shutdown 30 s, open brackets 10 s, job
+  drain 30 s, audit flush 5 s, margin 5 s).
+
+- **Toolchain gates**: the CI gate tools (cargo-deny, cargo-audit, cargo-vet,
+  cargo-machete, taplo) are pinned, and Cargo ignores crate versions published less than
+  three days ago (`.cargo/config.toml`).
+
+- **Maintenance**: the Web UI's pages share one submit pipeline, form, confirmation and
+  table kit and one wizard engine for migrations and presets (routes, HTML ids and form
+  field names are unchanged); the workspace takes shared dependency versions from
+  `[workspace.dependencies]` and `Cargo.lock` is unchanged; unused code and unused
+  message keys were deleted.
+
 ### Fixed
 
 - **Audit waits are bounded and keep their entries**: an audit entry waiting on another
@@ -165,6 +225,56 @@ The first release, `0.1.0`, is in preparation and contains:
   and `reason: "router_busy"`, and leave no job record. They used to announce a run,
   stop it with "Migration stopped", exit 1 without an audit entry and leave a run id
   that could be finished.
+- `[web] login_max_failures` now sets the lockout threshold (it was ignored and the
+  limit was always 5). Router names in `kcc.toml` (`[[routers]] name`, `[logs] routers`)
+  follow the registry's rule, 1 to 32 characters from `a-z`, `0-9` and `-`.
+- A stale job no longer stops startup: recovery of an interrupted job bounds its router
+  probe at 5 s, records the job as interrupted in the audit log and goes on, and the
+  unread recovery notices are gone.
+- The label that names who holds a router's lease is released as soon as the change set
+  is dropped, so a "router busy" message cannot name a holder that has already finished.
+- Bridge membership in a migration is decided from the final plan: a member the target
+  cannot build gets no `include` line, and the wizard review and the plan agree after
+  lines are excluded. Preset options accept numeric switch-port sources
+  (`interface 1`). The migration and preset previews offer no Apply when nothing would be
+  sent.
+- A recovery bracket never leaves a timer armed without saying so: a migration or
+  component install that fails after the arm disarms it or reports it, and a refused
+  arm whose disarm was accepted says nothing was applied and the timer is off.
+
+### Security
+
+- **Secret files must be owner-only.** On Unix kcc refuses to read a secret file that
+  group or others can access (any bit of mode 077), the rule it already applied to the
+  master key. It covers router `password_file`, `read_password_file` and `token_file`,
+  CLI `--password-file`, `--current-password-file`, `--token-file` and
+  `--read-password-file` input, WireGuard `.conf` imports, log sink `password_file`,
+  `bearer_token_file` and `api_key_file`, and `[server] tls_key_path`. The refusal reads
+  "`<path>` can be read by other users. Run chmod 600 `<path>` and try again."
+  (`errors-secret-file-permissions`); a CLI command exits 3. Windows has no mode check.
+- Every router credential kcc stores is sealed, including API tokens and read-only
+  polling passwords (see the entries above).
+
+### Upgrade notes
+
+- **Run `chmod 600` on every secret file** that `kcc.toml`, a CLI command or a log sink
+  names before you upgrade, or kcc refuses it. The shipped Podman secrets are mounted
+  0400 and pass; keep `mode=0400` (or 0600) on any further `Secret=` line.
+- **New `kcc router add` and `kcc router edit` options**: `--auth`, `--token-file`,
+  `--read-login`, `--read-password-file` (and on edit `--new-token`,
+  `--new-read-password`, `--clear-read-login`). The password file you pass is input
+  only: kcc seals it and you can delete the file. A router stored by an earlier version
+  that still names an external password file keeps working and is warned about once.
+- **Fix router names**: a `[[routers]] name` or `[logs] routers` entry with uppercase
+  letters, dots or more than 32 characters now fails config validation; rename it.
+- **Copy the new Quadlet unit** (`StopTimeout=80`) when you deploy with Podman.
+- **Machine consumers**: new MCP error codes `router_mode_unknown`,
+  `management_not_sent_fail_safe_armed`, `management_saved_fail_safe_armed` and
+  `migration_rollback_restarting`; write results carry `"audit_pending": true` when the
+  change is applied and its audit entry is still queued; the audit outcome
+  `fail_safe_armed` is gone (the entry is `failed` with `fail_safe_armed: true`);
+  `router.profile_*` entries list `credentials` instead of `credentials_changed`;
+  `kcc migrate apply` needs `--yes` without a terminal.
 
 ### Known limitations
 

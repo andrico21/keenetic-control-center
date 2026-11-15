@@ -14,7 +14,8 @@ the log sink or starts `kcc serve`. Windows has no such mode check.
 
 **Environment overrides.** `KCC_<SECTION>_<KEY>` overrides a key of the kcc sections
 `[web]`, `[mcp]`, `[outbound]`, `[state]`, `[backups]`, `[audit]`, `[cli]`, `[privacy]`,
-`[metrics]` and `[logs]` (not `[logs] sinks`), for example `KCC_WEB_ENABLED=false` or
+`[metrics]` and `[logs]` (not `[logs] sinks`; only the keys listed in
+`crates/kcc-app/src/settings/env_overrides.rs` have a variable), for example `KCC_WEB_ENABLED=false` or
 `KCC_OUTBOUND_ALLOWED_NETWORKS=192.168.1.0/24,10.0.0.0/8`. Booleans are
 `true`/`false`/`1`/`0`, lists are comma-separated. `[[routers]]` has no overrides.
 `[server]` and `[observability]` use `RMCP_SERVER_KIT__SERVER__<KEY>` and

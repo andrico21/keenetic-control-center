@@ -1339,7 +1339,7 @@ h3 {
   }
 }
 
-/* todo 44: admin */
+/* admin */
 
 .admin-page {
   grid-template-columns: minmax(0, 1fr);
@@ -1444,7 +1444,7 @@ h3 {
   display: contents;
 }
 
-/* todo 42: explorer */
+/* explorer */
 
 /* ---------- Command explorer, RCI and CLI consoles ---------- */
 
@@ -2020,7 +2020,7 @@ h3 {
   max-inline-size: 24rem;
 }
 
-/* todo 36 */
+/* local network pages */
 
 /* ---------- Local network pages: clients, DHCP, segments ---------- */
 
@@ -2193,7 +2193,7 @@ h3 {
   line-height: var(--leading-small);
 }
 
-/* todo 37 */
+/* network pages */
 
 /* ---------- Network pages: interfaces, internet connections, Wi-Fi, mesh ---------- */
 
@@ -2300,7 +2300,7 @@ h3 {
   line-height: var(--leading-body);
 }
 
-/* todo 39 */
+/* DNS and VPN pages */
 
 /* ---------- DNS and VPN pages: tab regions, tables, panels, dialog forms ---------- */
 
@@ -2391,7 +2391,7 @@ h3 {
   overflow-wrap: break-word;
 }
 
-/* todo 40 */
+/* system pages */
 
 /* ---------- System pages: tabs, tables, checkboxes, jobs, log, diagnostics ---------- */
 
@@ -2487,7 +2487,7 @@ h3 {
   display: none;
 }
 
-/* todo 41 */
+/* configuration and backups */
 
 /* ---------- Configuration and backups page: state panels, backups table, comparison ---------- */
 
@@ -2664,7 +2664,7 @@ h3 {
   vertical-align: top;
 }
 
-/* todo 43: migration wizard */
+/* migration wizard */
 
 :root {
   --wizard-mark: 1.5rem;
@@ -3108,7 +3108,7 @@ h3 {
   justify-self: start;
 }
 
-/* todo 38 */
+/* routing, NAT and firewall */
 
 /* ---------- Routing, port forwarding and firewall pages ---------- */
 
@@ -3263,7 +3263,7 @@ h3 {
   overflow-wrap: anywhere;
 }
 
-/* ---------- Presets and copying settings (todo 59) ---------- */
+/* ---------- Presets and copying settings ---------- */
 
 .presets-table {
   position: relative;
@@ -3321,7 +3321,7 @@ h3 {
   padding-block: var(--space-3);
 }
 
-/* todo 70: the bare shell of the sign-in page - no navigation and no fleet switcher, so
+/* the bare shell of the sign-in page - no navigation and no fleet switcher, so
    the masthead holds the brand and the menus and the page takes the full width. */
 
 .masthead:not(:has(.masthead__menu)) {
@@ -3338,7 +3338,7 @@ h3 {
   }
 }
 
-/* todo 70: the segments list - one panel per segment, its delete under its facts. */
+/* the segments list - one panel per segment, its delete under its facts. */
 
 .segments-list {
   display: grid;

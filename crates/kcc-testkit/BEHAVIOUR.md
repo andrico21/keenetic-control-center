@@ -18,7 +18,7 @@ Sources:
   `show version`, `show identification`, `show system` and `show interface` fixtures are
   adapted from its `src/auth.rs` and `tests/fixtures/`.
 - **assumed**: chosen for the simulator from R-CLI/R-RCI documentation, not confirmed
-  against a router. Todo 53 was `NOT-RUN` because no hardware was available; see
+  against a router. The live probe was not run because no hardware was available; see
   `spikes/live-router/RESULT.md` and `.omo/evidence/task-53-keenetic-control-center.json`.
 
 ## Profiles
@@ -31,7 +31,7 @@ Sources:
 | `NC-3013` | Speedster | `Netcraze Speedster` | 5.1.3 |
 
 - The 5.1 profiles are seeded from `fixtures/<hw_id>/settings.json` and
-  `fixtures/<hw_id>/show.json`. The seeds are synthetic (no capture yet, todo 17): MACs
+  `fixtures/<hw_id>/show.json`. The seeds are synthetic (no capture yet): MACs
   are `02:00:00:*`, addresses come from 192.0.2.0/24, 198.51.100.0/24 and 203.0.113.0/24,
   serials are zeros. Port counts differ per model (`KN-3810` and `NC-3013` have one LAN
   port fewer). **assumed**
@@ -39,7 +39,7 @@ Sources:
   (documentation-derived)`.** There is no 4.3 or 5.0 hardware. These profiles start from
   the model's 5.1 seed and drop every JSON pointer listed in `fixtures/derived/4.3.json`
   or `fixtures/derived/5.0.json`. Today that list holds `ipv6 access-list` (documented
-  from the 5.1.1 CLI on). It grows when the 4.3/5.0 catalogs (todos 12-14) name more
+  from the 5.1.1 CLI on). It grows when the 4.3/5.0 catalogs name more
   commands and fields absent from those lines.
 - `show version` reports the profile's `title` and `release` (`5.1.3`/`5.01.C.3.0-0`,
   `5.0.12`/`5.00.C.12.0-0`, `4.3.9`/`4.03.C.9.0-0`) unless the builder overrides them.
@@ -182,7 +182,7 @@ fixtures; fixture values remain the baseline for unmodified rows and fields.
 ## Fail-safe and last change
 
 All semantics in this section are **assumed (R-CLI documentation, not live-verified - see
-`spikes/live-router/RESULT.md`)** because todo 53 probes 7 and 7b were `NOT-RUN`:
+`spikes/live-router/RESULT.md`)** because live probes 7 and 7b were not run:
 
 - `timer reboot 60..86400` arms; `keep-alive` restarts the full period.
 - `no ... fail-safe timer` disarms while leaving unsaved running changes intact.
@@ -230,7 +230,7 @@ All semantics in this section are **assumed (R-CLI documentation, not live-verif
 - `system country <code>` (parser) and `POST /rci/system/country` are applied to running and
   startup configuration at once: no save is needed, the unsaved flag does not change, and
   fail-safe expiry or rollback cannot undo it. **assumed (R-CLI documentation "permanently
-  stored", not live-verified: todo 53 probe 9 `NOT-RUN`)**
+  stored", not live-verified: live probe 9 was not run)**
 - `FaultInjection::route_wipe_on_remove(true)` makes the next single-route `no ip route` or
   `no ipv6 route` remove every running static route in that address family and return
   `cleared all routes.`; the fault then disarms. **assumed (simulates the R-MCP2 incident)**
@@ -282,7 +282,7 @@ fixtures retain their historical absent mode/agreement endpoints. `omit_fail_saf
 address transition can serve clones of the same router; the inactive host returns 503.
 Expired fail-safe timers are processed before connectivity checks, restoring running
 configuration and the original management host. All these semantics are assumed from
-the todo-53 NOT-RUN fallback, not observations of real firmware.
+documentation (the live probes were not run), not observations of real firmware.
 
 Legacy-firmware fixtures (4.3 and 5.0 derived trees) also carry `cifs master` and `kabinet port`
 nodes, which exist only in those catalogs, so raw-tool tests can create and remove a

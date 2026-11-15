@@ -3,7 +3,7 @@
 # zero or more words. First matching rule wins.
 #
 # Password hashes are realm-bound: ndw2 hash = md5(login:realm:password).
-# This is derived, verified by todo 31 live rehearsal.
+# This is derived and was verified by a live rehearsal.
 
 [[rule]]
 id = "identity-ndns-registration"

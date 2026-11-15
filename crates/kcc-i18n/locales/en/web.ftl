@@ -151,7 +151,7 @@ web-router-error-policy = kcc does not connect to this address. Routers must be 
 web-router-error-unreachable = The router did not answer. Check the address and that kcc can reach its network.
 web-router-error-check = The router answered, but kcc could not identify the device.
 
-# todo 44
+# Administration
 web-admin-title = Administration
 web-admin-tab-users = Users
 web-admin-tab-roles = Roles
@@ -316,7 +316,7 @@ web-admin-server-stopped = Stopped
 web-admin-server-catalogs = Command catalogs
 web-admin-server-catalog-line = Firmware line
 web-admin-server-catalog-groups = Command groups
-# todo 42
+# Command explorer
 web-explorer-title = Command explorer
 web-explorer-catalog = Command catalog { $version } for { $model }
 web-explorer-catalog-union = Command catalog { $version }, all models
@@ -520,7 +520,7 @@ web-system-restart-title = Restart
 web-system-restart-text = Restarting interrupts every connection through the router for a few minutes and discards unsaved changes.
 web-system-restart = Restart router
 
-# todo 36
+# Local network pages
 web-clients-title = Clients
 web-clients-tabs = Local network
 web-clients-landing-pages = Pages
@@ -671,7 +671,7 @@ web-segments-error-port = Choose switch ports the router reported.
 web-segments-error-access-point = Choose an access point the router reported.
 web-segments-failed-step = The step { $name } failed; kcc removed the objects it had created.
 web-segments-rollback-failed = The step { $name } failed, and removing the created objects stopped at { $value }. The router may keep part of the segment.
-# todo 37
+# Network pages
 web-network-tabs = Network pages
 web-network-tab-mesh = Mesh
 web-network-title = Interfaces
@@ -815,7 +815,7 @@ web-mesh-status = Status
 web-mesh-check = Check for updates
 web-mesh-update = Update firmware
 web-mesh-restart = Restart
-# todo 39
+# DNS and VPN pages
 web-dns-tab-servers = DNS servers
 web-dns-tab-filtering = Filtering
 web-dns-tab-records = Static records
@@ -1012,7 +1012,7 @@ web-vpn-conf-endpoint = Peer { $peer }: Endpoint must be an IP address and a por
 web-vpn-skip-address = Address: set the connection's address on the router; kcc cannot set it yet.
 web-vpn-skip-dns = DNS: kcc cannot set the DNS servers of a connection yet.
 web-vpn-skip-asc = Jc, Jmin, Jmax, S1 to S4, H1 to H4, I1 to I5: kcc cannot set them yet.
-# todo 40
+# System pages
 web-system-tabs = System pages
 web-system-users-title = Router users
 web-system-services-title = Services

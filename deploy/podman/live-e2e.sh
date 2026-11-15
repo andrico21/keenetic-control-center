@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Live container path: the hardened image (todo 57, `kcc:test`) in rootless Podman under the
+# Live container path: the hardened image (`kcc:test`) in rootless Podman under the
 # shipped seccomp profile, pointed at the owner's live test router. Steps: Web login and
 # dashboard, one reversible write (a `02:` known host registered, read back and removed),
 # a /metrics scrape showing the router's series, log forwarding to the kcc-testkit fake

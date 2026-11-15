@@ -45,7 +45,7 @@ use crate::{
     },
 };
 
-/// Path of the migration wizard (todo 43).
+/// Path of the migration wizard, which a raw restore points to.
 const WIZARD: &str = "/ui/migrate";
 
 /// Whether this build serves the migration wizard at [`WIZARD`].

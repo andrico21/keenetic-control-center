@@ -153,7 +153,7 @@ web-router-error-policy = kcc не падключаецца да гэтага а
 web-router-error-unreachable = Роўтар не адказаў. Праверце адрас і даступнасць яго сеткі для kcc.
 web-router-error-check = Роўтар адказаў, але kcc не ўдалося вызначыць прыладу.
 
-# todo 44
+# Administration
 web-admin-title = Адміністраванне
 web-admin-tab-users = Карыстальнікі
 web-admin-tab-roles = Ролі
@@ -318,7 +318,7 @@ web-admin-server-stopped = Спынены
 web-admin-server-catalogs = Каталогі каманд
 web-admin-server-catalog-line = Лінейка прашыўкі
 web-admin-server-catalog-groups = Групы каманд
-# todo 42
+# Command explorer
 web-explorer-title = Аглядальнік каманд
 web-explorer-catalog = Каталог каманд { $version } для { $model }
 web-explorer-catalog-union = Каталог каманд { $version }, усе мадэлі
@@ -530,7 +530,7 @@ web-system-restart-title = Перазагрузка
 web-system-restart-text = Перазагрузка на некалькі хвілін перапыняе ўсе злучэнні праз роўтар і адмяняе незахаваныя змены.
 web-system-restart = Перазагрузіць роўтар
 
-# todo 36
+# Local network pages
 web-clients-title = Кліенты
 web-clients-tabs = Лакальная сетка
 web-clients-landing-pages = Старонкі
@@ -681,7 +681,7 @@ web-segments-error-port = Выберыце парты камутатара, пр
 web-segments-error-access-point = Выберыце пункт доступу, пра які паведаміў роўтар.
 web-segments-failed-step = Крок { $name } не ўдаўся; kcc выдаліў створаныя аб'екты.
 web-segments-rollback-failed = Крок { $name } не ўдаўся, а выдаленне створаных аб'ектаў спынілася на кроку { $value }. На роўтары можа застацца частка сегмента.
-# todo 37
+# Network pages
 web-network-tabs = Сеткавыя старонкі
 web-network-tab-mesh = Mesh-сістэма
 web-network-title = Інтэрфейсы
@@ -825,7 +825,7 @@ web-mesh-status = Стан
 web-mesh-check = Праверыць абнаўленні
 web-mesh-update = Абнавіць прашыўку
 web-mesh-restart = Перазагрузіць
-# todo 39
+# DNS and VPN pages
 web-dns-tab-servers = DNS-серверы
 web-dns-tab-filtering = Фільтрацыя
 web-dns-tab-records = Статычныя запісы
@@ -1024,7 +1024,7 @@ web-vpn-conf-endpoint = Пір { $peer }: Endpoint павінен быць IP-а
 web-vpn-skip-address = Address: задайце адрас падключэння на роўтары; kcc пакуль не ўмее яго задаваць.
 web-vpn-skip-dns = DNS: kcc пакуль не ўмее задаваць DNS-серверы падключэння.
 web-vpn-skip-asc = Jc, Jmin, Jmax, S1–S4, H1–H4, I1–I5: kcc пакуль не ўмее іх задаваць.
-# todo 40
+# System pages
 web-system-tabs = Сістэмныя старонкі
 web-system-users-title = Карыстальнікі роўтара
 web-system-services-title = Службы
