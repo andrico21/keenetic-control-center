@@ -1,0 +1,317 @@
+SEC1	SEC1-01	high	CONFIRMED	high	A Read role gets the full running configuration, secrets included, from MCP `kcc_rci_read` and the Web explorer
+SEC1	SEC1-02	high	CONFIRMED	high	Anyone can grow the audit log by 1 MiB per failed login, filling the disk and stopping `kcc serve`
+SEC1	SEC1-03	high	ADJUSTED	medium	Behind the documented HTTPS reverse proxy, the session cookie has no `Secure` flag and no `__Host-` prefix
+SEC1	SEC1-04	medium	CONFIRMED	medium	MCP secret redaction misses hyphenated and short secret keys that the Web masks
+SEC1	SEC1-05	medium	CONFIRMED	medium	Disabling an account or resetting its password from the CLI does not end its Web sessions
+SEC1	SEC1-06	medium	CONFIRMED	medium	Open event streams keep sending data after logout, account disable or role reduction
+SEC1	SEC1-07	medium	CONFIRMED	medium	Every login-page GET without a valid cookie creates a new anonymous session, with no cap
+SEC1	SEC1-08	medium	ADJUSTED	low	The audit log page and export ignore the viewer's router scope
+SEC1	SEC1-09	medium	ADJUSTED	medium	A failed router edit leaves the new credential sealed for the old profile
+SEC1	SEC1-10	medium	ADJUSTED	low	HTML is passed around as plain `String` and rendered with `|safe`, against "askama auto-escaping only, no bypass"
+SEC1	SEC1-11	low	CONFIRMED	low	Login timing reveals disabled or locked accounts; all logins are serialised on the users file
+SEC1	SEC1-12	low	CONFIRMED	low	A self-service password change keeps the current session id
+SEC1	SEC1-13	low	CONFIRMED	low	`app.js` carries review-process labels and three copies of the same swap override
+SEC1	SEC1-14	info	CONFIRMED	info	Route-table scope checks use the raw path, handlers use the decoded one
+SEC2	SEC2-01	medium	CONFIRMED	medium	Router and log-sink HTTP clients honour HTTP(S)_PROXY / ALL_PROXY, bypassing the resolved-IP policy
+SEC2	SEC2-02	medium	CONFIRMED	medium	Free-text catalog values go unquoted into router CLI lines (MCP and CLI reachable)
+SEC2	SEC2-03	medium	CONFIRMED	medium	A profile with a read-only login opens a new router session (and ndw4 Argon2) on every poll and never logs out
+SEC2	SEC2-04	medium	CONFIRMED	medium	One torn or partial audit line permanently stops the audit writer and stops `kcc serve` from starting
+SEC2	SEC2-05	medium	CONFIRMED	medium	Every audit append re-reads and re-hashes the entire retained chain (O(N) per entry)
+SEC2	SEC2-06	medium	ADJUSTED	low	`OutboundPolicy::default()` is permissive, and public migration entry points connect with it plus loopback
+SEC2	SEC2-07	medium	ADJUSTED	low	Redaction registry blanks the IKE key name instead of the PSK, and misses ipsec-profile secrets
+SEC2	SEC2-08	medium	REFUTED	-	KNOWN-BACKLOG: one hostile LAN router can stall ndw4 logins for the whole fleet
+SEC2	SEC2-09	low	ADJUSTED	low	`RouterRegistry::client` holds the fleet-wide client mutex across DNS resolution and blocking file I/O
+SEC2	SEC2-10	low	CONFIRMED	low	IPv6-literal router URLs always fail the outbound policy
+SEC2	SEC2-11	low	ADJUSTED	info	The metadata deny list misses other link-local cloud credential endpoints
+SEC2	SEC2-12	low	ADJUSTED	low	Every login attempt, including unknown users, rewrites and fsyncs `users.json` under its exclusive lock; disabled and locked accounts answer fast
+SEC2	SEC2-13	low	ADJUSTED	low	Preset records bypass the state store's private atomic writer
+SEC2	SEC2-14	low	CONFIRMED	low	Log-sink clients have no timeouts, and the Elasticsearch reply body is unbounded
+SEC2	SEC2-15	low	CONFIRMED	low	`CredentialStore` path methods build paths from an unvalidated router id, and their docs say otherwise
+SEC2	SEC2-16	low	CONFIRMED	low	Gaps in zeroizing decrypted and downloaded secrets
+SEC2	SEC2-17	low	CONFIRMED	low	Two write and delete helpers follow symlinks with predictable temp names
+SEC2	SEC2-18	info	CONFIRMED	info	info: AEAD associated data has no record-type prefix for router passwords and account hashes
+SEC2	SEC2-19	info	CONFIRMED	info	info: The privilege floor ignores GID 0
+SEC2	SEC2-20	info	CONFIRMED	info	info: `MasterKey::load_or_create` forces the key file's parent directory to mode 0700
+A	A-01	medium	CONFIRMED	medium	`secrets::redact` misses router-written ns3 secrets and blanks the wrong word for `crypto ike key`
+A	A-02	medium	CONFIRMED	medium	Cookie refresh writes any `Set-Cookie` into the current session, including on 401 and from requests sent with an older cookie
+A	A-03	medium	CONFIRMED	medium	`RciClient::show` drops the query on the POST fallback and caches the path as POST-only
+A	A-04	medium	ADJUSTED	medium	`batch` never checks the reply length and drops completed chunks on a later error
+A	A-05	medium	ADJUSTED	low	Status items that do not fully deserialize are dropped, so error-level replies count as success
+A	A-06	medium	ADJUSTED	low	Tab-indented config text quietly flattens nested commands to the top level
+A	A-07	medium	ADJUSTED	low	Every background operation logs in afresh and never logs out
+A	A-08	medium	ADJUSTED	low	DELETE risk is not enforced by the catalog; three frontends patch it themselves
+A	A-09	medium	ADJUSTED	low	Digest proxy state is not safe under concurrent requests
+A	A-10	low	ADJUSTED	low	Secret bytes are copied into buffers that are never zeroized
+A	A-11	low	CONFIRMED	low	Unbounded edit-distance work on attacker-controlled field names
+A	A-12	low	ADJUSTED	low	`connect_bootstrap_with` loses the observer, and request accounting differs per method
+A	A-13	low	ADJUSTED	low	`OutboundPolicy::default()` is permissive, contrary to the documented "empty by default"
+A	A-14	low	CONFIRMED	low	Router-controlled Argon2 iterations are not capped locally
+A	A-15	low	ADJUSTED	low	Timeout errors are mapped differently on each auth path
+A	A-16	low	CONFIRMED	low	Duplicated magic numbers and helpers
+A	A-17	low	ADJUSTED	low	Dead or speculative API shipped in production
+A	A-18	low	CONFIRMED	low	Cancel-safety comments contradict each other
+A	A-19	low	ADJUSTED	info	`FirmwareVersion` mixes derived equality with hand-written ordering
+A	A-20	low	ADJUSTED	low	Generated argument types fall back to an unconstrained `String`
+A	A-21	low	ADJUSTED	low	Tests that cannot fail, duplicated scenarios, and source-grep tests
+A	A-22	info	CONFIRMED	info	Review-process labels left in code and tests
+B	B-01	high	ADJUSTED	medium	Every audit append re-reads, re-parses and re-hashes the whole retained log, under the cross-process lock
+B	B-02	medium	ADJUSTED	medium	The conflict check needs both checksum and agent to differ, so a change by any other RCI client goes unnoticed
+B	B-03	medium	CONFIRMED	medium	A torn last audit line (crash or full disk mid-append) stops `kcc serve` from starting and kills the writer
+B	B-04	medium	CONFIRMED	medium	"Bounded" audit waits block without limit once the 128-slot queue is full, including inside a safety bracket
+B	B-05	medium	ADJUSTED	medium	Login runs Argon2 and rewrites `users.json` with fsync under the exclusive cross-process lock, on every attempt
+B	B-06	medium	CONFIRMED	medium	With a read-only login, the poller opens a new router session every round
+B	B-07	medium	ADJUSTED	low	Blocking file I/O and blocking `flock` waits run directly on Tokio workers
+B	B-08	medium	ADJUSTED	low	`CliCommand` does not tie the line it sends to the request it validated
+B	B-09	medium	ADJUSTED	low	Every job leaves two lock files in the state root forever
+B	B-10	low	CONFIRMED	low	A failed final write of a job record is dropped silently, and the next start reports a false interruption
+B	B-11	low	CONFIRMED	low	Module-wide `#![expect]` blankets with "the plan mandates" reasons hide wildcard arms
+B	B-12	low	CONFIRMED	low	`WorkflowError::InvalidResponse` reports "invalid last-change response" for unrelated failures
+B	B-13	low	ADJUSTED	low	Router-profile and router-id validation is duplicated and has drifted
+B	B-14	low	CONFIRMED	low	Audit module: duplicated helpers, dead state and unused public API
+B	B-15	low	ADJUSTED	info	Audit retention runs only on rotation and only on whole files, unlike its documentation
+B	B-16	low	ADJUSTED	info	`glob_matches` claims to be kit-compatible but is not
+B	B-17	low	CONFIRMED	low	Poller idle-exit race can hand out a receiver that never gets data
+B	B-18	low	ADJUSTED	info	More private async functions lack cancel-safety annotations than BACKLOG lists (KNOWN-BACKLOG)
+B	B-19	low	ADJUSTED	info	A write job with no router fails as "router busy: missing"
+B	B-20	low	ADJUSTED	low	Workflow audit entries use timestamps as request ids, and terminal changes drop their audit receipt
+B	B-21	low	CONFIRMED	low	One malformed backup file turns off retention for that router permanently
+B	B-22	low	ADJUSTED	info	The two-group env-override macro adds structure nothing needs
+B	B-23	low	CONFIRMED	low	Several tests cannot fail, describe the wrong failure, or wait in real time
+B	B-24	low	CONFIRMED	low	A route transition on a `kcc.toml` router keeps the new URL only in memory but rewrites the operator's password file
+C	C-01	high	ADJUSTED	medium	Unquoted free text in DHCP and client CLI lines lets a Write principal inject router CLI arguments
+C	C-02	medium	CONFIRMED	medium	The bracket's disarm runs the full write preflight, so a local refusal blocks cleanup and is reported as "may be armed"
+C	C-03	medium	CONFIRMED	medium	`guarded` replaces and then cancels a recovery timer the operator armed earlier
+C	C-04	medium	ADJUSTED	medium	Generic interface reads pass `show interface` credential blobs (ns3) through `extra`
+C	C-05	medium	CONFIRMED	medium	Management detection blocks on DNS inside async code and quietly falls back to Write
+C	C-06	medium	CONFIRMED	medium	Several WAN planners hard-code `Risk::Write` even on the interface that carries management
+C	C-07	medium	ADJUSTED	low	Validated requests are overwritten after validation, bypassing the catalog check
+C	C-08	medium	CONFIRMED	medium	`parse_pools` attaches indented lines of later blocks to the last DHCP pool
+C	C-09	medium	ADJUSTED	medium	`plan_pool` silently drops every DNS server after the first
+C	C-10	medium	ADJUSTED	low	Partition check and format can never work, yet ship in Web, MCP and CLI
+C	C-11	medium	CONFIRMED	medium	The component commit job reports "completed" before the router reboots
+C	C-12	medium	ADJUSTED	low	Changing the listener kcc itself uses always rolls back the router
+C	C-13	medium	ADJUSTED	low	Local planning errors are reported as "invalid router response"
+C	C-14	medium	ADJUSTED	low	Module- and crate-wide `#[expect]`s hide real defects
+C	C-15	low	CONFIRMED	low	`close(Save)` in router mode sends a second save after the commit and can misreport the result
+C	C-16	low	ADJUSTED	info	`close` doc gives the wrong fate for a failed keep-unsaved
+C	C-17	low	CONFIRMED	low	The same helpers are copied across planners
+C	C-18	low	CONFIRMED	low	Production code that only tests use, or that does nothing
+C	C-19	low	CONFIRMED	low	Diagnostics poll the router every 10 ms
+C	C-20	low	ADJUSTED	info	Schedule descriptions cannot contain spaces
+C	C-21	low	CONFIRMED	low	The bracket reports refusals with the wrong error and drops an audit failure
+C	C-22	low	CONFIRMED	low	Read-back of secret writes passes when an old secret is already there
+C	C-23	low	ADJUSTED	low	Client and DHCP read-back runs after the audit entry says "success"
+C	C-24	low	CONFIRMED	low	`plan_tag` does not protect the login kcc uses
+C	C-25	low	CONFIRMED	low	Tests that cannot fail or miss the behavior they name
+D	D-01	high	ADJUSTED	high	Clearing a firewall rule's description or schedule sends "enable rule"
+D	D-02	medium	ADJUSTED	medium	Names and free text go into CLI lines unquoted and unvalidated
+D	D-03	medium	CONFIRMED	medium	Setting an FQDN group description is always refused
+D	D-04	medium	CONFIRMED	medium	Clearing a connection-policy description always fails
+D	D-05	medium	CONFIRMED	medium	Ports are rendered for ICMP/ESP/GRE/IPIP/IP firewall rules, and the test matrix accepts it
+D	D-06	medium	CONFIRMED	medium	One unparsable rule makes every CLI/MCP firewall write fail, after the write
+D	D-07	medium	ADJUSTED	low	Read-back cannot detect a no-op when the target already exists
+D	D-08	medium	CONFIRMED	medium	Route removal is checked by routing-table row count, and the wipe recovery is lossy
+D	D-09	medium	CONFIRMED	medium	Segment create does not roll back the step that failed
+D	D-10	medium	ADJUSTED	low	`RuleProperty::Order` can never be planned, and the Web builds its own order line
+D	D-11	medium	CONFIRMED	medium	VPN-client Delete removes any interface and drops the catalog's Destructive risk
+D	D-12	medium	CONFIRMED	medium	VPN server status reads the crypto-map virtual IP at the wrong pointer
+D	D-13	medium	ADJUSTED	low	Hand-written config-text walkers, duplicated and already drifted
+D	D-14	medium	ADJUSTED	low	`RevealSecrets` gate is shipped with no production caller, and its scope check is not tied to the router
+D	D-15	medium	ADJUSTED	low	Validated requests are changed after validation
+D	D-16	medium	ADJUSTED	medium	WireGuard parse error can keep a raw key line in a `Debug`-derived error
+D	D-17	medium	CONFIRMED	medium	WireGuard ASC: the doc says extra values are ignored, but the line keeps them
+D	D-18	low	ADJUSTED	low	Verification and validation failures turned into `InvalidResponse`
+D	D-19	low	ADJUSTED	low	The same planner helpers are copied across seven modules
+D	D-20	low	CONFIRMED	low	One stray `kcc-segment:` description breaks segment discovery
+D	D-21	low	CONFIRMED	low	Planners signal invalid input through sentinels and string dispatch
+D	D-22	low	ADJUSTED	info	Dead branches and phantom inventory entries
+D	D-23	low	ADJUSTED	low	Tests that duplicate, cannot fail, or cost a lot for little
+E	E-01	high	ADJUSTED	high	MCP secret redaction is a weaker, separate denylist from the Web and kcc-config ones, and it skips text bodies
+E	E-02	high	CONFIRMED	high	`kcc_preset_capture` overwrites any stored preset by name slug, skipping the source-scope check
+E	E-03	medium	ADJUSTED	medium	An applied migration or preset holds the router write lease indefinitely, and records are never evicted
+E	E-04	medium	CONFIRMED	medium	Result truncation replaces the whole payload, including error codes and fail-safe messages, and returns a meaningless cursor
+E	E-05	medium	CONFIRMED	medium	`redact_clients_in_mcp` misses client names, free text and progress notifications
+E	E-06	medium	ADJUSTED	low	The global migrations mutex is held across router commit and rollback
+E	E-07	medium	CONFIRMED	medium	Every interface write failure becomes `conflict`, losing `verification_failed` and its field
+E	E-08	medium	CONFIRMED	medium	Several successful MCP actions are not audited, although the Web and CLI audit the same actions
+E	E-09	medium	ADJUSTED	low	Logged failure causes cannot be tied to the `request_id` returned to the client
+E	E-10	medium	ADJUSTED	low	Crate-root `#![expect]` blankets 8 clippy lints plus private-item docs
+E	E-11	medium	ADJUSTED	low	About 70 async fns have no cancel-safety annotation, including mutating handlers
+E	E-12	low	CONFIRMED	low	The `fields` projection argument is accepted and validated but never applied
+E	E-13	low	CONFIRMED	low	The pseudonymizer over-matches on the substring "ip", and its map grows without bound
+E	E-14	low	CONFIRMED	low	Tool metadata and helper logic are duplicated and can drift
+E	E-15	low	CONFIRMED	low	Stringly-typed dispatch with wildcard fallbacks binds unknown names to real handlers
+E	E-16	low	CONFIRMED	low	Debug formatting is used as a wire value, and a test pins it
+E	E-17	low	CONFIRMED	low	Recovery mapping decides meaning by comparing an i18n message key
+E	E-18	low	CONFIRMED	low	Input schemas call `confirm` "unused", but it is required for some writes
+E	E-19	low	ADJUSTED	low	`resources/read` maps router failures to `internal`, skips the audit, and starts pollers for unregistered names
+E	E-20	low	CONFIRMED	low	`catalog_search` with `limit: 0` returns a `next_cursor` equal to the current cursor
+E	E-21	low	REFUTED	-	`kcc_diagnostics_write` is registered as a read-only Read tool
+E	E-22	info	CONFIRMED	info	The unvalidated CLI escape is not recorded as a deviation from project rule (b)
+E	E-23	low	ADJUSTED	low	Test quality: tautologies, tests that pin known-broken behavior, and review labels
+E	E-24	low	ADJUSTED	low	Some write paths drop the audit receipt, so `audit_pending` is never reported
+F	F-01	high	CONFIRMED	high	Revoking a key or disabling a user from the CLI does not reach a running `kcc serve`
+F	F-02	medium	CONFIRMED	medium	`router edit` seals the new credential before the profile is validated
+F	F-03	medium	CONFIRMED	medium	Session cookie loses `Secure` and `__Host-` in the HTTPS-proxy deployment
+F	F-04	medium	ADJUSTED	low	`kcc show running-config` hands out secrets with only `Read`
+F	F-05	medium	CONFIRMED	medium	`kcc mcp stdio` has no signal handling, so a signal skips the bracket wait, job drain and audit flush
+F	F-06	medium	ADJUSTED	low	CLI `apikey create` and `user add` skip the role-dominance check the Web enforces
+F	F-07	medium	ADJUSTED	medium	`backup diff` compares sets of redacted lines, so it misses real changes, and its help text says "Count"
+F	F-08	medium	ADJUSTED	low	The redaction pipeline exists three times
+F	F-09	medium	ADJUSTED	low	Two composition roots, and some CLI commands build them twice
+F	F-10	medium	CONFIRMED	medium	User-visible English strings outside `kcc-i18n`
+F	F-11	medium	ADJUSTED	medium	`dhcp pool` defaults the default router to the first leased address and wipes options on replace
+F	F-12	medium	ADJUSTED	low	Inconsistent confirmation gates for the same action
+F	F-13	medium	ADJUSTED	low	Permission refusals on local-state commands are not audited
+F	F-14	medium	ADJUSTED	low	Two parsers for `--from`, and preset sources copy the startup configuration into a plain `Vec<u8>`
+F	F-15	low	CONFIRMED	low	Rollback results report `"unsaved": true`
+F	F-16	low	ADJUSTED	info	VPN secret writes use a fixed gate and a hard-coded `unsaved`
+F	F-17	low	CONFIRMED	low	Credential misbinding through the single `KCC_PASSWORD` fallback
+F	F-18	low	ADJUSTED	low	`ServerError` is a stringly-typed error, and one constructor is dead with a false doc
+F	F-19	low	ADJUSTED	info	The privilege `Report` is discarded, so a kept bounding set is never reported
+F	F-20	low	ADJUSTED	info	Dispatchers have arms that return success for "unreachable" variants
+F	F-21	low	ADJUSTED	info	`Family<B, W>` encodes development history
+F	F-22	low	CONFIRMED	low	`write_private` reuses a predictable temporary file and follows symlinks
+F	F-23	low	CONFIRMED	low	Startup and shutdown edges in `run_serve`
+F	F-24	low	ADJUSTED	info	`authorize_apply` restates code in comments and repeats a permission-label table
+F	F-25	low	CONFIRMED	low	Unix-time helper copied five times; audit request ids are not unique
+F	F-26	low	ADJUSTED	info	Duplicated CLI commands
+F	F-27	low	CONFIRMED	low	`--json` contract is broken for argument errors
+F	F-28	low	ADJUSTED	info	Root cause of the `-` router in confirmation messages (KNOWN-BACKLOG)
+F	F-29	low	ADJUSTED	low	Test quality: a vacuous assertion, prose pins and a review label
+F	F-30	low	CONFIRMED	low	Test quality: port race, copied helpers, time windows, source greps
+F	F-31	info	CONFIRMED	info	`live_smoke` checks only the serial allowlist, not `test_device`
+G	G-01	high	CONFIRMED	high	Lines carrying an `ns3` secret or a WireGuard key ignore interface, port and radio mappings
+G	G-02	high	ADJUSTED	medium	Preset capture silently overwrites any existing preset, including one outside the caller's router scope
+G	G-03	high	CONFIRMED	high	The management phase reconnects with the *new* password before that password has been sent
+G	G-04	high	ADJUSTED	medium	Changes to kcc's own login password bypass the management safeguards (preset path, same-realm path, Mirror mode)
+G	G-05	medium	ADJUSTED	medium	Finish failures report "timer not armed" while the timer is still armed
+G	G-06	medium	CONFIRMED	medium	Verification always fails without WAN Internet or without `Bridge0`; the management interface is guessed as "first bridge"
+G	G-07	medium	REFUTED	-	Prunes run before the management phase and are never classified as management
+G	G-08	medium	CONFIRMED	medium	Log-sink transport errors are not retried; the batch is dropped as "permanent"
+G	G-09	medium	CONFIRMED	medium	No HTTP timeout and unbounded retries: a stuck sink stalls the worker, and shutdown aborts records without counting them
+G	G-10	medium	CONFIRMED	medium	One malformed router log record silently blocks all forwarding for that router
+G	G-11	medium	CONFIRMED	medium	Router-local log timestamps are stamped as UTC
+G	G-12	medium	ADJUSTED	low	Log-collector shutdown waits out uncancellable sleeps, one router after another
+G	G-13	medium	CONFIRMED	medium	Batch selection re-encodes the whole batch for every record while holding the queue's std `Mutex`
+G	G-14	medium	ADJUSTED	low	Shipped but unused public APIs bypass the configured outbound policy and allow loopback
+G	G-15	low	CONFIRMED	low	Migration reports contain no command text at all, and the HTML/Markdown skeleton is English-only
+G	G-16	low	CONFIRMED	low	`kcc_metrics_series_dropped_total` grows per scrape, not per event
+G	G-17	low	ADJUSTED	low	The per-client pseudonym map grows without bound and is shared across routers
+G	G-18	low	CONFIRMED	low	`keenetic_interface_up` carries the free-text interface description as a label
+G	G-19	low	CONFIRMED	low	The `kcc_jobs` gauge drifts on broadcast lag
+G	G-20	low	ADJUSTED	low	Wrong or missing cancel-safety annotations
+G	G-21	low	CONFIRMED	low	Copy-paste duplication that has already drifted
+G	G-22	low	CONFIRMED	low	`PresetStore` duplicates a method and does blocking file and crypto I/O on async handlers
+G	G-23	low	CONFIRMED	low	The `ContinueOnNonCritical` retry path is test-only, and its Indeterminate case is not recovered
+G	G-24	low	ADJUSTED	info	The Loki `level` stream label comes straight from untrusted router input
+G	G-25	low	CONFIRMED	low	Test quality: real bugs above have no tests, and some test code is noise
+W1	W1-01	medium	CONFIRMED	medium	Disabling an account or changing its password from the CLI does not end its live Web sessions
+W1	W1-02	medium	CONFIRMED	medium	Open SSE streams outlive logout, disable, delete and role reduction
+W1	W1-03	medium	ADJUSTED	low	Unauthenticated `GET /ui/login` grows the session map without bound
+W1	W1-04	medium	CONFIRMED	medium	A failed sign-in shows nothing in the browser (401 is never swapped by htmx)
+W1	W1-05	medium	ADJUSTED	medium	Editing a router seals the new secrets before the profile update, with no rollback
+W1	W1-06	medium	ADJUSTED	medium	Connection test ignores the selected sign-in mode and never uses a typed token
+W1	W1-07	medium	ADJUSTED	low	The "account kcc signs in with" guard fails open and ignores the read-only login
+W1	W1-08	medium	ADJUSTED	low	Each audit-page view and export verifies and loads the whole log
+W1	W1-09	low	CONFIRMED	low	Copy-pasted helpers in the admin and auth modules, and the bare 500s don't match the docs
+W1	W1-10	low	CONFIRMED	low	Review-process labels shipped in production JavaScript
+W1	W1-11	low	ADJUSTED	info	The permission list is hand-maintained in 3 places and silently drops unknown permissions
+W1	W1-12	low	ADJUSTED	info	Wildcard arms map unknown future variants to a specific behaviour
+W1	W1-13	low	CONFIRMED	low	Localization slips: sign-in error language, "UTC", "(you)"
+W1	W1-14	low	ADJUSTED	low	Kit routes lose `Cache-Control`, with no deviation recorded
+W1	W1-15	low	ADJUSTED	info	The connection test shows a server file path to the Web user
+W1	W1-16	low	CONFIRMED	low	A new API key is lost if the page refresh or render fails after creation
+W1	W1-17	low	CONFIRMED	low	Deleting a role counts holders without the users/API-key locks
+W1	W1-18	low	ADJUSTED	low	The cross-site CSRF test sets two rejecting conditions at once
+W2	W2-01	medium	CONFIRMED	medium	Confirmation is opt-in, so management and destructive plans can run with no dialog
+W2	W2-02	medium	ADJUSTED	medium	Wizard session eviction breaks per-run mutual exclusion; any user with `Migrate` can trigger it
+W2	W2-03	medium	ADJUSTED	low	A wizard commit or rollback that succeeded on the router is not audited if the record save fails
+W2	W2-04	medium	REFUTED	-	A rollback the router accepted is audited as a failure
+W2	W2-05	low	CONFIRMED	low	`Plan::at` drops the management bracket when the effective risk is Destructive
+W2	W2-06	low	CONFIRMED	low	The config page's backup "copy" logic is built on a false premise
+W2	W2-07	low	ADJUSTED	low	Read-only page views do far more work than needed
+W2	W2-08	low	CONFIRMED	low	The wizard store does blocking file I/O, including fsync, in async handlers
+W2	W2-09	low	ADJUSTED	low	Save does not re-check the "not while the timer is armed" rule the page shows
+W2	W2-10	low	CONFIRMED	low	Wizard refusals and failures are not audited the way the kit audits them
+W2	W2-11	low	ADJUSTED	low	Store errors are swallowed or downgraded
+W2	W2-12	low	ADJUSTED	low	The typed-router-name confirmation is implemented three times
+W2	W2-13	low	REFUTED	-	Tests assert on Debug output
+W2	W2-14	low	CONFIRMED	low	The finish-recovery "budget" tests barely assert anything, and the two suites are copies
+W2	W2-15	low	CONFIRMED	low	Pre-rendered HTML passes through `|safe` as plain `String`
+W2	W2-16	low	ADJUSTED	info	Public or `non_exhaustive` API surface that nothing outside the crate uses
+W2	W2-17	low	ADJUSTED	info	The step count is a magic number in two places
+W2	W2-18	low	CONFIRMED	low	Dead template calls and an unused Batch path in the kit
+W3	W3-01	medium	ADJUSTED	medium	Management-risk changes run without the fail-safe confirmation on several handlers
+W3	W3-02	medium	CONFIRMED	medium	Firewall pages require `Destructive` for management changes; every other page requires only the change's permission
+W3	W3-03	medium	REFUTED	-	Wi-Fi SSID, security, channel and country changes are never management-classified, but disabling the same access point is
+W3	W3-04	medium	CONFIRMED	medium	DHCP pool editor keeps only the first DNS server, cannot clear DNS, and lets a "new" pool overwrite an existing one
+W3	W3-05	medium	ADJUSTED	medium	Failed router reads are swallowed into defaults that drive later changes
+W3	W3-06	medium	ADJUSTED	low	Three hand-written DomainError→WorkflowError mappings that already disagree
+W3	W3-07	low	CONFIRMED	low	Tests of management changes send the confirmation up front, so a missing prompt cannot fail them
+W3	W3-08	low	CONFIRMED	low	Firewall rule reorder builds its CLI line in the web layer, with a validated leaf that doesn't match the line
+W3	W3-09	low	ADJUSTED	low	Permission re-checked inside page code and refusals matched on the audit string "forbidden"
+W3	W3-10	low	CONFIRMED	low	`Arc<Mutex<Option<String>>>` side channel copied three times to pass a note out of the work closure
+W3	W3-11	low	ADJUSTED	low	Same small helpers and constants duplicated across page families
+W3	W3-12	low	REFUTED	-	Read-back regions assume permissions instead of computing them
+W3	W3-13	low	CONFIRMED	low	Static route read-back compares typed text with the router's stored text
+W3	W3-14	low	ADJUSTED	low	Access-point rows round-trip through serde and read password presence from raw interface data
+W3	W3-15	low	ADJUSTED	low	Misleading or dead bits
+W3	W3-16	low	ADJUSTED	low	Ambiguous test label hides a missing case
+W3	W3-17	info	CONFIRMED	info	`|safe` on composed regions
+W4	W4-01	high	CONFIRMED	high	Explorer and console reads show stored secrets (ns3 blobs) to roles that lack `RevealSecrets`
+W4	W4-02	medium	ADJUSTED	low	Any reader of a router can stop or follow other users' jobs, and job ids are predictable
+W4	W4-03	medium	ADJUSTED	medium	Router-account protection fails open when kcc's login is empty or the profile lookup fails
+W4	W4-04	medium	REFUTED	-	About 50 `pub(crate)` async handlers in scope lack cancel-safety annotations, including write paths
+W4	W4-05	low	CONFIRMED	low	Existence guards swallow read errors (one path lets "Add account" overwrite an existing account)
+W4	W4-06	low	CONFIRMED	low	Comments say management changes need `Destructive`; the code does not require it
+W4	W4-07	low	CONFIRMED	low	Global caps evict other sessions' downloads and running jobs' answers
+W4	W4-08	low	CONFIRMED	low	The explorer offers Execute for background changes that it always refuses
+W4	W4-09	low	CONFIRMED	low	Raw-form secrets are held in plain `String`s with derived `Debug`
+W4	W4-10	low	ADJUSTED	info	Copy-paste duplication across the two job streams and the handlers
+W4	W4-11	low	CONFIRMED	low	Releasing a KeenDNS name has no confirmation and no management bracket
+W4	W4-12	low	ADJUSTED	info	Two tests pin English copy instead of message keys
+W4	W4-13	low	CONFIRMED	low	Each log-page stream polls the router itself
+W4	W4-14	info	CONFIRMED	info	The RCI console's read batch sends the redacted projection
+W5	W5-01	medium	CONFIRMED	medium	An abandoned or timed-out Apply leaves the router claimed for the rest of the process's life
+W5	W5-02	medium	ADJUSTED	medium	Fleet and dashboard SSE streams keep running after logout, user disable or role change
+W5	W5-03	medium	ADJUSTED	low	Migrations keep the whole sealed source config and the typed passwords forever
+W5	W5-04	medium	ADJUSTED	low	Changing source or target clears the password list but keeps `passwords.sealed`; old passwords are reused silently
+W5	W5-05	medium	ADJUSTED	low	Wizard file I/O, including fsync, runs on the async workers
+W5	W5-06	medium	ADJUSTED	low	Any Migrate user can create unlimited run directories, and every landing page reads them all
+W5	W5-07	medium	ADJUSTED	low	The two wizards still duplicate apply, launch, target, inputs and download code after the engine split
+W5	W5-08	low	CONFIRMED	low	Cross-crate reason keys and display text are matched as strings, and unknown keys fall into wildcard arms
+W5	W5-09	low	CONFIRMED	low	About 18 handlers and helpers have no cancel-safety comment
+W5	W5-10	low	ADJUSTED	low	Errors are swallowed or recorded as the wrong outcome
+W5	W5-11	low	CONFIRMED	low	A user-controlled form size makes review submit quadratic on the async worker
+W5	W5-12	low	CONFIRMED	low	Up to 64 sessions are shared by all users; eviction drops a session another request is still using
+W5	W5-13	low	ADJUSTED	low	The copied preset is held in a plain `Vec<String>` that is never zeroized
+W5	W5-14	low	ADJUSTED	info	Maps go through a JSON round-trip and silently become empty if it fails
+W5	W5-15	low	ADJUSTED	info	Two stacked firmware-update caches with different retry rules, and a doc comment that describes the wrong one
+W5	W5-16	low	CONFIRMED	low	Migration passwords are mapped by row index; the hidden user-name field is ignored
+W5	W5-17	low	CONFIRMED	low	Test gaps: the cross-user check covers only GET, and tests assert on markup fragments
+X	X-01	high	ADJUSTED	medium	CI and container workflows trigger on `main`, but the repository's branch is `master`
+X	X-02	medium	ADJUSTED	low	The `gates` job cannot run `lint-completeness` as configured, and when it fails the other gates in that job are skipped
+X	X-03	medium	CONFIRMED	medium	e2e step functions ignore `set -e`, so failures in the middle of a step pass
+X	X-04	medium	ADJUSTED	low	Releases and published images skip every G1 gate
+X	X-05	low	ADJUSTED	info	No gate checks lint *levels* against the vendored profile
+X	X-06	low	CONFIRMED	low	The cargo-vet gate is nominal, and the documented bump procedure keeps it that way
+X	X-07	low	ADJUSTED	info	The xtask workspace's dependencies are never advisory- or vet-checked
+X	X-08	low	ADJUSTED	info	`ci.yml` checkouts keep the token in `.git/config`
+X	X-09	low	CONFIRMED	low	Image publishing: prerelease tags overwrite `:latest`, and the version label is always 0.1.0
+X	X-10	low	CONFIRMED	low	`web-smoke.sh` puts the admin Web password on a command line
+X	X-11	low	ADJUSTED	info	kcc-rci depends directly on the outdated getrandom 0.2, and the duplicate-skip reason does not mention it
+X	X-12	low	CONFIRMED	low	`ci-local.sh` has drifted from `ci.yml`
+X	X-13	info	CONFIRMED	info	Seccomp drift never blocks, and the profile admits 32-bit ABIs the image never uses
+T	T-01	medium	CONFIRMED	medium	Secret-leak tests cannot fail for JSON, `Debug` or `?`-formatted traces: each secret contains `"` (and `\`)
+T	T-02	medium	CONFIRMED	medium	`live_presets` and `live_mcp` cannot reach a real router; their twins hide it with `allow_loopback`
+T	T-03	medium	ADJUSTED	low	Fake router request log keeps only the last parse line of a batch and can misattribute lines under concurrency
+T	T-04	medium	ADJUSTED	low	The fake hashes or encodes plaintext secrets itself, so "kcc hashes / never stores plaintext" tests check the fake; the conversion is undocumented
+T	T-05	medium	ADJUSTED	low	Live migration reads a live source router without the serial allowlist
+T	T-06	low	CONFIRMED	low	`live_mcp_smoke` skips silently: no tracing subscriber, so `live-skip:` is never printed
+T	T-07	low	CONFIRMED	low	Ports reserved by bind-0-then-drop are reused by child processes
+T	T-08	low	CONFIRMED	low	Read-only live suites contact routers without a `test_device = true` profile
+T	T-09	low	ADJUSTED	low	Live migration probe writes after the safety net and records results instead of asserting them
+T	T-10	low	ADJUSTED	info	Bracket fate matrices are copied across the Web, MCP and domain tests
+T	T-11	low	ADJUSTED	low	Source-grep tests stand in for behaviour tests
+T	T-12	info	CONFIRMED	info	`Debug` strings compared as an equality proxy
