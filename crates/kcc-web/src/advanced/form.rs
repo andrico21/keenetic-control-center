@@ -5,11 +5,11 @@
 //! `a.priority.priority`), so nested sub-commands become nested objects. Secret arguments
 //! render as empty password inputs.
 
+use kcc_config::mask::is_secret_name;
 use kcc_i18n::locale::Locale;
 use serde_json::Value;
 
 use super::types;
-use crate::page_kit::secret::is_secret;
 
 /// Prefix of every generated input name.
 pub(crate) const PREFIX: &str = "a.";
@@ -183,7 +183,7 @@ fn field(parent: &str, name: &str, property: &Value, locale: Locale) -> Field {
         Kind::Number
     } else if !options.is_empty() {
         Kind::Keyword
-    } else if is_secret(name) {
+    } else if is_secret_name(name) {
         Kind::Secret
     } else {
         Kind::Text

@@ -2,7 +2,7 @@
 
 use alloc::collections::BTreeMap;
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 /// Interface summary returned by `show interface`.
@@ -32,9 +32,44 @@ pub struct Interface {
     /// Interface security zone.
     #[serde(rename = "security-level")]
     pub security_level: Option<String>,
-    /// Unmodelled router fields.
-    #[serde(flatten)]
+    /// Unmodelled router fields, without the credentials `show interface` carries:
+    /// `authentication` keeps only which credentials are stored (each `true`), and `ns3`
+    /// members are dropped.
+    #[serde(flatten, deserialize_with = "without_credentials")]
     pub extra: BTreeMap<String, Value>,
+}
+
+/// Unmodelled interface fields at the read boundary: `authentication` reduced to the
+/// names of the stored credentials, and every `ns3` member removed.
+fn without_credentials<'de, D>(deserializer: D) -> Result<BTreeMap<String, Value>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let mut extra = BTreeMap::<String, Value>::deserialize(deserializer)?;
+    drop(extra.remove("ns3"));
+    extra.values_mut().for_each(drop_ns3);
+    if let Some(Value::Object(stored)) = extra.remove("authentication") {
+        let presence = stored
+            .into_iter()
+            .map(|(name, _secret)| (name, Value::Bool(true)));
+        drop(extra.insert(
+            "authentication".to_owned(),
+            Value::Object(presence.collect()),
+        ));
+    }
+    Ok(extra)
+}
+
+/// Removes every `ns3` member below `value`.
+fn drop_ns3(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            drop(object.remove("ns3"));
+            object.values_mut().for_each(drop_ns3);
+        }
+        Value::Array(items) => items.iter_mut().for_each(drop_ns3),
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+    }
 }
 
 /// Interface counter set.

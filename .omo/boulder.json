@@ -1,6 +1,6 @@
 {
   "schema_version": 2,
-  "active_work_id": "kcc-review-remediation-65541527",
+  "active_work_id": "kcc-review-fixes-ea2f0150",
   "works": {
     "keenetic-control-center-d60645fa": {
       "work_id": "keenetic-control-center-d60645fa",
@@ -78,7 +78,7 @@
       "work_id": "kcc-review-remediation-65541527",
       "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-review-remediation.md",
       "plan_name": "kcc-review-remediation",
-      "status": "active",
+      "status": "completed",
       "started_at": "2026-11-13T11:05:25.000Z",
       "updated_at": "2026-11-13T11:05:25.000Z",
       "session_ids": [
@@ -88,7 +88,19 @@
         "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt": "direct"
       },
       "agent": "atlas",
-      "task_sessions": {}
+      "task_sessions": {},
+      "ended_at": "2026-11-15T18:34:43.000Z"
+    },
+    "kcc-review-fixes-ea2f0150": {
+      "work_id": "kcc-review-fixes-ea2f0150",
+      "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/kcc-review-fixes.md",
+      "plan_name": "kcc-review-fixes",
+      "session_ids": [
+        "opencode:ses_e536ccd8affeDG2PSYwVQ6bTMt"
+      ],
+      "status": "active",
+      "worktree_path": null,
+      "started_at": "2026-11-15T18:34:43.000Z"
     }
   },
   "active_plan": "/home/andrico/keenetic-control-center/.omo/plans/keenetic-control-center.md",

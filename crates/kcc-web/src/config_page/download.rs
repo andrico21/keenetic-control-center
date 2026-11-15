@@ -10,14 +10,12 @@ use axum::{
     http::{HeaderValue, StatusCode, header},
     response::{IntoResponse as _, Response},
 };
+use kcc_config::mask::redacted_copy;
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
 use serde_json::json;
 
-use super::{
-    store::{self, DOWNLOAD, DOWNLOAD_FULL, StoreError},
-    text::redacted_copy,
-};
+use super::store::{self, DOWNLOAD, DOWNLOAD_FULL, StoreError};
 use crate::{WebState, authz::CurrentUser, page_kit::respond::Answer};
 
 /// The download a request asks for.

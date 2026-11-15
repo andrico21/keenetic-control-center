@@ -256,11 +256,10 @@ pub(crate) fn classify_settled(
             if bridge_member(line).is_some() {
                 return None;
             }
-            let fully_redacted_line = redact_ns3(redacted_line);
             Some(classify_line(
                 source_index,
                 line,
-                &fully_redacted_line,
+                redacted_line,
                 source.header.model.as_deref(),
                 &target,
                 choices,
@@ -283,11 +282,10 @@ pub(crate) fn classify_settled(
         .enumerate()
         .map(|(source_index, ((line, redacted_line), classified))| {
             classified.unwrap_or_else(|| {
-                let fully_redacted_line = redact_ns3(redacted_line);
                 classify_line(
                     source_index,
                     line,
-                    &fully_redacted_line,
+                    redacted_line,
                     source.header.model.as_deref(),
                     &target,
                     choices,
@@ -299,17 +297,6 @@ pub(crate) fn classify_settled(
             })
         })
         .collect())
-}
-
-/// Redacts every typed NS3 payload in addition to the command-specific secret registry.
-fn redact_ns3(line: &CliLine) -> CliLine {
-    let mut redacted = line.clone();
-    for token in &mut redacted.tokens {
-        if let Token::Ns3(payload) = token {
-            "<redacted>".clone_into(payload);
-        }
-    }
-    redacted
 }
 
 /// Deserialized rule document.

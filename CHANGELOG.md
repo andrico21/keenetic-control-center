@@ -244,6 +244,21 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Security
 
+- **One secret masker for every surface.** MCP results and the Web UI's raw answers
+  recognize secret members by one rule (see `docs/PRIVACY.md`): MCP now also masks
+  hyphenated and short names such as `private-key`, `obfs-key`, `preshare-key`,
+  `community`, `key` and `pin`, and both replace a secret member whole even when it
+  holds an object, such as `show interface`'s `{"password": {"ns3": ...}}`, which the Web
+  used to show. The markers are unchanged: `<redacted>` on MCP and the CLI, `********`
+  on the Web. The command explorer's form treats the same names as secret fields.
+- **Configuration text redaction** (backup downloads and diffs on the Web, MCP and the
+  CLI, the configuration page, stored lines, preset and migration reviews, anonymized
+  fixtures) replaces the pre-shared key of `crypto ike key <name> <psk>` instead of the
+  key name, the `preshared-key` and `xauth-password` of `crypto ipsec profile`, and
+  every `ns3` payload in every command.
+- Generic interface reads (`kcc interfaces list|show` and their `--json` documents)
+  keep only which credentials an interface stores (`"authentication": {"password":
+  true}`) and drop every `ns3` member that `show interface` returns.
 - **Secret files must be owner-only.** On Unix kcc refuses to read a secret file that
   group or others can access (any bit of mode 077), the rule it already applied to the
   master key. It covers router `password_file`, `read_password_file` and `token_file`,

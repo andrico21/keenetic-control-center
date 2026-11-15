@@ -6,18 +6,11 @@
 //! changed while the page shows that line only with the secret replaced.
 
 use kcc_config::{
-    config_text::{Ast, CliLine, Node, ParseError, Token, flatten, parse, print},
-    secrets::redact,
+    config_text::{CliLine, ParseError, flatten, parse},
+    mask::redacted_config,
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use sha2::{Digest as _, Sha256};
-
-/// What a removed secret shows.
-const REDACTED: &str = "<redacted>";
-
-/// The header field marking a copy whose secrets kcc removed; such a copy is never stored
-/// as a backup again.
-pub(crate) const REDACTED_MARK: &str = "kcc-redacted";
 
 /// The flattened commands of one configuration.
 pub(crate) struct Lines {
@@ -36,7 +29,7 @@ impl Lines {
     pub(crate) fn read(text: &str) -> Result<Self, ParseError> {
         let ast = parse(text)?;
         let digests = flatten(&ast).iter().map(digest).collect();
-        let shown = flatten(&redacted(&ast))
+        let shown = flatten(&redacted_config(&ast))
             .iter()
             .map(ToString::to_string)
             .collect();
@@ -60,42 +53,6 @@ fn digest(line: &CliLine) -> [u8; 32] {
     Sha256::digest(text.expose_secret().as_bytes()).into()
 }
 
-/// `ast` with every secret replaced.
-fn redacted(ast: &Ast) -> Ast {
-    let mut copy = redact(ast);
-    mask(&mut copy.nodes);
-    copy
-}
-
-/// Replaces every `ns3` token below `nodes`, registered secret or not.
-fn mask(nodes: &mut [Node]) {
-    for node in nodes {
-        for token in &mut node.tokens {
-            if matches!(token, Token::Ns3(_)) {
-                *token = Token::Word(REDACTED.to_owned());
-            }
-        }
-        mask(&mut node.children);
-    }
-}
-
-/// The copy of `text` to download without its secrets: canonical text marked as
-/// redacted, without the router's checksum, which no longer matches it.
-///
-/// # Errors
-///
-/// Returns why `text` is not a configuration; no copy is offered then.
-pub(crate) fn redacted_copy(text: &str) -> Result<String, ParseError> {
-    let mut copy = redacted(&parse(text)?);
-    copy.header.md5 = None;
-    drop(
-        copy.header
-            .extra
-            .insert(REDACTED_MARK.to_owned(), "true".to_owned()),
-    );
-    Ok(print(&copy))
-}
-
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,
@@ -106,7 +63,7 @@ pub(crate) fn redacted_copy(text: &str) -> Result<String, ParseError> {
 mod tests {
     use core::error::Error;
 
-    use super::{Lines, REDACTED_MARK, redacted_copy};
+    use super::Lines;
 
     /// A configuration with a registered secret, an `ns3` blob nobody registered and a
     /// plain setting; `blob` is made at run time so no blob-shaped literal is committed.
@@ -117,25 +74,6 @@ mod tests {
              ip http proxy cloud upstream ns3 {blob}\n!\nsnmp community {community}\n!\n\
              system\n description visible\n!\n"
         )
-    }
-
-    #[test]
-    fn the_redacted_copy_keeps_settings_and_loses_every_secret() -> Result<(), Box<dyn Error>> {
-        let blob = "QUJD".repeat(6);
-        let copy = redacted_copy(&config(&blob, "private-community"))?;
-        assert!(!copy.contains("ns3 "), "no ns3 marker: {copy}");
-        assert!(!copy.contains(&blob), "no blob: {copy}");
-        assert!(!copy.contains("private-community"), "no community: {copy}");
-        assert!(
-            copy.contains("system\n description visible"),
-            "settings kept"
-        );
-        assert!(
-            copy.contains(&format!("! $$$ {REDACTED_MARK}: true")),
-            "marked"
-        );
-        assert!(!copy.contains("Md5 checksum"), "no stale checksum: {copy}");
-        Ok(())
     }
 
     #[test]

@@ -1,12 +1,8 @@
-//! What every wizard's analysis shares: why a source or a target cannot be used, the
-//! parsed source configuration, and a configuration line as the review shows it.
+//! What every wizard's analysis shares: why a source or a target cannot be used, and the
+//! parsed source configuration.
 
-use kcc_config::config_text::{CliLine, Token};
 use kcc_migrate::{inventory::InventoryError, source::SourceConfig};
 use secrecy::{ExposeSecret as _, SecretString};
-
-/// What `<redacted>` stands for in a shown line.
-const REDACTED: &str = "<redacted>";
 
 /// Why the analysis could not be made.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,16 +22,6 @@ pub(crate) enum Problem {
     Unsupported,
     /// The target did not answer.
     Unreachable,
-}
-
-/// `line` with every encoded secret replaced, as the review shows it.
-pub(crate) fn shown_line(mut line: CliLine) -> String {
-    for token in &mut line.tokens {
-        if let Token::Ns3(payload) = token {
-            REDACTED.clone_into(payload);
-        }
-    }
-    line.to_string()
 }
 
 /// The source configuration in `text`.

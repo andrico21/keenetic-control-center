@@ -5,16 +5,14 @@
 //! is refused.
 
 use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest, ValidationIssue};
+use kcc_config::mask::{is_secret_name, mask_json};
 use serde_json::{Map, Value};
 
 use super::{
     check::{Problem, from_issues, root_object},
     form::PREFIX,
 };
-use crate::page_kit::{
-    request::last,
-    secret::{is_secret, mask},
-};
+use crate::page_kit::{request::last, secret::MASK};
 
 /// How a validated explorer request is sent.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -123,7 +121,7 @@ impl Request {
             Delivery::Batch => Value::Array(vec![self.root()]),
             Delivery::Background => self.validated.value.clone(),
         };
-        mask(&mut payload);
+        mask_json(&mut payload, MASK);
         let endpoint = match self.delivery {
             Delivery::Read | Delivery::Batch => "/rci/".to_owned(),
             Delivery::Background => format!("/rci/{}", self.validated.path.replace(' ', "/")),
@@ -158,7 +156,7 @@ fn body(schema: &Value, pairs: &[(String, String)]) -> Value {
         };
         let segments: Vec<&str> = path.split('.').collect();
         let property = property_at(schema, &segments);
-        let secret = segments.last().is_some_and(|last| is_secret(last));
+        let secret = segments.last().is_some_and(|last| is_secret_name(last));
         let text = if secret { raw.as_str() } else { raw.trim() };
         if text.is_empty() {
             continue;

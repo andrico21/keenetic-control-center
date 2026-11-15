@@ -5,6 +5,7 @@ use core::sync::atomic::{AtomicU64, Ordering};
 use std::sync::PoisonError;
 
 use kcc_app::audit::receipt::AuditReceipt;
+use kcc_config::mask::mask_json;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
@@ -163,7 +164,7 @@ pub(crate) fn shape(
     mut value: Value,
     request_id: Option<&str>,
 ) -> Result<String, McpFailure> {
-    redact_secrets(&mut value);
+    mask_json(&mut value, "<redacted>");
     if server.privacy.redact_clients_in_mcp {
         let mut pseudonyms = server
             .pseudonyms
@@ -201,41 +202,6 @@ pub(crate) fn shape(
         return Err(McpFailure::Internal);
     }
     Ok(fallback)
-}
-
-/// Replaces every secret-shaped key's value with a marker.
-pub(crate) fn redact_secrets(value: &mut Value) {
-    match value {
-        Value::Object(object) => {
-            for (key, nested) in object {
-                let lowered = key.to_ascii_lowercase();
-                if [
-                    "password",
-                    "passwd",
-                    "token",
-                    "secret",
-                    "api_key",
-                    "private_key",
-                    "ns3",
-                    "psk",
-                    "preshared",
-                ]
-                .iter()
-                .any(|needle| lowered.contains(needle))
-                {
-                    *nested = Value::String("<redacted>".to_owned());
-                } else {
-                    redact_secrets(nested);
-                }
-            }
-        }
-        Value::Array(values) => {
-            for nested in values {
-                redact_secrets(nested);
-            }
-        }
-        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
-    }
 }
 
 /// Replaces client identifiers with stable per-session pseudonyms.

@@ -13,8 +13,6 @@ use kcc_i18n::{
 };
 use kcc_migrate::presets::{groups::SettingsGroupEngine, model::Preset};
 
-use crate::wizard::analysis::shown_line;
-
 /// What a line shows when it cannot be redacted line by line.
 const REDACTED: &str = "<redacted>";
 
@@ -28,7 +26,7 @@ pub(super) fn redacted(text: &str) -> String {
     let shown = parse(line)
         .ok()
         .and_then(|ast| flatten(&redact(&ast)).into_iter().next())
-        .map(shown_line);
+        .map(|shown_line| shown_line.to_string());
     match (negated, shown) {
         (true, Some(found)) => format!("no {found}"),
         (false, Some(found)) => found,

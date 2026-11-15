@@ -225,7 +225,7 @@ async fn the_preview_is_exact_masks_secrets_and_sends_nothing() -> TestResult {
     .await?;
     assert!(!masked.contains(secret), "the secret is never shown");
     assert!(
-        masked.contains(&html("\"psk\": \"********\"")),
+        masked.contains(&html("\"key\": \"********\"")),
         "masked: {masked}"
     );
     assert_eq!(

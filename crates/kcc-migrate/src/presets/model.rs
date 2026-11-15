@@ -3,7 +3,7 @@
 use core::fmt;
 
 use kcc_config::{
-    config_text::{CliLine, Token, flatten, parse},
+    config_text::{CliLine, flatten, parse},
     secrets::redact,
 };
 use serde::{Deserialize, Serialize};
@@ -196,15 +196,6 @@ impl Preset {
             .collect::<Vec<_>>()
             .join("\n");
         redacted.lines = parse(&text).map_or_default(|ast| flatten(&redact(&ast)));
-        for token in redacted
-            .lines
-            .iter_mut()
-            .flat_map(|line| line.tokens.iter_mut())
-        {
-            if let Token::Ns3(payload) = token {
-                "<redacted>".clone_into(payload);
-            }
-        }
         redacted
     }
 

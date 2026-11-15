@@ -3,9 +3,11 @@
 use crate::config_text::{Ast, Node, Token};
 
 /// Literal used in place of every registered secret.
-const REDACTED: &str = "<redacted>";
+pub(crate) const REDACTED: &str = "<redacted>";
 
-/// Returns a deep copy with every registered command secret replaced.
+/// Returns a deep copy with every registered command secret and every `ns3` payload
+/// replaced; an `ns3` token keeps its kind, so the copy still shows which values the
+/// router stores encoded.
 #[must_use]
 #[inline]
 pub fn redact(ast: &Ast) -> Ast {
@@ -29,17 +31,28 @@ fn redact_nodes(nodes: &mut [Node], ancestors: &mut Vec<Token>) {
                 .skip(path_length.saturating_sub(own_length))
                 .collect();
         } else {
+            mask_ns3(&mut node.tokens);
             redact_nodes(&mut node.children, ancestors);
         }
         ancestors.truncate(previous_len);
     }
 }
 
-/// Applies the registry to one flattened token path.
-fn redact_path(tokens: &mut [Token]) {
+/// Applies the registry to one flattened token path and replaces every `ns3` payload.
+pub(crate) fn redact_path(tokens: &mut [Token]) {
     let words = expanded_words(tokens);
     if let Some(secret_index) = secret_word_index(&words) {
         replace_expanded_word(tokens, secret_index);
+    }
+    mask_ns3(tokens);
+}
+
+/// Replaces the payload of every `ns3` token of `tokens`.
+fn mask_ns3(tokens: &mut [Token]) {
+    for token in tokens {
+        if let Token::Ns3(blob) = token {
+            REDACTED.clone_into(blob);
+        }
     }
 }
 
@@ -69,17 +82,27 @@ fn secret_word_index(words: &[&str]) -> Option<usize> {
     };
     match command {
         ["authentication", "wpa-psk" | "password", rest @ ..]
-        | ["wireguard", "obfs-key", rest @ ..]
-        | ["wireguard", "peer", _, "obfs-key", rest @ ..] => {
-            secret_after_kind(argument_index(offset, command, rest), rest)
-        }
-        ["iapp", "key", rest @ ..] => secret_after_kind(offset.saturating_add(2), rest),
-        ["ipsec", "preshared-key", rest @ ..]
-        | ["crypto", "ike", "key", rest @ ..]
-        | ["wireguard", "private-key", rest @ ..]
+        | ["wireguard", "obfs-key" | "private-key", rest @ ..]
+        | [
+            "wireguard",
+            "peer",
+            _,
+            "obfs-key" | "preshared-key",
+            rest @ ..,
+        ]
+        | ["iapp", "key", rest @ ..]
+        | ["ipsec", "preshared-key", rest @ ..]
+        | ["crypto", "ike", "key", _, rest @ ..]
+        | [
+            "crypto",
+            "ipsec",
+            "profile",
+            _,
+            "preshared-key" | "xauth-password",
+            rest @ ..,
+        ]
         | ["wpa-eap", "radius", "secret", rest @ ..]
         | ["snmp", "community", rest @ ..]
-        | ["wireguard", "peer", _, "preshared-key", rest @ ..]
         | ["web-api", "password", rest @ ..]
         | ["ip", "http", "proxy", _, "password", rest @ ..]
         | ["user", _, "password", "md5" | "nt" | "plain", rest @ ..]
@@ -87,7 +110,7 @@ fn secret_word_index(words: &[&str]) -> Option<usize> {
             "chilli",
             "radiussecret" | "uamsecret" | "macpasswd",
             rest @ ..,
-        ] => Some(argument_index(offset, command, rest)),
+        ] => secret_after_kind(argument_index(offset, command, rest), rest),
         _ => None,
     }
 }
@@ -151,7 +174,7 @@ mod tests {
             "wireguard private-key zeta\n",
             "wireguard peer peer0 preshared-key eta\n",
             "interface Wireguard0\n wireguard obfs-key obfuscated-interface\n wireguard peer peer0 obfs-key obfuscated-peer\n!\n",
-            "crypto ike key theta\n",
+            "crypto ike key office theta any\n",
             "user admin password md5 iota\n",
             "user admin password nt kappa\n",
             "user admin password plain lambda\n",

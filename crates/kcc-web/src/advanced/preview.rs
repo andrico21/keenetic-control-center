@@ -232,7 +232,7 @@ fn matching_lines(catalog: &Catalog, lines: &[CliLine], path: &str) -> Vec<Strin
                     .max_by_key(|candidate| candidate.len())
                     .is_some_and(|owner| *owner == wanted)
         })
-        .map(|line| ns3_redacted(line).to_string())
+        .map(ToString::to_string)
         .collect()
 }
 
@@ -253,17 +253,6 @@ fn in_order(needle: &[&str], haystack: &[&str]) -> bool {
     needle
         .iter()
         .all(|word| rest.any(|candidate| candidate == word))
-}
-
-/// `line` with every `ns3` payload replaced, whatever the secret registry knows.
-fn ns3_redacted(line: &CliLine) -> CliLine {
-    let mut copy = line.clone();
-    for token in &mut copy.tokens {
-        if matches!(token, Token::Ns3(_)) {
-            *token = Token::Ns3("<redacted>".to_owned());
-        }
-    }
-    copy
 }
 
 /// `body` as a file download named after `router`.

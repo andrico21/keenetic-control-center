@@ -4,6 +4,7 @@
 //! by level; above a size cap the complete answer is offered as a download instead.
 
 use fluent_bundle::FluentArgs;
+use kcc_config::mask::mask_json;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -12,7 +13,7 @@ use kcc_i18n::{
 use kcc_rci::{JsonPointer, Level, RciBody, RciResponse, StatusItem};
 use serde_json::Value;
 
-use crate::page_kit::secret::mask;
+use crate::page_kit::secret::MASK;
 
 /// Lines per page of the viewer; the first page is open, the others collapsed.
 const PAGE_LINES: usize = 200;
@@ -93,7 +94,7 @@ impl Rendered {
     ) -> Self {
         let mut shown = value.clone();
         if !reveal {
-            mask(&mut shown);
+            mask_json(&mut shown, MASK);
         }
         let full = serde_json::to_string_pretty(&shown).unwrap_or_default();
         let mut viewer = paged(&full, locale);
@@ -284,6 +285,17 @@ mod tests {
             "statuses by level"
         );
         Ok(())
+    }
+
+    /// SEC1-04: a secret member holding an object, such as `show interface`'s
+    /// `{"password": {"ns3": ...}}`, is masked whole on the Web as well.
+    #[test]
+    fn nested_secret_members_are_masked_whole() {
+        let blob = "QUJD".repeat(6);
+        let value = json!({"PPPoE0": {"authentication": {"password": {"ns3": blob}}}});
+        let (_viewer, full, _json) = Rendered::json(&value, &[], false, Locale::En).into_parts();
+        assert!(!full.contains(&blob), "the blob is masked: {full}");
+        assert!(full.contains("\"password\": \"********\""), "{full}");
     }
 
     #[test]

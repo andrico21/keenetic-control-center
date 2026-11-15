@@ -297,10 +297,9 @@ impl Anonymizer {
         let mut tokens = Vec::with_capacity(node.tokens.len());
         for token in &node.tokens {
             let rewritten = match token {
-                Token::Ns3(_) => Token::Ns3(PLACEHOLDER.to_owned()),
                 Token::Word(word) if word == PLACEHOLDER => token.clone(),
                 Token::Word(word) => Token::Word(self.config_word(&previous, word)?),
-                _ => token.clone(),
+                Token::Ns3(_) | _ => token.clone(),
             };
             if let Token::Word(word) = token {
                 previous.push(word.clone());

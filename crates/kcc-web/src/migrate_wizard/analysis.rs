@@ -24,7 +24,7 @@ use super::{kinds::Maps, plan::engine_maps, record::Record};
 use crate::{
     fleet::Fleet,
     wizard::{
-        analysis::{Problem, inventory_problem, parse_source, shown_line},
+        analysis::{Problem, inventory_problem, parse_source},
         flow::Flow as _,
     },
 };
@@ -146,7 +146,7 @@ impl Analysis {
             .iter()
             .zip(flatten(&redact(running)))
             .filter(|(line, _)| !source.contains(&line.to_string()))
-            .map(|(_, shown)| shown_line(shown))
+            .map(|(_, shown)| shown.to_string())
             .collect()
     }
 }

@@ -2,8 +2,8 @@
 
 use kcc_app::{backups::BackupError, permissions::Permission};
 use kcc_config::{
-    config_text::{Ast, Node, Token, flatten, parse},
-    secrets::redact,
+    config_text::{flatten, parse},
+    mask::redacted_config,
 };
 use kcc_rci::ConfigKind;
 use schemars::JsonSchema;
@@ -130,7 +130,7 @@ pub(crate) fn diff(server: &KccMcp, arguments: Value) -> Result<Value, McpFailur
 /// Each flattened command: its complete text (secret) and its redacted display.
 fn lines(text: &SecretString) -> Result<Vec<(SecretString, String)>, McpFailure> {
     let ast = parse(text.expose_secret()).map_err(|_error| McpFailure::ValidationFailed)?;
-    let shown = flatten(&redacted(&ast))
+    let shown = flatten(&redacted_config(&ast))
         .iter()
         .map(ToString::to_string)
         .collect::<Vec<_>>();
@@ -151,23 +151,4 @@ fn only_in(left: &[(SecretString, String)], right: &[(SecretString, String)]) ->
         })
         .map(|(_full, shown)| shown.clone())
         .collect()
-}
-
-/// `ast` with registered secrets and every `ns3` blob replaced.
-fn redacted(ast: &Ast) -> Ast {
-    let mut copy = redact(ast);
-    mask(&mut copy.nodes);
-    copy
-}
-
-/// Replaces every `ns3` token below `nodes`.
-fn mask(nodes: &mut [Node]) {
-    for node in nodes {
-        for token in &mut node.tokens {
-            if matches!(token, Token::Ns3(_)) {
-                *token = Token::Word("<redacted>".to_owned());
-            }
-        }
-        mask(&mut node.children);
-    }
 }

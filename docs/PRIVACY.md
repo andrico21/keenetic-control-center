@@ -60,9 +60,11 @@ An MCP client sees whatever its tools return: router identity, interfaces, clien
 peers and log lines, depending on the role and toolsets. The assistant typically
 forwards these results to its model provider, whose retention policy then applies.
 
-- Values under secret-shaped keys (password, token, secret, API key, private key, ns3,
-  PSK, preshared) are always replaced with `<redacted>`. MCP tools never reveal
-  secrets.
+- Values under secret-shaped keys are always replaced whole with `<redacted>`, whatever
+  they hold. A key is secret-shaped when it contains password, passwd, passphrase,
+  token, secret, API key, private key, ns3, PSK or preshared, ends in `-key`, or is
+  `key`, `pin` or `community`; case is ignored and `-` counts as `_`. The Web UI masks
+  raw answers by the same rule, with `********`. MCP tools never reveal secrets.
 - `[privacy] redact_clients_in_mcp = true` replaces MAC addresses, and values under keys
   containing `mac`, `hostname`, `host_name`, `ip` or `address`, with stable pseudonyms
   for the life of the server process. Client display names (`name`) and free-form

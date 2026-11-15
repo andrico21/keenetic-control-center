@@ -44,6 +44,39 @@ fn direct_origin_address_classifies_isp_and_excludes_other_interfaces() -> TestR
     Ok(())
 }
 
+/// C-04: a generic interface read drops the credential blobs `show interface` carries
+/// under `authentication` and `ns3`; only which credentials are stored remains.
+#[test]
+fn interface_reads_drop_credential_blobs() -> TestResult {
+    let [password, psk, other] = [1_u8, 2, 3].map(|index| format!("{}{index}", "QUJD".repeat(6)));
+    let interfaces =
+        serde_json::from_value::<BTreeMap<String, interfaces::Interface>>(serde_json::json!({
+            "PPPoE0": {"id": "PPPoE0", "mtu": 1_492_u16,
+                "authentication": {"identity": "user1", "password": {"ns3": password}}},
+            "WifiMaster0/AccessPoint0": {"id": "WifiMaster0/AccessPoint0",
+                "authentication": {"wpa-psk": {"ns3": psk}}, "extra": {"ns3": other}}
+        }))?;
+    let printed = serde_json::to_string(&interfaces)?;
+    for blob in [&password, &psk, &other] {
+        assert!(!printed.contains(blob.as_str()), "{blob} leaks: {printed}");
+    }
+    assert_eq!(
+        interfaces
+            .get("PPPoE0")
+            .and_then(|interface| interface.extra.get("authentication")),
+        Some(&serde_json::json!({"identity": true, "password": true})),
+        "presence only"
+    );
+    assert_eq!(
+        interfaces
+            .get("PPPoE0")
+            .and_then(|interface| interface.extra.get("mtu")),
+        Some(&serde_json::json!(1_492_u16)),
+        "other fields stay"
+    );
+    Ok(())
+}
+
 #[test]
 fn unknown_falls_back_to_bridge0_only() -> TestResult {
     let bridge = ObjectName::try_from("Bridge0".to_owned())?;

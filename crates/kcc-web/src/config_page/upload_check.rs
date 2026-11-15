@@ -8,12 +8,12 @@ use core::str;
 
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
-use kcc_config::config_text::ParseError;
+use kcc_config::{config_text::ParseError, mask::REDACTED_MARK};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_migrate::source::{SourceConfig, SourceError};
 use secrecy::SecretString;
 
-use super::{backup_rows::UPLOADED, store::REASON_ROOM, text::REDACTED_MARK};
+use super::{backup_rows::UPLOADED, store::REASON_ROOM};
 
 /// Largest file stored as a backup: 1 MiB.
 pub(crate) const FILE_LIMIT: usize = 0x0010_0000;
