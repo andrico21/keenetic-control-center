@@ -232,3 +232,6 @@ Design notes: (1) CLI finish paths (config failsafe commit/rollback, migrate fin
 - All four reviewers APPROVE at d4220ef with no blocker, so the plan's convergence rule needs neither a second finding round nor a confirmation round (there are no frozen rows to confirm). F2 ran G1 on a clean checkout at that commit, so no further gate run is required for the verdicts.
 - Reviewer backlog candidates go to docs/BACKLOG.md (docs-only commit after the verdicts; the code at d4220ef is unchanged by it).
 - F1-F4 stay unticked in the plan until the owner gives the explicit okay.
+
+## [2026-11-15] Owner okay and follow-up instructions
+- The owner gave the explicit okay to tick F1-F4 (commit separate). Follow-ups ordered as separate commits: (1) reproduce the MCP-disconnect backlog item with a test before any code change; (2) replace the typed red-run summaries of todos 7, 23 and 25 with real failing output from the parent of each fix commit; (3) accepted as is: todo 46's 585-line result with the dead-writer tests, todo 44's 44 keys, batched gates, category deviations, the dropped VPN 403 pre-checks (vpn.rs:295-310 proves viewers are still refused before any router request) and docs/BACKLOG.md; (4) delete only the local wt/t* branches that are fully merged into master.
