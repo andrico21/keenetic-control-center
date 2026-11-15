@@ -3,7 +3,7 @@
 //! A Web bracket whose arm receipt kills the audit writer still sends the disarm and the
 //! browser still gets the outcome before the server exits non-zero; a bracket that
 //! outlives the listener's drain, on the Web or over MCP, keeps the process alive until
-//! it has disarmed.
+//! it has disarmed. An MCP bracket also outlives the loss of its HTTP reply.
 #![cfg(unix)]
 #![expect(
     clippy::missing_errors_doc,
@@ -13,6 +13,8 @@
     reason = "integration tests drive the built process"
 )]
 
+#[path = "serve_bracket/disconnect.rs"]
+mod disconnect;
 #[path = "serve_bracket/mcp.rs"]
 mod mcp;
 #[path = "serve_bracket/process.rs"]

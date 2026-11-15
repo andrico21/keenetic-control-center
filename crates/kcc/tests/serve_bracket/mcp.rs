@@ -1,4 +1,4 @@
-//! An MCP client of the served `kcc serve`: one session that sends a raw CLI line.
+//! An MCP client of the served `kcc serve`: sessions that send, or abandon, a raw CLI line.
 #![expect(
     clippy::missing_errors_doc,
     reason = "test support returns the boxed error of whatever step failed"
@@ -26,13 +26,8 @@ async fn rpc(
     Ok(request.send().await?.error_for_status()?)
 }
 
-/// Opens a session with `key` and sends `line`, confirmed, through `kcc_cli_parse` to
-/// the router; the call's response once its headers arrive.
-pub(crate) async fn cli_parse(
-    client: &Client,
-    (base, key): (&str, &str),
-    line: &str,
-) -> TestResult<Response> {
+/// Opens a session with `key`; returns its id.
+pub(crate) async fn open(client: &Client, (base, key): (&str, &str)) -> TestResult<String> {
     let opened = rpc(
         client,
         (base, key, None),
@@ -53,10 +48,37 @@ pub(crate) async fn cli_parse(
         )
         .await?,
     );
-    rpc(
-        client,
-        (base, key, Some(&session)),
-        &json!({"jsonrpc":"2.0","id":2_u32,"method":"tools/call","params":{"name":"kcc_cli_parse","arguments":{"host":"router","line":line,"confirm":true}}}),
-    )
-    .await
+    Ok(session)
+}
+
+/// The `tools/call` request, id 2, that sends `line`, confirmed, through `kcc_cli_parse`.
+pub(crate) fn cli_call(line: &str) -> Value {
+    json!({"jsonrpc":"2.0","id":2_u32,"method":"tools/call","params":{"name":"kcc_cli_parse","arguments":{"host":"router","line":line,"confirm":true}}})
+}
+
+/// Opens a session with `key` and sends `line`, confirmed, through `kcc_cli_parse` to
+/// the router; the call's response once its headers arrive.
+pub(crate) async fn cli_parse(
+    client: &Client,
+    (base, key): (&str, &str),
+    line: &str,
+) -> TestResult<Response> {
+    let session = open(client, (base, key)).await?;
+    rpc(client, (base, key, Some(&session)), &cli_call(line)).await
+}
+
+/// Tells the server that the client of `session` abandoned the call with id 2.
+pub(crate) async fn cancel(
+    client: &Client,
+    (base, key, session): (&str, &str, &str),
+) -> TestResult {
+    drop(
+        rpc(
+            client,
+            (base, key, Some(session)),
+            &json!({"jsonrpc":"2.0","method":"notifications/cancelled","params":{"requestId":2_u32,"reason":"client gone"}}),
+        )
+        .await?,
+    );
+    Ok(())
 }
