@@ -10,9 +10,11 @@ mod support;
     reason = "integration assertions define the secret-boundary contract"
 )]
 mod tests {
+    use std::process;
+
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     use kcc_app::audit::AUDIT_FILE_NAME;
-    use kcc_domain::vpn_clients;
+    use kcc_domain::{DomainError, vpn_clients};
     use kcc_testkit::model::Firmware;
     use secrecy::SecretString;
     use tokio::fs;
@@ -128,6 +130,9 @@ mod tests {
                 "[Interface]\n[Peer]\nPublicKey = {public}\n"
             ))?;
             let before = fixture.handle().request_count();
+            let head = format!("key-head-{}", process::id());
+            let tail = format!("key-tail-{}", process::id());
+            let key = format!("{head}\n{tail}");
             for field in ["private", "interface-obfs", "peer-obfs"] {
                 config.interface.private_key = None;
                 config.interface.obfuscation_key = None;
@@ -135,20 +140,28 @@ mod tests {
                 peer.obfuscation_key = None;
                 match field {
                     "private" => {
-                        config.interface.private_key = Some(SecretString::from("invalid\nkey"));
+                        config.interface.private_key = Some(SecretString::from(key.clone()));
                     }
                     "interface-obfs" => {
-                        config.interface.obfuscation_key = Some(SecretString::from("invalid\nkey"));
+                        config.interface.obfuscation_key = Some(SecretString::from(key.clone()));
                     }
-                    _ => peer.obfuscation_key = Some(SecretString::from("invalid\nkey")),
+                    _ => peer.obfuscation_key = Some(SecretString::from(key.clone())),
                 }
                 let error =
                     vpn_clients::plan_wireguard_import(fixture.context(), "Wireguard7", &config)
                         .await
                         .err()
                         .ok_or("control character accepted")?;
+                assert!(
+                    matches!(error, DomainError::Validation { issues: _ }),
+                    "{field}: {error:?}"
+                );
                 assert_eq!(fixture.handle().request_count(), before);
-                assert!(!format!("{error} {error:?}").contains("invalid\nkey"));
+                let shown = format!("{error} {error:?}");
+                assert!(
+                    !shown.contains(&head) && !shown.contains(&tail),
+                    "{field}: the key leaked"
+                );
             }
             fixture.shutdown().await?;
         }

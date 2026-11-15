@@ -7,8 +7,6 @@
     reason = "test fixture and acceptance assertions are local to this test module"
 )]
 
-use std::io::{self, Write as _};
-
 use kcc_app::{
     settings::{McpConfig, PrivacyConfig},
     workflow::ChangeResult,
@@ -75,9 +73,8 @@ async fn synthetic_management_operation_brackets_both_apply_entries()
             || commands.last().map(String::as_str)
                 != Some("no system configuration fail-safe timer")
         {
-            missing.push(entry);
+            missing.push(format!("{entry}: {}", commands.join("; ")));
         }
-        writeln!(io::stderr(), "FUNNEL {entry}: {}", commands.join("; "))?;
         fixture.shutdown().await?;
     }
     assert!(

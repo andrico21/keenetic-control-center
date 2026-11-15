@@ -31,14 +31,19 @@ mod tests {
         http::{Method, Request, StatusCode, header},
         response::Response,
     };
-    use kcc_app::{accounts::Clock, permissions::built_in_roles, settings::Config};
+    use kcc_app::{
+        accounts::Clock,
+        permissions::built_in_roles,
+        settings::{Config, ConfigError},
+    };
+    use kcc_i18n::keys;
     use kcc_web::{session::CookieSecurity, web_router};
     use tower::ServiceExt as _;
 
     use crate::support::{
         base::{Core, ORIGIN, PASSWORD},
         outcome::TestResult,
-        page::{cookie_pair, header_text, meta_content, text},
+        page::{cookie_pair, en, header_text, meta_content, text},
     };
 
     #[derive(Debug)]
@@ -190,7 +195,7 @@ mod tests {
             );
             let html = text(response).await?;
             assert!(
-                html.contains("Invalid username or password."),
+                html.contains(&en(keys::ERRORS_AUTH_FAILED)),
                 "attempt {attempt}"
             );
             let page = fixture
@@ -214,7 +219,7 @@ mod tests {
         assert!(
             text(response)
                 .await?
-                .contains("Invalid username or password."),
+                .contains(&en(keys::ERRORS_AUTH_FAILED)),
             "lockout stays uniform"
         );
         Ok(())
@@ -272,7 +277,12 @@ mod tests {
             .await?;
 
         assert_eq!(response.status(), StatusCode::FORBIDDEN, "permission");
-        assert!(text(response).await?.contains("Access denied"), "403 page");
+        assert!(
+            text(response)
+                .await?
+                .contains(&en(keys::WEB_ERROR_FORBIDDEN_TITLE)),
+            "403 page"
+        );
         Ok(())
     }
 
@@ -310,9 +320,7 @@ mod tests {
 
         let error = config.validate().err().ok_or(ExpectedValidationError)?;
         assert!(
-            error
-                .to_string()
-                .contains("non-loopback Web UI requires TLS"),
+            matches!(&error, ConfigError::Invalid { field, reason: _ } if field == "server.listen_addr"),
             "{error}"
         );
         Ok(())

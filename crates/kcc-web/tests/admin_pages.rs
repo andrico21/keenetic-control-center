@@ -70,7 +70,7 @@ mod tests {
     use crate::support::{
         base::{Core, Frozen, ORIGIN, PASSWORD},
         outcome::TestResult,
-        page::{cookie_pair, header_text, meta_content, text},
+        page::{cookie_pair, en, en_with, header_text, meta_content, text},
     };
 
     const ADMIN: &str = "alice";
@@ -313,7 +313,12 @@ mod tests {
         let (viewer, _) = fixture.sign_in("vera", PASSWORD, "/ui/").await?;
         let refused = fixture.get("/ui/admin/users", &viewer.cookie).await?;
         assert_eq!(refused.status(), StatusCode::FORBIDDEN, "viewer");
-        assert!(text(refused).await?.contains("Access denied"), "403 page");
+        assert!(
+            text(refused)
+                .await?
+                .contains(&en(keys::WEB_ERROR_FORBIDDEN_TITLE)),
+            "403 page"
+        );
         let viewer_landing = fixture.get("/ui/admin", &viewer.cookie).await?;
         assert_eq!(
             viewer_landing.status(),
@@ -369,9 +374,9 @@ mod tests {
             "the dialog closes"
         );
         let html = text(created).await?;
-        assert!(html.contains("User created."), "toast");
+        assert!(html.contains(&en(keys::WEB_ADMIN_USER_CREATED)), "toast");
         assert!(
-            html.contains("Password change pending"),
+            html.contains(&en(keys::WEB_ADMIN_USER_MUST_CHANGE)),
             "flag in the table"
         );
         assert!(!html.contains(initial), "the password is never echoed");
@@ -597,7 +602,7 @@ mod tests {
         assert!(
             text(disable)
                 .await?
-                .contains("This is the last enabled administrator."),
+                .contains(&en(keys::WEB_ADMIN_ERROR_LAST_ADMIN)),
             "localized refusal toast"
         );
         let demote = fixture
@@ -635,7 +640,9 @@ mod tests {
             .await?;
         assert_eq!(mistyped.status(), StatusCode::UNPROCESSABLE_ENTITY, "typo");
         assert!(
-            text(mistyped).await?.contains("The name does not match."),
+            text(mistyped)
+                .await?
+                .contains(&en(keys::WEB_ADMIN_ERROR_CONFIRM)),
             "typed confirmation"
         );
         Ok(())
@@ -659,7 +666,12 @@ mod tests {
             )
             .await?;
         assert_eq!(created.status(), StatusCode::OK, "created");
-        assert!(text(created).await?.contains("Role created."), "toast");
+        assert!(
+            text(created)
+                .await?
+                .contains(&en(keys::WEB_ADMIN_ROLE_CREATED)),
+            "toast"
+        );
         assert_eq!(fixture.reload.rbac.load(Ordering::SeqCst), 1, "RBAC reload");
         let stored = load_roles(&fixture.state)?;
         let lab = stored
@@ -704,7 +716,7 @@ mod tests {
         assert!(
             text(held)
                 .await?
-                .contains("Users or API keys hold this role."),
+                .contains(&en(keys::WEB_ADMIN_ERROR_ROLE_IN_USE)),
             "in-use refusal"
         );
 
@@ -903,11 +915,20 @@ mod tests {
             assert_eq!(response.status(), StatusCode::FORBIDDEN, "{refused}");
         }
 
+        let entries = fixture.audit_log()?.lines().count().to_string();
         let all = text(fixture.get("/ui/admin/audit", &reader.cookie).await?).await?;
-        assert!(all.contains("The hash chain is intact."), "verified");
+        assert!(
+            all.contains(&en_with(
+                keys::WEB_ADMIN_AUDIT_INTACT,
+                &[("count", &entries)]
+            )),
+            "verified"
+        );
         for expected in ["admin.user_create", "web.login", "router.save"] {
             assert!(all.contains(expected), "lists {expected}");
         }
+        let empty = en(keys::WEB_ADMIN_AUDIT_EMPTY);
+        let date = en(keys::WEB_ADMIN_ERROR_DATE);
         for (query, shown, hidden) in [
             ("action=admin.", "admin.user_create", "router.save"),
             ("router=lab-1", "router.save", "admin.user_create"),
@@ -915,18 +936,10 @@ mod tests {
             (
                 "from=1970-01-01&to=1970-01-01",
                 "router.save",
-                "No entries match",
+                empty.as_str(),
             ),
-            (
-                "from=2099-01-01",
-                "No entries match the filters.",
-                "router.save",
-            ),
-            (
-                "from=1970-13",
-                "Enter a date as YYYY-MM-DD.",
-                "No entries match",
-            ),
+            ("from=2099-01-01", empty.as_str(), "router.save"),
+            ("from=1970-13", date.as_str(), empty.as_str()),
         ] {
             let path = format!("/ui/admin/audit?{query}");
             let html = text(fixture.get(&path, &reader.cookie).await?).await?;
@@ -975,10 +988,18 @@ mod tests {
 
         let file = fixture.state.dir().join("audit.jsonl");
         let tampered = fs::read_to_string(&file)?.replacen("\"bob\"", "\"mallory\"", 1);
+        let seq = tampered
+            .lines()
+            .find(|line| line.contains("\"mallory\""))
+            .map(serde_json::from_str::<serde_json::Value>)
+            .transpose()?
+            .and_then(|entry| entry.get("seq").and_then(serde_json::Value::as_u64))
+            .ok_or("the tampered entry has a seq")?
+            .to_string();
         fs::write(&file, tampered)?;
         let broken = text(fixture.get("/ui/admin/audit", &reader.cookie).await?).await?;
         assert!(
-            broken.contains("The hash chain breaks at entry"),
+            broken.contains(&en_with(keys::WEB_ADMIN_AUDIT_BROKEN, &[("value", &seq)])),
             "tampering shows"
         );
         assert!(broken.contains("mallory"), "the broken log is still listed");
@@ -1004,12 +1025,23 @@ mod tests {
         assert_eq!(page.status(), StatusCode::OK, "server page");
         let html = text(page).await?;
         let state_dir = fixture.state.dir().display().to_string();
+        let routers = format!("{}</dt><dd>1</dd>", en(keys::WEB_ADMIN_SERVER_ROUTERS));
+        let writable = format!(
+            "{}</dt><dd>{}</dd>",
+            en(keys::WEB_ADMIN_SERVER_STATE_WRITABLE),
+            en(keys::COMMON_YES)
+        );
+        let writer = format!(
+            "{}</dt><dd>{}</dd>",
+            en(keys::WEB_ADMIN_SERVER_AUDIT_WRITER),
+            en(keys::WEB_ADMIN_SERVER_RUNNING)
+        );
         for expected in [
             ">9.9.9</dd>",
             "https://kcc.example.net/",
-            "Routers in kcc.toml</dt><dd>1</dd>",
-            "Writable</dt><dd>Yes</dd>",
-            "Audit writer</dt><dd>Running</dd>",
+            routers.as_str(),
+            writable.as_str(),
+            writer.as_str(),
             ">5.1</td>",
             state_dir.as_str(),
         ] {

@@ -41,3 +41,37 @@ fn physical_wifi(name: &str) -> bool {
         (Some(_) | None, Some(_) | None, Some(_) | None) => false,
     }
 }
+
+#[cfg(test)]
+#[expect(clippy::missing_panics_doc, reason = "test contracts")]
+mod tests {
+    use super::is_physical;
+
+    /// Names are classified by their documented shapes.
+    ///
+    /// The hardware prefixes, a base `GigabitEthernet<group>/<port>` port, a `WifiMaster<n>`
+    /// radio and its `AccessPoint<m>` are physical; other names, non-numeric parts and extra
+    /// path segments are logical.
+    #[test]
+    fn names_follow_the_documented_shapes() {
+        for (name, physical) in [
+            ("ISP", true),
+            ("FastEthernet0/1", true),
+            ("Usb0", true),
+            ("Ethernet0", true),
+            ("GigabitEthernet0/4", true),
+            ("WifiMaster1", true),
+            ("WifiMaster0/AccessPoint1", true),
+            ("ISP0", false),
+            ("Bridge0", false),
+            ("GigabitEthernet1", false),
+            ("GigabitEthernet0/Vlan2", false),
+            ("GigabitEthernet0/4/1", false),
+            ("WifiMasterA", false),
+            ("WifiMaster0/AccessPointA", false),
+            ("WifiMaster0/AccessPoint0/1", false),
+        ] {
+            assert_eq!(is_physical(name), physical, "{name}");
+        }
+    }
+}

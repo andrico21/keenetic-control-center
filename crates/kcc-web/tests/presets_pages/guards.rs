@@ -14,6 +14,7 @@
 mod tests {
     use axum::http::StatusCode;
     use kcc_i18n::keys;
+    use kcc_testkit::model::{Firmware, Profile};
 
     use crate::{
         flow::{DNS_LINES, apply, capture, finish, moved, redirected, seed, start, to_preview},
@@ -218,9 +219,15 @@ mod tests {
             .await?;
         assert_eq!(refused.status(), StatusCode::UNPROCESSABLE_ENTITY);
         let html = text(refused).await?;
+        let refusal = en_with(
+            keys::WEB_PRESETS_PROBLEM_FIRMWARE_OLDER,
+            &[
+                ("version", Firmware::V4_3.title()),
+                ("value", Profile::default().firmware().title()),
+            ],
+        );
         assert!(
-            html.contains("The router runs firmware 4.3")
-                && html.contains("older than the settings"),
+            html.contains(&refusal),
             "the localized TargetFirmwareOlder refusal: {html}"
         );
         assert_eq!(fixture.outcomes("web.preset_target")?, ["refused"]);

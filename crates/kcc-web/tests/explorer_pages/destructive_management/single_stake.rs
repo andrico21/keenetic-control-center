@@ -1,8 +1,6 @@
 //! A destructive line that changes nothing about how kcc reaches the router, and a
 //! management line that removes nothing, keep their own dialogs.
 
-use std::io::{self, Write as _};
-
 use kcc_i18n::keys;
 
 use super::{CLI, NAME_FIELD, Raw, bracket, confirm, first_dialog, marker, signed_in};
@@ -29,27 +27,19 @@ async fn single_stake_lines_keep_their_own_dialogs() -> TestResult {
                 && !named.contains("confirm-name-help"),
             "the destructive dialog: {named}"
         );
-        let (removed, removal_sent, removal_lines) =
-            confirm(&fixture, &admin, destructive, &named).await?;
+        let (_, _, removal_lines) = confirm(&fixture, &admin, destructive, &named).await?;
         assert!(
             removal_lines.iter().any(|line| line == removal)
                 && !removal_lines.iter().any(|line| line == arm),
             "sent without the timer: {removal_lines:?}"
         );
-        writeln!(
-            io::stderr(),
-            "DESTRUCTIVE {mode} {removal}: dialog destructive text + name field, no timer \
-             words; confirmed \"{removed}\", {removal_sent} router requests, lines \
-             {removal_lines:?}"
-        )?;
         let timed = first_dialog(&fixture, &admin, management).await?;
         assert!(
             timed.contains(&marker(keys::WEB_EXPLORER_CONFIRM_MANAGEMENT_TEXT))
                 && !timed.contains(NAME_FIELD),
             "the management dialog: {timed}"
         );
-        let (switched, mode_sent, mode_lines) =
-            confirm(&fixture, &admin, management, &timed).await?;
+        let (_, _, mode_lines) = confirm(&fixture, &admin, management, &timed).await?;
         assert_eq!(
             (
                 mode_lines.first().map(String::as_str),
@@ -58,11 +48,6 @@ async fn single_stake_lines_keep_their_own_dialogs() -> TestResult {
             (Some(arm), Some(disarm)),
             "inside the timer: {mode_lines:?}"
         );
-        writeln!(
-            io::stderr(),
-            "MANAGEMENT {mode} system mode extender: dialog timer text, no name field; \
-             confirmed \"{switched}\", {mode_sent} router requests, lines {mode_lines:?}"
-        )?;
     }
     Ok(())
 }

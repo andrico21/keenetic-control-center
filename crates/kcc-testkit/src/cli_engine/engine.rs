@@ -105,6 +105,17 @@ fn mutate(ast: &mut Ast, tokens: &[Token], shape: Shape, negated: bool) {
             ast.nodes.push_mut(node)
         }
     };
+    // `up` and `down` are one interface state: the one written last replaces the other.
+    let replaced = match leaf_tokens {
+        [Token::Word(state)] if !negated && state == "up" => Some("down"),
+        [Token::Word(state)] if !negated && state == "down" => Some("up"),
+        _ => None,
+    };
+    if let Some(opposite) = replaced {
+        context.children.retain(
+            |node| !matches!(node.tokens.as_slice(), [Token::Word(word)] if word == opposite),
+        );
+    }
     mutate_nodes(
         &mut context.children,
         leaf_tokens,

@@ -110,7 +110,6 @@ async fn absent_firewall_rule_property_exits_validation_without_a_write_request(
     ])?;
 
     assert_eq!(run.code, 4_i32, "{run:?}");
-    assert!(run.stderr.contains("firewall rule is absent"), "{run:?}");
     let requests = lab.fake.request_log();
     assert!(
         requests

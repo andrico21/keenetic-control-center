@@ -7,7 +7,6 @@
     reason = "acceptance assertions establish management recovery"
 )]
 mod tests {
-    use std::io::{self, Write as _};
 
     use kcc_app::permissions::{Permission, Role};
     use kcc_testkit::{FakeRouter, migration, model::Profile};
@@ -69,11 +68,6 @@ mod tests {
                 "{tool} {mode} must disarm last: {commands:?}; {reply:?}"
             );
             assert_eq!(reply.error(), expected_error, "{tool} {mode}: {reply:?}");
-            writeln!(
-                io::stderr(),
-                "BRACKET MCP admin {mode} {tool} {}: arm + disarm",
-                input.get("op").ok_or("operation")?
-            )?;
             lab.stop().await?;
         }
         Ok(())

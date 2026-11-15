@@ -197,7 +197,10 @@ mod tests {
             shell: Shell::new(Locale::En, Theme::System).with_section(Section::Dashboard),
         }
         .render()?;
-        assert!(html.contains("No routers configured"), "empty fleet note");
+        assert!(
+            html.contains(&tr(Locale::En, keys::WEB_FLEET_EMPTY, None)),
+            "empty fleet note"
+        );
         for absent in [
             "<select",
             "data-status=",

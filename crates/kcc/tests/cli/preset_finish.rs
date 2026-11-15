@@ -3,7 +3,6 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use std::io::{self, Write as _};
 
 use kcc_app::{
     audit::{AuditLog, read_entries},
@@ -138,10 +137,6 @@ async fn preset_finish_operator_saves_but_cannot_roll_back() -> TestResult {
         startup,
         "refusal must not save"
     );
-    writeln!(
-        io::stderr(),
-        "REFUSAL CLI operator extender preset finish rollback: zero router requests"
-    )?;
     let saved = env.kcc(&["--yes", "preset", "finish", &run, "save"])?;
     assert_eq!(saved.code, 0_i32, "{saved:?}");
     assert!(handle.startup_config_text().contains("pending-preset"));

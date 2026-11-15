@@ -14,7 +14,7 @@ mod tests {
     extern crate alloc;
 
     use alloc::collections::BTreeMap;
-    use core::error::Error;
+    use core::{error::Error, fmt::Write as _};
     use std::{fs, path::Path};
 
     use base64::{Engine as _, engine::general_purpose::STANDARD};
@@ -414,10 +414,17 @@ mod tests {
             "pw",
             "same key"
         );
-        assert!(
-            !format!("{created:?}").contains(&format!("{:?}", fs::read(&path)?)),
-            "Debug redacts the key"
-        );
+        let bytes = fs::read(&path)?;
+        let mut lower = String::new();
+        let mut upper = String::new();
+        for byte in &bytes {
+            write!(lower, "{byte:02x}")?;
+            write!(upper, "{byte:02X}")?;
+        }
+        let shown = format!("{created:?}");
+        for form in [format!("{bytes:?}"), lower, upper, STANDARD.encode(&bytes)] {
+            assert!(!shown.contains(&form), "Debug redacts the key");
+        }
 
         let short = temp.path().join("short.key");
         fs::write(&short, [0_u8; 16])?;

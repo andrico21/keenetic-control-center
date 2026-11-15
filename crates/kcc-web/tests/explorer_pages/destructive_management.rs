@@ -7,13 +7,10 @@
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
-    clippy::use_debug,
     reason = "test code is not rendered API documentation; a test fails by panicking"
 )]
 #[path = "destructive_management/single_stake.rs"]
 mod single_stake;
-
-use std::io::{self, Write as _};
 
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
@@ -252,20 +249,11 @@ async fn destructive_management_requests_ask_for_the_name_and_run_inside_the_tim
                 "asked again: {again}"
             );
             assert_eq!(fixture.handle().request_count(), before, "unsent: {raw:?}");
-            let (headline, sent, lines) = confirm(&fixture, &admin, raw, &dialog).await?;
+            let (headline, _, lines) = confirm(&fixture, &admin, raw, &dialog).await?;
             assert_eq!(headline, en(keys::WEB_EXPLORER_DONE_UNSAVED), "{raw:?}");
             assert_eq!(lines.first().map(String::as_str), Some(arm), "{lines:?}");
             assert_eq!(lines.last().map(String::as_str), Some(disarm), "{lines:?}");
             assert!(!fixture.handle().recovery_armed(), "disarmed: {raw:?}");
-            writeln!(
-                io::stderr(),
-                "BOTH {mode} {} {:?}: raw-writer 403 refusal, 0 sent; admin dialog management \
-                 text + name field + help + danger, 0 sent; wrong name asked again, 0 sent; \
-                 confirmed 200 dialog-close \"{headline}\", {sent} router requests, lines \
-                 {lines:?}",
-                raw.0,
-                raw.1
-            )?;
         }
     }
     Ok(())

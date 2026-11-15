@@ -14,6 +14,9 @@
 use core::{error::Error, net::SocketAddr, time::Duration};
 use std::{collections::BTreeSet, sync::Arc};
 
+#[path = "support/settle.rs"]
+mod settle;
+
 use kcc_app::{
     permissions::{Permission, Role},
     persist::StateStore,
@@ -32,8 +35,10 @@ use kcc_testkit::{
 };
 use prometheus::{Registry, TextEncoder};
 use tempfile::TempDir;
-use tokio::time::sleep;
+use tokio::{task, time::sleep};
 use url::Url;
+
+use crate::settle::settle;
 
 /// Test result.
 type TestResult = Result<(), Box<dyn Error>>;
@@ -85,8 +90,12 @@ async fn rig(firmware: Firmware, metrics_toml: &str) -> Result<Rig, Box<dyn Erro
     let prometheus = Registry::new();
     exporter.register(&prometheus)?;
     exporter.watch("fake").await;
-    // The first round completes before virtual time can reach 1 s.
-    sleep(Duration::from_secs(1)).await;
+    settle("the first polling round", async || {
+        Ok(poller.light_rounds("fake").await >= 1)
+    })
+    .await?;
+    // The round's publish queued the exporter's follower, which runs before this task resumes.
+    task::yield_now().await;
     Ok(Rig {
         _directory: directory,
         handle,
@@ -210,6 +219,10 @@ async fn scrapes_never_reach_the_router_and_polling_keeps_its_cadence() -> TestR
         assert_eq!(rig.handle.request_count(), before, "{firmware:?}: scrapes");
         // Rounds at 0, 30, 60, 90 and 120 s; heavy items at 0 and 120 s.
         sleep(Duration::from_secs(134)).await;
+        settle("the round at 120 s", async || {
+            Ok(rig.poller.light_rounds("fake").await >= 5)
+        })
+        .await?;
         let rounds = usize::try_from(rig.poller.light_rounds("fake").await)?;
         assert_eq!(rounds, 5, "{firmware:?}: one light round per interval");
         let log = rig.handle.request_log();

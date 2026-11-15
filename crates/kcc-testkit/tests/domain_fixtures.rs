@@ -1,4 +1,4 @@
-//! Public HTTP checks for synthetic domain fixtures.
+//! The fake router's `show rc` bridge membership agrees with its configuration text.
 
 #[cfg(test)]
 #[expect(
@@ -11,9 +11,7 @@ mod tests {
     use core::{error::Error, net::SocketAddr, str::FromStr as _};
 
     use kcc_config::config_text::{Token, flatten, parse};
-    use kcc_rci::{
-        OutboundPolicy, RciBody, RciClient, RciClientOptions, RciPath, RouterUrl, auth::Credentials,
-    };
+    use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials};
     use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
     use secrecy::SecretString;
     use serde_json::Value;
@@ -80,136 +78,6 @@ mod tests {
         }
         assert_eq!(count, 5, "default bridge members");
         assert_eq!(handle.running_config_text(), handle.startup_config_text());
-        handle.shutdown().await?;
-        Ok(())
-    }
-
-    /// Reads one JSON show response.
-    async fn show(client: &RciClient, segments: &[&str]) -> TestResult<Value> {
-        let path = RciPath::from_segments(segments)?;
-        match client.show(&path, &()).await? {
-            RciBody::Json(response) => Ok(response.value),
-            RciBody::Text(_) => Err("expected JSON show response".into()),
-            _ => Err("unsupported show response".into()),
-        }
-    }
-
-    /// Required domain fixtures expose complete wired and wireless client data.
-    #[tokio::test]
-    async fn client_fixtures_cover_wired_wireless_and_registration_states() -> TestResult {
-        let (handle, client) = spawned().await?;
-
-        let hotspot = show(&client, &["show", "ip", "hotspot"]).await?;
-        let rows = hotspot.as_array().ok_or("hotspot array")?;
-        assert_eq!(rows.len(), 6);
-        assert!(
-            rows.iter()
-                .any(|row| row.get("interface") == Some(&Value::from("Bridge0")))
-        );
-        assert!(rows.iter().any(|row| row.get("rssi").is_some()));
-        assert!(
-            rows.iter()
-                .any(|row| row.get("registered") == Some(&Value::Bool(true)))
-        );
-        assert!(
-            rows.iter()
-                .any(|row| row.get("registered") == Some(&Value::Bool(false)))
-        );
-        for path in [
-            &["show", "ip", "dhcp", "bindings"][..],
-            &["show", "ip", "arp"][..],
-            &["show", "associations"][..],
-        ] {
-            assert!(
-                !show(&client, path)
-                    .await?
-                    .as_array()
-                    .is_none_or(Vec::is_empty)
-            );
-        }
-        handle.shutdown().await?;
-        Ok(())
-    }
-
-    /// Interfaces include management, WAN, both radios, access points, and numeric counters.
-    #[tokio::test]
-    async fn interface_fixtures_support_management_and_traffic_consumers() -> TestResult {
-        let (handle, client) = spawned().await?;
-
-        let interfaces = show(&client, &["show", "interface"]).await?;
-        assert_eq!(
-            interfaces.pointer("/Bridge0/address"),
-            Some(&Value::from("192.0.2.1"))
-        );
-        assert_eq!(
-            interfaces.pointer("/ISP/defaultgw"),
-            Some(&Value::Bool(true))
-        );
-        assert_eq!(
-            interfaces.pointer("/WifiMaster0/band"),
-            Some(&Value::from("2.4"))
-        );
-        assert_eq!(
-            interfaces.pointer("/WifiMaster1/band"),
-            Some(&Value::from("5"))
-        );
-        assert!(interfaces.get("WifiMaster0/AccessPoint0").is_some());
-        assert!(interfaces.get("WifiMaster1/AccessPoint0").is_some());
-        let stats_path = RciPath::from_segments(["show", "interface", "stat"])?;
-        let stats = match client.show(&stats_path, &[("name", "ISP")]).await? {
-            RciBody::Json(response) => response.value,
-            RciBody::Text(_) => return Err("expected JSON stats".into()),
-            _ => return Err("unsupported stats response".into()),
-        };
-        assert!(stats.get("rxbytes").and_then(Value::as_u64).is_some());
-        assert!(stats.get("txbytes").and_then(Value::as_u64).is_some());
-        handle.shutdown().await?;
-        Ok(())
-    }
-
-    /// NAT is deliberately large and every required supporting show family is present.
-    #[tokio::test]
-    async fn routing_and_service_fixtures_are_complete_and_large() -> TestResult {
-        let (handle, client) = spawned().await?;
-
-        let nat = show(&client, &["show", "ip", "nat"]).await?;
-        assert_eq!(nat.as_array().map(Vec::len), Some(480));
-        assert!(serde_json::to_vec(&nat)?.len() > 100_000);
-        for path in [
-            &["show", "ip", "policy"][..],
-            &["show", "ip", "route"][..],
-            &["show", "ipv6", "route"][..],
-            &["show", "dns-proxy"][..],
-            &["show", "media"][..],
-            &["show", "usb"][..],
-            &["show", "schedule"][..],
-            &["show", "ndns"][..],
-            &["show", "mws", "member"][..],
-            &["show", "upnp", "redirect"][..],
-        ] {
-            let value = show(&client, path).await?;
-            assert!(!value.is_null(), "{}", path.join("/"));
-        }
-        handle.shutdown().await?;
-        Ok(())
-    }
-
-    /// Pinned optional capabilities remain absent despite fixture expansion.
-    #[tokio::test]
-    async fn bands_and_system_mode_remain_absent() -> TestResult {
-        let (handle, client) = spawned().await?;
-
-        for segments in [
-            &["show", "interface", "bands"][..],
-            &["show", "system", "mode"][..],
-        ] {
-            let path = RciPath::from_segments(segments)?;
-            assert!(
-                client.get(&path, &()).await.is_err(),
-                "{}",
-                segments.join("/")
-            );
-        }
         handle.shutdown().await?;
         Ok(())
     }

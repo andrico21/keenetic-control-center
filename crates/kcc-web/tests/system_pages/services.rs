@@ -3,8 +3,6 @@
 //! Per-role switches, an ordinary service turned on and read back, a management service
 //! that asks first and runs inside the fail-safe timer, refusals, and a router refusal.
 
-use std::io::{self, Write as _};
-
 use axum::http::StatusCode;
 use kcc_i18n::keys;
 use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
@@ -84,10 +82,6 @@ async fn management_service_stops_keep_the_web_bracket_in_both_modes() -> TestRe
                 Some(disarm),
                 "{mode} {name}: {commands:?}"
             );
-            writeln!(
-                io::stderr(),
-                "BRACKET Web {mode} service {name} off: dialog; operator/writer 403; arm + disarm"
-            )?;
         }
     }
     Ok(())

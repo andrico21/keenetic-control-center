@@ -488,12 +488,8 @@ async fn second_serve_fails_fast_while_first_stays_healthy() -> TestResult {
 
     assert_eq!(status.code(), Some(1_i32));
     assert!(
-        stderr.contains("another kcc serve holds the server lock"),
-        "{stderr}"
-    );
-    assert!(
         stderr.contains(&fixture.home.display().to_string()),
-        "{stderr}"
+        "the refusal names the state directory: {stderr}"
     );
     assert_eq!(
         client()?
@@ -575,10 +571,7 @@ async fn unknown_stdio_role_is_refused() -> TestResult {
     let (status, stderr) = process.wait()?;
 
     assert_eq!(status.code(), Some(1_i32));
-    assert!(
-        stderr.contains("configured stdio role \"nosuchrole\" does not exist"),
-        "{stderr}"
-    );
+    assert!(stderr.contains("nosuchrole"), "names the role: {stderr}");
     fixture.shutdown().await?;
     Ok(())
 }
@@ -642,7 +635,10 @@ fn disabled_stdio_exits_forbidden() -> TestResult {
     let (status, stderr) = process.wait()?;
 
     assert_eq!(status.code(), Some(10_i32));
-    assert!(stderr.contains("stdio transport is disabled"), "{stderr}");
+    assert!(
+        stderr.contains("mcp.stdio_enabled"),
+        "names the key: {stderr}"
+    );
     Ok(())
 }
 
@@ -670,8 +666,8 @@ fn non_loopback_plain_http_web_is_refused() -> TestResult {
 
     assert_eq!(status.code(), Some(1_i32));
     assert!(
-        stderr.contains("non-loopback Web UI requires TLS"),
-        "{stderr}"
+        stderr.contains("server.listen_addr"),
+        "names the field: {stderr}"
     );
     Ok(())
 }

@@ -25,3 +25,8 @@
 ## [2026-11-14] Backlog candidate (todo 42)
 - The domain firewall read is a running-config text read (same single request the page always sent); `kcc_domain::firewall::read::configured_rules` (JSON, three requests, IPv4 only) still exists for the CLI. Two readers of the same data remain; unifying them would change the CLI's request count.
 - A binding with a direction other than in/out is skipped by the new read (the old page labelled it "in"): the firmware only writes in/out.
+
+## [2026-11-15] Findings left by todo 49 (for the backlog)
+- `crates/kcc/tests/cli_domain_writes/admin.rs`: the refusal of an absent firewall rule property prints a sentence with no machine-readable handle; the test now asserts exit code 4 and that no write request was sent.
+- Real-time waits outside the named files were reported but not changed: `kcc-telemetry/tests/logs.rs` (239, 257, 290, 292), `kcc/tests/metrics_serve/runtime.rs` (a 500 ms real-time poll loop), `kcc-web/tests/dashboard.rs`, `bracket_ordinary.rs`, `bracket_budget.rs`, and the preset/wizard finish recovery tests.
+- `kcc-testkit` fake router: `up` and `down` are now one interface state and the last written wins (the engine kept them as two leaves in first-insertion order).

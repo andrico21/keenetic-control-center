@@ -10,10 +10,15 @@ mod support;
     reason = "integration assertions define the credential transport contract"
 )]
 mod tests {
+    use std::process;
+
     use kcc_app::audit::AUDIT_FILE_NAME;
-    use kcc_domain::vpn_clients::{
-        self,
-        secrets::{self, CredentialTarget},
+    use kcc_domain::{
+        DomainError,
+        vpn_clients::{
+            self,
+            secrets::{self, CredentialTarget},
+        },
     };
     use kcc_rci::ObjectName;
     use kcc_testkit::model::Firmware;
@@ -129,15 +134,25 @@ mod tests {
                     ObjectName::try_from("publickey".to_owned())?,
                 ),
             ] {
+                let head = format!("credential-head-{}", process::id());
+                let tail = format!("credential-tail-{}", process::id());
                 let error = secrets::plan(
                     fixture.context(),
                     &target,
-                    SecretString::from("invalid\ncredential"),
+                    SecretString::from(format!("{head}\n{tail}")),
                 )
                 .err()
                 .ok_or("control character accepted")?;
+                assert!(
+                    matches!(error, DomainError::Validation { issues: _ }),
+                    "{error:?}"
+                );
                 assert_eq!(fixture.handle().request_count(), before);
-                assert!(!format!("{error} {error:?}").contains("invalid\ncredential"));
+                let shown = format!("{error} {error:?}");
+                assert!(
+                    !shown.contains(&head) && !shown.contains(&tail),
+                    "the credential leaked"
+                );
             }
             fixture.shutdown().await?;
         }

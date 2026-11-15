@@ -143,3 +143,48 @@ fn peer_field(fields: &mut Map<String, Value>, key: &str, tail: &[String]) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "a test fails by panicking and is not rendered API documentation"
+)]
+mod tests {
+    use kcc_config::config_text::{Ast, ParseError, parse};
+    use serde_json::{Value, json};
+
+    use crate::{cli_engine::engine::apply, projection::configuration};
+
+    /// The projected state of `Bridge0` after applying `states` in order.
+    fn state_after(states: &[&str]) -> Result<Value, ParseError> {
+        let mut ast: Ast = parse("interface Bridge0\n")?;
+        for state in states {
+            assert!(
+                apply(&mut ast, &format!("interface Bridge0 {state}")),
+                "{state}"
+            );
+        }
+        Ok(configuration(&ast)
+            .pointer("/interface/Bridge0/state")
+            .cloned()
+            .unwrap_or(Value::Null))
+    }
+
+    /// The last `up` or `down` written to an interface is its state, as on a router.
+    #[test]
+    fn the_last_up_or_down_wins() -> Result<(), ParseError> {
+        for (states, expected) in [
+            (&["up", "down"][..], "down"),
+            (&["down", "up"][..], "up"),
+            (&["up", "down", "up"][..], "up"),
+            (&["down", "up", "down"][..], "down"),
+            (&["up", "up"][..], "up"),
+            (&["down", "down"][..], "down"),
+        ] {
+            assert_eq!(state_after(states)?, json!(expected), "{states:?}");
+        }
+        Ok(())
+    }
+}

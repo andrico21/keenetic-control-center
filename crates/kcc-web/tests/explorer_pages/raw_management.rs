@@ -3,11 +3,8 @@
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
-    clippy::use_debug,
     reason = "acceptance assertions establish console security"
 )]
-
-use std::io::{self, Write as _};
 
 use axum::http::StatusCode;
 use kcc_testkit::{FakeRouter, migration, model::Profile};
@@ -189,10 +186,6 @@ async fn raw_destructive_permission_refuses_both_modes() -> TestResult {
                 before,
                 "no requests: {request}"
             );
-            writeln!(
-                io::stderr(),
-                "RAW Web raw-writer {mode} {endpoint} {request}: 403, zero requests"
-            )?;
         }
     }
     Ok(())
@@ -242,10 +235,6 @@ async fn raw_management_brackets_both_modes() -> TestResult {
                 "{request}: {commands:?}"
             );
             assert!(!fixture.handle().recovery_armed(), "successful cleanup");
-            writeln!(
-                io::stderr(),
-                "RAW Web admin {mode} {endpoint} {request}: {commands:?}"
-            )?;
         }
     }
     Ok(())

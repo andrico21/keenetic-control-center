@@ -5,11 +5,9 @@
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
-    clippy::use_debug,
     reason = "acceptance assertions establish the raw security boundary"
 )]
 mod tests {
-    use std::io::{self, Write as _};
 
     use kcc_app::permissions::{Permission, Role};
     use kcc_testkit::{FakeRouter, migration, model::Profile};
@@ -175,11 +173,6 @@ mod tests {
                         "{tool}: {reply:?}"
                     );
                     assert_eq!(lab.requests("lab-1")?, before, "no router traffic");
-                    writeln!(
-                        io::stderr(),
-                        "RAW MCP {mode} destructive={destructive} {tool} {input}: {:?}, zero requests",
-                        reply.error()
-                    )?;
                     lab.stop().await?;
                 }
             }
@@ -240,10 +233,6 @@ mod tests {
                     "{input}: {commands:?}"
                 );
                 assert!(!lab.router("lab-1")?.recovery_armed(), "successful cleanup");
-                writeln!(
-                    io::stderr(),
-                    "RAW MCP admin {mode} {tool} {input}: {commands:?}"
-                )?;
                 lab.stop().await?;
             }
         }

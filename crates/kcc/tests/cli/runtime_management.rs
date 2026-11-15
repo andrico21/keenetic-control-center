@@ -1,7 +1,5 @@
 //! Runtime management operations need write permission and confirmation on the CLI.
 
-use std::io::{self, Write as _};
-
 use kcc_app::{
     permissions::{Permission, Role, RolesDocument},
     persist::StateStore,
@@ -103,11 +101,6 @@ async fn runtime_management_reader_sends_nothing() -> TestResult {
                         .all(|record| record.command().is_none()),
                     "no mutation after classification"
                 );
-                writeln!(
-                    io::stderr(),
-                    "REFUSAL CLI {role} {mode} {}: zero mutation requests",
-                    args.join(" ")
-                )?;
             }
         }
         handle.shutdown().await?;
@@ -183,11 +176,6 @@ async fn runtime_management_services_confirm_and_bracket() -> TestResult {
             if run.code != 0_i32 {
                 failures.push(format!("{}: {}", args.join(" "), run.stderr));
             }
-            writeln!(
-                io::stderr(),
-                "BRACKET CLI admin {mode} {}: confirmation; arm + disarm",
-                args.join(" ")
-            )?;
         }
         handle.shutdown().await?;
     }

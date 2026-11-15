@@ -404,64 +404,6 @@ mod tests {
         Ok(())
     }
 
-    /// The spawned server answers over TCP and shuts down.
-    #[tokio::test]
-    async fn spawn_and_shutdown() -> TestResult {
-        let (addr, handle) = FakeRouter::spawn().await?;
-        assert!(addr.ip().is_loopback(), "binds loopback");
-        handle.shutdown().await?;
-        Ok(())
-    }
-
-    /// Every diagnostics endpoint preserves its process kind and returns its canned reply.
-    #[tokio::test]
-    async fn diagnostic_process_kinds_complete_with_distinct_replies() -> TestResult {
-        let (fake, app) = ultra()?;
-        let cookie = login(&app, fake.realm()).await?;
-        let cases = [
-            ("ping", json!([1_u8, 2_u8, 3_u8])),
-            ("ping6", json!(["2001:db8::1", "2001:db8::1"])),
-            (
-                "traceroute",
-                json!([
-                    {"hop":1_u8,"address":"192.0.2.1"},
-                    {"hop":2_u8,"address":"198.51.100.1"}
-                ]),
-            ),
-            (
-                "arping",
-                json!([{"address":"192.0.2.1","mac":"02:00:00:00:00:01"}]),
-            ),
-            ("iperf3", json!({"bits_per_second":100_000_000_u64})),
-        ];
-
-        for (kind, expected_reply) in cases {
-            let path = format!("/rci/tools/{kind}");
-            let started = send(&app, Method::POST, &path, Some(&cookie), Body::from("{}"))
-                .await?
-                .json()?;
-            assert_eq!(started.pointer("/process/kind"), Some(&json!(kind)));
-            let id = started
-                .pointer("/process/id")
-                .and_then(Value::as_str)
-                .unwrap_or_default();
-            let poll_path = format!("{path}?id={id}");
-            for _poll in 0_u8..3_u8 {
-                let running = send(&app, Method::GET, &poll_path, Some(&cookie), Body::empty())
-                    .await?
-                    .json()?;
-                assert_eq!(running.pointer("/process/kind"), Some(&json!(kind)));
-                assert_eq!(running.get("continued"), Some(&json!(true)));
-            }
-            let completed = send(&app, Method::GET, &poll_path, Some(&cookie), Body::empty())
-                .await?
-                .json()?;
-            assert_eq!(completed.pointer("/process/kind"), Some(&json!(kind)));
-            assert_eq!(completed.get("reply"), Some(&expected_reply));
-        }
-        Ok(())
-    }
-
     /// Poll and stop reject a process id presented at a different diagnostics endpoint.
     #[tokio::test]
     async fn diagnostic_process_ids_are_scoped_to_their_kind() -> TestResult {

@@ -207,10 +207,6 @@ fn config_reference_lists_every_key_of_the_schema() -> Result<(), String> {
 }
 
 #[test]
-#[expect(
-    clippy::print_stderr,
-    reason = "the failure QA records the check's message in the test log"
-)]
 fn config_reference_check_fails_when_a_key_is_missing() -> Result<(), Box<dyn Error>> {
     let original = fs::read_to_string(root().join("docs/CONFIG.md"))?;
     let removed = "| `queue_max` |";
@@ -226,7 +222,6 @@ fn config_reference_check_fails_when_a_key_is_missing() -> Result<(), Box<dyn Er
     let Err(message) = check(&copy) else {
         return Err("the check passed without `queue_max`".into());
     };
-    eprintln!("completeness check on a copy without `queue_max`:\n{message}");
     assert!(
         message.contains("`logs` key `queue_max` is not documented"),
         "{message}"

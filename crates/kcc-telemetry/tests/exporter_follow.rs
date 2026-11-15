@@ -17,9 +17,11 @@ use core::{
     error::Error,
     net::SocketAddr,
     sync::atomic::{AtomicUsize, Ordering},
-    time::Duration,
 };
 use std::path::Path;
+
+#[path = "support/settle.rs"]
+mod settle;
 
 use kcc_app::{
     permissions::{Permission, Role},
@@ -37,6 +39,8 @@ use prometheus::{Registry, TextEncoder};
 use tempfile::TempDir;
 use tokio::time::sleep;
 use url::Url;
+
+use crate::settle::settle;
 
 /// Test result.
 type TestResult = Result<(), Box<dyn Error>>;
@@ -118,7 +122,10 @@ async fn rig() -> Result<Rig, Box<dyn Error>> {
         Arc::clone(&exporter),
         Arc::clone(&registry),
     ));
-    sleep(Duration::from_secs(1)).await;
+    settle("router a polled", async || {
+        Ok(scrape(&prometheus)?.contains("keenetic_up{router=\"a\"} 1"))
+    })
+    .await?;
     Ok(Rig {
         directory,
         registry,
@@ -138,7 +145,10 @@ async fn routers_added_and_removed_at_runtime_follow_the_registry() -> TestResul
     );
     let password = rig.directory.path().join("password");
     let added = add(&rig.registry, "b", &password).await?;
-    sleep(Duration::from_secs(1)).await;
+    settle("router b polled", async || {
+        Ok(scrape(&rig.prometheus)?.contains("keenetic_up{router=\"b\"} 1"))
+    })
+    .await?;
     let text = scrape(&rig.prometheus)?;
     assert!(
         text.contains("keenetic_up{router=\"b\"} 1"),
@@ -147,7 +157,10 @@ async fn routers_added_and_removed_at_runtime_follow_the_registry() -> TestResul
     assert_eq!(rig.exporter.watched(), ["a", "b"], "watched");
 
     rig.registry.delete(&admin(), "b").await?;
-    sleep(Duration::from_secs(1)).await;
+    settle("router b unwatched", async || {
+        Ok(rig.exporter.watched() == ["a"])
+    })
+    .await?;
     let after = scrape(&rig.prometheus)?;
     assert!(
         !exports(&after, "b"),
@@ -169,11 +182,12 @@ async fn a_recorded_update_flag_reaches_the_scrape() -> TestResult {
         "not checked yet"
     );
     rig.poller.record_update_available("a", true).await;
-    sleep(Duration::from_secs(1)).await;
-    assert!(
-        scrape(&rig.prometheus)?.contains(&format!("{family} 1")),
-        "published without waiting for the next round"
-    );
+    let flagged = format!("{family} 1");
+    // The paused clock stands still while this waits: no further polling round runs.
+    settle("published without waiting for the next round", async || {
+        Ok(scrape(&rig.prometheus)?.contains(&flagged))
+    })
+    .await?;
     rig.handle.shutdown().await?;
     Ok(())
 }
@@ -189,17 +203,16 @@ async fn the_session_gauge_follows_the_count_every_interval() -> TestResult {
         let sessions = source.load(Ordering::SeqCst);
         async move { sessions }
     });
-    sleep(Duration::from_millis(1)).await;
-    assert!(
-        scrape(&prometheus)?.contains("kcc_web_sessions 2"),
-        "at once"
-    );
+    settle("the count at once", async || {
+        Ok(scrape(&prometheus)?.contains("kcc_web_sessions 2"))
+    })
+    .await?;
     count.store(5, Ordering::SeqCst);
     sleep(web_sessions::WEB_SESSIONS_INTERVAL).await;
-    assert!(
-        scrape(&prometheus)?.contains("kcc_web_sessions 5"),
-        "after one interval"
-    );
+    settle("the count after one interval", async || {
+        Ok(scrape(&prometheus)?.contains("kcc_web_sessions 5"))
+    })
+    .await?;
     tracker.abort();
     Ok(())
 }

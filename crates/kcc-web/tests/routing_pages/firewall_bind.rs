@@ -5,7 +5,6 @@
 //! A 4.3.9 router without IPv6 access lists gets the explorer note.
 
 use core::net::SocketAddr;
-use std::io::{self, Write as _};
 
 use axum::http::StatusCode;
 use kcc_app::{permissions::built_in_roles, registry::ManagedRouterProfile};
@@ -106,10 +105,6 @@ async fn management_firewall_binding_brackets_both_modes() -> TestResult {
                 Some(disarm),
                 "{mode} {path}: {commands:?}"
             );
-            writeln!(
-                io::stderr(),
-                "BRACKET Web {mode} {path}: dialog; operator/writer 403; arm + disarm"
-            )?;
         }
         assert_eq!(applied(&fixture), 0, "last action unbound the list");
     }

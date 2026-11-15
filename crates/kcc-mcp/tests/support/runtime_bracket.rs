@@ -7,7 +7,6 @@
     reason = "acceptance assertions establish management recovery"
 )]
 mod tests {
-    use std::io::{self, Write as _};
 
     use kcc_app::permissions::{Permission, Role};
     use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, auth::Credentials};
@@ -81,10 +80,6 @@ mod tests {
                         !commands.iter().any(|line| line.contains("system")),
                         "no recovery commands"
                     );
-                    writeln!(
-                        io::stderr(),
-                        "ORDINARY MCP writer {mode} {input}: applied without timer"
-                    )?;
                 }
                 lab.stop().await?;
             }
@@ -139,10 +134,6 @@ mod tests {
                             .all(|record| record.command().is_none()),
                         "no mutation after classification"
                     );
-                    writeln!(
-                        io::stderr(),
-                        "REFUSAL MCP {mode} {tool} {input}: forbidden, zero mutation requests"
-                    )?;
                 }
                 lab.stop().await?;
             }
@@ -215,10 +206,6 @@ mod tests {
                 if let Some(error) = reply.error() {
                     failures.push(format!("{mode} {tool} {input}: {error}"));
                 }
-                writeln!(
-                    io::stderr(),
-                    "BRACKET MCP admin {mode} {tool} {input}: confirm_required; arm + disarm"
-                )?;
                 lab.stop().await?;
             }
         }

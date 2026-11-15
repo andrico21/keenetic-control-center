@@ -1,10 +1,4 @@
 //! Binary raw management gates and mode-aware brackets.
-#![expect(
-    clippy::use_debug,
-    reason = "test evidence records exact argv and timer commands"
-)]
-
-use std::io::{self, Write as _};
 
 use kcc_app::permissions::Permission;
 
@@ -171,10 +165,6 @@ async fn raw_management_permission_brackets_writers_both_modes() -> TestResult {
             let run = env.kcc(&args)?;
             assert_eq!(run.code, 10_i32, "{args:?}: {run:?}");
             assert_eq!(mutation_count(&handle, before), 0, "{args:?}");
-            writeln!(
-                io::stderr(),
-                "RAW CLI raw-writer {mode} {args:?}: exit 10, zero mutations"
-            )?;
         }
         for input in managed {
             let before = handle.request_log().len();
@@ -222,7 +212,6 @@ async fn raw_management_brackets_both_modes() -> TestResult {
                 "{args:?}: {commands:?}"
             );
             assert!(!handle.recovery_armed(), "successful cleanup");
-            writeln!(io::stderr(), "RAW CLI admin {mode} {args:?}: {commands:?}")?;
         }
         handle.shutdown().await?;
     }
