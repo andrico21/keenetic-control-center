@@ -254,6 +254,11 @@ The first release, `0.1.0`, is in preparation and contains:
   (`errors-secret-file-permissions`); a CLI command exits 3. Windows has no mode check.
 - Every router credential kcc stores is sealed, including API tokens and read-only
   polling passwords (see the entries above).
+- **Bounded login names in the audit log.** A Web sign-in whose username breaks the
+  account name rule (1 to 64 bytes of `a-z`, `0-9`, `.`, `_`, `-`) is refused exactly like
+  an unknown user and audited with the actor `<invalid-username>` instead of the submitted
+  text. Every audit actor id is cut to 64 bytes, so failed logins can no longer grow
+  `audit.jsonl` by up to 1 MiB each.
 
 ### Upgrade notes
 

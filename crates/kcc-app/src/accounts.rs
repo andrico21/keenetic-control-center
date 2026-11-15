@@ -34,6 +34,8 @@ pub const ARGON2_LANES: u32 = 1;
 pub const MIN_PASSWORD_CHARS: usize = 12;
 /// Maximum accepted password length in Unicode scalar values.
 pub const MAX_PASSWORD_CHARS: usize = 128;
+/// Audit actor recorded for a sign-in whose username breaks [`validate_username`].
+pub const INVALID_USERNAME_ACTOR: &str = "<invalid-username>";
 
 /// A Unix timestamp source, injectable so lockout tests never sleep.
 pub trait Clock: Debug + Send + Sync {
@@ -380,6 +382,7 @@ impl AccountStore {
         username: &str,
         password: &SecretString,
     ) -> Result<Authentication, AccountError> {
+        let valid_name = validate_username(username).is_ok();
         let now = self.clock.unix_seconds();
         let lockout_seconds = self.lockout.as_secs();
         let key = &self.key;
@@ -387,7 +390,7 @@ impl AccountStore {
             let Some(account) = document
                 .users
                 .iter_mut()
-                .find(|candidate| candidate.username == username)
+                .find(|candidate| valid_name && candidate.username == username)
             else {
                 verify_dummy_password(password)?;
                 return Ok(Authentication::Invalid);
@@ -664,7 +667,8 @@ fn verify_dummy_password(password: &SecretString) -> Result<(), AccountError> {
 /// # Errors
 ///
 /// Returns [`AccountError::InvalidUsername`] when the boundary policy fails.
-fn validate_username(username: &str) -> Result<(), AccountError> {
+#[inline]
+pub fn validate_username(username: &str) -> Result<(), AccountError> {
     let valid_length = (1..=64).contains(&username.len());
     let valid_chars = username
         .bytes()

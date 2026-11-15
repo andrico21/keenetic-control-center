@@ -17,7 +17,7 @@ use axum::{
     response::{IntoResponse as _, Redirect, Response},
 };
 use kcc_app::{
-    accounts::{AccountError, Authentication},
+    accounts::{AccountError, Authentication, INVALID_USERNAME_ACTOR, validate_username},
     audit::{Actor, ActorKind, AuditError, AuditEvent, receipt::LOGIN_AUDIT_WAIT},
 };
 use kcc_i18n::{
@@ -175,7 +175,10 @@ pub(crate) async fn login(
     Form(form): Form<LoginForm>,
 ) -> Response {
     let old_id = SessionStore::id_from_headers(&headers, state.cookie_security());
-    let username = form.username;
+    let username = match validate_username(&form.username) {
+        Ok(()) => form.username,
+        Err(_invalid) => INVALID_USERNAME_ACTOR.to_owned(),
+    };
     let password = SecretString::from(form.password);
     let accounts = Arc::clone(state.accounts());
     let auth_username = username.clone();
@@ -374,6 +377,11 @@ async fn login_failure(
             Err(error) => return internal(error),
         },
     };
+    let shown = if username == INVALID_USERNAME_ACTOR {
+        String::new()
+    } else {
+        username
+    };
     let shell = prefs::shell(headers, state.default_locale())
         .with_csrf_token(anonymous.csrf_token().to_owned());
     let mut response = (
@@ -382,7 +390,7 @@ async fn login_failure(
             shell,
             no_admin: false,
             error: tr(state.default_locale(), keys::ERRORS_AUTH_FAILED, None),
-            username,
+            username: shown,
         }),
     )
         .into_response();

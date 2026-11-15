@@ -149,10 +149,15 @@ pub struct Actor {
 }
 
 impl Actor {
-    /// Creates an audit principal.
+    /// Longest recorded principal identifier, in bytes.
+    pub const MAX_ID_BYTES: usize = 64;
+
+    /// Creates an audit principal, cutting `id` to [`Self::MAX_ID_BYTES`] at a char
+    /// boundary.
     #[inline]
     #[must_use]
-    pub const fn new(kind: ActorKind, id: String) -> Self {
+    pub fn new(kind: ActorKind, mut id: String) -> Self {
+        id.truncate(id.floor_char_boundary(Self::MAX_ID_BYTES));
         Self { kind, id }
     }
 }
@@ -981,6 +986,26 @@ mod tests {
         assert_eq!(verify_single(&entry(1, GENESIS_HASH.to_owned())?)?.len(), 1);
         assert_eq!(verify_single(&entry(2, "ab".repeat(32))?)?.len(), 1);
         Ok(())
+    }
+
+    /// SEC1-02: an actor id is bounded to 64 bytes, cut at a char boundary, so no
+    /// caller can write an unbounded principal into the audit log.
+    #[test]
+    fn actor_id_is_truncated_to_64_bytes_at_a_char_boundary() {
+        let straddling = format!("{}\u{e9}tail", "a".repeat(63));
+        assert_eq!(
+            Actor::new(ActorKind::Web, straddling).id,
+            "a".repeat(63),
+            "a two-byte char across byte 64 is dropped whole"
+        );
+        let huge = Actor::new(ActorKind::Web, "b".repeat(1024 * 1024));
+        assert_eq!(
+            huge.id,
+            "b".repeat(64),
+            "a 1 MiB id keeps its first 64 bytes"
+        );
+        let short = Actor::new(ActorKind::Cli, "alice".to_owned());
+        assert_eq!(short.id, "alice", "a short id is unchanged");
     }
 
     #[test]

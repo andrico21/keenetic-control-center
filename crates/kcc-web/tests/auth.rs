@@ -33,6 +33,7 @@ mod tests {
     };
     use kcc_app::{
         accounts::Clock,
+        audit::verify_chain,
         permissions::built_in_roles,
         settings::{Config, ConfigError},
     };
@@ -77,7 +78,7 @@ mod tests {
     }
 
     struct Fixture {
-        _core: Core,
+        core: Core,
         router: Router,
         clock: Arc<MockClock>,
     }
@@ -92,7 +93,7 @@ mod tests {
                 security,
             );
             Ok(Self {
-                _core: core,
+                core,
                 router: web_router(web_state),
                 clock,
             })
@@ -121,8 +122,17 @@ mod tests {
             csrf: &str,
             password: &str,
         ) -> Result<Response, Box<dyn Error + Send + Sync>> {
+            self.login_as(cookie, csrf, (USERNAME, password)).await
+        }
+
+        async fn login_as(
+            &self,
+            cookie: &str,
+            csrf: &str,
+            (username, password): (&str, &str),
+        ) -> Result<Response, Box<dyn Error + Send + Sync>> {
             let body = format!(
-                "username={USERNAME}&password={}",
+                "username={username}&password={}",
                 password.replace(' ', "+")
             );
             self.send(
@@ -222,6 +232,37 @@ mod tests {
                 .contains(&en(keys::ERRORS_AUTH_FAILED)),
             "lockout stays uniform"
         );
+        Ok(())
+    }
+
+    /// SEC1-02: a login with a username of about 1 MiB is refused like an unknown user.
+    ///
+    /// Its audit entry records the fixed `<invalid-username>` actor instead of the
+    /// submitted name, so failed logins cannot grow the audit log unboundedly.
+    #[tokio::test]
+    async fn oversized_username_is_refused_and_audited_as_a_bounded_marker() -> TestResult {
+        let fixture = Fixture::new("admin", CookieSecurity::LoopbackHttp)?;
+        let (cookie, csrf) = fixture.login_page().await?;
+        let username = "a".repeat(1_000_000);
+
+        let response = fixture
+            .login_as(&cookie, &csrf, (&username, "wrong password"))
+            .await?;
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "refused");
+        let html = text(response).await?;
+        assert!(
+            html.contains(&en(keys::ERRORS_AUTH_FAILED)),
+            "uniform error"
+        );
+        assert!(!html.contains(&username), "the name is not echoed back");
+        let entries = verify_chain(&fixture.core.directory.path().join("state"))?;
+        let login = entries
+            .iter()
+            .find(|entry| entry.action == "web.login")
+            .ok_or("missing web.login entry")?;
+        assert_eq!(login.outcome, "invalid", "outcome");
+        assert_eq!(login.actor.id, "<invalid-username>", "actor marker");
         Ok(())
     }
 
