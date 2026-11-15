@@ -97,6 +97,70 @@ async fn rules_are_added_and_moved_up_and_down_with_read_back() -> TestResult {
     Ok(())
 }
 
+/// The CLI lines the router received since request `from` of its log.
+fn sent_since(fixture: &Fixture, from: usize) -> TestResult<Vec<String>> {
+    Ok(fixture
+        .handle()
+        .request_log()
+        .get(from..)
+        .ok_or("request log became shorter")?
+        .iter()
+        .filter_map(|request| request.command().map(str::to_owned))
+        .collect())
+}
+
+/// Saves the `keyword` dialog of the disabled deny rule with `value`: the CLI lines sent.
+async fn save(
+    fixture: &Fixture,
+    admin: &Browser,
+    (keyword, value): (&str, &str),
+) -> TestResult<Vec<String>> {
+    let from = fixture.handle().request_log().len();
+    let fields = [(keyword, value)];
+    drop(
+        post(
+            fixture,
+            admin,
+            (&rule_url(keyword, 1, DENY), &fields),
+            StatusCode::OK,
+        )
+        .await?,
+    );
+    let running = fixture.handle().running_config_text();
+    assert!(
+        running.contains("rule 1 disable"),
+        "stays disabled: {running}"
+    );
+    sent_since(fixture, from)
+}
+
+/// D-01, NEW-1: an empty description and "no schedule" on a disabled rule send only the
+/// matching `no` line and leave the rule disabled.
+///
+/// Saved with nothing to clear, neither dialog sends a line or audits a success.
+#[tokio::test]
+async fn clearing_a_disabled_rule_property_keeps_it_disabled() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    two_rules(&fixture, &admin).await?;
+    let off = format!("{}&value=off", rule_url("state", 1, DENY));
+    drop(post(&fixture, &admin, (&off, &[]), StatusCode::OK).await?);
+    for (keyword, value) in [("description", "web admin"), ("schedule", "Schedule0")] {
+        let action = format!("web.firewall_rule_{keyword}");
+        assert!(
+            save(&fixture, &admin, (keyword, "")).await?.is_empty(),
+            "nothing to clear"
+        );
+        assert_eq!(fixture.outcomes(&action)?, ["unchanged"], "{keyword}");
+        drop(save(&fixture, &admin, (keyword, value)).await?);
+        let cleared = save(&fixture, &admin, (keyword, "")).await?;
+        assert_eq!(cleared, [format!("no access-list WebAcl rule 1 {keyword}")]);
+        let running = fixture.handle().running_config_text();
+        assert!(!running.contains(&format!("rule 1 {keyword}")), "{running}");
+    }
+    Ok(())
+}
+
 #[tokio::test]
 async fn a_rule_is_switched_described_scheduled_and_removed_with_read_back() -> TestResult {
     let fixture = Fixture::new().await?;

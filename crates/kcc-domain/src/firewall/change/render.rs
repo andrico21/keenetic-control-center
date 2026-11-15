@@ -17,7 +17,7 @@ use kcc_app::workflow::{CliChangeRequest, CliCommand as ValidatedCli};
 use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
-use super::verify::Verification;
+use super::verify::{OwnedRuleProperty, Verification};
 use crate::{ChangeOp, DomainError, Result, cli_token, verification as readback};
 
 /// Converts a validated firewall operation into protected CLI workflow input.
@@ -64,7 +64,7 @@ fn line(operation: &ChangeOp, verification: &Verification) -> Result<String> {
         "access-list permit" | "access-list deny" => {
             render_rule(&mut words, leaf, verification.protocol()?)?;
         }
-        "access-list rule" => render_property(&mut words, leaf)?,
+        "access-list rule" => render_property(&mut words, leaf, verification.property()?)?,
         "interface ip access-group" => {
             words.extend([
                 text(leaf, "acl")?.to_owned(),
@@ -124,21 +124,35 @@ fn render_port(words: &mut Vec<String>, request: &ValidatedRequest, side: &str) 
     }
 }
 
-fn render_property(words: &mut Vec<String>, request: &ValidatedRequest) -> Result<()> {
+fn render_property(
+    words: &mut Vec<String>,
+    request: &ValidatedRequest,
+    property: &OwnedRuleProperty,
+) -> Result<()> {
     words.push(
         number(request, "index")
             .ok_or(DomainError::InvalidResponse)?
             .to_string(),
     );
-    if let Some(value) = request.value.get("description").and_then(Value::as_str) {
-        words.extend(["description".to_owned(), cli_token::quoted_text(value)?]);
-    } else if let Some(value) = request.value.get("schedule").and_then(Value::as_str) {
-        words.extend(["schedule".to_owned(), value.to_owned()]);
-    } else if let Some(value) = number(request, "order") {
-        words.extend(["order".to_owned(), value.to_string()]);
-    } else {
-        words.push("disable".to_owned());
+    let (property_words, negated) = match property {
+        OwnedRuleProperty::Description(Some(value)) => (
+            vec!["description".to_owned(), cli_token::quoted_text(value)?],
+            false,
+        ),
+        OwnedRuleProperty::Description(None) => (vec!["description".to_owned()], true),
+        OwnedRuleProperty::Schedule(Some(value)) => {
+            (vec!["schedule".to_owned(), value.clone()], false)
+        }
+        OwnedRuleProperty::Schedule(None) => (vec!["schedule".to_owned()], true),
+        OwnedRuleProperty::Disable(disabled) => (vec!["disable".to_owned()], !disabled),
+        OwnedRuleProperty::Order(position) => {
+            (vec!["order".to_owned(), position.to_string()], false)
+        }
+    };
+    if negated != (request.value.get("no") == Some(&Value::Bool(true))) {
+        return Err(DomainError::InvalidResponse);
     }
+    words.extend(property_words);
     Ok(())
 }
 

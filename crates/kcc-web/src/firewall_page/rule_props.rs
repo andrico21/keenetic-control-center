@@ -2,7 +2,7 @@
 //!
 //! Each names its rule by list, position and stored words and changes it only while a
 //! fresh read still has that rule there; an empty description or Always removes the
-//! property.
+//! property, and a value the rule already has sends nothing.
 
 use axum::{
     Form,
@@ -94,6 +94,9 @@ pub(crate) async fn describe(
                     .map_err(|rule| Invalid::at("description", rule))?;
                 let (firewall, entry) = find(domain, &named, locale).await?;
                 let identity = entry.configured().ok_or(Rejected::Missing)?;
+                if identity.description == text {
+                    return Err(Rejected::Unchanged);
+                }
                 let planned =
                     lines::description(domain, named.list(), (&identity, text.as_deref()));
                 Ok(planned.map(|request| {
@@ -176,6 +179,9 @@ pub(crate) async fn schedule(
                 let (firewall, entry) = find(domain, &named, locale).await?;
                 let identity = entry.configured().ok_or(Rejected::Missing)?;
                 let picked = Some(chosen).filter(|name| !name.is_empty());
+                if identity.schedule == picked {
+                    return Err(Rejected::Unchanged);
+                }
                 let planned = lines::schedule(domain, named.list(), (&identity, picked.as_deref()));
                 Ok(planned.map(|request| {
                     let expect = Expect::Property {

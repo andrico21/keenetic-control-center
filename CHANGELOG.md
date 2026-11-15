@@ -205,6 +205,12 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Clearing a firewall rule's description or schedule no longer enables the rule.**
+  An empty description or "no schedule" in the Web dialogs sends
+  `no access-list <list> rule <index> description` (or `schedule`); it used to send
+  `no access-list <list> rule <index> disable`, which turned a disabled rule back on.
+  Saving either dialog with the value the rule already has sends nothing and is audited
+  `unchanged` instead of `success`.
 - **Audit waits are bounded and keep their entries**: an audit entry waiting on another
   process's append lock is no longer dropped after about 25 s; the writer keeps it and
   writes it, in order, once the lock is free. A change the router applied whose entry is

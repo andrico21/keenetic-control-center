@@ -18,6 +18,9 @@ pub(crate) enum Rejected {
     /// The request names nothing the router has a change for: answered 404, like a page
     /// that does not exist, and not audited.
     Missing,
+    /// The router already has the submitted values: nothing is sent, answered as such in
+    /// the outcome region, audited `unchanged`.
+    Unchanged,
 }
 
 impl From<Invalid> for Rejected {

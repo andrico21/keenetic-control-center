@@ -17,7 +17,11 @@
 use axum::response::{IntoResponse as _, Response};
 use kcc_catalog::Risk;
 use kcc_domain::{DomainError, RouterCtx};
-use kcc_i18n::{bundle::MessageKey, locale::Locale};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 
 use self::{
     flow::{Ask, Course},
@@ -235,6 +239,7 @@ impl<'call, F: Form> Submission<'call, F> {
             Err(Rejected::Refused(failure)) => return self.refused(failure).await,
             Err(Rejected::Failed(failure)) => return self.failed(failure).await,
             Err(Rejected::Missing) => return missing().into_response(),
+            Err(Rejected::Unchanged) => return self.unchanged().await,
         };
         if let Some(prompt) = self.ask_first() {
             return prompt;
@@ -280,6 +285,19 @@ impl<'call, F: Form> Submission<'call, F> {
         let answer = self
             .form
             .answer_changed(Outcome::failed(failure), None, locale);
+        self.course.refused(answer)
+    }
+
+    /// The answer to values the router already has: nothing was sent, audited
+    /// `unchanged`.
+    // NOT cancel-safe: an abandoned append may still be written.
+    async fn unchanged(self) -> Response {
+        let locale = self.action.locale();
+        self.action.abandon("unchanged").await;
+        let headline = tr(locale, keys::WEB_SYSTEM_UNCHANGED, None);
+        let answer = self
+            .form
+            .answer_changed(Outcome::info(headline, "unchanged"), None, locale);
         self.course.refused(answer)
     }
 

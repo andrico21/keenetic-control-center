@@ -59,6 +59,24 @@ impl Verification {
         }
     }
 
+    pub(super) const fn property(&self) -> Result<&OwnedRuleProperty> {
+        match self {
+            Self::Property {
+                list: _,
+                before: _,
+                property,
+            } => Ok(property),
+            Self::Add { list: _, rule: _ }
+            | Self::Remove { list: _, rule: _ }
+            | Self::Binding {
+                interface: _,
+                list: _,
+                direction: _,
+                present: _,
+            } => Err(DomainError::InvalidResponse),
+        }
+    }
+
     pub(super) async fn preflight(&self, router: &RouterCtx) -> Result<()> {
         match self {
             Self::Remove { list, rule } => {
