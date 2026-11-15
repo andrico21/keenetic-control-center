@@ -7,31 +7,31 @@ license.workspace = true
 publish = false
 
 [dependencies]
-askama = { version = "0.16.1", default-features = false, features = ["derive", "std"] }
+askama = { workspace = true, features = ["derive", "std"] }
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-domain = { version = "0.1.0", path = "../kcc-domain" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-i18n = { version = "0.1.0", path = "../kcc-i18n" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
-md-5 = "0.11.0"
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
-secrecy = "0.10.3"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-thiserror = "2.0.17"
-toml = "1.2.0"
-tokio = { version = "1.54.1", features = ["sync", "time"] }
-zeroize = "1.9.1"
+md-5 = { workspace = true }
+reqwest = { workspace = true, features = ["rustls-no-provider"] }
+secrecy = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+toml = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
+zeroize = { workspace = true }
 
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
-proptest = "1.9.0"
-tempfile = "3.27.0"
-tracing = { version = "0.1.44", default-features = false, features = ["std"] }
-tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
-url = "2.5.8"
-tokio = { version = "1.54.1", features = ["macros", "rt-multi-thread"] }
+proptest = { workspace = true }
+tempfile = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
+url = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 
 [package.metadata.cargo-machete]
 # md-5 is imported as `md5`, which machete's name matching misses

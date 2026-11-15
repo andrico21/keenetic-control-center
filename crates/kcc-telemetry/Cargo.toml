@@ -12,22 +12,22 @@ flate2 = "1.1.10"
 kcc-app = { version = "0.1.0", path = "../kcc-app" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 prometheus = "0.14.0"
-reqwest = { version = "0.13.5", default-features = false, features = ["rustls-no-provider"] }
-rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
-secrecy = "0.10.3"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-thiserror = "2.0.17"
-tokio = { version = "1.48.0", features = ["fs", "rt", "sync", "time"] }
-tokio-util = "0.7.17"
-tracing = { version = "0.1.44", default-features = false, features = ["std"] }
+reqwest = { workspace = true, features = ["rustls-no-provider"] }
+rustls = { workspace = true, features = ["ring", "std", "tls12"] }
+secrecy = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "rt", "sync", "time"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
-tempfile = "3.27.0"
-url = "2.5.8"
-tokio = { version = "1.48.0", features = ["io-util", "macros", "net", "rt", "test-util"] }
-tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
+tempfile = { workspace = true }
+url = { workspace = true }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "test-util"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
 
 [lints]
 workspace = true

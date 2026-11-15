@@ -7,37 +7,37 @@ license.workspace = true
 publish = false
 
 [dependencies]
-argon2 = { version = "0.6.0", features = ["password-hash"] }
-base64 = { version = "0.23.1", default-features = false, features = ["std"] }
+argon2 = { workspace = true, features = ["password-hash", "alloc", "getrandom"] }
+base64 = { workspace = true, features = ["std"] }
 chacha20poly1305 = { version = "0.11.0", default-features = false, features = ["alloc", "getrandom", "zeroize"] }
-humantime = "2.4.0"
+humantime = { workspace = true }
 humantime-serde = "1.1.1"
 ipnet = { version = "2.12.2", features = ["serde"] }
 kcc-config = { version = "0.1.0", path = "../kcc-config" }
 kcc-catalog = { version = "0.1.0", path = "../kcc-catalog" }
 kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
-rmcp-server-kit = "3.21.1"
-secrecy = "0.10.3"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
-sha2 = "0.11.0"
-thiserror = "2.0.17"
-tokio = { version = "1.48.0", features = ["fs", "io-util", "macros", "rt", "sync", "time"] }
-tokio-util = "0.7.17"
-toml = "1.1.8"
-tracing = { version = "0.1.44", default-features = false, features = ["std"] }
-url = { version = "2.5.8", features = ["serde"] }
-zeroize = "1.9.1"
+rmcp-server-kit = { workspace = true }
+secrecy = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["fs", "io-util", "macros", "rt", "sync", "time"] }
+tokio-util = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
+url = { workspace = true, features = ["serde"] }
+zeroize = { workspace = true }
 
 [target.'cfg(windows)'.dependencies]
 windows-permissions = "0.2.4"
 
 [dev-dependencies]
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
-proptest = "1.9.0"
-tracing-subscriber = { version = "0.3.23", default-features = false, features = ["fmt", "std"] }
-tempfile = "3.27.0"
-tokio = { version = "1.48.0", features = ["test-util"] }
+proptest = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["test-util"] }
 
 [package.metadata.cargo-machete]
 # humantime-serde is used only via `#[serde(with = "humantime_serde")]`, invisible to machete's import scan

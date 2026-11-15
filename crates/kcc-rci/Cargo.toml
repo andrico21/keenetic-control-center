@@ -7,37 +7,37 @@ license.workspace = true
 publish = false
 
 [dependencies]
-argon2 = { version = "0.6.0", default-features = false, features = ["alloc", "zeroize"] }
-base64 = "0.23.1"
+argon2 = { workspace = true, features = ["alloc", "zeroize"] }
+base64 = { workspace = true, features = ["std", "simd-unsafe"] }
 getrandom = "0.2.17"
-hmac = { version = "0.13.0", features = ["zeroize"] }
-md-5 = "0.11.0"
-reqwest = { version = "0.13.5", default-features = false, features = ["json", "multipart", "rustls-no-provider"] }
-rustls = { version = "0.23.46", default-features = false, features = ["ring", "std", "tls12"] }
-secrecy = "0.10.3"
-serde = { version = "1.0.228", features = ["derive"] }
-serde_json = "1.0.145"
+hmac = { workspace = true, features = ["zeroize"] }
+md-5 = { workspace = true }
+reqwest = { workspace = true, features = ["json", "multipart", "rustls-no-provider"] }
+rustls = { workspace = true, features = ["ring", "std", "tls12"] }
+secrecy = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
 serde_urlencoded = "0.7.1"
-sha2 = "0.11.1"
-sha3 = { version = "0.11.0", features = ["zeroize"] }
-subtle = "2.6.1"
-thiserror = "2.0.17"
-tokio = { version = "1.54.1", features = ["macros", "rt", "sync", "time"] }
-tokio-util = "0.7.17"
-url = "2.5.7"
+sha2 = { workspace = true }
+sha3 = { workspace = true, features = ["zeroize"] }
+subtle = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync", "time"] }
+tokio-util = { workspace = true }
+url = { workspace = true }
 x509-parser = { version = "0.18.1", default-features = false }
-zeroize = "1.9.1"
+zeroize = { workspace = true }
 
 [dev-dependencies]
-axum = { version = "0.8.9", default-features = false, features = ["http1", "tokio"] }
+axum = { workspace = true, features = ["http1", "tokio"] }
 hyper = { version = "1.8.1", default-features = false, features = ["http1", "server"] }
 hyper-util = { version = "0.1.21", default-features = false, features = ["tokio"] }
 kcc-testkit = { version = "0.1.0", path = "../kcc-testkit" }
-proptest = "1.9.0"
-rcgen = { version = "0.14.6", default-features = false, features = ["crypto", "ring"] }
-tokio = { version = "1.54.1", features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }
+proptest = { workspace = true }
+rcgen = { workspace = true, features = ["crypto", "ring"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "test-util"] }
 tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring", "tls12"] }
-tower = { version = "0.5.3", default-features = false, features = ["util"] }
+tower = { workspace = true, features = ["util"] }
 
 [package.metadata.cargo-machete]
 # md-5 is imported as `md5`, which machete's name matching misses

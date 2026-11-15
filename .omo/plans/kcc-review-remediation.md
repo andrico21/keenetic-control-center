@@ -704,7 +704,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | test: remove mock-echo, prose pins, vacuous markers and timing-luck waits
   Recommended task executor category: unspecified-high - many small test edits across crates
 
-- [ ] 50. Shared dependency versions in `[workspace.dependencies]`
+- [x] 50. Shared dependency versions in `[workspace.dependencies]`
   What to do / Must NOT do: Run alone, after every other code todo (only the docs todo 51 follows). Add `[workspace.dependencies]` to the root `Cargo.toml` for every external crate used by two or more members, at the highest version requirement already present (e.g. tokio `1.54.1` - kcc-app/kcc-mcp/kcc-telemetry require `1.48.0`; toml `1.2.0` - `1.0.3`/`1.1.8`/`1.2.0` today; serde_json `1.0.154`; `md-5 = "0.11.0"` replacing kcc-config's `0.11.0-rc.2`); members use `dep = { workspace = true, features = [...] }` keeping their own feature lists. `taplo fmt`. Must NOT: add crates, raise a version beyond the highest existing requirement, or change features.
   Closes: GAP-13
   Parallelization: Wave W7 | Blocked by: 49 | Blocks: 51 | Can parallelize with: -

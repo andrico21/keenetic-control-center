@@ -7,9 +7,9 @@ license.workspace = true
 publish = false
 
 [dependencies]
-fluent-bundle = "0.16.0"
-thiserror = "2.0.17"
-tracing = { version = "0.1.44", default-features = false, features = ["std"] }
+fluent-bundle = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true, features = ["std"] }
 unic-langid = { version = "0.9.6", features = ["macros"] }
 
 [lints]

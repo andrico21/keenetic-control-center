@@ -22,6 +22,40 @@ rust-version = "1.100.0"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/andrico21/keenetic-control-center"
 
+[workspace.dependencies]
+argon2 = { version = "0.6.0", default-features = false }
+askama = { version = "0.16.1", default-features = false }
+axum = { version = "0.8.9", default-features = false }
+base64 = { version = "0.23.1", default-features = false }
+clap = { version = "4.6.7", default-features = false }
+fluent-bundle = "0.16.0"
+hmac = "0.13.0"
+humantime = "2.4.0"
+md-5 = "0.11.0"
+proptest = "1.9.0"
+rand = "0.10.3"
+rcgen = { version = "0.14.10", default-features = false }
+reqwest = { version = "0.13.5", default-features = false }
+rmcp = "3.9.0"
+rmcp-server-kit = "3.21.1"
+rustls = { version = "0.23.46", default-features = false }
+secrecy = "0.10.3"
+serde = "1.0.228"
+serde_json = "1.0.154"
+sha2 = "0.11.1"
+sha3 = "0.11.0"
+subtle = "2.6.1"
+tempfile = "3.27.0"
+thiserror = "2.0.17"
+tokio = "1.54.1"
+tokio-util = "0.7.17"
+toml = "1.2.0"
+tower = { version = "0.5.3", default-features = false }
+tracing = { version = "0.1.44", default-features = false }
+tracing-subscriber = { version = "0.3.23", default-features = false }
+url = "2.5.8"
+zeroize = "1.9.1"
+
 [workspace.lints.rust]
 # Every rustc lint group, at deny (individual entries below override at priority 0)
 future_incompatible = { level = "deny", priority = -1 }
