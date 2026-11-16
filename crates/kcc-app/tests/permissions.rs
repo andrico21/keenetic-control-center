@@ -136,11 +136,14 @@ mod tests {
             Duration::from_secs(60),
             injected,
         );
-        accounts.create(NewAccount::new(
-            "alice".to_owned(),
-            SecretString::from("correct horse battery staple"),
-            "admin".to_owned(),
-        ))?;
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(
+                "alice".to_owned(),
+                SecretString::from("correct horse battery staple"),
+                "admin".to_owned(),
+            ),
+        )?;
 
         for attempt in 1_u32..=5 {
             let outcome = accounts.authenticate("alice", &SecretString::from("wrong password"))?;
@@ -173,7 +176,13 @@ mod tests {
     fn api_key_file_never_contains_plaintext() -> TestResult {
         let (_temp, state) = store()?;
 
-        let created = create_api_key(&state, "automation".to_owned(), "operator".to_owned(), 7)?;
+        let created = create_api_key(
+            &state,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            "automation".to_owned(),
+            "operator".to_owned(),
+            7,
+        )?;
         let plaintext = expose_created_key(&created);
         let raw = fs::read_to_string(state.dir().join("api_keys.json"))?;
         let entries = api_key_entries(&state)?;
@@ -211,11 +220,14 @@ mod tests {
             Duration::from_secs(60),
             Arc::new(MockClock::default()),
         );
-        accounts.create(NewAccount::new(
-            "alice".to_owned(),
-            SecretString::from("correct horse battery staple"),
-            "admin".to_owned(),
-        ))?;
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(
+                "alice".to_owned(),
+                SecretString::from("correct horse battery staple"),
+                "admin".to_owned(),
+            ),
+        )?;
         assert!(
             !fs::read_to_string(&users_file)?.contains("must_change_password"),
             "a cleared flag is not written, so older readers still accept the file"
@@ -233,6 +245,7 @@ mod tests {
             );
         }
         accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
             NewAccount::new(
                 "bob".to_owned(),
                 SecretString::from("another long passphrase"),

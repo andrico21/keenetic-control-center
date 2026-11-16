@@ -17,12 +17,16 @@ use futures_util::{
     StreamExt as _,
     stream::{self, BoxStream},
 };
-use kcc_app::jobs::{JobProgress, JobRecord, JobRunner, JobStatus};
+use kcc_app::jobs::{JobProgress, JobRecord, JobStatus};
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
 use serde_json::json;
 use tokio::sync::watch;
 
-use super::{component_commit::phase_line, diagnostic_lines::sentence, job_feed::JobView};
+use super::{
+    component_commit::phase_line,
+    diagnostic_lines::sentence,
+    job_feed::{JobView, may_act},
+};
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
@@ -120,9 +124,19 @@ localized!(StatusView);
 
 localized!(LineView);
 
-/// The job `job` of `router` when a system page started it.
-pub(crate) fn followed(jobs: &JobRunner, router: &str, job: &str) -> Option<JobRecord> {
-    jobs.get(job).ok().filter(|record| {
+/// The job `job` of `router` when a system page started it and `user` started it or may
+/// act on every job of the router ([`may_act`]); any other job answers like a missing one.
+pub(crate) fn followed(
+    state: &WebState,
+    user: &CurrentUser,
+    router: &str,
+    job: &str,
+) -> Option<JobRecord> {
+    let owner = state.advanced().feeds().owner(job);
+    if !may_act(user, router, owner.as_deref()) {
+        return None;
+    }
+    state.advanced().jobs()?.get(job).ok().filter(|record| {
         record.router.as_deref() == Some(router)
             && (record.kind.starts_with(DIAGNOSTICS) || record.kind == COMMIT)
     })
@@ -136,13 +150,13 @@ pub(crate) async fn stream(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    let Some(jobs) = state.advanced().jobs().cloned() else {
+    if state.advanced().jobs().is_none() {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
-    };
+    }
     if let Err(refusal) = context::target(&state, &user, &router).await {
         return refusal.status();
     }
-    let Some(record) = followed(&jobs, &router, &job) else {
+    let Some(record) = followed(&state, &user, &router, &job) else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let Some(feed) = state.advanced().feeds().get(&record.id) else {
@@ -246,7 +260,7 @@ pub(crate) async fn cancel(
         return refusal.status();
     }
     let Some(record) =
-        followed(&jobs, &router, &job).filter(|found| found.kind.starts_with(DIAGNOSTICS))
+        followed(&state, &user, &router, &job).filter(|found| found.kind.starts_with(DIAGNOSTICS))
     else {
         return StatusCode::NOT_FOUND.into_response();
     };

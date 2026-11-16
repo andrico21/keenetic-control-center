@@ -100,7 +100,7 @@ impl Setup {
     pub(crate) async fn build(self) -> TestResult<Fixture> {
         let clock = Arc::new(Frozen::at(self.now));
         let session_clock: Arc<dyn Clock> = Arc::<Frozen>::clone(&clock);
-        let core = Core::new(session_clock, &self.accounts)?;
+        let core = Core::new(session_clock, &self.accounts, &self.roles)?;
         let roles = RoleSource::new(self.roles.clone());
         let state = core.state.clone();
         let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));

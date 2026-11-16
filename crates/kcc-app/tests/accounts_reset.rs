@@ -37,16 +37,22 @@ fn fixture() -> Result<(TempDir, AccountStore), Box<dyn Error>> {
         Duration::from_secs(60),
         clock,
     );
-    accounts.create(NewAccount::new(
-        "admin".to_owned(),
-        SecretString::from("original admin passphrase"),
-        "admin".to_owned(),
-    ))?;
-    accounts.create(NewAccount::new(
-        "alice".to_owned(),
-        SecretString::from("original viewer passphrase"),
-        "viewer".to_owned(),
-    ))?;
+    accounts.create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "admin".to_owned(),
+            SecretString::from("original admin passphrase"),
+            "admin".to_owned(),
+        ),
+    )?;
+    accounts.create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "alice".to_owned(),
+            SecretString::from("original viewer passphrase"),
+            "viewer".to_owned(),
+        ),
+    )?;
     Ok((temp, accounts))
 }
 
@@ -189,11 +195,14 @@ fn account_lockout_respects_configurable_max_failures() -> TestResult {
     )
     .with_max_failures(2);
 
-    accounts_low.create(NewAccount::new(
-        "user".to_owned(),
-        SecretString::from("correct password here"),
-        "viewer".to_owned(),
-    ))?;
+    accounts_low.create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "user".to_owned(),
+            SecretString::from("correct password here"),
+            "viewer".to_owned(),
+        ),
+    )?;
 
     assert_eq!(
         accounts_low.authenticate("user", &SecretString::from("wrong1"))?,
@@ -225,11 +234,14 @@ fn account_lockout_respects_configurable_max_failures() -> TestResult {
         Arc::clone(&clock),
     );
 
-    accounts_default.create(NewAccount::new(
-        "user2".to_owned(),
-        SecretString::from("another password"),
-        "viewer".to_owned(),
-    ))?;
+    accounts_default.create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "user2".to_owned(),
+            SecretString::from("another password"),
+            "viewer".to_owned(),
+        ),
+    )?;
 
     drop(accounts_default.authenticate("user2", &SecretString::from("wrong1"))?);
     drop(accounts_default.authenticate("user2", &SecretString::from("wrong2"))?);

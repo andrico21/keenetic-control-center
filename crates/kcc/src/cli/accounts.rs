@@ -6,19 +6,19 @@ use std::{
 };
 
 use kcc_app::{
-    accounts::{AccountChange, Authentication, NewAccount},
-    permissions::{Permission, load_roles},
+    accounts::{AccountChange, AccountError, Authentication, NewAccount},
+    permissions::{Permission, assignment::GrantError},
 };
 use kcc_i18n::keys;
 use rmcp_server_kit::auth::generate_api_key;
 use secrecy::{ExposeSecret as _, SecretString};
-use serde_json::json;
+use serde_json::{Value, json};
 use zeroize::Zeroizing;
 
 use super::{
     args_admin::{AdminCommand, UserCommand},
-    context::Ctx,
-    exit::{Exit, Failure, Outcome},
+    context::{Ctx, Services},
+    exit::{Exit, Failure, Outcome, denied},
     secret::read_secret,
 };
 
@@ -39,13 +39,19 @@ pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
             role,
             locale,
         } => {
-            known_role(ctx, &role)?;
+            let actor = ctx.principal().authority()?;
             let password = read_secret(
                 ctx.globals().password_file(),
                 &out.tr(keys::CLI_PROMPT_NEW_PASSWORD, &[("user", &username)]),
             )?;
-            accounts
-                .create(NewAccount::new(username.clone(), password, role).with_locale(locale))?;
+            let new = NewAccount::new(username.clone(), password, role.clone()).with_locale(locale);
+            match accounts.create(&actor, new) {
+                Err(AccountError::Grant(GrantError::Forbidden)) => {
+                    let params = json!({ "username": username, "role": role });
+                    return Err(refused_grant(ctx, &services, "cli.user_add", params).await);
+                }
+                result => result?,
+            }
             ctx.audit(
                 &services,
                 "cli.user_add",
@@ -197,6 +203,7 @@ pub(crate) async fn admin(ctx: &Ctx, command: AdminCommand) -> Outcome {
         generate_api_key().map_err(|error| Failure::text(Exit::Generic, &error))?;
     let password = SecretString::from(token);
     accounts.create(
+        &ctx.principal().authority()?,
         NewAccount::new(username.clone(), password.clone(), "admin".to_owned())
             .with_must_change_password(true),
     )?;
@@ -227,24 +234,17 @@ pub(crate) async fn admin(ctx: &Ctx, command: AdminCommand) -> Outcome {
     Ok(())
 }
 
-/// Requires `role` to name a built-in or custom role.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-pub(crate) fn known_role(ctx: &Ctx, role: &str) -> Outcome {
-    if load_roles(ctx.state())?
-        .iter()
-        .any(|known| known.name == role)
-    {
-        Ok(())
-    } else {
-        Err(Failure::message(
-            Exit::Usage,
-            keys::CLI_NOT_FOUND,
-            &[("name", role)],
-        ))
-    }
+/// Audits the refused role grant `action` as `forbidden` and returns the policy refusal
+/// (exit 10), as the Web answers a role the actor does not dominate.
+// NOT cancel-safe: the writer may append after cancellation.
+pub(crate) async fn refused_grant(
+    ctx: &Ctx,
+    services: &Services,
+    action: &str,
+    params: Value,
+) -> Failure {
+    ctx.audit(services, action, None, params, "forbidden").await;
+    denied("-")
 }
 
 /// Localized yes or nothing.

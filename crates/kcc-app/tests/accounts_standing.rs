@@ -42,11 +42,10 @@ fn fixture() -> Result<(TempDir, StateStore, AccountStore), Box<dyn Error>> {
     let state = StateStore::open(&temp.path().join("state"))?;
     let accounts = store(&state, MasterKey::from_bytes([9_u8; 32]));
     for (name, role) in [("admin", "admin"), ("alice", "viewer")] {
-        accounts.create(NewAccount::new(
-            name.to_owned(),
-            password(name),
-            role.to_owned(),
-        ))?;
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(name.to_owned(), password(name), role.to_owned()),
+        )?;
     }
     Ok((temp, state, accounts))
 }

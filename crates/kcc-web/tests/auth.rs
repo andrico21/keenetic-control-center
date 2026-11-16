@@ -86,7 +86,11 @@ mod tests {
     impl Fixture {
         fn new(role: &str, security: CookieSecurity) -> TestResult<Self> {
             let clock = Arc::new(MockClock::default());
-            let core = Core::new(Arc::<MockClock>::clone(&clock), &[(USERNAME, role, None)])?;
+            let core = Core::new(
+                Arc::<MockClock>::clone(&clock),
+                &[(USERNAME, role, None)],
+                &[],
+            )?;
             let web_state = core.web(
                 Vec::from(built_in_roles()),
                 (Duration::from_secs(30), Duration::from_secs(300)),

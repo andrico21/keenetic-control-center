@@ -20,6 +20,7 @@ mod tests {
         accounts::Clock,
         api_key_use::{KEY_USE_INTERVAL, KeyUseRecorder},
         api_keys::{ApiKeysDocument, create_api_key},
+        permissions::{Permission, Role},
         persist::StateStore,
     };
     use tempfile::TempDir;
@@ -53,12 +54,14 @@ mod tests {
         let store = StateStore::open(directory.path())?;
         drop(create_api_key(
             &store,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
             "agent".to_owned(),
             "viewer".to_owned(),
             1,
         )?);
         drop(create_api_key(
             &store,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
             "other".to_owned(),
             "viewer".to_owned(),
             1,

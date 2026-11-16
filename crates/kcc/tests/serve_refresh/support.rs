@@ -136,13 +136,22 @@ impl Fixture {
             Arc::new(SystemClock::default()),
         );
         for (name, role) in [("alice", "admin"), ("olga", "ops")] {
-            accounts.create(NewAccount::new(
-                name.to_owned(),
-                SecretString::from(PASSWORD),
-                role.to_owned(),
-            ))?;
+            accounts.create(
+                &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+                NewAccount::new(
+                    name.to_owned(),
+                    SecretString::from(PASSWORD),
+                    role.to_owned(),
+                ),
+            )?;
         }
-        let created = create_api_key(&state, "ops-key".to_owned(), "ops".to_owned(), 1)?;
+        let created = create_api_key(
+            &state,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            "ops-key".to_owned(),
+            "ops".to_owned(),
+            1,
+        )?;
         let key = directory.path().join("master.key");
         fs::write(&key, [17_u8; 32])?;
         #[cfg(unix)]

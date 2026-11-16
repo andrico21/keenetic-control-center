@@ -24,7 +24,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::{
     accounts::{AccountChange, AccountError, AccountSummary, NewAccount},
-    permissions::{Permission, Role},
+    permissions::{Permission, Role, assignment::GrantError},
 };
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -39,8 +39,8 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ListQuery, NameForm, NameQuery, Tab, TabLink, dominates, forbidden, named, record,
-        role_label, roles_for, tabs, unavailable,
+        Change, ListQuery, NameForm, NameQuery, Tab, TabLink, forbidden, named, record, role_label,
+        roles_for, tabs, unavailable,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
@@ -276,25 +276,23 @@ pub(crate) async fn create(
         password_error: String::new(),
         role_error: String::new(),
     };
-    let Some(role) = state.role(&form.role) else {
-        dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
-        return respond::unprocessable(&dialog);
-    };
-    if !dominates(user.role(), &role) {
-        let change = Change::refused("admin.user_create", &form.username, "forbidden");
-        return forbidden(&state, &user, change).await;
-    }
     let username = form.username.clone();
-    let account = NewAccount::new(
-        form.username,
-        SecretString::from(form.password),
-        role.name.clone(),
-    )
-    .with_locale(language.tag().to_owned())
-    .with_must_change_password(true);
+    let role = form.role.clone();
+    let account = NewAccount::new(form.username, SecretString::from(form.password), form.role)
+        .with_locale(language.tag().to_owned())
+        .with_must_change_password(true);
     let accounts = Arc::clone(state.accounts());
-    match spawn_blocking(move || accounts.create(account)).await {
+    let actor = user.role().clone();
+    match spawn_blocking(move || accounts.create(&actor, account)).await {
         Ok(Ok(())) => {}
+        Ok(Err(AccountError::Grant(GrantError::UnknownRole { name: _ }))) => {
+            dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
+            return respond::unprocessable(&dialog);
+        }
+        Ok(Err(AccountError::Grant(GrantError::Forbidden))) => {
+            let change = Change::refused("admin.user_create", &username, "forbidden");
+            return forbidden(&state, &user, change).await;
+        }
         Ok(Err(AccountError::InvalidUsername)) => {
             dialog.username_error = tr(locale, keys::WEB_ADMIN_ERROR_USERNAME, None);
             return respond::unprocessable(&dialog);
@@ -315,7 +313,7 @@ pub(crate) async fn create(
         Err(error) => return errors::internal(&error, fragment_shell(user.locale())),
     }
     let params = json!({
-        "role": role.name,
+        "role": role,
         "locale": language.tag(),
         "first_login_change": true,
     });
@@ -367,7 +365,7 @@ pub(crate) async fn set_role(
         dialog.error = tr(user.locale(), keys::WEB_ADMIN_ERROR_ROLE, None);
         return respond::unprocessable(&dialog);
     };
-    if !dominates(user.role(), &role) {
+    if !user.role().dominates(&role) {
         let change = Change::refused("admin.user_role", &target.username, "forbidden");
         return forbidden(&state, &user, change).await;
     }
@@ -636,7 +634,7 @@ fn manages(state: &WebState, actor: &Role, role: &str) -> bool {
     let target = state
         .role(role)
         .unwrap_or_else(|| Role::new(String::new(), Permission::ALL, vec!["*".to_owned()]));
-    dominates(actor, &target)
+    actor.dominates(&target)
 }
 
 /// The accounts table on `page`, with `toasts`.

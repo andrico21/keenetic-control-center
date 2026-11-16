@@ -70,7 +70,7 @@ mod tests {
 
     /// The router under test, with English as the configured default locale.
     fn router() -> TestResult<Router> {
-        let core = Core::new(Arc::new(SystemClock::default()), &[])?;
+        let core = Core::new(Arc::new(SystemClock::default()), &[], &[])?;
         let web = core.web(
             Vec::from(built_in_roles()),
             (Duration::from_secs(30), Duration::from_secs(300)),

@@ -3,11 +3,18 @@
 use std::io;
 
 use kcc_app::{
-    accounts::AccountError, api_keys::ApiKeyError, audit::AuditError, backups::BackupError,
-    permissions::PermissionError, persist::StateError, secrets::CryptoError, settings::ConfigError,
+    accounts::AccountError,
+    api_keys::ApiKeyError,
+    audit::AuditError,
+    backups::BackupError,
+    permissions::{PermissionError, assignment::GrantError},
+    persist::StateError,
+    secrets::CryptoError,
+    settings::ConfigError,
 };
+use kcc_i18n::keys;
 
-use super::exit::{Exit, Failure};
+use super::exit::{Exit, Failure, denied};
 
 impl From<StateError> for Failure {
     fn from(error: StateError) -> Self {
@@ -55,9 +62,23 @@ impl From<PermissionError> for Failure {
     }
 }
 
+impl From<GrantError> for Failure {
+    fn from(error: GrantError) -> Self {
+        match error {
+            GrantError::Forbidden => denied("-"),
+            GrantError::UnknownRole { name } => {
+                Self::message(Exit::Usage, keys::CLI_NOT_FOUND, &[("name", &name)])
+            }
+            GrantError::Roles(roles) => roles.into(),
+            _ => Self::text(Exit::Generic, &error),
+        }
+    }
+}
+
 impl From<AccountError> for Failure {
     fn from(error: AccountError) -> Self {
         let exit = match error {
+            AccountError::Grant(grant) => return grant.into(),
             AccountError::InvalidUsername
             | AccountError::InvalidPasswordLength
             | AccountError::InvalidPasswordCharacters
@@ -80,6 +101,7 @@ impl From<AccountError> for Failure {
 impl From<ApiKeyError> for Failure {
     fn from(error: ApiKeyError) -> Self {
         let exit = match error {
+            ApiKeyError::Grant(grant) => return grant.into(),
             ApiKeyError::DuplicateName => Exit::Conflict,
             ApiKeyError::State(_) | ApiKeyError::Generation | _ => Exit::Generic,
         };

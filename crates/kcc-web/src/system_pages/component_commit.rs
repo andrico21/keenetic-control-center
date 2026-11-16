@@ -103,10 +103,12 @@ pub(crate) async fn commit(
     .await;
     match started {
         Ok(id) => {
-            state
-                .advanced()
-                .feeds()
-                .follow(Arc::clone(&jobs), events, id.clone());
+            state.advanced().feeds().follow(
+                Arc::clone(&jobs),
+                events,
+                id.clone(),
+                user.username().to_owned(),
+            );
             record.append(&state, &user, "started").await;
             Ok(JobPanel::new(locale, &router, id)
                 .titled(keys::WEB_SYSTEM_COMPONENTS_COMMIT_JOB)

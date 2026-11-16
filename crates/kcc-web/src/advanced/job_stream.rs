@@ -83,7 +83,7 @@ pub(crate) async fn stream(
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let receiver = jobs.subscribe();
-    let Some(record) = explorer_job(&jobs, &router, &job) else {
+    let Some(record) = explorer_job(&state, &user, &router, &job) else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let events = Events {

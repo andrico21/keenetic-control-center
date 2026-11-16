@@ -25,7 +25,11 @@ use super::super::{
     Account, AccountStore, Authentication, NewAccount, SystemClock, UsersDocument,
     hashing::probe::{self, Step, Work},
 };
-use crate::{persist::StateStore, secrets::MasterKey};
+use crate::{
+    permissions::{Permission, Role},
+    persist::StateStore,
+    secrets::MasterKey,
+};
 
 pub(super) type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
 
@@ -68,11 +72,10 @@ impl Fixture {
         )
         .with_max_failures(max_failures);
         for &name in names {
-            store.create(NewAccount::new(
-                name.to_owned(),
-                password(name),
-                "viewer".to_owned(),
-            ))?;
+            store.create(
+                &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+                NewAccount::new(name.to_owned(), password(name), "viewer".to_owned()),
+            )?;
         }
         Ok(Self {
             _temp: temp,

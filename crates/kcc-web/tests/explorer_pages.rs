@@ -64,6 +64,16 @@ mod guards;
     reason = "test code is not rendered API documentation"
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "explorer_pages/job_owners.rs"]
+mod job_owners;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "explorer_pages/persists.rs"]
 mod persists;
 

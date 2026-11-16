@@ -20,6 +20,7 @@ use std::{
 
 use kcc_app::{
     accounts::{AccountStore, Authentication, Clock, NewAccount, SystemClock},
+    permissions::{Permission, Role},
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
 };
@@ -98,16 +99,22 @@ fn accounts(env: &Env) -> Result<AccountStore, Box<dyn Error>> {
 
 fn seed(env: &Env) -> TestResult {
     let store = accounts(env)?;
-    store.create(NewAccount::new(
-        "tester".to_owned(),
-        SecretString::from("tester original passphrase"),
-        "admin".to_owned(),
-    ))?;
-    store.create(NewAccount::new(
-        "alice".to_owned(),
-        SecretString::from("alice original passphrase"),
-        "viewer".to_owned(),
-    ))?;
+    store.create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "tester".to_owned(),
+            SecretString::from("tester original passphrase"),
+            "admin".to_owned(),
+        ),
+    )?;
+    store.create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "alice".to_owned(),
+            SecretString::from("alice original passphrase"),
+            "viewer".to_owned(),
+        ),
+    )?;
     Ok(())
 }
 

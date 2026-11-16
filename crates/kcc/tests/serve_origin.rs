@@ -22,6 +22,7 @@ use std::{
 
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
+    permissions::{Permission, Role},
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
 };
@@ -90,11 +91,14 @@ impl Fixture {
             Duration::from_mins(15),
             Arc::new(SystemClock::default()),
         );
-        accounts.create(NewAccount::new(
-            USERNAME.to_owned(),
-            SecretString::from(PASSWORD),
-            "admin".to_owned(),
-        ))?;
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(
+                USERNAME.to_owned(),
+                SecretString::from(PASSWORD),
+                "admin".to_owned(),
+            ),
+        )?;
         let key_path = directory.path().join("master.key");
         write_master_key(&key_path)?;
         let port = reserve_port()?;

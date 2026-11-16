@@ -171,10 +171,12 @@ pub(crate) async fn start(
     .await;
     match started {
         Ok(id) => {
-            state
-                .advanced()
-                .feeds()
-                .follow(Arc::clone(&jobs), events, id.clone());
+            state.advanced().feeds().follow(
+                Arc::clone(&jobs),
+                events,
+                id.clone(),
+                user.username().to_owned(),
+            );
             audited.append(&state, &user, "started").await;
             Ok(JobPanel::new(locale, &router, id)
                 .titled(tool.label())

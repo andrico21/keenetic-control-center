@@ -126,35 +126,6 @@ impl Admin {
     }
 }
 
-/// Whether `actor` holds every permission of `target` and covers its whole router
-/// scope, so granting or managing `target` cannot raise anyone above `actor`.
-pub(crate) fn dominates(actor: &Role, target: &Role) -> bool {
-    let everything = [String::from("*")];
-    let scope = if target.router_scope.is_empty() {
-        &everything[..]
-    } else {
-        &*target.router_scope
-    };
-    target
-        .permissions
-        .iter()
-        .all(|permission| actor.grants(*permission))
-        && scope.iter().all(|glob| covered(&actor.router_scope, glob))
-}
-
-/// Whether every router `glob` can match is matched by `scope`: a conservative check
-/// on the kit's `*`-only globs (equal globs, `*`, or a literal prefix followed by `*`).
-fn covered(scope: &[String], glob: &str) -> bool {
-    scope.is_empty()
-        || scope.iter().any(|outer| {
-            outer == "*"
-                || outer == glob
-                || outer
-                    .strip_suffix('*')
-                    .is_some_and(|prefix| !prefix.contains('*') && glob.starts_with(prefix))
-        })
-}
-
 /// Whether `glob` is a router-scope glob under rmcp-server-kit's rules for router ids:
 /// lowercase letters, digits, `-` and the `*` wildcard only (no `?` or `[...]`).
 pub(crate) fn valid_glob(glob: &str) -> bool {
@@ -192,7 +163,7 @@ pub(crate) fn ordered(roles: &[Role]) -> Vec<Role> {
 pub(crate) fn roles_for(roles: &[Role], actor: &Role) -> Vec<Role> {
     ordered(roles)
         .into_iter()
-        .filter(|role| dominates(actor, role))
+        .filter(|role| actor.dominates(role))
         .collect()
 }
 

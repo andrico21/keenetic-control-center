@@ -71,3 +71,9 @@
 ## [2026-11-16] Todo 25 (out of scope, not fixed)
 - CLI `scoped_role` (crates/kcc/src/cli/preset/manage.rs) narrows the role to the registered routers the principal sees; when it sees NONE, `Role.router_scope` is empty, which `scope_matches` reads as "every router". A scoped CLI principal that sees no registered router then gets store-level access to presets of every router (show/delete are still caught by `visible()`, capture-replace is not). Needs a "matches nothing" scope representation.
 - `PresetStore::load_for_apply` and `get_for_apply` are identical duplicates.
+
+## [2026-11-16] Todo 26 (out of scope, not fixed)
+- CLI `apikey revoke` still lacks the Web's `manages` (dominance) check (F-06 impact text; the binding fix covers create/add only).
+- MCP job tools (`kcc-mcp/src/generic/fleet.rs` get/cancel by id) have no owner check; random ids now make enumeration infeasible.
+- golden36-net/capture.sh route parser stops at the first `#[cfg(test)]` in a file, so advanced.rs routes show as STALE-SKIP since 187d183.
+- `kcc-app/src/accounts.rs` grew 387 -> 396 pure LOC (already over the ceiling).

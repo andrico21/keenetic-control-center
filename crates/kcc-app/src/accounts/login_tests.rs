@@ -261,11 +261,10 @@ fn a_reset_during_a_password_check_is_kept() -> TestResult {
     let _turn = turn();
     let _slots = slots()?;
     let fixture = Fixture::new(5, &["alice"])?;
-    fixture.store().create(NewAccount::new(
-        "root".to_owned(),
-        password("root"),
-        "admin".to_owned(),
-    ))?;
+    fixture.store().create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new("root".to_owned(), password("root"), "admin".to_owned()),
+    )?;
     let admin = Role::new(
         "admin".to_owned(),
         [Permission::ManageUsers],

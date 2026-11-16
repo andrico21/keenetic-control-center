@@ -67,6 +67,8 @@ mod private_output;
 mod rci_transport;
 #[path = "cli/reveal.rs"]
 mod reveal;
+#[path = "cli/role_dominance.rs"]
+mod role_dominance;
 #[path = "cli/router_credentials.rs"]
 mod router_credentials;
 #[path = "cli/router_edits.rs"]

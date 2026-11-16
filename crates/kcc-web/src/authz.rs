@@ -1,5 +1,7 @@
 //! Authenticated-session extraction and route-table authorization.
 
+mod router_segment;
+
 use axum::{
     extract::{FromRequestParts, Request, State},
     http::{Method, StatusCode, request::Parts},
@@ -13,6 +15,7 @@ use kcc_app::{
 use kcc_i18n::locale::Locale;
 use sha2::{Digest as _, Sha256};
 
+use self::router_segment::{RouterSegment, router_scope};
 use crate::{
     WebState,
     errors::{self, Kind},
@@ -229,10 +232,13 @@ pub(crate) async fn authorization_middleware(
 pub(crate) fn permits(role: &Role, path: &str) -> bool {
     let requirement = requirement(path);
     role.grants(requirement.permission)
-        && requirement
-            .router
-            .as_ref()
-            .is_none_or(|router| registry::authorize(role, requirement.permission, router).is_ok())
+        && match &requirement.router {
+            None => true,
+            Some(RouterSegment::Id(router)) => {
+                registry::authorize(role, requirement.permission, router).is_ok()
+            }
+            Some(RouterSegment::Undecodable) => false,
+        }
 }
 
 /// One route-table authorization decision.
@@ -241,7 +247,7 @@ struct Requirement {
     /// Capability required by the route family.
     permission: Permission,
     /// Router path parameter when present.
-    router: Option<String>,
+    router: Option<RouterSegment>,
 }
 
 /// Maps current and planned Web UI route families to application permissions.
@@ -261,23 +267,6 @@ fn requirement(path: &str) -> Requirement {
         _ => Permission::Read,
     };
     Requirement { permission, router }
-}
-
-/// Extracts the router id from the `/ui/r/{router}/...` and `/ui/sse/r/{router}/...`
-/// route families.
-fn router_scope(path: &str) -> Option<String> {
-    let mut segments = path.trim_start_matches('/').split('/');
-    let ((Some("ui"), Some("r"), Some(router), _)
-    | (Some("ui"), Some("sse"), Some("r"), Some(router))) = (
-        segments.next(),
-        segments.next(),
-        segments.next(),
-        segments.next(),
-    )
-    else {
-        return None;
-    };
-    (!router.is_empty()).then(|| router.to_owned())
 }
 
 /// The route family after the router id in `/ui/r/{router}/{section}/...`, such as

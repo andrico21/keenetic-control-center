@@ -24,6 +24,7 @@ use chacha20poly1305::{
 use kcc_app::{
     accounts::{AccountError, AccountStore, Clock, NewAccount, SystemClock, password_params},
     credentials::{CredentialError, CredentialKind, CredentialStore},
+    permissions::{Permission, Role},
     persist::StateStore,
     secrets::{CryptoError, MasterKey},
 };
@@ -72,11 +73,10 @@ impl World {
 
     /// Creates the account `home` with `password`.
     fn create_home(&self, password: &SecretString) -> TestResult {
-        self.accounts.create(NewAccount::new(
-            "home".to_owned(),
-            password.clone(),
-            "admin".to_owned(),
-        ))?;
+        self.accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new("home".to_owned(), password.clone(), "admin".to_owned()),
+        )?;
         Ok(())
     }
 

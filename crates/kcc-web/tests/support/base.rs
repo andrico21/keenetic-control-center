@@ -11,7 +11,7 @@ use core::{
 use kcc_app::{
     accounts::{AccountStore, Clock, NewAccount},
     audit::AuditLog,
-    permissions::Role,
+    permissions::{Permission, Role, RolesDocument, built_in_roles},
     persist::StateStore,
     secrets::MasterKey,
 };
@@ -72,10 +72,26 @@ pub(crate) struct Core {
 }
 
 impl Core {
-    /// A fresh state directory with `accounts`, all signing in with [`PASSWORD`].
-    pub(crate) fn new(clock: Arc<dyn Clock>, accounts: &[Account<'_>]) -> TestResult<Self> {
+    /// A fresh state directory with the custom roles among `roles` in `roles.json` and
+    /// `accounts`, all signing in with [`PASSWORD`].
+    pub(crate) fn new(
+        clock: Arc<dyn Clock>,
+        accounts: &[Account<'_>],
+        roles: &[Role],
+    ) -> TestResult<Self> {
         let directory = TempDir::new()?;
         let state = StateStore::open(&directory.path().join("state"))?;
+        let built_in = built_in_roles();
+        let custom = roles
+            .iter()
+            .filter(|role| !built_in.contains(role))
+            .cloned()
+            .collect::<Vec<_>>();
+        if !custom.is_empty() {
+            let mut document = RolesDocument::default();
+            document.roles = custom;
+            state.write(&document)?;
+        }
         let store = Arc::new(AccountStore::new(
             state.clone(),
             MasterKey::generate()?,
@@ -88,10 +104,13 @@ impl Core {
                 SecretString::from(PASSWORD),
                 (*role).to_owned(),
             );
-            store.create(match locale {
-                Some(tag) => account.with_locale((*tag).to_owned()),
-                None => account,
-            })?;
+            store.create(
+                &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+                match locale {
+                    Some(tag) => account.with_locale((*tag).to_owned()),
+                    None => account,
+                },
+            )?;
         }
         let audit = AuditLog::spawn(&state)?;
         Ok(Self {

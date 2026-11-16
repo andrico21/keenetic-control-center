@@ -177,7 +177,13 @@ globs. Every front end checks the exact permission and router scope before any r
 request, and the change workflow checks again. Raw router answers (explorer, consoles,
 `kcc show`, `kcc rci`, the MCP raw tools) show stored secrets only to a role holding
 RevealSecrets on that router; every other role sees them redacted. A user can grant
-only roles whose permissions they hold, and the last enabled admin can't be removed.
+(to an account or an API key, in the Web UI or the CLI) only roles whose permissions and
+routers they hold; the CLI principal's routers are its role's scope narrowed by `[cli]
+router_scope`. A custom role cannot be deleted while an account or API key holds it, and
+the last enabled admin can't be removed. A background job (a diagnostic, an explorer
+background command, the component commit) can be followed or stopped only by the user
+who started it or a role holding ManageUsers on its router; to anyone else it answers
+like a missing job, and job ids are 128 random bits.
 
 `Migrate` permits planning and reviewing migrations, presets and settings copies. A stored
 preset belongs to the scope of its source router: only a role holding `Migrate` there may

@@ -34,6 +34,7 @@ use crate::{
         gate::allowed,
         outcome::{Failure, Toast, ToastView},
     },
+    system_pages::job_feed::may_act,
 };
 
 /// Prefix of the job kinds the explorer starts; `raw` jobs need `RawRci` to stop.
@@ -115,7 +116,7 @@ pub(crate) async fn start(
         tracing::warn!(%error, "explorer job did not start");
         failed(keys::WEB_EXPLORER_FAILED, "failed")
     })?;
-    state.advanced().keep_output(&id, slot);
+    state.advanced().keep_output(&id, user.username(), slot);
     Ok(JobPanel {
         stream: format!("/ui/sse/r/{router}/jobs/{id}"),
         cancel: (!raw || allowed(user, router, &[Permission::RawRci]))
@@ -187,7 +188,7 @@ pub(crate) async fn cancel(
     if let Err(refusal) = context::target(&state, &user, &router).await {
         return refusal.status();
     }
-    let Some(record) = explorer_job(&jobs, &router, &job) else {
+    let Some(record) = explorer_job(&state, &user, &router, &job) else {
         return StatusCode::NOT_FOUND.into_response();
     };
     let raw = record.kind.starts_with("explorer.raw.");
@@ -211,9 +212,19 @@ pub(crate) async fn cancel(
     errors::render(&ToastView::new(&toast, user.locale()))
 }
 
-/// The explorer job `job` of `router`, if it exists.
-pub(crate) fn explorer_job(jobs: &JobRunner, router: &str, job: &str) -> Option<JobRecord> {
-    jobs.get(job).ok().filter(|record| {
+/// The explorer job `job` of `router`, if it exists and `user` started it or may act on
+/// every job of the router ([`may_act`]); any other job answers like a missing one.
+pub(crate) fn explorer_job(
+    state: &WebState,
+    user: &CurrentUser,
+    router: &str,
+    job: &str,
+) -> Option<JobRecord> {
+    let owner = state.advanced().output_owner(job);
+    if !may_act(user, router, owner.as_deref()) {
+        return None;
+    }
+    state.advanced().jobs()?.get(job).ok().filter(|record| {
         record.router.as_deref() == Some(router) && record.kind.starts_with(KIND_PREFIX)
     })
 }

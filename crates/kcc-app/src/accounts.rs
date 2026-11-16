@@ -15,7 +15,10 @@ use serde::{Deserialize, Serialize};
 
 use self::standing::{AccountStanding, PasswordFingerprint};
 use crate::{
-    permissions::Role,
+    permissions::{
+        Role,
+        assignment::{GrantError, RoleGrant},
+    },
     persist::{Edit, Migration, StateDoc, StateError, StateStore},
     secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
@@ -293,6 +296,9 @@ pub enum AccountError {
     /// Only another enabled administrator may reset an administrator account.
     #[error("an administrator password can be reset only by another enabled administrator")]
     AdminResetRequiresAdmin,
+    /// The role cannot be granted by the acting role.
+    #[error(transparent)]
+    Grant(#[from] GrantError),
 }
 
 /// UI account service using the state store's locking and atomic writes.
@@ -338,13 +344,18 @@ impl AccountStore {
         self
     }
 
-    /// Creates and persists a UI account.
+    /// Creates and persists a UI account whose role `actor` grants.
+    ///
+    /// The role must exist and `actor` must dominate it ([`Role::dominates`]); the roles
+    /// lock is held until the account is stored.
     ///
     /// # Errors
     ///
-    /// Returns a policy, hashing, encryption, duplicate, or state error.
+    /// Returns [`AccountError::Grant`] for an unknown or undominated role, or a policy,
+    /// hashing, encryption, duplicate, or state error.
     #[inline]
-    pub fn create(&self, new: NewAccount) -> Result<(), AccountError> {
+    pub fn create(&self, actor: &Role, new: NewAccount) -> Result<(), AccountError> {
+        let _grant = RoleGrant::by(&self.state, actor, &new.role)?;
         validate_username(&new.username)?;
         validate_password(&new.username, &new.password)?;
         let hash = hashing::hash(&new.password)?;
@@ -559,18 +570,23 @@ impl AccountStore {
     }
 
     /// Applies one administrative change under the `users.json` lock and returns the
-    /// account as it was before, or `None` when no such account exists.
+    /// account as it was before, or `None` when no such account exists. A role change
+    /// also holds the roles lock and requires the role to exist.
     ///
     /// # Errors
     ///
     /// Returns [`AccountError::LastAdmin`] when the change would leave no enabled
-    /// `admin` account, or a state error.
+    /// `admin` account, [`AccountError::Grant`] for an unknown role, or a state error.
     #[inline]
     pub fn administer(
         &self,
         username: &str,
         change: &AccountChange,
     ) -> Result<Option<AccountSummary>, AccountError> {
+        let _grant = match change {
+            AccountChange::Role(role) => Some(RoleGrant::existing(&self.state, role)?),
+            AccountChange::Disabled(_) | AccountChange::Unlock | AccountChange::Delete => None,
+        };
         self.state.update(|document: &mut UsersDocument| {
             let admins = document
                 .users

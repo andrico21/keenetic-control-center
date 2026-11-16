@@ -117,6 +117,9 @@ The first release, `0.1.0`, is in preparation and contains:
 - **Router URLs with an IPv6 literal work.** A router URL such as `http://[fd00::1]` was
   always refused as outside the outbound policy, because kcc looked the bracketed text up
   as a host name. A literal IPv4 or IPv6 address is now checked as an address.
+- **Unused VPN-server secret gate removed**: `kcc_domain::vpn_servers::secrets::RevealSecrets`
+  (and its `read_stored`) had no caller, recorded no audit entry and did not bind its
+  router-scope check to the router it read.
 - **Unused library entry points removed**: `kcc_migrate::source::MigrationSource`,
   `LiveRouterProfile`, `load_source` and `SourceConfig::from_live`,
   `kcc_migrate::inventory::InventoryClient::connect` and `kcc_rci::RciClient::connect`.
@@ -587,6 +590,32 @@ The first release, `0.1.0`, is in preparation and contains:
   names a new key in an existing directory (for example `$HOME`), that directory keeps its
   mode; only directories kcc creates for the key are made 0700. kcc used to change an
   existing parent to 0700, or fail to start when it did not own it.
+- **Background jobs belong to the user who started them.** A diagnostic, an explorer
+  background command or the component commit can be followed (its live stream) or
+  stopped only by the user who started it, or by a role holding `ManageUsers` on the
+  router; to anyone else its stream and Stop answer HTTP 404, exactly like a job that
+  does not exist. Any reader of the router could watch or stop another user's job
+  before. Job ids are now `job-` and 32 hex digits drawn from the operating system's
+  random number generator instead of the time, the process id and a counter, so one's
+  own job no longer reveals the ids of the others.
+- **The CLI grants only roles the CLI principal covers, like the Web UI.** `kcc apikey
+  create` and `kcc user add` (and `kcc admin init`) refuse a role whose permissions or
+  routers the `[cli] role`, narrowed by `[cli] router_scope`, does not hold: exit 10,
+  audited as `forbidden`, nothing stored. The check now lives in
+  `kcc_app::api_keys::create_api_key` and `AccountStore::create`, which take the acting
+  role and are shared by both surfaces. The CLI used to check only that the role
+  existed. An unknown role is still reported as not found (exit 2), now after the
+  password is read.
+- **A role cannot be deleted while it is being granted.** Deleting a custom role counts
+  its holders under the `users.json` and `api_keys.json` locks while it holds the
+  `roles.json` lock, and creating an account or API key or changing an account's role
+  holds the `roles.json` lock from its role check to its write. A `kcc apikey create` or
+  `kcc user add` racing a role deletion in the Web UI could leave a key or account bound
+  to a deleted role before.
+- **Route-table router scope uses the decoded router id.** The Web UI's route table
+  checked a role's router scope against the raw, percent-encoded path segment while the
+  pages used the decoded id; both now use the decoded id (`/ui/r/%68ome/...` is `home`),
+  and a segment that does not decode to UTF-8 is refused.
 
 ### Upgrade notes
 

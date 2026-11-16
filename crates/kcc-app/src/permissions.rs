@@ -10,6 +10,8 @@ use serde_json::Value;
 
 use crate::persist::{Migration, StateDoc, StateError, StateStore};
 
+pub mod assignment;
+
 /// A capability that can be granted to a role.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -86,6 +88,40 @@ impl Role {
     #[must_use]
     pub fn grants(&self, permission: Permission) -> bool {
         self.permissions.contains(&permission)
+    }
+
+    /// Whether this role holds every permission of `target` and covers its whole router
+    /// scope, so granting or managing `target` cannot raise anyone above this role.
+    #[inline]
+    #[must_use]
+    pub fn dominates(&self, target: &Self) -> bool {
+        let everything = [String::from("*")];
+        let scope = if target.router_scope.is_empty() {
+            &everything[..]
+        } else {
+            &*target.router_scope
+        };
+        target
+            .permissions
+            .iter()
+            .all(|permission| self.grants(*permission))
+            && scope.iter().all(|glob| self.covers(glob))
+    }
+
+    /// Whether every router `glob` can match is matched by this role's scope: a
+    /// conservative check on the kit's `*`-only globs (equal globs, `*`, or a literal
+    /// prefix followed by `*`). An empty scope covers every router.
+    #[inline]
+    #[must_use]
+    pub fn covers(&self, glob: &str) -> bool {
+        self.router_scope.is_empty()
+            || self.router_scope.iter().any(|outer| {
+                outer == "*"
+                    || outer == glob
+                    || outer
+                        .strip_suffix('*')
+                        .is_some_and(|prefix| !prefix.contains('*') && glob.starts_with(prefix))
+            })
     }
 }
 

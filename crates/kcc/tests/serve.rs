@@ -23,6 +23,7 @@ use std::{
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
     api_keys::{create_api_key, expose_created_key},
+    permissions::{Permission, Role},
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
 };
@@ -184,14 +185,29 @@ impl Fixture {
             Duration::from_mins(15),
             Arc::new(SystemClock::default()),
         );
-        accounts.create(NewAccount::new(
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(
+                "viewer".to_owned(),
+                SecretString::from("viewer-password-123".to_owned()),
+                "viewer".to_owned(),
+            ),
+        )?;
+        let viewer = create_api_key(
+            &state,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            "viewer-key".to_owned(),
             "viewer".to_owned(),
-            SecretString::from("viewer-password-123".to_owned()),
-            "viewer".to_owned(),
-        ))?;
-        let viewer = create_api_key(&state, "viewer-key".to_owned(), "viewer".to_owned(), 1)?;
+            1,
+        )?;
         let viewer_key = expose_created_key(&viewer).to_owned();
-        let operator = create_api_key(&state, "operator-key".to_owned(), "operator".to_owned(), 2)?;
+        let operator = create_api_key(
+            &state,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            "operator-key".to_owned(),
+            "operator".to_owned(),
+            2,
+        )?;
         let operator_key = expose_created_key(&operator).to_owned();
         let key_path = directory.path().join("master.key");
         write_master_key(&key_path)?;

@@ -74,6 +74,39 @@ impl Principal {
         self.role.grants(permission)
     }
 
+    /// The authority this invocation grants roles with: the role's permissions over the
+    /// routers that both the role's scope and `[cli] router_scope` cover.
+    ///
+    /// # Errors
+    ///
+    /// Returns the policy refusal (exit 10) when the two scopes share no router.
+    pub(crate) fn authority(&self) -> Outcome<Role> {
+        if self.scope.is_empty() {
+            return Ok(self.role.clone());
+        }
+        let cli = Role::new(String::new(), [], self.scope.clone());
+        let scope = self
+            .scope
+            .iter()
+            .filter(|glob| self.role.covers(glob))
+            .chain(
+                self.role
+                    .router_scope
+                    .iter()
+                    .filter(|glob| cli.covers(glob)),
+            )
+            .cloned()
+            .collect::<Vec<_>>();
+        if scope.is_empty() {
+            return Err(denied("-"));
+        }
+        Ok(Role::new(
+            self.role.name.clone(),
+            self.role.permissions.iter().copied(),
+            scope,
+        ))
+    }
+
     /// Requires `permission` without a router.
     ///
     /// # Errors

@@ -3,15 +3,15 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::{
-    api_keys::{ApiKeysDocument, create_api_key, expose_created_key},
+    api_keys::{ApiKeyError, ApiKeysDocument, create_api_key, expose_created_key},
     audit::{AuditError, verify_chain},
-    permissions::Permission,
+    permissions::{Permission, assignment::GrantError},
 };
 use kcc_i18n::keys;
 use serde_json::json;
 
 use super::{
-    accounts::known_role,
+    accounts::refused_grant,
     args_admin::{ApiKeyCommand, AuditCommand},
     context::Ctx,
     exit::{Exit, Failure, Outcome},
@@ -29,8 +29,17 @@ pub(crate) async fn api_key(ctx: &Ctx, command: ApiKeyCommand) -> Outcome {
     let out = ctx.out();
     match command {
         ApiKeyCommand::Create { name, role } => {
-            known_role(ctx, &role)?;
-            let created = create_api_key(ctx.state(), name.clone(), role.clone(), now())?;
+            let actor = ctx.principal().authority()?;
+            let created =
+                match create_api_key(ctx.state(), &actor, name.clone(), role.clone(), now()) {
+                    Err(ApiKeyError::Grant(GrantError::Forbidden)) => {
+                        let params = json!({ "name": name, "role": role });
+                        return Err(
+                            refused_grant(ctx, &services, "cli.apikey_create", params).await
+                        );
+                    }
+                    result => result?,
+                };
             ctx.audit(
                 &services,
                 "cli.apikey_create",

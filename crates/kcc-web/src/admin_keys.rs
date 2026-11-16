@@ -19,7 +19,7 @@ use axum::{
 };
 use kcc_app::{
     api_keys::{ApiKeyError, ApiKeysDocument, CreatedApiKey, create_api_key, expose_created_key},
-    permissions::{Permission, Role},
+    permissions::{Permission, Role, assignment::GrantError},
     persist::StateStore,
 };
 use kcc_i18n::{bundle::tr, keys};
@@ -30,8 +30,8 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ListQuery, NameQuery, Tab, TabLink, Timestamp, dominates, done_toasts, forbidden,
-        named, record, role_label, roles_for, tabs, unavailable,
+        Change, ListQuery, NameQuery, Tab, TabLink, Timestamp, done_toasts, forbidden, named,
+        record, role_label, roles_for, tabs, unavailable,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
@@ -205,29 +205,31 @@ pub(crate) async fn create(
         dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_NAME, None);
         return respond::unprocessable(&dialog);
     }
-    let Some(role) = state.role(&form.role) else {
-        dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
-        return respond::unprocessable(&dialog);
-    };
-    if !dominates(user.role(), &role) {
-        let change = Change::refused("admin.api_key_create", &form.name, "forbidden");
-        return forbidden(&state, &user, change).await;
-    }
     let store = admin.state().clone();
     let now = state.unix_seconds();
     let name = form.name.clone();
-    let role_name = role.name.clone();
-    let created = match spawn_blocking(move || create_api_key(&store, name, role_name, now)).await {
-        Ok(Ok(created)) => created,
-        Ok(Err(ApiKeyError::DuplicateName)) => {
-            dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXISTS, None);
-            return respond::unprocessable(&dialog);
-        }
-        Ok(Err(error)) => return internal(&error),
-        Err(error) => return internal(&error),
-    };
+    let role_name = form.role.clone();
+    let actor = user.role().clone();
+    let created =
+        match spawn_blocking(move || create_api_key(&store, &actor, name, role_name, now)).await {
+            Ok(Ok(created)) => created,
+            Ok(Err(ApiKeyError::Grant(GrantError::UnknownRole { name: _ }))) => {
+                dialog.role_error = tr(locale, keys::WEB_ADMIN_ERROR_ROLE, None);
+                return respond::unprocessable(&dialog);
+            }
+            Ok(Err(ApiKeyError::Grant(GrantError::Forbidden))) => {
+                let change = Change::refused("admin.api_key_create", &form.name, "forbidden");
+                return forbidden(&state, &user, change).await;
+            }
+            Ok(Err(ApiKeyError::DuplicateName)) => {
+                dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXISTS, None);
+                return respond::unprocessable(&dialog);
+            }
+            Ok(Err(error)) => return internal(&error),
+            Err(error) => return internal(&error),
+        };
     let warning = admin.reload_keys().await;
-    let params = json!({ "role": role.name });
+    let params = json!({ "role": form.role });
     record(
         &state,
         &user,
@@ -343,7 +345,7 @@ fn manages(state: &WebState, actor: &Role, role: &str) -> bool {
     let target = state
         .role(role)
         .unwrap_or_else(|| Role::new(String::new(), Permission::ALL, vec!["*".to_owned()]));
-    dominates(actor, &target)
+    actor.dominates(&target)
 }
 
 /// The stored keys, read off the async executor.

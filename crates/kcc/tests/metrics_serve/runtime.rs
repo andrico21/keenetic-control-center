@@ -6,6 +6,7 @@ use std::{fs, path::Path, process::Command, sync::Arc, time::Instant};
 
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
+    permissions::{Permission, Role},
     persist::StateStore,
     registry::{ManagedRouterProfile, RoutersDocument},
     secrets::MasterKey,
@@ -52,11 +53,14 @@ async fn start(update: Option<FirmwareUpdate>) -> Result<Running, Box<dyn Error>
         Duration::from_mins(15),
         Arc::new(SystemClock::default()),
     )
-    .create(NewAccount::new(
-        "alice".to_owned(),
-        SecretString::from("correct horse battery staple"),
-        "admin".to_owned(),
-    ))?;
+    .create(
+        &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+        NewAccount::new(
+            "alice".to_owned(),
+            SecretString::from("correct horse battery staple"),
+            "admin".to_owned(),
+        ),
+    )?;
     let key = directory.path().join("master.key");
     write_master_key(&key)?;
     let (port, metrics_port) = (reserve_port()?, reserve_port()?);

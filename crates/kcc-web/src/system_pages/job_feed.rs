@@ -8,11 +8,16 @@
 use alloc::{collections::VecDeque, sync::Arc};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
-use kcc_app::jobs::{JobEvent, JobProgress, JobRunner, JobStatus};
+use kcc_app::{
+    jobs::{JobEvent, JobProgress, JobRunner, JobStatus},
+    permissions::Permission,
+};
 use tokio::sync::{
     broadcast::{Receiver, error::RecvError},
     watch,
 };
+
+use crate::{authz::CurrentUser, page_kit::gate::allowed};
 
 /// Jobs whose progress is kept; the oldest is forgotten first.
 const KEPT_JOBS: usize = 32;
@@ -43,8 +48,8 @@ impl JobView {
 
 /// The kept progress of recent jobs, by id.
 pub(crate) struct JobFeeds {
-    /// Job id and its progress, oldest first.
-    feeds: Mutex<VecDeque<(String, watch::Receiver<JobView>)>>,
+    /// Job id, the username that started it and its progress, oldest first.
+    feeds: Mutex<VecDeque<(String, String, watch::Receiver<JobView>)>>,
 }
 
 impl JobFeeds {
@@ -55,9 +60,15 @@ impl JobFeeds {
         }
     }
 
-    /// Keeps the progress of job `id` of `jobs` from `events`, a subscription taken before
-    /// the job started, until the job ends.
-    pub(crate) fn follow(&self, jobs: Arc<JobRunner>, events: Receiver<JobEvent>, id: String) {
+    /// Keeps the progress of job `id` of `jobs`, started by `owner`, from `events`, a
+    /// subscription taken before the job started, until the job ends.
+    pub(crate) fn follow(
+        &self,
+        jobs: Arc<JobRunner>,
+        events: Receiver<JobEvent>,
+        id: String,
+        owner: String,
+    ) {
         let (sender, receiver) = watch::channel(JobView {
             status: JobStatus::Running,
             details: Vec::new(),
@@ -66,7 +77,7 @@ impl JobFeeds {
         if feeds.len() >= KEPT_JOBS {
             drop(feeds.pop_front());
         }
-        feeds.push_back((id.clone(), receiver));
+        feeds.push_back((id.clone(), owner, receiver));
         drop(feeds);
         drop(tokio::spawn(collect(jobs, events, id, sender)));
     }
@@ -75,9 +86,24 @@ impl JobFeeds {
     pub(crate) fn get(&self, id: &str) -> Option<watch::Receiver<JobView>> {
         lock(&self.feeds)
             .iter()
-            .find(|(job, _)| job == id)
-            .map(|(_, feed)| feed.clone())
+            .find(|(job, _, _)| job == id)
+            .map(|(_, _, feed)| feed.clone())
     }
+
+    /// The username that started job `id`, when it is kept.
+    pub(crate) fn owner(&self, id: &str) -> Option<String> {
+        lock(&self.feeds)
+            .iter()
+            .find(|(job, _, _)| job == id)
+            .map(|(_, owner, _)| owner.clone())
+    }
+}
+
+/// Whether `user` may follow or stop a job of `router` that `owner` started: its owner
+/// may, and so may a user who manages users on the router. A job whose owner is no
+/// longer known is left to the latter.
+pub(crate) fn may_act(user: &CurrentUser, router: &str, owner: Option<&str>) -> bool {
+    owner == Some(user.username()) || allowed(user, router, &[Permission::ManageUsers])
 }
 
 /// Copies the progress of job `id` from `events` into `sender` until the job ends.

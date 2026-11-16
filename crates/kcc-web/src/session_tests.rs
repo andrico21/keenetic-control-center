@@ -81,11 +81,10 @@ async fn sessions_end_when_their_account_no_longer_backs_them() -> Result<(), Bo
     let names = ["kept", "deleted", "promoted", "unread"];
     for name in names {
         let password = SecretString::from(["session", name, "passphrase"].join("-"));
-        accounts.create(NewAccount::new(
-            name.to_owned(),
-            password,
-            "viewer".to_owned(),
-        ))?;
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(name.to_owned(), password, "viewer".to_owned()),
+        )?;
     }
     let store = SessionStore::new(
         Duration::from_hours(1),

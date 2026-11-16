@@ -11,7 +11,7 @@ extern crate alloc;
 
 mod table;
 
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::BTreeSet;
 use core::{error::Error, fmt};
 
 use askama::Template;
@@ -23,9 +23,11 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::{
-    accounts::UsersDocument,
-    api_keys::ApiKeysDocument,
-    permissions::{Permission, Role, RolesDocument, load_roles},
+    permissions::{
+        Permission, Role, RolesDocument,
+        assignment::{holder_counts, remove_unheld},
+        load_roles,
+    },
     persist::{StateError, StateStore},
 };
 use kcc_i18n::{
@@ -40,8 +42,8 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ListQuery, NameQuery, Tab, TabLink, dominates, done_toasts, forbidden, is_built_in,
-        named, ordered, record, role_label, tabs, unavailable, valid_glob,
+        Change, ListQuery, NameQuery, Tab, TabLink, done_toasts, forbidden, is_built_in, named,
+        ordered, record, role_label, tabs, unavailable, valid_glob,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
@@ -293,10 +295,10 @@ pub(crate) async fn page(
 
 /// `GET /ui/admin/roles/new`: the create dialog.
 pub(crate) async fn new_dialog(user: CurrentUser) -> Response {
-    let scope = if dominates(
-        user.role(),
-        &Role::new(String::new(), [], vec!["*".to_owned()]),
-    ) {
+    let scope = if user
+        .role()
+        .dominates(&Role::new(String::new(), [], vec!["*".to_owned()]))
+    {
         "*".to_owned()
     } else {
         user.role().router_scope.join(", ")
@@ -476,7 +478,7 @@ async fn editable(
     let Some(role) = state.role(name) else {
         return Err(Box::new(StatusCode::NOT_FOUND.into_response()));
     };
-    if is_built_in(name) || user.role().name == name || !dominates(user.role(), &role) {
+    if is_built_in(name) || user.role().name == name || !user.role().dominates(&role) {
         let refusal = forbidden(state, user, Change::refused(action, name, "forbidden")).await;
         return Err(Box::new(refusal));
     }
@@ -523,7 +525,7 @@ async fn validate(
         return Err(Box::new(respond::unprocessable(&page)));
     }
     let role = Role::new(name, permissions, scope);
-    if !dominates(user.role(), &role) {
+    if !user.role().dominates(&role) {
         let action = if existing.is_some() {
             "admin.role_update"
         } else {
@@ -598,7 +600,8 @@ async fn persist(
     }
 }
 
-/// Applies `edit` to the locked `document`; deleting first counts the role's holders.
+/// Applies `edit` to the locked `document`; deleting first counts the role's holders
+/// under the users and API-key locks.
 ///
 /// # Errors
 ///
@@ -628,36 +631,12 @@ fn apply(
             if position(&name).is_none() {
                 return Ok(Persisted::Missing);
             }
-            if holder_counts(store)?
-                .get(&name)
-                .is_some_and(|count| *count > 0)
-            {
+            if !remove_unheld(store, document, &name)? {
                 return Ok(Persisted::InUse);
             }
-            document.roles.retain(|role| role.name != name);
         }
     }
     Ok(Persisted::Done)
-}
-
-/// How many accounts and API keys hold each role.
-///
-/// # Errors
-///
-/// A state error while reading `users.json` or `api_keys.json`.
-fn holder_counts(store: &StateStore) -> Result<BTreeMap<String, usize>, StateError> {
-    let accounts = store.read::<UsersDocument>()?.unwrap_or_default().users;
-    let keys = store.read::<ApiKeysDocument>()?.unwrap_or_default().keys;
-    let mut counts = BTreeMap::new();
-    for role in accounts
-        .into_iter()
-        .map(|account| account.role)
-        .chain(keys.into_iter().map(|key| key.role))
-    {
-        let count: &mut usize = counts.entry(role).or_default();
-        *count = count.saturating_add(1);
-    }
-    Ok(counts)
 }
 
 /// The roles table on `page`, with `toasts`.
@@ -684,7 +663,7 @@ async fn region(
             let holders = counts.get(&role.name).copied().unwrap_or(0);
             let editable = !is_built_in(&role.name)
                 && user.role().name != role.name
-                && dominates(user.role(), role);
+                && user.role().dominates(role);
             RoleRow {
                 label: role_label(locale, &role.name),
                 built_in: is_built_in(&role.name),

@@ -23,7 +23,7 @@ use kcc_app::{
     audit::AuditLog,
     backups::BackupStore,
     credentials::CredentialStore,
-    permissions::{Role, built_in_roles},
+    permissions::{Permission, Role, built_in_roles},
     persist::StateStore,
     poller::Poller,
     registry::{ManagedRouterProfile, RouterRegistry},
@@ -101,11 +101,14 @@ impl Fixture {
             Duration::from_secs(60),
             Arc::<HandClock>::clone(&clock),
         ));
-        accounts.create(NewAccount::new(
-            "viewer".to_owned(),
-            SecretString::from(PASSWORD),
-            "viewer".to_owned(),
-        ))?;
+        accounts.create(
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            NewAccount::new(
+                "viewer".to_owned(),
+                SecretString::from(PASSWORD),
+                "viewer".to_owned(),
+            ),
+        )?;
         let password_file =
             kcc_testkit::write_secret_file(directory.path(), "router-password", DEFAULT_PASSWORD)?;
         let mut outbound = OutboundConfig::default();

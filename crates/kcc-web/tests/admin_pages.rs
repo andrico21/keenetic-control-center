@@ -136,7 +136,11 @@ mod tests {
             roles: Vec<Role>,
             options: &Options,
         ) -> Result<Built, Box<dyn Error + Send + Sync>> {
-            let core = Core::new(Arc::new(Frozen::at(0)), &[(ADMIN, "admin", Some(locale))])?;
+            let core = Core::new(
+                Arc::new(Frozen::at(0)),
+                &[(ADMIN, "admin", Some(locale))],
+                &[],
+            )?;
             if !roles.is_empty() {
                 core.state
                     .update(|document: &mut RolesDocument| document.roles.extend(roles))?;
@@ -173,11 +177,14 @@ mod tests {
 
         /// Adds an account that does not have to change its password.
         fn add_user(&self, name: &str, role: &str) -> Result<(), Box<dyn Error + Send + Sync>> {
-            self.accounts.create(NewAccount::new(
-                name.to_owned(),
-                SecretString::from(PASSWORD),
-                role.to_owned(),
-            ))?;
+            self.accounts.create(
+                &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+                NewAccount::new(
+                    name.to_owned(),
+                    SecretString::from(PASSWORD),
+                    role.to_owned(),
+                ),
+            )?;
             Ok(())
         }
 

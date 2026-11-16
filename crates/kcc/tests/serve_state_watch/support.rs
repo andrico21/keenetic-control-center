@@ -26,6 +26,7 @@ use std::{
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
     api_keys::{create_api_key, expose_created_key},
+    permissions::{Permission, Role},
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
 };
@@ -148,13 +149,22 @@ impl Fixture {
             Arc::new(SystemClock::default()),
         );
         for (name, role) in [("alice", "admin"), ("bob", "operator")] {
-            accounts.create(NewAccount::new(
-                name.to_owned(),
-                SecretString::from(PASSWORD),
-                role.to_owned(),
-            ))?;
+            accounts.create(
+                &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+                NewAccount::new(
+                    name.to_owned(),
+                    SecretString::from(PASSWORD),
+                    role.to_owned(),
+                ),
+            )?;
         }
-        let created = create_api_key(&state, KEY_NAME.to_owned(), "viewer".to_owned(), 1)?;
+        let created = create_api_key(
+            &state,
+            &Role::new("admin".to_owned(), Permission::ALL, vec!["*".to_owned()]),
+            KEY_NAME.to_owned(),
+            "viewer".to_owned(),
+            1,
+        )?;
         let master = directory.path().join("master.key");
         fs::write(&master, [17_u8; 32])?;
         #[cfg(unix)]

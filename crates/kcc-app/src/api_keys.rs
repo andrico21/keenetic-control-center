@@ -6,7 +6,13 @@ use rmcp_server_kit::auth::{ApiKeyEntry, generate_api_key};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 
-use crate::persist::{Migration, StateDoc, StateError, StateStore};
+use crate::{
+    permissions::{
+        Role,
+        assignment::{GrantError, RoleGrant},
+    },
+    persist::{Migration, StateDoc, StateError, StateStore},
+};
 
 /// A persisted API-key record. It contains only the Argon2id hash, never the
 /// plaintext token, and redacts the hash from `Debug` output.
@@ -89,21 +95,30 @@ pub enum ApiKeyError {
     /// A key with the same principal name already exists.
     #[error("API key name already exists")]
     DuplicateName,
+    /// The role cannot be granted by the acting role.
+    #[error(transparent)]
+    Grant(#[from] GrantError),
 }
 
-/// Creates a new API key and persists only its hash and metadata.
+/// Creates a new API key holding `role`, granted by `actor`.
+///
+/// Only the hash and metadata are persisted. `role` must exist and `actor` must dominate
+/// it ([`Role::dominates`]); the roles lock is held until the key is stored.
 ///
 /// # Errors
 ///
-/// Returns a generic generation error, a duplicate-name error, or a state
-/// storage error. No error contains plaintext key material.
+/// Returns [`ApiKeyError::Grant`] for an unknown or undominated role, a generic
+/// generation error, a duplicate-name error, or a state storage error. No error
+/// contains plaintext key material.
 #[inline]
 pub fn create_api_key(
     store: &StateStore,
+    actor: &Role,
     name: String,
     role: String,
     created_at: u64,
 ) -> Result<CreatedApiKey, ApiKeyError> {
+    let _grant = RoleGrant::by(store, actor, &role)?;
     let (plaintext, hash) = generate_api_key().map_err(|_error| ApiKeyError::Generation)?;
     let record = StoredApiKey {
         name,

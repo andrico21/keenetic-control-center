@@ -63,8 +63,8 @@ type OutputSlot = Arc<Mutex<Option<RciBody>>>;
 pub(crate) struct Services {
     /// The last response too large for its page, per session and router.
     responses: Mutex<VecDeque<Stored>>,
-    /// The output slots of recent explorer jobs, by job id.
-    outputs: Mutex<VecDeque<(String, OutputSlot)>>,
+    /// The recent explorer jobs: id, the username that started it and its output slot.
+    outputs: Mutex<VecDeque<(String, String, OutputSlot)>>,
     /// Runs background commands; `None` refuses them with a notice.
     jobs: Option<Arc<JobRunner>>,
     /// The kept progress of the jobs the system pages start.
@@ -127,21 +127,29 @@ impl Services {
             .map(|entry| (Arc::clone(&entry.body), entry.json))
     }
 
-    /// Registers the output slot of job `id`.
-    fn keep_output(&self, id: &str, slot: OutputSlot) {
+    /// Registers job `id`, started by `owner`, and its output slot.
+    fn keep_output(&self, id: &str, owner: &str, slot: OutputSlot) {
         let mut outputs = lock(&self.outputs);
         if outputs.len() >= STORED_OUTPUTS {
             drop(outputs.pop_front());
         }
-        outputs.push_back((id.to_owned(), slot));
+        outputs.push_back((id.to_owned(), owner.to_owned(), slot));
+    }
+
+    /// The username that started explorer job `id`, while it is kept.
+    fn output_owner(&self, id: &str) -> Option<String> {
+        lock(&self.outputs)
+            .iter()
+            .find(|(job, _, _)| job == id)
+            .map(|(_, owner, _)| owner.clone())
     }
 
     /// The router's final answer to job `id`, once it finished.
     fn output(&self, id: &str) -> Option<RciBody> {
         let slot = lock(&self.outputs)
             .iter()
-            .find(|(job, _)| job == id)
-            .map(|(_, slot)| Arc::clone(slot))?;
+            .find(|(job, _, _)| job == id)
+            .map(|(_, _, slot)| Arc::clone(slot))?;
         lock(&slot).clone()
     }
 }

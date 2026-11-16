@@ -281,7 +281,7 @@ impl JobRunner {
         finished_retention: Duration,
         clock: Arc<dyn Clock>,
     ) -> Result<Arc<Self>, JobError> {
-        let ids = JobIdAllocator::system()?;
+        let ids = JobIdAllocator::system();
         Self::open_with_ids(state, registry, audit, finished_retention, clock, ids).await
     }
 
@@ -391,7 +391,8 @@ impl JobRunner {
     /// # Errors
     ///
     /// Returns [`JobError::RouterBusy`] for a second simultaneous write job on one router,
-    /// or state I/O errors while persisting the initial record.
+    /// [`JobError::IdUnavailable`] when no random id could be drawn, or state I/O errors
+    /// while persisting the initial record.
     // cancel-safe: ownership and map reservations roll back on every drop before the task is spawned.
     pub async fn start<F, Fut>(
         self: &Arc<Self>,
@@ -404,7 +405,7 @@ impl JobRunner {
         F: FnOnce(JobContext) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(), String>> + Send + 'static,
     {
-        let id = self.ids.allocate(self.clock.unix_seconds());
+        let id = self.ids.allocate()?;
         let cancellation = CancellationToken::new();
         let mut active = self.active.lock().await;
         let mut write_jobs = self.write_jobs.lock().await;
@@ -766,7 +767,7 @@ mod tests {
             audit.clone(),
             Duration::from_secs(100),
             Arc::clone(&clock),
-            JobIdAllocator::for_test(7, [9; 4]),
+            JobIdAllocator::fixed(),
         )
         .await?;
         let second = JobRunner::open_with_ids(
@@ -775,7 +776,7 @@ mod tests {
             audit,
             Duration::from_secs(100),
             clock,
-            JobIdAllocator::for_test(7, [9; 4]),
+            JobIdAllocator::fixed(),
         )
         .await?;
         let (release, released) = oneshot::channel();

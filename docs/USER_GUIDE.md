@@ -268,7 +268,8 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
 - **Users**: create accounts, change roles, disable, unlock, delete. The last enabled
   admin can't be removed, and nobody can act on their own account here.
 - **Roles**: custom roles with permissions and router-name globs (for example `lab-*`).
-  You can grant only roles whose permissions you hold yourself.
+  You can grant only roles whose permissions and routers you hold yourself (the CLI's
+  `kcc user add` and `kcc apikey create` apply the same rule to the `[cli] role`).
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
   used" column shows the last MCP tool call with the key, recorded at most once a minute.
 - **Audit log**: search, filter and export the hash-chained audit log (ViewAudit).
