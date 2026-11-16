@@ -6,7 +6,7 @@ use kcc_app::{
     permissions::{Permission, Role},
     persist::{StateError, StateStore},
     registry::{RegistryError, authorize},
-    secrets::{CryptoError, MasterKey, SealedSecret},
+    secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
 use kcc_config::config_text::Ast;
 use secrecy::{ExposeSecret as _, SecretString};
@@ -252,7 +252,7 @@ impl PresetStore {
         let record = PresetRecord {
             schema: SCHEMA,
             source_router: preset.source_router().map(str::to_owned),
-            sealed: self.key.seal(&owner(&preset.id), &plaintext)?,
+            sealed: self.key.seal(&Binding::preset(&preset.id), &plaintext)?,
         };
         let bytes = serde_json::to_vec(&record).map_err(|_error| PresetError::Malformed)?;
         let _lock = self.state.lock("presets")?;
@@ -270,7 +270,7 @@ impl PresetStore {
         if record.schema != SCHEMA {
             return Err(PresetError::Malformed);
         }
-        let plaintext = self.key.open(&owner(id), &record.sealed)?;
+        let plaintext = self.key.open(&Binding::preset(id), &record.sealed)?;
         let payload: PresetPayload = serde_json::from_str(plaintext.expose_secret())
             .map_err(|_error| PresetError::Malformed)?;
         if payload.id != id || payload.source.router_id != record.source_router {
@@ -356,11 +356,6 @@ fn source_allowed(role: &Role, source_router: Option<&str>) -> bool {
 fn read_record(path: PathBuf) -> Result<PresetRecord, PresetError> {
     let bytes = fs::read(path).map_err(map_io)?;
     serde_json::from_slice(&bytes).map_err(|_error| PresetError::Malformed)
-}
-
-/// Builds associated data binding ciphertext to one preset id.
-fn owner(id: &str) -> String {
-    format!("preset:{id}")
 }
 
 /// Hides registry authorization detail behind the preset boundary.

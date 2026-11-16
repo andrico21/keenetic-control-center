@@ -1,38 +1,12 @@
 //! One sealed record per credential kind, each bound to its router and kind; password
-//! records keep their original name and associated data.
+//! records keep their original file name.
 
-use std::fs;
+use std::{ffi::OsStr, fs};
 
-use kcc_app::{
-    credentials::{CredentialError, CredentialKind, CredentialStore},
-    secrets::MasterKey,
-};
+use kcc_app::credentials::{CredentialError, CredentialKind};
 use secrecy::{ExposeSecret as _, SecretString};
 
 use super::{Fixture, TestResult};
-
-#[test]
-fn a_password_record_sealed_by_the_key_with_the_router_id_opens() -> TestResult {
-    let fixture = Fixture::new()?;
-    let key = MasterKey::generate()?;
-    let credentials = CredentialStore::new(fixture.state, key.duplicate());
-    let password = SecretString::from(["existing", "-record"].concat());
-    let record = serde_json::json!({ "schema": 1_u32, "sealed": key.seal("home", &password)? });
-    let path = credentials.sealed_path("home", CredentialKind::Password)?;
-    fs::write(&path, serde_json::to_vec_pretty(&record)?)?;
-
-    assert_eq!(
-        path.file_name().and_then(|name| name.to_str()),
-        Some("home.sealed")
-    );
-    assert_eq!(
-        credentials
-            .open("home", CredentialKind::Password)?
-            .expose_secret(),
-        password.expose_secret()
-    );
-    Ok(())
-}
 
 #[test]
 fn each_kind_is_its_own_record_bound_to_its_kind() -> TestResult {
@@ -52,25 +26,30 @@ fn each_kind_is_its_own_record_bound_to_its_kind() -> TestResult {
             format!("secret-{}", kind.audit_name())
         );
     }
-    let names = [
-        store.sealed_path("home", CredentialKind::Token)?,
-        store.sealed_path("home", CredentialKind::ReadPassword)?,
-    ];
-    assert_eq!(
-        names.map(|path| path.file_name().map(ToOwned::to_owned)),
-        [
-            Some("home.token.sealed".into()),
-            Some("home.read.sealed".into())
-        ]
-    );
-    let _: u64 = fs::copy(
-        store.sealed_path("home", CredentialKind::Token)?,
-        store.sealed_path("home", CredentialKind::Password)?,
-    )?;
-    assert!(matches!(
-        store.open("home", CredentialKind::Password),
-        Err(CredentialError::Crypto(_))
-    ));
+    let names = ["home.sealed", "home.token.sealed", "home.read.sealed"];
+    for (kind, name) in CredentialKind::ALL.into_iter().zip(names) {
+        assert_eq!(
+            store.sealed_path("home", kind)?.file_name(),
+            Some(OsStr::new(name))
+        );
+    }
+    for from in CredentialKind::ALL {
+        for to in CredentialKind::ALL.into_iter().filter(|&to| to != from) {
+            let _: u64 = fs::copy(
+                store.sealed_path("home", from)?,
+                store.sealed_path("home", to)?,
+            )?;
+            assert!(
+                matches!(store.open("home", to), Err(CredentialError::Crypto(_))),
+                "{from:?} as {to:?}"
+            );
+            store.store(
+                "home",
+                to,
+                &SecretString::from(format!("secret-{}", to.audit_name())),
+            )?;
+        }
+    }
     Ok(())
 }
 

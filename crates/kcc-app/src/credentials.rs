@@ -1,6 +1,7 @@
 //! Encrypted router credentials managed inside the application state directory.
 
 pub mod rollback;
+pub(crate) mod router_id;
 mod wipe;
 
 use core::fmt;
@@ -13,16 +14,19 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
-use self::wipe::{remove_if_present, secure_remove};
+use self::{
+    router_id::RouterId,
+    wipe::{remove_if_present, secure_remove},
+};
 use crate::{
     persist::{StateError, StateStore, create_private_dir, io_error, write_atomic},
-    secrets::{CryptoError, MasterKey, SealedSecret},
+    secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
 
 /// Directory containing kcc-managed router credential records.
 const CREDENTIALS_DIR: &str = "router-credentials";
-/// Current credential-record schema.
-const SCHEMA: u32 = 1;
+/// Current credential-record schema; records of any other schema are refused.
+const SCHEMA: u32 = 2;
 
 /// A redacted failure from encrypted router credential persistence.
 #[derive(Debug, thiserror::Error)]
@@ -34,7 +38,7 @@ pub enum CredentialError {
     /// Sealing or opening the credential failed.
     #[error("router credential encryption failed")]
     Crypto(#[source] CryptoError),
-    /// The record schema or JSON shape is unsupported.
+    /// The router id is invalid, or the record schema or JSON shape is unsupported.
     #[error("router credential record is invalid")]
     Record,
     /// A crash-leftover plaintext value differs from the committed sealed value.
@@ -75,11 +79,11 @@ pub enum MigrationState {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum CredentialKind {
-    /// Primary management password: `<id>.sealed`, the router id as associated data.
+    /// Primary management password: `<id>.sealed`, bound to `router:<id>`.
     Password,
-    /// Login token: `<id>.token.sealed`, `<id>:token` as associated data.
+    /// Login token: `<id>.token.sealed`, bound to `router:<id>:token`.
     Token,
-    /// Read-only polling password: `<id>.read.sealed`, `<id>:read` as associated data.
+    /// Read-only polling password: `<id>.read.sealed`, bound to `router:<id>:read`.
     ReadPassword,
 }
 
@@ -95,24 +99,6 @@ impl CredentialKind {
             Self::Password => "password",
             Self::Token => "token",
             Self::ReadPassword => "read",
-        }
-    }
-
-    /// The record file name of `router`'s credential of this kind.
-    fn file_name(self, router: &str) -> String {
-        match self {
-            Self::Password => format!("{router}.sealed"),
-            Self::Token => format!("{router}.token.sealed"),
-            Self::ReadPassword => format!("{router}.read.sealed"),
-        }
-    }
-
-    /// The associated data binding a record to `router` and this kind.
-    fn owner(self, router: &str) -> String {
-        match self {
-            Self::Password => router.to_owned(),
-            Self::Token => format!("{router}:token"),
-            Self::ReadPassword => format!("{router}:read"),
         }
     }
 }
@@ -156,7 +142,8 @@ impl CredentialStore {
     /// Atomically seals and replaces one managed router credential of `kind`.
     ///
     /// # Errors
-    /// Returns a typed storage or cryptographic failure.
+    /// Returns [`CredentialError::Record`] for an invalid router id, or a typed storage
+    /// or cryptographic failure.
     #[inline]
     pub fn store(
         &self,
@@ -164,21 +151,25 @@ impl CredentialStore {
         kind: CredentialKind,
         secret: &SecretString,
     ) -> Result<(), CredentialError> {
-        let _lock = self.state.lock(&lock_name(router)?)?;
-        self.store_locked(router, kind, secret)
+        let id = RouterId::parse(router)?;
+        let _lock = self.state.lock(&id.lock_name())?;
+        self.store_locked(id, kind, secret)
     }
 
     /// Opens one managed router credential of `kind` into zeroizing secret memory.
     ///
     /// # Errors
-    /// Returns [`CredentialError::Missing`] or a typed record/cryptographic failure.
+    /// Returns [`CredentialError::Record`] for an invalid router id or a record of
+    /// another schema, [`CredentialError::Missing`], or a typed storage or cryptographic
+    /// failure.
     #[inline]
     pub fn open(
         &self,
         router: &str,
         kind: CredentialKind,
     ) -> Result<SecretString, CredentialError> {
-        let path = self.sealed_path(router, kind)?;
+        let id = RouterId::parse(router)?;
+        let path = self.record_path(id, kind)?;
         let bytes = fs::read(&path).map_err(|source| {
             if source.kind() == io::ErrorKind::NotFound {
                 CredentialError::Missing
@@ -192,7 +183,7 @@ impl CredentialStore {
             return Err(CredentialError::Record);
         }
         self.key
-            .open(&kind.owner(router), &record.sealed)
+            .open(&Binding::router(id, kind), &record.sealed)
             .map_err(Into::into)
     }
 
@@ -200,25 +191,29 @@ impl CredentialStore {
     /// files are accepted.
     ///
     /// # Errors
-    /// Returns a typed storage failure.
+    /// Returns [`CredentialError::Record`] for an invalid router id, or a typed storage
+    /// failure.
     #[inline]
     pub fn remove(&self, router: &str) -> Result<(), CredentialError> {
+        let id = RouterId::parse(router)?;
         CredentialKind::ALL
             .into_iter()
-            .try_for_each(|kind| self.remove_kind(router, kind))
+            .try_for_each(|kind| self.remove_kind(id.as_str(), kind))
     }
 
     /// Removes the managed sealed record of `kind` (for a password, also the legacy
     /// plaintext); a missing file is accepted.
     ///
     /// # Errors
-    /// Returns a typed storage failure.
+    /// Returns [`CredentialError::Record`] for an invalid router id, or a typed storage
+    /// failure.
     #[inline]
     pub fn remove_kind(&self, router: &str, kind: CredentialKind) -> Result<(), CredentialError> {
-        let _lock = self.state.lock(&lock_name(router)?)?;
-        remove_if_present(&self.sealed_path(router, kind)?)?;
+        let id = RouterId::parse(router)?;
+        let _lock = self.state.lock(&id.lock_name())?;
+        remove_if_present(&self.record_path(id, kind)?)?;
         match kind {
-            CredentialKind::Password => remove_if_present(&self.legacy_path(router)?),
+            CredentialKind::Password => remove_if_present(&self.legacy_record_path(id)?),
             CredentialKind::Token | CredentialKind::ReadPassword => Ok(()),
         }
     }
@@ -226,10 +221,11 @@ impl CredentialStore {
     /// Reports whether a sealed credential of `kind` exists.
     ///
     /// # Errors
-    /// Returns a typed storage failure.
+    /// Returns [`CredentialError::Record`] for an invalid router id, or a typed storage
+    /// failure.
     #[inline]
     pub fn exists(&self, router: &str, kind: CredentialKind) -> Result<bool, CredentialError> {
-        self.sealed_path(router, kind)?
+        self.record_path(RouterId::parse(router)?, kind)?
             .try_exists()
             .map_err(|source| CredentialError::State(io_error(self.state.dir(), source)))
     }
@@ -237,11 +233,13 @@ impl CredentialStore {
     /// Migrates one legacy plaintext credential using seal-verify-remove ordering.
     ///
     /// # Errors
-    /// Leaves plaintext untouched when sealing, opening, comparison, or removal fails.
+    /// Returns [`CredentialError::Record`] for an invalid router id; leaves plaintext
+    /// untouched when sealing, opening, comparison, or removal fails.
     #[inline]
     pub fn migrate(&self, router: &str) -> Result<MigrationState, CredentialError> {
-        let _lock = self.state.lock(&lock_name(router)?)?;
-        let legacy = self.legacy_path(router)?;
+        let id = RouterId::parse(router)?;
+        let _lock = self.state.lock(&id.lock_name())?;
+        let legacy = self.legacy_record_path(id)?;
         let raw = match fs::read_to_string(&legacy) {
             Ok(value) => Zeroizing::new(value),
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
@@ -250,9 +248,9 @@ impl CredentialStore {
             Err(source) => return Err(CredentialError::State(io_error(&legacy, source))),
         };
         let password = SecretString::from(raw.trim_end_matches(['\r', '\n']).to_owned());
-        let recovered = self.sealed_path(router, CredentialKind::Password)?.exists();
+        let recovered = self.record_path(id, CredentialKind::Password)?.exists();
         if !recovered {
-            self.store_locked(router, CredentialKind::Password, &password)?;
+            self.store_locked(id, CredentialKind::Password, &password)?;
         }
         if self.open(router, CredentialKind::Password)?.expose_secret() != password.expose_secret()
         {
@@ -287,7 +285,7 @@ impl CredentialStore {
             let Some(router) = path.file_stem().and_then(|value| value.to_str()) else {
                 continue;
             };
-            if lock_name(router).is_ok() {
+            if RouterId::parse(router).is_ok() {
                 routers.push(router.to_owned());
             }
         }
@@ -310,8 +308,9 @@ impl CredentialStore {
         kind: CredentialKind,
         path: &Path,
     ) -> Result<bool, CredentialError> {
-        Ok(path == self.sealed_path(router, kind)?
-            || (kind == CredentialKind::Password && path == self.legacy_path(router)?))
+        let id = RouterId::parse(router)?;
+        Ok(path == self.record_path(id, kind)?
+            || (kind == CredentialKind::Password && path == self.legacy_record_path(id)?))
     }
 
     /// Returns the managed sealed record path of `router`'s credential of `kind`.
@@ -324,7 +323,7 @@ impl CredentialStore {
         router: &str,
         kind: CredentialKind,
     ) -> Result<PathBuf, CredentialError> {
-        Ok(self.directory()?.join(kind.file_name(router)))
+        self.record_path(RouterId::parse(router)?, kind)
     }
 
     /// Returns the legacy plaintext path for `router`.
@@ -333,7 +332,27 @@ impl CredentialStore {
     /// Returns [`CredentialError::Record`] for an invalid router id.
     #[inline]
     pub fn legacy_path(&self, router: &str) -> Result<PathBuf, CredentialError> {
-        Ok(self.directory()?.join(format!("{router}.password")))
+        self.legacy_record_path(RouterId::parse(router)?)
+    }
+
+    /// The sealed record path of `router`'s credential of `kind`.
+    ///
+    /// # Errors
+    /// Returns a typed storage failure.
+    fn record_path(
+        &self,
+        router: RouterId<'_>,
+        kind: CredentialKind,
+    ) -> Result<PathBuf, CredentialError> {
+        Ok(self.directory()?.join(router.file_name(kind)))
+    }
+
+    /// The legacy plaintext path of `router`.
+    ///
+    /// # Errors
+    /// Returns a typed storage failure.
+    fn legacy_record_path(&self, router: RouterId<'_>) -> Result<PathBuf, CredentialError> {
+        Ok(self.directory()?.join(router.legacy_file_name()))
     }
 
     /// Creates and returns the owner-only managed credential directory.
@@ -352,35 +371,19 @@ impl CredentialStore {
     /// Returns a typed storage or cryptographic failure.
     fn store_locked(
         &self,
-        router: &str,
+        router: RouterId<'_>,
         kind: CredentialKind,
         secret: &SecretString,
     ) -> Result<(), CredentialError> {
         let directory = self.directory()?;
         let record = CredentialRecord {
             schema: SCHEMA,
-            sealed: self.key.seal(&kind.owner(router), secret)?,
+            sealed: self.key.seal(&Binding::router(router, kind), secret)?,
         };
         let mut bytes =
             serde_json::to_vec_pretty(&record).map_err(|_error| CredentialError::Record)?;
         bytes.push(b'\n');
-        write_atomic(&directory, &kind.file_name(router), &bytes)?;
+        write_atomic(&directory, &router.file_name(kind), &bytes)?;
         Ok(())
     }
-}
-
-/// Validates `router` and returns its state-lock name.
-///
-/// # Errors
-/// Returns [`CredentialError::Record`] for an unsafe path component.
-fn lock_name(router: &str) -> Result<String, CredentialError> {
-    if router.is_empty()
-        || router.len() > 32
-        || !router
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-    {
-        return Err(CredentialError::Record);
-    }
-    Ok(format!("credential-{router}"))
 }

@@ -4,7 +4,7 @@
 //!   `preset.json` for a preset run), which never holds a secret.
 //! - `source.sealed` and `passwords.sealed`: the source configuration and the typed
 //!   passwords, sealed with the backup key (XChaCha20-Poly1305, the backups' scheme) under
-//!   the owner names `migration:<id>:source` and `migration:<id>:passwords`, so neither
+//!   the bindings `migration:<id>:source` and `migration:<id>:passwords`, so neither
 //!   opens as a backup nor a backup as one of them.
 //! - `report.json`: the redacted report of the reviewed plan.
 //!
@@ -20,7 +20,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use kcc_app::secrets::{CryptoError, MasterKey, SealedSecret};
+use kcc_app::secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding};
 use secrecy::SecretString;
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
@@ -48,12 +48,12 @@ impl Sealed {
         }
     }
 
-    /// The owner name the part is sealed under.
-    fn owner(self, id: &str) -> String {
+    /// The binding the part of run `id` is sealed under.
+    fn binding(self, id: &str) -> Binding {
         match self {
-            Self::Source => format!("migration:{id}:source"),
-            Self::Passwords => format!("migration:{id}:passwords"),
-            Self::Preset => format!("preset-run:{id}:preset"),
+            Self::Source => Binding::migration_source(id),
+            Self::Passwords => Binding::migration_passwords(id),
+            Self::Preset => Binding::preset_run(id),
         }
     }
 }
@@ -180,7 +180,7 @@ impl Store {
         part: Sealed,
         text: &SecretString,
     ) -> Result<(), StoreError> {
-        let sealed = key.seal(&part.owner(id), text)?;
+        let sealed = key.seal(&part.binding(id), text)?;
         let mut bytes = serde_json::to_vec(&sealed).map_err(|_error| StoreError::Malformed)?;
         bytes.push(b'\n');
         self.write(id, part.file(), &bytes)
@@ -202,7 +202,7 @@ impl Store {
         };
         let sealed: SealedSecret =
             serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed)?;
-        Ok(Some(key.open(&part.owner(id), &sealed)?))
+        Ok(Some(key.open(&part.binding(id), &sealed)?))
     }
 
     /// Writes `value` as JSON to `file` of run `id`, creating its directory.

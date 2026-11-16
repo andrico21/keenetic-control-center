@@ -50,3 +50,11 @@
 - `kcc-web/src/config_page/backup_rows.rs::stamp` still builds `"{minutes} UTC"` in Rust (same W1-13 class, not cited by the finding).
 - `AccountStore::administer`, `set_locale`, `reset_password` still rewrite users.json when the account is missing or the change is refused.
 - Size: `kcc-app/src/accounts.rs` dropped to 383 pure LOC (Argon2 and sign-in moved out) but is still over the ceiling; `kcc-web/src/auth.rs` 551, `admin_shared.rs` 352 (pre-existing).
+
+## [2026-11-16] Todo 14 notes
+- `kcc-web/src/session.rs` grew 448 -> 454 pure LOC (`SessionStore::lifetime_left`, must sit in the one inherent impl); the split stays a follow-up.
+- Job and wizard apply streams are covered structurally (every `guarded` caller must build a `StreamSession`); the integration test exercises the open-ended kinds (fleet, dashboard, router log, interface traffic) because job/apply streams end on their own.
+
+## [2026-11-16] Todo 21 (wt/r21) notes, not fixed here
+- `kcc-app/src/accounts.rs` grew 383 -> 387 pure LOC (rustfmt splits the longer `.seal(&Binding::account(..), ..)` calls); it was already over the ceiling.
+- `Binding::backup(router, name)` relies on the backup store's `validate_component` (no `:` in the router) instead of a typed id; both callers check it first.

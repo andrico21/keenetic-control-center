@@ -45,14 +45,24 @@ either.
   `<config dir>/kcc/master.key`) created with mode 0600 in a 0700 directory. kcc refuses
   a key file readable by group or others. Anyone with this file and the state
   directory can decrypt everything below; back it up separately.
-- **Encrypted with the master key** (XChaCha20-Poly1305, a random nonce per record, the
-  owner name as associated data): web account password hashes, configuration backups,
-  stored presets, migration sources, typed migration passwords and every router
-  credential given to the Web UI or to `kcc router add/edit`. Managed router records are
-  `<state>/router-credentials/<id>.sealed` (password, the router id as associated
-  data), `<id>.token.sealed` (login token, `<id>:token`) and `<id>.read.sealed`
-  (read-only polling password, `<id>:read`). A migration that changes the management
-  password of a Web UI or CLI router seals the new password the same way.
+- **Encrypted with the master key** (XChaCha20-Poly1305, a random nonce per record, and
+  the record type and owner as associated data): web account password hashes
+  (`account:<username>`), configuration backups (`backup:<router>:<file>`), stored
+  presets (`preset:<id>`), migration sources and typed migration passwords
+  (`migration:<id>:source`, `migration:<id>:passwords`, `preset-run:<id>:preset`) and
+  every router credential given to the Web UI or to `kcc router add/edit`. Managed router
+  records are `<state>/router-credentials/<id>.sealed` (password, `router:<id>`),
+  `<id>.token.sealed` (login token, `router:<id>:token`) and `<id>.read.sealed`
+  (read-only polling password, `router:<id>:read`), JSON records of schema 2. Every
+  record type has its own prefix and router ids hold no `:`, so a value copied into a
+  record of another type, owner or kind fails to open. A migration that changes the
+  management password of a Web UI or CLI router seals the new password the same way.
+- **Sealed state of earlier builds is not readable.** kcc has no deployments to carry
+  over, so there is no upgrade path: a router credential record of schema 1 is refused as
+  an unsupported record, and a web account password hash sealed by an earlier build
+  (bound to the bare username) does not open, so signing in to that account fails with an
+  error (the Web UI answers a server error, not "invalid username or password") and its
+  sessions end. Backups, presets and migration runs keep their associated data.
 - **Hashed**: web account passwords (Argon2id) and API keys (Argon2id, the key is shown
   once and never stored).
 - **Operator-managed files**: `password_file`, `read_password_file` and `token_file`

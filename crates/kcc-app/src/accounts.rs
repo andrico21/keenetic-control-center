@@ -17,7 +17,7 @@ use self::standing::{AccountStanding, PasswordFingerprint};
 use crate::{
     permissions::Role,
     persist::{Edit, Migration, StateDoc, StateError, StateStore},
-    secrets::{CryptoError, MasterKey, SealedSecret},
+    secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
 
 mod hashing;
@@ -68,7 +68,7 @@ impl Clock for SystemClock {
 pub struct Account {
     /// Login name.
     pub username: String,
-    /// Encrypted Argon2id PHC string, bound to the username as AAD.
+    /// Encrypted Argon2id PHC string, bound to `account:<username>`.
     pub password_hash: SealedSecret,
     /// Granted role name.
     pub role: String,
@@ -348,7 +348,9 @@ impl AccountStore {
         validate_username(&new.username)?;
         validate_password(&new.username, &new.password)?;
         let hash = hashing::hash(&new.password)?;
-        let sealed = self.key.seal(&new.username, &SecretString::from(hash))?;
+        let sealed = self
+            .key
+            .seal(&Binding::account(&new.username), &SecretString::from(hash))?;
         let account = Account {
             username: new.username,
             password_hash: sealed,
@@ -382,8 +384,10 @@ impl AccountStore {
     ///
     /// # Errors
     ///
-    /// Returns a state, decryption, or stored-hash error. Error text never
-    /// contains the supplied password or stored hash.
+    /// Returns a state, decryption, or stored-hash error. A hash that does not open
+    /// under the account's binding, such as one sealed by an earlier build, is a
+    /// [`CryptoError::Decrypt`] error, never [`Authentication::Invalid`]. Error text
+    /// never contains the supplied password or stored hash.
     #[inline]
     pub fn authenticate(
         &self,
@@ -452,7 +456,9 @@ impl AccountStore {
         validate_password(username, new_password)?;
         let hash = hashing::hash(new_password)?;
         let fingerprint = PasswordFingerprint::of(&hash);
-        let sealed = self.key.seal(username, &SecretString::from(hash))?;
+        let sealed = self
+            .key
+            .seal(&Binding::account(username), &SecretString::from(hash))?;
         self.state.update(|document: &mut UsersDocument| {
             if let Some(account) = document
                 .users

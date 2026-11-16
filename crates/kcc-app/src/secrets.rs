@@ -3,9 +3,10 @@
 //! The master key lives in the config directory (or the file named by
 //! `KCC_MASTER_KEY_FILE`), never in the state directory, so a copy of the
 //! state directory does not carry its own key. Each sealed value gets a fresh
-//! random 192-bit nonce, and the associated data binds it to its owner (the
-//! router id), so a ciphertext moved to another record fails to open.
+//! random 192-bit nonce, and its [`Binding`] (the record type and owner) is the
+//! associated data, so a ciphertext moved to another record fails to open.
 
+pub mod binding;
 pub mod files;
 
 use core::fmt;
@@ -26,6 +27,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
 
+use self::binding::Binding;
 use crate::{
     persist::{StateError, create_private_dir, create_private_file},
     settings::default_config_dir,
@@ -216,19 +218,23 @@ impl MasterKey {
         }
     }
 
-    /// Seals `plaintext`, binding it to `owner` (the router id) as associated data.
+    /// Seals `plaintext` with `binding` as associated data.
     ///
     /// # Errors
     ///
     /// [`CryptoError::Rng`] or [`CryptoError::Encrypt`].
     #[inline]
-    pub fn seal(&self, owner: &str, plaintext: &SecretString) -> Result<SealedSecret, CryptoError> {
+    pub fn seal(
+        &self,
+        binding: &Binding,
+        plaintext: &SecretString,
+    ) -> Result<SealedSecret, CryptoError> {
         let nonce = XNonce::try_generate().map_err(|error| CryptoError::Rng {
             reason: error.to_string(),
         })?;
         let payload = Payload {
             msg: plaintext.expose_secret().as_bytes(),
-            aad: owner.as_bytes(),
+            aad: binding.as_bytes(),
         };
         let ciphertext = self
             .cipher()?
@@ -241,14 +247,18 @@ impl MasterKey {
         })
     }
 
-    /// Opens a sealed secret bound to `owner`.
+    /// Opens a secret sealed with `binding`.
     ///
     /// # Errors
     ///
-    /// [`CryptoError::Decrypt`] for a wrong key, wrong owner or tampered data;
+    /// [`CryptoError::Decrypt`] for a wrong key, another binding or tampered data;
     /// [`CryptoError::Malformed`] for a damaged record.
     #[inline]
-    pub fn open(&self, owner: &str, sealed: &SealedSecret) -> Result<SecretString, CryptoError> {
+    pub fn open(
+        &self,
+        binding: &Binding,
+        sealed: &SealedSecret,
+    ) -> Result<SecretString, CryptoError> {
         if sealed.alg != ALGORITHM {
             return Err(CryptoError::Malformed {
                 reason: "unknown algorithm",
@@ -272,7 +282,7 @@ impl MasterKey {
                 })?;
         let payload = Payload {
             msg: &ciphertext,
-            aad: owner.as_bytes(),
+            aad: binding.as_bytes(),
         };
         let plaintext = self
             .cipher()?

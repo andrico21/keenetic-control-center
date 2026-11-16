@@ -10,6 +10,7 @@ use secrecy::ExposeSecret as _;
 use sha2::{Digest as _, Sha256};
 
 use super::{Account, AccountError, AccountStore, UsersDocument};
+use crate::secrets::binding::Binding;
 
 /// SHA-256 of an account's opened PHC string. It changes exactly when the password
 /// changes, lives only in memory, and its `Debug` output shows nothing of it.
@@ -92,7 +93,7 @@ pub(super) fn of_account(
 fn opened(store: &AccountStore, account: &Account) -> Option<PasswordFingerprint> {
     store
         .key
-        .open(&account.username, &account.password_hash)
+        .open(&Binding::account(&account.username), &account.password_hash)
         .ok()
         .map(|phc| PasswordFingerprint::of(phc.expose_secret()))
 }

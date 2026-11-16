@@ -7,7 +7,7 @@ use secrecy::SecretString;
 use super::{
     Account, AccountError, AccountStore, Authentication, UsersDocument, hashing, validate_username,
 };
-use crate::persist::Edit;
+use crate::{persist::Edit, secrets::binding::Binding};
 
 /// How often a sign-in starts over because the password changed while it was checked;
 /// past that it is refused without counting a failure.
@@ -89,7 +89,9 @@ pub(super) fn authenticate(
             hashing::verify_dummy(password)?;
             return Ok(Authentication::Locked { until });
         }
-        let hash = store.key.open(&account.username, &account.password_hash)?;
+        let hash = store
+            .key
+            .open(&Binding::account(&account.username), &account.password_hash)?;
         let matched = hashing::verify(password, &hash)?;
         match settle(store, &account, Check { matched, now })? {
             Settled::Answer(answer) => return Ok(answer),

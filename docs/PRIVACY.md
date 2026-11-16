@@ -13,10 +13,10 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Data | Location | Form | Kept |
 |---|---|---|---|
 | Router profiles added in the Web UI or CLI: name, URL, login, managed credential path, TLS mode, tags | `routers.json` | plain JSON, no password | until you remove the router |
-| Router passwords typed into the Web UI, or given to `kcc router add/edit` (file, `KCC_PASSWORD` or prompt) | `router-credentials/<id>.sealed` | encrypted with the master key, router id as associated data | until you remove the router |
-| Router login tokens and read-only polling passwords given to `kcc router add/edit` | `router-credentials/<id>.token.sealed`, `router-credentials/<id>.read.sealed` | encrypted with the master key, `<id>:token` / `<id>:read` as associated data | until you remove the router or replace the credential |
+| Router passwords typed into the Web UI, or given to `kcc router add/edit` (file, `KCC_PASSWORD` or prompt) | `router-credentials/<id>.sealed` | encrypted with the master key, `router:<id>` as associated data | until you remove the router |
+| Router login tokens and read-only polling passwords given to `kcc router add/edit` | `router-credentials/<id>.token.sealed`, `router-credentials/<id>.read.sealed` | encrypted with the master key, `router:<id>:token` / `router:<id>:read` as associated data | until you remove the router or replace the credential |
 | Router profiles in `kcc.toml` and their password files | where you put them | as you keep them | as you keep them |
-| Web accounts: name, role, password hash, lockout state, language | `users.json` | hash encrypted | until deleted |
+| Web accounts: name, role, password hash, lockout state, language | `users.json` | hash encrypted, `account:<username>` as associated data | until deleted |
 | API keys: name, role, Argon2id hash | `api_keys.json` | hash only | until revoked |
 | Custom roles | `roles.json` | plain JSON | until deleted |
 | Configuration backups: the router's full startup configuration, secrets included | `backups/<router>/` | encrypted | pruned after each new backup by `[backups] keep_last` (50) and `max_age` (180 days) |

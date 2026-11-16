@@ -29,6 +29,8 @@ use url::Url;
 mod edit_rollback;
 #[path = "credentials_sealed/kinds.rs"]
 mod kinds;
+#[path = "credentials_sealed/router_ids.rs"]
+mod router_ids;
 
 type TestResult = Result<(), Box<dyn Error>>;
 

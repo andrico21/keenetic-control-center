@@ -16,7 +16,7 @@ use super::{
 use crate::{
     accounts::{Clock, SystemClock},
     persist::{create_private_dir, io_error, write_exclusive},
-    secrets::MasterKey,
+    secrets::{MasterKey, binding::Binding},
 };
 
 impl BackupRetention {
@@ -93,7 +93,7 @@ impl BackupStore {
             let record = BackupRecord {
                 created_at,
                 reason: reason.to_owned(),
-                sealed: self.key.seal(&backup_owner(router, &name), text)?,
+                sealed: self.key.seal(&Binding::backup(router, &name), text)?,
             };
             let mut bytes = serde_json::to_vec(&record)
                 .map_err(|_error| BackupError::Malformed { name: name.clone() })?;
@@ -145,7 +145,7 @@ impl BackupStore {
             Err(error) => return Err(io_error(&path, error).into()),
         };
         self.key
-            .open(&backup_owner(router, name), &record.sealed)
+            .open(&Binding::backup(router, name), &record.sealed)
             .map_err(BackupError::from)
     }
 
@@ -282,9 +282,4 @@ fn read_record(path: PathBuf, name: &str) -> Result<BackupRecord, BackupError> {
     serde_json::from_slice(&bytes).map_err(|_error| BackupError::Malformed {
         name: name.to_owned(),
     })
-}
-
-/// Builds associated data binding a backup to its router and file.
-fn backup_owner(router: &str, name: &str) -> String {
-    format!("backup:{router}:{name}")
 }

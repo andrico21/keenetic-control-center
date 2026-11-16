@@ -122,6 +122,20 @@ The first release, `0.1.0`, is in preparation and contains:
   `kcc_migrate::inventory::InventoryClient::connect` and `kcc_rci::RciClient::connect`.
   They connected with a built-in policy instead of `[outbound]`; kcc reaches routers
   only through the registry's policy-checked clients (`InventoryClient::from_client`).
+- **Sealed state is bound to its record type.** Every value sealed with the master key
+  carries its record type and owner as associated data: `router:<id>`,
+  `router:<id>:token` and `router:<id>:read` for router credentials, and
+  `account:<username>` for web account password hashes (backups, presets and migration
+  parts already had their own prefixes and keep them). A router password and an account
+  of the same name can no longer be swapped. Router credential records are now schema 2.
+  State written by earlier builds is not readable and there is no upgrade path (kcc has no
+  deployments): a schema-1 router credential record is refused as an invalid record, and
+  signing in to an account whose hash an earlier build sealed fails with an error (the
+  Web UI answers 500) instead of "invalid username or password".
+- **Credential store paths check the router id.** `CredentialStore::open`, `exists`,
+  `manages`, `sealed_path`, `legacy_path` and `remove` refuse an invalid router id with
+  `CredentialError::Record` before they build a path, as their documentation said; they
+  used to build the path from it.
 - **One slow router no longer holds up the others.** The shared client of each router
   is built on its own, and its credential files are read off the async workers, so a
   router whose name resolves slowly or whose credential read stalls delays only requests
@@ -546,6 +560,10 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Upgrade notes
 
+- **Sealed router credentials and account hashes of earlier builds are not readable.**
+  Router credential records of schema 1 and web account password hashes written by an
+  earlier build no longer open, and there is no upgrade path (kcc has no deployments).
+  Backups, presets and migration runs are not affected.
 - **Run `chmod 600` on every secret file** that `kcc.toml`, a CLI command or a log sink
   names before you upgrade, or kcc refuses it. The shipped Podman secrets are mounted
   0400 and pass; keep `mode=0400` (or 0600) on any further `Secret=` line.

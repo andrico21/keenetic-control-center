@@ -20,7 +20,7 @@ mod tests {
     use base64::{Engine as _, engine::general_purpose::STANDARD};
     use kcc_app::{
         persist::{Migration, StateDoc, StateError, StateStore},
-        secrets::{CryptoError, MasterKey, SealedSecret},
+        secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
     };
     use secrecy::{ExposeSecret as _, SecretString};
     use serde::{Deserialize, Serialize};
@@ -354,7 +354,7 @@ mod tests {
         let (_temp, store) = store()?;
         let key = MasterKey::generate()?;
         let password = SecretString::from("correct horse battery staple");
-        let sealed = key.seal("home", &password)?;
+        let sealed = key.seal(&Binding::account("home"), &password)?;
         store.update(|doc: &mut Credentials| {
             drop(doc.passwords.insert("home".to_owned(), sealed));
         })?;
@@ -365,34 +365,34 @@ mod tests {
         let doc = store.read::<Credentials>()?.ok_or("missing")?;
         let stored = doc.passwords.get("home").ok_or("no entry")?;
         assert_eq!(
-            key.open("home", stored)?.expose_secret(),
+            key.open(&Binding::account("home"), stored)?.expose_secret(),
             password.expose_secret(),
             "round trip"
         );
 
-        let wrong_key = MasterKey::generate()?.open("home", stored);
+        let wrong_key = MasterKey::generate()?.open(&Binding::account("home"), stored);
         assert!(
             matches!(wrong_key, Err(CryptoError::Decrypt)),
             "wrong key gives a clean error, got {wrong_key:?}"
         );
-        let wrong_owner = key.open("office", stored);
+        let wrong_owner = key.open(&Binding::account("office"), stored);
         assert!(
             matches!(wrong_owner, Err(CryptoError::Decrypt)),
-            "ciphertext bound to its router id, got {wrong_owner:?}"
+            "ciphertext bound to its owner, got {wrong_owner:?}"
         );
         let mut tampered = stored.clone();
         let mut bytes = STANDARD.decode(&tampered.ciphertext)?;
         let first = bytes.first_mut().ok_or("empty ciphertext")?;
         *first ^= 1;
         tampered.ciphertext = STANDARD.encode(&bytes);
-        let tampered_result = key.open("home", &tampered);
+        let tampered_result = key.open(&Binding::account("home"), &tampered);
         assert!(
             matches!(tampered_result, Err(CryptoError::Decrypt)),
             "tampering detected, got {tampered_result:?}"
         );
         let mut garbled = stored.clone();
         garbled.nonce = "not base64!".to_owned();
-        let garbled_result = key.open("home", &garbled);
+        let garbled_result = key.open(&Binding::account("home"), &garbled);
         assert!(
             matches!(garbled_result, Err(CryptoError::Malformed { reason: _ })),
             "malformed nonce is an error, got {garbled_result:?}"
@@ -408,9 +408,11 @@ mod tests {
         let created = MasterKey::load_or_create(&path)?;
         assert_eq!(fs::read(&path)?.len(), 32, "32 raw bytes");
         let reloaded = MasterKey::load_or_create(&path)?;
-        let sealed = created.seal("home", &SecretString::from("pw"))?;
+        let sealed = created.seal(&Binding::account("home"), &SecretString::from("pw"))?;
         assert_eq!(
-            reloaded.open("home", &sealed)?.expose_secret(),
+            reloaded
+                .open(&Binding::account("home"), &sealed)?
+                .expose_secret(),
             "pw",
             "same key"
         );
