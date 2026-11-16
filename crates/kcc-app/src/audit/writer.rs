@@ -6,9 +6,13 @@
 //!   channel in order and takes the next entry only after the previous one is written,
 //!   so an entry is never written before one submitted earlier in the same process.
 //! - **The chain is extended under the lock.** The sequence number and previous hash are
-//!   read from the files on disk while the cross-process append lock is held, right
-//!   before the entry is hashed and appended, so the entries of every process sharing
-//!   the state directory form one contiguous chain.
+//!   read from the last line of the newest file while the cross-process append lock is
+//!   held, right before the entry is hashed and appended, so the entries of every process
+//!   sharing the state directory form one contiguous chain. Only that line is read; the
+//!   whole chain is verified when a writer starts and by `kcc audit verify`.
+//! - **A torn last line is moved aside, not refused.** A last line without its `\n` (a
+//!   crash or a full disk mid-append) is moved to a quarantine file under the lock and the
+//!   repair is recorded as an entry; a complete line that does not verify is fatal.
 //! - **A busy lock keeps the entry at the head.** When another process holds the lock
 //!   past one bounded round of attempts, the writer starts another round for the same
 //!   entry; it never skips or drops it. Callers stopped waiting long before (their waits
@@ -43,7 +47,7 @@ pub(super) async fn writer_task(
     queued: Arc<watch::Sender<usize>>,
 ) {
     while let Some(Command::Append { event, reply }) = receiver.recv().await {
-        let lock = match locked(&state.store, state.append_lock_retry).await {
+        let lock = match locked(state.store(), state.append_lock_retry()).await {
             Ok(lock) => lock,
             Err(error) => {
                 stop(&error, (&reply, &mut receiver, &queued));

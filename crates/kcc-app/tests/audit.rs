@@ -135,7 +135,7 @@ mod tests {
         let planted = format!("{}{}", "sensitive-", "value".repeat(12));
         fs::write(
             state.dir().join(AUDIT_FILE_NAME),
-            format!(r#"{{"ts":"{planted}"}}"#),
+            format!("{{\"ts\":\"{planted}\"}}\n"),
         )?;
 
         let Err(error) = verify_chain(state.dir()) else {
@@ -312,7 +312,8 @@ mod tests {
     #[tokio::test]
     async fn liveness_turns_false_after_writer_failure() -> TestResult {
         let (_temp, state) = store()?;
-        let audit = AuditLog::spawn_with_limit(&state, 1)?;
+        let audit =
+            AuditLog::spawn_with_policy(&state, AuditPolicy::default().with_rotate_bytes(1))?;
         drop(audit.append(event(1)).await?);
         fs::create_dir_all(state.dir().join("audit-00000000000000000001.jsonl"))?;
 

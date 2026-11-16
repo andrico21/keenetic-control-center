@@ -253,3 +253,25 @@
 - A complete last line that does not parse or whose own hash is wrong is refused (writer stops, file untouched); it is never truncated.
 - Torn tail = the active file does not end in `\n`. The bytes after the last `\n` are copied to a new owner-only `audit.jsonl.torn-<unix-ts>` (create_new; `-2`, `-3`... on a name clash), fsynced with the directory, then the active file is truncated to the last `\n` and fsynced, then an `audit.repair` entry (actor system/system, params `{file, bytes}`, outcome `success`) is appended through the normal path. Crash after the copy and before the truncate -> the next start copies the fragment again (a duplicate quarantine file, never a loss); crash after the truncate and before the repair entry -> a valid chain, nothing left to repair.
 - Full verification skips an unterminated last line of the ACTIVE file only (crash debris or another process's in-flight append, not an entry); an unterminated archive tail is still parsed strictly.
+- Module split: `audit/chain.rs` (file listing, the one line reader `for_each_line`, `entries(dir, Check::{Chain,Parse})`, hash rule moved verbatim), `audit/tail.rs` (backward block scan, `chain_head`, `last_entry`, `torn_start`), `audit/repair.rs` (quarantine + `audit.repair` event), `audit/state.rs` (WriterState: no cached chain fields, opens the active file by path per append). `verify_chain`/`read_entries` stay thin `pub fn`s in audit.rs (no `pub use`). One JSON-error text: `persist::json_reason`. `open_private_append_file` now also opens for read.
+- Gotcha: fixtures that killed the writer with a DIRECTORY at `audit-<n>.jsonl` (kcc-mcp/kcc-web/kcc CLI bracket_dead_audit) relied on every append re-reading every file; they now append a complete `not an entry\n` line under the append lock (`StateStore::lock(AUDIT_FILE_NAME)`) so the next tail read fails. Fixtures that rotate (rotate_bytes 1) onto a directory still die at the rename.
+- clippy gotchas: `field_scoped_visibility_modifiers` (pub(super) fields -> const getters), `inline_trait_bounds` (use where clauses), `renamed_function_params` (Seek::seek `pos`), `rest_pattern_accessible_field` (`Json { reason: _ }`), `assert_is_empty`, `create_dir`.
+- [2026-11-16] Todo 27 done in wt/r27: RED (4 kcc-app + 1 kcc serve) captured; GREEN kcc-app+kcc 389 passed GREEN_EXIT=0; kcc-web+kcc-mcp 616 passed WIDE_EXIT=0; kcc-domain bracket 0; fmt check, clippy 4 crates, cancel-safety, allow-gate, machete, no_secrets all 0.
+
+## [2026-11-16] Todo 28 design (wt/r28; B-04, B-20, F-25, B-15)
+- Queue: ONE unbounded mpsc to the single writer (FIFO order unchanged). `AuditLog::submit` becomes a plain (sync) fn: validates, counts, sends, never waits, never drops. Accepted cost (owner never-drop rule): while another process holds the append lock, no-permit entries grow the queue in memory; stated in the rustdoc of the queue.
+- Permits: `Arc<Semaphore>` with 128 permits, taken ONLY by `AuditLog::submit_within(event, limit)`: `timeout(limit, acquire_owned())`; elapsed -> new `AuditError::QueueFull` (entry NOT queued, never written; distinct from `Pending` = queued). The `OwnedSemaphorePermit` travels inside `Command::Append { permit: Option<_> }`; the writer drops it right after the entry is persisted and answered (RAII: also released when the writer fails and the queued commands are dropped).
+- Cancel-safety of `submit_within`: cancelled while waiting for a permit -> no permit held, nothing queued; once the permit is taken the entry is queued with no further await, so no leak and no dropped queued entry.
+- Caller table:
+  | caller | path | class |
+  | kcc-web auth.rs `audit` (failed login, logout, password change) | submit_within(AUDIT_WAIT) + wait rest | bounded; QueueFull -> internal error as today's write error |
+  | kcc-web auth.rs `audit_login` | submit_within(LOGIN_AUDIT_WAIT) + wait rest (Pending -> Ok) | bounded; QueueFull -> session invalidated, 500, no entry |
+  | kcc-app workflow_receipts `Receipts::record` (all workflow entries, deferred or not) | submit | no permit, never blocks |
+  | kcc-app jobs.rs job-recovery audit | append (logs) | no permit |
+  | kcc-mcp support/audit.rs failure audit | append (logs) | no permit |
+  | kcc-web page_kit/audit.rs `write` (every Web action record) | submit + wait (logs) | no permit |
+  | kcc/src/cli/context.rs CLI audit/attempt | append (notes) | no permit |
+  | kcc/src/server_migrations.rs credential migration | append (propagates) | no permit |
+  | kcc-migrate apply/agreements.rs, apply.rs admission | append (maps to ApplyError) | no permit |
+  | kcc/src/server_shutdown.rs (test) | submit | no permit; production shutdown only calls flush |
+- Request ids: `kcc_app::audit::request_id::next(prefix)` = `<prefix>-<16 hex per-process nonce>-<seq>`; nonce = std RandomState (OS-seeded) hash, seq = AtomicU64. ChangeSet carries one id (generated at begin, `with_request_id` for the caller's); all its entries use it. CLI: one id per run (Ctx), passed into its change sets. Web/MCP sequence ids use the same generator.

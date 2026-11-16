@@ -29,16 +29,6 @@ impl RetryPolicy {
         maximum_delay: Duration::from_millis(100),
     };
 
-    /// The production number of attempts per round, with backoff from `initial` up to
-    /// `maximum`.
-    pub(super) const fn backoff(initial_delay: Duration, maximum_delay: Duration) -> Self {
-        Self {
-            initial_delay,
-            maximum_delay,
-            ..Self::PRODUCTION
-        }
-    }
-
     /// Constructs a deterministic policy for tests.
     #[cfg(test)]
     pub(super) const fn testing(

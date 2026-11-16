@@ -9,8 +9,9 @@
     reason = "acceptance tests assert wire and request-log contracts"
 )]
 mod tests {
-    use std::fs;
+    use std::{fs::OpenOptions, io::Write as _};
 
+    use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
     use kcc_testkit::FaultInjection;
     use serde_json::{Value, json};
 
@@ -24,14 +25,17 @@ mod tests {
         json!({"host":"lab-1","line":"ip http port 8082","confirm":true})
     }
 
-    /// Starts a lab whose audit writer dies on its next append: that append verifies a
-    /// directory placed at the writer's rotation path.
+    /// Starts a lab whose audit writer dies on its next append: that append finds a last
+    /// line that is not an audit entry.
     // NOT cancel-safe: the fixture owns router and MCP tasks.
     async fn doomed() -> TestResult<Lab> {
         let fake = router("router", FaultInjection::default())?;
         let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
-        let written = lab.audit()?.len();
-        fs::create_dir_all(lab.state_dir().join(format!("audit-{written:020}.jsonl")))?;
+        let _lock = StateStore::open(&lab.state_dir())?.lock(AUDIT_FILE_NAME)?;
+        OpenOptions::new()
+            .append(true)
+            .open(lab.state_dir().join(AUDIT_FILE_NAME))?
+            .write_all(b"not an entry\n")?;
         Ok(lab)
     }
 

@@ -339,6 +339,21 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **A torn audit line no longer stops kcc.** A crash or a full disk in the middle of an
+  audit append left a last line without its newline, after which every append failed,
+  the audit writer stopped and `kcc serve` and every audited CLI command refused to start
+  until `audit.jsonl` was edited by hand. The incomplete line is now moved to
+  `audit.jsonl.torn-<unix-ts>` in the state directory (owner-only, the bytes unchanged;
+  `-2`, `-3`... are added when the name is taken) when the writer starts or before its
+  next append, a warning is logged and a new `audit.repair` entry (actor `system`,
+  outcome `success`, params `file` and `bytes`, never the content) continues the chain.
+  `kcc audit verify` and the Web audit page skip an unterminated last line of the active
+  file. A complete line that does not verify is still refused as tampering.
+- **Audit appends no longer re-read the retained log.** Each append used to parse and
+  re-hash every retained entry under the cross-process lock, so its cost grew with up to
+  a year of log. It now reads only the last line of the newest file and checks that
+  entry's own hash; the whole chain is still verified when a writer starts, by
+  `kcc audit verify` and on the Web audit page.
 - **A change whose existence check cannot read the router no longer takes the object as
   absent.** "Add account" used to go ahead (and could rewrite an existing account) when
   the router's account list could not be read; component install or removal, the storage

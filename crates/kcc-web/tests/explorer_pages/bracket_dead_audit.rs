@@ -2,9 +2,10 @@
 //! the bracket disarm, and one already dead refuses the next change before any router
 //! request.
 
-use std::fs;
+use std::{fs::OpenOptions, io::Write as _};
 
 use axum::http::StatusCode;
+use kcc_app::{audit::AUDIT_FILE_NAME, persist::StateStore};
 use kcc_i18n::keys;
 use kcc_testkit::FaultInjection;
 
@@ -18,18 +19,17 @@ use crate::support::{
 /// The CLI console's management change.
 const MANAGEMENT: &[(&str, &str)] = &[("line", "ip http port 8082"), ("confirm", "yes")];
 
-/// A signed-in fixture whose audit writer dies on its next append: that append verifies a
-/// directory placed at the writer's rotation path.
+/// A signed-in fixture whose audit writer dies on its next append: that append finds a
+/// last line that is not an audit entry.
 // NOT cancel-safe: the fixture owns router and HTTP tasks.
 async fn doomed() -> TestResult<(Fixture, Browser)> {
     let fixture = fixture("router", FaultInjection::default()).await?;
     let browser = fixture.login("admin").await?;
-    let written = fixture.audit()?.len();
-    fs::create_dir_all(
-        fixture
-            .state_dir()
-            .join(format!("audit-{written:020}.jsonl")),
-    )?;
+    let _lock = StateStore::open(&fixture.state_dir())?.lock(AUDIT_FILE_NAME)?;
+    OpenOptions::new()
+        .append(true)
+        .open(fixture.state_dir().join(AUDIT_FILE_NAME))?
+        .write_all(b"not an entry\n")?;
     Ok((fixture, browser))
 }
 

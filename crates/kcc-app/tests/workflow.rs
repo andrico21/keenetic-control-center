@@ -13,7 +13,7 @@ use core::{error::Error, time::Duration};
 use std::sync::Arc;
 
 use kcc_app::{
-    audit::{Actor, ActorKind, AuditLog, verify_chain},
+    audit::{Actor, ActorKind, AuditLog, AuditPolicy, verify_chain},
     backups::BackupStore,
     jobs::{JobError, JobProgress, JobRunner},
     permissions::{Permission, Role},
@@ -142,7 +142,8 @@ async fn operation_permission_is_enforced_after_read_lease() -> Result<(), Box<d
 #[tokio::test]
 async fn dead_audit_writer_refuses_begin_without_a_router_request() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let audit = AuditLog::spawn_with_limit(&fixture.state, 1)?;
+    let audit =
+        AuditLog::spawn_with_policy(&fixture.state, AuditPolicy::default().with_rotate_bytes(1))?;
     drop(audit.append(test_audit_event(1)).await?);
     std::fs::create_dir_all(fixture.state.dir().join("audit-00000000000000000001.jsonl"))?;
     let failed = audit.append(test_audit_event(2)).await;

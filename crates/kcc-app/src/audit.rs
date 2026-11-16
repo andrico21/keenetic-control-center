@@ -3,17 +3,12 @@
 use core::fmt;
 extern crate alloc;
 
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::sync::Arc;
 use core::time::Duration;
-use std::{
-    fs::{self, File},
-    io::{BufRead as _, BufReader, Write as _},
-    path::{Path, PathBuf},
-};
+use std::path::Path;
 
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, error::Category};
-use sha2::{Digest as _, Sha256};
+use serde_json::Value;
 use tokio::{
     sync::{mpsc, watch},
     time::timeout,
@@ -21,15 +16,21 @@ use tokio::{
 
 use crate::{
     accounts::{Clock, SystemClock},
-    persist::{StateError, StateLock, StateStore, io_error, open_private_append_file},
+    persist::{StateError, StateStore, json_reason},
 };
 
 mod append_lock;
+mod chain;
 pub mod receipt;
+mod repair;
+mod state;
+mod tail;
 mod writer;
 
 use append_lock::RetryPolicy;
+use chain::Check;
 use receipt::{AUDIT_WAIT, Pending, Reply};
+use state::WriterState;
 
 /// Default audit rotation threshold: 50 MiB.
 pub const DEFAULT_ROTATE_BYTES: u64 = 50 * 1024 * 1024;
@@ -102,15 +103,6 @@ impl AuditPolicy {
     #[must_use]
     pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
         self.clock = clock;
-        self
-    }
-
-    /// Sets the backoff of each round of append-lock attempts, from `initial` up to
-    /// `maximum` between attempts; tests use short delays.
-    #[inline]
-    #[must_use]
-    pub const fn with_append_lock_backoff(mut self, initial: Duration, maximum: Duration) -> Self {
-        self.append_lock_retry = RetryPolicy::backoff(initial, maximum);
         self
     }
 
@@ -419,54 +411,33 @@ impl AuditLog {
     ///
     /// # Errors
     ///
-    /// Returns an I/O, parse, or chain error while recovering the chain tail.
+    /// Returns an I/O, parse, or chain error of the full verification at start.
     #[inline]
     pub fn spawn(store: &StateStore) -> Result<Self, AuditError> {
         Self::spawn_with_policy(store, AuditPolicy::default())
     }
 
-    /// Starts the writer with a custom rotation limit, primarily for bounded
-    /// tests. Production callers use [`Self::spawn`].
-    ///
-    /// # Errors
-    ///
-    /// Returns an I/O, parse, or chain error while recovering the chain tail.
-    #[inline]
-    pub fn spawn_with_limit(store: &StateStore, rotate_bytes: u64) -> Result<Self, AuditError> {
-        Self::spawn_with_policy(
-            store,
-            AuditPolicy::default().with_rotate_bytes(rotate_bytes),
-        )
-    }
-
     /// Starts the writer with an explicit rotation and retention policy.
     ///
+    /// Verifies the whole chain first. When the append lock is free, it then moves a
+    /// torn last line aside and records the repair; otherwise the writer does that
+    /// before its first append.
+    ///
     /// # Errors
     ///
-    /// Returns an I/O, parse, or chain error while recovering the chain tail.
+    /// Returns an I/O, parse, or chain error of the verification or the repair.
     #[inline]
     pub fn spawn_with_policy(store: &StateStore, policy: AuditPolicy) -> Result<Self, AuditError> {
-        let files = audit_files(store.dir())?;
-        let verified = verify_files(&files)?;
-        let (next_seq, previous_hash) = verified.last().map_or_else(
-            || (1, GENESIS_HASH.to_owned()),
-            |entry| (entry.seq.saturating_add(1), entry.hash.clone()),
-        );
-        let path = store.dir().join(AUDIT_FILE_NAME);
-        let file = open_private_append_file(&path)?;
+        let state = WriterState::new(store.clone(), policy);
+        match store.try_lock(AUDIT_FILE_NAME) {
+            Ok(lock) => {
+                drop(verify_chain(store.dir())?);
+                state.repair(&lock)?;
+            }
+            Err(StateError::StateLocked { path: _ }) => drop(verify_chain(store.dir())?),
+            Err(error) => return Err(error.into()),
+        }
         let (sender, receiver) = mpsc::channel(128);
-        let state = WriterState {
-            store: store.clone(),
-            dir: store.dir().to_owned(),
-            file,
-            current_bytes: fs::metadata(&path).map_or(0, |metadata| metadata.len()),
-            rotate_bytes: policy.rotate_bytes,
-            retention: policy.retention,
-            clock: policy.clock,
-            next_seq,
-            previous_hash,
-            append_lock_retry: policy.append_lock_retry,
-        };
         let queued = Arc::new(watch::Sender::new(0));
         drop(tokio::spawn(writer::writer_task(
             receiver,
@@ -553,130 +524,10 @@ impl AuditLog {
     }
 }
 
-/// Mutable state owned exclusively by the writer task.
-#[derive(Debug)]
-struct WriterState {
-    /// State store used to coordinate appenders in other processes.
-    store: StateStore,
-    /// Audit directory.
-    dir: PathBuf,
-    /// Active append handle.
-    file: File,
-    /// Current active-file size.
-    current_bytes: u64,
-    /// Rotation threshold.
-    rotate_bytes: u64,
-    /// Next sequence number.
-    next_seq: u64,
-    /// Last chain hash.
-    previous_hash: String,
-    /// Maximum age of complete rotated files.
-    retention: Duration,
-    /// Timestamp source for retention decisions.
-    clock: Arc<dyn Clock>,
-    /// Bounded cross-process append-lock retry policy.
-    append_lock_retry: RetryPolicy,
-}
-
-impl WriterState {
-    /// Hashes, rotates if needed, appends, syncs, then advances chain state.
-    ///
-    /// # Errors
-    ///
-    /// Returns serialization, I/O, or rotation errors.
-    fn append_locked(
-        &mut self,
-        event: AuditEvent,
-        _lock: &StateLock,
-    ) -> Result<AuditEntry, AuditError> {
-        let files = audit_files(&self.dir)?;
-        let verified = verify_files(&files)?;
-        let (next_seq, previous_hash) = verified.last().map_or_else(
-            || (1, GENESIS_HASH.to_owned()),
-            |entry| (entry.seq.saturating_add(1), entry.hash.clone()),
-        );
-        let active = self.dir.join(AUDIT_FILE_NAME);
-        self.file = open_private_append_file(&active)?;
-        self.current_bytes = fs::metadata(&active).map_or(0, |metadata| metadata.len());
-        self.next_seq = next_seq;
-        self.previous_hash = previous_hash;
-        let mut entry = AuditEntry {
-            ts: event.ts,
-            seq: self.next_seq,
-            actor: event.actor,
-            router: event.router,
-            action: event.action,
-            target: event.target,
-            params_redacted: event.params_redacted,
-            outcome: event.outcome,
-            request_id: event.request_id,
-            prev_hash: self.previous_hash.clone(),
-            hash: String::new(),
-        };
-        entry.hash = calculate_hash(&entry)?;
-        let mut bytes = serde_json::to_vec(&entry).map_err(|error| json_error(&error))?;
-        bytes.push(b'\n');
-        let byte_count = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
-        if self.current_bytes > 0
-            && self.current_bytes.saturating_add(byte_count) > self.rotate_bytes
-        {
-            self.rotate()?;
-            self.prune_rotated()?;
-        }
-        self.file
-            .write_all(&bytes)
-            .and_then(|()| self.file.sync_data())
-            .map_err(|error| io_error(&self.dir.join(AUDIT_FILE_NAME), error))?;
-        self.current_bytes = self.current_bytes.saturating_add(byte_count);
-        self.next_seq = self.next_seq.saturating_add(1);
-        self.previous_hash.clone_from(&entry.hash);
-        Ok(entry)
-    }
-
-    /// Renames the active file to a sequence-addressed archive and opens a new
-    /// owner-only active file. Chain state deliberately remains unchanged.
-    ///
-    /// # Errors
-    ///
-    /// Returns an I/O error if syncing, renaming, or reopening fails.
-    fn rotate(&mut self) -> Result<(), AuditError> {
-        let active = self.dir.join(AUDIT_FILE_NAME);
-        let archive = self.dir.join(format!(
-            "audit-{:020}.jsonl",
-            self.next_seq.saturating_sub(1)
-        ));
-        self.file
-            .sync_all()
-            .map_err(|error| io_error(&active, error))?;
-        fs::rename(&active, &archive).map_err(|error| io_error(&archive, error))?;
-        self.file = open_private_append_file(&active)?;
-        self.current_bytes = 0;
-        Ok(())
-    }
-
-    /// Removes the oldest run of rotated files whose newest entry predates the cutoff.
-    ///
-    /// # Errors
-    ///
-    /// Returns an I/O or JSON error while inspecting or removing an archive.
-    fn prune_rotated(&self) -> Result<(), AuditError> {
-        let retention = self.retention.as_secs();
-        if retention == 0 {
-            return Ok(());
-        }
-        let cutoff = self.clock.unix_seconds().saturating_sub(retention);
-        for path in rotated_files(&self.dir)? {
-            let entries = read_file(&path)?;
-            if entries.last().is_none_or(|entry| entry.ts >= cutoff) {
-                break;
-            }
-            fs::remove_file(&path).map_err(|error| io_error(&path, error))?;
-        }
-        Ok(())
-    }
-}
-
 /// Verifies every rotated file and the active file as one continuous chain.
+///
+/// An unterminated last line of the active file is not an entry and is skipped: a crash
+/// or another process's append in progress left it, and the next writer moves it aside.
 ///
 /// # Errors
 ///
@@ -684,7 +535,7 @@ impl WriterState {
 /// error if a line cannot be read or decoded.
 #[inline]
 pub fn verify_chain(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
-    verify_files(&audit_files(dir)?)
+    chain::entries(dir, Check::Chain)
 }
 
 /// Reads every entry of the rotated files and the active file, in chain order, without
@@ -695,169 +546,7 @@ pub fn verify_chain(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
 /// Returns an I/O or JSON error if a file or line cannot be read or decoded.
 #[inline]
 pub fn read_entries(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
-    let mut entries = Vec::new();
-    for path in audit_files(dir)? {
-        let file = File::open(&path).map_err(|error| io_error(&path, error))?;
-        for read_result in BufReader::new(file).lines() {
-            let line = read_result.map_err(|error| io_error(&path, error))?;
-            if !line.is_empty() {
-                entries.push(serde_json::from_str(&line).map_err(|error| json_error(&error))?);
-            }
-        }
-    }
-    Ok(entries)
-}
-
-/// Discovers rotated files in sequence order, followed by the active file.
-///
-/// # Errors
-///
-/// Returns an I/O error when the audit directory cannot be listed.
-fn audit_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
-    let mut rotated = rotated_files(dir)?;
-    let active = dir.join(AUDIT_FILE_NAME);
-    if active.exists() {
-        rotated.push(active);
-    }
-    Ok(rotated)
-}
-
-/// Discovers rotated audit files in sequence order.
-///
-/// # Errors
-///
-/// Returns an I/O error when the audit directory cannot be listed.
-fn rotated_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
-    let mut rotated = Vec::new();
-    for listed in fs::read_dir(dir).map_err(|error| io_error(dir, error))? {
-        let entry = listed.map_err(|error| io_error(dir, error))?;
-        let file_name = entry.file_name();
-        let Some(name) = file_name.to_str() else {
-            continue;
-        };
-        if name.starts_with("audit-")
-            && Path::new(name)
-                .extension()
-                .is_some_and(|extension| extension.eq_ignore_ascii_case("jsonl"))
-        {
-            rotated.push(entry.path());
-        }
-    }
-    rotated.sort();
-    Ok(rotated)
-}
-
-/// Verifies a caller-ordered list of chain files.
-///
-/// # Errors
-///
-/// Returns the first I/O, JSON, or chain validation error.
-fn verify_files(files: &[PathBuf]) -> Result<Vec<AuditEntry>, AuditError> {
-    let mut entries = Vec::new();
-    let mut expected_sequence = None;
-    let mut previous_hash = None;
-    for path in files {
-        let file = File::open(path).map_err(|error| io_error(path, error))?;
-        for read_result in BufReader::new(file).lines() {
-            let line = read_result.map_err(|error| io_error(path, error))?;
-            if line.is_empty() {
-                continue;
-            }
-            let entry: AuditEntry =
-                serde_json::from_str(&line).map_err(|error| json_error(&error))?;
-            if expected_sequence.is_some_and(|expected| entry.seq != expected)
-                || previous_hash
-                    .as_ref()
-                    .is_some_and(|expected| entry.prev_hash != *expected)
-            {
-                return Err(AuditError::Chain { seq: entry.seq });
-            }
-            if entries.is_empty() && entry.seq == 1 && entry.prev_hash != GENESIS_HASH {
-                return Err(AuditError::Chain { seq: entry.seq });
-            }
-            let calculated = calculate_hash(&entry)?;
-            if entry.hash != calculated {
-                return Err(AuditError::Chain { seq: entry.seq });
-            }
-            expected_sequence = Some(entry.seq.saturating_add(1));
-            previous_hash = Some(entry.hash.clone());
-            entries.push(entry);
-        }
-    }
-    Ok(entries)
-}
-
-/// Reads one audit archive without validating its predecessor.
-///
-/// # Errors
-///
-/// Returns an I/O or JSON error when a line cannot be decoded.
-fn read_file(path: &Path) -> Result<Vec<AuditEntry>, AuditError> {
-    let file = File::open(path).map_err(|error| io_error(path, error))?;
-    let mut entries = Vec::new();
-    for read_result in BufReader::new(file).lines() {
-        let line = read_result.map_err(|error| io_error(path, error))?;
-        if !line.is_empty() {
-            entries.push(serde_json::from_str(&line).map_err(|error| json_error(&error))?);
-        }
-    }
-    Ok(entries)
-}
-
-/// Calculates `sha256(prev_hash || canonical_json(entry_without_hash))`.
-///
-/// # Errors
-///
-/// Returns a canonical serialization or hash encoding error.
-fn calculate_hash(entry: &AuditEntry) -> Result<String, AuditError> {
-    let canonical = canonical_entry_without_hash(entry)?;
-    let mut digest = Sha256::new();
-    digest.update(entry.prev_hash.as_bytes());
-    digest.update(canonical);
-    let bytes = digest.finalize();
-    let mut encoded = String::with_capacity(bytes.len().saturating_mul(2));
-    for byte in bytes {
-        use core::fmt::Write as _;
-        write!(&mut encoded, "{byte:02x}").map_err(|_error| AuditError::Json {
-            reason: "hash encoding failed".to_owned(),
-        })?;
-    }
-    Ok(encoded)
-}
-
-/// Serializes a fixed-order map so hash bytes are stable across processes.
-///
-/// # Errors
-///
-/// Returns an error if one of the entry fields cannot be serialized.
-fn canonical_entry_without_hash(entry: &AuditEntry) -> Result<Vec<u8>, AuditError> {
-    let mut fields = BTreeMap::new();
-    drop(fields.insert(
-        "action",
-        serde_json::to_value(&entry.action).map_err(|error| json_error(&error))?,
-    ));
-    drop(fields.insert(
-        "actor",
-        serde_json::to_value(&entry.actor).map_err(|error| json_error(&error))?,
-    ));
-    drop(fields.insert(
-        "outcome",
-        serde_json::to_value(&entry.outcome).map_err(|error| json_error(&error))?,
-    ));
-    drop(fields.insert("params_redacted", entry.params_redacted.clone()));
-    drop(fields.insert("prev_hash", Value::from(entry.prev_hash.clone())));
-    drop(fields.insert("request_id", Value::from(entry.request_id.clone())));
-    drop(fields.insert(
-        "router",
-        serde_json::to_value(&entry.router).map_err(|error| json_error(&error))?,
-    ));
-    drop(fields.insert("seq", Value::from(entry.seq)));
-    drop(fields.insert(
-        "target",
-        serde_json::to_value(&entry.target).map_err(|error| json_error(&error))?,
-    ));
-    drop(fields.insert("ts", Value::from(entry.ts)));
-    serde_json::to_vec(&fields).map_err(|error| json_error(&error))
+    chain::entries(dir, Check::Parse)
 }
 
 /// Rejects parameter names likely to contain raw credentials. Callers must
@@ -893,18 +582,8 @@ fn reject_secret_parameters(value: &Value) -> Result<(), AuditError> {
 /// Converts serde errors without embedding an event's potentially sensitive
 /// source text in the error surface.
 fn json_error(error: &serde_json::Error) -> AuditError {
-    let category = match error.classify() {
-        Category::Io => "I/O",
-        Category::Syntax => "syntax",
-        Category::Data => "data",
-        Category::Eof => "end of input",
-    };
     AuditError::Json {
-        reason: format!(
-            "{category} at line {}, column {}",
-            error.line(),
-            error.column()
-        ),
+        reason: json_reason(error),
     }
 }
 
@@ -925,7 +604,7 @@ mod tests {
 
     use super::{
         Actor, ActorKind, Attempt, AuditEntry, AuditError, AuditEvent, AuditLog, AuditPolicy,
-        GENESIS_HASH, RetryPolicy, calculate_hash, verify_files,
+        GENESIS_HASH, RetryPolicy, chain::calculate_hash, verify_chain,
     };
     use crate::persist::StateStore;
 
@@ -951,7 +630,7 @@ mod tests {
         let temp = TempDir::new()?;
         let path = temp.path().join("audit.jsonl");
         fs::write(&path, format!("{}\n", serde_json::to_string(entry)?))?;
-        Ok(verify_files(&[path])?)
+        Ok(verify_chain(temp.path())?)
     }
 
     fn event(sequence: u64) -> AuditEvent {

@@ -23,6 +23,7 @@ use std::{
 use kcc_app::{
     accounts::{AccountStore, NewAccount, SystemClock},
     api_keys::{create_api_key, expose_created_key},
+    audit::{AUDIT_FILE_NAME, Actor, ActorKind, AuditEvent, AuditLog, verify_chain},
     permissions::{Permission, Role},
     persist::StateStore,
     secrets::{MASTER_KEY_FILE_ENV, MasterKey},
@@ -623,6 +624,59 @@ async fn serve_refuses_a_tls_key_others_can_read() -> TestResult {
     );
     assert_eq!(status.code(), Some(1_i32), "{stderr}");
     assert!(stderr.contains(&hint), "{stderr}");
+    fixture.shutdown().await?;
+    Ok(())
+}
+
+/// `B-03` / `SEC2-04`: `kcc serve` starts when the audit log ends in a line a crash cut
+/// short, and moves that fragment to a quarantine file instead of refusing to start.
+#[tokio::test]
+async fn serve_starts_over_a_torn_audit_line_and_moves_it_aside() -> TestResult {
+    let fixture = Fixture::new(false).await?;
+    let state = StateStore::open(&fixture.home.join("state"))?;
+    let audit = AuditLog::spawn(&state)?;
+    for index in 1..=2_u64 {
+        let event = AuditEvent::new(
+            index,
+            Actor::new(ActorKind::Cli, "serve-test".to_owned()),
+            "test.serve".to_owned(),
+        )
+        .with_result("success".to_owned(), format!("serve-{index}"));
+        drop(audit.append(event).await?);
+    }
+    drop(audit);
+    let log = state.dir().join(AUDIT_FILE_NAME);
+    let whole = fs::read(&log)?;
+    let torn_at = whole.len().saturating_sub(9);
+    let kept = whole.get(..torn_at).ok_or("the cut is inside the log")?;
+    let line_start = kept
+        .iter()
+        .rposition(|byte| *byte == b'\n')
+        .map_or(0, |newline| newline.saturating_add(1));
+    let torn = kept.get(line_start..).ok_or("the torn line")?.to_vec();
+    fs::write(&log, kept)?;
+
+    let mut process = fixture.spawn()?;
+    process.wait_listening()?;
+
+    let mut moved = Vec::new();
+    for listed in fs::read_dir(state.dir())? {
+        let entry = listed?;
+        if entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("audit.jsonl.torn-")
+        {
+            moved.push(fs::read(entry.path())?);
+        }
+    }
+    assert_eq!(moved, vec![torn], "the fragment is kept, byte for byte");
+    let repairs = verify_chain(state.dir())?
+        .iter()
+        .filter(|entry| entry.action == "audit.repair" && entry.seq == 2)
+        .count();
+    assert_eq!(repairs, 1, "the repair continues the chain after entry 1");
+    drop(process);
     fixture.shutdown().await?;
     Ok(())
 }

@@ -77,3 +77,9 @@
 - MCP job tools (`kcc-mcp/src/generic/fleet.rs` get/cancel by id) have no owner check; random ids now make enumeration infeasible.
 - golden36-net/capture.sh route parser stops at the first `#[cfg(test)]` in a file, so advanced.rs routes show as STALE-SKIP since 187d183.
 - `kcc-app/src/accounts.rs` grew 387 -> 396 pure LOC (already over the ceiling).
+
+## [2026-11-16] Todo 27 (wt/r27) notes, not fixed here
+- B-14 remainder: `JobRunner::open_with_retention` (body of production `open`; direct public use only in kcc-app integration tests) and `Poller::light_rounds` (used by kcc-app and kcc-telemetry integration tests) stay public. `#[cfg(test)]` cannot serve integration tests or another crate; gating them needs a test Cargo feature (manifest change), outside this todo's audit-module scope. The audit module's own test-only API is gone (`spawn_with_limit`, `with_append_lock_backoff` deleted; callers use `spawn_with_policy(.., AuditPolicy::default().with_rotate_bytes(1))`).
+- Sizes: `kcc-app/src/audit.rs` 570 -> 323 pure LOC (still over the ceiling: the public types and AuditLog); `persist.rs` 432 -> 435.
+- A torn line on a disk that is still full: the quarantine copy needs space, so that start still fails with an I/O error until space is freed (then it repairs).
+- A crash after the quarantine copy and before the truncate leaves a duplicate quarantine file on the next start (by design: never lose the fragment).

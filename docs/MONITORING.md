@@ -33,7 +33,10 @@ from the registry by `cargo xtask gen-metric-docs`; a test fails when it is stal
 `/readyz` reports `audit_alive: false` while the audit writer is unavailable. A fatal
 audit-writer error also terminates `kcc serve` with a non-zero status, so the shipped
 Quadlet `Restart=on-failure` policy starts a fresh process instead of leaving an
-unhealthy daemon running. Cross-process append-lock contention never terminates the
+unhealthy daemon running. A last audit line that a crash or a full disk cut short does
+not stop that restart: the fresh process moves it to `audit.jsonl.torn-<unix-ts>` and
+logs a `warn` line naming the file ("the audit log ended in an incomplete line"), and the
+audit log records an `audit.repair` entry. Cross-process append-lock contention never terminates the
 writer and never drops an entry: an entry whose lock stays busy is kept at the head of
 the queue and retried until the lock is free, with a `warn` log line ("audit append lock
 still held by another process") every round of about 25 s. Callers wait for their entry

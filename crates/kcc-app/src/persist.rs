@@ -579,7 +579,7 @@ pub(crate) fn create_private_file(path: &Path) -> Result<File, StateError> {
     Ok(file)
 }
 
-/// Opens or creates an owner-only appendable state file.
+/// Opens or creates an owner-only state file for reading and appending.
 ///
 /// This is exposed within the crate for append-only stores such as the audit
 /// log, while preserving the same owner-only permissions as versioned state.
@@ -589,7 +589,7 @@ pub(crate) fn create_private_file(path: &Path) -> Result<File, StateError> {
 /// [`StateError::Io`] when the file cannot be opened or restricted.
 pub(crate) fn open_private_append_file(path: &Path) -> Result<File, StateError> {
     let mut options = OpenOptions::new();
-    let _: &mut OpenOptions = options.append(true).create(true);
+    let _: &mut OpenOptions = options.read(true).append(true).create(true);
     restrict_options(&mut options);
     let file = options.open(path).map_err(|error| io_error(path, error))?;
     restrict_file(&file, path)?;
@@ -684,7 +684,7 @@ fn restrict_windows(path: &Path) -> Result<(), StateError> {
 /// # Errors
 ///
 /// [`StateError::Io`].
-fn sync_dir(dir: &Path) -> Result<(), StateError> {
+pub(crate) fn sync_dir(dir: &Path) -> Result<(), StateError> {
     #[cfg(unix)]
     {
         File::open(dir)
@@ -731,18 +731,23 @@ fn corrupt(file: &str, reason: &(impl Display + ?Sized)) -> StateError {
 
 /// Builds a value-free JSON corruption error.
 fn corrupt_json(file: &str, error: &serde_json::Error) -> StateError {
+    StateError::Corrupt {
+        file: file.to_owned(),
+        reason: json_reason(error),
+    }
+}
+
+/// Describes a JSON error by its kind and position, never by the text it read.
+pub(crate) fn json_reason(error: &serde_json::Error) -> String {
     let category = match error.classify() {
         Category::Io => "I/O",
         Category::Syntax => "syntax",
         Category::Data => "data",
         Category::Eof => "end of input",
     };
-    StateError::Corrupt {
-        file: file.to_owned(),
-        reason: format!(
-            "{category} at line {}, column {}",
-            error.line(),
-            error.column()
-        ),
-    }
+    format!(
+        "{category} at line {}, column {}",
+        error.line(),
+        error.column()
+    )
 }

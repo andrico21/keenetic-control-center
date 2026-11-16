@@ -388,9 +388,26 @@ re-read its tail before writing, so they extend one chain. Files rotate at 50 Mi
 chain detects tampering; it doesn't prevent someone with write access to the state
 directory from rewriting the whole log.
 
+An append reads only the last line of the newest file (the active file, or the newest
+archive when the active file is empty), so its cost doesn't grow with the retained log.
+It checks that entry's own hash, not its link to the entries before it. The whole chain
+is verified when an audit writer starts (`kcc serve`, `kcc mcp stdio` and every audited
+CLI run), by `kcc audit verify` and on the Web audit page. Damage to an older entry or
+archive therefore shows at the next start or verification, not at the next append.
+
+A last line without its newline is not an entry: a crash or a full disk cut it short
+mid-append, so no hash protects it. kcc moves it to `audit.jsonl.torn-<unix-ts>` in the
+state directory before the writer starts or before its next append. The file is
+owner-only and holds the cut bytes unchanged. kcc logs a warning and records an
+`audit.repair` entry whose params name the file and its size (`file`, `bytes`), never its
+content, and the chain continues from the last complete entry. Verification skips such an
+unterminated last line of the active file. A complete line that doesn't verify is still
+tampering: the writer refuses to start, or stops at its next append, and the line is left
+in place.
+
 The append lock uses a longer bounded backoff with per-process phase jitter. Mutual
-exclusion still covers tail verification and the complete durable append, so contention
-cannot fork the chain. A busy lock never drops an entry: the one writer of each process
+exclusion still covers the tail read, the repair of a torn line and the complete durable
+append, so contention cannot fork the chain. A busy lock never drops an entry: the one writer of each process
 keeps it at the head of its queue and retries until the lock is free, so entries are
 written in the order they were submitted, and the sequence number and previous hash are
 assigned under the lock. Chain, serialization, join, or log I/O failures terminate the
