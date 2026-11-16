@@ -268,8 +268,12 @@ When native commit is confirmed but its following startup save fails, MCP report
 nothing changed.
 
 Runtime management risk belongs to `kcc-domain`: firewall plans classify every
-affected interface and treat failed discovery as management risk; HTTP, SSH and
-Telnet service toggles carry the same risk as the Web's existing policy. CLI, MCP
+affected interface and treat failed discovery as management risk; every WAN setting
+classifies its connection; HTTP, SSH and Telnet service toggles carry the same risk as
+the Web's existing policy. Detection compares interface addresses with the addresses the
+RCI client pinned when it connected (no second DNS lookup), and a bridge or bridge member
+whose evidence cannot decide counts as management. A change that would move, close or
+redirect the listener of the router profile's URL is refused before any request. CLI, MCP
 and Web consume that shared classification for confirmation and recovery. Curated
 MCP planned writes enter a common executor that selects recovery from `ChangeOp`.
 

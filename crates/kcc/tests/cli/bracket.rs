@@ -101,7 +101,7 @@ async fn recovery_mechanism_follows_the_reported_mode() -> TestResult {
         scenario.omit_fail_safe = omit_fail_safe;
         let (env, handle) = lab(scenario, FaultInjection::default(), "admin").await?;
 
-        let run = env.kcc(&["--yes", "services", "port", "http", "8082"])?;
+        let run = env.kcc(&["--yes", "services", "port", "ssh", "8082"])?;
 
         let label = format!("{mode:?} omit={omit_fail_safe}: {run:?}");
         let message = tr(Locale::En, keys::MANAGEMENT_MODE_UNKNOWN, None);

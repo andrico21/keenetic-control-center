@@ -113,3 +113,4 @@ cli-router-switch-needs-token = Для перехода роутера { $router
 cli-router-switch-needs-password = Для перехода роутера { $router } на вход по паролю нужен новый пароль (--new-password).
 cli-router-credential-required = Для смены URL, логина или TLS-отпечатка роутера { $router } снова укажите его пароль или токен (--new-password или --new-token).
 cli-router-external-password = Роутер { $router } читает пароль из открытого файла { $path }. Зашифруйте его командой: kcc router edit { $router } --new-password --password-file { $path }
+cli-listener-in-use = kcc подключается к роутеру через этот порт, поэтому изменение отрезало бы kcc и откатило бы все несохранённые изменения; оно не отправлено. Измените его на роутере, затем исправьте адрес роутера в kcc командой `kcc router edit --url`.

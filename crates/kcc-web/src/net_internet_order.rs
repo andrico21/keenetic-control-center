@@ -68,7 +68,7 @@ pub(crate) async fn default_route(
         .submit(
             |_params| Ok(()),
             async |(), domain| {
-                let operation = wan::plan_default_route(domain, &name, enabled)?;
+                let operation = wan::plan_default_route(domain, &name, enabled).await?;
                 let request = wan::change_request(&name, &operation)?;
                 Ok(Planned::of(&[operation], Change::Cli(request)))
             },

@@ -104,7 +104,7 @@ pub(crate) async fn wan(ctx: &Ctx, command: Family<WanCommand, WanWriteCommand>)
         }
         WanWriteCommand::ConnectVia { name, via } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_connect_via(router, &object_name, &object(&via)?)?;
+            let operation = wan::plan_connect_via(router, &object_name, &object(&via)?).await?;
             (object_name, operation)
         }
     };

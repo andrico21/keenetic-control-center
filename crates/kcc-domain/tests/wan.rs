@@ -12,6 +12,7 @@ use core::net::Ipv4Addr;
 use std::fs;
 
 use kcc_app::audit::AUDIT_FILE_NAME;
+use kcc_catalog::Risk;
 use kcc_domain::{interfaces::ManagementVerdict, wan, wan::StaticAddress};
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
@@ -121,7 +122,8 @@ async fn ppp_password_write_is_encoded_and_read_as_presence_only() -> TestResult
             fixture.context(),
             &name,
             SecretString::from(secret.to_owned()),
-        )?;
+        )
+        .await?;
         assert!(!format!("{operation:?}").contains(secret));
         assert!(!serde_json::to_string(&operation.requests)?.contains(secret));
         let request = wan::change_request(&name, &operation)?;
@@ -174,7 +176,8 @@ async fn ppp_password_control_character_is_refused_before_router_request() -> Te
             fixture.context(),
             &name,
             SecretString::from(secret.to_owned()),
-        );
+        )
+        .await;
 
         let error = result.err().ok_or("control character was accepted")?;
         assert!(!format!("{error:?}").contains(secret));
@@ -182,4 +185,57 @@ async fn ppp_password_control_character_is_refused_before_router_request() -> Te
         fixture.shutdown().await?;
     }
     Ok(())
+}
+
+/// C-06: every WAN setting of the connection kcc's traffic runs over is a management change.
+///
+/// It therefore runs inside the fail-safe timer; the same settings of another connection
+/// stay plain writes.
+#[tokio::test]
+async fn wan_settings_of_the_management_connection_are_management_changes() -> TestResult {
+    for firmware in PROFILES {
+        let fixture =
+            Fixture::spawn_with_show(firmware, [("interface".to_owned(), wan_interfaces())])
+                .await?;
+        let context = fixture.context();
+        let via = ObjectName::try_from("GigabitEthernet1".to_owned())?;
+        for (connection, expected) in [("PPPoE0", Risk::Management), ("ISP", Risk::Write)] {
+            let name = ObjectName::try_from(connection.to_owned())?;
+            let secret = SecretString::from(format!("ppp-{}", 4_u8 * 7));
+            let planned = [
+                ("mtu", wan::plan_mtu(context, &name, 1_400).await?),
+                (
+                    "identity",
+                    wan::plan_identity(context, &name, "subscriber").await?,
+                ),
+                (
+                    "connect_via",
+                    wan::plan_connect_via(context, &name, &via).await?,
+                ),
+                (
+                    "default_route",
+                    wan::plan_default_route(context, &name, false).await?,
+                ),
+                (
+                    "password",
+                    wan::plan_password(context, &name, secret).await?,
+                ),
+            ];
+            for (setting, operation) in planned {
+                assert_eq!(operation.risk, expected, "{connection} {setting}");
+            }
+        }
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// A PPPoE connection owning the address kcc reaches the fake router on, next to an IPoE one.
+fn wan_interfaces() -> serde_json::Value {
+    let peer = Ipv4Addr::LOCALHOST.to_string();
+    json!({
+        "PPPoE0":{"id":"PPPoE0","type":"PPPoE","address":peer,"mask":"255.255.255.255"},
+        "ISP":{"id":"ISP","type":"GigabitEthernet","address":"203.0.113.2","mask":"255.255.255.0"},
+        "GigabitEthernet1":{"id":"GigabitEthernet1","type":"GigabitEthernet"}
+    })
 }

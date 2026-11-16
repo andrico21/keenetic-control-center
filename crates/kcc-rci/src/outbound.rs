@@ -189,21 +189,29 @@ impl OutboundPolicy {
         tls_mode: &TlsMode,
         timeouts: HttpTimeouts,
     ) -> Result<reqwest::ClientBuilder, RciError> {
+        let resolved = Self::resolve(router).await?;
+        self.client_builder_for_resolved(router, tls_mode, timeouts, &resolved)
+    }
+
+    /// Resolves the router host once, off the async workers; the caller pins the result.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`RciError::Policy`] when the origin has no host or resolution fails.
+    // NOT cancel-safe: synchronous DNS may complete after the caller abandons it, but no
+    // request is sent and no externally visible state is changed.
+    pub(crate) async fn resolve(router: &RouterUrl) -> Result<Vec<SocketAddr>, RciError> {
         let parsed = reqwest::Url::parse(router.as_str()).map_err(|_error| RciError::Policy)?;
         let host = parsed.host_str().ok_or(RciError::Policy)?.to_owned();
         let port = parsed.port_or_known_default().ok_or(RciError::Policy)?;
-        let resolved = spawn_blocking({
-            let resolver_host = host.clone();
-            move || {
-                (resolver_host.as_str(), port)
-                    .to_socket_addrs()
-                    .map(Iterator::collect::<Vec<_>>)
-            }
+        spawn_blocking(move || {
+            (host.as_str(), port)
+                .to_socket_addrs()
+                .map(Iterator::collect::<Vec<_>>)
         })
         .await
         .map_err(|_join_error| RciError::Policy)?
-        .map_err(|_resolve_error| RciError::Policy)?;
-        self.client_builder_for_resolved(router, tls_mode, timeouts, &resolved)
+        .map_err(|_resolve_error| RciError::Policy)
     }
 
     /// Builds the no-redirect client after resolution and policy validation.

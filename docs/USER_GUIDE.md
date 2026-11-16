@@ -19,7 +19,9 @@ your role: pages and buttons you have no permission for are hidden or answer
   from the startup configuration. Nothing is saved until you press Save.
 - **Risky changes.** Changes that can cut kcc off from the router (disabling or
   re-zoning the interface or access point kcc reaches the router through, its Wi-Fi
-  schedule, firewall rules on it, releasing the KeenDNS name kcc uses) ask first on every
+  schedule, firewall rules on it, the MTU, identity, password, "connect via" or default
+  route of the internet connection kcc reaches the router through, releasing the KeenDNS
+  name kcc uses) ask first on every
   page and run under the router's fail-safe timer, which the change's own permission
   authorizes; nothing is sent before you confirm. Rolling the timer back yourself needs
   the Destructive permission. Deletions ask for confirmation; the most dangerous ones
@@ -121,7 +123,9 @@ The network area has tabs:
 - **Internet** (`/internet`): WAN connections with priority order, default route,
   address mode (DHCP or static), MTU, identity and "connect via"; create and delete
   connections. A PPP connection's (PPPoE, L2TP, PPTP) password is set from its settings
-  (Edit beside Password).
+  (Edit beside Password). On the connection kcc reaches the router through these are
+  risky changes; the password dialog then explains the fail-safe timer and its Apply
+  confirms it.
 - **Wi-Fi** (`/wifi`): access points and radios; turn an access point on or off, hide
   the SSID, edit settings. The Wi-Fi password is set from an access point's settings
   (Edit beside Wi-Fi password): 8 to 63 characters, checked before anything is sent.

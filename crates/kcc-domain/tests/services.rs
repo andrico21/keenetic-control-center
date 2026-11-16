@@ -10,7 +10,10 @@
 mod support;
 
 use kcc_catalog::Risk;
-use kcc_domain::services::{self, ManagementListener, SecurityLevel};
+use kcc_domain::{
+    DomainError,
+    services::{self, HttpSslSetting, ManagementListener, SecurityLevel},
+};
 use kcc_testkit::model::Firmware;
 
 use crate::support::{Fixture, PROFILES, TestResult, toggle_service};
@@ -71,14 +74,49 @@ async fn service_enable_and_disable_are_visible_through_show_rc() -> TestResult 
 async fn management_listener_changes_are_management_risk() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
-        let http_port = services::plan_port(fixture.context(), ManagementListener::Http, 8080)?;
+        let https_port = services::plan_http_ssl(fixture.context(), HttpSslSetting::Port(8_443))?;
         let ssh_level = services::plan_security_level(
             fixture.context(),
             ManagementListener::Ssh,
             SecurityLevel::Protected,
         )?;
-        assert_eq!(http_port.risk, Risk::Management);
+        assert_eq!(https_port.risk, Risk::Management);
         assert_eq!(ssh_level.risk, Risk::Management);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// C-12: moving or redirecting the listener kcc uses is refused before any request.
+///
+/// The fake router is reached over plain HTTP on its port; the other listeners still plan
+/// as management changes.
+#[tokio::test]
+async fn changing_the_listener_kcc_uses_is_refused_before_any_request() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let context = fixture.context();
+        let before = fixture.handle().request_count();
+
+        let moved = services::plan_port(context, ManagementListener::Http, 8_080);
+        let redirected = services::plan_http_ssl(context, HttpSslSetting::Redirect(true));
+
+        assert!(
+            matches!(moved, Err(DomainError::ProtectedAccount)),
+            "{moved:?}"
+        );
+        assert!(
+            matches!(redirected, Err(DomainError::ProtectedAccount)),
+            "{redirected:?}"
+        );
+        assert_eq!(fixture.handle().request_count(), before);
+        for operation in [
+            services::plan_port(context, ManagementListener::Ssh, 2_222)?,
+            services::plan_http_ssl(context, HttpSslSetting::Port(8_443))?,
+            services::plan_http_ssl(context, HttpSslSetting::Redirect(false))?,
+        ] {
+            assert_eq!(operation.risk, Risk::Management);
+        }
         fixture.shutdown().await?;
     }
     Ok(())

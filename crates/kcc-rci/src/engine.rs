@@ -3,7 +3,11 @@
 pub mod background;
 
 use alloc::{collections::BTreeSet, sync::Arc};
-use core::{fmt, mem::take};
+use core::{
+    fmt,
+    mem::take,
+    net::{IpAddr, SocketAddr},
+};
 use std::sync::Mutex as StdMutex;
 
 use reqwest::{Method, Response, StatusCode, header::HeaderMap, multipart};
@@ -134,6 +138,8 @@ pub struct RciClient {
     semaphore: Arc<Semaphore>,
     /// Show resources observed to require POST.
     post_only_show: StdMutex<BTreeSet<String>>,
+    /// Addresses every connection of this client is pinned to.
+    pinned: Vec<SocketAddr>,
 }
 
 impl fmt::Debug for RciClient {
@@ -188,9 +194,12 @@ impl RciClient {
     ) -> Result<Self, RciError> {
         let mut client = Self::connect_with(router, credentials, options).await?;
         client.session = Arc::new(
-            session(&client.router, &client.credentials, &client.options)
-                .await?
-                .with_bootstrap(),
+            session(
+                (&client.router, &client.pinned),
+                &client.credentials,
+                &client.options,
+            )?
+            .with_bootstrap(),
         );
         Ok(client)
     }
@@ -249,6 +258,13 @@ impl RciClient {
         &self.router
     }
 
+    /// Returns the addresses this client's connections are pinned to, resolved once when
+    /// the client was built; no lookup happens here.
+    #[inline]
+    pub fn pinned_addresses(&self) -> impl Iterator<Item = IpAddr> + '_ {
+        self.pinned.iter().map(SocketAddr::ip)
+    }
+
     /// Connects to a router with default limits and policy.
     ///
     /// # Errors
@@ -275,8 +291,27 @@ impl RciClient {
         if options.concurrency == 0 || options.response_bytes == 0 {
             return Err(RciError::Validation);
         }
-        let session = session(&router, &credentials, &options)
-            .await?
+        let resolved = OutboundPolicy::resolve(&router).await?;
+        Self::connect_resolved(router, credentials, options, &resolved)
+    }
+
+    /// Builds a client pinned to caller-resolved addresses under the outbound policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns validation, policy, or transport errors.
+    #[doc(hidden)]
+    #[inline]
+    pub fn connect_resolved(
+        router: RouterUrl,
+        credentials: Credentials,
+        options: RciClientOptions,
+        resolved: &[SocketAddr],
+    ) -> Result<Self, RciError> {
+        if options.concurrency == 0 || options.response_bytes == 0 {
+            return Err(RciError::Validation);
+        }
+        let session = session((&router, resolved), &credentials, &options)?
             .with_observer(options.observer.clone());
         Ok(Self {
             router,
@@ -288,6 +323,7 @@ impl RciClient {
             ),
             options,
             post_only_show: StdMutex::new(BTreeSet::new()),
+            pinned: resolved.to_vec(),
         })
     }
 
@@ -604,20 +640,22 @@ impl RciClient {
 /// A dedicated-session handle sharing its parent client's request budget.
 pub type BackgroundHandle = background::Handle;
 
-/// Opens a session to `router` under the client's transport and authentication policy.
+/// Opens a session to `router`, pinned to `resolved`, under the client's transport and
+/// authentication policy.
 ///
 /// # Errors
 /// Returns policy, transport, or invalid authentication option errors.
-// NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
-async fn session(
-    router: &RouterUrl,
+fn session(
+    (router, resolved): (&RouterUrl, &[SocketAddr]),
     credentials: &Credentials,
     options: &RciClientOptions,
 ) -> Result<Manager, RciError> {
-    let builder = options
-        .outbound
-        .client_builder(router, &options.tls, options.timeouts)
-        .await?;
+    let builder = options.outbound.client_builder_for_resolved(
+        router,
+        &options.tls,
+        options.timeouts,
+        resolved,
+    )?;
     Manager::with_client_builder(
         router.clone(),
         credentials.clone(),

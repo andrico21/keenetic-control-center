@@ -187,9 +187,9 @@ impl Checked {
     /// Returns the catalog's findings.
     async fn plan(self, domain: &RouterCtx, name: &ObjectName) -> Result<ChangeOp, DomainError> {
         match self {
-            Self::Identity(identity) => wan::plan_identity(domain, name, &identity),
-            Self::Via(via) => wan::plan_connect_via(domain, name, &via),
-            Self::Mtu(mtu) => wan::plan_mtu(domain, name, mtu),
+            Self::Identity(identity) => wan::plan_identity(domain, name, &identity).await,
+            Self::Via(via) => wan::plan_connect_via(domain, name, &via).await,
+            Self::Mtu(mtu) => wan::plan_mtu(domain, name, mtu).await,
             Self::Priority(priority) => wan::plan_priority(domain, name, priority).await,
         }
     }

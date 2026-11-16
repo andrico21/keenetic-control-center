@@ -113,3 +113,4 @@ cli-router-switch-needs-token = Для пераходу роўтара { $router
 cli-router-switch-needs-password = Для пераходу роўтара { $router } на ўваход па паролі патрэбны новы пароль (--new-password).
 cli-router-credential-required = Каб змяніць URL, лагін або TLS-адбітак роўтара { $router }, зноў укажыце яго пароль або токен (--new-password або --new-token).
 cli-router-external-password = Роўтар { $router } чытае пароль з адкрытага файла { $path }. Зашыфруйце яго камандай: kcc router edit { $router } --new-password --password-file { $path }
+cli-listener-in-use = kcc падключаецца да роўтара праз гэты порт, таму змена адрэзала б kcc і адкаціла б усе незахаваныя змены; яна не адпраўлена. Змяніце яго на роўтары, а затым выпраўце адрас роўтара ў kcc камандай `kcc router edit --url`.

@@ -2,7 +2,6 @@
 
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::net::{IpAddr, Ipv4Addr};
-use std::net::ToSocketAddrs as _;
 
 use kcc_catalog::Risk;
 use kcc_rci::{ObjectName, RciBody, RciPath};
@@ -36,12 +35,20 @@ impl ManagementVerdict {
     }
 }
 
-/// Detects direct origin-address ownership and bridge topology evidence.
+/// Detects direct ownership of the address the client is pinned to, then bridge topology
+/// evidence; a bridge whose evidence cannot decide counts as carrying management.
 // cancel-safe: topology reads do not change router state.
 pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     let interfaces: BTreeMap<String, Interface> =
         read_show(&router.client, &["show", "interface"]).await?;
-    let hosts = router_hosts(router);
+    let hosts = router
+        .client
+        .pinned_addresses()
+        .map(|address| address.to_canonical())
+        .collect::<BTreeSet<_>>();
+    if hosts.is_empty() {
+        return Ok(ManagementVerdict::Management);
+    }
     let direct = classify_direct(name, &hosts, &interfaces);
     if direct == ManagementVerdict::Management {
         return Ok(direct);
@@ -74,14 +81,14 @@ pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<Mana
             continue;
         }
         let members = membership.get(&candidate);
-        let bridge = classify_bridge(selected, &candidate, members, &sources);
-        if bridge == ManagementVerdict::Management
-            || (candidate != name.as_str() && bridge.risk(&object) == Risk::Management)
-        {
-            return Ok(ManagementVerdict::Management);
-        }
-        if candidate == name.as_str() {
-            verdict = bridge;
+        match classify_bridge(selected, &candidate, members, &sources) {
+            ManagementVerdict::Management | ManagementVerdict::Unknown => {
+                return Ok(ManagementVerdict::Management);
+            }
+            ManagementVerdict::NotManagement if candidate == name.as_str() => {
+                verdict = ManagementVerdict::NotManagement;
+            }
+            ManagementVerdict::NotManagement => {}
         }
     }
     Ok(verdict)
@@ -193,20 +200,6 @@ async fn observed_sources(router: &RouterCtx) -> Vec<ObservedSource> {
         }
     }
     sources
-}
-
-/// Resolves the router-origin host to comparable IP addresses.
-fn router_hosts(router: &RouterCtx) -> BTreeSet<IpAddr> {
-    let Some(host) = router.client.router_url().host() else {
-        return BTreeSet::new();
-    };
-    if let Some(address) = parse_ip_without_prefix(&host) {
-        return BTreeSet::from([address]);
-    }
-    (host.as_str(), 0_u16).to_socket_addrs().map_or_else(
-        |_error| BTreeSet::new(),
-        |addresses| addresses.map(|address| address.ip()).collect(),
-    )
 }
 
 /// Parses an IP while tolerating a CIDR suffix.

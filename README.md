@@ -205,9 +205,11 @@ described in [docs/PRIVACY.md](docs/PRIVACY.md).
 - **Change workflow.** Each write takes a per-router lease, makes an encrypted backup of
   the startup configuration, refuses if someone else changed the router in between,
   verifies the result by reading it back and appends a hash-chained audit entry.
-- **Fail-safe.** Changes that can cut kcc off (management interface, firewall on it)
-  run under the router's fail-safe timer, which restores the saved configuration if
-  kcc loses the router. Migration and preset applies always do.
+- **Fail-safe.** Changes that can cut kcc off (management interface, the internet
+  connection kcc uses, firewall on it) run under the router's fail-safe timer, which
+  restores the saved configuration if kcc loses the router. Migration and preset applies
+  always do. Moving, closing or redirecting the HTTP or HTTPS listener kcc's router URL
+  uses is refused: change it on the router, then the URL in kcc.
 - **Nothing is saved implicitly.** Saving to the startup configuration is a separate,
   explicit step.
 - **Secrets stay out of output.** Reports, logs, audit entries and MCP results carry

@@ -314,6 +314,24 @@ The first release, `0.1.0`, is in preparation and contains:
   `PasswordRequired` before any write instead of failing and being rolled back. A line
   that removes that password is refused. The target inventory records that login
   (`TargetInventory::login`).
+- **Changes that can cut kcc off are classified as management changes.** The MTU,
+  identity, PPP password, "connect via" and default-route settings of the internet
+  connection kcc's own connection runs over now ask for the fail-safe confirmation on
+  every surface (the Web's PPP password dialog confirms it with its own Apply) and run
+  inside the router's recovery timer; they used to run as plain writes with no timer, so
+  a wrong value left kcc cut off until the router was power-cycled. Management detection
+  compares the router's addresses with the address kcc's connection is pinned to instead
+  of looking the router's host name up again (a blocking lookup that could fail or answer
+  differently), and a bridge, or a member of one, whose evidence cannot decide is now a
+  management interface for every bridge, not only `Bridge0`.
+- **kcc refuses to change the listener it reaches the router through**: moving the HTTP
+  port of a router whose kcc URL is `http://`, turning on the HTTP-to-HTTPS redirect for
+  it, and turning HTTPS off or moving its port for an `https://` URL (`kcc services port
+  http`, `kcc services https off|port|redirect`, MCP `kcc_services_write`) are refused
+  before anything is sent: the CLI exits 10 explaining it (`cli-listener-in-use`), MCP
+  answers `forbidden`. They used to be sent and always rolled back by the fail-safe timer,
+  with every other unsaved change. Change the listener on the router, then the router's
+  URL in kcc.
 
 ### Security
 

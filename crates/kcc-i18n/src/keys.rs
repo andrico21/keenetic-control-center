@@ -348,6 +348,9 @@ pub const CLI_ROUTER_CREDENTIAL_REQUIRED: MessageKey =
 pub const CLI_ROUTER_EXTERNAL_PASSWORD: MessageKey =
     MessageKey::new("cli-router-external-password");
 
+/// `cli-listener-in-use` in `cli.ftl`.
+pub const CLI_LISTENER_IN_USE: MessageKey = MessageKey::new("cli-listener-in-use");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6650,7 +6653,7 @@ pub const WEB_ROUTER_ERROR_READ_PASSWORD: MessageKey =
     MessageKey::new("web-router-error-read-password");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2117] = [
+pub static ALL: [MessageKey; 2118] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -6763,6 +6766,7 @@ pub static ALL: [MessageKey; 2117] = [
     CLI_ROUTER_SWITCH_NEEDS_PASSWORD,
     CLI_ROUTER_CREDENTIAL_REQUIRED,
     CLI_ROUTER_EXTERNAL_PASSWORD,
+    CLI_LISTENER_IN_USE,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,

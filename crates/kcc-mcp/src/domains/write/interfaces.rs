@@ -176,12 +176,12 @@ async fn plan_wan(
                 .map_err(map_domain)?;
             wan::plan_dhcp(ctx, name, verdict)
         }
-        "identity" => wan::plan_identity(ctx, name, text(input.value.as_deref())?),
-        "password" => wan::plan_password(ctx, name, secret(input.secret)?),
-        "connect_via" => wan::plan_connect_via(ctx, name, &object(input.value.as_deref())?),
+        "identity" => wan::plan_identity(ctx, name, text(input.value.as_deref())?).await,
+        "password" => wan::plan_password(ctx, name, secret(input.secret)?).await,
+        "connect_via" => wan::plan_connect_via(ctx, name, &object(input.value.as_deref())?).await,
         "priority" => wan::plan_priority(ctx, name, needed(input.number)?).await,
-        "mtu" => wan::plan_mtu(ctx, name, needed(input.number)?),
-        _ => wan::plan_default_route(ctx, name, needed(input.enabled)?),
+        "mtu" => wan::plan_mtu(ctx, name, needed(input.number)?).await,
+        _ => wan::plan_default_route(ctx, name, needed(input.enabled)?).await,
     })
 }
 

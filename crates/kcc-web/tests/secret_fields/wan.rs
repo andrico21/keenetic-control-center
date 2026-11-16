@@ -1,11 +1,16 @@
 //! The password of a PPP internet connection.
 
+use core::net::Ipv4Addr;
+
 use axum::http::StatusCode;
 use kcc_i18n::keys;
+use kcc_testkit::{FakeRouter, model::Profile};
+use serde_json::json;
 
 use crate::{
     ROUTER, TraceCapture, dummy, nowhere, setup, stored,
     support::{
+        asked::commands_since,
         outcome::TestResult,
         page::{assert_native_post, en_with, text},
         web::Fixture,
@@ -131,6 +136,76 @@ async fn only_ppp_connections_take_a_password() -> TestResult {
         stored(&config, "interface ISP", "authentication password "),
         None,
         "nothing written"
+    );
+    Ok(())
+}
+
+/// The dialog of `PPPoE0` on the single router of [`Fixture::with_router`].
+const OWN_DIALOG: &str = "/ui/r/home/internet/password?name=PPPoE0";
+
+/// C-06: the management connection's password is confirmed in its own dialog.
+///
+/// The kit's dialog would send the request again without the typed password. The dialog
+/// explains the fail-safe timer, an unconfirmed Apply sends nothing, and the confirmed one
+/// runs inside the timer.
+#[tokio::test]
+async fn the_management_connection_password_is_confirmed_in_its_dialog() -> TestResult {
+    let peer = Ipv4Addr::LOCALHOST.to_string();
+    let fake = FakeRouter::builder(Profile::default())
+        .show_fixture(
+            "interface",
+            json!({"PPPoE0":{"id":"PPPoE0","type":"PPPoE","address":peer,"mask":"255.255.255.255"}}),
+        )
+        .build()?;
+    let fixture = Fixture::with_router(fake).await?;
+    let admin = fixture.login("admin").await?;
+    let dialog = text(fixture.get(OWN_DIALOG, &admin).await?).await?;
+    assert!(
+        dialog.contains("<input type=\"hidden\" name=\"confirm\" value=\"yes\">"),
+        "Apply confirms in the dialog: {dialog}"
+    );
+    let secret = dummy("wan", 3);
+    let typed = [
+        ("secret", secret.as_str()),
+        ("secret_again", secret.as_str()),
+    ];
+    let unset = fixture.handle().running_config_text();
+    assert_eq!(
+        stored(&unset, "interface PPPoE0", "authentication password "),
+        None
+    );
+
+    let before = fixture.handle().request_log().len();
+    let unconfirmed = fixture.post_form(OWN_DIALOG, &admin, &typed).await?;
+    let status = unconfirmed.status();
+    let asked = text(unconfirmed).await?;
+
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{asked}");
+    assert!(
+        asked.contains(&en_with(keys::WEB_SECRET_CONFIRM, &[])),
+        "says so: {asked}"
+    );
+    assert_eq!(commands_since(&fixture, before), Vec::<String>::new());
+
+    let confirmed = [("confirm", "yes"), typed[0], typed[1]];
+    let response = fixture.post_form(OWN_DIALOG, &admin, &confirmed).await?;
+
+    assert_eq!(response.status(), StatusCode::OK);
+    let sent = commands_since(&fixture, before);
+    assert_eq!(
+        sent.first().map(String::as_str),
+        Some("system configuration fail-safe timer reboot 300"),
+        "armed first: {sent:?}"
+    );
+    assert_eq!(
+        sent.last().map(String::as_str),
+        Some("no system configuration fail-safe timer"),
+        "disarmed last: {sent:?}"
+    );
+    let config = fixture.handle().running_config_text();
+    assert!(
+        stored(&config, "interface PPPoE0", "authentication password ").is_some(),
+        "the password reached the router: {config}"
     );
     Ok(())
 }

@@ -140,11 +140,17 @@ fn service_toggle(ctx: &RouterCtx, firmware: Firmware) -> Steps<'_> {
     })
 }
 
-/// A management port and a management security level.
+/// A management port (the one kcc already reaches the router on: moving it is refused) and
+/// a management security level.
 fn listener_fields(ctx: &RouterCtx, _firmware: Firmware) -> Steps<'_> {
     Box::pin(async move {
+        let own_port = ctx
+            .client
+            .router_url()
+            .port()
+            .ok_or("origin without a port")?;
         let operations = [
-            services::plan_port(ctx, ManagementListener::Http, 8_080)?,
+            services::plan_port(ctx, ManagementListener::Http, own_port)?,
             services::plan_security_level(ctx, ManagementListener::Ssh, SecurityLevel::Protected)?,
         ];
         let mut steps = Vec::new();

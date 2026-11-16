@@ -13,6 +13,7 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_rci::RouterUrl;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -21,6 +22,12 @@ use crate::{
     cli_token::validate as validate_token, descriptor,
 };
 
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests;
 mod verification;
 
 /// Returns the shared service-toggle risk, preserving protection for both toggle directions.
@@ -194,8 +201,13 @@ pub fn plan_service(router: &RouterCtx, name: &str, enabled: bool) -> Result<Cha
     ))
 }
 
-/// Plans a management listener port change.
+/// Plans a management listener port change; moving the plain-HTTP listener the router
+/// profile's URL uses is refused, since kcc would lose its own connection mid-change.
 pub fn plan_port(router: &RouterCtx, listener: ManagementListener, port: u16) -> Result<ChangeOp> {
+    let url = router.client.router_url();
+    if listener == ManagementListener::Http && !url.is_https() && url.port() != Some(port) {
+        return Err(DomainError::ProtectedAccount);
+    }
     let path = format!("ip {} port", listener.name());
     let argument = match listener {
         ManagementListener::Http => "port",
@@ -214,8 +226,13 @@ pub fn plan_security_level(
     plan_management(router, &path, &json!({"level":level.name()}))
 }
 
-/// Plans one HTTP TLS or ACME setting.
+/// Plans one HTTP TLS or ACME setting; a setting that closes, moves or redirects the
+/// listener the router profile's URL uses is refused, since kcc would lose its own
+/// connection mid-change.
 pub fn plan_http_ssl(router: &RouterCtx, setting: HttpSslSetting) -> Result<ChangeOp> {
+    if cuts_own_listener(router.client.router_url(), setting) {
+        return Err(DomainError::ProtectedAccount);
+    }
     let (path, body) = match setting {
         HttpSslSetting::Enable(true) => ("ip http ssl enable", json!({})),
         HttpSslSetting::Enable(false) => ("ip http ssl enable", json!({"no":true})),
@@ -251,6 +268,17 @@ const fn operation(
     permission: Permission,
 ) -> OperationDescriptor {
     descriptor::operation(name, catalog_path, risk, permission)
+}
+
+/// Whether `setting` closes, moves or redirects the listener `url` reaches the router on.
+fn cuts_own_listener(url: &RouterUrl, setting: HttpSslSetting) -> bool {
+    let https = url.is_https();
+    match setting {
+        HttpSslSetting::Enable(enabled) => https && !enabled,
+        HttpSslSetting::Port(port) => https && url.port() != Some(port),
+        HttpSslSetting::Redirect(redirect) => !https && redirect,
+        HttpSslSetting::AcmeGet | HttpSslSetting::AcmeRevoke => false,
+    }
 }
 
 /// Plans a management-risk operation.

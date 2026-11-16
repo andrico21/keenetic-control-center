@@ -24,7 +24,11 @@ pub(super) async fn start(
     path: RciPath,
     body: &Value,
 ) -> Result<Handle, RciError> {
-    let session = Arc::new(session(&client.router, &client.credentials, &client.options).await?);
+    let session = Arc::new(session(
+        (&client.router, &client.pinned),
+        &client.credentials,
+        &client.options,
+    )?);
     let _permit = client
         .semaphore
         .acquire()

@@ -21,8 +21,8 @@ use super::{
     support::TestResult,
 };
 
-/// The management port change.
-const PORT: &[&str] = &["--yes", "services", "port", "http", "8430"];
+/// The management port change (SSH: kcc refuses to move the HTTP listener it uses).
+const PORT: &[&str] = &["--yes", "services", "port", "ssh", "8430"];
 
 /// A destructive user removal the router may refuse.
 const USER: &[&str] = &[
@@ -60,7 +60,7 @@ async fn a_failed_bracket_names_the_timer_fate() -> TestResult {
         (
             "router",
             PORT,
-            FaultInjection::default().disconnect_after_parse("ip http port".to_owned()),
+            FaultInjection::default().disconnect_after_parse("ip ssh port".to_owned()),
             keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED,
             true,
         ),

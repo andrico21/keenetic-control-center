@@ -8,7 +8,7 @@
     reason = "each integration crate compiles this shared fixture independently and uses only its required lifecycle seams"
 )]
 
-use core::{error::Error, str::FromStr as _};
+use core::{error::Error, net::SocketAddr, str::FromStr as _};
 use std::{
     io::{self, Write},
     path::PathBuf,
@@ -129,6 +129,8 @@ pub(crate) struct Fixture {
     clock: Option<Arc<MockClock>>,
     /// The workflow's audit writer.
     audit: AuditLog,
+    /// Loopback address the fake router listens on.
+    address: SocketAddr,
 }
 
 impl Fixture {
@@ -269,7 +271,29 @@ impl Fixture {
             registry,
             clock,
             audit,
+            address,
         })
+    }
+
+    /// A second domain context whose profile URL names `host`.
+    ///
+    /// The host is never looked up: the client is pinned to the fake router's address.
+    pub(crate) fn context_via(&self, host: &str) -> TestResult<RouterCtx> {
+        let origin = RouterUrl::from_str(&format!("http://{host}:{}", self.address.port()))?;
+        let client = RciClient::connect_resolved(
+            origin,
+            Credentials::new(
+                DEFAULT_LOGIN.to_owned(),
+                SecretString::from(DEFAULT_PASSWORD.to_owned()),
+            ),
+            RciClientOptions::default()
+                .with_outbound(OutboundPolicy::default().with_loopback(true)),
+            &[self.address],
+        )?;
+        Ok(RouterCtx::new(
+            Arc::new(client),
+            self.context.catalog.clone(),
+        ))
     }
 
     /// Begins a protected administrator change set.
@@ -345,6 +369,7 @@ impl Fixture {
             registry: _,
             clock: _,
             audit: _,
+            address: _,
         } = self;
         handle.shutdown().await?;
         drop(directory);

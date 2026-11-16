@@ -297,7 +297,8 @@ pub enum DomainError {
     /// A static lease address is already assigned to another MAC.
     #[error("static lease address is already assigned to another MAC")]
     StaticLeaseAddressInUse,
-    /// A protected router login would lose required access.
+    /// kcc would lose its own access to the router: through its login account, or through
+    /// the listener its router profile URL uses.
     #[error("protected router account operation refused")]
     ProtectedAccount,
     /// A value cannot be represented as one safe router CLI token.

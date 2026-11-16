@@ -27,7 +27,7 @@ pub(super) fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResul
                     services::plan_service(router, service, true)?
                 }
                 "management_port" => {
-                    services::plan_port(router, services::ManagementListener::Http, 8_080)?
+                    services::plan_port(router, services::ManagementListener::Http, own(router)?)?
                 }
                 "management_security_level" => services::plan_security_level(
                     router,
@@ -144,4 +144,13 @@ fn system_plan(router: &RouterCtx, op: &str) -> TestResult {
         "system converter lost verification"
     );
     Ok(())
+}
+
+/// The port of the listener kcc reaches the router on; moving it is refused.
+fn own(router: &RouterCtx) -> TestResult<u16> {
+    Ok(router
+        .client
+        .router_url()
+        .port()
+        .ok_or("origin without a port")?)
 }

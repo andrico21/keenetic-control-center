@@ -219,10 +219,10 @@ async fn plan_create(checked: &Checked, domain: &RouterCtx) -> Result<Planned, D
         )?);
     }
     if let Some(via) = &checked.via {
-        operations.push(wan::plan_connect_via(domain, name, via)?);
+        operations.push(wan::plan_connect_via(domain, name, via).await?);
     }
     if let Some(identity) = &checked.identity {
-        operations.push(wan::plan_identity(domain, name, identity)?);
+        operations.push(wan::plan_identity(domain, name, identity).await?);
     }
     let requests = operations
         .iter()

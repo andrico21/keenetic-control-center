@@ -6,8 +6,9 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
-use kcc_domain::wan;
-use kcc_i18n::{keys, locale::Locale};
+use kcc_catalog::Risk;
+use kcc_domain::{RouterCtx, interfaces, wan};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::ObjectName;
 
 use super::{
@@ -24,7 +25,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        confirm::Resubmit,
+        confirm::{Confirmation, Resubmit},
         family::Family,
         request::{Params, missing, with_query},
         respond::Answer,
@@ -49,8 +50,18 @@ fn dialog(router: &str, name: &ObjectName, locale: Locale) -> SecretDialog {
     )
 }
 
+/// Whether the connection `name` carries kcc's own connection, so setting its password is
+/// a management change; a failed check counts as carrying it.
+// cancel-safe: only read requests.
+async fn carries_management(domain: &RouterCtx, name: &ObjectName) -> bool {
+    interfaces::detect_management(domain, name)
+        .await
+        .map_or(true, |verdict| verdict.risk(name) == Risk::Management)
+}
+
 /// `GET /ui/r/{router}/internet/password?name=`: the dialog; it never holds the stored
-/// password.
+/// password. On the connection kcc's own connection runs over it explains the fail-safe
+/// timer, and its Apply confirms it.
 ///
 /// # Errors
 ///
@@ -64,7 +75,12 @@ pub(crate) async fn password_dialog(
 ) -> Result<Response, Answer> {
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = PASSWORD.open(&state, &user, &router).await?;
-    Ok(dialog(&router, &name, action.locale()).show())
+    let shown = dialog(&router, &name, action.locale());
+    let domain = action.context().await?;
+    if carries_management(&domain, &name).await {
+        return Ok(shown.management().show());
+    }
+    Ok(shown.show())
 }
 
 /// `POST /ui/r/{router}/internet/password?name=`: sets the password typed twice in the
@@ -85,9 +101,11 @@ pub(crate) async fn password(
     let name = Params::new(query, Vec::new()).object("name")?;
     let action = PASSWORD.open(&state, &user, &router).await?;
     let locale = action.locale();
+    let confirmed = Confirmation::from_pairs(&form).confirmed();
     let Some(checked) = typed(entry(&mut form)) else {
         return Ok(unchanged(action).await);
     };
+    let mut management = false;
     if checked.is_ok() {
         let domain = action.context().await?;
         match links(&domain).await {
@@ -104,8 +122,20 @@ pub(crate) async fn password(
                 return Err(unusable(locale, Family::Changes.unreachable()));
             }
         }
+        management = carries_management(&domain, &name).await;
+        if management && !confirmed {
+            action.abandon("confirmation_required").await;
+            let asked = tr(locale, keys::WEB_SECRET_CONFIRM, None);
+            return Err(dialog(&router, &name, locale)
+                .management()
+                .secret_error(asked));
+        }
     }
-    let shown = Secret::new(dialog(&router, &name, locale), keys::WEB_INTERNET_PASSWORD);
+    let mut asked = dialog(&router, &name, locale);
+    if management {
+        asked = asked.management();
+    }
+    let shown = Secret::new(asked, keys::WEB_INTERNET_PASSWORD);
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
     let params = Params::default();
     let resubmit = Resubmit::new(
@@ -115,11 +145,17 @@ pub(crate) async fn password(
         ),
         "#page-outcome",
     );
-    Ok(Submission::new(action, &params, shown, resubmit)
+    let submission = Submission::new(action, &params, shown, resubmit);
+    let covered = if management {
+        submission.confirmed_by_page(Risk::Management)
+    } else {
+        submission
+    };
+    Ok(covered
         .submit(
             |_params| checked,
             async |secret, ctx| {
-                let operation = wan::plan_password(ctx, &name, secret)?;
+                let operation = wan::plan_password(ctx, &name, secret).await?;
                 let request = wan::change_request(&name, &operation)?;
                 Ok(Planned::of(&[operation], Change::Cli(request)))
             },

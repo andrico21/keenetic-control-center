@@ -72,6 +72,20 @@ impl RouterUrl {
     pub fn host(&self) -> Option<String> {
         Url::parse(&self.0).ok()?.host_str().map(str::to_owned)
     }
+
+    /// Returns whether the origin uses HTTPS rather than plain HTTP.
+    #[inline]
+    #[must_use]
+    pub fn is_https(&self) -> bool {
+        self.0.starts_with("https://")
+    }
+
+    /// Returns the origin port, the scheme's default when the URL names none.
+    #[inline]
+    #[must_use]
+    pub fn port(&self) -> Option<u16> {
+        Url::parse(&self.0).ok()?.port_or_known_default()
+    }
 }
 
 impl FromStr for RouterUrl {

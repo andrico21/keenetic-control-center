@@ -47,10 +47,11 @@ mod tests {
     }
 
     /// The MTU write of `ISP`, planned once for each of `risks`.
-    fn mtu_at(domain: &RouterCtx, risks: &[Risk]) -> Result<Planned, DomainError> {
+    // cancel-safe: planning only reads the router.
+    async fn mtu_at(domain: &RouterCtx, risks: &[Risk]) -> Result<Planned, DomainError> {
         let name = ObjectName::try_from("ISP".to_owned())
             .map_err(|_error| DomainError::InvalidResponse)?;
-        let planned = wan::plan_mtu(domain, &name, 1400)?;
+        let planned = wan::plan_mtu(domain, &name, 1400).await?;
         let request = wan::change_request(&name, &planned)?;
         let operations: Vec<ChangeOp> = risks
             .iter()
@@ -90,7 +91,7 @@ mod tests {
             let answer = Submission::new(action, &typed, Plain, again())
                 .submit(
                     checked,
-                    async |_mtu, domain| mtu_at(domain, &[risk]),
+                    async |_mtu, domain| mtu_at(domain, &[risk]).await,
                     async |_domain| None,
                 )
                 .await;
@@ -125,7 +126,7 @@ mod tests {
         Submission::new(action, &typed, Plain, again())
             .submit(
                 checked,
-                async |_mtu, domain| mtu_at(domain, &[Risk::Management, Risk::Destructive]),
+                async |_mtu, domain| mtu_at(domain, &[Risk::Management, Risk::Destructive]).await,
                 async |_domain| None,
             )
             .await

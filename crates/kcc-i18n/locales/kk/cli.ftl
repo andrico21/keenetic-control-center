@@ -113,3 +113,4 @@ cli-router-switch-needs-token = { $router } роутерін токенмен к
 cli-router-switch-needs-password = { $router } роутерін құпиясөзбен кіруге ауыстыру үшін жаңа құпиясөз қажет (--new-password).
 cli-router-credential-required = { $router } роутерінің URL-ін, логинін немесе TLS бекітпесін өзгерту үшін оның құпиясөзін немесе токенін қайта көрсетіңіз (--new-password немесе --new-token).
 cli-router-external-password = { $router } роутері құпиясөзін ашық { $path } файлынан оқиды. Оны мына командамен шифрлаңыз: kcc router edit { $router } --new-password --password-file { $path }
+cli-listener-in-use = kcc роутерге осы порт арқылы қосылады, сондықтан өзгеріс kcc-ді ажыратып, сақталмаған барлық өзгерістерді кері қайтарар еді; ол жіберілмеді. Оны роутерде өзгертіп, содан кейін kcc-дегі роутер мекенжайын `kcc router edit --url` пәрменімен түзетіңіз.

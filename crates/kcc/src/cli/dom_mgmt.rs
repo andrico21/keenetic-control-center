@@ -3,9 +3,11 @@
 
 use kcc_app::permissions::Permission;
 use kcc_domain::{
+    DomainError,
     keendns::{self, RemoteSecurityLevel},
     services::{self, HttpSslSetting, ManagementListener, SecurityLevel},
 };
+use kcc_i18n::keys;
 
 use super::{
     args_dom_admin::{
@@ -18,7 +20,7 @@ use super::{
     context::Ctx,
     dom_net, dom_wire,
     domains::Session,
-    exit::Outcome,
+    exit::{Exit, Failure, Outcome},
 };
 
 /// Runs a `services` command: the first commands, or the writes added here.
@@ -55,7 +57,7 @@ async fn services_writes(ctx: &Ctx, command: ServicesWriteCommand) -> Outcome {
         ServicesWriteCommand::Port {
             listener: which,
             port,
-        } => services::plan_port(router, listener(which), port)?,
+        } => services::plan_port(router, listener(which), port).map_err(own_listener)?,
         ServicesWriteCommand::SecurityLevel {
             listener: which,
             level,
@@ -77,12 +79,21 @@ async fn services_writes(ctx: &Ctx, command: ServicesWriteCommand) -> Outcome {
                 HttpsChoice::AcmeGet => HttpSslSetting::AcmeGet,
                 HttpsChoice::AcmeRevoke => HttpSslSetting::AcmeRevoke,
             };
-            services::plan_http_ssl(router, ssl)?
+            services::plan_http_ssl(router, ssl).map_err(own_listener)?
         }
     };
     session
         .cli(&operation, services::change_request(&operation)?)
         .await
+}
+
+/// The planner's refusal to change the listener the router profile's URL uses, in words.
+fn own_listener(error: DomainError) -> Failure {
+    if matches!(error, DomainError::ProtectedAccount) {
+        Failure::message(Exit::Policy, keys::CLI_LISTENER_IN_USE, &[])
+    } else {
+        error.into()
+    }
 }
 
 /// Runs a `keendns` command: the first commands, or the writes added here.

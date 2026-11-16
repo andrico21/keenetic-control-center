@@ -195,12 +195,13 @@ pub(crate) async fn wan(ctx: &Ctx, command: WanCommand) -> Outcome {
         WanCommand::List => return Ok(()),
         WanCommand::Identity { name, identity } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_identity(router, &object_name, &identity)?;
+            let operation = wan::plan_identity(router, &object_name, &identity).await?;
             (object_name, operation)
         }
         WanCommand::Password { name } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_password(router, &object_name, new_secret(ctx, &name)?)?;
+            let operation =
+                wan::plan_password(router, &object_name, new_secret(ctx, &name)?).await?;
             (object_name, operation)
         }
         WanCommand::Priority { name, value } => {
@@ -210,12 +211,12 @@ pub(crate) async fn wan(ctx: &Ctx, command: WanCommand) -> Outcome {
         }
         WanCommand::Mtu { name, value } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_mtu(router, &object_name, value)?;
+            let operation = wan::plan_mtu(router, &object_name, value).await?;
             (object_name, operation)
         }
         WanCommand::DefaultRoute { name, state } => {
             let object_name = object(&name)?;
-            let operation = wan::plan_default_route(router, &object_name, state.enabled())?;
+            let operation = wan::plan_default_route(router, &object_name, state.enabled()).await?;
             (object_name, operation)
         }
     };

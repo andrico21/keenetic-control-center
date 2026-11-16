@@ -6,11 +6,11 @@
 )]
 
 use alloc::{collections::BTreeMap, vec};
-use core::{net::Ipv4Addr, result::Result as CoreResult};
+use core::net::Ipv4Addr;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand, PresencePredicate, VerificationSpec},
+    workflow::{CliChangeRequest, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_rci::ObjectName;
@@ -153,19 +153,25 @@ pub fn plan_static_address(
 }
 
 /// Plans the public authentication identity without handling a password.
-pub fn plan_identity(router: &RouterCtx, name: &ObjectName, identity: &str) -> Result<ChangeOp> {
-    plan_named(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_identity(
+    router: &RouterCtx,
+    name: &ObjectName,
+    identity: &str,
+) -> Result<ChangeOp> {
+    plan_named_generated(
         router,
         name,
         "interface authentication identity",
         &json!({"identity": identity}),
         Vec::new(),
-        Risk::Write,
     )
+    .await
 }
 
 /// Plans a PPP authentication password while retaining plaintext only in protected storage.
-pub fn plan_password(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_password(
     router: &RouterCtx,
     name: &ObjectName,
     password: SecretString,
@@ -175,7 +181,7 @@ pub fn plan_password(
         .validate_secret("interface authentication password", "password", password)
         .map_err(|issues| DomainError::Validation { issues })?;
     let escaped_name = name.as_str().replace('~', "~0").replace('/', "~1");
-    Ok(ChangeOp::new(
+    let operation = ChangeOp::new(
         vec![validated],
         vec![VerificationSpec::presence(
             vec!["show".to_owned(), "interface".to_owned()],
@@ -188,23 +194,25 @@ pub fn plan_password(
         Risk::Write,
         Permission::Write,
         false,
-    ))
+    );
+    classified(router, name, operation).await
 }
 
 /// Plans the underlying interface used by a tunneled connection.
-pub fn plan_connect_via(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_connect_via(
     router: &RouterCtx,
     name: &ObjectName,
     via: &ObjectName,
 ) -> Result<ChangeOp> {
-    plan_named(
+    plan_named_generated(
         router,
         name,
         "interface connect",
         &json!({"via": via}),
         Vec::new(),
-        Risk::Write,
     )
+    .await
 }
 
 /// Plans global-routing priority.
@@ -225,19 +233,21 @@ pub async fn plan_priority(
 }
 
 /// Plans interface MTU.
-pub fn plan_mtu(router: &RouterCtx, name: &ObjectName, mtu: i64) -> Result<ChangeOp> {
-    plan_named(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_mtu(router: &RouterCtx, name: &ObjectName, mtu: i64) -> Result<ChangeOp> {
+    plan_named_generated(
         router,
         name,
         "interface ip mtu",
         &json!({"mtu": mtu}),
         Vec::new(),
-        Risk::Write,
     )
+    .await
 }
 
 /// Plans whether IPCP supplies a default route.
-pub fn plan_default_route(
+// cancel-safe: management classification performs read-only topology requests.
+pub async fn plan_default_route(
     router: &RouterCtx,
     name: &ObjectName,
     enabled: bool,
@@ -247,14 +257,14 @@ pub fn plan_default_route(
     } else {
         json!({"no": true})
     };
-    plan_named(
+    plan_named_generated(
         router,
         name,
         "interface ipcp default-route",
         &body,
         Vec::new(),
-        Risk::Write,
     )
+    .await
 }
 
 /// Converts a WAN plan into a protected parser request.
@@ -294,15 +304,20 @@ async fn plan_named_generated(
     verify: Vec<VerificationSpec>,
 ) -> Result<ChangeOp> {
     let operation = plan_with_risk(router, catalog_path, body, verify, Risk::Write)?;
-    let request = render::request(name, &operation)?;
-    let lines = request
-        .commands
-        .iter()
-        .map(CliCommand::expose_for_send)
-        .collect::<CoreResult<Vec<_>, _>>()
-        .map_err(|_error| DomainError::InvalidResponse)?;
-    let rendered = lines.iter().map(|line| line.as_str()).collect::<Vec<_>>();
-    let risk = interfaces::management::classify_generated(router, &rendered).await?;
+    classified(router, name, operation).await
+}
+
+/// Raises `operation` to management risk when the connection `name` carries kcc's own
+/// connection; every WAN line names only that interface, so it alone is classified.
+// cancel-safe: management classification performs read-only topology requests.
+async fn classified(
+    router: &RouterCtx,
+    name: &ObjectName,
+    operation: ChangeOp,
+) -> Result<ChangeOp> {
+    let risk = interfaces::detect_management(router, name)
+        .await?
+        .risk(name);
     Ok(ChangeOp { risk, ..operation })
 }
 

@@ -35,7 +35,7 @@ async fn a_writer_dying_after_the_arm_still_disarms() -> TestResult {
     let password = env.write("router.password", DEFAULT_PASSWORD)?;
     env.write_config(&router("lab-1", relay, &password))?;
 
-    let run = env.kcc(&["--yes", "services", "port", "http", "8082"])?;
+    let run = env.kcc(&["--yes", "services", "port", "ssh", "8082"])?;
 
     let commands = commands_after(&handle, 0);
     let (arm, disarm) = edges("router");

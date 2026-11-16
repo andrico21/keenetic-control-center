@@ -96,12 +96,12 @@ async fn wan_plan(router: &RouterCtx, op: &str) -> TestResult {
             ManagementVerdict::NotManagement,
         )?,
         "address_dhcp" => wan::plan_dhcp(router, &name, ManagementVerdict::NotManagement)?,
-        "identity" => wan::plan_identity(router, &name, "coverage67")?,
-        "password" => wan::plan_password(router, &name, secret())?,
-        "connect_via" => wan::plan_connect_via(router, &name, &"ISP".parse()?)?,
+        "identity" => wan::plan_identity(router, &name, "coverage67").await?,
+        "password" => wan::plan_password(router, &name, secret()).await?,
+        "connect_via" => wan::plan_connect_via(router, &name, &"ISP".parse()?).await?,
         "priority" => wan::plan_priority(router, &name, 67).await?,
-        "mtu" => wan::plan_mtu(router, &name, 1_400)?,
-        "default_route" => wan::plan_default_route(router, &name, true)?,
+        "mtu" => wan::plan_mtu(router, &name, 1_400).await?,
+        "default_route" => wan::plan_default_route(router, &name, true).await?,
         _ => return Err("uncovered WAN operation".into()),
     };
     checked(wan::change_request(&name, &plan)?)

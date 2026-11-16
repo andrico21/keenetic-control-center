@@ -73,10 +73,11 @@ mod tests {
         Ok(())
     }
 
-    /// Management listener ports are protected.
+    /// Management listener ports are protected (SSH: kcc refuses to move the HTTP listener
+    /// it uses).
     #[tokio::test]
     async fn curated_bracket_management_port() -> TestResult {
-        bracket("kcc_services_write", json!({"host":"lab-1","op":"management_port","name":"http","port":8082_u16,"confirm":true}), None).await
+        bracket("kcc_services_write", json!({"host":"lab-1","op":"management_port","name":"ssh","port":8082_u16,"confirm":true}), None).await
     }
     /// Disabling the management access point is protected.
     #[tokio::test]
