@@ -232,7 +232,7 @@ async fn client_write(changes: &mut ChangeSet, router: &RouterCtx, op: &str) -> 
     let client: clients::Client =
         serde_json::from_value(json!({"mac":"02:00:00:00:67:01","registered":false}))?;
     let plan = match op {
-        "register" => clients::plan_register(router, "02:00:00:00:67:01", "coverage67")?,
+        "register" => clients::plan_register(router, "02:00:00:00:67:01".parse()?, "coverage67")?,
         "remove" => clients::plan_remove(router, "02:00:00:00:10:01")?,
         "access" => clients::plan_access(router, &client, "coverage67", clients::Access::Deny)?,
         "schedule" => clients::plan_schedule(router, &client, "coverage67", "Schedule0")?,
@@ -271,8 +271,12 @@ async fn dhcp_write(changes: &mut ChangeSet, router: &RouterCtx, op: &str) -> Te
     let plan = match op {
         "pool" => dhcp::plan_pool(router, &pool)?,
         "static_lease" => {
-            dhcp::plan_static_lease(router, "02:00:00:00:67:01", Ipv4Addr::new(192, 0, 2, 67))
-                .await?
+            dhcp::plan_static_lease(
+                router,
+                "02:00:00:00:67:01".parse()?,
+                Ipv4Addr::new(192, 0, 2, 67),
+            )
+            .await?
         }
         _ => return Err("uncovered DHCP operation".into()),
     };

@@ -7,7 +7,7 @@ use kcc_app::{
 use kcc_catalog::Risk;
 
 use super::{VpnClientChange, WireGuardConfig, change, import_fields};
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token};
 
 /// Builds the complete import before any mutation can be dispatched.
 pub(super) async fn plan(
@@ -115,6 +115,8 @@ pub(super) fn peer_preshared(
     public_key: &str,
     key: secrecy::SecretString,
 ) -> Result<ChangeOp> {
+    cli_token::validate(name)?;
+    cli_token::validate(public_key)?;
     let mut operation = ChangeOp::new(
         Vec::new(),
         Vec::new(),

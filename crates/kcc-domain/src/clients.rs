@@ -16,6 +16,7 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeResult, WorkflowError},
 };
 use kcc_catalog::Risk;
+use kcc_rci::Mac;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -91,6 +92,9 @@ pub enum PolicySelection<'value> {
     Policy(&'value str),
 }
 
+/// The most characters of a router-reported name kept in a registration name.
+const NAME_CHARS: usize = 64;
+
 /// Client read inventory.
 const READS: &[OperationDescriptor] = &[operation("list", "show ip hotspot", Risk::Read)];
 
@@ -132,9 +136,43 @@ pub async fn read_client(router: &RouterCtx, mac: &str) -> Result<Option<Client>
     }))
 }
 
-/// Plans registration or rename through `known host <name> <mac>`.
-pub fn plan_register(router: &RouterCtx, mac: &str, name: &str) -> Result<ChangeOp> {
-    command::plan(router, &[("known host", json!({"name":name,"mac":mac}))])
+/// Plans registration or rename through `known host <name> <mac>`, the name sent as one
+/// quoted word.
+pub fn plan_register(router: &RouterCtx, mac: Mac, name: &str) -> Result<ChangeOp> {
+    command::plan(
+        router,
+        &[("known host", json!({"name":name,"mac":mac.to_string()}))],
+    )
+}
+
+/// The name an unregistered client is registered under when an action needs one: the
+/// reported name with every other character replaced by a hyphen, else one made from
+/// its MAC address.
+#[must_use]
+pub fn registration_name(client: &Client) -> String {
+    let reported: String = client
+        .name
+        .as_deref()
+        .unwrap_or_default()
+        .chars()
+        .take(NAME_CHARS)
+        .map(|letter| {
+            if letter.is_alphanumeric() || matches!(letter, '_' | '.') {
+                letter
+            } else {
+                '-'
+            }
+        })
+        .collect();
+    let trimmed = reported.trim_matches('-');
+    if trimmed.is_empty() {
+        format!(
+            "client-{}",
+            client.mac.as_deref().unwrap_or_default().replace(':', "")
+        )
+    } else {
+        trimmed.to_owned()
+    }
 }
 
 /// Plans the only supported host-removal path: `no known host <mac>`.

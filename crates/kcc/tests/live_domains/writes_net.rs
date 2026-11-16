@@ -143,7 +143,7 @@ pub(crate) async fn known_host(writer: &mut Writer<'_>) -> Result<WriteResult, B
     if registered(clients::read_client(writer.ctx, HOST_MAC).await?) {
         return Ok(WriteResult::Skipped("the probe known host already exists"));
     }
-    let add = clients::plan_register(writer.ctx, HOST_MAC, HOST_NAME)?;
+    let add = clients::plan_register(writer.ctx, HOST_MAC.parse()?, HOST_NAME)?;
     drop(clients::apply(writer.changes, writer.ctx, &add).await?);
     if !registered(clients::read_client(writer.ctx, HOST_MAC).await?) {
         return Err("known host read-back failed".into());

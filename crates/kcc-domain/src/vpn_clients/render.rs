@@ -10,107 +10,110 @@
 use serde_json::{Value, json};
 
 use super::VpnClientChange;
+use crate::{Result, cli_token::token};
 
-pub(super) fn input(change: &VpnClientChange) -> (&'static str, Value, String) {
-    match change {
+type Rendered = (&'static str, Value, String);
+
+pub(super) fn input(change: &VpnClientChange) -> Result<Rendered> {
+    Ok(match change {
         VpnClientChange::Create { name } => (
             "interface",
             json!({"name":name}),
-            format!("interface {name}"),
+            format!("interface {}", token(name)?),
         ),
         VpnClientChange::Delete { name } => (
             "interface",
             json!({"name":name,"no":true}),
-            format!("no interface {name}"),
+            format!("no interface {}", token(name)?),
         ),
-        VpnClientChange::Enabled { name, enabled } => enabled_interface(name, *enabled),
+        VpnClientChange::Enabled { name, enabled } => enabled_interface(name, *enabled)?,
         VpnClientChange::GenerateWireGuardPrivateKey { name } => context(
             "interface wireguard private-key",
             name,
             json!({}),
             "wireguard private-key".to_owned(),
-        ),
+        )?,
         VpnClientChange::WireGuardListenPort { name, port } => context(
             "interface wireguard listen-port",
             name,
             json!({"port":port}),
             format!("wireguard listen-port {port}"),
-        ),
+        )?,
         VpnClientChange::WireGuardPeer { name, public_key } => context(
             "interface wireguard peer",
             name,
             json!({"key":public_key}),
-            format!("wireguard peer {public_key}"),
-        ),
+            format!("wireguard peer {}", token(public_key)?),
+        )?,
         VpnClientChange::WireGuardEndpoint {
             name,
             public_key,
             address,
             port,
-        } => peer_endpoint(name, public_key, address, *port),
+        } => peer_endpoint(name, public_key, address, *port)?,
         VpnClientChange::WireGuardAllowedIp {
             name,
             public_key,
             address,
             mask,
-        } => peer_address(name, public_key, address, mask),
+        } => peer_address(name, public_key, address, mask)?,
         VpnClientChange::WireGuardKeepalive {
             name,
             public_key,
             seconds,
-        } => peer_keepalive(name, public_key, *seconds),
+        } => peer_keepalive(name, public_key, *seconds)?,
         VpnClientChange::WireGuardAsc { name, asc } => context(
             "interface wireguard asc",
             name,
             asc_body(&asc.values),
-            format!("wireguard asc {}", asc.values.join(" ")),
-        ),
+            asc_line(&asc.values)?,
+        )?,
         VpnClientChange::ZeroTierNetwork { name, network_id } => context(
             "interface zerotier network-id",
             name,
             json!({"network-id":network_id}),
-            format!("zerotier network-id {network_id}"),
-        ),
+            format!("zerotier network-id {}", token(network_id)?),
+        )?,
         VpnClientChange::ZeroTierAcceptAddresses { name, enabled } => {
-            toggle("interface zerotier accept-addresses", name, *enabled)
+            toggle("interface zerotier accept-addresses", name, *enabled)?
         }
         VpnClientChange::ZeroTierAcceptRoutes { name, enabled } => {
-            toggle("interface zerotier accept-routes", name, *enabled)
+            toggle("interface zerotier accept-routes", name, *enabled)?
         }
         VpnClientChange::OpenVpnAcceptRoutes { name, enabled } => {
-            toggle("interface openvpn accept-routes", name, *enabled)
+            toggle("interface openvpn accept-routes", name, *enabled)?
         }
         VpnClientChange::OpenVpnNameServers { name, enabled } => {
-            toggle("interface openvpn name-servers", name, *enabled)
+            toggle("interface openvpn name-servers", name, *enabled)?
         }
         VpnClientChange::OpenConnectProtocol { name, protocol } => context(
             "interface openconnect protocol",
             name,
             json!({"protocol":protocol}),
-            format!("openconnect protocol {protocol}"),
-        ),
+            format!("openconnect protocol {}", token(protocol)?),
+        )?,
         VpnClientChange::OpenConnectAcceptAddresses { name, enabled } => {
-            toggle("interface openconnect accept-addresses", name, *enabled)
+            toggle("interface openconnect accept-addresses", name, *enabled)?
         }
         VpnClientChange::OpenConnectAcceptRoutes { name, enabled } => {
-            toggle("interface openconnect accept-routes", name, *enabled)
+            toggle("interface openconnect accept-routes", name, *enabled)?
         }
         VpnClientChange::ProxyProtocol { name, protocol } => context(
             "interface proxy protocol",
             name,
             json!({"protocol":protocol}),
-            format!("proxy protocol {protocol}"),
-        ),
-        VpnClientChange::ProxyUpstream { name, host, port } => proxy_upstream(name, host, *port),
-        VpnClientChange::IkePolicy { name } => named("crypto ike policy", name),
-        VpnClientChange::IkeProposal { name } => named("crypto ike proposal", name),
-        VpnClientChange::IpsecProfile { name } => named("crypto ipsec profile", name),
-        VpnClientChange::IpsecTransformSet { name } => named("crypto ipsec transform-set", name),
-        VpnClientChange::CryptoMap { name } => named("crypto map", name),
-    }
+            format!("proxy protocol {}", token(protocol)?),
+        )?,
+        VpnClientChange::ProxyUpstream { name, host, port } => proxy_upstream(name, host, *port)?,
+        VpnClientChange::IkePolicy { name } => named("crypto ike policy", name)?,
+        VpnClientChange::IkeProposal { name } => named("crypto ike proposal", name)?,
+        VpnClientChange::IpsecProfile { name } => named("crypto ipsec profile", name)?,
+        VpnClientChange::IpsecTransformSet { name } => named("crypto ipsec transform-set", name)?,
+        VpnClientChange::CryptoMap { name } => named("crypto map", name)?,
+    })
 }
 
-fn enabled_interface(name: &str, enabled: bool) -> (&'static str, Value, String) {
+fn enabled_interface(name: &str, enabled: bool) -> Result<Rendered> {
     let path = if enabled {
         "interface up"
     } else {
@@ -123,64 +126,45 @@ fn enabled_interface(name: &str, enabled: bool) -> (&'static str, Value, String)
     clippy::needless_pass_by_value,
     reason = "rendered leaves are temporary owned strings moved into the final CLI line"
 )]
-fn context(
-    path: &'static str,
-    name: &str,
-    body: Value,
-    leaf: String,
-) -> (&'static str, Value, String) {
-    (path, body, format!("interface {name} {leaf}"))
+fn context(path: &'static str, name: &str, body: Value, leaf: String) -> Result<Rendered> {
+    Ok((path, body, format!("interface {} {leaf}", token(name)?)))
 }
 
-fn peer_context(
-    name: &str,
-    public_key: &str,
-    command: (&'static str, Value, String),
-) -> (&'static str, Value, String) {
+fn peer_context(name: &str, public_key: &str, command: Rendered) -> Result<Rendered> {
     let (path, body, leaf) = command;
     context(
         path,
         name,
         body,
-        format!("wireguard peer {public_key} {leaf}"),
+        format!("wireguard peer {} {leaf}", token(public_key)?),
     )
 }
 
-fn peer_endpoint(
-    name: &str,
-    public_key: &str,
-    address: &str,
-    port: u16,
-) -> (&'static str, Value, String) {
+fn peer_endpoint(name: &str, public_key: &str, address: &str, port: u16) -> Result<Rendered> {
     peer_context(
         name,
         public_key,
         (
             "interface wireguard peer endpoint",
             json!({"address":address,"port":port}),
-            format!("endpoint {address} {port}"),
+            format!("endpoint {} {port}", token(address)?),
         ),
     )
 }
 
-fn peer_address(
-    name: &str,
-    public_key: &str,
-    address: &str,
-    mask: &str,
-) -> (&'static str, Value, String) {
+fn peer_address(name: &str, public_key: &str, address: &str, mask: &str) -> Result<Rendered> {
     peer_context(
         name,
         public_key,
         (
             "interface wireguard peer allow-ips",
             json!({"address":address,"mask":mask}),
-            format!("allow-ips {address} {mask}"),
+            format!("allow-ips {} {}", token(address)?, token(mask)?),
         ),
     )
 }
 
-fn peer_keepalive(name: &str, public_key: &str, seconds: u16) -> (&'static str, Value, String) {
+fn peer_keepalive(name: &str, public_key: &str, seconds: u16) -> Result<Rendered> {
     peer_context(
         name,
         public_key,
@@ -192,22 +176,23 @@ fn peer_keepalive(name: &str, public_key: &str, seconds: u16) -> (&'static str, 
     )
 }
 
-fn proxy_upstream(name: &str, host: &str, port: Option<u16>) -> (&'static str, Value, String) {
+fn proxy_upstream(name: &str, host: &str, port: Option<u16>) -> Result<Rendered> {
+    let upstream = token(host)?;
     context(
         "interface proxy upstream",
         name,
         port.map_or_else(
-            || json!({"host":host}),
-            |upstream_port| json!({"host":host,"port":upstream_port}),
+            || json!({"host":upstream}),
+            |upstream_port| json!({"host":upstream,"port":upstream_port}),
         ),
         port.map_or_else(
-            || format!("proxy upstream {host}"),
-            |upstream_port| format!("proxy upstream {host} {upstream_port}"),
+            || format!("proxy upstream {upstream}"),
+            |upstream_port| format!("proxy upstream {upstream} {upstream_port}"),
         ),
     )
 }
 
-fn toggle(path: &'static str, name: &str, enabled: bool) -> (&'static str, Value, String) {
+fn toggle(path: &'static str, name: &str, enabled: bool) -> Result<Rendered> {
     let leaf = path.strip_prefix("interface ").unwrap_or(path);
     context(
         path,
@@ -225,8 +210,20 @@ fn toggle(path: &'static str, name: &str, enabled: bool) -> (&'static str, Value
     )
 }
 
-fn named(path: &'static str, name: &str) -> (&'static str, Value, String) {
-    (path, json!({"name":name}), format!("{path} {name}"))
+fn named(path: &'static str, name: &str) -> Result<Rendered> {
+    Ok((
+        path,
+        json!({"name":name}),
+        format!("{path} {}", token(name)?),
+    ))
+}
+
+fn asc_line(values: &[String]) -> Result<String> {
+    let words = values
+        .iter()
+        .map(|value| token(value))
+        .collect::<Result<Vec<_>>>()?;
+    Ok(format!("wireguard asc {}", words.join(" ")))
 }
 
 fn asc_body(values: &[String]) -> Value {

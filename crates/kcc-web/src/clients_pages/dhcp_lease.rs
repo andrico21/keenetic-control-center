@@ -9,6 +9,7 @@ use axum::{
 };
 use kcc_domain::{ChangeOp, DomainError, dhcp};
 use kcc_i18n::{keys, locale::Locale};
+use kcc_rci::Mac;
 use serde::Deserialize;
 
 use super::{
@@ -128,7 +129,7 @@ pub(crate) async fn add_lease(
                         return Err(Invalid::from(findings).into());
                     }
                 };
-                dhcp::plan_static_lease(domain, &mac, ip)
+                dhcp::plan_static_lease(domain, mac, ip)
                     .await
                     .map_err(|error| refusal(locale, &error))
             },
@@ -179,14 +180,7 @@ pub(crate) fn applied(operation: ChangeOp) -> Planned {
     })
 }
 
-/// The MAC address typed in `text`, lowercase: six pairs of hexadecimal digits separated
-/// by colons.
-fn mac_address(text: &str) -> Option<String> {
-    let mac = text.trim().to_ascii_lowercase();
-    let pairs: Vec<&str> = mac.split(':').collect();
-    (pairs.len() == 6
-        && pairs
-            .iter()
-            .all(|pair| pair.len() == 2 && pair.bytes().all(|byte| byte.is_ascii_hexdigit())))
-    .then_some(mac)
+/// The MAC address typed in `text`: six pairs of hexadecimal digits separated by colons.
+fn mac_address(text: &str) -> Option<Mac> {
+    text.trim().parse().ok()
 }

@@ -13,7 +13,7 @@ use kcc_app::{
 };
 use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, DomainError, RouterCtx, configuration::SafetyNet, verification};
-use kcc_rci::ObjectName;
+use kcc_rci::{Mac, ObjectName};
 use secrecy::SecretString;
 use serde_json::{Value, json};
 
@@ -169,6 +169,13 @@ pub(super) fn applied(unsaved: bool, audit: &AuditReceipt) -> Value {
 pub(super) fn object(value: Option<&str>) -> Result<ObjectName, McpFailure> {
     value
         .ok_or(McpFailure::InvalidArguments)?
+        .parse()
+        .map_err(|_error| McpFailure::InvalidArguments)
+}
+
+/// A required MAC address.
+pub(super) fn mac(value: Option<&str>) -> Result<Mac, McpFailure> {
+    text(value)?
         .parse()
         .map_err(|_error| McpFailure::InvalidArguments)
 }

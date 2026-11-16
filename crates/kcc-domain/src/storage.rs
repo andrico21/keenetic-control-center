@@ -18,7 +18,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token::validate as validate_token, read_show,
 };
 
 /// One mounted media volume.
@@ -284,17 +284,4 @@ const fn confirm(confirmed: bool) -> Result<()> {
     } else {
         Err(DomainError::ConfirmationRequired)
     }
-}
-
-/// Rejects values that cannot be represented as one unquoted router CLI token.
-fn validate_token(value: &str) -> Result<()> {
-    if value.is_empty()
-        || value
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
-        || value.contains(['\'', '"', '\\', ';', '|'])
-    {
-        return Err(DomainError::InvalidCliToken);
-    }
-    Ok(())
 }

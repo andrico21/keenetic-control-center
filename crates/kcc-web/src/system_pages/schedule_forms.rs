@@ -1,7 +1,7 @@
 //! The add-schedule dialog and its change.
 //!
-//! The router's CLI takes a schedule's name and description as one word each, so both are
-//! checked here before anything is sent.
+//! The router's CLI takes a schedule's name as one word, and this page holds the
+//! description to one word as well, so both are checked here before anything is sent.
 
 use axum::{
     Form,

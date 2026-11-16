@@ -26,6 +26,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
+    cli_token,
 };
 
 /// Service-backed VPN server kind.
@@ -235,6 +236,22 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
 
 /// Plans one non-secret catalog-validated VPN server mutation.
 pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<ChangeOp> {
+    if let VpnServerChange::IpsecMap { name }
+    | VpnServerChange::IpsecVirtualIp { name, enabled: _ }
+    | VpnServerChange::IpsecVirtualIpPool {
+        name,
+        begin: _,
+        end: _,
+        size: _,
+    }
+    | VpnServerChange::IpsecVirtualIpDns {
+        name,
+        primary: _,
+        secondary: _,
+    } = change
+    {
+        cli_token::validate(name)?;
+    }
     let (path, body, line) = render::input(change);
     let verify = verification::specs(change, path, &body);
     let validated = router

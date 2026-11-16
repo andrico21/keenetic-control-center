@@ -29,7 +29,7 @@ async fn static_lease_outside_bound_pool_is_refused_before_write() -> TestResult
 
         let result = dhcp::plan_static_lease(
             fixture.context(),
-            "02:00:00:00:10:aa",
+            "02:00:00:00:10:aa".parse()?,
             Ipv4Addr::new(198, 51, 100, 25),
         )
         .await;
@@ -64,7 +64,7 @@ async fn valid_static_lease_is_verified_through_running_config() -> TestResult {
         let mac = "02:00:00:00:10:aa";
         let address = Ipv4Addr::new(192, 0, 2, 99);
 
-        let lease = dhcp::plan_static_lease(fixture.context(), mac, address).await?;
+        let lease = dhcp::plan_static_lease(fixture.context(), mac.parse()?, address).await?;
         drop(dhcp::apply(&mut changes, fixture.context(), &lease).await?);
 
         let leases = dhcp::read_static_leases(fixture.context()).await?;

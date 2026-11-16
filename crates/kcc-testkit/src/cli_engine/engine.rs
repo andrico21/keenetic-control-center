@@ -152,10 +152,11 @@ fn mutate_nodes(
 fn apply_known_host(ast: &mut Ast, command: &[String], negated: bool) -> bool {
     match (negated, command) {
         (false, [known, host, _, _]) if known == "known" && host == "host" => {
-            let Some(node) = parse(&command.join(" "))
-                .ok()
-                .and_then(|mut parsed| parsed.nodes.pop())
-            else {
+            let tokens = command
+                .iter()
+                .map(|word| Token::Word(word.clone()))
+                .collect::<Vec<_>>();
+            let Some(node) = node_from_tokens(&tokens) else {
                 return false;
             };
             let mac = command.get(3).map_or("", String::as_str);

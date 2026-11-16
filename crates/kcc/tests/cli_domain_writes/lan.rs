@@ -1,7 +1,7 @@
 //! Client policy, DHCP pool, segment and connection-policy writes.
 
 use kcc_app::permissions::Permission;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::{lab::Lab, support::TestResult};
 
@@ -174,6 +174,26 @@ async fn hotspot_interface_policy_is_written() -> TestResult {
     let running = lab.fake.running_config_text();
     assert!(
         running.contains("ip hotspot policy Bridge0 permit"),
+        "{running}"
+    );
+    lab.shutdown().await
+}
+
+/// N3: an unregistered client is registered under its router-reported name made into one
+/// word, so a hostile name cannot add arguments to `known host`.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn hostile_reported_client_name_is_registered_as_one_word() -> TestResult {
+    let mac = "02:00:00:00:10:07";
+    let lab = Lab::with_show(
+        "ip/hotspot",
+        json!([{"mac":mac,"ip":"192.0.2.27","name":"evil 02:00:00:00:10:08","interface":"Bridge0","registered":false,"access":"permit","link":"up"}]),
+    )
+    .await?;
+    let run = lab.run(&["clients", "access", "--mac", mac, "off"])?;
+    assert_eq!(run.code, 0_i32, "{run:?}");
+    let running = lab.fake.running_config_text();
+    assert!(
+        running.contains(&format!("known host evil-02-00-00-00-10-08 {mac}")),
         "{running}"
     );
     lab.shutdown().await

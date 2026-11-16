@@ -33,6 +33,9 @@ mod raw_parity;
 #[path = "support/batch_outcomes.rs"]
 mod batch_outcomes;
 
+#[path = "support/free_text.rs"]
+mod free_text;
+
 #[cfg(test)]
 #[expect(
     clippy::missing_errors_doc,

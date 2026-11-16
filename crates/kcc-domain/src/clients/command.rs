@@ -10,7 +10,7 @@ use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
 use super::read_clients;
-use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, verification};
 
 /// Catalog-validates ordered client command inputs.
 pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<ChangeOp> {
@@ -23,24 +23,23 @@ pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<Chang
                 .map_err(|issues| DomainError::Validation { issues })
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok(ChangeOp::new(
-        requests,
+    let mut operation = ChangeOp::new(
+        Vec::new(),
         Vec::new(),
         Risk::Write,
         Permission::Write,
         false,
-    ))
+    );
+    for request in requests {
+        operation.push(ValidatedCli::new(cli_line(&request)?, request));
+    }
+    Ok(operation)
 }
 
-/// Converts catalog requests to ordered CLI commands.
+/// Converts planned client commands to a protected CLI request.
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
-    let commands = operation
-        .requests
-        .iter()
-        .map(|request| Ok(ValidatedCli::new(cli_line(request)?, request.clone())))
-        .collect::<Result<Vec<_>>>()?;
     verification::complete(CliChangeRequest::new(
-        commands,
+        operation.commands.clone(),
         policy_specs(operation)?,
         operation.permission,
         json!({"operation":"clients"}),
@@ -130,7 +129,11 @@ fn cli_line(request: &ValidatedRequest) -> Result<String> {
         "known host" if request.value().get("no") == Some(&Value::Bool(true)) => {
             Ok(format!("no known host {}", text("mac")?))
         }
-        "known host" => Ok(format!("known host {} {}", text("name")?, text("mac")?)),
+        "known host" => Ok(format!(
+            "known host {} {}",
+            registration_word(text("name")?)?,
+            text("mac")?
+        )),
         "ip hotspot host" if request.value().get("access").is_some() => Ok(format!(
             "ip hotspot host {} {}",
             text("mac")?,
@@ -168,6 +171,14 @@ fn cli_line(request: &ValidatedRequest) -> Result<String> {
         "ip hotspot wake" => Ok(format!("ip hotspot wake {}", text("mac")?)),
         _ => Err(DomainError::InvalidResponse),
     }
+}
+
+/// A registration name as one quoted CLI word; an empty name is refused.
+fn registration_word(name: &str) -> Result<String> {
+    if name.is_empty() {
+        return Err(DomainError::InvalidCliToken);
+    }
+    cli_token::quoted(name)
 }
 
 /// Compares one requested host mutation with its projected hotspot row.

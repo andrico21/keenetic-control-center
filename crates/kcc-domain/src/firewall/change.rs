@@ -27,7 +27,7 @@ use serde_json::{Map, Value, json};
 
 use self::verify::{OwnedRuleProperty, Verification};
 use super::model::{ConfiguredRule, Direction, Rule};
-use crate::{ChangeOp, DomainError, Result, RouterCtx};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token};
 
 /// A catalog-validated firewall operation with its full-identity read-back contract.
 #[derive(Clone, Debug, PartialEq)]
@@ -150,7 +150,8 @@ pub fn plan_bind(
     enabled: bool,
 ) -> Result<Plan> {
     let context = validate(router, "interface", &json!({"name":interface}))?;
-    let mut body = json!({"acl":acl,"direction":direction.name()});
+    let list = cli_token::object_name(acl)?;
+    let mut body = json!({"acl":list,"direction":direction.name()});
     if !enabled {
         insert(
             body.as_object_mut().ok_or(DomainError::InvalidResponse)?,
@@ -258,8 +259,9 @@ fn insert_port(
 }
 
 fn contextual(router: &RouterCtx, name: &str, path: &str, body: &Value) -> Result<ChangeOp> {
+    let list = cli_token::object_name(name)?;
     Ok(operation(vec![
-        validate(router, "access-list", &json!({"name":name}))?,
+        validate(router, "access-list", &json!({"name":list}))?,
         validate(router, path, body)?,
     ]))
 }

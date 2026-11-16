@@ -98,7 +98,7 @@ fn unclassified(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp
 
 /// Validates one non-secret mutation and binds its line to the validated request.
 fn command(router: &RouterCtx, change: &VpnClientChange) -> Result<ValidatedCli> {
-    let (path, body, line) = render::input(change);
+    let (path, body, line) = render::input(change)?;
     let validated = router
         .catalog
         .validate(path, HttpMethod::Post, &body)

@@ -51,7 +51,7 @@ async fn removing_a_client_uses_known_host_cascade() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
         let mac = "02:00:00:00:10:aa";
-        let registration = clients::plan_register(fixture.context(), mac, "temporary")?;
+        let registration = clients::plan_register(fixture.context(), mac.parse()?, "temporary")?;
         let mut changes = fixture.changes().await?;
         drop(clients::apply(&mut changes, fixture.context(), &registration).await?);
 

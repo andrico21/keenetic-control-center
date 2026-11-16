@@ -141,7 +141,7 @@ mod tests {
             commands,
             [
                 "system configuration fail-safe timer reboot 900",
-                "known host kcc-live-51 02:00:00:00:51:02",
+                "known host \"kcc-live-51\" 02:00:00:00:51:02",
                 "no known host 02:00:00:00:51:02",
                 "no system configuration fail-safe timer",
             ],

@@ -3,10 +3,12 @@
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 use kcc_domain::{
+    DomainError,
     clients::{self, Access, Client},
     dhcp, diagnostics, internet, segments, system,
 };
 use kcc_i18n::keys;
+use kcc_rci::Mac;
 use serde_json::json;
 
 use super::{
@@ -147,7 +149,9 @@ pub(crate) async fn clients(ctx: &Ctx, command: ClientsCommand) -> Outcome {
     let operation = match command {
         ClientsCommand::List => return list_clients(&session).await,
         ClientsCommand::Show { mac } => return session.show(&known(&session, &mac).await?),
-        ClientsCommand::Register { mac, name } => clients::plan_register(router, &mac, &name)?,
+        ClientsCommand::Register { mac, name } => {
+            clients::plan_register(router, typed_mac(&mac)?, &name)?
+        }
         ClientsCommand::Remove { mac } => clients::plan_remove(router, &mac)?,
         ClientsCommand::Wake { mac } => clients::plan_wake(router, &mac)?,
         ClientsCommand::Access { mac, state } => {
@@ -157,19 +161,39 @@ pub(crate) async fn clients(ctx: &Ctx, command: ClientsCommand) -> Outcome {
             } else {
                 Access::Deny
             };
-            clients::plan_access(router, &client, &label(&client, &mac), access)?
+            clients::plan_access(
+                router,
+                &client,
+                &clients::registration_name(&client),
+                access,
+            )?
         }
         ClientsCommand::Schedule { mac, schedule } => {
             let client = known(&session, &mac).await?;
-            clients::plan_schedule(router, &client, &label(&client, &mac), &schedule)?
+            clients::plan_schedule(
+                router,
+                &client,
+                &clients::registration_name(&client),
+                &schedule,
+            )?
         }
         ClientsCommand::Policy { mac, policy } => {
             let client = known(&session, &mac).await?;
-            clients::plan_policy(router, &client, &label(&client, &mac), &policy)?
+            clients::plan_policy(
+                router,
+                &client,
+                &clients::registration_name(&client),
+                &policy,
+            )?
         }
         ClientsCommand::Priority { mac, priority } => {
             let client = known(&session, &mac).await?;
-            clients::plan_priority(router, &client, &label(&client, &mac), priority)?
+            clients::plan_priority(
+                router,
+                &client,
+                &clients::registration_name(&client),
+                priority,
+            )?
         }
     };
     session
@@ -227,9 +251,14 @@ async fn known(session: &Session<'_>, mac: &str) -> Outcome<Client> {
         .ok_or_else(|| Failure::message(Exit::Usage, keys::CLI_NOT_FOUND, &[("name", mac)]))
 }
 
-/// The name a client is registered under: its current name, else its MAC.
-fn label(client: &Client, mac: &str) -> String {
-    client.name.clone().unwrap_or_else(|| mac.to_owned())
+/// `mac` as a MAC address.
+///
+/// # Errors
+///
+/// Returns [`DomainError::InvalidCliToken`], like any value that is not one router CLI
+/// word, when `mac` is not six colon-separated hexadecimal pairs.
+fn typed_mac(mac: &str) -> Result<Mac, DomainError> {
+    mac.parse().map_err(|_error| DomainError::InvalidCliToken)
 }
 
 /// Runs a `dhcp` command.
@@ -252,7 +281,7 @@ pub(crate) async fn dhcp(ctx: &Ctx, command: DhcpCommand) -> Outcome {
         DhcpCommand::Bindings => session.show(&dhcp::read_bindings(router).await?),
         DhcpCommand::Neighbours => session.show(&dhcp::read_neighbours(router).await?),
         DhcpCommand::StaticLease { mac, address } => {
-            let operation = dhcp::plan_static_lease(router, &mac, address).await?;
+            let operation = dhcp::plan_static_lease(router, typed_mac(&mac)?, address).await?;
             session
                 .change(Gate::of(&operation), async |changes, context| {
                     Ok(applied(

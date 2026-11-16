@@ -17,7 +17,7 @@ use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
 
 use super::{DnsChange, FilterEngine, HttpsUpstream, RebindProtection, TlsUpstream};
-use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
+use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, verification};
 
 /// Validates a typed DNS change against the selected router catalog.
 pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
@@ -27,9 +27,17 @@ pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
         .validate(path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
     let line = if let DnsChange::FqdnInclude { name, address } = change {
-        format!("object-group fqdn {name} include {address}")
+        format!(
+            "object-group fqdn {} include {}",
+            cli_token::token(name)?,
+            cli_token::token(address)?
+        )
     } else if let DnsChange::FqdnExclude { name, address } = change {
-        format!("object-group fqdn {name} exclude {address}")
+        format!(
+            "object-group fqdn {} exclude {}",
+            cli_token::token(name)?,
+            cli_token::token(address)?
+        )
     } else {
         render_validated(&validated)?
     };
@@ -219,13 +227,16 @@ fn https_body(value: &HttpsUpstream) -> Value {
 fn render_validated(validated: &ValidatedRequest) -> Result<String> {
     let value = validated.value();
     match validated.path.as_str() {
-        "dns-proxy tls upstream" => Ok(render_tls(value)),
-        "dns-proxy https upstream" => Ok(render_https(value)),
+        "dns-proxy tls upstream" => render_tls(value),
+        "dns-proxy https upstream" => render_https(value),
         "dns-proxy filter engine" => line_1(&validated.path, value, "engine"),
         "dns-proxy filter profile" | "object-group fqdn" => line_1(&validated.path, value, "name"),
-        "dns-proxy filter profile description" => {
-            line_2(&validated.path, value, "name", "description")
-        }
+        "dns-proxy filter profile description" => Ok(format!(
+            "{} {} {}",
+            validated.path,
+            required_text(value, "name")?,
+            description(value)?
+        )),
         "dns-proxy filter assign host preset" => line_2(&validated.path, value, "host", "preset"),
         "dns-proxy filter assign host profile" => line_2(&validated.path, value, "host", "profile"),
         "dns-proxy filter assign interface preset" => {
@@ -237,55 +248,60 @@ fn render_validated(validated: &ValidatedRequest) -> Result<String> {
         "dns-proxy intercept enable" => Ok(toggle_line(&validated.path, value)),
         "dns-proxy rebind-protect" => line_1(&validated.path, value, "mode"),
         "dns-proxy max-ttl" => optional_line(&validated.path, value, "max-ttl"),
-        "dns-proxy route object-group" => Ok(render_route(value)),
+        "dns-proxy route object-group" => render_route(value),
         "ip name-server" => line_1(&validated.path, value, "address"),
         "ip host" => line_2(&validated.path, value, "domain", "address"),
         "object-group fqdn description" => contextual_line(value),
-        "nextdns assign" => Ok(render_nextdns(value)),
+        "nextdns assign" => render_nextdns(value),
         _ => Err(DomainError::InvalidResponse),
     }
 }
 
-fn render_tls(value: &Value) -> String {
-    let mut parts = vec!["dns-proxy tls upstream".to_owned(), text(value, "address")];
-    push_optional(&mut parts, value, "port", None);
-    push_optional(&mut parts, value, "fqdn", Some("sni"));
-    push_optional(&mut parts, value, "hash", Some("spki"));
-    push_optional(&mut parts, value, "interface", Some("on"));
-    push_optional(&mut parts, value, "domain", Some("domain"));
-    parts.join(" ")
+fn render_tls(value: &Value) -> Result<String> {
+    let mut parts = vec![
+        "dns-proxy tls upstream".to_owned(),
+        required_text(value, "address")?,
+    ];
+    push_optional(&mut parts, value, "port", None)?;
+    push_optional(&mut parts, value, "fqdn", Some("sni"))?;
+    push_optional(&mut parts, value, "hash", Some("spki"))?;
+    push_optional(&mut parts, value, "interface", Some("on"))?;
+    push_optional(&mut parts, value, "domain", Some("domain"))?;
+    Ok(parts.join(" "))
 }
 
-fn render_https(value: &Value) -> String {
-    let mut parts = vec!["dns-proxy https upstream".to_owned(), text(value, "url")];
-    push_optional(&mut parts, value, "format", None);
-    push_optional(&mut parts, value, "hash", Some("sni"));
-    push_optional(&mut parts, value, "interface", Some("on"));
-    push_optional(&mut parts, value, "domain", Some("domain"));
-    parts.join(" ")
+fn render_https(value: &Value) -> Result<String> {
+    let mut parts = vec![
+        "dns-proxy https upstream".to_owned(),
+        required_text(value, "url")?,
+    ];
+    push_optional(&mut parts, value, "format", None)?;
+    push_optional(&mut parts, value, "hash", Some("sni"))?;
+    push_optional(&mut parts, value, "interface", Some("on"))?;
+    push_optional(&mut parts, value, "domain", Some("domain"))?;
+    Ok(parts.join(" "))
 }
 
-fn render_route(value: &Value) -> String {
+fn render_route(value: &Value) -> Result<String> {
     let mut parts = vec![
         "dns-proxy route object-group".to_owned(),
-        text(value, "group"),
+        required_text(value, "group")?,
     ];
-    push_optional(&mut parts, value, "gateway", None);
-    push_optional(&mut parts, value, "interface", None);
-    parts.join(" ")
+    push_optional(&mut parts, value, "gateway", None)?;
+    push_optional(&mut parts, value, "interface", None)?;
+    Ok(parts.join(" "))
 }
 
-fn render_nextdns(value: &Value) -> String {
-    value.get("host").and_then(Value::as_str).map_or_else(
-        || {
-            format!(
-                "nextdns assign interface {} {}",
-                text(value, "iface"),
-                text(value, "token")
-            )
-        },
-        |host| format!("nextdns assign {host} {}", text(value, "token")),
-    )
+fn render_nextdns(value: &Value) -> Result<String> {
+    let token = required_text(value, "token")?;
+    Ok(if value.get("host").is_some() {
+        format!("nextdns assign {} {token}", required_text(value, "host")?)
+    } else {
+        format!(
+            "nextdns assign interface {} {token}",
+            required_text(value, "iface")?
+        )
+    })
 }
 
 fn line_1(path: &str, value: &Value, first: &str) -> Result<String> {
@@ -304,8 +320,18 @@ fn contextual_line(value: &Value) -> Result<String> {
     Ok(format!(
         "object-group fqdn {} description {}",
         required_text(value, "name")?,
-        required_text(value, "description")?
+        description(value)?
     ))
+}
+
+/// The free-text `description` field as one quoted CLI word.
+fn description(value: &Value) -> Result<String> {
+    cli_token::quoted_text(
+        value
+            .get("description")
+            .and_then(Value::as_str)
+            .ok_or(DomainError::InvalidResponse)?,
+    )
 }
 
 fn optional_line(path: &str, value: &Value, field: &str) -> Result<String> {
@@ -324,32 +350,39 @@ fn toggle_line(path: &str, value: &Value) -> String {
     }
 }
 
-fn push_optional(parts: &mut Vec<String>, value: &Value, key: &str, prefix: Option<&str>) {
+fn push_optional(
+    parts: &mut Vec<String>,
+    value: &Value,
+    key: &str,
+    prefix: Option<&str>,
+) -> Result<()> {
     let Some(item) = value.get(key).filter(|item| !item.is_null()) else {
-        return;
+        return Ok(());
     };
     if let Some(keyword) = prefix {
         parts.push(keyword.to_owned());
     }
-    parts.push(value_text(item));
+    parts.push(value_text(item)?);
+    Ok(())
 }
 
+/// The `key` field as one bare CLI token.
 fn required_text(value: &Value, key: &str) -> Result<String> {
-    value
-        .get(key)
-        .filter(|item| !item.is_null())
-        .map(value_text)
-        .ok_or(DomainError::InvalidResponse)
+    value_text(
+        value
+            .get(key)
+            .filter(|item| !item.is_null())
+            .ok_or(DomainError::InvalidResponse)?,
+    )
 }
 
-fn text(value: &Value, key: &str) -> String {
-    value.get(key).map_or_else(String::new, value_text)
-}
-
-fn value_text(value: &Value) -> String {
-    value
+/// A scalar as one bare CLI token; text that would split into more words is refused.
+fn value_text(value: &Value) -> Result<String> {
+    let text = value
         .as_str()
-        .map_or_else(|| value.to_string(), ToOwned::to_owned)
+        .map_or_else(|| value.to_string(), ToOwned::to_owned);
+    cli_token::validate(&text)?;
+    Ok(text)
 }
 
 fn render_https_args(value: &HttpsUpstream) -> Vec<Value> {

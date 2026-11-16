@@ -211,6 +211,27 @@ The first release, `0.1.0`, is in preparation and contains:
   literal word `FQDN`), and the port 1 to 65535. Before, the protocol and host were
   checked only as one CLI word each, and MCP and the CLI accepted port 0.
 
+- **Free text is quoted and identifiers are single words in router command lines**, on
+  the Web, MCP and CLI alike:
+  - Client registration names, connection-policy descriptions, DNS filter-profile and
+    FQDN-group descriptions, and schedule descriptions are sent as one quoted word, so a
+    name or description with spaces (for example `Anna phone`) is kept whole. Schedule
+    descriptions with spaces are now accepted by MCP and the CLI.
+  - An empty registration name is refused. Before, an MCP `access`, `schedule`, `policy`
+    or `priority` change on an unregistered client with no `value` sent
+    `known host  <mac>`.
+  - DHCP pool names and access-list names (firewall rules and bindings) must be router
+    object names: letters, digits and `_ . / : -`, up to 64 characters. A name with
+    spaces is refused.
+  - DNS names, upstream fields and NextDNS tokens, VPN client interface names, WireGuard
+    peer keys and other VPN client fields, and crypto-map names must each be one word.
+  - The static-lease and client-registration MAC must be a MAC address
+    (`kcc_dhcp_write`, `kcc_clients_write`, `kcc dhcp static-lease`,
+    `kcc clients register`).
+  - The CLI registers an unregistered client under its router-reported name with every
+    character other than letters, digits, `_` and `.` replaced by `-`, like the Web
+    clients page; before, it used the reported name unchanged.
+
 ### Fixed
 
 - **Clearing a firewall rule's description or schedule no longer enables the rule.**

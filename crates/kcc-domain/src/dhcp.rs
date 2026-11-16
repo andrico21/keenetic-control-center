@@ -19,7 +19,7 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeResult, WorkflowError},
 };
 use kcc_catalog::Risk;
-use kcc_rci::ConfigKind;
+use kcc_rci::{ConfigKind, Mac};
 use secrecy::ExposeSecret as _;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 use self::model::{Binding, Neighbour, Pool, PoolConfig, StaticLease};
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token, read_show,
 };
 
 /// DHCP read inventory.
@@ -82,10 +82,11 @@ pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
     read_show(&router.client, &["show", "ip", "arp"]).await
 }
 
-/// Plans a complete DHCP pool configuration.
+/// Plans a complete DHCP pool configuration; the pool name is one router object name.
 pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
+    let name = cli_token::object_name(&pool.name)?;
     let mut inputs = vec![
-        ("ip dhcp pool", json!({"name":pool.name})),
+        ("ip dhcp pool", json!({"name":name})),
         (
             "ip dhcp pool range",
             json!({"begin":pool.range_begin.to_string(),"end":pool.range_end.to_string()}),
@@ -120,9 +121,10 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
 // cancel-safe: only read requests; cancellation changes nothing on the router.
 pub async fn plan_static_lease(
     router: &RouterCtx,
-    mac: &str,
+    mac: Mac,
     address: Ipv4Addr,
 ) -> Result<ChangeOp> {
+    let lease_mac = mac.to_string();
     let pools = read_pools(router).await?;
     let bindings = read_bindings(router).await?;
     let leases = read_static_leases(router).await?;
@@ -147,14 +149,17 @@ pub async fn plan_static_lease(
         )
         .any(|(assigned_mac, assigned_address)| {
             assigned_address == Some(address_text.as_str())
-                && assigned_mac.is_some_and(|value| !value.eq_ignore_ascii_case(mac))
+                && assigned_mac.is_some_and(|value| !value.eq_ignore_ascii_case(&lease_mac))
         });
     if assigned_elsewhere {
         return Err(DomainError::StaticLeaseAddressInUse);
     }
     command::plan(
         router,
-        &[("ip dhcp host", json!({"host":format!("{mac} {address}")}))],
+        &[(
+            "ip dhcp host",
+            json!({"host":format!("{lease_mac} {address}")}),
+        )],
     )
 }
 

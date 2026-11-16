@@ -18,7 +18,7 @@ use kcc_app::workflow::{CliChangeRequest, CliCommand as ValidatedCli};
 use kcc_catalog::ValidatedRequest;
 use serde_json::{Value, json};
 
-use crate::{ChangeOp, DomainError, Result, verification};
+use crate::{ChangeOp, DomainError, Result, cli_token, verification};
 
 /// Converts a connection-policy plan into protected CLI workflow input.
 pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
@@ -83,6 +83,11 @@ fn leaf_line(name: &str, request: &ValidatedRequest) -> Result<String> {
     let negated = tokens.first().is_some_and(|word| word == "no");
     if negated {
         drop(tokens.remove(0));
+    }
+    if let [keyword, description] = tokens.as_mut_slice()
+        && keyword == "description"
+    {
+        *description = cli_token::quoted_text(description)?;
     }
     let line = format!("ip policy {name} {}", tokens.join(" "));
     Ok(if negated { format!("no {line}") } else { line })

@@ -10,7 +10,7 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{Opened, applied, apply, check_op, ipv4, needed, open, text};
+use super::common::{Opened, applied, apply, check_op, ipv4, mac, needed, open, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -139,7 +139,7 @@ async fn plan_client(
     ctx: &RouterCtx,
     input: &ClientInput,
 ) -> Result<Result<ChangeOp, DomainError>, McpFailure> {
-    let mac = || text(input.mac.as_deref());
+    let client_mac = || text(input.mac.as_deref());
     let selection = || -> Result<PolicySelection<'_>, McpFailure> {
         Ok(match (input.permit, input.value.as_deref()) {
             (Some(true), _) => PolicySelection::Access(Access::Permit),
@@ -149,7 +149,7 @@ async fn plan_client(
     };
     let op = input.op.as_str();
     if matches!(op, "access" | "schedule" | "policy" | "priority") {
-        let client = clients::read_client(ctx, mac()?)
+        let client = clients::read_client(ctx, client_mac()?)
             .await
             .map_err(map_domain)?
             .ok_or(McpFailure::InvalidArguments)?;
@@ -171,13 +171,17 @@ async fn plan_client(
         });
     }
     Ok(match op {
-        "register" => clients::plan_register(ctx, mac()?, text(input.value.as_deref())?),
-        "remove" => clients::plan_remove(ctx, mac()?),
+        "register" => clients::plan_register(
+            ctx,
+            mac(input.mac.as_deref())?,
+            text(input.value.as_deref())?,
+        ),
+        "remove" => clients::plan_remove(ctx, client_mac()?),
         "default_policy" => clients::plan_default_policy(ctx, selection()?),
         "interface_policy" => {
             clients::plan_interface_policy(ctx, text(input.interface.as_deref())?, selection()?)
         }
-        _ => clients::plan_wake(ctx, mac()?),
+        _ => clients::plan_wake(ctx, client_mac()?),
     })
 }
 
@@ -243,7 +247,7 @@ pub(super) async fn dhcp(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
     } else {
         dhcp::plan_static_lease(
             ctx,
-            text(input.mac.as_deref())?,
+            mac(input.mac.as_deref())?,
             ipv4(input.begin.as_deref())?,
         )
         .await

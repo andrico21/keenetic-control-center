@@ -20,7 +20,7 @@ use serde_json::{Value, json};
 
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
-    read_show,
+    cli_token, cli_token::validate as validate_token, read_show,
 };
 
 /// One configured schedule.
@@ -136,7 +136,6 @@ pub fn plan_create(router: &RouterCtx, name: &str) -> Result<ChangeOp> {
 /// Plans a schedule description.
 pub fn plan_description(router: &RouterCtx, name: &str, description: &str) -> Result<ChangeOp> {
     validate_token(name)?;
-    validate_token(description)?;
     Ok(plan(vec![
         validate(router, "schedule", &json!({"name":name}))?,
         validate(
@@ -181,11 +180,13 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         let line = match request.path.as_str() {
             "schedule description" => format!(
                 "schedule {name} description {}",
-                request
-                    .value()
-                    .get("description")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?
+                cli_token::quoted_text(
+                    request
+                        .value()
+                        .get("description")
+                        .and_then(Value::as_str)
+                        .ok_or(DomainError::InvalidResponse)?
+                )?
             ),
             "schedule action" => format!(
                 "schedule {name} action {} {} {} {}",
@@ -254,17 +255,4 @@ fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedReq
 /// Constructs the shared schedule operation shape.
 const fn plan(requests: Vec<ValidatedRequest>) -> ChangeOp {
     ChangeOp::new(requests, Vec::new(), Risk::Write, Permission::Write, false)
-}
-
-/// Rejects values that cannot be represented as one unquoted router CLI token.
-fn validate_token(value: &str) -> Result<()> {
-    if value.is_empty()
-        || value
-            .chars()
-            .any(|character| character.is_whitespace() || character.is_control())
-        || value.contains(['\'', '"', '\\', ';', '|'])
-    {
-        return Err(DomainError::InvalidCliToken);
-    }
-    Ok(())
 }

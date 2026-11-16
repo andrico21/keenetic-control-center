@@ -3,7 +3,7 @@
 
 use kcc_app::workflow::CliChangeResult;
 use kcc_domain::{
-    ChangeOp, Result as DomainResult, RouterCtx,
+    ChangeOp, DomainError, Result as DomainResult, RouterCtx,
     clients::{self, Access, Client},
 };
 use kcc_i18n::{bundle::MessageKey, keys, locale::Locale};
@@ -181,9 +181,13 @@ impl Input {
     /// Returns the catalog's findings.
     pub(crate) fn plan(&self, domain: &RouterCtx, client: &Client) -> DomainResult<ChangeOp> {
         let mac = client.mac.as_deref().unwrap_or_default();
-        let name = registration_name(client);
+        let name = clients::registration_name(client);
         match self {
-            Self::Name(wanted) => clients::plan_register(domain, mac, wanted),
+            Self::Name(wanted) => clients::plan_register(
+                domain,
+                mac.parse().map_err(|_error| DomainError::InvalidResponse)?,
+                wanted,
+            ),
             Self::Access(access) => clients::plan_access(domain, client, &name, *access),
             Self::Policy(policy) => clients::plan_policy(domain, client, &name, policy),
             Self::Schedule(schedule) => clients::plan_schedule(domain, client, &name, schedule),
@@ -217,33 +221,4 @@ fn is_name(value: &str) -> bool {
         && value
             .chars()
             .all(|letter| letter.is_alphanumeric() || matches!(letter, '-' | '_' | '.'))
-}
-
-/// The name an unregistered client is registered under when an action needs one: the
-/// reported name with every other character replaced by a hyphen, else one made from
-/// its MAC address.
-fn registration_name(client: &Client) -> String {
-    let reported: String = client
-        .name
-        .as_deref()
-        .unwrap_or_default()
-        .chars()
-        .take(NAME_CHARS)
-        .map(|letter| {
-            if letter.is_alphanumeric() || matches!(letter, '_' | '.') {
-                letter
-            } else {
-                '-'
-            }
-        })
-        .collect();
-    let trimmed = reported.trim_matches('-');
-    if trimmed.is_empty() {
-        format!(
-            "client-{}",
-            client.mac.as_deref().unwrap_or_default().replace(':', "")
-        )
-    } else {
-        trimmed.to_owned()
-    }
 }
