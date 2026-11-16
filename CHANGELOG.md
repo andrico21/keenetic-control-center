@@ -114,6 +114,22 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **One error vocabulary for changes**: a domain failure met inside a change is worded the
+  same way on the Web UI, MCP and the CLI. On MCP, `kcc_interfaces_write` failures now
+  carry their own code (`verification_failed` with its `field`, `forbidden`,
+  `router_unreachable`, `router_rejected`, `validation_failed`, ...) instead of always
+  `conflict`; a CLI line that cannot carry its request (ports on an `icmp`, `esp`, `gre`,
+  `ipip` or `ip` rule, a DNS route with neither gateway nor interface) answers
+  `validation_failed` instead of `internal`, and so does removing a firewall rule that is
+  absent. `resources/read` answers `router_unreachable` (was `internal`) for a router that
+  does not answer and for a name no router profile has, without polling it, and audits a
+  read outside the caller's scope as a `forbidden` attempt of `mcp.resources_read`.
+  `kcc_migration_plan` reports a system mode kcc does not know by the router's own name
+  (was `other("<name>")`). On the Web UI, a change the role may not make is answered
+  403 on every page. Logs and CLI messages name an unsupported firmware, an undecodable
+  configuration and an unexpected response body instead of "invalid last-change
+  response"; the CLI exit classes are unchanged.
+
 - **Rust 1.100.0**: the minimum supported Rust version (`rust-version`) and the pinned
   toolchain of CI, the release and container builds and the `Containerfile` builder
   are now 1.100.0.

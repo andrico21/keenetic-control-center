@@ -24,6 +24,7 @@ use crate::{
     KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers,
     support::{
         errors::map_rci,
+        names,
         route::parse,
         validate::{parse_cursor, valid_job_id},
     },
@@ -114,7 +115,7 @@ pub(crate) async fn inventory(server: &KccMcp, arguments: Value) -> Result<Value
         "model": found.info.version.model,
         "firmware": found.info.firmware.map(|version| version.to_string()),
         "support_tier": tier_name(found.info.support_tier()),
-        "system_mode": found.system_mode.as_ref().map(|mode| format!("{mode:?}").to_ascii_lowercase()),
+        "system_mode": found.system_mode.as_ref().map(names::system_mode),
         "fail_safe_available": found.fail_safe_available,
         "ports": found.ports.iter().map(|port| json!({"id": port.id, "label": port.label})).collect::<Vec<_>>(),
         "radios": found.radios.iter().map(|radio| radio.id.clone()).collect::<Vec<_>>(),

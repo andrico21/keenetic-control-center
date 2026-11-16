@@ -20,7 +20,7 @@ use kcc_i18n::keys;
 use serde::Deserialize;
 
 use super::{
-    frame::{interface_names, workflow_error},
+    frame::interface_names,
     reply::Replying,
     route_form::{check, destination_field, form},
     route_rows::{Family, StaticRoute, static_routes},
@@ -158,7 +158,7 @@ fn added(operation: &ChangeOp, route: StaticRoute, request: CliChangeRequest) ->
                 Family::V4 => read::ipv4_table(domain).await,
                 Family::V6 => read::ipv6_table(domain).await,
             }
-            .map_err(workflow_error)?;
+            .map_err(WorkflowError::from)?;
             if static_routes(family, &table).contains(&route) {
                 Ok(Applied::Cli {
                     unsaved: result.unsaved,

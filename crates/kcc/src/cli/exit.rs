@@ -4,8 +4,10 @@ use core::fmt;
 
 use fluent_bundle::FluentArgs;
 use kcc_app::{
-    credentials::CredentialError, registry::RegistryError, secrets::files::SecretFileError,
-    workflow::WorkflowError,
+    credentials::CredentialError,
+    registry::RegistryError,
+    secrets::files::SecretFileError,
+    workflow::{WorkflowError, refusal::Refusal},
 };
 use kcc_catalog::ValidationIssue;
 use kcc_domain::{
@@ -302,13 +304,33 @@ impl From<WorkflowError> for Failure {
             WorkflowError::VerificationFailed { field: _ } => {
                 return Self::text(Exit::Router, &error).headlined(keys::CLI_ERROR_NOT_APPLIED);
             }
-            WorkflowError::InvalidResponse | WorkflowError::SaveTimeout => Exit::Router,
+            WorkflowError::Refused(refusal) => return refused(refusal),
+            WorkflowError::InvalidResponse
+            | WorkflowError::UnsupportedFirmware
+            | WorkflowError::UndecodableConfig
+            | WorkflowError::UnexpectedBody
+            | WorkflowError::SaveTimeout => Exit::Router,
             WorkflowError::State(_) | WorkflowError::Backup(_) | WorkflowError::Audit(_) | _ => {
                 Exit::Generic
             }
         };
         Self::text(exit, &error)
     }
+}
+
+/// The failure of a change the planning layer refused, classed as its domain error is.
+fn refused(refusal: Refusal) -> Failure {
+    let exit = match refusal {
+        Refusal::ProtectedAccount => {
+            return Failure::message(Exit::Policy, keys::CLI_PROFILE_LOGIN_PROTECTED, &[]);
+        }
+        Refusal::InvalidInput | Refusal::ConfirmationMismatch => Exit::Validation,
+        Refusal::ConfirmationRequired => Exit::Policy,
+        Refusal::Unsafe => Exit::Router,
+        // A refusal this version does not know.
+        _ => Exit::Generic,
+    };
+    Failure::text(exit, &refusal)
 }
 
 impl From<DomainError> for Failure {

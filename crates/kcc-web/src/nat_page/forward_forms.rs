@@ -12,6 +12,7 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
+use kcc_app::workflow::WorkflowError;
 use kcc_domain::{
     ChangeOp, RouterCtx,
     nat::{change, descriptor::DESCRIPTOR, read},
@@ -40,7 +41,7 @@ use crate::{
         submit::{Invalid, Planned, Submission},
     },
     routing_page::{
-        frame::{interface_names, workflow_error},
+        frame::interface_names,
         reply::{Replying, unread},
     },
 };
@@ -116,7 +117,7 @@ pub(crate) fn applied(op: ChangeOp) -> Planned {
                     unsaved: result.unsaved,
                     responses: result.responses,
                 })
-                .map_err(workflow_error)
+                .map_err(WorkflowError::from)
         })
     })
 }

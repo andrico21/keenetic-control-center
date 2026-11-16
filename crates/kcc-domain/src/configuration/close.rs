@@ -98,7 +98,7 @@ pub async fn close(
             let validated = router
                 .catalog
                 .validate(path, HttpMethod::Post, &json!({}))
-                .map_err(|_issues| Failure::armed(WorkflowError::InvalidResponse))?;
+                .map_err(|issues| Failure::armed(WorkflowError::CatalogValidation { issues }))?;
             let request = CliChangeRequest::terminal(
                 vec![
                     ValidatedCli::new(path.to_owned(), validated)

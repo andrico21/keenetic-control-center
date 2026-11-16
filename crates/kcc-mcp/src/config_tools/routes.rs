@@ -14,89 +14,120 @@ use crate::{
 };
 
 /// The configuration-state and backup tools.
-pub(crate) fn descriptions() -> Vec<ToolDescription> {
-    vec![
-        ToolDescription::single(
-            "kcc_config_state",
-            "Read unsaved state, fail-safe state, and the last change",
-            "core",
-            Permission::Read,
-            (true, false, true),
-        ),
-        ToolDescription::single(
-            "kcc_config_save",
-            "Explicitly save the router running configuration",
-            "core",
-            Permission::Save,
-            (false, false, true),
-        ),
-        ToolDescription::single(
-            "kcc_backup_create",
-            "Store the router's startup configuration as an encrypted backup",
-            "system-admin",
-            Permission::Write,
-            (false, false, false),
-        ),
-        ToolDescription::single(
-            "kcc_backup_list",
-            "List the router's encrypted backups",
-            "system-admin",
-            Permission::Read,
-            (true, false, true),
-        ),
-        ToolDescription::single(
-            "kcc_backup_diff",
-            "Diff two backups with secrets redacted",
-            "system-admin",
-            Permission::Read,
-            (true, false, true),
-        ),
-    ]
+#[derive(Clone, Copy)]
+enum Tool {
+    /// `kcc_config_state`.
+    ConfigState,
+    /// `kcc_config_save`.
+    ConfigSave,
+    /// `kcc_backup_create`.
+    BackupCreate,
+    /// `kcc_backup_list`.
+    BackupList,
+    /// `kcc_backup_diff`.
+    BackupDiff,
 }
 
-/// Routes of the configuration-state and backup tools.
-pub(crate) fn routes() -> Vec<ToolRoute<KccMcp>> {
-    let described = descriptions();
-    let mut routes = Vec::new();
-    for description in &described {
-        let entry = match description.name {
-            "kcc_config_state" => route(
-                description,
+impl Tool {
+    /// Every tool, in registry order.
+    const ALL: [Self; 5] = [
+        Self::ConfigState,
+        Self::ConfigSave,
+        Self::BackupCreate,
+        Self::BackupList,
+        Self::BackupDiff,
+    ];
+
+    /// The tool's registry description.
+    const fn description(self) -> ToolDescription {
+        match self {
+            Self::ConfigState => ToolDescription::single(
+                "kcc_config_state",
+                "Read unsaved state, fail-safe state, and the last change",
+                "core",
+                Permission::Read,
+                (true, false, true),
+            ),
+            Self::ConfigSave => ToolDescription::single(
+                "kcc_config_save",
+                "Explicitly save the router running configuration",
+                "core",
+                Permission::Save,
+                (false, false, true),
+            ),
+            Self::BackupCreate => ToolDescription::single(
+                "kcc_backup_create",
+                "Store the router's startup configuration as an encrypted backup",
+                "system-admin",
+                Permission::Write,
+                (false, false, false),
+            ),
+            Self::BackupList => ToolDescription::single(
+                "kcc_backup_list",
+                "List the router's encrypted backups",
+                "system-admin",
+                Permission::Read,
+                (true, false, true),
+            ),
+            Self::BackupDiff => ToolDescription::single(
+                "kcc_backup_diff",
+                "Diff two backups with secrets redacted",
+                "system-admin",
+                Permission::Read,
+                (true, false, true),
+            ),
+        }
+    }
+
+    /// The tool's route: its schema and handler.
+    fn route(self) -> ToolRoute<KccMcp> {
+        let description = self.description();
+        match self {
+            Self::ConfigState => route(
+                &description,
                 schema_for_type::<RouterInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
                     Box::pin(state::config_state(server, arguments))
                 },
             ),
-            "kcc_config_save" => route(
-                description,
+            Self::ConfigSave => route(
+                &description,
                 schema_for_type::<RouterInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
                     Box::pin(state::config_save(server, arguments))
                 },
             ),
-            "kcc_backup_create" => route(
-                description,
+            Self::BackupCreate => route(
+                &description,
                 schema_for_type::<RouterInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
                     Box::pin(backups::create(server, arguments))
                 },
             ),
-            "kcc_backup_list" => route(
-                description,
+            Self::BackupList => route(
+                &description,
                 schema_for_type::<RouterInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
                     Box::pin(core::future::ready(backups::list(server, arguments)))
                 },
             ),
-            _ => route(
-                description,
+            Self::BackupDiff => route(
+                &description,
                 schema_for_type::<DiffInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
                     Box::pin(core::future::ready(backups::diff(server, arguments)))
                 },
             ),
-        };
-        routes.push(entry);
+        }
     }
-    routes
+}
+
+/// The configuration-state and backup tools.
+pub(crate) fn descriptions() -> Vec<ToolDescription> {
+    Tool::ALL.into_iter().map(Tool::description).collect()
+}
+
+/// Routes of the configuration-state and backup tools.
+pub(crate) fn routes() -> Vec<ToolRoute<KccMcp>> {
+    Tool::ALL.into_iter().map(Tool::route).collect()
 }

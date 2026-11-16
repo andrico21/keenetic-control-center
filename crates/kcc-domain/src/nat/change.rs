@@ -16,7 +16,9 @@ use alloc::{format, vec};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli},
+    workflow::{
+        ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, WorkflowError,
+    },
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Map, Value, json};
@@ -88,7 +90,10 @@ pub async fn apply(
     });
     let removing = validated.value().get("no") == Some(&Value::Bool(true));
     if present == removing {
-        return Err(DomainError::InvalidResponse);
+        return Err(WorkflowError::VerificationFailed {
+            field: format!("/{}", validated.path.replace(' ', "/")),
+        }
+        .into());
     }
     Ok(result)
 }

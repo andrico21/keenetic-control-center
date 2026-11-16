@@ -13,6 +13,15 @@ use kcc_rci::RciError;
 
 use super::{family::Family, outcome::Failure};
 
+/// What a failure says about the request beyond its audit id.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum FailureKind {
+    /// The role may not make the change: the page answers 403.
+    Forbidden,
+    /// Any other failure, answered where the page shows it.
+    Failed,
+}
+
 /// The failure of a change-workflow error, in `family`'s words.
 pub(crate) fn workflow_failure(family: Family, locale: Locale, error: &WorkflowError) -> Failure {
     match error {
@@ -25,9 +34,7 @@ pub(crate) fn workflow_failure(family: Family, locale: Locale, error: &WorkflowE
         WorkflowError::Conflict { agent: _ } => {
             Failure::new(tr(locale, family.conflict(), None), "conflict")
         }
-        WorkflowError::PermissionDenied { router: _ } => {
-            Failure::new(tr(locale, keys::ERRORS_FORBIDDEN, None), "forbidden")
-        }
+        WorkflowError::PermissionDenied { router: _ } => Failure::forbidden(locale),
         WorkflowError::CatalogValidation { issues } => Failure::new(
             issues
                 .iter()
@@ -49,7 +56,12 @@ pub(crate) fn workflow_failure(family: Family, locale: Locale, error: &WorkflowE
         | WorkflowError::Backup(_)
         | WorkflowError::Audit(_)
         | WorkflowError::InvalidResponse
+        | WorkflowError::UnsupportedFirmware
+        | WorkflowError::UndecodableConfig
+        | WorkflowError::UnexpectedBody
+        | WorkflowError::Refused(_)
         | WorkflowError::SaveTimeout
+        | WorkflowError::SecretCommand(_)
         | _ => {
             tracing::error!(%error, "change failed");
             Failure::new(tr(locale, family.failed(), None), "failed")
@@ -99,9 +111,7 @@ pub(crate) fn plan_failure(family: Family, locale: Locale, error: &DomainError) 
             "validation_failed",
         ),
         DomainError::Rci(rci) => rci_failure(family, locale, rci),
-        DomainError::PermissionDenied => {
-            Failure::new(tr(locale, keys::ERRORS_FORBIDDEN, None), "forbidden")
-        }
+        DomainError::PermissionDenied => Failure::forbidden(locale),
         DomainError::InvalidResponse
         | DomainError::ConfirmationMismatch
         | DomainError::StaticLeaseOutsidePool

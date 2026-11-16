@@ -18,6 +18,9 @@ mod resources;
     reason = "acceptance assertions establish the MCP resource contract"
 )]
 mod tests {
+    use std::net::TcpListener;
+
+    use kcc_app::registry::ManagedRouterProfile;
     use kcc_testkit::{FakeRouter, model::Profile};
     use serde_json::Value;
 
@@ -73,6 +76,61 @@ mod tests {
             "snapshot has system data: {value}"
         );
         assert!(lab.requests("lab-1")? > lab_before, "lab-1 was polled");
+        lab.stop().await
+    }
+
+    /// E-19: a forbidden snapshot read is audited as a forbidden attempt on the router.
+    ///
+    /// As a forbidden tool call is.
+    #[tokio::test]
+    async fn a_forbidden_read_is_audited() -> TestResult {
+        let lab = scoped_lab().await?;
+
+        let forbidden = read(&lab, &snapshot("prod-1")).await?;
+
+        assert_eq!(forbidden, Err("forbidden".to_owned()));
+        let entries = lab.audit()?;
+        assert!(
+            entries
+                .iter()
+                .any(|entry| entry.outcome == "forbidden"
+                    && entry.router.as_deref() == Some("prod-1")),
+            "{entries:?}"
+        );
+        lab.stop().await
+    }
+
+    /// E-19: an unknown or unreachable router's snapshot is `router_unreachable`.
+    ///
+    /// A name no router profile has and a router that does not answer get the tools' code,
+    /// not `internal`.
+    #[tokio::test]
+    async fn an_unknown_or_unreachable_router_is_unreachable() -> TestResult {
+        let lab = scoped_lab().await?;
+        let closed = TcpListener::bind("127.0.0.1:0")?.local_addr()?;
+        let directory = tempfile::TempDir::new()?;
+        let password = kcc_testkit::write_secret_file(
+            directory.path(),
+            "password",
+            kcc_testkit::DEFAULT_PASSWORD,
+        )?;
+        lab.registry
+            .create(
+                &lab_only(),
+                ManagedRouterProfile::new(
+                    "lab-2".to_owned(),
+                    url::Url::parse(&format!("http://{closed}"))?,
+                    kcc_testkit::DEFAULT_LOGIN.to_owned(),
+                    password,
+                ),
+            )
+            .await?;
+
+        let unknown = read(&lab, &snapshot("lab-9")).await?;
+        let unreachable = read(&lab, &snapshot("lab-2")).await?;
+
+        assert_eq!(unknown, Err("router_unreachable".to_owned()));
+        assert_eq!(unreachable, Err("router_unreachable".to_owned()));
         lab.stop().await
     }
 

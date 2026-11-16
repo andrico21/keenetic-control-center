@@ -267,6 +267,28 @@ pub(super) mod tests {
         Ok(())
     }
 
+    /// W3-09: a plan refused for the role is answered 403 by the kit itself.
+    ///
+    /// The kit reads the failure's typed kind, whatever the form answers other refusals
+    /// with.
+    #[tokio::test]
+    async fn a_forbidden_plan_is_answered_403_by_the_kit() -> Result<(), Box<dyn Error>> {
+        let world = World::new().await?;
+        let opened = MTU.open(&world.web, &world.admin, ROUTER).await.ok();
+        let action = opened.ok_or("the write opens")?;
+        let typed = params("1400");
+        let answer = Submission::new(action, &typed, Probe, again())
+            .submit(
+                checked,
+                async |_mtu, _domain| Err(DomainError::PermissionDenied),
+                async |_domain| None,
+            )
+            .await;
+        assert_eq!(answer.status(), StatusCode::FORBIDDEN);
+        assert_eq!(outcomes(&world.state_dir())?, ["forbidden"]);
+        Ok(())
+    }
+
     #[tokio::test]
     async fn a_plan_the_domain_refuses_is_audited_with_its_reason() -> Result<(), Box<dyn Error>> {
         let world = World::new().await?;

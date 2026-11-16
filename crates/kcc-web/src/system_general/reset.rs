@@ -10,10 +10,7 @@ use axum::{
     response::Response,
 };
 use kcc_app::workflow::WorkflowError;
-use kcc_domain::{
-    DomainError,
-    system::{self, FactoryResetError},
-};
+use kcc_domain::system;
 
 use crate::{
     WebState,
@@ -64,25 +61,11 @@ pub(crate) async fn reset(
                         system::factory_reset(changes, context, &named, &typed)
                             .await
                             .map(|result| Applied::Terminal(result.responses))
-                            .map_err(workflow_error)
+                            .map_err(WorkflowError::from)
                     })
                 }))
             },
             async |_ctx| None,
         )
         .await)
-}
-
-/// The change-workflow error of a refused reset; the typed name was already checked, so a
-/// mismatch here is an internal fault.
-fn workflow_error(error: FactoryResetError) -> WorkflowError {
-    match error {
-        FactoryResetError::Workflow(inner) => inner,
-        FactoryResetError::Domain(DomainError::Validation { issues }) => {
-            WorkflowError::CatalogValidation { issues }
-        }
-        FactoryResetError::ConfirmationMismatch | FactoryResetError::Domain(_) | _ => {
-            WorkflowError::InvalidResponse
-        }
-    }
 }

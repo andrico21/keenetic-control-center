@@ -1,8 +1,7 @@
 //! `kcc_wifi_write` and `kcc_mesh_write`.
 
 use kcc_domain::{
-    ChangeOp, DomainError, RouterCtx,
-    mesh::{self, RebootError},
+    ChangeOp, DomainError, RouterCtx, mesh,
     wifi::{self, Encryption},
 };
 use kcc_rci::ObjectName;
@@ -15,10 +14,7 @@ use super::common::{apply_cli, apply_registered, check_op, needed, object, open,
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
-    support::{
-        errors::{map_domain, map_workflow},
-        route::parse,
-    },
+    support::{errors::map_workflow, route::parse},
 };
 
 /// Wi-Fi write operations.
@@ -163,12 +159,7 @@ pub(super) async fn mesh(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
                     (Area::Mesh, &input.op, input.confirm, async |changes| {
                         mesh::reboot_member(changes, ctx, member, typed)
                             .await
-                            .map_err(|error| match error {
-                                RebootError::ConfirmationMismatch => McpFailure::InvalidArguments,
-                                RebootError::Domain(domain) => map_domain(domain),
-                                RebootError::Workflow(workflow) => map_workflow(workflow),
-                                _ => McpFailure::Internal,
-                            })
+                            .map_err(|error| map_workflow(error.into()))
                     }),
                 )
                 .await?,

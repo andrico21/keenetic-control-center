@@ -10,6 +10,7 @@
 
 mod support;
 
+use kcc_catalog::ValidationIssue;
 use kcc_domain::{
     DomainError,
     firewall::{
@@ -171,4 +172,31 @@ async fn binding_silently_ignored_by_router_fails_verification() -> TestResult {
         fixture.shutdown().await?;
     }
     Ok(())
+}
+
+/// D-18: a reversed destination port range is a validation failure naming its field.
+///
+/// It is the caller's bad value, not an invalid router response; nothing is sent.
+#[tokio::test]
+async fn a_reversed_port_range_names_its_field() -> TestResult {
+    let fixture = Fixture::spawn(PROFILES[1]).await?;
+    let rule = Rule::new(Action::Permit, Protocol::Tcp, "192.0.2.10", "198.51.100.20")
+        .with_destination_port_range(443, 80);
+    let before = fixture.handle().request_log().len();
+
+    let planned = change::plan_add_rule(fixture.context(), "WebAcl", &rule);
+
+    assert!(
+        matches!(
+            &planned,
+            Err(DomainError::Validation { issues })
+                if issues.iter().any(|issue| matches!(
+                    issue,
+                    ValidationIssue::InvalidValue { field } if field == "destination-end-port"
+                ))
+        ),
+        "{planned:?}"
+    );
+    assert_eq!(fixture.handle().request_log().len(), before);
+    fixture.shutdown().await
 }

@@ -2,29 +2,31 @@
 
 use core::fmt;
 
-use kcc_app::workflow::WorkflowError;
+use kcc_app::workflow::{WorkflowError, refusal::Refusal};
 use kcc_domain::{
     DomainError,
-    configuration::{bracket::ArmedFate, recovery},
+    configuration::{
+        bracket::ArmedFate,
+        recovery::{self, Fate},
+    },
 };
-use kcc_i18n::keys;
 use kcc_rci::{RciBody, RciError, RciResponse};
 use rmcp::ErrorData;
 use serde_json::{Value, json};
 
+use super::names;
 use crate::McpFailure;
 
 /// Maps a failed bracket: an armed fate to its code, a refused arm whose disarm was accepted
 /// to a failure that says nothing was applied, otherwise the original error.
 pub(crate) fn map_recovery(error: recovery::Failure<McpFailure>) -> McpFailure {
-    match error.fate() {
-        Some(fate) => armed(fate),
-        None if error.message_key() == Some(keys::MANAGEMENT_NOT_APPLIED) => {
-            McpFailure::NotApplied {
-                cause: Box::new(error.into_source()),
-            }
-        }
-        None => error.into_source(),
+    match error.outcome() {
+        Fate::Armed(fate) => armed(fate),
+        Fate::NotApplied => McpFailure::NotApplied {
+            cause: Box::new(error.into_source()),
+        },
+        // A fate this version does not know keeps the original error.
+        Fate::Settled | _ => error.into_source(),
     }
 }
 
@@ -44,24 +46,45 @@ impl From<WorkflowError> for McpFailure {
     }
 }
 
-/// Maps a protected workflow failure.
+/// Maps a protected workflow failure: the one mapping every MCP change error goes through.
 pub(crate) fn map_workflow(error: WorkflowError) -> McpFailure {
     tracing::warn!(error = ?error, "MCP change workflow failed");
     match error {
         WorkflowError::PermissionDenied { router: _ } => McpFailure::Forbidden,
-        WorkflowError::CatalogValidation { issues: _ } => McpFailure::ValidationFailed,
+        WorkflowError::CatalogValidation { issues: _ }
+        | WorkflowError::SecretCommand(_)
+        | WorkflowError::UnsupportedFirmware => McpFailure::ValidationFailed,
         WorkflowError::VerificationFailed { field } => McpFailure::VerificationFailed { field },
         WorkflowError::Conflict { agent: _ } | WorkflowError::RouterBusy { actor: _ } => {
             McpFailure::Conflict
         }
         WorkflowError::Rci(rci) => map_rci(&rci),
+        WorkflowError::Refused(refusal) => map_refusal(refusal),
+        // The workflow's enum is not exhaustive outside its crate: an error this version
+        // does not know is internal.
         WorkflowError::State(_)
         | WorkflowError::Registry(_)
         | WorkflowError::Backup(_)
         | WorkflowError::Audit(_)
         | WorkflowError::InvalidResponse
+        | WorkflowError::UndecodableConfig
+        | WorkflowError::UnexpectedBody
         | WorkflowError::SaveTimeout
         | _ => McpFailure::Internal,
+    }
+}
+
+/// Maps a change the planning layer refused on its own.
+const fn map_refusal(refusal: Refusal) -> McpFailure {
+    match refusal {
+        Refusal::InvalidInput => McpFailure::ValidationFailed,
+        Refusal::ConfirmationMismatch | Refusal::ConfirmationRequired => {
+            McpFailure::InvalidArguments
+        }
+        Refusal::ProtectedAccount => McpFailure::Forbidden,
+        Refusal::Unsafe => McpFailure::Conflict,
+        // A refusal this version does not know is internal.
+        _ => McpFailure::Internal,
     }
 }
 
@@ -85,31 +108,9 @@ pub(crate) fn map_rci(error: &RciError) -> McpFailure {
     }
 }
 
-/// Maps a curated domain failure.
+/// Maps a curated domain failure through the domain's one mapping onto the workflow's words.
 pub(crate) fn map_domain(error: DomainError) -> McpFailure {
-    match error {
-        DomainError::Rci(rci) => map_rci(&rci),
-        DomainError::Workflow(workflow) => map_workflow(workflow),
-        DomainError::Validation { issues } => {
-            tracing::warn!(?issues, "MCP domain validation failed");
-            McpFailure::ValidationFailed
-        }
-        DomainError::ConfirmationMismatch | DomainError::ConfirmationRequired => {
-            McpFailure::InvalidArguments
-        }
-        DomainError::StaticLeaseOutsidePool
-        | DomainError::StaticLeaseAddressInUse
-        | DomainError::InvalidCliToken => McpFailure::ValidationFailed,
-        DomainError::FirewallVerificationFailed => McpFailure::VerificationFailed {
-            field: "/interface/ip/access-group".to_owned(),
-        },
-        DomainError::ProtectedAccount | DomainError::PermissionDenied => McpFailure::Forbidden,
-        DomainError::SafetyAbort | DomainError::RouteCountMismatch => McpFailure::Conflict,
-        DomainError::InvalidResponse | _ => {
-            tracing::warn!(error = ?error, "MCP domain operation failed");
-            McpFailure::Internal
-        }
-    }
+    map_workflow(WorkflowError::from(error))
 }
 
 /// Converts a router body into its stable JSON projection.
@@ -132,7 +133,7 @@ pub(crate) fn statuses(response: &RciResponse) -> Vec<Value> {
         .map(|(pointer, item)| {
             json!({
                 "pointer": pointer.as_str(),
-                "level": format!("{:?}", item.status).to_ascii_lowercase(),
+                "level": names::level(item.status),
                 "code": item.code,
                 "ident": item.ident
             })

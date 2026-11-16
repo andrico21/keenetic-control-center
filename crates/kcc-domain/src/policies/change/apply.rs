@@ -12,7 +12,7 @@
     )
 )]
 
-use kcc_app::workflow::{ChangeSet, CliChangeResult};
+use kcc_app::workflow::{ChangeSet, CliChangeResult, WorkflowError};
 use serde_json::{Value, json};
 
 use super::render;
@@ -53,7 +53,10 @@ pub async fn apply(
         _ => false,
     };
     if !verified {
-        return Err(DomainError::InvalidResponse);
+        return Err(WorkflowError::VerificationFailed {
+            field: format!("/ip/policy/{name}"),
+        }
+        .into());
     }
     Ok(result)
 }

@@ -52,6 +52,11 @@ const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
 /// Process-wide request correlation counter.
 static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
+/// A fresh request correlation id.
+pub(crate) fn next_request_id() -> String {
+    format!("mcp-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed))
+}
+
 /// Converts a tool outcome into a protocol result with a correlation id.
 // NOT cancel-safe: a queued audit append may complete after cancellation.
 pub(crate) async fn finish_with_context(
@@ -59,7 +64,7 @@ pub(crate) async fn finish_with_context(
     context: FailureContext<'_>,
     result: Result<Value, McpFailure>,
 ) -> CallToolResult {
-    let request_id = format!("mcp-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed));
+    let request_id = next_request_id();
     match result.and_then(|value| shape(server, value, Some(&request_id))) {
         Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
         Err(error) => {

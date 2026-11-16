@@ -1,6 +1,9 @@
 //! The RMCP server handler: tool dispatch, router snapshot and catalog resources, prompts.
 
-use kcc_app::{permissions::Permission, registry::authorize};
+use kcc_app::{
+    permissions::Permission,
+    registry::{RegistryError, authorize},
+};
 use kcc_i18n::{bundle::tr, locale::Locale};
 use rmcp::{
     ErrorData, ServerHandler,
@@ -23,8 +26,10 @@ use crate::{
     generic::rci::catalog_for_version,
     prompts::PROMPTS,
     support::{
+        audit,
         errors::{failure_error, internal_error},
-        shape::shape,
+        names,
+        shape::{FailureContext, next_request_id, shape},
         validate::{MAX_PATH_CHARS, valid_host, valid_text},
     },
 };
@@ -102,20 +107,30 @@ impl ServerHandler for KccMcp {
             .and_then(|rest| rest.strip_suffix("/snapshot"))
         {
             valid_host(host).map_err(failure_error)?;
-            authorize(&identity.role, Permission::Read, host)
-                .map_err(|_error| failure_error(McpFailure::Forbidden))?;
+            if authorize(&identity.role, Permission::Read, host).is_err() {
+                let context = FailureContext::new("resources_read", true, Some(host));
+                audit::failure(self, context, &McpFailure::Forbidden, &next_request_id()).await;
+                return Err(failure_error(McpFailure::Forbidden));
+            }
+            match self.registry.get(host) {
+                Ok(_entry) => {}
+                Err(RegistryError::NotFound { id: _ }) => {
+                    return Err(failure_error(McpFailure::RouterUnreachable));
+                }
+                Err(error) => return Err(internal_error("resources/read", &error)),
+            }
             let mut receiver = self.poller.subscribe(host).await;
-            if receiver.borrow().is_none() {
-                receiver
-                    .changed()
-                    .await
-                    .map_err(|error| internal_error("resources/read", &error))?;
+            if receiver.borrow().is_none() && receiver.changed().await.is_err() {
+                return Err(failure_error(McpFailure::RouterUnreachable));
             }
             let result = receiver
                 .borrow()
                 .clone()
                 .ok_or_else(|| failure_error(McpFailure::RouterUnreachable))?
-                .map_err(|error| internal_error("resources/read", &error))?;
+                .map_err(|error| {
+                    tracing::warn!(host, %error, "MCP snapshot poll failed");
+                    failure_error(McpFailure::RouterUnreachable)
+                })?;
             let value = json!({
                 "host": host,
                 "system": result.system,
@@ -145,7 +160,7 @@ impl ServerHandler for KccMcp {
             let value = json!({
                 "version": version,
                 "path": command.path,
-                "kind": format!("{:?}", command.kind).to_ascii_lowercase(),
+                "kind": names::command_kind(command.kind),
                 "prefix_no": command.prefix_no,
                 "schema": catalog.to_json_schema(&decoded)
             });

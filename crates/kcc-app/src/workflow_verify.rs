@@ -155,15 +155,18 @@ impl<'spec> Readback<'spec> {
 // cancel-safe: only downloads and decodes router state.
 async fn configuration(client: &RciClient, spec: &VerificationSpec) -> Result<(), WorkflowError> {
     let bytes = client.download_config(ConfigKind::Running).await?;
-    let text = from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let text =
+        from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::UndecodableConfig)?;
     if spec.predicate == Some(PresencePredicate::ConfigSecret) {
         return credential(text, spec);
     }
     let expected = spec
         .expected
         .as_array()
-        .ok_or(WorkflowError::InvalidResponse)?;
-    let mut ast = parse(text).map_err(|_error| WorkflowError::InvalidResponse)?;
+        .ok_or_else(|| WorkflowError::VerificationFailed {
+            field: spec.field.clone(),
+        })?;
+    let mut ast = parse(text).map_err(|_error| WorkflowError::UndecodableConfig)?;
     let present = command_present(&ast.nodes, expected);
     wipe_tokens(&mut ast.nodes);
     let wanted = spec.predicate == Some(PresencePredicate::ConfigCommand);
@@ -208,7 +211,9 @@ fn credential(text: &str, spec: &VerificationSpec) -> Result<(), WorkflowError> 
     let prefix = spec
         .expected
         .as_str()
-        .ok_or(WorkflowError::InvalidResponse)?;
+        .ok_or_else(|| WorkflowError::VerificationFailed {
+            field: spec.field.clone(),
+        })?;
     let mut contexts = Vec::<(usize, &str)>::new();
     let present = text.lines().any(|line| {
         let trimmed = line.trim_start();

@@ -11,7 +11,6 @@ use kcc_i18n::locale::Locale;
 use serde::Deserialize;
 
 use super::{
-    frame::workflow_error,
     policy_rows::{Policy, read_policies},
     policy_view::policies_region,
     reply::{Replying, gone},
@@ -78,7 +77,7 @@ pub(crate) fn applied(ops: Vec<ChangeOp>) -> Planned {
                 last = Some(
                     apply::apply(changes, context, op)
                         .await
-                        .map_err(workflow_error)?,
+                        .map_err(WorkflowError::from)?,
                 );
             }
             let result = last.ok_or(WorkflowError::InvalidResponse)?;

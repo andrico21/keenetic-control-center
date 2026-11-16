@@ -15,7 +15,7 @@ use kcc_app::workflow::{ChangeSet, WorkflowError};
 use kcc_domain::{
     DomainDescriptor, OperationDescriptor, RouterCtx, configuration::SafetyNet, verification,
 };
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{bundle::tr, locale::Locale};
 use serde_json::{Value, json};
 
 use super::{
@@ -277,7 +277,7 @@ impl<'call> Action<'call> {
     /// The outcome of a change whose planned risk the role may not take, audited.
     // NOT cancel-safe: an abandoned append may still be written.
     async fn forbidden(self, params: Value) -> Outcome {
-        let failure = Failure::new(tr(self.locale(), keys::ERRORS_FORBIDDEN, None), "forbidden");
+        let failure = Failure::forbidden(self.locale());
         let outcome = Outcome::failed(failure);
         self.record
             .with_params(params)

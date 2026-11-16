@@ -7,10 +7,7 @@
 //! the change's own permission, as on every other page. Every other firewall change is a
 //! plain write.
 
-use axum::{
-    http::HeaderMap,
-    response::{IntoResponse as _, Response},
-};
+use axum::{http::HeaderMap, response::Response};
 use kcc_app::workflow::{CliChangeRequest, WorkflowError};
 use kcc_domain::{
     DomainError, RouterCtx,
@@ -40,7 +37,6 @@ use crate::{
         submit::{Form, Invalid, Planned as Assessed, Submission},
     },
     routing_page::reply::{Replying, gone, refused, unread},
-    system_pages::shared::forbidden,
 };
 
 /// A firewall change ready to run: its request, what it must show afterwards and the
@@ -184,9 +180,9 @@ impl<'request> Sender<'request> {
     }
 }
 
-/// A form of the firewall page, answering a change the role may not make 403.
+/// A form of the firewall page.
 ///
-/// Values that failed their check are answered by the page's own form, other refusals and
+/// Values that failed their check are answered by the page's own form, refusals and
 /// changes as the routing pages answer them.
 pub(crate) struct Firewall<F>(Replying<F>);
 
@@ -196,11 +192,7 @@ impl<F: Form> Form for Firewall<F> {
     }
 
     fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
-        if failure.audit() == "forbidden" {
-            forbidden(locale).into_response()
-        } else {
-            self.0.answer_refused(failure, locale)
-        }
+        self.0.answer_refused(failure, locale)
     }
 
     fn answer_changed(

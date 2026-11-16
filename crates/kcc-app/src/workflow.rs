@@ -38,6 +38,8 @@ mod cli;
 mod output;
 #[path = "workflow_receipts.rs"]
 mod receipts;
+#[path = "workflow_refusal.rs"]
+pub mod refusal;
 #[path = "workflow_replay.rs"]
 mod replay;
 #[path = "workflow_verify.rs"]
@@ -509,6 +511,18 @@ pub enum WorkflowError {
     /// Router response had an unusable shape.
     #[error("router returned an invalid last-change response")]
     InvalidResponse,
+    /// The router's firmware has no command catalog.
+    #[error("router firmware has no command catalog")]
+    UnsupportedFirmware,
+    /// A configuration downloaded from the router could not be decoded.
+    #[error("router configuration could not be decoded")]
+    UndecodableConfig,
+    /// The router answered with a body of an unexpected kind or shape.
+    #[error("router returned an unexpected response body")]
+    UnexpectedBody,
+    /// The planning layer refused the change.
+    #[error(transparent)]
+    Refused(#[from] refusal::Refusal),
     /// Explicit save or commit did not settle before the deadline.
     #[error("router save timed out")]
     SaveTimeout,
@@ -704,7 +718,7 @@ impl ChangeWorkflow {
             self.registry.poll_info(&router).await?
         };
         let catalog =
-            Catalog::for_router(&info).map_err(|_error| WorkflowError::InvalidResponse)?;
+            Catalog::for_router(&info).map_err(|_error| WorkflowError::UnsupportedFirmware)?;
         Ok(ChangeSet {
             workflow: Arc::clone(self),
             router,
@@ -1298,7 +1312,7 @@ impl ChangeSet {
                 match response {
                     RciBody::Json(value) => scrub_response(command.secrets(), value),
                     RciBody::Text(text) => *text = command.secrets().scrub_text(text),
-                    _ => return Err(WorkflowError::InvalidResponse),
+                    _ => return Err(WorkflowError::UnexpectedBody),
                 }
             }
         }
@@ -1366,7 +1380,7 @@ impl ChangeSet {
         if needs_backup {
             let bytes = self.client.download_config(ConfigKind::Startup).await?;
             let text = core::str::from_utf8(bytes.expose_secret())
-                .map_err(|_error| WorkflowError::InvalidResponse)?;
+                .map_err(|_error| WorkflowError::UndecodableConfig)?;
             drop(self.workflow.backups.create(
                 &self.router,
                 "pre-change",
@@ -1412,7 +1426,7 @@ async fn read_last_change(client: &RciClient) -> Result<LastChange, WorkflowErro
     let path = RciPath::from_segments(["show", "last-change"])
         .map_err(|_error| WorkflowError::InvalidResponse)?;
     let RciBody::Json(response) = client.show(&path, &()).await? else {
-        return Err(WorkflowError::InvalidResponse);
+        return Err(WorkflowError::UnexpectedBody);
     };
     let value = response.value;
     Ok(LastChange {

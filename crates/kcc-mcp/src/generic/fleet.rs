@@ -12,9 +12,12 @@ use serde_json::{Value, json};
 use super::persists::labelled;
 use crate::{
     KccMcp, McpFailure,
-    support::validate::{
-        MAX_PATH_CHARS, MAX_QUERY_CHARS, paginate, parse_cursor, valid_job_id, valid_text,
-        validate_fields,
+    support::{
+        names,
+        validate::{
+            MAX_PATH_CHARS, MAX_QUERY_CHARS, paginate, parse_cursor, valid_job_id, valid_text,
+            validate_fields,
+        },
     },
 };
 
@@ -125,7 +128,7 @@ pub(crate) async fn router_info(server: &KccMcp, input: HostInput) -> Result<Val
         "model": info.version.model,
         "hardware_id": info.version.hw_id,
         "firmware": info.firmware.map(|version| version.to_string()),
-        "brand": format!("{:?}", info.brand).to_ascii_lowercase(),
+        "brand": names::brand(info.brand),
         "components": info.components,
         "features": info.features,
         "support_tier": support_tier

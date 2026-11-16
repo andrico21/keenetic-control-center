@@ -14,6 +14,37 @@ mod tests {
 
     use crate::lab::{Lab, TestResult, admin};
 
+    /// E-07: an unapplied interface change answers `verification_failed` with its field.
+    ///
+    /// The router accepted it but the read-back shows the old value, as for every other
+    /// write.
+    #[tokio::test]
+    async fn an_unapplied_interface_change_names_its_field() -> TestResult {
+        let fake = FakeRouter::builder(Profile::default())
+            .faults(FaultInjection::default().silent_noop_path("parse"))
+            .build()?;
+        let lab = Lab::start(vec![("lab-1", fake)], admin()).await?;
+
+        let reply = lab
+            .call(
+                "kcc_interfaces_write",
+                json!({"host":"lab-1","op":"description","name":"Bridge0",
+                    "description":"unapplied","confirm":true}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(reply.error(), Some("verification_failed"), "{reply:?}");
+        assert!(
+            reply
+                .failure()
+                .and_then(|failure| failure.get("field"))
+                .is_some_and(serde_json::Value::is_string),
+            "{reply:?}"
+        );
+        lab.stop().await
+    }
+
     /// Work and arm refusals close recovery when disarm remains reachable; a refused change
     /// whose disarm is refused too reports the timer as armed.
     // NOT cancel-safe: the fixture may arm recovery before refusing the interface change.

@@ -39,6 +39,7 @@ use super::{
     request::{Params, missing},
     respond::{Answer, changed},
 };
+use crate::system_pages::shared::forbidden as forbidden_answer;
 
 #[cfg(test)]
 mod answer_tests;
@@ -265,8 +266,12 @@ impl<'call, F: Form> Submission<'call, F> {
     async fn refused(self, failure: Failure) -> Response {
         let locale = self.action.locale();
         self.action.abandon(failure.audit()).await;
-        self.course
-            .refused(self.form.answer_refused(failure, locale))
+        let answer = if failure.is_forbidden() {
+            forbidden_answer(locale).into_response()
+        } else {
+            self.form.answer_refused(failure, locale)
+        };
+        self.course.refused(answer)
     }
 
     /// The answer to a change the domain refused to plan with `error`, audited with its
@@ -276,6 +281,11 @@ impl<'call, F: Form> Submission<'call, F> {
         let locale = self.action.locale();
         let failure = plan_failure(Family::Changes, locale, error);
         self.action.abandon(failure.audit()).await;
+        if failure.is_forbidden() {
+            return self
+                .course
+                .refused(forbidden_answer(locale).into_response());
+        }
         let unplanned = Unplanned::new(error, failure, domain);
         let answer = self.form.answer_unplanned(unplanned, locale).await;
         self.course.refused(answer)

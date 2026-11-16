@@ -130,12 +130,12 @@ pub async fn apply(
     target: &CredentialTarget,
     secret: SecretString,
 ) -> CoreResult<(), WorkflowError> {
-    let operation =
-        plan(router, target, secret).map_err(|_error| WorkflowError::InvalidResponse)?;
-    let request = change::request(&operation).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let operation = plan(router, target, secret)?;
+    let request = change::request(&operation)?;
     drop(changes.apply_cli(request).await?);
     let bytes = router.client.download_config(ConfigKind::Running).await?;
-    let text = from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let text =
+        from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::UndecodableConfig)?;
     let (_, _, prefix) = target.binding();
     let mut contexts = Vec::<(usize, &str)>::new();
     let present = text.lines().any(|line| {

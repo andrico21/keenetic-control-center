@@ -22,7 +22,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest, CliChangeResult, WorkflowError},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{HttpMethod, Risk, ValidatedRequest, ValidationIssue};
 use serde_json::{Map, Value, json};
 
 use self::verify::{OwnedRuleProperty, Verification};
@@ -257,7 +257,11 @@ fn insert_port(
             insert(fields, end_port, json!(last));
             Ok(())
         }
-        (None | Some(_), Some(_)) => Err(DomainError::InvalidResponse),
+        (None | Some(_), Some(_)) => Err(DomainError::Validation {
+            issues: vec![ValidationIssue::InvalidValue {
+                field: end_port.to_owned(),
+            }],
+        }),
     }
 }
 

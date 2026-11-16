@@ -10,18 +10,18 @@ use core::{ops::RangeInclusive, result::Result as CoreResult};
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{
-        ChangeSet, CliChangeRequest, CliChangeResult, CliCommand as ValidatedCli, LastChange,
-        VerificationSpec, WorkflowError,
-    },
+    workflow::{ChangeSet, CliChangeResult, LastChange, WorkflowError},
 };
-use kcc_catalog::{HttpMethod, Risk};
+use kcc_catalog::Risk;
 use kcc_rci::capabilities::SystemMode;
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::Value;
 use thiserror::Error;
 
-use self::apply_needs::ApplyNeeds;
+use self::{
+    apply_needs::ApplyNeeds,
+    timer::{Timer, cli_request},
+};
 use crate::{
     DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx, read_show,
 };
@@ -30,6 +30,7 @@ pub mod apply_needs;
 pub mod bracket;
 pub mod close;
 pub mod recovery;
+mod timer;
 
 /// Tolerant fail-safe state nested in `show last-change`.
 #[derive(Clone, Debug, Default, PartialEq, Deserialize, Serialize)]
@@ -239,15 +240,7 @@ impl SafetyNet {
         seconds: u64,
         permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
-        let (catalog_path, line) = match mode {
-            SafetyMode::Router => (
-                "system configuration fail-safe timer",
-                format!("system configuration fail-safe timer reboot {seconds}"),
-            ),
-            SafetyMode::ScheduledReboot => ("system reboot", format!("system reboot {seconds}")),
-        };
-        let request = cli_request(router, catalog_path, line, permission)
-            .map_err(|_error| WorkflowError::InvalidResponse)?;
+        let request = cli_request(router, Timer::Arm { mode, seconds }, permission)?;
         changes.apply_cli(request).await
     }
 
@@ -261,15 +254,7 @@ impl SafetyNet {
         mode: SafetyMode,
         permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
-        let (catalog_path, line) = match mode {
-            SafetyMode::Router => (
-                "system configuration fail-safe timer",
-                "no system configuration fail-safe timer",
-            ),
-            SafetyMode::ScheduledReboot => ("system reboot", "no system reboot"),
-        };
-        let request = cli_request(router, catalog_path, line.to_owned(), permission)
-            .map_err(|_error| WorkflowError::InvalidResponse)?;
+        let request = cli_request(router, Timer::Disarm(mode), permission)?;
         changes.apply_cli(request).await
     }
 
@@ -282,13 +267,7 @@ impl SafetyNet {
         router: &RouterCtx,
         permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
-        let request = cli_request(
-            router,
-            "system configuration fail-safe keep-alive",
-            "system configuration fail-safe keep-alive".to_owned(),
-            permission,
-        )
-        .map_err(|_error| WorkflowError::InvalidResponse)?;
+        let request = cli_request(router, Timer::KeepAlive, permission)?;
         changes.apply_cli(request).await
     }
 
@@ -342,65 +321,14 @@ const fn operation(
     }
 }
 
-/// Builds a protected non-terminal CLI request.
-fn cli_request(
-    router: &RouterCtx,
-    catalog_path: &str,
-    line: String,
-    permission: Permission,
-) -> Result<CliChangeRequest> {
-    let body = match catalog_path {
-        "system configuration fail-safe timer" | "system reboot" if line.starts_with("no ") => {
-            json!({"no": true})
-        }
-        "system configuration fail-safe timer" => {
-            let interval = line
-                .split_whitespace()
-                .next_back()
-                .and_then(|value| value.parse::<u64>().ok())
-                .ok_or(DomainError::InvalidResponse)?;
-            json!({"action": "reboot", "interval": interval})
-        }
-        "system reboot" => {
-            let interval = line
-                .split_whitespace()
-                .next_back()
-                .and_then(|value| value.parse::<u64>().ok())
-                .ok_or(DomainError::InvalidResponse)?;
-            json!({"interval": interval})
-        }
-        "system configuration fail-safe keep-alive" => json!({}),
-        _ => return Err(DomainError::InvalidResponse),
-    };
-    let validated = router
-        .catalog
-        .validate(catalog_path, HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
-    let verify = match catalog_path {
-        "system configuration fail-safe timer" | "system configuration fail-safe keep-alive" => {
-            vec![VerificationSpec::new(
-                vec!["show".to_owned(), "last-change".to_owned()],
-                "/fail-safe/active".to_owned(),
-                json!(!line.starts_with("no ")),
-            )]
-        }
-        "system reboot" => Vec::new(),
-        _ => return Err(DomainError::InvalidResponse),
-    };
-    Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated)?],
-        verify,
-        permission,
-        json!({"operation": catalog_path}),
-    ))
-}
-
 #[cfg(test)]
 #[expect(
     clippy::missing_panics_doc,
     reason = "test code is not rendered API documentation"
 )]
 mod tests {
+    use serde_json::json;
+
     use super::*;
 
     fn baseline(fail_safe: Value) -> LastChange {

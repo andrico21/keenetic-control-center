@@ -96,7 +96,7 @@ pub(super) async fn verify(
     router: &RouterCtx,
     operation: &ChangeOp,
 ) -> CoreResult<(), WorkflowError> {
-    let clients = read_clients(router).await.map_err(map_domain_error)?;
+    let clients = read_clients(router).await.map_err(WorkflowError::from)?;
     for request in &operation.requests {
         let Some(mac) = request.value().get("mac").and_then(Value::as_str) else {
             continue;
@@ -210,26 +210,5 @@ fn matches_request(request: &ValidatedRequest, client: Option<&super::Client>) -
         }),
         "ip hotspot default-policy" | "ip hotspot policy" | "ip hotspot wake" => true,
         _ => false,
-    }
-}
-
-/// Maps domain read failures into workflow execution failures.
-fn map_domain_error(error: DomainError) -> WorkflowError {
-    match error {
-        DomainError::Rci(source) => WorkflowError::Rci(source),
-        DomainError::InvalidResponse
-        | DomainError::Validation { issues: _ }
-        | DomainError::ConfirmationMismatch
-        | DomainError::StaticLeaseOutsidePool
-        | DomainError::StaticLeaseAddressInUse
-        | DomainError::ProtectedAccount
-        | DomainError::InvalidCliToken
-        | DomainError::ConfirmationRequired
-        | DomainError::PermissionDenied
-        | DomainError::SafetyAbort
-        | DomainError::RouteCountMismatch
-        | DomainError::FirewallRuleAbsent
-        | DomainError::FirewallVerificationFailed => WorkflowError::InvalidResponse,
-        DomainError::Workflow(source) => source,
     }
 }

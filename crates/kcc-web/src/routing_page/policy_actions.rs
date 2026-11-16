@@ -20,7 +20,6 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use serde::Deserialize;
 
 use super::{
-    frame::workflow_error,
     policy_change::{NameQuery, applied, find, known, refreshed, submission},
     policy_rows::configured,
     reply::gone,
@@ -156,8 +155,8 @@ fn unpermitted(op: ChangeOp, name: String, interface: String) -> Planned {
         Box::pin(async move {
             let result = apply::apply(changes, context, &op)
                 .await
-                .map_err(workflow_error)?;
-            let lines = configured(context).await.map_err(workflow_error)?;
+                .map_err(WorkflowError::from)?;
+            let lines = configured(context).await.map_err(WorkflowError::from)?;
             let still = lines.iter().any(|(found, rows)| {
                 *found == name
                     && rows.iter().any(|words| {

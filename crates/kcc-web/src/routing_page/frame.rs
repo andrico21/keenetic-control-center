@@ -5,8 +5,7 @@
 
 use askama::Template;
 use axum::{http::HeaderMap, response::Response};
-use kcc_app::workflow::WorkflowError;
-use kcc_domain::{DomainError, RouterCtx, interfaces};
+use kcc_domain::{RouterCtx, interfaces};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -221,19 +220,6 @@ impl Frame {
 /// A view switch link: `href`, labelled `label`, current when `current`.
 pub(crate) const fn view(href: String, label: MessageKey, current: bool) -> TabLink {
     TabLink::new(href, label, current)
-}
-
-/// The change-workflow error a domain read or plan failed with inside a change.
-pub(crate) fn workflow_error(error: DomainError) -> WorkflowError {
-    match error {
-        DomainError::Workflow(workflow) => workflow,
-        DomainError::Rci(rci) => WorkflowError::Rci(rci),
-        DomainError::Validation { issues } => WorkflowError::CatalogValidation { issues },
-        DomainError::PermissionDenied => WorkflowError::PermissionDenied {
-            router: String::new(),
-        },
-        DomainError::InvalidResponse | _ => WorkflowError::InvalidResponse,
-    }
 }
 
 /// The IP protocol `name` a router table reports, as the rules tables show it; the

@@ -143,10 +143,7 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
         (&operation, input.confirm, async |changes| {
             interfaces::apply(changes, ctx, &name, &operation)
                 .await
-                .map_err(|error| {
-                    tracing::warn!(error = ?error, "MCP interface change failed");
-                    McpFailure::Conflict
-                })
+                .map_err(|error| map_domain(DomainError::from(error)))
         }),
     )
     .await?;

@@ -171,7 +171,7 @@ pub async fn apply(
     router: &RouterCtx,
     operation: &ChangeOp,
 ) -> CoreResult<CliChangeResult, WorkflowError> {
-    let request = command::request(operation).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let request = command::request(operation)?;
     let result = changes.apply_cli(request).await?;
     for validated in &operation.requests {
         if validated.path == "ip dhcp host" {
@@ -183,7 +183,9 @@ pub async fn apply(
                     .ok_or(WorkflowError::InvalidResponse)
             };
             let (mac, address) = (field("host")?, field("ip")?);
-            let leases = read_static_leases(router).await.map_err(map_domain_error)?;
+            let leases = read_static_leases(router)
+                .await
+                .map_err(WorkflowError::from)?;
             if !leases.iter().any(|lease| {
                 lease
                     .mac
@@ -244,25 +246,4 @@ fn interface_subnet(interfaces: &Value, interface: &str) -> Option<(u32, u32)> {
     let mask = Ipv4Addr::from_str(row.get("mask")?.as_str()?).ok()?;
     let mask_bits = u32::from(mask);
     Some((u32::from(address) & mask_bits, mask_bits))
-}
-
-/// Maps domain read failures into workflow execution failures.
-fn map_domain_error(error: DomainError) -> WorkflowError {
-    match error {
-        DomainError::Rci(source) => WorkflowError::Rci(source),
-        DomainError::InvalidResponse
-        | DomainError::Validation { issues: _ }
-        | DomainError::ConfirmationMismatch
-        | DomainError::StaticLeaseOutsidePool
-        | DomainError::StaticLeaseAddressInUse
-        | DomainError::ProtectedAccount
-        | DomainError::InvalidCliToken
-        | DomainError::ConfirmationRequired
-        | DomainError::PermissionDenied
-        | DomainError::SafetyAbort
-        | DomainError::RouteCountMismatch
-        | DomainError::FirewallRuleAbsent
-        | DomainError::FirewallVerificationFailed => WorkflowError::InvalidResponse,
-        DomainError::Workflow(source) => source,
-    }
 }

@@ -20,7 +20,6 @@ use kcc_i18n::{bundle::tr, keys};
 use serde::Deserialize;
 
 use super::{
-    frame::workflow_error,
     guard::Guard,
     reply::{ConfirmDialog, answer, gone, guarded, refused, unread},
     route_add::{operation, read_static},
@@ -162,7 +161,7 @@ fn removal(operation: &ChangeOp, route: StaticRoute, ending: Arc<Mutex<Ending>>)
                     Ending::Wiped(last.map_or(true, |found| found.unsaved))
                 }
                 Err(DomainError::RouteCountMismatch) => Ending::Miscounted,
-                Err(other) => return Err(workflow_error(other)),
+                Err(other) => return Err(WorkflowError::from(other)),
             };
             if let Ok(mut slot) = ending.lock() {
                 *slot = ended;

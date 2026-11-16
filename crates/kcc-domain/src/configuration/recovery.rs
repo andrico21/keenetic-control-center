@@ -4,6 +4,18 @@ use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::bracket::ArmedFate;
 
+/// What a failed bracket left on the router.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum Fate {
+    /// The recovery timer may still be armed, as the armed fate says.
+    Armed(ArmedFate),
+    /// The arm was refused and its disarm accepted: nothing was applied and the timer is off.
+    NotApplied,
+    /// Something was sent and the timer is off: the original error tells what happened.
+    Settled,
+}
+
 /// A failed bracket, including whether the recovery timer may still be armed.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -79,6 +91,17 @@ impl<E> Failure<E> {
         self.fate
     }
 
+    /// What the failed bracket left on the router.
+    #[inline]
+    #[must_use]
+    pub const fn outcome(&self) -> Fate {
+        match (self.fate, self.sent) {
+            (Some(fate), _) => Fate::Armed(fate),
+            (None, false) => Fate::NotApplied,
+            (None, true) => Fate::Settled,
+        }
+    }
+
     /// The message that states this failure's outcome, when the failure itself decides it:
     /// the armed fate's message; `management-not-applied` when the arm failed and the timer
     /// is off. `None` when something was sent and recovery is off: the original error (or
@@ -86,10 +109,10 @@ impl<E> Failure<E> {
     #[inline]
     #[must_use]
     pub const fn message_key(&self) -> Option<MessageKey> {
-        match (self.fate, self.sent) {
-            (Some(fate), _) => Some(fate.message_key()),
-            (None, false) => Some(keys::MANAGEMENT_NOT_APPLIED),
-            (None, true) => None,
+        match self.outcome() {
+            Fate::Armed(fate) => Some(fate.message_key()),
+            Fate::NotApplied => Some(keys::MANAGEMENT_NOT_APPLIED),
+            Fate::Settled => None,
         }
     }
 
@@ -172,7 +195,7 @@ pub fn finish_applied<T, D, E>(
 mod tests {
     use kcc_i18n::keys;
 
-    use super::{ArmedFate, arm_failed, finish};
+    use super::{ArmedFate, Fate, arm_failed, finish};
 
     /// Cleanup success preserves work errors; cleanup failure always retains armed state.
     #[test]
@@ -190,6 +213,23 @@ mod tests {
             });
             assert_eq!(actual, expected);
         }
+    }
+
+    /// E-17: a failed bracket states what it left as a typed fate.
+    ///
+    /// A front end tells a refused arm (nothing applied, timer off) from an armed or
+    /// settled one without comparing its message key.
+    #[test]
+    fn a_failed_bracket_states_its_fate() {
+        let off = arm_failed("arm", Ok::<(), _>(()));
+        assert_eq!(off.outcome(), Fate::NotApplied);
+        let armed = arm_failed("arm", Err::<(), _>("disarm"));
+        assert_eq!(armed.outcome(), Fate::Armed(ArmedFate::NotSent));
+        let refused = finish(Err::<(), _>("work"), Ok::<(), _>(()));
+        assert_eq!(
+            refused.err().map(|failure| failure.outcome()),
+            Some(Fate::Settled)
+        );
     }
 
     /// A failed arm reads as armed only when its disarm failed too, and then as not sent; a

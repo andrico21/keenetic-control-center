@@ -13,10 +13,7 @@ use axum::{
     response::Response,
 };
 use kcc_app::workflow::WorkflowError;
-use kcc_domain::{
-    ChangeOp, DomainError, RouterCtx,
-    mesh::{self, RebootError},
-};
+use kcc_domain::{ChangeOp, DomainError, RouterCtx, mesh};
 use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_rci::ObjectName;
 
@@ -232,25 +229,11 @@ async fn restart(call: Call<'_>, member: &ObjectName, params: &Params) -> Result
                         mesh::reboot_member(changes, context, &id, &id)
                             .await
                             .map(|result| Applied::Terminal(result.responses))
-                            .map_err(workflow_error)
+                            .map_err(WorkflowError::from)
                     })
                 }))
             },
             async |_ctx| None,
         )
         .await)
-}
-
-/// The change-workflow error of a member restart that failed.
-fn workflow_error(error: RebootError) -> WorkflowError {
-    match error {
-        RebootError::Workflow(inner) => inner,
-        RebootError::Domain(DomainError::Validation { issues }) => {
-            WorkflowError::CatalogValidation { issues }
-        }
-        RebootError::Domain(DomainError::Rci(inner)) => WorkflowError::Rci(inner),
-        RebootError::Domain(_) | RebootError::ConfirmationMismatch | _ => {
-            WorkflowError::InvalidResponse
-        }
-    }
 }

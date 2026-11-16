@@ -13,8 +13,7 @@ use axum::{
     extract::{Path, RawQuery, State},
     response::{IntoResponse as _, Response},
 };
-use kcc_app::permissions::Permission;
-use kcc_domain::{DomainError, configuration::SafetyNet, segments};
+use kcc_domain::segments;
 use kcc_i18n::locale::Locale;
 
 use super::{
@@ -26,12 +25,9 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
     page_kit::{
         change::Applied,
         confirm::Resubmit,
-        context,
-        gate::allowed,
         outcome::{Failure, Outcome},
         request::Params,
         respond::Answer,
@@ -84,10 +80,6 @@ pub(crate) async fn create(
             |_params| typed,
             async |spec, domain| {
                 let operation = segments::plan_create(domain, &spec).await?;
-                let needed = SafetyNet::required(Permission::Write, operation.risk);
-                if !allowed(&user, &router, &needed) {
-                    return Err(DomainError::PermissionDenied);
-                }
                 Ok(Planned::working(
                     slice::from_ref(&operation),
                     move |changes, context| {
@@ -133,17 +125,13 @@ impl submit::Form for Creating {
         refuse(self.details, self.problems, String::new()).into_response()
     }
 
-    fn answer_refused(self, failure: Failure, locale: Locale) -> Response {
-        if failure.audit() == "forbidden" {
-            errors::response(errors::Kind::Forbidden, context::fragment_shell(locale))
-        } else {
-            refuse(
-                self.details,
-                Problems::default(),
-                failure.message().to_owned(),
-            )
-            .into_response()
-        }
+    fn answer_refused(self, failure: Failure, _locale: Locale) -> Response {
+        refuse(
+            self.details,
+            Problems::default(),
+            failure.message().to_owned(),
+        )
+        .into_response()
     }
 
     fn answer_changed(

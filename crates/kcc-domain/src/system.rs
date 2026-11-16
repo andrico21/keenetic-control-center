@@ -202,8 +202,7 @@ pub async fn reboot(
     changes: &mut ChangeSet,
     router: &RouterCtx,
 ) -> CoreResult<TerminalCliChangeResult, WorkflowError> {
-    let request = terminal_request(router, "system reboot", "system reboot")
-        .map_err(|_error| WorkflowError::InvalidResponse)?;
+    let request = terminal_request(router, "system reboot", "system reboot")?;
     changes
         .apply_cli(request)
         .await

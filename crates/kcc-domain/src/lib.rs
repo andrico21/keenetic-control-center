@@ -15,6 +15,7 @@ extern crate alloc;
 
 mod cli_token;
 mod descriptor;
+mod workflow_error;
 
 pub mod clients;
 pub mod components;

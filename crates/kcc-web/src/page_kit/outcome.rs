@@ -12,7 +12,7 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use super::{context::fragment_shell, family::Family};
+use super::{context::fragment_shell, failure::FailureKind, family::Family};
 use crate::{
     errors,
     page::{Localize as _, Shell},
@@ -123,6 +123,8 @@ localized!(ToastView);
 /// Why a request failed, in the user's words.
 #[derive(Debug, Clone)]
 pub(crate) struct Failure {
+    /// What the failure says about the request.
+    kind: FailureKind,
     /// Localized explanation.
     message: String,
     /// The router's own status messages: message text only.
@@ -137,11 +139,25 @@ impl Failure {
     /// A failure explained by `message`, audited as `audit`.
     pub(crate) const fn new(message: String, audit: &'static str) -> Self {
         Self {
+            kind: FailureKind::Failed,
             message,
             router_said: Vec::new(),
             audit,
             fail_safe_armed: false,
         }
+    }
+
+    /// The refusal of a change the role may not make, audited `forbidden`.
+    pub(crate) fn forbidden(locale: Locale) -> Self {
+        Self {
+            kind: FailureKind::Forbidden,
+            ..Self::new(tr(locale, keys::ERRORS_FORBIDDEN, None), "forbidden")
+        }
+    }
+
+    /// Whether the role may not make the change.
+    pub(crate) const fn is_forbidden(&self) -> bool {
+        matches!(self.kind, FailureKind::Forbidden)
     }
 
     /// The failure of a change that may have left the recovery timer armed.

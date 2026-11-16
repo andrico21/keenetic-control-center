@@ -681,6 +681,34 @@ async fn lease_label_cleanup_after_registry_error() -> Result<(), Box<dyn Error>
     Ok(())
 }
 
+/// B-12: a router whose firmware has no catalog is refused as unsupported firmware.
+///
+/// Not as an invalid `show last-change` response.
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "integration-test assertions and fixtures define the contract"
+)]
+#[tokio::test]
+async fn a_router_without_a_catalog_is_unsupported_firmware() -> Result<(), Box<dyn Error>> {
+    let version = json!({"title": "3.9.1", "release": "3.9.1", "hw_id": "KN-1811"});
+    let fixture = Fixture::spawn_router(
+        FakeRouter::builder(Profile::default()).show_fixture("version", version),
+    )
+    .await?;
+    let error = fixture
+        .begin(None)
+        .await
+        .expect_err("a firmware without a catalog cannot be changed");
+    assert!(
+        matches!(error, WorkflowError::UnsupportedFirmware),
+        "{error:?}"
+    );
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 struct Fixture {
     directory: TempDir,
     state: StateStore,
@@ -692,10 +720,12 @@ struct Fixture {
 
 impl Fixture {
     async fn spawn(faults: FaultInjection) -> Result<Self, Box<dyn Error>> {
+        Self::spawn_router(FakeRouter::builder(Profile::default()).faults(faults)).await
+    }
+
+    async fn spawn_router(builder: kcc_testkit::FakeRouterBuilder) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
-        let router = FakeRouter::builder(Profile::default())
-            .faults(faults)
-            .build()?;
+        let router = builder.build()?;
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         let password =
             kcc_testkit::write_secret_file(directory.path(), "password", DEFAULT_PASSWORD)?;

@@ -217,7 +217,7 @@ pub(super) async fn apply(
     direction: Direction,
 ) -> CoreResult<(), WorkflowError> {
     let command = definition.direction(direction);
-    let validated = validate(router, command).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let validated = validate(router, command)?;
     let mut commands = vec![ValidatedCli::new(command.line.clone(), validated)?];
     if matches!(direction, Direction::Delete)
         && definition.cleanup_owned
@@ -233,7 +233,7 @@ pub(super) async fn apply(
                 HttpMethod::Post,
                 &json!({"name":name,"no":true}),
             )
-            .map_err(|_issues| WorkflowError::InvalidResponse)?;
+            .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
         commands.push(ValidatedCli::new(format!("no {context}"), cleanup)?);
     }
     let request = CliChangeRequest::new(
@@ -242,8 +242,7 @@ pub(super) async fn apply(
         Permission::Write,
         json!({"operation":"segment","step":definition.name}),
     );
-    let verified_request =
-        verification::complete(request).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let verified_request = verification::complete(request)?;
     drop(changes.apply_cli(verified_request).await?);
     let text = running_config(router).await?;
     let present = context_has_child(&text, &definition.context, definition.child.as_deref());
@@ -264,7 +263,7 @@ pub(super) async fn running_config(router: &RouterCtx) -> CoreResult<String, Wor
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     from_utf8(bytes.expose_secret())
         .map(str::to_owned)
-        .map_err(|_error| WorkflowError::InvalidResponse)
+        .map_err(|_error| WorkflowError::UndecodableConfig)
 }
 
 /// Finds an exact top-level command and optional exact child in canonical config text.

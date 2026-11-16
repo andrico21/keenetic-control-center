@@ -48,6 +48,16 @@ impl From<DomainError> for InterfaceChangeError {
     }
 }
 
+impl From<InterfaceChangeError> for DomainError {
+    /// The domain failure an interface change failed with, for the front ends' one mapping.
+    fn from(error: InterfaceChangeError) -> Self {
+        match error.0 {
+            InterfaceChangeErrorKind::Domain(domain) => domain,
+            InterfaceChangeErrorKind::Workflow(workflow) => Self::Workflow(workflow),
+        }
+    }
+}
+
 impl From<WorkflowError> for InterfaceChangeError {
     fn from(error: WorkflowError) -> Self {
         Self(InterfaceChangeErrorKind::Workflow(error))

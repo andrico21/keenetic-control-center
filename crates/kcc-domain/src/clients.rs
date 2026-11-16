@@ -260,7 +260,7 @@ pub async fn apply(
     router: &RouterCtx,
     operation: &ChangeOp,
 ) -> CoreResult<CliChangeResult, WorkflowError> {
-    let request = command::request(operation).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let request = command::request(operation)?;
     let result = changes.apply_cli(request).await?;
     command::verify(router, operation).await?;
     Ok(result)

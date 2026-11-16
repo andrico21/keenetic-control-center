@@ -482,6 +482,40 @@ mod tests {
         lab.stop().await
     }
 
+    /// B-08 follow-up: a rule line that cannot carry its request is `validation_failed`.
+    ///
+    /// A port on `icmp` is the caller's bad value, like a catalog refusal, not `internal`,
+    /// and nothing is sent.
+    #[tokio::test]
+    async fn a_rule_line_that_cannot_render_its_request_is_a_validation_failure() -> TestResult {
+        let lab = Lab::start(
+            vec![("lab-1", FakeRouter::builder(Profile::default()).build()?)],
+            admin(),
+        )
+        .await?;
+
+        let reply = lab
+            .call(
+                "kcc_firewall_write",
+                json!({"host":"lab-1","op":"rule","acl":"McpAcl","protocol":"icmp",
+                    "source":"0.0.0.0","destination":"198.51.100.20","port":53_u16}),
+                false,
+            )
+            .await?;
+
+        assert_eq!(reply.error(), Some("validation_failed"), "{reply:?}");
+        assert!(
+            !lab.router("lab-1")?
+                .request_log()
+                .iter()
+                .any(|request| request
+                    .command()
+                    .is_some_and(|line| line.contains("McpAcl"))),
+            "the rule was sent"
+        );
+        lab.stop().await
+    }
+
     /// Firewall bindings succeed only when the running configuration reflects the write.
     #[tokio::test]
     async fn firewall_binding_success_and_ignored_write_use_domain_read_back() -> TestResult {

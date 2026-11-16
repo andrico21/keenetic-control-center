@@ -15,7 +15,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::workflow::WorkflowError;
 use kcc_domain::{
-    DomainError, RouterCtx,
+    RouterCtx,
     segments::{self, SegmentError},
 };
 use kcc_i18n::{
@@ -212,23 +212,22 @@ pub(super) fn refuse(details: Details, problems: Problems, problem: String) -> A
 /// The sentence naming the failed step, and the workflow error the kit words.
 pub(super) fn step_failure(error: SegmentError, locale: Locale) -> (Option<String>, WorkflowError) {
     let mut args = FluentArgs::new();
-    match error {
-        SegmentError::StepFailed { step, source } => {
-            args.set("name", step);
-            let said = tr(locale, keys::WEB_SEGMENTS_FAILED_STEP, Some(&args));
-            (Some(said), *source)
+    let said = match &error {
+        SegmentError::StepFailed { step, source: _ } => {
+            args.set("name", step.clone());
+            Some(tr(locale, keys::WEB_SEGMENTS_FAILED_STEP, Some(&args)))
         }
         SegmentError::RollbackFailed {
             step,
             rollback_step,
-            source,
+            source: _,
         } => {
-            args.set("name", step);
-            args.set("value", rollback_step);
-            let said = tr(locale, keys::WEB_SEGMENTS_ROLLBACK_FAILED, Some(&args));
-            (Some(said), *source)
+            args.set("name", step.clone());
+            args.set("value", rollback_step.clone());
+            Some(tr(locale, keys::WEB_SEGMENTS_ROLLBACK_FAILED, Some(&args)))
         }
-        SegmentError::Domain(DomainError::Rci(rci)) => (None, WorkflowError::Rci(rci)),
-        SegmentError::Domain(_) | _ => (None, WorkflowError::InvalidResponse),
-    }
+        // A planning failure names no step; the domain's enum is not exhaustive here.
+        SegmentError::Domain(_) | _ => None,
+    };
+    (said, WorkflowError::from(error))
 }

@@ -6,6 +6,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{
         ChangeSet, CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec, WorkflowError,
+        refusal::Refusal,
     },
 };
 use kcc_catalog::HttpMethod;
@@ -34,8 +35,8 @@ pub(super) async fn persist(
             HttpMethod::Post,
             &json!({"description":marker}),
         )
-        .map_err(|_issues| WorkflowError::InvalidResponse)?;
-    let quoted = quote_cli_text(marker).map_err(|_error| WorkflowError::InvalidResponse)?;
+        .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
+    let quoted = quote_cli_text(marker).map_err(|_error| Refusal::InvalidInput)?;
     drop(
         changes
             .apply_cli(CliChangeRequest::new(
