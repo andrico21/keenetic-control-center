@@ -101,7 +101,10 @@ for a loopback test sink) and don't follow redirects either.
 ## Sessions and CSRF
 
 - Session ids and CSRF tokens are 32 random bytes. Cookies are `HttpOnly`,
-  `SameSite=Strict`, `Path=/`, and on TLS listeners `Secure` with the `__Host-` prefix.
+  `SameSite=Strict`, `Path=/`, and `Secure` with the `__Host-` prefix when the browser reaches kcc over TLS:
+  either the listener has TLS, or `[web] public_url` is an `https` URL (the HTTPS reverse
+  proxy). The CSP gains `upgrade-insecure-requests` in the same cases. Only plain HTTP on
+  loopback uses the unprefixed cookie without `Secure`.
 - Sessions end after `[web] session_idle` (30 minutes) of inactivity and
   `session_absolute` (12 hours) after login. Login replaces the session id; a password
   or role change ends the account's other sessions.

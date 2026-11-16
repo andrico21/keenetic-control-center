@@ -742,6 +742,27 @@ impl OverrideReport {
 }
 
 impl Config {
+    /// Whether the listener itself terminates TLS: a certificate and a key are both set.
+    #[inline]
+    #[must_use]
+    pub const fn listener_tls(&self) -> bool {
+        self.server.tls_cert_path.is_some() && self.server.tls_key_path.is_some()
+    }
+
+    /// Whether the browser reaches kcc over TLS: the listener has TLS, or `web.public_url`
+    /// is an `https` URL (an HTTPS reverse proxy in front of a plain listener). The Web
+    /// session cookie and the content security policy follow this one decision.
+    #[inline]
+    #[must_use]
+    pub fn browser_transport_secure(&self) -> bool {
+        self.listener_tls()
+            || self
+                .web
+                .public_url
+                .as_ref()
+                .is_some_and(|url| url.scheme() == "https")
+    }
+
     /// Parses `kcc.toml` text.
     ///
     /// # Errors
@@ -891,13 +912,9 @@ impl Config {
         let listen_ip = listen_text.parse::<IpAddr>().map_err(|_error| {
             invalid("server.listen_addr", "must be an IP address for the Web UI")
         })?;
-        let tls = self.server.tls_cert_path.is_some() && self.server.tls_key_path.is_some();
-        let public_https = self
-            .web
-            .public_url
-            .as_ref()
-            .is_some_and(|url| url.scheme() == "https");
-        let trusted_https_proxy = public_https && !self.server.trusted_proxies.is_empty();
+        let tls = self.listener_tls();
+        let trusted_https_proxy =
+            self.browser_transport_secure() && !self.server.trusted_proxies.is_empty();
         if !(listen_ip.is_loopback() || tls || trusted_https_proxy) {
             return Err(invalid(
                 "server.listen_addr",

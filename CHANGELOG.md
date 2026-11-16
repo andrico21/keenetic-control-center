@@ -387,6 +387,12 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Security
 
+- **The session cookie is `Secure` and `__Host-` prefixed behind an HTTPS reverse proxy.**
+  With listener TLS off and `[web] public_url` set to an `https` URL, the Web UI used to
+  set the plain `kcc_session` cookie without `Secure` and send the plain CSP. Both now
+  follow the same decision, made once in the configuration (listener TLS or an `https`
+  `public_url`). The kit's own routes (`/mcp`, health, version) carry no `Cache-Control`;
+  this is recorded as an open deviation.
 - **One secret masker for every surface.** MCP results and the Web UI's raw answers
   recognize secret members by one rule (see `docs/PRIVACY.md`): MCP now also masks
   hyphenated and short names such as `private-key`, `obfs-key`, `preshare-key`,

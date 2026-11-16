@@ -73,6 +73,14 @@ struct Fixture {
 
 impl Fixture {
     fn new(extra_origin: Option<&str>) -> Result<Self, Box<dyn Error>> {
+        Self::with_sections(extra_origin, "", "")
+    }
+
+    fn with_sections(
+        extra_origin: Option<&str>,
+        server_extra: &str,
+        web_extra: &str,
+    ) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let state_dir = directory.path().join("state");
         let state = StateStore::open(&state_dir)?;
@@ -97,7 +105,7 @@ impl Fixture {
         fs::write(
             &config,
             format!(
-                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n{configured_origins}\n[web]\nenabled = true\n\n[mcp]\nhttp_enabled = false\n\n[state]\ndir = {:?}\n",
+                "[server]\nlisten_addr = \"127.0.0.1\"\nlisten_port = {port}\n{configured_origins}{server_extra}\n[web]\nenabled = true\n{web_extra}\n[mcp]\nhttp_enabled = false\n\n[state]\ndir = {:?}\n",
                 state_dir.display().to_string()
             ),
         )?;
@@ -167,6 +175,58 @@ async fn same_origin_login_post_is_accepted_without_configured_origins() -> Test
     Ok(())
 }
 
+/// `SEC1-03` / `F-03`: behind an HTTPS reverse proxy the listener is plain HTTP, yet the
+/// session cookie is `Secure` with the `__Host-` prefix and the CSP is the TLS one.
+#[tokio::test]
+async fn https_public_url_gives_a_secure_host_cookie_and_the_tls_csp() -> TestResult {
+    let fixture = Fixture::with_sections(
+        None,
+        "trusted_proxies = [\"127.0.0.1/32\"]\n",
+        "public_url = \"https://kcc.example.net/\"\n",
+    )?;
+    let process = fixture.spawn()?;
+    process.wait_listening()?;
+
+    let login_page = client()?
+        .get(format!("{}/ui/login", fixture.base_url))
+        .send()
+        .await?;
+
+    let set_cookie = header_text(&login_page, &header::SET_COOKIE)?;
+    assert!(
+        set_cookie.starts_with("__Host-kcc_session="),
+        "{set_cookie}"
+    );
+    assert!(set_cookie.contains("Secure"), "{set_cookie}");
+    assert!(
+        header_text(&login_page, &header::CONTENT_SECURITY_POLICY)?
+            .contains("upgrade-insecure-requests")
+    );
+    Ok(())
+}
+
+/// Plain HTTP on loopback with no public URL keeps the plain cookie and the plain CSP.
+#[tokio::test]
+async fn plain_loopback_keeps_the_plain_cookie_and_csp() -> TestResult {
+    let fixture = Fixture::new(None)?;
+    let process = fixture.spawn()?;
+    process.wait_listening()?;
+
+    let login_page = client()?
+        .get(format!("{}/ui/login", fixture.base_url))
+        .send()
+        .await?;
+
+    let set_cookie = header_text(&login_page, &header::SET_COOKIE)?;
+    assert!(set_cookie.starts_with("kcc_session="), "{set_cookie}");
+    assert!(!set_cookie.contains("Secure"), "{set_cookie}");
+    assert!(
+        !header_text(&login_page, &header::CONTENT_SECURITY_POLICY)?
+            .contains("upgrade-insecure-requests")
+    );
+    Ok(())
+}
+
 #[tokio::test]
 async fn foreign_origin_is_refused_by_shared_listener() -> TestResult {
     let fixture = Fixture::new(None)?;
@@ -233,6 +293,18 @@ fn cookie_pair(response: &reqwest::Response) -> Result<String, Box<dyn Error>> {
         .next()
         .map(str::to_owned)
         .ok_or_else(|| "empty Set-Cookie".into())
+}
+
+fn header_text(
+    response: &reqwest::Response,
+    name: &header::HeaderName,
+) -> Result<String, Box<dyn Error>> {
+    Ok(response
+        .headers()
+        .get(name)
+        .ok_or_else(|| std::io::Error::other(format!("missing {name}")))?
+        .to_str()?
+        .to_owned())
 }
 
 fn meta_content(html: &str, name: &str) -> Option<String> {

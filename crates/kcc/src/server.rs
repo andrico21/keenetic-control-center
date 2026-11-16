@@ -137,7 +137,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     let rbac = Arc::new(RbacPolicy::new(&handler.rbac_config()));
     let auth = AuthConfig::with_keys(api_key_entries(&services.state).map_err(error)?)
         .with_rate_limit(RateLimitConfig::new(30).with_pre_auth_burst(10));
-    let tls = config.server.tls_cert_path.is_some() && config.server.tls_key_path.is_some();
+    let secure_transport = config.browser_transport_secure();
     let base = McpServerConfig::new("placeholder:0", "kcc", env!("CARGO_PKG_VERSION"));
     let readiness = readiness_check(services.state.dir().to_owned(), services.audit.clone());
     let server = config
@@ -147,7 +147,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         .with_auth(auth)
         .with_rbac(rbac)
         .with_extra_route_rate_limit(600)
-        .with_security_headers(kcc_web::csp::security_headers(tls))
+        .with_security_headers(kcc_web::csp::security_headers(secure_transport))
         .with_readiness_check(readiness);
     let mut server_with_origins = crate::server_origins::apply(server, &config).map_err(error)?;
     let auth_reload = Arc::new(
@@ -156,7 +156,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     );
     let _updates = crate::server_tasks::refresh_updates(Arc::clone(&services.updates));
     let web_state = if config.web.enabled {
-        Some(services.web_state(&config, tls, Arc::clone(&auth_reload))?)
+        Some(services.web_state(&config, Arc::clone(&auth_reload))?)
     } else {
         None
     };
@@ -460,14 +460,13 @@ impl Services {
     fn web_state(
         &self,
         config: &Config,
-        tls: bool,
         auth_reload: Arc<TransportReload>,
     ) -> Result<WebState, ServerError> {
         let default_locale = Locale::from_tag(&config.web.default_locale)
             .ok_or_else(|| ServerError("web.default_locale is unsupported".to_owned()))?;
         let update_check: Arc<dyn kcc_web::fleet::UpdateCheck> =
             Arc::<ComponentsUpdateCheck>::clone(&self.updates);
-        let cookie_security = if tls {
+        let cookie_security = if config.browser_transport_secure() {
             CookieSecurity::Tls
         } else {
             CookieSecurity::LoopbackHttp

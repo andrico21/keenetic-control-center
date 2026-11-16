@@ -162,6 +162,45 @@ public_url = "https://kcc.example.net/app"
         Ok(())
     }
 
+    /// `SEC1-03` / `F-03`: the Web cookie and CSP follow the browser-facing transport, which
+    /// is TLS at the listener or an `https` public URL behind a trusted proxy.
+    #[test]
+    fn browser_transport_is_secure_for_listener_tls_or_an_https_public_url() -> TestResult {
+        let plain = Config::from_toml_str("")?;
+        assert!(!plain.listener_tls(), "default listener is plain");
+        assert!(!plain.browser_transport_secure(), "default is plain HTTP");
+
+        let http_url = Config::from_toml_str(
+            "[server]\ntrusted_proxies = [\"127.0.0.1/32\"]\n[web]\npublic_url = \"http://kcc.example.net/\"\n",
+        )?;
+        assert!(
+            !http_url.browser_transport_secure(),
+            "an http public URL stays plain"
+        );
+
+        let proxied = Config::from_toml_str(
+            "[server]\ntrusted_proxies = [\"127.0.0.1/32\"]\n[web]\npublic_url = \"https://kcc.example.net/\"\n",
+        )?;
+        assert!(!proxied.listener_tls(), "the listener itself stays plain");
+        assert!(
+            proxied.browser_transport_secure(),
+            "an https public URL makes the browser transport secure"
+        );
+
+        let listener = Config::from_toml_str(
+            "[server]\ntls_cert_path = \"/etc/kcc/tls.crt\"\ntls_key_path = \"/etc/kcc/tls.key\"\n",
+        )?;
+        assert!(listener.listener_tls());
+        assert!(listener.browser_transport_secure());
+
+        let half = Config::from_toml_str("[server]\ntls_cert_path = \"/etc/kcc/tls.crt\"\n")?;
+        assert!(
+            !half.listener_tls(),
+            "a certificate without a key is not TLS"
+        );
+        Ok(())
+    }
+
     /// A config using every section parses into the expected values.
     #[test]
     fn full_config_parses_and_validates() -> TestResult {

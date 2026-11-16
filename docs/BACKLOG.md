@@ -24,6 +24,7 @@ rest on the manuals and the fake router only:
 - `crates/kcc/src/server.rs:139` builds the server configuration without `max_concurrent_requests`, and the kit logs that it is unset. A bound would cap held requests besides the per-router lease. The setting is the kit's to expose or default.
 - The kit's HTTP listener has no header read timeout, so a connection that sends a request line and then goes silent stays open for more than 70 seconds. It cannot be set from `crates/kcc/src/server.rs:139`.
 - The kit logs a transport-level 403 (an MCP request refused before any tool runs) itself; it is not written to `audit.jsonl` (`crates/kcc-mcp/src/support/audit.rs:11` audits tool-level refusals only).
+- The kit inserts `Cache-Control` on every response or on none, so kcc turns it off to keep the immutable policy of hash-addressed assets (`crates/kcc-web/src/csp.rs`), and the kit's own routes (`/mcp`, health, version) go without it. A mode that sets the header only when the route has not set one would let kcc keep `no-store` on those routes (project overlay deviation 5).
 - `docs/rust-guidelines/UPSTREAM.md` lists the guideline changes the owner still has to propose by hand.
 
 ## Known gaps

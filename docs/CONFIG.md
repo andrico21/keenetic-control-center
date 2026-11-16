@@ -62,6 +62,9 @@ need a restart.
 | `default_locale` | string | `"en"` | language for users who haven't chosen one: `en`, `ru`, `uk`, `de`, `be`, `kk` |
 | `public_url` | URL | unset | externally reachable base URL behind a reverse proxy; without listener TLS it needs `[server] trusted_proxies` |
 
+An `https` `public_url` also makes the session cookie `Secure` with the `__Host-` prefix and
+turns on the TLS content security policy, as listener TLS does.
+
 A Web UI on a non-loopback listener needs TLS or an https `public_url` behind trusted
 proxies; kcc refuses to start otherwise.
 

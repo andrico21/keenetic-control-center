@@ -87,6 +87,16 @@
    `yaml.safe_load`), so nothing misparses today. **Task:** quote them (`"1.100.0"`) in the
    next change to `ci.yml`, `container.yml` and `release.yml`, and before any two-component
    pin.
+5. **No `Cache-Control` on the kit's own routes** (opened 2026-11-16, open). The
+   http-services rule on response headers wants `Cache-Control: no-store` on every
+   authenticated response. kcc turns the kit's `Cache-Control` off in
+   `crates/kcc-web/src/csp.rs`, because the kit sets it on every response and would
+   replace the long-lived `immutable` policy of hash-addressed Web UI assets. The Web
+   router sets `no-store` on all its other responses, so only the kit's routes (`/mcp`,
+   health, version) go without the header. The kit has no setting to add it only when
+   absent. **Task:** ask upstream for an if-not-present mode (listed in
+   `docs/BACKLOG.md` under "Upstream"); once it lands, set `no-store` there and
+   close this deviation.
 
 ## Common alignment steps
 

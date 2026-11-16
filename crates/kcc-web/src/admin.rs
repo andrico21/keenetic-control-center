@@ -282,7 +282,7 @@ impl ServerFacts {
             ),
             (
                 keys::WEB_ADMIN_SERVER_TLS,
-                Fact::Switch(server.tls_cert_path.is_some() && server.tls_key_path.is_some()),
+                Fact::Switch(config.listener_tls()),
             ),
             (
                 keys::WEB_ADMIN_SERVER_PUBLIC_URL,
