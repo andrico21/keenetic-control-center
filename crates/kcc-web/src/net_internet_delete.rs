@@ -7,6 +7,7 @@ use axum::{
     http::HeaderMap,
     response::Response,
 };
+use kcc_catalog::Risk;
 use kcc_domain::wan;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_rci::ObjectName;
@@ -20,7 +21,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        confirm::{Dialog, TypedNameForm},
+        confirm::{Dialog, Resubmit, TypedNameForm},
         request::{Params, missing},
         respond,
         respond::Answer,
@@ -98,7 +99,9 @@ pub(crate) async fn delete(
     let dialog = DeleteForm(delete_dialog(&router, name.as_str(), action.locale()));
     let params = Params::of(Vec::new());
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(Submission::new(action, &params, dialog)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/internet/delete"), "#page-outcome");
+    Ok(Submission::new(action, &params, dialog, resubmit)
+        .confirmed_by_page(Risk::Destructive)
         .landing_in("#page-outcome")
         .submit(
             |_params| {

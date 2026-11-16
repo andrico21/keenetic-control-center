@@ -153,6 +153,24 @@ The first release, `0.1.0`, is in preparation and contains:
   The server switch is unchanged: raw management changes over MCP still need
   `[mcp] allow_destructive = true` and `confirm: true`.
 
+- **Every Web change asks for the confirmation its planned risk needs**: the Web kit
+  derives the dialog from the risk the domain planned, so no page can run a management
+  or destructive change without one. A management change shows the dialog explaining the
+  fail-safe timer and sends nothing until confirmed; a destructive one asks for the
+  router name typed, unless the page's own dialog already asked for a name. Newly asked:
+  disabling the access point kcc reaches the router through, its Wi-Fi schedule, a
+  segment created on the interface or access point kcc uses, internet connection
+  settings and priority order when the domain plans them as management changes, and
+  releasing the KeenDNS name kcc reaches the router by (now a management change, run
+  inside the fail-safe timer). A role that may not take the planned risk is refused
+  without a dialog. A destructive change that also changes how kcc reaches the router
+  keeps the fail-safe timer.
+
+- **Firewall pages follow the shared permission rule**: a management firewall change
+  (a list applied to, or a rule of a list on, the interface kcc reaches the router
+  through) needs only the change's own `Write`, as on every other page; it no longer
+  needs `Destructive`. It still asks first and runs inside the fail-safe timer.
+
 - **The recovery mode comes from fresh router facts**: every surface chooses the native
   fail-safe timer or the scheduled reboot with one rule (see `router_mode_unknown`
   above). A router whose mode is unknown is refused before anything is sent: the CLI

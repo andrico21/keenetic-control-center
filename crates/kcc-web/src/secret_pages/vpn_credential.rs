@@ -30,6 +30,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
+        confirm::Resubmit,
         family::Family,
         request::{Params, missing, with_query},
         respond::Answer,
@@ -249,9 +250,16 @@ pub(crate) async fn credential(
             }
         }
     }
+    let resubmit = Resubmit::new(
+        with_query(
+            &format!("/ui/r/{router}/vpn/credential"),
+            &[("kind", kind.slug()), ("name", name.as_str())],
+        ),
+        "#page-outcome",
+    );
     let target = kind.target(name);
     let params = Params::default();
-    Ok(Submission::new(action, &params, shown)
+    Ok(Submission::new(action, &params, shown, resubmit)
         .submit(
             |_params| checked,
             async |secret, ctx| {

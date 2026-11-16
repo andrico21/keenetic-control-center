@@ -25,13 +25,14 @@ use crate::{
     errors,
     page::{Localize as _, Shell},
     page_kit::{
+        confirm::Resubmit,
         context::fragment_shell,
         failure::plan_failure,
         family::Family,
         form::FormDialog,
         gate::Controls,
         outcome::{Failure, Outcome},
-        request::{Params, missing, rendered, shown_uri},
+        request::{Params, missing, rendered, shown_uri, with_query},
         respond::{self, Answer},
         submit::{self, Invalid, Planned, Submission},
     },
@@ -135,7 +136,14 @@ pub(crate) async fn act(
         .dialog(&router, &target.mac, locale)
         .map(|field| field.with_value("value", form.value.clone()));
     let params = Params::default();
-    Ok(Submission::new(action, &params, ActForm(dialog))
+    let resubmit = Resubmit::new(
+        with_query(
+            &format!("/ui/r/{router}/clients/{slug}"),
+            &[("mac", target.mac.as_str())],
+        ),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, ActForm(dialog), resubmit)
         .submit_reading(
             async |_params, domain| {
                 let input = checked.map_err(|rule| Invalid::at("value", rule))?;

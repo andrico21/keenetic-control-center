@@ -24,6 +24,7 @@ use crate::{
     authz::CurrentUser,
     page_kit::{
         change::{self, Applied, Change, Landed, Plan},
+        confirm::Stakes,
         context::Target,
         facts::RouterFacts,
         failure::rci_failure,
@@ -136,7 +137,7 @@ impl Dispatch<'_> {
     /// Applies `change` of `risk` through the change workflow.
     // NOT cancel-safe: see `change::apply`.
     pub(crate) async fn change(self, risk: Risk, change: Change) -> Reply {
-        let plan = Plan::new(self.target, self.facts, self.sender.user).at(risk);
+        let plan = Plan::new(self.target, self.facts, self.sender.user).at(Stakes::new(risk));
         let persists = self.persists
             || match &change {
                 Change::Batch(_request, checks) => {

@@ -15,6 +15,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
+use kcc_catalog::Risk;
 use kcc_domain::{
     RouterCtx,
     segments::{self, SegmentView},
@@ -35,7 +36,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        confirm::{Dialog, TypedNameForm},
+        confirm::{Dialog, Resubmit, TypedNameForm},
         failure::plan_failure,
         family::Family,
         outcome::{Failure, Outcome},
@@ -129,7 +130,9 @@ pub(crate) async fn delete(
     let deleting = Deleting::default();
     let note = Arc::clone(&deleting.0);
     let params = Params::default();
-    Ok(Submission::new(action, &params, deleting)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/segments/delete"), "#page-outcome");
+    Ok(Submission::new(action, &params, deleting, resubmit)
+        .confirmed_by_page(Risk::Destructive)
         .landing_in("#page-outcome")
         .refreshing_after_failure()
         .submit(

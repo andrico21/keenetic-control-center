@@ -22,6 +22,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         request::{Params, missing},
         respond::Answer,
         submit::{Formless, Invalid, Planned, Submission},
@@ -59,7 +60,11 @@ pub(crate) async fn default_route(
     };
     let action = DEFAULT_ROUTE.open(&state, &user, &router).await?;
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(Submission::new(action, &params, Formless)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/internet/default-route")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, Formless, resubmit)
         .submit(
             |_params| Ok(()),
             async |(), domain| {
@@ -98,7 +103,11 @@ pub(crate) async fn order(
     let action = PRIORITY.open(&state, &user, &router).await?;
     let found = links(&action.context().await?).await;
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(Submission::new(action, &params, Formless)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/internet/order")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, Formless, resubmit)
         .submit(
             |_params| match found {
                 Ok(listed) => {

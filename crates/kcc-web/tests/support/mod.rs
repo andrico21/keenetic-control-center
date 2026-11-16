@@ -6,6 +6,7 @@
     reason = "test support is not rendered API documentation; every error fails the test"
 )]
 
+pub(crate) mod asked;
 pub(crate) mod base;
 pub(crate) mod build;
 pub(crate) mod outcome;

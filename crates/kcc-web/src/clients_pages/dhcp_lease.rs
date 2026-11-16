@@ -22,6 +22,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
+        confirm::Resubmit,
         failure::plan_failure,
         family::Family,
         form::{FormDialog, Input, Problem},
@@ -114,7 +115,8 @@ pub(crate) async fn add_lease(
         },
     );
     let params = Params::default();
-    Ok(Submission::new(action, &params, dialog)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/dhcp/leases/new"), "#page-outcome");
+    Ok(Submission::new(action, &params, dialog, resubmit)
         .submit_reading(
             async |_params, domain| {
                 let (mac, ip) = match (mac_address(&form.mac), address(&form.address)) {

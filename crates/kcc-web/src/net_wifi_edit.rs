@@ -17,6 +17,7 @@ use crate::{
     net_wifi_fields::Setting,
     page_kit::{
         change::Change,
+        confirm::Resubmit,
         request::{Params, missing},
         respond::Answer,
         submit::{Invalid, Planned, Submission},
@@ -82,7 +83,11 @@ pub(crate) async fn field(
         .form(subject, typed.to_owned(), &choices)
         .refusing_at("value");
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
-    Ok(Submission::new(action, &params, dialog)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/wifi/edit/{slug}")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, dialog, resubmit)
         .submit(
             |submitted| {
                 setting

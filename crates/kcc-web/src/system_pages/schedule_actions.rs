@@ -28,6 +28,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         form::{Choice, FormDialog, Input},
         request::{Params, missing, shown_query},
         respond::Answer,
@@ -168,31 +169,37 @@ pub(crate) async fn add_action(
         ScheduleAction::Stop
     };
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
-    Ok(Submission::new(action, &Params::default(), dialog)
-        .submit(
-            |_params| match (clock(time), weekdays(&checked)) {
-                (Some((minute, hour)), Some(field)) => {
-                    Ok(ActionTime::new(kind, minute, hour, field))
-                }
-                (when, days) => {
-                    let mut invalid = Vec::new();
-                    if when.is_none() {
-                        invalid.push(("time", keys::WEB_SYSTEM_SCHEDULES_TIME_ERROR));
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/system/schedules/action"),
+        "#page-outcome",
+    );
+    Ok(
+        Submission::new(action, &Params::default(), dialog, resubmit)
+            .submit(
+                |_params| match (clock(time), weekdays(&checked)) {
+                    (Some((minute, hour)), Some(field)) => {
+                        Ok(ActionTime::new(kind, minute, hour, field))
                     }
-                    if days.is_none() {
-                        invalid.push(("day", keys::WEB_SYSTEM_SCHEDULES_DAYS_ERROR));
+                    (when, days) => {
+                        let mut invalid = Vec::new();
+                        if when.is_none() {
+                            invalid.push(("time", keys::WEB_SYSTEM_SCHEDULES_TIME_ERROR));
+                        }
+                        if days.is_none() {
+                            invalid.push(("day", keys::WEB_SYSTEM_SCHEDULES_DAYS_ERROR));
+                        }
+                        Err(Invalid::from(invalid))
                     }
-                    Err(Invalid::from(invalid))
-                }
-            },
-            async |at, ctx| {
-                let operation = schedules::plan_action(ctx, &name, at)?;
-                let request = schedules::change_request(&operation)?;
-                Ok(Planned::of(&[operation], Change::Cli(request)))
-            },
-            async |ctx| viewer.refreshed(ctx).await,
-        )
-        .await)
+                },
+                async |at, ctx| {
+                    let operation = schedules::plan_action(ctx, &name, at)?;
+                    let request = schedules::change_request(&operation)?;
+                    Ok(Planned::of(&[operation], Change::Cli(request)))
+                },
+                async |ctx| viewer.refreshed(ctx).await,
+            )
+            .await,
+    )
 }
 
 #[cfg(test)]

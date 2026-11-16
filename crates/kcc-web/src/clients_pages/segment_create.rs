@@ -10,7 +10,7 @@ use std::sync::Mutex;
 
 use axum::{
     Form,
-    extract::{Path, State},
+    extract::{Path, RawQuery, State},
     response::{IntoResponse as _, Response},
 };
 use kcc_app::permissions::Permission;
@@ -29,6 +29,7 @@ use crate::{
     errors,
     page_kit::{
         change::Applied,
+        confirm::Resubmit,
         context,
         gate::allowed,
         outcome::{Failure, Outcome},
@@ -36,6 +37,7 @@ use crate::{
         respond::Answer,
         submit::{self, Invalid, Planned, Submission},
     },
+    system_pages::shared::merged,
 };
 
 /// The sentence naming the step a failed creation stopped at, once it ran.
@@ -51,9 +53,11 @@ type Note = Arc<Mutex<Option<String>>>;
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,
+    RawQuery(query): RawQuery,
     user: CurrentUser,
-    Form(pairs): Form<Vec<(String, String)>>,
+    Form(body): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
+    let pairs = merged(query.as_deref(), body);
     let action = CREATE.open(&state, &user, &router).await?;
     let locale = action.locale();
     let known = known(&action.context().await?, locale).await?;
@@ -69,8 +73,12 @@ pub(crate) async fn create(
         Invalid::from(Vec::new())
     });
     let note = Arc::clone(&creating.note);
-    let params = Params::default();
-    Ok(Submission::new(action, &params, creating)
+    let params = Params::of(pairs);
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/segments/create")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, creating, resubmit)
         .refreshing_after_failure()
         .submit(
             |_params| typed,

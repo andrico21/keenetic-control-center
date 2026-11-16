@@ -3,18 +3,15 @@
 //!
 //! A change to a list applied to an interface, or applying a list to one, cuts kcc off
 //! when that interface carries kcc's connection to the router. Such a change is a
-//! management change: it asks first, needs the `Destructive` permission and runs inside
-//! the router's fail-safe timer. Every other firewall change is a plain write.
+//! management change: it asks first and runs inside the router's fail-safe timer, with
+//! the change's own permission, as on every other page. Every other firewall change is a
+//! plain write.
 
 use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Response},
 };
-use kcc_app::{
-    permissions::Permission,
-    workflow::{CliChangeRequest, WorkflowError},
-};
-use kcc_catalog::Risk;
+use kcc_app::workflow::{CliChangeRequest, WorkflowError};
 use kcc_domain::{
     DomainError, RouterCtx,
     firewall::{
@@ -37,7 +34,6 @@ use crate::{
         action::Action,
         change::Applied,
         confirm::Resubmit,
-        gate::allowed,
         outcome::{Failure, Outcome},
         request::Params,
         respond::Answer,
@@ -130,7 +126,7 @@ impl<'request> Sender<'request> {
         F: Form,
     {
         let resubmit = Resubmit::new(self.resubmit(), "#page-outcome");
-        Submission::new(action, params, Firewall(Replying::new(form))).confirming_planned(resubmit)
+        Submission::new(action, params, Firewall(Replying::new(form)), resubmit)
     }
 
     /// `planned`, at the risk the firewall domain assesses for the interfaces whose
@@ -138,8 +134,7 @@ impl<'request> Sender<'request> {
     ///
     /// # Errors
     ///
-    /// Returns why it was refused: the domain's own reason, or `PermissionDenied` for a
-    /// management change the role may not make.
+    /// Returns the domain's reason when it could not be planned.
     // cancel-safe: reads only.
     pub(crate) async fn assess(
         &self,
@@ -152,10 +147,6 @@ impl<'request> Sender<'request> {
             interfaces,
         } = planned?;
         let risk = interfaces_risk(domain, &interfaces).await;
-        let needed = [Permission::Write, Permission::Destructive];
-        if risk >= Risk::Management && !allowed(self.user, self.router, &needed) {
-            return Err(DomainError::PermissionDenied);
-        }
         Ok(Assessed::assessed(risk, move |changes, context| {
             Box::pin(async move {
                 let result = changes.apply_cli(request).await?;
@@ -193,7 +184,7 @@ impl<'request> Sender<'request> {
     }
 }
 
-/// A form of the firewall page, answering a management change the role may not make 403.
+/// A form of the firewall page, answering a change the role may not make 403.
 ///
 /// Values that failed their check are answered by the page's own form, other refusals and
 /// changes as the routing pages answer them.

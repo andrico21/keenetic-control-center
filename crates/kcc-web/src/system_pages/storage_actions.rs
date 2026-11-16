@@ -61,8 +61,8 @@ async fn run<P>(
 where
     P: FnOnce(&RouterCtx) -> DomainResult<ChangeOp>,
 {
-    Submission::new(action, &Params::of(pairs), NoDialog)
-        .confirming(Risk::Destructive, again)
+    Submission::new(action, &Params::of(pairs), NoDialog, again)
+        .confirming(Risk::Destructive)
         .submit(
             |_params| Ok(()),
             async |(), ctx| {

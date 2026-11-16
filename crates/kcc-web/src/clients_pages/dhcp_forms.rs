@@ -27,6 +27,7 @@ use crate::{
     authz::CurrentUser,
     page_kit::{
         action::Operation,
+        confirm::Resubmit,
         failure::plan_failure,
         family::Family,
         form::{Errors, FormDialog, Input, Problem},
@@ -253,7 +254,8 @@ pub(crate) async fn save_pool(
     let typed = form.check().map_err(Invalid::from);
     let dialog = pool_form(locale, &router, &form);
     let params = Params::default();
-    Ok(Submission::new(action, &params, dialog)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/dhcp/pools/edit"), "#page-outcome");
+    Ok(Submission::new(action, &params, dialog, resubmit)
         .submit(
             |_params| typed,
             async |config, domain| Ok(applied(dhcp::plan_pool(domain, &config)?)),

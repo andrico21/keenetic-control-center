@@ -22,6 +22,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         form::{Choice, FormDialog, Input},
         request::{Params, missing},
         respond::Answer,
@@ -267,7 +268,11 @@ pub(crate) async fn field(
         .form(subject, typed.to_owned(), &choices)
         .refusing_at("value");
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(Submission::new(action, &params, dialog)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/internet/edit/{slug}")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, dialog, resubmit)
         .submit(
             |submitted| {
                 setting

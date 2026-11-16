@@ -26,6 +26,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         context::fragment_shell,
         family::Family,
         gate::Controls,
@@ -228,7 +229,11 @@ pub(crate) async fn toggle(
     };
     let action = operation.open(&state, &user, &router).await?;
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
-    Ok(Submission::new(action, &params, Formless)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/wifi/toggle")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, Formless, resubmit)
         .submit(
             |_params| Ok(()),
             async |(), domain| {

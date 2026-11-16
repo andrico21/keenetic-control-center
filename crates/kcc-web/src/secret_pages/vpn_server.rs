@@ -31,7 +31,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        confirm::Confirmation,
+        confirm::{Confirmation, Resubmit},
         family::Family,
         request::Params,
         respond::Answer,
@@ -143,7 +143,8 @@ pub(crate) async fn psk(
         Ok((key, secret))
     });
     let params = Params::default();
-    Ok(Submission::new(action, &params, shown)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/vpn/server/psk"), "#page-outcome");
+    Ok(Submission::new(action, &params, shown, resubmit)
         .submit(
             |_params| checked,
             async |(key, secret), ctx| {
@@ -240,8 +241,15 @@ pub(crate) async fn password(
         Ok((name, secret))
     });
     let (known, asked) = confirming(action, (checked.is_ok(), confirmed), (shown, &chosen)).await?;
-    Ok(run(known, checked, asked, async |ctx, (name, secret)| {
-        server_secrets::plan_password(ctx, &name, &login, secret)
-    })
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/vpn/server/password"),
+        "#page-outcome",
+    );
+    Ok(run(
+        known,
+        checked,
+        (asked, resubmit),
+        async |ctx, (name, secret)| server_secrets::plan_password(ctx, &name, &login, secret),
+    )
     .await)
 }

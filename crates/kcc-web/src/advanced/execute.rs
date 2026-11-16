@@ -1,9 +1,9 @@
 //! `POST /ui/r/{router}/explorer/execute`: runs the command of the explorer form.
 //!
 //! The form is validated against the router's catalog before anything is sent. A read
-//! needs `Read`; a change needs `RawRci` and a confirmation; a management change also
-//! needs `Destructive` (kcc arms the fail-safe timer) and a destructive one the typed
-//! router name. Reads use the shared client, changes the change workflow, and reading
+//! needs `Read`; a change needs `RawRci` and a confirmation; a management change runs
+//! inside the fail-safe timer kcc arms, and a destructive one needs `Destructive` and the
+//! typed router name. Reads use the shared client, changes the change workflow, and reading
 //! commands the catalog marks as background work run as jobs (background work that
 //! changes the router is refused unsent). Every execution is audited.
 

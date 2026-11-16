@@ -1,9 +1,9 @@
 //! Turning one service on or off from the services page.
 //!
 //! An ordinary service is a write; HTTP, SSH and Telnet carry management access, so the
-//! handler raises the change to management risk: it needs `Destructive` too (403
-//! otherwise), asks first with the kit's dialog explaining the fail-safe timer, and runs
-//! inside that timer.
+//! handler raises the change to management risk: it needs what the shared rule asks of
+//! that risk (`Write`, as any change of a service; 403 otherwise), asks first with the
+//! kit's dialog explaining the fail-safe timer, and runs inside that timer.
 
 use axum::{
     Form,
@@ -91,16 +91,17 @@ pub(crate) async fn toggle(
         "#page-outcome",
     );
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
-    Ok(Submission::new(action, &Params::of(pairs), NoDialog)
-        .confirming_planned(resubmit)
-        .submit(
-            |_params| wanted.ok_or_else(|| Invalid::at("on", keys::WEB_DNS_ERROR_CHOICE)),
-            async |enabled, ctx| {
-                let operation = services::plan_service(ctx, &name, enabled)?;
-                let request = services::change_request(&operation)?;
-                Ok(Planned::of(&[operation], Change::Cli(request)))
-            },
-            async |ctx| viewer.refreshed(ctx).await,
-        )
-        .await)
+    Ok(
+        Submission::new(action, &Params::of(pairs), NoDialog, resubmit)
+            .submit(
+                |_params| wanted.ok_or_else(|| Invalid::at("on", keys::WEB_DNS_ERROR_CHOICE)),
+                async |enabled, ctx| {
+                    let operation = services::plan_service(ctx, &name, enabled)?;
+                    let request = services::change_request(&operation)?;
+                    Ok(Planned::of(&[operation], Change::Cli(request)))
+                },
+                async |ctx| viewer.refreshed(ctx).await,
+            )
+            .await,
+    )
 }

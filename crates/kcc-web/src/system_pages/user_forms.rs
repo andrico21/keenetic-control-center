@@ -114,8 +114,8 @@ pub(crate) async fn create(
         action,
         &Params::of(pairs.clone()),
         UserForm::new(dialog, Field::Name),
+        resubmit,
     )
-    .confirming_planned(resubmit)
     .submit(
         |_params| checked.map_err(|(field, rule)| Invalid::at(field.name(), rule)),
         async |typed_password, ctx| {
@@ -186,8 +186,8 @@ pub(crate) async fn set_tags(
         action,
         &Params::of(pairs.clone()),
         UserForm::new(dialog, Field::Tags),
+        resubmit,
     )
-    .confirming_planned(resubmit)
     .submit(
         |_params| checked.map_err(|(field, rule)| Invalid::at(field.name(), rule)),
         async |(), ctx| plan_tags(ctx, &name, &changes),

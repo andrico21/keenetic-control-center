@@ -21,6 +21,7 @@ use crate::{
     page_kit::{
         action::Action,
         change::Applied,
+        confirm::Resubmit,
         gate::Controls,
         outcome::Failure,
         request::{Params, rendered, shown_query},
@@ -90,16 +91,16 @@ pub(crate) fn applied(ops: Vec<ChangeOp>) -> Planned {
 }
 
 /// `params` submitted from `form` to `action`, answered as the routing page answers, the
-/// policies read back after the change, run or failed.
-pub(crate) const fn submission<'call, F>(
+/// policies read back after the change, run or failed; a confirmation sends `resubmit`.
+pub(crate) fn submission<'call, F>(
     action: Action<'call>,
-    params: &'call Params,
+    (params, resubmit): (&'call Params, Resubmit),
     form: F,
 ) -> Submission<'call, Replying<F>>
 where
     F: Form,
 {
-    Submission::new(action, params, Replying::new(form)).refreshing_after_failure()
+    Submission::new(action, params, Replying::new(form), resubmit).refreshing_after_failure()
 }
 
 /// The policies region read back for the page of `headers`, out of band.

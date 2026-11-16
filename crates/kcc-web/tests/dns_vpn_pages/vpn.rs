@@ -12,6 +12,7 @@ use serde_json::json;
 use crate::{
     key,
     support::{
+        asked::{asks_first, commands_since, runs_in_timer},
         outcome::TestResult,
         page::{form, said, text},
         typed_name::{Ask, TypedName, typed_names},
@@ -259,6 +260,10 @@ async fn a_server_change_the_router_refuses_shows_its_words() -> TestResult {
     Ok(())
 }
 
+/// W3-01, W3-07: switching off the tunnel kcc reaches the router through asks first and
+/// sends nothing until confirmed; deleting it is confirmed by its typed name.
+///
+/// Both run inside the recovery timer for an operator; a viewer is refused.
 #[tokio::test]
 async fn management_tunnel_changes_are_refused_or_bracketed() -> TestResult {
     for mode in ["router", "extender"] {
@@ -282,67 +287,31 @@ async fn management_tunnel_changes_are_refused_or_bracketed() -> TestResult {
                 .with_migration(scenario);
             let fixture = Fixture::with_router(fake).await?;
             let path = format!("{PAGE}/{change}");
-            let body = if change == "state" {
-                form(&[("tunnel", "Wireguard7"), ("enabled", "off")])
-            } else {
-                form(&[
-                    ("object", "Wireguard7"),
-                    ("confirm", "yes"),
-                    ("confirm_name", "Wireguard7"),
-                ])
-            };
-            for account in ["viewer"] {
-                let browser = fixture.login(account).await?;
-                let before = fixture.handle().request_log().len();
-                let response = fixture.post(&path, &browser, &body).await?;
-                assert_eq!(
-                    response.status(),
-                    StatusCode::FORBIDDEN,
-                    "{account} {mode} {change}"
-                );
-                assert!(
-                    fixture
-                        .handle()
-                        .request_log()
-                        .iter()
-                        .skip(before)
-                        .all(|record| record.command().is_none()),
-                    "{account} {mode} {change}"
-                );
-            }
-            let operator = fixture.login("operator").await?;
+            let switched = [("tunnel", "Wireguard7"), ("enabled", "off")];
+            let typed = [("object", "Wireguard7"), ("confirm_name", "Wireguard7")];
+            let pairs: &[(&str, &str)] = if change == "state" { &switched } else { &typed };
+            let viewer = fixture.login("viewer").await?;
             let before = fixture.handle().request_log().len();
-            let response = fixture.post(&path, &operator, &body).await?;
+            let confirmed: Vec<(&str, &str)> =
+                pairs.iter().copied().chain([("confirm", "yes")]).collect();
+            let response = fixture.post(&path, &viewer, &form(&confirmed)).await?;
             assert_eq!(
                 response.status(),
-                StatusCode::OK,
-                "operator {mode} {change}"
+                StatusCode::FORBIDDEN,
+                "viewer {mode} {change}"
             );
-            let commands = fixture
-                .handle()
-                .request_log()
-                .iter()
-                .skip(before)
-                .filter_map(|record| record.command().map(str::to_owned))
-                .collect::<Vec<_>>();
-            let (arm, disarm) = if mode == "router" {
-                (
-                    "system configuration fail-safe timer reboot 300",
-                    "no system configuration fail-safe timer",
-                )
+            assert_eq!(
+                commands_since(&fixture, before),
+                Vec::<String>::new(),
+                "viewer {mode} {change}"
+            );
+            let operator = fixture.login("operator").await?;
+            if change == "state" {
+                let confirm = asks_first(&fixture, &operator, (&path, pairs)).await?;
+                runs_in_timer(&fixture, &operator, (&confirm, &[]), mode).await?;
             } else {
-                ("system reboot 300", "no system reboot")
-            };
-            assert_eq!(
-                commands.first().map(String::as_str),
-                Some(arm),
-                "{commands:?}"
-            );
-            assert_eq!(
-                commands.last().map(String::as_str),
-                Some(disarm),
-                "{commands:?}"
-            );
+                runs_in_timer(&fixture, &operator, (&path, pairs), mode).await?;
+            }
         }
     }
     Ok(())

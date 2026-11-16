@@ -2,9 +2,10 @@
 //! with Book and Release, the remote access level, and web proxy entries that publish a
 //! home device under the name.
 //!
-//! Booking and releasing are writes. The access level and proxy entries change how the
-//! router and the home network are reached from outside: they are management changes,
-//! need `Destructive` too, ask first and run inside the fail-safe timer.
+//! Booking and releasing are writes; releasing the name kcc reaches the router by is a
+//! management change. The access level and proxy entries change how the router and the
+//! home network are reached from outside: they are management changes too. A management
+//! change needs the change's own `Write`, asks first and runs inside the fail-safe timer.
 
 use askama::Template;
 use axum::{

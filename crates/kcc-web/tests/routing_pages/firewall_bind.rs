@@ -1,7 +1,7 @@
 //! The firewall's interfaces: lists applied and taken off, read back from the router.
 //!
 //! A list applied to an uplink is a plain change; applying one to the interface kcc reaches
-//! the router through asks first, needs `Destructive` and runs inside the fail-safe timer.
+//! the router through asks first and runs inside the fail-safe timer.
 //! A 4.3.9 router without IPv6 access lists gets the explorer note.
 
 use core::net::SocketAddr;
@@ -19,13 +19,21 @@ use url::Url;
 use crate::{
     firewall::two_rules,
     get, post,
-    support::{outcome::TestResult, page::en, web::Fixture},
+    support::{
+        asked::{asks_first, commands_since, runs_in_timer},
+        outcome::TestResult,
+        page::en,
+        web::Fixture,
+    },
 };
 
 /// The catalog path of the fail-safe timer's arm and disarm lines.
 const TIMER: &str = "system configuration fail-safe timer";
 
-/// Runtime management bindings keep the Web's confirmation and recovery in both modes.
+/// W3-02, W3-07: runtime management bindings ask first and run inside the recovery timer
+/// in both modes, for a role holding only the change's own permission.
+///
+/// Before the confirmation nothing reaches the router; a viewer is refused.
 // NOT cancel-safe: fixture writes may apply before cancellation.
 #[tokio::test]
 async fn management_firewall_binding_brackets_both_modes() -> TestResult {
@@ -38,73 +46,30 @@ async fn management_firewall_binding_brackets_both_modes() -> TestResult {
         let fixture = Fixture::with_router(fake).await?;
         let admin = fixture.login("admin").await?;
         two_rules(&fixture, &admin).await?;
-        let (arm, disarm) = if mode == "router" {
-            (
-                "system configuration fail-safe timer reboot 300",
-                "no system configuration fail-safe timer",
-            )
-        } else {
-            ("system reboot 300", "no system reboot")
-        };
+        let viewer = fixture.login("viewer").await?;
+        let writer = fixture.login("writer").await?;
         for path in [
             "/ui/r/home/firewall/bind?list=WebAcl&interface=Bridge0&direction=in",
             "/ui/r/home/firewall/rule/new?list=WebAcl&action=deny&protocol=ip&source=192.0.2.5&source_mask=255.255.255.255&destination=198.51.100.5&destination_mask=255.255.255.255",
             "/ui/r/home/firewall/unbind?interface=Bridge0&list=WebAcl&direction=in",
         ] {
-            let asked = post(&fixture, &admin, (path, &[]), StatusCode::OK).await?;
-            assert!(
-                asked.contains(&en(keys::WEB_KIT_CONFIRM_MANAGEMENT_TITLE)),
-                "dialog"
-            );
-            for role in ["operator", "writer"] {
-                let browser = fixture.login(role).await?;
-                let before = fixture.handle().request_log().len();
-                drop(
-                    post(
-                        &fixture,
-                        &browser,
-                        (path, &[("confirm", "yes")]),
-                        StatusCode::FORBIDDEN,
-                    )
-                    .await?,
-                );
-                assert!(
-                    fixture
-                        .handle()
-                        .request_log()
-                        .iter()
-                        .skip(before)
-                        .all(|record| record.command().is_none()),
-                    "no unauthorized mutation"
-                );
-            }
             let before = fixture.handle().request_log().len();
             drop(
                 post(
                     &fixture,
-                    &admin,
+                    &viewer,
                     (path, &[("confirm", "yes")]),
-                    StatusCode::OK,
+                    StatusCode::FORBIDDEN,
                 )
                 .await?,
             );
-            let commands = fixture
-                .handle()
-                .request_log()
-                .iter()
-                .skip(before)
-                .filter_map(|record| record.command().map(str::to_owned))
-                .collect::<Vec<_>>();
             assert_eq!(
-                commands.first().map(String::as_str),
-                Some(arm),
-                "{mode} {path}: {commands:?}"
+                commands_since(&fixture, before),
+                Vec::<String>::new(),
+                "{mode} {path}: no unauthorized mutation"
             );
-            assert_eq!(
-                commands.last().map(String::as_str),
-                Some(disarm),
-                "{mode} {path}: {commands:?}"
-            );
+            let confirm = asks_first(&fixture, &writer, (path, &[])).await?;
+            runs_in_timer(&fixture, &writer, (&confirm, &[]), mode).await?;
         }
         assert_eq!(applied(&fixture), 0, "last action unbound the list");
     }
@@ -189,17 +154,9 @@ async fn applying_a_list_to_kcc_s_own_interface_asks_and_runs_in_the_fail_safe_t
         "the confirmation"
     );
     assert_eq!(applied(&fixture), 0, "nothing sent yet");
-    let operator = fixture.login("operator").await?;
+    let viewer = fixture.login("viewer").await?;
     let confirmed = binding("Bridge0", true);
-    drop(
-        post(
-            &fixture,
-            &operator,
-            (bind, &confirmed),
-            StatusCode::FORBIDDEN,
-        )
-        .await?,
-    );
+    drop(post(&fixture, &viewer, (bind, &confirmed), StatusCode::FORBIDDEN).await?);
     let done = post(&fixture, &admin, (bind, &confirmed), StatusCode::OK).await?;
     assert!(done.contains(&en(keys::WEB_KIT_DONE_UNSAVED)), "{done}");
     assert_eq!(applied(&fixture), 1, "applied to Bridge0");
@@ -212,7 +169,7 @@ async fn applying_a_list_to_kcc_s_own_interface_asks_and_runs_in_the_fail_safe_t
     assert_eq!(timer, 2, "the fail-safe timer armed and disarmed");
     let unbind = "/ui/r/home/firewall/unbind?interface=Bridge0&list=WebAcl&direction=in";
     let yes = [("confirm", "yes")];
-    drop(post(&fixture, &operator, (unbind, &yes), StatusCode::FORBIDDEN).await?);
+    drop(post(&fixture, &viewer, (unbind, &yes), StatusCode::FORBIDDEN).await?);
     assert_eq!(applied(&fixture), 1, "kept");
     Ok(())
 }

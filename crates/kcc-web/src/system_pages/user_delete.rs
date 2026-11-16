@@ -110,8 +110,7 @@ pub(crate) async fn delete(
         "#page-outcome",
     );
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
-    Ok(Submission::new(action, &typed, Deleting(dialog))
-        .confirming_planned(resubmit)
+    Ok(Submission::new(action, &typed, Deleting(dialog), resubmit)
         .landing_run_in("#page-outcome")
         .submit(
             |_typed| Ok(()),

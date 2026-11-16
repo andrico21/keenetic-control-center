@@ -28,7 +28,9 @@ mod tests {
 
     use super::super::{
         Form, Invalid, Planned, Submission,
-        submit_tests::tests::{FORM_STATUS, MTU, ROUTER, World, body, checked, outcomes, params},
+        submit_tests::tests::{
+            FORM_STATUS, MTU, ROUTER, World, again, body, checked, outcomes, params,
+        },
         unplanned::Unplanned,
     };
     use crate::page_kit::outcome::{Failure, Outcome};
@@ -89,7 +91,7 @@ mod tests {
         let opened = MTU.open(world.web(), world.admin(), ROUTER).await.ok();
         let action = opened.ok_or("the write opens")?;
         let typed = params("1400");
-        let answer = Submission::new(action, &typed, Recasting)
+        let answer = Submission::new(action, &typed, Recasting, again())
             .submit(
                 checked,
                 async |_mtu, _domain| Err(DomainError::ProtectedAccount),
@@ -109,7 +111,7 @@ mod tests {
         let action = opened.ok_or("the write opens")?;
         let before = world.handle().request_count();
         let typed = params("1400");
-        let answer = Submission::new(action, &typed, Recasting)
+        let answer = Submission::new(action, &typed, Recasting, again())
             .submit(
                 checked,
                 async |_mtu, _domain| Ok(destructive()),
@@ -132,7 +134,7 @@ mod tests {
         for planned in [None, Some(destructive)] {
             let opened = MTU.open(world.web(), world.operator(), ROUTER).await.ok();
             let action = opened.ok_or("the write opens")?;
-            let answer = Submission::new(action, &typed, Recasting)
+            let answer = Submission::new(action, &typed, Recasting, again())
                 .landing_run_in("#page-outcome")
                 .submit(
                     checked,
@@ -162,7 +164,7 @@ mod tests {
             let opened = MTU.open(world.web(), world.admin(), ROUTER).await.ok();
             let action = opened.ok_or("the write opens")?;
             let before = world.handle().request_count();
-            let checking = Submission::new(action, &typed, Recasting).checked(checked);
+            let checking = Submission::new(action, &typed, Recasting, again()).checked(checked);
             statuses.push(match checking.await {
                 Ok((_action, mtu)) => Ok(mtu),
                 Err(answer) => Err(answer.into_response().status()),

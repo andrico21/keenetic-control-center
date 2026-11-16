@@ -80,3 +80,30 @@
 - fake router `request_log()` keeps only the LAST line of a parse batch in `RequestRecord::command`.
 - profile_coverage requires every kcc-domain test suite to iterate `support::PROFILES`.
 - [2026-11-16] Todo 8 (wt/r8): C-07 + D-15 done and green (catalog/app/domain, web/mcp/kcc, clippy 7 crates, fmt); B-08 strict binding escalated (see issues.md). Target dir and r8 logs removed.
+
+## [2026-11-16] Todo 8 follow-up (wt/r8): KeenDNS proxy upstream host names restored at the catalog source
+- The manual's `ip http proxy upstream` table row `fqdn | FQDN` was parsed as the keyword literal `FQDN`; `xtask/src/catalog_build.rs` `parse_value_type` now maps `("fqdn", "FQDN")` to `String` (name-scoped on purpose: 4.3 `object-group fqdn include/exclude` has `address | FQDN` and stays a keyword, as before todo 8). Pinned in `expected.rs` TYPED_ARGUMENTS and the `ambiguous_value_cells_map_to_semantic_types` table. Regenerated 4.3/5.0/5.1: only the three `ip.json` `fqdn` entries changed.
+- `cargo xtask catalog build` needs no network once `catalog/.cache` is copied into the worktree; it is deterministic (rebuild = same shards).
+- `plan_proxy_upstream` refuses port 0 in the domain (the Web already did; MCP/CLI accepted it). The catalog's `port` Integer has no bounds.
+- `cargo +nightly-2026-10-03 fmt --manifest-path xtask/Cargo.toml --all -- --check` reports pre-existing diffs in xtask seccomp*.rs (not touched here).
+- New suite `crates/kcc-domain/tests/keendns_upstream.rs` (iterates PROFILES for profile_coverage).
+
+## [2026-11-16] Todo 9 progress (wt/r9)
+- Shared rule in `kcc-domain/src/cli_token.rs`: `validate`/`token` (one bare word), `object_name` (ObjectName, refused as `InvalidCliToken`), `quoted`/`quoted_text` (free text). Local copies of `validate_token` in schedules/logging/storage were removed in favour of `cli_token::validate`.
+- Clients plan now renders its lines at plan time (`ChangeOp::push`), so a bad registration name is refused by `plan_*`, not at apply. `clients::registration_name` (moved from the Web) is shared by Web and CLI.
+- `plan_register`/`plan_static_lease` take `kcc_rci::Mac` (the existing type; no new type needed).
+- Fake router bug fixed: `apply_known_host` re-joined unquoted words with spaces, so a quoted name with a space failed verification; it now rebuilds the node from tokens (quoting preserved).
+- The fake router has no `dns-proxy filter profile description` grammar: DNS description tests check the planned line (`expose_for_send`), not `request_log()`.
+- `catalog.validate_cli` refuses any quote, so `validated_lines`-style re-validation cannot run on lines with quoted free text.
+
+## [2026-11-16] Todo 10 progress (worktree wt/r10; W2-01 W3-01 N11 N12 W4-11 W2-05 W3-02 W4-06 W3-07)
+- Kit: `Submission::new(action, params, form, resubmit)` now takes the `Resubmit` (required). `carry` always asks for the planned stakes (`Planned` holds `Stakes`: highest op risk + "some op is Management"), raised to the descriptor risk (`Action::effective`), unless the page's own confirmation covers it (`.confirmed_by_page(risk)`; used by the typed-name deletes: WAN, segment, VPN tunnel; router-user/VPN-server password dialogs cover Management). `.confirming(risk)` is the extra early check (no resubmit arg); `confirming_planned` is gone.
+- A role that may not take the planned risk gets no dialog: `carry` checks `Action::may_take` first and the run answers `forbidden` (keeps answer_tests' operator/destructive expectations).
+- `Plan::at(Stakes)`: management bracket follows `stakes.management()`, so a Destructive plan that contains a Management op keeps the fail-safe timer.
+- `Params::again(path)` = path + the request's pairs (minus confirm/confirm_name) as query: the resubmit of query-reading handlers. Form-only handlers that can plan management must read the query too (segment create now merges RawQuery + form).
+- Firewall `assess` no longer hand-checks `Destructive`; `Action::plan` (SafetyNet::required) decides.
+- Kit unit tests that need a change to RUN wrap the handler in an axum Router with `middleware::from_fn(crate::brackets::own)` (else `brackets::hold()` refuses before sending).
+- Test helper `tests/support/asked.rs`: `asks_first` (dialog key marker + zero commands) and `runs_in_timer` (arm first, disarm last).
+- KeenDNS release: `keendns::plan_drop_name` is Management when the profile URL host is the booked name or under it (`reached_by`, inline unit test in `keendns/tests.rs`); no DNS lookup.
+- [2026-11-16] Todo 9 (wt/r9): done and green (kcc-domain/mcp/kcc tests EXIT=0, kcc-testkit+kcc-web tests EXIT2=0, fmt check 0, clippy 6 crates 0). Target dir and r9 logs removed.
+- [2026-11-16] Todo 10 done in wt/r10: RED captured (kit, wifi, segments, firewall, keendns), kcc-web 443 passed EXIT=0 (final run after hoisting resubmits), kcc-mcp+kcc 341 passed EXIT=0, clippy kcc-web+kcc-domain and fmt --check clean; golden diff = segment create dialog + its cascade. Target dir, r10 logs and scratch removed.

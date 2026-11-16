@@ -128,7 +128,11 @@ pub(crate) async fn description(
     let subject = Subject::new(&router, &name, action.locale());
     let dialog = description_form(subject, params.text("value").to_owned()).refusing_at("value");
     let call = Call::new(&state, &user, &router, &headers);
-    Ok(Submission::new(action, &params, dialog)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/network/description")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, dialog, resubmit)
         .submit(
             |typed| {
                 checked_description(typed.text("value"))
@@ -196,27 +200,30 @@ pub(crate) async fn security(
         "#page-outcome",
     );
     let call = Call::new(&state, &user, &router, &headers);
-    Ok(
-        Submission::new(action, &params, security_form(subject, Level::Private))
-            .confirming(Risk::Management, resubmit)
-            .submit(
-                |typed| {
-                    typed
-                        .get("level")
-                        .and_then(Level::from_slug)
-                        .ok_or_else(|| Invalid::at("level", keys::WEB_NETWORK_SECURITY_ERROR))
-                },
-                async |level, domain| {
-                    let verdict = interfaces::detect_management(domain, &name).await?;
-                    let operation =
-                        interfaces::plan_security_level(domain, &name, level.domain(), verdict)?;
-                    let request = interfaces::change_request(&name, &operation)?;
-                    Ok(Planned::of(&[operation], Change::Cli(request)))
-                },
-                async |domain| refreshed(call, domain).await,
-            )
-            .await,
+    Ok(Submission::new(
+        action,
+        &params,
+        security_form(subject, Level::Private),
+        resubmit,
     )
+    .confirming(Risk::Management)
+    .submit(
+        |typed| {
+            typed
+                .get("level")
+                .and_then(Level::from_slug)
+                .ok_or_else(|| Invalid::at("level", keys::WEB_NETWORK_SECURITY_ERROR))
+        },
+        async |level, domain| {
+            let verdict = interfaces::detect_management(domain, &name).await?;
+            let operation =
+                interfaces::plan_security_level(domain, &name, level.domain(), verdict)?;
+            let request = interfaces::change_request(&name, &operation)?;
+            Ok(Planned::of(&[operation], Change::Cli(request)))
+        },
+        async |domain| refreshed(call, domain).await,
+    )
+    .await)
 }
 
 /// The description typed, trimmed, when it is 1 to 128 characters on one line.

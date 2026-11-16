@@ -19,6 +19,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         form::{FormDialog, Input},
         request::{Params, shown_query},
         respond::Answer,
@@ -97,34 +98,37 @@ pub(crate) async fn create(
     let description = value(&pairs, "description").unwrap_or_default();
     let dialog = schedule_dialog(&router, locale, (name, description));
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
-    Ok(Submission::new(action, &Params::default(), dialog)
-        .submit(
-            |_params| {
-                let mut invalid = Vec::new();
-                if !is_word(name) {
-                    invalid.push(("name", keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR));
-                }
-                if !description.is_empty() && !is_word(description) {
-                    invalid.push(("description", keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR));
-                }
-                if invalid.is_empty() {
-                    Ok(())
-                } else {
-                    Err(Invalid::from(invalid))
-                }
-            },
-            async |(), domain| {
-                let operation = if description.is_empty() {
-                    schedules::plan_create(domain, name)
-                } else {
-                    schedules::plan_description(domain, name, description)
-                }?;
-                let request = schedules::change_request(&operation)?;
-                Ok(Planned::of(&[operation], Change::Cli(request)))
-            },
-            async |domain| viewer.refreshed(domain).await,
-        )
-        .await)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/system/schedules"), "#page-outcome");
+    Ok(
+        Submission::new(action, &Params::default(), dialog, resubmit)
+            .submit(
+                |_params| {
+                    let mut invalid = Vec::new();
+                    if !is_word(name) {
+                        invalid.push(("name", keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR));
+                    }
+                    if !description.is_empty() && !is_word(description) {
+                        invalid.push(("description", keys::WEB_SYSTEM_SCHEDULES_WORD_ERROR));
+                    }
+                    if invalid.is_empty() {
+                        Ok(())
+                    } else {
+                        Err(Invalid::from(invalid))
+                    }
+                },
+                async |(), domain| {
+                    let operation = if description.is_empty() {
+                        schedules::plan_create(domain, name)
+                    } else {
+                        schedules::plan_description(domain, name, description)
+                    }?;
+                    let request = schedules::change_request(&operation)?;
+                    Ok(Planned::of(&[operation], Change::Cli(request)))
+                },
+                async |domain| viewer.refreshed(domain).await,
+            )
+            .await,
+    )
 }
 
 #[cfg(test)]

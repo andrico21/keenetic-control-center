@@ -28,6 +28,22 @@ impl Stakes {
         self
     }
 
+    /// The same request at `risk` or above: an operation never runs below its own
+    /// described risk, and a management operation keeps it inside the recovery timer.
+    pub(crate) fn at_least(self, risk: Risk) -> Self {
+        Self::new(self.risk.max(risk)).with_management(self.management || risk == Risk::Management)
+    }
+
+    /// The request's risk.
+    pub(crate) const fn risk(self) -> Risk {
+        self.risk
+    }
+
+    /// Whether the request runs inside the recovery timer.
+    pub(crate) const fn management(self) -> bool {
+        self.management
+    }
+
     /// The guard `family`'s pages put on the request; `None` when it runs at once.
     ///
     /// Reads always run, and a domain page's form already describes its write. A

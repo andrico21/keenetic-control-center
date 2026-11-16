@@ -55,8 +55,7 @@ pub(crate) async fn reset(
     let params = Params::of(pairs);
     let typed = params.confirmation().name().unwrap_or_default().to_owned();
     let named = router.clone();
-    Ok(Submission::new(action, &params, Formless)
-        .confirming_planned(resubmit)
+    Ok(Submission::new(action, &params, Formless, resubmit)
         .submit(
             |_params| Ok(()),
             async |(), _ctx| {

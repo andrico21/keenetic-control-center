@@ -39,6 +39,7 @@ use crate::{
     page_kit::{
         action::Operation,
         audit::{Record, field_names},
+        confirm::Resubmit,
         failure::issue_sentence,
         family::Family,
         outcome::{Failure, Outcome},
@@ -131,7 +132,11 @@ pub(crate) async fn start(
         .await?;
     let record = Record::on_router(tool.audit(), &router, path.to_owned());
     let params = Params::default();
-    let (action, body) = Submission::new(opened, &params, InOutcome)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/system/diagnostics"),
+        "#page-outcome",
+    );
+    let (action, body) = Submission::new(opened, &params, InOutcome, resubmit)
         .checked(|_params| tool.body(&pairs).map_err(|rule| Invalid::at("tool", rule)))
         .await?;
     let audited = record.with_params(json!({ "fields": field_names(&body) }));

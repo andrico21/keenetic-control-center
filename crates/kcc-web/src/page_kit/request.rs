@@ -63,6 +63,22 @@ impl Params {
     pub(crate) fn confirmation(&self) -> Confirmation {
         Confirmation::from_pairs(&self.0)
     }
+
+    /// The address that sends the parameters to `path` again, as its query string,
+    /// without the confirmation's own fields.
+    pub(crate) fn again(&self, path: &str) -> String {
+        let kept: Vec<(&str, &str)> = self
+            .0
+            .iter()
+            .filter(|(name, _)| name != "confirm" && name != "confirm_name")
+            .map(|(name, value)| (name.as_str(), value.as_str()))
+            .collect();
+        if kept.is_empty() {
+            path.to_owned()
+        } else {
+            with_query(path, &kept)
+        }
+    }
 }
 
 /// The last value of `name` in `pairs`, as sent.

@@ -12,6 +12,7 @@ use serde_json::Value;
 use crate::{
     interface,
     support::{
+        asked::{asks_first, commands_since, runs_in_timer},
         outcome::TestResult,
         page::{form, header_text, said, text},
         web::Fixture,
@@ -70,75 +71,59 @@ async fn each_role_sees_radios_points_and_devices() -> TestResult {
     Ok(())
 }
 
+/// The management access point of the scenario's router, as a query value.
+const MANAGED: &str = "WifiMaster0%2FAccessPoint0";
+
+/// The fake router in `mode` (`router` or `extender`), whose access point `MANAGED`
+/// carries kcc's connection.
+async fn managed_fixture(mode: &str) -> TestResult<Fixture> {
+    let mut scenario = migration::Fixture::default();
+    scenario.mode = Some(mode.to_owned());
+    Fixture::with_router(
+        FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario),
+    )
+    .await
+}
+
+/// N11, N12, W3-01: disabling the access point kcc reaches the router through asks
+/// first and sends nothing until confirmed.
+///
+/// Confirmed, it runs inside the recovery timer; a viewer is refused before any dialog.
 #[tokio::test]
-async fn management_access_point_disable_is_refused_or_bracketed() -> TestResult {
+async fn management_access_point_disable_asks_first_then_is_bracketed() -> TestResult {
+    let toggle = format!("{PAGE}/toggle?name={MANAGED}&setting=enabled&value=no");
     for mode in ["router", "extender"] {
-        let mut scenario = migration::Fixture::default();
-        scenario.mode = Some(mode.to_owned());
-        let fixture = Fixture::with_router(
-            FakeRouter::builder(Profile::default())
-                .build()?
-                .with_migration(scenario),
-        )
-        .await?;
-        for account in ["viewer"] {
-            let browser = fixture.login(account).await?;
-            let before = fixture.handle().request_log().len();
-            let response = fixture
-                .post(
-                    "/ui/r/home/wifi/toggle?name=WifiMaster0%2FAccessPoint0&setting=enabled&value=no",
-                    &browser,
-                    "",
-                )
-                .await?;
-            assert_eq!(response.status(), StatusCode::FORBIDDEN, "{account} {mode}");
-            assert!(
-                fixture
-                    .handle()
-                    .request_log()
-                    .iter()
-                    .skip(before)
-                    .all(|record| record.command().is_none()),
-                "{account} {mode}"
-            );
-        }
-        let operator = fixture.login("operator").await?;
+        let fixture = managed_fixture(mode).await?;
+        let viewer = fixture.login("viewer").await?;
         let before = fixture.handle().request_log().len();
-        let response = fixture
-            .post(
-                "/ui/r/home/wifi/toggle?name=WifiMaster0%2FAccessPoint0&setting=enabled&value=no",
-                &operator,
-                &form(&[("confirm", "yes"), ("confirm_name", "home")]),
-            )
-            .await?;
-        assert_eq!(response.status(), StatusCode::OK, "operator {mode}");
-        let commands = fixture
-            .handle()
-            .request_log()
-            .iter()
-            .skip(before)
-            .filter_map(|record| record.command().map(str::to_owned))
-            .collect::<Vec<_>>();
-        let (arm, disarm) = if mode == "router" {
-            (
-                "system configuration fail-safe timer reboot 300",
-                "no system configuration fail-safe timer",
-            )
-        } else {
-            ("system reboot 300", "no system reboot")
-        };
+        let response = fixture.post(&toggle, &viewer, "").await?;
+        assert_eq!(response.status(), StatusCode::FORBIDDEN, "viewer {mode}");
         assert_eq!(
-            commands.first().map(String::as_str),
-            Some(arm),
-            "{commands:?}"
+            commands_since(&fixture, before),
+            Vec::<String>::new(),
+            "{mode}"
         );
-        assert_eq!(
-            commands.last().map(String::as_str),
-            Some(disarm),
-            "{commands:?}"
-        );
+        let operator = fixture.login("operator").await?;
+        let confirm = asks_first(&fixture, &operator, (&toggle, &[])).await?;
+        runs_in_timer(&fixture, &operator, (&confirm, &[]), mode).await?;
     }
     Ok(())
+}
+
+/// N11, W3-01: a schedule on the access point kcc reaches the router through asks first
+/// and sends nothing until confirmed.
+///
+/// Confirmed, it runs inside the recovery timer.
+#[tokio::test]
+async fn management_access_point_schedule_asks_first_then_is_bracketed() -> TestResult {
+    let edit = format!("{PAGE}/edit/schedule?name={MANAGED}");
+    let fixture = managed_fixture("router").await?;
+    let operator = fixture.login("operator").await?;
+    let value = [("value", "Schedule0")];
+    let confirm = asks_first(&fixture, &operator, (&edit, &value)).await?;
+    runs_in_timer(&fixture, &operator, (&confirm, &[]), "router").await
 }
 
 #[tokio::test]

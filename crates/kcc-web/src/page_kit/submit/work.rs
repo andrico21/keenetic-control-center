@@ -8,7 +8,10 @@ use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, RouterCtx};
 
 use super::{
-    super::change::{Applied, Change},
+    super::{
+        change::{Applied, Change},
+        confirm::Stakes,
+    },
     Planned,
 };
 
@@ -30,21 +33,26 @@ pub(crate) enum Job {
 }
 
 impl Planned {
-    /// `change`, which carries `operations`, at the highest risk among them.
+    /// `change`, which carries `operations`, at the highest risk among them; inside the
+    /// recovery timer when one of them is a management change.
     pub(crate) fn of(operations: &[ChangeOp], change: Change) -> Self {
         Self {
-            risk: highest(operations),
+            stakes: stakes(operations),
             job: Job::Change(change),
         }
     }
 
     /// `work`, the domain's own run of `operations` on the leased change set (it sends
-    /// them and reads them back itself), at the highest risk among them.
+    /// them and reads them back itself), at the highest risk among them; inside the
+    /// recovery timer when one of them is a management change.
     pub(crate) fn working<W>(operations: &[ChangeOp], work: W) -> Self
     where
         W: for<'set> FnOnce(&'set mut ChangeSet, &'set RouterCtx) -> Working<'set> + Send + 'static,
     {
-        Self::assessed(highest(operations), work)
+        Self {
+            stakes: stakes(operations),
+            job: Job::Work(Box::new(work)),
+        }
     }
 
     /// `work` at the operation's own risk, as its domain describes it: for work the
@@ -64,22 +72,27 @@ impl Planned {
         W: for<'set> FnOnce(&'set mut ChangeSet, &'set RouterCtx) -> Working<'set> + Send + 'static,
     {
         Self {
-            risk,
+            stakes: Stakes::new(risk),
             job: Job::Work(Box::new(work)),
         }
     }
 
-    /// The risk the change runs at, and what runs.
-    pub(in crate::page_kit) fn into_parts(self) -> (Risk, Job) {
-        (self.risk, self.job)
+    /// The stakes the change runs at, and what runs.
+    pub(in crate::page_kit) fn into_parts(self) -> (Stakes, Job) {
+        (self.stakes, self.job)
     }
 }
 
-/// The highest risk among `operations`.
-fn highest(operations: &[ChangeOp]) -> Risk {
-    operations
+/// The highest risk among `operations`, inside the recovery timer when one of them is a
+/// management change.
+fn stakes(operations: &[ChangeOp]) -> Stakes {
+    let highest = operations
         .iter()
         .map(|operation| operation.risk)
         .max()
-        .unwrap_or(Risk::Read)
+        .unwrap_or(Risk::Read);
+    let management = operations
+        .iter()
+        .any(|operation| operation.risk == Risk::Management);
+    Stakes::new(highest).with_management(management)
 }

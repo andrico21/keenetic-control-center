@@ -46,7 +46,7 @@ pub(super) mod tests {
         WebState, WebStateConfig,
         authz::CurrentUser,
         fleet::{BackupServices, FleetServices},
-        page_kit::{action::Operation, outcome::Failure, request::Params},
+        page_kit::{action::Operation, confirm::Resubmit, outcome::Failure, request::Params},
         session::CookieSecurity,
     };
 
@@ -230,6 +230,14 @@ pub(super) mod tests {
             .map_err(|_error| Invalid::at("value", keys::WEB_INTERNET_MTU_ERROR))
     }
 
+    /// Where a test submission's confirmation sends the request again.
+    pub(in crate::page_kit::submit) fn again() -> Resubmit {
+        Resubmit::new(
+            "/ui/r/home/internet/edit/mtu?name=ISP".to_owned(),
+            "#page-outcome",
+        )
+    }
+
     /// The answer's body as text.
     pub(in crate::page_kit::submit) async fn body(
         response: Response,
@@ -245,7 +253,7 @@ pub(super) mod tests {
         let action = opened.ok_or("the write opens")?;
         let before = world.handle.request_count();
         let typed = params("big");
-        let answer = Submission::new(action, &typed, Probe)
+        let answer = Submission::new(action, &typed, Probe, again())
             .submit(
                 checked,
                 async |_mtu, _domain| Err(DomainError::InvalidResponse),
@@ -266,7 +274,7 @@ pub(super) mod tests {
             let opened = MTU.open(&world.web, &world.admin, ROUTER).await.ok();
             let action = opened.ok_or("the write opens")?;
             let typed = params("1400");
-            let answer = Submission::new(action, &typed, Probe)
+            let answer = Submission::new(action, &typed, Probe, again())
                 .submit(
                     checked,
                     async move |_mtu, _domain| Err(refusal),
@@ -293,7 +301,7 @@ pub(super) mod tests {
             let opened = MTU.open(&world.web, &world.admin, ROUTER).await.ok();
             let action = opened.ok_or("the write opens")?;
             let before = world.handle.request_count();
-            let answer = Submission::new(action, &typed, Probe)
+            let answer = Submission::new(action, &typed, Probe, again())
                 .submit_reading(
                     async move |_typed, _domain| Err::<(), _>(rejected),
                     async |(), _domain| Err(DomainError::InvalidResponse),

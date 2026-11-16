@@ -20,7 +20,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
-        confirm::FAIL_SAFE_MINUTES,
+        confirm::{FAIL_SAFE_MINUTES, Resubmit},
         form::{Choice, FormDialog, Input, Problem},
         outcome::Failure,
         request::{Params, missing},
@@ -193,17 +193,23 @@ pub(crate) async fn book(
         String::new(),
     ]);
     let viewer = Viewer::new(&user, &router);
-    Ok(Submission::new(action, &Params::default(), dialog)
-        .submit(
-            |_params| {
-                (is_label(&name) && is_domain(&zone))
-                    .then_some(())
-                    .ok_or_else(|| Invalid::at("name", keys::WEB_SYSTEM_KEENDNS_NAME_ERROR))
-            },
-            async |(), ctx| planned(keendns::plan_book_name(ctx, &name, &zone)?),
-            async |ctx| viewer.refreshed(ctx).await,
-        )
-        .await)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/system/keendns/book"),
+        "#page-outcome",
+    );
+    Ok(
+        Submission::new(action, &Params::default(), dialog, resubmit)
+            .submit(
+                |_params| {
+                    (is_label(&name) && is_domain(&zone))
+                        .then_some(())
+                        .ok_or_else(|| Invalid::at("name", keys::WEB_SYSTEM_KEENDNS_NAME_ERROR))
+                },
+                async |(), ctx| planned(keendns::plan_book_name(ctx, &name, &zone)?),
+                async |ctx| viewer.refreshed(ctx).await,
+            )
+            .await,
+    )
 }
 
 /// `POST /ui/r/{router}/system/keendns/drop`: releases the booked name.
@@ -229,13 +235,19 @@ pub(crate) async fn drop_name(
         return Err(missing());
     };
     let viewer = Viewer::new(&user, &router);
-    Ok(Submission::new(action, &Params::default(), NoDialog)
-        .submit(
-            |_params| Ok(()),
-            async |(), ctx| planned(keendns::plan_drop_name(ctx, name, zone)?),
-            async |ctx| viewer.refreshed(ctx).await,
-        )
-        .await)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/system/keendns/drop"),
+        "#page-outcome",
+    );
+    Ok(
+        Submission::new(action, &Params::default(), NoDialog, resubmit)
+            .submit(
+                |_params| Ok(()),
+                async |(), ctx| planned(keendns::plan_drop_name(ctx, name, zone)?),
+                async |ctx| viewer.refreshed(ctx).await,
+            )
+            .await,
+    )
 }
 
 #[cfg(test)]

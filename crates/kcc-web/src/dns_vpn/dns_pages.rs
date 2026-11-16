@@ -28,6 +28,7 @@ use crate::{
     page_kit::{
         action::{Action, Operation},
         change::Change,
+        confirm::Resubmit,
         context::Caller,
         failure::plan_failure,
         family::Family,
@@ -150,7 +151,8 @@ pub(crate) async fn submit(
         Err(_) => Some(again(form, &action, &values).await?),
     };
     let answers = Answers::new(invalid, (form, &router), &values);
-    Ok(Submission::new(action, &values, answers)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/dns/form/{slug}"), "#page-outcome");
+    Ok(Submission::new(action, &values, answers, resubmit)
         .submit(
             |_values| checked.map_err(Invalid::from),
             async |change, ctx| {
@@ -182,7 +184,11 @@ pub(crate) async fn intercept(
     let values = Params::of(pairs);
     let action = INTERCEPT.open(&state, &user, &router).await?;
     let locale = action.locale();
-    Ok(Submission::new(action, &values, InRegion)
+    let resubmit = Resubmit::new(
+        values.again(&format!("/ui/r/{router}/dns/intercept")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &values, InRegion, resubmit)
         .submit(
             |submitted| match submitted.text("enabled") {
                 "on" => Ok(true),

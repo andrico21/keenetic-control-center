@@ -24,6 +24,7 @@ use crate::{
     authz::CurrentUser,
     page_kit::{
         action::Operation,
+        confirm::Resubmit,
         request::{Params, missing},
         respond::Answer,
         submit::Invalid,
@@ -71,33 +72,37 @@ pub(crate) async fn create(
     let locale = action.locale();
     let values = Params::new(Vec::new(), pairs);
     let name = values.text("name").trim().to_owned();
-    Ok(
-        submission(action, &values, create_form(locale, &router, &values))
-            .submit_reading(
-                async |submitted, domain| {
-                    if name.parse::<ObjectName>().is_err() {
-                        return Err(Invalid::at("name", keys::WEB_ROUTING_ERROR_NAME).into());
-                    }
-                    let description = word(submitted.text("description"))
-                        .map_err(|rule| Invalid::at("description", rule))?;
-                    if find(domain, &name).await.is_some() {
-                        return Err(
-                            Invalid::at("name", keys::WEB_ROUTING_ERROR_POLICY_EXISTS).into()
-                        );
-                    }
-                    Ok(description)
-                },
-                async |description, domain| {
-                    let mut ops = vec![plan::create(domain, &name)?];
-                    if let Some(text) = &description {
-                        ops.push(plan::description(domain, &name, Some(text))?);
-                    }
-                    Ok(applied(ops))
-                },
-                async |domain| refreshed(domain, (&router, &user), &headers, locale).await,
-            )
-            .await,
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/routing/policy/new"),
+        "#page-outcome",
+    );
+    Ok(submission(
+        action,
+        (&values, resubmit),
+        create_form(locale, &router, &values),
     )
+    .submit_reading(
+        async |submitted, domain| {
+            if name.parse::<ObjectName>().is_err() {
+                return Err(Invalid::at("name", keys::WEB_ROUTING_ERROR_NAME).into());
+            }
+            let description = word(submitted.text("description"))
+                .map_err(|rule| Invalid::at("description", rule))?;
+            if find(domain, &name).await.is_some() {
+                return Err(Invalid::at("name", keys::WEB_ROUTING_ERROR_POLICY_EXISTS).into());
+            }
+            Ok(description)
+        },
+        async |description, domain| {
+            let mut ops = vec![plan::create(domain, &name)?];
+            if let Some(text) = &description {
+                ops.push(plan::description(domain, &name, Some(text))?);
+            }
+            Ok(applied(ops))
+        },
+        async |domain| refreshed(domain, (&router, &user), &headers, locale).await,
+    )
+    .await)
 }
 
 /// `GET /ui/r/{router}/routing/policy/description?name=`: the description dialog.
@@ -142,7 +147,11 @@ pub(crate) async fn describe(
     let locale = action.locale();
     let values = Params::new(Vec::new(), pairs);
     let dialog = description_form(locale, &router, query.name(), &values);
-    Ok(submission(action, &values, dialog)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/routing/policy/description"),
+        "#page-outcome",
+    );
+    Ok(submission(action, (&values, resubmit), dialog)
         .submit_reading(
             async |submitted, domain| {
                 let policy = known(domain, query.name(), locale).await?;
@@ -203,7 +212,11 @@ pub(crate) async fn permit(
     let names = interface_names(&action.context().await?).await;
     let values = Params::new(Vec::new(), pairs);
     let dialog = permit_form(locale, (&router, query.name()), &values, &names);
-    Ok(submission(action, &values, dialog)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/routing/policy/permit"),
+        "#page-outcome",
+    );
+    Ok(submission(action, (&values, resubmit), dialog)
         .submit_reading(
             async |submitted, domain| {
                 let policy = known(domain, query.name(), locale).await?;

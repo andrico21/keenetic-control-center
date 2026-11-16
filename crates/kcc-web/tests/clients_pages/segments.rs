@@ -7,6 +7,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
 
 use crate::support::{
+    asked::{asks_first, runs_in_timer},
     outcome::TestResult,
     page::{form, header_text, html, router_said, said, text},
     web::Fixture,
@@ -82,32 +83,11 @@ async fn each_role_sees_the_page_and_only_its_controls() -> TestResult {
     Ok(())
 }
 
-/// Whether the router received the recovery timer's arm, then its disarm, in `mode`.
-fn bracketed(fixture: &Fixture, mode: &str) -> bool {
-    let (arm, disarm) = if mode == "router" {
-        (
-            "system configuration fail-safe timer reboot 300",
-            "no system configuration fail-safe timer",
-        )
-    } else {
-        ("system reboot 300", "no system reboot")
-    };
-    let commands: Vec<String> = fixture
-        .handle()
-        .request_log()
-        .iter()
-        .filter_map(|record| record.command().map(str::to_owned))
-        .collect();
-    commands
-        .iter()
-        .position(|command| command == arm)
-        .is_some_and(|at| commands.iter().skip(at).any(|command| command == disarm))
-}
-
-/// A role with router writes makes a management change: its own permission authorizes
-/// the recovery timer around it.
+/// W3-07: a role with router writes makes a management change: asked first, nothing is
+/// sent until confirmed, and its own permission authorizes the recovery timer around it.
 #[tokio::test]
-async fn management_access_point_segment_is_bracketed_for_writer() -> TestResult {
+async fn management_access_point_segment_asks_first_then_is_bracketed_for_writer() -> TestResult {
+    let create = format!("{PAGE}/create");
     for mode in ["router", "extender"] {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some(mode.to_owned());
@@ -118,31 +98,22 @@ async fn management_access_point_segment_is_bracketed_for_writer() -> TestResult
         )
         .await?;
         let writer = fixture.login("writer").await?;
-        let mut pairs = changed("access_point", "WifiMaster0/AccessPoint0");
-        pairs.extend([("confirm", "yes"), ("confirm_name", "home")]);
-        let response = fixture
-            .post(&format!("{PAGE}/create"), &writer, &form(&pairs))
-            .await?;
-        assert_eq!(response.status(), StatusCode::OK, "{mode}");
-        assert!(bracketed(&fixture, mode), "{mode}");
+        let pairs = changed("access_point", "WifiMaster0/AccessPoint0");
+        let confirm = asks_first(&fixture, &writer, (&create, &pairs)).await?;
+        runs_in_timer(&fixture, &writer, (&confirm, &[]), mode).await?;
     }
     Ok(())
 }
 
+/// W3-07: a segment on the port kcc reaches the router through asks first; confirmed, it
+/// runs inside the recovery timer.
 #[tokio::test]
-async fn management_port_segment_is_bracketed_for_writer() -> TestResult {
+async fn management_port_segment_asks_first_then_is_bracketed_for_writer() -> TestResult {
+    let create = format!("{PAGE}/create");
     let fixture = Fixture::new().await?;
     let writer = fixture.login("writer").await?;
-    let response = fixture
-        .post(
-            &format!("{PAGE}/create"),
-            &writer,
-            &form(&confirmed_segment()),
-        )
-        .await?;
-    assert_eq!(response.status(), StatusCode::OK);
-    assert!(bracketed(&fixture, "router"));
-    Ok(())
+    let confirm = asks_first(&fixture, &writer, (&create, &SEGMENT)).await?;
+    runs_in_timer(&fixture, &writer, (&confirm, &[]), "router").await
 }
 
 #[tokio::test]

@@ -36,6 +36,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         form::FormDialog,
         outcome::{Failure, Outcome},
         request::{Params, shown_query},
@@ -128,7 +129,8 @@ pub(crate) async fn import(
         locale,
     );
     let params = Params::default();
-    Ok(Submission::new(action, &params, importing)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/vpn/import"), "#page-outcome");
+    Ok(Submission::new(action, &params, importing, resubmit)
         .submit(
             |_params| checked,
             async |(name, config), ctx| {

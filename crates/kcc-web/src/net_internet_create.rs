@@ -31,6 +31,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         form::{Choice, FormDialog, Input},
         request::Params,
         respond::Answer,
@@ -274,13 +275,17 @@ pub(crate) async fn create(
         .await
         .map_or_default(|found| found.into_keys().collect());
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
-    Ok(
-        Submission::new(action, &params, draft.form(&router, locale, &vias))
-            .submit(
-                |_params| draft.check(&taken, &vias).map_err(Invalid::from),
-                async |checked, planning| plan_create(&checked, planning).await,
-                async |planning| refreshed(call, planning).await,
-            )
-            .await,
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/internet/create"), "#page-outcome");
+    Ok(Submission::new(
+        action,
+        &params,
+        draft.form(&router, locale, &vias),
+        resubmit,
     )
+    .submit(
+        |_params| draft.check(&taken, &vias).map_err(Invalid::from),
+        async |checked, planning| plan_create(&checked, planning).await,
+        async |planning| refreshed(call, planning).await,
+    )
+    .await)
 }

@@ -188,7 +188,11 @@ pub(crate) async fn action(
         Some(_) | None => return Err(missing()),
     };
     let action = operation.open(&state, &user, &router).await?;
-    Ok(Submission::new(action, &params, Formless)
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/mesh/action")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, Formless, resubmit)
         .submit(
             |_params| Ok(()),
             async |(), domain| {
@@ -219,8 +223,7 @@ async fn restart(call: Call<'_>, member: &ObjectName, params: &Params) -> Result
         "#page-outcome",
     );
     let id = member.as_str().to_owned();
-    Ok(Submission::new(action, params, Formless)
-        .confirming_planned(resubmit)
+    Ok(Submission::new(action, params, Formless, resubmit)
         .submit(
             |_params| Ok(()),
             async |(), _ctx| {

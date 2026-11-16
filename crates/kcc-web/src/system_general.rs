@@ -169,30 +169,36 @@ pub(crate) async fn edit(
     let dialog = field
         .dialog(&router, locale)
         .with_value("value", form.value().to_owned());
-    Ok(Submission::new(action, &Params::default(), dialog)
-        .submit(
-            |_params| {
-                field
-                    .check(form.value())
-                    .map_err(|rule| Invalid::at("value", rule))
-            },
-            async |value, domain| {
-                let operation = field.plan(domain, &value)?;
-                let request = system::change_request(&operation)?;
-                Ok(Planned::of(&[operation], Change::Request(request)))
-            },
-            async |domain| {
-                let general = General::read(domain).await;
-                let controls = Controls::new(user.role(), &router)
-                    .with_operations(system::DESCRIPTOR.write_ops, Some(&domain.catalog));
-                rendered(
-                    &Facts::new(locale, router.clone(), general)
-                        .with_controls(controls)
-                        .out_of_band(),
-                )
-            },
-        )
-        .await)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/system/general/{slug}"),
+        "#page-outcome",
+    );
+    Ok(
+        Submission::new(action, &Params::default(), dialog, resubmit)
+            .submit(
+                |_params| {
+                    field
+                        .check(form.value())
+                        .map_err(|rule| Invalid::at("value", rule))
+                },
+                async |value, domain| {
+                    let operation = field.plan(domain, &value)?;
+                    let request = system::change_request(&operation)?;
+                    Ok(Planned::of(&[operation], Change::Request(request)))
+                },
+                async |domain| {
+                    let general = General::read(domain).await;
+                    let controls = Controls::new(user.role(), &router)
+                        .with_operations(system::DESCRIPTOR.write_ops, Some(&domain.catalog));
+                    rendered(
+                        &Facts::new(locale, router.clone(), general)
+                            .with_controls(controls)
+                            .out_of_band(),
+                    )
+                },
+            )
+            .await,
+    )
 }
 
 /// `POST /ui/r/{router}/system/general/reboot`: asks for the router name, then restarts
@@ -212,20 +218,21 @@ pub(crate) async fn reboot(
         format!("/ui/r/{router}/system/general/reboot"),
         "#page-outcome",
     );
-    Ok(Submission::new(action, &Params::of(pairs), Formless)
-        .confirming_planned(resubmit)
-        .submit(
-            |_params| Ok(()),
-            async |(), _ctx| {
-                Ok(Planned::described(|changes, context| {
-                    Box::pin(async move {
-                        system::reboot(changes, context)
-                            .await
-                            .map(|result| Applied::Terminal(result.responses))
-                    })
-                }))
-            },
-            async |_ctx| None,
-        )
-        .await)
+    Ok(
+        Submission::new(action, &Params::of(pairs), Formless, resubmit)
+            .submit(
+                |_params| Ok(()),
+                async |(), _ctx| {
+                    Ok(Planned::described(|changes, context| {
+                        Box::pin(async move {
+                            system::reboot(changes, context)
+                                .await
+                                .map(|result| Applied::Terminal(result.responses))
+                        })
+                    }))
+                },
+                async |_ctx| None,
+            )
+            .await,
+    )
 }

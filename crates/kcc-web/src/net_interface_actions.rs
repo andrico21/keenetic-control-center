@@ -57,7 +57,11 @@ pub(crate) async fn state(
     match params.get("state") {
         Some("up") => {
             let action = UP.open(&state, &user, &router).await?;
-            Ok(Submission::new(action, &params, Formless)
+            let resubmit = Resubmit::new(
+                params.again(&format!("/ui/r/{router}/network/state")),
+                "#page-outcome",
+            );
+            Ok(Submission::new(action, &params, Formless, resubmit)
                 .submit(
                     |_params| Ok(()),
                     async |(), domain| {
@@ -90,8 +94,8 @@ async fn disable(call: Call<'_>, name: &ObjectName, params: &Params) -> Result<R
         ),
         "#page-outcome",
     );
-    Ok(Submission::new(action, params, Formless)
-        .confirming(Risk::Management, resubmit)
+    Ok(Submission::new(action, params, Formless, resubmit)
+        .confirming(Risk::Management)
         .submit(
             |_params| Ok(()),
             async |(), domain| {

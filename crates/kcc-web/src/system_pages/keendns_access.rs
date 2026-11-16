@@ -1,9 +1,9 @@
 //! The KeenDNS management changes: the remote access level and web proxy entries.
 //!
-//! Both change how the router and the home network are reached from outside: they need
-//! `Destructive` too and run inside the fail-safe timer. The access buttons ask with the
-//! kit's dialog; the proxy dialog explains the timer itself and its Apply confirms, and
-//! the server checks either way.
+//! Both change how the router and the home network are reached from outside: they are
+//! management changes, need the change's own `Write` and run inside the fail-safe timer.
+//! The access buttons ask with the kit's dialog; the proxy dialog explains the timer
+//! itself and its Apply confirms, and the server checks either way.
 
 use core::net::Ipv4Addr;
 
@@ -73,14 +73,16 @@ pub(crate) async fn access(
         "#page-outcome",
     );
     let viewer = Viewer::new(&user, &router);
-    Ok(Submission::new(action, &Params::of(pairs), NoDialog)
-        .confirming(Risk::Management, resubmit)
-        .submit(
-            |_params| Ok(()),
-            async |(), domain| planned(keendns::plan_cloud_security_level(domain, level)?),
-            async |domain| viewer.refreshed(domain).await,
-        )
-        .await)
+    Ok(
+        Submission::new(action, &Params::of(pairs), NoDialog, resubmit)
+            .confirming(Risk::Management)
+            .submit(
+                |_params| Ok(()),
+                async |(), domain| planned(keendns::plan_cloud_security_level(domain, level)?),
+                async |domain| viewer.refreshed(domain).await,
+            )
+            .await,
+    )
 }
 
 /// `GET /ui/r/{router}/system/keendns/proxy`: the proxy-entry dialog.
@@ -136,24 +138,26 @@ pub(crate) async fn proxy(
         "#page-outcome",
     );
     let viewer = Viewer::new(&user, &router);
-    Ok(Submission::new(action, &Params::of(pairs), dialog)
-        .confirming(Risk::Management, resubmit)
-        .submit(
-            |_params| {
-                let valid = is_label(&name)
-                    && PROTOCOLS.contains(&protocol.as_str())
-                    && host.parse::<Ipv4Addr>().is_ok();
-                port.parse::<u16>()
-                    .ok()
-                    .filter(|number| *number > 0 && valid)
-                    .ok_or_else(|| Invalid::at("name", keys::WEB_SYSTEM_KEENDNS_PROXY_ERROR))
-            },
-            async |number, domain| {
-                planned(keendns::plan_proxy_upstream(
-                    domain, &name, &protocol, &host, number,
-                )?)
-            },
-            async |domain| viewer.refreshed(domain).await,
-        )
-        .await)
+    Ok(
+        Submission::new(action, &Params::of(pairs), dialog, resubmit)
+            .confirming(Risk::Management)
+            .submit(
+                |_params| {
+                    let valid = is_label(&name)
+                        && PROTOCOLS.contains(&protocol.as_str())
+                        && host.parse::<Ipv4Addr>().is_ok();
+                    port.parse::<u16>()
+                        .ok()
+                        .filter(|number| *number > 0 && valid)
+                        .ok_or_else(|| Invalid::at("name", keys::WEB_SYSTEM_KEENDNS_PROXY_ERROR))
+                },
+                async |number, domain| {
+                    planned(keendns::plan_proxy_upstream(
+                        domain, &name, &protocol, &host, number,
+                    )?)
+                },
+                async |domain| viewer.refreshed(domain).await,
+            )
+            .await,
+    )
 }

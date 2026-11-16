@@ -1,8 +1,14 @@
 //! One submitted change, end to end.
 //!
 //! The submitted values are checked, the change is planned with the domain, confirmed
-//! when its risk asks for it, run at the risk the domain planned, and the page's region
+//! as its planned risk asks, run at the risk the domain planned, and the page's region
 //! is read back.
+//!
+//! The kit asks for the confirmation itself: a planned management change shows the dialog
+//! explaining the recovery timer, a destructive one the dialog asking for the router's
+//! name, until the request carries that confirmation. A page skips it only when its own
+//! confirmation, checked before the submission, covers the planned risk
+//! ([`Submission::confirmed_by_page`]).
 //!
 //! A value that fails its check is answered by the page's form and audited
 //! `validation_failed`. A change the domain could not plan is audited with its own reason
@@ -23,15 +29,10 @@ use kcc_i18n::{
     locale::Locale,
 };
 
-use self::{
-    flow::{Ask, Course},
-    rejected::Rejected,
-    unplanned::Unplanned,
-    work::Job,
-};
+use self::{flow::Course, rejected::Rejected, unplanned::Unplanned, work::Job};
 use super::{
     action::Action,
-    confirm::Resubmit,
+    confirm::{Resubmit, Stakes},
     failure::plan_failure,
     family::Family,
     outcome::{Failure, Outcome},
@@ -41,6 +42,8 @@ use super::{
 
 #[cfg(test)]
 mod answer_tests;
+#[cfg(test)]
+mod asking_tests;
 mod flow;
 pub(crate) mod rejected;
 #[cfg(test)]
@@ -113,8 +116,9 @@ impl Form for Formless {
 /// A change the domain planned, at the risk of the domain's plan; built in the `work`
 /// module, with what it runs.
 pub(crate) struct Planned {
-    /// The highest risk of the planned operations.
-    risk: Risk,
+    /// The highest risk of the planned operations, and whether one of them changes how
+    /// kcc reaches the router.
+    stakes: Stakes,
     /// What runs.
     job: Job,
 }
@@ -132,27 +136,33 @@ pub(crate) struct Submission<'call, F> {
 }
 
 impl<'call, F: Form> Submission<'call, F> {
-    /// `params`, submitted from `form` to `action`.
-    pub(crate) const fn new(action: Action<'call>, params: &'call Params, form: F) -> Self {
+    /// `params`, submitted from `form` to `action`; the confirmation the planned change
+    /// needs sends `resubmit`.
+    pub(crate) const fn new(
+        action: Action<'call>,
+        params: &'call Params,
+        form: F,
+        resubmit: Resubmit,
+    ) -> Self {
         Self {
             action,
             params,
             form,
-            course: Course::new(),
+            course: Course::new(resubmit),
         }
     }
 
-    /// Asks for the confirmation a change of `risk` needs once the values passed their
-    /// check, before anything is read from the router; confirming sends `resubmit`.
-    pub(crate) fn confirming(mut self, risk: Risk, resubmit: Resubmit) -> Self {
-        self.course.asking(Ask::First { risk, resubmit });
+    /// Also asks for the confirmation a change of `risk` needs once the values passed
+    /// their check, before anything is read from the router.
+    pub(crate) const fn confirming(mut self, risk: Risk) -> Self {
+        self.course.asking_first(risk);
         self
     }
 
-    /// Asks for the confirmation the planned change's risk needs before it runs;
-    /// confirming sends `resubmit`.
-    pub(crate) fn confirming_planned(mut self, resubmit: Resubmit) -> Self {
-        self.course.asking(Ask::Planned(resubmit));
+    /// The page confirmed the change itself, before the submission, as a change of `risk`
+    /// needs: the kit asks only for a planned change of a higher risk.
+    pub(crate) const fn confirmed_by_page(mut self, risk: Risk) -> Self {
+        self.course.covered_by_page(risk);
         self
     }
 
@@ -195,7 +205,7 @@ impl<'call, F: Form> Submission<'call, F> {
     /// Checks the values with `check`, plans the change with `plan`, runs it at the
     /// planned risk and, after a success, reads the page's region back with `refresh`.
     // NOT cancel-safe: see `Action::run_planned`.
-    pub(crate) async fn submit<T, C, P, R>(mut self, check: C, plan: P, refresh: R) -> Response
+    pub(crate) async fn submit<T, C, P, R>(self, check: C, plan: P, refresh: R) -> Response
     where
         C: FnOnce(&Params) -> Result<T, Invalid>,
         P: AsyncFnOnce(T, &RouterCtx) -> Result<Planned, DomainError>,
@@ -218,12 +228,7 @@ impl<'call, F: Form> Submission<'call, F> {
     /// [`Self::submit`] with values checked against what the router has: `check` reads
     /// the router with the domain context and says why no change can follow, if so.
     // NOT cancel-safe: see `Action::run_planned`.
-    pub(crate) async fn submit_reading<T, C, P, R>(
-        mut self,
-        check: C,
-        plan: P,
-        refresh: R,
-    ) -> Response
+    pub(crate) async fn submit_reading<T, C, P, R>(self, check: C, plan: P, refresh: R) -> Response
     where
         C: AsyncFnOnce(&Params, &RouterCtx) -> Result<T, Rejected>,
         P: AsyncFnOnce(T, &RouterCtx) -> Result<Planned, DomainError>,
@@ -302,14 +307,17 @@ impl<'call, F: Form> Submission<'call, F> {
     }
 
     /// The confirmation asked for before anything is read, while it is not given.
-    fn ask_first(&mut self) -> Option<Response> {
-        let (risk, resubmit) = self.course.first()?;
-        self.action
-            .confirm(risk, &self.params.confirmation(), resubmit)
+    fn ask_first(&self) -> Option<Response> {
+        let risk = self.course.first()?;
+        self.action.confirm(
+            Stakes::new(risk),
+            &self.params.confirmation(),
+            self.course.resubmit(),
+        )
     }
 
-    /// Plans the `checked` values with `plan`, asks for the planned confirmation, runs
-    /// the change and reads the page's region back with `refresh`.
+    /// Plans the `checked` values with `plan`, asks for the confirmation the planned risk
+    /// needs, runs the change and reads the page's region back with `refresh`.
     // NOT cancel-safe: see `Action::run_planned`.
     async fn carry<T, P, R>(
         self,
@@ -330,10 +338,13 @@ impl<'call, F: Form> Submission<'call, F> {
             action,
             params,
             form,
-            mut course,
+            course,
         } = self;
-        if let Some(resubmit) = course.planned()
-            && let Some(prompt) = action.confirm(planned.risk, &params.confirmation(), resubmit)
+        // A role that may not take the planned risk is refused by the run, never asked.
+        let stakes = action.effective(planned.stakes);
+        if !course.covers(stakes.risk())
+            && action.may_take(stakes)
+            && let Some(prompt) = action.confirm(stakes, &params.confirmation(), course.resubmit())
         {
             return prompt;
         }

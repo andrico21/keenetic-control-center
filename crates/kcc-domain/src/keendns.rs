@@ -9,6 +9,12 @@ use alloc::{collections::BTreeMap, vec};
 
 use crate::descriptor::operation;
 
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests;
 mod verification;
 
 use kcc_app::{
@@ -130,16 +136,38 @@ pub fn plan_book_name(router: &RouterCtx, name: &str, domain: &str) -> Result<Ch
     )
 }
 
-/// Plans dropping a KeenDNS label and domain.
+/// Plans dropping a KeenDNS label and domain: a management change when kcc reaches the
+/// router by that name.
 pub fn plan_drop_name(router: &RouterCtx, name: &str, domain: &str) -> Result<ChangeOp> {
     validate_token(name)?;
     validate_token(domain)?;
+    let host = router.client.router_url().host();
+    let risk = if reached_by(host.as_deref(), &format!("{name}.{domain}")) {
+        Risk::Management
+    } else {
+        Risk::Write
+    };
     plan(
         router,
         "ndns drop-name",
         &json!({"name":name,"domain":domain}),
-        Risk::Write,
+        risk,
     )
+}
+
+/// Whether the router address `host` is the booked name or a name under it.
+fn reached_by(host: Option<&str>, booked: &str) -> bool {
+    host.map(|found| found.trim_suffix('.'))
+        .is_some_and(|found| {
+            found.eq_ignore_ascii_case(booked)
+                || found
+                    .len()
+                    .checked_sub(booked.len())
+                    .and_then(|start| found.split_at_checked(start))
+                    .is_some_and(|(label, rest)| {
+                        label.ends_with('.') && rest.eq_ignore_ascii_case(booked)
+                    })
+        })
 }
 
 /// Plans creation or deletion of one named HTTP proxy entry.

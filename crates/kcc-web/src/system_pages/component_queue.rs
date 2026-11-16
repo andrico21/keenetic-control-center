@@ -25,6 +25,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         request::{Params, missing, shown_query},
         respond::Answer,
         submit::{Planned, Submission},
@@ -51,13 +52,19 @@ pub(crate) async fn check(
 ) -> Result<Response, Answer> {
     let action = CHECK.open(&state, &user, &router).await?;
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
-    Ok(Submission::new(action, &Params::default(), NoDialog)
-        .submit(
-            |_params| Ok(()),
-            async |(), ctx| planned(components::plan_check_update(ctx)?),
-            async |ctx| viewer.refreshed(ctx).await,
-        )
-        .await)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/system/components/check"),
+        "#page-outcome",
+    );
+    Ok(
+        Submission::new(action, &Params::default(), NoDialog, resubmit)
+            .submit(
+                |_params| Ok(()),
+                async |(), ctx| planned(components::plan_check_update(ctx)?),
+                async |ctx| viewer.refreshed(ctx).await,
+            )
+            .await,
+    )
 }
 
 /// `POST /ui/r/{router}/system/components/queue?name=&action=install|remove`: queues one
@@ -101,7 +108,12 @@ pub(crate) async fn queue(
         return Err(missing());
     }
     let viewer = Viewer::new(&user, &router, shown_query(&headers));
-    Ok(Submission::new(action, &Params::default(), NoDialog)
+    let params = Params::of(pairs.clone());
+    let resubmit = Resubmit::new(
+        params.again(&format!("/ui/r/{router}/system/components/queue")),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, NoDialog, resubmit)
         .submit(
             |_params| Ok(()),
             async |(), ctx| planned(components::plan_queue(ctx, wanted, &name)?),

@@ -28,6 +28,7 @@ use crate::{
     errors::{self, Kind},
     page_kit::{
         change::Change,
+        confirm::Resubmit,
         context::Caller,
         failure::plan_failure,
         family::Family,
@@ -274,7 +275,8 @@ pub(crate) async fn submit(
         VpnForm::Pool(_) | VpnForm::Dns(_) | VpnForm::Ipsec => Spot::Servers,
     };
     let dialog = form.dialog(&router, locale).values(&values);
-    Ok(Submission::new(action, &values, dialog)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/vpn/form/{slug}"), "#page-outcome");
+    Ok(Submission::new(action, &values, dialog, resubmit)
         .submit(
             |_values| checked.map_err(Invalid::from),
             async |changes, ctx| {

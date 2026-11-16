@@ -18,11 +18,13 @@ your role: pages and buttons you have no permission for are hidden or answer
   toast; the "Unsaved" badge in the masthead means the running configuration differs
   from the startup configuration. Nothing is saved until you press Save.
 - **Risky changes.** Changes that can cut kcc off from the router (disabling or
-  re-zoning the interface kcc reaches the router through, firewall rules on it) ask
-  first and run under the router's fail-safe timer, which the change's own permission
-  authorizes. Rolling the timer back yourself needs the Destructive permission.
-  Deletions ask for confirmation; the most dangerous ones need the router or object name
-  typed.
+  re-zoning the interface or access point kcc reaches the router through, its Wi-Fi
+  schedule, firewall rules on it, releasing the KeenDNS name kcc uses) ask first on every
+  page and run under the router's fail-safe timer, which the change's own permission
+  authorizes; nothing is sent before you confirm. Rolling the timer back yourself needs
+  the Destructive permission. Deletions ask for confirmation; the most dangerous ones
+  need the router or object name typed, and a destructive change from any page asks for
+  the router name unless the page already asked for a name.
 - **Tables** sort by a column header, filter with the search field and page at the
   bottom. On phones they scroll sideways without a visual cue.
 - **Secrets** (Wi-Fi keys, VPN keys, passwords) show only as Set or Not set, and the

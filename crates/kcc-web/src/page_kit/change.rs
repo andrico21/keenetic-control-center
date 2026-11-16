@@ -13,7 +13,7 @@ use kcc_app::{
         BatchChangeRequest, ChangeRequest, ChangeSet, CliChangeRequest, CliCommand, WorkflowError,
     },
 };
-use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{Catalog, HttpMethod, ValidatedRequest};
 use kcc_domain::{
     DomainError, RouterCtx,
     configuration::{SafetyMode, bracket::guarded, recovery},
@@ -27,8 +27,8 @@ use kcc_rci::{RciBody, RciError, RciResponse};
 use serde_json::{Value, json};
 
 use super::{
-    audit::field_names, context::Target, facts::RouterFacts, failure::workflow_failure,
-    family::Family, outcome::Failure,
+    audit::field_names, confirm::Stakes, context::Target, facts::RouterFacts,
+    failure::workflow_failure, family::Family, outcome::Failure,
 };
 use crate::{authz::CurrentUser, brackets};
 
@@ -305,7 +305,7 @@ pub(crate) struct Plan<'call> {
     facts: &'call RouterFacts,
     /// The signed-in user.
     user: &'call CurrentUser,
-    /// Management recovery remains required when a destructive sibling raises risk.
+    /// Whether the change runs inside the router's recovery timer.
     management: bool,
 }
 
@@ -324,9 +324,10 @@ impl<'call> Plan<'call> {
         }
     }
 
-    /// Sets the risk of the change.
-    pub(crate) const fn at(mut self, risk: Risk) -> Self {
-        self.management = matches!(risk, Risk::Management);
+    /// Sets the stakes of the change: a management change runs inside the recovery
+    /// timer, whatever risk its other operations raise it to.
+    pub(crate) const fn at(mut self, stakes: Stakes) -> Self {
+        self.management = stakes.management();
         self
     }
 }

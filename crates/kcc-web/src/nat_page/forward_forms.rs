@@ -33,6 +33,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
+        confirm::Resubmit,
         form::{Choice, FormDialog, Input},
         request::{Params, rendered, shown_query},
         respond::Answer,
@@ -81,7 +82,8 @@ pub(crate) async fn add(
     let names = interface_names(&action.context().await?).await;
     let values = Params::new(Vec::new(), pairs);
     let dialog = Replying::new(form(locale, &router, &values, &names));
-    Ok(Submission::new(action, &values, dialog)
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/nat/forward/new"), "#page-outcome");
+    Ok(Submission::new(action, &values, dialog, resubmit)
         .submit_reading(
             async |submitted, domain| {
                 let rule =

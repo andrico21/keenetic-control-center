@@ -9,6 +9,7 @@ use axum::{
     extract::{Path, Query, State},
     response::Response,
 };
+use kcc_catalog::Risk;
 use kcc_domain::{ChangeOp, Result as DomainResult, RouterCtx, router_users};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
@@ -23,7 +24,7 @@ use crate::{
     page_kit::{
         action::{Action, Operation},
         change::Change,
-        confirm::Confirmation,
+        confirm::{Confirmation, Resubmit},
         family::Family,
         request::{Params, missing, with_query},
         respond::Answer,
@@ -113,7 +114,14 @@ pub(crate) async fn password(
     };
     let (known, asked) =
         confirming(action, (checked.is_ok(), confirmed), (shown, name.as_str())).await?;
-    Ok(run(known, checked, asked, async |ctx, secret| {
+    let resubmit = Resubmit::new(
+        with_query(
+            &format!("/ui/r/{router}/system/users/password"),
+            &[("name", name.as_str())],
+        ),
+        "#page-outcome",
+    );
+    Ok(run(known, checked, (asked, resubmit), async |ctx, secret| {
         router_users::plan_password(ctx, name.as_str(), &login, secret)
     })
     .await)
@@ -169,12 +177,13 @@ pub(crate) async fn confirming<'call>(
 ///
 /// `plan` plans it with the `checked` values, the password typed twice among them; the
 /// answer is the read-back's verdict, and a value that failed its check or a refused plan
-/// comes back into `shown`.
+/// comes back into `shown`. The dialog's own confirmation covers a management change; a
+/// higher planned risk asks again, sending `resubmit`.
 // NOT cancel-safe: see `Action::run_planned`.
 pub(crate) async fn run<T, P>(
     action: Action<'_>,
     checked: Result<T, Invalid>,
-    shown: SecretDialog,
+    (shown, resubmit): (SecretDialog, Resubmit),
     plan: P,
 ) -> Response
 where
@@ -185,7 +194,9 @@ where
         action,
         &params,
         Secret::new(shown, keys::WEB_INTERNET_PASSWORD),
+        resubmit,
     )
+    .confirmed_by_page(Risk::Management)
     .submit(
         |_params| checked,
         async |typed_values, ctx| {

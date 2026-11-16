@@ -1,28 +1,13 @@
-//! How a submission goes on beyond its check and plan: when it asks for a confirmation,
+//! How a submission goes on beyond its check and plan: which confirmations it asks for,
 //! where its answers land, and whether a failed change reads the page back.
-
-use core::mem;
+//!
+//! The planned change's risk decides the confirmation: the kit asks for what that risk
+//! needs unless the page's own confirmation already covers it.
 
 use axum::response::Response;
 use kcc_catalog::Risk;
 
 use super::super::{confirm::Resubmit, respond::retarget};
-
-/// When the submission asks for a confirmation.
-pub(super) enum Ask {
-    /// Never: the change's risk needs none.
-    Never,
-    /// Once the values passed their check, before anything is read from the router, at
-    /// `risk`.
-    First {
-        /// The risk the confirmation is for.
-        risk: Risk,
-        /// What confirming sends.
-        resubmit: Resubmit,
-    },
-    /// Once the change is planned, at the planned risk.
-    Planned(Resubmit),
-}
 
 /// Where the submission's answers land instead of the request's own target.
 #[derive(Clone, Copy)]
@@ -37,8 +22,14 @@ enum Landing {
 
 /// The submission's course.
 pub(super) struct Course {
-    /// When the submission asks for a confirmation.
-    ask: Ask,
+    /// What confirming sends.
+    resubmit: Resubmit,
+    /// The risk to confirm once the values passed their check, before anything is read
+    /// from the router, besides the planned change's own confirmation.
+    first: Option<Risk>,
+    /// The highest risk the page's own confirmation covers, checked before the
+    /// submission.
+    covered: Option<Risk>,
     /// Where its answers land.
     landing: Landing,
     /// Whether the page's region is read back after a failed change too.
@@ -46,19 +37,26 @@ pub(super) struct Course {
 }
 
 impl Course {
-    /// No confirmation, every answer in the request's own target, nothing read back after
-    /// a failure.
-    pub(super) const fn new() -> Self {
+    /// Confirmations at the planned risk, sending `resubmit`; every answer in the
+    /// request's own target, nothing read back after a failure.
+    pub(super) const fn new(resubmit: Resubmit) -> Self {
         Self {
-            ask: Ask::Never,
+            resubmit,
+            first: None,
+            covered: None,
             landing: Landing::Own,
             refresh_failed: false,
         }
     }
 
-    /// Asks as `ask` says.
-    pub(super) fn asking(&mut self, ask: Ask) {
-        self.ask = ask;
+    /// Also asks for the confirmation `risk` needs before anything is read.
+    pub(super) const fn asking_first(&mut self, risk: Risk) {
+        self.first = Some(risk);
+    }
+
+    /// The page's own confirmation covers changes up to `risk`.
+    pub(super) const fn covered_by_page(&mut self, risk: Risk) {
+        self.covered = Some(risk);
     }
 
     /// Every answer to the change lands in `target`.
@@ -81,27 +79,19 @@ impl Course {
         succeeded || self.refresh_failed
     }
 
-    /// The confirmation to ask for before anything is read, taken from the course.
-    pub(super) fn first(&mut self) -> Option<(Risk, Resubmit)> {
-        match mem::replace(&mut self.ask, Ask::Never) {
-            Ask::First { risk, resubmit } => Some((risk, resubmit)),
-            later @ (Ask::Never | Ask::Planned(_)) => {
-                self.ask = later;
-                None
-            }
-        }
+    /// The risk to confirm before anything is read, if any.
+    pub(super) const fn first(&self) -> Option<Risk> {
+        self.first
     }
 
-    /// The confirmation to ask for once the change is planned, taken from the course.
-    pub(super) fn planned(&mut self) -> Option<Resubmit> {
-        match mem::replace(&mut self.ask, Ask::Never) {
-            Ask::Planned(resubmit) => Some(resubmit),
-            Ask::Never
-            | Ask::First {
-                risk: _,
-                resubmit: _,
-            } => None,
-        }
+    /// Whether the page's own confirmation covers a change of `risk`.
+    pub(super) fn covers(&self, risk: Risk) -> bool {
+        self.covered.is_some_and(|covered| risk <= covered)
+    }
+
+    /// What confirming sends.
+    pub(super) fn resubmit(&self) -> Resubmit {
+        self.resubmit.clone()
     }
 
     /// `answer` to a change refused before it ran, where it lands.

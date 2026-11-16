@@ -25,6 +25,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Change,
+        confirm::Resubmit,
         family::Family,
         request::{Params, missing, with_query},
         respond::Answer,
@@ -110,7 +111,14 @@ pub(crate) async fn psk(
     let shown = Secret::new(dialog(&router, &name, locale), keys::WEB_WIFI_PSK);
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
     let params = Params::default();
-    Ok(Submission::new(action, &params, shown)
+    let resubmit = Resubmit::new(
+        with_query(
+            &format!("/ui/r/{router}/wifi/psk"),
+            &[("name", name.as_str())],
+        ),
+        "#page-outcome",
+    );
+    Ok(Submission::new(action, &params, shown, resubmit)
         .submit(
             |_params| checked,
             async |secret, ctx| {

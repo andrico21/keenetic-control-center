@@ -7,6 +7,7 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Response},
 };
+use kcc_catalog::Risk;
 use kcc_domain::{
     vpn_clients::{self, VpnClientChange},
     vpn_servers::{self, VpnServerChange, VpnServerService},
@@ -28,7 +29,7 @@ use crate::{
     page_kit::{
         action::{Action, Operation},
         change::Change,
-        confirm::{Dialog, TypedNameForm},
+        confirm::{Dialog, Resubmit, TypedNameForm},
         failure::plan_failure,
         family::Family,
         outcome::Outcome,
@@ -52,7 +53,8 @@ pub(crate) struct TunnelQuery {
     tunnel: String,
 }
 
-/// `POST /ui/r/{router}/vpn/state`: turns the connection `tunnel` on (`enabled=on`) or off.
+/// `POST /ui/r/{router}/vpn/state`: turns the connection `tunnel` on (`enabled=on`) or off;
+/// the fields may come in the query too, as the confirmation sends them again.
 ///
 /// # Errors
 ///
@@ -61,11 +63,12 @@ pub(crate) struct TunnelQuery {
 pub(crate) async fn switch(
     State(state): State<WebState>,
     Path(router): Path<String>,
+    Query(query): Query<Vec<(String, String)>>,
     headers: HeaderMap,
     user: CurrentUser,
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
-    let values = Params::of(pairs);
+    let values = Params::new(query, pairs);
     let opened = STATE.open(&state, &user, &router).await?;
     let parsed = check::object(values.text("tunnel")).zip(on(&values));
     let (action, found) = match &parsed {
@@ -77,10 +80,20 @@ pub(crate) async fn switch(
         .map(|(name, enabled)| Changes::Clients(vec![VpnClientChange::Enabled { name, enabled }]))
         .ok_or_else(|| Invalid::at("tunnel", keys::WEB_VPN_ERROR_NAME));
     let reply = Reply::new(&headers, &user, &router);
-    Ok(run(Submission::new(action, &values, Formless), checked, reply).await)
+    let resubmit = Resubmit::new(
+        values.again(&format!("/ui/r/{router}/vpn/state")),
+        "#page-outcome",
+    );
+    Ok(run(
+        Submission::new(action, &values, Formless, resubmit),
+        checked,
+        reply,
+    )
+    .await)
 }
 
-/// `POST /ui/r/{router}/vpn/service`: turns a VPN server's service on or off.
+/// `POST /ui/r/{router}/vpn/service`: turns a VPN server's service on or off; the fields
+/// may come in the query too, as the confirmation sends them again.
 ///
 /// # Errors
 ///
@@ -89,11 +102,12 @@ pub(crate) async fn switch(
 pub(crate) async fn service(
     State(state): State<WebState>,
     Path(router): Path<String>,
+    Query(query): Query<Vec<(String, String)>>,
     headers: HeaderMap,
     user: CurrentUser,
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
-    let values = Params::of(pairs);
+    let values = Params::new(query, pairs);
     let (service, operation) = match values.text("service") {
         "vpn" => (VpnServerService::Vpn, "vpn_service"),
         "sstp" => (VpnServerService::Sstp, "sstp_service"),
@@ -107,7 +121,16 @@ pub(crate) async fn service(
         .map(|enabled| Changes::Servers(vec![VpnServerChange::Service { service, enabled }]))
         .ok_or_else(|| Invalid::at("enabled", keys::WEB_DNS_ERROR_CHOICE));
     let reply = Reply::new(&headers, &user, &router).reading(Spot::Servers);
-    Ok(run(Submission::new(action, &values, Formless), checked, reply).await)
+    let resubmit = Resubmit::new(
+        values.again(&format!("/ui/r/{router}/vpn/service")),
+        "#page-outcome",
+    );
+    Ok(run(
+        Submission::new(action, &values, Formless, resubmit),
+        checked,
+        reply,
+    )
+    .await)
 }
 
 /// `GET /ui/r/{router}/vpn/delete?tunnel=`: asks for the connection's name.
@@ -164,7 +187,10 @@ pub(crate) async fn delete(
         None => Err(Invalid::at("name", keys::WEB_VPN_ERROR_NAME)),
     };
     let params = Params::of(Vec::new());
-    let submission = Submission::new(action, &params, dialog).landing_in("#page-outcome");
+    let resubmit = Resubmit::new(format!("/ui/r/{router}/vpn/delete"), "#page-outcome");
+    let submission = Submission::new(action, &params, dialog, resubmit)
+        .confirmed_by_page(Risk::Destructive)
+        .landing_in("#page-outcome");
     let reply = Reply::new(&headers, &user, &router);
     Ok(run(submission, checked, reply).await)
 }

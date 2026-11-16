@@ -32,7 +32,7 @@ use crate::{
     page_kit::{
         action::Operation,
         change::Applied,
-        confirm::{Dialog, TypedNameForm},
+        confirm::{Dialog, Resubmit, TypedNameForm},
         request::{Params, missing},
         respond,
         respond::Answer,
@@ -86,7 +86,11 @@ pub(crate) async fn multipath(
     let action = MULTIPATH.open(&state, &user, &router).await?;
     let locale = action.locale();
     let params = Params::default();
-    Ok(submission(action, &params, Formless)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/routing/policy/multipath"),
+        "#page-outcome",
+    );
+    Ok(submission(action, (&params, resubmit), Formless)
         .submit_reading(
             async |_params, domain| Ok(known(domain, &query.name, locale).await?),
             async |policy, domain| {
@@ -117,7 +121,11 @@ pub(crate) async fn unpermit(
     let action = UNPERMIT.open(&state, &user, &router).await?;
     let locale = action.locale();
     let params = Params::default();
-    Ok(submission(action, &params, Formless)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/routing/policy/unpermit"),
+        "#page-outcome",
+    );
+    Ok(submission(action, (&params, resubmit), Formless)
         .submit_reading(
             async |_params, domain| {
                 let policy = known(domain, &query.name, locale).await?;
@@ -206,7 +214,11 @@ pub(crate) async fn delete(
     let locale = action.locale();
     let params = Params::default();
     let dialog = Confirming(confirmation(locale, &router, form.name()));
-    Ok(submission(action, &params, dialog)
+    let resubmit = Resubmit::new(
+        format!("/ui/r/{router}/routing/policy/delete"),
+        "#page-outcome",
+    );
+    Ok(submission(action, (&params, resubmit), dialog)
         .landing_in("#page-outcome")
         .submit_reading(
             async |_params, domain| {

@@ -3,8 +3,8 @@
 //! where the role may change it.
 //!
 //! HTTP, SSH and Telnet carry management access: switching them is a management change.
-//! It needs `Destructive` besides `Write`, asks first with the kit's dialog explaining the
-//! fail-safe timer, and runs inside that timer.
+//! It needs the change's own `Write`, as the shared rule asks of a management change, asks
+//! first with the kit's dialog explaining the fail-safe timer, and runs inside that timer.
 
 use askama::Template;
 use axum::{
@@ -177,6 +177,9 @@ impl<'call> Viewer<'call> {
             &self.query,
             format!("/ui/r/{}/system/services", self.router),
         );
+        // Both come from the shared rule of what a change of each risk needs; they are
+        // equal while a management change needs no more than its own permission, and the
+        // table follows the rule if that changes.
         let switches = (
             controls.permits(&SafetyNet::required(Permission::Write, Risk::Write)),
             controls.permits(&SafetyNet::required(Permission::Write, Risk::Management)),

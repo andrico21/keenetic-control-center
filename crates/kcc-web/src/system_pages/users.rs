@@ -3,8 +3,8 @@
 //! router accounts.
 //!
 //! Account changes are management changes (a router account may be the one kcc or a
-//! person signs in with): they need `ManageUsers` and `Destructive` and run inside the
-//! router's fail-safe timer. The account kcc signs in with cannot be deleted, nor its
+//! person signs in with): they need `ManageUsers` and run inside the router's fail-safe
+//! timer. The account kcc signs in with cannot be deleted, nor its
 //! password changed. Set password opens the write-only password dialog
 //! (`secret_pages`); no page shows a password.
 

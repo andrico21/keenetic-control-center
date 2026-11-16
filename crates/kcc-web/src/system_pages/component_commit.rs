@@ -29,7 +29,7 @@ use crate::{
     page_kit::{
         action::Operation,
         audit::Record,
-        confirm::{Confirmation, Resubmit},
+        confirm::{Confirmation, Resubmit, Stakes},
         failure::{plan_failure, workflow_failure},
         family::Family,
         outcome::{Failure, Outcome},
@@ -59,7 +59,7 @@ pub(crate) async fn commit(
         "#page-outcome",
     );
     let confirmation = Confirmation::from_pairs(&pairs);
-    if let Some(prompt) = action.confirm(Risk::Destructive, &confirmation, resubmit) {
+    if let Some(prompt) = action.confirm(Stakes::new(Risk::Destructive), &confirmation, resubmit) {
         return Ok(prompt);
     }
     let locale = action.locale();

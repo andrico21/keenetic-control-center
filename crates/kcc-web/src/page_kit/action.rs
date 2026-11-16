@@ -12,7 +12,6 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_app::workflow::{ChangeSet, WorkflowError};
-use kcc_catalog::Risk;
 use kcc_domain::{
     DomainDescriptor, OperationDescriptor, RouterCtx, configuration::SafetyNet, verification,
 };
@@ -178,18 +177,32 @@ impl<'call> Action<'call> {
         }
     }
 
-    /// The confirmation a change of `risk` needs: the dialog to show until the submitted
-    /// `confirmation` is enough, which then sends the request again by `resubmit`.
+    /// The confirmation a change of `stakes` needs: the dialog to show until the
+    /// submitted `confirmation` is enough, which then sends the request again by
+    /// `resubmit`.
     pub(crate) fn confirm(
         &self,
-        risk: Risk,
+        stakes: Stakes,
         confirmation: &Confirmation,
         resubmit: Resubmit,
     ) -> Option<Response> {
-        let effective = risk.max(self.descriptor.risk);
-        Stakes::new(effective)
+        self.effective(stakes)
             .ask(self.family, confirmation, self.router())
             .map(|prompt| prompt.render(resubmit, self.locale()))
+    }
+
+    /// `stakes`, never below the operation's own described risk.
+    pub(crate) fn effective(&self, stakes: Stakes) -> Stakes {
+        stakes.at_least(self.descriptor.risk)
+    }
+
+    /// Whether the role holds what a change of `stakes` needs.
+    pub(crate) fn may_take(&self, stakes: Stakes) -> bool {
+        allowed(
+            self.user,
+            self.router(),
+            &SafetyNet::required(self.descriptor.permission, self.effective(stakes).risk()),
+        )
     }
 
     /// Ends the action before anything was sent, audited as `reason`, such as
@@ -203,11 +216,11 @@ impl<'call> Action<'call> {
     /// and audits how it ended.
     // NOT cancel-safe: see `change::apply_with`.
     pub(crate) async fn run_planned(self, planned: Planned) -> Outcome {
-        let (risk, job) = planned.into_parts();
+        let (stakes, job) = planned.into_parts();
         match job {
-            Job::Change(change) => self.run(risk, change).await,
+            Job::Change(change) => self.run(stakes, change).await,
             Job::Work(work) => {
-                self.run_with(risk, async move |changes, context| {
+                self.run_with(stakes, async move |changes, context| {
                     work(changes, context).await
                 })
                 .await
@@ -215,10 +228,10 @@ impl<'call> Action<'call> {
         }
     }
 
-    /// Runs `change`, planned at `risk`, through the change workflow and audits how it
+    /// Runs `change`, planned at `stakes`, through the change workflow and audits how it
     /// ended.
     // NOT cancel-safe: see `change::apply_with`.
-    async fn run(self, risk: Risk, change: Change) -> Outcome {
+    async fn run(self, stakes: Stakes, change: Change) -> Outcome {
         let params = change.audit_params();
         let verified_change = match change {
             Change::Cli(request) => match verification::complete(request) {
@@ -232,38 +245,33 @@ impl<'call> Action<'call> {
         {
             return self.finish(params, Err(Refused::verification(error))).await;
         }
-        let Some(plan) = self.plan(risk) else {
+        let Some(plan) = self.plan(stakes) else {
             return self.forbidden(params).await;
         };
         let result = change::apply(plan, verified_change).await;
         self.finish(params, result).await
     }
 
-    /// Runs `work`, a domain function on the leased change set, at `risk` and audits how
-    /// it ended.
+    /// Runs `work`, a domain function on the leased change set, at `stakes` and audits
+    /// how it ended.
     // NOT cancel-safe: see `change::apply_with`.
-    async fn run_with<W>(self, risk: Risk, work: W) -> Outcome
+    async fn run_with<W>(self, stakes: Stakes, work: W) -> Outcome
     where
         W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Result<Applied, WorkflowError>,
     {
         let params = json!({ "operations": [self.descriptor.catalog_path] });
-        let Some(plan) = self.plan(risk) else {
+        let Some(plan) = self.plan(stakes) else {
             return self.forbidden(params).await;
         };
         let result = change::apply_with(plan, self.descriptor.permission, work).await;
         self.finish(params, result).await
     }
 
-    /// The change-workflow plan at `risk` (never below the operation's own), when the
-    /// role holds what that risk needs.
-    fn plan(&self, risk: Risk) -> Option<Plan<'_>> {
-        let effective = risk.max(self.descriptor.risk);
-        allowed(
-            self.user,
-            self.router(),
-            &SafetyNet::required(self.descriptor.permission, effective),
-        )
-        .then(|| Plan::new(self.target, &self.facts, self.user).at(effective))
+    /// The change-workflow plan at `stakes` (never below the operation's own risk), when
+    /// the role holds what they need.
+    fn plan(&self, stakes: Stakes) -> Option<Plan<'_>> {
+        self.may_take(stakes)
+            .then(|| Plan::new(self.target, &self.facts, self.user).at(self.effective(stakes)))
     }
 
     /// The outcome of a change whose planned risk the role may not take, audited.
