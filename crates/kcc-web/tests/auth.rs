@@ -350,6 +350,57 @@ mod tests {
         Ok(())
     }
 
+    /// SEC1-12: a self-service password change answers with a new session id and CSRF
+    /// token; the old id no longer authenticates and the account's other sessions end.
+    #[tokio::test]
+    async fn own_password_change_rotates_the_session() -> TestResult {
+        let fixture = Fixture::new("admin", CookieSecurity::LoopbackHttp)?;
+        let (cookie, csrf) = fixture.authenticated().await?;
+        let (other, _other_csrf) = fixture.authenticated().await?;
+        let replacement = ["rotated", "runtime", "passphrase"].join(" ");
+        let body = format!(
+            "current_password={}&new_password={}",
+            PASSWORD.replace(' ', "+"),
+            replacement.replace(' ', "+")
+        );
+
+        let changed = fixture
+            .send(
+                Request::post("/ui/account/password")
+                    .header(header::COOKIE, &cookie)
+                    .header(header::ORIGIN, ORIGIN)
+                    .header("sec-fetch-site", "same-origin")
+                    .header("x-csrf-token", &csrf)
+                    .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                    .body(Body::from(body))?,
+            )
+            .await?;
+
+        let rotated = cookie_pair(&changed)?;
+        assert_ne!(rotated, cookie, "the session id rotates");
+        let landing = header_text(&changed, header::LOCATION.as_str()).ok_or("no redirect")?;
+        let page = |held: &str| {
+            Request::get(landing.as_str())
+                .header(header::COOKIE, held)
+                .body(Body::empty())
+        };
+        let opened = fixture.send(page(&rotated)?).await?;
+        assert_eq!(opened.status(), StatusCode::OK, "the new id works");
+        let html = text(opened).await?;
+        let token = meta_content(&html, "csrf-token").ok_or("missing CSRF")?;
+        assert_ne!(token, csrf, "the CSRF token rotates");
+        assert!(html.contains(&en(keys::WEB_ACCOUNT_SAVED)), "saved notice");
+        for (old, label) in [(&cookie, "the old id"), (&other, "another session")] {
+            let refused = fixture.send(page(old)?).await?;
+            assert_eq!(
+                header_text(&refused, header::LOCATION.as_str()).as_deref(),
+                Some("/ui/login"),
+                "{label} still authenticates"
+            );
+        }
+        Ok(())
+    }
+
     #[test]
     fn non_loopback_plain_http_web_bind_is_refused() -> TestResult {
         let mut config = Config::default();

@@ -110,13 +110,23 @@ either.
   proxy). The CSP gains `upgrade-insecure-requests` in the same cases. Only plain HTTP on
   loopback uses the unprefixed cookie without `Secure`.
 - Sessions end after `[web] session_idle` (30 minutes) of inactivity and
-  `session_absolute` (12 hours) after login. Login replaces the session id; a password
-  or role change ends the account's other sessions.
+  `session_absolute` (12 hours) after login. Login replaces the session id. Your own
+  password change also moves your session to a new id and CSRF token (the login time,
+  and so the 12-hour limit, stays); a password or role change ends the account's other
+  sessions.
+- Opening the login page without a session creates a session before login. These end
+  after 5 minutes without use (or `session_idle`, if shorter). kcc holds at most 64 of
+  them per client address and 10 000 in total; one more evicts the oldest (of that
+  address when it holds 64, otherwise of anyone), so a flood of login-page requests
+  cannot grow memory without bound and never ends a signed-in session. The client
+  address is the one kcc's rate limiter uses: the direct peer, or the forwarded client
+  when the peer is in `[server] trusted_proxies`. An evicted or expired login form is
+  refused with 403 on submit; reloading the login page gives a new one.
 - `kcc serve` checks `api_keys.json` and `users.json` every 2 seconds, so a change made
   outside the server (the CLI, an edited or restored state file) applies within about
   2 seconds without `SIGHUP`: a revoked key is refused, and the Web sessions of an
   account that was deleted or disabled, got another role, or got another password end.
-  Your own password change keeps the session you made it in. A rewrite that changes no
+  Your own password change keeps the session you made it in (under its new id). A rewrite that changes no
   key, role, disabled flag or password (a key's last-use time) reloads nothing. A file
   kcc cannot read keeps the last good state, logs one warning and is retried.
 - Every state-changing request needs the session-bound `X-CSRF-Token` header, exactly

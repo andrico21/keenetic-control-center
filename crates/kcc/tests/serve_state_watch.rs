@@ -23,7 +23,7 @@ use kcc_app::{
     accounts::UsersDocument,
     api_keys::{ApiKeysDocument, record_api_key_use},
 };
-use reqwest::StatusCode;
+use reqwest::{StatusCode, header};
 use serde_json::Value;
 
 use crate::{
@@ -51,6 +51,14 @@ async fn signed_in(fixture: &Fixture, browser: &Browser) -> TestResult<bool> {
         StatusCode::SEE_OTHER => Ok(false),
         other => Err(format!("unexpected status {other}").into()),
     }
+}
+
+/// The CSRF token of a rendered page.
+fn csrf(html: &str) -> TestResult<String> {
+    html.split_once("<meta name=\"csrf-token\" content=\"")
+        .and_then(|(_, tail)| tail.split_once('"'))
+        .map(|(token, _)| token.to_owned())
+        .ok_or_else(|| "no CSRF token".into())
 }
 
 /// A password other than [`PASSWORD`], built at run time.
@@ -166,14 +174,23 @@ async fn a_role_reduced_on_disk_ends_the_session() -> TestResult {
     Ok(())
 }
 
-/// W1-01: an own password change keeps the session it was made in. The server reloads
-/// the changed account and the account's other sessions end.
+/// W1-01, SEC1-12: an own password change keeps its session under a new id.
+///
+/// The session moves to a new id and CSRF token and is still signed in after the server
+/// reloads the changed account. The old id and the account's other sessions end.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn an_own_password_change_keeps_its_session() -> TestResult {
     let fixture = Fixture::new()?;
     let mut server = fixture.serve()?;
     let kept = Browser::sign_in(fixture.http(), fixture.base(), "bob").await?;
     let other = Browser::sign_in(fixture.http(), fixture.base(), "bob").await?;
+    let before = csrf(
+        &kept
+            .get(fixture.http(), fixture.base(), "/ui/account")
+            .await?
+            .text()
+            .await?,
+    )?;
     let new_password = replacement();
 
     let changed = kept
@@ -189,13 +206,40 @@ async fn an_own_password_change_keeps_its_session() -> TestResult {
             ),
         )
         .await?;
-    assert_eq!(changed.status(), StatusCode::OK, "the change is accepted");
+    assert_eq!(
+        changed.status(),
+        StatusCode::SEE_OTHER,
+        "the change is accepted"
+    );
+    let rotated = changed
+        .headers()
+        .get(header::SET_COOKIE)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(';').next())
+        .ok_or("no new session cookie")?
+        .to_owned();
     let reloaded = server.wait_event(PROPAGATION, |event| about(event, RELOAD, USERS))?;
 
     assert!(reloaded, "no account reload was logged");
-    assert!(
-        signed_in(&fixture, &kept).await?,
+    let account = fixture
+        .http()
+        .get(format!("{}/ui/account", fixture.base()))
+        .header(header::COOKIE, &rotated)
+        .send()
+        .await?;
+    assert_eq!(
+        account.status(),
+        StatusCode::OK,
         "the session that changed the password was ended"
+    );
+    assert_ne!(
+        csrf(&account.text().await?)?,
+        before,
+        "the CSRF token stayed"
+    );
+    assert!(
+        !signed_in(&fixture, &kept).await?,
+        "the old session id still works"
     );
     assert!(
         !signed_in(&fixture, &other).await?,

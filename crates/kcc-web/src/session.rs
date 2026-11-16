@@ -6,7 +6,12 @@ use alloc::{
     collections::BTreeMap,
     sync::{Arc, Weak},
 };
-use core::{fmt, time::Duration};
+use core::{
+    fmt,
+    net::IpAddr,
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 use std::collections::HashMap;
 
 use axum::http::{HeaderMap, HeaderValue, header, header::InvalidHeaderValue};
@@ -26,9 +31,13 @@ use tokio::{
     time::{Instant, MissedTickBehavior, interval},
 };
 
-use self::account::{SignedIn, StandingsError};
+use self::{
+    account::{SignedIn, StandingsError},
+    anonymous::{ANONYMOUS_IDLE, Admission},
+};
 
 pub mod account;
+mod anonymous;
 
 /// Bytes of entropy in a session id and a CSRF token.
 const TOKEN_BYTES: usize = 32;
@@ -88,6 +97,8 @@ pub struct Session {
     password_change: bool,
     /// Fingerprint of the password the session signed in with or last set.
     fingerprint: Option<PasswordFingerprint>,
+    /// Origin and admission order of a session before login; absent once signed in.
+    admission: Option<Admission>,
 }
 
 impl fmt::Debug for Session {
@@ -102,6 +113,7 @@ impl fmt::Debug for Session {
             csrf_token: _,
             password_change,
             fingerprint,
+            admission,
         } = self;
         f.debug_struct("Session")
             .field("username", username)
@@ -112,6 +124,7 @@ impl fmt::Debug for Session {
             .field("csrf_token", &"[REDACTED]")
             .field("password_change", password_change)
             .field("fingerprint", fingerprint)
+            .field("admission", admission)
             .finish()
     }
 }
@@ -264,6 +277,10 @@ struct Inner {
     sessions: RwLock<HashMap<SessionId, Session>>,
     /// Maximum inactivity period.
     idle_timeout: Duration,
+    /// Maximum inactivity period before login.
+    anonymous_idle: Duration,
+    /// Admission order of the next session before login.
+    admitted: AtomicU64,
     /// Maximum lifetime since login.
     absolute_timeout: Duration,
     /// Locale used before login.
@@ -289,6 +306,8 @@ impl SessionStore {
             inner: Arc::new(Inner {
                 sessions: RwLock::new(HashMap::new()),
                 idle_timeout,
+                anonymous_idle: idle_timeout.min(ANONYMOUS_IDLE),
+                admitted: AtomicU64::new(0),
                 absolute_timeout,
                 default_locale,
                 clock,
@@ -299,13 +318,25 @@ impl SessionStore {
         store
     }
 
-    /// Creates a pre-authentication session for the login form.
+    /// Creates a pre-authentication session for the login form opened from `client`,
+    /// evicting the oldest one when `client` or the whole store is at its cap.
     ///
     /// # Errors
     ///
     /// Returns [`SessionError::Random`] if id or CSRF token generation fails.
-    pub(crate) async fn create_anonymous(&self) -> Result<(SessionId, Session), SessionError> {
-        self.insert(None, self.inner.default_locale).await
+    // cancel-safe: the table changes under one lock acquisition, after the only await.
+    pub(crate) async fn create_anonymous(
+        &self,
+        client: Option<IpAddr>,
+    ) -> Result<(SessionId, Session), SessionError> {
+        let (id, mut session) = self.record(None, self.inner.default_locale)?;
+        let mut sessions = self.inner.sessions.write().await;
+        anonymous::make_room(&mut sessions, client);
+        let order = self.inner.admitted.fetch_add(1, Ordering::Relaxed);
+        session.admission = Some(Admission::new(client, order));
+        drop(sessions.insert(id.clone(), session.clone()));
+        drop(sessions);
+        Ok((id, session))
     }
 
     /// Rotates an existing id into an authenticated session, preventing fixation.
@@ -324,7 +355,7 @@ impl SessionStore {
         if let Some(id) = old_id {
             drop(self.inner.sessions.write().await.remove(id));
         }
-        self.insert(Some(account), locale).await
+        self.insert(account, locale).await
     }
 
     /// Holds off [`Self::end_stale`] while the caller reads an account and records it in
@@ -403,38 +434,43 @@ impl SessionStore {
         drop(self.inner.sessions.write().await.remove(id));
     }
 
-    /// Ends every other session owned by `username` after a password change.
-    pub(crate) async fn invalidate_other_user_sessions(&self, username: &str, keep: &SessionId) {
-        self.inner
-            .sessions
-            .write()
-            .await
-            .retain(|id, session| id == keep || session.username.as_deref() != Some(username));
-    }
-
-    /// Rotates the current id after a privilege change and ends the user's other sessions.
+    /// Moves the signed-in session `id` to a new id and CSRF token holding `role`, after
+    /// a password or privilege change, and ends the user's other sessions. The session
+    /// keeps its locale, password fingerprint and login time (so its absolute lifetime),
+    /// and is no longer limited to the password-change page. Returns `None` when `id` is
+    /// not a live signed-in session.
     ///
     /// # Errors
     ///
     /// Returns [`SessionError::Random`] if replacement token generation fails.
+    // cancel-safe: the table changes under one lock acquisition, after the only await.
     pub(crate) async fn rotate_privilege(
         &self,
         id: &SessionId,
         role: Role,
     ) -> Result<Option<(SessionId, Session)>, SessionError> {
-        let Some(current) = self.peek(id).await else {
+        let replacement = SessionId::generate()?;
+        let csrf_token = random_token()?;
+        let now = self.inner.clock.unix_seconds();
+        let mut sessions = self.inner.sessions.write().await;
+        let Some(mut session) = sessions.remove(id) else {
             return Ok(None);
         };
-        let Some(username) = current.username else {
+        let Some(username) = session.username.clone() else {
+            drop(sessions.insert(id.clone(), session));
             return Ok(None);
         };
-        let locale = current.locale;
-        self.invalidate(id).await;
-        let account = SignedIn::new(username.clone(), role, current.fingerprint);
-        let replacement = self.insert(Some(account), locale).await?;
-        self.invalidate_other_user_sessions(&username, &replacement.0)
-            .await;
-        Ok(Some(replacement))
+        if self.inner.expired(&session, now) {
+            return Ok(None);
+        }
+        session.role = Some(role);
+        session.csrf_token = csrf_token;
+        session.last_seen = now;
+        session.password_change = false;
+        sessions.retain(|_id, other| other.username.as_deref() != Some(username.as_str()));
+        drop(sessions.insert(replacement.clone(), session.clone()));
+        drop(sessions);
+        Ok(Some((replacement, session)))
     }
 
     /// Limits a fresh login to the password-change page until the password changes.
@@ -507,12 +543,35 @@ impl SessionStore {
         HeaderValue::from_str(&security.set_cookie(id))
     }
 
-    /// Inserts a fresh session with independently generated id and CSRF token.
+    /// Inserts a fresh signed-in session with independently generated id and CSRF token.
     ///
     /// # Errors
     ///
     /// Returns [`SessionError::Random`] when the operating system RNG fails.
+    // cancel-safe: one insertion under one lock acquisition, after the only await.
     async fn insert(
+        &self,
+        account: SignedIn,
+        locale: Locale,
+    ) -> Result<(SessionId, Session), SessionError> {
+        let (id, session) = self.record(Some(account), locale)?;
+        drop(
+            self.inner
+                .sessions
+                .write()
+                .await
+                .insert(id.clone(), session.clone()),
+        );
+        Ok((id, session))
+    }
+
+    /// A fresh session for `account` (or before login), with independently generated id
+    /// and CSRF token, not yet in the table.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SessionError::Random`] when the operating system RNG fails.
+    fn record(
         &self,
         account: Option<SignedIn>,
         locale: Locale,
@@ -532,30 +591,29 @@ impl SessionStore {
             csrf_token: random_token()?,
             password_change: false,
             fingerprint,
+            admission: None,
         };
-        drop(
-            self.inner
-                .sessions
-                .write()
-                .await
-                .insert(id.clone(), session.clone()),
-        );
         Ok((id, session))
     }
 
     /// Starts a periodic expiry pass that exits after the final store handle is dropped.
     fn spawn_sweeper(&self) {
         let weak = Arc::downgrade(&self.inner);
-        let shortest = self.inner.idle_timeout.min(self.inner.absolute_timeout);
+        let shortest = self.inner.anonymous_idle.min(self.inner.absolute_timeout);
         let interval = shortest.div_f64(2.0).max(MIN_SWEEP_INTERVAL);
         drop(tokio::spawn(sweep_task(weak, interval)));
     }
 }
 
 impl Inner {
-    /// Whether idle or absolute lifetime is exhausted at `now`.
+    /// Whether idle or absolute lifetime is exhausted at `now`; a session before login
+    /// has the shorter idle period.
     const fn expired(&self, session: &Session, now: u64) -> bool {
-        now.saturating_sub(session.last_seen) >= self.idle_timeout.as_secs()
+        let idle = match session.admission {
+            Some(_) => self.anonymous_idle,
+            None => self.idle_timeout,
+        };
+        now.saturating_sub(session.last_seen) >= idle.as_secs()
             || now.saturating_sub(session.created_at) >= self.absolute_timeout.as_secs()
     }
 }

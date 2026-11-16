@@ -6,13 +6,14 @@ use alloc::sync::Arc;
 use core::{
     error::Error,
     fmt::{self, Display},
+    net::IpAddr,
     sync::atomic::{AtomicU64, Ordering},
 };
 
 use askama::Template;
 use axum::{
-    Form,
-    extract::State,
+    Extension, Form,
+    extract::{Query, State},
     http::{HeaderMap, StatusCode, header},
     response::{IntoResponse as _, Redirect, Response},
 };
@@ -25,6 +26,7 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
+use rmcp_server_kit::transport::ClientIp;
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::Value;
@@ -90,6 +92,38 @@ impl fmt::Debug for PasswordForm {
     }
 }
 
+/// A refused sign-in: the browser's session, where it came from, and the name it gave.
+struct Failed {
+    /// Session cookie the browser sent.
+    id: Option<SessionId>,
+    /// Client address the kit resolved for the request.
+    client: Option<IpAddr>,
+    /// Submitted name, or the fixed marker for an invalid one.
+    username: String,
+}
+
+impl Failed {
+    /// The sign-in `username` refused for the browser holding `id` at `client`.
+    const fn new(id: Option<SessionId>, client: Option<IpAddr>, username: String) -> Self {
+        Self {
+            id,
+            client,
+            username,
+        }
+    }
+}
+
+/// The account page after an own password change, with its saved notice.
+const ACCOUNT_SAVED: &str = "/ui/account?saved=true";
+
+/// Account page query.
+#[derive(Debug, Deserialize)]
+pub(crate) struct AccountQuery {
+    /// Whether to show the saved notice of the change that led here.
+    #[serde(default)]
+    saved: bool,
+}
+
 /// Account-locale form boundary.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -133,7 +167,11 @@ struct AccountPage {
 localized!(AccountPage);
 
 /// `GET /ui/login`: renders login or the closed first-run instruction.
-pub(crate) async fn login_page(State(state): State<WebState>, headers: HeaderMap) -> Response {
+pub(crate) async fn login_page(
+    State(state): State<WebState>,
+    client: Option<Extension<ClientIp>>,
+    headers: HeaderMap,
+) -> Response {
     let has_admin = match has_admin(&state).await {
         Ok(value) => value,
         Err(error) => return internal(error),
@@ -149,7 +187,11 @@ pub(crate) async fn login_page(State(state): State<WebState>, headers: HeaderMap
     };
     let (id, anonymous) = match session {
         Some(value) => value,
-        None => match state.sessions().create_anonymous().await {
+        None => match state
+            .sessions()
+            .create_anonymous(client.map(|Extension(resolved)| resolved.ip))
+            .await
+        {
             Ok(value) => value,
             Err(error) => return internal(error),
         },
@@ -171,6 +213,7 @@ pub(crate) async fn login_page(State(state): State<WebState>, headers: HeaderMap
 /// `POST /ui/login`: verifies credentials off the async runtime and rotates the id.
 pub(crate) async fn login(
     State(state): State<WebState>,
+    client: Option<Extension<ClientIp>>,
     headers: HeaderMap,
     Form(form): Form<LoginForm>,
 ) -> Response {
@@ -235,11 +278,21 @@ pub(crate) async fn login(
         }
         Authentication::Invalid | Authentication::Disabled => {
             drop(reading);
-            login_failure(&state, &headers, old_id, username, "invalid").await
+            let failed = Failed::new(
+                old_id,
+                client.map(|Extension(resolved)| resolved.ip),
+                username,
+            );
+            login_failure(&state, &headers, failed, "invalid").await
         }
         Authentication::Locked { until: _ } => {
             drop(reading);
-            login_failure(&state, &headers, old_id, username, "locked").await
+            let failed = Failed::new(
+                old_id,
+                client.map(|Extension(resolved)| resolved.ip),
+                username,
+            );
+            login_failure(&state, &headers, failed, "locked").await
         }
         _ => internal("unsupported authentication result"),
     }
@@ -270,11 +323,12 @@ pub(crate) async fn logout(
 /// `GET /ui/account`: renders current locale and password form.
 pub(crate) async fn account_page(
     State(state): State<WebState>,
+    Query(query): Query<AccountQuery>,
     headers: HeaderMap,
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
-    account_response(&state, &headers, &current, &user, false, None).await
+    account_response(&state, &headers, &current, &user, query.saved, None).await
 }
 
 /// `POST /ui/account/password`: verifies current password and ends other sessions.
@@ -317,17 +371,12 @@ pub(crate) async fn change_password(
     };
     match authentication {
         Authentication::Authenticated { role: _, locale: _ } => {
-            if current.session().password_change_required() {
-                return finish_required_change(&state, &current, &user).await;
-            }
-            state
-                .sessions()
-                .invalidate_other_user_sessions(&username, current.id())
-                .await;
-            if let Err(error) = audit(&state, &username, "web.password_change", "success").await {
-                return internal(error);
-            }
-            account_response(&state, &headers, &current, &user, true, None).await
+            let landing = if current.session().password_change_required() {
+                respond::open("/ui/")
+            } else {
+                go_to(&headers, ACCOUNT_SAVED)
+            };
+            finish_change(&state, &current, &user, landing).await
         }
         Authentication::Invalid
         | Authentication::Disabled
@@ -373,10 +422,14 @@ pub(crate) async fn change_locale(
 async fn login_failure(
     state: &WebState,
     headers: &HeaderMap,
-    id: Option<SessionId>,
-    username: String,
+    failed: Failed,
     outcome: &'static str,
 ) -> Response {
+    let Failed {
+        id,
+        client,
+        username,
+    } = failed;
     if let Err(error) = audit(state, &username, "web.login", outcome).await {
         return internal(error);
     }
@@ -386,7 +439,7 @@ async fn login_failure(
     };
     let (active_id, anonymous) = match (id, session) {
         (Some(value), Some(active)) => (value, active),
-        (Some(_) | None, Some(_) | None) => match state.sessions().create_anonymous().await {
+        (Some(_) | None, Some(_) | None) => match state.sessions().create_anonymous(client).await {
             Ok(value) => value,
             Err(error) => return internal(error),
         },
@@ -447,16 +500,17 @@ async fn password_change_required(
         .any(|summary| summary.username == name && summary.must_change_password))
 }
 
-/// Completes the first-login password change.
+/// Completes a successful own password change.
 ///
-/// The restricted session is replaced by a full one under a new id, the user's other
-/// sessions end, and the browser reloads into the dashboard with the new cookie and
-/// CSRF token.
+/// The session moves to a new id and CSRF token (no longer restricted to the
+/// password-change page), the user's other sessions end, and the browser loads `landing`
+/// in full with the new cookie, so the page's CSRF token is the new one too.
 // NOT cancel-safe: the session rotation and the audit append are not undone.
-async fn finish_required_change(
+async fn finish_change(
     state: &WebState,
     current: &CurrentSession,
     user: &CurrentUser,
+    landing: Response,
 ) -> Response {
     let rotated = match state
         .sessions()
@@ -470,7 +524,7 @@ async fn finish_required_change(
     if let Err(error) = audit(state, user.username(), "web.password_change", "success").await {
         return internal(error);
     }
-    let mut response = respond::open("/ui/");
+    let mut response = landing;
     if let Err(error) = set_session_cookie(&mut response, state, &rotated) {
         return internal(error);
     }

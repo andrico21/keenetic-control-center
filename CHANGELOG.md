@@ -406,6 +406,17 @@ The first release, `0.1.0`, is in preparation and contains:
   follow the same decision, made once in the configuration (listener TLS or an `https`
   `public_url`). The kit's own routes (`/mcp`, health, version) carry no `Cache-Control`;
   this is recorded as an open deviation.
+- **Login-page sessions are bounded.** Every visit to the login page without a session
+  created one more server-side session, without limit. Sessions before login now end
+  after 5 minutes without use (or `[web] session_idle`, if shorter), and kcc holds at
+  most 64 of them per client address and 10 000 in total; one more evicts the oldest.
+  Signed-in sessions are never evicted.
+- **Your own password change rotates your session.** `POST /ui/account/password` now
+  moves the session to a new id and CSRF token and sets the new cookie, as the forced
+  first-login change already did; the old id stops working and the account's other
+  sessions still end. The browser reloads the account page (`/ui/account?saved=true`)
+  instead of receiving it in the answer. A rotated session keeps its login time, so the
+  forced first-login change no longer restarts the `session_absolute` limit.
 - **One secret masker for every surface.** MCP results and the Web UI's raw answers
   recognize secret members by one rule (see `docs/PRIVACY.md`): MCP now also masks
   hyphenated and short names such as `private-key`, `obfs-key`, `preshare-key`,
