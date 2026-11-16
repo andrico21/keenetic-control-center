@@ -376,6 +376,11 @@ kcc refuses to run as root, under sudo, or elevated on Windows, and exits with c
 before reading any configuration. On Linux it also clears its capability sets and sets
 `no_new_privs`. kcc never starts subprocesses.
 
+A root group (GID 0) is not refused, because platforms such as OpenShift run unprivileged
+containers with GID 0. kcc logs a warning when any real, effective, saved-set or
+filesystem GID is 0. Once tracing starts, kcc logs the applied floor: the real UID, whether
+the capability bounding set was cleared, and the bounding mask that remains.
+
 ## Container hardening
 
 The OCI image ([deploy/podman/README.md](../deploy/podman/README.md)) runs a static

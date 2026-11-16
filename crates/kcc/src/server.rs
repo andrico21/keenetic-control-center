@@ -265,6 +265,7 @@ fn load_config(
     let mut config = Config::load(&path).map_err(error)?;
     let overrides = config.apply_env_overrides().map_err(error)?;
     let tracing_guard = init_tracing_from_config_strict(&config.observability).map_err(error)?;
+    crate::privileges::log_startup_posture();
     for entry in overrides {
         tracing::info!(env_var = %entry.env_var, target = %entry.target_field, "environment override applied");
     }

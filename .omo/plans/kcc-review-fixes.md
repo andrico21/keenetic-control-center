@@ -705,7 +705,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix: zeroize copied secrets
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 24. Privilege floor handles GID 0 and reports what it kept
+- [x] 24. Privilege floor handles GID 0 and reports what it kept
   What to do / Must NOT do: Log a warning (not a refusal: OpenShift runs with GID 0, per the critic) when any GID is 0, and surface the discarded privilege `Report` (kept bounding set) in the startup log after tracing starts. Test the decision with a unit test of a pure function over (uids, gids) - a test cannot run as GID 0. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `SEC2-19` (info; critic confirmed) info: The privilege floor ignores GID 0. Evidence: `crates/kcc/src/privileges.rs:249-251`. Fix: Refuse GID 0 too, or at least log it.
   - `F-19` (info; critic adjusted, low->info) The privilege `Report` is discarded, so a kept bounding set is never reported. Evidence: `privileges.rs:87`, `main.rs:16`, `privileges.rs:208-210`. Fix: Keep the report and log it after tracing starts, or delete `Report`.

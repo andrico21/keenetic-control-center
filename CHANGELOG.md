@@ -414,6 +414,10 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Security
 
+- **The privilege floor warns about GID 0 and logs what it kept.** A root group is still
+  accepted (OpenShift runs with GID 0) but now produces a startup warning, and the
+  applied floor (real UID, bounding set cleared or not, remaining bounding mask) is
+  logged once after tracing starts instead of being discarded.
 - **The session cookie is `Secure` and `__Host-` prefixed behind an HTTPS reverse proxy.**
   With listener TLS off and `[web] public_url` set to an `https` URL, the Web UI used to
   set the plain `kcc_session` cookie without `Secure` and send the plain CSP. Both now

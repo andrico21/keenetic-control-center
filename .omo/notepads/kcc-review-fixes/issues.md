@@ -41,3 +41,7 @@
 - The CLI `From<InterfaceChangeError> for Failure` still answers `Exit::Router` for every interface failure (E-07 named MCP only); `DomainError::from(InterfaceChangeError)` now exists if the CLI should class them like other domain errors.
 - Web `plan_failure(DomainError)` still words planning refusals itself (ProtectedAccount -> "failed"); only the DomainError -> WorkflowError mapping was unified.
 - `firewall_page/run.rs` still maps a snapshot read failure to `WorkflowError::InvalidResponse` (not cited by the findings).
+
+## [2026-11-16] Todo 15 (wt/r15) notes
+- Over-ceiling files grew: `kcc-web/src/session.rs` 407 -> 448 pure LOC, `kcc-web/src/auth.rs` 510 -> 550 (anonymous cap logic itself went to the new `session/anonymous.rs`). Splits are follow-ups.
+- Several async fns in `session.rs` (get, peek, invalidate, set_fingerprint, ...) have no `// cancel-safe:` comment and `cargo xtask cancel-safety` does not flag them; only the fns this todo touched got one.
