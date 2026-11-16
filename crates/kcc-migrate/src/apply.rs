@@ -14,6 +14,7 @@ mod agreements;
 mod bootstrap;
 pub(crate) mod command;
 mod components;
+mod credential;
 mod dispatch;
 mod drift;
 mod execute;
@@ -42,7 +43,7 @@ use kcc_app::{
     workflow::ChangeSet,
 };
 use kcc_domain::configuration::SafetyMode;
-use kcc_rci::{RciClient, SecretBytes, auth::Credentials};
+use kcc_rci::{RciClient, SecretBytes};
 pub use raw::RawRestore;
 use serde_json::json;
 use tokio::sync::oneshot;
@@ -81,8 +82,8 @@ pub struct Applier {
     mode: SafetyMode,
     /// Execution choices and injected clock.
     options: ApplyOptions,
-    /// Credential selected by the management phase.
-    credential: Option<Credentials>,
+    /// Login credential valid after the lines applied so far.
+    credential: credential::LoginCredential,
     /// Time of the most recent successful keep-alive.
     armed_at: Duration,
     /// Public value-free progress and verification report.

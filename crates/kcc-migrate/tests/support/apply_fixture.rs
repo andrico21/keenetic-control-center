@@ -81,6 +81,18 @@ impl Fixture {
         router: FakeRouter,
         password: &str,
     ) -> Result<Self, Box<dyn Error>> {
+        Self::signed_in(router, ("admin", password)).await
+    }
+
+    /// Opens application services that sign in to `router` as `login` with `password`.
+    ///
+    /// # Errors
+    /// Returns fixture setup failures.
+    // NOT cancel-safe: starts a server and writes temporary state.
+    pub(super) async fn signed_in(
+        router: FakeRouter,
+        (login, password): (&str, &str),
+    ) -> Result<Self, Box<dyn Error>> {
         let directory = TempDir::new()?;
         let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
         let password_file = kcc_testkit::write_secret_file(directory.path(), "password", password)?;
@@ -96,7 +108,7 @@ impl Fixture {
                 ManagedRouterProfile::new(
                     "target".to_owned(),
                     Url::parse(url.as_str())?,
-                    "admin".to_owned(),
+                    login.to_owned(),
                     password_file,
                 ),
             )

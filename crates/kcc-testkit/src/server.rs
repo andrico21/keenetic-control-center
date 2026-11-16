@@ -698,7 +698,8 @@ impl Shared {
             .any(|account| account.login == "admin" && account.ha1 == empty_hash)
     }
 
-    /// Mirrors a successfully parsed password into the authentication store.
+    /// Mirrors a successfully parsed password into the authentication store: a `plain`
+    /// password is hashed with the realm, an `md5` one is the stored hash itself.
     fn update_password(&self, line: &str, result: &Value) {
         use kcc_config::config_text::{Token, flatten, parse};
         use kcc_rci::RciResponse;
@@ -712,18 +713,22 @@ impl Shared {
                 Token::Word(user),
                 Token::Word(login),
                 Token::Word(password),
-                Token::Word(plain),
+                Token::Word(kind),
                 Token::Word(secret),
             ] = command.tokens.as_slice()
                 && user == "user"
                 && password == "password"
-                && plain == "plain"
             {
+                let ha1 = match kind.as_str() {
+                    "plain" => ndw2::ha1(login, &self.realm, secret),
+                    "md5" => Zeroizing::new(secret.to_ascii_lowercase()),
+                    _ => continue,
+                };
                 let mut accounts = lock(&self.accounts);
                 let changed = if let Some(account) =
                     accounts.iter_mut().find(|account| account.login == *login)
                 {
-                    account.ha1 = ndw2::ha1(login, &self.realm, secret);
+                    account.ha1 = ha1;
                     true
                 } else {
                     false

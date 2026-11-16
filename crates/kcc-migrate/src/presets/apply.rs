@@ -18,6 +18,7 @@ use super::{model::Preset, plan::PresetPlan};
 use crate::{
     apply::{ApplyRequest, ApplySource},
     inventory::TargetInventory,
+    planner::plain_password,
 };
 
 /// Preset-specific apply choices.
@@ -145,7 +146,9 @@ pub enum PresetApplyError {
 /// Builds the generic protected request after checking both router scopes.
 ///
 /// No router is contacted by this function. The returned request executes only through
-/// [`crate::apply::Applier`].
+/// [`crate::apply::Applier`]. A line that sets the password of the account kcc signs in
+/// with runs in the management phase; when the reviewed plan sends it as plaintext, that
+/// password becomes the run's management password, otherwise the caller must supply one.
 ///
 /// # Errors
 /// Returns a scope refusal before command conversion, or a plan refusal when unresolved items
@@ -177,6 +180,12 @@ pub fn request(input: PresetApplyRequest) -> Result<ApplyRequest, PresetApplyErr
             source_router,
         },
     );
+    request.options.management_password = request
+        .plan
+        .phases
+        .management
+        .iter()
+        .find_map(|line| plain_password(line.expose_command(), &input.inventory.login));
     request.options.ack_documentation_tier = acknowledged;
     request.options.initial_warnings = warnings;
     Ok(request)

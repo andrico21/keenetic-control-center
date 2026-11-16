@@ -256,6 +256,17 @@ The first release, `0.1.0`, is in preparation and contains:
   `WifiMaster<m>` now also moves that radio's access points
   (`WifiMaster<n>/AccessPoint<k>` -> `WifiMaster<m>/AccessPoint<k>`) in migrations and
   presets; an exact access-point mapping still wins.
+- **Migrations and presets change kcc's own login password safely**: the management
+  phase reconnects with the router account's current password until the line that sets
+  its new password has run, then with the new one; a cross-model migration that moves the
+  management address first, or sets another user's password first, used to reconnect
+  with a password the router did not have yet and was rolled back by the timer. A line
+  that sets that account's password (`plain`, `md5` or `nt`) is a management line in
+  migrations and presets too and needs the new password (a password typed for that
+  account is used): a preset or same-realm hash copy without one is refused with
+  `PasswordRequired` before any write instead of failing and being rolled back. A line
+  that removes that password is refused. The target inventory records that login
+  (`TargetInventory::login`).
 
 ### Security
 

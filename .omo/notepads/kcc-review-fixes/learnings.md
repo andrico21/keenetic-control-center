@@ -60,3 +60,23 @@
 - Gotcha: the bash tool does not keep `cd` between calls; a detached cargo started without `cd` ran in the main repo (it failed at target lookup, no build). Always `cd` inside the detached `bash -c`.
 - Gotcha: `cargo xtask ...` without CARGO_TARGET_DIR builds into `<worktree>/xtask/target`; set the target dir or delete it after.
 - [2026-11-16] Todo 5 done in wt/r5: 7 process tests RED then GREEN; cargo test -p kcc -p kcc-app -p kcc-web --all-features EXIT=0 (774 passed); clippy, fmt --check, cancel-safety clean. Target dir and r5 logs removed.
+
+## [2026-11-16] Todo 4 progress (H5/G-03, M13/G-04; worktree wt/r4)
+- `TargetInventory::login` (new pub field, from the inventory client's credentials) lets both planners know kcc's own login. `planner::LoginPassword::of(line, login)` -> Untouched/Set (`user <login> password plain|md5|nt ..`)/Removed (`no user <login> password ..`); `is_management_line(line, mgmt_iface, login)` is now pub(crate) and also takes the login (other users' `password plain` lines stay management as before).
+- One credential tracker: `apply/credential.rs::LoginCredential` (login + replacement + `replaced` flag). `reconnect::complete_line` calls `applied(line)` before the reconnect and reconnects with `current()` (None = keep the client's credential) until the login's Set line ran; raw restore uses `restored()` (the replacement, as before).
+- `preflight::validate_credentials` scans ALL phases: login Set line outside management -> Validation; Removed -> Validation; Set needs `management_password` (PasswordRequired), plain must equal it (`planner::plain_password` parses the secret as config text).
+- Presets: `convert::migration_plan` runs the same classifier (so other users' plain lines also go to the preset management phase now); `presets::apply::request` sets `management_password` from the reviewed plain login line (what the migration front ends do with `passwords.get(login)`); a same-realm md5 copy has none -> PasswordRequired before any write.
+- Web presets surfaces (launch texts, preview phases/count, reveal) ignored `phases.management` (preset plans never had one): fixed, else the run stream showed an empty line.
+- Fake router: a `user X password md5 <ha1>` line now updates the account's HA1 (and clears sessions) like `plain` did.
+- Gotcha: the fake catalog cannot build `no user <login> password md5 <hash>`, so a Mirror removal of the login's hash is planned Unsupported and never sent; a Mirror-specific guard had no observable effect and was dropped.
+- Gotcha: a preset apply test without an injected clock hangs ~15 min on a rollback (recover waits safety_seconds on the system clock): give every run an advancing MockClock shared with the fake.
+- [2026-11-16] Todo 4 done in wt/r4: RED 3/3 then GREEN; cargo test -p kcc-migrate -p kcc --all-features ACCEPTANCE_EXIT=0 (311 passed); kcc-web+kcc-mcp+kcc-testkit 644 passed; fmt --check, clippy (migrate/web/kcc/testkit), cancel-safety clean. Target dir and r4 logs removed.
+
+## [2026-11-16] Todo 8 progress (worktree wt/r8; B-08 escalated, C-07 + D-15 done)
+- `ValidatedRequest.value` is private; read it with `value()`; in-crate `with_secret(protected)` replaces the old `validate_secret` field writes. Mechanical getter edits across domain/web/mcp/kcc and catalog unit tests.
+- `ChangeOp` gained `commands: Vec<CliCommand>` and `push(command)` (pushes the command and its request). Planners whose lines carry words their bodies lack (VPN clients/servers context names, VPN secret templates, DNS FQDN members, KeenDNS proxy upstream) build the `CliCommand` at plan time; their `change_request` returns `operation.commands`. Web `vpn_checks::merge` appends both vectors.
+- KeenDNS proxy upstream: the line itself is validated with `validate_cli` (protocol keyword, IP/MAC host, port). The catalog has no `protocol` argument and types `fqdn` as the literal `FQDN`, so a host name is refused (CHANGELOG). The read-back expectation `{protocol,host,port}` is built at plan time (`keendns::verification::upstream`).
+- Security levels (cloud, ip http/ssh/telnet) validate `{"level": name}` directly: the catalog accepts it.
+- fake router `request_log()` keeps only the LAST line of a parse batch in `RequestRecord::command`.
+- profile_coverage requires every kcc-domain test suite to iterate `support::PROFILES`.
+- [2026-11-16] Todo 8 (wt/r8): C-07 + D-15 done and green (catalog/app/domain, web/mcp/kcc, clippy 7 crates, fmt); B-08 strict binding escalated (see issues.md). Target dir and r8 logs removed.

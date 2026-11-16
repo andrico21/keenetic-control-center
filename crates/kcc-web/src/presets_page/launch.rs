@@ -83,6 +83,7 @@ pub(super) async fn launch(
         .additive
         .iter()
         .chain(&phases.prune)
+        .chain(&phases.management)
         .map(|line| {
             let number = line.source_index.saturating_add(1);
             (line.source_index, (number, redacted(line.expose_command())))

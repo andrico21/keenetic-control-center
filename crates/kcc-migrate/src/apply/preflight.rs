@@ -12,14 +12,17 @@ use kcc_domain::{
     RouterCtx,
     configuration::{SafetyMode, TIMER_RANGE},
 };
-use kcc_rci::{ConfigKind, RciClient, SecretBytes, auth::Credentials, capabilities::SupportTier};
+use kcc_rci::{ConfigKind, RciClient, SecretBytes, capabilities::SupportTier};
 use secrecy::ExposeSecret as _;
 
 use super::{
     Applier, ApplyError, ApplyReport, ApplyRequest, ApplySource, agreements, agreements::audit,
-    bootstrap, command, components, drift, settle::Stop,
+    bootstrap, command, components, credential::LoginCredential, drift, settle::Stop,
 };
-use crate::source::SourceConfig;
+use crate::{
+    planner::{LoginPassword, plain_password},
+    source::SourceConfig,
+};
 
 /// Checks all read-only prerequisites before arming the first protected mutation.
 ///
@@ -102,11 +105,10 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
         return Err(stop.settle(&mut changes, &ctx, mode).await);
     }
     let armed_at = request.options.clock.now();
-    let credential = request
-        .options
-        .management_password
-        .as_ref()
-        .map(|password| Credentials::new(original.credentials().login, password.clone()));
+    let credential = LoginCredential::new(
+        original.credentials().login,
+        request.options.management_password.as_ref(),
+    );
     let report = ApplyReport {
         warnings: request.options.initial_warnings.clone(),
         ..ApplyReport::default()
@@ -125,17 +127,17 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
     })
 }
 
-/// Requires the replacement credential to match the reviewed primary-password command.
+/// Requires the new password for every line that sets kcc's own login password.
+///
+/// Such a line outside the management phase, or one that removes that password, is refused.
 ///
 /// # Errors
-/// Returns missing or mismatched credential input before any write.
+/// Returns missing or mismatched credential input, or a refused line, before any write.
 async fn validate_credentials(
     request: &ApplyRequest,
     client: &RciClient,
 ) -> Result<(), ApplyError> {
-    use kcc_config::config_text::{Token, flatten, parse};
-
-    let identity = client.credentials();
+    let login = client.credentials().login;
     if let Some(url) = &request.plan.reconnect_url {
         let endpoint = url.parse().map_err(|_error| ApplyError::Validation)?;
         drop(
@@ -145,27 +147,29 @@ async fn validate_credentials(
                 .map_err(|_error| ApplyError::Validation)?,
         );
     }
-    for line in &request.plan.phases.management {
-        let parsed = parse(line.expose_command()).map_err(|_error| ApplyError::Validation)?;
-        for command in flatten(&parsed) {
-            if let [
-                Token::Word(user),
-                Token::Word(login),
-                Token::Word(password),
-                Token::Word(kind),
-                Token::Word(secret),
-            ] = command.tokens.as_slice()
-                && user == "user"
-                && login == &identity.login
-                && password == "password"
-                && kind == "plain"
-            {
+    let phases = &request.plan.phases;
+    let lines = phases
+        .additive
+        .iter()
+        .chain(&phases.prune)
+        .map(|line| (false, line))
+        .chain(phases.management.iter().map(|line| (true, line)));
+    for (management, line) in lines {
+        let command = line.expose_command();
+        match LoginPassword::of(command, &login) {
+            LoginPassword::Untouched => {}
+            LoginPassword::Removed => return Err(ApplyError::Validation),
+            LoginPassword::Set if !management => return Err(ApplyError::Validation),
+            LoginPassword::Set => {
                 let supplied = request
                     .options
                     .management_password
                     .as_ref()
                     .ok_or(ApplyError::PasswordRequired)?;
-                if supplied.expose_secret() != secret {
+                if command.split_whitespace().nth(3) == Some("plain")
+                    && plain_password(command, &login)
+                        .is_none_or(|secret| secret.expose_secret() != supplied.expose_secret())
+                {
                     return Err(ApplyError::Validation);
                 }
             }

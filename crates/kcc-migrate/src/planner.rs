@@ -13,8 +13,9 @@ mod types;
 
 use alloc::collections::BTreeSet;
 
-use diff::is_management_line;
-pub(crate) use diff::{digest_lines, digest_text, plan_id};
+pub(crate) use diff::{
+    LoginPassword, digest_lines, digest_text, is_management_line, plain_password, plan_id,
+};
 use kcc_config::config_text::{Ast, flatten};
 use secrecy::SecretString;
 
@@ -108,14 +109,23 @@ impl Planner {
                 && !source_normalized.contains(line)
                 && command::build(&target.catalog, &format!("no {line}")).is_ok()
             {
-                phases.prune.push(PlannedLine {
+                let planned = PlannedLine {
                     non_critical: false,
                     source_index: classified.len().saturating_add(offset),
                     command: SecretString::from(format!("no {line}")),
                     display: "<redacted>".to_owned(),
                     disposition: Disposition::Remap,
                     reason_key: "migration-reason-operator-prune".to_owned(),
-                });
+                };
+                if is_management_line(
+                    planned.expose_command(),
+                    target.management_interface.as_deref(),
+                    &target.login,
+                ) {
+                    phases.management.push(planned);
+                } else {
+                    phases.prune.push(planned);
+                }
             }
         }
         let reconnect_url = (!phases.management.is_empty())
@@ -201,6 +211,7 @@ fn execution_phases(
         if is_management_line(
             planned.expose_command(),
             target.management_interface.as_deref(),
+            &target.login,
         ) {
             phases.management.push(planned);
         } else {

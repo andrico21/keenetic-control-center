@@ -8,6 +8,8 @@ mod offline;
 mod armed;
 #[path = "support/apply_lifecycle.rs"]
 mod lifecycle;
+#[path = "support/apply_login.rs"]
+mod login;
 #[path = "support/apply_policy.rs"]
 mod policy;
 #[path = "support/apply_preflight.rs"]

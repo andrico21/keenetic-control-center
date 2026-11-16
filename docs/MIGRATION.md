@@ -185,6 +185,15 @@ level, HTTP port or SSL) move to a final phase and need the address kcc should u
 afterwards (`--reconnect-url`). kcc switches to it after those lines and allows two
 minutes per transition to reach the router again.
 
+A line that sets the password of the router account kcc signs in with
+(`user <login> password plain|md5|nt ...`) is a management line too, in migrations and
+in presets (Merge and Mirror). kcc must know that new password: a password you typed for
+that account (CLI: `--user-password <login>=<file>`) is used; a hash copied from a router
+with the same realm carries no password kcc can use, so the run is refused with "router
+password required" before anything is sent. kcc reconnects with the account's current
+password until that line has run, and with the new one after it. A line that would
+remove that password is refused.
+
 ### Fail-safe behaviour
 
 - kcc arms the target's fail-safe timer (900 s by default, 300 to 3600) before the

@@ -33,6 +33,7 @@ pub(super) async fn complete_line(
                     Err(_error) => finish::recover(applier).await,
                 };
             }
+            applier.credential.applied(line.expose_command());
             let client = applier.changes.client();
             let password_change = line.expose_command().starts_with("user ");
             let url = RouterUrl::from_str(if password_change {
@@ -57,7 +58,7 @@ pub(super) async fn complete_line(
                     remaining,
                     applier
                         .changes
-                        .reconnect(url.clone(), applier.credential.clone()),
+                        .reconnect(url.clone(), applier.credential.current()),
                 )
                 .await
                 .is_ok_and(|result| result.is_ok())

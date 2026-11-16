@@ -151,6 +151,7 @@ pub(super) async fn commands(
         .additive
         .iter()
         .chain(&phases.prune)
+        .chain(&phases.management)
         .map(PlannedLine::expose_command)
         .filter(|line| secret(line))
         .map(|line| SecretString::from(line.to_owned()))

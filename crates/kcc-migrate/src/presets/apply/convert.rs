@@ -11,7 +11,7 @@ use crate::{
     inventory::TargetInventory,
     planner::{
         ConfigFingerprint, MigrationPlan, PlanPhases, PlannedLine, digest_lines, digest_text,
-        plan_id,
+        is_management_line, plan_id,
     },
     presets::{
         model::Preset,
@@ -58,7 +58,15 @@ pub(super) fn migration_plan(
             reason_key: executable.1,
             command: executable.0,
         };
-        if matches!(plan.mode, PresetMode::Mirror) && planned.expose_command().starts_with("no ") {
+        if is_management_line(
+            planned.expose_command(),
+            target.management_interface.as_deref(),
+            &target.login,
+        ) {
+            phases.management.push(planned);
+        } else if matches!(plan.mode, PresetMode::Mirror)
+            && planned.expose_command().starts_with("no ")
+        {
             phases.prune.push(planned);
         } else {
             phases.additive.push(planned);

@@ -3,12 +3,66 @@
 use alloc::collections::BTreeSet;
 use core::fmt::Write as _;
 
+use kcc_config::config_text::{Token, flatten, parse};
 use md5::{Digest as _, Md5};
+use secrecy::SecretString;
 
 use super::{ConfigFingerprint, PlanPhases};
 
-/// Identifies commands that can cut off the current management connection.
-pub(super) fn is_management_line(line: &str, management_interface: Option<&str>) -> bool {
+/// How a command touches the password of the router account kcc signs in with.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(crate) enum LoginPassword {
+    /// The command leaves the login's password alone.
+    Untouched,
+    /// The command sets a new password (`plain`, `md5` or `nt`).
+    Set,
+    /// The command removes the password (`no user <login> password ...`).
+    Removed,
+}
+
+impl LoginPassword {
+    /// Classifies `line` for the account `login`.
+    pub(crate) fn of(line: &str, login: &str) -> Self {
+        let words = line.split_whitespace().collect::<Vec<_>>();
+        match words.as_slice() {
+            ["user", name, "password", "plain" | "md5" | "nt", ..] if *name == login => Self::Set,
+            ["no", "user", name, "password", ..] if *name == login => Self::Removed,
+            _ => Self::Untouched,
+        }
+    }
+}
+
+/// The password a `user <login> password plain <secret>` line sets, read as configuration
+/// text so a quoted secret is unquoted.
+pub(crate) fn plain_password(line: &str, login: &str) -> Option<SecretString> {
+    let parsed = parse(line).ok()?;
+    let commands = flatten(&parsed);
+    let [command] = commands.as_slice() else {
+        return None;
+    };
+    match command.tokens.as_slice() {
+        [
+            Token::Word(user),
+            Token::Word(name),
+            Token::Word(password),
+            Token::Word(kind),
+            Token::Word(secret),
+        ] if user == "user" && name == login && password == "password" && kind == "plain" => {
+            Some(SecretString::from(secret.clone()))
+        }
+        _ => None,
+    }
+}
+
+/// Identifies commands that can cut off the current management connection of `login`.
+pub(crate) fn is_management_line(
+    line: &str,
+    management_interface: Option<&str>,
+    login: &str,
+) -> bool {
+    if LoginPassword::of(line, login) != LoginPassword::Untouched {
+        return true;
+    }
     let words = line.split_whitespace().collect::<Vec<_>>();
     match words.as_slice() {
         ["user", _name, "password", "plain", ..] => true,

@@ -147,7 +147,7 @@ async fn reconnect(applier: &mut Applier) -> Result<(), ApplyError> {
         for _attempt in 0..120_u16 {
             if applier
                 .changes
-                .reconnect(url.clone(), applier.credential.clone())
+                .reconnect(url.clone(), applier.credential.restored())
                 .await
                 .is_ok()
             {

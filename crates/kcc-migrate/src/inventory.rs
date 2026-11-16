@@ -159,6 +159,8 @@ pub struct TargetInventory {
     pub management_interface: Option<String>,
     /// Origin used for the current management connection.
     pub management_url: String,
+    /// Router account kcc signs in with; a change of its password is a management line.
+    pub login: String,
     /// Physical ports and roles.
     pub ports: Vec<PhysicalPort>,
     /// Wi-Fi radios and bands.
@@ -247,6 +249,7 @@ impl TargetInventory {
             .find(|interface| interface.kind == "Bridge")
             .map(|interface| interface.name.clone());
         let management_url = client.router.as_str().to_owned();
+        let login = client.rci.credentials().login;
         Ok(Self {
             info,
             catalog,
@@ -255,6 +258,7 @@ impl TargetInventory {
             last_change_checksum,
             management_interface,
             management_url,
+            login,
             ports,
             radios,
             usb_modems,

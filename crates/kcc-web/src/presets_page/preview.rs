@@ -124,12 +124,17 @@ impl Panel {
         for (title, lines) in [
             (keys::WEB_MIGRATE_PHASE_ADDITIVE, &phases.additive),
             (keys::WEB_MIGRATE_PHASE_PRUNE, &phases.prune),
+            (keys::WEB_MIGRATE_PHASE_MANAGEMENT, &phases.management),
         ] {
             if !lines.is_empty() {
                 panel.phases.push((tr(locale, title, None), shown(lines)));
             }
         }
-        let commands = phases.additive.len().saturating_add(phases.prune.len());
+        let sent = || {
+            let lines = phases.additive.iter().chain(&phases.prune);
+            lines.chain(&phases.management)
+        };
+        let commands = sent().count();
         let kept = |item_index: usize| !record.excluded().contains(&item_index);
         let present = all
             .items
@@ -142,11 +147,7 @@ impl Panel {
             .saturating_sub(commands)
             .saturating_sub(present);
         panel.may_reveal = allowed(user, target, &[Permission::RevealSecrets])
-            && phases
-                .additive
-                .iter()
-                .chain(&phases.prune)
-                .any(|line| secret(line.expose_command()));
+            && sent().any(|line| secret(line.expose_command()));
         panel.facts = [
             (keys::WEB_PRESETS_COUNT_SETTINGS, total),
             (keys::WEB_MIGRATE_COUNT_COMMANDS, commands),
