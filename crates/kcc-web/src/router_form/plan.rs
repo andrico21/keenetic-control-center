@@ -195,6 +195,11 @@ impl Plan {
         Ok(())
     }
 
+    /// The typed secrets, each with its kind.
+    pub(crate) fn secrets(&self) -> &[(CredentialKind, SecretString)] {
+        &self.secrets
+    }
+
     /// Seals every typed secret of router `id`.
     ///
     /// # Errors

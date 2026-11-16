@@ -3,10 +3,15 @@
 //! Every credential they take is read once, sealed under the master key and referenced
 //! only through its sealed record.
 
+use std::path::Path;
+
 use kcc_app::{
     credentials::{CredentialError, CredentialKind, CredentialStore},
     permissions::Permission,
-    registry::{ManagedRouterProfile, ProfileSource, RegistryError},
+    registry::{
+        ManagedRouterProfile, ProfileSource, RegistryError,
+        sealed_edit::{SealedEdit, update_sealed},
+    },
     settings::{RouterAuth, RouterTls},
 };
 use kcc_i18n::{bundle::MessageKey, keys};
@@ -19,7 +24,7 @@ use super::{
     exit::{Exit, Failure, Outcome},
     outbound, router_edit,
     routers::parse_url,
-    secret::read_secret,
+    secret::{password_env_set, read_secret},
 };
 
 /// Secrets given in one command, each with its kind.
@@ -53,11 +58,11 @@ pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcom
     } else {
         CredentialKind::Password
     };
-    let mut secrets = vec![(primary, secret(ctx, &id, primary, &args.credentials)?)];
+    let mut kinds = vec![primary];
     if args.credentials.read_login.is_some() {
-        let kind = CredentialKind::ReadPassword;
-        secrets.push((kind, secret(ctx, &id, kind, &args.credentials)?));
+        kinds.push(CredentialKind::ReadPassword);
     }
+    let secrets = read_secrets(ctx, &id, &kinds, &args.credentials)?;
     let store = services.credentials();
     let mut profile = ManagedRouterProfile::new(
         id.clone(),
@@ -79,7 +84,6 @@ pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcom
         drop(store.remove(&id));
         return Err(error.into());
     }
-    let kinds = secrets.iter().map(|(kind, _)| *kind).collect::<Vec<_>>();
     ctx.audit(
         services,
         "cli.router_add",
@@ -97,6 +101,9 @@ pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcom
 
 /// Changes a router profile; a moved endpoint needs the primary credential again.
 ///
+/// The new secrets are sealed only for a valid profile, and a failed update puts the
+/// previous sealed records back.
+///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code; a refused change writes nothing.
@@ -111,15 +118,15 @@ pub(crate) async fn edit(ctx: &Ctx, services: &Services, args: EditArgs) -> Outc
     }
     let id = args.id.clone();
     let plan = router_edit::plan(&entry.profile, args)?;
-    let mut secrets = Secrets::new();
-    for kind in plan.given() {
-        secrets.push((*kind, secret(ctx, &id, *kind, plan.inputs())?));
+    if plan.profile().url != entry.profile.url {
+        outbound::check(services.registry(), &plan.profile().url).await?;
     }
+    let secrets = read_secrets(ctx, &id, plan.given(), plan.inputs())?;
     let store = services.credentials();
     let (mut profile, removed, changed) = plan.into_parts();
     point(store, &mut profile, &secrets)?;
-    seal(store, &id, &secrets)?;
-    services.registry().update(&role, profile).await?;
+    let edit = SealedEdit::new(profile, &secrets);
+    update_sealed(services.registry(), store, &role, edit).await?;
     for kind in removed {
         store.remove_kind(&id, kind)?;
     }
@@ -138,18 +145,43 @@ pub(crate) async fn edit(ctx: &Ctx, services: &Services, args: EditArgs) -> Outc
     )
 }
 
-/// Reads the secret of `kind` from its input file, else `KCC_PASSWORD` or a prompt.
+/// Reads the secret of every kind in `kinds`, each from its input file, else
+/// `KCC_PASSWORD` or a prompt; `KCC_PASSWORD` may stand in for one of them only.
 ///
 /// # Errors
 ///
-/// Returns the command's failure with its exit code.
-fn secret(
+/// Returns a usage failure (exit 2) when two secrets would both come from
+/// `KCC_PASSWORD`, else the command's failure with its exit code.
+fn read_secrets(
     ctx: &Ctx,
     id: &str,
-    kind: CredentialKind,
+    kinds: &[CredentialKind],
     inputs: &CredentialArgs,
-) -> Outcome<SecretString> {
-    let (file, prompt) = match kind {
+) -> Outcome<Secrets> {
+    let unfiled = kinds
+        .iter()
+        .filter(|kind| source(ctx, **kind, inputs).0.is_none())
+        .count();
+    if unfiled > 1 && password_env_set() {
+        return Err(usage(keys::CLI_ROUTER_PASSWORD_ENV_SHARED, &[]));
+    }
+    kinds
+        .iter()
+        .map(|kind| {
+            let (file, prompt) = source(ctx, *kind, inputs);
+            let secret = read_secret(file, &ctx.out().tr(prompt, &[("router", id)]))?;
+            Ok((*kind, secret))
+        })
+        .collect()
+}
+
+/// The input file option and the prompt of the secret of `kind`.
+fn source<'args>(
+    ctx: &'args Ctx,
+    kind: CredentialKind,
+    inputs: &'args CredentialArgs,
+) -> (Option<&'args Path>, MessageKey) {
+    match kind {
         CredentialKind::Token => (inputs.token_file.as_deref(), keys::CLI_PROMPT_ROUTER_TOKEN),
         CredentialKind::ReadPassword => (
             inputs.read_password_file.as_deref(),
@@ -159,8 +191,7 @@ fn secret(
             ctx.globals().password_file(),
             keys::CLI_PROMPT_ROUTER_PASSWORD,
         ),
-    };
-    read_secret(file, &ctx.out().tr(prompt, &[("router", id)]))
+    }
 }
 
 /// Points `profile` at the sealed record of every given kind; a primary credential of

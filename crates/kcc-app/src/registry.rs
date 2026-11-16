@@ -19,6 +19,7 @@ extern crate alloc;
 
 mod auth;
 mod budgets;
+pub mod sealed_edit;
 mod stored;
 #[cfg(test)]
 mod transition_tests;

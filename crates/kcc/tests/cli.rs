@@ -68,6 +68,8 @@ mod reveal;
 mod router_credentials;
 #[path = "cli/router_edits.rs"]
 mod router_edits;
+#[path = "cli/router_rollback.rs"]
+mod router_rollback;
 #[path = "cli/router_sealing.rs"]
 mod router_sealing;
 #[path = "cli/runtime_management.rs"]

@@ -1,5 +1,6 @@
 //! Encrypted router credentials managed inside the application state directory.
 
+pub mod rollback;
 mod wipe;
 
 use core::fmt;

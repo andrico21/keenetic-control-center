@@ -144,7 +144,8 @@ can cut kcc off from the router need `--yes`; destructive ones need
 
 `kcc router add` and `kcc router edit` take the router's credentials as input only:
 `--password-file`, `--token-file` and `--read-password-file` are read once and sealed
-(without a file, `KCC_PASSWORD` or a hidden prompt supplies the secret). `--auth`
+(without a file, `KCC_PASSWORD` or a hidden prompt supplies the secret;
+`KCC_PASSWORD` stands in for one secret per command only). `--auth`
 picks `auto`, `ndw2`, `ndw4`, `token` or `digest`. On `router edit`, `--new-password`,
 `--new-token` and `--new-read-password` replace a credential and `--clear-read-login`
 drops the read-only login; changing the URL, login or TLS pin needs the password or

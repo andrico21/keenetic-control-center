@@ -36,6 +36,16 @@ mod router_readers;
     reason = "test code is not rendered API documentation"
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "dashboard/router_rollback.rs"]
+mod router_rollback;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod tests {
 
     use core::{error::Error, str, time::Duration};

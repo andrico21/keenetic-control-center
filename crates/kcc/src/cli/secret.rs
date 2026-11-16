@@ -41,6 +41,11 @@ pub(crate) fn read_secret(file: Option<&Path>, prompt: &str) -> Outcome<SecretSt
     Ok(SecretString::from(raw.as_str().to_owned()))
 }
 
+/// Whether `KCC_PASSWORD` holds a secret [`read_secret`] would take.
+pub(crate) fn password_env_set() -> bool {
+    env::var(PASSWORD_ENV).is_ok()
+}
+
 /// The exit-3 failure of a secret file that cannot be read or that others can read.
 pub(crate) fn secret_file_failure(error: &SecretFileError) -> Failure {
     match error {

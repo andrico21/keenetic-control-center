@@ -38,6 +38,11 @@ impl Plan {
         &self.given
     }
 
+    /// The profile after the change, before its credential paths are pointed.
+    pub(super) const fn profile(&self) -> &ManagedRouterProfile {
+        &self.profile
+    }
+
     /// Credential input options.
     pub(super) const fn inputs(&self) -> &CredentialArgs {
         &self.inputs

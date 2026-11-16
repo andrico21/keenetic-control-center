@@ -317,6 +317,20 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **A failed router edit no longer leaves new credentials sealed for the old profile.**
+  The Web router form and `kcc router edit` used to seal the new password, token or
+  read-only password before storing the changed profile, with no way back: a refused or
+  failed update (for example a mistyped `--url http://host/ui`, a router deleted
+  meanwhile, or a state write error) left the old profile signing in with the new
+  secret. The profile is now validated before anything is sealed, and when the update
+  fails every previous sealed record is put back byte for byte. `kcc router edit
+  --url` also checks the new address against the outbound policy first, like
+  `router add`.
+- **`KCC_PASSWORD` fills one credential per command.** `kcc router add` and
+  `kcc router edit` used to seal the same `KCC_PASSWORD` value as the password and the
+  read-only password when both had no file; such a command is now refused with exit 2
+  (`cli-router-password-env-shared`) and seals nothing. Give the other secrets with
+  `--password-file`, `--token-file` or `--read-password-file`.
 - **Clearing a firewall rule's description or schedule no longer enables the rule.**
   An empty description or "no schedule" in the Web dialogs sends
   `no access-list <list> rule <index> description` (or `schedule`); it used to send

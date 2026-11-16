@@ -67,7 +67,9 @@ stored password, switching back needs a password and removes the stored token.
 credential they take: the password (`--password-file`, `KCC_PASSWORD` or the hidden
 prompt), a login token (`--auth token --token-file <file>`) and a read-only polling
 login (`--read-login <name> --read-password-file <file>`). The files are input only and
-can be deleted afterwards. Changing a router's address, login or certificate pin needs
+can be deleted afterwards. `KCC_PASSWORD` supplies one secret per command: a command
+that needs two secrets without files is refused. An edit seals its new secrets only for
+a valid profile, and an edit that fails keeps the previous sealed secrets. Changing a router's address, login or certificate pin needs
 its password or token again (`--new-password` or `--new-token`) and drops the read-only
 login unless it is given again. Only `password_file` paths in `kcc.toml` stay under
 operator control and are read in place. Back up the master

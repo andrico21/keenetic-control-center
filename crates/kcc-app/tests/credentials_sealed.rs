@@ -25,6 +25,8 @@ use secrecy::{ExposeSecret as _, SecretString};
 use tempfile::TempDir;
 use url::Url;
 
+#[path = "credentials_sealed/edit_rollback.rs"]
+mod edit_rollback;
 #[path = "credentials_sealed/kinds.rs"]
 mod kinds;
 

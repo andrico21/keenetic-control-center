@@ -114,3 +114,4 @@ cli-router-switch-needs-password = Der Wechsel von Router { $router } zur Passwo
 cli-router-credential-required = Das Ändern von URL, Anmeldename oder TLS-Pin von Router { $router } erfordert erneut sein Passwort oder Token (--new-password oder --new-token).
 cli-router-external-password = Router { $router } liest sein Passwort aus der Klartextdatei { $path }. Versiegeln Sie es mit: kcc router edit { $router } --new-password --password-file { $path }
 cli-listener-in-use = kcc erreicht diesen Router über diesen Listener; die Änderung würde kcc trennen und alle ungespeicherten Änderungen zurückrollen, daher wurde sie nicht gesendet. Ändern Sie ihn am Router und passen Sie dann die Router-URL in kcc mit `kcc router edit --url` an.
+cli-router-password-env-shared = KCC_PASSWORD kann pro Befehl nur ein Geheimnis ersetzen. Geben Sie die anderen Geheimnisse mit --password-file, --token-file oder --read-password-file an.

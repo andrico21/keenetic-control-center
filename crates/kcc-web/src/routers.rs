@@ -14,7 +14,10 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Redirect, Response},
 };
-use kcc_app::registry::{ManagedRouterProfile, ProfileSource, RegistryError};
+use kcc_app::registry::{
+    ManagedRouterProfile, ProfileSource, RegistryError,
+    sealed_edit::{SealedEdit, update_sealed},
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -194,7 +197,8 @@ pub(crate) async fn edit_page(
 ///
 /// An empty secret field keeps the stored secret unless the address, login or TLS mode
 /// moves or the sign-in mode switches between password and token ([`Plan`]); a move also
-/// drops the read-only login and its sealed record unless they are entered again.
+/// drops the read-only login and its sealed record unless they are entered again. A
+/// failed update puts the previous sealed records back.
 pub(crate) async fn update(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -235,13 +239,11 @@ pub(crate) async fn update(
     };
     let mut profile = stored;
     fields.apply(&mut profile);
-    if let Err(error) = plan
-        .point(store, &mut profile)
-        .and_then(|()| plan.seal(store, &id))
-    {
+    if let Err(error) = plan.point(store, &mut profile) {
         return errors::internal(&error, shell);
     }
-    match fleet.registry().update(user.role(), profile.clone()).await {
+    let edit = SealedEdit::new(profile.clone(), plan.secrets());
+    match update_sealed(fleet.registry(), store, user.role(), edit).await {
         Ok(()) => {}
         Err(RegistryError::PermissionDenied { router: _ }) => {
             return errors::response(Kind::Forbidden, shell);
