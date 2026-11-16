@@ -1,4 +1,9 @@
 //! Explicit persistence, rollback, and timer-loss recovery.
+//!
+//! A verified, unfinished apply runs under its armed recovery timer. Every failure of a
+//! finish before its closing step is sent (a change made after verification, a lost
+//! router detection) leaves that timer armed, so it is [`ApplyError::FinishFailed`],
+//! which every surface reports as still armed.
 
 use alloc::sync::Arc;
 use core::time::Duration;
@@ -23,27 +28,21 @@ use crate::source::SourceConfig;
 /// Commits only a successfully verified, unfinished apply.
 ///
 /// # Errors
-/// Returns invalid lifecycle, conflict, or save failures.
+/// Returns invalid lifecycle failures, [`ApplyError::SavedDisarmFailed`] when the
+/// configuration was saved but the timer could not be disarmed, and
+/// [`ApplyError::FinishFailed`] (still armed) for every other failure.
 // NOT cancel-safe: commit can persist before the caller receives its result.
 pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
     if !applier.report.verified || applier.report.finished {
         return Err(ApplyError::Verification);
     }
-    applier
-        .changes
-        .ensure_unchanged()
-        .await
-        .map_err(|_error| ApplyError::Drift)?;
-    let ctx = context(applier)
-        .await
-        .map_err(|_error| ApplyError::FinishFailed)?;
+    let ctx = armed_context(applier).await?;
     let save = (Close::Save, Permission::Migrate);
     let _: Closed = close(&mut applier.changes, &ctx, applier.mode, save)
         .await
-        .map_err(|error| match (error.fate(), error.applied()) {
-            (Some(ArmedFate::Saved), _) => ApplyError::SavedDisarmFailed,
-            (None, true) => ApplyError::CommittedSaveFailed,
-            (Some(_) | None, _) => ApplyError::FinishFailed,
+        .map_err(|error| match error.fate() {
+            Some(ArmedFate::Saved) => ApplyError::SavedDisarmFailed,
+            Some(_) | None => ApplyError::FinishFailed,
         })?;
     applier.report.finished = true;
     Ok(())
@@ -52,18 +51,14 @@ pub(super) async fn commit(applier: &mut Applier) -> Result<(), ApplyError> {
 /// Disarms recovery for a verified, unfinished apply and persists nothing.
 ///
 /// # Errors
-/// Returns invalid lifecycle, conflict, or disarm failures.
+/// Returns invalid lifecycle failures, [`ApplyError::FinishFailed`] (still armed) when it
+/// fails before the disarm is sent, or [`ApplyError::DisarmFailed`].
 // NOT cancel-safe: the disarm can reach the router before the caller receives its result.
 pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError> {
     if !applier.report.verified || applier.report.finished {
         return Err(ApplyError::Verification);
     }
-    applier
-        .changes
-        .ensure_unchanged()
-        .await
-        .map_err(|_error| ApplyError::Drift)?;
-    let ctx = context(applier).await?;
+    let ctx = armed_context(applier).await?;
     let keep = (Close::KeepUnsaved, Permission::Migrate);
     let _: Closed = close(&mut applier.changes, &ctx, applier.mode, keep)
         .await
@@ -79,7 +74,8 @@ pub(super) async fn keep_unsaved(applier: &mut Applier) -> Result<(), ApplyError
 /// and is sent under its `Migrate`.
 ///
 /// # Errors
-/// Returns workflow, reconnect, or identity mismatch errors.
+/// Returns [`ApplyError::FinishFailed`] (still armed) when the rollback could not be sent
+/// or confirmed, or reconnect and identity mismatch errors after it.
 // NOT cancel-safe: rollback may reboot before its response is received.
 pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
     if applier.report.finished {
@@ -90,7 +86,9 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
     } else {
         SafetyNet::CONTROL_PERMISSION
     };
-    let ctx = context(applier).await?;
+    let ctx = context(applier)
+        .await
+        .map_err(|_error| ApplyError::FinishFailed)?;
     let closed = close(
         &mut applier.changes,
         &ctx,
@@ -108,6 +106,24 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
     }
     applier.report.finished = true;
     Ok(())
+}
+
+/// Proves that nothing changed the router since verification and returns the context of
+/// the applier's current connection.
+///
+/// # Errors
+/// [`ApplyError::FinishFailed`]: a change since verification or a lost detection leaves
+/// the recovery timer armed.
+// cancel-safe: two reads.
+async fn armed_context(applier: &Applier) -> Result<RouterCtx, ApplyError> {
+    applier
+        .changes
+        .ensure_unchanged()
+        .await
+        .map_err(|_error| ApplyError::FinishFailed)?;
+    context(applier)
+        .await
+        .map_err(|_error| ApplyError::FinishFailed)
 }
 
 /// The router context of the applier's current connection.

@@ -34,6 +34,12 @@ pub(crate) fn workflow_failure(family: Family, locale: Locale, error: &WorkflowE
         WorkflowError::Conflict { agent: _ } => {
             Failure::new(tr(locale, family.conflict(), None), "conflict")
         }
+        WorkflowError::RecoveryTimerInUse => {
+            Failure::new(tr(locale, keys::MANAGEMENT_TIMER_IN_USE, None), "conflict")
+        }
+        WorkflowError::Unowned => {
+            Failure::new(tr(locale, keys::WEB_BRACKET_UNOWNED, None), "failed")
+        }
         WorkflowError::PermissionDenied { router: _ } => Failure::forbidden(locale),
         WorkflowError::CatalogValidation { issues } => Failure::new(
             issues

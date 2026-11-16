@@ -90,8 +90,12 @@ Every management change on every surface runs through one function,
 `kcc_domain::configuration::bracket::guarded`, so the CLI, MCP and the Web UI arm,
 work, disarm and report the same way.
 
-- **Arm, work, disarm.** `guarded` refuses an unheld request or a dead audit writer
-  before anything is sent. Then it arms the router's recovery timer, runs the caller's
+- **Arm, work, disarm.** `guarded` refuses an unheld request (`WorkflowError::Unowned`)
+  or a dead audit writer before anything is sent. It also refuses, with nothing sent, a
+  change set whose baseline shows the router's fail-safe timer already active, armed by
+  an operator or another run (`WorkflowError::RecoveryTimerInUse`, fate
+  `Fate::TimerInUse`, message `management-timer-in-use`): a bracket neither replaces nor
+  disarms a timer it did not arm. Then it arms the router's recovery timer, runs the caller's
   work, and always sends a disarm afterwards, whatever the work returned. The timer is
   300 seconds everywhere. Only a dropped future or a panic skips the disarm, and then the
   router's own timer restores the saved configuration.
@@ -112,10 +116,12 @@ work, disarm and report the same way.
   applied, the disarm failed), `Unknown` (the change may or may not have applied, the
   disarm failed) or `Saved` (the configuration was saved, the disarm failed).
   `Failure::message_key()` gives the sentence; a refused arm whose disarm was accepted
-  reads "not applied, timer off".
+  reads "not applied, timer off". An audit writer that fails while a failed arm settles
+  is that failure's error, as after the work.
 - **One closing step.** `configuration::close` (`Close::{KeepUnsaved, Save, Rollback}`)
-  ends a bracket for a keep, a save or a rollback in either mode: it disarms, commits and
-  saves, or sends the native rollback (router mode) or reboots at once (scheduled-reboot
+  ends a bracket for a keep, a save or a rollback in either mode: it disarms; commits
+  (router mode: the native commit saves the startup configuration, so no second save
+  follows) or saves and cancels the scheduled reboot; or sends the native rollback (router mode) or reboots at once (scheduled-reboot
   mode). The migration engine, preset runs and `kcc config failsafe` all use it.
 - **The open-bracket count.** `kcc_app::brackets::Brackets`, owned by `ChangeWorkflow`,
   counts open brackets on every surface. `kcc serve` and `kcc mcp stdio` wait for it

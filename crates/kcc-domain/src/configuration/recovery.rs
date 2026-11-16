@@ -14,6 +14,9 @@ pub enum Fate {
     NotApplied,
     /// Something was sent and the timer is off: the original error tells what happened.
     Settled,
+    /// A recovery timer the bracket did not arm was already running, so the bracket sent
+    /// nothing and left that timer to its owner.
+    TimerInUse,
 }
 
 /// A failed bracket, including whether the recovery timer may still be armed.
@@ -28,6 +31,8 @@ pub struct Failure<E> {
     sent: bool,
     /// Whether work completed successfully before cleanup failed.
     applied: bool,
+    /// Whether the bracket was refused because somebody else's recovery timer runs.
+    timer_in_use: bool,
 }
 
 impl<E> Failure<E> {
@@ -40,18 +45,7 @@ impl<E> Failure<E> {
             fate: Some(ArmedFate::Unknown),
             sent: true,
             applied: false,
-        }
-    }
-
-    /// Records a failure after the work was applied and recovery was resolved.
-    #[inline]
-    #[must_use]
-    pub(crate) const fn committed(source: E) -> Self {
-        Self {
-            source,
-            fate: None,
-            sent: true,
-            applied: true,
+            timer_in_use: false,
         }
     }
 
@@ -64,6 +58,7 @@ impl<E> Failure<E> {
             fate: Some(ArmedFate::Saved),
             sent: true,
             applied: true,
+            timer_in_use: false,
         }
     }
 
@@ -95,16 +90,18 @@ impl<E> Failure<E> {
     #[inline]
     #[must_use]
     pub const fn outcome(&self) -> Fate {
-        match (self.fate, self.sent) {
-            (Some(fate), _) => Fate::Armed(fate),
-            (None, false) => Fate::NotApplied,
-            (None, true) => Fate::Settled,
+        match (self.fate, self.sent, self.timer_in_use) {
+            (Some(fate), _, _) => Fate::Armed(fate),
+            (None, false, true) => Fate::TimerInUse,
+            (None, false, false) => Fate::NotApplied,
+            (None, true, _) => Fate::Settled,
         }
     }
 
     /// The message that states this failure's outcome, when the failure itself decides it:
     /// the armed fate's message; `management-not-applied` when the arm failed and the timer
-    /// is off. `None` when something was sent and recovery is off: the original error (or
+    /// is off; `management-timer-in-use` when somebody else's timer kept the bracket from
+    /// starting. `None` when something was sent and recovery is off: the original error (or
     /// the caller's own outcome) tells what happened.
     #[inline]
     #[must_use]
@@ -112,6 +109,7 @@ impl<E> Failure<E> {
         match self.outcome() {
             Fate::Armed(fate) => Some(fate.message_key()),
             Fate::NotApplied => Some(keys::MANAGEMENT_NOT_APPLIED),
+            Fate::TimerInUse => Some(keys::MANAGEMENT_TIMER_IN_USE),
             Fate::Settled => None,
         }
     }
@@ -133,14 +131,29 @@ pub const fn refused<E>(source: E) -> Failure<E> {
         fate: None,
         sent: false,
         applied: false,
+        timer_in_use: false,
+    }
+}
+
+/// Records a bracket refused because a recovery timer it did not arm already runs: nothing
+/// was sent, and that timer is left to its owner.
+#[inline]
+#[must_use]
+pub const fn timer_in_use<E>(source: E) -> Failure<E> {
+    Failure {
+        source,
+        fate: None,
+        sent: false,
+        applied: false,
+        timer_in_use: true,
     }
 }
 
 /// Records an arm that failed after its preflight, from the disarm sent after it: recovery
-/// may still be armed,
-/// with nothing sent after the arm, only when that disarm failed too.
+/// may still be armed, with nothing sent after the arm, only when that disarm failed too.
 ///
-/// The arm's error is kept; the cleanup error is dropped.
+/// `source` is the caller's account of the failure (the arm's error, or the audit
+/// writer's failure); the cleanup error is dropped.
 #[inline]
 #[must_use]
 pub fn arm_failed<D, E>(source: E, disarm: Result<D, E>) -> Failure<E> {
@@ -152,6 +165,7 @@ pub fn arm_failed<D, E>(source: E, disarm: Result<D, E>) -> Failure<E> {
         },
         sent: false,
         applied: false,
+        timer_in_use: false,
     }
 }
 
@@ -185,6 +199,7 @@ pub fn finish_applied<T, D, E>(
             fate: None,
             sent: true,
             applied: false,
+            timer_in_use: false,
         }),
         (Ok(_value), Err(source)) => Err(Failure {
             source,
@@ -195,6 +210,7 @@ pub fn finish_applied<T, D, E>(
             }),
             sent: true,
             applied,
+            timer_in_use: false,
         }),
         (Err(source), Err(_cleanup)) => Err(Failure::armed(source)),
     }

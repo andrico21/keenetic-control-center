@@ -131,6 +131,10 @@ pub struct FaultInjection {
     show_requires_post: BTreeSet<String>,
     /// Parser command whose connection is lost before or after application.
     disconnect_parse: Option<(String, bool)>,
+    /// `show version` probes answered after `components commit` before the reboot window.
+    components_commit_answers: u32,
+    /// What the restart after `components commit` does with the staged changes.
+    components_restart: components::Restart,
 }
 
 impl FaultInjection {
@@ -254,6 +258,29 @@ impl FaultInjection {
     #[must_use]
     pub const fn fail_safe_arm_noop(mut self, enabled: bool) -> Self {
         self.fail_safe_arm_noop = enabled;
+        self
+    }
+
+    /// Keeps answering after `components commit` until `probes` `show version` reads were
+    /// answered, as a real router does while it downloads and flashes, and starts the
+    /// reboot window at the next one.
+    #[inline]
+    #[must_use]
+    pub const fn components_commit_answers(mut self, probes: u32) -> Self {
+        self.components_commit_answers = probes;
+        self
+    }
+
+    /// Restarts after `components commit` without applying the staged component changes,
+    /// as after a failed flash.
+    #[inline]
+    #[must_use]
+    pub const fn components_commit_discards(mut self, enabled: bool) -> Self {
+        self.components_restart = if enabled {
+            components::Restart::Discards
+        } else {
+            components::Restart::Applies
+        };
         self
     }
 }

@@ -305,14 +305,19 @@ impl From<WorkflowError> for Failure {
                 return Self::text(Exit::Router, &error).headlined(keys::CLI_ERROR_NOT_APPLIED);
             }
             WorkflowError::Refused(refusal) => return refused(refusal),
+            WorkflowError::RecoveryTimerInUse => {
+                return Self::headline_only(Exit::Conflict, keys::MANAGEMENT_TIMER_IN_USE);
+            }
             WorkflowError::InvalidResponse
             | WorkflowError::UnsupportedFirmware
             | WorkflowError::UndecodableConfig
             | WorkflowError::UnexpectedBody
             | WorkflowError::SaveTimeout => Exit::Router,
-            WorkflowError::State(_) | WorkflowError::Backup(_) | WorkflowError::Audit(_) | _ => {
-                Exit::Generic
-            }
+            WorkflowError::State(_)
+            | WorkflowError::Backup(_)
+            | WorkflowError::Audit(_)
+            | WorkflowError::Unowned
+            | _ => Exit::Generic,
         };
         Self::text(exit, &error)
     }

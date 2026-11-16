@@ -8,6 +8,16 @@ use serde_json::{Value, json};
 /// Duration for which component commit makes the router unreachable.
 pub(crate) const REBOOT_WINDOW: Duration = Duration::from_secs(5);
 
+/// What the restart after `components commit` does with the staged changes.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+pub(crate) enum Restart {
+    /// Applies them, as a successful flash does.
+    #[default]
+    Applies,
+    /// Discards them, as a failed flash does.
+    Discards,
+}
+
 /// Mutable component installation and firmware state.
 #[derive(Debug)]
 pub(crate) struct Components {
@@ -19,6 +29,10 @@ pub(crate) struct Components {
     remove: BTreeSet<String>,
     /// End of the temporary-unreachable window.
     unavailable_until: Option<Duration>,
+    /// `show version` probes still answered before a committed reboot window starts.
+    answers_left: Option<u32>,
+    /// Whether the committed reboot discards the staged changes instead of applying them.
+    discard_staged: bool,
     /// Firmware title reported after commit.
     title: String,
     /// Firmware release reported after commit.
@@ -51,6 +65,8 @@ impl Components {
             install: BTreeSet::new(),
             remove: BTreeSet::new(),
             unavailable_until: None,
+            answers_left: None,
+            discard_staged: false,
             title,
             release,
         }
@@ -68,24 +84,46 @@ impl Components {
         let _: bool = self.remove.insert(name.to_owned());
     }
 
-    /// Starts a component-commit reboot window.
-    pub(crate) const fn commit(&mut self, now: Duration) {
-        self.unavailable_until = now.checked_add(REBOOT_WINDOW);
+    /// Starts a component-commit reboot window now, or after `answers` more `show version`
+    /// probes; `restart` says what the reboot does with the staged changes.
+    pub(crate) fn commit(&mut self, now: Duration, (answers, restart): (u32, Restart)) {
+        self.discard_staged = restart == Restart::Discards;
+        if answers == 0 {
+            self.unavailable_until = now.checked_add(REBOOT_WINDOW);
+        } else {
+            self.answers_left = Some(answers);
+        }
     }
 
-    /// Returns whether requests must fail at HTTP level, applying staged changes at expiry.
-    pub(crate) fn unavailable(&mut self, now: Duration) -> bool {
+    /// Returns whether requests must fail at HTTP level, applying staged changes at expiry;
+    /// `version_probe` tells whether the request reads `show version`.
+    pub(crate) fn unavailable(&mut self, now: Duration, version_probe: bool) -> bool {
+        if let Some(left) = self.answers_left
+            && version_probe
+        {
+            if let Some(remaining) = left.checked_sub(1) {
+                self.answers_left = Some(remaining);
+                return false;
+            }
+            self.answers_left = None;
+            self.unavailable_until = now.checked_add(REBOOT_WINDOW);
+        }
         let Some(deadline) = self.unavailable_until else {
             return false;
         };
         if now < deadline {
             return true;
         }
+        self.unavailable_until = None;
+        if mem::take(&mut self.discard_staged) {
+            self.install.clear();
+            self.remove.clear();
+            return false;
+        }
         for name in mem::take(&mut self.remove) {
             let _: bool = self.installed.remove(&name);
         }
         self.installed.append(&mut self.install);
-        self.unavailable_until = None;
         self.title = bump_title(&self.title);
         self.release = bump_release(&self.release);
         false

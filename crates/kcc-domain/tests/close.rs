@@ -23,74 +23,88 @@ use kcc_testkit::FaultInjection;
 use crate::support::{Fixture, PROFILES, TestResult};
 
 /// Commands a step sends, in order, and its `(saved, restarting)` report, or the
-/// `(applied, armed)` failure when the router refuses `save`.
+/// `(applied, armed)` failure when the router refuses the line matching the row's
+/// `(substring, times)` fault.
 type Row = (
     Close,
     SafetyMode,
+    Option<&'static str>,
     &'static [&'static str],
     Result<(bool, bool), (bool, bool)>,
 );
 
-const ROWS: [Row; 7] = [
+const ROWS: [Row; 8] = [
     (
         Close::KeepUnsaved,
         SafetyMode::Router,
+        None,
         &["no system configuration fail-safe timer"],
         Ok((false, false)),
     ),
     (
         Close::KeepUnsaved,
         SafetyMode::ScheduledReboot,
+        None,
         &["no system reboot"],
         Ok((false, false)),
     ),
     (
         Close::Save,
         SafetyMode::Router,
-        &[
-            "system configuration fail-safe commit",
-            "system configuration save",
-        ],
+        None,
+        &["system configuration fail-safe commit"],
         Ok((true, false)),
     ),
     (
         Close::Save,
         SafetyMode::ScheduledReboot,
+        None,
         &["system configuration save", "no system reboot"],
         Ok((true, false)),
     ),
     (
         Close::Rollback,
         SafetyMode::Router,
+        None,
         &["system configuration fail-safe rollback"],
         Ok((false, false)),
     ),
     (
         Close::Rollback,
         SafetyMode::ScheduledReboot,
+        None,
         &["system reboot"],
         Ok((false, true)),
     ),
+    // A refused commit leaves the timer armed with nothing saved.
     (
         Close::Save,
         SafetyMode::Router,
-        &[
-            "system configuration fail-safe commit",
-            "system configuration save",
-        ],
-        Err((true, false)),
+        Some("fail-safe commit"),
+        &["system configuration fail-safe commit"],
+        Err((false, true)),
+    ),
+    // A refused keep-unsaved disarm leaves the applied change under the armed timer.
+    (
+        Close::KeepUnsaved,
+        SafetyMode::Router,
+        Some("no system configuration fail-safe timer"),
+        &["no system configuration fail-safe timer"],
+        Err((true, true)),
     ),
 ];
 
+/// C-15: a router-mode save sends the fail-safe commit alone.
+///
+/// The commit already waits for the startup configuration to be saved; no second save
+/// follows it.
 #[tokio::test]
 async fn close_sends_the_step_of_the_armed_mechanism() -> TestResult {
     for firmware in PROFILES {
-        for (step, mode, sent, expected) in ROWS {
-            let faults = if expected.is_err() {
-                FaultInjection::default().fail_parse_matching("system configuration save", 1)
-            } else {
-                FaultInjection::default()
-            };
+        for (step, mode, refused, sent, expected) in ROWS {
+            let faults = refused.map_or_else(FaultInjection::default, |line| {
+                FaultInjection::default().fail_parse_matching(line, 1)
+            });
             let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
             let mut changes = fixture.changes().await?;
             drop(

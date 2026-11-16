@@ -235,9 +235,11 @@ mod tests {
         lab.stop().await
     }
 
-    /// A native commit followed by a refused save reports live but unsaved state.
+    /// C-15: a router-mode commit sends the native commit alone, which saves.
+    ///
+    /// A router that would refuse a second save finishes the migration as committed.
     #[tokio::test]
-    async fn native_commit_save_refusal_is_not_conflict() -> TestResult {
+    async fn native_commit_sends_no_second_save() -> TestResult {
         let mut scenario = migration::Fixture::default();
         scenario.mode = Some("router".to_owned());
         let target = FakeRouter::builder(Profile::default())
@@ -262,11 +264,7 @@ mod tests {
             )
             .await?;
 
-        assert_eq!(
-            reply.error(),
-            Some("management_applied_not_saved"),
-            "{reply:?}"
-        );
+        assert_eq!(reply.error(), None, "{reply:?}");
         let retained = lab
             .call(
                 "kcc_migration_report",
@@ -276,7 +274,7 @@ mod tests {
             .await?;
         assert_eq!(
             retained.value()?.pointer("/apply/finished"),
-            Some(&json!(false))
+            Some(&json!(true))
         );
         lab.stop().await
     }
@@ -344,7 +342,7 @@ mod tests {
         lab.stop().await
     }
 
-    /// Drift leaves the migration open so the caller can still roll it back.
+    /// Drift leaves the migration open, its timer reported armed, for a rollback.
     #[tokio::test]
     async fn drifted_commit_remains_retryable_by_rollback() -> TestResult {
         let mut scenario = migration::Fixture::default();
@@ -376,7 +374,11 @@ mod tests {
                 false,
             )
             .await?;
-        assert_eq!(drifted.error(), Some("conflict"), "{drifted:?}");
+        assert_eq!(
+            drifted.error(),
+            Some("management_outcome_unknown_fail_safe_armed"),
+            "{drifted:?}"
+        );
         let retained = lab
             .call(
                 "kcc_migration_report",

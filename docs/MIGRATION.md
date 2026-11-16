@@ -261,8 +261,9 @@ rollback` or a rollback button) and a plan that installs components also need
 `Destructive`, checked before any router request.
 When a verification failure causes the router to roll back, apply prints
 "Migration verification failed. kcc rolled back automatically and restored the startup configuration." and exits 6.
-In router mode, migration commit, preset save and `kcc config failsafe commit` use native
-commit and then save; in other modes they save and cancel the scheduled reboot.
+In router mode, migration commit, preset save and `kcc config failsafe commit` use the
+native commit, which saves the startup configuration; in other modes they save and cancel
+the scheduled reboot.
 `kcc config failsafe commit` controls a standalone timer, so in those modes it requires
 `Destructive` before saving. An explicit rollback uses the native fail-safe rollback
 in router mode and reboots the router at once in other modes, so it restarts with its
@@ -271,7 +272,9 @@ If disarming fails, the command reports that recovery remains armed; a completed
 is reported separately.
 
 A refused commit, save or explicit rollback, or a lost reply before confirmed disarm,
-also leaves the finish incomplete. CLI finishes exit 6 and all front ends audit
+also leaves the finish incomplete. So does a commit or keep that finds the target changed
+since verification, or cannot detect the target: it sends nothing, and the timer stays
+armed until you roll back or it runs out. CLI finishes exit 6 and all front ends audit
 outcome `failed` with `fail_safe_armed: true`.
 If the router accepts an explicit rollback and then stays unreachable during the bounded
 restore check, scheduled-reboot mode reports that the router is restarting with its saved
@@ -287,9 +290,6 @@ none offers to finish it again.
 If the role loses `Save` after apply, finish returns
 `management_not_committed_fail_safe_armed`: commit was not sent, recovery remains
 armed, and the migration stays available for retry after the role is fixed.
-If native commit succeeds but the following startup save is refused, MCP instead returns
-`management_applied_not_saved`: the migration is live, the entry remains retryable, and
-the operator should retry commit to save it.
 When a scheduled-mode save succeeds but disarm fails, the saved configuration already
 contains the changes. A subsequent reboot or scheduled rollback loads that saved
 configuration; it does not necessarily undo the migration. Keep the pre-run backup

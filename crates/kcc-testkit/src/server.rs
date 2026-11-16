@@ -591,9 +591,10 @@ impl Shared {
         }
     }
 
-    /// Returns whether component commit currently makes the router unreachable.
-    fn components_unavailable(&self) -> bool {
-        lock(&self.components).unavailable(self.clock.now())
+    /// Returns whether component commit currently makes the router unreachable;
+    /// `version_probe` tells whether the request reads `show version`.
+    fn components_unavailable(&self, version_probe: bool) -> bool {
+        lock(&self.components).unavailable(self.clock.now(), version_probe)
     }
 
     /// Simulates a reboot by loading startup and dropping all sessions.
@@ -647,7 +648,13 @@ impl Shared {
             }
             ["components", "commit"] => {
                 self.reboot();
-                lock(&self.components).commit(self.clock.now());
+                lock(&self.components).commit(
+                    self.clock.now(),
+                    (
+                        self.faults.components_commit_answers,
+                        self.faults.components_restart,
+                    ),
+                );
                 tree::status("message", "components committed; rebooting.")
             }
             ["interface", "Bridge0", "down"] if self.faults.refuse_management_bridge_down => {
@@ -1194,7 +1201,7 @@ async fn inject_faults(
     if !lock(&shared.migration).available(host, shared.clock.now()) {
         return empty(StatusCode::SERVICE_UNAVAILABLE);
     }
-    if shared.components_unavailable() {
+    if shared.components_unavailable(request.uri().path() == "/rci/show/version") {
         return empty(StatusCode::SERVICE_UNAVAILABLE);
     }
     if !shared.faults.latency.is_zero() {

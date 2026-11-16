@@ -44,17 +44,18 @@ pub struct Closed {
 /// the rollback of a failed run, and [`SafetyNet::CONTROL_PERMISSION`] for a rollback the
 /// user chose. A save also needs [`Permission::Save`] for its commit and save.
 ///
-/// `KeepUnsaved` disarms. `Save` commits the native fail-safe and then saves in router mode,
-/// or saves and then cancels the scheduled reboot. `Rollback` sends the native fail-safe
-/// rollback in router mode, or reboots at once so the router starts from its saved
-/// configuration.
+/// `KeepUnsaved` disarms. `Save` commits the native fail-safe in router mode (the commit
+/// saves the startup configuration and returns once `unsaved` cleared), or saves and then
+/// cancels the scheduled reboot. `Rollback` sends the native fail-safe rollback in router
+/// mode, or reboots at once so the router starts from its saved configuration.
 ///
 /// # Errors
 ///
 /// A failure that is still armed and not applied when the step's first command fails; armed
 /// with [`ArmedFate::Saved`](super::bracket::ArmedFate::Saved) when the configuration was
-/// saved but the scheduled reboot could not be cancelled, or when keep-unsaved could not disarm; applied and not armed when a router-mode
-/// commit succeeded but the save after it failed.
+/// saved but the scheduled reboot could not be cancelled; armed with
+/// [`ArmedFate::Applied`](super::bracket::ArmedFate::Applied) and applied when
+/// keep-unsaved could not disarm.
 // NOT cancel-safe: cancelled after a command is sent, the router may have saved, disarmed,
 // rolled back or started rebooting while the caller still treats recovery as armed.
 pub async fn close(
@@ -80,7 +81,6 @@ pub async fn close(
         }
         (Close::Save, SafetyMode::Router) => {
             changes.commit().await.map_err(Failure::armed)?;
-            changes.save().await.map_err(Failure::committed)?;
             Ok(saved)
         }
         (Close::Save, SafetyMode::ScheduledReboot) => {

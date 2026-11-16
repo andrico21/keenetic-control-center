@@ -7,7 +7,7 @@
 //! change, disarmed afterwards, and reported as still armed when the disarm failed.
 
 use kcc_app::{
-    audit::{Actor, ActorKind, AuditError},
+    audit::{Actor, ActorKind},
     permissions::Permission,
     workflow::{
         BatchChangeRequest, ChangeRequest, ChangeSet, CliChangeRequest, CliCommand, WorkflowError,
@@ -245,11 +245,15 @@ impl Refused {
     /// items, shown when the recovery timer may still be armed.
     fn bracket(failure: recovery::Failure<WorkflowError>, router_said: Vec<String>) -> Self {
         let armed = failure.is_armed();
-        let said = failure
-            .message_key()
-            .map_or(Said::Error, |key| Said::Bracket { key, armed });
+        let message = failure.message_key();
+        let error = failure.into_source();
+        let said = match (&error, message) {
+            (WorkflowError::Unowned, _) => Said::Unowned,
+            (_, Some(key)) => Said::Bracket { key, armed },
+            (_, None) => Said::Error,
+        };
         Self {
-            error: Box::new(failure.into_source()),
+            error: Box::new(error),
             said,
             router_said: if armed { router_said } else { Vec::new() },
         }
@@ -422,10 +426,7 @@ where
         };
     if !brackets::hold() {
         tracing::warn!("change refused: its request has no server owner");
-        return Err(Refused::said(
-            WorkflowError::Audit(AuditError::WriterUnavailable),
-            Said::Unowned,
-        ));
+        return Err(Refused::said(WorkflowError::Unowned, Said::Unowned));
     }
     let Some(safety) = mode else {
         let applied = work(&mut changes, &context).await.map_err(Refused::plain)?;

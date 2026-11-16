@@ -185,6 +185,14 @@ impl Fixture {
         .await
     }
 
+    /// Starts KN-1811 on `firmware` with a deterministic clock and selected faults.
+    pub(crate) async fn spawn_clocked_with_faults(
+        firmware: Firmware,
+        faults: FaultInjection,
+    ) -> TestResult<Self> {
+        Self::spawn_with(firmware, Some(Arc::new(MockClock::new())), faults).await
+    }
+
     /// Starts the fixture with an optional injected fake-router clock.
     async fn spawn_with(
         firmware: Firmware,

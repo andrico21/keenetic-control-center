@@ -24,7 +24,9 @@ your role: pages and buttons you have no permission for are hidden or answer
   name kcc uses) ask first on every
   page and run under the router's fail-safe timer, which the change's own permission
   authorizes; nothing is sent before you confirm. Rolling the timer back yourself needs
-  the Destructive permission. Deletions ask for confirmation; the most dangerous ones
+  the Destructive permission. While a fail-safe timer you (or a migration) armed is
+  running, a risky change is refused with nothing sent, so that it neither replaces
+  nor stops that timer: commit or disarm it first. Deletions ask for confirmation; the most dangerous ones
   need the router or object name typed, and a destructive change from any page asks for
   the router name unless the page already asked for a name.
 - **Tables** sort by a column header, filter with the search field and page at the
@@ -203,7 +205,9 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   answers that the router did not answer and sends nothing.
 - **Services**: turn router services on or off.
 - **Components**: installed components; check for updates, queue installs or
-  removals, commit (a background job that may reboot the router).
+  removals, commit (a background job that reboots the router). The job completes only
+  after the router went down and came back with every queued change in place, and fails
+  when the router comes back without them or does not restart within 15 minutes.
 - **Storage**: attached media; eject, check, format.
 - **Schedules**: create schedules and their actions.
 - **KeenDNS**: book or drop a name, set the access level, add proxy entries. The

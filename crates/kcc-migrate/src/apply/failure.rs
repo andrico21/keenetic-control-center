@@ -63,7 +63,8 @@ pub enum ApplyError {
     /// The rollback request was accepted, but the restarting router did not return in time.
     #[error("migration rollback sent; target restarting")]
     RollbackRestarting,
-    /// The live configuration was committed, but saving startup configuration failed.
+    /// The live configuration was committed, but saving startup configuration failed. A
+    /// finish no longer reports it (the commit itself saves); stored records still parse.
     #[error("migration committed but was not saved")]
     CommittedSaveFailed,
     /// A router line failed under the selected stop policy.

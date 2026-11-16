@@ -536,6 +536,13 @@ pub enum WorkflowError {
     /// Explicit save or commit did not settle before the deadline.
     #[error("router save timed out")]
     SaveTimeout,
+    /// The router's recovery timer is already armed by somebody else; a safety bracket
+    /// leaves it to its owner and sends nothing.
+    #[error("the router's recovery timer is already armed")]
+    RecoveryTimerInUse,
+    /// The request that would make the change no longer has an owner; nothing was sent.
+    #[error("the change has no owner any more")]
+    Unowned,
 }
 
 /// Shared services and backup-window state for all change sets.

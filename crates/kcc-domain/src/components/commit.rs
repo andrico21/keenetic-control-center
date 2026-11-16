@@ -1,10 +1,15 @@
 //! Rebooting component commit job execution.
+//!
+//! A router keeps answering for a while after `components commit`, while it downloads and
+//! flashes, and only then restarts. The job therefore completes only after one failed
+//! probe (the router went down) and a successful one after it, and only when the
+//! restarted router has every staged installation and none of the staged removals.
 
 use alloc::sync::Arc;
 use core::time::Duration;
 
 use kcc_app::{
-    jobs::{JobProgress, JobRunner},
+    jobs::{JobContext, JobProgress, JobRunner},
     permissions::{Permission, Role},
     registry::{RouterRegistry, authorize},
     workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli},
@@ -12,15 +17,18 @@ use kcc_app::{
 use kcc_catalog::{Catalog, HttpMethod};
 use kcc_rci::capabilities::RouterInfo;
 use serde_json::{Value, json};
-use tokio::time::sleep;
+use tokio::time::{sleep, timeout};
 
-use super::{CommitError, CommitProgress};
-use crate::DomainError;
+use super::{CommitError, CommitProgress, PendingComponents};
+use crate::{DomainError, read_show};
 
-/// Maximum number of post-reboot reachability probes.
-const REACHABILITY_ATTEMPTS: u8 = 40;
-/// Delay between reachability probes; cancellation remains observable between probes.
-const REACHABILITY_INTERVAL: Duration = Duration::from_millis(250);
+/// Delay between restart probes; cancellation remains observable between probes.
+const PROBE_INTERVAL: Duration = Duration::from_secs(1);
+/// The longest the job waits for the router to go down and come back: downloading,
+/// flashing and restarting together.
+const RESTART_LIMIT: Duration = Duration::from_mins(15);
+/// The progress reported once a probe failed: the router went down to restart.
+const DOWN_PROGRESS: u8 = 60;
 
 /// Starts a confirmed destructive component commit job.
 // NOT cancel-safe: the submitted commit may reboot the router before the job is recorded.
@@ -48,6 +56,8 @@ pub(super) async fn start(
         Permission::Destructive,
         json!({"operation":"components commit"}),
     );
+    let staged: PendingComponents =
+        read_show(&changes.client(), &["show", "components", "pending"]).await?;
     let before = registry.poll_info(&router_name).await?;
     let before_progress = progress("committing", &before, None);
     let rebooting_progress = progress("rebooting", &before, None);
@@ -68,32 +78,64 @@ pub(super) async fn start(
             );
             context.progress(30);
             context.structured_progress(JobProgress::Structured(rebooting_progress));
-            for attempt in 0..REACHABILITY_ATTEMPTS {
-                if context.cancellation().is_cancelled() {
-                    return Err("component commit cancelled".to_owned());
-                }
-                match registry.poll_info(&job_router).await {
-                    Ok(after) => {
-                        drop(Catalog::for_router(&after).map_err(|error| error.to_string())?);
-                        context.progress(100);
-                        context.structured_progress(JobProgress::Structured(progress(
-                            "completed",
-                            &before,
-                            Some(&after),
-                        )));
-                        return Ok(());
-                    }
-                    Err(_error) if attempt.saturating_add(1) < REACHABILITY_ATTEMPTS => {
-                        sleep(REACHABILITY_INTERVAL).await;
-                    }
-                    Err(error) => return Err(error.to_string()),
-                }
+            let after = timeout(RESTART_LIMIT, restarted(&registry, &job_router, &context))
+                .await
+                .map_err(|_elapsed| "router did not restart after component commit".to_owned())??;
+            drop(Catalog::for_router(&after).map_err(|error| error.to_string())?);
+            let removed = staged
+                .remove
+                .iter()
+                .all(|name| !after.components.contains(name));
+            if !removed
+                || !staged
+                    .install
+                    .iter()
+                    .all(|name| after.components.contains(name))
+            {
+                return Err("the restarted router lacks the staged component changes".to_owned());
             }
-            Err("router did not return after component commit".to_owned())
+            context.progress(100);
+            context.structured_progress(JobProgress::Structured(progress(
+                "completed",
+                &before,
+                Some(&after),
+            )));
+            Ok(())
         },
     )
     .await
     .map_err(CommitError::Job)
+}
+
+/// Probes the router until one probe failed (it went down) and a later one succeeded,
+/// and returns what the restarted router reports.
+///
+/// # Errors
+///
+/// The cancellation of the job.
+// cancel-safe: it only reads the router; dropped, it stops probing.
+async fn restarted(
+    registry: &RouterRegistry,
+    router: &str,
+    context: &JobContext,
+) -> Result<RouterInfo, String> {
+    let mut went_down = false;
+    loop {
+        if context.cancellation().is_cancelled() {
+            return Err("component commit cancelled".to_owned());
+        }
+        match registry.poll_info(router).await {
+            Ok(after) if went_down => return Ok(after),
+            Ok(_still_up) => {}
+            Err(_down) => {
+                if !went_down {
+                    went_down = true;
+                    context.progress(DOWN_PROGRESS);
+                }
+            }
+        }
+        sleep(PROBE_INTERVAL).await;
+    }
 }
 
 /// Serializes typed commit state into a job progress payload.

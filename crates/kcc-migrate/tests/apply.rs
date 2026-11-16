@@ -40,7 +40,10 @@ mod tests {
     use core::error::Error;
 
     use kcc_migrate::apply::{Applier, ApplyError};
-    use kcc_testkit::{FaultInjection, model::Profile};
+    use kcc_testkit::{
+        FaultInjection,
+        model::{Firmware, Model, Profile},
+    };
     use secrecy::SecretString;
 
     use super::support::Fixture;
@@ -100,26 +103,52 @@ mod tests {
         Ok(())
     }
 
-    /// Explicit commit refuses a same-agent change made after verification.
+    /// G-05: a finish refused by a change after verification reports the timer armed.
+    ///
+    /// A commit or keep-unsaved that finds the target changed sends nothing: the router
+    /// keeps counting its timer down, nothing is saved, and a rollback still ends the run.
     #[tokio::test]
-    async fn commit_refuses_post_verification_drift() -> Result<(), Box<dyn Error>> {
-        let fixture = Fixture::spawn(Profile::default(), FaultInjection::default()).await?;
-        let (_id, done) = Applier::start(&fixture.runner, fixture.request(1).await?).await?;
-        let mut applier = done.await??;
-        assert!(applier.report().verified);
-        drop(
-            fixture
-                .registry
-                .client("target")
-                .await?
-                .parse("interface Bridge8 description external")
-                .await?,
-        );
-        assert_eq!(applier.commit().await, Err(ApplyError::Drift));
-        assert!(!fixture.handle.startup_config_text().contains("external"));
-        applier.rollback().await?;
-        drop(applier);
-        fixture.handle.shutdown().await?;
+    async fn a_drifted_finish_reports_the_timer_armed() -> Result<(), Box<dyn Error>> {
+        for firmware in [Firmware::V4_3, Firmware::V5_1] {
+            for keep in [false, true] {
+                let label = format!("{firmware} keep {keep}");
+                let profile = Profile::new(Model::Kn1811, firmware)?;
+                let fixture = Fixture::spawn(profile, FaultInjection::default()).await?;
+                let mut request = fixture.request(1).await?;
+                request.options.ack_documentation_tier = true;
+                let (_id, done) = Applier::start(&fixture.runner, request).await?;
+                let mut applier = done.await??;
+                assert!(applier.report().verified, "{label}");
+                drop(
+                    fixture
+                        .registry
+                        .client("target")
+                        .await?
+                        .parse("interface Bridge8 description external")
+                        .await?,
+                );
+
+                let finished = if keep {
+                    applier.keep_unsaved().await
+                } else {
+                    applier.commit().await
+                };
+
+                assert_eq!(finished, Err(ApplyError::FinishFailed), "{label}");
+                assert!(
+                    finished.is_err_and(ApplyError::recovery_armed),
+                    "{label}: reported armed"
+                );
+                assert!(fixture.handle.recovery_armed(), "{label}: router armed");
+                assert!(
+                    !fixture.handle.startup_config_text().contains("external"),
+                    "{label}: saved"
+                );
+                applier.rollback().await?;
+                drop(applier);
+                fixture.handle.shutdown().await?;
+            }
+        }
         Ok(())
     }
 

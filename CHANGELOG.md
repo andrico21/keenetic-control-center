@@ -114,6 +114,20 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **A management change is refused while somebody else's recovery timer runs.** When the
+  router's fail-safe timer is already active (armed with `kcc config failsafe arm`, the
+  Web UI or a migration), a management change on any surface is refused before anything
+  is sent, with the message `management-timer-in-use` (CLI exit 5, MCP `conflict`, Web
+  audit outcome `conflict`). Before, the change's own 300-second bracket replaced that
+  timer and then disarmed it, so the operator's safety net was silently gone. A request
+  the Web no longer holds is now reported as unowned instead of as a dead audit writer.
+- **A component commit job completes only after the router restarted.** It waits (at
+  most 15 minutes) until the router went down and came back, reports progress 60 once it
+  went down, and completes only when the restarted router has every queued installation
+  and none of the queued removals; otherwise it fails. Before, it completed on the first
+  answer after the commit, while the router was still flashing, and reported the old
+  components.
+
 - **The conflict check refuses a change by any other client.** A write, save or commit
   is now refused when the router's configuration checksum differs from the state kcc last
   observed after its own writes, whoever changed it. It used to require a different
@@ -375,6 +389,18 @@ The first release, `0.1.0`, is in preparation and contains:
   (exit 2) in every command.
 
 ### Fixed
+
+- **Finish outcomes tell when the recovery timer is still armed.** A migration or preset
+  commit or keep-unsaved that finds the target changed since verification, or cannot
+  detect the target, now fails as `FinishFailed` (timer still armed; MCP
+  `management_outcome_unknown_fail_safe_armed`) instead of `Drift` or `Unreachable`
+  with the timer reported off, and so does a rollback that cannot detect the target.
+- **A router-mode save sends the fail-safe commit alone.** The commit already saves the
+  startup configuration; the second `system configuration save` after it is gone, so a
+  refused second save can no longer report a saved configuration as "committed but not
+  saved".
+- **An audit writer failure after a failed recovery arm is reported** as the bracket's
+  failure instead of being dropped.
 
 - **A recovery timer's disarm, keep-alive and rollback are always sent.** They no longer
   run the conflict check and the automatic backup of a configuration change (they still

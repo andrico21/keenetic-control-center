@@ -46,3 +46,5 @@ management-not-sent-armed = Es wurde nichts geändert, aber der Router zählt m�
 management-not-applied = Es wurde nichts übernommen, und der Wiederherstellungstimer ist aus.
 
 audit-entry-pending = Erledigt. Das Audit-Protokoll ist belegt; der Eintrag zu dieser Änderung wird geschrieben, sobald es frei ist.
+
+management-timer-in-use = Es wurde nichts gesendet: Der Wiederherstellungstimer des Routers läuft bereits, von jemand anderem gestellt. kcc überlässt diesen Timer seinem Besitzer. Bestätigen oder deaktivieren Sie ihn zuerst und versuchen Sie es dann erneut.

@@ -25,8 +25,9 @@ pub(crate) fn map_recovery(error: recovery::Failure<McpFailure>) -> McpFailure {
         Fate::NotApplied => McpFailure::NotApplied {
             cause: Box::new(error.into_source()),
         },
-        // A fate this version does not know keeps the original error.
-        Fate::Settled | _ => error.into_source(),
+        // A fate this version does not know keeps the original error; a timer somebody
+        // else armed is the source's own conflict.
+        Fate::Settled | Fate::TimerInUse | _ => error.into_source(),
     }
 }
 
@@ -55,9 +56,9 @@ pub(crate) fn map_workflow(error: WorkflowError) -> McpFailure {
         | WorkflowError::SecretCommand(_)
         | WorkflowError::UnsupportedFirmware => McpFailure::ValidationFailed,
         WorkflowError::VerificationFailed { field } => McpFailure::VerificationFailed { field },
-        WorkflowError::Conflict { agent: _ } | WorkflowError::RouterBusy { actor: _ } => {
-            McpFailure::Conflict
-        }
+        WorkflowError::Conflict { agent: _ }
+        | WorkflowError::RouterBusy { actor: _ }
+        | WorkflowError::RecoveryTimerInUse => McpFailure::Conflict,
         WorkflowError::Rci(rci) => map_rci(&rci),
         WorkflowError::Refused(refusal) => map_refusal(refusal),
         // The workflow's enum is not exhaustive outside its crate: an error this version
@@ -70,6 +71,7 @@ pub(crate) fn map_workflow(error: WorkflowError) -> McpFailure {
         | WorkflowError::UndecodableConfig
         | WorkflowError::UnexpectedBody
         | WorkflowError::SaveTimeout
+        | WorkflowError::Unowned
         | _ => McpFailure::Internal,
     }
 }

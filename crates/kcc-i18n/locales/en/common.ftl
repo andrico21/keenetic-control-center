@@ -46,3 +46,5 @@ management-not-sent-armed = Nothing was changed, but the router may still be cou
 management-not-applied = Nothing was applied, and the recovery timer is off.
 
 audit-entry-pending = Done. The audit log is busy; this change's entry will be written as soon as it is free.
+
+management-timer-in-use = Nothing was sent: the router's recovery timer is already running, armed by someone else. kcc leaves that timer to its owner. Commit or disarm it first, then try again.

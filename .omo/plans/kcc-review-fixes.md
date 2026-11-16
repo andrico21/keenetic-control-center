@@ -823,7 +823,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app,domain): checksum conflict check and preflight-free disarm
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 32. Bracket and close outcomes are reported truthfully (M28-M31)
+- [x] 32. Bracket and close outcomes are reported truthfully (M28-M31)
   What to do / Must NOT do: `guarded` refuses (does not replace) when a recovery timer is already armed by the operator (C-03), reporting it; refusals carry the right error and audit failures are not dropped (C-21); `close(Save)` in router mode does not send a second save and reports correctly (C-15); fix the `close` doc (C-16); finish failures report 'armed' when the timer is armed (G-05); the component commit job completes only after the router is back (C-11). Tests per finding. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `C-03` (medium; critic confirmed) `guarded` replaces and then cancels a recovery timer the operator armed earlier. Evidence: `crates/kcc-domain/src/configuration/bracket.rs:112-137`, `configuration.rs:103-121`. Fix: When the baseline shows `fail-safe.active == true`, either refuse the bracket or run the work without arming or disarming and leave the existing timer to its owner.
   - `C-21` (low; critic confirmed) The bracket reports refusals with the wrong error and drops an audit failure. Evidence: `crates/kcc-domain/src/configuration/bracket.rs:109-110`. Fix: Add a dedicated "unowned" variant, and fold the settle error into the arm failure.

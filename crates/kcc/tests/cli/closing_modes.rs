@@ -79,11 +79,8 @@ const ROWS: [Row; 8] = [
         "router",
         Path::Config,
         "commit",
-        &[
-            "system configuration fail-safe commit",
-            "system configuration save",
-        ],
-        &["system reboot"],
+        &["system configuration fail-safe commit"],
+        &["system reboot", "system configuration save"],
     ),
     (
         "extender",
@@ -95,7 +92,8 @@ const ROWS: [Row; 8] = [
 ];
 
 /// Rollback reboots in scheduled-reboot mode and uses the native rollback in router mode;
-/// a router-mode commit also saves; keep-unsaved cancels the scheduled reboot.
+/// a router-mode commit sends the native commit alone (it saves); keep-unsaved cancels
+/// the scheduled reboot.
 // NOT cancel-safe: arms, changes and closes each fixture router.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn closing_steps_send_the_mode_command() -> TestResult {

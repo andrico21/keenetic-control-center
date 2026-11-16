@@ -4,10 +4,15 @@
 //! these invariants:
 //!
 //! - **Nothing is armed for a refused bracket.** A dead audit writer and a request the
-//!   caller can no longer hold (`hold` returns false) are refused before anything is sent
-//!   to the router. The arm's write preflight ([`ChangeSet::prepare`]: permission, conflict
-//!   check, backup) runs before the arm, so its refusal sends no change and reads as
-//!   nothing armed.
+//!   caller can no longer hold (`hold` returns false, [`WorkflowError::Unowned`]) are
+//!   refused before anything is sent to the router. The arm's write preflight
+//!   ([`ChangeSet::prepare`]: permission, conflict check, backup) runs before the arm, so
+//!   its refusal sends no change and reads as nothing armed.
+//! - **A timer the bracket did not arm stays with its owner.** When the change set's
+//!   baseline shows the router's fail-safe timer already active (armed by an operator or
+//!   another run), the bracket is refused with [`WorkflowError::RecoveryTimerInUse`] before
+//!   anything is sent: it neither replaces that timer with its own nor disarms it
+//!   ([`recovery::Fate::TimerInUse`]).
 //! - **Every arm has an owner.** Once the arm is sent, the bracket returns only after a
 //!   disarm was sent: after a failed arm, and after the work, whatever the work returned.
 //!   A failure whose disarm was refused reports the timer as armed. Only a dropped future
@@ -34,15 +39,16 @@
 //!   holding the audit append lock cannot delay the disarm. After the disarm the bracket
 //!   waits at most [`BRACKET_AUDIT_WAIT`] for its receipts; entries still queued then are
 //!   reported as pending and written later, in order. A writer that failed meanwhile is
-//!   the bracket's failure (the timer's fate is still decided by the disarm), and a
-//!   writer already dead when the work would start refuses the work.
+//!   the bracket's failure, after a failed arm too (the timer's fate is still decided by
+//!   the disarm), and a writer already dead when the work would start refuses the work.
 
 use kcc_app::{
-    audit::{AuditError, receipt::BRACKET_AUDIT_WAIT},
+    audit::receipt::BRACKET_AUDIT_WAIT,
     permissions::Permission,
     workflow::{ChangeSet, WorkflowError},
 };
 use kcc_i18n::{bundle::MessageKey, keys};
+use serde_json::Value;
 
 use super::{
     MANAGEMENT_SECONDS, SafetyMode, SafetyNet,
@@ -90,8 +96,9 @@ impl ArmedFate {
 /// # Errors
 ///
 /// A failure whose [`Failure::fate`] says whether the timer may still be armed: refused
-/// before the arm (dead audit writer, request no longer held, the arm's write preflight)
-/// with no change sent; the arm's error; or the work's error, the disarm's error after
+/// before the arm (dead audit writer, a recovery timer somebody else armed, request no
+/// longer held, the arm's write preflight) with no change sent; the arm's error, or the
+/// audit writer's failure after it; or the work's error, the disarm's error after
 /// successful work, or the audit writer's failure before it wrote the bracket's receipts.
 // NOT cancel-safe: dropped after the arm is sent, the recovery timer stays armed with nobody
 // to disarm or report it; callers keep the future alive until it returns.
@@ -111,8 +118,13 @@ where
 {
     let refused = |error: WorkflowError| recovery::refused(E::from(error));
     changes.audit_alive().map_err(refused)?;
+    if changes.baseline().fail_safe.get("active") == Some(&Value::Bool(true)) {
+        return Err(recovery::timer_in_use(E::from(
+            WorkflowError::RecoveryTimerInUse,
+        )));
+    }
     if !hold() {
-        return Err(refused(WorkflowError::Audit(AuditError::WriterUnavailable)));
+        return Err(refused(WorkflowError::Unowned));
     }
     changes.prepare(permission).await.map_err(refused)?;
     let _open = changes.enter_bracket();
@@ -120,9 +132,12 @@ where
     if let Err(error) = SafetyNet::arm(changes, router, mode, MANAGEMENT_SECONDS, permission).await
     {
         let disarm = SafetyNet::disarm(changes, router, mode, permission).await;
-        drop(changes.settle_audit(BRACKET_AUDIT_WAIT).await);
+        let source = match changes.settle_audit(BRACKET_AUDIT_WAIT).await {
+            Ok(()) => error,
+            Err(audit) => audit,
+        };
         return Err(recovery::arm_failed(
-            E::from(error),
+            E::from(source),
             disarm.map_err(E::from),
         ));
     }
