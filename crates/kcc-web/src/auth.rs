@@ -418,7 +418,8 @@ pub(crate) async fn change_locale(
     account_response(&state, &headers, &current, &user, true, None).await
 }
 
-/// Renders the uniform login failure and audits only stable metadata.
+/// Renders the uniform login failure, in the page's language, and audits only stable
+/// metadata. It answers 422, the status the page script swaps in for a refused form.
 async fn login_failure(
     state: &WebState,
     headers: &HeaderMap,
@@ -451,12 +452,13 @@ async fn login_failure(
     };
     let shell = prefs::shell(headers, state.default_locale())
         .with_csrf_token(anonymous.csrf_token().to_owned());
+    let refusal = tr(shell.locale(), keys::ERRORS_AUTH_FAILED, None);
     let mut response = (
-        StatusCode::UNAUTHORIZED,
+        StatusCode::UNPROCESSABLE_ENTITY,
         errors::render(&LoginPage {
             shell,
             no_admin: false,
-            error: tr(state.default_locale(), keys::ERRORS_AUTH_FAILED, None),
+            error: refusal,
             username: shown,
         }),
     )

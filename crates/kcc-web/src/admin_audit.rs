@@ -249,7 +249,10 @@ pub(crate) async fn page(
         .as_deref()
         .and_then(|page| page.parse().ok())
         .unwrap_or(1);
-    let all = matching.into_iter().map(row).collect();
+    let all = matching
+        .into_iter()
+        .map(|entry| row(entry, locale))
+        .collect();
     let (rows, pager) =
         Pager::paginate(all, requested, Tab::Audit.href().to_owned(), filter.pairs());
     let date_error = |invalid: bool| {
@@ -364,15 +367,15 @@ async fn read(state: &WebState) -> Option<Result<Log, JoinError>> {
     )
 }
 
-/// The table row of `entry`.
-fn row(entry: AuditEntry) -> EntryRow {
+/// The table row of `entry`, in `locale`.
+fn row(entry: AuditEntry, locale: Locale) -> EntryRow {
     let params = if entry.params_redacted.is_null() {
         String::new()
     } else {
         entry.params_redacted.to_string()
     };
     EntryRow {
-        time: Timestamp::at(entry.ts),
+        time: Timestamp::at(entry.ts, locale),
         kind: match entry.actor.kind {
             ActorKind::Web => keys::WEB_ADMIN_AUDIT_KIND_WEB,
             ActorKind::Mcp => keys::WEB_ADMIN_AUDIT_KIND_MCP,

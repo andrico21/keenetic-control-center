@@ -27,9 +27,11 @@ pub(super) fn accounts(rows: &[UserRow], locale: Locale) -> TableView {
         let id = format!("user-{}", index.saturating_add(1));
         let mut name = vec![Piece::text(row.username.clone())];
         if row.is_self() {
-            let you = tr(locale, keys::WEB_ADMIN_USER_YOU, None);
             name.push(Piece::text(" ".to_owned()));
-            name.push(Piece::span("muted", format!("({you})")));
+            name.push(Piece::span(
+                "muted",
+                tr(locale, keys::WEB_ADMIN_USER_YOU, None),
+            ));
         }
         let actions = if row.manageable() {
             Cell::acts(

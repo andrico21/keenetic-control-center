@@ -37,14 +37,14 @@ mod tests {
         permissions::built_in_roles,
         settings::{Config, ConfigError},
     };
-    use kcc_i18n::keys;
+    use kcc_i18n::{keys, locale::Locale};
     use kcc_web::{session::CookieSecurity, web_router};
     use tower::ServiceExt as _;
 
     use crate::support::{
         base::{Core, ORIGIN, PASSWORD},
         outcome::TestResult,
-        page::{cookie_pair, en, header_text, meta_content, text},
+        page::{cookie_pair, en, header_text, meta_content, said, text},
     };
 
     #[derive(Debug)]
@@ -200,7 +200,7 @@ mod tests {
             let response = fixture.login(&cookie, &csrf, "wrong password").await?;
             assert_eq!(
                 response.status(),
-                StatusCode::UNAUTHORIZED,
+                StatusCode::UNPROCESSABLE_ENTITY,
                 "attempt {attempt}"
             );
             let html = text(response).await?;
@@ -223,7 +223,7 @@ mod tests {
         let response = fixture.login(&cookie, &csrf, PASSWORD).await?;
         assert_eq!(
             response.status(),
-            StatusCode::UNAUTHORIZED,
+            StatusCode::UNPROCESSABLE_ENTITY,
             "locked valid login"
         );
         assert!(
@@ -249,7 +249,11 @@ mod tests {
             .login_as(&cookie, &csrf, (&username, "wrong password"))
             .await?;
 
-        assert_eq!(response.status(), StatusCode::UNAUTHORIZED, "refused");
+        assert_eq!(
+            response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "refused"
+        );
         let html = text(response).await?;
         assert!(
             html.contains(&en(keys::ERRORS_AUTH_FAILED)),
@@ -263,6 +267,29 @@ mod tests {
             .ok_or("missing web.login entry")?;
         assert_eq!(login.outcome, "invalid", "outcome");
         assert_eq!(login.actor.id, "<invalid-username>", "actor marker");
+        Ok(())
+    }
+
+    /// W1-04, W1-13: a refused sign-in answers 422 in the page's own language.
+    ///
+    /// The page script swaps a 422 in (it keeps a 401 out), so the browser shows the
+    /// uniform error, in the language the sign-in page was shown in.
+    #[tokio::test]
+    async fn refused_sign_in_answers_422_in_the_page_language() -> TestResult {
+        let fixture = Fixture::new("admin", CookieSecurity::LoopbackHttp)?;
+        let (cookie, csrf) = fixture.login_page().await?;
+
+        let response = fixture
+            .login(&format!("{cookie}; kcc_lang=ru"), &csrf, "wrong password")
+            .await?;
+
+        let status = response.status();
+        let html = text(response).await?;
+        assert!(
+            html.contains(&said(Locale::Ru, keys::ERRORS_AUTH_FAILED)),
+            "the error in the page's language"
+        );
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "refused");
         Ok(())
     }
 

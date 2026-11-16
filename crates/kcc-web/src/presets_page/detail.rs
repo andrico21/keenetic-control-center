@@ -106,7 +106,7 @@ pub(super) async fn page(
         name: preset.name.clone(),
         description: preset.description.clone(),
         source: source_text(&preset, locale),
-        captured: Timestamp::at(preset.source.captured_at),
+        captured: Timestamp::at(preset.source.captured_at, locale),
         creator: preset.created_by.clone(),
         groups,
         may_change,

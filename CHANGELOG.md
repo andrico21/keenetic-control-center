@@ -317,6 +317,12 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **A failed Web sign-in shows its error.** A wrong password or a locked account used to
+  answer 401, which the page never displays, so the form stayed as it was with no
+  message. The refused sign-in now answers 422 with the same uniform "invalid username
+  or password" text, in the sign-in page's language (it used the server's default
+  language). The "UTC" after times and the parentheses around the "(you)" marker of the
+  accounts table are now part of the translated messages.
 - **A failed router edit no longer leaves new credentials sealed for the old profile.**
   The Web router form and `kcc router edit` used to seal the new password, token or
   read-only password before storing the changed profile, with no way back: a refused or
@@ -414,6 +420,16 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Security
 
+- **Logins no longer queue on `users.json` and no longer tell accounts apart by timing.**
+  Every login attempt, an unknown name included, used to rewrite and sync `users.json`
+  while holding its exclusive lock, with the Argon2id check inside the lock, so a stream
+  of failed logins delayed every other login and account change. The password is now
+  checked with no lock held, and the file is written only when an account's failure count
+  or lockout changes (creating an account under a taken name no longer rewrites it either).
+  Simultaneous failed logins each count once and lock the account at the same attempt as
+  before. At most one Argon2id run per CPU goes on at a time (19 MiB each); the others
+  wait. Disabled and locked accounts now run the same Argon2id work as a wrong password,
+  so their answer is no faster than for an unknown name.
 - **The privilege floor warns about GID 0 and logs what it kept.** A root group is still
   accepted (OpenShift runs with GID 0) but now produces a startup warning, and the
   applied floor (real UID, bounding set cleared or not, remaining bounding mask) is

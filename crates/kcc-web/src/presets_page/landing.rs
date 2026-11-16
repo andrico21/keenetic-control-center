@@ -279,7 +279,7 @@ fn runs_view(records: &[Record], locale: Locale) -> TableView {
 fn row(record: &Record, locale: Locale) -> Vec<Cell> {
     let href = screen::href::<Record>(record.id());
     vec![
-        started(href, Timestamp::at(record.created_at()), locale),
+        started(href, Timestamp::at(record.created_at(), locale), locale),
         Cell::text(summary::settings_text(record, locale)),
         Cell::code(record.target().unwrap_or_default().to_owned()),
         Cell::text(format!(

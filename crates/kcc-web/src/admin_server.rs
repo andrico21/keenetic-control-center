@@ -86,7 +86,7 @@ pub(crate) async fn page(
     let page = ServerPage {
         tabs: tabs(user.role(), Tab::Server),
         version: server.version().to_owned(),
-        started: Timestamp::at(admin.started_at()),
+        started: Timestamp::at(admin.started_at(), locale),
         uptime: format::duration(
             locale,
             state.unix_seconds().saturating_sub(admin.started_at()),

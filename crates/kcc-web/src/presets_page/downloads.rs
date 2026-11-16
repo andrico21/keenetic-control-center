@@ -120,7 +120,8 @@ fn markdown(record: &Record, locale: Locale) -> String {
         ),
     ];
     if let Some((how, at)) = record.finished() {
-        let when = Timestamp::at(at).map_or_else(String::new, |time| time.text().to_owned());
+        let when =
+            Timestamp::at(at, locale).map_or_else(String::new, |time| time.text().to_owned());
         lines.push(format!(
             "- {}: {} ({when})",
             text(keys::WEB_MIGRATE_REPORT_FINISHED),

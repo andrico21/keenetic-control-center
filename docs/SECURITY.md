@@ -132,7 +132,13 @@ either.
 - Every state-changing request needs the session-bound `X-CSRF-Token` header, exactly
   one allowed `Origin` and a same-origin `Sec-Fetch-Site`.
 - `[web] login_max_failures` failed logins (5) lock the account for `lockout`
-  (15 minutes). Failed logins answer with one generic message.
+  (15 minutes). Failed logins answer with one generic message, HTTP 422, in the sign-in
+  page's language. An unknown name, a disabled account and a locked one run the same
+  Argon2id work as a wrong password, so the answer's timing does not tell them apart.
+- A login checks the password without holding the `users.json` lock and writes the file
+  only when the account's failure count or lockout changes; simultaneous failed logins
+  each count once. At most one Argon2id run per CPU kcc may use goes on at a time (each
+  takes 19 MiB), for logins, password changes and new passwords alike; more wait.
 - The HTTP layer also checks `Origin` against the Web UI listener and
   `[web] public_url` origins derived by kcc, plus any extra trusted origins in
   `[server] allowed_origins` (see [CONFIG.md](CONFIG.md)).

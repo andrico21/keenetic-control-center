@@ -80,7 +80,7 @@ impl Panel {
             id: record.id().to_owned(),
             tone: if F::succeeded(how) { "success" } else { "info" },
             message: tr(locale, F::finish_text(how), None),
-            finished: (at > 0).then(|| Timestamp::at(at)).flatten(),
+            finished: (at > 0).then(|| Timestamp::at(at, locale)).flatten(),
             facts,
             kept: Vec::new(),
             public_keys: None,

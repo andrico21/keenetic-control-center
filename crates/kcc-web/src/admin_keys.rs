@@ -380,8 +380,8 @@ async fn region(
         .into_iter()
         .map(|key| KeyRow {
             role: role_label(locale, &key.role),
-            created: Timestamp::at(key.created_at),
-            last_used: key.last_used_at.and_then(Timestamp::at),
+            created: Timestamp::at(key.created_at, locale),
+            last_used: key.last_used_at.and_then(|at| Timestamp::at(at, locale)),
             revocable: manages(state, user.role(), &key.role),
             revoke_url: named("/ui/admin/api-keys/revoke", &key.name),
             name: key.name,

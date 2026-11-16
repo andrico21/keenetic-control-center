@@ -2,9 +2,7 @@
 
 use secrecy::SecretString;
 
-use super::{
-    AccountError, AccountStore, UsersDocument, enabled_admin, hash_password, validate_password,
-};
+use super::{AccountError, AccountStore, UsersDocument, enabled_admin, hashing, validate_password};
 use crate::permissions::{Permission, Role};
 
 /// Applies an administrative password reset.
@@ -26,7 +24,7 @@ pub(super) fn password(
         return Err(AccountError::SelfResetRequiresCurrentPassword);
     }
     validate_password(username, new_password)?;
-    let hash = hash_password(new_password)?;
+    let hash = hashing::hash(new_password)?;
     let sealed = store.key.seal(username, &SecretString::from(hash))?;
     store.state.update(|document: &mut UsersDocument| {
         let actor_is_admin = document.users.iter().any(|account| {

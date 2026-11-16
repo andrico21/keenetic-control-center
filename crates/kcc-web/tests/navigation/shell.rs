@@ -81,7 +81,11 @@ async fn the_sign_in_page_has_a_bare_shell() -> TestResult {
                 .body(Body::from("username=viewer&password=wrong"))?,
         )
         .await?;
-    assert_eq!(refused.status(), StatusCode::UNAUTHORIZED, "refused");
+    assert_eq!(
+        refused.status(),
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "refused"
+    );
     assert_bare(&text(refused).await?, "the refused sign-in");
     let viewer = fixture.login("viewer").await?;
     let page = text(fixture.get("/ui/account", &viewer).await?).await?;

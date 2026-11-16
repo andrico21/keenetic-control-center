@@ -267,7 +267,7 @@ fn row(record: &Record, locale: Locale) -> Vec<Cell> {
     };
     let href = screen::href::<Record>(record.id());
     vec![
-        runs::started(href, Timestamp::at(record.created_at()), locale),
+        runs::started(href, Timestamp::at(record.created_at(), locale), locale),
         Cell::word(locale, kind),
         Cell::text(
             record

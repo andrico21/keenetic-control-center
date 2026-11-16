@@ -16,6 +16,7 @@ use axum::{
     http::{HeaderMap, StatusCode},
     response::{IntoResponse as _, Redirect, Response},
 };
+use fluent_bundle::FluentArgs;
 use kcc_app::{
     permissions::{Permission, Role, built_in_roles},
     persist::StateStore,
@@ -405,11 +406,14 @@ pub(crate) struct Timestamp {
 }
 
 impl Timestamp {
-    /// The time `unix` seconds after the epoch, if representable.
-    pub(crate) fn at(unix: u64) -> Option<Self> {
+    /// The time `unix` seconds after the epoch, if representable, with its UTC text in
+    /// `locale`.
+    pub(crate) fn at(unix: u64, locale: Locale) -> Option<Self> {
         let time = UNIX_EPOCH.checked_add(Duration::from_secs(unix))?;
         let iso = humantime::format_rfc3339_seconds(time).to_string();
-        let text = format!("{} UTC", iso.trim_end_matches('Z').replacen('T', " ", 1));
+        let mut args = FluentArgs::new();
+        args.set("time", iso.trim_end_matches('Z').replacen('T', " ", 1));
+        let text = tr(locale, keys::WEB_TIME_UTC, Some(&args));
         Some(Self { iso, text })
     }
 

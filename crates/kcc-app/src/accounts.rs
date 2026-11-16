@@ -9,20 +9,21 @@ use core::{
 };
 use std::time::SystemTime;
 
-use argon2::{
-    Algorithm, Argon2, Params, Version,
-    password_hash::{PasswordHasher as _, PasswordVerifier as _, phc::PasswordHash},
-};
+use argon2::Params;
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::{Deserialize, Serialize};
 
 use self::standing::{AccountStanding, PasswordFingerprint};
 use crate::{
     permissions::Role,
-    persist::{Migration, StateDoc, StateError, StateStore},
+    persist::{Edit, Migration, StateDoc, StateError, StateStore},
     secrets::{CryptoError, MasterKey, SealedSecret},
 };
 
+mod hashing;
+mod login;
+#[cfg(test)]
+mod login_tests;
 mod reset;
 pub mod standing;
 
@@ -346,7 +347,7 @@ impl AccountStore {
     pub fn create(&self, new: NewAccount) -> Result<(), AccountError> {
         validate_username(&new.username)?;
         validate_password(&new.username, &new.password)?;
-        let hash = hash_password(&new.password)?;
+        let hash = hashing::hash(&new.password)?;
         let sealed = self.key.seal(&new.username, &SecretString::from(hash))?;
         let account = Account {
             username: new.username,
@@ -358,21 +359,26 @@ impl AccountStore {
             lockout_until: None,
             must_change_password: new.must_change_password,
         };
-        self.state.update(|document: &mut UsersDocument| {
-            if document
-                .users
-                .iter()
-                .any(|existing| existing.username == account.username)
-            {
-                return Err(AccountError::DuplicateAccount);
-            }
-            document.users.push(account);
-            Ok(())
-        })??;
+        self.state
+            .update_if_changed(|document: &mut UsersDocument| {
+                if document
+                    .users
+                    .iter()
+                    .any(|existing| existing.username == account.username)
+                {
+                    return Edit::Unchanged(Err(AccountError::DuplicateAccount));
+                }
+                document.users.push(account);
+                Edit::Changed(Ok(()))
+            })??;
         Ok(())
     }
 
-    /// Authenticates a password and atomically updates failure/lockout state.
+    /// Authenticates a password and updates the failure count and lockout.
+    ///
+    /// The password is checked with no `users.json` lock held, and the file is written
+    /// only when the failure count or lockout changes. Unknown, disabled and locked
+    /// accounts run the same Argon2 work as a wrong password.
     ///
     /// # Errors
     ///
@@ -384,46 +390,7 @@ impl AccountStore {
         username: &str,
         password: &SecretString,
     ) -> Result<Authentication, AccountError> {
-        let valid_name = validate_username(username).is_ok();
-        let now = self.clock.unix_seconds();
-        let lockout_seconds = self.lockout.as_secs();
-        let key = &self.key;
-        self.state.update(|document: &mut UsersDocument| {
-            let Some(account) = document
-                .users
-                .iter_mut()
-                .find(|candidate| valid_name && candidate.username == username)
-            else {
-                verify_dummy_password(password)?;
-                return Ok(Authentication::Invalid);
-            };
-            if account.disabled {
-                return Ok(Authentication::Disabled);
-            }
-            if let Some(until) = account.lockout_until {
-                if now < until {
-                    return Ok(Authentication::Locked { until });
-                }
-                account.failure_count = 0;
-                account.lockout_until = None;
-            }
-            let hash = key.open(&account.username, &account.password_hash)?;
-            if verify_password(password, &hash)? {
-                account.failure_count = 0;
-                account.lockout_until = None;
-                return Ok(Authentication::Authenticated {
-                    role: account.role.clone(),
-                    locale: account.locale.clone(),
-                });
-            }
-            account.failure_count = account.failure_count.saturating_add(1);
-            if account.failure_count >= self.max_failures {
-                let until = now.saturating_add(lockout_seconds);
-                account.lockout_until = Some(until);
-                return Ok(Authentication::Locked { until });
-            }
-            Ok(Authentication::Invalid)
-        })?
+        login::authenticate(self, username, password)
     }
 
     /// Whether at least one enabled administrator account exists.
@@ -483,7 +450,7 @@ impl AccountStore {
             return Ok((authentication, None));
         }
         validate_password(username, new_password)?;
-        let hash = hash_password(new_password)?;
+        let hash = hashing::hash(new_password)?;
         let fingerprint = PasswordFingerprint::of(&hash);
         let sealed = self.key.seal(username, &SecretString::from(hash))?;
         self.state.update(|document: &mut UsersDocument| {
@@ -651,56 +618,6 @@ fn enabled_admin(role: &str, disabled: bool) -> bool {
 #[inline]
 pub const fn password_params() -> Result<Params, argon2::Error> {
     Params::new(ARGON2_MEMORY_KIB, ARGON2_ITERATIONS, ARGON2_LANES, None)
-}
-
-/// Hashes a password with Argon2id v19 and an OS-generated salt.
-///
-/// # Errors
-///
-/// Returns [`AccountError::PasswordHash`] if parameter setup, randomness, or
-/// hashing fails.
-fn hash_password(password: &SecretString) -> Result<String, AccountError> {
-    let params = password_params().map_err(|_error| AccountError::PasswordHash)?;
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    argon2
-        .hash_password(password.expose_secret().as_bytes())
-        .map(|hash| hash.to_string())
-        .map_err(|_error| AccountError::PasswordHash)
-}
-
-/// Verifies a supplied password against a stored PHC string.
-///
-/// # Errors
-///
-/// Returns [`AccountError::StoredPasswordHash`] if the persisted hash is not a
-/// valid PHC string.
-fn verify_password(password: &SecretString, hash: &SecretString) -> Result<bool, AccountError> {
-    let parsed = PasswordHash::new(hash.expose_secret())
-        .map_err(|_error| AccountError::StoredPasswordHash)?;
-    Ok(Argon2::default()
-        .verify_password(password.expose_secret().as_bytes(), &parsed)
-        .is_ok())
-}
-
-/// Performs the same Argon2id work for an unknown username without needing a
-/// persisted hash. The fixed salt is public and exists only to equalize login
-/// work; no derived bytes leave this function.
-///
-/// # Errors
-///
-/// Returns [`AccountError::PasswordHash`] if the fixed Argon2 parameters or
-/// hashing operation fail.
-fn verify_dummy_password(password: &SecretString) -> Result<(), AccountError> {
-    let params = password_params().map_err(|_error| AccountError::PasswordHash)?;
-    let argon2 = Argon2::new(Algorithm::Argon2id, Version::V0x13, params);
-    let mut output = [0_u8; 32];
-    argon2
-        .hash_password_into(
-            password.expose_secret().as_bytes(),
-            b"kcc-unknown-user",
-            &mut output,
-        )
-        .map_err(|_error| AccountError::PasswordHash)
 }
 
 /// Applies the account username boundary policy.

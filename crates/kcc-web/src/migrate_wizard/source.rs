@@ -163,7 +163,7 @@ impl Panel {
                             let mut args = FluentArgs::new();
                             args.set(
                                 "value",
-                                Timestamp::at(backup.created_at)
+                                Timestamp::at(backup.created_at, locale)
                                     .map_or_else(String::new, |time| time.text().to_owned()),
                             );
                             args.set("name", backup.reason);

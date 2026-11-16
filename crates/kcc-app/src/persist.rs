@@ -93,6 +93,16 @@ pub enum StateError {
     },
 }
 
+/// What the closure of [`StateStore::update_if_changed`] did to the document.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Edit<R> {
+    /// The document changed and is written back.
+    Changed(R),
+    /// Nothing changed; the file stays as it is.
+    Unchanged(R),
+}
+
 /// A migration step body: takes and returns the document without `schema`.
 pub type MigrateFn = fn(Map<String, Value>) -> Result<Map<String, Value>, String>;
 
@@ -208,18 +218,40 @@ impl StateStore {
         T: StateDoc,
         F: FnOnce(&mut T) -> R,
     {
+        self.update_if_changed(|doc: &mut T| Edit::Changed(mutate(doc)))
+    }
+
+    /// As [`Self::update`], but the file is written only when `mutate` answers
+    /// [`Edit::Changed`] (or the document was upgraded from an older schema); after
+    /// [`Edit::Unchanged`] it keeps its bytes and time.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::update`].
+    #[inline]
+    pub fn update_if_changed<T, F, R>(&self, mutate: F) -> Result<R, StateError>
+    where
+        T: StateDoc,
+        F: FnOnce(&mut T) -> Edit<R>,
+    {
         let _lock = self.lock(T::FILE_NAME)?;
-        let mut doc = match self.load::<T>()? {
+        let (mut doc, upgraded) = match self.load::<T>()? {
             Some((doc, found)) => {
-                if found < T::SCHEMA {
+                let upgraded = found < T::SCHEMA;
+                if upgraded {
                     self.backup_before_migration(found)?;
                 }
-                doc
+                (doc, upgraded)
             }
-            None => T::default(),
+            None => (T::default(), false),
         };
-        let result = mutate(&mut doc);
-        self.write_locked(&doc)?;
+        let (result, changed) = match mutate(&mut doc) {
+            Edit::Changed(result) => (result, true),
+            Edit::Unchanged(result) => (result, false),
+        };
+        if changed || upgraded {
+            self.write_locked(&doc)?;
+        }
         Ok(result)
     }
 

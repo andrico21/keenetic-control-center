@@ -91,7 +91,7 @@ pub(super) async fn page(
                 .collect::<Vec<_>>()
                 .join(", "),
             source: source_text(preset, locale),
-            captured: Timestamp::at(preset.source.captured_at),
+            captured: Timestamp::at(preset.source.captured_at, locale),
             creator: preset.created_by.clone(),
             may_change: may_change(services, preset),
         })
