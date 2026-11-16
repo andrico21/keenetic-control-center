@@ -31,6 +31,7 @@ use crate::{
         context::{self, fragment_shell},
         gate::allowed,
     },
+    stream_session::StreamSession,
 };
 
 /// The status pill of a job.
@@ -78,7 +79,7 @@ pub(crate) async fn stream(
     if let Err(refusal) = context::target(&state, &user, &router).await {
         return refusal.status();
     }
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let receiver = jobs.subscribe();
@@ -91,7 +92,7 @@ pub(crate) async fn stream(
         reveal: allowed(&user, &router, &[Permission::RevealSecrets]),
         id: record.id.clone(),
     };
-    guarded(events.stream(receiver, record.status), permit).into_response()
+    guarded(events.stream(receiver, record.status), slot).into_response()
 }
 
 /// What a job stream renders.

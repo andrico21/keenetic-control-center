@@ -42,6 +42,7 @@ use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
     overview::guarded,
+    stream_session::StreamSession,
 };
 
 /// How often the heartbeat tells the timer.
@@ -128,7 +129,7 @@ where
     let Some(run) = visit.record().run() else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let store = services.store();
@@ -151,7 +152,7 @@ where
     );
     drop(visit);
     let feed = Feed::new(&state, locale, apply, ending);
-    guarded(feed.stream(view.countdown()), permit).into_response()
+    guarded(feed.stream(view.countdown()), slot).into_response()
 }
 
 /// Where a stream is.

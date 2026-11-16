@@ -427,6 +427,14 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Security
 
+- **Live views end with their session.** The fleet, dashboard, router log, interface
+  traffic, job and apply-progress streams were authorized only when they opened, so a
+  stream left open kept sending router data after logout, after the account was
+  disabled, deleted or given another role, after its role lost the router, and past the
+  session's 12-hour limit. Each stream now checks its session before every event and at
+  least every 5 seconds, ends when the session is gone or its role changed, and ends at
+  the session's absolute expiry; the browser reconnects to a fresh stream if the session
+  is still valid. The checks do not refresh the session's idle deadline.
 - **Logins no longer queue on `users.json` and no longer tell accounts apart by timing.**
   Every login attempt, an unknown name included, used to rewrite and sync `users.json`
   while holding its exclusive lock, with the Argon2id check inside the lock, so a stream

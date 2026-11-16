@@ -36,6 +36,7 @@ use crate::{
         context::{self, fragment_shell},
         request::with_query,
     },
+    stream_session::StreamSession,
 };
 
 /// Longest filter text, in characters.
@@ -152,7 +153,7 @@ pub(crate) async fn stream(
         Ok(found) => found,
         Err(refusal) => return refusal.status(),
     };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let Ok((_, domain)) = target.context(&state).await else {
@@ -171,7 +172,7 @@ pub(crate) async fn stream(
         })
         .boxed();
     let events: BoxStream<'static, _> = stream::iter([opening]).chain(follow).boxed();
-    guarded(events, permit).into_response()
+    guarded(events, slot).into_response()
 }
 
 /// The stream event of `lines`: the whole list, or new items.

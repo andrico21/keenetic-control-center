@@ -3,7 +3,10 @@
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::time::Duration;
+use core::{
+    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
+};
 
 use kcc_app::{
     accounts::{AccountStore, Clock, NewAccount},
@@ -28,17 +31,25 @@ pub(crate) const PASSWORD: &str = "correct horse battery staple";
 /// An account: its name, its role and, when it has one, its locale.
 pub(crate) type Account<'name> = (&'name str, &'name str, Option<&'name str>);
 
-/// A clock that stays at one Unix second.
+/// A clock that stays at one Unix second until a test moves it.
 #[derive(Debug)]
-#[expect(
-    clippy::field_scoped_visibility_modifiers,
-    reason = "a suite picks its clock's second"
-)]
-pub(crate) struct Frozen(pub(crate) u64);
+pub(crate) struct Frozen(AtomicU64);
+
+impl Frozen {
+    /// A clock standing at the Unix second `now`.
+    pub(crate) const fn at(now: u64) -> Self {
+        Self(AtomicU64::new(now))
+    }
+
+    /// Moves the clock to the Unix second `now`.
+    pub(crate) fn set(&self, now: u64) {
+        self.0.store(now, Ordering::SeqCst);
+    }
+}
 
 impl Clock for Frozen {
     fn unix_seconds(&self) -> u64 {
-        self.0
+        self.0.load(Ordering::SeqCst)
     }
 }
 

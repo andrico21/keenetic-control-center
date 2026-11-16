@@ -429,6 +429,14 @@ impl SessionStore {
         }
     }
 
+    /// The time `session` has left before its absolute lifetime ends.
+    pub(crate) fn lifetime_left(&self, session: &Session) -> Duration {
+        let ends = session
+            .created_at
+            .saturating_add(self.inner.absolute_timeout.as_secs());
+        Duration::from_secs(ends.saturating_sub(self.inner.clock.unix_seconds()))
+    }
+
     /// Invalidates one session, including logout of an already-expired id.
     pub(crate) async fn invalidate(&self, id: &SessionId) {
         drop(self.inner.sessions.write().await.remove(id));

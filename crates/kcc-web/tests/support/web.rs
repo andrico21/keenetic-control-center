@@ -14,17 +14,20 @@ use axum::{
     response::Response,
 };
 use kcc_app::{
+    accounts::AccountStore,
     audit::{AuditEntry, verify_chain},
     backups::BackupStore,
     persist::StateStore,
     registry::RouterRegistry,
+    role_source::RoleSource,
 };
 use kcc_testkit::{FakeRouter, FaultInjection, Handle, model::Profile};
+use kcc_web::WebState;
 use tempfile::TempDir;
 use tower::ServiceExt as _;
 
 use super::{
-    base::{ORIGIN, PASSWORD},
+    base::{Frozen, ORIGIN, PASSWORD},
     build::{Setup, master_key},
     outcome::TestResult,
     page::{cookie_pair, form, meta_content, text},
@@ -54,6 +57,14 @@ pub(crate) struct Fixture {
     pub(super) directory: TempDir,
     /// The Web UI.
     pub(super) router: Router,
+    /// The state behind the Web UI.
+    pub(super) state: WebState,
+    /// The roles the Web UI reads, as a SIGHUP reload replaces them.
+    pub(super) roles: RoleSource,
+    /// The accounts, as `users.json` holds them.
+    pub(super) accounts: Arc<AccountStore>,
+    /// The account and session clock.
+    pub(super) clock: Arc<Frozen>,
     /// The registry behind it.
     pub(super) registry: Arc<RouterRegistry>,
     /// The fake routers by profile id, the first one the pages' router.
@@ -235,6 +246,26 @@ impl Fixture {
             .iter()
             .map(|(id, handle)| (*id, handle.request_count()))
             .collect()
+    }
+
+    /// The state behind the Web UI.
+    pub(crate) const fn state(&self) -> &WebState {
+        &self.state
+    }
+
+    /// The roles the Web UI reads.
+    pub(crate) const fn roles(&self) -> &RoleSource {
+        &self.roles
+    }
+
+    /// The accounts.
+    pub(crate) fn accounts(&self) -> &AccountStore {
+        &self.accounts
+    }
+
+    /// The account and session clock.
+    pub(crate) fn clock(&self) -> &Frozen {
+        &self.clock
     }
 
     /// The registry, for direct router access in test setup.

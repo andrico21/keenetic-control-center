@@ -129,6 +129,13 @@ either.
   Your own password change keeps the session you made it in (under its new id). A rewrite that changes no
   key, role, disabled flag or password (a key's last-use time) reloads nothing. A file
   kcc cannot read keeps the last good state, logs one warning and is retried.
+- Live views (fleet, dashboard, router log, interface traffic, job and apply progress)
+  are server-sent event streams, at most 4 per session. Each stream checks its session
+  again before every event and at least every 5 seconds, and ends when the session is
+  gone (logout, expiry, an account change that ends it) or its role no longer is the one
+  the stream opened with (a role edit, or a `SIGHUP` reload that changes it). A stream
+  also ends at the session's absolute expiry. These checks do not count as use: an open
+  live view alone does not keep a session from its idle timeout.
 - Every state-changing request needs the session-bound `X-CSRF-Token` header, exactly
   one allowed `Origin` and a same-origin `Sec-Fetch-Site`.
 - `[web] login_max_failures` failed logins (5) lock the account for `lockout`
@@ -303,7 +310,8 @@ MCP planned writes enter a common executor that selects recovery from `ChangeOp`
 Role changes take effect without a restart. A custom role created, edited or reduced in
 the Web UI, or changed in `roles.json` followed by `SIGHUP`, binds the next MCP call (the
 transport's RBAC and the MCP handlers' own permission and scope checks share one role
-set) and the next Web UI request of every signed-in session holding it.
+set) and the next Web UI request of every signed-in session holding it; an open live
+view of such a session ends within 5 seconds.
 
 The last use of an API key is recorded on its next MCP tool call, at most once a minute
 per key; failed authentication records nothing. The firmware-update check sends the

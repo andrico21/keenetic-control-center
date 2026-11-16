@@ -38,7 +38,7 @@ use crate::{
     nav::Section,
     page::{FleetEntry, Localize as _, Shell, Theme},
     prefs,
-    sse::StreamPermit,
+    stream_session::StreamSession,
     telemetry::Feed,
     view::RouterView,
 };
@@ -132,7 +132,7 @@ pub(crate) async fn stream(
     let Some(fleet) = state.fleet() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let entries = match fleet.visible(user.role()).await {
@@ -148,7 +148,7 @@ pub(crate) async fn stream(
         .zip(feeds)
         .map(|(entry, feed)| card_events(entry, feed, &user))
         .collect();
-    guarded(stream::select_all(cards), permit).into_response()
+    guarded(stream::select_all(cards), slot).into_response()
 }
 
 /// The feed of every entry, in entry order.
@@ -211,17 +211,20 @@ where
     }
 }
 
-/// An event-stream response that holds `permit` for as long as the client listens.
+/// An event-stream response that holds `session`'s stream slot while the client listens.
+///
+/// The stream ends when the session does, when its role changes, and at the session's
+/// absolute expiry.
 pub(crate) fn guarded<S>(
     events: S,
-    permit: StreamPermit,
+    session: StreamSession,
 ) -> Sse<impl Stream<Item = Result<Event, Infallible>>>
 where
     S: Stream<Item = Event> + Send + Unpin + 'static,
 {
-    let held = stream::unfold((events, permit), async |(mut source, held_permit)| {
-        let event = source.next().await?;
-        Some((Ok(event), (source, held_permit)))
+    let held = stream::unfold((events, session), async |(mut source, mut backing)| {
+        let event = backing.next_event(&mut source).await?;
+        Some((Ok(event), (source, backing)))
     });
     Sse::new(held).keep_alive(KeepAlive::default())
 }

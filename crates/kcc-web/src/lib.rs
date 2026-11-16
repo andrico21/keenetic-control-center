@@ -177,6 +177,7 @@ mod routers;
 mod routing_page;
 mod save;
 mod secret_pages;
+mod stream_session;
 mod system_general;
 mod system_pages;
 mod telemetry;

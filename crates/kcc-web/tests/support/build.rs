@@ -6,12 +6,14 @@ use alloc::sync::Arc;
 use core::{net::SocketAddr, time::Duration};
 
 use kcc_app::{
+    accounts::Clock,
     backups::BackupStore,
     credentials::CredentialStore,
     jobs::JobRunner,
     permissions::{Permission, Role, built_in_roles},
     poller::Poller,
     registry::{ManagedRouterProfile, RouterRegistry},
+    role_source::RoleSource,
     secrets::MasterKey,
     settings::{BackupsConfig, OutboundConfig},
     workflow::ChangeWorkflow,
@@ -96,7 +98,10 @@ impl Setup {
     /// Serves and registers the routers and builds the Web UI.
     // NOT cancel-safe: the fake routers and the job runner start before it returns.
     pub(crate) async fn build(self) -> TestResult<Fixture> {
-        let core = Core::new(Arc::new(Frozen(self.now)), &self.accounts)?;
+        let clock = Arc::new(Frozen::at(self.now));
+        let session_clock: Arc<dyn Clock> = Arc::<Frozen>::clone(&clock);
+        let core = Core::new(session_clock, &self.accounts)?;
+        let roles = RoleSource::new(self.roles.clone());
         let state = core.state.clone();
         let credentials = Arc::new(CredentialStore::new(state.clone(), MasterKey::generate()?));
         let unsealed = RouterRegistry::new(state.clone(), &[], &self.outbound)?;
@@ -119,6 +124,7 @@ impl Setup {
                 (Duration::from_secs(3_600), Duration::from_secs(36_000)),
                 CookieSecurity::LoopbackHttp,
             )
+            .with_role_source(roles.clone())
             .with_fleet(FleetServices {
                 registry: Arc::clone(&registry),
                 poller: Poller::new(Arc::clone(&registry)),
@@ -136,7 +142,11 @@ impl Setup {
         };
         Ok(Fixture {
             directory: core.directory,
-            router: web_router(web),
+            router: web_router(web.clone()),
+            state: web,
+            roles,
+            accounts: core.accounts,
+            clock,
             registry,
             handles,
             htmx: self.wiring != Wiring::Fleet,

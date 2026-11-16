@@ -34,6 +34,7 @@ use crate::{
         context::{self, fragment_shell},
         outcome::{Toast, ToastView},
     },
+    stream_session::StreamSession,
 };
 
 /// Kind prefix of the diagnostic jobs.
@@ -147,10 +148,10 @@ pub(crate) async fn stream(
     let Some(feed) = state.advanced().feeds().get(&record.id) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
-    guarded(events(feed, user.locale()), permit).into_response()
+    guarded(events(feed, user.locale()), slot).into_response()
 }
 
 /// Where a job stream is: the job's progress, the lines sent, the status shown, whether

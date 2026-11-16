@@ -30,6 +30,7 @@ use crate::{
     dashboard,
     overview::guarded,
     page_kit::{context, request::Params},
+    stream_session::StreamSession,
     traffic::TrafficSampler,
 };
 
@@ -55,7 +56,7 @@ pub(crate) async fn stream(
     let Ok((_facts, domain)) = target.context(&state).await else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let readings = Readings {
@@ -64,7 +65,7 @@ pub(crate) async fn stream(
         state: state.clone(),
         locale: user.locale(),
     };
-    guarded(readings.events(), permit).into_response()
+    guarded(readings.events(), slot).into_response()
 }
 
 /// What one drawer's stream reads.

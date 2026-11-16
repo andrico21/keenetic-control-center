@@ -136,7 +136,7 @@ mod tests {
             roles: Vec<Role>,
             options: &Options,
         ) -> Result<Built, Box<dyn Error + Send + Sync>> {
-            let core = Core::new(Arc::new(Frozen(0)), &[(ADMIN, "admin", Some(locale))])?;
+            let core = Core::new(Arc::new(Frozen::at(0)), &[(ADMIN, "admin", Some(locale))])?;
             if !roles.is_empty() {
                 core.state
                     .update(|document: &mut RolesDocument| document.roles.extend(roles))?;

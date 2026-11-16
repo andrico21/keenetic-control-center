@@ -37,6 +37,7 @@ use crate::{
     overview::{FIRST_POLL_WAIT, fragment, guarded, switcher},
     page::{Localize as _, Shell, Theme},
     prefs,
+    stream_session::StreamSession,
     telemetry::Feed,
     traffic::TrafficPoint,
     view::RouterView,
@@ -199,7 +200,7 @@ pub(crate) async fn stream(
     let Some(fleet) = state.fleet() else {
         return StatusCode::SERVICE_UNAVAILABLE.into_response();
     };
-    let Some(permit) = state.streams().try_acquire(&current.stream_key()) else {
+    let Some(slot) = StreamSession::open(&state, &current, &user) else {
         return StatusCode::TOO_MANY_REQUESTS.into_response();
     };
     let found = match fleet.visible(user.role()).await {
@@ -221,7 +222,7 @@ pub(crate) async fn stream(
         backups: backups(user.role()),
         state: state.clone(),
     };
-    guarded(live_events(context, feed, &history), permit).into_response()
+    guarded(live_events(context, feed, &history), slot).into_response()
 }
 
 /// The dashboard events: the history first, then one live region (and traffic point)
