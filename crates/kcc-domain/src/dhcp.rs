@@ -171,7 +171,7 @@ pub async fn apply(
     for validated in &operation.requests {
         if validated.path == "ip dhcp host" {
             let expected = validated
-                .value
+                .value()
                 .get("host")
                 .and_then(Value::as_str)
                 .ok_or(WorkflowError::InvalidResponse)?;

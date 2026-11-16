@@ -216,10 +216,8 @@ impl Catalog {
                 field: name.to_owned(),
             }]);
         }
-        let mut request = self.validate(path, HttpMethod::Post, wire.expose_secret())?;
-        request.value = protected.redacted().clone();
-        request.protected = protected;
-        Ok(request)
+        let request = self.validate(path, HttpMethod::Post, wire.expose_secret())?;
+        Ok(request.with_secret(protected))
     }
 
     /// Validates a whitespace-tokenized CLI line against the longest known command prefix.

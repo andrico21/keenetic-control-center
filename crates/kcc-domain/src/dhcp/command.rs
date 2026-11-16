@@ -35,7 +35,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let mut commands = Vec::new();
     for validated in &operation.requests {
         if validated.path == "ip dhcp pool" {
-            pool_name = validated.value.get("name").and_then(Value::as_str);
+            pool_name = validated.value().get("name").and_then(Value::as_str);
         }
         commands.push(ValidatedCli::new(
             cli_line(validated, pool_name)?,
@@ -54,7 +54,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<String> {
     let text = |key: &str| {
         request
-            .value
+            .value()
             .get(key)
             .and_then(Value::as_str)
             .ok_or(DomainError::InvalidResponse)
@@ -74,7 +74,7 @@ fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<Strin
             pool()?,
             text("address")?
         )),
-        "ip dhcp pool dns-server" if request.value.get("disable") == Some(&Value::Bool(true)) => {
+        "ip dhcp pool dns-server" if request.value().get("disable") == Some(&Value::Bool(true)) => {
             Ok(format!("ip dhcp pool {} dns-server disable", pool()?))
         }
         "ip dhcp pool dns-server" => Ok(format!(
@@ -86,7 +86,7 @@ fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<Strin
             "ip dhcp pool {} lease {}",
             pool()?,
             request
-                .value
+                .value()
                 .get("lease")
                 .and_then(Value::as_u64)
                 .ok_or(DomainError::InvalidResponse)?
@@ -96,7 +96,7 @@ fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<Strin
             pool()?,
             text("interface")?
         )),
-        "ip dhcp pool enable" if request.value.get("no") == Some(&Value::Bool(true)) => {
+        "ip dhcp pool enable" if request.value().get("no") == Some(&Value::Bool(true)) => {
             Ok(format!("no ip dhcp pool {} enable", pool()?))
         }
         "ip dhcp pool enable" => Ok(format!("ip dhcp pool {} enable", pool()?)),

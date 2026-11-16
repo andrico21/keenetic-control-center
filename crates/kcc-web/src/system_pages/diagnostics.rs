@@ -161,7 +161,7 @@ pub(crate) async fn start(
         router.clone(),
         Arc::clone(&domain.client),
         tool.kind(),
-        validated.value,
+        validated.value().clone(),
     )
     .await;
     match started {

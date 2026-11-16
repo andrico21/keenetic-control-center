@@ -281,13 +281,13 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let line = match validated.path.as_str() {
-        "interface up" if validated.value.get("no") == Some(&Value::Bool(true)) => {
+        "interface up" if validated.value().get("no") == Some(&Value::Bool(true)) => {
             format!("interface {name} down")
         }
         "interface up" => format!("interface {name} up"),
         "interface description" => {
             let description = validated
-                .value
+                .value()
                 .get("description")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?;
@@ -297,7 +297,7 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         "interface security-level" => {
             let level = ["public", "private", "protected"]
                 .into_iter()
-                .find(|level| validated.value.get(*level) == Some(&Value::Bool(true)))
+                .find(|level| validated.value().get(*level) == Some(&Value::Bool(true)))
                 .ok_or(DomainError::InvalidResponse)?;
             format!("interface {name} security-level {level}")
         }

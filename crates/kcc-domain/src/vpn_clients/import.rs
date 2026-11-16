@@ -5,7 +5,6 @@ use kcc_app::{
     workflow::{CliCommand as ValidatedCli, PresencePredicate, VerificationSpec},
 };
 use kcc_catalog::Risk;
-use serde_json::json;
 
 use super::{VpnClientChange, WireGuardConfig, change, import_fields};
 use crate::{ChangeOp, DomainError, Result, RouterCtx};
@@ -159,16 +158,14 @@ struct SecretImport {
 
 /// Appends a validated secret and its read-back expectation.
 fn append_secret(router: &RouterCtx, operation: &mut ChangeOp, input: SecretImport) -> Result<()> {
-    let mut request = router
+    let request = router
         .catalog
         .validate_secret(input.path, input.argument, input.key)
         .map_err(|issues| DomainError::Validation { issues })?;
-    drop(
-        ValidatedCli::from_template(request.clone(), &input.template)
+    operation.push(
+        ValidatedCli::from_template(request, &input.template)
             .map_err(|_error| DomainError::InvalidResponse)?,
     );
-    request.value = json!({"line": input.template, "arguments": request.value});
-    operation.requests.push(request);
     operation.verify.push(VerificationSpec::presence(
         vec!["show".to_owned(), "interface".to_owned()],
         input.pointer,

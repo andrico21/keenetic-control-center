@@ -214,7 +214,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         "system eject" => format!(
             "system eject {}",
             request
-                .value
+                .value()
                 .get("name")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?
@@ -222,7 +222,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         "system partition check" => format!(
             "system partition {} check",
             request
-                .value
+                .value()
                 .get("partition")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?
@@ -230,12 +230,12 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         "system partition format" => format!(
             "system partition {} format {}",
             request
-                .value
+                .value()
                 .get("partition")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?,
             request
-                .value
+                .value()
                 .get("filesystem")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?

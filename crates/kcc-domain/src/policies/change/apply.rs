@@ -31,14 +31,14 @@ pub async fn apply(
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let name = context
-        .value
+        .value()
         .get("name")
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)?;
     let result = changes.apply_cli(render::request(operation)?).await?;
     let commands = policy_commands(router, name).await?;
     let verified = match operation.requests.as_slice() {
-        [only] if only.value.get("no") == Some(&Value::Bool(true)) => commands.is_none(),
+        [only] if only.value().get("no") == Some(&Value::Bool(true)) => commands.is_none(),
         [_] => commands.is_some(),
         [_, leaf] => {
             let expected = render::expected_leaf(leaf)?;

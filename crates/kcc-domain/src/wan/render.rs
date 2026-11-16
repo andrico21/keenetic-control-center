@@ -13,7 +13,7 @@ pub(super) fn request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         .requests
         .first()
         .ok_or(DomainError::InvalidResponse)?;
-    let value = &validated.value;
+    let value = validated.value();
     if validated.path == "interface authentication password" {
         let command = ValidatedCli::from_template(
             validated.clone(),

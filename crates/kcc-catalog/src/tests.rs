@@ -306,7 +306,7 @@ async fn background_command_runs_and_cancels_through_validated_engine() -> Resul
     let client = RciClient::connect_with(router, credentials, options).await?;
     let path = RciPath::from_segments(["tools", "ping"]).map_err(|_error| RciError::Validation)?;
     let process = client
-        .start(path.clone(), &request.value)
+        .start(path.clone(), request.value())
         .await?
         .with_poll_interval(Duration::from_millis(1));
     drop(

@@ -86,7 +86,7 @@ pub async fn apply(
                 .as_ref()
                 .is_some_and(|interface| tail.first() == Some(interface) && tail.len() == 1)
     });
-    let removing = validated.value.get("no") == Some(&Value::Bool(true));
+    let removing = validated.value().get("no") == Some(&Value::Bool(true));
     if present == removing {
         return Err(DomainError::InvalidResponse);
     }
@@ -133,7 +133,7 @@ fn plan(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
 }
 
 fn render(request: &ValidatedRequest) -> String {
-    let value = &request.value;
+    let value = request.value();
     let mut words = vec![request.path.clone()];
     for field in ["protocol", "interface", "port"] {
         push(value, field, &mut words);

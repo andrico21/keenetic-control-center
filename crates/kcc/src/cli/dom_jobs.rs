@@ -121,7 +121,7 @@ async fn diagnostics_writes(ctx: &Ctx, command: DiagnosticsWriteCommand) -> Outc
         target.id().to_owned(),
         Arc::clone(&target.router().client),
         kind,
-        validated.value,
+        validated.value().clone(),
     )
     .await
     .map_err(|error| Failure::text(Exit::Conflict, &error))?;

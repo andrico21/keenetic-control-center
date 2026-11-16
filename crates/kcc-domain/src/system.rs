@@ -188,7 +188,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<ChangeRequest> {
     Ok(ChangeRequest::new(
         request.path.clone(),
         rci_path,
-        request.value.clone(),
+        request.value().clone(),
         operation.verify.clone(),
         operation.permission,
         json!({"operation": request.path}),

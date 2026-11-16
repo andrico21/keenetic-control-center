@@ -202,9 +202,9 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
                     let resource =
                         RciPath::from_segments(&words).map_err(|_error| RciError::Validation)?;
                     if show {
-                        client.show(&resource, &validated.value).await
+                        client.show(&resource, validated.value()).await
                     } else {
-                        client.get(&resource, &validated.value).await
+                        client.get(&resource, validated.value()).await
                     }
                 })
                 .await
@@ -218,7 +218,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
             let request = ChangeRequest::delete(
                 validated.path.clone(),
                 path_segments(&validated.path),
-                validated.value,
+                validated.value().clone(),
                 Vec::new(),
                 Permission::RawRci,
                 params.clone(),
@@ -233,7 +233,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
             validated,
             show: _,
         } => {
-            let root = root_object(&validated.path, validated.value.clone());
+            let root = root_object(&validated.path, validated.value().clone());
             if risk == Risk::Read {
                 dispatch.read_root(&root).await
             } else {

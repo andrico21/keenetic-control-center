@@ -15,7 +15,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{HttpMethod, RawAuthorization, Risk, ValidatedRequest, ValidationIssue};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
@@ -153,7 +153,11 @@ pub fn plan_proxy(router: &RouterCtx, name: &str, enabled: bool) -> Result<Chang
     plan(router, "ip http proxy", &body, Risk::Management)
 }
 
-/// Plans a proxy upstream to one LAN host.
+/// Plans a proxy upstream to one LAN host, given by its IP address, MAC address or host
+/// name, on a port from 1 to 65535.
+///
+/// The upstream line itself is what the catalog validates: its protocol keyword, host
+/// and port are checked against the command's documented forms.
 pub fn plan_proxy_upstream(
     router: &RouterCtx,
     proxy: &str,
@@ -164,16 +168,36 @@ pub fn plan_proxy_upstream(
     for token in [proxy, protocol, host] {
         validate_token(token)?;
     }
+    if port == 0 {
+        return Err(DomainError::Validation {
+            issues: vec![ValidationIssue::InvalidValue {
+                field: "port".to_owned(),
+            }],
+        });
+    }
     let context = validate(router, "ip http proxy", &json!({"name":proxy}))?;
-    let mut upstream = validate(router, "ip http proxy upstream", &json!({}))?;
-    upstream.value = json!({"protocol":protocol,"host":host,"port":port});
-    Ok(ChangeOp::new(
-        vec![context, upstream],
+    let line = format!("ip http proxy {proxy} upstream {protocol} {host} {port}");
+    let upstream = router
+        .catalog
+        .validate_cli(&line, RawAuthorization::default())
+        .map_err(|issues| DomainError::Validation { issues })?;
+    if upstream.path != "ip http proxy upstream" {
+        return Err(DomainError::InvalidCliToken);
+    }
+    let mut operation = ChangeOp::new(
+        Vec::new(),
         Vec::new(),
         Risk::Management,
         Permission::Write,
         false,
-    ))
+    );
+    operation.push(ValidatedCli::new(format!("ip http proxy {proxy}"), context));
+    operation.push(ValidatedCli::new(line, upstream));
+    operation.verify = vec![verification::upstream(
+        proxy,
+        json!({"protocol":protocol,"host":host,"port":port}),
+    )];
+    Ok(operation)
 }
 
 /// Plans cloud-control exposure.
@@ -181,78 +205,48 @@ pub fn plan_cloud_security_level(
     router: &RouterCtx,
     level: RemoteSecurityLevel,
 ) -> Result<ChangeOp> {
-    let mut request = validate(router, "cloud control2 security-level", &json!({}))?;
-    request.value = json!({"level":level.name()});
-    Ok(ChangeOp::new(
-        vec![request],
-        Vec::new(),
+    plan(
+        router,
+        "cloud control2 security-level",
+        &json!({"level":level.name()}),
         Risk::Management,
-        Permission::Write,
-        false,
-    ))
+    )
 }
 
 /// Converts a KeenDNS plan into a protected workflow request.
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
+    if !operation.commands.is_empty() {
+        return Ok(CliChangeRequest::new(
+            operation.commands.clone(),
+            operation.verify.clone(),
+            operation.permission,
+            json!({"operation":"keendns"}),
+        ));
+    }
     let mut commands = Vec::new();
-    let mut proxy_name = None;
     for request in &operation.requests {
+        let value = request.value();
+        let text = |key| {
+            value
+                .get(key)
+                .and_then(Value::as_str)
+                .ok_or(DomainError::InvalidResponse)
+        };
         let line = match request.path.as_str() {
-            "ndns book-name" | "ndns drop-name" => format!(
-                "{} {} {}",
-                request.path,
-                request
-                    .value
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?,
-                request
-                    .value
-                    .get("domain")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?
-            ),
+            "ndns book-name" | "ndns drop-name" => {
+                format!("{} {} {}", request.path, text("name")?, text("domain")?)
+            }
             "ip http proxy" => {
-                let name = request
-                    .value
-                    .get("name")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?;
-                proxy_name = Some(name.to_owned());
-                let prefix = if request.value.get("no").and_then(Value::as_bool) == Some(true) {
+                let prefix = if value.get("no").and_then(Value::as_bool) == Some(true) {
                     "no "
                 } else {
                     ""
                 };
-                format!("{prefix}ip http proxy {name}")
+                format!("{prefix}ip http proxy {}", text("name")?)
             }
-            "ip http proxy upstream" => format!(
-                "ip http proxy {} upstream {} {} {}",
-                proxy_name.as_deref().ok_or(DomainError::InvalidResponse)?,
-                request
-                    .value
-                    .get("protocol")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?,
-                request
-                    .value
-                    .get("host")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?,
-                request
-                    .value
-                    .get("port")
-                    .and_then(Value::as_u64)
-                    .ok_or(DomainError::InvalidResponse)?
-            ),
-            "cloud control2 security-level" => format!(
-                "cloud control2 security-level {}",
-                request
-                    .value
-                    .get("level")
-                    .and_then(Value::as_str)
-                    .ok_or(DomainError::InvalidResponse)?
-            ),
+            "cloud control2 security-level" => {
+                format!("cloud control2 security-level {}", text("level")?)
+            }
             _ => return Err(DomainError::InvalidResponse),
         };
         commands.push(ValidatedCli::new(line, request.clone()));

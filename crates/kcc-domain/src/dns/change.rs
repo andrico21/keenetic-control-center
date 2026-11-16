@@ -22,16 +22,18 @@ use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 /// Validates a typed DNS change against the selected router catalog.
 pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
     let (path, body) = catalog_input(change);
-    let mut validated = router
+    let validated = router
         .catalog
         .validate(path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
-    if let DnsChange::FqdnInclude { name, address: _ } | DnsChange::FqdnExclude { name, address: _ } =
-        change
-        && let Some(fields) = validated.value.as_object_mut()
-    {
-        drop(fields.insert("name".to_owned(), Value::String(name.clone())));
-    }
+    let line = if let DnsChange::FqdnInclude { name, address } = change {
+        format!("object-group fqdn {name} include {address}")
+    } else if let DnsChange::FqdnExclude { name, address } = change {
+        format!("object-group fqdn {name} exclude {address}")
+    } else {
+        render_validated(&validated)?
+    };
+    let command = ValidatedCli::new(line, validated);
     let verify = match change {
         DnsChange::HttpsUpstream(upstream) => vec![VerificationSpec::new(
             vec!["show".to_owned(), "dns-proxy".to_owned()],
@@ -86,27 +88,28 @@ pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
             token: _,
         } => Vec::new(),
     };
-    Ok(ChangeOp::new(
-        vec![validated],
-        verify,
-        Risk::Write,
-        Permission::Write,
-        false,
-    ))
+    let mut operation = ChangeOp::new(Vec::new(), verify, Risk::Write, Permission::Write, false);
+    operation.push(command);
+    Ok(operation)
 }
 
-/// Converts validated DNS operations to protected CLI workflow input.
+/// Converts validated DNS operations to protected CLI workflow input: the planned
+/// commands, or a line rendered from each request of a plan built from requests alone.
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
-    let commands = operation
-        .requests
-        .iter()
-        .map(|validated| {
-            Ok(ValidatedCli::new(
-                render_validated(validated)?,
-                validated.clone(),
-            ))
-        })
-        .collect::<Result<Vec<_>>>()?;
+    let commands = if operation.commands.is_empty() {
+        operation
+            .requests
+            .iter()
+            .map(|validated| {
+                Ok(ValidatedCli::new(
+                    render_validated(validated)?,
+                    validated.clone(),
+                ))
+            })
+            .collect::<Result<Vec<_>>>()?
+    } else {
+        operation.commands.clone()
+    };
     verification::complete(CliChangeRequest::new(
         commands,
         operation.verify.clone(),
@@ -214,7 +217,7 @@ fn https_body(value: &HttpsUpstream) -> Value {
 }
 
 fn render_validated(validated: &ValidatedRequest) -> Result<String> {
-    let value = &validated.value;
+    let value = validated.value();
     match validated.path.as_str() {
         "dns-proxy tls upstream" => Ok(render_tls(value)),
         "dns-proxy https upstream" => Ok(render_https(value)),
@@ -237,9 +240,7 @@ fn render_validated(validated: &ValidatedRequest) -> Result<String> {
         "dns-proxy route object-group" => Ok(render_route(value)),
         "ip name-server" => line_1(&validated.path, value, "address"),
         "ip host" => line_2(&validated.path, value, "domain", "address"),
-        "object-group fqdn description" => contextual_line(value, "description"),
-        "object-group fqdn include" => contextual_line(value, "include"),
-        "object-group fqdn exclude" => contextual_line(value, "exclude"),
+        "object-group fqdn description" => contextual_line(value),
         "nextdns assign" => Ok(render_nextdns(value)),
         _ => Err(DomainError::InvalidResponse),
     }
@@ -299,18 +300,11 @@ fn line_2(path: &str, value: &Value, first: &str, second: &str) -> Result<String
     ))
 }
 
-fn contextual_line(value: &Value, leaf: &str) -> Result<String> {
+fn contextual_line(value: &Value) -> Result<String> {
     Ok(format!(
-        "object-group fqdn {} {leaf} {}",
+        "object-group fqdn {} description {}",
         required_text(value, "name")?,
-        required_text(
-            value,
-            if leaf == "description" {
-                "description"
-            } else {
-                "address"
-            }
-        )?
+        required_text(value, "description")?
     ))
 }
 

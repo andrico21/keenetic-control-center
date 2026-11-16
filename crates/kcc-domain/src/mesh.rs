@@ -152,14 +152,14 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let line = match validated.path.as_str() {
-        "mws acquire" => format!("mws acquire {}", quoted(&validated.value, "candidate")?),
+        "mws acquire" => format!("mws acquire {}", quoted(validated.value(), "candidate")?),
         "mws member update check" => format!(
             "mws member {} update check",
-            quoted(&validated.value, "member")?
+            quoted(validated.value(), "member")?
         ),
         "mws member update start" => format!(
             "mws member {} update start",
-            quoted(&validated.value, "member")?
+            quoted(validated.value(), "member")?
         ),
         _ => return Err(DomainError::InvalidResponse),
     };

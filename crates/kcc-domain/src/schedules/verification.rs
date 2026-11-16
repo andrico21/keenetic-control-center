@@ -15,7 +15,7 @@ pub(super) fn expected(operation: &ChangeOp, name: &str) -> Result<Value> {
                     row.insert(
                         "description".to_owned(),
                         request
-                            .value
+                            .value()
                             .get("description")
                             .cloned()
                             .ok_or(DomainError::InvalidResponse)?,
@@ -23,7 +23,7 @@ pub(super) fn expected(operation: &ChangeOp, name: &str) -> Result<Value> {
                 );
             }
             "schedule action" => {
-                drop(row.insert("action".to_owned(), json!([request.value])));
+                drop(row.insert("action".to_owned(), json!([request.value()])));
             }
             _ => return Err(DomainError::InvalidResponse),
         }

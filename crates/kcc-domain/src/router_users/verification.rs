@@ -16,7 +16,7 @@ pub(super) fn specs(operation: &ChangeOp, name: &str) -> Result<Vec<Verification
         vec!["show".to_owned(), "rc".to_owned()],
         "/user".to_owned(),
         json!({"name":name}),
-        first.value.get("no") != Some(&Value::Bool(true)),
+        first.value().get("no") != Some(&Value::Bool(true)),
     ));
     for request in operation
         .requests
@@ -24,14 +24,14 @@ pub(super) fn specs(operation: &ChangeOp, name: &str) -> Result<Vec<Verification
         .filter(|request| request.path == "user tag")
     {
         let tag = request
-            .value
+            .value()
             .get("tag")
             .ok_or(DomainError::InvalidResponse)?;
         specs.push(VerificationSpec::collection(
             vec!["show".to_owned(), "rc".to_owned()],
             "/user".to_owned(),
             json!({"name":name,"tag":[tag]}),
-            request.value.get("no") != Some(&Value::Bool(true)),
+            request.value().get("no") != Some(&Value::Bool(true)),
         ));
     }
     Ok(specs)

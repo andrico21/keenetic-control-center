@@ -11,13 +11,18 @@ use crate::{
 /// A catalog-validated request with a redacted public projection.
 #[derive(Clone, Debug, PartialEq, Serialize)]
 #[non_exhaustive]
+#[expect(
+    clippy::partial_pub_fields,
+    reason = "the validated body is read-only; the other fields stay the public projection"
+)]
 pub struct ValidatedRequest {
     /// Space-separated catalog path, redacted for secret raw commands.
     pub path: String,
     /// Allowed HTTP method.
     pub method: HttpMethod,
-    /// Printable body; secret values are replaced with `<redacted>`.
-    pub value: Value,
+    /// Printable body; secret values are replaced with `<redacted>`. Read-only: a request
+    /// is exactly what was validated.
+    value: Value,
     /// Risk used for permissions and confirmation.
     pub risk: Risk,
     /// Whether any visited command can interrupt management access.
@@ -82,6 +87,22 @@ impl ValidatedRequest {
                 .collect(),
             protected,
         }
+    }
+
+    /// Replaces the classified body by one owned argument secret, keeping the rest.
+    pub(crate) fn with_secret(self, protected: SecretValue) -> Self {
+        Self {
+            value: protected.redacted().clone(),
+            protected,
+            ..self
+        }
+    }
+
+    /// Returns the printable validated body; secret values read `<redacted>`.
+    #[inline]
+    #[must_use]
+    pub const fn value(&self) -> &Value {
+        &self.value
     }
 
     /// Returns the protected body without exposing plaintext.

@@ -83,7 +83,7 @@ mod tests {
             let result = catalog.validate_cli(line, RawAuthorization::default());
             let request = result.map_err(|issues| format!("{line}: {issues:?}"))?;
             assert_eq!(request.path, path, "{line}");
-            assert_eq!(request.value, value, "{line}");
+            assert_eq!(*request.value(), value, "{line}");
             assert!(!request.unvalidated, "{line}");
         }
         Ok(())

@@ -6424,10 +6424,7 @@
       },
       "arguments": {
         "fqdn": {
-          "type": "Keyword",
-          "values": [
-            "FQDN"
-          ]
+          "type": "String"
         },
         "ip": {
           "type": "IpAddress"

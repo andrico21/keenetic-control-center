@@ -12,7 +12,7 @@ pub(super) fn specs(request: &ValidatedRequest) -> Result<Vec<VerificationSpec>>
         return Ok(Vec::new());
     }
     let path = vec!["show".to_owned(), "rc".to_owned()];
-    let enabled = request.value.get("no") != Some(&Value::Bool(true));
+    let enabled = request.value().get("no") != Some(&Value::Bool(true));
     if let Some(name) = request.path.strip_prefix("service ") {
         return Ok(vec![VerificationSpec::collection(
             path,
@@ -30,21 +30,21 @@ pub(super) fn specs(request: &ValidatedRequest) -> Result<Vec<VerificationSpec>>
         ["ip", listener, "port"] => (
             format!("/ip/{listener}/port"),
             request
-                .value
+                .value()
                 .get("port")
-                .or_else(|| request.value.get("number"))
+                .or_else(|| request.value().get("number"))
                 .cloned(),
         ),
         ["ip", listener, "security-level"] => (
             format!("/ip/{listener}/security-level"),
-            request.value.get("level").cloned(),
+            request.value().get("level").cloned(),
         ),
         ["ip", "http", "ssl", "enable" | "redirect"] => {
             (format!("/{}", words.join("/")), Some(json!(enabled)))
         }
         ["ip", "http", "ssl", "port"] => (
             "/ip/http/ssl/port".to_owned(),
-            request.value.get("port").cloned(),
+            request.value().get("port").cloned(),
         ),
         _ => return Err(DomainError::InvalidResponse),
     };

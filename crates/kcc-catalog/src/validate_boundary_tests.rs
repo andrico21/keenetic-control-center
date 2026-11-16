@@ -148,7 +148,7 @@ fn validate_secret_refuses_out_of_range_input() {
         match result {
             Ok(request) => {
                 assert!(accepted, "{length} bytes accepted");
-                assert_eq!(request.value, json!({ "password": "<redacted>" }));
+                assert_eq!(*request.value(), json!({ "password": "<redacted>" }));
             }
             Err(issues) => {
                 assert!(!accepted, "{length} bytes rejected");

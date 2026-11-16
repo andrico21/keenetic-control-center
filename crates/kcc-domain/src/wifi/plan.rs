@@ -102,7 +102,7 @@ pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<
             json!({"operation": validated.path, "interface": name.as_str()}),
         ));
     }
-    let line = render_line(name, &validated.path, &validated.value)?;
+    let line = render_line(name, &validated.path, validated.value())?;
     verification::complete(CliChangeRequest::new(
         vec![ValidatedCli::new(line, validated.clone())],
         operation.verify.clone(),

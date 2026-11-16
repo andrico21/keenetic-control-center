@@ -203,6 +203,14 @@ The first release, `0.1.0`, is in preparation and contains:
   `[workspace.dependencies]` and `Cargo.lock` is unchanged; unused code and unused
   message keys were deleted.
 
+- **KeenDNS proxy upstream is checked as sent**: the upstream line
+  (`ip http proxy <name> upstream <protocol> <host> <port>`) is validated against the
+  catalog before it is planned, on the Web, MCP and CLI alike. The protocol must be
+  `http`, `https` or `connect`, the host an IP address, a MAC address or a host name
+  (the catalog now types the command's `fqdn` form as a host name instead of the
+  literal word `FQDN`), and the port 1 to 65535. Before, the protocol and host were
+  checked only as one CLI word each, and MCP and the CLI accepted port 0.
+
 ### Fixed
 
 - **Clearing a firewall rule's description or schedule no longer enables the rule.**

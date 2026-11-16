@@ -14,7 +14,7 @@ pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
     let path = vec!["show".to_owned(), "rc".to_owned()];
     let text = |key| {
         first
-            .value
+            .value()
             .get(key)
             .and_then(Value::as_str)
             .ok_or(DomainError::InvalidResponse)
@@ -24,7 +24,7 @@ pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
             path,
             "/cloud/control2/security-level".to_owned(),
             first
-                .value
+                .value()
                 .get("level")
                 .cloned()
                 .ok_or(DomainError::InvalidResponse)?,
@@ -40,22 +40,29 @@ pub(super) fn specs(operation: &ChangeOp) -> Result<Vec<VerificationSpec>> {
         }
         "ip http proxy" => {
             let name = text("name")?.replace('~', "~0").replace('/', "~1");
-            let base = format!("/ip/http/proxy/{name}");
-            if let Some(upstream) = operation.requests.get(1) {
-                VerificationSpec::new(path, format!("{base}/upstream"), upstream.value.clone())
-            } else {
-                VerificationSpec::presence(
-                    path,
-                    base,
-                    if first.value.get("no") == Some(&Value::Bool(true)) {
-                        PresencePredicate::Absent
-                    } else {
-                        PresencePredicate::Present
-                    },
-                )
-            }
+            VerificationSpec::presence(
+                path,
+                format!("/ip/http/proxy/{name}"),
+                if first.value().get("no") == Some(&Value::Bool(true)) {
+                    PresencePredicate::Absent
+                } else {
+                    PresencePredicate::Present
+                },
+            )
         }
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(vec![spec])
+}
+
+/// The read-back of one proxy's upstream, in the router's configuration shape.
+pub(super) fn upstream(proxy: &str, expected: Value) -> VerificationSpec {
+    VerificationSpec::new(
+        vec!["show".to_owned(), "rc".to_owned()],
+        format!(
+            "/ip/http/proxy/{}/upstream",
+            proxy.replace('~', "~0").replace('/', "~1")
+        ),
+        expected,
+    )
 }

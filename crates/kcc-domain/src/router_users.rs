@@ -196,11 +196,11 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let name = first
-        .value
+        .value()
         .get("name")
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)?;
-    let deleting = first.value.get("no").and_then(Value::as_bool) == Some(true);
+    let deleting = first.value().get("no").and_then(Value::as_bool) == Some(true);
     let mut commands = vec![ValidatedCli::new(
         if deleting {
             format!("no user {name}")
@@ -221,11 +221,11 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             continue;
         }
         let tag = request
-            .value
+            .value()
             .get("tag")
             .and_then(Value::as_str)
             .ok_or(DomainError::InvalidResponse)?;
-        let prefix = if request.value.get("no").and_then(Value::as_bool) == Some(true) {
+        let prefix = if request.value().get("no").and_then(Value::as_bool) == Some(true) {
             "no "
         } else {
             ""

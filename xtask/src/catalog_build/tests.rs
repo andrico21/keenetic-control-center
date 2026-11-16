@@ -53,6 +53,7 @@ fn ambiguous_value_cells_map_to_semantic_types() {
         ("schedule", "Schedule", "ObjectName"),
         ("policy", "Policy", "ObjectName"),
         ("password", "String", "Password"),
+        ("fqdn", "FQDN", "String"),
     ];
     for (name, cell, tag) in cases {
         let actual = serde_json::to_value(parse_value_type(name, cell)).ok();

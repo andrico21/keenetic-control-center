@@ -106,12 +106,12 @@ impl Request {
 
     /// The command body.
     pub(crate) const fn body(&self) -> &Value {
-        &self.validated.value
+        self.validated.value()
     }
 
     /// The root object that runs the command.
     pub(crate) fn root(&self) -> Value {
-        root_object(&self.validated.path, self.validated.value.clone())
+        root_object(&self.validated.path, self.validated.value().clone())
     }
 
     /// Method, endpoint and payload exactly as sent, secrets masked.
@@ -119,7 +119,7 @@ impl Request {
         let mut payload = match self.delivery {
             Delivery::Read => self.root(),
             Delivery::Batch => Value::Array(vec![self.root()]),
-            Delivery::Background => self.validated.value.clone(),
+            Delivery::Background => self.validated.value().clone(),
         };
         mask_json(&mut payload, MASK);
         let endpoint = match self.delivery {

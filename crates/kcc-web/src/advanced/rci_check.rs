@@ -246,7 +246,7 @@ impl Checked {
                 method: _,
                 validated,
                 show: _,
-            } => field_names(&validated.value),
+            } => field_names(validated.value()),
             Self::Root { items, risk: _ } => items
                 .iter()
                 .flat_map(|(item, _validated)| field_names(item.value.redacted()))

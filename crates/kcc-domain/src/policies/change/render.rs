@@ -64,14 +64,14 @@ pub(super) fn expected_leaf(request: &ValidatedRequest) -> Result<Vec<String>> {
         "ip policy standalone" => vec!["standalone".to_owned()],
         _ => return Err(DomainError::InvalidResponse),
     };
-    if request.value.get("no") == Some(&Value::Bool(true)) {
+    if request.value().get("no") == Some(&Value::Bool(true)) {
         tokens.insert(0, "no".to_owned());
     }
     Ok(tokens)
 }
 
 fn context_line(request: &ValidatedRequest, name: &str) -> String {
-    if request.value.get("no") == Some(&Value::Bool(true)) {
+    if request.value().get("no") == Some(&Value::Bool(true)) {
         format!("no ip policy {name}")
     } else {
         format!("ip policy {name}")
@@ -127,9 +127,9 @@ fn optional_text<'request>(
     request: &'request ValidatedRequest,
     field: &str,
 ) -> Option<&'request str> {
-    request.value.get(field).and_then(Value::as_str)
+    request.value().get(field).and_then(Value::as_str)
 }
 
 fn number(request: &ValidatedRequest, field: &str) -> Option<u64> {
-    request.value.get(field).and_then(Value::as_u64)
+    request.value().get(field).and_then(Value::as_u64)
 }

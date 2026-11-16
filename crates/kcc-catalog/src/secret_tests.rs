@@ -23,7 +23,7 @@ proptest! {
             assert!(matches!(result, Err(issues) if issues == vec![ValidationIssue::InvalidValue { field: "password".to_owned() }]), "overlong secret must fail without retaining input");
         } else {
             let request = result.map_err(|_issues| TestCaseError::fail("valid secret refused"))?;
-            assert_eq!(request.value, json!({"password":"<redacted>"}));
+            assert_eq!(*request.value(), json!({"password":"<redacted>"}));
             let serialized = serde_json::to_value(&request)?;
             assert_eq!(serialized.pointer("/value/password"), Some(&Value::String("<redacted>".to_owned())));
             let debug = format!("{request:?}");
@@ -55,7 +55,7 @@ fn nested_secret_is_redacted() -> Result<(), Box<dyn Error>> {
         )
         .map_err(|_issues| "fixture refused")?;
     assert_eq!(
-        request.value.pointer("/user/password/plain/password"),
+        request.value().pointer("/user/password/plain/password"),
         Some(&json!("<redacted>"))
     );
     assert_eq!(
@@ -90,7 +90,7 @@ fn obfuscation_keys_are_redacted() -> Result<(), Box<dyn Error>> {
                 &json!({"obfs-key":"obfuscation-fixture"}),
             )
             .map_err(|_issues| "fixture refused")?;
-        assert_eq!(request.value, json!({"obfs-key":"<redacted>"}));
+        assert_eq!(*request.value(), json!({"obfs-key":"<redacted>"}));
         assert!(!format!("{request:?}").contains("obfuscation-fixture"));
         assert_eq!(
             request

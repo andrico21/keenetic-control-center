@@ -17,10 +17,10 @@ pub(super) fn specs(
         "/interface/{}",
         name.as_str().replace('~', "~0").replace('/', "~1")
     );
-    let enabled = request.value.get("no") != Some(&Value::Bool(true));
+    let enabled = request.value().get("no") != Some(&Value::Bool(true));
     let field = |key: &str| {
         request
-            .value
+            .value()
             .get(key)
             .cloned()
             .ok_or(DomainError::InvalidResponse)

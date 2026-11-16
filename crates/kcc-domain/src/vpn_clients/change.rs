@@ -7,7 +7,7 @@ use kcc_app::{
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
 use kcc_catalog::{HttpMethod, Risk};
-use serde_json::{Value, json};
+use serde_json::json;
 
 use super::{VpnClientChange, render};
 use crate::{
@@ -79,56 +79,40 @@ pub(super) fn append(
     operation: &mut ChangeOp,
     change: &VpnClientChange,
 ) -> Result<()> {
-    operation
-        .requests
-        .extend(unclassified(router, change)?.requests);
+    operation.push(command(router, change)?);
     Ok(())
 }
 
 /// Plans one non-secret mutation before complete-operation classification.
 fn unclassified(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
-    let (path, body, line) = render::input(change);
-    let mut validated = router
-        .catalog
-        .validate(path, HttpMethod::Post, &body)
-        .map_err(|issues| DomainError::Validation { issues })?;
-    validated.value = json!({"line":line,"arguments":validated.value});
-    Ok(ChangeOp::new(
-        vec![validated],
+    let mut operation = ChangeOp::new(
+        Vec::new(),
         Vec::new(),
         Risk::Write,
         Permission::Write,
         false,
-    ))
+    );
+    operation.push(command(router, change)?);
+    Ok(operation)
+}
+
+/// Validates one non-secret mutation and binds its line to the validated request.
+fn command(router: &RouterCtx, change: &VpnClientChange) -> Result<ValidatedCli> {
+    let (path, body, line) = render::input(change);
+    let validated = router
+        .catalog
+        .validate(path, HttpMethod::Post, &body)
+        .map_err(|issues| DomainError::Validation { issues })?;
+    Ok(ValidatedCli::new(line, validated))
 }
 
 /// Converts a plan to protected CLI workflow input.
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
-    let commands = operation
-        .requests
-        .iter()
-        .map(|request| {
-            let line = request
-                .value
-                .get("line")
-                .and_then(Value::as_str)
-                .ok_or(DomainError::InvalidResponse)?;
-            let mut validated = request.clone();
-            validated.value = request
-                .value
-                .get("arguments")
-                .cloned()
-                .ok_or(DomainError::InvalidResponse)?;
-            if validated.has_secrets() {
-                ValidatedCli::from_template(validated, line)
-                    .map_err(|_error| DomainError::InvalidResponse)
-            } else {
-                Ok(ValidatedCli::new(line.to_owned(), validated))
-            }
-        })
-        .collect::<Result<Vec<_>>>()?;
+    if operation.commands.is_empty() {
+        return Err(DomainError::InvalidResponse);
+    }
     verification::complete(CliChangeRequest::new(
-        commands,
+        operation.commands.clone(),
         operation.verify.clone(),
         operation.permission,
         json!({"domain":"vpn_clients"}),

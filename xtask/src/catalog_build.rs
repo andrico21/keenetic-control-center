@@ -903,7 +903,8 @@ fn split_columns(line: &str) -> Vec<&str> {
 fn parse_value_type(name: &str, value: &str) -> ValueType {
     match (name, value) {
         ("password", "String") | (_, "Password") => ValueType::Password,
-        (_, "String") => ValueType::String,
+        // The `fqdn` row's value cell names the form (a host name), not a keyword.
+        (_, "String") | ("fqdn", "FQDN") => ValueType::String,
         (_, "Integer") => ValueType::Integer,
         (_, "IP address") => ValueType::IpAddress,
         (_, "IP-mask") => ValueType::IpMask,

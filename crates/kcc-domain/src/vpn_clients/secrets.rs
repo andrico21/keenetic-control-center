@@ -96,28 +96,27 @@ pub fn plan(
         | CredentialTarget::WireGuardPeerObfuscation(_, _) => "",
     };
     let template = format!("{prefix} {{/{argument}}}{suffix}");
-    let mut request = router
+    let request = router
         .catalog
         .validate_secret(path, argument, secret)
         .map_err(|issues| DomainError::Validation { issues })?;
-    drop(
-        ValidatedCli::from_template(request.clone(), &template)
-            .map_err(|_error| DomainError::InvalidCliToken)?,
-    );
-    request.value = json!({"line":template,"arguments":request.value});
+    let command = ValidatedCli::from_template(request, &template)
+        .map_err(|_error| DomainError::InvalidCliToken)?;
     let mut verify = VerificationSpec::presence(
         Vec::new(),
         "vpn/credential".to_owned(),
         PresencePredicate::ConfigSecret,
     );
     verify.expected = json!(prefix);
-    Ok(ChangeOp::new(
-        vec![request],
+    let mut operation = ChangeOp::new(
+        Vec::new(),
         vec![verify],
         Risk::Write,
         Permission::Write,
         false,
-    ))
+    );
+    operation.push(command);
+    Ok(operation)
 }
 
 /// Applies a credential and verifies only the stored payload's presence and length.

@@ -68,7 +68,7 @@ impl Change {
                     .collect(),
                 checks
                     .iter()
-                    .flat_map(|validated| field_names(&validated.value))
+                    .flat_map(|validated| field_names(validated.value()))
                     .collect(),
             ),
             Self::Cli(request) => lines(&request.commands),
@@ -136,7 +136,7 @@ fn lines(commands: &[CliCommand]) -> (Vec<&str>, Vec<String>) {
             .collect(),
         commands
             .iter()
-            .flat_map(|command| field_names(&command.validated().value))
+            .flat_map(|command| field_names(command.validated().value()))
             .collect(),
     )
 }

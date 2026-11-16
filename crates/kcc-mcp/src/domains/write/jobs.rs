@@ -133,7 +133,7 @@ pub(super) async fn diagnostics(
         router.as_str().to_owned(),
         Arc::clone(&ctx.client),
         kind,
-        validated.value,
+        validated.value().clone(),
     )
     .await
     .map_err(|error| {

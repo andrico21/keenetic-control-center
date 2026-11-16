@@ -155,7 +155,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .requests
         .first()
         .ok_or(DomainError::InvalidResponse)?;
-    let prefix = if request.value.get("no").and_then(Value::as_bool) == Some(true) {
+    let prefix = if request.value().get("no").and_then(Value::as_bool) == Some(true) {
         "no "
     } else {
         ""
@@ -165,19 +165,19 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         "system log suppress" => format!(
             "{prefix}system log suppress {}",
             request
-                .value
+                .value()
                 .get("ident")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?
         ),
         "system log server" => {
             let address = request
-                .value
+                .value()
                 .get("address")
                 .and_then(Value::as_str)
                 .ok_or(DomainError::InvalidResponse)?;
             request
-                .value
+                .value()
                 .get("port")
                 .and_then(Value::as_u64)
                 .map_or_else(

@@ -16,13 +16,11 @@ mod render;
 pub mod secrets;
 mod verification;
 
-use alloc::vec;
-
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
+use kcc_catalog::{HttpMethod, Risk};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, json};
 
@@ -239,48 +237,26 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
 pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<ChangeOp> {
     let (path, body, line) = render::input(change);
     let verify = verification::specs(change, path, &body);
-    let mut validated = router
+    let validated = router
         .catalog
         .validate(path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
-    validated.value = json!({"line":line,"arguments":validated.value});
-    Ok(ChangeOp::new(
-        vec![validated],
-        verify,
-        Risk::Write,
-        Permission::Write,
-        false,
-    ))
+    let mut operation = ChangeOp::new(Vec::new(), verify, Risk::Write, Permission::Write, false);
+    operation.push(ValidatedCli::new(line, validated));
+    Ok(operation)
 }
 
 /// Converts a VPN server plan to protected workflow input.
 pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
-    let commands = operation
-        .requests
-        .iter()
-        .map(validated_command)
-        .collect::<Result<Vec<_>>>()?;
+    if operation.commands.is_empty() {
+        return Err(DomainError::InvalidResponse);
+    }
     Ok(CliChangeRequest::new(
-        commands,
+        operation.commands.clone(),
         operation.verify.clone(),
         operation.permission,
         json!({"domain":"vpn_servers"}),
     ))
-}
-
-fn validated_command(request: &ValidatedRequest) -> Result<ValidatedCli> {
-    let line = request
-        .value
-        .get("line")
-        .and_then(Value::as_str)
-        .ok_or(DomainError::InvalidResponse)?;
-    let mut validated = request.clone();
-    validated.value = request
-        .value
-        .get("arguments")
-        .cloned()
-        .ok_or(DomainError::InvalidResponse)?;
-    Ok(ValidatedCli::new(line.to_owned(), validated))
 }
 
 fn decode(value: Option<&Value>) -> ServerConfigStatus {

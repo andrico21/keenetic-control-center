@@ -74,7 +74,7 @@ fn cli_fixed_forms_are_validated_in_both_firmware_views() {
                 .expect("fixed form validates");
             assert_eq!(request.path, path, "{line}");
             assert_eq!(request.method, HttpMethod::Post);
-            assert_eq!(request.value, value, "{line}");
+            assert_eq!(*request.value(), value, "{line}");
             assert_eq!(request.risk, risk, "{line}");
             assert!(!request.unvalidated, "{line}");
         }
@@ -201,7 +201,7 @@ fn cli_unknown_lines_use_existing_raw_gate() {
             .expect("authorized raw line");
         assert!(request.unvalidated);
         assert_eq!(request.path, line);
-        assert_eq!(request.value, json!({"command":line}));
+        assert_eq!(*request.value(), json!({"command":line}));
         assert_eq!(request.risk, Risk::Management);
     }
 }

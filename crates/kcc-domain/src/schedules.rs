@@ -172,7 +172,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let name = first
-        .value
+        .value()
         .get("name")
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)?;
@@ -182,7 +182,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             "schedule description" => format!(
                 "schedule {name} description {}",
                 request
-                    .value
+                    .value()
                     .get("description")
                     .and_then(Value::as_str)
                     .ok_or(DomainError::InvalidResponse)?
@@ -190,22 +190,22 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             "schedule action" => format!(
                 "schedule {name} action {} {} {} {}",
                 request
-                    .value
+                    .value()
                     .get("action")
                     .and_then(Value::as_str)
                     .ok_or(DomainError::InvalidResponse)?,
                 request
-                    .value
+                    .value()
                     .get("min")
                     .and_then(Value::as_u64)
                     .ok_or(DomainError::InvalidResponse)?,
                 request
-                    .value
+                    .value()
                     .get("hour")
                     .and_then(Value::as_u64)
                     .ok_or(DomainError::InvalidResponse)?,
                 request
-                    .value
+                    .value()
                     .get("dow")
                     .and_then(Value::as_u64)
                     .ok_or(DomainError::InvalidResponse)?

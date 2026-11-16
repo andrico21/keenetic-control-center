@@ -211,9 +211,7 @@ pub fn plan_security_level(
     level: SecurityLevel,
 ) -> Result<ChangeOp> {
     let path = format!("ip {} security-level", listener.name());
-    let mut request = validate(router, &path, &json!({}))?;
-    request.value = json!({"level":level.name()});
-    Ok(management_change(request))
+    plan_management(router, &path, &json!({"level":level.name()}))
 }
 
 /// Plans one HTTP TLS or ACME setting.
@@ -282,13 +280,13 @@ fn validate(router: &RouterCtx, path: &str, body: &Value) -> Result<ValidatedReq
 
 /// Serializes a validated fixed-form request into router CLI syntax.
 fn command_line(request: &ValidatedRequest) -> String {
-    let prefix = if request.value.get("no").and_then(Value::as_bool) == Some(true) {
+    let prefix = if request.value().get("no").and_then(Value::as_bool) == Some(true) {
         "no "
     } else {
         ""
     };
     let argument = request
-        .value
+        .value()
         .as_object()
         .and_then(|object| {
             object

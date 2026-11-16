@@ -74,7 +74,7 @@ fn line(operation: &ChangeOp, verification: &Verification) -> Result<String> {
         _ => return Err(DomainError::InvalidResponse),
     }
     let positive = words.join(" ");
-    Ok(if leaf.value.get("no") == Some(&Value::Bool(true)) {
+    Ok(if leaf.value().get("no") == Some(&Value::Bool(true)) {
         format!("no {positive}")
     } else {
         positive
@@ -149,7 +149,7 @@ fn render_property(
             (vec!["order".to_owned(), position.to_string()], false)
         }
     };
-    if negated != (request.value.get("no") == Some(&Value::Bool(true))) {
+    if negated != (request.value().get("no") == Some(&Value::Bool(true))) {
         return Err(DomainError::InvalidResponse);
     }
     words.extend(property_words);
@@ -158,12 +158,12 @@ fn render_property(
 
 fn text<'request>(request: &'request ValidatedRequest, field: &str) -> Result<&'request str> {
     request
-        .value
+        .value()
         .get(field)
         .and_then(Value::as_str)
         .ok_or(DomainError::InvalidResponse)
 }
 
 fn number(request: &ValidatedRequest, field: &str) -> Option<u64> {
-    request.value.get(field).and_then(Value::as_u64)
+    request.value().get(field).and_then(Value::as_u64)
 }

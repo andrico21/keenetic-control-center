@@ -64,6 +64,7 @@ impl Planned {
 fn merge(aggregate: &mut Option<ChangeOp>, mut operation: ChangeOp) {
     if let Some(planned) = aggregate {
         planned.requests.append(&mut operation.requests);
+        planned.commands.append(&mut operation.commands);
         planned.verify.append(&mut operation.verify);
         planned.risk = planned.risk.max(operation.risk);
         planned.persists_immediately |= operation.persists_immediately;

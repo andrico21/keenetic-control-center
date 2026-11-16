@@ -48,7 +48,7 @@ use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{VerificationSpec, WorkflowError},
+    workflow::{CliCommand, VerificationSpec, WorkflowError},
 };
 use kcc_catalog::{Catalog, Risk, ValidatedRequest, ValidationIssue};
 use kcc_rci::{RciBody, RciClient, RciError, RciPath};
@@ -225,6 +225,10 @@ pub struct ChangeOp {
     pub permission: Permission,
     /// Whether this operation persists immediately rather than remaining unsaved.
     pub persists_immediately: bool,
+    /// CLI commands planned with their requests, in the same order, for an operation
+    /// whose lines carry words its request bodies do not (a context name, a keyword).
+    /// Empty when every line is rendered from its request alone.
+    pub commands: Vec<CliCommand>,
 }
 
 impl ChangeOp {
@@ -244,7 +248,15 @@ impl ChangeOp {
             risk,
             permission,
             persists_immediately,
+            commands: Vec::new(),
         }
+    }
+
+    /// Appends one planned CLI command and the request it renders.
+    #[inline]
+    pub fn push(&mut self, command: CliCommand) {
+        self.requests.push(command.validated().clone());
+        self.commands.push(command);
     }
 
     /// Returns whether the router persists this plan at once: its own flag or any

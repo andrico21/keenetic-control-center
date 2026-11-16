@@ -196,7 +196,7 @@ fn plan(router: &RouterCtx, path: &str, body: &Value) -> Result<ChangeOp> {
 }
 
 fn render(request: &ValidatedRequest) -> String {
-    let value = &request.value;
+    let value = request.value();
     let mut parts = vec![request.path.clone()];
     if request.path == "ip route" {
         if let (Some(network), Some(mask)) = (text(value, "network"), text(value, "mask")) {

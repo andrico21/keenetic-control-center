@@ -195,7 +195,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let argument = request
-        .value
+        .value()
         .as_object()
         .into_iter()
         .flatten()
