@@ -168,6 +168,9 @@ pub(super) async fn submit(
     }
     visit.session().forget();
     visit.record_mut().choose_source(router.clone());
+    if let Err(error) = visit.forget_passwords() {
+        return Err(errors::internal(&error, fragment_shell(locale)).into());
+    }
     if let Err(error) = visit.save() {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }

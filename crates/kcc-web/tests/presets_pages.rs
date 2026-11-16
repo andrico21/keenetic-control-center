@@ -23,6 +23,8 @@ mod records;
 mod retention;
 #[path = "presets_pages/scope.rs"]
 mod scope;
+#[path = "presets_pages/secret_retention.rs"]
+mod secret_retention;
 #[path = "presets_pages/secrets.rs"]
 mod secrets;
 #[path = "presets_pages/setup.rs"]

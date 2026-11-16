@@ -230,6 +230,9 @@ pub(super) async fn choose(
     let typed = (!firmware.is_empty()).then_some(firmware);
     visit.record_mut().choose_target(router.clone(), typed);
     session.forget();
+    if let Err(error) = visit.forget_passwords() {
+        return Err(errors::internal(&error, fragment_shell(locale)).into());
+    }
     if let Err(problem) = visit.analysis().await {
         let mut panel = Panel::base(&visit).await;
         panel.explain(&problem, locale);

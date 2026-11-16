@@ -21,7 +21,7 @@ directories 0700 and files 0600 on Unix. "Encrypted" means sealed with the maste
 | Custom roles | `roles.json` | plain JSON | until deleted |
 | Configuration backups: the router's full startup configuration, secrets included | `backups/<router>/` | encrypted | pruned after each new backup by `[backups] keep_last` (50) and `max_age` (180 days) |
 | Presets: captured configuration lines, secrets included | `presets/<id>.json` | encrypted | until deleted |
-| Migration and preset runs: step record (no secrets), redacted plan and report, sealed source and typed passwords | `migrations/<id>/` | record and reports plain, the rest encrypted | sealed parts of copy runs are dropped on finish or after 24 hours; records and reports stay |
+| Migration and preset runs: step record (no secrets), redacted plan and report, sealed source and typed passwords | `migrations/<id>/` | record and reports plain, the rest encrypted | the sealed parts (source, copied settings, passwords) of every run are deleted when the run finishes, when the router's recovery window of an unfinished apply ends, when the source or target is chosen again (passwords only), and after 24 hours without a change of the run; unchanged runs are deleted whole after 30 days; records and reports stay until then |
 | Background jobs: kind, router, state, progress | `jobs/` | plain JSON | finished records are pruned after 30 days; running records are kept for recovery |
 | Audit log: time, actor, action, router, outcome, parameter names and non-secret values | `audit.jsonl` (rotated at 50 MiB) | plain, hash-chained | complete rotated files whose newest entry is older than `[audit] retention` (365 days) are pruned after rotation |
 

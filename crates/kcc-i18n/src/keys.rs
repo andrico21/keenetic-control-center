@@ -6666,8 +6666,12 @@ pub const WEB_ROUTER_ERROR_PERMISSIONS: MessageKey =
 /// `web-wizard-runs-limit` in `web.ftl`.
 pub const WEB_WIZARD_RUNS_LIMIT: MessageKey = MessageKey::new("web-wizard-runs-limit");
 
+/// `web-migrate-inputs-password-user` in `web.ftl`.
+pub const WEB_MIGRATE_INPUTS_PASSWORD_USER: MessageKey =
+    MessageKey::new("web-migrate-inputs-password-user");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2122] = [
+pub static ALL: [MessageKey; 2123] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8790,4 +8794,5 @@ pub static ALL: [MessageKey; 2122] = [
     WEB_TIME_UTC,
     WEB_ROUTER_ERROR_PERMISSIONS,
     WEB_WIZARD_RUNS_LIMIT,
+    WEB_MIGRATE_INPUTS_PASSWORD_USER,
 ];

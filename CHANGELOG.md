@@ -730,6 +730,15 @@ The first release, `0.1.0`, is in preparation and contains:
   checked a role's router scope against the raw, percent-encoded path segment while the
   pages used the decoded id; both now use the decoded id (`/ui/r/%68ome/...` is `home`),
   and a segment that does not decode to UTF-8 is refused.
+- **Wizard secrets do not outlive their run.** A migration kept its sealed source and
+  typed passwords forever, and a run of a saved preset left before its last step kept its
+  sealed passwords. Finishing a run of either wizard, the end of an apply nobody finishes
+  (the router's recovery window) and a day without a change of the run now delete the
+  run's sealed source, copied settings and passwords (the run's record and reports stay;
+  a copy run's age is now its last change, not its start). Choosing the source or the
+  target again deletes the typed passwords, which the presets wizard used to reuse
+  silently. The migration's password fields are matched to their user by name: a form
+  whose hidden user names do not match the page's users is refused.
 
 ### Upgrade notes
 

@@ -147,6 +147,17 @@ where
             .collect())
     }
 
+    /// Deletes the sealed passwords: they were typed for choices that changed.
+    ///
+    /// # Errors
+    ///
+    /// Returns removal failures other than a missing file.
+    pub(crate) fn forget_passwords(&self) -> Result<(), StoreError> {
+        self.services
+            .store()
+            .discard(self.record.id(), Sealed::Passwords)
+    }
+
     /// Seals `passwords`, by user name.
     ///
     /// # Errors

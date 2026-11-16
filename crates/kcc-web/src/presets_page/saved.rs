@@ -1,7 +1,7 @@
-//! The presets kcc keeps, and the sweep of old preset runs.
+//! The presets kcc keeps.
 //!
 //! The encrypted preset store sits beside the backups; a copy run's transient preset is
-//! sealed in the run's directory until the run finishes or a day passed.
+//! sealed in the run's directory until the run finishes or a day passes without a change.
 
 use kcc_config::config_text::parse;
 use kcc_migrate::presets::{
@@ -13,22 +13,13 @@ use kcc_migrate::presets::{
 use secrecy::{ExposeSecret as _, SecretString, zeroize::Zeroizing};
 use serde::{Deserialize, Serialize};
 
-use super::{
-    record::{FILE, Record},
-    steps::Origin,
-};
 use crate::{
     fleet::Fleet,
     wizard::{
-        flow::Flow as _,
-        index, retention,
         services::Services,
         store::{Sealed, StoreError},
     },
 };
-
-/// How long a copy run keeps its copied settings, in seconds.
-const TRANSIENT_SECONDS: u64 = 24 * 60 * 60;
 
 /// The preset store of `fleet`'s state directory, sealed with the backups' key.
 pub(super) fn store(fleet: &Fleet) -> PresetStore {
@@ -119,45 +110,4 @@ pub(super) fn transient(
         payload.created_by,
     );
     Ok(Some(Preset::captured(request, selection)))
-}
-
-/// Deletes what a run sealed: the copied settings and the typed passwords.
-pub(super) fn discard(services: Services<'_>, id: &str) {
-    let store = services.store();
-    for part in [Sealed::Preset, Sealed::Passwords] {
-        if let Err(error) = store.discard(id, part) {
-            tracing::error!(%error, "preset run secrets could not be deleted");
-        }
-    }
-}
-
-/// Deletes, at `now`, the preset runs untouched for 30 days, and the sealed settings and
-/// passwords of every copy run started more than a day before; such a run itself stays,
-/// and says its settings are gone.
-pub(super) fn sweep(services: Services<'_>, now: u64) {
-    let store = services.store();
-    retention::sweep::<Record>(&store, now);
-    let runs = match index::runs::<Record>(&store) {
-        Ok(found) => found,
-        Err(error) => {
-            tracing::warn!(%error, "preset runs could not be listed for expiry");
-            return;
-        }
-    };
-    for id in runs.into_keys() {
-        if !store.sealed(&id, Sealed::Preset) && !store.sealed(&id, Sealed::Passwords) {
-            continue;
-        }
-        let expired = store
-            .load_named::<Record>(&id, FILE)
-            .ok()
-            .flatten()
-            .is_some_and(|record| {
-                *record.origin() == Origin::Copy
-                    && record.created_at().saturating_add(TRANSIENT_SECONDS) < now
-            });
-        if expired {
-            discard(services, &id);
-        }
-    }
 }

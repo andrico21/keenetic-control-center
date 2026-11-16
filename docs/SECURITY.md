@@ -158,7 +158,10 @@ either.
   that started them; kcc keeps a run's in-memory side only after that check, so another
   user's requests cannot push it out. A user keeps at most 10 unfinished runs of each
   wizard (a run unchanged for a day no longer counts), and runs unchanged for 30 days are
-  deleted, so run directories cannot fill the state disk without bound. An apply holds the
+  deleted, so run directories cannot fill the state disk without bound. A run's sealed
+  source, copied settings and typed passwords are deleted when it finishes or expires and
+  after a day without a change; choosing the source or target again deletes its typed
+  passwords. An apply holds the
   target router (the Web wizard's reservation and the change workflow's write lease) only
   until it is finished or the router's fail-safe interval has passed; MCP finishing
   stays limited to the identity that planned the migration.

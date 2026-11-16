@@ -193,11 +193,6 @@ impl Store {
         }
     }
 
-    /// Whether `part` of run `id` is sealed.
-    pub(crate) fn sealed(&self, id: &str, part: Sealed) -> bool {
-        is_id(id) && self.root.join(id).join(part.file()).exists()
-    }
-
     /// Seals `text` as `part` of migration `id` with `key`.
     ///
     /// # Errors

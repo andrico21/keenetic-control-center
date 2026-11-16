@@ -120,3 +120,15 @@
 ## [2026-11-16] Todo 34 (wt/r34) notes, not fixed here
 - A running apply's `Analysis`/plan are cached in the run's session, so a migration whose sealed source was swept after a day of no change still plans from the cache until the process restarts; only a fresh read (Problem::Source) needs the sealed source.
 - The presets wizard's password rows are keyed by index only (no hidden user name); its users come from the server-side plan on both GET and POST, so the finding was limited to the migration wizard.
+- (todo 34 review) `retention::sweep` now also calls `forget_secrets` (3 discard attempts) for every abandoned-but-not-yet-deleted run on each landing view, up to the 30-day deletion. Harmless, but with the per-landing O(runs) stat noted for todo 33 it is a candidate for an existence check or rate limit (BACKLOG).
+
+## [2026-11-16] Todo 32 (wt/r32) notes, not fixed here
+- C-03 covers the native fail-safe timer only: a reboot an operator scheduled (`system reboot <s>` in extender/AP/repeater modes) is not visible in `show last-change`, so a bracket in scheduled-reboot mode can still replace and cancel it. Detecting it needs a router read kcc does not model yet.
+- `ApplyError::CommittedSaveFailed` has no producer any more (close no longer saves after the native commit); the variant and its consumers (MCP `management_applied_not_saved`, Web wizard/presets, CLI exit) stay so stored records parse. CLI `closing.rs` `(Close::Save, true, false)` is unreachable for the same reason. A later cleanup may drop them with a CHANGELOG line.
+- The todo-33 issue "after CommittedSaveFailed the Web expiry records 'rolled back by the router'" can no longer arise from a router-mode commit.
+
+## [2026-11-16] Todo 35
+- A poll round already holding the old read-only client when its profile changes can still re-sign in on that orphaned client (one extra session until the router expires it); `forget` only logs out the session it sees at that moment. Same shape as `client()`; not fixed.
+- Primary-credential `clients` are not signed out at shutdown (only read-only sessions and background sessions are).
+- `poller.rs` is ~370 pure LOC (pre-existing, over the 250 ceiling); not split here.
+- Worker slip: ran `git checkout <file>` once on a file this todo had just edited itself (crates/kcc/src/server_shutdown.rs, reverting only its own wrapper edit); no other work affected.

@@ -253,7 +253,9 @@ Runs of the migration wizard and of presets and copy settings are kept on the kc
 under `<state>/migrations/`. Each user keeps at most 10 unfinished runs of each wizard (the
 migration wizard, and presets with copy settings); an 11th start is refused with the
 reason. A run whose last change is more than a day old counts as abandoned and no longer
-as unfinished. A run, finished or abandoned, is deleted 30 days after its last change,
+as unfinished, and kcc deletes what it sealed for it (the source, the copied settings and
+the typed passwords; a migration left that long must be started again). A run, finished
+or abandoned, is deleted 30 days after its last change,
 with everything kcc kept for it; the deletion happens when the wizard's page is next
 opened. An apply that nobody finishes ends when the router's fail-safe timer runs out:
 the run then shows that the router rolled the changes back.

@@ -2,9 +2,10 @@
 //!
 //! A user keeps at most [`OPEN_RUNS`] unfinished runs of each wizard; another start is
 //! refused. A run whose record has not changed for [`ABANDONED_AFTER`] counts as
-//! abandoned and no longer as open, and a run whose record has not changed for
-//! [`KEPT_FOR`] is deleted with everything kcc kept for it. The record's last change is
-//! its file's modification time: every change writes the record, a page view does not.
+//! abandoned and no longer as open: it loses what it sealed (the source, the copied
+//! settings and the typed passwords). A run whose record has not changed for [`KEPT_FOR`]
+//! is deleted with everything kcc kept for it. The record's last change is its file's
+//! modification time: every change writes the record, a page view does not.
 
 use std::{fs, io, time::UNIX_EPOCH};
 
@@ -17,7 +18,7 @@ use super::{
     ids::is_id,
     index,
     services::Services,
-    store::{Store, StoreError},
+    store::{Sealed, Store, StoreError},
 };
 use crate::{
     errors,
@@ -58,8 +59,32 @@ where
     Ok(open < OPEN_RUNS)
 }
 
+/// Whether run `id` of wizard `F` counts as abandoned at Unix second `now`: its record
+/// has not changed for [`ABANDONED_AFTER`].
+pub(crate) fn idle<F>(store: &Store, id: &str, now: u64) -> bool
+where
+    F: Flow,
+{
+    changed::<F>(store, id)
+        .ok()
+        .flatten()
+        .is_some_and(|at| now.saturating_sub(at) > ABANDONED_AFTER)
+}
+
+/// Deletes what run `id` sealed: its source, its copied settings and its typed
+/// passwords. A part that is not there is fine; a part that cannot be deleted is logged
+/// and the others are still deleted.
+pub(crate) fn forget_secrets(store: &Store, id: &str) {
+    for part in [Sealed::Source, Sealed::Preset, Sealed::Passwords] {
+        if let Err(error) = store.discard(id, part) {
+            tracing::error!(%error, "a run's sealed part could not be deleted");
+        }
+    }
+}
+
 /// Deletes, at Unix second `now`, every run of wizard `F` whose record has not changed
-/// for [`KEPT_FOR`].
+/// for [`KEPT_FOR`], and the sealed parts of every run that has not changed for
+/// [`ABANDONED_AFTER`]; such a run itself stays.
 pub(crate) fn sweep<F>(store: &Store, now: u64)
 where
     F: Flow,
@@ -81,7 +106,8 @@ where
 }
 
 /// Whether run `id` of wizard `F` is gone at Unix second `now`: its record is missing,
-/// or the run was deleted because it had not changed for [`KEPT_FOR`].
+/// or the run was deleted because it had not changed for [`KEPT_FOR`]; an abandoned run
+/// that stays loses its sealed parts.
 fn gone<F>(store: &Store, id: &str, now: u64) -> bool
 where
     F: Flow,
@@ -95,7 +121,12 @@ where
                 false
             }
         },
-        Ok(Some(_)) => false,
+        Ok(Some(at)) => {
+            if now.saturating_sub(at) > ABANDONED_AFTER {
+                forget_secrets(store, id);
+            }
+            false
+        }
         Err(error) => {
             tracing::warn!(%error, "a run's age could not be read");
             false

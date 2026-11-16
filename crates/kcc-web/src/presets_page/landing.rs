@@ -79,7 +79,7 @@ pub(super) async fn copy_page(
     if !user.role().grants(Permission::Migrate) {
         return errors::response(Kind::Forbidden, shell);
     }
-    saved::sweep(services, state.unix_seconds());
+    retention::sweep::<Record>(&services.store(), state.unix_seconds());
     let locale = user.locale();
     let rows = runs(&services.store(), user.username(), |_record| true);
     errors::render(&Landing {
@@ -112,7 +112,7 @@ pub(super) async fn preset_page(
         Ok(found) => found,
         Err(refusal) => return refusal.page(shell),
     };
-    saved::sweep(services, state.unix_seconds());
+    retention::sweep::<Record>(&services.store(), state.unix_seconds());
     let locale = user.locale();
     let rows = runs(
         &services.store(),
@@ -150,7 +150,7 @@ pub(super) async fn copy_start(
             .await;
         return Err(errors::response(Kind::Forbidden, fragment_shell(user.locale())).into());
     }
-    saved::sweep(services, state.unix_seconds());
+    retention::sweep::<Record>(&services.store(), state.unix_seconds());
     start(&state, (services, &runs), Origin::Copy, None).await
 }
 

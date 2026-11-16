@@ -264,6 +264,9 @@ pub(super) async fn submit(
     let router = source.router().map(str::to_owned);
     visit.record_mut().choose_source(source);
     session.forget();
+    if let Err(error) = visit.forget_passwords() {
+        return Err(errors::internal(&error, fragment_shell(locale)).into());
+    }
     if let Err(error) = visit.save() {
         return Err(errors::internal(&error, fragment_shell(locale)).into());
     }

@@ -146,7 +146,9 @@ fn checked(
     let mut failed = false;
     for (index, user) in needs.users().iter().enumerate() {
         let typed = value(&format!("password-{index}")).unwrap_or_default();
-        let error = if typed.is_empty() {
+        let error = if value(&format!("user-{index}")) != Some(user.as_str()) {
+            Some(keys::WEB_MIGRATE_INPUTS_PASSWORD_USER)
+        } else if typed.is_empty() {
             (!passwords.contains_key(user)).then_some(keys::WEB_MIGRATE_INPUTS_PASSWORD_MISSING)
         } else if typed.chars().count() > PASSWORD_MAX || typed.chars().any(char::is_control) {
             Some(keys::WEB_MIGRATE_INPUTS_PASSWORD_INVALID)

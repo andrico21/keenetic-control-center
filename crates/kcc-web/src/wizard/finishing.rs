@@ -13,7 +13,7 @@ use kcc_i18n::{
 use kcc_migrate::apply::ApplyError;
 use serde_json::Value;
 
-use super::{flow::Flow, run::Ended, services::Services};
+use super::{flow::Flow, retention, run::Ended, services::Services};
 
 /// What a rollback needs on the target, in every wizard.
 pub(crate) const ROLLBACK: [Permission; 2] = [Permission::Migrate, Permission::Destructive];
@@ -83,8 +83,11 @@ pub(crate) trait Finishing: Flow {
     /// that changed nothing to keep.
     fn plan_anew(&mut self, replan: bool);
 
-    /// Deletes what run `id` sealed for its apply once it finished, if anything.
-    fn discard(_services: Services<'_>, _id: &str) {}
+    /// Deletes what run `id` sealed once it finished: its source, its copied settings
+    /// and its typed passwords.
+    fn discard(services: Services<'_>, id: &str) {
+        retention::forget_secrets(&services.store(), id);
+    }
 
     /// The sentence explaining the failure a record names `name`; a name this kcc does
     /// not know reads as a failed apply.

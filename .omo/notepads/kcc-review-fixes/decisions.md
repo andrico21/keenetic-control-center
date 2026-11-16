@@ -85,3 +85,7 @@
 - Deleting is idempotent (`Store::discard` ignores a missing file) and a failure is logged and never fails a finish. Choosing the source/target again (`Visit::forget_passwords`) does fail the request (internal error before the record is saved): silently keeping stale passwords is the bug.
 - W5-16: strict. A migration inputs submit must carry `user-N` equal to the server's N-th user, a missing field counts as a mismatch (new key `web-migrate-inputs-password-user`, six locales). The two helpers that post inputs (`flow::to_preview`) and `plan_steps` now send `user-0` as the page does.
 - Cost: a migration left idle for a day loses its sealed source; resuming it answers the existing Problem::Source and the user starts again (documented in USER_GUIDE).
+
+## [2026-11-16] Todo 35
+- New public variant `RciError::Cancelled` (`#[non_exhaustive]` enum). Exhaustive matches updated: `kcc-rci/src/observe.rs` (RequestOutcome::of -> Transport). The matches in kcc-mcp `map_rci`, kcc-web `rci_failure` and `advanced/deliver`, and kcc `cli/exit.rs` already end in a wildcard or list variants without Cancelled-specific meaning; none needed an edit (the compiler accepted all). Cancelled only comes from `Handle::poll` with a caller token.
+- `RciClient::logout()` is public (main-session sign-out, used by the read pool). Primary-credential clients are still not logged out at shutdown (out of the todo's scope).

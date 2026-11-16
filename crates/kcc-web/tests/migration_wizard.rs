@@ -27,6 +27,8 @@ mod preview;
 mod records;
 #[path = "migration_wizard/retention.rs"]
 mod retention;
+#[path = "migration_wizard/secret_retention.rs"]
+mod secret_retention;
 #[path = "migration_wizard/secrets.rs"]
 mod secrets;
 #[path = "migration_wizard/sessions.rs"]

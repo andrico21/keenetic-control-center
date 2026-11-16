@@ -86,6 +86,9 @@ pub(super) async fn choose(
     }
     visit.record_mut().choose_target(router.clone());
     visit.session().forget();
+    if let Err(error) = visit.forget_passwords() {
+        return Err(errors::internal(&error, fragment_shell(locale)).into());
+    }
     let read = match visit.preset() {
         Ok(preset) => visit.inventory(&preset).await.map(drop),
         Err(problem) => Err(problem),

@@ -118,11 +118,12 @@ mod tests {
             "matching targets: {form}"
         );
         let reconnect = value_of(&inputs, "name=\"reconnect_url\"").ok_or("reconnect field")?;
+        let user = value_of(&inputs, "name=\"user-0\"").ok_or("user field")?;
         let missing = fixture
             .post_form(
                 &format!("{page}/inputs"),
                 &admin,
-                &[("reconnect_url", &reconnect)],
+                &[("user-0", &user), ("reconnect_url", &reconnect)],
             )
             .await?;
         assert_eq!(

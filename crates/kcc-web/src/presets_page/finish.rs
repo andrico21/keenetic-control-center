@@ -10,11 +10,8 @@ use kcc_i18n::{bundle::MessageKey, keys};
 use kcc_migrate::apply::ApplyError;
 use serde_json::{Value, json};
 
-use super::{events::failure_text, record::Record, saved, steps::Finish};
-use crate::wizard::{
-    finishing::{Choice, Finishing, Keeping, ROLLBACK},
-    services::Services,
-};
+use super::{events::failure_text, record::Record, steps::Finish};
+use crate::wizard::finishing::{Choice, Finishing, Keeping, ROLLBACK};
 
 /// What keeping the settings unsaved needs on the target: disarming the timer.
 const KEEP: [Permission; 2] = [Permission::Migrate, Permission::Write];
@@ -64,9 +61,5 @@ impl Finishing for Record {
 
     fn plan_anew(&mut self, _replan: bool) {
         self.plan_again();
-    }
-
-    fn discard(services: Services<'_>, id: &str) {
-        saved::discard(services, id);
     }
 }

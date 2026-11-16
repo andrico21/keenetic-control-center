@@ -15,7 +15,7 @@ use super::{record::Record, saved, steps::Origin};
 use crate::wizard::{
     analysis::{Problem, inventory_problem},
     flow::Flow as _,
-    visit,
+    retention, visit,
 };
 
 /// An opened run, holding its turn until it is dropped.
@@ -46,6 +46,7 @@ impl PresetRun for Visit<'_> {
     fn preset(&self) -> Result<Preset, Problem> {
         let services = self.services();
         let fleet = services.fleet();
+        let (store, now) = (services.store(), services.state().unix_seconds());
         let found = match self.record().origin() {
             Origin::Preset { id, name: _ } => {
                 match saved::store(fleet).get_for_apply(services.user().role(), id) {
@@ -56,6 +57,7 @@ impl PresetRun for Visit<'_> {
                     }
                 }
             }
+            Origin::Copy if retention::idle::<Record>(&store, self.record().id(), now) => None,
             Origin::Copy => {
                 let name = self.record().source_router().unwrap_or_default().to_owned();
                 match saved::transient(services, self.record().id(), name) {

@@ -85,9 +85,8 @@ pub(crate) async fn to_review(fixture: &Fixture, browser: &Browser) -> TestResul
     Ok(page)
 }
 
-/// Steps 4 and 5: every conflict takes the source's value, `alice` gets
-/// [`NEW_PASSWORD`] and the proposed reconnect address is kept; returns at the preview.
-pub(crate) async fn to_preview(fixture: &Fixture, browser: &Browser, page: &str) -> TestResult {
+/// Step 4: every conflict takes the source's value; returns at the inputs.
+pub(crate) async fn to_inputs(fixture: &Fixture, browser: &Browser, page: &str) -> TestResult {
     let review = text(fixture.get(page, browser).await?).await?;
     let mut pairs = Vec::new();
     for index in indices(&review, "name=\"resolve-") {
@@ -104,14 +103,26 @@ pub(crate) async fn to_preview(fixture: &Fixture, browser: &Browser, page: &str)
             .await?,
         page,
     )?;
+    Ok(())
+}
+
+/// Steps 4 and 5: every conflict takes the source's value, `alice` gets
+/// [`NEW_PASSWORD`] and the proposed reconnect address is kept; returns at the preview.
+pub(crate) async fn to_preview(fixture: &Fixture, browser: &Browser, page: &str) -> TestResult {
+    to_inputs(fixture, browser, page).await?;
     let inputs = text(fixture.get(page, browser).await?).await?;
     let reconnect = value_of(&inputs, "name=\"reconnect_url\"").unwrap_or_default();
+    let user = value_of(&inputs, "name=\"user-0\"").unwrap_or_default();
     moved(
         &fixture
             .post_form(
                 &format!("{page}/inputs"),
                 browser,
-                &[("password-0", NEW_PASSWORD), ("reconnect_url", &reconnect)],
+                &[
+                    ("user-0", &user),
+                    ("password-0", NEW_PASSWORD),
+                    ("reconnect_url", &reconnect),
+                ],
             )
             .await?,
         page,
