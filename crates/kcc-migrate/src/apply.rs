@@ -39,7 +39,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub use failure::ApplyError;
 use kcc_app::{
     audit::AuditEvent,
-    jobs::{JobContext, JobError, JobProgress, JobRunner},
+    jobs::{JobContext, JobError, JobProgress, JobRunner, JobTarget},
     workflow::ChangeSet,
 };
 use kcc_domain::configuration::SafetyMode;
@@ -111,8 +111,7 @@ impl Applier {
         let started = runner
             .start(
                 "migration".to_owned(),
-                Some(router),
-                true,
+                JobTarget::Write(router),
                 async move |context| {
                     let result = Self::prepare(request).await;
                     match result {

@@ -197,8 +197,9 @@ mod tests {
         Ok(())
     }
 
+    /// B-21: a malformed file beside valid backups must not stop listing or retention.
     #[test]
-    fn prune_failure_is_logged_without_failing_create() -> TestResult {
+    fn malformed_backup_file_does_not_stop_retention() -> TestResult {
         let capture = Capture(Arc::new(Mutex::new(Vec::new())));
         let sink = capture.clone();
         let subscriber = tracing_subscriber::fmt()
@@ -207,28 +208,39 @@ mod tests {
             .with_writer(move || sink.clone())
             .finish();
         let _subscriber = set_default(subscriber);
-        let (directory, backups) = store(Arc::new(FixedClock::new(600)))?;
-        let retained = backups.with_retention(BackupRetention::new(Duration::ZERO, 1));
+        let clock = Arc::new(FixedClock::new(600));
+        let (directory, backups) = store(Arc::clone(&clock))?;
+        let retained = backups.with_retention(BackupRetention::new(Duration::ZERO, 2));
         let router_dir = directory.path().join("state/backups/router");
         fs::create_dir_all(&router_dir)?;
         fs::write(router_dir.join("1-broken.txt"), b"not json")?;
+        for second in 600..604 {
+            clock.set(second);
+            drop(retained.create(
+                "router",
+                "manual",
+                &SecretString::from(format!("content-{second}")),
+            )?);
+        }
 
-        let created = retained.create(
-            "router",
-            "manual",
-            &SecretString::from("preserved".to_owned()),
-        )?;
+        let listed = retained.listing("router")?;
 
         assert_eq!(
-            retained.get("router", &created.name)?.expose_secret(),
-            "preserved"
+            listed.backups.len(),
+            2,
+            "retention keeps the newest two readable"
         );
-        let output = capture
-            .0
-            .lock()
-            .map_err(|_error| "capture poisoned")?
-            .clone();
-        assert!(String::from_utf8(output)?.contains("backup retention failed after create"));
+        assert_eq!(listed.unreadable, 1);
+        assert_eq!(fs::read(router_dir.join("1-broken.txt"))?, b"not json");
+        let output = String::from_utf8(
+            capture
+                .0
+                .lock()
+                .map_err(|_error| "capture poisoned")?
+                .clone(),
+        )?;
+        assert!(!output.contains("retention failed"), "{output}");
+        assert!(output.contains("1-broken.txt"), "{output}");
         Ok(())
     }
 }

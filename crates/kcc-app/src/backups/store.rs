@@ -10,8 +10,8 @@ use kcc_config::config_text::normalize;
 use secrecy::{ExposeSecret as _, SecretString};
 
 use super::{
-    BackupDiff, BackupError, BackupInfo, BackupName, BackupRecord, BackupRetention, BackupStore,
-    parse_backup_name, router_dir, validate_component,
+    BackupDiff, BackupError, BackupInfo, BackupListing, BackupName, BackupRecord, BackupRetention,
+    BackupStore, parse_backup_name, router_dir, validate_component,
 };
 use crate::{
     accounts::{Clock, SystemClock},
@@ -115,12 +115,21 @@ impl BackupStore {
         Ok(info)
     }
 
-    /// Lists backups newest first.
+    /// Lists readable backups newest first, skipping unreadable files.
     ///
     /// # Errors
     ///
-    /// Returns validation, directory I/O, or malformed-record errors.
+    /// Returns validation or directory I/O errors.
     pub fn list(&self, router: &str) -> Result<Vec<BackupInfo>, BackupError> {
+        Ok(self.list_unlocked(router)?.backups)
+    }
+
+    /// Lists readable backups newest first and counts the unreadable files left in place.
+    ///
+    /// # Errors
+    ///
+    /// Returns validation or directory I/O errors.
+    pub fn listing(&self, router: &str) -> Result<BackupListing, BackupError> {
         self.list_unlocked(router)
     }
 
@@ -202,14 +211,19 @@ impl BackupStore {
     }
 
     /// Lists backups without acquiring the router lock.
-    fn list_unlocked(&self, router: &str) -> Result<Vec<BackupInfo>, BackupError> {
+    ///
+    /// A file that cannot be read or parsed is left untouched, logged by name and counted.
+    fn list_unlocked(&self, router: &str) -> Result<BackupListing, BackupError> {
         let directory = router_dir(&self.state, router)?;
         let entries = match fs::read_dir(&directory) {
             Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                return Ok(BackupListing::default());
+            }
             Err(error) => return Err(io_error(&directory, error).into()),
         };
         let mut backups = Vec::new();
+        let mut unreadable = 0_usize;
         for listed in entries {
             let entry = listed.map_err(|error| io_error(&directory, error))?;
             let Some(name) = entry.file_name().to_str().map(str::to_owned) else {
@@ -218,7 +232,14 @@ impl BackupStore {
             if !name.ends_with(".txt") {
                 continue;
             }
-            let record = read_record(entry.path(), &name)?;
+            let record = match read_record(entry.path(), &name) {
+                Ok(record) => record,
+                Err(error) => {
+                    tracing::warn!(router, file = %name, %error, "unreadable backup skipped");
+                    unreadable = unreadable.saturating_add(1);
+                    continue;
+                }
+            };
             backups.push(BackupInfo {
                 name,
                 created_at: record.created_at,
@@ -231,7 +252,10 @@ impl BackupStore {
                 sequence: 0,
             }))
         });
-        Ok(backups)
+        Ok(BackupListing {
+            backups,
+            unreadable,
+        })
     }
 
     /// Applies retention while the caller owns the router lock.
@@ -242,7 +266,7 @@ impl BackupStore {
         protected: Option<&str>,
     ) -> Result<Vec<String>, BackupError> {
         let now = self.clock.unix_seconds();
-        let backups = self.list_unlocked(router)?;
+        let backups = self.list_unlocked(router)?.backups;
         let keep = usize::try_from(policy.keep_last).unwrap_or(usize::MAX);
         let mut removed = Vec::new();
         for (index, backup) in backups.into_iter().enumerate() {

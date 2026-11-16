@@ -6,7 +6,7 @@ use core::error::Error;
 
 use kcc_app::{
     audit::{AuditLog, read_entries},
-    jobs::JobRunner,
+    jobs::{JobRunner, JobTarget},
     persist::StateStore,
     registry::RouterRegistry,
     settings::OutboundConfig,
@@ -51,8 +51,7 @@ pub(super) async fn run_id(env: &Env) -> Result<String, Box<dyn Error>> {
     Ok(runner
         .start(
             "migration".to_owned(),
-            Some("target".to_owned()),
-            false,
+            JobTarget::Read(Some("target".to_owned())),
             async |_context| Ok(()),
         )
         .await?)

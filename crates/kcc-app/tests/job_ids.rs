@@ -14,8 +14,12 @@ use alloc::{collections::BTreeSet, sync::Arc};
 use core::{error::Error, fmt, time::Duration};
 
 use kcc_app::{
-    accounts::Clock, audit::AuditLog, jobs::JobRunner, persist::StateStore,
-    registry::RouterRegistry, settings::OutboundConfig,
+    accounts::Clock,
+    audit::AuditLog,
+    jobs::{JobRunner, JobTarget},
+    persist::StateStore,
+    registry::RouterRegistry,
+    settings::OutboundConfig,
 };
 use tempfile::TempDir;
 
@@ -61,7 +65,11 @@ async fn job_ids_are_random_not_sequential() -> Result<(), Box<dyn Error>> {
     for _ in 0_u8..64 {
         ids.push(
             runner
-                .start("probe".to_owned(), None, false, async |_context| Ok(()))
+                .start(
+                    "probe".to_owned(),
+                    JobTarget::Read(None),
+                    async |_context| Ok(()),
+                )
                 .await?,
         );
     }

@@ -22,7 +22,7 @@ use std::{
 use kcc_app::{
     accounts::Clock,
     audit::AuditLog,
-    jobs::{JobError, JobRunner, JobStatus},
+    jobs::{JobError, JobRunner, JobStatus, JobTarget},
     persist::StateStore,
     registry::RouterRegistry,
     settings::OutboundConfig,
@@ -71,7 +71,7 @@ async fn live_job_stays_running_and_dead_job_becomes_interrupted() -> TestResult
         let runner =
             JobRunner::open(state.clone(), registry(&state)?, AuditLog::spawn(&state)?).await?;
         let id = runner
-            .start("held".to_owned(), None, false, async |_context| {
+            .start("held".to_owned(), JobTarget::Read(None), async |_context| {
                 pending::<Result<(), String>>().await
             })
             .await?;
@@ -178,8 +178,7 @@ async fn failed_ownership_claim_releases_router_write_slot() -> TestResult {
     let failed = runner
         .start(
             "blocked".to_owned(),
-            Some("router".to_owned()),
-            true,
+            JobTarget::Write("router".to_owned()),
             async |_context| Ok(()),
         )
         .await;
@@ -190,8 +189,7 @@ async fn failed_ownership_claim_releases_router_write_slot() -> TestResult {
         runner
             .start(
                 "retry".to_owned(),
-                Some("router".to_owned()),
-                true,
+                JobTarget::Write("router".to_owned()),
                 async |_context| Ok(()),
             )
             .await?,
@@ -227,16 +225,24 @@ async fn runners_sharing_state_start_same_second_jobs() -> TestResult {
     let (release_second, second_released) = oneshot::channel();
 
     let first_id = first
-        .start("first".to_owned(), None, false, async move |_context| {
-            drop(first_released.await);
-            Ok(())
-        })
+        .start(
+            "first".to_owned(),
+            JobTarget::Read(None),
+            async move |_context| {
+                drop(first_released.await);
+                Ok(())
+            },
+        )
         .await?;
     let second_id = second
-        .start("second".to_owned(), None, false, async move |_context| {
-            drop(second_released.await);
-            Ok(())
-        })
+        .start(
+            "second".to_owned(),
+            JobTarget::Read(None),
+            async move |_context| {
+                drop(second_released.await);
+                Ok(())
+            },
+        )
         .await?;
 
     assert_ne!(first_id, second_id);

@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 
 use kcc_app::{
     audit::{AuditLog, read_entries},
-    jobs::JobRunner,
+    jobs::{JobRunner, JobTarget},
     persist::StateStore,
     registry::RouterRegistry,
     settings::OutboundConfig,
@@ -51,8 +51,7 @@ async fn preset_finish_router_operator_commits() -> TestResult {
     let run = runner
         .start(
             "migration".to_owned(),
-            Some("lab-1".to_owned()),
-            false,
+            JobTarget::Read(Some("lab-1".to_owned())),
             async |_context| Ok(()),
         )
         .await?;
@@ -109,8 +108,7 @@ async fn preset_finish_operator_saves_but_cannot_roll_back() -> TestResult {
     let run = runner
         .start(
             "migration".to_owned(),
-            Some("lab-1".to_owned()),
-            false,
+            JobTarget::Read(Some("lab-1".to_owned())),
             async |_context| Ok(()),
         )
         .await?;
@@ -186,8 +184,7 @@ async fn preset_finish_disarm_failure_reports_saved_change() -> TestResult {
     let run = runner
         .start(
             "migration".to_owned(),
-            Some("lab-1".to_owned()),
-            false,
+            JobTarget::Read(Some("lab-1".to_owned())),
             async |_context| Ok(()),
         )
         .await?;

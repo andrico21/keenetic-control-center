@@ -12,7 +12,7 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_app::{
-    jobs::{JobError, JobRecord, JobRunner},
+    jobs::{JobError, JobRecord, JobRunner, JobTarget},
     permissions::Permission,
 };
 use kcc_catalog::Risk;
@@ -157,7 +157,7 @@ impl Work {
             body,
             slot,
         } = self;
-        jobs.start(kind, Some(router), false, async move |job| {
+        jobs.start(kind, JobTarget::Read(Some(router)), async move |job| {
             let segments: Vec<&str> = path.split_whitespace().collect();
             let resource =
                 RciPath::from_segments(&segments).map_err(|_error| "invalid path".to_owned())?;

@@ -10,6 +10,7 @@
 mod tests {
     use core::error::Error;
 
+    use kcc_app::jobs::JobTarget;
     use kcc_migrate::apply::{Applier, ApplyError};
     use kcc_testkit::{FakeRouter, migration, model::Profile};
     use tokio::sync::oneshot;
@@ -61,8 +62,7 @@ mod tests {
                     .runner
                     .start(
                         "verify".to_owned(),
-                        Some("target".to_owned()),
-                        true,
+                        JobTarget::Write("target".to_owned()),
                         async move |context| {
                             let result = applier.apply(&context).await;
                             let commit = applier.commit().await;

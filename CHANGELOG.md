@@ -412,6 +412,19 @@ The first release, `0.1.0`, is in preparation and contains:
   (a deadline still returns `Timeout`). A subscriber that joins just as an idle router
   poller exits now still gets data.
 
+- **Retention survives an unreadable backup file.** A malformed or unreadable `.txt` file in
+  a router's backup directory used to make listing and pruning fail for that router for good.
+  Such a file is now skipped (it is never moved or deleted), logged once per scan with its
+  file name, and counted separately by `BackupStore::listing`; pruning keeps working.
+- **Jobs leave no lock files behind.** Each job used to leave `job-<id>.lock` and
+  `job-owner-<id>.lock` in the state directory for good. The per-record lock is gone (the
+  ownership lock already serializes writers) and the ownership lock file is removed with
+  the finished record when it is pruned.
+- **A lost final job record is logged.** A failed final write of a job record is logged
+  with its error kind instead of being dropped silently.
+- **Write jobs need a router by construction.** `JobRunner::start` takes a `JobTarget`
+  (`Read(Option<router>)` or `Write(router)`), so a write job without a router can no longer
+  be started.
 - **A recovery timer's disarm, keep-alive and rollback are always sent.** They no longer
   run the conflict check and the automatic backup of a configuration change (they still
   need the change's permission and router scope). Before, a change by another client during a

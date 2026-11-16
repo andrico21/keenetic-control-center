@@ -122,7 +122,7 @@ checked as an address. Router and log sink connections ignore the `HTTP_PROXY`,
 | `keep_last` | integer | `50` | backups kept per router; `0` disables the count limit |
 | `max_age` | duration | `180d` | backups older than this are pruned; `0s` disables the age limit |
 
-Pruning runs after each new backup.
+Pruning runs after each new backup. A backup file that cannot be read is skipped, left in place and logged by name; it does not stop pruning of the readable ones.
 
 ## `[audit]`
 

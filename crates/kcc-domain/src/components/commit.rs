@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 use core::time::Duration;
 
 use kcc_app::{
-    jobs::{JobContext, JobProgress, JobRunner},
+    jobs::{JobContext, JobProgress, JobRunner, JobTarget},
     permissions::{Permission, Role},
     registry::{RouterRegistry, authorize},
     workflow::{ChangeSet, CliChangeRequest, CliCommand as ValidatedCli},
@@ -64,8 +64,7 @@ pub(super) async fn start(
     let job_router = router_name.clone();
     jobs.start(
         "components.commit".to_owned(),
-        Some(router_name),
-        true,
+        JobTarget::Write(router_name),
         async move |context| {
             context.progress(10);
             context.structured_progress(JobProgress::Structured(before_progress));

@@ -3,10 +3,13 @@
 extern crate alloc;
 
 use alloc::collections::BTreeMap;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::{
+    fs, io,
+    sync::{Mutex, MutexGuard, PoisonError},
+};
 
 use super::JobError;
-use crate::persist::{StateError, StateLock, StateStore};
+use crate::persist::{StateError, StateLock, StateStore, io_error};
 
 /// Process-held advisory locks for active job identifiers.
 pub(super) struct JobOwnership {
@@ -60,6 +63,22 @@ impl JobOwnership {
                 Ok(false)
             }
             Err(StateError::StateLocked { path: _ }) => Ok(true),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    /// Removes the lock file of a pruned job unless a live process still owns it.
+    pub(super) fn discard(&self, id: &str) -> Result<(), JobError> {
+        match self.state.try_lock(&lock_name(id)) {
+            Ok(lock) => {
+                let path = lock.path().to_path_buf();
+                match fs::remove_file(&path) {
+                    Ok(()) => Ok(()),
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+                    Err(error) => Err(io_error(&path, error).into()),
+                }
+            }
+            Err(StateError::StateLocked { path: _ }) => Ok(()),
             Err(error) => Err(error.into()),
         }
     }

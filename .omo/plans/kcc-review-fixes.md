@@ -887,7 +887,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app,rci): reuse router sessions and fix the poller idle race
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 36. Jobs and backups: no leaked lock files, no silent record loss, retention survives bad files
+- [x] 36. Jobs and backups: no leaked lock files, no silent record loss, retention survives bad files
   What to do / Must NOT do: Per the findings. B-21: skip unreadable backup files during listing and retention (do not move them) and report them separately (a count in the listing and one warning log per file), so retention keeps working. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `B-09` (low; critic adjusted, medium->low) Every job leaves two lock files in the state root forever. Evidence: `crates/kcc-app/src/jobs.rs:601`, `jobs/job_ownership.rs:89-91`, `persist.rs:289-291`, `jobs.rs:648-655`. Fix: Drop the per-record lock (ownership already serializes writers) and remove the `job-owner-*.lock` file when pruning the finished record.
   - `B-10` (low; critic confirmed) A failed final write of a job record is dropped silently, and the next start reports a false interruption. Evidence: `crates/kcc-app/src/jobs.rs:476`. Fix: Log the error with `job_error_kind` at minimum.

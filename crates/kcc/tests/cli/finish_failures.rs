@@ -6,7 +6,7 @@ use alloc::sync::Arc;
 
 use kcc_app::{
     audit::{AuditLog, read_entries},
-    jobs::JobRunner,
+    jobs::{JobRunner, JobTarget},
     persist::StateStore,
     registry::RouterRegistry,
     settings::OutboundConfig,
@@ -65,8 +65,7 @@ async fn explicit_disarm_failures_report_armed() -> TestResult {
             let run = runner
                 .start(
                     "migration".to_owned(),
-                    Some("lab-1".to_owned()),
-                    false,
+                    JobTarget::Read(Some("lab-1".to_owned())),
                     async |_context| Ok(()),
                 )
                 .await?;

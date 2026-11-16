@@ -13,6 +13,7 @@ mod lab;
     reason = "acceptance assertions establish the MCP audit contract"
 )]
 mod tests {
+    use kcc_app::jobs::JobTarget;
     use kcc_testkit::{FakeRouter, FaultInjection, model::Profile};
     use serde_json::{Value, json};
 
@@ -77,8 +78,7 @@ mod tests {
             .jobs
             .start(
                 "diagnostics.ping".to_owned(),
-                Some("lab-1".to_owned()),
-                false,
+                JobTarget::Read(Some("lab-1".to_owned())),
                 async move |context| {
                     context.cancellation().cancelled().await;
                     Ok(())

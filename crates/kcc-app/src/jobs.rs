@@ -45,6 +45,16 @@ mod job_ownership;
 use job_id::JobIdAllocator;
 use job_ownership::JobOwnership;
 
+/// What a job acts on: a read job may run without a router, a write job needs one.
+#[derive(Clone, Debug, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum JobTarget {
+    /// A read-only job, optionally tied to a router.
+    Read(Option<String>),
+    /// A job writing to the named router; one per router at a time.
+    Write(String),
+}
+
 /// Job lifecycle status persisted on disk.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -397,38 +407,39 @@ impl JobRunner {
     pub async fn start<F, Fut>(
         self: &Arc<Self>,
         kind: String,
-        router: Option<String>,
-        write: bool,
+        target: JobTarget,
         work: F,
     ) -> Result<String, JobError>
     where
         F: FnOnce(JobContext) -> Fut + Send + 'static,
         Fut: Future<Output = Result<(), String>> + Send + 'static,
     {
+        let (router, write_router) = match target {
+            JobTarget::Read(router) => (router, None),
+            JobTarget::Write(router) => (Some(router.clone()), Some(router)),
+        };
+        let write = write_router.is_some();
         let id = self.ids.allocate()?;
         let cancellation = CancellationToken::new();
         let mut active = self.active.lock().await;
         let mut write_jobs = self.write_jobs.lock().await;
-        if write {
-            let target = router.as_ref().ok_or_else(|| JobError::RouterBusy {
-                router: "missing".to_owned(),
-            })?;
-            if write_jobs.contains_key(target) {
-                return Err(JobError::RouterBusy {
-                    router: target.clone(),
-                });
-            }
+        if let Some(busy) = &write_router
+            && write_jobs.contains_key(busy)
+        {
+            return Err(JobError::RouterBusy {
+                router: busy.clone(),
+            });
         }
         let ownership = self.ownership.claim(&id)?;
-        if let Some(target) = router.as_ref().filter(|_target| write) {
-            drop(write_jobs.insert(target.clone(), id.clone()));
+        if let Some(slot) = &write_router {
+            drop(write_jobs.insert(slot.clone(), id.clone()));
         }
         drop(active.insert(id.clone(), cancellation.clone()));
         let now = self.clock.unix_seconds();
         if let Err(error) = self.persist(&JobRecord {
             id: id.clone(),
             kind,
-            router: router.clone(),
+            router,
             write,
             status: JobStatus::Running,
             progress: 0,
@@ -437,14 +448,13 @@ impl JobRunner {
             message: None,
         }) {
             drop(active.remove(&id));
-            if write && let Some(target) = &router {
-                drop(write_jobs.remove(target));
+            if let Some(slot) = &write_router {
+                drop(write_jobs.remove(slot));
             }
             return Err(error);
         }
         let owner = Arc::clone(self);
         let task_id = id.clone();
-        let task_router = router.clone();
         let context = JobContext {
             id: task_id.clone(),
             cancellation: cancellation.clone(),
@@ -464,36 +474,9 @@ impl JobRunner {
                 (_, true, false) => JobStatus::Cancelled,
                 (true, false, false) => JobStatus::Completed,
             };
-            match owner.get(&task_id) {
-                Ok(mut record) => {
-                    record.status = status;
-                    record.progress = if status == JobStatus::Completed {
-                        100
-                    } else {
-                        record.progress
-                    };
-                    record.updated_at = owner.clock.unix_seconds();
-                    record.message = result.err();
-                    drop(owner.persist(&record));
-                    drop(owner.events.send(JobEvent {
-                        id: task_id.clone(),
-                        progress: record.progress,
-                        status,
-                        detail: None,
-                    }));
-                }
-                Err(error) => {
-                    warn_missing_record(&task_id, &error);
-                    drop(owner.events.send(JobEvent {
-                        id: task_id.clone(),
-                        progress: completed_progress(status, &terminal_progress),
-                        status,
-                        detail: None,
-                    }));
-                }
-            }
-            if write && let Some(target) = task_router {
-                drop(owner.write_jobs.lock().await.remove(&target));
+            owner.record_final(&task_id, status, result.err(), &terminal_progress);
+            if let Some(slot) = write_router {
+                drop(owner.write_jobs.lock().await.remove(&slot));
             }
             drop(owner.active.lock().await.remove(&task_id));
             owner.ownership.release(&task_id);
@@ -596,10 +579,50 @@ impl JobRunner {
         }
     }
 
+    /// Writes the terminal record of a job and announces its final status.
+    ///
+    /// A missing record or a failed write is logged with its error kind; the event is
+    /// sent either way.
+    fn record_final(
+        &self,
+        id: &str,
+        status: JobStatus,
+        message: Option<String>,
+        worker_progress: &AtomicU8,
+    ) {
+        let progress = match self.get(id) {
+            Ok(mut record) => {
+                record.status = status;
+                if status == JobStatus::Completed {
+                    record.progress = 100;
+                }
+                record.updated_at = self.clock.unix_seconds();
+                record.message = message;
+                if let Err(error) = self.persist(&record) {
+                    tracing::warn!(
+                        job = %id,
+                        error_kind = job_error_kind(&error),
+                        "job final record not written"
+                    );
+                }
+                record.progress
+            }
+            Err(error) => {
+                warn_missing_record(id, &error);
+                completed_progress(status, worker_progress)
+            }
+        };
+        drop(self.events.send(JobEvent {
+            id: id.to_owned(),
+            progress,
+            status,
+            detail: None,
+        }));
+    }
+
     /// Persists one job atomically.
     fn persist(&self, record: &JobRecord) -> Result<(), JobError> {
         let directory = self.jobs_dir()?;
-        let _lock = self.state.lock(&format!("job-{}", record.id))?;
         let mut bytes =
             serde_json::to_vec_pretty(record).map_err(|_error| JobError::Malformed {
                 path: directory.join(format!("{}.json", record.id)),
@@ -652,6 +675,7 @@ impl JobRunner {
             };
             if record.status != JobStatus::Running && record.updated_at < cutoff {
                 fs::remove_file(&path).map_err(|error| io_error(&path, error))?;
+                self.ownership.discard(&record.id)?;
             }
         }
         Ok(())
@@ -728,7 +752,7 @@ mod tests {
 
     use tokio::{sync::oneshot, time::timeout};
 
-    use super::{JobError, JobRunner, JobStatus, job_id::JobIdAllocator};
+    use super::{JobError, JobRunner, JobStatus, JobTarget, job_id::JobIdAllocator};
     use crate::{
         accounts::Clock, audit::AuditLog, persist::StateStore, registry::RouterRegistry,
         settings::OutboundConfig,
@@ -782,20 +806,28 @@ mod tests {
         let (release, released) = oneshot::channel();
         drop(
             first
-                .start("held".to_owned(), None, false, async move |_context| {
-                    drop(released.await);
-                    Ok(())
-                })
+                .start(
+                    "held".to_owned(),
+                    JobTarget::Read(None),
+                    async move |_context| {
+                        drop(released.await);
+                        Ok(())
+                    },
+                )
                 .await?,
         );
         let work_started = Arc::new(core::sync::atomic::AtomicBool::new(false));
         let observed = Arc::clone(&work_started);
 
         let collision = second
-            .start("refused".to_owned(), None, false, async move |_context| {
-                observed.store(true, Ordering::Relaxed);
-                Ok(())
-            })
+            .start(
+                "refused".to_owned(),
+                JobTarget::Read(None),
+                async move |_context| {
+                    observed.store(true, Ordering::Relaxed);
+                    Ok(())
+                },
+            )
             .await;
 
         assert!(matches!(collision, Err(JobError::IdCollision)));
@@ -824,8 +856,7 @@ mod tests {
             let active = runner.active.lock().await;
             let start = runner.start(
                 "cancelled".to_owned(),
-                Some("router".to_owned()),
-                true,
+                JobTarget::Write("router".to_owned()),
                 async |_context| pending::<Result<(), String>>().await,
             );
             tokio::pin!(start);
@@ -838,8 +869,7 @@ mod tests {
             runner
                 .start(
                     "retry".to_owned(),
-                    Some("router".to_owned()),
-                    true,
+                    JobTarget::Write("router".to_owned()),
                     async |_context| Ok(()),
                 )
                 .await?,
@@ -882,8 +912,7 @@ mod tests {
         let id = runner
             .start(
                 "panic".to_owned(),
-                Some("router".to_owned()),
-                true,
+                JobTarget::Write("router".to_owned()),
                 async move |_context| {
                     let _signal = PanicStarted(Some(panic_started));
                     panic!("synthetic job panic");
@@ -903,8 +932,7 @@ mod tests {
             runner
                 .start(
                     "retry".to_owned(),
-                    Some("router".to_owned()),
-                    true,
+                    JobTarget::Write("router".to_owned()),
                     async |_context| Ok(()),
                 )
                 .await?,
@@ -936,8 +964,7 @@ mod tests {
         let id = runner
             .start(
                 "missing-record".to_owned(),
-                Some("router".to_owned()),
-                true,
+                JobTarget::Write("router".to_owned()),
                 async move |_context| held.await.map_err(|error| error.to_string()),
             )
             .await?;
@@ -954,8 +981,7 @@ mod tests {
             runner
                 .start(
                     "retry".to_owned(),
-                    Some("router".to_owned()),
-                    true,
+                    JobTarget::Write("router".to_owned()),
                     async |_context| Ok(()),
                 )
                 .await?,

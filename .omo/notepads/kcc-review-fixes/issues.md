@@ -133,3 +133,14 @@
 - `poller.rs` is ~370 pure LOC (pre-existing, over the 250 ceiling); not split here.
 - Worker slip: ran `git checkout <file>` once on a file this todo had just edited itself (crates/kcc/src/server_shutdown.rs, reverting only its own wrapper edit); no other work affected.
 - (todo 35 review) `read_pool::forget` signs out only an already initialized client; a read-only client still being built when its profile is replaced is dropped without a sign-out (the router expires the session). Rare, bounded; BACKLOG candidate.
+- stray empty untracked file '$E' (unset-variable redirect, 01:47) found and removed from the repo root; never part of a commit (untracked, outside the product paths).
+
+## [2026-11-17] Todo 36
+- `create_private_dir` re-chmods the jobs dir to 0700 on every access, so a read-only jobs dir cannot be used to fail a record write in tests; the test blocks the temp name with a directory instead.
+- `jobs.rs` is still ~960 lines (pre-existing; todo 37 touches it).
+- (todo 36 review) With the per-record job lock gone (plan-mandated), two kcc processes starting at the same instant and both recovering the same dead Running job can race on write_atomic's fixed temp name (one startup may fail with an I/O error). Narrow; fix would be to claim the owner lock while recovery rewrites the record. BACKLOG candidate.
+
+## [2026-11-17] Todo 37 (wt/r37) notes, not fixed here
+- Still sync on async paths (not cited by B-07/W2-08/W5-05/G-22): kcc-mcp `config_tools/backups.rs` (`BackupStore::create/list/get` in async tool handlers), `JobRunner::get` (record read) from Web/MCP handlers, `StateStore::try_lease` (non-blocking try_lock + open) in `ChangeWorkflow::begin`, kcc CLI preset/backup commands (one command, acceptable). Candidates for a follow-up.
+- `kcc-app/src/jobs.rs` (776 pure LOC), `registry.rs` (797) and `workflow.rs` (1111) were already far over the ~250 pure-LOC guideline before this todo; this todo added 15/27/5 lines. Splitting them is a refactor of its own.
+- Test seam: `kcc_testkit::blocking_gate::BlockingGate` (FIFO or held resource on a plain thread, released after the runtime answers or a bound). A lock-held gate cannot tell when the call reaches the lock: the Web capture test answers only after 10 000 yields (its first red run passed falsely because the request awaits the blocking pool before the preset lock).

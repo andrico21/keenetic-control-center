@@ -15,7 +15,7 @@ use std::sync::Arc;
 use kcc_app::{
     audit::{Actor, ActorKind, AuditLog, AuditPolicy, verify_chain},
     backups::BackupStore,
-    jobs::{JobError, JobProgress, JobRunner},
+    jobs::{JobError, JobProgress, JobRunner, JobTarget},
     permissions::{Permission, Role},
     persist::StateStore,
     registry::{ManagedRouterProfile, RouterRegistry},
@@ -471,8 +471,7 @@ async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dy
     let first = runner
         .start(
             "write".to_owned(),
-            Some("router".to_owned()),
-            true,
+            JobTarget::Write("router".to_owned()),
             async move |_context| {
                 drop(released.await);
                 Ok(())
@@ -482,8 +481,7 @@ async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dy
     let second = runner
         .start(
             "write".to_owned(),
-            Some("router".to_owned()),
-            true,
+            JobTarget::Write("router".to_owned()),
             async |_context| Ok(()),
         )
         .await;
@@ -522,7 +520,7 @@ async fn job_streams_typed_progress_with_latest_percentage() -> Result<(), Box<d
     .await?;
     let mut events = runner.subscribe();
     let id = runner
-        .start("ping".to_owned(), None, false, async |context| {
+        .start("ping".to_owned(), JobTarget::Read(None), async |context| {
             context.progress(25);
             context.structured_progress(JobProgress::OutputLine("reply".to_owned()));
             Ok(())
@@ -564,8 +562,7 @@ async fn graceful_drain_cancels_job_without_triggering_rollback() -> Result<(), 
         runner
             .start(
                 "migration".to_owned(),
-                Some("router".to_owned()),
-                true,
+                JobTarget::Write("router".to_owned()),
                 async move |context| {
                     started_tx.send(()).map_err(|()| "start observer dropped")?;
                     context.cancellation().cancelled().await;

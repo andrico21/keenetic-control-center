@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 use core::{result::Result as CoreResult, time::Duration};
 
 use kcc_app::{
-    jobs::{JobError, JobProgress, JobRunner},
+    jobs::{JobError, JobProgress, JobRunner, JobTarget},
     permissions::Permission,
 };
 use kcc_catalog::Risk;
@@ -200,8 +200,7 @@ pub async fn start_job(
 ) -> CoreResult<String, JobError> {
     jobs.start(
         format!("diagnostics.{}", kind.name()),
-        Some(router_name),
-        false,
+        JobTarget::Read(Some(router_name)),
         async move |context| {
             let path = RciPath::from_segments(["tools", kind.name()])
                 .map_err(|_error| "invalid diagnostic path".to_owned())?;

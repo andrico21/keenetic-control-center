@@ -38,6 +38,16 @@ pub struct BackupInfo {
     pub reason: String,
 }
 
+/// Readable backups of one router plus the number of files that could not be read.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
+pub struct BackupListing {
+    /// Readable backups, newest first.
+    pub backups: Vec<BackupInfo>,
+    /// Files skipped because they could not be read or parsed; they stay on disk.
+    pub unreadable: usize,
+}
+
 /// Retention policy applied per router.
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 #[non_exhaustive]
