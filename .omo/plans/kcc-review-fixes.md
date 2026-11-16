@@ -674,7 +674,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | feat(app): record-type associated data for sealed records
   Recommended task executor category: deep-high - cross-crate design with invariants (security/durability)
 
-- [ ] 22. Private file writes never follow symlinks or reuse temp names; master-key parent left alone
+- [x] 22. Private file writes never follow symlinks or reuse temp names; master-key parent left alone
   What to do / Must NOT do: CLI `write_private` and the delete helper use `create_new` on a random temp name in the target directory with O_NOFOLLOW and rename (F-22, SEC2-17); preset records go through the state store's private atomic writer (SEC2-13); `MasterKey::load_or_create` changes the mode only of directories it creates (SEC2-20). Tests: a symlink at the temp or target path is refused; an existing parent dir keeps its mode. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `SEC2-17` (low; critic confirmed) Two write and delete helpers follow symlinks with predictable temp names. Evidence: `crates/kcc/src/cli/files.rs:32-39`, `cli/migrate.rs:53,105`, `migrate_apply.rs:85`, `crates/kcc-app/src/credentials/wipe.rs:32-38`. Fix: Open the temp file with `create_new(true)` and a random suffix (as `persist::write_atomic` does). Use `symlink_metadata` and `O_NOFOLLOW` in `secure_remove`.
   - `F-22` (low; critic confirmed) `write_private` reuses a predictable temporary file and follows symlinks. Evidence: `files.rs:32-39`. Fix: Create the temporary file with `create_new(true)` and a random suffix in the same directory.

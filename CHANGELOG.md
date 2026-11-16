@@ -557,6 +557,22 @@ The first release, `0.1.0`, is in preparation and contains:
   as the documentation always said; it used to admit the private ranges and the Keenetic
   and Netcraze cloud suffixes. kcc builds its policy from `[outbound]`, so the
   configuration behaves as before.
+- **Private output files never follow symbolic links.** `kcc migrate plan --out`,
+  `kcc migrate report --out` and `kcc migrate apply --report` used to write through the
+  fixed temporary file `<out>.kcc-tmp`, following a symbolic link or reusing a file
+  someone else created there. They now write a new owner-only temporary file with a
+  random name in the output directory and rename it into place, and refuse (exit 1) an
+  output path that is a symbolic link. Removing a legacy plaintext `<id>.password` file
+  overwrites it only when it is a regular file; a symbolic link there is removed without
+  touching the file it names.
+- **Preset records are written like the rest of state.** A saved preset is written
+  owner-only (0600 in a 0700 `presets` directory), synced and renamed into place; it used
+  to follow the umask without a sync. `kcc preset list`, the Web presets page and MCP list
+  skip a damaged or unreadable record with a warning naming its file instead of failing.
+- **The master key no longer changes its directory's mode.** When `KCC_MASTER_KEY_FILE`
+  names a new key in an existing directory (for example `$HOME`), that directory keeps its
+  mode; only directories kcc creates for the key are made 0700. kcc used to change an
+  existing parent to 0700, or fail to start when it did not own it.
 
 ### Upgrade notes
 

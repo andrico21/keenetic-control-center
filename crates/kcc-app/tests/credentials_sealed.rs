@@ -205,6 +205,31 @@ fn migration_failure_leaves_plaintext_untouched() -> TestResult {
     Ok(())
 }
 
+/// SEC2-17: a legacy plaintext path that is a symlink is removed as a link;
+/// the file it names is neither overwritten nor removed.
+#[cfg(unix)]
+#[test]
+fn migration_removes_a_symlinked_legacy_file_without_writing_through_it() -> TestResult {
+    use std::os::unix::fs::symlink;
+
+    let fixture = Fixture::new()?;
+    let outside = TempDir::new()?;
+    let victim = outside.path().join("victim");
+    fs::write(&victim, "outside-password")?;
+    let legacy = fixture.credentials.legacy_path("home")?;
+    fs::create_dir_all(legacy.parent().ok_or("legacy path has no parent")?)?;
+    symlink(&victim, &legacy)?;
+
+    assert_eq!(
+        fixture.credentials.migrate("home")?,
+        MigrationState::Migrated
+    );
+
+    assert!(fs::symlink_metadata(&legacy).is_err(), "the link is gone");
+    assert_eq!(fs::read_to_string(&victim)?, "outside-password");
+    Ok(())
+}
+
 #[test]
 fn remove_is_idempotent() -> TestResult {
     let fixture = Fixture::new()?;

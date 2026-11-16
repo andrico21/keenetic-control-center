@@ -60,6 +60,9 @@ mod pipes;
 mod policy;
 #[path = "cli/preset_finish.rs"]
 mod preset_finish;
+#[cfg(unix)]
+#[path = "cli/private_output.rs"]
+mod private_output;
 #[path = "cli/rci_transport.rs"]
 mod rci_transport;
 #[path = "cli/reveal.rs"]

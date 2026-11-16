@@ -24,6 +24,8 @@ use serde_json::{Map, Value, error::Category};
 
 use crate::settings::is_valid_name;
 
+pub mod private_file;
+
 /// Key holding the schema version in every state file.
 const SCHEMA_KEY: &str = "schema";
 /// Subdirectory for per-router write leases.
@@ -451,23 +453,43 @@ where
 /// Writes `bytes` to `dir/name` atomically: owner-only temp file in the same
 /// directory, `fsync`, rename over the target, then sync the directory.
 ///
-/// The temp name is fixed per target and the caller holds the target's lock,
-/// so any temp file found here was left by a crash and is removed first.
+/// For files below the state directory whose writers hold the target's lock
+/// (see [`StateStore::lock`]): the temp name is fixed per target, so any temp
+/// file found here was left by a crash and is removed first. Outside the
+/// state directory use [`private_file::replace`].
 ///
 /// # Errors
 ///
 /// [`StateError::Io`].
-pub(crate) fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), StateError> {
-    let target = dir.join(name);
+#[inline]
+pub fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<(), StateError> {
     let temp = dir.join(format!(".{name}.tmp"));
     remove_if_present(&temp)?;
-    let mut file = create_private_file(&temp)?;
-    file.write_all(bytes)
-        .and_then(|()| file.sync_all())
-        .map_err(|error| io_error(&temp, error))?;
-    drop(file);
-    fs::rename(&temp, &target).map_err(|error| io_error(&target, error))?;
+    publish(&temp, &dir.join(name), bytes)?;
     sync_dir(dir)
+}
+
+/// Writes `bytes` to the new owner-only file `temp` and renames it over `target`.
+///
+/// `temp` is created exclusively, so an existing entry there (a symbolic link
+/// included) is never followed or reused. The file is synced before the rename;
+/// a temp file this call created is removed again when a later step fails.
+///
+/// # Errors
+///
+/// [`StateError::Io`].
+fn publish(temp: &Path, target: &Path, bytes: &[u8]) -> Result<(), StateError> {
+    let mut file = create_private_file(temp)?;
+    let written = file.write_all(bytes).and_then(|()| file.sync_all());
+    drop(file);
+    let published = written
+        .map_err(|error| io_error(temp, error))
+        .and_then(|()| fs::rename(temp, target).map_err(|error| io_error(target, error)));
+    if published.is_err() {
+        // Best-effort cleanup of our own temp file; the first error is what the caller needs.
+        drop(fs::remove_file(temp));
+    }
+    published
 }
 
 /// Writes `bytes` durably to a new `dir/name` without replacing an existing file.
@@ -576,10 +598,13 @@ pub(crate) fn open_private_append_file(path: &Path) -> Result<File, StateError> 
 
 /// Creates `dir` (and parents) owner-only and restricts an existing one.
 ///
+/// Only for directories kcc owns: an existing `dir` is changed to `0700`.
+///
 /// # Errors
 ///
 /// [`StateError::Io`].
-pub(crate) fn create_private_dir(dir: &Path) -> Result<(), StateError> {
+#[inline]
+pub fn create_private_dir(dir: &Path) -> Result<(), StateError> {
     let mut builder = DirBuilder::new();
     let _: &mut DirBuilder = builder.recursive(true);
     #[cfg(unix)]

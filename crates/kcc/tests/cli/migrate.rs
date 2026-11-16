@@ -20,7 +20,7 @@ const SOURCE: &str = "! $$$ Model: Keenetic Giga\n! $$$ Version: 4.3.0\ninterfac
 const CONFLICTING_SOURCE: &str = "! $$$ Model: Keenetic Giga\n! $$$ Version: 5.1.0\ninterface Bridge0\n description source-office\n!\n";
 
 /// A migration-ready fake on `firmware` registered as `target`.
-async fn target(firmware: Firmware) -> Result<(Env, Handle), Box<dyn Error>> {
+pub(crate) async fn target(firmware: Firmware) -> Result<(Env, Handle), Box<dyn Error>> {
     let mut scenario = migration::Fixture::default();
     scenario.mode = Some("router".to_owned());
     let fake = FakeRouter::builder(Profile::new(Model::Kn1811, firmware)?)

@@ -42,7 +42,8 @@ either.
 ## Secrets at rest
 
 - **Master key.** A 32-byte key file (`KCC_MASTER_KEY_FILE`, else
-  `<config dir>/kcc/master.key`) created with mode 0600 in a 0700 directory. kcc refuses
+  `<config dir>/kcc/master.key`) created with mode 0600. A directory kcc creates for it
+  is 0700; an existing directory keeps its mode. kcc refuses
   a key file readable by group or others. Anyone with this file and the state
   directory can decrypt everything below; back it up separately.
 - **Encrypted with the master key** (XChaCha20-Poly1305, a random nonce per record, and
@@ -85,8 +86,15 @@ either.
   command exits 3, naming the file and the `chmod 600` that fixes it. The file contents
   never reach logs or errors. Modes 0600 and 0400 (the Podman secret mounts) pass.
   Windows has no mode check, as for the master key.
+- **Private files.** State files, preset records and CLI output files (`kcc migrate plan
+  --out`, `kcc migrate report --out`, `kcc migrate apply --report`) are written to a new
+  owner-only temporary file in the same directory, synced and renamed into place. The
+  temporary file is created exclusively (CLI output files get a random name), so a
+  symbolic link or a file planted there is never followed or reused; a CLI output path
+  that is a symbolic link is refused.
 - **Migration and recovery**: startup and first CLI use seal, reopen and compare legacy
-  `<id>.password` files before overwriting and unlinking them. A wrong/corrupt key,
+  `<id>.password` files before overwriting and unlinking them. Only a regular file is
+  overwritten; a symbolic link there is unlinked without touching the file it names. A wrong/corrupt key,
   damaged record or comparison failure leaves plaintext in place and fails closed.
 - **Backup and restore**: back up the master key separately from state. Restoring only
   state makes sealed credentials, backups and presets unrecoverable; restoring only the

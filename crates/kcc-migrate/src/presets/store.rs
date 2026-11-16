@@ -4,7 +4,7 @@ use std::{fs, io, path::PathBuf};
 
 use kcc_app::{
     permissions::{Permission, Role},
-    persist::{StateError, StateStore},
+    persist::{StateError, StateStore, create_private_dir, write_atomic},
     registry::{RegistryError, authorize},
     secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
@@ -134,7 +134,8 @@ impl PresetStore {
     ///
     /// # Errors
     ///
-    /// Returns permission, decryption, malformed-record, or I/O errors.
+    /// Returns permission or directory I/O errors. A record that cannot be read,
+    /// parsed or decrypted is skipped and its file name logged.
     #[inline]
     pub fn list(&self, role: &Role) -> Result<Vec<Preset>, PresetError> {
         require_permission(role, Permission::Read)?;
@@ -148,15 +149,28 @@ impl PresetStore {
         for listed in entries {
             let entry = listed.map_err(PresetError::Io)?;
             let file_name = entry.file_name();
-            let Some(id) = file_name
+            let Some((name, id)) = file_name
                 .to_str()
-                .and_then(|name| name.strip_suffix(".json"))
+                .and_then(|name| Some((name, name.strip_suffix(".json")?)))
             else {
                 continue;
             };
-            let record = read_record(entry.path())?;
-            if source_allowed(role, record.source_router.as_deref()) {
-                presets.push(self.open(id, &record)?.redacted());
+            let visible = read_record(entry.path()).and_then(|record| {
+                source_allowed(role, record.source_router.as_deref())
+                    .then(|| self.open(id, &record))
+                    .transpose()
+            });
+            match visible {
+                Ok(Some(preset)) => presets.push(preset.redacted()),
+                Ok(None) => {}
+                Err(
+                    error @ (PresetError::Malformed
+                    | PresetError::Crypto(_)
+                    | PresetError::NotFound),
+                ) => {
+                    tracing::warn!(file = name, %error, "preset record skipped: unreadable");
+                }
+                Err(error) => return Err(error),
             }
         }
         presets.sort_by(|left, right| left.id.cmp(&right.id));
@@ -236,7 +250,7 @@ impl PresetStore {
     /// Returns serialization, encryption, locking, or I/O errors.
     fn save(&self, preset: &Preset) -> Result<(), PresetError> {
         let directory = self.directory();
-        fs::create_dir_all(&directory).map_err(PresetError::Io)?;
+        create_private_dir(&directory)?;
         let payload = PresetPayload {
             id: preset.id.clone(),
             name: preset.name.clone(),
@@ -256,9 +270,8 @@ impl PresetStore {
         };
         let bytes = serde_json::to_vec(&record).map_err(|_error| PresetError::Malformed)?;
         let _lock = self.state.lock("presets")?;
-        let temporary = directory.join(format!(".{}.tmp", preset.id));
-        fs::write(&temporary, bytes).map_err(PresetError::Io)?;
-        fs::rename(&temporary, self.path(&preset.id)).map_err(PresetError::Io)
+        write_atomic(&directory, &format!("{}.json", preset.id), &bytes)?;
+        Ok(())
     }
 
     /// Decrypts and parses one record.

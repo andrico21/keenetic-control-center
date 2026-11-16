@@ -58,3 +58,8 @@
 ## [2026-11-16] Todo 21 (wt/r21) notes, not fixed here
 - `kcc-app/src/accounts.rs` grew 383 -> 387 pure LOC (rustfmt splits the longer `.seal(&Binding::account(..), ..)` calls); it was already over the ceiling.
 - `Binding::backup(router, name)` relies on the backup store's `validate_component` (no `:` in the router) instead of a typed id; both callers check it first.
+
+## [2026-11-16] Todo 22 (wt/r22) notes, not fixed here
+- `kcc-app/src/persist.rs` grew 425 -> 432 pure LOC (already over the ceiling; the new public helper went to `persist/private_file.rs`). Split is a follow-up.
+- `CredentialStore::migrate` still reads a legacy `<id>.password` through a symlink (`fs::read_to_string`) before sealing it; only its removal was changed (inside the kcc-owned 0700 directory).
+- `persist::write_exclusive` (backups) keeps its fixed `.<name>.tmp` name under the domain lock, like `write_atomic`.

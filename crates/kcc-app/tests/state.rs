@@ -347,6 +347,28 @@ mod tests {
         Ok(())
     }
 
+    /// SEC2-20: creating the master key in an existing directory leaves that
+    /// directory's mode alone; only a directory kcc creates is made 0700.
+    #[cfg(unix)]
+    #[test]
+    fn existing_master_key_parent_keeps_its_mode() -> TestResult {
+        use std::os::unix::fs::PermissionsExt as _;
+
+        let temp = TempDir::new()?;
+        let home = temp.path().join("home");
+        fs::create_dir_all(&home)?;
+        fs::set_permissions(&home, fs::Permissions::from_mode(0o755))?;
+
+        drop(MasterKey::load_or_create(&home.join("kcc.key"))?);
+        drop(MasterKey::load_or_create(&home.join("created/kcc.key"))?);
+
+        let mode = |path: &Path| fs::metadata(path).map(|found| found.permissions().mode() & 0o777);
+        assert_eq!(mode(&home)?, 0o755, "existing parent");
+        assert_eq!(mode(&home.join("created"))?, 0o700, "created parent");
+        assert_eq!(mode(&home.join("kcc.key"))?, 0o600, "key file");
+        Ok(())
+    }
+
     /// Sealed credentials survive a state round trip and only open with the
     /// right key and owner; the plaintext never reaches the file.
     #[test]

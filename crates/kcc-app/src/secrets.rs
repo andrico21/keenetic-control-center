@@ -197,13 +197,19 @@ impl MasterKey {
             other => return other,
         }
         let parent = path.parent().unwrap_or_else(|| Path::new("."));
-        create_private_dir(parent)?;
-        let key = Self::generate()?;
-        let temp = parent.join(format!(".{MASTER_KEY_FILE}.{}.tmp", process::id()));
         let key_file = |source| CryptoError::KeyFile {
             path: path.to_owned(),
             source,
         };
+        // Only a directory kcc creates is made owner-only; an existing parent,
+        // such as a home directory, keeps the mode its owner chose.
+        match fs::symlink_metadata(parent) {
+            Ok(_) => {}
+            Err(error) if error.kind() == io::ErrorKind::NotFound => create_private_dir(parent)?,
+            Err(error) => return Err(key_file(error)),
+        }
+        let key = Self::generate()?;
+        let temp = parent.join(format!(".{MASTER_KEY_FILE}.{}.tmp", process::id()));
         if let Err(error) = write_key(&temp, &key) {
             // Best-effort cleanup; the write error is what the caller needs.
             drop(fs::remove_file(&temp));
