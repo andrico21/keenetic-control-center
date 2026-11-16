@@ -151,7 +151,7 @@ pub(crate) async fn rollback(
                     json!({ "operation": ROLLBACK_COMMAND }),
                 );
                 changes
-                    .apply_cli(request)
+                    .apply_recovery(request)
                     .await
                     .map(|result| Applied::Terminal(result.responses))
             })

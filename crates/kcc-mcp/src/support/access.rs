@@ -115,7 +115,6 @@ impl KccMcp {
                 host.as_str(),
                 Actor::new(ActorKind::Mcp, identity.name.clone()),
                 &identity.role,
-                None,
                 false,
             )
             .await

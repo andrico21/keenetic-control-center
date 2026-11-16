@@ -216,13 +216,7 @@ async fn commit(ctx: &Ctx) -> Outcome {
     ctx.confirmed(&services, target.id(), confirmation).await?;
     let changes = services
         .workflow()
-        .begin(
-            target.id(),
-            ctx.principal().actor(),
-            target.role(),
-            None,
-            false,
-        )
+        .begin(target.id(), ctx.principal().actor(), target.role(), false)
         .await?
         .with_request_id(ctx.request_id());
     let jobs = runner(ctx, &services).await?;

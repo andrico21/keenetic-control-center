@@ -31,7 +31,7 @@ mod tests {
             let fixture = Fixture::spawn(FaultInjection::default()).await?;
             let count = values.len();
             let items = values.into_iter().map(BatchItem::new).collect();
-            let mut changes = fixture.begin(None).await?;
+            let mut changes = fixture.begin().await?;
             let result = changes
                 .apply_batch(BatchChangeRequest::new(
                     items,

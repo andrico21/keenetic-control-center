@@ -114,6 +114,13 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **The conflict check refuses a change by any other client.** A write, save or commit
+  is now refused when the router's configuration checksum differs from the state kcc last
+  observed after its own writes, whoever changed it. It used to require a different
+  last-changing agent as well, but every RCI client (another kcc, a script, the router's
+  web interface) reports the same agent as kcc, so such changes went unnoticed. kcc's own
+  earlier writes in the same change are never a conflict.
+
 - **The Web audit page and export respect the viewer's router scope.** A role scoped to
   some routers no longer sees entries of other routers, and entries that name no router
   are shown only to roles scoped to all routers (empty scope or `*`). The page verifies the
@@ -354,6 +361,14 @@ The first release, `0.1.0`, is in preparation and contains:
   (exit 2) in every command.
 
 ### Fixed
+
+- **A recovery timer's disarm, keep-alive and rollback are always sent.** They no longer
+  run the conflict check and the automatic backup of a configuration change (they still
+  need the change's permission and router scope). Before, a change by another client during a
+  management change, or a failed backup, kept the disarm from being sent: the timer then
+  fired and discarded all unsaved changes. A management change whose preflight is refused
+  before its arm now sends nothing and reports that nothing was applied, instead of "the
+  router may still be counting down".
 
 - **Every successful or partial action is audited, with the request id the client got.**
   - MCP `kcc_backup_create`, `kcc_preset_capture`, `kcc_preset_delete`, `kcc_job_cancel`

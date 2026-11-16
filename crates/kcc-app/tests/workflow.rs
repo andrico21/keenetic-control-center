@@ -23,7 +23,7 @@ use kcc_app::{
     settings::OutboundConfig,
     workflow::{
         BatchChangeRequest, BatchItem, ChangeRequest, ChangeWorkflow, CliChangeRequest, CliCommand,
-        LastChange, VerificationSpec, WorkflowError,
+        VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::{Catalog, HttpMethod};
@@ -38,6 +38,9 @@ mod batch_outcomes;
 
 #[path = "workflow/cli_partial.rs"]
 mod cli_partial;
+
+#[path = "workflow/conflicts.rs"]
+mod conflicts;
 
 #[path = "workflow/namespaces.rs"]
 mod namespaces;
@@ -54,7 +57,7 @@ mod request_ids;
 #[tokio::test]
 async fn first_write_backs_up_once_and_save_is_explicit() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let mut changes = fixture.begin(None).await?;
+    let mut changes = fixture.begin().await?;
     let _first_result = changes.apply(description_request("first")).await?;
     let _second_result = changes.apply(description_request("second")).await?;
     assert_eq!(fixture.backups.list("router")?.len(), 1);
@@ -74,7 +77,7 @@ async fn first_write_backs_up_once_and_save_is_explicit() -> Result<(), Box<dyn 
 #[tokio::test]
 async fn silent_noop_names_the_failed_field() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default().silent_noop_path("system")).await?;
-    let mut changes = fixture.begin(None).await?;
+    let mut changes = fixture.begin().await?;
     let error = changes
         .apply(description_request("not-applied"))
         .await
@@ -83,32 +86,6 @@ async fn silent_noop_names_the_failed_field() -> Result<(), Box<dyn Error>> {
         error,
         WorkflowError::VerificationFailed { field } if field == "/description"
     ));
-    fixture.shutdown().await?;
-    Ok(())
-}
-
-#[expect(
-    clippy::missing_errors_doc,
-    clippy::missing_panics_doc,
-    clippy::panic_in_result_fn,
-    reason = "integration-test assertions and fixtures define the contract"
-)]
-#[tokio::test]
-async fn stale_read_from_another_agent_conflicts() -> Result<(), Box<dyn Error>> {
-    let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let current = fixture.last_change().await?;
-    let stale = LastChange::new(
-        "different".to_owned(),
-        "another-agent".to_owned(),
-        current.user,
-        current.unsaved,
-        current.fail_safe,
-    );
-    let error = fixture
-        .begin(Some(stale))
-        .await
-        .expect_err("a different agent's intervening change must conflict");
-    assert!(matches!(error, WorkflowError::Conflict { agent } if agent == "http/rci"));
     fixture.shutdown().await?;
     Ok(())
 }
@@ -168,7 +145,6 @@ async fn dead_audit_writer_refuses_begin_without_a_router_request() -> Result<()
             "router",
             Actor::new(ActorKind::Cli, "test".to_owned()),
             &admin_role(),
-            None,
             false,
         )
         .await;
@@ -213,7 +189,7 @@ async fn cli_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<d
         Permission::Write,
         json!({"interface":"Bridge0"}),
     );
-    let mut changes = fixture.begin(None).await?;
+    let mut changes = fixture.begin().await?;
     let result = changes.apply_cli(request).await?;
     assert!(result.unsaved);
     assert_eq!(result.responses.len(), 1);
@@ -269,7 +245,7 @@ async fn cli_audit_distinguishes_persisted_and_unsaved_changes() -> Result<(), B
             Permission::Write,
             json!({"validated":true}),
         );
-        drop(fixture.begin(None).await?.apply_cli(request).await?);
+        drop(fixture.begin().await?.apply_cli(request).await?);
     }
     let outcomes = verify_chain(fixture.state.dir())?
         .into_iter()
@@ -301,7 +277,7 @@ async fn terminal_cli_mutation_survives_session_loss_after_preflight() -> Result
         Permission::Destructive,
         json!({"operation":"reboot"}),
     );
-    let mut changes = fixture.begin(None).await?;
+    let mut changes = fixture.begin().await?;
     let requests_before = fixture.handle.request_count();
     let result = changes.apply_cli(request).await?;
     let requests_after = fixture.handle.request_count();
@@ -373,7 +349,7 @@ async fn delete_mutation_uses_backup_and_read_back_protection() -> Result<(), Bo
         Permission::Write,
         json!({"field":"description"}),
     );
-    let mut changes = fixture.begin(None).await?;
+    let mut changes = fixture.begin().await?;
     let result = changes.apply(request).await?;
     assert!(result.unsaved);
     assert_eq!(fixture.backups.list("router")?.len(), 1);
@@ -436,7 +412,7 @@ async fn batch_mutation_preserves_responses_and_read_back_protection() -> Result
         Permission::Write,
         json!({"items":2_u8}),
     );
-    let mut changes = fixture.begin(None).await?;
+    let mut changes = fixture.begin().await?;
     let result = changes.apply_batch(request).await?;
     assert!(result.unsaved);
     assert_eq!(result.responses.len(), 2);
@@ -513,7 +489,7 @@ async fn write_jobs_and_cross_process_lease_are_exclusive() -> Result<(), Box<dy
         .await;
     assert!(matches!(second, Err(JobError::RouterBusy { router }) if router == "router"));
 
-    let changes = fixture.begin(None).await?;
+    let changes = fixture.begin().await?;
     let second_state = StateStore::open(fixture.state.dir())?;
     assert!(second_state.try_lease("router").is_err());
     drop(changes);
@@ -623,11 +599,11 @@ async fn graceful_drain_cancels_job_without_triggering_rollback() -> Result<(), 
 #[tokio::test(flavor = "current_thread")]
 async fn lease_label_released_synchronously_on_drop() -> Result<(), Box<dyn Error>> {
     let fixture = Fixture::spawn(FaultInjection::default()).await?;
-    let changes_a = fixture.begin(None).await?;
+    let changes_a = fixture.begin().await?;
     drop(changes_a);
-    let changes_b = fixture.begin(None).await?;
+    let changes_b = fixture.begin().await?;
     let error_c = fixture
-        .begin(None)
+        .begin()
         .await
         .expect_err("agent C must get RouterBusy");
     let WorkflowError::RouterBusy { actor } = error_c else {
@@ -656,7 +632,6 @@ async fn lease_label_cleanup_after_registry_error() -> Result<(), Box<dyn Error>
             "unknown-router",
             Actor::new(ActorKind::Cli, "agent-x".to_owned()),
             &admin,
-            None,
             false,
         )
         .await;
@@ -671,7 +646,6 @@ async fn lease_label_cleanup_after_registry_error() -> Result<(), Box<dyn Error>
             "unknown-router",
             Actor::new(ActorKind::Cli, "agent-y".to_owned()),
             &admin,
-            None,
             false,
         )
         .await
@@ -705,7 +679,7 @@ async fn a_router_without_a_catalog_is_unsupported_firmware() -> Result<(), Box<
     )
     .await?;
     let error = fixture
-        .begin(None)
+        .begin()
         .await
         .expect_err("a firmware without a catalog cannot be changed");
     assert!(
@@ -718,6 +692,7 @@ async fn a_router_without_a_catalog_is_unsupported_firmware() -> Result<(), Box<
 
 struct Fixture {
     directory: TempDir,
+    address: core::net::SocketAddr,
     state: StateStore,
     registry: Arc<RouterRegistry>,
     backups: Arc<BackupStore>,
@@ -765,6 +740,7 @@ impl Fixture {
         );
         Ok(Self {
             directory,
+            address,
             state,
             registry,
             backups,
@@ -773,16 +749,12 @@ impl Fixture {
         })
     }
 
-    async fn begin(
-        &self,
-        last_read: Option<LastChange>,
-    ) -> Result<kcc_app::workflow::ChangeSet, WorkflowError> {
+    async fn begin(&self) -> Result<kcc_app::workflow::ChangeSet, WorkflowError> {
         self.workflow
             .begin(
                 "router",
                 Actor::new(ActorKind::Cli, "test".to_owned()),
                 &admin_role(),
-                last_read,
                 false,
             )
             .await
@@ -797,22 +769,15 @@ impl Fixture {
                 "router",
                 Actor::new(ActorKind::Cli, "test".to_owned()),
                 role,
-                None,
                 false,
             )
             .await
     }
 
-    async fn last_change(&self) -> Result<LastChange, Box<dyn Error>> {
-        let changes = self.begin(None).await?;
-        let value = changes.baseline().clone();
-        drop(changes);
-        Ok(value)
-    }
-
     async fn shutdown(self) -> Result<(), Box<dyn Error>> {
         let Self {
             directory,
+            address: _,
             state: _,
             registry: _,
             backups: _,

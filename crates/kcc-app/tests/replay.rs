@@ -88,7 +88,6 @@ mod tests {
                     "router",
                     Actor::new(ActorKind::Cli, "operator".to_owned()),
                     &role,
-                    None,
                     false,
                 )
                 .await?;

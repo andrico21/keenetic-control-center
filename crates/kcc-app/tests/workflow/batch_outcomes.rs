@@ -47,7 +47,7 @@ mod tests {
                 values.push(json!({"system":{"description":{"description":"lab"}}}));
             }
             let items = values.into_iter().map(BatchItem::new).collect();
-            let mut changes = fixture.begin(None).await?;
+            let mut changes = fixture.begin().await?;
             let result = changes
                 .apply_batch(BatchChangeRequest::new(
                     items,
@@ -125,7 +125,7 @@ mod tests {
                 values.push(json!({"system":{"country":{"country":"DE"}}}));
             }
             let items = values.into_iter().map(BatchItem::new).collect();
-            let mut changes = fixture.begin(None).await?;
+            let mut changes = fixture.begin().await?;
             let result = changes
                 .apply_batch(BatchChangeRequest::new(
                     items,
@@ -168,7 +168,7 @@ mod tests {
     #[tokio::test]
     async fn single_reads_leave_no_unsaved_changes() -> Result<(), Box<dyn Error>> {
         let fixture = Fixture::spawn(FaultInjection::default()).await?;
-        let mut changes = fixture.begin(None).await?;
+        let mut changes = fixture.begin().await?;
         let result = changes
             .apply(ChangeRequest::new(
                 "show version".to_owned(),
@@ -223,7 +223,7 @@ mod tests {
                 .map_err(|issues| format!("{issues:?}"))?,
         );
         let sent = json!({"system":{"description":{"description":"lab","unknown-argument":true}}});
-        let mut changes = fixture.begin(None).await?;
+        let mut changes = fixture.begin().await?;
         let before = fixture.handle.request_log().len();
         let result = changes
             .apply_batch(BatchChangeRequest::new(

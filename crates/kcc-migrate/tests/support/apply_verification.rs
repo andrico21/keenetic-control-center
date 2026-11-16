@@ -16,7 +16,9 @@ mod tests {
 
     use crate::support::Fixture;
 
-    /// Unhealthy internet or management link and unrelated config drift prevent commit.
+    /// Unhealthy internet or management link and unrelated config drift prevent commit;
+    /// drift by another client after the run began is refused by the conflict check
+    /// before any planned line is sent.
     #[tokio::test]
     async fn verification_refuses_health_and_unplanned_changes() -> Result<(), Box<dyn Error>> {
         for case in 0..4_u8 {
@@ -71,7 +73,12 @@ mod tests {
                     .await?,
             );
             let (finished, result, commit) = receive.await?;
-            assert_eq!(result, Err(ApplyError::Verification), "case {case}");
+            let refused = if case < 2 {
+                ApplyError::Verification
+            } else {
+                ApplyError::Workflow
+            };
+            assert_eq!(result, Err(refused), "case {case}");
             assert_eq!(commit, Err(ApplyError::Verification));
             drop(finished);
             fixture.handle.shutdown().await?;

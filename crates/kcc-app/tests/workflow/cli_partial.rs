@@ -50,7 +50,7 @@ mod tests {
             CliCommand::new(line.to_owned(), validated).map_err(|error| format!("{line}: {error}"))
         })
         .collect::<Result<Vec<_>, _>>()?;
-        let mut changes = fixture.begin(None).await?;
+        let mut changes = fixture.begin().await?;
 
         let result = changes
             .apply_cli(CliChangeRequest::new(

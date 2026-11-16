@@ -33,7 +33,7 @@ mod tests {
     {
         let fixture = Fixture::spawn(FaultInjection::default()).await?;
         for index in 0..SETS {
-            let mut changes = fixture.begin(None).await?;
+            let mut changes = fixture.begin().await?;
             drop(
                 changes
                     .apply(description_request(&format!("set-{index}")))
@@ -70,7 +70,7 @@ mod tests {
     async fn a_change_set_takes_the_callers_request_id() -> Result<(), Box<dyn Error>> {
         let fixture = Fixture::spawn(FaultInjection::default()).await?;
         let mut changes = fixture
-            .begin(None)
+            .begin()
             .await?
             .with_request_id("web-caller-7".to_owned());
 
@@ -98,7 +98,7 @@ mod tests {
             Permission::Destructive,
             json!({"operation":"reboot"}),
         );
-        let mut changes = fixture.begin(None).await?;
+        let mut changes = fixture.begin().await?;
 
         let terminal = TerminalCliChangeResult::from(changes.apply_cli(request).await?);
 

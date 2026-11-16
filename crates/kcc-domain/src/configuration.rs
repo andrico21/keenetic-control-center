@@ -245,7 +245,9 @@ impl SafetyNet {
     }
 
     /// Disarms the selected safety mechanism without saving other changes, authorized by
-    /// `permission`, the permission of the change it protected.
+    /// `permission`, the permission of the change it protected. It skips the conflict check
+    /// and the backup of a configuration change ([`ChangeSet::apply_recovery`]), so that no
+    /// local refusal keeps the timer running.
     // NOT cancel-safe: cancelled after the CLI request is sent, the timer may already be disarmed
     // while the caller still treats it as armed.
     pub async fn disarm(
@@ -255,11 +257,12 @@ impl SafetyNet {
         permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
         let request = cli_request(router, Timer::Disarm(mode), permission)?;
-        changes.apply_cli(request).await
+        changes.apply_recovery(request).await
     }
 
     /// Restarts the native fail-safe countdown, authorized by `permission`, the permission
-    /// of the change it protects.
+    /// of the change it protects; like [`Self::disarm`], without the conflict check and the
+    /// backup.
     // NOT cancel-safe: cancelled after the CLI request is sent, the countdown may be restarted
     // without the caller knowing.
     pub async fn keep_alive(
@@ -268,7 +271,7 @@ impl SafetyNet {
         permission: Permission,
     ) -> CoreResult<CliChangeResult, WorkflowError> {
         let request = cli_request(router, Timer::KeepAlive, permission)?;
-        changes.apply_cli(request).await
+        changes.apply_recovery(request).await
     }
 
     /// Explicitly persists all unsaved work after the workflow's last-change re-check.

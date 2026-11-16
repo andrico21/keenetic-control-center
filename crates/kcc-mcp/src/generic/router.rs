@@ -299,7 +299,7 @@ impl KccMcp {
         finish_with_context(
             self,
             FailureContext::new("kcc_rci_batch", false, Some(&router)),
-            rci::rci_batch(self, input),
+            Box::pin(rci::rci_batch(self, input)),
         )
         .await
     }

@@ -217,7 +217,7 @@ where
     let attempt: Outcome<(Value, bool)> = async move {
         let mut changes = services
             .workflow()
-            .begin(target.id(), ctx.principal().actor(), &role, None, false)
+            .begin(target.id(), ctx.principal().actor(), &role, false)
             .await?
             .with_request_id(ctx.request_id());
         let document = match gate.timer {

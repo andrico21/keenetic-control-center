@@ -108,7 +108,6 @@ pub(crate) async fn run(options: Options) -> Result<Report, Box<dyn Error>> {
             "target",
             Actor::new(ActorKind::Cli, "live-domains".to_owned()),
             &admin(),
-            None,
             false,
         )
         .await?;

@@ -124,7 +124,20 @@ impl<E> Failure<E> {
     }
 }
 
-/// Records an arm that failed, from the disarm sent after it: recovery may still be armed,
+/// Records a bracket refused before its arm was sent: nothing was sent, nothing is armed.
+#[inline]
+#[must_use]
+pub const fn refused<E>(source: E) -> Failure<E> {
+    Failure {
+        source,
+        fate: None,
+        sent: false,
+        applied: false,
+    }
+}
+
+/// Records an arm that failed after its preflight, from the disarm sent after it: recovery
+/// may still be armed,
 /// with nothing sent after the arm, only when that disarm failed too.
 ///
 /// The arm's error is kept; the cleanup error is dropped.

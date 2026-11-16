@@ -67,13 +67,19 @@ Every write from any front end goes through `kcc-app`'s `ChangeWorkflow`:
    path, argument and CLI line for the router's firmware and model. Nothing is sent if
    validation fails.
 5. **Backup**: an encrypted backup of the startup configuration.
-6. **Conflict check**: refuse if someone else changed the router since the baseline.
+6. **Conflict check**: refuse if the router's configuration checksum differs from the
+   state kcc last observed (the baseline, updated after each of kcc's own writes), so a
+   change by any other client is refused; the router reports the same agent for every
+   RCI client, so the agent is not compared.
 7. **Apply**, then **read back** and compare with the expected result.
 8. **Audit**: append the outcome to the hash-chained audit log.
 
 Changes classified as management risk run between arming and disarming the router's
 fail-safe timer (`system configuration fail-safe timer`, 300 s). If kcc loses the
-router mid-change, the router restores its saved configuration. Saving is a separate
+router mid-change, the router restores its saved configuration. The arm runs the full
+preflight first; the disarm, the keep-alive and the rollback skip the conflict check
+and the backup (keeping the permission and scope check), so that no local refusal keeps
+the timer running. Saving is a separate
 operation. Migrations and preset applies use the same pieces through `kcc-migrate`'s
 applier: fail-safe for the whole run, one line at a time, verification, then commit or
 rollback ([MIGRATION.md](MIGRATION.md)).

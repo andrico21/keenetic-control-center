@@ -87,7 +87,7 @@ pub(super) async fn run(
         .iter()
         .map(CliCommand::expose_for_send)
         .collect::<Result<Vec<_>, _>>()?;
-    changes.prepare_cli(Permission::Write).await?;
+    changes.prepare(Permission::Write).await?;
     let mut outcomes = Vec::with_capacity(commands.len());
     for line in &lines {
         let response = match changes.client.parse_batch([line.as_str()]).await {

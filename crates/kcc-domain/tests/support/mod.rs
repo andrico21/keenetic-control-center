@@ -309,7 +309,6 @@ impl Fixture {
                 "router",
                 Actor::new(ActorKind::Cli, "test".to_owned()),
                 role,
-                None,
                 false,
             )
             .await?)

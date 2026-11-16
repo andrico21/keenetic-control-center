@@ -107,7 +107,12 @@ pub async fn close(
                 permission,
                 json!({"operation": path}),
             );
-            drop(changes.apply_cli(request).await.map_err(Failure::armed)?);
+            drop(
+                changes
+                    .apply_recovery(request)
+                    .await
+                    .map_err(Failure::armed)?,
+            );
             Ok(Closed {
                 saved: false,
                 restarting: mode == SafetyMode::ScheduledReboot,

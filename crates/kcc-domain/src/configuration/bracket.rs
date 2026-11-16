@@ -5,21 +5,25 @@
 //!
 //! - **Nothing is armed for a refused bracket.** A dead audit writer and a request the
 //!   caller can no longer hold (`hold` returns false) are refused before anything is sent
-//!   to the router.
+//!   to the router. The arm's write preflight ([`ChangeSet::prepare`]: permission, conflict
+//!   check, backup) runs before the arm, so its refusal sends no change and reads as
+//!   nothing armed.
 //! - **Every arm has an owner.** Once the arm is sent, the bracket returns only after a
 //!   disarm was sent: after a failed arm, and after the work, whatever the work returned.
 //!   A failure whose disarm was refused reports the timer as armed. Only a dropped future
 //!   or a panicking work escapes this; then the router's own timer restores its saved
 //!   configuration, as it is meant to when kcc loses the router. Callers keep the future
-//!   alive (the Web holds its request first).
+//!   alive (the Web holds its request first). The disarm skips the write preflight
+//!   ([`ChangeSet::apply_recovery`]): a conflict or a failed backup never keeps it from
+//!   being sent.
 //! - **The count balances.** The bracket enters the process-wide count
 //!   ([`kcc_app::brackets::Brackets`]) right before the arm and leaves it when it ends,
 //!   on every return path, on unwind and when dropped, so that a server waits for every
 //!   open bracket before it exits and never for a closed one.
 //! - **A failure never reads as armed when the timer is off, nor as off when it may be
 //!   armed.** [`recovery::Failure::fate`] is `None` only when no arm was sent or a disarm
-//!   was accepted after it; [`ArmedFate::NotSent`] when the arm itself failed and so did
-//!   its disarm; [`ArmedFate::Applied`] when the work reported an applied change;
+//!   was accepted after it; [`ArmedFate::NotSent`] when the arm failed after its preflight
+//!   and so did its disarm; [`ArmedFate::Applied`] when the work reported an applied change;
 //!   [`ArmedFate::Unknown`] otherwise.
 //! - **One permission authorizes the whole bracket.** Arm, work and disarm are all
 //!   authorized by the permission of the change the timer protects, so a role that may
@@ -51,7 +55,8 @@ use crate::RouterCtx;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub enum ArmedFate {
-    /// The arm failed and so did its disarm: nothing else was sent.
+    /// The arm failed after its preflight passed, and so did its disarm: nothing else was
+    /// sent.
     NotSent,
     /// The change was applied but the disarm failed.
     Applied,
@@ -85,9 +90,9 @@ impl ArmedFate {
 /// # Errors
 ///
 /// A failure whose [`Failure::fate`] says whether the timer may still be armed: refused
-/// before the arm (dead audit writer, request no longer held) with nothing sent; the arm's
-/// error; or the work's error, the disarm's error after successful work, or the audit
-/// writer's failure before it wrote the bracket's receipts.
+/// before the arm (dead audit writer, request no longer held, the arm's write preflight)
+/// with no change sent; the arm's error; or the work's error, the disarm's error after
+/// successful work, or the audit writer's failure before it wrote the bracket's receipts.
 // NOT cancel-safe: dropped after the arm is sent, the recovery timer stays armed with nobody
 // to disarm or report it; callers keep the future alive until it returns.
 #[inline]
@@ -104,11 +109,12 @@ where
     H: FnOnce() -> bool,
     W: AsyncFnOnce(&mut ChangeSet, &RouterCtx) -> Result<(T, bool), E>,
 {
-    let refused = |error: WorkflowError| recovery::arm_failed(E::from(error), Ok::<(), E>(()));
+    let refused = |error: WorkflowError| recovery::refused(E::from(error));
     changes.audit_alive().map_err(refused)?;
     if !hold() {
         return Err(refused(WorkflowError::Audit(AuditError::WriterUnavailable)));
     }
+    changes.prepare(permission).await.map_err(refused)?;
     let _open = changes.enter_bracket();
     changes.defer_audit();
     if let Err(error) = SafetyNet::arm(changes, router, mode, MANAGEMENT_SECONDS, permission).await

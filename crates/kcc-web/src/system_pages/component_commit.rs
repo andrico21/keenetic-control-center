@@ -80,7 +80,7 @@ pub(crate) async fn commit(
     let actor = Actor::new(ActorKind::Web, user.username().to_owned());
     let changes = match fleet
         .workflow()
-        .begin(&router, actor, user.role(), None, false)
+        .begin(&router, actor, user.role(), false)
         .await
     {
         Ok(changes) => changes,

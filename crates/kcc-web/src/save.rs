@@ -61,7 +61,7 @@ pub(crate) async fn save(
     let actor = Actor::new(ActorKind::Web, user.username().to_owned());
     let role = user.role().clone();
     let task = tokio::spawn(async move {
-        let mut changes = workflow.begin(&router, actor, &role, None, false).await?;
+        let mut changes = workflow.begin(&router, actor, &role, false).await?;
         changes.save().await
     });
     let locale = user.locale();

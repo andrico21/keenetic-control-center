@@ -38,6 +38,8 @@ mod cli;
 mod output;
 #[path = "workflow_receipts.rs"]
 mod receipts;
+#[path = "workflow_recovery.rs"]
+mod recovery;
 #[path = "workflow_refusal.rs"]
 pub mod refusal;
 #[path = "workflow_replay.rs"]
@@ -51,7 +53,7 @@ use tokio::{
     time::{Instant, sleep},
 };
 
-use self::receipts::Receipts;
+use self::{receipts::Receipts, recovery::Refresh};
 use crate::{
     accounts::{Clock as _, SystemClock},
     audit::{
@@ -588,7 +590,8 @@ impl ChangeWorkflow {
         })
     }
 
-    /// Starts a leased change set after checking permission, scope, and concurrency state.
+    /// Starts a leased change set after checking permission and scope; the router state
+    /// it reads becomes the baseline that later writes are checked against.
     ///
     /// # Errors
     ///
@@ -599,11 +602,10 @@ impl ChangeWorkflow {
         router: &str,
         actor: Actor,
         role: &Role,
-        last_read: Option<LastChange>,
         force: bool,
     ) -> Result<ChangeSet, WorkflowError> {
         let reservation = self.reserve(router, &actor, role)?;
-        self.begin_with_client(reservation, actor, role, last_read, force, None)
+        self.begin_with_client(reservation, actor, role, force, None)
             .await
     }
 
@@ -665,7 +667,7 @@ impl ChangeWorkflow {
     ) -> Result<ChangeSet, WorkflowError> {
         let client = self.registry.bootstrap_client(role, router).await?;
         let reservation = self.reserve(router, &actor, role)?;
-        self.begin_with_client(reservation, actor, role, None, false, Some(client))
+        self.begin_with_client(reservation, actor, role, false, Some(client))
             .await
     }
 
@@ -684,7 +686,7 @@ impl ChangeWorkflow {
             .registry
             .bootstrap_client(role, &reservation.router)
             .await?;
-        self.begin_with_client(reservation, actor, role, None, false, Some(client))
+        self.begin_with_client(reservation, actor, role, false, Some(client))
             .await
     }
 
@@ -696,7 +698,6 @@ impl ChangeWorkflow {
         reservation: Reservation,
         actor: Actor,
         role: &Role,
-        last_read: Option<LastChange>,
         force: bool,
         selected: Option<Arc<RciClient>>,
     ) -> Result<ChangeSet, WorkflowError> {
@@ -711,15 +712,6 @@ impl ChangeWorkflow {
             None => self.registry.client(&router).await?,
         };
         let baseline = read_last_change(&client).await?;
-        if !force
-            && let Some(previous) = &last_read
-            && baseline.checksum != previous.checksum
-            && baseline.agent != previous.agent
-        {
-            return Err(WorkflowError::Conflict {
-                agent: baseline.agent,
-            });
-        }
         let info = if migration {
             client.detect().await?
         } else {
@@ -959,7 +951,7 @@ impl ChangeSet {
     /// Returns permission, conflict, backup, upload, or audit failures.
     // NOT cancel-safe: a transmitted upload can replace startup configuration before cancellation.
     pub async fn upload_startup(&mut self, bytes: &SecretBytes) -> Result<(), WorkflowError> {
-        self.prepare_cli(Permission::Destructive).await?;
+        self.prepare(Permission::Destructive).await?;
         drop(self.client.upload_startup_config(bytes).await?);
         drop(
             self.audit_cli(
@@ -1146,7 +1138,36 @@ impl ChangeSet {
         for command in &request.commands {
             drop(command.expose_for_send()?);
         }
-        self.prepare_cli(request.permission).await?;
+        self.prepare(request.permission).await?;
+        self.send_cli(request, Refresh::Required).await
+    }
+
+    /// Sends a recovery-timer step (disarm, keep-alive, rollback) under the change's
+    /// permission and router scope, but without the conflict check and the backup of a
+    /// configuration change: a foreign change or a failed backup must never keep the timer
+    /// from being stopped or resolved. A foreign change seen before the step stays a
+    /// conflict for later writes.
+    ///
+    /// # Errors
+    ///
+    /// Returns a local refusal for anything but a recovery-timer request, or permission,
+    /// request, verification, or audit errors.
+    // NOT cancel-safe: cancellation after transmission may leave the step applied unaudited.
+    pub async fn apply_recovery(
+        &mut self,
+        request: CliChangeRequest,
+    ) -> Result<CliChangeResult, WorkflowError> {
+        recovery::run(self, request).await
+    }
+
+    /// Sends validated, authorized CLI commands, reads back, refreshes the expected state
+    /// as `refresh` says, and audits the change.
+    // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
+    async fn send_cli(
+        &mut self,
+        request: CliChangeRequest,
+        refresh: Refresh,
+    ) -> Result<CliChangeResult, WorkflowError> {
         let answers = self.dispatch_cli(&request.commands).await?;
         let completion = batch::completion(
             request
@@ -1188,7 +1209,15 @@ impl ChangeSet {
             for verification in &request.verify {
                 verification::verify(&self.client, verification).await?;
             }
-            self.expected = read_last_change(&self.client).await?;
+            match refresh {
+                Refresh::Required => self.expected = read_last_change(&self.client).await?,
+                Refresh::Optional => {
+                    if let Ok(current) = read_last_change(&self.client).await {
+                        self.expected = current;
+                    }
+                }
+                Refresh::Keep => {}
+            }
             (
                 "router.change_cli",
                 if !unsaved && !persists_immediately {
@@ -1327,9 +1356,15 @@ impl ChangeSet {
         read_last_change(&self.client).await
     }
 
-    /// Applies authorization, conflict, and backup preflight for CLI mutations.
+    /// Runs a write's preflight without sending a change: authorization of `permission`
+    /// and the router scope, the conflict check, and the automatic backup. A caller that
+    /// must know whether a refused step sent anything runs it first.
+    ///
+    /// # Errors
+    ///
+    /// Returns permission, conflict, router request, backup, or state errors.
     // NOT cancel-safe: cancellation can interrupt backup preparation.
-    async fn prepare_cli(&mut self, permission: Permission) -> Result<(), WorkflowError> {
+    pub async fn prepare(&mut self, permission: Permission) -> Result<(), WorkflowError> {
         authorize(&self.role, permission, &self.router).map_err(map_permission)?;
         self.check_conflict().await?;
         self.ensure_backup().await
@@ -1402,14 +1437,15 @@ impl ChangeSet {
         Ok(self.receipts.record(&self.workflow.audit, event).await?)
     }
 
-    /// Compares the router with the last state observed after this set's own work.
+    /// Refuses any change since the last state observed after this set's own work, by
+    /// any agent: every RCI client, kcc's own included, reports the same agent.
     // cancel-safe: only reads router state.
     async fn check_conflict(&self) -> Result<(), WorkflowError> {
         if self.force {
             return Ok(());
         }
         let current = read_last_change(&self.client).await?;
-        if current.checksum != self.expected.checksum && current.agent != self.expected.agent {
+        if current.checksum != self.expected.checksum {
             return Err(WorkflowError::Conflict {
                 agent: current.agent,
             });
