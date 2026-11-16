@@ -14,6 +14,7 @@ use axum::{
 };
 use kcc_app::workflow::BatchItem;
 use kcc_catalog::Risk;
+use secrecy::zeroize::Zeroizing;
 use serde_json::json;
 
 use super::{
@@ -43,8 +44,9 @@ pub(crate) async fn execute(
     Path(router): Path<String>,
     current: CurrentSession,
     user: CurrentUser,
-    Form(pairs): Form<Vec<(String, String)>>,
+    Form(submitted): Form<Vec<(String, String)>>,
 ) -> Response {
+    let pairs = Zeroizing::new(submitted);
     let (target, facts) = match facts_for(&state, &user, &router).await {
         Ok(found) => found,
         Err(response) => return *response,

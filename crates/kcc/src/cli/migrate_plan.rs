@@ -4,10 +4,7 @@ extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 
-use kcc_app::{
-    permissions::{Permission, Role},
-    registry::RouterRegistry,
-};
+use kcc_app::permissions::{Permission, Role};
 use kcc_i18n::keys;
 use kcc_migrate::{
     apply::ApplySource,
@@ -15,15 +12,15 @@ use kcc_migrate::{
     planner::{Choices, MigrationMaps, MigrationPlan, PlanError, Planner},
     source::SourceConfig,
 };
-use kcc_rci::{ConfigKind, SecretBytes};
+use kcc_rci::SecretBytes;
 use secrecy::{ExposeSecret as _, SecretString};
-use tokio::fs::read;
 
 use super::{
     args_migrate::PlanInput,
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
     secret::read_secret,
+    source_arg::{self, SourceArg},
 };
 
 /// A planned migration onto the target router.
@@ -52,16 +49,13 @@ impl Planned {
     // cancel-safe: reads the source and target only.
     pub(crate) async fn make(ctx: &Ctx, services: &Services, input: &PlanInput) -> Outcome<Self> {
         let target = ctx.router_id(services)?;
-        let source_router = input
-            .from
-            .strip_prefix("router:")
-            .or_else(|| input.from.strip_prefix("backup:")?.split('/').next());
+        let from = source_arg::parse(&input.from)?;
         let mut routers = vec![target.as_str()];
-        routers.extend(source_router.filter(|router| *router != target));
+        routers.extend(from.router().filter(|router| *router != target));
         let role = ctx
             .principal()
             .authorize(&[Permission::Read, Permission::Migrate], &routers)?;
-        let (bytes, source) = read_source(services, &input.from).await?;
+        let (bytes, source) = read_source(services, from).await?;
         let config = SourceConfig::from_bytes(bytes.expose_secret())
             .map_err(|error| Failure::text(Exit::Validation, &error))?;
         let client = services.registry().bootstrap_client(&role, &target).await?;
@@ -118,48 +112,30 @@ impl Planned {
     }
 }
 
-/// Reads `from`: `file:<path>`, `router:<id>` or `backup:<router>/<name>`.
+/// Reads `from`, and where the applier reads it again.
 ///
 /// # Errors
 ///
-/// Returns usage, file, registry or backup failures.
+/// Returns file, registry, backup or router failures.
 // cancel-safe: reads only.
-async fn read_source(services: &Services, from: &str) -> Outcome<(SecretBytes, ApplySource)> {
-    if let Some(path) = from.strip_prefix("file:") {
-        let bytes = SecretBytes::from(read(path).await?);
-        return Ok((bytes.clone(), ApplySource::File(bytes)));
-    }
-    if let Some(id) = from.strip_prefix("router:") {
-        let registry: &Arc<RouterRegistry> = services.registry();
-        let client = registry.client(id).await?;
-        let bytes = client.download_config(ConfigKind::Startup).await?;
-        return Ok((
-            bytes,
-            ApplySource::LiveRouter {
-                id: id.to_owned(),
-                client,
-            },
-        ));
-    }
-    if let Some((router, name)) = from
-        .strip_prefix("backup:")
-        .and_then(|rest| rest.split_once('/'))
-    {
-        let text = services.backups().get(router, name)?;
-        let bytes = SecretBytes::from(text.expose_secret().as_bytes().to_vec());
-        return Ok((
-            bytes,
-            ApplySource::Backup {
-                store: Arc::clone(services.backups()),
-                router: router.to_owned(),
-                name: name.to_owned(),
-            },
-        ));
-    }
-    Err(Failure::text(
-        Exit::Usage,
-        "--from must be file:<path>, router:<id> or backup:<router>/<name>",
-    ))
+async fn read_source(
+    services: &Services,
+    from: SourceArg<'_>,
+) -> Outcome<(SecretBytes, ApplySource)> {
+    let bytes = from.read(services).await?;
+    let source = match from {
+        SourceArg::File(_) => ApplySource::File(bytes.clone()),
+        SourceArg::Router(id) => ApplySource::LiveRouter {
+            id: id.to_owned(),
+            client: services.registry().client(id).await?,
+        },
+        SourceArg::Backup { router, name } => ApplySource::Backup {
+            store: Arc::clone(services.backups()),
+            router: router.to_owned(),
+            name: name.to_owned(),
+        },
+    };
+    Ok((bytes, source))
 }
 
 /// The planner's answers: router user passwords from files and the reconnect URL.

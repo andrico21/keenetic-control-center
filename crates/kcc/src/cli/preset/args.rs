@@ -18,7 +18,7 @@ pub enum PresetCommand {
     },
     /// Capture settings groups into a stored, encrypted preset.
     Capture {
-        /// `<router-id>`, `backup:<router>/<name>` or `file:<path>`.
+        /// `<router-id>` (or `router:<id>`), `backup:<router>/<name>` or `file:<path>`.
         #[arg(long, value_name = "SOURCE")]
         from: String,
         /// Settings group ids, comma-separated (e.g. `dns-secure`).
@@ -109,7 +109,7 @@ pub enum Finish {
 #[derive(Debug, Args)]
 #[non_exhaustive]
 pub struct CopyCommand {
-    /// `<router-id>`, `backup:<router>/<name>` or `file:<path>`.
+    /// `<router-id>` (or `router:<id>`), `backup:<router>/<name>` or `file:<path>`.
     #[arg(long, value_name = "SOURCE")]
     pub from: String,
     /// Target router id.

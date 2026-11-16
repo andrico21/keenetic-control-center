@@ -4,7 +4,7 @@
 //! command that only reads to its own resource; background work that changes the router
 //! is refused.
 
-use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest, ValidationIssue};
+use kcc_catalog::{Catalog, HttpMethod, Risk, ValidatedRequest, ValidationIssue, WireValue};
 use kcc_config::mask::{is_secret_name, mask_json};
 use serde_json::{Map, Value};
 
@@ -54,9 +54,9 @@ pub(crate) fn build(
             path: path.to_owned(),
         })]
     })?;
-    let body = body(&schema, pairs);
+    let body = WireValue::new(body(&schema, pairs));
     let validated = catalog
-        .validate(path, HttpMethod::Post, &body)
+        .validate(path, HttpMethod::Post, body.expose_secret())
         .map_err(from_issues)?;
     let delivery = if catalog.is_background(path) {
         if !reads_only(path, validated.risk) {
@@ -66,9 +66,10 @@ pub(crate) fn build(
         }
         Delivery::Background
     } else {
+        let root = WireValue::new(root_object(path, body.expose_secret().clone()));
         drop(
             catalog
-                .validate("", HttpMethod::Post, &root_object(path, body))
+                .validate("", HttpMethod::Post, root.expose_secret())
                 .map_err(from_issues)?,
         );
         if validated.risk == Risk::Read {

@@ -1,6 +1,7 @@
 //! Authenticated RCI requests, bounded batching, background work, and configuration files.
 
 pub mod background;
+pub(crate) mod body;
 
 use alloc::{collections::BTreeSet, sync::Arc};
 use core::{
@@ -10,12 +11,15 @@ use core::{
 };
 use std::sync::Mutex as StdMutex;
 
+use bytes::Bytes;
 use reqwest::{Method, Response, StatusCode, header::HeaderMap, multipart};
 use secrecy::{ExposeSecret as _, SecretSlice};
 use serde::Serialize;
 use serde_json::{Value, json};
 use tokio::{sync::Semaphore, time};
+use zeroize::Zeroizing;
 
+use self::body::read_capped;
 use crate::{
     ObjectName, RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
@@ -552,9 +556,10 @@ impl RciClient {
             .map_err(|_closed| RciError::Transport)?;
         let response = self.session.get(path).await?;
         map_status(response.status())?;
-        Ok(SecretBytes::from(
-            read_capped(response, self.options.response_bytes).await?,
-        ))
+        let body = read_capped(response, self.options.response_bytes).await?;
+        // An exact copy: `SecretBytes::from(Vec)` shrinks the buffer, reallocating
+        // outside the wipe.
+        Ok(SecretBytes::from(Box::<[u8]>::from(body.as_slice())))
     }
 
     /// Uploads bytes as `flash:startup-config` through the Keenetic file-upload handshake.
@@ -583,10 +588,12 @@ impl RciClient {
             .to_owned();
         let form = multipart::Form::new().text("port", port).part(
             "Filedata",
-            multipart::Part::bytes(bytes.expose_secret().to_vec())
-                .file_name("startup-config.txt")
-                .mime_str("text/plain")
-                .map_err(|_error| RciError::Validation)?,
+            multipart::Part::stream(Bytes::from_owner(Zeroizing::new(
+                bytes.expose_secret().to_vec(),
+            )))
+            .file_name("startup-config.txt")
+            .mime_str("text/plain")
+            .map_err(|_error| RciError::Validation)?,
         );
         let _permit = self
             .semaphore
@@ -717,26 +724,6 @@ fn map_status(response_status: StatusCode) -> Result<(), RciError> {
     }
 }
 
-/// Reads at most `cap` bytes.
-///
-/// # Errors
-///
-/// Returns transport or body-size errors.
-pub(crate) async fn read_capped(mut response: Response, cap: usize) -> Result<Vec<u8>, RciError> {
-    let mut body = Vec::new();
-    while let Some(chunk) = response
-        .chunk()
-        .await
-        .map_err(|_error| RciError::Transport)?
-    {
-        if body.len().saturating_add(chunk.len()) > cap {
-            return Err(RciError::BodyTooLarge);
-        }
-        body.extend_from_slice(&chunk);
-    }
-    Ok(body)
-}
-
 /// Reads one JSON response value after status mapping.
 ///
 /// # Errors
@@ -755,10 +742,10 @@ async fn response_json(response: Response, cap: usize) -> Result<Value, RciError
 /// Returns HTTP, transport, body-size, RCI status, or decode errors.
 async fn decode_response(response: Response, cap: usize) -> Result<RciBody, RciError> {
     map_status(response.status())?;
-    let body = read_capped(response, cap).await?;
+    let mut body = read_capped(response, cap).await?;
     match serde_json::from_slice::<Value>(&body) {
         Ok(value) => RciResponse::from_value(value).map(RciBody::Json),
-        Err(_json_error) => String::from_utf8(body)
+        Err(_json_error) => String::from_utf8(take(&mut *body))
             .map(RciBody::Text)
             .map_err(|_utf8_error| RciError::Decode),
     }

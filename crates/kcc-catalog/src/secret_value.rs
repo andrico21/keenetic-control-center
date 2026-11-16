@@ -207,6 +207,13 @@ impl Serialize for SecretValue {
 pub struct WireValue(Value);
 
 impl WireValue {
+    /// Holds plaintext JSON whose string buffers are wiped on drop.
+    #[inline]
+    #[must_use]
+    pub const fn new(value: Value) -> Self {
+        Self(value)
+    }
+
     /// Borrows the plaintext body for transmission. Never log or persist this view.
     #[inline]
     #[must_use]

@@ -4,6 +4,8 @@
 //! `parse`. A line with no catalog command is refused, unless an administrator explicitly
 //! sends it without validation (`RawRci` plus `ManageRouters`), which is audited as such.
 
+use core::fmt;
+
 use askama::Template;
 use axum::{
     Form,
@@ -18,6 +20,7 @@ use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
 };
+use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
 use serde_json::json;
 
@@ -47,11 +50,11 @@ use crate::{
 const MAX_LINE: usize = 1024;
 
 /// The console form.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Default, Deserialize)]
 pub(crate) struct CliForm {
-    /// The CLI line.
+    /// The CLI line; it can carry a router secret.
     #[serde(default)]
-    line: String,
+    line: SecretString,
     /// Checked to send a line outside the catalog.
     #[serde(default)]
     unvalidated: Option<String>,
@@ -61,6 +64,16 @@ pub(crate) struct CliForm {
     /// Router name typed into the confirmation dialog.
     #[serde(default)]
     confirm_name: Option<String>,
+}
+
+impl fmt::Debug for CliForm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CliForm")
+            .field("unvalidated", &self.unvalidated)
+            .field("confirm", &self.confirm)
+            .field("confirm_name", &self.confirm_name)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The console page.
@@ -178,7 +191,7 @@ pub(crate) async fn send(
     };
     let params = json!({
         "unvalidated": validated.unvalidated,
-        "words": form.line.split_whitespace().count(),
+        "words": form.line.expose_secret().split_whitespace().count(),
     });
     let audit = Record::on_router("web.console_cli", &router, label).with_params(params.clone());
     let mut needed = vec![Permission::RawRci];
@@ -202,7 +215,7 @@ pub(crate) async fn send(
     }
     let session = current.stream_key();
     let dispatch = Sender::new(&state, &user, &session).to(target, &facts);
-    let line = form.line.trim().to_owned();
+    let line = form.line.expose_secret().trim().to_owned();
     let outcome = if risk == Risk::Read {
         dispatch
             .read_with(async move |client| client.parse(&line).await)
@@ -235,7 +248,7 @@ fn check(
     form: &CliForm,
     authorization: RawAuthorization,
 ) -> Result<ValidatedRequest, Vec<Problem>> {
-    let line = form.line.trim();
+    let line = form.line.expose_secret().trim();
     if line.is_empty() || line.len() > MAX_LINE {
         return Err(vec![Problem::Length]);
     }

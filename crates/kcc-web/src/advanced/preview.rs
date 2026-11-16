@@ -23,7 +23,7 @@ use kcc_i18n::{
     locale::Locale,
 };
 use kcc_rci::ConfigKind;
-use secrecy::ExposeSecret as _;
+use secrecy::{ExposeSecret as _, zeroize::Zeroizing};
 
 use super::{
     check::{Problem, sentence},
@@ -89,8 +89,9 @@ pub(crate) async fn preview(
     State(state): State<WebState>,
     Path(router): Path<String>,
     user: CurrentUser,
-    Form(pairs): Form<Vec<(String, String)>>,
+    Form(submitted): Form<Vec<(String, String)>>,
 ) -> Response {
+    let pairs = Zeroizing::new(submitted);
     let (_, facts) = match facts_for(&state, &user, &router).await {
         Ok(found) => found,
         Err(response) => return *response,

@@ -239,6 +239,9 @@ kcc migrate plan --from router:home --router home --out plan.json
 kcc migrate report --from router:home --router home --format markdown --out report.md
 ```
 
+`--from` (here and in `kcc preset capture` and `kcc copy`) is `<router-id>` or `router:<id>`,
+`backup:<router>/<name>` or `file:<path>`.
+
 `kcc migrate apply --from <source> --plan plan.json --finish commit|rollback|keep`
 re-plans from the same inputs and refuses if the plan changed. Apply asks for confirmation
 on the terminal (or accepts `--yes` for automation); refusal exits 10. `kcc migrate finish

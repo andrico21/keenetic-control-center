@@ -1,9 +1,12 @@
 //! The RCI console's request: the submitted form, and its validation against the
 //! router's catalog into one path request or a batch of root items.
 
+use core::fmt;
+
 use kcc_app::workflow::BatchItem;
 use kcc_catalog::{Catalog, CommandKind, HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::{RciPath, catalog_path};
+use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
 use serde_json::{Value, json};
 
@@ -21,7 +24,7 @@ const MAX_BODY: usize = 256 * 1024;
 const MAX_PATH: usize = 200;
 
 /// The console form.
-#[derive(Debug, Default, Deserialize)]
+#[derive(Default, Deserialize)]
 pub(crate) struct RciForm {
     /// `GET`, `POST` or `DELETE`.
     #[serde(default)]
@@ -29,15 +32,26 @@ pub(crate) struct RciForm {
     /// Space-separated catalog path; empty for the root endpoint.
     #[serde(default)]
     path: String,
-    /// JSON body.
+    /// JSON body; it can carry a router secret.
     #[serde(default)]
-    body: String,
+    body: SecretString,
     /// Set by the confirmation dialog.
     #[serde(default)]
     confirm: Option<String>,
     /// Router name typed into the confirmation dialog.
     #[serde(default)]
     confirm_name: Option<String>,
+}
+
+impl fmt::Debug for RciForm {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("RciForm")
+            .field("method", &self.method)
+            .field("path", &self.path)
+            .field("confirm", &self.confirm)
+            .field("confirm_name", &self.confirm_name)
+            .finish_non_exhaustive()
+    }
 }
 
 /// A console request that passed validation.
@@ -67,10 +81,11 @@ pub(crate) enum Checked {
 /// Returns every problem found; nothing may be sent then.
 pub(crate) fn check(catalog: &Catalog, form: &RciForm) -> Result<Checked, Vec<Problem>> {
     let path = form.path.split_whitespace().collect::<Vec<_>>().join(" ");
-    if form.body.len() > MAX_BODY || path.len() > MAX_PATH {
+    let body = form.body.expose_secret();
+    if body.len() > MAX_BODY || path.len() > MAX_PATH {
         return Err(vec![Problem::Length]);
     }
-    let text = form.body.trim();
+    let text = body.trim();
     let value: Value = if text.is_empty() {
         json!({})
     } else {

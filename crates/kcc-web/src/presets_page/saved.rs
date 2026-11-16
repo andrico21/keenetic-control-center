@@ -5,9 +5,10 @@ use kcc_config::config_text::parse;
 use kcc_migrate::presets::{
     groups::SettingsGroupEngine,
     model::{CaptureRequest, Preset, PresetSource},
+    payload::{LineText, secret_json, zeroizing_lines},
     store::PresetStore,
 };
-use secrecy::{ExposeSecret as _, SecretString};
+use secrecy::{ExposeSecret as _, SecretString, zeroize::Zeroizing};
 use serde::{Deserialize, Serialize};
 
 use super::{
@@ -35,8 +36,8 @@ pub(super) fn store(fleet: &Fleet) -> PresetStore {
     )
 }
 
-/// A copy run's transient preset as sealed: everything but its id and name.
-#[derive(Serialize, Deserialize)]
+/// A copy run's transient preset as opened: everything but its id and name.
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Transient {
     /// Dependency-closed group ids.
@@ -44,9 +45,23 @@ struct Transient {
     /// Source facts.
     source: PresetSource,
     /// The copied settings' command text.
-    lines: Vec<String>,
+    #[serde(deserialize_with = "zeroizing_lines")]
+    lines: Zeroizing<Vec<String>>,
     /// Who copied them.
     created_by: String,
+}
+
+/// The fields of [`Transient`], borrowed from the preset being sealed.
+#[derive(Serialize)]
+struct Sealing<'preset> {
+    /// Dependency-closed group ids.
+    groups: &'preset [String],
+    /// Source facts.
+    source: &'preset PresetSource,
+    /// The copied settings' command text.
+    lines: LineText<'preset>,
+    /// Who copied them.
+    created_by: &'preset str,
 }
 
 /// Seals `preset` as the transient preset of run `id`.
@@ -55,15 +70,13 @@ struct Transient {
 ///
 /// Returns sealing and write failures.
 pub(super) fn seal(services: Services<'_>, id: &str, preset: &Preset) -> Result<(), StoreError> {
-    let payload = Transient {
-        groups: preset.groups.clone(),
-        source: preset.source.clone(),
-        lines: preset.lines.iter().map(ToString::to_string).collect(),
-        created_by: preset.created_by.clone(),
-    };
-    let text = SecretString::from(
-        serde_json::to_string(&payload).map_err(|_error| StoreError::Malformed)?,
-    );
+    let text = secret_json(&Sealing {
+        groups: &preset.groups,
+        source: &preset.source,
+        lines: LineText::new(&preset.lines),
+        created_by: &preset.created_by,
+    })
+    .map_err(|_error| StoreError::Malformed)?;
     services
         .store()
         .seal(services.key(), id, Sealed::Preset, &text)

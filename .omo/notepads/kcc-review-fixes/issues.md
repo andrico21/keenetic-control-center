@@ -63,3 +63,7 @@
 - `kcc-app/src/persist.rs` grew 425 -> 432 pure LOC (already over the ceiling; the new public helper went to `persist/private_file.rs`). Split is a follow-up.
 - `CredentialStore::migrate` still reads a legacy `<id>.password` through a symlink (`fs::read_to_string`) before sealing it; only its removal was changed (inside the kcc-owned 0700 directory).
 - `persist::write_exclusive` (backups) keeps its fixed `.<name>.tmp` name under the domain lock, like `write_atomic`.
+
+## [2026-11-16] Todo 23 (wt/r23) notes, not fixed here
+- Not zeroized (outside the findings' scope): `kcc_config` `Ast`/`CliLine` tokens (the parsed source and `Preset.lines` hold secrets in plain Strings, critic F-14 says this is model-wide); the CLI console's `line.trim().to_owned()` passed to `client.parse`/`CliCommand::new`; `RciBody::Text` replies; hyper/reqwest/rustls internal `Bytes` copies; serde_urlencoded's decode copies of form values; `presets_page/detail.rs` and `compose_panel.rs` view `lines: Vec<String>`.
+- `session.rs:622` and `catalog/runtime.rs:219` were left unchanged: the binding A-10 critic correction refutes both sub-claims.

@@ -21,7 +21,7 @@ use axum::{
 };
 use kcc_domain::vpn_clients::{self, wireguard::WireGuardConfig};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use secrecy::SecretString;
+use secrecy::{SecretString, zeroize::Zeroizing};
 
 use super::{
     screen::{Answered, read_back},
@@ -257,10 +257,12 @@ async fn upload(mut fields: Multipart) -> Result<Upload, Unread> {
         match field.name() {
             Some("name") => found.name = field.text().await.map_err(|error| unread(&error))?,
             Some("file") => {
-                let bytes = field.bytes().await.map_err(|error| unread(&error))?;
+                let bytes = Zeroizing::new(Vec::from(
+                    field.bytes().await.map_err(|error| unread(&error))?,
+                ));
                 if !bytes.is_empty() {
                     let text = str::from_utf8(&bytes).map_err(|_error| Unread::Unreadable)?;
-                    found.file = Some(SecretString::from(text.to_owned()));
+                    found.file = Some(SecretString::from(text));
                 }
             }
             Some(_) | None => {}

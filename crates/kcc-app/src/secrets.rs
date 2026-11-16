@@ -9,7 +9,7 @@
 pub mod binding;
 pub mod files;
 
-use core::fmt;
+use core::{fmt, str};
 use std::{
     env,
     fs::{self, File},
@@ -290,11 +290,12 @@ impl MasterKey {
             msg: &ciphertext,
             aad: binding.as_bytes(),
         };
-        let plaintext = self
-            .cipher()?
-            .decrypt(&nonce, payload)
-            .map_err(|_error| CryptoError::Decrypt)?;
-        String::from_utf8(plaintext)
+        let plaintext = Zeroizing::new(
+            self.cipher()?
+                .decrypt(&nonce, payload)
+                .map_err(|_error| CryptoError::Decrypt)?,
+        );
+        str::from_utf8(&plaintext)
             .map(SecretString::from)
             .map_err(|_error| CryptoError::Malformed {
                 reason: "plaintext is not UTF-8",

@@ -557,7 +557,7 @@ async fn read_optional(client: &Manager, path: &str) -> Result<Option<Value>, Rc
             status: status.as_u16(),
         });
     }
-    let body = engine::read_capped(response, MAX_BODY_BYTES).await?;
+    let body = engine::body::read_capped(response, MAX_BODY_BYTES).await?;
     let value = serde_json::from_slice::<Value>(&body).map_err(|_error| RciError::Decode)?;
     match RciResponse::from_value(value) {
         Ok(decoded) => Ok(Some(decoded.value)),

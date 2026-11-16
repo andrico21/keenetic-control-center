@@ -1,9 +1,12 @@
 //! NDM Secure v3 password encoding and decoding.
 
+use core::str;
+
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use md5::{Digest as _, Md5};
 use secrecy::{ExposeSecret as _, SecretString};
 use thiserror::Error;
+use zeroize::Zeroizing;
 
 /// NS3 encoding or decoding failure.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]
@@ -40,13 +43,16 @@ pub enum Ns3Error {
     reason = "NS3 specifies marker positions using exact integer division and remainder on validated block lengths"
 )]
 pub fn decode(encoded: &str) -> Result<SecretString, Ns3Error> {
-    let mut padded = encoded.to_owned();
+    let mut padded = Zeroizing::new(String::with_capacity(encoded.len().next_multiple_of(4)));
+    padded.push_str(encoded);
     while !padded.len().is_multiple_of(4) {
         padded.push('=');
     }
-    let mut bytes = STANDARD
-        .decode(padded)
-        .map_err(|_error| Ns3Error::InvalidBase64)?;
+    let mut bytes = Zeroizing::new(
+        STANDARD
+            .decode(padded.as_bytes())
+            .map_err(|_error| Ns3Error::InvalidBase64)?,
+    );
     let length = bytes.len();
     if !matches!(length, 0x12 | 0x24 | 0x48) {
         return Err(Ns3Error::InvalidLength);
@@ -64,7 +70,7 @@ pub fn decode(encoded: &str) -> Result<SecretString, Ns3Error> {
         .position(|byte| *byte == 0)
         .unwrap_or(bytes.len());
     bytes.truncate(secret_length);
-    String::from_utf8(bytes)
+    str::from_utf8(&bytes)
         .map(SecretString::from)
         .map_err(|_error| Ns3Error::InvalidUtf8)
 }
@@ -96,7 +102,7 @@ pub fn encode(secret: &SecretString) -> Result<String, Ns3Error> {
     };
 
     let digest = Md5::digest(plaintext);
-    let mut bytes = Vec::with_capacity(length);
+    let mut bytes = Zeroizing::new(Vec::with_capacity(length));
     bytes.extend_from_slice(plaintext);
     bytes.push(0);
     for position in old_length.saturating_add(1)..length.saturating_sub(2) {
@@ -112,7 +118,7 @@ pub fn encode(secret: &SecretString) -> Result<String, Ns3Error> {
     second_step(&mut bytes);
     bytes.insert(usize::from(second_marker) % (length - 1), first_marker);
     bytes.insert(length / 7, second_marker);
-    Ok(STANDARD.encode(bytes))
+    Ok(STANDARD.encode(bytes.as_slice()))
 }
 
 /// Applies the Fibonacci-stream XOR transformation used by NS3.

@@ -60,7 +60,7 @@ pub enum MigrateCommand {
 #[derive(Debug, Args)]
 #[non_exhaustive]
 pub struct PlanInput {
-    /// `file:<path>`, `router:<id>` or `backup:<router>/<name>`.
+    /// `<router-id>` (or `router:<id>`), `backup:<router>/<name>` or `file:<path>`.
     #[arg(long, value_name = "SOURCE")]
     pub from: String,
     /// Acknowledge a target firmware supported from documentation only.

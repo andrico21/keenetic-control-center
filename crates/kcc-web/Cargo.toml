@@ -24,7 +24,7 @@ kcc-rci = { version = "0.1.0", path = "../kcc-rci" }
 kcc-telemetry = { version = "0.1.0", path = "../kcc-telemetry" }
 rand = { workspace = true }
 rmcp-server-kit = { workspace = true }
-secrecy = { workspace = true }
+secrecy = { workspace = true, features = ["serde"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 sha2 = { workspace = true }

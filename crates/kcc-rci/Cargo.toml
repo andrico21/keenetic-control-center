@@ -9,6 +9,7 @@ publish = false
 [dependencies]
 argon2 = { workspace = true, features = ["alloc", "zeroize"] }
 base64 = { workspace = true, features = ["std", "simd-unsafe"] }
+bytes = "1.12.1"
 getrandom = "0.2.17"
 hmac = { workspace = true, features = ["zeroize"] }
 md-5 = { workspace = true }

@@ -9,13 +9,15 @@ use kcc_app::{
     secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
 use kcc_config::config_text::Ast;
-use secrecy::{ExposeSecret as _, SecretString};
+use secrecy::ExposeSecret as _;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use zeroize::Zeroizing;
 
 use super::{
     groups::{GroupError, SettingsGroupEngine},
     model::{CaptureRequest, Preset, PresetSource, parse_line},
+    payload::{LineText, secret_json, zeroizing_lines},
 };
 
 /// Current encrypted preset record schema.
@@ -77,9 +79,9 @@ struct PresetRecord {
     sealed: SealedSecret,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-/// Complete payload protected by the master key.
+/// Complete payload protected by the master key, as opened.
 struct PresetPayload {
     /// Stable preset id.
     id: String,
@@ -92,9 +94,29 @@ struct PresetPayload {
     /// Captured source facts.
     source: PresetSource,
     /// Source-ordered command text.
-    lines: Vec<String>,
+    #[serde(deserialize_with = "zeroizing_lines")]
+    lines: Zeroizing<Vec<String>>,
     /// Creator identity.
     created_by: String,
+}
+
+#[derive(Serialize)]
+/// The payload of [`PresetPayload`], borrowed from the preset being sealed.
+struct SealedPayload<'preset> {
+    /// Stable preset id.
+    id: &'preset str,
+    /// Display name.
+    name: &'preset str,
+    /// Display description.
+    description: &'preset str,
+    /// Dependency-closed group ids.
+    groups: &'preset [String],
+    /// Captured source facts.
+    source: &'preset PresetSource,
+    /// Source-ordered command text.
+    lines: LineText<'preset>,
+    /// Creator identity.
+    created_by: &'preset str,
 }
 
 impl PresetStore {
@@ -251,18 +273,16 @@ impl PresetStore {
     fn save(&self, preset: &Preset) -> Result<(), PresetError> {
         let directory = self.directory();
         create_private_dir(&directory)?;
-        let payload = PresetPayload {
-            id: preset.id.clone(),
-            name: preset.name.clone(),
-            description: preset.description.clone(),
-            groups: preset.groups.clone(),
-            source: preset.source.clone(),
-            lines: preset.command_text(),
-            created_by: preset.created_by.clone(),
-        };
-        let plaintext = SecretString::from(
-            serde_json::to_string(&payload).map_err(|_error| PresetError::Malformed)?,
-        );
+        let plaintext = secret_json(&SealedPayload {
+            id: &preset.id,
+            name: &preset.name,
+            description: &preset.description,
+            groups: &preset.groups,
+            source: &preset.source,
+            lines: LineText::new(&preset.lines),
+            created_by: &preset.created_by,
+        })
+        .map_err(|_error| PresetError::Malformed)?;
         let record = PresetRecord {
             schema: SCHEMA,
             source_router: preset.source_router().map(str::to_owned),

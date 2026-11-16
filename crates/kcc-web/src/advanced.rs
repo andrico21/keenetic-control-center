@@ -18,6 +18,8 @@
 
 mod check;
 mod cli;
+#[cfg(test)]
+mod console_forms_tests;
 mod deliver;
 mod detail;
 mod execute;

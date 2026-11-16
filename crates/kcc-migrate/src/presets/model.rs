@@ -7,6 +7,7 @@ use kcc_config::{
     secrets::redact,
 };
 use serde::{Deserialize, Serialize};
+use zeroize::Zeroizing;
 
 use super::groups::GroupSelection;
 
@@ -188,15 +189,22 @@ impl Preset {
     #[inline]
     #[must_use]
     pub fn redacted(&self) -> Self {
-        let mut redacted = self.clone();
-        let text = self
-            .lines
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<_>>()
-            .join("\n");
-        redacted.lines = parse(&text).map_or_default(|ast| flatten(&redact(&ast)));
-        redacted
+        let lines = Zeroizing::new(
+            self.lines
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>(),
+        );
+        let text = Zeroizing::new(lines.join("\n"));
+        Self {
+            id: self.id.clone(),
+            name: self.name.clone(),
+            description: self.description.clone(),
+            groups: self.groups.clone(),
+            source: self.source.clone(),
+            lines: parse(&text).map_or_default(|ast| flatten(&redact(&ast))),
+            created_by: self.created_by.clone(),
+        }
     }
 
     /// Returns true when the source is bound to `router`.
@@ -204,11 +212,6 @@ impl Preset {
     #[must_use]
     pub fn source_router(&self) -> Option<&str> {
         self.source.router_id.as_deref()
-    }
-
-    /// Returns command text for encrypted persistence only.
-    pub(super) fn command_text(&self) -> Vec<String> {
-        self.lines.iter().map(ToString::to_string).collect()
     }
 
     /// Replaces command lines after decrypting a persisted record.

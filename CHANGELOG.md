@@ -328,6 +328,11 @@ The first release, `0.1.0`, is in preparation and contains:
   `catalog/synopsis-errata.json` correct `nextdns assign` and `oc-server pool-range` and
   add the undocumented `interface <name> vlan-id <vid>` that segments send; migration
   still does not replay `vlan-id` lines.
+- **`--from` takes the same sources everywhere.** `kcc migrate plan|report|apply`,
+  `kcc preset capture` and `kcc copy` accept `<router-id>` or `router:<id>`,
+  `backup:<router>/<name>` and `file:<path>`; `migrate` now also takes a bare router id.
+  An unknown `<scheme>:` prefix or an empty router, backup or path is a usage error
+  (exit 2) in every command.
 
 ### Fixed
 
