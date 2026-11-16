@@ -526,6 +526,16 @@ impl RciClient {
             .await
     }
 
+    /// Ends the main router session and clears its local cookie.
+    ///
+    /// The next request signs in again. Failures to reach the router are ignored: the
+    /// cookie is gone locally either way.
+    // NOT cancel-safe: cancellation after the DELETE leaves uncertainty about the router logout.
+    #[inline]
+    pub async fn logout(&self) {
+        self.session.logout().await;
+    }
+
     /// Starts a background operation in a dedicated authenticated session.
     ///
     /// # Errors

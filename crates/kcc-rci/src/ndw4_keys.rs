@@ -153,13 +153,16 @@ mod tests {
     use kcc_testkit::auth_fixture::{self, Options as Fixture};
     use secrecy::SecretString;
     use serde_json::Value;
-    use tokio::time::timeout;
+    use tokio::{sync::Mutex, time::timeout};
 
     use super::{Arc, BUDGET, Credentials, Keys, Parameters, STANDARD, salted_password};
     use crate::{AuthError, RciError, auth_options::Options, session::Manager};
 
     /// Fallible unit-test result.
     type TestResult = Result<(), Box<dyn Error + Send + Sync>>;
+
+    /// Serializes the tests that hold every Argon2 permit.
+    static TURN: Mutex<()> = Mutex::const_new(());
 
     /// Reproduces every cryptographic intermediate from pinned TypeScript/hash-wasm output.
     #[test]
@@ -211,6 +214,7 @@ mod tests {
     // NOT cancel-safe: owns two fixtures and a process-wide permit through the test.
     #[tokio::test]
     async fn cached_login_and_cost_rejection_never_enter_argon2_queue() -> TestResult {
+        let _turn = TURN.lock().await;
         let (address, handle, _counts) = auth_fixture::spawn(Fixture::default()).await?;
         let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
         let manager = Manager::connect(
@@ -255,6 +259,39 @@ mod tests {
         drop(permit);
         handle.shutdown().await?;
         other_handle.shutdown().await?;
+        Ok(())
+    }
+
+    /// A-07: a background operation's dedicated session reuses the parent's keys, so its
+    /// login completes while every Argon2 permit is held.
+    // NOT cancel-safe: owns a fixture and a process-wide permit through the test.
+    #[tokio::test]
+    async fn background_session_reuses_the_parent_keys() -> TestResult {
+        use core::sync::atomic::Ordering;
+
+        let _turn = TURN.lock().await;
+        let (address, handle, counts) = auth_fixture::spawn(Fixture::default()).await?;
+        let router: crate::RouterUrl = format!("http://{address}").parse()?;
+        let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
+        let options = crate::RciClientOptions::default()
+            .with_outbound(crate::OutboundPolicy::default().with_loopback(true));
+        let client = crate::RciClient::connect_with(router, credentials, options).await?;
+        let path = crate::RciPath::from_segments(["tools", "ping"])?;
+        drop(client.get(&path, &()).await?);
+        assert_eq!(counts.phase_three.load(Ordering::SeqCst), 1);
+        let permit = Arc::clone(&*BUDGET).acquire_owned().await?;
+
+        // The fixture answers without a process id: the start fails after its login.
+        let started = timeout(
+            Duration::from_secs(5),
+            client.start(path, &serde_json::json!({})),
+        )
+        .await?;
+
+        assert!(matches!(started, Err(RciError::Decode)));
+        assert_eq!(counts.phase_three.load(Ordering::SeqCst), 2);
+        drop(permit);
+        handle.shutdown().await?;
         Ok(())
     }
 }

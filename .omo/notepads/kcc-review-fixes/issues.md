@@ -132,3 +132,4 @@
 - Primary-credential `clients` are not signed out at shutdown (only read-only sessions and background sessions are).
 - `poller.rs` is ~370 pure LOC (pre-existing, over the 250 ceiling); not split here.
 - Worker slip: ran `git checkout <file>` once on a file this todo had just edited itself (crates/kcc/src/server_shutdown.rs, reverting only its own wrapper edit); no other work affected.
+- (todo 35 review) `read_pool::forget` signs out only an already initialized client; a read-only client still being built when its profile is replaced is dropped without a sign-out (the router expires the session). Rare, bounded; BACKLOG candidate.

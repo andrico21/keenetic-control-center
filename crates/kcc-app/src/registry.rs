@@ -19,6 +19,7 @@ extern crate alloc;
 
 mod auth;
 mod budgets;
+mod read_pool;
 pub mod sealed_edit;
 mod stored;
 #[cfg(test)]
@@ -269,6 +270,8 @@ pub struct RouterRegistry {
     outbound: OutboundPolicy,
     /// Lazy shared clients, one slot per router id; a slot is built outside the map lock.
     clients: Mutex<BTreeMap<String, ClientSlot>>,
+    /// Shared read-only polling clients, invalidated with `clients`.
+    read_clients: read_pool::ReadPool,
     /// Router budgets retained across client cache invalidation.
     budgets: budgets::Budgets,
     /// Per-router request and login observers (self-metrics).
@@ -374,6 +377,7 @@ impl RouterRegistry {
         })?;
         let token = profile.password_file.is_none();
         drop(profiles.insert(id.to_owned(), profile));
+        self.read_clients.forget(id);
         if token {
             drop(clients.remove(id));
         } else {
@@ -410,6 +414,7 @@ impl RouterRegistry {
             profiles: RwLock::new(effective),
             outbound: policy,
             clients: Mutex::new(BTreeMap::new()),
+            read_clients: read_pool::ReadPool::default(),
             budgets: budgets::Budgets::default(),
             observers: None,
             credentials: None,
@@ -551,6 +556,7 @@ impl RouterRegistry {
                 .insert(id.clone(), loaded),
         );
         drop(self.clients.lock().await.remove(&id));
+        self.read_clients.forget(&id);
         self.changed();
         Ok(())
     }
@@ -598,6 +604,7 @@ impl RouterRegistry {
                 .insert(id.clone(), loaded),
         );
         drop(self.clients.lock().await.remove(&id));
+        self.read_clients.forget(&id);
         self.changed();
         Ok(())
     }
@@ -624,6 +631,7 @@ impl RouterRegistry {
         }
         drop(self.profiles.write().map_err(lock_error)?.remove(id));
         drop(self.clients.lock().await.remove(id));
+        self.read_clients.forget(id);
         self.changed();
         Ok(())
     }
@@ -652,21 +660,45 @@ impl RouterRegistry {
         Ok(Arc::clone(client))
     }
 
-    /// Builds an independent read-only client when configured, otherwise returns the shared client.
+    /// Returns the shared read-only client of a profile with a read-only login, otherwise
+    /// the shared client.
+    ///
+    /// The read-only client is built once per router, like [`Self::client`], and signs in
+    /// once; it is replaced whenever the profile changes and signed out at [`Self::shutdown`].
     ///
     /// # Errors
     ///
-    /// Returns profile, credential, policy, or transport errors.
-    // NOT cancel-safe: cancellation may abandon DNS resolution, but sends no mutation.
+    /// Returns profile, credential, policy, or transport errors; after [`Self::shutdown`] a
+    /// read-only profile answers [`RciError::Cancelled`].
+    // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
+    // sends no mutation; the slot stays empty and the next caller builds the client.
     pub async fn poll_client(&self, id: &str) -> Result<Arc<RciClient>, RegistryError> {
         let profile = self.get(id)?.profile;
-        if profile.read_login.is_some() {
-            return Ok(Arc::new(
-                self.connect_client(&profile, CredentialUse::ReadOnly)
-                    .await?,
-            ));
+        if profile.read_login.is_none() {
+            return self.client(id).await;
         }
-        self.client(id).await
+        let slot = self
+            .read_clients
+            .slot(id)
+            .ok_or(RegistryError::Rci(RciError::Cancelled))?;
+        let client = slot
+            .get_or_try_init(async || {
+                let current = self.get(id)?.profile;
+                self.connect_client(&current, CredentialUse::ReadOnly)
+                    .await
+                    .map(Arc::new)
+            })
+            .await?;
+        Ok(Arc::clone(client))
+    }
+
+    /// Signs the cached read-only polling sessions out of their routers, each within a
+    /// bounded wait, and stops handing out read-only clients.
+    ///
+    /// A router that does not answer is logged and left to expire the session itself.
+    // NOT cancel-safe: cancelled midway, some sessions stay open on their routers.
+    pub async fn shutdown(&self) {
+        self.read_clients.close().await;
     }
 
     /// Authenticates and detects one profile without adding it to the registry.
@@ -747,6 +779,9 @@ impl RouterRegistry {
             drop(clients.remove(id));
         }
         drop(clients);
+        for id in &changed {
+            self.read_clients.forget(id);
+        }
         if !changed.is_empty() {
             self.changed();
         }

@@ -40,7 +40,7 @@ impl RequestOutcome {
         match result {
             Ok(_) => Self::Ok,
             Err(RciError::Auth(_)) => Self::Auth,
-            Err(RciError::Transport | RciError::Timeout) => Self::Transport,
+            Err(RciError::Transport | RciError::Timeout | RciError::Cancelled) => Self::Transport,
             Err(RciError::Http { status: _ } | RciError::NotFound | RciError::MethodNotAllowed) => {
                 Self::Http
             }

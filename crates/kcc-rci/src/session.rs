@@ -173,7 +173,7 @@ pub struct Manager {
     /// Whether an unauthenticated probe confirmed factory setup.
     bootstrap_active: AtomicBool,
     /// One key set bound to this manager's immutable router and credentials.
-    ndw4_cache: Cache,
+    ndw4_cache: Arc<Cache>,
     /// Per-router digest nonce state.
     digest: auth_digest::State,
     /// Current session, read synchronously so requests never hold the login lock on wire I/O.
@@ -276,7 +276,7 @@ impl Manager {
             password_configured: true,
             bootstrap_enabled: false,
             bootstrap_active: AtomicBool::new(false),
-            ndw4_cache: Cache::default(),
+            ndw4_cache: Arc::new(Cache::default()),
             digest: auth_digest::State::default(),
             session: StdMutex::new(None),
             login: Mutex::new(()),
@@ -494,6 +494,23 @@ impl Manager {
             .send()
             .await
             .map_err(|error| map_reqwest_error(&error))
+    }
+
+    /// The key cache of this manager, shared with sessions of the same router and credentials.
+    pub(crate) fn key_cache(&self) -> Arc<Cache> {
+        Arc::clone(&self.ndw4_cache)
+    }
+
+    /// Replaces the key cache with one shared by managers of the same router and credentials.
+    #[must_use]
+    pub(crate) fn with_key_cache(mut self, cache: Arc<Cache>) -> Self {
+        self.ndw4_cache = cache;
+        self
+    }
+
+    /// Whether a router session cookie is held.
+    pub(crate) fn has_session(&self) -> bool {
+        lock(&self.session).is_some()
     }
 
     /// Deletes the router session and always clears the local cookie.

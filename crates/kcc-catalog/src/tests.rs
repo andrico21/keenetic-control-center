@@ -329,7 +329,7 @@ async fn background_command_runs_and_cancels_through_validated_engine() -> Resul
     token.cancel();
     assert!(matches!(
         cancellation.poll(&token).await,
-        Err(RciError::Timeout)
+        Err(RciError::Cancelled)
     ));
     handle
         .shutdown()

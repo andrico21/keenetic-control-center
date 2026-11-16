@@ -401,6 +401,16 @@ The first release, `0.1.0`, is in preparation and contains:
   saved".
 - **An audit writer failure after a failed recovery arm is reported** as the bracket's
   failure instead of being dropped.
+- **Router sessions are reused and ended.** A profile with a read-only login signs in once
+  and keeps that session across polling rounds (it used to open a new session, and run the
+  ndw4 key derivation, on every poll and never sign out); the session is replaced when
+  the profile changes and signed out when `kcc serve` or `kcc mcp stdio` stops. A
+  background operation (for example a log read) reuses the main client's derived keys,
+  signs its own session out when it finishes or its handle is dropped, and puts the
+  router's process id into its request as an encoded query value. A cancelled background
+  operation now returns the new `RciError::Cancelled` instead of `RciError::Timeout`
+  (a deadline still returns `Timeout`). A subscriber that joins just as an idle router
+  poller exits now still gets data.
 
 - **A recovery timer's disarm, keep-alive and rollback are always sent.** They no longer
   run the conflict check and the automatic backup of a configuration change (they still

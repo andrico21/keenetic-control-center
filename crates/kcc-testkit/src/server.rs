@@ -20,7 +20,7 @@ use axum::{
 };
 use rand::RngExt as _;
 use serde_json::{Map, Value};
-use tokio::time::sleep;
+use tokio::{sync::watch, time::sleep};
 use zeroize::Zeroizing;
 
 use crate::{
@@ -236,6 +236,8 @@ pub(crate) struct Shared {
     route_wipe_armed: Mutex<bool>,
     /// Sanitized request metadata in arrival order.
     request_log: Mutex<Vec<RequestRecord>>,
+    /// Number of requests logged so far; wakes `wait_for_requests`.
+    logged: watch::Sender<usize>,
     /// Number of requests observed by the fault middleware.
     request_count: AtomicU64,
     /// Active and peak HTTP handler overlap.
@@ -351,6 +353,7 @@ impl Shared {
             read_fault: Mutex::new(read_fault),
             route_wipe_armed: Mutex::new(route_wipe_armed),
             request_log: Mutex::new(Vec::new()),
+            logged: watch::Sender::new(0),
             request_count: AtomicU64::new(0),
             inflight: Counter::default(),
             process_id: AtomicU64::new(1),
@@ -442,12 +445,30 @@ impl Shared {
             })
             .collect();
         query.sort();
-        lock(&self.request_log).push(RequestRecord {
-            method: request.method().clone(),
-            path: request.uri().path().to_owned(),
-            query,
-            command: None,
-        });
+        let logged = {
+            let mut log = lock(&self.request_log);
+            log.push(RequestRecord {
+                method: request.method().clone(),
+                path: request.uri().path().to_owned(),
+                query,
+                command: None,
+            });
+            log.len()
+        };
+        let _previous: usize = self.logged.send_replace(logged);
+    }
+
+    /// Resolves once at least `at_least` logged requests used `method` on `path`.
+    // cancel-safe: only observes the request log.
+    pub(crate) async fn wait_for_requests(&self, method: &str, path: &str, at_least: usize) {
+        let matching = || {
+            lock(&self.request_log)
+                .iter()
+                .filter(|record| record.method.as_str() == method && record.path == path)
+                .count()
+        };
+        let mut logged = self.logged.subscribe();
+        drop(logged.wait_for(|_total| matching() >= at_least).await);
     }
 
     /// Attaches a non-secret parser line to its request record.

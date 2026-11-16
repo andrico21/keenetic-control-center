@@ -5,14 +5,45 @@ use core::{fmt, time::Duration};
 
 use reqwest::Method;
 use serde_json::Value;
-use tokio::{sync::Semaphore, time};
+use tokio::{runtime, sync::Semaphore, time};
 use tokio_util::sync::CancellationToken;
 
 use super::{RciBody, RciClient, decode_response, response_json, session};
 use crate::{
-    RciError, RciPath,
+    RciError, RciPath, encode_query,
     session::{Manager, RequestKind},
 };
+
+/// Longest wait for the router to acknowledge the sign-out of a dedicated session.
+const LOGOUT_BOUND: Duration = Duration::from_secs(5);
+
+/// A dedicated session that signs itself out of the router when it is dropped.
+struct Dedicated(Arc<Manager>);
+
+impl Dedicated {
+    /// Signs out now, within [`LOGOUT_BOUND`]; a router that stays silent is left to expire
+    /// the cookie.
+    // cancel-safe: the local cookie is cleared before the wire operation, so a cancelled
+    // sign-out leaves nothing for `Drop` to repeat.
+    async fn release(&self) {
+        drop(time::timeout(LOGOUT_BOUND, self.0.logout()).await);
+    }
+}
+
+impl Drop for Dedicated {
+    fn drop(&mut self) {
+        if !self.0.has_session() {
+            return;
+        }
+        // Dropping cannot await: hand the sign-out to the runtime when there is one.
+        if let Ok(runtime) = runtime::Handle::try_current() {
+            let session = Arc::clone(&self.0);
+            drop(runtime.spawn(async move {
+                drop(time::timeout(LOGOUT_BOUND, session.logout()).await);
+            }));
+        }
+    }
+}
 
 /// Starts a process with a dedicated cookie but the same router admission budget.
 ///
@@ -24,17 +55,20 @@ pub(super) async fn start(
     path: RciPath,
     body: &Value,
 ) -> Result<Handle, RciError> {
-    let session = Arc::new(session(
-        (&client.router, &client.pinned),
-        &client.credentials,
-        &client.options,
-    )?);
+    let session = Dedicated(Arc::new(
+        session(
+            (&client.router, &client.pinned),
+            &client.credentials,
+            &client.options,
+        )?
+        .with_key_cache(client.session.key_cache()),
+    ));
     let _permit = client
         .semaphore
         .acquire()
         .await
         .map_err(|_closed| RciError::Transport)?;
-    let response = session.post(&format!("/rci/{path}"), body).await?;
+    let response = session.0.post(&format!("/rci/{path}"), body).await?;
     let value = response_json(response, client.options.response_bytes).await?;
     let process_id = value
         .pointer("/process/id")
@@ -56,7 +90,7 @@ pub(super) async fn start(
 #[non_exhaustive]
 pub struct Handle {
     /// Session isolated from the main request engine.
-    session: Arc<Manager>,
+    session: Dedicated,
     /// Router-wide admission shared with ordinary requests.
     semaphore: Arc<Semaphore>,
     /// Process resource path.
@@ -96,8 +130,8 @@ impl Handle {
             .acquire()
             .await
             .map_err(|_closed| RciError::Transport)?;
-        let path = format!("/rci/{}?id={}", self.path, self.process_id);
-        let response = self.session.get(&path).await?;
+        let path = process_path(&self.path, &self.process_id)?;
+        let response = self.session.0.get(&path).await?;
         decode_response(response, self.response_bytes).await
     }
 
@@ -109,11 +143,14 @@ impl Handle {
         self
     }
 
-    /// Polls to completion, sending DELETE on token cancellation or deadline expiry.
+    /// Polls to completion, sending DELETE on token cancellation or deadline expiry, then
+    /// signs the dedicated session out whatever the outcome.
     ///
     /// # Errors
-    /// Returns timeout, cancellation cleanup, request or response errors.
-    // NOT cancel-safe: token cancellation sends DELETE; directly dropping cannot await cleanup.
+    /// Returns [`RciError::Cancelled`] when the token fires, [`RciError::Timeout`] when the
+    /// deadline passes, and cleanup, request or response errors otherwise.
+    // NOT cancel-safe: token cancellation sends DELETE; dropping the future instead leaves the
+    // sign-out to the handle's drop.
     #[inline]
     pub async fn poll(&self, token: &CancellationToken) -> Result<RciBody, RciError> {
         let operation = async {
@@ -134,15 +171,19 @@ impl Handle {
             }
         };
         let result = tokio::select! {
-            () = token.cancelled() => Err(RciError::Timeout),
+            () = token.cancelled() => Err(RciError::Cancelled),
             result = time::timeout(self.deadline, operation) => match result {
                 Ok(value) => value,
                 Err(_elapsed) => Err(RciError::Timeout),
             },
         };
-        if matches!(result, Err(RciError::Timeout)) {
-            drop(self.stop().await?);
-        }
+        let stopped = if matches!(result, Err(RciError::Timeout | RciError::Cancelled)) {
+            self.stop().await.map(drop)
+        } else {
+            Ok(())
+        };
+        self.session.release().await;
+        stopped?;
         result
     }
 
@@ -158,11 +199,45 @@ impl Handle {
             .acquire()
             .await
             .map_err(|_closed| RciError::Transport)?;
-        let path = format!("/rci/{}?id={}", self.path, self.process_id);
+        let path = process_path(&self.path, &self.process_id)?;
         let response = self
             .session
+            .0
             .request::<()>(Method::DELETE, &path, None, RequestKind::NonRetryable)
             .await?;
         decode_response(response, self.response_bytes).await
+    }
+}
+
+/// The request path of one process; the router-supplied id is a query value, never syntax.
+///
+/// # Errors
+/// Returns validation errors when the query cannot be serialized.
+fn process_path(path: &RciPath, process_id: &str) -> Result<String, RciError> {
+    let query = encode_query(&[("id", process_id)])?;
+    Ok(format!("/rci/{path}?{query}"))
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    clippy::panic_in_result_fn,
+    reason = "test assertions are not rendered API documentation"
+)]
+mod tests {
+    use super::{RciPath, process_path};
+
+    /// A-07: a hostile process id stays one query value.
+    #[test]
+    fn a_hostile_process_id_stays_one_query_value() -> Result<(), crate::RciError> {
+        let path = RciPath::from_segments(["tools", "ping"])
+            .map_err(|_error| crate::RciError::Validation)?;
+
+        assert_eq!(
+            process_path(&path, "7&admin=1#x y")?,
+            "/rci/tools/ping?id=7%26admin%3D1%23x+y"
+        );
+        Ok(())
     }
 }

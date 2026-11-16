@@ -758,6 +758,17 @@ impl Handle {
             .map_or_else(Vec::new, |shared| shared.request_log())
     }
 
+    /// Resolves once at least `at_least` requests used `method` on `path`, without polling.
+    ///
+    /// Callers bound the wait with their own timeout.
+    // cancel-safe: only observes the request log.
+    #[inline]
+    pub async fn wait_for_requests(&self, method: &str, path: &str, at_least: usize) {
+        if let Some(shared) = &self.router {
+            shared.wait_for_requests(method, path, at_least).await;
+        }
+    }
+
     /// Returns a snapshot of the independent JSON settings tree.
     #[inline]
     #[must_use]

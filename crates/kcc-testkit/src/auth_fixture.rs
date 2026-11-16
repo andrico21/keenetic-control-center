@@ -99,6 +99,8 @@ pub struct Counts {
     pub token_requests: AtomicUsize,
     /// Successfully digest-authenticated requests.
     pub digest_requests: AtomicUsize,
+    /// `DELETE /auth` sign-outs.
+    pub logouts: AtomicUsize,
 }
 
 /// One fixture's private protocol state.
@@ -220,6 +222,7 @@ async fn auth_post(State(shared): State<Arc<Shared>>, body: Bytes) -> Response {
 /// Clears the fixture's active session.
 // cancel-safe: synchronous state change.
 async fn auth_delete(State(shared): State<Arc<Shared>>) -> StatusCode {
+    let _: usize = shared.counts.logouts.fetch_add(1, Ordering::SeqCst);
     *lock(&shared.handshake) = None;
     StatusCode::OK
 }

@@ -2,7 +2,9 @@
 
 kcc can export router metrics to Prometheus and forward router logs to Loki,
 Elasticsearch or OpenSearch. Both are off by default and both reuse kcc's own router
-sessions: there's no second poller and only one `show log` stream per router.
+sessions: there's no second poller and only one `show log` stream per router. A
+profile with a read-only login polls through one read-only session per router, signed in
+once, replaced when the profile changes and signed out when kcc stops.
 
 ## Prometheus metrics
 

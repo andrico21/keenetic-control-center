@@ -533,6 +533,9 @@ pub enum RciError {
     /// The request exceeded its configured deadline.
     #[error("RCI request timed out")]
     Timeout,
+    /// The caller cancelled the operation; the router-side work was asked to stop.
+    #[error("RCI operation was cancelled")]
+    Cancelled,
     /// The router returned an unexpected HTTP status.
     #[error("RCI HTTP request failed")]
     Http {
@@ -580,6 +583,7 @@ impl fmt::Debug for RciError {
         f.write_str(match self {
             Self::Transport => "RciError::Transport",
             Self::Timeout => "RciError::Timeout",
+            Self::Cancelled => "RciError::Cancelled",
             Self::Http { status: _ } => "RciError::Http",
             Self::Auth(_error) => "RciError::Auth",
             Self::Rci {

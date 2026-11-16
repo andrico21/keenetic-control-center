@@ -872,7 +872,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(web): wizard secrets do not outlive their run
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 35. Poller and background sessions reuse logins and shut down cleanly
+- [x] 35. Poller and background sessions reuse logins and shut down cleanly
   What to do / Must NOT do: Per the findings: the read-only polling login keeps one session per router across rounds and logs out on shutdown; background operations reuse the parent's key cache and log out when their handle finishes or is dropped (from a spawned task) (A-07); fix the poller idle-exit race. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `SEC2-03` (medium; critic confirmed) A profile with a read-only login opens a new router session (and ndw4 Argon2) on every poll and never logs out. Evidence: `crates/kcc-app/src/registry.rs:646-655`, `poller.rs:358`, `poller.rs:29`, `poller/extended.rs:78`. Fix: Cache the read-only client per id like `client()` does (invalidate on reload/update), and use it in both `poll_client` and `poll_info`.
   - `B-06` (medium; critic confirmed) With a read-only login, the poller opens a new router session every round. Evidence: `crates/kcc-app/src/registry.rs:646-653`, `poller.rs:358`, `poller/extended.rs:78`. Fix: Cache the read-only client per router beside `clients`, and invalidate it on the same profile changes.

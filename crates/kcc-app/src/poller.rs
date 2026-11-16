@@ -319,8 +319,11 @@ impl Poller {
             if receivers == 0 && metrics.is_none() {
                 let since = idle_since.get_or_insert_with(Instant::now);
                 if since.elapsed() >= self.intervals.idle {
-                    drop(self.channels.lock().await.remove(&router));
-                    return;
+                    if self.retire(&router).await {
+                        return;
+                    }
+                    idle_since = None;
+                    continue;
                 }
                 sleep(self.intervals.light.min(self.intervals.idle)).await;
                 continue;
@@ -345,6 +348,22 @@ impl Poller {
             drop(sender.send(Some(result)));
             sleep(delay).await;
         }
+    }
+
+    /// Removes the idle router's channel entry unless a subscriber arrived since the idle
+    /// decision; the check and the removal share one hold of the `channels` lock, the lock
+    /// `subscribe` takes, so no receiver can be handed out for a removed entry.
+    // cancel-safe: one map removal.
+    async fn retire(&self, router: &str) -> bool {
+        let mut channels = self.channels.lock().await;
+        if channels
+            .get(router)
+            .is_some_and(|sender| sender.receiver_count() > 0)
+        {
+            return false;
+        }
+        drop(channels.remove(router));
+        true
     }
 
     /// Fetches one snapshot, reusing heavy values until their cadence expires.
@@ -469,6 +488,9 @@ fn count_clients(value: &Value) -> u64 {
         Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => 0,
     }
 }
+
+#[cfg(test)]
+mod retire_tests;
 
 #[cfg(test)]
 #[expect(

@@ -150,7 +150,7 @@ async fn background_poll_completes_and_cancellation_sends_delete() -> TestResult
     token.cancel();
     assert!(matches!(
         cancelled.poll(&token).await,
-        Err(RciError::Timeout)
+        Err(RciError::Cancelled)
     ));
     assert_eq!(fake.stopped_processes(), 1);
 

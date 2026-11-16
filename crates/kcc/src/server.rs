@@ -211,6 +211,7 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         "jobs drained; any armed router fail-safe remains armed for rollback"
     );
     crate::server_shutdown::flush_audit(&services.audit).await;
+    services.registry.shutdown().await;
     serve_result?;
     if let Some(logs) = services.logs.take() {
         logs.shutdown().await;
@@ -238,6 +239,7 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
     crate::server_shutdown::wait_for_brackets(services.workflow.brackets()).await;
     if let Err(failure) = served {
         crate::server_shutdown::flush_audit(&services.audit).await;
+        services.registry.shutdown().await;
         return Err(failure);
     }
     let drain = services.jobs.drain(Duration::from_secs(30)).await;
@@ -247,6 +249,7 @@ pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
         "stdio jobs drained; any armed router fail-safe remains armed for rollback"
     );
     crate::server_shutdown::flush_audit(&services.audit).await;
+    services.registry.shutdown().await;
     Ok(Outcome::Ok)
 }
 

@@ -113,7 +113,8 @@ either.
   cookie, every configuration read (including encrypted `ns3` blobs and Wi-Fi keys in
   responses) and every secret kcc writes (Wi-Fi keys, VPN keys, user passwords) cross
   the LAN in clear text over HTTP. Anyone on that network path can read them and can
-  hijack the session.
+  hijack the session. kcc keeps one session per login and signs the read-only polling
+  sessions and background-operation sessions out of the router when they end.
 - **Prefer HTTPS.** Use an `https://` router URL. With `tls = "verify"` the certificate
   must chain to a trusted root; routers usually have self-signed certificates, so pin
   the certificate's public key instead (`tls = { pin_sha256 = "..." }`, or
