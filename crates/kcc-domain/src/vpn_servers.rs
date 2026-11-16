@@ -259,7 +259,7 @@ pub fn plan_change(router: &RouterCtx, change: &VpnServerChange) -> Result<Chang
         .validate(path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
     let mut operation = ChangeOp::new(Vec::new(), verify, Risk::Write, Permission::Write, false);
-    operation.push(ValidatedCli::new(line, validated));
+    operation.push(ValidatedCli::new(line, validated)?);
     Ok(operation)
 }
 

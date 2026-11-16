@@ -31,7 +31,7 @@ pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<Chang
         false,
     );
     for request in requests {
-        operation.push(ValidatedCli::new(cli_line(&request)?, request));
+        operation.push(ValidatedCli::new(cli_line(&request)?, request)?);
     }
     Ok(operation)
 }

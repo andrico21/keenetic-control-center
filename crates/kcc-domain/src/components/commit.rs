@@ -41,7 +41,10 @@ pub(super) async fn start(
         .validate("components commit", HttpMethod::Post, &json!({}))
         .map_err(|issues| DomainError::Validation { issues })?;
     let request = CliChangeRequest::terminal(
-        vec![ValidatedCli::new("components commit".to_owned(), validated)],
+        vec![
+            ValidatedCli::new("components commit".to_owned(), validated)
+                .map_err(DomainError::from)?,
+        ],
         Permission::Destructive,
         json!({"operation":"components commit"}),
     );

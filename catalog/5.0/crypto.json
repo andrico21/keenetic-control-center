@@ -1762,7 +1762,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "retry-count"
             }
           },
@@ -1781,6 +1781,9 @@
       },
       "arguments": {
         "interval": {
+          "type": "Integer"
+        },
+        "retry-count": {
           "type": "Integer"
         }
       }

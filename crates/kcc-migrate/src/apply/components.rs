@@ -46,10 +46,10 @@ pub(super) async fn install(
                 &json!({"component":name}),
             )
             .map_err(|_issues| Stop::Armed(ApplyError::Validation))?;
-        commands.push(ValidatedCli::new(
-            format!("components install {name}"),
-            validated,
-        ));
+        commands.push(
+            ValidatedCli::new(format!("components install {name}"), validated)
+                .map_err(|_error| Stop::Armed(ApplyError::Validation))?,
+        );
     }
     let validated = ctx
         .catalog
@@ -73,7 +73,10 @@ pub(super) async fn install(
     drop(
         changes
             .apply_cli(CliChangeRequest::terminal(
-                vec![ValidatedCli::new("components commit".to_owned(), validated)],
+                vec![
+                    ValidatedCli::new("components commit".to_owned(), validated)
+                        .map_err(|_error| Stop::Armed(ApplyError::Validation))?,
+                ],
                 Permission::Destructive,
                 json!({"prerequisite":true}),
             ))

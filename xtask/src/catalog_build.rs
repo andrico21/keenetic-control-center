@@ -9,6 +9,7 @@ use std::{
 
 use serde::{Deserialize, Serialize};
 
+use self::corrections::Corrections;
 use crate::{
     Verdict,
     catalog::{self, Entry, Lock},
@@ -110,7 +111,7 @@ enum CommandKind {
 }
 
 /// Closed argument value type set from the manual.
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(tag = "type", content = "values")]
 enum ValueType {
     /// Arbitrary text.
@@ -224,9 +225,11 @@ where
     let mut reference_leaf_count = 0;
     let mut reference_synopsis_count = 0;
     let mut hashes = BTreeMap::new();
-    let allowlist = load_untyped_allowlist(root)?;
+    let corrections = corrections::load(root)?;
+    let mut models = BTreeSet::new();
     for entry in entries {
-        let parsed = parse_model(root, entry, &allowlist)?;
+        let parsed = parse_model(root, entry, &corrections)?;
+        let _inserted = models.insert(entry.model.clone());
         if entry.model == "KN-1811" {
             reference_leaf_count = parsed.leaf_count;
             reference_synopsis_count = parsed.synopsis_count;
@@ -244,6 +247,7 @@ where
             format!("KN-1811 reference manual is missing for version {version}"),
         ));
     }
+    corrections.complete(&mut union, version, &models)?;
     let coverage = reference_synopsis_count
         .checked_mul(100)
         .and_then(|value| value.checked_div(reference_leaf_count))
@@ -292,7 +296,7 @@ where
 fn parse_model(
     root: &Path,
     entry: &Entry,
-    untyped_allowlist: &BTreeSet<UntypedArgument>,
+    corrections: &Corrections,
 ) -> Result<ModelCatalog, GateError> {
     let stem = entry.model.to_lowercase();
     let base = catalog::cache_dir(root).join(&entry.version);
@@ -306,23 +310,7 @@ fn parse_model(
             format!("cannot parse {}: {source}", outline_path.display()),
         )
     })?;
-    parse_bookmarks(&text, &bookmarks, entry, untyped_allowlist)
-}
-
-/// Loads the exact legacy exceptions to synopsis argument typing.
-///
-/// # Errors
-///
-/// Returns an input or JSON parse error when the committed allowlist is unavailable or malformed.
-fn load_untyped_allowlist(root: &Path) -> Result<BTreeSet<UntypedArgument>, GateError> {
-    let path = root.join("catalog/untyped-arguments.json");
-    let text = read_text(&path)?;
-    serde_json::from_str(&text).map_err(|source| {
-        command_error(
-            "catalog build",
-            format!("cannot parse {}: {source}", path.display()),
-        )
-    })
+    parse_bookmarks(&text, &bookmarks, entry, corrections)
 }
 
 /// Reads UTF-8 input with a path-aware error.
@@ -346,7 +334,7 @@ fn parse_bookmarks(
     text: &str,
     bookmarks: &[Bookmark],
     entry: &Entry,
-    untyped_allowlist: &BTreeSet<UntypedArgument>,
+    corrections: &Corrections,
 ) -> Result<ModelCatalog, GateError> {
     let lines: Vec<&str> = text.lines().collect();
     let command_bookmarks: Vec<&Bookmark> = bookmarks
@@ -399,7 +387,7 @@ fn parse_bookmarks(
             entry,
             is_leaf,
             is_group,
-            untyped_allowlist,
+            corrections,
         );
         if is_leaf {
             leaf_count = leaf_count.saturating_add(1);
@@ -463,7 +451,7 @@ fn parse_section(
     entry: &Entry,
     is_leaf: bool,
     is_group: bool,
-    untyped_allowlist: &BTreeSet<UntypedArgument>,
+    corrections: &Corrections,
 ) -> Command {
     let prefix_no = field_value(lines, "Prefix no").is_some_and(|value| value == "Yes");
     let change_settings = field_value(lines, "Change settings").is_some_and(|value| value == "Yes");
@@ -485,9 +473,19 @@ fn parse_section(
     let description_lower = description.to_ascii_lowercase();
     let persists_immediately = description_lower.contains("does not require configuration save")
         || description_lower.contains("permanently stored");
-    let synopsis_text = synopsis_block(lines);
-    let synopsis = synopsis_text.as_deref().and_then(parse_synopsis);
-    let argument_names = synopsis_text.as_deref().map_or_default(argument_names);
+    let synopsis_text = corrections
+        .synopsis(&path)
+        .map(str::to_owned)
+        .or_else(|| synopsis_block(lines));
+    let mut argument_names = synopsis_text.as_deref().map_or_default(argument_names);
+    let synopsis = synopsis_text
+        .as_deref()
+        .and_then(parse_synopsis)
+        .map(|parsed| {
+            let (grammar, promoted) = corrections::promote_bare_arguments(parsed, lines);
+            argument_names.extend(promoted);
+            grammar
+        });
     let mut arguments = parse_arguments(lines, &argument_names);
     if path.ends_with("security-level") && arguments.is_empty() {
         let levels = synopsis.as_ref().map_or_default(security_levels);
@@ -505,7 +503,7 @@ fn parse_section(
                 path: path.clone(),
                 name: name.clone(),
             };
-            if untyped_allowlist.contains(&exception) {
+            if corrections.is_untyped(&exception) {
                 parse_warnings.push(format!("argument {name} has no recognized type"));
             } else {
                 drop(arguments.insert(name.clone(), inferred_value_type(name)));
@@ -939,6 +937,7 @@ fn inferred_value_type(name: &str) -> ValueType {
             | "interval"
             | "metric"
             | "minutes"
+            | "new-index"
             | "pause"
             | "pcp"
             | "priority"
@@ -1255,6 +1254,7 @@ fn command_error(program: &str, detail: String) -> GateError {
 )]
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 mod committed_tests;
+mod corrections;
 #[cfg(test)]
 mod expected;
 #[cfg(test)]

@@ -97,7 +97,7 @@ async fn bridge0_down_asks_then_runs_inside_the_fail_safe_timer() -> TestResult 
     }
     assert_eq!(
         cli_targets(&fixture)?,
-        [TIMER, "interface up", TIMER],
+        [TIMER, "interface down", TIMER],
         "armed, changed, disarmed"
     );
     let state = last_change(&fixture).await?;

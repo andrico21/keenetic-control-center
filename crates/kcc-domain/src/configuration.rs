@@ -388,7 +388,7 @@ fn cli_request(
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated)],
+        vec![ValidatedCli::new(line, validated)?],
         verify,
         permission,
         json!({"operation": catalog_path}),

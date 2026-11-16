@@ -58,7 +58,7 @@ pub(super) fn request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated.clone())],
+        vec![ValidatedCli::new(line, validated.clone())?],
         verification::specs(name, validated)?,
         operation.permission,
         json!({"operation":validated.path,"interface":name.as_str()}),

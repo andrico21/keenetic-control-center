@@ -158,7 +158,7 @@ pub async fn plan_static_lease(
         router,
         &[(
             "ip dhcp host",
-            json!({"host":format!("{lease_mac} {address}")}),
+            json!({"host":lease_mac,"ip":address.to_string()}),
         )],
     )
 }
@@ -175,14 +175,14 @@ pub async fn apply(
     let result = changes.apply_cli(request).await?;
     for validated in &operation.requests {
         if validated.path == "ip dhcp host" {
-            let expected = validated
-                .value()
-                .get("host")
-                .and_then(Value::as_str)
-                .ok_or(WorkflowError::InvalidResponse)?;
-            let Some((mac, address)) = expected.split_once(' ') else {
-                return Err(WorkflowError::InvalidResponse);
+            let field = |key: &str| {
+                validated
+                    .value()
+                    .get(key)
+                    .and_then(Value::as_str)
+                    .ok_or(WorkflowError::InvalidResponse)
             };
+            let (mac, address) = (field("host")?, field("ip")?);
             let leases = read_static_leases(router).await.map_err(map_domain_error)?;
             if !leases.iter().any(|lease| {
                 lease

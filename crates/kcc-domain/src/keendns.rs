@@ -219,8 +219,11 @@ pub fn plan_proxy_upstream(
         Permission::Write,
         false,
     );
-    operation.push(ValidatedCli::new(format!("ip http proxy {proxy}"), context));
-    operation.push(ValidatedCli::new(line, upstream));
+    operation.push(ValidatedCli::new(
+        format!("ip http proxy {proxy}"),
+        context,
+    )?);
+    operation.push(ValidatedCli::new(line, upstream)?);
     operation.verify = vec![verification::upstream(
         proxy,
         json!({"protocol":protocol,"host":host,"port":port}),
@@ -277,7 +280,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             }
             _ => return Err(DomainError::InvalidResponse),
         };
-        commands.push(ValidatedCli::new(line, request.clone()));
+        commands.push(ValidatedCli::new(line, request.clone())?);
     }
     Ok(CliChangeRequest::new(
         commands,

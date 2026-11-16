@@ -18,29 +18,17 @@ use kcc_domain::{
         read,
     },
 };
-use kcc_testkit::{FaultInjection, model::Firmware};
+use kcc_testkit::FaultInjection;
 
-use crate::support::{Fixture, PROFILES, TestResult, refused_by_catalog};
+use crate::support::{Fixture, PROFILES, TestResult};
 
 #[tokio::test]
 async fn ipv4_route_removal_decreases_the_fresh_table_by_exactly_one() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
-        let unmetered =
-            Ipv4Route::network("198.51.100.0", "255.255.255.0", "192.0.2.254").on_interface("ISP");
-        let metered = unmetered.clone().with_metric(7);
-        let route = if firmware == Firmware::V4_3 {
-            // 4.3.9 documents no `ip route` metric: refused while planning.
-            let sent = fixture.handle().request_count();
-            assert!(refused_by_catalog(&change::plan_add_ipv4(
-                fixture.context(),
-                &metered
-            )));
-            assert_eq!(fixture.handle().request_count(), sent);
-            unmetered
-        } else {
-            metered
-        };
+        let route = Ipv4Route::network("198.51.100.0", "255.255.255.0", "192.0.2.254")
+            .on_interface("ISP")
+            .with_metric(7);
         let add = change::plan_add_ipv4(fixture.context(), &route)?;
         let mut changes = fixture.changes().await?;
         drop(changes.apply_cli(change::request(&add)?).await?);
@@ -95,7 +83,7 @@ async fn ipv6_route_named_fields_round_trip_through_the_router() -> TestResult {
             fixture
                 .handle()
                 .running_config_text()
-                .contains("ipv6 route 2001:db8:7::/64 2001:db8::1 ISP")
+                .contains("ipv6 route 2001:db8:7::/64 ISP 2001:db8::1")
         );
         drop(changes);
         fixture.shutdown().await?;

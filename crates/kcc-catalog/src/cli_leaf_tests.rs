@@ -107,7 +107,7 @@ mod tests {
             "ip dhcp pool guest range invalid 20",
             "ip dhcp pool guest range 192.0.2.10 invalid",
             "interface Wireguard0 wireguard listen-port invalid",
-            "ip route 198.51.100.0 255.0.255.0 192.0.2.1",
+            "ip route 198.51.100.0 255.0.255.0 192.0.2.1 ISP",
         ] {
             let issues = catalog
                 .validate_cli(line, RawAuthorization::default())

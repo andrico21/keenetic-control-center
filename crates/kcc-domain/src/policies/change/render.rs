@@ -28,8 +28,8 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .ok_or(DomainError::InvalidResponse)?;
     let name = text(context, "name")?;
     let command = match operation.requests.as_slice() {
-        [only] => ValidatedCli::new(context_line(only, name), only.clone()),
-        [_, leaf] => ValidatedCli::new(leaf_line(name, leaf)?, leaf.clone()),
+        [only] => ValidatedCli::new(context_line(only, name), only.clone())?,
+        [_, leaf] => ValidatedCli::new(leaf_line(name, leaf)?, leaf.clone())?,
         _ => return Err(DomainError::InvalidResponse),
     };
     verification::complete(CliChangeRequest::new(

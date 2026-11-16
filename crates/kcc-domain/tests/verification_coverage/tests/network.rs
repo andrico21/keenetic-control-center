@@ -143,7 +143,11 @@ fn dns_plan(router: &RouterCtx, op: &str) -> TestResult {
         "intercept" => dns::DnsChange::Intercept { enabled: true },
         "rebind_protect" => dns::DnsChange::RebindProtect(dns::RebindProtection::Strict),
         "max_ttl" => dns::DnsChange::MaxTtl(Some(67)),
-        "route" => dns::DnsChange::Route(dns::DnsRoute::new("Coverage67")),
+        "route" => {
+            let mut route = dns::DnsRoute::new("Coverage67");
+            route.interface = Some("ISP".to_owned());
+            dns::DnsChange::Route(route)
+        }
         "name_server" => dns::DnsChange::NameServer {
             address: "192.0.2.67".to_owned(),
         },

@@ -134,7 +134,7 @@ mod tests {
                 .collect::<TestResult<Vec<_>>>()?;
             assert_eq!(
                 lines,
-                ["dns-proxy filter profile description kids \"Streaming services\""]
+                ["dns-proxy filter profile kids description \"Streaming services\""]
             );
             fixture.shutdown().await?;
         }

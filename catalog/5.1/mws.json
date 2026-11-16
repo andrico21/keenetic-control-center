@@ -420,13 +420,17 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "member"
             }
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "member": {
+          "type": "String"
+        }
+      }
     },
     {
       "path": "mws member debug",

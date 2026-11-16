@@ -220,6 +220,11 @@ impl Catalog {
         Ok(request.with_secret(protected))
     }
 
+    /// Whether CLI words render a validated request; see [`ValidatedRequest::renders_cli`].
+    pub(crate) fn renders_cli(&self, request: (&str, &serde_json::Value), words: &[&str]) -> bool {
+        cli::renders(self, &self.data.synopses, request, words)
+    }
+
     /// Validates a whitespace-tokenized CLI line against the longest known command prefix.
     ///
     /// Generated forms supply positional order and omitted parent contexts, including

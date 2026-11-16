@@ -112,7 +112,7 @@ impl StaticRoute {
             (Family::V6, [prefix, rest @ ..]) => (prefix, None, rest),
             (Family::V4 | Family::V6, _) => return None,
         };
-        let (gateway, after_gateway) = match rest {
+        let (leading_gateway, after_gateway) = match rest {
             [first, tail @ ..] if first.parse::<IpAddr>().is_ok() => (Some(first.clone()), tail),
             _ => (None, rest),
         };
@@ -120,7 +120,14 @@ impl StaticRoute {
             [first, tail @ ..] if first.parse::<u32>().is_err() => (Some(first.clone()), tail),
             _ => (None, after_gateway),
         };
-        let metric = match (family, after_interface) {
+        // `ipv6 route <prefix> <interface> <gateway>`: the gateway follows the interface.
+        let (gateway, tail) = match (family, leading_gateway, after_interface) {
+            (Family::V6, None, [last]) if last.parse::<IpAddr>().is_ok() => {
+                (Some(last.clone()), &[][..])
+            }
+            (_, found, remaining) => (found, remaining),
+        };
+        let metric = match (family, tail) {
             (_, []) => None,
             (Family::V4, [number]) => Some(number.parse::<u32>().ok()?),
             (Family::V4 | Family::V6, _) => return None,
@@ -172,11 +179,15 @@ impl StaticRoute {
     /// The command that adds the route, as the router stores it.
     pub(crate) fn stored(&self) -> String {
         let metric = self.metric.map(|value| value.to_string());
+        let (first, second) = match self.family {
+            Family::V4 => (self.gateway.as_deref(), self.interface.as_deref()),
+            Family::V6 => (self.interface.as_deref(), self.gateway.as_deref()),
+        };
         let words = [
             Some(self.destination.as_str()),
             self.mask.as_deref(),
-            self.gateway.as_deref(),
-            self.interface.as_deref(),
+            first,
+            second,
             metric.as_deref(),
         ];
         let tail = words.into_iter().flatten().collect::<Vec<_>>().join(" ");

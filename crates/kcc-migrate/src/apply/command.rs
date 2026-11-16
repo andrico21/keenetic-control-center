@@ -39,9 +39,13 @@ pub(crate) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyEr
         ["no", rest @ ..] => (true, rest),
         other => (false, other),
     };
+    // `vlan-id` is known to the catalog only so that segments can create their VLAN
+    // interface; no manual documents it, so a migration does not replay it.
     if matches!(
         positive,
-        ["system", "configuration" | "reboot", ..] | ["components", "commit", ..]
+        ["system", "configuration" | "reboot", ..]
+            | ["components", "commit", ..]
+            | ["interface", _, "vlan-id", ..]
     ) {
         return Err(ApplyError::Validation);
     }
@@ -64,20 +68,16 @@ pub(crate) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyEr
             let validated = catalog
                 .validate_secret("interface authentication wpa-psk", "psk", secret)
                 .map_err(|_issues| ApplyError::Validation)?;
-            return Ok(CliCommand::secret(
-                validated,
-                SecretString::from(line.to_owned()),
-            ));
+            return CliCommand::secret(validated, SecretString::from(line.to_owned()))
+                .map_err(|_error| ApplyError::Validation);
         }
         ["user", _name, "password", "plain", _secret] if !negated => {
             let secret = last_secret(&command.tokens)?;
             let validated = catalog
                 .validate_secret("user password plain", "password", secret)
                 .map_err(|_issues| ApplyError::Validation)?;
-            return Ok(CliCommand::secret(
-                validated,
-                SecretString::from(line.to_owned()),
-            ));
+            return CliCommand::secret(validated, SecretString::from(line.to_owned()))
+                .map_err(|_error| ApplyError::Validation);
         }
         ["dpn", "accept"] => ("dpn accept", json!({})),
         ["eula", "accept"] => ("eula accept", json!({})),
@@ -89,10 +89,8 @@ pub(crate) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyEr
             let validated = catalog
                 .validate_cli(validation_line, RawAuthorization::default())
                 .map_err(|_issues| ApplyError::Validation)?;
-            return Ok(CliCommand::secret(
-                validated,
-                SecretString::from(line.to_owned()),
-            ));
+            return CliCommand::secret(validated, SecretString::from(line.to_owned()))
+                .map_err(|_error| ApplyError::Validation);
         }
     };
     if negated {
@@ -102,10 +100,8 @@ pub(crate) fn build(catalog: &Catalog, line: &str) -> Result<CliCommand, ApplyEr
     let validated = catalog
         .validate(path, HttpMethod::Post, &value)
         .map_err(|_issues| ApplyError::Validation)?;
-    Ok(CliCommand::secret(
-        validated,
-        SecretString::from(line.to_owned()),
-    ))
+    CliCommand::secret(validated, SecretString::from(line.to_owned()))
+        .map_err(|_error| ApplyError::Validation)
 }
 
 /// Decodes NS3 words for catalog checking without changing transmitted bytes.

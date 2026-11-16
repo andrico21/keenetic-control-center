@@ -42,7 +42,7 @@ pub(super) async fn persist(
                 vec![ValidatedCli::new(
                     format!("interface Vlan{id} description {quoted}"),
                     request,
-                )],
+                )?],
                 vec![VerificationSpec::new(
                     vec!["show".to_owned(), "rc".to_owned()],
                     format!("/interface/Vlan{id}/description"),

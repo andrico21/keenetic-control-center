@@ -68,7 +68,7 @@ const READS: &[OperationDescriptor] = &[
 /// Interface write inventory.
 const WRITES: &[OperationDescriptor] = &[
     write_operation("up", "interface up", Risk::Write),
-    write_operation("down", "interface up", Risk::Management),
+    write_operation("down", "interface down", Risk::Management),
     write_operation("description", "interface description", Risk::Write),
     write_operation(
         "security_level",
@@ -231,16 +231,16 @@ fn plan_state(
     enabled: bool,
     verdict: ManagementVerdict,
 ) -> Result<ChangeOp> {
-    let (body, expected, risk) = if enabled {
-        (json!({}), Value::String("up".to_owned()), Risk::Write)
+    let (path, expected, risk) = if enabled {
+        ("interface up", Value::String("up".to_owned()), Risk::Write)
     } else {
         (
-            json!({"no": true}),
+            "interface down",
             Value::String("down".to_owned()),
             verdict.risk(name),
         )
     };
-    plan_interface(router, name, "interface up", body, "/state", expected, risk)
+    plan_interface(router, name, path, json!({}), "/state", expected, risk)
 }
 
 /// Validates one interface plan and attaches selected-interface verification.
@@ -281,10 +281,8 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     let line = match validated.path.as_str() {
-        "interface up" if validated.value().get("no") == Some(&Value::Bool(true)) => {
-            format!("interface {name} down")
-        }
         "interface up" => format!("interface {name} up"),
+        "interface down" => format!("interface {name} down"),
         "interface description" => {
             let description = validated
                 .value()
@@ -304,7 +302,7 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated.clone())],
+        vec![ValidatedCli::new(line, validated.clone())?],
         operation.verify.clone(),
         operation.permission,
         json!({"operation": validated.path, "interface": name.as_str()}),

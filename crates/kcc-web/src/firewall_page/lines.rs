@@ -16,13 +16,17 @@ use kcc_domain::{
 use serde_json::{Value, json};
 
 /// The request of one firewall `line`, standing for `leaf`.
-fn request(line: String, leaf: ValidatedRequest) -> CliChangeRequest {
-    CliChangeRequest::new(
-        vec![ValidatedCli::new(line, leaf)],
+///
+/// # Errors
+///
+/// Returns a workflow error when `line` does not render `leaf`.
+fn request(line: String, leaf: ValidatedRequest) -> Result<CliChangeRequest, DomainError> {
+    Ok(CliChangeRequest::new(
+        vec![ValidatedCli::new(line, leaf)?],
         Vec::new(),
         Permission::Write,
         json!({"domain": "firewall"}),
-    )
+    ))
 }
 
 /// `body` of `path` validated by the router's catalog.
@@ -78,9 +82,13 @@ pub(crate) fn order(
     (index, to): (usize, usize),
 ) -> Result<CliChangeRequest, DomainError> {
     drop(validated(domain, "access-list", &json!({"name": list}))?);
-    let checked = validated(domain, "access-list rule", &json!({"index": index}))?;
+    let checked = validated(
+        domain,
+        "access-list rule",
+        &json!({"index": index, "new-index": to}),
+    )?;
     let line = format!("access-list {list} rule {index} order {to}");
-    Ok(request(line, checked))
+    request(line, checked)
 }
 
 /// Disables rule `index` of the list `list`, or enables it again.

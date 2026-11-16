@@ -103,7 +103,7 @@ fn command(router: &RouterCtx, change: &VpnClientChange) -> Result<ValidatedCli>
         .catalog
         .validate(path, HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
-    Ok(ValidatedCli::new(line, validated))
+    Ok(ValidatedCli::new(line, validated)?)
 }
 
 /// Converts a plan to protected CLI workflow input.

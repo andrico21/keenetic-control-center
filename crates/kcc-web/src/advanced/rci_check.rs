@@ -46,8 +46,8 @@ pub(crate) enum Checked {
     Path {
         /// HTTP method.
         method: HttpMethod,
-        /// The validation result.
-        validated: ValidatedRequest,
+        /// The validation result, boxed: a request is much larger than the other variant.
+        validated: Box<ValidatedRequest>,
         /// Whether the command is a show command.
         show: bool,
     },
@@ -96,7 +96,7 @@ pub(crate) fn check(catalog: &Catalog, form: &RciForm) -> Result<Checked, Vec<Pr
         .is_some_and(|command| command.kind == CommandKind::Show);
     Ok(Checked::Path {
         method,
-        validated,
+        validated: Box::new(validated),
         show,
     })
 }

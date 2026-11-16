@@ -68,7 +68,7 @@ pub async fn apply(
         .collect();
     let result = changes
         .apply_cli(verification::complete(CliChangeRequest::new(
-            vec![ValidatedCli::new(line.clone(), validated.clone())],
+            vec![ValidatedCli::new(line.clone(), validated.clone())?],
             Vec::new(),
             operation.permission,
             json!({"domain":"nat"}),

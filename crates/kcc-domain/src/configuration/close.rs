@@ -100,7 +100,10 @@ pub async fn close(
                 .validate(path, HttpMethod::Post, &json!({}))
                 .map_err(|_issues| Failure::armed(WorkflowError::InvalidResponse))?;
             let request = CliChangeRequest::terminal(
-                vec![ValidatedCli::new(path.to_owned(), validated)],
+                vec![
+                    ValidatedCli::new(path.to_owned(), validated)
+                        .map_err(|error| Failure::armed(WorkflowError::from(error)))?,
+                ],
                 permission,
                 json!({"operation": path}),
             );

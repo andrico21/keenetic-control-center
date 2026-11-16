@@ -90,7 +90,10 @@ impl RawRestore {
             .await
             .map_err(|_error| ApplyError::Workflow)?;
         let request = CliChangeRequest::terminal(
-            vec![ValidatedCli::new("system reboot".to_owned(), validated)],
+            vec![
+                ValidatedCli::new("system reboot".to_owned(), validated)
+                    .map_err(|_error| ApplyError::Workflow)?,
+            ],
             Permission::Destructive,
             json!({}),
         );

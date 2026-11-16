@@ -208,7 +208,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
             format!("user {name}")
         },
         first.clone(),
-    )];
+    )?];
     for request in operation.requests.iter().skip(1) {
         if request.path == "user password plain" {
             commands.push(
@@ -233,7 +233,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         commands.push(ValidatedCli::new(
             format!("{prefix}user {name} tag {tag}"),
             request.clone(),
-        ));
+        )?);
     }
     Ok(CliChangeRequest::new(
         commands,

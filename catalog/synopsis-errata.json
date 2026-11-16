@@ -1,0 +1,22 @@
+[
+  {
+    "path": "interface vlan-id",
+    "synopsis": "(config-if)> vlan-id ‹vid› (config-if)> no vlan-id",
+    "arguments": {
+      "vid": {
+        "type": "Integer"
+      }
+    },
+    "reason": "The router accepts and prints `vlan-id <vid>` in the configuration of every VLAN interface (`interface Vlan5` / ` vlan-id 5`), and segments create VLAN interfaces with it, but no manual documents the command."
+  },
+  {
+    "path": "nextdns assign",
+    "synopsis": "(nextdns)> assign ( ‹host› ‹token› | interface ‹iface› ‹token› ) (nextdns)> no assign [ ‹host› | interface ‹iface› ]",
+    "reason": "The manual writes `assign <host> <token> | interface <iface> <token>` without the parentheses its own examples imply (`assign <host> <token>`, `assign interface <iface> <token>`), so the alternative swallowed the command word and the negative line."
+  },
+  {
+    "path": "oc-server pool-range",
+    "synopsis": "(oc-server)> pool-range ‹begin› [ ‹size› ] (oc-server)> no pool-range",
+    "reason": "The manual's synopsis names the command `oc-server` instead of `pool-range`; its own examples show `pool-range` with a begin address and a size (e.g., `pool-range <begin> <size>`), and `no pool-range`, matching the pattern for `vpn-server pool-range` and `sstp-server pool-range`."
+  }
+]

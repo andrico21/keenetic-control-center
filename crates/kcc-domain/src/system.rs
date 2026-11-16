@@ -311,7 +311,7 @@ fn terminal_request(
         .validate(catalog_path, HttpMethod::Post, &json!({}))
         .map_err(|issues| DomainError::Validation { issues })?;
     Ok(CliChangeRequest::terminal(
-        vec![ValidatedCli::new(line.to_owned(), validated)],
+        vec![ValidatedCli::new(line.to_owned(), validated)?],
         Permission::Destructive,
         json!({"operation": catalog_path}),
     ))

@@ -61,7 +61,7 @@ pub(super) const KEYWORD_LITERALS: [(&str, &str, &str); 11] = [
 
 /// Arguments whose generated type tag is fixed, including the ambiguous `Prefix`,
 /// `Policy`/`Schedule` and `password` table rows.
-pub(super) const TYPED_ARGUMENTS: [(&str, &str, &str); 15] = [
+pub(super) const TYPED_ARGUMENTS: [(&str, &str, &str); 18] = [
     ("ip route", "gateway", "IpAddress"),
     ("ip route", "host", "IpAddress"),
     ("ip route", "network", "IpAddress"),
@@ -81,6 +81,9 @@ pub(super) const TYPED_ARGUMENTS: [(&str, &str, &str); 15] = [
     ),
     ("ip static", "to-host", "MacAddress"),
     ("ip http proxy upstream", "fqdn", "String"),
+    ("access-list rule", "new-index", "Integer"),
+    ("ip dhcp host", "ip", "IpAddress"),
+    ("interface vlan-id", "vid", "Integer"),
 ];
 
 /// Keyword arguments whose literal set is exact.

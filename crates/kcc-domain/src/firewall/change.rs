@@ -104,7 +104,7 @@ pub fn plan_rule_property(
             }
         }
         RuleProperty::Schedule(Some(value)) => json!({"index":index,"schedule":value}),
-        RuleProperty::Order(position) => json!({"index":index,"order":position}),
+        RuleProperty::Order(position) => json!({"index":index,"new-index":position}),
     };
     Ok(Plan {
         operation: contextual(router, name, "access-list rule", &body)?,
@@ -221,10 +221,13 @@ fn plan_rule(router: &RouterCtx, name: &str, rule: &Rule, remove: bool) -> Resul
             rule: rule.clone(),
         }
     };
-    Ok(Plan {
+    let plan = Plan {
         operation,
         verification,
-    })
+    };
+    // The rule line must render the planned request, e.g. ports only on `tcp`/`udp`.
+    drop(request(&plan)?);
+    Ok(plan)
 }
 
 fn insert_port(

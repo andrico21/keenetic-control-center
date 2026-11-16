@@ -146,7 +146,7 @@ pub(crate) async fn rollback(
                     .validate(ROLLBACK_COMMAND, HttpMethod::Post, &json!({}))
                     .map_err(|issues| WorkflowError::CatalogValidation { issues })?;
                 let request = CliChangeRequest::terminal(
-                    vec![ValidatedCli::new(ROLLBACK_COMMAND.to_owned(), validated)],
+                    vec![ValidatedCli::new(ROLLBACK_COMMAND.to_owned(), validated)?],
                     Permission::Destructive,
                     json!({ "operation": ROLLBACK_COMMAND }),
                 );

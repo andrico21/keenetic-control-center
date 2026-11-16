@@ -217,7 +217,7 @@ async fn schedule(writer: &mut Writer<'_>) -> Result<WriteResult, Box<dyn Error>
         vec![CliCommand::new(
             format!("no schedule {SCHEDULE}"),
             validated,
-        )],
+        )?],
         Vec::new(),
         Permission::Write,
         json!({"operation": "schedule", "name": SCHEDULE}),

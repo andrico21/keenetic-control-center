@@ -65,7 +65,7 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         .first()
         .ok_or(DomainError::InvalidResponse)?;
     verification::complete(CliChangeRequest::new(
-        vec![ValidatedCli::new(render(validated), validated.clone())],
+        vec![ValidatedCli::new(render(validated), validated.clone())?],
         Vec::new(),
         operation.permission,
         json!({"domain":"routing"}),
@@ -211,7 +211,13 @@ fn render(request: &ValidatedRequest) -> String {
     } else {
         parts.push("default".to_owned());
     }
-    for field in ["gateway", "interface", "metric"] {
+    // `ip route` names the gateway first; `ipv6 route` names the interface first.
+    let fields = if request.path == "ip route" {
+        ["gateway", "interface", "metric"]
+    } else {
+        ["interface", "gateway", "metric"]
+    };
+    for field in fields {
         if let Some(item) = value.get(field) {
             parts.push(
                 item.as_str()

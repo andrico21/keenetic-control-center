@@ -240,7 +240,7 @@ async fn run(dispatch: Dispatch<'_>, checked: Checked, params: Value) -> Reply {
                 dispatch
                     .change(
                         risk,
-                        raw_batch(vec![(BatchItem::new(root), validated)], params),
+                        raw_batch(vec![(BatchItem::new(root), *validated)], params),
                     )
                     .await
             }

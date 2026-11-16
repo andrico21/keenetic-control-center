@@ -98,84 +98,92 @@
       "persists_immediately": false,
       "group_entry": false,
       "synopsis": {
-        "node": "Alternative",
+        "node": "Sequence",
         "value": [
           {
-            "node": "Sequence",
-            "value": [
-              {
-                "node": "Group",
-                "value": {
-                  "node": "Keyword",
-                  "value": "nextdns"
-                }
-              },
-              {
-                "node": "Keyword",
-                "value": "assign"
-              },
-              {
-                "node": "Argument",
-                "value": "host"
-              },
-              {
-                "node": "Argument",
-                "value": "token"
-              }
-            ]
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
           },
           {
-            "node": "Sequence",
-            "value": [
-              {
-                "node": "Keyword",
-                "value": "interface"
-              },
-              {
-                "node": "Argument",
-                "value": "iface"
-              },
-              {
-                "node": "Argument",
-                "value": "token"
-              },
-              {
-                "node": "Group",
-                "value": {
-                  "node": "Keyword",
-                  "value": "nextdns"
-                }
-              },
-              {
-                "node": "Keyword",
-                "value": "assign"
-              },
-              {
-                "node": "Optional",
-                "value": {
-                  "node": "Alternative",
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Sequence",
                   "value": [
                     {
                       "node": "Argument",
                       "value": "host"
                     },
                     {
-                      "node": "Sequence",
-                      "value": [
-                        {
-                          "node": "Keyword",
-                          "value": "interface"
-                        },
-                        {
-                          "node": "Argument",
-                          "value": "iface"
-                        }
-                      ]
+                      "node": "Argument",
+                      "value": "token"
+                    }
+                  ]
+                },
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "interface"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "iface"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "token"
                     }
                   ]
                 }
-              }
-            ]
+              ]
+            }
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "nextdns"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "assign"
+          },
+          {
+            "node": "Optional",
+            "value": {
+              "node": "Alternative",
+              "value": [
+                {
+                  "node": "Argument",
+                  "value": "host"
+                },
+                {
+                  "node": "Sequence",
+                  "value": [
+                    {
+                      "node": "Keyword",
+                      "value": "interface"
+                    },
+                    {
+                      "node": "Argument",
+                      "value": "iface"
+                    }
+                  ]
+                }
+              ]
+            }
           }
         ]
       },

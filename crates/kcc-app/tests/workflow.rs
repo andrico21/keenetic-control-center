@@ -197,7 +197,7 @@ async fn cli_mutation_uses_backup_and_read_back_protection() -> Result<(), Box<d
         vec![CliCommand::new(
             "interface Bridge0 description cli-protected".to_owned(),
             validated,
-        )],
+        )?],
         vec![VerificationSpec::new(
             vec!["show".to_owned(), "last-change".to_owned()],
             "/unsaved".to_owned(),
@@ -249,10 +249,11 @@ async fn cli_audit_distinguishes_persisted_and_unsaved_changes() -> Result<(), B
         let commands = command_specs
             .into_iter()
             .map(|(line, path, value)| {
-                catalog
+                let validated = catalog
                     .validate(path, HttpMethod::Post, &value)
-                    .map(|validated| CliCommand::new(line.to_owned(), validated))
-                    .map_err(|issues| format!("catalog rejected fixture command: {issues:?}"))
+                    .map_err(|issues| format!("catalog rejected fixture command: {issues:?}"))?;
+                CliCommand::new(line.to_owned(), validated)
+                    .map_err(|error| format!("{line}: {error}"))
             })
             .collect::<Result<Vec<_>, _>>()?;
         let request = CliChangeRequest::new(
@@ -289,7 +290,7 @@ async fn terminal_cli_mutation_survives_session_loss_after_preflight() -> Result
         .validate("system reboot", HttpMethod::Post, &json!({}))
         .map_err(|issues| format!("catalog rejected terminal command: {issues:?}"))?;
     let request = CliChangeRequest::terminal(
-        vec![CliCommand::new("system reboot".to_owned(), validated)],
+        vec![CliCommand::new("system reboot".to_owned(), validated)?],
         Permission::Destructive,
         json!({"operation":"reboot"}),
     );
@@ -328,7 +329,7 @@ async fn terminal_cli_mutation_enforces_operation_permission() -> Result<(), Box
         .validate("system reboot", HttpMethod::Post, &json!({}))
         .map_err(|issues| format!("catalog rejected terminal command: {issues:?}"))?;
     let request = CliChangeRequest::terminal(
-        vec![CliCommand::new("system reboot".to_owned(), validated)],
+        vec![CliCommand::new("system reboot".to_owned(), validated)?],
         Permission::Destructive,
         json!({"operation":"reboot"}),
     );

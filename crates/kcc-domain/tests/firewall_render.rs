@@ -11,10 +11,13 @@ mod support;
 
 use core::error::Error;
 
-use kcc_domain::firewall::{
-    change,
-    model::{Action, Protocol, Rule},
-    read,
+use kcc_domain::{
+    DomainError,
+    firewall::{
+        change,
+        model::{Action, Protocol, Rule},
+        read,
+    },
 };
 use kcc_testkit::model::Firmware;
 use tokio::task::JoinSet;
@@ -112,12 +115,26 @@ async fn exercise(firmware: Firmware, case: Case<'_>) -> TestResult {
     } = case;
     let fixture = Fixture::spawn(firmware).await?;
     let mut rule = Rule::new(action, protocol, source.0, destination.0);
+    let ported = !matches!(ports, PortCase::None);
     rule.source_mask = source.1.to_owned();
     rule.destination_mask = destination.1.to_owned();
     match ports {
         PortCase::None => {}
         PortCase::Exact => rule = rule.with_destination_port(443),
         PortCase::Range => rule = rule.with_destination_port_range(8000, 8002),
+    }
+    if ported && !matches!(protocol, Protocol::Tcp | Protocol::Udp) {
+        // The manual documents ports only for `tcp` and `udp` rules: refused while planning.
+        let sent = fixture.handle().request_count();
+        let planned = change::plan_add_rule(fixture.context(), "MatrixAcl", &rule);
+        assert!(
+            matches!(planned, Err(DomainError::Workflow(_))),
+            "{firmware} {}: ports on a protocol without ports were planned",
+            protocol.name()
+        );
+        assert_eq!(fixture.handle().request_count(), sent, "nothing is sent");
+        fixture.shutdown().await?;
+        return Ok(());
     }
     let expected = expected_line("MatrixAcl", &rule);
     let before = fixture.handle().request_log().len();

@@ -30,14 +30,10 @@ pub(super) enum Direction {
 pub(super) struct Step {
     /// Stable step label returned in errors.
     name: String,
-    /// Catalog validation path.
-    catalog_path: &'static str,
-    /// Catalog validation body.
-    body: Value,
-    /// Positive CLI command.
-    create: String,
-    /// Negative CLI command.
-    delete: String,
+    /// Positive CLI command and the request it renders.
+    create: StepLine,
+    /// Negative CLI command and the request it renders.
+    delete: StepLine,
     /// Canonical top-level command proving this step exists.
     context: String,
     /// Optional canonical child command under `context`.
@@ -49,21 +45,6 @@ pub(super) struct Step {
 }
 
 impl Step {
-    /// Creates one closed segment step definition.
-    fn new(command: StepCommand, verification: StepVerification) -> Self {
-        Self {
-            name: command.name,
-            catalog_path: command.catalog_path,
-            body: command.body,
-            create: command.create,
-            delete: command.delete,
-            context: verification.context,
-            child: verification.child,
-            cleanup_context: verification.cleanup_context,
-            cleanup_owned: false,
-        }
-    }
-
     /// Returns the stable step label.
     pub(super) fn name(&self) -> &str {
         &self.name
@@ -84,6 +65,11 @@ impl Step {
 
     /// Returns the generated command in one execution direction.
     pub(super) fn line(&self, direction: Direction) -> &str {
+        &self.direction(direction).line
+    }
+
+    /// Returns the command and request of one execution direction.
+    const fn direction(&self, direction: Direction) -> &StepLine {
         match direction {
             Direction::Create => &self.create,
             Direction::Delete => &self.delete,
@@ -91,18 +77,24 @@ impl Step {
     }
 }
 
-/// Mutation half of one step definition.
-struct StepCommand {
-    /// Stable step label.
-    name: String,
+/// One CLI command of a step and the catalog request it renders.
+#[derive(Debug)]
+struct StepLine {
     /// Catalog validation path.
     catalog_path: &'static str,
     /// Catalog validation body.
     body: Value,
-    /// Positive CLI command.
-    create: String,
-    /// Negative CLI command.
-    delete: String,
+    /// CLI command.
+    line: String,
+}
+
+/// Pairs a CLI command with the catalog request it renders.
+const fn cli(catalog_path: &'static str, body: Value, line: String) -> StepLine {
+    StepLine {
+        catalog_path,
+        body,
+        line,
+    }
 }
 
 /// Verification half of one step definition.
@@ -115,25 +107,17 @@ struct StepVerification {
     cleanup_context: Option<String>,
 }
 
-/// Builds one step from command and verification values.
-fn step(
-    name: String,
-    catalog_path: &'static str,
-    body: Value,
-    create: String,
-    delete: String,
-    verification: StepVerification,
-) -> Step {
-    Step::new(
-        StepCommand {
-            name,
-            catalog_path,
-            body,
-            create,
-            delete,
-        },
-        verification,
-    )
+/// Builds one step from its two commands and verification values.
+fn step(name: String, create: StepLine, delete: StepLine, verification: StepVerification) -> Step {
+    Step {
+        name,
+        create,
+        delete,
+        context: verification.context,
+        child: verification.child,
+        cleanup_context: verification.cleanup_context,
+        cleanup_owned: false,
+    }
 }
 
 /// Builds the single ordered definition shared by create, delete, and rollback.
@@ -143,10 +127,16 @@ pub(super) fn steps(segment: &SegmentSpec) -> Vec<Step> {
     let pool = format!("Pool{}", segment.id);
     let mut definitions = vec![step(
         "vlan-subinterface".to_owned(),
-        "interface",
-        json!({"name":vlan}),
-        format!("interface {vlan} vlan-id {}", segment.vlan_id),
-        format!("no interface {vlan}"),
+        cli(
+            "interface vlan-id",
+            json!({"vid":segment.vlan_id}),
+            format!("interface {vlan} vlan-id {}", segment.vlan_id),
+        ),
+        cli(
+            "interface",
+            json!({"name":vlan,"no":true}),
+            format!("no interface {vlan}"),
+        ),
         StepVerification {
             context: format!("interface {vlan}"),
             child: Some(format!("vlan-id {}", segment.vlan_id)),
@@ -156,12 +146,18 @@ pub(super) fn steps(segment: &SegmentSpec) -> Vec<Step> {
     for port in &segment.switch_ports {
         definitions.push(step(
             format!("trunk-{port}"),
-            "interface switchport trunk",
-            json!({"vid":segment.vlan_id}),
-            format!("interface {port} switchport trunk vlan {}", segment.vlan_id),
-            format!(
-                "no interface {port} switchport trunk vlan {}",
-                segment.vlan_id
+            cli(
+                "interface switchport trunk",
+                json!({"vid":segment.vlan_id}),
+                format!("interface {port} switchport trunk vlan {}", segment.vlan_id),
+            ),
+            cli(
+                "interface switchport trunk",
+                json!({"vid":segment.vlan_id,"no":true}),
+                format!(
+                    "no interface {port} switchport trunk vlan {}",
+                    segment.vlan_id
+                ),
             ),
             StepVerification {
                 context: format!("interface {port}"),
@@ -202,7 +198,7 @@ pub(super) fn plan(
         Direction::Delete => Box::new(definitions.iter().rev()),
     };
     let requests = iterator
-        .map(|definition| validate(router, definition))
+        .map(|definition| validate(router, definition.direction(direction)))
         .collect::<Result<Vec<_>>>()?;
     Ok(ChangeOp::new(
         requests,
@@ -220,13 +216,9 @@ pub(super) async fn apply(
     definition: &Step,
     direction: Direction,
 ) -> CoreResult<(), WorkflowError> {
-    let validated =
-        validate(router, definition).map_err(|_error| WorkflowError::InvalidResponse)?;
-    let line = match direction {
-        Direction::Create => definition.create.clone(),
-        Direction::Delete => definition.delete.clone(),
-    };
-    let mut commands = vec![ValidatedCli::new(line, validated)];
+    let command = definition.direction(direction);
+    let validated = validate(router, command).map_err(|_error| WorkflowError::InvalidResponse)?;
+    let mut commands = vec![ValidatedCli::new(command.line.clone(), validated)?];
     if matches!(direction, Direction::Delete)
         && definition.cleanup_owned
         && let Some(context) = &definition.cleanup_context
@@ -242,7 +234,7 @@ pub(super) async fn apply(
                 &json!({"name":name,"no":true}),
             )
             .map_err(|_issues| WorkflowError::InvalidResponse)?;
-        commands.push(ValidatedCli::new(format!("no {context}"), cleanup));
+        commands.push(ValidatedCli::new(format!("no {context}"), cleanup)?);
     }
     let request = CliChangeRequest::new(
         commands,
@@ -293,10 +285,10 @@ pub(super) fn context_has_child(text: &str, context: &str, child: Option<&str>) 
     false
 }
 
-/// Catalog-validates one step while retaining its dynamic context in the CLI line.
-fn validate(router: &RouterCtx, definition: &Step) -> Result<ValidatedRequest> {
+/// Catalog-validates one step command while retaining its dynamic context in the CLI line.
+fn validate(router: &RouterCtx, command: &StepLine) -> Result<ValidatedRequest> {
     router
         .catalog
-        .validate(definition.catalog_path, HttpMethod::Post, &definition.body)
+        .validate(command.catalog_path, HttpMethod::Post, &command.body)
         .map_err(|issues| DomainError::Validation { issues })
 }

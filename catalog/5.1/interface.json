@@ -4705,7 +4705,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "index"
             }
           },
@@ -4735,14 +4735,14 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "index"
             }
           },
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "command"
             }
           }
@@ -4751,6 +4751,9 @@
       "arguments": {
         "command": {
           "type": "String"
+        },
+        "index": {
+          "type": "Integer"
         }
       }
     },
@@ -4840,7 +4843,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "profile"
             }
           },
@@ -4861,7 +4864,11 @@
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "profile": {
+          "type": "String"
+        }
+      }
     },
     {
       "path": "interface duplex",
@@ -18243,7 +18250,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "vid"
             }
           }
@@ -19430,7 +19437,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "count"
             }
           },
@@ -19456,6 +19463,9 @@
         ]
       },
       "arguments": {
+        "count": {
+          "type": "Integer"
+        },
         "interval": {
           "type": "Integer"
         }
@@ -20538,6 +20548,80 @@
           "type": "Integer"
         },
         "priority": {
+          "type": "Integer"
+        }
+      }
+    },
+    {
+      "path": "interface vlan-id",
+      "models": [
+        "KN-1011",
+        "KN-1012",
+        "KN-1112",
+        "KN-1121",
+        "KN-1613",
+        "KN-1621",
+        "KN-1713",
+        "KN-1721",
+        "KN-1810",
+        "KN-1811",
+        "KN-1812",
+        "KN-2111",
+        "KN-2112",
+        "KN-2211",
+        "KN-2212",
+        "KN-2311",
+        "KN-2410",
+        "KN-2510",
+        "KN-2710",
+        "KN-2910",
+        "KN-3510",
+        "KN-3610",
+        "KN-3710",
+        "KN-3711",
+        "KN-3810",
+        "KN-3811",
+        "KN-3812",
+        "KN-3910",
+        "KN-4010",
+        "KN-4110",
+        "KN-4910"
+      ],
+      "since": "5.1",
+      "page": 0,
+      "source_url": "",
+      "kind": "Setting",
+      "prefix_no": true,
+      "multiple_input": false,
+      "change_settings": true,
+      "persists_immediately": false,
+      "group_entry": false,
+      "synopsis": {
+        "node": "Sequence",
+        "value": [
+          {
+            "node": "Keyword",
+            "value": "vlan-id"
+          },
+          {
+            "node": "Argument",
+            "value": "vid"
+          },
+          {
+            "node": "Group",
+            "value": {
+              "node": "Keyword",
+              "value": "config-if"
+            }
+          },
+          {
+            "node": "Keyword",
+            "value": "vlan-id"
+          }
+        ]
+      },
+      "arguments": {
+        "vid": {
           "type": "Integer"
         }
       }

@@ -40,7 +40,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         commands.push(ValidatedCli::new(
             cli_line(validated, pool_name)?,
             validated.clone(),
-        ));
+        )?);
     }
     verification::complete(CliChangeRequest::new(
         commands,
@@ -61,7 +61,7 @@ fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<Strin
     };
     let pool = || pool_name.ok_or(DomainError::InvalidResponse);
     match request.path.as_str() {
-        "ip dhcp host" => Ok(format!("ip dhcp host {}", text("host")?)),
+        "ip dhcp host" => Ok(format!("ip dhcp host {} {}", text("host")?, text("ip")?)),
         "ip dhcp pool" => Ok(format!("ip dhcp pool {}", text("name")?)),
         "ip dhcp pool range" => Ok(format!(
             "ip dhcp pool {} range {} {}",

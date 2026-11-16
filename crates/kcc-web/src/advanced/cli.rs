@@ -13,7 +13,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::{permissions::Permission, workflow::CliCommand as ValidatedCli};
-use kcc_catalog::{Catalog, RawAuthorization, Risk, ValidatedRequest};
+use kcc_catalog::{Catalog, RawAuthorization, Risk, ValidatedRequest, ValidationIssue};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -208,8 +208,13 @@ pub(crate) async fn send(
             .read_with(async move |client| client.parse(&line).await)
             .await
     } else {
-        let command = ValidatedCli::new(line, validated);
-        dispatch.change(risk, raw_cli(vec![command], params)).await
+        match ValidatedCli::new(line, validated) {
+            Ok(command) => dispatch.change(risk, raw_cli(vec![command], params)).await,
+            Err(_error) => Reply::invalid(
+                locale,
+                &from_issues(vec![ValidationIssue::InvalidCliSyntax]),
+            ),
+        }
     };
     audit.append_outcome(&state, &user, outcome.outcome()).await;
     let response = outcome.render(locale);

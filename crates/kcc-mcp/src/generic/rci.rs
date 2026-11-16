@@ -462,7 +462,10 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
         async |changes| {
             changes
                 .apply_cli(CliChangeRequest::new(
-                    vec![ValidatedCli::new(input.line, validated)],
+                    vec![
+                        ValidatedCli::new(input.line, validated)
+                            .map_err(|_error| McpFailure::ValidationFailed)?,
+                    ],
                     Vec::new(),
                     Permission::RawRci,
                     json!({ "validated": true }),

@@ -3,7 +3,11 @@
 use core::fmt;
 
 use kcc_catalog::{SecretValue, ValidatedRequest};
-use kcc_config::quoting::{QuoteError, quote_cli_word};
+use kcc_config::{
+    config_text::{Token, flatten, parse},
+    ns3,
+    quoting::{QuoteError, quote_cli_word},
+};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Serialize, Serializer};
 use serde_json::{Value, json};
@@ -33,30 +37,50 @@ pub enum SecretCommandError {
     /// The template does not bind exactly the validated secret argument slots.
     #[error("secret CLI template does not match the validated command")]
     Template,
+    /// The line does not render the request it is paired with.
+    #[error("CLI line does not render the validated command")]
+    Line,
 }
 
 impl CliCommand {
-    /// Preserves the existing constructor while moving the line into zeroizing storage.
+    /// Binds a literal line to the request it renders, moving it into zeroizing storage.
+    ///
+    /// The line must render the request (see [`ValidatedRequest::renders_cli`]): one
+    /// command of the request's own path, read as the router reads it (quoted words
+    /// unquoted), whose arguments are exactly the validated ones. A raw request outside
+    /// the catalog takes only the line it was authorized as.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SecretCommandError::Line`] when the line does not render the request.
     #[inline]
-    #[must_use]
-    pub fn new(line: String, validated: ValidatedRequest) -> Self {
-        Self {
+    pub fn new(line: String, validated: ValidatedRequest) -> Result<Self, SecretCommandError> {
+        bind(&line, &validated)?;
+        Ok(Self {
             line: SecretString::from(line),
             validated,
             template: false,
-        }
+        })
     }
 
-    /// Owns an explicitly secret line; its printable representations are always redacted.
+    /// Owns an explicitly secret line bound like [`Self::new`]; its printable
+    /// representations are always redacted. `ns3` words are read decoded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`SecretCommandError::Line`] when the line does not render the request.
     #[inline]
-    #[must_use]
-    pub fn secret(mut structural: ValidatedRequest, line: SecretString) -> Self {
+    pub fn secret(
+        mut structural: ValidatedRequest,
+        line: SecretString,
+    ) -> Result<Self, SecretCommandError> {
+        bind(line.expose_secret(), &structural)?;
         structural.protected.retain_scrubber(line.clone());
-        Self {
+        Ok(Self {
             line,
             validated: structural,
             template: false,
-        }
+        })
     }
 
     /// Binds `{/<argument>}` slots to catalog-validated secret values.
@@ -163,6 +187,43 @@ impl CliCommand {
                 .join(" "),
         ))
     }
+}
+
+/// Refuses a line that does not render `validated`.
+///
+/// # Errors
+///
+/// Returns [`SecretCommandError::Line`] for an unparseable line or one that renders
+/// another request.
+fn bind(line: &str, validated: &ValidatedRequest) -> Result<(), SecretCommandError> {
+    let owned = words(line).ok_or(SecretCommandError::Line)?;
+    let exposed = owned
+        .iter()
+        .map(ExposeSecret::expose_secret)
+        .collect::<Vec<_>>();
+    validated
+        .renders_cli(&exposed)
+        .then_some(())
+        .ok_or(SecretCommandError::Line)
+}
+
+/// The words of one CLI line as the router's configuration parser reads them: quoted
+/// words unquoted, `ns3` words decoded. `None` for anything but exactly one line.
+fn words(line: &str) -> Option<Vec<SecretString>> {
+    if line.contains(['\n', '\r']) {
+        return None;
+    }
+    let ast = parse(line).ok()?;
+    let [command] = <[_; 1]>::try_from(flatten(&ast)).ok()?;
+    command
+        .tokens
+        .into_iter()
+        .map(|token| match token {
+            Token::Word(word) => Some(SecretString::from(word)),
+            Token::Ns3(blob) => ns3::decode(&blob).ok(),
+            _ => None,
+        })
+        .collect()
 }
 
 impl fmt::Debug for CliCommand {

@@ -122,7 +122,7 @@ async fn ipv6_route_is_added_and_removed_with_read_back() -> TestResult {
         fixture
             .handle()
             .running_config_text()
-            .contains("ipv6 route 2001:db8:7::/64 2001:db8::1 ISP"),
+            .contains("ipv6 route 2001:db8:7::/64 ISP 2001:db8::1"),
         "the router has it"
     );
     let page = get(&fixture, &admin, "/ui/r/home/routing/ipv6", StatusCode::OK).await?;

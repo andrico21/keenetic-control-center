@@ -41,7 +41,7 @@ pub(super) fn plan(router: &RouterCtx, change: &DnsChange) -> Result<ChangeOp> {
     } else {
         render_validated(&validated)?
     };
-    let command = ValidatedCli::new(line, validated);
+    let command = ValidatedCli::new(line, validated)?;
     let verify = match change {
         DnsChange::HttpsUpstream(upstream) => vec![VerificationSpec::new(
             vec!["show".to_owned(), "dns-proxy".to_owned()],
@@ -112,7 +112,7 @@ pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
                 Ok(ValidatedCli::new(
                     render_validated(validated)?,
                     validated.clone(),
-                ))
+                )?)
             })
             .collect::<Result<Vec<_>>>()?
     } else {
@@ -232,8 +232,7 @@ fn render_validated(validated: &ValidatedRequest) -> Result<String> {
         "dns-proxy filter engine" => line_1(&validated.path, value, "engine"),
         "dns-proxy filter profile" | "object-group fqdn" => line_1(&validated.path, value, "name"),
         "dns-proxy filter profile description" => Ok(format!(
-            "{} {} {}",
-            validated.path,
+            "dns-proxy filter profile {} description {}",
             required_text(value, "name")?,
             description(value)?
         )),

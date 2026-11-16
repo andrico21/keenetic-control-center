@@ -164,7 +164,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated.clone())],
+        vec![ValidatedCli::new(line, validated.clone())?],
         operation.verify.clone(),
         operation.permission,
         json!({"operation": validated.path}),
@@ -189,10 +189,13 @@ pub async fn reboot_member(
         .validate("mws member reboot", HttpMethod::Post, &body)
         .map_err(|issues| DomainError::Validation { issues })?;
     let request = CliChangeRequest::terminal(
-        vec![ValidatedCli::new(
-            format!("mws member {} reboot", quoted(&body, "member")?),
-            validated,
-        )],
+        vec![
+            ValidatedCli::new(
+                format!("mws member {} reboot", quoted(&body, "member")?),
+                validated,
+            )
+            .map_err(DomainError::from)?,
+        ],
         Permission::Destructive,
         json!({"operation":"mws member reboot","member":member}),
     );

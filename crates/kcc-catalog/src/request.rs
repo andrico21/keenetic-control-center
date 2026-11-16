@@ -5,6 +5,7 @@ use serde_json::Value;
 
 use crate::{
     ArgumentKind, Catalog, HttpMethod, Risk, SecretValue, WireValue,
+    cli::Origin,
     validate::{boolean_keyword_forms, child_names, valid_argument},
 };
 
@@ -39,6 +40,9 @@ pub struct ValidatedRequest {
     /// Protected ownership of wire secrets; plaintext remains private to this value.
     #[serde(skip)]
     pub protected: SecretValue,
+    /// The catalog view that validated this request.
+    #[serde(skip)]
+    origin: Origin,
 }
 
 impl ValidatedRequest {
@@ -86,6 +90,7 @@ impl ValidatedRequest {
                 .map(|leaf| protected.scrub_text(leaf))
                 .collect(),
             protected,
+            origin: Origin::of(catalog),
         }
     }
 
@@ -103,6 +108,28 @@ impl ValidatedRequest {
     #[must_use]
     pub const fn value(&self) -> &Value {
         &self.value
+    }
+
+    /// Reports whether one CLI line, split into words (quoted words unquoted), renders this
+    /// request in the catalog view that validated it: the words match one of the command's
+    /// documented forms (its `no` forms for a negated body) with valid values, and every
+    /// argument of the command is given by both the line and the body, or by neither, with
+    /// the same text. Context words, which a leaf body does not carry, are checked by type.
+    ///
+    /// A raw request outside the catalog renders exactly the line it was authorized as.
+    #[inline]
+    #[must_use]
+    pub fn renders_cli(&self, words: &[&str]) -> bool {
+        let wire = self.expose_for_send();
+        if self.unvalidated {
+            return wire
+                .expose_secret()
+                .get("command")
+                .and_then(Value::as_str)
+                .is_some_and(|line| line.split_whitespace().eq(words.iter().copied()));
+        }
+        self.origin
+            .renders((&self.path, wire.expose_secret()), words)
     }
 
     /// Returns the protected body without exposing plaintext.

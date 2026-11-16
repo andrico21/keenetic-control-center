@@ -11,9 +11,10 @@ mod tests {
     use core::{error::Error, str::FromStr as _};
 
     use kcc_app::workflow::CliCommand as ValidatedCli;
-    use kcc_catalog::Catalog;
+    use kcc_catalog::{Catalog, HttpMethod};
     use kcc_rci::version::FirmwareVersion;
     use secrecy::SecretString;
+    use serde_json::json;
 
     /// Context identifiers and trailing identity selectors follow the documented grammar.
     #[test]
@@ -56,7 +57,7 @@ mod tests {
         Ok(())
     }
 
-    /// Equality covers the line and the template flag as well as the validated request.
+    /// Equality covers the line as well as the validated request.
     #[test]
     fn equality_compares_every_field() -> Result<(), Box<dyn Error>> {
         let catalog =
@@ -68,12 +69,27 @@ mod tests {
                 SecretString::from("dummy credential"),
             )
             .map_err(|_issues| "secret fixture rejected")?;
-        let line = "crypto ike key office {/psk} any";
-        let template = ValidatedCli::from_template(request.clone(), line)?;
-        let literal = ValidatedCli::new(line.to_owned(), request.clone());
-        let other = ValidatedCli::new("crypto ike key branch {/psk} any".to_owned(), request);
-        assert_ne!(template, literal, "the template flag makes a difference");
-        assert_ne!(literal, other, "the line makes a difference");
+        let template =
+            ValidatedCli::from_template(request.clone(), "crypto ike key office {/psk} any")?;
+        let other = ValidatedCli::from_template(request, "crypto ike key branch {/psk} any")?;
+        assert_ne!(template, other, "the template line makes a difference");
+        assert_eq!(template, template.clone());
+        let description = catalog
+            .validate(
+                "interface description",
+                HttpMethod::Post,
+                &json!({"description": "uplink"}),
+            )
+            .map_err(|_issues| "description fixture rejected")?;
+        let literal = ValidatedCli::new(
+            "interface Bridge0 description uplink".to_owned(),
+            description.clone(),
+        )?;
+        let elsewhere = ValidatedCli::new(
+            "interface Bridge1 description uplink".to_owned(),
+            description,
+        )?;
+        assert_ne!(literal, elsewhere, "the literal line makes a difference");
         assert_eq!(literal, literal.clone());
         Ok(())
     }

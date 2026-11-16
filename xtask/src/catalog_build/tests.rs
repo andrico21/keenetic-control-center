@@ -11,8 +11,8 @@ use std::{fs, path::Path};
 use serde_json::Value;
 
 use super::{
-    ModelCatalog, ValueType, argument_names, expected, load_untyped_allowlist, parse_arguments,
-    parse_model, parse_synopsis, parse_value_type,
+    ModelCatalog, ValueType, argument_names, expected, parse_arguments, parse_model,
+    parse_synopsis, parse_value_type,
 };
 use crate::catalog::{Lock, lock_path};
 
@@ -93,6 +93,29 @@ fn value_column_continuation_rows_extend_keywords() {
     );
 }
 
+#[test]
+fn bare_optional_words_naming_typed_rows_become_arguments() -> Result<(), Box<dyn Error>> {
+    let lines = [
+        "Arguments               Argument       Value          Description",
+        "                        host           String         x",
+        "                        ip             IP address     x",
+        "                        auto           Keyword        x",
+    ];
+    let parsed = parse_synopsis("ip dhcp host \u{2039}host\u{203a} [ ip ] [ auto ]")
+        .ok_or("synopsis does not parse")?;
+    let (grammar, promoted) = super::corrections::promote_bare_arguments(parsed, &lines);
+    assert_eq!(promoted, BTreeSet::from(["ip".to_owned()]));
+    let nodes = serde_json::to_value(&grammar)?;
+    let optional = |index: usize| {
+        nodes
+            .pointer(&format!("/value/{index}/value/node"))
+            .and_then(Value::as_str)
+    };
+    assert_eq!(optional(4), Some("Argument"), "{nodes:?}");
+    assert_eq!(optional(5), Some("Keyword"), "{nodes:?}");
+    Ok(())
+}
+
 /// Parses the cached KN-1811 5.1 manual and returns it with its commands as JSON.
 fn parse_kn_1811() -> Result<(&'static Path, ModelCatalog, Vec<Value>), Box<dyn Error>> {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -104,7 +127,7 @@ fn parse_kn_1811() -> Result<(&'static Path, ModelCatalog, Vec<Value>), Box<dyn 
         .iter()
         .find(|entry| entry.version == "5.1" && entry.model == "KN-1811")
         .ok_or("missing KN-1811 5.1 lock entry")?;
-    let parsed = parse_model(root, entry, &load_untyped_allowlist(root)?)?;
+    let parsed = parse_model(root, entry, &super::corrections::load(root)?)?;
     let Value::Array(commands) = serde_json::to_value(&parsed.commands)? else {
         return Err("commands do not serialize to an array".into());
     };

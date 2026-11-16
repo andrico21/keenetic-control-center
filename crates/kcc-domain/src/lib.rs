@@ -48,7 +48,7 @@ use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliCommand, VerificationSpec, WorkflowError},
+    workflow::{CliCommand, SecretCommandError, VerificationSpec, WorkflowError},
 };
 use kcc_catalog::{Catalog, Risk, ValidatedRequest, ValidationIssue};
 use kcc_rci::{RciBody, RciClient, RciError, RciPath};
@@ -325,6 +325,15 @@ pub enum DomainError {
     /// A fresh running configuration did not contain the expected full rule identity.
     #[error("firewall rule verification failed")]
     FirewallVerificationFailed,
+}
+
+impl From<SecretCommandError> for DomainError {
+    /// A CLI line that does not render its request fails like any other command
+    /// construction: as a workflow error, before anything is sent.
+    #[inline]
+    fn from(error: SecretCommandError) -> Self {
+        Self::Workflow(WorkflowError::from(error))
+    }
 }
 
 /// Domain result alias.

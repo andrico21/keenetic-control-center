@@ -303,7 +303,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "text"
             }
           },
@@ -325,6 +325,9 @@
         ]
       },
       "arguments": {
+        "text": {
+          "type": "String"
+        },
         "time-from": {
           "type": "String"
         },

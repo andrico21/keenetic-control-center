@@ -104,7 +104,7 @@ pub(super) fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<
     }
     let line = render_line(name, &validated.path, validated.value())?;
     verification::complete(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated.clone())],
+        vec![ValidatedCli::new(line, validated.clone())?],
         operation.verify.clone(),
         operation.permission,
         json!({"operation": validated.path, "interface": name.as_str()}),
@@ -120,7 +120,8 @@ fn render_line(name: &ObjectName, path: &str, value: &Value) -> Result<String> {
         "interface encryption wpa2" => "encryption wpa2".to_owned(),
         "interface encryption wpa3" => "encryption wpa3".to_owned(),
         "interface hide-ssid" => "hide-ssid".to_owned(),
-        "interface up" => if negative { "down" } else { "up" }.to_owned(),
+        "interface up" => "up".to_owned(),
+        "interface down" => "down".to_owned(),
         "interface schedule" => format!("schedule {}", string(value, "schedule")?),
         "interface channel" => format!("channel {}", string(value, "channel")?),
         "interface channel width" => format!("channel width {}", string(value, "width")?),
@@ -129,7 +130,7 @@ fn render_line(name: &ObjectName, path: &str, value: &Value) -> Result<String> {
         "interface band-steering" => "band-steering".to_owned(),
         _ => return Err(DomainError::InvalidResponse),
     };
-    Ok(if negative && path != "interface up" {
+    Ok(if negative {
         format!("no interface {name} {suffix}")
     } else {
         format!("interface {name} {suffix}")

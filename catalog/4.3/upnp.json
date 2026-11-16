@@ -65,7 +65,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "interface"
             }
           },
@@ -132,6 +132,9 @@
         },
         "index": {
           "type": "Integer"
+        },
+        "interface": {
+          "type": "Interface"
         },
         "port": {
           "type": "Integer"
@@ -303,7 +306,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "to-port"
             }
           },
@@ -392,6 +395,9 @@
         },
         "to-address": {
           "type": "IpAddress"
+        },
+        "to-port": {
+          "type": "Integer"
         }
       }
     }

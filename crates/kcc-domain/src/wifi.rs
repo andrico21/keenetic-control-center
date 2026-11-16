@@ -174,8 +174,12 @@ pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Re
     plan::plan_with_risk(
         router,
         name,
-        "interface up",
-        &toggle_body(enabled),
+        if enabled {
+            "interface up"
+        } else {
+            "interface down"
+        },
+        &json!({}),
         Some((
             "state",
             Value::String(if enabled { "up" } else { "down" }.to_owned()),

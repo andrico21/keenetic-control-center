@@ -525,13 +525,17 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "sandbox"
             }
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "sandbox": {
+          "type": "String"
+        }
+      }
     },
     {
       "path": "components preset",

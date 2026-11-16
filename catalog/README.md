@@ -9,6 +9,10 @@ only command paths, syntax structure, argument types, boolean command properties
 numbers, official PDF URLs, model applicability, and version history facts. The manuals
 remain copyright (c) Keenetic Limited and are not redistributed by this repository.
 
+`synopsis-errata.json` holds the few corrections the generator applies to the manuals'
+syntax, each with its reason: a synopsis that contradicts the manual's own examples, and
+`interface vlan-id`, which kcc's segments send but no manual documents.
+
 Regenerate a firmware catalog with:
 
 ```text

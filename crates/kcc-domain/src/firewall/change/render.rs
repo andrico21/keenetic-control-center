@@ -31,7 +31,7 @@ pub(super) fn request(
         .last()
         .ok_or(DomainError::InvalidResponse)?;
     readback::complete(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, validated.clone())],
+        vec![ValidatedCli::new(line, validated.clone())?],
         Vec::new(),
         operation.permission,
         json!({"domain":"firewall"}),

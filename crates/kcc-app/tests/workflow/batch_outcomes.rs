@@ -187,7 +187,7 @@ mod tests {
             .map_err(|issues| format!("{issues:?}"))?;
         let parsed = changes
             .apply_cli(CliChangeRequest::new(
-                vec![CliCommand::new("show version".to_owned(), validated)],
+                vec![CliCommand::new("show version".to_owned(), validated)?],
                 Vec::new(),
                 Permission::Read,
                 json!({}),

@@ -105,7 +105,7 @@ mod tests {
                     Ok(CliCommand::secret(
                         validated,
                         SecretString::from(format!("interface Bridge9 description {description}")),
-                    ))
+                    )?)
                 })
                 .collect::<Result<Vec<_>, Box<dyn Error>>>()?;
 

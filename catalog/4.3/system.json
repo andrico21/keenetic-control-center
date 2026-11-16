@@ -2370,7 +2370,7 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "schedule"
             }
           }

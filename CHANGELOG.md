@@ -250,6 +250,42 @@ The first release, `0.1.0`, is in preparation and contains:
     character other than letters, digits, `_` and `.` replaced by `-`, like the Web
     clients page; before, it used the reported name unchanged.
 
+- **A router command line is sent only with the request it was checked as**: every CLI
+  line kcc sends (Web, MCP, CLI, migration) must render the catalog request that was
+  planned, previewed and audited for it: the same command and the same argument values,
+  a quoted word read as its text, and for an unvalidated raw line exactly the line that
+  was authorized. Any other pairing is refused before anything is sent. Lines that did
+  not follow the catalog grammar now do:
+  - An IPv6 static route names the interface before the gateway
+    (`ipv6 route <prefix> <interface> <gateway>`), as the manual documents.
+  - A DNS filter-profile description is sent as
+    `dns-proxy filter profile <name> description <text>`.
+  - Disabling an interface or an access point is planned and audited as `interface down`
+    (was `interface up` with `no`); the line sent is unchanged.
+  - Deleting a segment is planned and audited as the `no` commands it sends
+    (`interface`, `interface include`, `ip dhcp pool`, `ip nat`, `ip hotspot policy`,
+    `ip policy`, `interface switchport trunk`), and creating its VLAN interface as
+    `interface vlan-id`.
+  - A static lease is validated with its host and its address as separate arguments.
+  - Moving a firewall rule validates the new position (`order <new-index>`).
+  - Refused while planning: a DNS route with neither a gateway nor an interface, and a
+    firewall rule with ports on a protocol other than `tcp` or `udp`; the manuals
+    document neither.
+
+- **The command catalogs read more of the manuals' syntax**, so the CLI console, the MCP
+  `kcc_cli_parse` tool and migration accept these documented forms: commands whose
+  synopsis starts with their own group (`vpn-server`, `sstp-server`, `oc-server`, `ndns`,
+  `nextdns`, `system`, `show` commands), commands documented with several synopsis lines
+  (the `icmp`, `esp`, `gre`, `ipip` and `ip` forms of `access-list permit` and `deny`),
+  `<address>:<port>` arguments (`system log server`, `interface wireguard peer endpoint`)
+  written as one word or as two, optional arguments the manuals print without argument
+  markers (for example `ip dhcp host <host> [<mac>] [<ip>]`, `no known host <mac>`,
+  `no interface <port> switchport trunk vlan <vid>`, and the `ip route` metric, now also
+  on 4.3), and the `order <new-index>` argument of `access-list rule`. Synopsis errata in
+  `catalog/synopsis-errata.json` correct `nextdns assign` and `oc-server pool-range` and
+  add the undocumented `interface <name> vlan-id <vid>` that segments send; migration
+  still does not replay `vlan-id` lines.
+
 ### Fixed
 
 - **Clearing a firewall rule's description or schedule no longer enables the rule.**

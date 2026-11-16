@@ -188,7 +188,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         _ => return Err(DomainError::InvalidResponse),
     };
     Ok(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, request.clone())],
+        vec![ValidatedCli::new(line, request.clone())?],
         verification::specs(request)?,
         operation.permission,
         json!({"operation":request.path}),

@@ -284,7 +284,7 @@
     "vpn-server",
     "wireguard-server"
   ],
-  "command_count": 1089,
+  "command_count": 1090,
   "reference_leaf_count": 881,
   "synopsis_count": 880,
   "synopsis_coverage_percent": 99,

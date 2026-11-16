@@ -1086,13 +1086,17 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "name"
             }
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "name": {
+          "type": "String"
+        }
+      }
     },
     {
       "path": "show crypto map",
@@ -1159,13 +1163,17 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "map-name"
             }
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "map-name": {
+          "type": "String"
+        }
+      }
     },
     {
       "path": "show defaults",
@@ -1665,13 +1673,17 @@
           {
             "node": "Optional",
             "value": {
-              "node": "Keyword",
+              "node": "Argument",
               "value": "interface"
             }
           }
         ]
       },
-      "arguments": {}
+      "arguments": {
+        "interface": {
+          "type": "Interface"
+        }
+      }
     },
     {
       "path": "show dpn document",

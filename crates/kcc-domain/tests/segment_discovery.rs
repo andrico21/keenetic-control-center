@@ -89,7 +89,7 @@ mod tests {
                         vec![ValidatedCli::new(
                             "no ip nat Bridge23".to_owned(),
                             validated,
-                        )],
+                        )?],
                         Vec::new(),
                         Permission::Write,
                         json!({}),
@@ -127,7 +127,7 @@ mod tests {
             drop(
                 changes
                     .apply_cli(CliChangeRequest::new(
-                        vec![ValidatedCli::new("interface Vlan23".to_owned(), request)],
+                        vec![ValidatedCli::new("interface Vlan23".to_owned(), request)?],
                         Vec::new(),
                         Permission::Write,
                         json!({}),
@@ -176,7 +176,7 @@ mod tests {
                         vec![ValidatedCli::new(
                             "interface Bridge23 description external".to_owned(),
                             validated,
-                        )],
+                        )?],
                         Vec::new(),
                         Permission::Write,
                         json!({}),

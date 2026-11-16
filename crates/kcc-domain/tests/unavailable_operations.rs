@@ -22,6 +22,13 @@ use kcc_testkit::model::Firmware;
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
+/// A DNS route of `group` through `ISP`; the manual requires a gateway or an interface.
+fn routed(group: &str) -> DnsRoute {
+    let mut route = DnsRoute::new(group);
+    route.interface = Some("ISP".to_owned());
+    route
+}
+
 /// Registry operations documented on 5.1 and absent from the KN-1811 4.3.9 catalog.
 const ABSENT_ON_4_3: [(DomainId, &str, &str); 5] = [
     (DomainId::System, "system_mode", "show system mode"),
@@ -86,7 +93,7 @@ async fn planners_refuse_operations_absent_from_4_3_without_a_request() -> TestR
             ),
             (
                 "dns-proxy route object-group",
-                dns::plan_change(router, &DnsChange::Route(DnsRoute::new("Blocked"))).map(drop),
+                dns::plan_change(router, &DnsChange::Route(routed("Blocked"))).map(drop),
             ),
             ("interface openconnect protocol", unavailable_vpn),
             (

@@ -1,9 +1,5 @@
 [
   {
-    "path": "access-list rule",
-    "name": "new-index"
-  },
-  {
     "path": "interface channel auto-rescan",
     "name": "hh"
   },

@@ -39,8 +39,8 @@ fn stored_static_shapes_parse_back_to_the_same_command() -> Result<(), Box<dyn E
         ),
         (
             Family::V6,
-            json!(["2001:db8:7::/64", "2001:db8::1", "ISP"]),
-            "ipv6 route 2001:db8:7::/64 2001:db8::1 ISP",
+            json!(["2001:db8:7::/64", "ISP", "2001:db8::1"]),
+            "ipv6 route 2001:db8:7::/64 ISP 2001:db8::1",
         ),
     ] {
         let row = entry(json!({"static": true, "command": words}))?;

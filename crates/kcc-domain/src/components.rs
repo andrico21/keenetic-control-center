@@ -213,7 +213,7 @@ pub fn change_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
         |value| format!("{} {value}", request.path),
     );
     verification::complete(CliChangeRequest::new(
-        vec![ValidatedCli::new(line, request.clone())],
+        vec![ValidatedCli::new(line, request.clone())?],
         if matches!(
             request.path.as_str(),
             "components install" | "components remove"
