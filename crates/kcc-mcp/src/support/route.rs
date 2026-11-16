@@ -12,7 +12,7 @@ use schemars::JsonSchema;
 use serde::de::DeserializeOwned;
 use serde_json::{Value, json};
 
-use super::shape::{FailureContext, finish_with_context};
+use super::{call::finish_with_context, shape::FailureContext};
 use crate::{KccMcp, McpFailure, registry::definitions::ToolDescription};
 
 /// The boxed outcome of one dynamic tool call.
@@ -104,7 +104,7 @@ where
             Ok(finish_with_context(
                 service,
                 FailureContext::new(name, read_only, router.as_deref()),
-                pending.await,
+                pending,
             )
             .await
             .into())

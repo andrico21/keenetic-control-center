@@ -4,10 +4,10 @@ use kcc_domain::vpn_servers::{self, VpnServerChange, VpnServerService, secrets a
 use schemars::JsonSchema;
 use secrecy::SecretString;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use super::common::{
-    apply_cli, apply_registered, check_op, needed, object, open, own_logins, secret, text,
+    applied, apply_cli, apply_registered, check_op, needed, object, open, own_logins, secret, text,
 };
 use crate::{
     KccMcp, McpFailure,
@@ -118,7 +118,7 @@ pub(super) async fn servers(server: &KccMcp, arguments: Value) -> Result<Value, 
         "ike_psk" => {
             let name = object(input.name.as_deref())?;
             let value = secret(input.secret)?;
-            apply_registered(
+            let result = apply_registered(
                 server,
                 &opened,
                 (
@@ -133,7 +133,7 @@ pub(super) async fn servers(server: &KccMcp, arguments: Value) -> Result<Value, 
                 ),
             )
             .await?;
-            Ok(json!({ "applied": true, "unsaved": true }))
+            Ok(applied(result.unsaved, &result.audit))
         }
         "password" => {
             let user = object(input.name.as_deref())?;

@@ -18,7 +18,7 @@ use super::{
     services::Services,
     store::{Sealed, StoreError},
 };
-use crate::page_kit::context::Refusal;
+use crate::page_kit::{audit::Record as Audit, context::Refusal};
 
 /// An opened run, holding its turn until it is dropped.
 pub(crate) struct Visit<'call, F>
@@ -44,8 +44,10 @@ where
     /// # Errors
     ///
     /// Returns the refusal: a missing or foreign run is [`Refusal::Missing`], a router
-    /// outside the role's `Migrate` scope [`Refusal::Forbidden`].
-    // cancel-safe: waits for the turn, then reads.
+    /// outside the role's `Migrate` scope [`Refusal::Forbidden`], audited as the wizard's
+    /// `forbidden` run on that router.
+    // NOT cancel-safe: the refusal's audit entry may be written after cancellation; before
+    // it, the open only waits for the turn and reads.
     pub(crate) async fn open(
         services: Services<'call>,
         wizards: &Wizards<F>,
@@ -61,11 +63,14 @@ where
             Ok(_) => return Err(Refusal::Missing),
             Err(error) => return Err(Refusal::Failed(Box::new(error))),
         };
-        if !record
+        if let Some(router) = record
             .routers()
             .into_iter()
-            .all(|router| services.may_migrate(router))
+            .find(|router| !services.may_migrate(router))
         {
+            Audit::on_router(F::RUN, router, id.to_owned())
+                .append(services.state(), services.user(), "forbidden")
+                .await;
             return Err(Refusal::Forbidden);
         }
         Ok(Self {

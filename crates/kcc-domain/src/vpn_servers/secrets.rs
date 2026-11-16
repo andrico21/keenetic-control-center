@@ -2,7 +2,7 @@
 
 use core::result::Result as CoreResult;
 
-use kcc_app::workflow::{ChangeSet, CliChangeRequest, WorkflowError};
+use kcc_app::workflow::{ChangeSet, CliChangeRequest, CliChangeResult, WorkflowError};
 use kcc_rci::ObjectName;
 use secrecy::SecretString;
 
@@ -28,7 +28,8 @@ pub fn password_request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     router_users::change_request(operation)
 }
 
-/// Sets and verifies the named IKE key used by an IPsec/IKEv2 server.
+/// Sets and verifies the named IKE key used by an IPsec/IKEv2 server; returns the
+/// change's result, its audit receipt included.
 ///
 /// # Errors
 /// Returns validation, dispatch, or presence verification failures.
@@ -38,6 +39,6 @@ pub async fn apply_ike_psk(
     router: &RouterCtx,
     name: ObjectName,
     psk: SecretString,
-) -> CoreResult<(), WorkflowError> {
+) -> CoreResult<CliChangeResult, WorkflowError> {
     credentials::apply(changes, router, &CredentialTarget::Ike(name), psk).await
 }

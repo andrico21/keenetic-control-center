@@ -10,7 +10,9 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{Opened, applied, apply, check_op, ipv4, mac, needed, open, text};
+use super::common::{
+    Opened, applied, apply, check_op, ipv4, mac, needed, noting_queued, open, text,
+};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -304,19 +306,21 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
         let operation = segments::plan_create(ctx, &spec)
             .await
             .map_err(map_domain)?;
-        drop(
-            apply(
-                server,
-                &opened,
-                (&operation, input.confirm, async |changes| {
+        let queued = apply(
+            server,
+            &opened,
+            (&operation, input.confirm, async |changes| {
+                drop(
                     segments::create(changes, ctx, &spec)
                         .await
-                        .map_err(map_segment)
-                }),
-            )
-            .await?,
-        );
-        return Ok(json!({ "applied": true, "unsaved": true, "id": input.id }));
+                        .map_err(map_segment)?,
+                );
+                Ok(changes.queued_audit())
+            }),
+        )
+        .await?;
+        let reply = json!({ "applied": true, "unsaved": true, "id": input.id });
+        return Ok(noting_queued(reply, queued));
     }
     let view = segments::read_segments(ctx)
         .await
@@ -325,16 +329,19 @@ pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value,
         .find(|segment| segment.id == input.id)
         .ok_or(McpFailure::InvalidArguments)?;
     let operation = view.deletion_plan(ctx).await.map_err(map_domain)?;
-    let summary = apply(
+    let queued = apply(
         server,
         &opened,
         (&operation, input.confirm, async |changes| {
-            segments::delete_discovered(changes, ctx, &view)
-                .await
-                .map_err(map_segment)
+            drop(
+                segments::delete_discovered(changes, ctx, &view)
+                    .await
+                    .map_err(map_segment)?,
+            );
+            Ok(changes.queued_audit())
         }),
     )
     .await?;
-    drop(summary);
-    Ok(json!({ "applied": true, "unsaved": true, "id": input.id }))
+    let reply = json!({ "applied": true, "unsaved": true, "id": input.id });
+    Ok(noting_queued(reply, queued))
 }

@@ -363,7 +363,10 @@ derives its persistence notice from successful items only.
 Every change, handler-level refusal, login and secret reveal appends an entry to
 `audit.jsonl`. MCP records successful changes, failed changes as `failed` with an error
 kind, and each refusal that reaches a kcc handler as `forbidden` or `refused` with a
-reason. The CLI and MCP share one format for these attempts: outcome `forbidden`
+reason. Actions outside the change workflow (backup creation, preset capture and
+deletion, job cancellation, a diagnostic start) record their success as `success` under
+the tool's own action `mcp.<tool>`. A change of several CLI lines that the router refuses
+part of records the applied lines like a partial batch. The CLI and MCP share one format for these attempts: outcome `forbidden`
 (`reason: "forbidden"`), `refused` (a `reason` code; the CLI records a missing
 confirmation as `refused` with `reason: "confirm_required"` and an apply onto a router
 whose lease another process holds as `refused` with `reason: "router_busy"`) or
@@ -446,7 +449,10 @@ made).
 Audit entries carry a correlation `request_id` of the form `<prefix>-<nonce>-<n>`: a
 per-process random 64-bit nonce in hex and a per-process counter, so no two requests share
 one, within a process or across processes. All entries of one change set share its id;
-every entry of a CLI run carries the run's id (`cli-...`), change entries included.
+every entry of a CLI run carries the run's id (`cli-...`), change entries included. An MCP
+tool call draws its id (`mcp-...`) before its work: its change sets and entries carry it,
+every line it logs runs in an `mcp_tool` span with `request_id` and `tool`, and a failed
+call returns it to the client.
 
 Keep the shipped production filter `info,rmcp=warn,rmcp_server_kit=info`. Raising the
 `rmcp` target above `warn` makes the MCP SDK log tool arguments at debug or trace,

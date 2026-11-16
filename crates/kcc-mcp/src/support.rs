@@ -2,6 +2,7 @@
 
 pub(crate) mod access;
 pub(crate) mod audit;
+pub(crate) mod call;
 pub(crate) mod errors;
 pub(crate) mod names;
 pub(crate) mod raw_change;

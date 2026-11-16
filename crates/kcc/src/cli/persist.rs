@@ -147,7 +147,10 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
     match command {
         BackupCommand::Create { reason } => backup_create(ctx, &reason).await,
         BackupCommand::List => {
-            drop(ctx.principal().authorize(&[Permission::Read], &[&router])?);
+            drop(
+                ctx.authorize_audited(&services, &[Permission::Read], &[&router])
+                    .await?,
+            );
             let backups = services.backups().list(&router)?;
             let rows = backups
                 .iter()
@@ -172,7 +175,10 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
         }
         BackupCommand::Get { name, output } => backup_get(ctx, &name, output.as_deref()).await,
         BackupCommand::Diff { older, newer } => {
-            drop(ctx.principal().authorize(&[Permission::Read], &[&router])?);
+            drop(
+                ctx.authorize_audited(&services, &[Permission::Read], &[&router])
+                    .await?,
+            );
             let before = redacted_lines(services.backups().get(&router, &older)?.expose_secret())?;
             let after = redacted_lines(services.backups().get(&router, &newer)?.expose_secret())?;
             let removed = before
@@ -195,8 +201,8 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
         }
         BackupCommand::Delete { name } => {
             drop(
-                ctx.principal()
-                    .authorize(&[Permission::Destructive], &[&router])?,
+                ctx.authorize_audited(&services, &[Permission::Destructive], &[&router])
+                    .await?,
             );
             let confirmation = confirm(out, ctx.globals(), Risk::Destructive, &router, false);
             ctx.confirmed(&services, &router, confirmation).await?;
@@ -263,7 +269,10 @@ async fn backup_get(ctx: &Ctx, name: &str, output: Option<&Path>) -> Outcome {
     let out = ctx.out();
     let router = ctx.router_id(&services)?;
     let Some(path) = output else {
-        drop(ctx.principal().authorize(&[Permission::Read], &[&router])?);
+        drop(
+            ctx.authorize_audited(&services, &[Permission::Read], &[&router])
+                .await?,
+        );
         let text = services.backups().get(&router, name)?;
         let copy = redacted_copy(text.expose_secret())?;
         return out.emit(
@@ -271,9 +280,10 @@ async fn backup_get(ctx: &Ctx, name: &str, output: Option<&Path>) -> Outcome {
             &copy,
         );
     };
+    let reveal = [Permission::Read, Permission::RevealSecrets];
     drop(
-        ctx.principal()
-            .authorize(&[Permission::Read, Permission::RevealSecrets], &[&router])?,
+        ctx.authorize_audited(&services, &reveal, &[&router])
+            .await?,
     );
     let text = services.backups().get(&router, name)?;
     files::write_private(path, text.expose_secret().as_bytes(), true)?;

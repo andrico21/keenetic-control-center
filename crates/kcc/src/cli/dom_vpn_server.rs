@@ -54,7 +54,7 @@ async fn secrets(ctx: &Ctx, command: VpnServerSecretCommand) -> Outcome {
             let gate = Gate::new(Risk::Write, Permission::Write, false);
             session
                 .change(gate, async move |changes, router| {
-                    server_secrets::apply_ike_psk(changes, router, key_name, psk).await?;
+                    drop(server_secrets::apply_ike_psk(changes, router, key_name, psk).await?);
                     Ok(applied(true))
                 })
                 .await

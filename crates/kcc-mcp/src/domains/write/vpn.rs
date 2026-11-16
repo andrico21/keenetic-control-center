@@ -7,9 +7,9 @@ use kcc_domain::vpn_clients::{
 use schemars::JsonSchema;
 use secrecy::SecretString;
 use serde::Deserialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
-use super::common::{apply, apply_cli, check_op, needed, object, open, secret, text};
+use super::common::{applied, apply, apply_cli, check_op, needed, object, open, secret, text};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -179,7 +179,7 @@ pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, 
         let value = secret(input.secret)?;
         let operation =
             client_secrets::plan(&opened.2, &credential, value.clone()).map_err(map_domain)?;
-        apply(
+        let result = apply(
             server,
             &opened,
             (&operation, input.confirm, async |changes| {
@@ -189,7 +189,7 @@ pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, 
             }),
         )
         .await?;
-        return Ok(json!({ "applied": true, "unsaved": true }));
+        return Ok(applied(result.unsaved, &result.audit));
     }
     let planned = vpn_clients::plan_change(&opened.2, &client_change(&input)?).await;
     apply_cli(

@@ -27,9 +27,10 @@ use crate::{
     prompts::PROMPTS,
     support::{
         audit,
+        call::next_request_id,
         errors::{failure_error, internal_error},
         names,
-        shape::{FailureContext, next_request_id, shape},
+        shape::{FailureContext, shape},
         validate::{MAX_PATH_CHARS, valid_host, valid_text},
     },
 };

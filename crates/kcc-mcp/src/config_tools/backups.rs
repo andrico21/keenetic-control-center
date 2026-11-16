@@ -13,7 +13,9 @@ use serde_json::{Value, json};
 
 use crate::{
     KccMcp, McpFailure,
-    support::{errors::map_rci, route::parse as parse_arguments, validate::valid_text},
+    support::{
+        audit::Success, errors::map_rci, route::parse as parse_arguments, validate::valid_text,
+    },
 };
 
 /// Longest backup file name.
@@ -84,7 +86,12 @@ pub(crate) async fn create(server: &KccMcp, arguments: Value) -> Result<Value, M
         .backups()
         .create(router.as_str(), "mcp", &text)
         .map_err(|error| map_backup(&error))?;
-    Ok(json!({ "name": info.name, "created_at": info.created_at, "reason": info.reason }))
+    let result = json!({ "name": info.name, "created_at": info.created_at, "reason": info.reason });
+    Ok(Success::new("kcc_backup_create")
+        .on_router(router.as_str())
+        .with_target(info.name)
+        .record(server, result)
+        .await)
 }
 
 /// Lists the router's backups, newest first.

@@ -7,7 +7,7 @@ mod tests;
 use core::net::Ipv4Addr;
 
 use kcc_app::{
-    audit::receipt::AuditReceipt,
+    audit::receipt::{AuditReceipt, Pending},
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest},
 };
@@ -166,6 +166,14 @@ where
 /// The result of an applied change, marked `audit_pending` while its entry is queued.
 pub(super) fn applied(unsaved: bool, audit: &AuditReceipt) -> Value {
     noting(json!({ "applied": true, "unsaved": unsaved }), audit)
+}
+
+/// `value`, marked `audit_pending` while one of the `queued` entries of a multi-step
+/// change is still queued.
+pub(super) fn noting_queued(value: Value, queued: Vec<Pending>) -> Value {
+    queued.into_iter().fold(value, |noted, pending| {
+        noting(noted, &AuditReceipt::Pending(pending))
+    })
 }
 
 /// The router accounts kcc signs in to `router` with, which account changes must keep.

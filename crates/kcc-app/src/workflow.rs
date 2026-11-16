@@ -54,7 +54,11 @@ use tokio::{
 use self::receipts::Receipts;
 use crate::{
     accounts::{Clock as _, SystemClock},
-    audit::{Actor, AuditError, AuditEvent, AuditLog, receipt::AuditReceipt, request_id},
+    audit::{
+        Actor, AuditError, AuditEvent, AuditLog,
+        receipt::{AuditReceipt, Pending},
+        request_id,
+    },
     backups::{BackupError, BackupStore},
     brackets::{BracketGuard, Brackets},
     permissions::{Permission, Role},
@@ -1097,16 +1101,13 @@ impl ChangeSet {
         }
         self.expected = read_last_change(&self.client).await?;
         let timestamp = SystemClock.unix_seconds();
-        let completion = batch::completion(&validated, &responses);
+        let completion =
+            batch::completion(validated.iter().zip(responses.iter().map(Result::is_ok)));
         let outcome = completion.outcome();
         let audit_params = if completion.failed == 0 {
             request.audit_params
         } else {
-            json!({
-                "error":"router_rejected",
-                "succeeded":completion.succeeded,
-                "failed":completion.failed,
-            })
+            completion.refusal_params()
         };
         let event = AuditEvent::new(
             timestamp,
@@ -1134,7 +1135,9 @@ impl ChangeSet {
     ///
     /// # Errors
     ///
-    /// Returns permission, conflict, backup, request, verification, or audit errors.
+    /// Returns permission, conflict, backup, request, verification, or audit errors. A
+    /// line the router refuses is the error; when it accepted other lines first, their
+    /// partial change is audited like a partly refused root batch.
     // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
     pub async fn apply_cli(
         &mut self,
@@ -1144,7 +1147,32 @@ impl ChangeSet {
             drop(command.expose_for_send()?);
         }
         self.prepare_cli(request.permission).await?;
-        let responses = self.dispatch_cli(&request.commands).await?;
+        let answers = self.dispatch_cli(&request.commands).await?;
+        let completion = batch::completion(
+            request
+                .commands
+                .iter()
+                .map(CliCommand::validated)
+                .zip(answers.iter().map(Result::is_ok)),
+        );
+        let responses = match answers.into_iter().collect::<Result<Vec<_>, _>>() {
+            Ok(responses) => responses,
+            Err(refusal) => {
+                if completion.succeeded != 0 {
+                    let action = if request.terminal {
+                        "router.change_cli_terminal"
+                    } else {
+                        "router.change_cli"
+                    };
+                    let (params, outcome) = (completion.refusal_params(), completion.outcome());
+                    drop(
+                        self.audit_cli(&request.commands, action, params, outcome)
+                            .await?,
+                    );
+                }
+                return Err(refusal);
+            }
+        };
         let unsaved = request
             .commands
             .iter()
@@ -1253,6 +1281,14 @@ impl ChangeSet {
         self.receipts.any_pending()
     }
 
+    /// The handles of this set's audit entries that were still queued when their change
+    /// returned; each tells later whether its entry was written meanwhile.
+    #[inline]
+    #[must_use]
+    pub fn queued_audit(&self) -> Vec<Pending> {
+        self.receipts.queued()
+    }
+
     /// Counts a safety bracket of this change set as open until the guard is dropped.
     #[inline]
     pub fn enter_bracket(&self) -> BracketGuard {
@@ -1299,9 +1335,13 @@ impl ChangeSet {
         self.ensure_backup().await
     }
 
-    /// Sends CLI commands and preserves their ordered responses.
+    /// Sends CLI commands and returns each line's answer in order; a failed request is the
+    /// error.
     // NOT cancel-safe: dispatched commands may apply before cancellation.
-    async fn dispatch_cli(&self, commands: &[CliCommand]) -> Result<Vec<RciBody>, WorkflowError> {
+    async fn dispatch_cli(
+        &self,
+        commands: &[CliCommand],
+    ) -> Result<Vec<Result<RciBody, WorkflowError>>, WorkflowError> {
         let lines = commands
             .iter()
             .map(CliCommand::expose_for_send)
@@ -1312,9 +1352,9 @@ impl ChangeSet {
             }
             WorkflowError::Rci(error)
         };
-        let mut responses = match lines.as_slice() {
-            [] => Ok(Vec::new()),
-            [line] => Ok(vec![self.client.parse(line).await.map_err(scrub_failure)?]),
+        let mut answers = match lines.as_slice() {
+            [] => Vec::new(),
+            [line] => vec![Ok(self.client.parse(line).await.map_err(scrub_failure)?)],
             many => self
                 .client
                 .parse_batch(many.iter().map(|line| line.as_str()))
@@ -1323,8 +1363,8 @@ impl ChangeSet {
                 .into_iter()
                 .map(|response| response.map(RciBody::Json).map_err(scrub_failure))
                 .collect(),
-        }?;
-        for response in &mut responses {
+        };
+        for response in answers.iter_mut().filter_map(|answer| answer.as_mut().ok()) {
             for command in commands {
                 match response {
                     RciBody::Json(value) => scrub_response(command.secrets(), value),
@@ -1333,7 +1373,7 @@ impl ChangeSet {
                 }
             }
         }
-        Ok(responses)
+        Ok(answers)
     }
 
     /// Records a CLI mutation audit event without contacting the router.

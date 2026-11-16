@@ -8,7 +8,7 @@ use serde_json::{Value, json};
 use super::state::{map_preset, view};
 use crate::{
     KccMcp, McpFailure,
-    support::{route::parse, validate::valid_text},
+    support::{audit::Success, route::parse, validate::valid_text},
 };
 
 /// Arguments of `kcc_preset_list`.
@@ -73,5 +73,9 @@ pub(crate) async fn delete(server: &KccMcp, arguments: Value) -> Result<Value, M
             .delete(&identity.role, &input.id)
             .map_err(|error| map_preset(&error))?;
     }
-    Ok(json!({ "id": input.id, "deleted": true }))
+    Ok(Success::new("kcc_preset_delete")
+        .with_target(input.id.clone())
+        .with_params(json!({ "id": input.id }))
+        .record(server, json!({ "id": input.id, "deleted": true }))
+        .await)
 }

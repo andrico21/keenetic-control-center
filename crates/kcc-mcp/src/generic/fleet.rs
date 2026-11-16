@@ -13,6 +13,7 @@ use super::persists::labelled;
 use crate::{
     KccMcp, McpFailure,
     support::{
+        audit::Success,
         names,
         validate::{
             MAX_PATH_CHARS, MAX_QUERY_CHARS, paginate, parse_cursor, valid_job_id, valid_text,
@@ -220,5 +221,11 @@ pub(crate) async fn job_cancel(server: &KccMcp, input: JobInput) -> Result<Value
         tracing::warn!(job = input.id, error = ?error, "MCP job cancellation failed");
         McpFailure::Conflict
     })?;
-    Ok(json!({ "cancelled": true }))
+    let mut done = Success::new("kcc_job_cancel")
+        .with_target(record.kind)
+        .with_params(json!({ "id": input.id }));
+    if let Some(router) = &record.router {
+        done = done.on_router(router);
+    }
+    Ok(done.record(server, json!({ "cancelled": true })).await)
 }

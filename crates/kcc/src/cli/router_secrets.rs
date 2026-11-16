@@ -38,8 +38,8 @@ pub(super) type Secrets = Vec<(CredentialKind, SecretString)>;
 // NOT cancel-safe: writes the profile and its sealed records.
 pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcome {
     let role = ctx
-        .principal()
-        .authorize(&[Permission::ManageRouters], &[&args.id])?;
+        .authorize_audited(services, &[Permission::ManageRouters], &[&args.id])
+        .await?;
     let url = parse_url(&args.url)?;
     let auth = args
         .credentials
@@ -110,8 +110,8 @@ pub(crate) async fn add(ctx: &Ctx, services: &Services, args: AddArgs) -> Outcom
 // NOT cancel-safe: writes the profile and its sealed records.
 pub(crate) async fn edit(ctx: &Ctx, services: &Services, args: EditArgs) -> Outcome {
     let role = ctx
-        .principal()
-        .authorize(&[Permission::ManageRouters], &[&args.id])?;
+        .authorize_audited(services, &[Permission::ManageRouters], &[&args.id])
+        .await?;
     let entry = services.registry().get(&args.id)?;
     if !matches!(entry.source, ProfileSource::State) {
         return Err(RegistryError::ConfigDefined { id: args.id }.into());

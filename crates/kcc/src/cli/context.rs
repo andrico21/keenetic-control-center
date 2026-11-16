@@ -174,26 +174,37 @@ impl Ctx {
         self.request_id.clone()
     }
 
+    /// Authorizes `permissions` on `routers`; a refusal is audited as `cli.refused`
+    /// (`forbidden`) on the first of them.
+    ///
+    /// # Errors
+    /// Returns the principal's permission or scope refusal.
+    // NOT cancel-safe: the refusal audit may append after cancellation.
+    pub(crate) async fn authorize_audited(
+        &self,
+        services: &Services,
+        permissions: &[Permission],
+        routers: &[&str],
+    ) -> Outcome<Role> {
+        let refusal = match self.principal.authorize(permissions, routers) {
+            Ok(role) => return Ok(role),
+            Err(refusal) => refusal,
+        };
+        let router = routers.first().copied();
+        self.attempt(services, "cli.refused", router, Attempt::Forbidden)
+            .await;
+        Err(refusal)
+    }
+
     /// Checks recovery authority and records a handler-level refusal.
     ///
     /// # Errors
     /// Returns the principal's permission or scope refusal.
     // NOT cancel-safe: the refusal audit may append after cancellation.
     pub(crate) async fn authorize_recovery(&self, services: &Services, id: &str) -> Outcome {
-        match self
-            .principal
-            .authorize(&[SafetyNet::CONTROL_PERMISSION], &[id])
-        {
-            Ok(role) => {
-                drop(role);
-                Ok(())
-            }
-            Err(failure) => {
-                self.attempt(services, "cli.refused", Some(id), Attempt::Forbidden)
-                    .await;
-                Err(failure)
-            }
-        }
+        let control = [SafetyNet::CONTROL_PERMISSION];
+        drop(self.authorize_audited(services, &control, &[id]).await?);
+        Ok(())
     }
 
     /// Checks the authority an apply with `needs` requires and records a handler-level
@@ -209,15 +220,12 @@ impl Ctx {
         needs: ApplyNeeds,
     ) -> Outcome {
         let required = SafetyNet::apply_permissions(needs);
-        match self.principal.authorize(&required, &[id]) {
+        match self.authorize_audited(services, &required, &[id]).await {
             Ok(role) => {
                 drop(role);
                 Ok(())
             }
             Err(failure) => {
-                self.attempt(services, "cli.refused", Some(id), Attempt::Forbidden)
-                    .await;
-
                 // Check if all required permissions are granted (without router scope check).
                 let all_permissions_granted = required
                     .iter()
@@ -387,14 +395,9 @@ impl Ctx {
         permissions: &[Permission],
     ) -> Outcome<Target> {
         services.audit.require_alive()?;
-        let role = match self.principal.authorize(permissions, &[id.as_str()]) {
-            Ok(role) => role,
-            Err(failure) => {
-                self.attempt(services, "cli.refused", Some(&id), Attempt::Forbidden)
-                    .await;
-                return Err(failure);
-            }
-        };
+        let role = self
+            .authorize_audited(services, permissions, &[id.as_str()])
+            .await?;
         let url = services.registry.get(&id)?.profile.url;
         let client = services
             .registry

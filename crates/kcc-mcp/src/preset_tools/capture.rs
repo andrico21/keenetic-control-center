@@ -14,12 +14,12 @@ use kcc_rci::ConfigKind;
 use schemars::JsonSchema;
 use secrecy::ExposeSecret as _;
 use serde::Deserialize;
-use serde_json::Value;
+use serde_json::{Value, json};
 
 use super::state::{map_preset, view};
 use crate::{
     KccMcp, McpFailure, RouterId, authorize_routers,
-    support::{errors::map_rci, route::parse, validate::valid_text},
+    support::{audit::Success, errors::map_rci, route::parse, validate::valid_text},
 };
 
 /// Most settings groups in one capture.
@@ -187,11 +187,18 @@ pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, 
         source,
         identity.name.clone(),
     );
+    let done = Success::new("kcc_preset_capture")
+        .on_router(origin.router().as_str())
+        .with_target(request.id.clone());
     if let Some(store) = store {
         let stored = store
             .capture(&identity.role, &config.ast, request)
             .map_err(|error| map_preset(&error))?;
-        return Ok(view(&stored, false));
+        let params = json!({ "id": stored.id, "groups": stored.groups });
+        return Ok(done
+            .with_params(params)
+            .record(server, view(&stored, false))
+            .await);
     }
     let selected = request
         .groups
@@ -203,6 +210,7 @@ pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, 
         .map_err(|_error| McpFailure::InvalidArguments)?;
     let preset = Preset::captured(request, selection);
     let value = view(&preset, true);
+    let params = json!({ "id": preset.id, "groups": preset.groups, "transient": true });
     presets.keep(identity.name, preset).await;
-    Ok(value)
+    Ok(done.with_params(params).record(server, value).await)
 }

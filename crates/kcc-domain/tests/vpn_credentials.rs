@@ -68,13 +68,15 @@ mod tests {
                 }
                 let plan = secrets::plan(fixture.context(), &target, SecretString::from(secret))?;
                 assert!(!format!("{plan:?}").contains(secret));
-                secrets::apply(
-                    &mut changes,
-                    fixture.context(),
-                    &target,
-                    SecretString::from(secret),
-                )
-                .await?;
+                drop(
+                    secrets::apply(
+                        &mut changes,
+                        fixture.context(),
+                        &target,
+                        SecretString::from(secret),
+                    )
+                    .await?,
+                );
             }
             let stored = fixture.handle().running_config_text();
             for command in [

@@ -270,7 +270,7 @@ pub(crate) async fn credential(
                         Box::pin(async move {
                             secrets::apply(changes, context, &target, secret)
                                 .await
-                                .map(|()| Applied::Done { unsaved: true })
+                                .map(|_applied| Applied::Done { unsaved: true })
                         })
                     },
                 ))

@@ -109,6 +109,8 @@ pub(crate) trait Flow: Serialize + DeserializeOwned + Send + Sync + 'static {
     const CLOSED: Self::Finish;
     /// The audit action of Stop.
     const STOP: &'static str;
+    /// The audit action of a request on a run, recorded when it is refused.
+    const RUN: &'static str;
 
     /// The sentence saying how a run finished.
     fn finish_text(how: Self::Finish) -> MessageKey;

@@ -2,7 +2,7 @@
 //! batch responses.
 
 use kcc_catalog::ValidatedRequest;
-use kcc_rci::{RciError, RciResponse};
+use serde_json::{Value, json};
 
 /// The successful subset and value-free refusal counts.
 pub(super) struct Completion {
@@ -37,37 +37,50 @@ impl Completion {
             super::applied_outcome(self.persists_immediately)
         }
     }
+
+    /// The audit parameters of a batch the router refused part of: counts, never values.
+    pub(super) fn refusal_params(&self) -> Value {
+        json!({
+            "error": "router_rejected",
+            "succeeded": self.succeeded,
+            "failed": self.failed,
+        })
+    }
 }
 
-/// Aligns requests and responses by index; failed items contribute no persistence facts.
-pub(super) fn completion(
-    items: &[ValidatedRequest],
-    responses: &[Result<RciResponse, RciError>],
-) -> Completion {
+/// Each item paired with whether the router accepted it, in order; refused items
+/// contribute no persistence facts.
+pub(super) fn completion<'item, I>(answered: I) -> Completion
+where
+    I: IntoIterator<Item = (&'item ValidatedRequest, bool)>,
+{
     let mut succeeded = 0_usize;
+    let mut failed = 0_usize;
     let mut applied_changes = 0_usize;
     let mut applied_management_changes = 0_usize;
     let mut ordinary = false;
     let mut persisted_paths = Vec::new();
-    for (item, response) in items.iter().zip(responses) {
-        if response.is_ok() {
-            succeeded = succeeded.saturating_add(1);
-            if item.ordinary_paths.is_empty() && item.persisted_paths.is_empty() {
-                continue;
-            }
-            applied_changes = applied_changes.saturating_add(1);
-            if item.contains_management() {
-                applied_management_changes = applied_management_changes.saturating_add(1);
-            }
-            ordinary |= !item.ordinary_paths.is_empty();
-            persisted_paths.extend(item.persisted_paths.iter().cloned());
+    for (item, accepted) in answered {
+        if !accepted {
+            failed = failed.saturating_add(1);
+            continue;
         }
+        succeeded = succeeded.saturating_add(1);
+        if item.ordinary_paths.is_empty() && item.persisted_paths.is_empty() {
+            continue;
+        }
+        applied_changes = applied_changes.saturating_add(1);
+        if item.contains_management() {
+            applied_management_changes = applied_management_changes.saturating_add(1);
+        }
+        ordinary |= !item.ordinary_paths.is_empty();
+        persisted_paths.extend(item.persisted_paths.iter().cloned());
     }
     Completion {
         succeeded,
         applied_changes,
         applied_management_changes,
-        failed: responses.len().saturating_sub(succeeded),
+        failed,
         unsaved: ordinary,
         persists_immediately: applied_changes != 0 && !ordinary,
         persisted_paths,

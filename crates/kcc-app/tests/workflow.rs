@@ -36,6 +36,9 @@ use url::Url;
 #[path = "workflow/batch_outcomes.rs"]
 mod batch_outcomes;
 
+#[path = "workflow/cli_partial.rs"]
+mod cli_partial;
+
 #[path = "workflow/namespaces.rs"]
 mod namespaces;
 

@@ -101,7 +101,7 @@ async fn secrets(ctx: &Ctx, command: VpnSecretCommand) -> Outcome {
             let gate = Gate::new(Risk::Write, Permission::Write, false);
             session
                 .change(gate, async move |changes, router| {
-                    client_secrets::apply(changes, router, &target, value).await?;
+                    drop(client_secrets::apply(changes, router, &target, value).await?);
                     Ok(applied(true))
                 })
                 .await

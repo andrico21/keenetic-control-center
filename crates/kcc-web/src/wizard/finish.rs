@@ -210,14 +210,21 @@ where
     }
     let session = visit.session();
     let Some(live) = session.live() else {
-        return Err(StatusCode::CONFLICT.into_response().into());
+        return Err(conflict(state, user, audit).await);
     };
     let mut slot = live.applier().await;
     let Some(applier) = slot.as_mut() else {
-        return Err(StatusCode::CONFLICT.into_response().into());
+        drop(slot);
+        return Err(conflict(state, user, audit).await);
     };
     if !brackets::hold() {
         tracing::warn!("finish refused: its request has no server owner");
+        drop(slot);
+        let failed = Attempt::Failed {
+            error: "internal",
+            fail_safe_armed: false,
+        };
+        audit.append_attempt(state, user, failed).await;
         return Err(errors::response(Kind::Internal, fragment_shell(locale)).into());
     }
     let result = match choice {
@@ -243,13 +250,21 @@ where
     let done: Option<Applier> = slot.take();
     drop(slot);
     drop(done);
-    end(state, wizards, &mut visit, (id, finished))?;
     let audited = match F::audit_params(finished) {
         Some(params) => audit.with_params(params),
         None => audit,
     };
     audited.append(state, user, "done").await;
+    end(state, wizards, &mut visit, (id, finished))?;
     Ok(screen::moved(visit.record()))
+}
+
+/// The audited 409 of a finish with no apply waiting for it.
+// NOT cancel-safe: the audit entry may be written after cancellation.
+async fn conflict(state: &WebState, user: &CurrentUser, audit: Audit) -> Answer {
+    let refused = Attempt::Refused { reason: "conflict" };
+    audit.append_attempt(state, user, refused).await;
+    StatusCode::CONFLICT.into_response().into()
 }
 
 /// Ends run `id`, which `visit` opened, as `how`: drops its applier, frees the target, saves the

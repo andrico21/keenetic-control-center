@@ -281,6 +281,7 @@ impl Flow for Record {
     const SECTION: Section = Section::Presets;
     const CLOSED: Finish = Finish::Closed;
     const STOP: &'static str = "web.preset_stop";
+    const RUN: &'static str = "web.preset_run";
 
     fn finish_text(how: Finish) -> MessageKey {
         how.text()

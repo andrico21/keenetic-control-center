@@ -36,13 +36,15 @@ mod tests {
             let mut changes = fixture.changes().await?;
             drop(changes.apply_cli(secrets::password_request(&plan)?).await?);
             let key_name = ObjectName::try_from("server-key".to_owned())?;
-            secrets::apply_ike_psk(
-                &mut changes,
-                fixture.context(),
-                key_name,
-                SecretString::from(secret),
-            )
-            .await?;
+            drop(
+                secrets::apply_ike_psk(
+                    &mut changes,
+                    fixture.context(),
+                    key_name,
+                    SecretString::from(secret),
+                )
+                .await?,
+            );
 
             let default = vpn_servers::read_servers(fixture.context()).await?;
             assert!(!serde_json::to_string(&default)?.contains(secret));

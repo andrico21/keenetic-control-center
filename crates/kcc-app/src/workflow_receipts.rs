@@ -91,6 +91,11 @@ impl Receipts {
         Ok(())
     }
 
+    /// The handles of the entries that were still queued when their change returned.
+    pub(super) fn queued(&self) -> Vec<Pending> {
+        self.pending.clone()
+    }
+
     /// Whether an entry of the set is still queued.
     pub(super) fn any_pending(&self) -> bool {
         self.pending.iter().any(Pending::is_pending)

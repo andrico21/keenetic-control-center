@@ -14,6 +14,8 @@ use super::support::{Env, TestResult, router};
 mod apply;
 #[path = "permission_gates/curated.rs"]
 mod curated;
+#[path = "permission_gates/local_state.rs"]
+mod local_state;
 #[path = "permission_gates/raw.rs"]
 mod raw;
 #[path = "permission_gates/raw_management.rs"]

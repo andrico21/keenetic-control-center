@@ -9,7 +9,8 @@ use core::{result::Result as CoreResult, str::from_utf8};
 use kcc_app::{
     permissions::Permission,
     workflow::{
-        ChangeSet, CliCommand as ValidatedCli, PresencePredicate, VerificationSpec, WorkflowError,
+        ChangeSet, CliChangeResult, CliCommand as ValidatedCli, PresencePredicate,
+        VerificationSpec, WorkflowError,
     },
 };
 use kcc_catalog::Risk;
@@ -119,7 +120,8 @@ pub fn plan(
     Ok(operation)
 }
 
-/// Applies a credential and verifies only the stored payload's presence and length.
+/// Applies a credential and verifies only the stored payload's presence and length;
+/// returns the change's result, its audit receipt included.
 ///
 /// # Errors
 /// Returns validation, dispatch, or presence verification failures without credential text.
@@ -129,10 +131,10 @@ pub async fn apply(
     router: &RouterCtx,
     target: &CredentialTarget,
     secret: SecretString,
-) -> CoreResult<(), WorkflowError> {
+) -> CoreResult<CliChangeResult, WorkflowError> {
     let operation = plan(router, target, secret)?;
     let request = change::request(&operation)?;
-    drop(changes.apply_cli(request).await?);
+    let applied = changes.apply_cli(request).await?;
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     let text =
         from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::UndecodableConfig)?;
@@ -163,5 +165,5 @@ pub async fn apply(
             field: "vpn/credential".to_owned(),
         });
     }
-    Ok(())
+    Ok(applied)
 }

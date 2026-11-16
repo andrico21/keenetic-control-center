@@ -108,6 +108,8 @@ pub struct Lab {
     progress: mpsc::UnboundedReceiver<ProgressNotificationParam>,
     /// Live application roles retained for late permission edits.
     pub(crate) roles: RoleSource,
+    /// The server's job runner, for jobs a test starts itself.
+    pub(crate) jobs: Arc<JobRunner>,
 }
 
 /// An administrator with every permission on every router.
@@ -185,7 +187,7 @@ impl Lab {
             PrivacyConfig::default(),
             Arc::clone(&registry),
             workflow,
-            jobs,
+            Arc::clone(&jobs),
             poller,
             vec![admin(), lab_only()],
             role,
@@ -208,6 +210,7 @@ impl Lab {
             client,
             progress,
             roles,
+            jobs,
         })
     }
 
@@ -291,6 +294,7 @@ impl Lab {
     /// Ends the session and stops every router.
     pub(crate) async fn stop(self) -> TestResult {
         drop(self.client.cancel().await?);
+        drop(self.jobs);
         drop(self.registry);
         for (_id, handle) in self.routers {
             handle.shutdown().await?;

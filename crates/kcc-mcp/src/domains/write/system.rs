@@ -12,6 +12,7 @@ use crate::{
     support::{
         errors::{map_domain, map_workflow},
         route::parse,
+        shape::noting,
     },
 };
 
@@ -110,35 +111,33 @@ pub(super) async fn write(server: &KccMcp, arguments: Value) -> Result<Value, Mc
     let value = || text(input.value.as_deref());
     let planned = match input.op {
         Op::Reboot => {
-            drop(
-                apply_registered(
-                    server,
-                    &opened,
-                    (Area::System, op, input.confirm, async |changes| {
-                        system::reboot(changes, ctx).await.map_err(map_workflow)
-                    }),
-                )
-                .await?,
-            );
-            return Ok(json!({ "applied": true, "rebooting": true }));
+            let result = apply_registered(
+                server,
+                &opened,
+                (Area::System, op, input.confirm, async |changes| {
+                    system::reboot(changes, ctx).await.map_err(map_workflow)
+                }),
+            )
+            .await?;
+            let reply = json!({ "applied": true, "rebooting": true });
+            return Ok(noting(reply, &result.audit));
         }
         Op::FactoryReset => {
             let typed = text(input.confirm_name.as_deref())?;
             system::confirm_factory_reset(router.as_str(), typed)
                 .map_err(|_error| McpFailure::InvalidArguments)?;
-            drop(
-                apply_registered(
-                    server,
-                    &opened,
-                    (Area::System, op, input.confirm, async |changes| {
-                        system::factory_reset(changes, ctx, router.as_str(), typed)
-                            .await
-                            .map_err(|error| map_workflow(error.into()))
-                    }),
-                )
-                .await?,
-            );
-            return Ok(json!({ "applied": true, "factory_reset": true }));
+            let result = apply_registered(
+                server,
+                &opened,
+                (Area::System, op, input.confirm, async |changes| {
+                    system::factory_reset(changes, ctx, router.as_str(), typed)
+                        .await
+                        .map_err(|error| map_workflow(error.into()))
+                }),
+            )
+            .await?;
+            let reply = json!({ "applied": true, "factory_reset": true });
+            return Ok(noting(reply, &result.audit));
         }
         Op::Hostname => system::plan_hostname(ctx, value()?),
         Op::Domainname => system::plan_domainname(ctx, value()?),

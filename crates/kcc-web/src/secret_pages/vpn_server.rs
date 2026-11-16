@@ -157,7 +157,7 @@ pub(crate) async fn psk(
                         Box::pin(async move {
                             server_secrets::apply_ike_psk(changes, context, key, secret)
                                 .await
-                                .map(|()| Applied::Done { unsaved: true })
+                                .map(|_applied| Applied::Done { unsaved: true })
                         })
                     },
                 ))

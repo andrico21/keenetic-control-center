@@ -29,6 +29,7 @@ proptest = { workspace = true }
 rmcp = { workspace = true, features = ["client", "server"] }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "sync", "test-util", "time"] }
+tracing-subscriber = { workspace = true, features = ["fmt", "std"] }
 url = { workspace = true }
 
 [lints]

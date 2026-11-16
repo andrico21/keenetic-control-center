@@ -96,3 +96,18 @@
 - MCP job tasks (diagnostics, component commit, migration apply) run outside the call's task-local, so entries written later by the job keep their own ids; only the call's own change sets carry `mcp-...`.
 - The MCP 403 refused by the kit before kcc code (route-table authz) and the Web route-table 403 (`authz.rs`, owned by todo 29) remain unaudited.
 - `kcc/src/cli/context.rs` (399 pure LOC), `kcc-mcp/src/domains/write/clients.rs` (~300), `kcc-app/src/workflow.rs` (>1000) were already over the ceiling; this todo kept context.rs net smaller (three refusal blocks folded into the helper) and moved the MCP call lifecycle out of shape.rs into the new `support/call.rs`.
+
+## 2026-11-16 todo 30 review follow-up (orchestrator)
+- F-13 helper `Ctx::authorize_audited` covers persist/routers/router_secrets/context. Other `principal().authorize` sites still do not audit a refusal: `crates/kcc/src/cli/rci.rs` (batch read), `migrate.rs` (inventory), `migrate_plan.rs`, `preset/plan.rs`, `preset/source.rs`, `preset/manage.rs`. Outside the F-13 evidence list; candidate for docs/BACKLOG.md at the end (or a later CLI todo if one covers them).
+- Todo 30 added a dev-dependency `tracing-subscriber` (workspace dep, already in Cargo.lock) to kcc-mcp; disclose in the commit body.
+
+## [2026-11-16] Todo 31 (wt/r31) notes, not fixed here
+- With the checksum-only conflict rule, a write that was SENT but then failed (read-back verification failure, partly refused CLI batch) leaves `expected` stale, so the set's next write/save is refused as a conflict (kcc's own unverified change). The old agent clause hid this. Refreshing `expected` right after a send (before read-back) would fix it; not done (changes what a normal change sends).
+- kcc-migrate `Stop::arm` still sends a disarm after an arm refused locally by its preflight (now always sendable through the recovery path; reported Workflow when accepted, ArmUnconfirmed only if that disarm fails). The bracket got the preflight split; the migration arm did not.
+- `crates/kcc-app/src/workflow.rs` is 1104 pure LOC (was 1093); already far over the ceiling.
+
+## [2026-11-16] Todo 33 (wt/r33) notes, not fixed here
+- The lease timeout uses `Applier::recovery_left()` from the last renewal. After a finish that failed with the router timer already disarmed (e.g. `CommittedSaveFailed`), the applier stays and the Web expiry later records the run as "rolled back by the router" although the router kept the unsaved changes; the engine exposes no "timer still armed" state on the `Applier` to tell them apart. Rare (a failed save after a confirmed disarm); a follow-up could expose the armed state from `kcc-migrate`.
+- `kcc-testkit/src/server.rs` (~1300 pure LOC) and `lib.rs` (~460) were already far over the size ceiling; the new request stall (`stall.rs`, `Handle::stall`) added ~15 lines to them.
+- The run-retention "last change" is the record file's mtime: restoring a state directory with a tool that resets mtimes changes the ages (a run may be deleted or counted as abandoned earlier/later).
+- Wizard store I/O stays synchronous `std::fs` inside async handlers (W5-05 territory); the new index/retention code follows the existing store.

@@ -1,5 +1,5 @@
-//! The services a wizard's request uses: the signed-in user, the fleet, the runs'
-//! directory and key, and the `Migrate` scope checks every wizard makes.
+//! The services a wizard's request uses: the application state, the signed-in user, the
+//! fleet, the runs' directory and key, and the `Migrate` scope checks every wizard makes.
 
 use kcc_app::{permissions::Permission, registry, secrets::MasterKey};
 
@@ -15,6 +15,8 @@ use crate::{
 /// The services a wizard's request uses.
 #[derive(Clone, Copy)]
 pub(crate) struct Services<'call> {
+    /// The application state.
+    state: &'call WebState,
     /// The signed-in user.
     user: &'call CurrentUser,
     /// Router fleet services.
@@ -29,7 +31,12 @@ impl<'call> Services<'call> {
     /// Returns [`Refusal::Unavailable`] when the fleet is not attached.
     pub(crate) fn of(state: &'call WebState, user: &'call CurrentUser) -> Result<Self, Refusal> {
         let fleet = state.fleet().ok_or(Refusal::Unavailable)?;
-        Ok(Self { user, fleet })
+        Ok(Self { state, user, fleet })
+    }
+
+    /// The application state.
+    pub(crate) const fn state(self) -> &'call WebState {
+        self.state
     }
 
     /// The signed-in user.

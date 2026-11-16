@@ -40,8 +40,8 @@ pub(crate) async fn router(ctx: &Ctx, command: RouterCommand) -> Outcome {
 // NOT cancel-safe: writes local state.
 async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
     let role = ctx
-        .principal()
-        .authorize(&[Permission::ManageRouters], &[id])?;
+        .authorize_audited(services, &[Permission::ManageRouters], &[id])
+        .await?;
     let confirmation = confirm(ctx.out(), ctx.globals(), Risk::Management, id, false);
     ctx.confirmed(services, id, confirmation).await?;
     services.registry().delete(&role, id).await?;
@@ -69,7 +69,10 @@ async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
 // cancel-safe: reads only.
 async fn test(ctx: &Ctx, services: &Services) -> Outcome {
     let id = ctx.router_id(services)?;
-    drop(ctx.principal().authorize(&[Permission::Read], &[&id])?);
+    drop(
+        ctx.authorize_audited(services, &[Permission::Read], &[&id])
+            .await?,
+    );
     let profile = services.registry().get(&id)?.profile;
     let info = services
         .registry()

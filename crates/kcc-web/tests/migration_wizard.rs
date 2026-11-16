@@ -5,6 +5,8 @@
 mod apply_failure;
 #[path = "migration_wizard/apply_flow.rs"]
 mod apply_flow;
+#[path = "migration_wizard/finish_audit.rs"]
+mod finish_audit;
 #[path = "migration_wizard/flow.rs"]
 mod flow;
 #[path = "migration_wizard/guards.rs"]

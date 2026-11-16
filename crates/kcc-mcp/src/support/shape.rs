@@ -3,10 +3,8 @@
 use alloc::collections::BTreeMap;
 use std::sync::PoisonError;
 
-use kcc_app::audit::{receipt::AuditReceipt, request_id};
+use kcc_app::audit::receipt::AuditReceipt;
 use kcc_config::mask::mask_json;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
-use rmcp::model::{CallToolResult, ContentBlock};
 use serde_json::{Value, json};
 
 use crate::{KccMcp, McpFailure, support::validate::valid_host};
@@ -48,96 +46,6 @@ impl<'call> FailureContext<'call> {
 /// Hard ceiling on any configured result budget.
 const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
 
-/// A fresh request correlation id.
-pub(crate) fn next_request_id() -> String {
-    request_id::next("mcp")
-}
-
-/// Converts a tool outcome into a protocol result with a correlation id.
-// NOT cancel-safe: a queued audit append may complete after cancellation.
-pub(crate) async fn finish_with_context(
-    server: &KccMcp,
-    context: FailureContext<'_>,
-    result: Result<Value, McpFailure>,
-) -> CallToolResult {
-    let request_id = next_request_id();
-    match result.and_then(|value| shape(server, value, Some(&request_id))) {
-        Ok(text) => CallToolResult::success(vec![ContentBlock::text(text)]),
-        Err(error) => {
-            tracing::warn!(request_id, code = error.code(), "MCP tool request failed");
-            super::audit::failure(server, context, &error, &request_id).await;
-            let cause = if let McpFailure::NotApplied { cause } = &error {
-                cause.as_ref()
-            } else {
-                &error
-            };
-            let mut reply = if let McpFailure::BatchFailSafeArmed {
-                applied: _,
-                completion,
-            } = &error
-            {
-                *completion.clone()
-            } else {
-                json!({})
-            };
-            if let Value::Object(object) = &mut reply {
-                drop(object.insert("error".to_owned(), json!(error.code())));
-                drop(object.insert("request_id".to_owned(), json!(request_id)));
-            }
-            let recovery_message = match &error {
-                McpFailure::BatchFailSafeArmed {
-                    applied: true,
-                    completion: _,
-                }
-                | McpFailure::ManagementAppliedFailSafeArmed => {
-                    Some(keys::MANAGEMENT_DISARM_FAILED)
-                }
-                McpFailure::BatchFailSafeArmed {
-                    applied: false,
-                    completion: _,
-                }
-                | McpFailure::ManagementOutcomeUnknownFailSafeArmed => {
-                    Some(keys::MANAGEMENT_OUTCOME_UNKNOWN_ARMED)
-                }
-                McpFailure::ManagementSavedFailSafeArmed => Some(keys::FINISH_SAVED_ARMED),
-                McpFailure::ManagementNotSentFailSafeArmed => Some(keys::MANAGEMENT_NOT_SENT_ARMED),
-                McpFailure::MigrationRollbackRestarting => Some(keys::MIGRATE_ROLLBACK_SAVED),
-                McpFailure::NotApplied { cause: _ } => Some(keys::MANAGEMENT_NOT_APPLIED),
-                McpFailure::ManagementAppliedNotSaved => Some(keys::MIGRATE_COMMITTED_NOT_SAVED),
-                McpFailure::ManagementNotCommittedFailSafeArmed => {
-                    Some(keys::MIGRATE_COMMIT_NOT_SENT_ARMED)
-                }
-                McpFailure::InvalidArguments
-                | McpFailure::Forbidden
-                | McpFailure::ConfirmRequired
-                | McpFailure::DestructiveDisabled
-                | McpFailure::RouterUnreachable
-                | McpFailure::RouterRejected
-                | McpFailure::RouterModeUnknown
-                | McpFailure::ValidationFailed
-                | McpFailure::VerificationFailed { field: _ }
-                | McpFailure::Conflict
-                | McpFailure::JobUnavailable
-                | McpFailure::Internal
-                | McpFailure::UnverifiedFirmwareTier => None,
-            };
-            if let Some(key) = recovery_message
-                && let Value::Object(object) = &mut reply
-            {
-                drop(object.insert("message".to_owned(), json!(tr(Locale::En, key, None))));
-            }
-            if let (McpFailure::VerificationFailed { field }, Value::Object(object)) =
-                (cause, &mut reply)
-            {
-                drop(object.insert("field".to_owned(), Value::String(field.clone())));
-            }
-            let text = shape(server, reply, Some(&request_id))
-                .unwrap_or_else(|_error| "{\"error\":\"internal\"}".to_owned());
-            CallToolResult::error(vec![ContentBlock::text(text)])
-        }
-    }
-}
-
 /// `result` with `"audit_pending": true` while the change's audit entry is still queued
 /// behind another process's append lock; it is written once the lock is free.
 pub(crate) fn noting(mut result: Value, audit: &AuditReceipt) -> Value {
@@ -147,16 +55,6 @@ pub(crate) fn noting(mut result: Value, audit: &AuditReceipt) -> Value {
         drop(object.insert("audit_pending".to_owned(), Value::Bool(true)));
     }
     result
-}
-
-/// Converts a router-independent tool outcome into a protocol result.
-pub(crate) async fn finish(
-    server: &KccMcp,
-    tool: &'static str,
-    read_only: bool,
-    result: Result<Value, McpFailure>,
-) -> CallToolResult {
-    finish_with_context(server, FailureContext::new(tool, read_only, None), result).await
 }
 
 /// Redacts, pseudonymizes, projects, and budgets one result value.

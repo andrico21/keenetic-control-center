@@ -26,7 +26,10 @@ use crate::{
     KccMcp, config_tools, domains, migration_tools, preset_tools,
     preset_tools::state::Presets,
     registry::definitions::{enabled, tools},
-    support::shape::{FailureContext, finish, finish_with_context},
+    support::{
+        call::{finish, finish_with_context},
+        shape::FailureContext,
+    },
 };
 
 #[tool_router]
@@ -149,12 +152,9 @@ impl KccMcp {
         )
     )]
     async fn routers_list(&self, Parameters(input): Parameters<ListInput>) -> CallToolResult {
-        finish(
-            self,
-            "kcc_routers_list",
-            true,
-            fleet::routers_list(self, input),
-        )
+        finish(self, "kcc_routers_list", true, async {
+            fleet::routers_list(self, input)
+        })
         .await
     }
 
@@ -173,7 +173,7 @@ impl KccMcp {
             self,
             "kcc_router_info",
             true,
-            fleet::router_info(self, input).await,
+            fleet::router_info(self, input),
         )
         .await
     }
@@ -196,7 +196,7 @@ impl KccMcp {
             self,
             "kcc_catalog_search",
             true,
-            fleet::catalog_search(self, input).await,
+            fleet::catalog_search(self, input),
         )
         .await
     }
@@ -219,7 +219,7 @@ impl KccMcp {
             self,
             "kcc_catalog_describe",
             true,
-            fleet::catalog_describe(self, input).await,
+            fleet::catalog_describe(self, input),
         )
         .await
     }
@@ -239,7 +239,7 @@ impl KccMcp {
         finish_with_context(
             self,
             FailureContext::new("kcc_rci_read", true, Some(&router)),
-            rci::rci_read(self, input).await,
+            rci::rci_read(self, input),
         )
         .await
     }
@@ -259,7 +259,7 @@ impl KccMcp {
         finish_with_context(
             self,
             FailureContext::new("kcc_rci_execute", false, Some(&router)),
-            rci::rci_execute(self, input).await,
+            Box::pin(rci::rci_execute(self, input)),
         )
         .await
     }
@@ -279,7 +279,7 @@ impl KccMcp {
         finish_with_context(
             self,
             FailureContext::new("kcc_rci_delete", false, Some(&router)),
-            rci::rci_delete(self, input).await,
+            Box::pin(rci::rci_delete(self, input)),
         )
         .await
     }
@@ -299,7 +299,7 @@ impl KccMcp {
         finish_with_context(
             self,
             FailureContext::new("kcc_rci_batch", false, Some(&router)),
-            rci::rci_batch(self, input).await,
+            rci::rci_batch(self, input),
         )
         .await
     }
@@ -319,7 +319,7 @@ impl KccMcp {
         finish_with_context(
             self,
             FailureContext::new("kcc_cli_parse", false, Some(&router)),
-            rci::cli_parse(self, input).await,
+            Box::pin(rci::cli_parse(self, input)),
         )
         .await
     }
@@ -335,7 +335,10 @@ impl KccMcp {
         )
     )]
     async fn job_status(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
-        finish(self, "kcc_job_status", true, fleet::job_status(self, input)).await
+        finish(self, "kcc_job_status", true, async {
+            fleet::job_status(self, input)
+        })
+        .await
     }
 
     #[tool(
@@ -353,7 +356,7 @@ impl KccMcp {
             self,
             "kcc_job_cancel",
             false,
-            fleet::job_cancel(self, input).await,
+            fleet::job_cancel(self, input),
         )
         .await
     }

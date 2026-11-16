@@ -355,6 +355,41 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Every successful or partial action is audited, with the request id the client got.**
+  - MCP `kcc_backup_create`, `kcc_preset_capture`, `kcc_preset_delete`, `kcc_job_cancel`
+    and the diagnostic start of `kcc_diagnostics_write` now append a `success` entry
+    (action `mcp.<tool>`, the same action as the tool's failures; params hold only ids
+    such as the preset id and groups or the job id). Their result carries
+    `"audit_pending": true` while the entry is still queued behind another process's
+    append lock.
+  - MCP `kcc_system_write` (`reboot`, `factory_reset`), the credential operations of
+    `kcc_vpn_clients_write` and `kcc_vpn_servers_write` (`ike_psk`, `ipsec_psk`,
+    `ppp_password`, `profile_psk`, `profile_xauth`) and `kcc_segments_write` now report
+    `"audit_pending": true` like every other write. `kcc_domain::vpn_clients::secrets::apply`
+    and `kcc_domain::vpn_servers::secrets::apply_ike_psk` return the change's
+    `CliChangeResult` (with its audit receipt) instead of `()`; `ChangeSet::queued_audit`
+    returns the handles of a set's entries still queued.
+  - Every MCP tool call now runs in an `mcp_tool` tracing span with fields `request_id`
+    and `tool`, so a logged failure cause carries the `request_id` the client receives,
+    and the workflow entries of the call's change set carry that id too (`mcp-...`
+    instead of the set's own `change-...`).
+  - A change of several CLI lines (`ChangeSet::apply_cli`, behind the curated writes of
+    every front end) whose later line the router refuses now writes its
+    `router.change_cli` entry with outcome
+    `partially_applied_unsaved` or `partially_applied_persisted` and params
+    `{"error": "router_rejected", "succeeded": n, "failed": m}`, like a partly refused
+    root batch; it used to record nothing of the lines already applied.
+  - A Web migration or preset finish the router carried out (commit, keep, rollback) is
+    audited before its record is saved, so the `web.migrate_commit`/`web.preset_save`
+    entry stays when the save fails (HTTP 500). A finish with no apply waiting for it
+    (HTTP 409) is audited as `refused` with `reason: "conflict"`, and one refused for
+    having no server owner (HTTP 500) as `failed` with `error: "internal"`. A request on a
+    run that names a router outside the user's `Migrate` scope (HTTP 403) is audited as
+    `web.migrate_run` or `web.preset_run` with outcome `forbidden`, the run id as target
+    and the refused router.
+  - The CLI audits the permission and scope refusals of `kcc backup list|get|diff|delete`
+    and `kcc router add|edit|remove|test` as `cli.refused` with outcome `forbidden`, like
+    refused router commands (exit 10 as before).
 - **Audit waits are bounded, and nothing waits for room in the audit queue.** Once 128
   audit entries were queued behind another process's append lock, every further action
   waited without limit for room: a management change inside its recovery bracket never

@@ -12,7 +12,7 @@ use kcc_domain::RouterCtx;
 use rmcp_server_kit::rbac::{current_identity, current_role};
 use serde_json::Value;
 
-use super::errors::map_workflow;
+use super::{call::current_request_id, errors::map_workflow};
 use crate::{KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers};
 
 impl KccMcp {
@@ -101,7 +101,9 @@ impl KccMcp {
         Ok(RouterCtx::new(client, catalog))
     }
 
-    /// Opens a protected change set as the MCP actor.
+    /// Opens a protected change set as the MCP actor; its entries carry the call's
+    /// request id.
+    // NOT cancel-safe: cancellation after lease acquisition releases it through Drop.
     pub(crate) async fn begin_change(
         &self,
         host: &RouterId,
@@ -117,6 +119,7 @@ impl KccMcp {
                 false,
             )
             .await
+            .map(|changes| changes.with_request_id(current_request_id()))
             .map_err(map_workflow)
     }
 

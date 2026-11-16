@@ -18,6 +18,7 @@ use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
     support::{
+        audit::Success,
         errors::map_domain,
         route::{Progress, parse},
         validate::{empty_object, valid_value_size},
@@ -140,7 +141,12 @@ pub(super) async fn diagnostics(
         tracing::warn!(error = ?error, "MCP diagnostic did not start");
         McpFailure::Conflict
     })?;
-    Ok(started(job, events, progress).await)
+    let done = Success::new("kcc_diagnostics_write")
+        .on_router(router.as_str())
+        .with_target(kind.catalog_path().to_owned())
+        .with_params(json!({ "id": job }));
+    let result = started(job, events, progress).await;
+    Ok(done.record(server, result).await)
 }
 
 /// Runs one component write; `commit` starts the confirmed install-and-reboot job.
