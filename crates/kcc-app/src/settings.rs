@@ -269,7 +269,9 @@ impl Default for BackupsConfig {
 #[serde(deny_unknown_fields, default)]
 #[non_exhaustive]
 pub struct AuditConfig {
-    /// Audit entries older than this are pruned.
+    /// Maximum age of complete rotated audit files. When the active file rotates, the
+    /// oldest rotated files whose newest entry is older than this are deleted whole; the
+    /// active file is never pruned, and nothing is pruned between rotations.
     #[serde(with = "humantime_serde")]
     pub retention: Duration,
 }

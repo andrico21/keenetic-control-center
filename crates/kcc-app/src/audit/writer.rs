@@ -2,9 +2,11 @@
 //!
 //! The log's order and its hash chain rest on these invariants:
 //!
-//! - **One writer, first in first out.** One task per process consumes the command
+//! - **One writer, first in first out.** One task per process consumes the one command
 //!   channel in order and takes the next entry only after the previous one is written,
-//!   so an entry is never written before one submitted earlier in the same process.
+//!   so an entry is never written before one submitted earlier in the same process. The
+//!   channel is unbounded, so submitting never waits for the writer; the slot a bounded
+//!   caller took for its entry is given back once the entry is written.
 //! - **The chain is extended under the lock.** The sequence number and previous hash are
 //!   read from the last line of the newest file while the cross-process append lock is
 //!   held, right before the entry is hashed and appended, so the entries of every process
@@ -19,8 +21,9 @@
 //!   are bounded, see [`super::receipt`]), and their entries stay queued behind it.
 //! - **Any other failure is fatal.** The writer answers that entry as failed, closes the
 //!   channel and stops: the entries still queued are dropped and their handles report
-//!   the writer as unavailable, and [`super::AuditLog::is_alive`] turns false, so new
-//!   changes are refused before any router request.
+//!   the writer as unavailable, the slots of bounded callers are closed, and
+//!   [`super::AuditLog::is_alive`] turns false, so new changes are refused before any
+//!   router request.
 
 extern crate alloc;
 
@@ -32,25 +35,30 @@ use tokio::{
 };
 
 use super::{
-    AuditError, Command, WriterState,
+    AuditError, Command, Progress, WriterState,
     append_lock::{RetryPolicy, acquire_append_lock},
     receipt::Reply,
 };
 use crate::persist::{StateLock, StateStore};
 
-/// Runs the sole append and rotation loop; `queued` counts the entries not yet written.
+/// Runs the sole append and rotation loop, reporting its `progress`.
 // cancel-safe: the task is spawned once and owned by the runtime; an entry it holds is
 // written or answered as failed before the next one is taken.
 pub(super) async fn writer_task(
-    mut receiver: mpsc::Receiver<Command>,
+    mut receiver: mpsc::UnboundedReceiver<Command>,
     mut state: WriterState,
-    queued: Arc<watch::Sender<usize>>,
+    progress: Arc<Progress>,
 ) {
-    while let Some(Command::Append { event, reply }) = receiver.recv().await {
+    while let Some(Command::Append {
+        event,
+        reply,
+        holds_slot,
+    }) = receiver.recv().await
+    {
         let lock = match locked(state.store(), state.append_lock_retry()).await {
             Ok(lock) => lock,
             Err(error) => {
-                stop(&error, (&reply, &mut receiver, &queued));
+                stop(&error, (&reply, &mut receiver, &progress));
                 break;
             }
         };
@@ -62,7 +70,7 @@ pub(super) async fn writer_task(
         let Ok((returned, result)) = joined else {
             stop(
                 &AuditError::WriterUnavailable,
-                (&reply, &mut receiver, &queued),
+                (&reply, &mut receiver, &progress),
             );
             break;
         };
@@ -70,10 +78,15 @@ pub(super) async fn writer_task(
         match result {
             Ok(entry) => {
                 drop(reply.send_replace(Reply::Written(entry)));
-                queued.send_modify(|count| *count = count.saturating_sub(1));
+                progress
+                    .queued
+                    .send_modify(|count| *count = count.saturating_sub(1));
+                if holds_slot {
+                    progress.slots.add_permits(1);
+                }
             }
             Err(error) => {
-                stop(&error, (&reply, &mut receiver, &queued));
+                stop(&error, (&reply, &mut receiver, &progress));
                 break;
             }
         }
@@ -101,24 +114,26 @@ async fn locked(store: &StateStore, retry: RetryPolicy) -> Result<StateLock, Aud
                 | AuditError::Chain { seq: _ }
                 | AuditError::WriterUnavailable
                 | AuditError::SecretParameter { key: _ }
-                | AuditError::Pending,
+                | AuditError::Pending
+                | AuditError::QueueFull,
             )) => return acquired,
         }
     }
 }
 
-/// Ends the writer after a fatal `error`: closes the channel, answers the entry as failed
-/// and wakes whoever waits for the queue to drain.
+/// Ends the writer after a fatal `error`: closes the channel and the bounded callers'
+/// slots, answers the entry as failed and wakes whoever waits for the queue to drain.
 fn stop(
     error: &AuditError,
-    (reply, receiver, queued): (
+    (reply, receiver, progress): (
         &watch::Sender<Reply>,
-        &mut mpsc::Receiver<Command>,
-        &watch::Sender<usize>,
+        &mut mpsc::UnboundedReceiver<Command>,
+        &Progress,
     ),
 ) {
     tracing::error!(%error, "audit writer failed; the entries still queued are lost");
     receiver.close();
+    progress.slots.close();
     drop(reply.send_replace(Reply::Failed));
-    queued.send_modify(|_count| {});
+    progress.queued.send_modify(|_count| {});
 }

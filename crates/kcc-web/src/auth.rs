@@ -7,7 +7,7 @@ use core::{
     error::Error,
     fmt::{self, Display},
     net::IpAddr,
-    sync::atomic::{AtomicU64, Ordering},
+    time::Duration,
 };
 
 use askama::Template;
@@ -19,7 +19,11 @@ use axum::{
 };
 use kcc_app::{
     accounts::{AccountError, Authentication, INVALID_USERNAME_ACTOR, validate_username},
-    audit::{Actor, ActorKind, AuditError, AuditEvent, receipt::LOGIN_AUDIT_WAIT},
+    audit::{
+        Actor, ActorKind, AuditEntry, AuditError, AuditEvent,
+        receipt::{AUDIT_WAIT, LOGIN_AUDIT_WAIT},
+        request_id,
+    },
 };
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -30,7 +34,7 @@ use rmcp_server_kit::transport::ClientIp;
 use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::Value;
-use tokio::task::spawn_blocking;
+use tokio::{task::spawn_blocking, time::Instant};
 
 use crate::{
     WebState,
@@ -42,9 +46,6 @@ use crate::{
     prefs,
     session::{SessionId, SessionStore, account::SignedIn},
 };
-
-/// Monotonic correlation id source for Web audit events.
-static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Login form boundary.
 #[derive(Deserialize)]
@@ -533,42 +534,59 @@ async fn finish_change(
     response
 }
 
-/// Appends one authentication event with no credential-bearing parameters.
+/// Appends one authentication event with no credential-bearing parameters, waiting at
+/// most [`AUDIT_WAIT`] in all for a queue slot and for the entry to be written.
 ///
 /// # Errors
 ///
-/// Returns audit-writer failures.
+/// Returns audit-writer failures, a full queue or an entry still queued at the deadline.
+// NOT cancel-safe: once queued, the entry is written even if the request stops waiting.
 async fn audit(
     state: &WebState,
     username: &str,
     action: &'static str,
     outcome: &'static str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    state
-        .audit()
-        .append(event(state, username, action, outcome))
+    written_within(state, event(state, username, action, outcome), AUDIT_WAIT)
         .await
         .map(|_entry| ())
         .map_err(Box::<dyn Error + Send + Sync>::from)
 }
 
-/// Records a successful sign-in, waiting at most [`LOGIN_AUDIT_WAIT`] for the entry: one
-/// still queued behind another process's append lock is written later, and the user is
-/// signed in meanwhile.
+/// Records a successful sign-in, waiting at most [`LOGIN_AUDIT_WAIT`] in all.
+///
+/// An entry still queued behind another process's append lock then is written later, and
+/// the user is signed in meanwhile; an entry that found no queue slot is never written,
+/// and the sign-in is refused.
 ///
 /// # Errors
 ///
-/// Returns the audit writer's failure.
+/// Returns the audit writer's failure or [`AuditError::QueueFull`].
 // NOT cancel-safe: once queued, the entry is written even if the sign-in stops waiting.
 async fn audit_login(state: &WebState, username: &str) -> Result<(), AuditError> {
-    let mut queued = state
-        .audit()
-        .submit(event(state, username, "web.login", "success"))
-        .await?;
-    match queued.wait(LOGIN_AUDIT_WAIT).await {
+    let event = event(state, username, "web.login", "success");
+    match written_within(state, event, LOGIN_AUDIT_WAIT).await {
         Ok(_) | Err(AuditError::Pending) => Ok(()),
         Err(error) => Err(error),
     }
+}
+
+/// Queues `event` in one of the audit queue's bounded slots and waits for it to be
+/// written, all within `limit`.
+///
+/// # Errors
+///
+/// [`AuditError::QueueFull`] when no slot freed in time (the entry is not queued),
+/// [`AuditError::Pending`] when it is still queued at the deadline, or the writer's failure.
+// NOT cancel-safe: once queued, the entry is written even if the caller stops waiting.
+async fn written_within(
+    state: &WebState,
+    event: AuditEvent,
+    limit: Duration,
+) -> Result<AuditEntry, AuditError> {
+    let started = Instant::now();
+    let mut queued = state.audit().submit_within(event, limit).await?;
+    queued.wait(limit.saturating_sub(started.elapsed())).await
 }
 
 /// The Web audit event of `username`'s `action`, ended as `outcome`.
@@ -589,7 +607,7 @@ fn event(
 
 /// A new correlation id for one Web audit event.
 pub(crate) fn request_id() -> String {
-    format!("web-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed))
+    request_id::next("web")
 }
 
 /// Renders the account page with the current session's CSRF token and the fleet switcher.

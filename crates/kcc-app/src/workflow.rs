@@ -18,7 +18,7 @@ use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, time::Duration};
 use std::{
     sync::{Mutex as SyncMutex, PoisonError},
-    time::{SystemTime, UNIX_EPOCH},
+    time::SystemTime,
 };
 
 use kcc_catalog::{Catalog, HttpMethod, Risk, SecretValue, ValidationIssue};
@@ -53,7 +53,8 @@ use tokio::{
 
 use self::receipts::Receipts;
 use crate::{
-    audit::{Actor, AuditError, AuditEvent, AuditLog, receipt::AuditReceipt},
+    accounts::{Clock as _, SystemClock},
+    audit::{Actor, AuditError, AuditEvent, AuditLog, receipt::AuditReceipt, request_id},
     backups::{BackupError, BackupStore},
     brackets::{BracketGuard, Brackets},
     permissions::{Permission, Role},
@@ -430,11 +431,13 @@ pub struct CliChangeResult {
 }
 
 /// Successful terminal CLI parser mutation result.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct TerminalCliChangeResult {
     /// Ordered router responses received before the session became unreachable.
     pub responses: Vec<RciBody>,
+    /// The change's audit entry: written, or still queued.
+    pub audit: AuditReceipt,
 }
 
 impl From<CliChangeResult> for TerminalCliChangeResult {
@@ -442,6 +445,7 @@ impl From<CliChangeResult> for TerminalCliChangeResult {
     fn from(result: CliChangeResult) -> Self {
         Self {
             responses: result.responses,
+            audit: result.audit,
         }
     }
 }
@@ -734,6 +738,7 @@ impl ChangeWorkflow {
             lease: Some(lease),
             actor_label: Some(actor_label),
             receipts: Receipts::default(),
+            request_id: request_id::next("change"),
         })
     }
 
@@ -841,6 +846,8 @@ pub struct ChangeSet {
     actor_label: Option<LeaseActorGuard>,
     /// Audit entries still queued when their change returned.
     receipts: Receipts,
+    /// Correlation id of every audit entry of this set.
+    request_id: String,
 }
 
 impl fmt::Debug for ChangeSet {
@@ -853,6 +860,7 @@ impl fmt::Debug for ChangeSet {
             .field("expected", &self.expected)
             .field("backed_up", &self.backed_up)
             .field("force", &self.force)
+            .field("request_id", &self.request_id)
             .finish_non_exhaustive()
     }
 }
@@ -1026,14 +1034,14 @@ impl ChangeSet {
                 true,
             ),
         };
-        let timestamp = unix_seconds();
+        let timestamp = SystemClock.unix_seconds();
         let mut audit_params = request.audit_params;
         validated.protected_value().scrub(&mut audit_params);
         let event = AuditEvent::new(timestamp, self.actor.clone(), action.to_owned())
             .with_router(self.router.clone())
             .with_target(request.catalog_path)
             .with_params(audit_params)
-            .with_result(outcome.to_owned(), format!("change-{timestamp}"));
+            .with_result(outcome.to_owned(), self.request_id.clone());
         let audit = self.receipts.record(&self.workflow.audit, event).await?;
         Ok(ChangeResult { unsaved, audit })
     }
@@ -1088,7 +1096,7 @@ impl ChangeSet {
             verification::verify(&self.client, verification).await?;
         }
         self.expected = read_last_change(&self.client).await?;
-        let timestamp = unix_seconds();
+        let timestamp = SystemClock.unix_seconds();
         let completion = batch::completion(&validated, &responses);
         let outcome = completion.outcome();
         let audit_params = if completion.failed == 0 {
@@ -1108,7 +1116,7 @@ impl ChangeSet {
         .with_router(self.router.clone())
         .with_target(batch::target(&validated))
         .with_params(audit_params)
-        .with_result(outcome.to_owned(), format!("change-{timestamp}"));
+        .with_result(outcome.to_owned(), self.request_id.clone());
         let audit = self.receipts.record(&self.workflow.audit, event).await?;
         Ok(BatchChangeResult {
             applied_changes: completion.applied_changes,
@@ -1209,6 +1217,15 @@ impl ChangeSet {
     #[inline]
     pub fn audit_alive(&self) -> Result<(), WorkflowError> {
         self.workflow.audit_alive()
+    }
+
+    /// Records the set's audit entries under the caller's correlation `request_id` instead
+    /// of the one the set drew when it began; the caller keeps it unique per request.
+    #[inline]
+    #[must_use]
+    pub fn with_request_id(mut self, request_id: String) -> Self {
+        self.request_id = request_id;
+        self
     }
 
     /// Makes later changes of this set return without waiting for their audit entries,
@@ -1328,7 +1345,7 @@ impl ChangeSet {
         mut audit_params: Value,
         outcome: &str,
     ) -> Result<AuditReceipt, WorkflowError> {
-        let timestamp = unix_seconds();
+        let timestamp = SystemClock.unix_seconds();
         for command in commands {
             command.secrets().scrub(&mut audit_params);
         }
@@ -1341,7 +1358,7 @@ impl ChangeSet {
             .with_router(self.router.clone())
             .with_target(target)
             .with_params(audit_params)
-            .with_result(outcome.to_owned(), format!("change-{timestamp}"));
+            .with_result(outcome.to_owned(), self.request_id.clone());
         Ok(self.receipts.record(&self.workflow.audit, event).await?)
     }
 
@@ -1405,10 +1422,13 @@ impl ChangeSet {
             let current = read_last_change(&self.client).await?;
             if !current.unsaved {
                 self.expected = current;
-                let timestamp = unix_seconds();
-                let event = AuditEvent::new(timestamp, self.actor.clone(), action.to_owned())
-                    .with_router(self.router.clone())
-                    .with_result("saved".to_owned(), format!("save-{timestamp}"));
+                let event = AuditEvent::new(
+                    SystemClock.unix_seconds(),
+                    self.actor.clone(),
+                    action.to_owned(),
+                )
+                .with_router(self.router.clone())
+                .with_result("saved".to_owned(), self.request_id.clone());
                 drop(self.receipts.record(&self.workflow.audit, event).await?);
                 return Ok(());
             }
@@ -1490,13 +1510,6 @@ fn map_permission(error: RegistryError) -> WorkflowError {
         RegistryError::PermissionDenied { router } => WorkflowError::PermissionDenied { router },
         other => WorkflowError::Registry(other),
     }
-}
-
-/// Returns current Unix seconds.
-fn unix_seconds() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs())
 }
 
 /// Names whether a successful raw change remains unsaved or was persisted by the router.

@@ -10,7 +10,7 @@ use std::path::Path;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{
-    sync::{mpsc, watch},
+    sync::{Semaphore, mpsc, watch},
     time::timeout,
 };
 
@@ -23,6 +23,7 @@ mod append_lock;
 mod chain;
 pub mod receipt;
 mod repair;
+pub mod request_id;
 mod state;
 mod tail;
 mod writer;
@@ -38,6 +39,8 @@ pub const DEFAULT_ROTATE_BYTES: u64 = 50 * 1024 * 1024;
 pub const AUDIT_FILE_NAME: &str = "audit.jsonl";
 /// Default audit retention: 365 days.
 pub const DEFAULT_RETENTION: Duration = Duration::from_hours(365 * 24);
+/// Queue slots shared by the callers of [`AuditLog::submit_within`].
+const BOUNDED_SLOTS: usize = 128;
 /// All-zero hash before the first audit entry.
 const GENESIS_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
@@ -371,9 +374,20 @@ pub enum AuditError {
     /// lock is free.
     #[error("audit entry is still queued")]
     Pending,
+    /// No queue slot freed within the caller's limit: the entry was not queued and is
+    /// never written.
+    #[error("audit queue is full; the entry was not queued")]
+    QueueFull,
 }
 
 /// A cloneable handle to the one audit writer task.
+///
+/// Every entry goes through one unbounded queue to the writer, so the log's order is the
+/// order of submission. [`AuditLog::submit`] never waits and never drops an entry. The
+/// accepted cost: while another process holds the append lock, entries keep arriving
+/// (failing MCP calls, Web actions, change receipts) and the queue grows in memory until
+/// the lock is free. Callers that must not act without their entry use
+/// [`AuditLog::submit_within`] instead, which waits a bounded time for one of 128 slots.
 #[derive(Clone)]
 #[non_exhaustive]
 #[expect(
@@ -381,10 +395,21 @@ pub enum AuditError {
     reason = "the public name is clearer than Log at call sites"
 )]
 pub struct AuditLog {
-    /// Command channel consumed by exactly one task.
-    sender: mpsc::Sender<Command>,
+    /// Command channel consumed by exactly one task; unbounded, see the type's docs.
+    sender: mpsc::UnboundedSender<Command>,
+    /// The writer's progress.
+    progress: Arc<Progress>,
+}
+
+/// What the handles and the writer share besides the channel.
+#[derive(Debug)]
+struct Progress {
     /// Entries submitted and not yet written.
-    queued: Arc<watch::Sender<usize>>,
+    queued: watch::Sender<usize>,
+    /// Free slots of [`AuditLog::submit_within`]. A slot is taken out of the semaphore
+    /// for good when its entry is queued, and the writer adds it back once the entry is
+    /// written; the writer closes the semaphore when it stops.
+    slots: Semaphore,
 }
 
 impl fmt::Debug for AuditLog {
@@ -403,6 +428,8 @@ enum Command {
         event: AuditEvent,
         /// The writer's answer.
         reply: watch::Sender<Reply>,
+        /// Whether the entry holds a slot of [`AuditLog::submit_within`].
+        holds_slot: bool,
     },
 }
 
@@ -437,37 +464,84 @@ impl AuditLog {
             Err(StateError::StateLocked { path: _ }) => drop(verify_chain(store.dir())?),
             Err(error) => return Err(error.into()),
         }
-        let (sender, receiver) = mpsc::channel(128);
-        let queued = Arc::new(watch::Sender::new(0));
+        let (sender, receiver) = mpsc::unbounded_channel();
+        let progress = Arc::new(Progress {
+            queued: watch::Sender::new(0),
+            slots: Semaphore::new(BOUNDED_SLOTS),
+        });
         drop(tokio::spawn(writer::writer_task(
             receiver,
             state,
-            Arc::clone(&queued),
+            Arc::clone(&progress),
         )));
-        Ok(Self { sender, queued })
+        Ok(Self { sender, progress })
     }
 
     /// Queues one audit event after rejecting secret-shaped parameter keys, and returns
-    /// the handle of the queued entry without waiting for it to be written.
+    /// the handle of the queued entry. It never waits: the entry is queued at once, behind
+    /// every entry submitted before it.
     ///
     /// # Errors
     ///
     /// Returns a validation error, or [`AuditError::WriterUnavailable`] after a fatal
     /// writer failure.
-    // cancel-safe: cancelled while waiting for a channel slot nothing is queued; the slot
-    // taken, the entry is queued without another await.
     #[inline]
-    pub async fn submit(&self, event: AuditEvent) -> Result<Pending, AuditError> {
+    pub fn submit(&self, event: AuditEvent) -> Result<Pending, AuditError> {
         reject_secret_parameters(&event.params_redacted)?;
-        let slot = self
-            .sender
-            .reserve()
-            .await
-            .map_err(|_error| AuditError::WriterUnavailable)?;
+        self.enqueue(event, false)
+    }
+
+    /// Queues one audit event like [`Self::submit`] once one of 128 slots is free.
+    ///
+    /// For a caller that must not act without its entry: it waits at most `limit` for the
+    /// slot, which stays taken until the writer has written the entry.
+    ///
+    /// # Errors
+    ///
+    /// Returns a validation error, [`AuditError::QueueFull`] when no slot freed within
+    /// `limit` (the entry is not queued and never written), or
+    /// [`AuditError::WriterUnavailable`] after a fatal writer failure.
+    // cancel-safe: cancelled while waiting for a slot, no slot is taken and nothing is
+    // queued; once the slot is taken the entry is queued without another await.
+    #[inline]
+    pub async fn submit_within(
+        &self,
+        event: AuditEvent,
+        limit: Duration,
+    ) -> Result<Pending, AuditError> {
+        reject_secret_parameters(&event.params_redacted)?;
+        match timeout(limit, self.progress.slots.acquire()).await {
+            Ok(Ok(slot)) => slot.forget(),
+            Ok(Err(_closed)) => return Err(AuditError::WriterUnavailable),
+            Err(_elapsed) => return Err(AuditError::QueueFull),
+        }
+        self.enqueue(event, true)
+    }
+
+    /// Hands a validated `event` to the writer, with the slot it took when `holds_slot`.
+    ///
+    /// # Errors
+    ///
+    /// [`AuditError::WriterUnavailable`] after a fatal writer failure.
+    fn enqueue(&self, event: AuditEvent, holds_slot: bool) -> Result<Pending, AuditError> {
         let (reply, answer) = watch::channel(Reply::Queued);
-        self.queued
+        self.progress
+            .queued
             .send_modify(|count| *count = count.saturating_add(1));
-        slot.send(Command::Append { event, reply });
+        let command = Command::Append {
+            event,
+            reply,
+            holds_slot,
+        };
+        if self.sender.send(command).is_err() {
+            self.progress
+                .queued
+                .send_modify(|count| *count = count.saturating_sub(1));
+            if holds_slot {
+                self.progress.slots.add_permits(1);
+            }
+            return Err(AuditError::WriterUnavailable);
+        }
         Ok(Pending::new(answer))
     }
 
@@ -476,15 +550,15 @@ impl AuditLog {
     // cancel-safe: waiting only observes the writer's progress.
     #[inline]
     pub async fn flush(&self, limit: Duration) -> usize {
-        let mut progress = self.queued.subscribe();
+        let mut written = self.progress.queued.subscribe();
         let sender = &self.sender;
-        let drained = progress.wait_for(|count| *count == 0 || sender.is_closed());
+        let drained = written.wait_for(|count| *count == 0 || sender.is_closed());
         drop(timeout(limit, drained).await);
-        *self.queued.borrow()
+        *self.progress.queued.borrow()
     }
 
     /// Appends one audit event after rejecting secret-shaped parameter keys, waiting at
-    /// most [`AUDIT_WAIT`] for it to be written.
+    /// most [`AUDIT_WAIT`] for it to be written. Queuing never waits ([`Self::submit`]).
     ///
     /// # Errors
     ///
@@ -492,10 +566,10 @@ impl AuditLog {
     /// queued at the deadline (it is written later), or
     /// [`AuditError::WriterUnavailable`] after a fatal writer failure.
     #[inline]
-    // NOT cancel-safe: once queued, the writer appends the event even if the caller stops awaiting;
-    // cancelled earlier, the event is dropped unwritten.
+    // NOT cancel-safe: the event is queued on the first poll, and the writer appends it
+    // even if the caller stops awaiting.
     pub async fn append(&self, event: AuditEvent) -> Result<AuditEntry, AuditError> {
-        self.submit(event).await?.wait(AUDIT_WAIT).await
+        self.submit(event)?.wait(AUDIT_WAIT).await
     }
 
     /// Whether the audit writer task is still accepting commands.
@@ -768,7 +842,7 @@ mod tests {
             &state,
             AuditPolicy::default().with_append_lock_retry(retry),
         )?;
-        let mut first = audit.submit(event(1)).await?;
+        let mut first = audit.submit(event(1))?;
 
         let waited = first.wait(Duration::from_secs(1)).await;
 

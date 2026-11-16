@@ -33,12 +33,17 @@ mod tests {
     };
     use kcc_app::{
         accounts::Clock,
-        audit::verify_chain,
+        audit::{AUDIT_FILE_NAME, receipt::LOGIN_AUDIT_WAIT, verify_chain},
         permissions::built_in_roles,
+        persist::StateStore,
         settings::{Config, ConfigError},
     };
     use kcc_i18n::{keys, locale::Locale};
     use kcc_web::{session::CookieSecurity, web_router};
+    use tokio::{
+        task::JoinSet,
+        time::{Instant, timeout},
+    };
     use tower::ServiceExt as _;
 
     use crate::support::{
@@ -59,6 +64,9 @@ mod tests {
     impl Error for ExpectedValidationError {}
 
     const USERNAME: &str = "alice";
+    /// Failed sign-ins sent while the append lock is held: more than the sign-in audit
+    /// slots and the old 128-entry queue.
+    const FAILED_SIGN_INS: usize = 140;
 
     #[derive(Debug, Default)]
     struct MockClock {
@@ -133,24 +141,9 @@ mod tests {
             &self,
             cookie: &str,
             csrf: &str,
-            (username, password): (&str, &str),
+            credentials: (&str, &str),
         ) -> Result<Response, Box<dyn Error + Send + Sync>> {
-            let body = format!(
-                "username={username}&password={}",
-                password.replace(' ', "+")
-            );
-            self.send(
-                Request::builder()
-                    .method(Method::POST)
-                    .uri("/ui/login")
-                    .header(header::COOKIE, cookie)
-                    .header(header::ORIGIN, ORIGIN)
-                    .header("sec-fetch-site", "same-origin")
-                    .header("x-csrf-token", csrf)
-                    .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
-                    .body(Body::from(body))?,
-            )
-            .await
+            self.send(login_request(cookie, csrf, credentials)?).await
         }
 
         async fn authenticated(&self) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
@@ -168,6 +161,85 @@ mod tests {
             let csrf = meta_content(&html, "csrf-token").ok_or("missing authenticated CSRF")?;
             Ok((cookie, csrf))
         }
+    }
+
+    /// The sign-in form post of `username` and `password`.
+    fn login_request(
+        cookie: &str,
+        csrf: &str,
+        (username, password): (&str, &str),
+    ) -> Result<Request<Body>, Box<dyn Error + Send + Sync>> {
+        let body = format!(
+            "username={username}&password={}",
+            password.replace(' ', "+")
+        );
+        Ok(Request::builder()
+            .method(Method::POST)
+            .uri("/ui/login")
+            .header(header::COOKIE, cookie)
+            .header(header::ORIGIN, ORIGIN)
+            .header("sec-fetch-site", "same-origin")
+            .header("x-csrf-token", csrf)
+            .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+            .body(Body::from(body))?)
+    }
+
+    /// B-04: a sign-in whose audit entry finds no queue slot in 5 s is refused.
+    ///
+    /// Another process holds the audit append lock and failed sign-ins took every slot:
+    /// the correct sign-in gets no session cookie and no session, and no success entry is
+    /// ever written.
+    #[tokio::test(start_paused = true)]
+    async fn sign_in_is_refused_when_its_audit_entry_cannot_be_queued_in_time() -> TestResult {
+        let fixture = Fixture::new("admin", CookieSecurity::LoopbackHttp)?;
+        let (cookie, csrf) = fixture.login_page().await?;
+        let other_process = StateStore::open(fixture.core.state.dir())?;
+        let held = other_process.try_lock(AUDIT_FILE_NAME)?;
+        let mut failed = JoinSet::new();
+        for _attempt in 0..FAILED_SIGN_INS {
+            let request = login_request(&cookie, &csrf, ("nobody", "wrong password"))?;
+            drop(failed.spawn(fixture.router.clone().oneshot(request)));
+        }
+        while let Some(joined) = failed.join_next().await {
+            drop(joined??);
+        }
+        let started = Instant::now();
+
+        let response = timeout(
+            Duration::from_secs(120),
+            fixture.login(&cookie, &csrf, PASSWORD),
+        )
+        .await
+        .map_err(|_elapsed| "the sign-in hung")??;
+
+        let waited = started.elapsed();
+        assert!(
+            waited <= LOGIN_AUDIT_WAIT.saturating_add(Duration::from_secs(1)),
+            "bounded by the sign-in wait: {waited:?}"
+        );
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert!(
+            header_text(&response, header::SET_COOKIE.as_str()).is_none(),
+            "no session cookie"
+        );
+        let home = fixture
+            .send(
+                Request::get("/ui/")
+                    .header(header::COOKIE, &cookie)
+                    .body(Body::empty())?,
+            )
+            .await?;
+        assert_eq!(home.status(), StatusCode::SEE_OTHER, "still signed out");
+        drop(held);
+        assert_eq!(fixture.core.audit.flush(Duration::from_secs(60)).await, 0);
+        let entries = verify_chain(fixture.core.state.dir())?;
+        assert!(
+            !entries
+                .iter()
+                .any(|entry| entry.action == "web.login" && entry.outcome == "success"),
+            "no success entry for a refused sign-in"
+        );
+        Ok(())
     }
 
     #[tokio::test]

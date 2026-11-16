@@ -114,6 +114,16 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Audit request ids are unique.** Every `request_id` in the audit log (and the one MCP
+  returns with a tool result) is now `<prefix>-<nonce>-<n>`: a random 64-bit nonce per
+  process in hex and a counter, for example `web-3f9c0a1e5b7d2468-12`. Workflow entries
+  used `change-<unix-ts>` and `save-<unix-ts>`, CLI entries `cli-<unix-ts>` and credential
+  migrations `startup-<unix-ts>`, so entries from the same second shared an id; Web and
+  MCP ids (`web-<n>`, `mcp-<n>`) restarted with every process. All entries of one change
+  set now share the set's id (a library caller can pass its own with
+  `ChangeSet::with_request_id`), and all entries of one CLI run share the run's id. A
+  reboot or factory reset result (`TerminalCliChangeResult`) keeps its audit receipt and
+  serializes `"audit_pending": true` while its entry is still queued.
 - **Router URLs with an IPv6 literal work.** A router URL such as `http://[fd00::1]` was
   always refused as outside the outbound policy, because kcc looked the bracketed text up
   as a host name. A literal IPv4 or IPv6 address is now checked as an address.
@@ -339,6 +349,16 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Audit waits are bounded, and nothing waits for room in the audit queue.** Once 128
+  audit entries were queued behind another process's append lock, every further action
+  waited without limit for room: a management change inside its recovery bracket never
+  reached its disarm, and a Web sign-in hung despite its 5 s bound. The queue to the
+  audit writer is now unbounded, so queuing never waits and no entry is dropped (while the
+  lock is held the queue grows in memory). The Web sign-in, sign-out and password change
+  take one of 128 queue slots within their own wait instead; **a sign-in whose entry finds
+  no slot within 5 s is now refused (HTTP 500, no session)** rather than signed in
+  without an entry, and a failed sign-in, sign-out or password change answers HTTP 500
+  after 30 s, as it did when its entry could not be written.
 - **A torn audit line no longer stops kcc.** A crash or a full disk in the middle of an
   audit append left a last line without its newline, after which every append failed,
   the audit writer stopped and `kcc serve` and every audited CLI command refused to start

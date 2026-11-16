@@ -1,10 +1,15 @@
 //! Bounded waits for audit entries that stay queued until they are written.
 //!
-//! A caller hands its entry to the writer first ([`super::AuditLog::submit`]) and only
-//! then waits, at most for its own limit, for the writer's answer. When the limit passes
-//! the entry is not given up: it stays queued and the writer writes it once the
-//! cross-process append lock is free. The caller holds a [`Pending`] handle that tells,
-//! at any later time, whether the entry was written meanwhile.
+//! A caller hands its entry to the writer first ([`super::AuditLog::submit`], which never
+//! waits) and only then waits, at most for its own limit, for the writer's answer. When
+//! the limit passes the entry is not given up: it stays queued and the writer writes it
+//! once the cross-process append lock is free. The caller holds a [`Pending`] handle that
+//! tells, at any later time, whether the entry was written meanwhile.
+//!
+//! The Web sign-in, sign-out and password change must not act without their entry, so
+//! they queue it with [`super::AuditLog::submit_within`]: one of a bounded number of
+//! queue slots, waited for at most their limit. When no slot frees in time the entry is
+//! not queued at all ([`AuditError::QueueFull`]) and the action is refused.
 //!
 //! - **An entry is never dropped for a busy lock.** Only a fatal writer failure, or the
 //!   process ending first, loses a queued entry; then its handle reports the writer as
@@ -25,7 +30,8 @@ use super::{AuditEntry, AuditError};
 pub const AUDIT_WAIT: Duration = Duration::from_secs(30);
 /// Longest a safety bracket waits, after its disarm, for the entries of its changes.
 pub const BRACKET_AUDIT_WAIT: Duration = Duration::from_secs(20);
-/// Longest a Web sign-in waits for its entry before it signs the user in anyway.
+/// Longest a Web sign-in waits, for a queue slot and then for its entry: with no slot in
+/// time the sign-in is refused; with the entry still queued the user is signed in.
 pub const LOGIN_AUDIT_WAIT: Duration = Duration::from_secs(5);
 /// Longest a server's exit waits for the writer to write the entries still queued.
 pub const AUDIT_FLUSH_WAIT: Duration = Duration::from_secs(5);

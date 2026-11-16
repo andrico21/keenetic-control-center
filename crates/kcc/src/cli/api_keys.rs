@@ -1,8 +1,7 @@
 //! MCP API key and audit log commands.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use kcc_app::{
+    accounts::{Clock as _, SystemClock},
     api_keys::{ApiKeyError, ApiKeysDocument, create_api_key, expose_created_key},
     audit::{AuditError, verify_chain},
     permissions::{Permission, assignment::GrantError},
@@ -30,16 +29,19 @@ pub(crate) async fn api_key(ctx: &Ctx, command: ApiKeyCommand) -> Outcome {
     match command {
         ApiKeyCommand::Create { name, role } => {
             let actor = ctx.principal().authority()?;
-            let created =
-                match create_api_key(ctx.state(), &actor, name.clone(), role.clone(), now()) {
-                    Err(ApiKeyError::Grant(GrantError::Forbidden)) => {
-                        let params = json!({ "name": name, "role": role });
-                        return Err(
-                            refused_grant(ctx, &services, "cli.apikey_create", params).await
-                        );
-                    }
-                    result => result?,
-                };
+            let created = match create_api_key(
+                ctx.state(),
+                &actor,
+                name.clone(),
+                role.clone(),
+                SystemClock::default().unix_seconds(),
+            ) {
+                Err(ApiKeyError::Grant(GrantError::Forbidden)) => {
+                    let params = json!({ "name": name, "role": role });
+                    return Err(refused_grant(ctx, &services, "cli.apikey_create", params).await);
+                }
+                result => result?,
+            };
             ctx.audit(
                 &services,
                 "cli.apikey_create",
@@ -137,11 +139,4 @@ pub(crate) fn audit(ctx: &Ctx, command: &AuditCommand) -> Outcome {
         }
         Err(error) => Err(error.into()),
     }
-}
-
-/// Current Unix seconds.
-fn now() -> u64 {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs())
 }

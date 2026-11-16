@@ -1,10 +1,9 @@
 //! Audit events for router credentials migrated at startup or on first CLI use, and the
 //! startup warning of routers whose password still sits in an external plaintext file.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use kcc_app::{
-    audit::{Actor, ActorKind, AuditError, AuditEvent, AuditLog},
+    accounts::{Clock as _, SystemClock},
+    audit::{Actor, ActorKind, AuditError, AuditEvent, AuditLog, request_id},
     credentials::MigrationState,
     registry::{RegistryError, RouterRegistry},
 };
@@ -22,16 +21,13 @@ pub(super) async fn append_credential_events(
 ) -> Result<(), AuditError> {
     for (router, migration) in migrations {
         if !matches!(migration, MigrationState::Current) {
-            let timestamp = SystemTime::now()
-                .duration_since(UNIX_EPOCH)
-                .map_or(0, |elapsed| elapsed.as_secs());
             let event = AuditEvent::new(
-                timestamp,
+                SystemClock::default().unix_seconds(),
                 Actor::new(ActorKind::System, "system".to_owned()),
                 "router.credential_migrated".to_owned(),
             )
             .with_router(router)
-            .with_result("success".to_owned(), format!("{origin}-{timestamp}"));
+            .with_result("success".to_owned(), request_id::next(origin));
             drop(audit.append(event).await?);
         }
     }

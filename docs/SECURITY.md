@@ -417,12 +417,28 @@ exits non-zero so its supervisor can restart it.
 Audit guarantees: while the process runs, every entry is kept and written in order; an
 entry is lost only if the writer fails or the process exits first (`kcc serve` and `kcc
 mcp stdio` give the writer 5 s at exit and log the count of entries still queued; a CLI
-run exits right after its change). Callers wait for their entry a bounded time (30 s for
-a change; inside a management change's recovery bracket the disarm is sent without
+run exits right after its change). Queuing an entry never waits: the queue to the writer
+has no length limit, so while another process holds the append lock, entries (failed MCP
+calls, Web actions, change receipts) pile up in memory until the lock is free; none is
+dropped. Callers then wait for their entry a bounded time (30 s for a change; inside a
+management change's recovery bracket the arm, the work and the disarm are sent without
 waiting, then the bracket waits 20 s). A change the router applied whose entry is still
 queued is reported as done with a note that the entry will be written once the audit log
-is free, never as a router failure. A Web sign-in waits at most 5 s for its entry, then
-signs the user in with the entry still queued.
+is free, never as a router failure.
+
+The Web sign-in, sign-out and own password change must not happen without their entry.
+They share 128 queue slots; a slot stays taken until its entry is written. A sign-in waits
+at most 5 s in all, first for a slot and then for its entry: with the entry still queued
+then it signs the user in, but when no slot freed in time the entry is not queued and the
+sign-in is refused with HTTP 500 and no session. A failed sign-in, a sign-out or a
+password change waits at most 30 s the same way and answers HTTP 500 when its entry was
+not written by then (a sign-out has already ended the session; a password change stays
+made).
+
+Audit entries carry a correlation `request_id` of the form `<prefix>-<nonce>-<n>`: a
+per-process random 64-bit nonce in hex and a per-process counter, so no two requests share
+one, within a process or across processes. All entries of one change set share its id;
+every entry of a CLI run carries the run's id (`cli-...`), change entries included.
 
 Keep the shipped production filter `info,rmcp=warn,rmcp_server_kit=info`. Raising the
 `rmcp` target above `warn` makes the MCP SDK log tool arguments at debug or trace,

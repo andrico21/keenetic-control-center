@@ -1,10 +1,9 @@
 //! Result shaping: secret redaction, client pseudonyms, projection, and the byte budget.
 
 use alloc::collections::BTreeMap;
-use core::sync::atomic::{AtomicU64, Ordering};
 use std::sync::PoisonError;
 
-use kcc_app::audit::receipt::AuditReceipt;
+use kcc_app::audit::{receipt::AuditReceipt, request_id};
 use kcc_config::mask::mask_json;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 use rmcp::model::{CallToolResult, ContentBlock};
@@ -49,12 +48,9 @@ impl<'call> FailureContext<'call> {
 /// Hard ceiling on any configured result budget.
 const MAX_RESULT_BYTES_HARD: usize = 8 * 1024 * 1024;
 
-/// Process-wide request correlation counter.
-static NEXT_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
-
 /// A fresh request correlation id.
 pub(crate) fn next_request_id() -> String {
-    format!("mcp-{}", NEXT_REQUEST_ID.fetch_add(1, Ordering::Relaxed))
+    request_id::next("mcp")
 }
 
 /// Converts a tool outcome into a protocol result with a correlation id.

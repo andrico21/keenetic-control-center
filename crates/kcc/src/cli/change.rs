@@ -218,7 +218,8 @@ where
         let mut changes = services
             .workflow()
             .begin(target.id(), ctx.principal().actor(), &role, None, false)
-            .await?;
+            .await?
+            .with_request_id(ctx.request_id());
         let document = match gate.timer {
             Timer::Off => work(&mut changes, target.router())
                 .await

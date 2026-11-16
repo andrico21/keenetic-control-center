@@ -223,7 +223,8 @@ async fn commit(ctx: &Ctx) -> Outcome {
             None,
             false,
         )
-        .await?;
+        .await?
+        .with_request_id(ctx.request_id());
     let jobs = runner(ctx, &services).await?;
     let events = jobs.subscribe();
     let job = components::start_commit_job(

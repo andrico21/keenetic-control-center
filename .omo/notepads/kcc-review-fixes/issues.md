@@ -83,3 +83,16 @@
 - Sizes: `kcc-app/src/audit.rs` 570 -> 323 pure LOC (still over the ceiling: the public types and AuditLog); `persist.rs` 432 -> 435.
 - A torn line on a disk that is still full: the quarantine copy needs space, so that start still fails with an I/O error until space is freed (then it repairs).
 - A crash after the quarantine copy and before the truncate leaves a duplicate quarantine file on the next start (by design: never lose the fragment).
+
+## [2026-11-16] Todo 28 (wt/r28) notes, not fixed here
+- Web and MCP still draw their request id after the change (page_kit `Record::append`, MCP `finish_with_context`), so their change sets keep the set's own id (`change-<nonce>-<n>`) instead of the front end's; `ChangeSet::with_request_id` exists and only the CLI passes its run id. Joining a Web/MCP request to its workflow entries needs the front end to draw its id before `begin` (todo 30 territory: "logged failure causes carry the request id returned to the client").
+- Unix-time copies outside F-25's five remain: `kcc-mcp/src/support/audit.rs`, `kcc-mcp/src/preset_tools/{capture,state}.rs`, `kcc-migrate/src/apply.rs`, `kcc-migrate/src/apply/agreements.rs`, `kcc-app/src/poller.rs`, `persist.rs`.
+- Sizes: `kcc-app/src/audit.rs` grew by ~36 lines (queue slots, `submit_within`, `enqueue`, `QueueFull`), `workflow.rs` 1053 -> 1061, `kcc-web/src/auth.rs` 551 -> 558 (pure LOC incl. tests); all three were already over the ceiling. Splits are follow-ups.
+- A sign-in whose audit entry finds no slot answers a bare HTTP 500 (the existing `internal()` path, no localized page), like every other audit write failure on the sign-in path.
+
+## [2026-11-16] Todo 30 (wt/r30) notes, not fixed here
+- F-13 finding text also names `preset/manage.rs:57-68`, `accounts.rs:32,186`, `api_keys.rs:27,108` (permission refusals through `require()`/`authorize()` without an audit entry); the plan's F-13 line limits the evidence to persist/routers/router_secrets, so only those moved to `Ctx::authorize_audited`. `router list` (`require(Read)`) is not audited either. The others are a one-line change each through the same helper.
+- E-09: the `mcp_tool` span is INFO level; with a log filter above `info` for target `kcc_mcp` the span (and so the request id) is not printed on warn lines. A tracing subscriber set with `set_default` for one thread races other tests' first use of a span callsite (interest cached `never`): the logging test lives alone in `kcc-mcp/tests/request_ids.rs`.
+- MCP job tasks (diagnostics, component commit, migration apply) run outside the call's task-local, so entries written later by the job keep their own ids; only the call's own change sets carry `mcp-...`.
+- The MCP 403 refused by the kit before kcc code (route-table authz) and the Web route-table 403 (`authz.rs`, owned by todo 29) remain unaudited.
+- `kcc/src/cli/context.rs` (399 pure LOC), `kcc-mcp/src/domains/write/clients.rs` (~300), `kcc-app/src/workflow.rs` (>1000) were already over the ceiling; this todo kept context.rs net smaller (three refusal blocks folded into the helper) and moved the MCP call lifecycle out of shape.rs into the new `support/call.rs`.

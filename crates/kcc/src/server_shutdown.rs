@@ -183,7 +183,7 @@ mod tests {
                 "test.flush".to_owned(),
             )
             .with_result("success".to_owned(), format!("flush-{index}"));
-            drop(audit.submit(event).await?);
+            drop(audit.submit(event)?);
         }
 
         flush_audit(&audit).await;

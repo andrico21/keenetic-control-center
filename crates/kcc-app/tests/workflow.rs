@@ -39,6 +39,9 @@ mod batch_outcomes;
 #[path = "workflow/namespaces.rs"]
 mod namespaces;
 
+#[path = "workflow/request_ids.rs"]
+mod request_ids;
+
 #[expect(
     clippy::missing_errors_doc,
     clippy::missing_panics_doc,

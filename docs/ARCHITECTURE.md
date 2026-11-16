@@ -115,12 +115,17 @@ work, disarm and report the same way.
   counts open brackets on every surface. `kcc serve` and `kcc mcp stdio` wait for it
   (at most 10 s, `BRACKET_GRACE` in `crates/kcc/src/server_shutdown.rs`) before they exit,
   then give the audit writer 5 s to flush.
-- **Audit waits.** Inside a bracket the change set defers its audit receipts
-  (`ChangeSet::defer_audit`): the arm, the work and the disarm are queued in order and
-  return at once, so another process holding the audit append lock cannot delay the
-  disarm. After the disarm the bracket waits at most `BRACKET_AUDIT_WAIT` (20 s). An
-  ordinary write waits `AUDIT_WAIT` (30 s) per receipt, and a Web sign-in
-  `LOGIN_AUDIT_WAIT` (5 s). The constants live in `crates/kcc-app/src/audit/receipt.rs`.
+- **Audit waits.** Queuing an entry never waits: `AuditLog::submit` puts it on the one
+  unbounded queue to the writer, which keeps the log in submission order. Inside a
+  bracket the change set defers its audit receipts (`ChangeSet::defer_audit`): the arm,
+  the work and the disarm are queued in order and return at once, so another process
+  holding the audit append lock cannot delay the disarm. After the disarm the bracket
+  waits at most `BRACKET_AUDIT_WAIT` (20 s). An ordinary write waits `AUDIT_WAIT` (30 s)
+  per receipt. The Web sign-in, sign-out and password change queue through
+  `AuditLog::submit_within`, which waits for one of 128 slots within the caller's limit
+  (`LOGIN_AUDIT_WAIT`, 5 s, for a sign-in) and refuses with `AuditError::QueueFull`
+  otherwise, so the action is refused rather than done without its entry. The constants
+  live in `crates/kcc-app/src/audit/receipt.rs`.
   A change the router applied whose entry is still queued is reported as applied with a
   pending note, because the writer keeps the entry and writes it later, in order.
 - **Surfaces.** The CLI (`crates/kcc/src/cli/change.rs`, `cli/exit.rs`) maps a failure to

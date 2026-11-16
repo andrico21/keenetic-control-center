@@ -14,12 +14,16 @@ mod support;
 extern crate alloc;
 
 use alloc::sync::Arc;
-use core::sync::atomic::{AtomicUsize, Ordering};
+use core::{
+    sync::atomic::{AtomicUsize, Ordering},
+    time::Duration,
+};
 use std::fs;
 
 use kcc_app::{
-    audit::{AUDIT_FILE_NAME, Actor, ActorKind, AuditEvent},
+    audit::{AUDIT_FILE_NAME, Actor, ActorKind, AuditEvent, verify_chain},
     permissions::{Permission, Role},
+    persist::StateStore,
     workflow::{ChangeResult, ChangeSet, WorkflowError},
 };
 use kcc_domain::{
@@ -31,7 +35,11 @@ use kcc_domain::{
     },
     system,
 };
-use kcc_testkit::FaultInjection;
+use kcc_testkit::{FaultInjection, model::Firmware};
+use tokio::{
+    task::{JoinSet, yield_now},
+    time::timeout,
+};
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -296,5 +304,69 @@ async fn a_panicking_bracket_leaves_the_count() -> TestResult {
         assert_eq!(fixture.workflow().brackets().count(), 0, "{firmware}: left");
         fixture.shutdown().await?;
     }
+    Ok(())
+}
+
+/// More entries than the old 128-slot audit queue held.
+const FLOOD: u64 = 200;
+
+/// B-04: a bracket arms, works and disarms with a saturated audit queue.
+///
+/// Another process holds the append lock and more entries are queued than the old
+/// 128-slot channel held; the bracket's receipts stay pending and every entry is written,
+/// in order, once the lock is free.
+#[tokio::test]
+async fn a_bracket_disarms_with_a_saturated_audit_queue() -> TestResult {
+    let fixture = Fixture::spawn(Firmware::V5_1).await?;
+    let mut changes = fixture.changes().await?;
+    let other_process = StateStore::open(&fixture.state_dir())?;
+    let held = other_process.try_lock(AUDIT_FILE_NAME)?;
+    let mut flood = JoinSet::new();
+    for index in 0..FLOOD {
+        let audit = fixture.audit().clone();
+        let event = AuditEvent::new(
+            index,
+            Actor::new(ActorKind::System, "flood".to_owned()),
+            "test.flood".to_owned(),
+        )
+        .with_result("success".to_owned(), format!("flood-{index}"));
+        drop(flood.spawn(async move { audit.append(event).await }));
+        yield_now().await;
+    }
+    let before = fixture.handle().request_log().len();
+
+    let bracket = timeout(
+        Duration::from_secs(90),
+        run(&mut changes, &fixture, SafetyMode::Router, Work::Apply),
+    )
+    .await
+    .map_err(|_elapsed| "the bracket hung on the saturated audit queue")?;
+
+    let applied = bracket?.map_err(|failure| format!("{:?}", failure.into_source()))?;
+    assert!(applied, "the work applied");
+    assert_eq!(
+        commands_after(&fixture, before),
+        lines(SafetyMode::Router),
+        "armed and disarmed"
+    );
+    assert!(!fixture.handle().recovery_armed(), "the timer is off");
+    assert!(changes.audit_pending(), "its receipts are still queued");
+    drop(held);
+    assert_eq!(fixture.audit().flush(Duration::from_secs(60)).await, 0);
+    flood.abort_all();
+    let written = verify_chain(&fixture.state_dir())?
+        .into_iter()
+        .map(|entry| entry.request_id)
+        .collect::<Vec<_>>();
+    let expected = (0..FLOOD)
+        .map(|index| format!("flood-{index}"))
+        .collect::<Vec<_>>();
+    assert_eq!(written.get(..expected.len()), Some(expected.as_slice()));
+    assert!(
+        written.len() > expected.len(),
+        "the bracket's entries follow"
+    );
+    drop(changes);
+    fixture.shutdown().await?;
     Ok(())
 }

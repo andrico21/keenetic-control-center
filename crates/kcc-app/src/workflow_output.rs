@@ -40,8 +40,8 @@ impl Serialize for TerminalCliChangeResult {
     where
         S: Serializer,
     {
-        json!({"responses":self.responses.iter().map(body_value).collect::<Vec<_>>()})
-            .serialize(serializer)
+        let responses = self.responses.iter().map(body_value).collect::<Vec<_>>();
+        noting(json!({ "responses": responses }), &self.audit).serialize(serializer)
     }
 }
 

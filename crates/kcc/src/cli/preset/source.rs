@@ -1,8 +1,9 @@
 //! Reading a preset source: a router's startup configuration, a backup, or a file.
 
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use kcc_app::permissions::{Permission, Role};
+use kcc_app::{
+    accounts::{Clock as _, SystemClock},
+    permissions::{Permission, Role},
+};
 use kcc_migrate::{
     presets::model::{PresetSource, PresetSourceKind},
     source::SourceConfig,
@@ -59,9 +60,7 @@ impl Origin {
             .clone()
             .or_else(|| config.hw_id.clone())
             .unwrap_or_default();
-        let captured_at = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
+        let captured_at = SystemClock::default().unix_seconds();
         let kind = match source_arg {
             SourceArg::File(_) => PresetSourceKind::File,
             SourceArg::Router(_) => PresetSourceKind::Router,

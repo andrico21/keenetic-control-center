@@ -5,8 +5,10 @@
 //! only because another process holds the audit append lock; its entry stays queued and
 //! is reported as pending.
 //!
-//! Inside a safety bracket the set defers: an entry is queued and the change returns at
-//! once, so the bracket reaches its disarm without waiting for any receipt. After the
+//! Queuing never waits ([`AuditLog::submit`]), however many entries are queued behind
+//! another process's append lock. Inside a safety bracket the set defers: an entry is
+//! queued and the change returns at once, so the bracket reaches its disarm without
+//! waiting for any receipt. After the
 //! disarm the bracket settles every deferred receipt within one bounded wait. Deferring
 //! changes no order: the entries are queued in the order the changes were sent, and the
 //! single writer writes them in that order (see `audit::writer`). A writer that failed
@@ -45,7 +47,7 @@ impl Receipts {
         audit: &AuditLog,
         event: AuditEvent,
     ) -> Result<AuditReceipt, AuditError> {
-        let queued = match audit.submit(event).await {
+        let queued = match audit.submit(event) {
             Err(AuditError::WriterUnavailable) if self.deferred => Pending::lost(),
             submitted => submitted?,
         };

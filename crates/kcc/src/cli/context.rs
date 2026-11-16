@@ -3,14 +3,11 @@
 extern crate alloc;
 
 use alloc::{collections::BTreeSet, sync::Arc};
-use std::{
-    path::{Path, PathBuf},
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::path::{Path, PathBuf};
 
 use kcc_app::{
-    accounts::{AccountStore, SystemClock},
-    audit::{Attempt, AuditEvent, AuditLog, AuditPolicy},
+    accounts::{AccountStore, Clock as _, SystemClock},
+    audit::{Attempt, AuditEvent, AuditLog, AuditPolicy, request_id},
     backups::{BackupRetention, BackupStore},
     credentials::CredentialStore,
     permissions::{Permission, Role, load_roles},
@@ -127,6 +124,8 @@ pub(crate) struct Ctx {
     state: StateStore,
     /// Acting principal.
     principal: Principal,
+    /// Correlation id of this run's audit entries.
+    request_id: String,
 }
 
 impl Ctx {
@@ -146,6 +145,7 @@ impl Ctx {
             config,
             state,
             principal,
+            request_id: request_id::next("cli"),
         })
     }
 
@@ -167,6 +167,11 @@ impl Ctx {
     /// Acting principal.
     pub(crate) const fn principal(&self) -> &Principal {
         &self.principal
+    }
+
+    /// Correlation id of this run's audit entries, its change sets' included.
+    pub(crate) fn request_id(&self) -> String {
+        self.request_id.clone()
     }
 
     /// Checks recovery authority and records a handler-level refusal.
@@ -422,12 +427,13 @@ impl Ctx {
         params: Value,
         outcome: &str,
     ) {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
-        let mut event = AuditEvent::new(timestamp, self.principal.actor(), action.to_owned())
-            .with_params(params)
-            .with_result(outcome.to_owned(), format!("cli-{timestamp}"));
+        let mut event = AuditEvent::new(
+            SystemClock::default().unix_seconds(),
+            self.principal.actor(),
+            action.to_owned(),
+        )
+        .with_params(params)
+        .with_result(outcome.to_owned(), self.request_id());
         if let Some(name) = router {
             event = event.with_router(name.to_owned());
         }
@@ -443,17 +449,14 @@ impl Ctx {
         router: Option<&str>,
         attempt: Attempt,
     ) {
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
         let event = AuditEvent::attempt(
-            timestamp,
+            SystemClock::default().unix_seconds(),
             self.principal.actor(),
             action.to_owned(),
             router.map(str::to_owned),
             attempt,
         )
-        .with_request_id(format!("cli-{timestamp}"));
+        .with_request_id(self.request_id());
         self.append(services, event).await;
     }
 

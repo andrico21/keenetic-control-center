@@ -148,7 +148,7 @@ async fn write(
     if let Some(name) = router {
         complete = complete.with_router(name);
     }
-    let written = match state.audit().submit(complete).await {
+    let written = match state.audit().submit(complete) {
         Ok(mut queued) => queued.wait(wait).await.map(drop),
         Err(error) => Err(error),
     };

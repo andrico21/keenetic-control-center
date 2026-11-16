@@ -275,3 +275,26 @@
   | kcc-migrate apply/agreements.rs, apply.rs admission | append (maps to ApplyError) | no permit |
   | kcc/src/server_shutdown.rs (test) | submit | no permit; production shutdown only calls flush |
 - Request ids: `kcc_app::audit::request_id::next(prefix)` = `<prefix>-<16 hex per-process nonce>-<seq>`; nonce = std RandomState (OS-seeded) hash, seq = AtomicU64. ChangeSet carries one id (generated at begin, `with_request_id` for the caller's); all its entries use it. CLI: one id per run (Ctx), passed into its change sets. Web/MCP sequence ids use the same generator.
+- Gotcha: `tokio::sync::OwnedSemaphorePermit` is `#[clippy::has_significant_drop]`; carried inside the queued `Command` it made every `AuditLog` binding a "significant drop" (`significant_drop_tightening` in tests of every crate). The slot is therefore `forget()`-ed when taken and given back by the writer (`add_permits(1)` after the entry is written; `close()` when the writer stops), instead of travelling as a permit.
+- Gotcha: `SystemClock` is `#[non_exhaustive]`: other crates write `SystemClock::default().unix_seconds()`.
+- [2026-11-16] Todo 28 done in wt/r28: RED captured (kcc-app queued 129/300, workflow ids all `change-1794842140`, kcc-domain bracket hung 90 s, kcc-web sign-in waited 30 s); GREEN targeted 7 tests; mutation (`if !holds_slot`) caught; full `cargo test -p kcc-app -p kcc-web -p kcc-mcp -p kcc-domain -p kcc --all-features` 1181 passed 0 failed FULL_EXIT=0; fmt check, clippy 5 crates, i18n-gen (no diff) + i18n-check, cancel-safety, allow-gate, machete, no_secrets all 0. Target dir and r28 logs removed.
+
+## [2026-11-16] Todo 30 (wt/r30) audit action names before E-08
+| action | Web | CLI | MCP (before) |
+| backup create | `web.config_backup_create` (kit Act, outcome from Outcome) | `cli.backup_create` success, params null | none |
+| preset capture | `web.preset_capture` (target id) | `cli.preset.capture` outcome `ok`, params {id, groups} | failures only (`mcp.kcc_preset_capture`) |
+| preset delete | `web.preset_delete` (target id) | `cli.preset.delete` outcome `ok`, params {id} | failures only |
+| job cancel | `web.explorer_job_cancel`, `web.diagnostics_cancel` (target job kind) | - | failures only (`mcp.kcc_job_cancel`) |
+| diagnostic start | `web.diagnostics_{ping,traceroute,arping,iperf3}` (target catalog path) | - | none |
+- Web and CLI disagree with each other on names (`config_backup_create` vs `backup_create`, `preset_capture` vs `preset.capture`) and outcomes (`success` vs `ok`). MCP failure entries are `mcp.<tool>`. Decision for MCP success entries: action `mcp.<tool>` (so one tool's success and failure share one action), outcome `success`, params like the CLI (preset id/groups, job id), never values.
+
+## [2026-11-16] Todo 29 progress
+- Export is `Body::from_stream(stream::iter(iterator of Result<Vec<u8>, serde_json::Error>))`; the observable that fails on a `String` body is the number of data chunks (`into_data_stream`), one per entry. Existing tests tamper with a different-length string so they invalidate the cache by length.
+- RED: SEC1-08 scope test and the export-streaming test failed on the old code (evidence log). The cache unit tests cannot exist before the cache; their red is a mutation (cache never hits) recorded in the same log.
+- `Pager::paginate` over `Vec<&AuditEntry>` then `row` on the slice only: rows are formatted for PAGE_ROWS entries, not for the whole log.
+- Golden after r29: only GET_ui_admin_audit_export (request ids from todo 28 only; identical after stripping request_id) and the known diagnostics job id differ; audit page HTML identical.
+
+## [2026-11-16] Todo 30 done in wt/r30 (E-08, E-24, N2, W2-03, W2-10, F-13, E-09)
+- RED captured for every finding (kcc-app cli_partial; kcc-mcp success_audit 3 tests + domain_tools audit_pending E-24 4 tools; kcc-web finish_audit 3 tests; kcc cli local_state 9 commands; E-09 also by mutation in its own binary). GREEN: cargo test -p kcc-mcp -p kcc-app -p kcc-web -p kcc -p kcc-domain --all-features 1190 passed 0 failed EXIT=0; fmt check, clippy 5 crates, cancel-safety, allow-gate, i18n-check, machete, no_secrets all 0. No existing test expectation changed.
+- Gotchas: passing a tool's work future into `finish_with_context` instead of awaiting it first trips `clippy::large_futures` on the three big rci tools (box the work: `Box::pin(rci::rci_execute(..))`). A tracing subscriber installed with `set_default` in one test races other tests' first hit of a span callsite (interest cached `never`, span missing from the line): keep such a test alone in its binary. A paused-clock + latency fault does not keep a job running deterministically (time auto-advances while the runtime waits on socket I/O); start a job that waits on its cancellation token through the Lab's `JobRunner` instead.
+- Web fault seam for a wizard record save: a directory at `<state>/migrations/<run>/wizard.json.tmp/held`.
