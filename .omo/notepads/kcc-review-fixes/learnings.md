@@ -323,3 +323,24 @@
 - `tokio::time::{pause, advance, resume}` in the middle of an otherwise real-time fixture test (after the router I/O is done) drives the lease expiry deterministically without the paused-clock + socket auto-advance problem.
 - Runs directory now also holds `index-wizard.json` / `index-preset.json`: tests that count entries of `<state>/migrations` must count directories only (migration_wizard/steps.rs changed).
 - RED captured for all findings before production changes (one MCP count test reworked and re-run red before the fix); GREEN: targeted 15 tests ok; full `cargo test --no-fail-fast -p kcc-web -p kcc-mcp -p kcc-migrate -p kcc -p kcc-testkit --all-features` 1046 passed 0 failed 7 ignored; fmt check, clippy (5 crates), i18n-gen/check, cancel-safety, assets-check, allow-gate, machete, no_secrets all 0; golden diff = audit export request ids + diagnostics job id only.
+
+## [2026-11-16] Todo 32 (wt/r32) design note, written before coding (C-03, C-21, C-15, C-16, G-05, C-11)
+- Bracket (`guarded`) failure matrix (fate = `Failure::fate()`, outcome = `Failure::outcome()`):
+  | step that fails | source | fate | outcome / message |
+  | baseline shows `fail-safe.active == true` (a timer the bracket did not arm) | new `WorkflowError::RecoveryTimerInUse` | None | new `Fate::TimerInUse` / new key `management-timer-in-use` (nothing sent, that timer left to its owner) |
+  | dead audit writer | `WorkflowError::Audit` | None | NotApplied |
+  | `hold()` false | new `WorkflowError::Unowned` (was Audit(WriterUnavailable)) | None | NotApplied |
+  | arm preflight (`prepare`) | its error | None | NotApplied |
+  | arm sent+failed, disarm ok, settle ok | arm error | None | NotApplied |
+  | arm sent+failed, disarm ok, settle failed | audit error (was dropped) | None | NotApplied |
+  | arm failed, disarm failed | arm error (or audit error if settle failed) | NotSent | Armed(NotSent) |
+  | work/disarm rows | unchanged | unchanged | unchanged |
+- Close matrix: Save/Router = commit only (commit already waits `unsaved == false`); commit refused -> armed Unknown, not applied. Save/ScheduledReboot unchanged (save -> armed Unknown; disarm refused -> armed Saved). KeepUnsaved disarm refused -> armed Applied (doc corrected). Rollback unchanged. `Failure::committed` becomes dead and is removed.
+- Migrate finish matrix: every failure before `close` in `commit` and `keep_unsaved` (ensure_unchanged drift, context/detect) -> `FinishFailed` (armed Unknown); `rollback`'s context -> `FinishFailed` too (same mapping). Lifecycle refusals (not verified / finished) unchanged. commit's `(None, true) => CommittedSaveFailed` arm becomes unreachable (close no longer saves twice) and is folded; the variant stays for stored records.
+- Front ends: Web `page_kit/change.rs` maps `Unowned` -> `Said::Unowned` (and its own pre-check uses `Unowned`), `RecoveryTimerInUse` -> the bracket key with audit id `conflict`; MCP `map_workflow` RecoveryTimerInUse -> Conflict, Unowned -> Internal, `map_recovery` TimerInUse -> the source's code; CLI `From<WorkflowError>`: RecoveryTimerInUse -> Exit::Conflict, Unowned -> Generic; `Failure::recovery` already headlines `message_key()`.
+- Component commit job: reads the staged set (`show components pending`) before the commit; after it waits (bounded, tokio time) for one failed probe (progress 60) and then a successful one, and completes only when every staged install is present and every staged removal is gone; otherwise fails. Fake router: new `FaultInjection::components_commit_answers(n)` (keeps answering n `show version` probes after the commit, then starts the reboot window) and `components_commit_discards(true)` (restarts without the staged changes).
+
+## [2026-11-16] Todo 34 done in wt/r34 (W5-03, N16, W5-04, W5-16)
+- RED captured before any production change (6 migration + 3 presets tests failed; finish of a preset run and an abandoned copy run were already correct). GREEN: targeted 11 tests; full `cargo test --no-fail-fast -p kcc-web --all-features` EXIT=0; fmt, clippy kcc-web+kcc-i18n, i18n-gen/check, cancel-safety, assets-check, allow-gate, machete, no_secrets all 0.
+- Gotcha: clippy's arithmetic_side_effects fires on `x? + N` in test helpers: use `saturating_add`. Gotcha: `cargo test` stops after the first failing test binary: use `--no-fail-fast` when running two test targets for the red capture.
+- Changed expectation: `migration_wizard/plan_steps.rs` (the_review_waits_for_conflicts_and_the_inputs_for_passwords) now posts the page's hidden `user-0`.

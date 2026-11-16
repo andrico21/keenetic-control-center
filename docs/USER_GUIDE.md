@@ -249,6 +249,15 @@ preview with downloadable plan and report, apply with live progress and Stop, re
 with Commit or Roll back, and the final report. [MIGRATION.md](MIGRATION.md) covers the
 rules.
 
+Runs of the migration wizard and of presets and copy settings are kept on the kcc host
+under `<state>/migrations/`. Each user keeps at most 10 unfinished runs of each wizard (the
+migration wizard, and presets with copy settings); an 11th start is refused with the
+reason. A run whose last change is more than a day old counts as abandoned and no longer
+as unfinished. A run, finished or abandoned, is deleted 30 days after its last change,
+with everything kcc kept for it; the deletion happens when the wizard's page is next
+opened. An apply that nobody finishes ends when the router's fail-safe timer runs out:
+the run then shows that the router rolled the changes back.
+
 ## Advanced: command explorer and consoles
 
 `/ui/r/<router>/explorer` searches the router's command catalog for its firmware and

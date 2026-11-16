@@ -8,6 +8,9 @@
 //!   opens as a backup nor a backup as one of them.
 //! - `report.json`: the redacted report of the reviewed plan.
 //!
+//! Beside the runs, each wizard keeps an index of its runs' owners (see
+//! [`super::index`]).
+//!
 //! On unix the directories are `0700` and the files `0600`; every file is written to a
 //! temporary name, synced and renamed into place.
 //!
@@ -25,7 +28,7 @@ use secrecy::SecretString;
 use serde::{Serialize, de::DeserializeOwned};
 use thiserror::Error;
 
-use super::{flow::Flow, ids::is_id};
+use super::{flow::Flow, ids::is_id, index};
 
 /// A sealed part of a migration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -130,34 +133,35 @@ impl Store {
     where
         F: Flow,
     {
+        index::enter::<F>(self, record.id(), record.owner())?;
         self.save_named(record.id(), F::FILE, record)
     }
 
-    /// Every readable record of `owner`, newest first.
+    /// Every readable record of `owner`, newest first: only the runs the index names
+    /// for `owner` are read, and names whose record is gone are dropped from the index.
     ///
     /// # Errors
     ///
-    /// Returns directory read failures.
+    /// Returns read failures of the index.
     pub(crate) fn list<F>(&self, owner: &str) -> Result<Vec<F>, StoreError>
     where
         F: Flow,
     {
-        let entries = match fs::read_dir(&self.root) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(error) => return Err(error.into()),
-        };
         let mut records = Vec::new();
-        for entry in entries {
-            let name = entry?.file_name();
-            let Some(id) = name.to_str() else {
+        let mut gone = Vec::new();
+        for (id, indexed) in index::runs::<F>(self)? {
+            if indexed != owner {
                 continue;
-            };
-            if let Ok(Some(record)) = self.load::<F>(id)
-                && record.owner() == owner
-            {
-                records.push(record);
             }
+            match self.load::<F>(&id) {
+                Ok(Some(record)) if record.owner() == owner => records.push(record),
+                Ok(Some(record)) => index::enter::<F>(self, &id, record.owner())?,
+                Ok(None) => gone.push(id),
+                Err(error) => tracing::warn!(%error, id, "a run record could not be read"),
+            }
+        }
+        if let Err(error) = index::forget::<F>(self, &gone) {
+            tracing::warn!(%error, "missing runs could not be dropped from the index");
         }
         records.sort_by(|left, right| {
             right
@@ -166,6 +170,32 @@ impl Store {
                 .then_with(|| right.id().cmp(left.id()))
         });
         Ok(records)
+    }
+
+    /// The runs' directory.
+    pub(crate) fn root(&self) -> &Path {
+        &self.root
+    }
+
+    /// Deletes run `id` with every file kcc kept for it.
+    ///
+    /// # Errors
+    ///
+    /// Returns removal failures other than a missing directory.
+    pub(crate) fn delete(&self, id: &str) -> Result<(), StoreError> {
+        if !is_id(id) {
+            return Err(StoreError::Malformed);
+        }
+        match fs::remove_dir_all(self.root.join(id)) {
+            Ok(()) => Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.into()),
+        }
+    }
+
+    /// Whether `part` of run `id` is sealed.
+    pub(crate) fn sealed(&self, id: &str, part: Sealed) -> bool {
+        is_id(id) && self.root.join(id).join(part.file()).exists()
     }
 
     /// Seals `text` as `part` of migration `id` with `key`.
@@ -234,26 +264,6 @@ impl Store {
         read(&self.root.join(id).join(file))?
             .map(|bytes| serde_json::from_slice(&bytes).map_err(|_error| StoreError::Malformed))
             .transpose()
-    }
-
-    /// The ids of every directory below the migrations directory, of either wizard.
-    ///
-    /// # Errors
-    ///
-    /// Returns directory read failures.
-    pub(crate) fn ids(&self) -> Result<Vec<String>, StoreError> {
-        let entries = match fs::read_dir(&self.root) {
-            Ok(entries) => entries,
-            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
-            Err(error) => return Err(error.into()),
-        };
-        let mut ids = Vec::new();
-        for entry in entries {
-            if let Some(id) = entry?.file_name().to_str().filter(|name| is_id(name)) {
-                ids.push(id.to_owned());
-            }
-        }
-        Ok(ids)
     }
 
     /// Deletes `part` of run `id`, when it was sealed.

@@ -47,6 +47,7 @@ mod ntp;
 pub mod outbound;
 mod projection;
 mod server;
+pub mod stall;
 pub mod time;
 mod tree;
 
@@ -712,6 +713,13 @@ impl Handle {
         self.router
             .as_ref()
             .map_or(0, |shared| shared.log_streams())
+    }
+
+    /// Holds every request that reaches this router from now on, unanswered, until the
+    /// returned [`stall::Stall`] is dropped.
+    #[inline]
+    pub fn stall(&self) -> stall::Stall {
+        stall::Stall::new(self.router.as_ref().map(|shared| shared.gate()))
     }
 
     /// Returns sanitized metadata for every request observed by the server.

@@ -3,6 +3,8 @@ extern crate alloc;
 
 #[path = "support/lab.rs"]
 mod lab;
+#[path = "migration_lease/records.rs"]
+mod records;
 
 #[cfg(test)]
 #[expect(

@@ -1982,3 +1982,4 @@ web-router-error-read-login = Geben Sie den Nur-Lese-Login zu diesem Passwort ei
 web-router-error-read-password = Geben Sie das Nur-Lese-Passwort zu diesem Login ein.
 web-time-utc = { $time } UTC
 web-router-error-permissions = Die Zugangsdatei dieses Routers ist für andere Benutzer lesbar. Führen Sie auf dem kcc-Host chmod 600 für diese Datei aus und versuchen Sie es erneut.
+web-wizard-runs-limit = Sie haben bereits 10 unvollendete Durchläufe dieses Assistenten. Schließen Sie zuerst einen ab; ein Durchlauf, der einen Tag lang unverändert blieb, zählt nicht mehr.

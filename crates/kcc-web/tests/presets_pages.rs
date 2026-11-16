@@ -3,6 +3,8 @@
 
 #[path = "presets_pages/apply.rs"]
 mod apply;
+#[path = "presets_pages/apply_abandoned.rs"]
+mod apply_abandoned;
 #[path = "presets_pages/capture.rs"]
 mod capture;
 #[path = "presets_pages/copy.rs"]
@@ -17,6 +19,8 @@ mod options;
 mod preview;
 #[path = "presets_pages/records.rs"]
 mod records;
+#[path = "presets_pages/retention.rs"]
+mod retention;
 #[path = "presets_pages/scope.rs"]
 mod scope;
 #[path = "presets_pages/secrets.rs"]

@@ -40,7 +40,7 @@ use crate::{
         analysis::parse_source,
         flow::{Flow as _, Stage as _},
         ids::fresh_id,
-        runs, screen,
+        retention, runs, screen,
         service::Wizards,
         services::Services,
         store::Sealed,
@@ -133,7 +133,9 @@ pub(super) async fn page(
     } else {
         None
     };
-    let rows = match services.store().list(user.username()) {
+    let store = services.store();
+    retention::sweep::<Record>(&store, state.unix_seconds());
+    let rows = match store.list(user.username()) {
         Ok(records) => records.iter().map(|record| row(record, locale)).collect(),
         Err(error) => return Refusal::Failed(Box::new(error)).page(shell),
     };
@@ -187,6 +189,17 @@ pub(super) async fn start(
     })?;
     let owner = user.username().to_owned();
     let now = state.unix_seconds();
+    let requested = if start.mode == "restore" {
+        "restore"
+    } else {
+        "migrate"
+    };
+    let params = json!({ "mode": requested, "reason": "limit" });
+    if let Some(refused) =
+        retention::refusal::<Record>(services, now, ("web.migrate_start", params)).await
+    {
+        return Err(refused);
+    }
     let (record, sealed) = match start.mode.as_str() {
         "restore" => {
             let Some((router, backup, text)) =

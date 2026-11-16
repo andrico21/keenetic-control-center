@@ -1,6 +1,8 @@
 //! The migration wizard over HTTP against fake routers: the steps from a KN-1010 to a
 //! KN-1811, resuming after a reload, and the guards around them.
 
+#[path = "migration_wizard/apply_abandoned.rs"]
+mod apply_abandoned;
 #[path = "migration_wizard/apply_failure.rs"]
 mod apply_failure;
 #[path = "migration_wizard/apply_flow.rs"]
@@ -23,8 +25,12 @@ mod plan_steps;
 mod preview;
 #[path = "migration_wizard/records.rs"]
 mod records;
+#[path = "migration_wizard/retention.rs"]
+mod retention;
 #[path = "migration_wizard/secrets.rs"]
 mod secrets;
+#[path = "migration_wizard/sessions.rs"]
+mod sessions;
 #[path = "migration_wizard/setup.rs"]
 mod setup;
 #[path = "migration_wizard/steps.rs"]

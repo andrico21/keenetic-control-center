@@ -111,3 +111,12 @@
 - `kcc-testkit/src/server.rs` (~1300 pure LOC) and `lib.rs` (~460) were already far over the size ceiling; the new request stall (`stall.rs`, `Handle::stall`) added ~15 lines to them.
 - The run-retention "last change" is the record file's mtime: restoring a state directory with a tool that resets mtimes changes the ages (a run may be deleted or counted as abandoned earlier/later).
 - Wizard store I/O stays synchronous `std::fs` inside async handlers (W5-05 territory); the new index/retention code follows the existing store.
+
+## 2026-11-16 todo 33 review follow-up (orchestrator)
+- `wizard/retention.rs::sweep` is called from each landing page view and stats the record file of every indexed run (the list itself reads only the owner's records). Cheap per run, but O(all runs) per landing view; candidate for a rate limit or a BACKLOG line if it matters at scale.
+- The owner index is rebuilt by one bounded scan of at most 4096 run directories (`wizard/index.rs::SCANNED`); runs beyond that are not indexed when the index file is lost. Candidate BACKLOG line.
+- `index-wizard.json` / `index-preset.json` now live in the runs directory beside the run directories (tests that count directories must count run directories only).
+
+## [2026-11-16] Todo 34 (wt/r34) notes, not fixed here
+- A running apply's `Analysis`/plan are cached in the run's session, so a migration whose sealed source was swept after a day of no change still plans from the cache until the process restarts; only a fresh read (Problem::Source) needs the sealed source.
+- The presets wizard's password rows are keyed by index only (no hidden user name); its users come from the server-side plan on both GET and POST, so the finding was limited to the migration wizard.

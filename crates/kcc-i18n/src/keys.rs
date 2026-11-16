@@ -6663,8 +6663,11 @@ pub const WEB_TIME_UTC: MessageKey = MessageKey::new("web-time-utc");
 pub const WEB_ROUTER_ERROR_PERMISSIONS: MessageKey =
     MessageKey::new("web-router-error-permissions");
 
+/// `web-wizard-runs-limit` in `web.ftl`.
+pub const WEB_WIZARD_RUNS_LIMIT: MessageKey = MessageKey::new("web-wizard-runs-limit");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2121] = [
+pub static ALL: [MessageKey; 2122] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8786,4 +8789,5 @@ pub static ALL: [MessageKey; 2121] = [
     WEB_ROUTER_ERROR_READ_PASSWORD,
     WEB_TIME_UTC,
     WEB_ROUTER_ERROR_PERMISSIONS,
+    WEB_WIZARD_RUNS_LIMIT,
 ];

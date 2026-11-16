@@ -214,6 +214,11 @@ remove that password is refused.
   retry with the decoded value.
 - After a kcc restart the wizard can't resume an apply: it ends as interrupted and the
   router's timer restores the saved configuration.
+- An applied run nobody finishes holds the target only while the router's timer runs.
+  When the timer's interval has passed since its last renewal, the router has restored
+  its saved configuration, so kcc lets the target go: the Web run ends as rolled back by
+  the router, and an MCP migration or preset apply is closed (its report stays readable
+  for an hour). Other writes to the target are refused until then.
 
 ### Raw restore caveats
 

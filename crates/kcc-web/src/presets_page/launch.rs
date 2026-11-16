@@ -8,6 +8,7 @@
 //! the target when nothing is left to finish.
 
 use alloc::{collections::BTreeMap, sync::Arc};
+use core::time::Duration;
 
 use kcc_app::jobs::JobRunner;
 use kcc_i18n::{bundle::MessageKey, keys};
@@ -23,9 +24,11 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    brackets,
     page_kit::audit::Record as Audit,
     wizard::{
         analysis::Problem,
+        expiry::{Watched, expire},
         flow::Flow as _,
         live::Live,
         run::Run,
@@ -40,14 +43,20 @@ pub(super) enum Failure {
     Refused(MessageKey, &'static str),
     /// The run's files could not be written.
     Broken(StoreError),
+    /// The request has no server owner, so the apply could be cut off half-started.
+    Unowned,
 }
 
 /// Starts the apply of `visit` with `jobs` and returns the job's id and the number of
-/// commands it sends; the target is already reserved in `runs`.
+/// commands it sends.
+///
+/// The target is read first, then reserved in `runs` and the request held, so a
+/// request cut off before the job starts leaves the target free; once the job started,
+/// the settler frees it.
 ///
 /// # Errors
 ///
-/// Returns why the apply did not start; the caller frees the target.
+/// Returns why the apply did not start, with the target free again.
 // NOT cancel-safe: once the job started, it runs on without its record.
 pub(super) async fn launch(
     visit: &mut Visit<'_>,
@@ -90,12 +99,21 @@ pub(super) async fn launch(
         })
         .collect::<BTreeMap<_, _>>();
     let (safety, commands) = (request.options.safety_seconds, texts.len());
+    let id = visit.record().id().to_owned();
+    let target = visit.record().target().unwrap_or_default().to_owned();
+    let claim = runs
+        .claim(&target, &id)
+        .ok_or(Failure::Refused(keys::WEB_PRESETS_APPLY_BUSY, "busy"))?;
+    if !brackets::hold() {
+        return Err(Failure::Unowned);
+    }
     let now = state.unix_seconds();
     let live = Live::new(now, texts);
     let events = jobs.subscribe();
     let (job, done) = Applier::start(jobs, request)
         .await
         .map_err(|_error| Failure::Refused(keys::WEB_PRESETS_APPLY_BUSY, "busy"))?;
+    claim.disarm();
     let session = visit.session();
     session.set_live(Some(Arc::clone(&live)));
     let follower = Arc::clone(&live);
@@ -113,8 +131,8 @@ pub(super) async fn launch(
         session,
         live,
         store: services.store(),
-        id: visit.record().id().to_owned(),
-        target: visit.record().target().unwrap_or_default().to_owned(),
+        id,
+        target,
     };
     drop(tokio::spawn(settle(settling, done)));
     visit
@@ -144,8 +162,10 @@ struct Settling {
     target: String,
 }
 
-/// Records how the apply ended once the job hands back its applier or its failure;
-/// frees the target when nothing is left to keep, save or roll back.
+/// Records how the apply ended once the job hands back its applier or its failure.
+///
+/// Frees the target when nothing is left to keep, save or roll back, and otherwise when
+/// the router's recovery window ends unfinished.
 // NOT cancel-safe: the record write and the audit append may be abandoned.
 async fn settle(context: Settling, done: oneshot::Receiver<Result<Applier, ApplyError>>) {
     let handed = done.await;
@@ -167,11 +187,32 @@ async fn settle(context: Settling, done: oneshot::Receiver<Result<Applier, Apply
         context.runs.release(&context.target, &context.id);
     }
     let outcome = if verified { "verified" } else { "failed" };
-    Audit::on_router("web.preset_apply_end", &context.target, context.id)
+    Audit::on_router("web.preset_apply_end", &context.target, context.id.clone())
         .append(&context.state, &context.user, outcome)
         .await;
+    let window = applier.as_ref().map(Applier::recovery_left);
     context.live.settle(applier, now).await;
     drop(turn);
+    if let Some(left) = window {
+        watch(context, left);
+    }
+}
+
+/// Ends the apply of `context` once the router's recovery window, `left` from now, ran
+/// out unfinished.
+fn watch(context: Settling, left: Duration) {
+    let Settling {
+        state,
+        user,
+        runs,
+        session,
+        live,
+        store: _,
+        id,
+        target,
+    } = context;
+    let watched = Watched::new((state, user), (runs, session, live), (id, target));
+    drop(tokio::spawn(expire(watched, left)));
 }
 
 /// Records in the run's record how its apply ended at `now`: the engine's report, or

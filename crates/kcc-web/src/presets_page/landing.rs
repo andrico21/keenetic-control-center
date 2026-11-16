@@ -32,6 +32,7 @@ use crate::{
     wizard::{
         flow::{Flow as _, Stage as _},
         ids::fresh_id,
+        retention,
         runs::{runs_table, started},
         screen,
         service::Wizards,
@@ -92,7 +93,7 @@ pub(super) async fn copy_page(
 }
 
 /// `GET /ui/presets/{id}/apply`: the user's runs of the preset and Start applying.
-// cancel-safe: reads only.
+// cancel-safe: every change comes after the last await.
 pub(super) async fn preset_page(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -111,6 +112,7 @@ pub(super) async fn preset_page(
         Ok(found) => found,
         Err(refusal) => return refusal.page(shell),
     };
+    saved::sweep(services, state.unix_seconds());
     let locale = user.locale();
     let rows = runs(
         &services.store(),
@@ -196,16 +198,23 @@ async fn start(
     let user = services.user();
     let locale = user.locale();
     let now = state.unix_seconds();
+    let kind = match origin {
+        Origin::Preset { id: _, name: _ } => "preset",
+        Origin::Copy => "copy",
+    };
+    let params = json!({ "kind": kind, "reason": "limit" });
+    if let Some(refused) =
+        retention::refusal::<Record>(services, now, ("web.preset_run_start", params)).await
+    {
+        return Err(refused);
+    }
     let id = fresh_id(now).ok_or_else(|| {
         Answer::from(errors::internal(
             "the random generator failed",
             fragment_shell(locale),
         ))
     })?;
-    let kind = match origin {
-        Origin::Preset { id: _, name: _ } => "preset",
-        Origin::Copy => "copy",
-    };
+
     let record = Record::new((id, user.username().to_owned()), now, origin, source_router);
     if let Err(error) = services.store().save(&record) {
         return Err(errors::internal(&error, fragment_shell(locale)).into());

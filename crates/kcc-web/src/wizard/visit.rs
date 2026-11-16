@@ -20,6 +20,22 @@ use super::{
 };
 use crate::page_kit::{audit::Record as Audit, context::Refusal};
 
+/// Run `id` as stored, when it is the user's.
+///
+/// # Errors
+///
+/// Returns [`Refusal::Missing`] for a missing or foreign run and the read failure.
+fn owned<F>(services: Services<'_>, id: &str) -> Result<F, Refusal>
+where
+    F: Flow,
+{
+    match services.store().load::<F>(id) {
+        Ok(Some(found)) if found.owner() == services.user().username() => Ok(found),
+        Ok(_) => Err(Refusal::Missing),
+        Err(error) => Err(Refusal::Failed(Box::new(error))),
+    }
+}
+
 /// An opened run, holding its turn until it is dropped.
 pub(crate) struct Visit<'call, F>
 where
@@ -41,6 +57,9 @@ where
 {
     /// Opens run `id` for the user of `services`, once it is its turn.
     ///
+    /// The run is read twice: once to check it is the user's before kcc keeps anything
+    /// for it in memory, and again once the turn is held, as the request's record.
+    ///
     /// # Errors
     ///
     /// Returns the refusal: a missing or foreign run is [`Refusal::Missing`], a router
@@ -56,13 +75,10 @@ where
         if !is_id(id) {
             return Err(Refusal::Missing);
         }
+        drop(owned::<F>(services, id)?);
         let session = wizards.session(id);
         let turn = session.turn().await;
-        let record = match services.store().load::<F>(id) {
-            Ok(Some(found)) if found.owner() == services.user().username() => found,
-            Ok(_) => return Err(Refusal::Missing),
-            Err(error) => return Err(Refusal::Failed(Box::new(error))),
-        };
+        let record = owned::<F>(services, id)?;
         if let Some(router) = record
             .routers()
             .into_iter()

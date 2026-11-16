@@ -154,6 +154,14 @@ either.
   the stream opened with (a role edit, or a `SIGHUP` reload that changes it). A stream
   also ends at the session's absolute expiry. These checks do not count as use: an open
   live view alone does not keep a session from its idle timeout.
+- Wizard runs (migration, presets and copy settings) are opened only by the account
+  that started them; kcc keeps a run's in-memory side only after that check, so another
+  user's requests cannot push it out. A user keeps at most 10 unfinished runs of each
+  wizard (a run unchanged for a day no longer counts), and runs unchanged for 30 days are
+  deleted, so run directories cannot fill the state disk without bound. An apply holds the
+  target router (the Web wizard's reservation and the change workflow's write lease) only
+  until it is finished or the router's fail-safe interval has passed; MCP finishing
+  stays limited to the identity that planned the migration.
 - Every state-changing request needs the session-bound `X-CSRF-Token` header, exactly
   one allowed `Origin` and a same-origin `Sec-Fetch-Site`.
 - `[web] login_max_failures` failed logins (5) lock the account for `lockout`

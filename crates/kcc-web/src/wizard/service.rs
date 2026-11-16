@@ -18,7 +18,7 @@ use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard};
 
 use super::{flow::Flow, live::Live};
 
-/// Runs kept in memory; the oldest one is forgotten first.
+/// Runs kept in memory; past it, the oldest idle one is forgotten first.
 const KEPT: usize = 64;
 
 /// The in-memory side of every open run of one wizard of one Web UI.
@@ -48,12 +48,25 @@ impl<F> Wizards<F>
 where
     F: Flow,
 {
-    /// Reserves `target` for run `id`; `false` when another run holds it.
-    pub(crate) fn claim(&self, target: &str, id: &str) -> bool {
+    /// Whether a run other than `id` holds `target`.
+    pub(crate) fn held_by_other(&self, target: &str, id: &str) -> bool {
         lock(&self.active)
+            .get(target)
+            .is_some_and(|holder| holder != id)
+    }
+
+    /// Reserves `target` for run `id`, unless another run holds it.
+    pub(crate) fn claim(self: &Arc<Self>, target: &str, id: &str) -> Option<Claim<F>> {
+        let claimed = *lock(&self.active)
             .entry(target.to_owned())
             .or_insert_with(|| id.to_owned())
-            == id
+            == *id;
+        claimed.then(|| Claim {
+            wizards: Arc::clone(self),
+            target: target.to_owned(),
+            id: id.to_owned(),
+            armed: true,
+        })
     }
 
     /// Frees `target` when run `id` holds it.
@@ -64,22 +77,61 @@ where
         }
     }
 
-    /// The session of run `id`, created on first use.
+    /// The session of run `id`, created on first use; the caller has checked that the
+    /// run exists and is the user's.
+    ///
+    /// Past [`KEPT`] runs, the oldest idle session is forgotten: one no request or apply
+    /// uses (only this list holds it, its turn is free and it keeps no apply).
     pub(crate) fn session(&self, id: &str) -> Arc<Session<F>> {
         let mut sessions = lock(&self.sessions);
         if let Some((_, found)) = sessions.iter().find(|(known, _)| known == id) {
             return Arc::clone(found);
         }
         if sessions.len() >= KEPT
-            && let Some(idle) = sessions
-                .iter()
-                .position(|(_, session)| lock(&session.live).is_none())
+            && let Some(idle) = sessions.iter().position(|(_, session)| session.idle())
         {
             drop(sessions.remove(idle));
         }
         let session = Arc::new(Session::default());
         sessions.push((id.to_owned(), Arc::clone(&session)));
         session
+    }
+}
+
+/// A target reserved for one run's apply until the apply's job owns it: dropped before
+/// [`Claim::disarm`], it frees the target again.
+pub(crate) struct Claim<F>
+where
+    F: Flow,
+{
+    /// The wizards holding the reservation.
+    wizards: Arc<Wizards<F>>,
+    /// The reserved target.
+    target: String,
+    /// The run holding it.
+    id: String,
+    /// Whether dropping the claim frees the target.
+    armed: bool,
+}
+
+impl<F> Claim<F>
+where
+    F: Flow,
+{
+    /// Hands the reservation to the started apply, which frees it when it ends.
+    pub(crate) fn disarm(mut self) {
+        self.armed = false;
+    }
+}
+
+impl<F> Drop for Claim<F>
+where
+    F: Flow,
+{
+    fn drop(&mut self) {
+        if self.armed {
+            self.wizards.release(&self.target, &self.id);
+        }
     }
 }
 
@@ -160,6 +212,12 @@ where
     pub(crate) fn keep_inventory(&self, router: &str, inventory: Arc<TargetInventory>) {
         drop(lock(&self.inventories).insert(router.to_owned(), inventory));
     }
+
+    /// Whether nothing uses the session: only the list holds it, no request holds its
+    /// turn and it keeps no apply.
+    fn idle(self: &Arc<Self>) -> bool {
+        Arc::strong_count(self) == 1 && self.turn.try_lock().is_ok() && lock(&self.live).is_none()
+    }
 }
 
 /// A lock whose holder cannot leave the data half-written, so a poisoned lock is used
@@ -167,3 +225,7 @@ where
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
+
+#[cfg(test)]
+#[path = "service_tests.rs"]
+mod tests;

@@ -32,6 +32,7 @@ use crate::{
     inflight::Counter,
     migration::{Fixture as MigrationFixture, State as MigrationState},
     ndw2,
+    stall::Gate,
     time::Clock,
     tree::{self, Selector},
 };
@@ -251,6 +252,8 @@ pub(crate) struct Shared {
     log_streams: AtomicU64,
     /// Opt-in `components check-update` answer.
     firmware_update: Mutex<Option<FirmwareUpdate>>,
+    /// Holds requests while a test stalls the router.
+    gate: Arc<Gate>,
 }
 
 /// Locks `mutex`, recovering the data if a previous holder panicked.
@@ -356,7 +359,13 @@ impl Shared {
             logs: Mutex::new(BTreeMap::new()),
             log_streams: AtomicU64::new(0),
             firmware_update: Mutex::new(None),
+            gate: Arc::default(),
         }
+    }
+
+    /// The door a test closes to hold requests.
+    pub(crate) fn gate(&self) -> Arc<Gate> {
+        Arc::clone(&self.gate)
     }
 
     /// Shared socket outage flag.
@@ -1174,6 +1183,7 @@ async fn inject_faults(
     next: Next,
 ) -> Response {
     shared.record_request(&request);
+    shared.gate.pass().await;
     let _inflight = shared.inflight.enter();
     shared.expire_reboots();
     let host = request

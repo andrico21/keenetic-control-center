@@ -13,12 +13,16 @@ use kcc_app::{
     permissions::Permission,
 };
 use kcc_domain::configuration::{SafetyNet, apply_needs::ApplyNeeds};
-use kcc_migrate::apply::{Applier, ApplyError, ApplyRequest, ApplySource};
+use kcc_migrate::{
+    apply::{Applier, ApplyError, ApplyRequest, ApplySource},
+    planner::MigrationPlan,
+};
 use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::sync::{broadcast, oneshot};
 
+use super::records::{Applying, Entry};
 use crate::{
     KccMcp, McpFailure, RouterId, authorize_routers,
     support::{
@@ -81,26 +85,29 @@ pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
     }
 }
 
-/// Validates the arguments, then returns the migration's routers and a copy of its plan.
-async fn reviewed(
-    server: &KccMcp,
-    input: &ApplyInput,
-) -> Result<([RouterId; 2], kcc_migrate::planner::MigrationPlan), McpFailure> {
+/// What a reviewed apply works with: the migration's routers, a copy of its plan, its
+/// record, and the mark that keeps the record while the apply runs.
+type Reviewed = ([RouterId; 2], MigrationPlan, Arc<Entry>, Applying);
+
+/// Validates the arguments, then returns what the apply works with.
+// cancel-safe: reads only; a dropped mark makes the record a plan again.
+async fn reviewed(server: &KccMcp, input: &ApplyInput) -> Result<Reviewed, McpFailure> {
     valid_job_id(&input.plan_id)?;
     let (identity, host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
     for permission in SafetyNet::apply_permissions(ApplyNeeds::default()) {
         authorize_routers(&identity, permission, core::slice::from_ref(&host))?;
     }
-    let entries = server.migrations.lock().await;
-    let migration = entries
+    let entry = server
+        .migrations
         .get(&input.plan_id)
         .ok_or(McpFailure::InvalidArguments)?;
+    let migration = entry.lock().await;
     let (routers, plan, applied) = (
         migration.routers_for(&identity)?,
         migration.plan().clone(),
         migration.applied(),
     );
-    drop(entries);
+    drop(migration);
     let [_source, target] = &routers;
     if target.as_str() != input.host {
         return Err(McpFailure::InvalidArguments);
@@ -112,7 +119,8 @@ async fn reviewed(
     if !input.confirm {
         return Err(McpFailure::ConfirmRequired);
     }
-    Ok((routers, plan))
+    let applying = entry.applying()?;
+    Ok((routers, plan, entry, applying))
 }
 
 /// Applies a reviewed plan; the call returns once the apply phase ends, before commit.
@@ -122,7 +130,7 @@ pub(crate) async fn apply(
     progress: Option<Progress>,
 ) -> Result<Value, McpFailure> {
     let input: ApplyInput = parse(arguments)?;
-    let ([source, target], plan) = reviewed(server, &input).await?;
+    let ([source, target], plan, entry, _applying) = reviewed(server, &input).await?;
     let identity = server.identity()?;
     let audit = server.audit.clone().ok_or(McpFailure::Internal)?;
     let client = server
@@ -150,13 +158,10 @@ pub(crate) async fn apply(
     let applier = follow(&job, &mut events, done, progress.as_ref())
         .await
         .map_err(map_apply)?;
-    let mut entries = server.migrations.lock().await;
-    let migration = entries
-        .get_mut(&input.plan_id)
-        .ok_or(McpFailure::Internal)?;
-    migration.record_apply(job.clone(), applier);
+    let mut migration = entry.lock().await;
+    entry.lease(&mut migration, job.clone(), applier);
     let mut value = migration.summary();
-    drop(entries);
+    drop(migration);
     if let Value::Object(summary) = &mut value {
         drop(summary.insert("job_id".to_owned(), json!(job)));
     }

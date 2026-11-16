@@ -107,7 +107,9 @@ mod tests {
             .post_form(&format!("{page}/mapping"), &admin, &fields)
             .await?;
         assert_eq!(redirected(&mapped)?, page, "on to the review");
-        let stored = fs::read_dir(fixture.state_dir().join("migrations"))?.count();
+        let stored = fs::read_dir(fixture.state_dir().join("migrations"))?
+            .filter(|entry| entry.as_ref().is_ok_and(|found| found.path().is_dir()))
+            .count();
         assert_eq!(stored, 1, "one migration directory");
         Ok(())
     }

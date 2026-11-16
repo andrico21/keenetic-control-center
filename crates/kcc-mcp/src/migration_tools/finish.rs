@@ -63,10 +63,11 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
     let input: FinishInput = parse(arguments)?;
     valid_job_id(&input.plan_id)?;
     let (identity, _host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
-    let mut entries = server.migrations.lock().await;
-    let migration = entries
-        .get_mut(&input.plan_id)
+    let entry = server
+        .migrations
+        .get(&input.plan_id)
         .ok_or(McpFailure::InvalidArguments)?;
+    let mut migration = entry.lock().await;
     let routers = migration.routers_for(&identity)?;
     let [_source, target] = &routers;
     if target.as_str() != input.host {
@@ -94,13 +95,13 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
     };
     if let Err(error) = result {
         if error == ApplyError::RollbackRestarting {
-            migration.close();
+            entry.close(&mut migration);
         }
         return Err(map_apply(error));
     }
-    migration.close();
+    entry.close(&mut migration);
     let value = migration.summary();
-    drop(entries);
+    drop(migration);
     Ok(value)
 }
 
@@ -111,16 +112,17 @@ pub(crate) async fn report(server: &KccMcp, arguments: Value) -> Result<Value, M
     let offset = parse_cursor(input.cursor.as_deref())?;
     let limit = usize::from(input.limit.unwrap_or(50).clamp(1, 100));
     let identity = server.identity()?;
-    let entries = server.migrations.lock().await;
-    let migration = entries
+    let entry = server
+        .migrations
         .get(&input.plan_id)
         .ok_or(McpFailure::InvalidArguments)?;
+    let migration = entry.lock().await;
     let (routers, mut value, page) = (
         migration.routers_for(&identity)?,
         migration.summary(),
         migration.items(offset, limit),
     );
-    drop(entries);
+    drop(migration);
     let [_source, target] = &routers;
     if target.as_str() != input.host {
         return Err(McpFailure::InvalidArguments);

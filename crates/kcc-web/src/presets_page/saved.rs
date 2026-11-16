@@ -1,5 +1,7 @@
-//! The presets kcc keeps: the encrypted preset store beside the backups, and a copy run's
-//! transient preset, sealed in the run's directory until the run finishes or a day passed.
+//! The presets kcc keeps, and the sweep of old preset runs.
+//!
+//! The encrypted preset store sits beside the backups; a copy run's transient preset is
+//! sealed in the run's directory until the run finishes or a day passed.
 
 use kcc_config::config_text::parse;
 use kcc_migrate::presets::{
@@ -19,6 +21,7 @@ use crate::{
     fleet::Fleet,
     wizard::{
         flow::Flow as _,
+        index, retention,
         services::Services,
         store::{Sealed, StoreError},
     },
@@ -128,18 +131,23 @@ pub(super) fn discard(services: Services<'_>, id: &str) {
     }
 }
 
-/// Deletes the sealed settings and passwords of every copy run started more than a day
-/// before `now`; the run itself stays, and says its settings are gone.
+/// Deletes, at `now`, the preset runs untouched for 30 days, and the sealed settings and
+/// passwords of every copy run started more than a day before; such a run itself stays,
+/// and says its settings are gone.
 pub(super) fn sweep(services: Services<'_>, now: u64) {
     let store = services.store();
-    let ids = match store.ids() {
+    retention::sweep::<Record>(&store, now);
+    let runs = match index::runs::<Record>(&store) {
         Ok(found) => found,
         Err(error) => {
             tracing::warn!(%error, "preset runs could not be listed for expiry");
             return;
         }
     };
-    for id in ids {
+    for id in runs.into_keys() {
+        if !store.sealed(&id, Sealed::Preset) && !store.sealed(&id, Sealed::Passwords) {
+            continue;
+        }
         let expired = store
             .load_named::<Record>(&id, FILE)
             .ok()

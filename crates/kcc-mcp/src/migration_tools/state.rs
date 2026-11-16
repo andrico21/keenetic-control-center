@@ -1,10 +1,11 @@
-//! In-memory migration records keyed by target router and plan id.
+//! One in-memory migration record: the plan, its report, and after apply its job and
+//! write lease.
 //!
 //! A `MigrationPlan` carries executable commands in secret buffers and deliberately cannot
 //! be deserialized, so plans and the applier's write lease live only in this process; a
 //! restart forgets them while any armed router safety timer still rolls the router back.
 
-use alloc::collections::BTreeMap;
+use core::time::Duration;
 
 use kcc_migrate::{
     apply::{Applier, ApplyReport},
@@ -12,7 +13,6 @@ use kcc_migrate::{
     report::MigrationReport,
 };
 use serde_json::{Value, json};
-use tokio::sync::{Mutex, MutexGuard};
 
 use crate::{McpFailure, McpIdentity, RouterId};
 
@@ -103,8 +103,23 @@ impl Migration {
     }
 
     /// Target router used to isolate otherwise identical planner ids.
-    const fn target(&self) -> &RouterId {
+    pub(crate) const fn target(&self) -> &RouterId {
         &self.target
+    }
+
+    /// The router-qualified id, the record's key.
+    pub(crate) fn key(&self) -> &str {
+        &self.id
+    }
+
+    /// Whether the record holds the target's write lease.
+    pub(crate) const fn leased(&self) -> bool {
+        self.applier.is_some()
+    }
+
+    /// How long the router's recovery timer still runs, while the lease is held.
+    pub(crate) fn recovery_left(&self) -> Option<Duration> {
+        self.applier.as_ref().map(Applier::recovery_left)
     }
 
     /// Plan counts and the apply outcome, without command text.
@@ -159,38 +174,5 @@ impl Migration {
             "items": items,
             "next_cursor": (next < self.report.items.len()).then(|| next.to_string())
         })
-    }
-}
-
-/// Every live migration of this process.
-#[derive(Debug, Default)]
-pub(crate) struct Migrations {
-    /// Records by target router and plan id.
-    entries: Mutex<BTreeMap<String, Migration>>,
-}
-
-impl Migrations {
-    /// Records a plan unless an applied migration on its target is still open.
-    ///
-    /// # Errors
-    /// Returns `conflict` while the target has an unfinished applied migration.
-    pub(crate) async fn record(&self, migration: Migration) -> Result<(), McpFailure> {
-        let mut entries = self.entries.lock().await;
-        let target = migration.target().as_str();
-        if entries
-            .values()
-            .any(|existing| existing.target().as_str() == target && existing.applier.is_some())
-        {
-            return Err(McpFailure::Conflict);
-        }
-        let key = migration.id.clone();
-        drop(entries.insert(key, migration));
-        drop(entries);
-        Ok(())
-    }
-
-    /// Locks the records.
-    pub(crate) async fn lock(&self) -> MutexGuard<'_, BTreeMap<String, Migration>> {
-        self.entries.lock().await
     }
 }

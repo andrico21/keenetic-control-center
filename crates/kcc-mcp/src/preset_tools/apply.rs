@@ -83,7 +83,7 @@ pub(crate) async fn apply(
     );
     migration.record_apply(job.clone(), applier);
     let mut value = migration.summary();
-    server.migrations.record(migration).await?;
+    drop(server.migrations.record(migration)?);
     if let Value::Object(summary) = &mut value {
         drop(summary.insert("job_id".to_owned(), json!(job)));
         drop(summary.insert("preset_id".to_owned(), json!(preset_id)));

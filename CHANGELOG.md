@@ -120,6 +120,20 @@ The first release, `0.1.0`, is in preparation and contains:
   last-changing agent as well, but every RCI client (another kcc, a script, the router's
   web interface) reports the same agent as kcc, so such changes went unnoticed. kcc's own
   earlier writes in the same change are never a conflict.
+- **Wizard runs are bounded.** A user keeps at most 10 unfinished runs of the migration
+  wizard and 10 of presets and copy settings; another start is refused (422, audited as
+  `refused` with `reason: "limit"`). A run unchanged for a day counts as abandoned and no
+  longer counts. Runs of either wizard unchanged for 30 days are deleted when the wizard's
+  page is next opened, preset runs included (before, only a copy run's sealed settings
+  were dropped after a day). The run lists read a per-wizard owner index
+  (`<state>/migrations/index-wizard.json`, `index-preset.json`), rebuilt from the runs when
+  missing or unreadable, instead of every run.
+- **An unfinished apply lets the router go when its recovery timer ends.** A Web wizard
+  apply or an MCP migration or preset apply that nobody commits, keeps or rolls back
+  releases the router's write lease once the armed fail-safe interval has passed since the
+  last renewal; the Web run ends as rolled back by the router, the MCP record is closed.
+  MCP keeps a record without a lease for an hour and at most 64 unapplied plans (oldest
+  forgotten first); a plan is refused with `conflict` while an apply on its target runs.
 
 - **The Web audit page and export respect the viewer's router scope.** A role scoped to
   some routers no longer sees entries of other routers, and entries that name no router
@@ -369,6 +383,15 @@ The first release, `0.1.0`, is in preparation and contains:
   fired and discarded all unsaved changes. A management change whose preflight is refused
   before its arm now sends nothing and reports that nothing was applied, instead of "the
   router may still be counting down".
+- **Wizard Apply and sessions.** An Apply whose request ends (the browser went away, the
+  request budget ran out) before its job starts no longer keeps the router claimed until
+  kcc restarts: the target is read first and reserved only right before the job starts.
+  A wizard run's in-memory session is created only after the run's owner is checked, and
+  is never forgotten while a request, its turn or its apply uses it, so other users' visits
+  can no longer break one-request-at-a-time on a run or lose an apply's result.
+- **MCP migration finish no longer holds every migration.** A commit or rollback waiting on
+  its router (a reboot wait included) locks only its own record; other migrations' plans,
+  applies and reports go on.
 
 - **Every successful or partial action is audited, with the request id the client got.**
   - MCP `kcc_backup_create`, `kcc_preset_capture`, `kcc_preset_delete`, `kcc_job_cancel`

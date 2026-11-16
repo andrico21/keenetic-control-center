@@ -29,7 +29,7 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
-    errors,
+    errors::{self, Kind},
     page_kit::{
         audit::Record as Audit,
         confirm::{Confirmation, Dialog, Resubmit, Words},
@@ -84,7 +84,7 @@ pub(super) async fn apply(
         let resubmit = Resubmit::new(format!("/ui/presets/runs/{id}/apply"), "#wizard-step");
         return Ok(Dialog::new(locale, words, resubmit).show());
     }
-    if !runs.claim(&target, &id) {
+    if runs.held_by_other(&target, &id) {
         audit.append(&state, &user, "busy").await;
         return Err(refusal(&visit, &state, keys::WEB_PRESETS_APPLY_BUSY).await);
     }
@@ -96,17 +96,15 @@ pub(super) async fn apply(
                 .await;
             Ok(screen::moved(visit.record()))
         }
-        Err(failure) => {
-            runs.release(&target, &id);
-            match failure {
-                Failure::Refused(key, outcome) => {
-                    audit.append(&state, &user, outcome).await;
-                    Err(refusal(&visit, &state, key).await)
-                }
-                Failure::Broken(error) => {
-                    Err(errors::internal(&error, fragment_shell(locale)).into())
-                }
-            }
+        Err(Failure::Refused(key, outcome)) => {
+            audit.append(&state, &user, outcome).await;
+            Err(refusal(&visit, &state, key).await)
+        }
+        Err(Failure::Broken(error)) => Err(errors::internal(&error, fragment_shell(locale)).into()),
+        Err(Failure::Unowned) => {
+            tracing::warn!("apply refused: its request has no server owner");
+            audit.append(&state, &user, "failed").await;
+            Err(errors::response(Kind::Internal, fragment_shell(locale)).into())
         }
     }
 }

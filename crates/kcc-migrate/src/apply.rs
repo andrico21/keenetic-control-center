@@ -194,6 +194,18 @@ impl Applier {
         &self.report
     }
 
+    /// How long the router's armed recovery timer still runs, on the apply's clock: from
+    /// the last renewal, the armed interval and one second more, zero once it ran out.
+    ///
+    /// After this the router has restored its startup configuration on its own, so
+    /// keeping the applier (and its write lease) longer protects nothing.
+    #[inline]
+    #[must_use]
+    pub fn recovery_left(&self) -> Duration {
+        let elapsed = self.options.clock.now().saturating_sub(self.armed_at);
+        Duration::from_secs(self.options.safety_seconds.saturating_add(1)).saturating_sub(elapsed)
+    }
+
     /// Explicitly persists verified migration changes.
     ///
     /// # Errors
