@@ -16,7 +16,10 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use kcc_catalog::Catalog;
-use kcc_domain::{RouterCtx, router_users};
+use kcc_domain::{
+    RouterCtx,
+    router_users::{self, protection::OwnLogins},
+};
 use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::{
@@ -132,7 +135,7 @@ impl Account {
     }
 }
 
-/// The accounts of `router` read through `domain`, marked with the login kcc uses.
+/// The accounts of `router` read through `domain`, marked with the logins kcc uses.
 ///
 /// # Errors
 ///
@@ -140,7 +143,7 @@ impl Account {
 // cancel-safe: reads only.
 pub(crate) async fn accounts(
     domain: &RouterCtx,
-    login: Option<&str>,
+    own: Option<&OwnLogins>,
 ) -> Result<Vec<Account>, MessageKey> {
     let users = router_users::read_users(domain).await.map_err(|error| {
         tracing::warn!(%error, "router accounts could not be read");
@@ -151,7 +154,7 @@ pub(crate) async fn accounts(
         .filter_map(|user| {
             let name = user.name?;
             Some(Account {
-                signs_in: login == Some(name.as_str()),
+                signs_in: own.is_some_and(|logins| logins.guard(&name).is_err()),
                 name,
                 tags: user.tags,
             })
@@ -228,8 +231,8 @@ impl<'call> Viewer<'call> {
     /// The accounts region read again through `domain` after a change, out of band.
     // cancel-safe: reads only.
     pub(crate) async fn refreshed(&self, state: &WebState, domain: &RouterCtx) -> Option<String> {
-        let login = profile_login(state, self.user, self.router).await;
-        let rows = accounts(domain, login.as_deref()).await.ok()?;
+        let own = profile_login(state, self.user, self.router).await;
+        let rows = accounts(domain, own.as_ref().ok()).await.ok()?;
         rendered(&Region {
             oob: true,
             ..self.region(rows, &domain.catalog)
@@ -265,8 +268,8 @@ pub(crate) async fn page(
     match reading {
         Ok((facts, domain)) => {
             page.add = viewer.controls(facts.catalog()).allows("create");
-            let login = profile_login(&state, &user, &router).await;
-            match accounts(&domain, login.as_deref()).await {
+            let own = profile_login(&state, &user, &router).await;
+            match accounts(&domain, own.as_ref().ok()).await {
                 Ok(rows) => page.region = Some(viewer.region(rows, facts.catalog())),
                 Err(message) => page.problem = Some(message),
             }

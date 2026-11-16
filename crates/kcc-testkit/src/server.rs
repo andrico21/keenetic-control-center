@@ -229,6 +229,8 @@ pub(crate) struct Shared {
     faults: FaultInjection,
     /// Mutable bounded parser-failure state.
     parse_fault: Mutex<Vec<ParseFault>>,
+    /// Mutable bounded read-failure state.
+    read_fault: Mutex<Vec<ParseFault>>,
     /// Whether the route-wipe incident is still armed.
     route_wipe_armed: Mutex<bool>,
     /// Sanitized request metadata in arrival order.
@@ -311,14 +313,17 @@ impl Shared {
         config: ConfigState,
         faults: FaultInjection,
     ) -> Self {
-        let parse_fault = faults
-            .fail_parse_matching
-            .iter()
-            .map(|(substring, remaining)| ParseFault {
-                substring: substring.clone(),
-                remaining: *remaining,
-            })
-            .collect();
+        let bounded = |matching: &[(String, usize)]| {
+            matching
+                .iter()
+                .map(|(substring, remaining)| ParseFault {
+                    substring: substring.clone(),
+                    remaining: *remaining,
+                })
+                .collect::<Vec<_>>()
+        };
+        let parse_fault = bounded(&faults.fail_parse_matching);
+        let read_fault = bounded(&faults.fail_read_matching);
         let route_wipe_armed = faults.route_wipe_on_remove;
         let components = Components::new(show.get("version"));
         Self {
@@ -340,6 +345,7 @@ impl Shared {
             scheduled_reboot: Mutex::new(ScheduledReboot::default()),
             faults,
             parse_fault: Mutex::new(parse_fault),
+            read_fault: Mutex::new(read_fault),
             route_wipe_armed: Mutex::new(route_wipe_armed),
             request_log: Mutex::new(Vec::new()),
             request_count: AtomicU64::new(0),
@@ -743,16 +749,12 @@ impl Shared {
 
     /// Consumes one matching bounded parser failure.
     fn reject_parse(&self, line: &str) -> bool {
-        let mut faults = lock(&self.parse_fault);
-        let matching = faults
-            .iter_mut()
-            .find(|state| state.remaining > 0 && line.contains(&state.substring));
-        let rejected = matching.is_some();
-        if let Some(state) = matching {
-            state.remaining = state.remaining.saturating_sub(1);
-        }
-        drop(faults);
-        rejected
+        consume_fault(&self.parse_fault, line)
+    }
+
+    /// Consumes one matching bounded read failure.
+    fn reject_read(&self, read: &str) -> bool {
+        consume_fault(&self.read_fault, read)
     }
 
     /// Consumes the one-shot route-wipe incident fault.
@@ -1329,12 +1331,34 @@ async fn rci_get(
     {
         return empty(StatusCode::NOT_FOUND);
     }
+    if shared.reject_read(&path) {
+        return empty(StatusCode::INTERNAL_SERVER_ERROR);
+    }
     read(&shared, &login, &path, &query)
+}
+
+/// Consumes one bounded failure of `faults` whose substring `text` contains.
+fn consume_fault(bounded: &Mutex<Vec<ParseFault>>, text: &str) -> bool {
+    let mut faults = lock(bounded);
+    let matching = faults
+        .iter_mut()
+        .find(|state| state.remaining > 0 && text.contains(&state.substring));
+    let rejected = matching.is_some();
+    if let Some(state) = matching {
+        state.remaining = state.remaining.saturating_sub(1);
+    }
+    drop(faults);
+    rejected
 }
 
 /// `POST /rci/`: batch endpoint at the root.
 // cancel-safe: no await point after the body is read.
 async fn rci_post_root(State(shared): State<Arc<Shared>>, body: Bytes) -> Response {
+    if !body.windows(8).any(|window| window == b"\"parse\":")
+        && shared.reject_read(&String::from_utf8_lossy(&body))
+    {
+        return empty(StatusCode::INTERNAL_SERVER_ERROR);
+    }
     parse_body(&body).map_or_else(
         || empty(StatusCode::BAD_REQUEST),
         |parsed| Json(shared.post("", &parsed)).into_response(),
@@ -1353,6 +1377,9 @@ async fn rci_post(
     let Some(parsed) = parse_body(&body) else {
         return empty(StatusCode::BAD_REQUEST);
     };
+    if path.starts_with("show/") && shared.reject_read(&path) {
+        return empty(StatusCode::INTERNAL_SERVER_ERROR);
+    }
     if path.starts_with("show/") || path == "whoami" {
         if path == "show/log" {
             let once = parsed.get("once").and_then(Value::as_bool).unwrap_or(true);

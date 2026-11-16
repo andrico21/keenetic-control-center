@@ -172,10 +172,11 @@ fn account_create(ctx: &RouterCtx, _firmware: Firmware) -> Steps<'_> {
 /// Create, tag removal and deletion of one account.
 fn account_and_tags(ctx: &RouterCtx, _firmware: Firmware) -> Steps<'_> {
     Box::pin(async move {
+        let own = router_users::protection::OwnLogins::new("admin", None)?;
         let operations = [
             router_users::plan_create(ctx, "readback67", &["http"])?,
-            router_users::plan_tag(ctx, "readback67", "http", false)?,
-            router_users::plan_delete(ctx, "readback67", "admin")?,
+            router_users::plan_tag(ctx, "readback67", &own, ("http", false))?,
+            router_users::plan_delete(ctx, "readback67", &own)?,
         ];
         let mut steps = Vec::new();
         for operation in &operations {

@@ -16,14 +16,16 @@ use kcc_domain::{
 };
 use kcc_i18n::{bundle::tr, keys};
 
-use super::shared::{NoDialog, merged, value};
+use super::shared::{NoDialog, merged, unread, value};
 use crate::{
     WebState,
     authz::CurrentUser,
+    net_change::unusable,
     page_kit::{
         action::{Action, Operation},
         change::Change,
         confirm::Resubmit,
+        family::Family,
         form::{Choice, FormDialog, Input},
         request::{Params, missing, with_query},
         respond::Answer,
@@ -35,11 +37,14 @@ use crate::{
 const FILESYSTEMS: [&str; 3] = ["ext4", "ntfs", "fat32"];
 
 /// Whether the router of `domain` has the medium `id`.
+///
+/// # Errors
+///
+/// Returns the read failure: a medium kcc could not see is not taken as absent.
 // cancel-safe: reads only.
-async fn known(domain: &RouterCtx, id: &str) -> bool {
-    storage::read_media(domain)
-        .await
-        .is_ok_and(|media| media.iter().any(|volume| volume.id.as_deref() == Some(id)))
+async fn known(domain: &RouterCtx, id: &str) -> DomainResult<bool> {
+    let media = storage::read_media(domain).await?;
+    Ok(media.iter().any(|volume| volume.id.as_deref() == Some(id)))
 }
 
 /// The kit's typed-name confirmation of a storage action, which sends the request to
@@ -80,8 +85,8 @@ where
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown medium, and what the kit answers when the router or the
-/// permission is missing.
+/// Answers 404 for an unknown medium, the failure when the media cannot be read, and what
+/// the kit answers when the router or the permission is missing.
 pub(crate) async fn eject(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -95,9 +100,16 @@ pub(crate) async fn eject(
         .await?;
     let domain = action.context().await?;
     let media = value(&pairs, "media").unwrap_or_default().to_owned();
-    if !known(&domain, &media).await {
-        action.abandon("not_found").await;
-        return Err(missing());
+    match known(&domain, &media).await {
+        Ok(true) => {}
+        Ok(false) => {
+            action.abandon("not_found").await;
+            return Err(missing());
+        }
+        Err(error) => {
+            tracing::warn!(%error, "router media could not be read");
+            return Err(unread(action).await);
+        }
     }
     let path = format!("/ui/r/{router}/system/storage/eject");
     let again = resubmit(&path, &[("media", &media)]);
@@ -112,8 +124,8 @@ pub(crate) async fn eject(
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown medium, and what the kit answers when the router or the
-/// permission is missing.
+/// Answers 404 for an unknown medium, the failure when the media cannot be read, and what
+/// the kit answers when the router or the permission is missing.
 pub(crate) async fn check(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -127,9 +139,16 @@ pub(crate) async fn check(
         .await?;
     let domain = action.context().await?;
     let media = value(&pairs, "media").unwrap_or_default().to_owned();
-    if !known(&domain, &media).await {
-        action.abandon("not_found").await;
-        return Err(missing());
+    match known(&domain, &media).await {
+        Ok(true) => {}
+        Ok(false) => {
+            action.abandon("not_found").await;
+            return Err(missing());
+        }
+        Err(error) => {
+            tracing::warn!(%error, "router media could not be read");
+            return Err(unread(action).await);
+        }
     }
     let path = format!("/ui/r/{router}/system/storage/check");
     let again = resubmit(&path, &[("media", &media)]);
@@ -144,8 +163,8 @@ pub(crate) async fn check(
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown medium, and what the kit answers when the router or the
-/// permission is missing.
+/// Answers 404 for an unknown medium, the failure when the media cannot be read, and what
+/// the kit answers when the router or the permission is missing.
 pub(crate) async fn format_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -161,10 +180,15 @@ pub(crate) async fn format_dialog(
     .await?;
     let domain = action.context().await?;
     let media = value(&query, "media").unwrap_or_default().to_owned();
-    if !known(&domain, &media).await {
-        return Err(missing());
-    }
     let locale = action.locale();
+    match known(&domain, &media).await {
+        Ok(true) => {}
+        Ok(false) => return Err(missing()),
+        Err(error) => {
+            tracing::warn!(%error, "router media could not be read");
+            return Err(unusable(locale, Family::Changes.unreachable()));
+        }
+    }
     let filesystems = FILESYSTEMS.iter().map(|each| Choice::plain(each)).collect();
     Ok(FormDialog::new(
         locale,
@@ -185,8 +209,8 @@ pub(crate) async fn format_dialog(
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown medium or filesystem, and what the kit answers when the
-/// router or the permission is missing.
+/// Answers 404 for an unknown medium or filesystem, the failure when the media cannot be
+/// read, and what the kit answers when the router or the permission is missing.
 pub(crate) async fn format(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -205,9 +229,21 @@ pub(crate) async fn format(
     let domain = action.context().await?;
     let media = value(&pairs, "media").unwrap_or_default().to_owned();
     let filesystem = value(&pairs, "filesystem").unwrap_or_default().to_owned();
-    if !FILESYSTEMS.contains(&filesystem.as_str()) || !known(&domain, &media).await {
-        action.abandon("not_found").await;
-        return Err(missing());
+    let found = if FILESYSTEMS.contains(&filesystem.as_str()) {
+        known(&domain, &media).await
+    } else {
+        Ok(false)
+    };
+    match found {
+        Ok(true) => {}
+        Ok(false) => {
+            action.abandon("not_found").await;
+            return Err(missing());
+        }
+        Err(error) => {
+            tracing::warn!(%error, "router media could not be read");
+            return Err(unread(action).await);
+        }
     }
     let path = format!("/ui/r/{router}/system/storage/format");
     let again = resubmit(&path, &[("media", &media), ("filesystem", &filesystem)]);

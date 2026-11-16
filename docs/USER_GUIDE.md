@@ -194,8 +194,13 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   simulator projection is documentation-derived; the real firmware shape is unconfirmed.
 - **Router users**: router accounts and their tags; add (with an optional password),
   set a password, and delete. These are risky changes run under the fail-safe timer.
-  kcc refuses to delete the account it logs in with or to change its password: change
-  that password on the router, then enter it in kcc with Edit router.
+  kcc refuses to delete the accounts it logs in with (the profile's login and its
+  read-only login), to change their passwords or to remove their tags: change such a
+  password on the router, then enter it in kcc with Edit router. An API token profile
+  names no login, so kcc cannot tell its own account there and refuses every password
+  change, tag change and deletion of a router account. When the router cannot be read
+  to check whether an account, component, medium or KeenDNS name exists, the change
+  answers that the router did not answer and sends nothing.
 - **Services**: turn router services on or off.
 - **Components**: installed components; check for updates, queue installs or
   removals, commit (a background job that may reboot the router).

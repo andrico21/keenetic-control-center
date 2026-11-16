@@ -5,7 +5,9 @@ use axum::{
     http::HeaderMap,
     response::{IntoResponse as _, Response},
 };
-use kcc_domain::RouterCtx;
+use kcc_domain::{
+    DomainError, Result as DomainResult, RouterCtx, router_users::protection::OwnLogins,
+};
 use kcc_i18n::{bundle::MessageKey, locale::Locale};
 use url::form_urlencoded;
 
@@ -15,8 +17,10 @@ use crate::{
     errors,
     errors::Kind,
     nav::Section,
+    net_change::unusable,
     page::Shell,
     page_kit::{
+        action::Action,
         context,
         context::{Caller, fragment_shell},
         facts::RouterFacts,
@@ -142,19 +146,39 @@ pub(crate) fn refused(failure: &Failure, locale: Locale) -> Response {
     )
 }
 
-/// The login kcc signs in to `router` with, when `user` may read its profile.
+/// The router accounts kcc signs in to `router` with, which account changes must keep.
+///
+/// # Errors
+///
+/// [`DomainError::ProtectedAccount`] when the profile cannot be read, is not visible to
+/// `user` or names no login: kcc cannot tell its own account then, so every account is
+/// protected.
 // cancel-safe: reads only.
 pub(crate) async fn profile_login(
     state: &WebState,
     user: &CurrentUser,
     router: &str,
-) -> Option<String> {
-    let fleet = state.fleet()?;
-    context::lookup(fleet, user.role(), router)
-        .await
-        .ok()
-        .flatten()
-        .map(|entry| entry.profile.login)
+) -> DomainResult<OwnLogins> {
+    let fleet = state.fleet().ok_or(DomainError::ProtectedAccount)?;
+    match context::lookup(fleet, user.role(), router).await {
+        Ok(Some(entry)) => {
+            OwnLogins::new(&entry.profile.login, entry.profile.read_login.as_deref())
+        }
+        Ok(None) => Err(DomainError::ProtectedAccount),
+        Err(error) => {
+            tracing::warn!(%error, "router profile could not be read");
+            Err(DomainError::ProtectedAccount)
+        }
+    }
+}
+
+/// Ends `action` because the router could not be read to check what the change names:
+/// the change is not taken as one on an absent object, it answers unreachable.
+// NOT cancel-safe: an abandoned append may still be written.
+pub(crate) async fn unread(action: Action<'_>) -> Answer {
+    let locale = action.locale();
+    action.abandon("unreachable").await;
+    unusable(locale, Family::Changes.unreachable())
 }
 
 #[cfg(test)]

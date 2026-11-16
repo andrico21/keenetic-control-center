@@ -80,13 +80,14 @@ pub(super) fn check(router: &RouterCtx, domain: DomainId, op: &str) -> TestResul
             checked(logging::change_request(&plan)?)
         }
         DomainId::RouterUsers => {
+            let own = router_users::protection::OwnLogins::new("admin", None)?;
             let plan = match op {
                 "create" => router_users::plan_create(router, "coverage67", &["http"])?,
-                "set_tag" => router_users::plan_tag(router, "coverage67", "http", true)?,
+                "set_tag" => router_users::plan_tag(router, "coverage67", &own, ("http", true))?,
                 "set_password" => {
-                    router_users::plan_password(router, "coverage67", "admin", secret())?
+                    router_users::plan_password(router, "coverage67", &own, secret())?
                 }
-                "delete" => router_users::plan_delete(router, "coverage67", "admin")?,
+                "delete" => router_users::plan_delete(router, "coverage67", &own)?,
                 _ => return Err("uncovered account operation".into()),
             };
             checked(router_users::change_request(&plan)?)

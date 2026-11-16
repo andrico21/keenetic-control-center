@@ -12,7 +12,10 @@ use kcc_app::{
     workflow::{ChangeSet, CliChangeRequest},
 };
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, DomainError, RouterCtx, configuration::SafetyNet, verification};
+use kcc_domain::{
+    ChangeOp, DomainError, RouterCtx, configuration::SafetyNet,
+    router_users::protection::OwnLogins, verification,
+};
 use kcc_rci::{Mac, ObjectName};
 use secrecy::SecretString;
 use serde_json::{Value, json};
@@ -163,6 +166,20 @@ where
 /// The result of an applied change, marked `audit_pending` while its entry is queued.
 pub(super) fn applied(unsaved: bool, audit: &AuditReceipt) -> Value {
     noting(json!({ "applied": true, "unsaved": unsaved }), audit)
+}
+
+/// The router accounts kcc signs in to `router` with, which account changes must keep.
+///
+/// # Errors
+///
+/// Forbidden when the profile names no login, internal when it cannot be read.
+pub(super) fn own_logins(server: &KccMcp, router: &str) -> Result<OwnLogins, McpFailure> {
+    let profile = server
+        .registry
+        .get(router)
+        .map_err(|_error| McpFailure::Internal)?
+        .profile;
+    OwnLogins::new(&profile.login, profile.read_login.as_deref()).map_err(map_domain)
 }
 
 /// A required object name.

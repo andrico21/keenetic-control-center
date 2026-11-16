@@ -118,6 +118,8 @@ pub struct FaultInjection {
     refuse_management_bridge_down: bool,
     /// Parser substrings, each with its bounded number of matching failures.
     fail_parse_matching: Vec<(String, usize)>,
+    /// Read substrings, each with its bounded number of matching HTTP 500 answers.
+    fail_read_matching: Vec<(String, usize)>,
     /// Whether one single-route removal wipes every static route in that address family.
     route_wipe_on_remove: bool,
     /// Acknowledge `fail-safe timer reboot` without arming the timer.
@@ -221,6 +223,19 @@ impl FaultInjection {
         S: Into<String>,
     {
         self.fail_parse_matching.push((substring.into(), times));
+        self
+    }
+
+    /// Answers the next `times` reads containing `substring` with HTTP 500: a `show`
+    /// path such as `show/media`, or the body of a root `POST` such as `"rc":{"user"`.
+    /// Parser lines are never matched.
+    #[inline]
+    #[must_use]
+    pub fn fail_read_matching<S>(mut self, substring: S, times: usize) -> Self
+    where
+        S: Into<String>,
+    {
+        self.fail_read_matching.push((substring.into(), times));
         self
     }
 

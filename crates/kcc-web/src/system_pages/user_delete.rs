@@ -24,10 +24,12 @@ use crate::{
     WebState,
     authz::CurrentUser,
     errors,
+    net_change::unusable,
     page_kit::{
         action::Operation,
         change::Change,
         confirm::{Dialog, Resubmit, TypedNameForm},
+        family::Family,
         outcome::Failure,
         request::{Params, missing, shown_query},
         respond::{self, Answer},
@@ -59,8 +61,8 @@ fn confirmation(router: &str, locale: Locale, name: &str) -> Dialog {
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown account, and what the kit answers when the router or the
-/// permission is missing.
+/// Answers 404 for an unknown account, the failure when the router cannot be read, and
+/// what the kit answers when the router or the permission is missing.
 pub(crate) async fn delete_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -70,7 +72,11 @@ pub(crate) async fn delete_dialog(
     let action = DELETE.open(&state, &user, &router).await?;
     let domain = action.context().await?;
     let name = value(&query, "name").unwrap_or_default();
-    let account = find(&domain, name).await.ok_or_else(missing)?;
+    let unreachable = Family::Changes.unreachable();
+    let account = find(&domain, name)
+        .await
+        .map_err(|_logged| unusable(action.locale(), unreachable))?
+        .ok_or_else(missing)?;
     Ok(errors::render(&confirmation(
         &router,
         action.locale(),
@@ -101,9 +107,7 @@ pub(crate) async fn delete(
         dialog.set_error(tr(locale, keys::WEB_ADMIN_ERROR_CONFIRM, None));
         return Err(respond::unprocessable(&dialog).into());
     }
-    let login = profile_login(&state, &user, &router)
-        .await
-        .unwrap_or_default();
+    let own = profile_login(&state, &user, &router).await;
     let typed = Params::of(vec![("confirm".to_owned(), "yes".to_owned())]);
     let resubmit = Resubmit::new(
         format!("/ui/r/{router}/system/users/delete"),
@@ -115,7 +119,7 @@ pub(crate) async fn delete(
         .submit(
             |_typed| Ok(()),
             async |(), ctx| {
-                let operation = router_users::plan_delete(ctx, form.name(), &login)?;
+                let operation = router_users::plan_delete(ctx, form.name(), &own?)?;
                 let request = router_users::change_request(&operation)?;
                 Ok(Planned::of(&[operation], Change::Cli(request)))
             },

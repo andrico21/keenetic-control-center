@@ -12,7 +12,7 @@ use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
     keendns::Viewer,
-    shared::{NoDialog, refused, value},
+    shared::{NoDialog, refused, unread, value},
 };
 use crate::{
     WebState,
@@ -216,8 +216,8 @@ pub(crate) async fn book(
 ///
 /// # Errors
 ///
-/// Answers 404 when no name is booked, and what the kit answers when the router or the
-/// permission is missing.
+/// Answers 404 when no name is booked, the failure when the status cannot be read, and
+/// what the kit answers when the router or the permission is missing.
 pub(crate) async fn drop_name(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -225,11 +225,16 @@ pub(crate) async fn drop_name(
 ) -> Result<Response, Answer> {
     let action = DROP.open(&state, &user, &router).await?;
     let domain = action.context().await?;
-    let booked = keendns::read_status(&domain)
-        .await
-        .ok()
-        .filter(|found| found.booked == Some(true))
-        .and_then(|found| found.name);
+    let status = match keendns::read_status(&domain).await {
+        Ok(status) => status,
+        Err(error) => {
+            tracing::warn!(%error, "KeenDNS status could not be read");
+            return Err(unread(action).await);
+        }
+    };
+    let booked = (status.booked == Some(true))
+        .then_some(status.name)
+        .flatten();
     let Some((name, zone)) = booked.as_deref().and_then(|full| full.split_once('.')) else {
         action.abandon("not_found").await;
         return Err(missing());

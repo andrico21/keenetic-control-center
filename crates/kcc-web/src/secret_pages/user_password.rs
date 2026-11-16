@@ -77,7 +77,10 @@ pub(crate) async fn password_dialog(
     let action = SET_PASSWORD.open(&state, &user, &router).await?;
     let locale = action.locale();
     let shown = dialog(&router, name.as_str(), locale);
-    if profile_login(&state, &user, &router).await.as_deref() == Some(name.as_str()) {
+    let guarded = profile_login(&state, &user, &router)
+        .await
+        .and_then(|own| own.guard(name.as_str()));
+    if guarded.is_err() {
         return Ok(shown.refused(protected(locale)).show());
     }
     Ok(shown.show())
@@ -101,13 +104,13 @@ pub(crate) async fn password(
     let action = SET_PASSWORD.open(&state, &user, &router).await?;
     let locale = action.locale();
     let shown = dialog(&router, name.as_str(), locale);
-    let login = profile_login(&state, &user, &router)
-        .await
-        .unwrap_or_default();
-    if login == name.as_str() {
-        action.abandon("protected_account").await;
-        return Err(shown.refused(protected(locale)).refusal());
-    }
+    let own = match profile_login(&state, &user, &router).await {
+        Ok(own) if own.guard(name.as_str()).is_ok() => own,
+        Ok(_) | Err(_) => {
+            action.abandon("protected_account").await;
+            return Err(shown.refused(protected(locale)).refusal());
+        }
+    };
     let confirmed = Confirmation::from_pairs(&form).confirmed();
     let Some(checked) = typed(entry(&mut form)) else {
         return Ok(unchanged(action).await);
@@ -122,7 +125,7 @@ pub(crate) async fn password(
         "#page-outcome",
     );
     Ok(run(known, checked, (asked, resubmit), async |ctx, secret| {
-        router_users::plan_password(ctx, name.as_str(), &login, secret)
+        router_users::plan_password(ctx, name.as_str(), &own, secret)
     })
     .await)
 }

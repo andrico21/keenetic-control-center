@@ -13,6 +13,7 @@ mod tests {
     use kcc_app::permissions::{Permission, Role};
     use kcc_domain::{
         DomainError,
+        router_users::protection::OwnLogins,
         vpn_clients::secrets::CredentialTarget,
         vpn_servers::{
             self,
@@ -65,7 +66,7 @@ mod tests {
             let plan = secrets::plan_password(
                 fixture.context(),
                 &name,
-                "admin",
+                &OwnLogins::new("admin", None)?,
                 SecretString::from(secret),
             )?;
             let mut changes = fixture.changes().await?;

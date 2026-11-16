@@ -45,24 +45,72 @@ async fn protected_account_refusals_send_no_router_request() -> TestResult {
     for firmware in PROFILES {
         let fixture = Fixture::spawn(firmware).await?;
         let before = fixture.handle().request_count();
+        let own = router_users::protection::OwnLogins::new(DEFAULT_LOGIN, None)?;
 
         assert!(matches!(
-            router_users::plan_tag(fixture.context(), "admin", "cli", false),
+            router_users::plan_tag(fixture.context(), "admin", &own, ("cli", false)),
             Err(DomainError::ProtectedAccount)
         ));
         assert!(matches!(
-            router_users::plan_delete(fixture.context(), DEFAULT_LOGIN, DEFAULT_LOGIN),
+            router_users::plan_delete(fixture.context(), DEFAULT_LOGIN, &own),
             Err(DomainError::ProtectedAccount)
         ));
         assert!(matches!(
             router_users::plan_password(
                 fixture.context(),
                 DEFAULT_LOGIN,
-                DEFAULT_LOGIN,
+                &own,
                 SecretString::from("replacement"),
             ),
             Err(DomainError::ProtectedAccount)
         ));
+        assert_eq!(fixture.handle().request_count(), before);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// W1-07, W4-03, C-24: both logins kcc signs in with are protected.
+///
+/// The primary and the read-only login keep their password, their tags and the account
+/// itself; a profile that names no login protects every account; nothing is sent.
+#[tokio::test]
+async fn own_logins_are_refused_and_a_missing_login_protects_every_account() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let router = fixture.context();
+        let before = fixture.handle().request_count();
+        let own = router_users::protection::OwnLogins::new(DEFAULT_LOGIN, Some("monitor"))?;
+
+        for name in [DEFAULT_LOGIN, "monitor"] {
+            let secret = SecretString::from(format!("replacement-{}", 7_u8));
+            assert!(matches!(
+                router_users::plan_password(router, name, &own, secret),
+                Err(DomainError::ProtectedAccount)
+            ));
+            assert!(matches!(
+                router_users::plan_delete(router, name, &own),
+                Err(DomainError::ProtectedAccount)
+            ));
+            assert!(matches!(
+                router_users::plan_tag(router, name, &own, ("http", false)),
+                Err(DomainError::ProtectedAccount)
+            ));
+            drop(router_users::plan_tag(router, name, &own, ("http", true))?);
+        }
+        drop(router_users::plan_tag(
+            router,
+            "operator",
+            &own,
+            ("http", false),
+        )?);
+        drop(router_users::plan_delete(router, "operator", &own)?);
+        for (login, reader) in [("", None), (DEFAULT_LOGIN, Some(""))] {
+            assert!(matches!(
+                router_users::protection::OwnLogins::new(login, reader),
+                Err(DomainError::ProtectedAccount)
+            ));
+        }
         assert_eq!(fixture.handle().request_count(), before);
         fixture.shutdown().await?;
     }
@@ -80,7 +128,7 @@ async fn password_write_hashes_and_never_exposes_plaintext() -> TestResult {
         let operation = router_users::plan_password(
             fixture.context(),
             "operator",
-            DEFAULT_LOGIN,
+            &router_users::protection::OwnLogins::new(DEFAULT_LOGIN, None)?,
             SecretString::from(secret.to_owned()),
         )?;
         assert!(!format!("{operation:?}").contains(secret));
@@ -123,7 +171,7 @@ async fn password_control_character_is_refused_before_router_request() -> TestRe
         let result = router_users::plan_password(
             fixture.context(),
             DEFAULT_LOGIN,
-            "operator",
+            &router_users::protection::OwnLogins::new("operator", None)?,
             SecretString::from("bad\npassword".to_owned()),
         );
 

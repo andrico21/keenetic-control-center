@@ -229,8 +229,9 @@ The threat model is in [docs/SECURITY.md](docs/SECURITY.md).
 ## Limitations
 
 - No firmware line has live hardware evidence yet; see [docs/FIRMWARE.md](docs/FIRMWARE.md).
-- kcc refuses to change the password of the router account it logs in with and sends
-  nothing to the router. Change that password on the router, then run
+- kcc refuses to change the password of the router accounts it logs in with (the
+  profile's login and its read-only login) and sends nothing to the router; under an API
+  token profile, which names no login, it refuses every router-account password change. Change that password on the router, then run
   `kcc router edit <id> --new-password`. Migrations and presets change it only when you
   supply the new password, in their management phase (see docs/MIGRATION.md).
 - API keys and accounts changed with the CLI (`kcc apikey create|revoke`,

@@ -12,7 +12,9 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::Value;
 
-use super::common::{apply_cli, check_op, needed, open, preauthorize_management, secret, text};
+use super::common::{
+    apply_cli, check_op, needed, open, own_logins, preauthorize_management, secret, text,
+};
 use crate::{KccMcp, McpFailure, domains::table::Area, support::route::parse};
 
 /// Service write operations.
@@ -201,27 +203,16 @@ pub(super) async fn router_users(server: &KccMcp, arguments: Value) -> Result<Va
         "set_tag" => router_users::plan_tag(
             ctx,
             name,
-            text(input.value.as_deref())?,
-            needed(input.enabled)?,
+            &own_logins(server, router.as_str())?,
+            (text(input.value.as_deref())?, needed(input.enabled)?),
         ),
-        "set_password" => {
-            let login = server
-                .registry
-                .get(router.as_str())
-                .map_err(|_error| McpFailure::Internal)?
-                .profile
-                .login;
-            router_users::plan_password(ctx, name, &login, secret(input.secret)?)
-        }
-        _ => {
-            let login = server
-                .registry
-                .get(router.as_str())
-                .map_err(|_error| McpFailure::Internal)?
-                .profile
-                .login;
-            router_users::plan_delete(ctx, name, &login)
-        }
+        "set_password" => router_users::plan_password(
+            ctx,
+            name,
+            &own_logins(server, router.as_str())?,
+            secret(input.secret)?,
+        ),
+        _ => router_users::plan_delete(ctx, name, &own_logins(server, router.as_str())?),
     };
     apply_cli(
         server,

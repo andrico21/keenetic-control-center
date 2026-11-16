@@ -6,7 +6,9 @@ use secrecy::SecretString;
 use serde::Deserialize;
 use serde_json::{Value, json};
 
-use super::common::{apply_cli, apply_registered, check_op, needed, object, open, secret, text};
+use super::common::{
+    apply_cli, apply_registered, check_op, needed, object, open, own_logins, secret, text,
+};
 use crate::{
     KccMcp, McpFailure,
     domains::table::Area,
@@ -135,14 +137,9 @@ pub(super) async fn servers(server: &KccMcp, arguments: Value) -> Result<Value, 
         }
         "password" => {
             let user = object(input.name.as_deref())?;
-            let login = server
-                .registry
-                .get(opened.1.as_str())
-                .map_err(|_error| McpFailure::Internal)?
-                .profile
-                .login;
+            let own = own_logins(server, opened.1.as_str())?;
             let planned =
-                server_secrets::plan_password(&opened.2, &user, &login, secret(input.secret)?);
+                server_secrets::plan_password(&opened.2, &user, &own, secret(input.secret)?);
             apply_cli(
                 server,
                 &opened,

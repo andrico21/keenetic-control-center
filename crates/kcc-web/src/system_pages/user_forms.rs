@@ -19,12 +19,19 @@ use axum::{
 };
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
-use kcc_domain::{ChangeOp, DomainError, Result as DomainResult, RouterCtx, router_users};
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_domain::{
+    ChangeOp, DomainError, Result as DomainResult, RouterCtx,
+    router_users::{self, protection::OwnLogins},
+};
+use kcc_i18n::{
+    bundle::{MessageKey, tr},
+    keys,
+    locale::Locale,
+};
 use secrecy::SecretString;
 
 use super::{
-    shared::{merged, profile_login, value, values},
+    shared::{merged, profile_login, unread, value, values},
     user_answers::UserForm,
     user_dialog::{Field, UserDialog, check},
     users::{Account, Viewer, accounts, offered_tags},
@@ -61,8 +68,8 @@ pub(crate) const SET_TAG: Operation =
 ///
 /// # Errors
 ///
-/// Answers the dialog with its field error (422), and what the kit answers when the
-/// router or the permission is missing.
+/// Answers the dialog with its field error (422), the failure when the router's accounts
+/// cannot be read, and what the kit answers when the router or the permission is missing.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -95,14 +102,14 @@ pub(crate) async fn create(
         Entry::Mismatch => Err((Field::Password, keys::WEB_SECRET_MISMATCH)),
     };
     let checked = match password.and_then(|kept| check(&name, &tags, &offered).map(|()| kept)) {
-        Ok(_) if find(&domain, &name).await.is_some() => {
-            Err((Field::Name, keys::WEB_SYSTEM_USERS_NAME_TAKEN))
-        }
-        found @ (Ok(_) | Err(_)) => found,
+        Ok(kept) => match find(&domain, &name).await {
+            Ok(None) => Ok(kept),
+            Ok(Some(_)) => Err((Field::Name, keys::WEB_SYSTEM_USERS_NAME_TAKEN)),
+            Err(_logged) => return Err(unread(action).await),
+        },
+        Err(problem) => Err(problem),
     };
-    let login = profile_login(&state, &user, &router)
-        .await
-        .unwrap_or_default();
+    let own = profile_login(&state, &user, &router).await;
     let mut resubmitted = vec![("name", name.as_str())];
     resubmitted.extend(tags.iter().map(|tag| ("tag", *tag)));
     let resubmit = Resubmit::new(
@@ -119,7 +126,10 @@ pub(crate) async fn create(
     .submit(
         |_params| checked.map_err(|(field, rule)| Invalid::at(field.name(), rule)),
         async |typed_password, ctx| {
-            let protected = typed_password.map(|secret| (secret, login.as_str()));
+            let protected = match typed_password {
+                Some(secret) => Some((secret, own?)),
+                None => None,
+            };
             plan_account(ctx, (&name, &tags), protected)
         },
         async |ctx| viewer.refreshed(&state, ctx).await,
@@ -132,8 +142,9 @@ pub(crate) async fn create(
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown account, the dialog with its error (422), and what the kit
-/// answers when the router or the permission is missing.
+/// Answers 404 for an unknown account, the failure when the router cannot be read, the
+/// dialog with its error (422), and what the kit answers when the router or the
+/// permission is missing.
 pub(crate) async fn set_tags(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -149,14 +160,19 @@ pub(crate) async fn set_tags(
     let offered = offered_tags(&domain.catalog);
     let name = value(&pairs, "name").unwrap_or_default().to_owned();
     let wanted = values(&pairs, "tag");
-    let Some(account) = find(&domain, &name).await else {
-        action.abandon("not_found").await;
-        return Err(missing());
+    let account = match find(&domain, &name).await {
+        Ok(Some(account)) => account,
+        Ok(None) => {
+            action.abandon("not_found").await;
+            return Err(missing());
+        }
+        Err(_logged) => return Err(unread(action).await),
     };
     let dialog = UserDialog::base(locale, &offered)
         .tagging(&router, &account)
         .checking(&wanted);
     let checked = check(&name, &wanted, &offered);
+    let own = profile_login(&state, &user, &router).await;
     let changes: Vec<(&str, bool)> = offered
         .iter()
         .map(String::as_str)
@@ -190,20 +206,24 @@ pub(crate) async fn set_tags(
     )
     .submit(
         |_params| checked.map_err(|(field, rule)| Invalid::at(field.name(), rule)),
-        async |(), ctx| plan_tags(ctx, &name, &changes),
+        async |(), ctx| plan_tags(ctx, (&name, &own?), &changes),
         async |ctx| viewer.refreshed(&state, ctx).await,
     )
     .await)
 }
 
-/// The account `name` of the router of `domain`.
+/// The account `name` of the router of `domain`, `None` when the router has none.
+///
+/// # Errors
+///
+/// Returns the message of the logged read failure: an account kcc could not see is not
+/// taken as absent.
 // cancel-safe: reads only.
-pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Option<Account> {
-    accounts(domain, None)
-        .await
-        .ok()?
+pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Account>, MessageKey> {
+    Ok(accounts(domain, None)
+        .await?
         .into_iter()
-        .find(|account| account.name() == name)
+        .find(|account| account.name() == name))
 }
 
 /// One change adding the account `name` with `tags` and, when typed, its password.
@@ -217,14 +237,14 @@ pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Option<Account> {
 fn plan_account(
     domain: &RouterCtx,
     (name, tags): (&str, &[&str]),
-    password: Option<(SecretString, &str)>,
+    password: Option<(SecretString, OwnLogins)>,
 ) -> DomainResult<Planned> {
     let created = router_users::plan_create(domain, name, tags)?;
-    let Some((secret, login)) = password else {
+    let Some((secret, own)) = password else {
         let request = router_users::change_request(&created)?;
         return Ok(Planned::of(&[created], Change::Cli(request)));
     };
-    let protected = router_users::plan_password(domain, name, login, secret)?;
+    let protected = router_users::plan_password(domain, name, &own, secret)?;
     let risk = created.risk.max(protected.risk);
     let mut requests = created.requests;
     requests.extend(protected.requests.into_iter().skip(1));
@@ -244,11 +264,16 @@ fn plan_account(
 ///
 /// # Errors
 ///
-/// Returns the domain's refusal, such as removing `cli` from `admin`.
-fn plan_tags(domain: &RouterCtx, name: &str, changes: &[(&str, bool)]) -> DomainResult<Planned> {
+/// Returns the domain's refusal, such as removing `cli` from `admin` or a tag from an
+/// account kcc signs in with (`own`).
+fn plan_tags(
+    domain: &RouterCtx,
+    (name, own): (&str, &OwnLogins),
+    changes: &[(&str, bool)],
+) -> DomainResult<Planned> {
     let mut requests = Vec::new();
     for (tag, wanted) in changes {
-        let operation = router_users::plan_tag(domain, name, tag, *wanted)?;
+        let operation = router_users::plan_tag(domain, name, own, (tag, *wanted))?;
         let skip = usize::from(!requests.is_empty());
         requests.extend(operation.requests.into_iter().skip(skip));
     }

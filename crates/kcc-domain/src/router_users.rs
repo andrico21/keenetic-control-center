@@ -7,6 +7,7 @@
 
 use alloc::{collections::BTreeMap, vec};
 
+pub mod protection;
 mod verification;
 
 use kcc_app::{
@@ -18,6 +19,7 @@ use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 
+use self::protection::OwnLogins;
 use crate::{
     ChangeOp, DomainDescriptor, DomainError, DomainId, OperationDescriptor, Result, RouterCtx,
     cli_token::validate as validate_token,
@@ -124,10 +126,19 @@ pub fn plan_create(router: &RouterCtx, name: &str, tags: &[&str]) -> Result<Chan
     Ok(change(requests))
 }
 
-/// Plans adding or removing one account tag.
-pub fn plan_tag(router: &RouterCtx, name: &str, tag: &str, enabled: bool) -> Result<ChangeOp> {
+/// Plans adding or removing one account tag; removing a tag from an account kcc signs in
+/// with is refused, as is removing `cli` from `admin`.
+pub fn plan_tag(
+    router: &RouterCtx,
+    name: &str,
+    own: &OwnLogins,
+    (tag, enabled): (&str, bool),
+) -> Result<ChangeOp> {
     validate_token(name)?;
     validate_token(tag)?;
+    if !enabled {
+        own.guard(name)?;
+    }
     if name == "admin" && tag == "cli" && !enabled {
         return Err(DomainError::ProtectedAccount);
     }
@@ -146,13 +157,11 @@ pub fn plan_tag(router: &RouterCtx, name: &str, tag: &str, enabled: bool) -> Res
 pub fn plan_password(
     router: &RouterCtx,
     name: &str,
-    profile_login: &str,
+    own: &OwnLogins,
     password: SecretString,
 ) -> Result<ChangeOp> {
     validate_token(name)?;
-    if name == profile_login {
-        return Err(DomainError::ProtectedAccount);
-    }
+    own.guard(name)?;
     let user = validate(router, "user", &json!({"name":name}))?;
     let validated_password = router
         .catalog
@@ -176,12 +185,10 @@ pub fn plan_password(
     ))
 }
 
-/// Plans deletion unless the account is the login used by the active router profile.
-pub fn plan_delete(router: &RouterCtx, name: &str, profile_login: &str) -> Result<ChangeOp> {
+/// Plans deletion unless kcc signs in with the account.
+pub fn plan_delete(router: &RouterCtx, name: &str, own: &OwnLogins) -> Result<ChangeOp> {
     validate_token(name)?;
-    if name == profile_login {
-        return Err(DomainError::ProtectedAccount);
-    }
+    own.guard(name)?;
     Ok(change(vec![validate(
         router,
         "user",

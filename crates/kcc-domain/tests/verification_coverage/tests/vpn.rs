@@ -2,7 +2,7 @@
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use kcc_domain::{
-    DomainId, RouterCtx,
+    DomainId, RouterCtx, router_users,
     vpn_clients::{
         self, VpnClientChange, WireGuardAsc,
         secrets::{self, CredentialTarget},
@@ -134,7 +134,7 @@ fn server(router: &RouterCtx, op: &str) -> TestResult {
             &vpn_servers::secrets::plan_password(
                 router,
                 &"coverage67".parse()?,
-                "admin",
+                &router_users::protection::OwnLogins::new("admin", None)?,
                 secret(),
             )?,
         )?);

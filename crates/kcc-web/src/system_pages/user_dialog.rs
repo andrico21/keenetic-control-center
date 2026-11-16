@@ -26,8 +26,10 @@ use super::{
 use crate::{
     WebState,
     authz::CurrentUser,
+    net_change::unusable,
     page_kit::{
         confirm::FAIL_SAFE_MINUTES,
+        family::Family,
         form::{Choice, FormDialog, Input},
         request::missing,
         respond::Answer,
@@ -199,8 +201,8 @@ pub(crate) async fn new_dialog(
 ///
 /// # Errors
 ///
-/// Answers 404 for an unknown account, and what the kit answers when the router or the
-/// permission is missing.
+/// Answers 404 for an unknown account, the failure when the router cannot be read, and
+/// what the kit answers when the router or the permission is missing.
 pub(crate) async fn tags_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -210,7 +212,11 @@ pub(crate) async fn tags_dialog(
     let action = SET_TAG.open(&state, &user, &router).await?;
     let domain = action.context().await?;
     let name = value(&query, "name").unwrap_or_default();
-    let account = find(&domain, name).await.ok_or_else(missing)?;
+    let unreachable = Family::Changes.unreachable();
+    let account = find(&domain, name)
+        .await
+        .map_err(|_logged| unusable(action.locale(), unreachable))?
+        .ok_or_else(missing)?;
     let offered = offered_tags(&domain.catalog);
     let dialog = UserDialog::base(action.locale(), &offered).tagging(&router, &account);
     Ok(dialog.show())

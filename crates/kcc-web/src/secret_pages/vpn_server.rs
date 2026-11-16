@@ -12,7 +12,8 @@ use axum::{
     response::Response,
 };
 use kcc_domain::{
-    RouterCtx, router_users,
+    RouterCtx,
+    router_users::{self, protection::OwnLogins},
     vpn_clients::secrets::{self, CredentialTarget},
     vpn_servers::{self, secrets as server_secrets},
 };
@@ -166,21 +167,25 @@ pub(crate) async fn psk(
         .await)
 }
 
-/// The router accounts a VPN password may be set for: every account but the one kcc signs
+/// The router accounts a VPN password may be set for: every account but the ones kcc signs
 /// in with.
 ///
 /// # Errors
 ///
 /// Answers the failure in the page's outcome region when the router cannot be read.
 // cancel-safe: reads only.
-async fn accounts(domain: &RouterCtx, login: &str, locale: Locale) -> Result<Vec<String>, Answer> {
+async fn accounts(
+    domain: &RouterCtx,
+    own: &OwnLogins,
+    locale: Locale,
+) -> Result<Vec<String>, Answer> {
     let users = router_users::read_users(domain)
         .await
         .map_err(|_error| unusable(locale, Family::Changes.unreachable()))?;
     Ok(users
         .into_iter()
         .filter_map(|user| user.name)
-        .filter(|name| name != login)
+        .filter(|name| own.guard(name).is_ok())
         .collect())
 }
 
@@ -198,11 +203,12 @@ pub(crate) async fn password_dialog(
 ) -> Result<Response, Answer> {
     let action = PASSWORD.open(&state, &user, &router).await?;
     let locale = action.locale();
-    let login = profile_login(&state, &user, &router)
-        .await
-        .unwrap_or_default();
+    let Ok(own) = profile_login(&state, &user, &router).await else {
+        let shown = password_dialog_for(&router, (Vec::new(), ""), locale);
+        return Ok(shown.refused(protected(locale)).show());
+    };
     let domain = action.context().await?;
-    let offered = accounts(&domain, &login, locale).await?;
+    let offered = accounts(&domain, &own, locale).await?;
     let chosen = offered.first().cloned().unwrap_or_default();
     Ok(password_dialog_for(&router, (offered, &chosen), locale).show())
 }
@@ -225,13 +231,13 @@ pub(crate) async fn password(
     let chosen = plain_value(&form, "account");
     let confirmed = Confirmation::from_pairs(&form).confirmed();
     let shown = password_dialog_for(&router, (vec![chosen.clone()], &chosen), locale);
-    let login = profile_login(&state, &user, &router)
-        .await
-        .unwrap_or_default();
-    if login == chosen {
-        action.abandon("protected_account").await;
-        return Err(shown.refused(protected(locale)).refusal());
-    }
+    let own = match profile_login(&state, &user, &router).await {
+        Ok(own) if own.guard(&chosen).is_ok() => own,
+        Ok(_) | Err(_) => {
+            action.abandon("protected_account").await;
+            return Err(shown.refused(protected(locale)).refusal());
+        }
+    };
     let Some(typed) = typed(entry(&mut form)) else {
         return Ok(unchanged(action).await);
     };
@@ -249,7 +255,7 @@ pub(crate) async fn password(
         known,
         checked,
         (asked, resubmit),
-        async |ctx, (name, secret)| server_secrets::plan_password(ctx, &name, &login, secret),
+        async |ctx, (name, secret)| server_secrets::plan_password(ctx, &name, &own, secret),
     )
     .await)
 }

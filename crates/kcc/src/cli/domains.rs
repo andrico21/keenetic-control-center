@@ -7,7 +7,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{ChangeSet, CliChangeRequest},
 };
-use kcc_domain::{ChangeOp, DomainError, RouterCtx, verification};
+use kcc_domain::{ChangeOp, RouterCtx, router_users::protection::OwnLogins, verification};
 use kcc_i18n::bundle::MessageKey;
 use serde::Serialize;
 use serde_json::Value;
@@ -131,12 +131,12 @@ impl<'ctx> Session<'ctx> {
         })
     }
 
-    /// Refuses a password change of the selected profile login before connecting.
+    /// Refuses a change of an account kcc signs in with before connecting.
     ///
     /// # Errors
     ///
     /// Returns the policy refusal, registry failure, or connection failure.
-    pub(crate) async fn open_for_account_password(
+    pub(crate) async fn open_for_account(
         ctx: &'ctx Ctx,
         permission: Permission,
         account: &str,
@@ -144,9 +144,7 @@ impl<'ctx> Session<'ctx> {
         let services = ctx.services().await?;
         let id = ctx.router_id(&services)?;
         let profile = services.registry().get(&id)?.profile;
-        if account == profile.login {
-            return Err(DomainError::ProtectedAccount.into());
-        }
+        OwnLogins::new(&profile.login, profile.read_login.as_deref())?.guard(account)?;
         let target = ctx.target_named(&services, id, &[permission]).await?;
         Ok(Self {
             ctx,
@@ -165,18 +163,18 @@ impl<'ctx> Session<'ctx> {
         &self.target
     }
 
-    /// The login of the router's profile, which account changes must keep.
+    /// The router accounts kcc signs in with, which account changes must keep.
     ///
     /// # Errors
     ///
-    /// Returns registry failures.
-    pub(crate) fn profile_login(&self) -> Outcome<String> {
-        Ok(self
-            .services
-            .registry()
-            .get(self.target.id())?
-            .profile
-            .login)
+    /// Returns registry failures, and the protected-account refusal when the profile
+    /// names no login.
+    pub(crate) fn profile_login(&self) -> Outcome<OwnLogins> {
+        let profile = self.services.registry().get(self.target.id())?.profile;
+        Ok(OwnLogins::new(
+            &profile.login,
+            profile.read_login.as_deref(),
+        )?)
     }
 
     /// Prints a domain read result.

@@ -317,6 +317,12 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **A change whose existence check cannot read the router no longer takes the object as
+  absent.** "Add account" used to go ahead (and could rewrite an existing account) when
+  the router's account list could not be read; component install or removal, the storage
+  Eject, Check and Format actions, dropping the KeenDNS name and the router-account tag
+  and delete dialogs answered "not found". Each now answers that the router did not
+  answer, audited as `unreachable`, and sends nothing.
 - **A failed Web sign-in shows its error.** A wrong password or a locked account used to
   answer 401, which the page never displays, so the form stayed as it was with no
   message. The refused sign-in now answers 422 with the same uniform "invalid username
@@ -435,6 +441,14 @@ The first release, `0.1.0`, is in preparation and contains:
   least every 5 seconds, ends when the session is gone or its role changed, and ends at
   the session's absolute expiry; the browser reconnects to a fresh stream if the session
   is still valid. The checks do not refresh the session's idle deadline.
+- **kcc's own router accounts are protected fail-closed.** Changing the password of,
+  removing a tag from or deleting the read-only polling login is now refused like the
+  profile's login, on the Web UI, the CLI (exit 10, before connecting) and MCP
+  (`forbidden`). When kcc cannot tell its own account (an API token profile with no
+  login, or a router profile the Web UI cannot read), every password change, tag change
+  and deletion of a router account is refused instead of allowed, and adding an account
+  with a password is refused there too. Removing a tag from the profile's own login is
+  refused as well (only `cli` of `admin` was before).
 - **Logins no longer queue on `users.json` and no longer tell accounts apart by timing.**
   Every login attempt, an unknown name included, used to rewrite and sync `users.json`
   while holding its exclusive lock, with the Argon2id check inside the lock, so a stream

@@ -11,7 +11,8 @@ use kcc_rci::{ConfigKind, ObjectName};
 use secrecy::{ExposeSecret as _, SecretString};
 
 use crate::{
-    ChangeOp, DomainError, Result, RouterCtx, router_users,
+    ChangeOp, DomainError, Result, RouterCtx,
+    router_users::{self, protection::OwnLogins},
     vpn_clients::secrets::{self as credentials, CredentialTarget},
 };
 
@@ -94,10 +95,10 @@ impl<'router> RevealSecrets<'router> {
 pub fn plan_password(
     router: &RouterCtx,
     user: &ObjectName,
-    profile_login: &str,
+    own: &OwnLogins,
     password: SecretString,
 ) -> Result<ChangeOp> {
-    router_users::plan_password(router, user.as_str(), profile_login, password)
+    router_users::plan_password(router, user.as_str(), own, password)
 }
 
 /// Converts a server-account password plan to its protected workflow request.

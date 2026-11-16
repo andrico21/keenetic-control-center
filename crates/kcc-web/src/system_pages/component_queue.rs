@@ -17,7 +17,7 @@ use kcc_domain::{
 
 use super::{
     components::{Viewer, read},
-    shared::{NoDialog, merged, value},
+    shared::{NoDialog, merged, unread, value},
 };
 use crate::{
     WebState,
@@ -72,8 +72,9 @@ pub(crate) async fn check(
 ///
 /// # Errors
 ///
-/// Answers 404 for a component or an action the list does not offer, and what the kit
-/// answers when the router or the permission is missing.
+/// Answers 404 for a component or an action the list does not offer, the failure when
+/// the list cannot be read, and what the kit answers when the router or the permission
+/// is missing.
 pub(crate) async fn queue(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -98,9 +99,10 @@ pub(crate) async fn queue(
         .await?;
     let domain = action.context().await?;
     let name = value(&pairs, "name").unwrap_or_default().to_owned();
-    let offered = read(&domain)
-        .await
-        .unwrap_or_default()
+    let Ok(listed) = read(&domain).await else {
+        return Err(unread(action).await);
+    };
+    let offered = listed
         .into_iter()
         .any(|component| component.name() == name && component.action() == Some(wanted));
     if !offered {

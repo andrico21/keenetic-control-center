@@ -34,18 +34,18 @@ pub(crate) async fn router_users(ctx: &Ctx, command: RouterUsersCommand) -> Outc
         Permission::ManageUsers
     };
     let protected = match &command {
-        RouterUsersCommand::Passwd { name } => Some(name.as_str()),
-        RouterUsersCommand::List
-        | RouterUsersCommand::Add { name: _, tags: _ }
-        | RouterUsersCommand::Tag {
-            name: _,
-            tag: _,
-            state: _,
+        RouterUsersCommand::Passwd { name } | RouterUsersCommand::Delete { name } => {
+            Some(name.as_str())
         }
-        | RouterUsersCommand::Delete { name: _ } => None,
+        RouterUsersCommand::Tag {
+            name,
+            tag: _,
+            state,
+        } => (!state.enabled()).then_some(name.as_str()),
+        RouterUsersCommand::List | RouterUsersCommand::Add { name: _, tags: _ } => None,
     };
     let session = match protected {
-        Some(account) => Session::open_for_account_password(ctx, permission, account).await?,
+        Some(account) => Session::open_for_account(ctx, permission, account).await?,
         None => Session::open(ctx, permission).await?,
     };
     let router = session.router();
@@ -56,7 +56,8 @@ pub(crate) async fn router_users(ctx: &Ctx, command: RouterUsersCommand) -> Outc
             router_users::plan_create(router, &name, &borrowed)?
         }
         RouterUsersCommand::Tag { name, tag, state } => {
-            router_users::plan_tag(router, &name, &tag, state.enabled())?
+            let own = session.profile_login()?;
+            router_users::plan_tag(router, &name, &own, (&tag, state.enabled()))?
         }
         RouterUsersCommand::Passwd { name } => {
             let password = new_secret(ctx, &name)?;

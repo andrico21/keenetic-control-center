@@ -29,6 +29,8 @@ mod lab;
 mod lan;
 #[path = "cli_domain_writes/link.rs"]
 mod link;
+#[path = "cli_domain_writes/own_accounts.rs"]
+mod own_accounts;
 #[path = "cli_domain_writes/secrets.rs"]
 mod secrets;
 #[path = "cli/support.rs"]
