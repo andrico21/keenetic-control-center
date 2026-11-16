@@ -18,5 +18,7 @@ mod copy;
 mod fixture;
 #[path = "cli_presets/presets.rs"]
 mod presets;
+#[path = "cli_presets/scope.rs"]
+mod scope;
 #[path = "cli/support.rs"]
 mod support;

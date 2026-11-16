@@ -227,3 +227,10 @@
 - CLI `--from`: one parser `cli::source_arg::{parse, SourceArg}`; `SourceArg::read -> SecretBytes`; migrate now accepts a bare router id; unknown `scheme:` and empty parts are usage (exit 2).
 - clippy: `rest_pattern_accessible_field` (write `name: _`, not `..`), `inline_trait_bounds` (use where clauses), `std_instead_of_alloc` for VecDeque in tests.
 - Results: RED 4 tests (kcc-rci capacity 44 vs 32, kcc-web Debug printed the secret, kcc-migrate and kcc compile red); GREEN cargo test 7 crates QA_EXIT=0 (1110 passed); fmt check, clippy 7 crates, cancel-safety, allow-gate, machete, no_secrets all 0.
+
+## [2026-11-16] Todo 25 progress (preset scope, no existence oracle)
+- `PresetStore` owns the rule: `capture` takes the `presets` lock, then `authorize_replace` (reads the stored record, opens it, `authorize_source` on ITS source router; Malformed/Crypto -> `authorize_any_source` = Migrate + scope empty or `*`), then `save(&preset, &StateLock)` (save no longer locks itself). `get`/`delete`/`get_for_apply`/`load_for_apply` go through `read_authorized`: Migrate checked before any read (Forbidden), then missing, out-of-scope and (for scoped roles) unparsable all answer `NotFound`.
+- Access helpers moved to `presets/store/access.rs` (store.rs was at 245 pure LOC).
+- Surface answers: MCP get/delete/apply of an out-of-scope id = `invalid_arguments` (like missing); capture over another scope's id = `forbidden` (audited by the generic failure audit). CLI: show/delete/plan out-of-scope = exit 2 not-found; capture refused = exit 10 + new `cli.preset.capture` audit outcome `forbidden`; `visible()` now answers not-found; file capture role = `scoped_role` (was `authorize(&perms, &[])` = UNSCOPED role).
+- Web compose ids are `fresh_id` (random), cannot collide; Web get/delete/reveal already hid out-of-scope ids via `list()`; test added to pin it.
+- MCP test files that include `support/lab.rs` without using every helper need `#[expect(dead_code, reason)]` on `mod lab;`.

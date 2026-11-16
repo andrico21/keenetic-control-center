@@ -574,6 +574,15 @@ The first release, `0.1.0`, is in preparation and contains:
   owner-only (0600 in a 0700 `presets` directory), synced and renamed into place; it used
   to follow the umask without a sync. `kcc preset list`, the Web presets page and MCP list
   skip a damaged or unreadable record with a warning naming its file instead of failing.
+- **A preset capture never replaces a preset of another router scope.** Capturing under
+  the id of a stored preset (MCP `kcc_preset_capture` derives it from the name, `kcc
+  preset capture` uses the name) replaces it only for a caller holding `Migrate` on that
+  preset's source router; a damaged record only for a role scoped to every router. Any
+  other capture is refused and audited: MCP answers `forbidden`, the CLI exits 10. It used
+  to overwrite the preset, so a key scoped to one router could destroy a preset of another.
+  Reading, deleting, planning and applying a preset outside the caller's scope now answer
+  exactly like a missing id (MCP `invalid_arguments` instead of `forbidden`, CLI exit 2
+  instead of 10), and a file capture checks the CLI principal's router scope.
 - **The master key no longer changes its directory's mode.** When `KCC_MASTER_KEY_FILE`
   names a new key in an existing directory (for example `$HOME`), that directory keeps its
   mode; only directories kcc creates for the key are made 0700. kcc used to change an

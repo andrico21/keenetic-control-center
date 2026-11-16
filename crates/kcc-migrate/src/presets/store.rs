@@ -4,8 +4,7 @@ use std::{fs, io, path::PathBuf};
 
 use kcc_app::{
     permissions::{Permission, Role},
-    persist::{StateError, StateStore, create_private_dir, write_atomic},
-    registry::{RegistryError, authorize},
+    persist::{StateError, StateLock, StateStore, create_private_dir, write_atomic},
     secrets::{CryptoError, MasterKey, SealedSecret, binding::Binding},
 };
 use kcc_config::config_text::Ast;
@@ -14,11 +13,16 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use zeroize::Zeroizing;
 
+use self::access::{
+    authorize_any_source, authorize_source, require_permission, source_allowed, validate_id,
+};
 use super::{
     groups::{GroupError, SettingsGroupEngine},
     model::{CaptureRequest, Preset, PresetSource, parse_line},
     payload::{LineText, secret_json, zeroizing_lines},
 };
+
+mod access;
 
 /// Current encrypted preset record schema.
 const SCHEMA: u32 = 1;
@@ -129,9 +133,16 @@ impl PresetStore {
 
     /// Captures selected groups and persists the resulting preset encrypted at rest.
     ///
+    /// A preset already stored under the id is replaced only when the caller holds
+    /// `Migrate` on that preset's source router, the check [`delete`](Self::delete) makes.
+    /// A stored record that cannot be read or decrypted names no source router to check,
+    /// so only a caller whose scope covers every router may replace it. The check and the
+    /// write happen under one lock.
+    ///
     /// # Errors
     ///
-    /// Returns authorization, group-selection, validation, encryption, or I/O errors.
+    /// Returns authorization ([`PresetError::Forbidden`] also for a stored preset outside
+    /// the caller's scope), group-selection, validation, encryption, or I/O errors.
     #[inline]
     pub fn capture(
         &self,
@@ -148,7 +159,9 @@ impl PresetStore {
             .collect::<Vec<_>>();
         let selection = SettingsGroupEngine::embedded()?.select(source, &selected)?;
         let preset = Preset::captured(request, selection);
-        self.save(&preset)?;
+        let lock = self.state.lock("presets")?;
+        self.authorize_replace(role, &preset.id)?;
+        self.save(&preset, &lock)?;
         Ok(preset.redacted())
     }
 
@@ -203,13 +216,13 @@ impl PresetStore {
     ///
     /// # Errors
     ///
-    /// Returns permission, missing-record, decryption, malformed-record, or I/O errors.
+    /// Returns permission, missing-record (also for a preset outside the caller's scope),
+    /// decryption, malformed-record, or I/O errors.
     #[inline]
     pub fn get(&self, role: &Role, id: &str) -> Result<Preset, PresetError> {
         validate_id(id)?;
         require_permission(role, Permission::Read)?;
-        let record = read_record(self.path(id))?;
-        authorize_source(role, record.source_router.as_deref())?;
+        let record = self.read_authorized(role, id)?;
         let preset = self.open(id, &record)?;
         Ok(if role.grants(Permission::RevealSecrets) {
             preset
@@ -225,12 +238,12 @@ impl PresetStore {
     ///
     /// # Errors
     ///
-    /// Returns permission, missing-record, decryption, malformed-record, or I/O errors.
+    /// Returns permission, missing-record (also for a preset outside the caller's scope),
+    /// decryption, malformed-record, or I/O errors.
     #[inline]
     pub fn load_for_apply(&self, role: &Role, id: &str) -> Result<Preset, PresetError> {
         validate_id(id)?;
-        let record = read_record(self.path(id))?;
-        authorize_source(role, record.source_router.as_deref())?;
+        let record = self.read_authorized(role, id)?;
         self.open(id, &record)
     }
 
@@ -238,14 +251,14 @@ impl PresetStore {
     ///
     /// # Errors
     ///
-    /// Returns permission, missing-record, malformed-record, lock, or I/O errors.
+    /// Returns permission, missing-record (also for a preset outside the caller's scope),
+    /// malformed-record, lock, or I/O errors.
     #[inline]
     pub fn delete(&self, role: &Role, id: &str) -> Result<(), PresetError> {
         validate_id(id)?;
         require_permission(role, Permission::Migrate)?;
-        let record = read_record(self.path(id))?;
-        authorize_source(role, record.source_router.as_deref())?;
         let _lock = self.state.lock("presets")?;
+        let _authorized = self.read_authorized(role, id)?;
         fs::remove_file(self.path(id)).map_err(map_io)
     }
 
@@ -256,21 +269,65 @@ impl PresetStore {
     ///
     /// # Errors
     ///
-    /// Returns permission, missing-record, decryption, malformed-record, or I/O errors.
+    /// Returns permission, missing-record (also for a preset outside the caller's scope),
+    /// decryption, malformed-record, or I/O errors.
     #[inline]
     pub fn get_for_apply(&self, role: &Role, id: &str) -> Result<Preset, PresetError> {
         validate_id(id)?;
-        let record = read_record(self.path(id))?;
-        authorize_source(role, record.source_router.as_deref())?;
+        let record = self.read_authorized(role, id)?;
         self.open(id, &record)
     }
 
-    /// Encrypts and atomically replaces one preset record.
+    /// Reads the record of `id` for a caller holding `Migrate` on its source router.
+    ///
+    /// A missing record and one outside the caller's scope both answer
+    /// [`PresetError::NotFound`], after the same read, so the answer tells nothing about
+    /// presets of other routers. So does an unparsable record, except to a caller whose
+    /// scope covers every router.
     ///
     /// # Errors
     ///
-    /// Returns serialization, encryption, locking, or I/O errors.
-    fn save(&self, preset: &Preset) -> Result<(), PresetError> {
+    /// Returns [`PresetError::Forbidden`] without `Migrate` (before any read), then
+    /// missing-record, malformed-record, or I/O errors.
+    fn read_authorized(&self, role: &Role, id: &str) -> Result<PresetRecord, PresetError> {
+        require_permission(role, Permission::Migrate)?;
+        match read_record(self.path(id)) {
+            Ok(record) => authorize_source(role, record.source_router.as_deref())
+                .map(|()| record)
+                .map_err(|_forbidden| PresetError::NotFound),
+            Err(PresetError::Malformed) => Err(authorize_any_source(role)
+                .map_or(PresetError::NotFound, |()| PresetError::Malformed)),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Authorizes replacing whatever is stored under `id`; the caller holds the lock.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`PresetError::Forbidden`] for a preset outside the caller's scope, or for an
+    /// unreadable record unless the caller's scope covers every router; I/O errors.
+    fn authorize_replace(&self, role: &Role, id: &str) -> Result<(), PresetError> {
+        let stored = match read_record(self.path(id)) {
+            Err(PresetError::NotFound) => return Ok(()),
+            Ok(record) => self
+                .open(id, &record)
+                .map(|preset| preset.source_router().map(str::to_owned)),
+            Err(error) => Err(error),
+        };
+        match stored {
+            Ok(router) => authorize_source(role, router.as_deref()),
+            Err(PresetError::Malformed | PresetError::Crypto(_)) => authorize_any_source(role),
+            Err(error) => Err(error),
+        }
+    }
+
+    /// Encrypts and atomically replaces one preset record under the held `presets` lock.
+    ///
+    /// # Errors
+    ///
+    /// Returns serialization, encryption, or I/O errors.
+    fn save(&self, preset: &Preset, _lock: &StateLock) -> Result<(), PresetError> {
         let directory = self.directory();
         create_private_dir(&directory)?;
         let plaintext = secret_json(&SealedPayload {
@@ -289,7 +346,6 @@ impl PresetStore {
             sealed: self.key.seal(&Binding::preset(&preset.id), &plaintext)?,
         };
         let bytes = serde_json::to_vec(&record).map_err(|_error| PresetError::Malformed)?;
-        let _lock = self.state.lock("presets")?;
         write_atomic(&directory, &format!("{}.json", preset.id), &bytes)?;
         Ok(())
     }
@@ -337,50 +393,6 @@ impl PresetStore {
     }
 }
 
-/// Validates a file-safe preset id.
-///
-/// # Errors
-///
-/// Returns [`PresetError::InvalidId`] for an empty, oversized, or unsafe id.
-fn validate_id(id: &str) -> Result<(), PresetError> {
-    let valid = !id.is_empty()
-        && id.len() <= 64
-        && id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'));
-    valid.then_some(()).ok_or(PresetError::InvalidId)
-}
-
-/// Requires an application permission without consulting a router scope.
-///
-/// # Errors
-///
-/// Returns [`PresetError::Forbidden`] when the role lacks the permission.
-fn require_permission(role: &Role, permission: Permission) -> Result<(), PresetError> {
-    role.grants(permission)
-        .then_some(())
-        .ok_or(PresetError::Forbidden)
-}
-
-/// Authorizes migration access to an optional registered source router.
-///
-/// # Errors
-///
-/// Returns [`PresetError::Forbidden`] when permission or source scope is absent.
-fn authorize_source(role: &Role, source_router: Option<&str>) -> Result<(), PresetError> {
-    require_permission(role, Permission::Migrate)?;
-    source_router.map_or(Ok(()), |router_id| {
-        authorize(role, Permission::Migrate, router_id).map_err(map_registry)
-    })
-}
-
-/// Reports whether list output may expose a preset from the source router.
-fn source_allowed(role: &Role, source_router: Option<&str>) -> bool {
-    role.grants(Permission::Read)
-        && source_router
-            .is_none_or(|router_id| authorize(role, Permission::Read, router_id).is_ok())
-}
-
 /// Reads one encrypted preset envelope.
 ///
 /// # Errors
@@ -389,11 +401,6 @@ fn source_allowed(role: &Role, source_router: Option<&str>) -> bool {
 fn read_record(path: PathBuf) -> Result<PresetRecord, PresetError> {
     let bytes = fs::read(path).map_err(map_io)?;
     serde_json::from_slice(&bytes).map_err(|_error| PresetError::Malformed)
-}
-
-/// Hides registry authorization detail behind the preset boundary.
-fn map_registry(_error: RegistryError) -> PresetError {
-    PresetError::Forbidden
 }
 
 /// Maps missing records separately from other preset I/O errors.

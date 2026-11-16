@@ -216,11 +216,11 @@ mod tests {
         assert!(store.list(&lab_operator)?.is_empty());
         assert!(matches!(
             store.get(&lab_operator, "production"),
-            Err(PresetError::Forbidden)
+            Err(PresetError::NotFound)
         ));
         assert!(matches!(
             store.delete(&lab_operator, "production"),
-            Err(PresetError::Forbidden)
+            Err(PresetError::NotFound)
         ));
         assert_eq!(store.get(&administrator, "production")?.id, "production");
         Ok(())

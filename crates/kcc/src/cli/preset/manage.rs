@@ -68,14 +68,17 @@ pub(super) fn scoped_role(
     ctx.principal().authorize(permissions, &names)
 }
 
-/// Refuses a preset whose source router lies outside the principal's scope.
+/// Refuses a preset whose source router lies outside the principal's scope with the
+/// answer of a missing preset, as the store does.
 ///
 /// # Errors
 ///
-/// Returns the policy refusal.
+/// Returns the not-found usage failure.
 pub(super) fn visible(ctx: &Ctx, preset: &Preset) -> Outcome {
     match preset.source_router() {
-        Some(router) if !ctx.principal().sees(router) => Err(denied(router)),
+        Some(router) if !ctx.principal().sees(router) => {
+            Err(map_preset(&PresetError::NotFound, &preset.id))
+        }
         Some(_) | None => Ok(()),
     }
 }
@@ -189,7 +192,7 @@ pub(super) async fn show(ctx: &Ctx, services: &Services, id: &str, reveal: bool)
     ctx.out().emit(&value, &human)
 }
 
-/// Captures a stored preset from `from`.
+/// Captures a stored preset from `from`; a refused capture is audited.
 ///
 /// # Errors
 ///
@@ -202,6 +205,7 @@ pub(super) async fn capture(
     (groups, name, description): (Vec<String>, String, String),
 ) -> Outcome {
     let (config, source, role) = Origin::read(ctx, services, from).await?.into_parts();
+    let router = source.router_id.clone();
     let request = CaptureRequest::new(
         name.clone(),
         name.clone(),
@@ -210,9 +214,22 @@ pub(super) async fn capture(
         source,
         ctx.principal().actor().id,
     );
-    let preset = store(ctx)?
-        .capture(&role, &config.ast, request)
-        .map_err(|error| map_preset(&error, &name))?;
+    let preset = match store(ctx)?.capture(&role, &config.ast, request) {
+        Ok(preset) => preset,
+        Err(error) => {
+            if matches!(error, PresetError::Forbidden) {
+                ctx.audit(
+                    services,
+                    "cli.preset.capture",
+                    router.as_deref(),
+                    json!({ "id": name }),
+                    "forbidden",
+                )
+                .await;
+            }
+            return Err(map_preset(&error, &name));
+        }
+    };
     ctx.audit(
         services,
         "cli.preset.capture",

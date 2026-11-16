@@ -9,6 +9,7 @@ use kcc_migrate::{
 };
 use secrecy::ExposeSecret as _;
 
+use super::manage::scoped_role;
 use crate::cli::{
     context::{Ctx, Services},
     exit::{Exit, Failure, Outcome},
@@ -21,8 +22,8 @@ pub(super) struct Origin {
     config: SourceConfig,
     /// Recorded source facts.
     source: PresetSource,
-    /// The principal's role narrowed to the source router (unscoped for a file, which
-    /// belongs to no router).
+    /// The principal's role narrowed to the source router, or for a file (which belongs to
+    /// no router) to the registered routers the principal sees.
     role: Role,
 }
 
@@ -43,8 +44,7 @@ impl Origin {
         let role = if let Some(id) = router {
             ctx.principal().authorize(&permissions, &[id])?
         } else {
-            ctx.principal().require(Permission::Migrate)?;
-            ctx.principal().authorize(&permissions, &[])?
+            scoped_role(ctx, services, &permissions)?
         };
         let bytes = source_arg.read(services).await?;
         let config = SourceConfig::from_bytes(bytes.expose_secret())

@@ -179,7 +179,10 @@ request, and the change workflow checks again. Raw router answers (explorer, con
 RevealSecrets on that router; every other role sees them redacted. A user can grant
 only roles whose permissions they hold, and the last enabled admin can't be removed.
 
-`Migrate` permits planning and reviewing migrations, presets and settings copies. Every
+`Migrate` permits planning and reviewing migrations, presets and settings copies. A stored
+preset belongs to the scope of its source router: only a role holding `Migrate` there may
+open, apply, delete or recapture (replace) it, a damaged record only a role scoped to
+every router, and to every other role it answers like a missing preset. Every
 apply is authorized before any router request by one function shared by the CLI, the Web
 UI and MCP: `Read`, `Migrate`, `Write` and `Save` cover the initial workflow read, the
 replay, the keep or save finish, and the recovery timer, which the engine arms, keeps

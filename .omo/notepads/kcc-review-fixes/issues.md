@@ -67,3 +67,7 @@
 ## [2026-11-16] Todo 23 (wt/r23) notes, not fixed here
 - Not zeroized (outside the findings' scope): `kcc_config` `Ast`/`CliLine` tokens (the parsed source and `Preset.lines` hold secrets in plain Strings, critic F-14 says this is model-wide); the CLI console's `line.trim().to_owned()` passed to `client.parse`/`CliCommand::new`; `RciBody::Text` replies; hyper/reqwest/rustls internal `Bytes` copies; serde_urlencoded's decode copies of form values; `presets_page/detail.rs` and `compose_panel.rs` view `lines: Vec<String>`.
 - `session.rs:622` and `catalog/runtime.rs:219` were left unchanged: the binding A-10 critic correction refutes both sub-claims.
+
+## [2026-11-16] Todo 25 (out of scope, not fixed)
+- CLI `scoped_role` (crates/kcc/src/cli/preset/manage.rs) narrows the role to the registered routers the principal sees; when it sees NONE, `Role.router_scope` is empty, which `scope_matches` reads as "every router". A scoped CLI principal that sees no registered router then gets store-level access to presets of every router (show/delete are still caught by `visible()`, capture-replace is not). Needs a "matches nothing" scope representation.
+- `PresetStore::load_for_apply` and `get_for_apply` are identical duplicates.

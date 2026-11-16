@@ -83,7 +83,10 @@ The CLI requires `--finish keep-unsaved|save|rollback` when it has no terminal.
 
 ### Storage
 
-Stored presets are encrypted in `<state>/presets/`. Transient copies (`kcc copy`, Copy
+Stored presets are encrypted in `<state>/presets/`. Capturing under the id of a stored
+preset replaces it only when you hold `Migrate` on its source router; otherwise the
+capture is refused. A preset of a router outside your scope is not listed, and showing,
+deleting or applying it answers like a missing preset. Transient copies (`kcc copy`, Copy
 settings in the Web UI) are never stored as presets. MCP transient presets and Web UI
 drafts of a new preset live in memory and are lost on restart.
 
