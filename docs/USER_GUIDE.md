@@ -272,7 +272,9 @@ show secrets as `********` unless you hold RevealSecrets on that router. On the 
   `kcc user add` and `kcc apikey create` apply the same rule to the `[cli] role`).
 - **API keys**: create keys for MCP clients (shown once) and revoke them. The "Last
   used" column shows the last MCP tool call with the key, recorded at most once a minute.
-- **Audit log**: search, filter and export the hash-chained audit log (ViewAudit).
+- **Audit log**: search, filter and export the hash-chained audit log (ViewAudit). A role
+  scoped to some routers sees only those routers' entries; entries that name no router
+  (sign-ins, account changes) are shown only to a role scoped to all routers.
 - **Server**: the running configuration summary and catalog versions.
 
 Your own account page (`/ui/account`) changes your password and language. After

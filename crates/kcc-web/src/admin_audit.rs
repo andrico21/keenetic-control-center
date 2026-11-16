@@ -6,27 +6,34 @@
 //! first, and the filtered entries download as JSONL in chain order. Entries carry
 //! only the redacted parameters the writers recorded.
 
+mod filter;
+pub(crate) mod log;
 mod table;
 
-use core::time::Duration;
-use std::time::UNIX_EPOCH;
+extern crate alloc;
+
+use alloc::sync::Arc;
 
 use askama::Template;
 use axum::{
+    body::Body,
     extract::{Query, State},
     http::{HeaderMap, HeaderValue, StatusCode, header},
     response::{IntoResponse as _, Response},
 };
+use filter::Filter;
 use fluent_bundle::FluentArgs;
-use kcc_app::audit::{ActorKind, AuditEntry, AuditError, read_entries, verify_chain};
+use futures_util::stream;
+use kcc_app::{audit::AuditEntry, permissions::Role};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
     locale::Locale,
 };
+use log::{Chain, Log};
 use serde::Deserialize;
 use serde_json::json;
-use tokio::task::{JoinError, spawn_blocking};
+use tokio::task::JoinError;
 use url::form_urlencoded;
 
 use crate::{
@@ -39,9 +46,6 @@ use crate::{
     page_kit::context::Caller,
     table::{pager::Pager, view::TableView},
 };
-
-/// Seconds in a day, the width of one date filter step.
-const DAY: Duration = Duration::from_hours(24);
 
 /// The filter query of the page and the export.
 #[derive(Debug, Default, Deserialize)]
@@ -59,109 +63,6 @@ pub(crate) struct AuditQuery {
     to: Option<String>,
     /// Requested page.
     page: Option<String>,
-}
-
-/// The validated filter.
-#[derive(Debug, Default)]
-struct Filter {
-    /// Lowercase part of the actor's id; empty matches every actor.
-    actor: String,
-    /// Exact router name; empty matches every entry.
-    router: String,
-    /// Start of the action id; empty matches every action.
-    action: String,
-    /// Earliest Unix time, inclusive.
-    from: Option<u64>,
-    /// Latest Unix time, inclusive.
-    to: Option<u64>,
-    /// `from` as typed, `YYYY-MM-DD`.
-    from_text: String,
-    /// `to` as typed, `YYYY-MM-DD`.
-    to_text: String,
-    /// Whether `from` could not be read as a date.
-    from_invalid: bool,
-    /// Whether `to` could not be read as a date.
-    to_invalid: bool,
-}
-
-impl Filter {
-    /// Reads the query; an unreadable date is reported and ignored.
-    fn parse(query: &AuditQuery) -> Self {
-        let text = |value: Option<&str>| value.unwrap_or_default().trim().to_owned();
-        let from_text = text(query.from.as_deref());
-        let to_text = text(query.to.as_deref());
-        let from = day_start(&from_text);
-        let to =
-            day_start(&to_text).map(|start| start.saturating_add(DAY.as_secs()).saturating_sub(1));
-        Self {
-            actor: text(query.actor.as_deref()).to_lowercase(),
-            router: text(query.router.as_deref()),
-            action: text(query.action.as_deref()),
-            from_invalid: !from_text.is_empty() && from.is_none(),
-            to_invalid: !to_text.is_empty() && to.is_none(),
-            from,
-            to,
-            from_text,
-            to_text,
-        }
-    }
-
-    /// Whether `entry` passes the filter.
-    fn matches(&self, entry: &AuditEntry) -> bool {
-        (self.actor.is_empty() || entry.actor.id.to_lowercase().contains(&self.actor))
-            && (self.router.is_empty() || entry.router.as_deref() == Some(self.router.as_str()))
-            && entry.action.starts_with(&self.action)
-            && self.from.is_none_or(|from| entry.ts >= from)
-            && self.to.is_none_or(|to| entry.ts <= to)
-    }
-
-    /// The filter as query pairs, kept in pagination and export links.
-    fn pairs(&self) -> Vec<(String, String)> {
-        [
-            ("actor", &self.actor),
-            ("router", &self.router),
-            ("action", &self.action),
-            ("from", &self.from_text),
-            ("to", &self.to_text),
-        ]
-        .into_iter()
-        .filter(|(_, value)| !value.is_empty())
-        .map(|(name, value)| (name.to_owned(), value.clone()))
-        .collect()
-    }
-}
-
-/// The Unix time at 00:00 UTC of `date` (`YYYY-MM-DD`).
-fn day_start(date: &str) -> Option<u64> {
-    let valid = date.len() == 10
-        && date.bytes().enumerate().all(|(index, byte)| {
-            byte.is_ascii_digit() || (byte == b'-' && (index == 4 || index == 7))
-        });
-    if !valid {
-        return None;
-    }
-    humantime::parse_rfc3339(&format!("{date}T00:00:00Z"))
-        .ok()
-        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map(|since| since.as_secs())
-}
-
-/// The state of the hash chain.
-enum Chain {
-    /// Every entry verified.
-    Intact(usize),
-    /// The chain breaks at this sequence number.
-    Broken(u64),
-    /// The log could not be read.
-    Unreadable,
-}
-
-/// The audit log read for one request.
-struct Log {
-    /// Chain verification result.
-    chain: Chain,
-    /// Every readable entry, in chain order.
-    entries: Vec<AuditEntry>,
 }
 
 /// One entry row.
@@ -238,23 +139,12 @@ pub(crate) async fn page(
     };
     let filter = Filter::parse(&query);
     let locale = user.locale();
-    let mut matching: Vec<AuditEntry> = log
-        .entries
-        .into_iter()
-        .filter(|entry| filter.matches(entry))
-        .collect();
-    matching.reverse();
     let requested = query
         .page
         .as_deref()
         .and_then(|page| page.parse().ok())
         .unwrap_or(1);
-    let all = matching
-        .into_iter()
-        .map(|entry| row(entry, locale))
-        .collect();
-    let (rows, pager) =
-        Pager::paginate(all, requested, Tab::Audit.href().to_owned(), filter.pairs());
+    let (rows, pager) = page_rows(&log, &filter, user.role(), locale, requested);
     let date_error = |invalid: bool| {
         if invalid {
             tr(locale, keys::WEB_ADMIN_ERROR_DATE, None)
@@ -264,16 +154,16 @@ pub(crate) async fn page(
     };
     let page = AuditPage {
         tabs: tabs(user.role(), Tab::Audit),
-        chain: chain_text(locale, &log.chain),
-        intact: matches!(log.chain, Chain::Intact(_)),
+        chain: chain_text(locale, log.chain()),
+        intact: matches!(log.chain(), Chain::Intact(_)),
         export: export_href(&filter),
-        from_error: date_error(filter.from_invalid),
-        to_error: date_error(filter.to_invalid),
-        actor: filter.actor,
-        router: filter.router,
-        action: filter.action,
-        from: filter.from_text,
-        to: filter.to_text,
+        from_error: date_error(filter.first_day_invalid()),
+        to_error: date_error(filter.last_day_invalid()),
+        actor: filter.actor().to_owned(),
+        router: filter.router().to_owned(),
+        action: filter.action().to_owned(),
+        from: filter.first_day().to_owned(),
+        to: filter.last_day().to_owned(),
         table: table::entries(&rows, locale),
         pager,
         shell,
@@ -296,27 +186,20 @@ pub(crate) async fn export(
         None => return unavailable(None),
     };
     let filter = Filter::parse(&query);
-    let mut body = String::new();
-    let mut count = 0_usize;
-    for entry in log.entries.iter().filter(|entry| filter.matches(entry)) {
-        match serde_json::to_string(entry) {
-            Ok(line) => {
-                body.push_str(&line);
-                body.push('\n');
-                count = count.saturating_add(1);
-            }
-            Err(error) => {
-                tracing::error!(%error, "audit entry could not be serialized");
-                return StatusCode::INTERNAL_SERVER_ERROR.into_response();
-            }
-        }
-    }
+    let shown: Vec<usize> = log
+        .entries()
+        .iter()
+        .enumerate()
+        .filter(|(_, entry)| filter.shows(entry, user.role()))
+        .map(|(index, _)| index)
+        .collect();
+    let count = shown.len();
     let params = json!({
-        "actor": filter.actor,
-        "router": filter.router,
-        "action": filter.action,
-        "from": filter.from_text,
-        "to": filter.to_text,
+        "actor": filter.actor(),
+        "router": filter.router(),
+        "action": filter.action(),
+        "from": filter.first_day(),
+        "to": filter.last_day(),
         "entries": count,
     });
     record(
@@ -325,7 +208,19 @@ pub(crate) async fn export(
         Change::done("admin.audit_export", "audit.jsonl", params),
     )
     .await;
-    let mut response = body.into_response();
+    let lines = shown.into_iter().filter_map(move |index| {
+        log.entries().get(index).map(|entry| {
+            serde_json::to_vec(entry)
+                .map(|mut line| {
+                    line.push(b'\n');
+                    line
+                })
+                .inspect_err(|error| {
+                    tracing::error!(%error, "audit entry could not be serialized");
+                })
+        })
+    });
+    let mut response = Body::from_stream(stream::iter(lines)).into_response();
     let headers = response.headers_mut();
     drop(headers.insert(
         header::CONTENT_TYPE,
@@ -338,57 +233,41 @@ pub(crate) async fn export(
     response
 }
 
-/// Verifies the chain and reads the entries off the async executor; `None` without
-/// administration services.
-async fn read(state: &WebState) -> Option<Result<Log, JoinError>> {
+/// The verified log, kept while its files do not change; `None` without administration
+/// services.
+// cancel-safe: the read finishes on a blocking thread and an abandoned call only
+// leaves its result in the cache.
+async fn read(state: &WebState) -> Option<Result<Arc<Log>, JoinError>> {
     let dir = state.admin()?.state().dir().to_owned();
-    Some(
-        spawn_blocking(move || match verify_chain(&dir) {
-            Ok(entries) => Log {
-                chain: Chain::Intact(entries.len()),
-                entries,
-            },
-            Err(AuditError::Chain { seq }) => Log {
-                chain: Chain::Broken(seq),
-                entries: read_entries(&dir).unwrap_or_else(|error| {
-                    tracing::error!(%error, "entries of the broken audit log could not be read");
-                    Vec::new()
-                }),
-            },
-            Err(error) => {
-                tracing::error!(%error, "audit log could not be read");
-                Log {
-                    chain: Chain::Unreadable,
-                    entries: Vec::new(),
-                }
-            }
-        })
-        .await,
-    )
+    Some(state.audit_log().read(dir).await)
 }
 
-/// The table row of `entry`, in `locale`.
-fn row(entry: AuditEntry, locale: Locale) -> EntryRow {
-    let params = if entry.params_redacted.is_null() {
-        String::new()
-    } else {
-        entry.params_redacted.to_string()
-    };
-    EntryRow {
-        time: Timestamp::at(entry.ts, locale),
-        kind: match entry.actor.kind {
-            ActorKind::Web => keys::WEB_ADMIN_AUDIT_KIND_WEB,
-            ActorKind::Mcp => keys::WEB_ADMIN_AUDIT_KIND_MCP,
-            ActorKind::Cli => keys::WEB_ADMIN_AUDIT_KIND_CLI,
-            ActorKind::System | _ => keys::WEB_ADMIN_AUDIT_KIND_SYSTEM,
-        },
-        actor: entry.actor.id,
-        action: entry.action,
-        router: entry.router.unwrap_or_default(),
-        target: entry.target.unwrap_or_default(),
-        outcome: entry.outcome,
-        params,
-    }
+/// The rows of the requested page of the entries `role` may see and `filter` keeps,
+/// newest first; only the shown entries become rows.
+fn page_rows(
+    log: &Log,
+    filter: &Filter,
+    role: &Role,
+    locale: Locale,
+    requested: usize,
+) -> (Vec<EntryRow>, Pager) {
+    let matching: Vec<&AuditEntry> = log
+        .entries()
+        .iter()
+        .rev()
+        .filter(|entry| filter.shows(entry, role))
+        .collect();
+    let (shown, pager) = Pager::paginate(
+        matching,
+        requested,
+        Tab::Audit.href().to_owned(),
+        filter.pairs(),
+    );
+    let rows = shown
+        .into_iter()
+        .map(|entry| table::row(entry, locale))
+        .collect();
+    (rows, pager)
 }
 
 /// The chain status sentence in `locale`.
@@ -419,3 +298,6 @@ fn export_href(filter: &Filter) -> String {
         .finish();
     format!("/ui/admin/audit/export?{query}")
 }
+
+#[cfg(test)]
+mod tests;

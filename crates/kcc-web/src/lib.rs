@@ -255,6 +255,8 @@ pub struct WebState {
     facts: Arc<page_kit::facts::FactsCache>,
     /// The router log collectors the log page follows instead of polling.
     log_feeds: LogFeeds,
+    /// The audit log as the audit page last verified it.
+    audit_log: admin_audit::log::LogCache,
 }
 
 impl fmt::Debug for WebState {
@@ -317,6 +319,7 @@ impl WebState {
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
+            audit_log: admin_audit::log::LogCache::default(),
         }
     }
 
@@ -403,6 +406,12 @@ impl WebState {
     #[must_use]
     pub(crate) fn admin(&self) -> Option<&Admin> {
         self.admin.as_deref()
+    }
+
+    /// The audit page's verified log.
+    #[must_use]
+    pub(crate) const fn audit_log(&self) -> &admin_audit::log::LogCache {
+        &self.audit_log
     }
 
     /// Every built-in and custom role.

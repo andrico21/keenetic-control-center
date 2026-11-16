@@ -34,6 +34,7 @@ mod tests {
         http::{Method, Request, StatusCode, header},
         response::Response,
     };
+    use futures_util::StreamExt as _;
     use kcc_app::{
         accounts::{AccountStore, NewAccount},
         api_keys::api_key_entries,
@@ -1010,6 +1011,120 @@ mod tests {
             "tampering shows"
         );
         assert!(broken.contains("mallory"), "the broken log is still listed");
+        Ok(())
+    }
+
+    /// SEC1-08: a viewer scoped to router `lab-a` sees neither another router's entries nor
+    /// the entries without a router, on the page and in the export.
+    ///
+    /// An unscoped viewer sees every entry.
+    #[tokio::test]
+    async fn a_router_scoped_audit_viewer_sees_only_its_routers_entries() -> TestResult {
+        let scoped = role(
+            "auditor-a",
+            &[Permission::Read, Permission::ViewAudit],
+            &["lab-a"],
+        );
+        let unscoped = role(
+            "auditor",
+            &[Permission::Read, Permission::ViewAudit],
+            &["*"],
+        );
+        let fixture = Fixture::new("en", vec![scoped, unscoped])?;
+        fixture.add_user("sam", "auditor-a")?;
+        fixture.add_user("ann", "auditor")?;
+        for (router, action) in [("lab-a", "router.save"), ("lab-b", "router.reboot")] {
+            let event = AuditEvent::new(
+                0,
+                Actor::new(ActorKind::Mcp, "probe".to_owned()),
+                action.to_owned(),
+            )
+            .with_router(router.to_owned())
+            .with_result("success".to_owned(), "mcp-1".to_owned());
+            drop(fixture.audit.append(event).await?);
+        }
+        let note = AuditEvent::new(
+            0,
+            Actor::new(ActorKind::Cli, "probe".to_owned()),
+            "system.note".to_owned(),
+        )
+        .with_result("success".to_owned(), "cli-1".to_owned());
+        drop(fixture.audit.append(note).await?);
+
+        let (scoped_browser, _) = fixture.sign_in("sam", PASSWORD, "/ui/admin/audit").await?;
+        let page = text(
+            fixture
+                .get("/ui/admin/audit", &scoped_browser.cookie)
+                .await?,
+        )
+        .await?;
+        assert!(page.contains("router.save"), "its own router's entry");
+        for hidden in ["router.reboot", "system.note", "web.login"] {
+            assert!(!page.contains(hidden), "the page hides {hidden}");
+        }
+        let jsonl = text(
+            fixture
+                .get("/ui/admin/audit/export", &scoped_browser.cookie)
+                .await?,
+        )
+        .await?;
+        assert!(jsonl.contains("router.save"), "the export has its entry");
+        for hidden in ["router.reboot", "system.note", "web.login"] {
+            assert!(!jsonl.contains(hidden), "the export hides {hidden}");
+        }
+
+        let (full_browser, _) = fixture.sign_in("ann", PASSWORD, "/ui/admin/audit").await?;
+        let full_page = text(fixture.get("/ui/admin/audit", &full_browser.cookie).await?).await?;
+        for shown in ["router.save", "router.reboot", "system.note", "web.login"] {
+            assert!(full_page.contains(shown), "an unscoped viewer sees {shown}");
+        }
+        let full_jsonl = text(
+            fixture
+                .get("/ui/admin/audit/export", &full_browser.cookie)
+                .await?,
+        )
+        .await?;
+        assert!(full_jsonl.contains("system.note"), "and exports it");
+        Ok(())
+    }
+
+    /// W1-08: the export body is a stream of one chunk per entry, not one string built
+    /// from the whole log, and a view after an append shows the appended entry.
+    #[tokio::test]
+    async fn the_audit_export_streams_and_a_new_entry_shows_at_once() -> TestResult {
+        let (fixture, reader) = audited().await?;
+        let before = fixture.audit_log()?.lines().count();
+        let export = fixture
+            .get("/ui/admin/audit/export", &reader.cookie)
+            .await?;
+        let chunks: Vec<_> = export.into_body().into_data_stream().collect().await;
+        assert!(
+            chunks.len() >= before,
+            "one chunk per entry: {}",
+            chunks.len()
+        );
+        for chunk in chunks {
+            assert!(chunk?.ends_with(b"\n"), "each chunk is one JSONL line");
+        }
+
+        let event = AuditEvent::new(
+            0,
+            Actor::new(ActorKind::Mcp, "probe".to_owned()),
+            "router.reboot".to_owned(),
+        )
+        .with_router("lab-1".to_owned())
+        .with_result("success".to_owned(), "mcp-2".to_owned());
+        drop(fixture.audit.append(event).await?);
+        let entries = fixture.audit_log()?.lines().count().to_string();
+        let page = text(fixture.get("/ui/admin/audit", &reader.cookie).await?).await?;
+        assert!(page.contains("router.reboot"), "the appended entry shows");
+        assert!(
+            page.contains(&en_with(
+                keys::WEB_ADMIN_AUDIT_INTACT,
+                &[("count", &entries)]
+            )),
+            "and is verified"
+        );
         Ok(())
     }
 

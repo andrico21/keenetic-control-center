@@ -5,7 +5,7 @@ extern crate alloc;
 
 use alloc::sync::Arc;
 use core::time::Duration;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -610,6 +610,22 @@ impl AuditLog {
 #[inline]
 pub fn verify_chain(dir: &Path) -> Result<Vec<AuditEntry>, AuditError> {
     chain::entries(dir, Check::Chain)
+}
+
+/// The files [`verify_chain`] and [`read_entries`] read, in chain order: every rotated
+/// file, then the active file when it exists.
+///
+/// # Errors
+///
+/// Returns an I/O error when the audit directory cannot be listed.
+#[inline]
+pub fn chain_files(dir: &Path) -> Result<Vec<PathBuf>, AuditError> {
+    let mut files = chain::rotated_files(dir)?;
+    let active = dir.join(AUDIT_FILE_NAME);
+    if active.exists() {
+        files.push(active);
+    }
+    Ok(files)
 }
 
 /// Reads every entry of the rotated files and the active file, in chain order, without

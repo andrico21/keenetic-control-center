@@ -395,6 +395,14 @@ is verified when an audit writer starts (`kcc serve`, `kcc mcp stdio` and every 
 CLI run), by `kcc audit verify` and on the Web audit page. Damage to an older entry or
 archive therefore shows at the next start or verification, not at the next append.
 
+The Web audit page and its export honour the viewer's router scope. An entry that names a
+router is listed only when that router is in the role's `router_scope`; an entry that names
+no router (sign-ins, user, role and key changes, repairs) is listed only to a role whose
+scope covers all routers (empty or `*`). Fleet-wide visibility is therefore a property of an
+unscoped role, not of the ViewAudit permission alone. The page verifies the chain once and
+reuses the result until the length or modification time of an audit file changes; a tampered
+or torn log shows its failure, and the export is streamed entry by entry.
+
 A last line without its newline is not an entry: a crash or a full disk cut it short
 mid-append, so no hash protects it. kcc moves it to `audit.jsonl.torn-<unix-ts>` in the
 state directory before the writer starts or before its next append. The file is

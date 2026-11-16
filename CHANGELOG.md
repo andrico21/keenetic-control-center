@@ -114,6 +114,12 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **The Web audit page and export respect the viewer's router scope.** A role scoped to
+  some routers no longer sees entries of other routers, and entries that name no router
+  are shown only to roles scoped to all routers (empty scope or `*`). The page verifies the
+  chain once and reuses the result until an audit file's length or modification time
+  changes, formats only the shown page, and the export is streamed.
+
 - **Audit request ids are unique.** Every `request_id` in the audit log (and the one MCP
   returns with a tool result) is now `<prefix>-<nonce>-<n>`: a random 64-bit nonce per
   process in hex and a counter, for example `web-3f9c0a1e5b7d2468-12`. Workflow entries

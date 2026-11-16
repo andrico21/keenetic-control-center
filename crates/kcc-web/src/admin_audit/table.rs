@@ -1,13 +1,17 @@
 //! The audit table: when, who, what, where, the outcome, and the redacted parameters.
 
+use kcc_app::audit::{ActorKind, AuditEntry};
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::EntryRow;
-use crate::table::{
-    cells::Cell,
-    head::Head,
-    piece::{Line, Piece},
-    view::TableView,
+use crate::{
+    admin_shared::Timestamp,
+    table::{
+        cells::Cell,
+        head::Head,
+        piece::{Line, Piece},
+        view::TableView,
+    },
 };
 
 /// The table of `rows` in `locale`, or a note in its place when there is none.
@@ -57,4 +61,28 @@ pub(super) fn entries(rows: &[EntryRow], locale: Locale) -> TableView {
         ]);
     }
     view
+}
+
+/// The table row of `entry`, in `locale`.
+pub(super) fn row(entry: &AuditEntry, locale: Locale) -> EntryRow {
+    let params = if entry.params_redacted.is_null() {
+        String::new()
+    } else {
+        entry.params_redacted.to_string()
+    };
+    EntryRow {
+        time: Timestamp::at(entry.ts, locale),
+        kind: match entry.actor.kind {
+            ActorKind::Web => keys::WEB_ADMIN_AUDIT_KIND_WEB,
+            ActorKind::Mcp => keys::WEB_ADMIN_AUDIT_KIND_MCP,
+            ActorKind::Cli => keys::WEB_ADMIN_AUDIT_KIND_CLI,
+            ActorKind::System | _ => keys::WEB_ADMIN_AUDIT_KIND_SYSTEM,
+        },
+        actor: entry.actor.id.clone(),
+        action: entry.action.clone(),
+        router: entry.router.clone().unwrap_or_default(),
+        target: entry.target.clone().unwrap_or_default(),
+        outcome: entry.outcome.clone(),
+        params,
+    }
 }
