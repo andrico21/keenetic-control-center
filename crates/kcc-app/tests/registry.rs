@@ -8,6 +8,8 @@
     reason = "integration-test assertions and fixture filesystem setup"
 )]
 
+extern crate alloc;
+
 use core::error::Error;
 
 use kcc_app::{
@@ -19,6 +21,9 @@ use tempfile::TempDir;
 
 #[path = "registry/auth_modes.rs"]
 mod auth_modes;
+#[cfg(unix)]
+#[path = "registry/client_pool.rs"]
+mod client_pool;
 #[path = "registry/inflight.rs"]
 mod inflight;
 #[cfg(unix)]

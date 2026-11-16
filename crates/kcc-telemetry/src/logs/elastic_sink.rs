@@ -73,7 +73,7 @@ impl ElasticsearchClient {
             api_key_file.as_deref(),
         )
         .await?;
-        let mut builder = Client::builder().redirect(Policy::none());
+        let mut builder = Client::builder().no_proxy().redirect(Policy::none());
         if let Some(path) = ca_file {
             let pem = fs::read(path)
                 .await

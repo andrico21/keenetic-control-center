@@ -3,38 +3,9 @@
 use core::{fmt, fmt::Write as _, str, str::FromStr as _};
 
 use kcc_config::config_text::{Ast, ConfigHeader, ParseError, parse};
-use kcc_rci::{
-    ConfigKind, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl,
-    auth::Credentials, capabilities::RouterInfo, version::FirmwareVersion,
-};
+use kcc_rci::{RciError, capabilities::RouterInfo, version::FirmwareVersion};
 use md5::{Digest as _, Md5};
 use thiserror::Error;
-
-/// A configured live router used only as a migration source.
-#[derive(Clone, Debug)]
-#[non_exhaustive]
-pub struct LiveRouterProfile {
-    /// Validated router origin.
-    pub router: RouterUrl,
-    /// Credentials supporting ndw2 or ndw4 authentication.
-    pub credentials: Credentials,
-}
-
-/// A source from which a startup configuration can be obtained.
-#[derive(Clone, Debug)]
-#[non_exhaustive]
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "the plan names the public enum MigrationSource"
-)]
-pub enum MigrationSource {
-    /// A live router. Loading performs reads only.
-    LiveRouter(LiveRouterProfile),
-    /// Uploaded configuration bytes.
-    File(Vec<u8>),
-    /// Identifier resolved by the caller's backup store.
-    Backup(String),
-}
 
 /// One item that must be supplied by an operator before migration can continue safely.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -116,38 +87,6 @@ impl SourceConfig {
         })
     }
 
-    /// Loads a live source through authenticated read-only endpoints.
-    ///
-    /// Only `show version` and `/ci/startup-config.txt` are queried. Any firmware line is accepted.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`SourceError::UseUploadedFile`] when authentication fails, otherwise a typed read,
-    /// parsing, or checksum error.
-    // cancel-safe: every router operation is a read.
-    #[inline]
-    pub async fn from_live(profile: &LiveRouterProfile) -> Result<Self, SourceError> {
-        let options = RciClientOptions::default()
-            .with_outbound(OutboundPolicy::default().with_loopback(true));
-        let client =
-            RciClient::connect_with(profile.router.clone(), profile.credentials.clone(), options)
-                .await?;
-        let info = client.detect().await.map_err(auth_fallback)?;
-        let bytes = client
-            .download_config(ConfigKind::Startup)
-            .await
-            .map_err(auth_fallback)?;
-        let mut source = Self::from_bytes(secrecy::ExposeSecret::expose_secret(&bytes))?;
-        source.firmware = info.firmware.or(source.firmware);
-        source.hw_id = info.hw_id().map(str::to_owned).or(source.hw_id);
-        source.needs_input.retain(|item| match item {
-            NeededInput::Model => source.hw_id.is_none(),
-            NeededInput::FirmwareVersion => source.firmware.is_none(),
-        });
-        source.info = Some(info);
-        Ok(source)
-    }
-
     /// Returns the source firmware after applying an explicit operator override.
     #[inline]
     #[must_use]
@@ -185,54 +124,6 @@ pub enum SourceError {
     /// Backup ids require the caller's backup store.
     #[error("backup source must be resolved by the backup store")]
     BackupNotResolved,
-}
-
-/// Loads a source, using `backup` only for backup identifiers.
-///
-/// # Errors
-///
-/// Returns source parsing/read errors or [`SourceError::BackupNotResolved`] when the callback does
-/// not recognize an id.
-// cancel-safe: live-source operations are reads; file and backup parsing is synchronous.
-#[inline]
-#[expect(
-    clippy::module_name_repetitions,
-    reason = "the plan's source-loading operation is named load_source"
-)]
-pub async fn load_source<F>(source: MigrationSource, backup: F) -> Result<SourceConfig, SourceError>
-where
-    F: FnOnce(&str) -> Option<Vec<u8>>,
-{
-    match source {
-        MigrationSource::LiveRouter(profile) => SourceConfig::from_live(&profile).await,
-        MigrationSource::File(bytes) => SourceConfig::from_bytes(&bytes),
-        MigrationSource::Backup(id) => backup(&id)
-            .ok_or(SourceError::BackupNotResolved)
-            .and_then(|bytes| SourceConfig::from_bytes(&bytes)),
-    }
-}
-
-/// Maps an authentication failure to the actionable uploaded-file fallback.
-fn auth_fallback(error: RciError) -> SourceError {
-    match error {
-        RciError::Auth(_auth) => SourceError::UseUploadedFile,
-        other @ (RciError::Transport
-        | RciError::Timeout
-        | RciError::Http { status: _ }
-        | RciError::Rci {
-            pointer: _,
-            code: _,
-            ident: _,
-            message: _,
-        }
-        | RciError::NotFound
-        | RciError::MethodNotAllowed
-        | RciError::BodyTooLarge
-        | RciError::Decode
-        | RciError::Policy
-        | RciError::Validation
-        | _) => SourceError::Rci(other),
-    }
 }
 
 /// Checks the header checksum against the exact post-header configuration body.

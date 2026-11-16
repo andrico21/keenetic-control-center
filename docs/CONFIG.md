@@ -91,8 +91,9 @@ proxies; kcc refuses to start otherwise.
 IPv4-mapped, NAT64 (`64:ff9b::/96`), SIIT IPv4-translated (`::ffff:0:0:0/96`),
 IPv4-compatible (`::/96`) and 6to4 (`2002::/16`) addresses are checked against both
 their outer IPv6 address and embedded IPv4 address. Unspecified, multicast, broadcast
-and cloud metadata addresses, plus local-use NAT64 and Teredo forms, are never admitted
-by any setting. The documentation prefix `3fff::/20` and SRv6 SIDs `5f00::/16` are
+and cloud metadata addresses (`169.254.169.0/24`, `169.254.170.0/24`, `fd00:ec2::/64`,
+`100.100.100.200`), plus local-use NAT64 and Teredo forms, are never admitted by any
+setting. The documentation prefix `3fff::/20` and SRv6 SIDs `5f00::/16` are
 non-global and therefore cannot be admitted by a suffix. See [SECURITY.md](SECURITY.md).
 
 The policy is deny-by-default: with both lists empty (the default), kcc contacts no
@@ -104,6 +105,9 @@ only global addresses; private and link-local router names still need `allowed_n
 `kcc serve` logs one warning at startup when routers are configured but
 `allowed_networks` and `allowed_suffixes` are both empty. The CLI reads `kcc.toml` on
 every run; a running `kcc serve` applies a changed `[outbound]` section after a restart.
+A router URL may name an IPv4 or bracketed IPv6 literal (`http://[fd00::1]`), which is
+checked as an address. Router and log sink connections ignore the `HTTP_PROXY`,
+`HTTPS_PROXY` and `ALL_PROXY` environment variables and always connect directly.
 
 ## `[state]`
 

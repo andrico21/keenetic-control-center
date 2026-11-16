@@ -18,7 +18,7 @@ mod tests {
     use core::error::Error;
 
     use kcc_rci::{auth::Credentials, version::FirmwareVersion};
-    use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter};
+    use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, outbound::loopback_client};
     use secrecy::{ExposeSecret as _, SecretString};
 
     use super::cases::{GIGA_43_FILE, Source, Target};
@@ -38,14 +38,16 @@ mod tests {
                 .build()?
                 .serve(([127, 0, 0, 1], 0).into())
                 .await?;
-            let client = InventoryClient::connect(
-                format!("http://{address}").parse()?,
-                Credentials::new(
-                    DEFAULT_LOGIN.to_owned(),
-                    SecretString::from(DEFAULT_PASSWORD.to_owned()),
-                ),
-            )
-            .await?;
+            let client = InventoryClient::from_client(
+                &loopback_client(
+                    format!("http://{address}").parse()?,
+                    Credentials::new(
+                        DEFAULT_LOGIN.to_owned(),
+                        SecretString::from(DEFAULT_PASSWORD.to_owned()),
+                    ),
+                )
+                .await?,
+            );
             let inventory =
                 TargetInventory::collect(&client, Some("4.3.0".parse::<FirmwareVersion>()?))
                     .await?;
@@ -114,14 +116,16 @@ mod tests {
             .build()?
             .serve(([127, 0, 0, 1], 0).into())
             .await?;
-        let client = InventoryClient::connect(
-            format!("http://{address}").parse()?,
-            Credentials::new(
-                DEFAULT_LOGIN.to_owned(),
-                SecretString::from(DEFAULT_PASSWORD.to_owned()),
-            ),
-        )
-        .await?;
+        let client = InventoryClient::from_client(
+            &loopback_client(
+                format!("http://{address}").parse()?,
+                Credentials::new(
+                    DEFAULT_LOGIN.to_owned(),
+                    SecretString::from(DEFAULT_PASSWORD.to_owned()),
+                ),
+            )
+            .await?,
+        );
         let inventory = TargetInventory::collect(&client, Some("4.3.0".parse()?)).await?;
         let source = SourceConfig::from_bytes(b"interface Bridge9 security-level invented\n")?;
         let before = handle.request_log().len();

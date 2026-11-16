@@ -13,6 +13,7 @@ mod tests {
     use kcc_testkit::{
         DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter,
         model::{Firmware, Model, Profile},
+        outbound::loopback_client,
     };
     use secrecy::SecretString;
 
@@ -30,7 +31,7 @@ mod tests {
             DEFAULT_LOGIN.to_owned(),
             SecretString::from(DEFAULT_PASSWORD.to_owned()),
         );
-        let client = InventoryClient::connect(url, credentials).await?;
+        let client = InventoryClient::from_client(&loopback_client(url, credentials).await?);
         let result = TargetInventory::collect(&client, Some(source_version("4.3.0")?)).await;
         handle.shutdown().await?;
         Ok(result?)
@@ -140,6 +141,8 @@ mod tests {
             DEFAULT_LOGIN.to_owned(),
             SecretString::from(DEFAULT_PASSWORD.to_owned()),
         );
-        Ok(InventoryClient::connect(url, credentials).await?)
+        Ok(InventoryClient::from_client(
+            &loopback_client(url, credentials).await?,
+        ))
     }
 }

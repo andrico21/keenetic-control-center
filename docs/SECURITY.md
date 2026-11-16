@@ -25,15 +25,19 @@ one policy in `kcc-rci`:
   `allowed_suffixes` host-name suffix. The default lists are empty, so no router is
   reachable until you list your networks.
 - Loopback addresses need `allow_loopback = true` (test setups only).
-- Cloud metadata addresses (`169.254.169.254`, `fd00:ec2::254`, `100.100.100.200`) are
-  always refused.
+- Cloud metadata, credential, DNS and time endpoints (`169.254.169.0/24`,
+  `169.254.170.0/24`, `fd00:ec2::/64`, `100.100.100.200`) are always refused.
 - Host names are resolved once, every resolved address is checked, and the connection
-  is pinned to the checked addresses, so a DNS answer can't swap in another target.
+  is pinned to the checked addresses, so a DNS answer can't swap in another target. A
+  literal IPv4 or IPv6 address in the URL is checked as it is, without a lookup.
+- Proxy environment variables (`HTTP_PROXY`, `HTTPS_PROXY`, `ALL_PROXY`) are ignored:
+  every connection goes straight to the checked address.
 - Redirects are never followed.
 - The policy is checked before a router profile is stored and on every connection.
 
 Log sinks are configured only in `kcc.toml`, must use HTTPS (plain HTTP is accepted only
-for a loopback test sink) and don't follow redirects either.
+for a loopback test sink), ignore proxy environment variables and don't follow redirects
+either.
 
 ## Secrets at rest
 

@@ -102,7 +102,8 @@ configure rollover/retention in Index State Management. OpenSearch data streams 
 be used by setting `target` to a separately prepared stream name.
 
 Sink credentials are read from files. Keep those files readable only by the kcc service
-account. Delivery retries HTTP 429 and 5xx responses, honours delta-seconds `Retry-After`,
+account. Sinks connect directly: the `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`
+environment variables are ignored. Delivery retries HTTP 429 and 5xx responses, honours delta-seconds `Retry-After`,
 and caps retry delays at 60 seconds. Permanent 4xx item failures are dropped without
 blocking accepted items. Inspect the `kcc_log_*` Prometheus counters for received,
 forwarded, retried, overflowed, and permanently rejected records.

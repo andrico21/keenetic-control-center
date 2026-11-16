@@ -37,7 +37,10 @@ use kcc_rci::{
 };
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
-use tokio::sync::{Mutex, watch};
+use tokio::{
+    sync::{Mutex, OnceCell, watch},
+    task::spawn_blocking,
+};
 use url::Url;
 
 use crate::{
@@ -247,6 +250,9 @@ pub enum RegistryError {
     /// The in-memory profile set is unavailable after a task panicked while updating it.
     #[error("router profile registry lock is poisoned")]
     ProfileLock,
+    /// The task reading a router's credentials ended without an answer.
+    #[error("router credential read did not complete")]
+    CredentialRead,
 }
 
 /// Merged router registry and lazy one-client-per-profile pool.
@@ -259,8 +265,8 @@ pub struct RouterRegistry {
     profiles: RwLock<BTreeMap<String, ManagedRouterProfile>>,
     /// Outbound destination policy.
     outbound: OutboundPolicy,
-    /// Lazy shared clients.
-    clients: Mutex<BTreeMap<String, Arc<RciClient>>>,
+    /// Lazy shared clients, one slot per router id; a slot is built outside the map lock.
+    clients: Mutex<BTreeMap<String, ClientSlot>>,
     /// Router budgets retained across client cache invalidation.
     budgets: budgets::Budgets,
     /// Per-router request and login observers (self-metrics).
@@ -270,6 +276,9 @@ pub struct RouterRegistry {
     /// Generation counter bumped after every change of the profile set.
     changes: watch::Sender<u64>,
 }
+
+/// The lazily built shared client of one router id.
+type ClientSlot = Arc<OnceCell<Arc<RciClient>>>;
 
 /// Builds the request and login observer of one router id (self-metrics).
 pub type RciObserverFactory = Arc<dyn Fn(&str) -> Arc<dyn RciObserver> + Send + Sync>;
@@ -366,7 +375,7 @@ impl RouterRegistry {
         if token {
             drop(clients.remove(id));
         } else {
-            drop(clients.insert(id.to_owned(), client));
+            drop(clients.insert(id.to_owned(), Arc::new(OnceCell::from(client))));
         }
         Ok(())
     }
@@ -619,22 +628,26 @@ impl RouterRegistry {
 
     /// Returns the one lazily constructed shared client for a profile.
     ///
+    /// The client is built in the router's own slot, outside the lock of the slot map, so
+    /// a slow credential read or DNS lookup holds up only callers of the same router.
+    ///
     /// # Errors
     ///
     /// Returns profile, credential, policy, or transport errors.
-    // NOT cancel-safe: cancellation may abandon DNS resolution, but sends no mutation.
+    // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
+    // sends no mutation; the slot stays empty and the next caller builds the client.
     pub async fn client(&self, id: &str) -> Result<Arc<RciClient>, RegistryError> {
-        let mut clients = self.clients.lock().await;
-        if let Some(client) = clients.get(id) {
-            return Ok(Arc::clone(client));
-        }
-        let profile = self.get(id)?.profile;
-        let client = Arc::new(
-            self.connect_client(&profile, CredentialUse::Primary)
-                .await?,
-        );
-        drop(clients.insert(id.to_owned(), Arc::clone(&client)));
-        Ok(client)
+        drop(self.get(id)?);
+        let slot = Arc::clone(self.clients.lock().await.entry(id.to_owned()).or_default());
+        let client = slot
+            .get_or_try_init(async || {
+                let profile = self.get(id)?.profile;
+                self.connect_client(&profile, CredentialUse::Primary)
+                    .await
+                    .map(Arc::new)
+            })
+            .await?;
+        Ok(Arc::clone(client))
     }
 
     /// Builds an independent read-only client when configured, otherwise returns the shared client.
@@ -763,7 +776,10 @@ impl RouterRegistry {
             .map_err(RegistryError::from)
     }
 
-    /// Connects one client with the selected credential pair.
+    /// Connects one client with the selected credential pair; the credential files and
+    /// sealed records are read on the blocking pool.
+    // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
+    // sends no mutation.
     async fn connect_client(
         &self,
         profile: &ManagedRouterProfile,
@@ -774,14 +790,21 @@ impl RouterRegistry {
         options.tls = tls_mode(&profile.tls)?;
         options.observer = self.observer(&profile.id);
         options.budget = Some(self.budgets.get(&profile.id).await);
-        options.auth = auth::options(self.credentials.as_deref(), profile, credential_use)?;
-        RciClient::connect_with(
-            router_url(profile)?,
-            self.credentials(profile, credential_use)?,
-            options,
-        )
+        let shared_store = self.credentials.clone();
+        let owned = profile.clone();
+        let (auth, credentials) = spawn_blocking(move || {
+            let store = shared_store.as_deref();
+            Ok::<_, RegistryError>((
+                auth::options(store, &owned, credential_use)?,
+                credentials(store, &owned, credential_use)?,
+            ))
+        })
         .await
-        .map_err(RegistryError::from)
+        .map_err(|_join_error| RegistryError::CredentialRead)??;
+        options.auth = auth;
+        RciClient::connect_with(router_url(profile)?, credentials, options)
+            .await
+            .map_err(RegistryError::from)
     }
 
     /// Reads operator-managed files directly and opens kcc-managed sealed records.
@@ -790,20 +813,29 @@ impl RouterRegistry {
         profile: &ManagedRouterProfile,
         credential_use: CredentialUse,
     ) -> Result<Credentials, RegistryError> {
-        if matches!(credential_use, CredentialUse::Primary) && profile.password_file.is_none() {
-            return Ok(Credentials::new(
-                profile.login.clone(),
-                SecretString::from(String::new()),
-            ));
-        }
-        let (login, path) = credential_parts(profile, credential_use)?;
-        let kind = match credential_use {
-            CredentialUse::Primary => CredentialKind::Password,
-            CredentialUse::ReadOnly => CredentialKind::ReadPassword,
-        };
-        let secret = stored::secret(self.credentials.as_deref(), &profile.id, kind, path)?;
-        Ok(Credentials::new(login.to_owned(), secret))
+        credentials(self.credentials.as_deref(), profile, credential_use)
     }
+}
+
+/// Reads operator-managed files directly and opens kcc-managed sealed records.
+fn credentials(
+    store: Option<&CredentialStore>,
+    profile: &ManagedRouterProfile,
+    credential_use: CredentialUse,
+) -> Result<Credentials, RegistryError> {
+    if matches!(credential_use, CredentialUse::Primary) && profile.password_file.is_none() {
+        return Ok(Credentials::new(
+            profile.login.clone(),
+            SecretString::from(String::new()),
+        ));
+    }
+    let (login, path) = credential_parts(profile, credential_use)?;
+    let kind = match credential_use {
+        CredentialUse::Primary => CredentialKind::Password,
+        CredentialUse::ReadOnly => CredentialKind::ReadPassword,
+    };
+    let secret = stored::secret(store, &profile.id, kind, path)?;
+    Ok(Credentials::new(login.to_owned(), secret))
 }
 
 /// Credential pair selected for a client.

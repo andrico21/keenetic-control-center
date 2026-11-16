@@ -28,7 +28,9 @@ use kcc_rci::{
     outbound::{AllowedNetwork, OutboundPolicy, TlsMode},
     session::{HttpTimeouts, Manager},
 };
-use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
+use kcc_testkit::{
+    DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile, outbound::lan_policy,
+};
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Value, json};
 use tokio_util::sync::CancellationToken;
@@ -158,7 +160,7 @@ async fn background_poll_completes_and_cancellation_sends_delete() -> TestResult
 
 #[tokio::test]
 async fn outbound_policy_refuses_metadata_public_and_public_dns_but_allows_lan() -> TestResult {
-    let options = RciClientOptions::default();
+    let options = RciClientOptions::default().with_outbound(lan_policy());
     for target in ["http://169.254.169.254", "http://8.8.8.8"] {
         let result = RciClient::connect_with(target.parse()?, credentials(), options.clone()).await;
         assert!(
@@ -167,7 +169,7 @@ async fn outbound_policy_refuses_metadata_public_and_public_dns_but_allows_lan()
         );
     }
 
-    let public_dns = OutboundPolicy::default().client_builder_for_resolved(
+    let public_dns = lan_policy().client_builder_for_resolved(
         &"http://router.example".parse()?,
         &TlsMode::Verify,
         HttpTimeouts::default(),
@@ -175,7 +177,7 @@ async fn outbound_policy_refuses_metadata_public_and_public_dns_but_allows_lan()
     );
     assert!(matches!(public_dns, Err(RciError::Policy)));
 
-    let policy = OutboundPolicy::default();
+    let policy = lan_policy();
     let builder = policy
         .client_builder(
             &"http://192.168.1.1".parse()?,

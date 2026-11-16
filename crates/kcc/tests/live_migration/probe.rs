@@ -4,8 +4,8 @@ use core::{error::Error, hash::BuildHasher as _};
 use std::hash::RandomState;
 
 use kcc_migrate::{planner::MigrationPlan, source::SourceConfig};
-use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, RciPath, RouterUrl, auth::Credentials};
-use kcc_testkit::ndw2;
+use kcc_rci::{RciClient, RciClientOptions, RciPath, RouterUrl, auth::Credentials};
+use kcc_testkit::{ndw2, outbound::lan_policy};
 use secrecy::SecretString;
 use serde_json::json;
 
@@ -105,7 +105,7 @@ async fn login(rehearsal: &Rehearsal, password: &str) -> bool {
         PROBE_USER.to_owned(),
         SecretString::from(password.to_owned()),
     );
-    let options = RciClientOptions::default().with_outbound(OutboundPolicy::default());
+    let options = RciClientOptions::default().with_outbound(lan_policy());
     let Ok(client) = RciClient::connect_with(url, credentials, options).await else {
         return false;
     };

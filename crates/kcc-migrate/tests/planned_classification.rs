@@ -18,7 +18,9 @@ mod tests {
         source::SourceConfig,
     };
     use kcc_rci::{RouterUrl, auth::Credentials};
-    use kcc_testkit::{DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile};
+    use kcc_testkit::{
+        DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, model::Profile, outbound::loopback_client,
+    };
     use secrecy::SecretString;
 
     /// One unsupported line, an unsupported setting of a logical interface, members
@@ -51,7 +53,7 @@ mod tests {
             DEFAULT_LOGIN.to_owned(),
             SecretString::from(DEFAULT_PASSWORD.to_owned()),
         );
-        let client = InventoryClient::connect(url, credentials).await?;
+        let client = InventoryClient::from_client(&loopback_client(url, credentials).await?);
         let inventory = TargetInventory::collect(&client, Some(source_version("4.3.0")?)).await?;
         handle.shutdown().await?;
         Ok(inventory)

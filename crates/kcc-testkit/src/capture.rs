@@ -17,14 +17,17 @@ use kcc_rci::{
     RciError, RciPath, RciResponse, RouterUrl,
     auth::Credentials,
     engine::{ConfigKind, RciBody, RciClient, RciClientOptions},
-    outbound::{OutboundPolicy, TlsMode},
+    outbound::TlsMode,
     session::{HttpTimeouts, Manager},
 };
 use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Map, Value, json};
 use zeroize::Zeroizing;
 
-use crate::anonymize::{AnonymizeError, Anonymizer};
+use crate::{
+    anonymize::{AnonymizeError, Anonymizer},
+    outbound::lan_policy,
+};
 
 /// Largest accepted response per captured item, in bytes.
 pub const ITEM_BYTE_CAP: usize = 1024 * 1024;
@@ -152,7 +155,7 @@ pub struct Connection {
     pub session: Manager,
 }
 
-/// Connects to `router` under the default outbound policy (plus loopback when asked).
+/// Connects to `router` under [`lan_policy`] (plus loopback when asked).
 ///
 /// # Errors
 ///
@@ -165,7 +168,7 @@ pub async fn connect(
     password: SecretString,
     allow_loopback: bool,
 ) -> Result<Connection, RciError> {
-    let policy = OutboundPolicy::default().with_loopback(allow_loopback);
+    let policy = lan_policy().with_loopback(allow_loopback);
     let credentials = Credentials::new(login, password);
     let options = RciClientOptions::default()
         .with_outbound(policy.clone())

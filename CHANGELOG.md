@@ -114,6 +114,19 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Router URLs with an IPv6 literal work.** A router URL such as `http://[fd00::1]` was
+  always refused as outside the outbound policy, because kcc looked the bracketed text up
+  as a host name. A literal IPv4 or IPv6 address is now checked as an address.
+- **Unused library entry points removed**: `kcc_migrate::source::MigrationSource`,
+  `LiveRouterProfile`, `load_source` and `SourceConfig::from_live`,
+  `kcc_migrate::inventory::InventoryClient::connect` and `kcc_rci::RciClient::connect`.
+  They connected with a built-in policy instead of `[outbound]`; kcc reaches routers
+  only through the registry's policy-checked clients (`InventoryClient::from_client`).
+- **One slow router no longer holds up the others.** The shared client of each router
+  is built on its own, and its credential files are read off the async workers, so a
+  router whose name resolves slowly or whose credential read stalls delays only requests
+  to that router.
+
 - **One error vocabulary for changes**: a domain failure met inside a change is worded the
   same way on the Web UI, MCP and the CLI. On MCP, `kcc_interfaces_write` failures now
   carry their own code (`verification_failed` with its `field`, `forbidden`,
@@ -442,6 +455,20 @@ The first release, `0.1.0`, is in preparation and contains:
   another role in `users.json` end. They used to last until restart or session expiry,
   even after `SIGHUP`. A key's last-use record does not reload anything; an unreadable
   file keeps the last good state with a warning.
+- **Router and log sink connections ignore proxy environment variables.** `HTTP_PROXY`,
+  `HTTPS_PROXY`, `ALL_PROXY` (and their lowercase forms) used to send router requests
+  and Loki/Elasticsearch deliveries through the named proxy, past the address the
+  outbound policy checked and pinned. Every router and sink connection now goes straight
+  to its destination.
+- **More cloud endpoints are never admitted.** Besides `169.254.169.254`, the outbound
+  policy now always refuses all of `169.254.169.0/24` and `169.254.170.0/24` (container
+  and pod credential endpoints, cloud DNS and time servers) and `fd00:ec2::/64`, whatever
+  `allowed_networks` says. `kcc router add|test` and the Web router form name such an
+  address as a metadata address.
+- **`kcc_rci::OutboundPolicy::default()` admits nothing** (no network, suffix or loopback),
+  as the documentation always said; it used to admit the private ranges and the Keenetic
+  and Netcraze cloud suffixes. kcc builds its policy from `[outbound]`, so the
+  configuration behaves as before.
 
 ### Upgrade notes
 

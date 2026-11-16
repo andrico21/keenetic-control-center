@@ -22,7 +22,10 @@ use core::{
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
 };
 
-use kcc_rci::{AllowedNetwork, OutboundPolicy, RouterUrl, TlsMode, session::HttpTimeouts};
+use kcc_rci::{
+    AllowedNetwork, OutboundPolicy, RciError, RouterUrl, TlsMode, session::HttpTimeouts,
+};
+use kcc_testkit::outbound::lan_policy;
 
 type TestResult = Result<(), Box<dyn Error>>;
 
@@ -113,10 +116,99 @@ fn suffix_constructor_normalizes_domains_and_drops_empty_entries() -> TestResult
     Ok(())
 }
 
+/// SEC2-06, A-13: the default policy admits no router address, loopback included.
 #[test]
-fn default_policy_applies_builtin_suffixes_only_to_global_addresses() -> TestResult {
+fn default_policy_refuses_every_address() -> TestResult {
     let policy = OutboundPolicy::default();
-    let suffix_only = OutboundPolicy::default().with_allowed_networks(Vec::new());
+    let ten = format!("{}.0.0.1", 10_u8);
+    let cases = [
+        ("router.test", "127.0.0.1"),
+        ("router.test", "::1"),
+        ("router.test", ten.as_str()),
+        ("router.test", "100.64.0.1"),
+        ("router.test", "fd00::1"),
+        ("router.test", "8.8.8.8"),
+        ("router.keenetic.pro", "8.8.8.8"),
+        ("router.netcraze.io", "8.8.8.8"),
+    ];
+
+    for (host, text) in cases {
+        let address = text.parse::<IpAddr>()?;
+        assert!(
+            admitted(&policy, host, address).is_err(),
+            "default policy admitted {host} at {address}"
+        );
+    }
+    Ok(())
+}
+
+/// SEC2-10: a bracketed IPv6 literal origin is checked as an address instead of being
+/// looked up as a name, so it passes when its network is admitted and fails when not.
+#[tokio::test]
+async fn bracketed_ipv6_literal_follows_the_policy() -> TestResult {
+    let unique_local = "http://[fd00::1]".parse::<RouterUrl>()?;
+    let loopback = "http://[::1]:8080".parse::<RouterUrl>()?;
+    let timeouts = HttpTimeouts::default();
+    let allowed = OutboundPolicy::default()
+        .with_allowed_networks(vec![AllowedNetwork::new("fd00::".parse()?, 8)?])
+        .with_loopback(true);
+    let elsewhere = OutboundPolicy::default()
+        .with_allowed_networks(vec![AllowedNetwork::new("198.51.100.0".parse()?, 24)?]);
+
+    for router in [&unique_local, &loopback] {
+        drop(
+            allowed
+                .client_builder(router, &TlsMode::Verify, timeouts)
+                .await?,
+        );
+        let refused = elsewhere
+            .client_builder(router, &TlsMode::Verify, timeouts)
+            .await;
+        assert!(
+            matches!(refused, Err(RciError::Policy)),
+            "{router} was admitted outside its network"
+        );
+    }
+    Ok(())
+}
+
+/// SEC2-11: the link-local cloud credential, DNS and time endpoints stay refused even when
+/// every network and loopback are admitted.
+#[test]
+fn link_local_cloud_endpoints_are_never_admitted() -> TestResult {
+    let policy = OutboundPolicy::default()
+        .with_allowed_networks(vec![
+            AllowedNetwork::new("0.0.0.0".parse()?, 0)?,
+            AllowedNetwork::new("::".parse()?, 0)?,
+        ])
+        .with_loopback(true);
+    let cases = [
+        "169.254.169.254",
+        "169.254.169.253",
+        "169.254.169.123",
+        "169.254.170.2",
+        "169.254.170.23",
+        "fd00:ec2::254",
+        "fd00:ec2::253",
+        "fd00:ec2::23",
+        "::ffff:169.254.170.2",
+    ];
+
+    for text in cases {
+        let address = text.parse::<IpAddr>()?;
+        assert!(
+            admitted(&policy, "router.test", address).is_err(),
+            "metadata endpoint {address} was admitted"
+        );
+    }
+    admitted(&policy, "router.test", "169.254.1.1".parse()?)?;
+    Ok(())
+}
+
+#[test]
+fn lan_policy_applies_builtin_suffixes_only_to_global_addresses() -> TestResult {
+    let policy = lan_policy();
+    let suffix_only = lan_policy().with_allowed_networks(Vec::new());
     let public = Ipv4Addr::new(8, 8, 8, 8).into();
     let private = format!("{}.0.0.1", 10_u8).parse()?;
 

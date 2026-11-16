@@ -63,7 +63,7 @@ pub enum ConfigKind {
 pub struct RciClientOptions {
     /// HTTP connect and response-read timeouts.
     pub timeouts: HttpTimeouts,
-    /// Outbound destination policy.
+    /// Outbound destination policy; the default admits no router address.
     pub outbound: OutboundPolicy,
     /// TLS verification mode.
     pub tls: TlsMode,
@@ -263,17 +263,6 @@ impl RciClient {
     #[inline]
     pub fn pinned_addresses(&self) -> impl Iterator<Item = IpAddr> + '_ {
         self.pinned.iter().map(SocketAddr::ip)
-    }
-
-    /// Connects to a router with default limits and policy.
-    ///
-    /// # Errors
-    ///
-    /// Returns a policy or transport error when the target cannot be safely pinned.
-    // NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
-    #[inline]
-    pub async fn connect(router: RouterUrl, credentials: Credentials) -> Result<Self, RciError> {
-        Self::connect_with(router, credentials, RciClientOptions::default()).await
     }
 
     /// Connects to a router with explicit engine options.

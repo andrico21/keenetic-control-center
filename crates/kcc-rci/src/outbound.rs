@@ -17,16 +17,10 @@ use rustls::{
 use sha2::{Digest as _, Sha256};
 use subtle::ConstantTimeEq as _;
 use tokio::task::spawn_blocking;
+use url::Host;
 use x509_parser::prelude::{FromDer as _, X509Certificate};
 
 use crate::{RciError, RouterUrl, session::HttpTimeouts};
-
-/// Cloud metadata addresses that are refused regardless of configured networks.
-const METADATA_ADDRESSES: [IpAddr; 3] = [
-    IpAddr::V4(Ipv4Addr::new(169, 254, 169, 254)),
-    IpAddr::V6(Ipv6Addr::new(0xfd00, 0x0ec2, 0, 0, 0, 0, 0, 0x0254)),
-    IpAddr::V4(Ipv4Addr::new(100, 100, 100, 200)),
-];
 
 /// TLS verification policy for a router connection.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -78,7 +72,9 @@ impl AllowedNetwork {
 }
 
 /// Operator-configured router target allowlist.
-#[derive(Clone, Debug, Eq, PartialEq)]
+///
+/// The default admits nothing: no network, no hostname suffix and no loopback.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
 #[non_exhaustive]
 #[expect(
     clippy::module_name_repetitions,
@@ -91,36 +87,6 @@ pub struct OutboundPolicy {
     allowed_suffixes: Vec<String>,
     /// Whether loopback networks are admitted.
     allow_loopback: bool,
-}
-
-impl Default for OutboundPolicy {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            allowed_networks: vec![
-                network(IpAddr::V4(Ipv4Addr::new(10, 0, 0, 0)), 8),
-                network(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 0)), 12),
-                network(IpAddr::V4(Ipv4Addr::new(192, 168, 0, 0)), 16),
-                network(IpAddr::V4(Ipv4Addr::new(100, 64, 0, 0)), 10),
-                network(IpAddr::V6(Ipv6Addr::new(0xfd00, 0, 0, 0, 0, 0, 0, 0)), 8),
-            ],
-            allowed_suffixes: [
-                ".keenetic.pro",
-                ".keenetic.link",
-                ".keenetic.name",
-                ".keenetic.io",
-                ".keenetic.net",
-                // UNVERIFIED: published Netcraze cloud suffixes need live confirmation.
-                ".netcraze.pro",
-                ".netcraze.link",
-                ".netcraze.io",
-            ]
-            .into_iter()
-            .filter_map(normalize_suffix)
-            .collect(),
-            allow_loopback: false,
-        }
-    }
 }
 
 impl OutboundPolicy {
@@ -202,8 +168,12 @@ impl OutboundPolicy {
     // request is sent and no externally visible state is changed.
     pub(crate) async fn resolve(router: &RouterUrl) -> Result<Vec<SocketAddr>, RciError> {
         let parsed = reqwest::Url::parse(router.as_str()).map_err(|_error| RciError::Policy)?;
-        let host = parsed.host_str().ok_or(RciError::Policy)?.to_owned();
         let port = parsed.port_or_known_default().ok_or(RciError::Policy)?;
+        let host = match parsed.host().ok_or(RciError::Policy)? {
+            Host::Ipv4(address) => return Ok(vec![SocketAddr::new(IpAddr::V4(address), port)]),
+            Host::Ipv6(address) => return Ok(vec![SocketAddr::new(IpAddr::V6(address), port)]),
+            Host::Domain(name) => name.to_owned(),
+        };
         spawn_blocking(move || {
             (host.as_str(), port)
                 .to_socket_addrs()
@@ -226,6 +196,7 @@ impl OutboundPolicy {
         timeouts: HttpTimeouts,
     ) -> Result<reqwest::ClientBuilder, RciError> {
         let mut builder = Client::builder()
+            .no_proxy()
             .redirect(Policy::none())
             .connect_timeout(timeouts.connect)
             .read_timeout(timeouts.read)
@@ -363,11 +334,19 @@ impl ServerCertVerifier for SpkiVerifier {
     }
 }
 
-/// Whether `address` is a cloud metadata address, which no configuration admits.
+/// Whether `address` is a cloud metadata, credential, DNS or time endpoint, which no
+/// configuration admits: the link-local `169.254.169.0/24` and `169.254.170.0/24`, the
+/// IPv6 `fd00:ec2::/64` and `100.100.100.200`.
 #[inline]
 #[must_use]
-pub fn is_metadata_address(address: IpAddr) -> bool {
-    METADATA_ADDRESSES.contains(&address.to_canonical())
+pub const fn is_metadata_address(address: IpAddr) -> bool {
+    match address.to_canonical() {
+        IpAddr::V4(ipv4) => matches!(
+            ipv4.octets(),
+            [169, 254, 169 | 170, _] | [100, 100, 100, 200]
+        ),
+        IpAddr::V6(ipv6) => matches!(ipv6.segments(), [0xfd00, 0x0ec2, 0, 0, ..]),
+    }
 }
 
 /// Whether no outbound-policy setting can admit `address`.
@@ -457,14 +436,6 @@ fn is_global(address: IpAddr) -> bool {
                 && !(segments[0] == 0x3fff && segments[1] <= 0x0fff)
                 && segments[0] != 0x5f00
         }
-    }
-}
-
-/// Constructs a known-valid default network.
-const fn network(address: IpAddr, prefix_len: u8) -> AllowedNetwork {
-    AllowedNetwork {
-        address,
-        prefix_len,
     }
 }
 

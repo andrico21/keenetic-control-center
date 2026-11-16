@@ -262,6 +262,7 @@ impl Manager {
     ) -> Result<Self, RciError> {
         install_ring_provider()?;
         let client = builder
+            .no_proxy()
             .redirect(Policy::none())
             .connect_timeout(timeouts.connect)
             .read_timeout(timeouts.read)

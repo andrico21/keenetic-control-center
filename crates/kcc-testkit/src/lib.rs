@@ -44,6 +44,7 @@ pub mod migration;
 pub mod model;
 pub mod ndw2;
 mod ntp;
+pub mod outbound;
 mod projection;
 mod server;
 pub mod time;

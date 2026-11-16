@@ -6,8 +6,7 @@ use core::{fmt, str, str::FromStr as _};
 use kcc_catalog::{Catalog, CatalogError};
 use kcc_config::config_text::{Ast, ParseError, Token, parse};
 use kcc_rci::{
-    ConfigKind, OutboundPolicy, RciBody, RciClient, RciClientOptions, RciError, RciPath, RouterUrl,
-    auth::Credentials,
+    ConfigKind, RciBody, RciClient, RciError, RciPath, RouterUrl,
     capabilities::{RouterInfo, SystemMode},
     version::{FirmwareVersion, FirmwareVersionError},
 };
@@ -45,23 +44,6 @@ impl InventoryClient {
             router: client.router_url().clone(),
             rci: Arc::clone(client),
         }
-    }
-
-    /// Connects the two read-only views required for complete inventory collection.
-    ///
-    /// # Errors
-    ///
-    /// Returns transport or outbound-policy failures.
-    // NOT cancel-safe: cancellation may abandon DNS resolution but sends no mutation.
-    #[inline]
-    pub async fn connect(router: RouterUrl, credentials: Credentials) -> Result<Self, RciError> {
-        let options = RciClientOptions::default()
-            .with_outbound(OutboundPolicy::default().with_loopback(true));
-        let rci = RciClient::connect_with(router.clone(), credentials, options).await?;
-        Ok(Self {
-            router,
-            rci: Arc::new(rci),
-        })
     }
 }
 
