@@ -323,6 +323,13 @@ The first release, `0.1.0`, is in preparation and contains:
   or password" text, in the sign-in page's language (it used the server's default
   language). The "UTC" after times and the parentheses around the "(you)" marker of the
   accounts table are now part of the translated messages.
+- **The Web router form's Test connection honours the sign-in mode.** It used the default
+  mode whatever the form said and never used a typed API token (on the add form in mode
+  token it answered with the id or password error). It now signs in with the selected
+  mode and the typed password or token, and nothing is stored.
+- **Test connection no longer shows a server file path.** A credential file other users
+  can read gets the chmod hint without the path (new Web message
+  `web-router-error-permissions`); the path is logged at warn level on the server.
 - **A failed router edit no longer leaves new credentials sealed for the old profile.**
   The Web router form and `kcc router edit` used to seal the new password, token or
   read-only password before storing the changed profile, with no way back: a refused or

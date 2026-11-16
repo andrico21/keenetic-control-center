@@ -34,7 +34,8 @@ use std::{
 
 use kcc_rci::{
     AllowedNetwork, OutboundPolicy, RciClient, RciClientOptions, RciError, RouterUrl, TlsMode,
-    auth::Credentials, capabilities::RouterInfo, observe::RciObserver,
+    auth::Credentials, auth_options::Options as RciAuthOptions, capabilities::RouterInfo,
+    observe::RciObserver,
 };
 use secrecy::SecretString;
 use serde::{Deserialize, Serialize};
@@ -680,12 +681,14 @@ impl RouterRegistry {
     ) -> Result<RouterInfo, RegistryError> {
         profile.validate()?;
         let credentials = self.credentials(profile, CredentialUse::Primary)?;
-        self.detect_with(profile, credentials).await
+        let options = auth::options(self.credentials.as_deref(), profile, CredentialUse::Primary)?;
+        self.detect_with(profile, credentials, options).await
     }
 
-    /// Authenticates with `password` instead of the profile's password file and detects
+    /// Authenticates with `secret` instead of the profile's credential file and detects
     /// the router without adding it to the registry, so a form can test credentials that
-    /// are not stored yet.
+    /// are not stored yet. `secret` is the token when the profile's sign-in mode is
+    /// `token`, otherwise the password; nothing is stored.
     ///
     /// # Errors
     ///
@@ -694,11 +697,17 @@ impl RouterRegistry {
     pub async fn test_connection_with(
         &self,
         profile: &ManagedRouterProfile,
-        password: SecretString,
+        secret: SecretString,
     ) -> Result<RouterInfo, RegistryError> {
         profile.validate()?;
-        let credentials = Credentials::new(profile.login.clone(), password);
-        self.detect_with(profile, credentials).await
+        let mut options = auth::mode_options(profile.auth);
+        let credentials = if profile.auth == RouterAuth::Token {
+            options.experimental_token = Some(secret);
+            Credentials::new(profile.login.clone(), SecretString::from(String::new()))
+        } else {
+            Credentials::new(profile.login.clone(), secret)
+        };
+        self.detect_with(profile, credentials, options).await
     }
 
     /// The outbound policy every router connection passes, for checking a target before
@@ -758,18 +767,20 @@ impl RouterRegistry {
             .map_err(RegistryError::from)
     }
 
-    /// Opens a policy-checked session with `credentials` and detects the router.
+    /// Opens a policy-checked session with `credentials` under the authentication policy
+    /// `auth` and detects the router.
     // cancel-safe: every router operation is a read.
     async fn detect_with(
         &self,
         profile: &ManagedRouterProfile,
         credentials: Credentials,
+        auth: RciAuthOptions,
     ) -> Result<RouterInfo, RegistryError> {
         let mut options = RciClientOptions::default();
         options.outbound = self.outbound.clone();
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(&profile.id).await);
-        options.auth = auth::options(self.credentials.as_deref(), profile, CredentialUse::Primary)?;
+        options.auth = auth;
         RciClient::connect_with(router_url(profile)?, credentials, options)
             .await?
             .detect()

@@ -6659,8 +6659,12 @@ pub const WEB_ROUTER_ERROR_READ_PASSWORD: MessageKey =
 /// `web-time-utc` in `web.ftl`.
 pub const WEB_TIME_UTC: MessageKey = MessageKey::new("web-time-utc");
 
+/// `web-router-error-permissions` in `web.ftl`.
+pub const WEB_ROUTER_ERROR_PERMISSIONS: MessageKey =
+    MessageKey::new("web-router-error-permissions");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2120] = [
+pub static ALL: [MessageKey; 2121] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8781,4 +8785,5 @@ pub static ALL: [MessageKey; 2120] = [
     WEB_ROUTER_ERROR_READ_LOGIN,
     WEB_ROUTER_ERROR_READ_PASSWORD,
     WEB_TIME_UTC,
+    WEB_ROUTER_ERROR_PERMISSIONS,
 ];

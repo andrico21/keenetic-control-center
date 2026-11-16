@@ -1981,3 +1981,4 @@ web-router-error-token = API токенін енгізіңіз.
 web-router-error-read-login = Осы құпиясөзге тек оқуға арналған логинді енгізіңіз.
 web-router-error-read-password = Осы логинге тек оқуға арналған құпиясөзді енгізіңіз.
 web-time-utc = { $time } UTC
+web-router-error-permissions = Осы роутердің тіркелгі деректері файлын басқа пайдаланушылар оқи алады. kcc хостында осы файлға chmod 600 орындап, әрекетті қайталаңыз.

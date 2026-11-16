@@ -12,7 +12,10 @@ use axum::{
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
-use kcc_app::registry::{ManagedRouterProfile, ProfileSource, RegistryError};
+use kcc_app::{
+    registry::{ManagedRouterProfile, ProfileSource, RegistryError},
+    settings::RouterAuth,
+};
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
@@ -55,8 +58,8 @@ pub(crate) async fn test(
     let editing = form.router().to_owned();
     let draft_id = form.id().to_owned();
     let (_draft, typed, parsed) = form.parse(user.locale(), false);
-    let password = typed.into_password();
-    let id = if password.is_some() {
+    let primary = typed.into_primary();
+    let id = if primary.is_some() {
         is_slug(&draft_id).then_some(draft_id.as_str())
     } else {
         is_slug(&editing).then_some(editing.as_str())
@@ -71,10 +74,20 @@ pub(crate) async fn test(
             return errors::render(&TestResult::invalid(shell, &errors));
         }
     };
+    let auth = fields.auth();
+    let missing_key = if auth == RouterAuth::Token {
+        keys::WEB_ROUTER_ERROR_TOKEN
+    } else {
+        keys::WEB_ROUTER_ERROR_PASSWORD
+    };
     let mut profile =
         ManagedRouterProfile::new(id, fields.url().clone(), String::new(), PathBuf::new());
     fields.apply(&mut profile);
-    let outcome = if let Some(secret) = password {
+    profile.auth = auth;
+    let outcome = if let Some(secret) = primary {
+        if auth == RouterAuth::Token {
+            profile.token_file = profile.password_file.take();
+        }
         fleet
             .registry()
             .test_connection_with(&profile, secret)
@@ -87,7 +100,7 @@ pub(crate) async fn test(
         }
         let Ok(existing) = managed(fleet, user.role(), &editing).await else {
             audit.append(&state, &user, "refused").await;
-            let missing = TestResult::message(shell, keys::WEB_ROUTER_ERROR_PASSWORD);
+            let missing = TestResult::message(shell, missing_key);
             return errors::render(&missing);
         };
         if !matches!(existing.source, ProfileSource::State) {
@@ -96,8 +109,17 @@ pub(crate) async fn test(
             return errors::render(&refused);
         }
         profile = existing.profile;
+        if profile.token_file.is_some() != (auth == RouterAuth::Token) {
+            audit.append(&state, &user, "refused").await;
+            let missing = TestResult::message(shell, missing_key);
+            return errors::render(&missing);
+        }
+        profile.auth = auth;
         fleet.registry().test_connection(&profile).await
     };
+    if let Err(RegistryError::CredentialPermissions { path }) = &outcome {
+        tracing::warn!(path = %path.display(), router = %profile.id, "connection test: credential file is readable by other users");
+    }
     let audit_outcome = if outcome.is_ok() { "success" } else { "failed" };
     audit.append(&state, &user, audit_outcome).await;
     errors::render(&TestResult::new(shell, &outcome, &profile.url))
@@ -199,11 +221,8 @@ impl TestResult {
             Err(RegistryError::Rci(RciError::Policy)) => {
                 Self::failed(shell, policy_refusal(locale, url))
             }
-            Err(RegistryError::CredentialPermissions { path }) => {
-                let mut args = FluentArgs::new();
-                args.set("path", path.display().to_string());
-                let error = tr(locale, keys::ERRORS_SECRET_FILE_PERMISSIONS, Some(&args));
-                Self::failed(shell, error)
+            Err(RegistryError::CredentialPermissions { path: _ }) => {
+                Self::failed(shell, tr(locale, keys::WEB_ROUTER_ERROR_PERMISSIONS, None))
             }
             Err(error) => Self::failed(shell, tr(locale, failure(error), None)),
         }

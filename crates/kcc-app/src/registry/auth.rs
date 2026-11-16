@@ -30,6 +30,18 @@ pub(super) fn validate(profile: &ManagedRouterProfile) -> Result<(), RegistryErr
     })
 }
 
+/// The RCI authentication policy of sign-in mode `auth`, without a token.
+pub(super) fn mode_options(auth: RouterAuth) -> Options {
+    let mut options = Options::default();
+    options.mode = match auth {
+        RouterAuth::Auto | RouterAuth::Token => Mode::Auto,
+        RouterAuth::Ndw2 => Mode::Ndw2,
+        RouterAuth::Ndw4 => Mode::Ndw4,
+        RouterAuth::Digest => Mode::DigestProxy,
+    };
+    options
+}
+
 /// Builds the RCI authentication policy; only the primary credential pair uses the token,
 /// opened from its sealed record when the profile points there.
 pub(super) fn options(
@@ -37,13 +49,7 @@ pub(super) fn options(
     profile: &ManagedRouterProfile,
     credential_use: CredentialUse,
 ) -> Result<Options, RegistryError> {
-    let mut options = Options::default();
-    options.mode = match profile.auth {
-        RouterAuth::Auto | RouterAuth::Token => Mode::Auto,
-        RouterAuth::Ndw2 => Mode::Ndw2,
-        RouterAuth::Ndw4 => Mode::Ndw4,
-        RouterAuth::Digest => Mode::DigestProxy,
-    };
+    let mut options = mode_options(profile.auth);
     if matches!(credential_use, CredentialUse::Primary)
         && let Some(path) = &profile.token_file
     {

@@ -45,3 +45,8 @@
 ## [2026-11-16] Todo 15 (wt/r15) notes
 - Over-ceiling files grew: `kcc-web/src/session.rs` 407 -> 448 pure LOC, `kcc-web/src/auth.rs` 510 -> 550 (anonymous cap logic itself went to the new `session/anonymous.rs`). Splits are follow-ups.
 - Several async fns in `session.rs` (get, peek, invalidate, set_fingerprint, ...) have no `// cancel-safe:` comment and `cargo xtask cancel-safety` does not flag them; only the fns this todo touched got one.
+
+## [2026-11-16] Todo 16 (wt/r16) notes, not fixed here
+- `kcc-web/src/config_page/backup_rows.rs::stamp` still builds `"{minutes} UTC"` in Rust (same W1-13 class, not cited by the finding).
+- `AccountStore::administer`, `set_locale`, `reset_password` still rewrite users.json when the account is missing or the change is refused.
+- Size: `kcc-app/src/accounts.rs` dropped to 383 pure LOC (Argon2 and sign-in moved out) but is still over the ceiling; `kcc-web/src/auth.rs` 551, `admin_shared.rs` 352 (pre-existing).

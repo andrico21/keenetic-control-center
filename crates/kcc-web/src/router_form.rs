@@ -204,9 +204,9 @@ pub(crate) struct Typed {
 }
 
 impl Typed {
-    /// The typed management password.
-    pub(crate) fn into_password(self) -> Option<SecretString> {
-        self.password
+    /// The typed primary secret: the token in mode `token`, otherwise the password.
+    pub(crate) fn into_primary(self) -> Option<SecretString> {
+        self.token.or(self.password)
     }
 }
 
@@ -234,6 +234,11 @@ impl Parsed {
     /// Router origin.
     pub(crate) const fn url(&self) -> &Url {
         &self.url
+    }
+
+    /// Sign-in mode.
+    pub(crate) const fn auth(&self) -> RouterAuth {
+        self.auth
     }
 
     /// Whether applying these fields would move the profile's endpoint (the rule the

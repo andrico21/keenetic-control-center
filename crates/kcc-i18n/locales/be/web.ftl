@@ -2007,3 +2007,4 @@ web-router-error-token = Увядзіце API-токен.
 web-router-error-read-login = Увядзіце лагін толькі для чытання для гэтага пароля.
 web-router-error-read-password = Увядзіце пароль толькі для чытання для гэтага лагіна.
 web-time-utc = { $time } UTC
+web-router-error-permissions = Файл з уліковымі данымі гэтага роўтара могуць чытаць іншыя карыстальнікі. Выканайце на хосце kcc chmod 600 для гэтага файла і паспрабуйце яшчэ раз.

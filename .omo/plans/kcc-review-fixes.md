@@ -633,7 +633,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(app,web,cli): router edits never leave mismatched sealed credentials
   Recommended task executor category: unspecified-high - multi-file change across modules
 
-- [ ] 18. Router connection test honours the sign-in mode and hides server paths
+- [x] 18. Router connection test honours the sign-in mode and hides server paths
   What to do / Must NOT do: Per the findings. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `W1-06` (medium; critic adjusted) Connection test ignores the selected sign-in mode and never uses a typed token. Evidence: `crates/kcc-web/src/router_check.rs:57-58,74-82`, `router_form.rs:251-257`, `kcc-app/src/registry.rs:92`, `kcc-app/src/registry/auth.rs:41-46`. Fix: Set `profile.auth` from the parsed form, which needs an accessor on `Parsed`. Make `Typed` expose the primary secret of either kind, and add a `test_connection_with` variant that takes a token. Critic correction (binding): (b) On the add form in token mode, a typed token is never used. The test answers with the id-format error, or "password required" when the id is empty.
   - `W1-15` (info; critic adjusted, low->info) The connection test shows a server file path to the Web user. Evidence: `crates/kcc-web/src/router_check.rs:202-206`. Fix: Show the chmod hint without the path to the Web user, and log the path server-side. Critic correction (binding): The path leak is only reachable for state profiles that point at an operator file outside the managed records, and only to a `ManageRouters` user.

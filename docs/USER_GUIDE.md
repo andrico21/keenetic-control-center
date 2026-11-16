@@ -53,8 +53,11 @@ token field appears only for API token and replaces the password. The read-only 
 and password are entered together; the poller then signs in with them instead of the
 management login, and "Remove read-only login" on the edit form drops both. The pin is
 the SHA-256 of the router certificate's public key (SubjectPublicKeyInfo) and applies to
-https addresses only. Test connection logs in with the typed password, or with the
-stored credentials when the field is empty, without storing anything. Routers defined in
+https addresses only. Test connection signs in the way the form says (the chosen mode, with the typed
+password or, in mode API token, the typed token), or with the stored credentials when
+the field is empty, without storing anything. When a credential file is readable by
+other users the page gives the chmod hint without the file's path; the path is in the
+server log. Routers defined in
 `kcc.toml` are read-only here.
 
 Passwords, tokens and read-only passwords entered in this form are encrypted in the state

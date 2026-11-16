@@ -36,3 +36,9 @@
 ## [2026-11-16] Commits e623772 (todo 11) and 034ec91 (todo 8 part B / B-08); todo 8 ticked
 - Gate fx6 was green except one test again: the repository guard flagged an RFC1918 literal in the prose "reason" of catalog/synopsis-errata.json (a quote of the manual's example). A small worker reworded the string (the generator never reads `reason`), no_secrets 2 passed. Lesson for later worker prompts: workers' targeted checks skip kcc-testkit's no_secrets guard, so every worker prompt now says "no IP literals except RFC 5737, MACs 02:00:00:00:XX:YY, also in prose, JSON and docs" (kcc-agent-rules.md updated).
 - Not proven on hardware (for the final report / BACKLOG): the ipv6 route argument order (interface before gateway), `ip route` metric on 4.3, `<address> <port>` vs `<address>:<port>` for `system log server` and `wireguard peer endpoint`, `interface down`, the `vlan-id` line, the new fqdn-typed `ip http proxy upstream` host name.
+
+## [2026-11-16] Todo 16 (wt/r16)
+- Compare-and-set token: sealed hash + disabled must equal the snapshot's; failure_count/lockout_until are re-read under the lock and the step is re-applied to them instead of failing the CAS and re-running Argon2 (a strict 4-field CAS would cost O(N^2) Argon2 runs under N simultaneous failures). A hash change restarts the sign-in (re-read, re-verify), at most 3 times, then Invalid without counting.
+- The gate also covers password hashing (create, reset, own change), not only verification: one place, same 19 MiB cost.
+- `update_if_changed` is used by sign-in and by `create` (duplicate name); other admin paths (administer/set_locale/reset on a missing account) still write unconditionally (authenticated, rare; not in the findings' scope).
+- `web-admin-user-you` values were edited in place to include the parentheses (6 lines) instead of appending a new key, because the old key would become unused and i18n-check rejects unused keys.

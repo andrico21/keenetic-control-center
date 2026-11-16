@@ -1981,3 +1981,4 @@ web-router-error-token = Enter the API token.
 web-router-error-read-login = Enter the read-only login for this password.
 web-router-error-read-password = Enter the read-only password for this login.
 web-time-utc = { $time } UTC
+web-router-error-permissions = The credential file of this router can be read by other users. Run chmod 600 on it on the kcc host and try again.
