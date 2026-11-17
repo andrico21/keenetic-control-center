@@ -156,7 +156,9 @@ token again in the same command and drops the read-only login unless it is given
 Two transports serve the same tools ([docs/MCP_TOOLS.md](docs/MCP_TOOLS.md)):
 
 - **stdio**: set `[mcp] stdio_enabled = true`; the client starts `kcc mcp stdio`. The
-  local identity gets the role in `[mcp] stdio_role` (default `viewer`).
+  local identity gets the role in `[mcp] stdio_role` (default `viewer`). When stdin
+  closes, or on SIGTERM or SIGINT, it finishes open change brackets and flushes the
+  audit log before it exits, as `kcc serve` does.
 - **HTTP**: `kcc serve` answers on `/mcp` and needs an API key in an
   `Authorization: Bearer` header. Create one per assistant; the key is printed once:
 

@@ -1315,7 +1315,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(cli): one composition root and typed errors
   Recommended task executor category: unspecified-high - multi-file change across modules
 
-- [ ] 63. `kcc mcp stdio` handles signals like `kcc serve`
+- [x] 63. `kcc mcp stdio` handles signals like `kcc serve`
   What to do / Must NOT do: On SIGTERM/SIGINT, stop accepting input, wait for open brackets (BRACKET_GRACE), drain jobs and flush the audit log as `kcc serve` does. Test with a real child process and a held bracket (pattern: crates/kcc/tests/serve_bracket/). Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `F-05` (medium; critic confirmed) `kcc mcp stdio` has no signal handling, so a signal skips the bracket wait, job drain and audit flush. Evidence: `crates/kcc/src/server.rs:234-235`, `rmcp-server-kit-3.21.1/src/transport.rs:5916-5937`. Fix: Wrap `serve_stdio` in a `select!` with `tokio::signal::ctrl_c()` and a SIGTERM stream, then fall through to the existing wait, drain and flush.
   Must NOT: change unrelated behaviour, add a crate that is not already in `[workspace.dependencies]` or `Cargo.lock`, weaken a security control, change the audit entry format or hash rule, or touch files owned by another open todo of the same wave beyond what this todo needs; keep routes, MCP tool names/schemas and CLI flags except where a finding above changes them on purpose (name each such change in the commit body).

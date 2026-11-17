@@ -1003,6 +1003,11 @@ The first release, `0.1.0`, is in preparation and contains:
 - **A bridge member the target lacks reads as target hardware.** The migration review
   showed "the target does not support this setting" for it; it now says it belongs to
   the source's hardware, as the report does.
+- **`kcc mcp stdio` shuts down gracefully on SIGTERM and SIGINT.** A signal killed the
+  process at once, in the middle of a management change: the disarm was never sent and
+  queued audit entries were lost. It now stops reading stdin, waits (at most 10 s) for
+  open change brackets, drains jobs, flushes the audit log and exits 0, as `kcc serve`
+  does. SIGHUP is unchanged.
 
 ### Security
 

@@ -8,13 +8,17 @@
 //! another process's append lock; those still queued then are lost, and counted in the
 //! log.
 
-use core::time::Duration;
+use core::{future::pending, time::Duration};
+use std::io;
 
 use kcc_app::{
     audit::{AuditLog, receipt::AUDIT_FLUSH_WAIT},
     brackets::Brackets,
 };
 use rmcp_server_kit::RmcpServerKitError;
+use tokio::signal::ctrl_c;
+#[cfg(unix)]
+use tokio::signal::unix::{SignalKind, signal};
 
 use crate::server_error::ServerError;
 
@@ -55,6 +59,66 @@ where
         tracing::warn!(%source, "listener stopped with an error after the audit writer terminated");
     }
     Err(ServerError::AuditWriterTerminated)
+}
+
+/// Serves until `serving` ends or a SIGTERM or SIGINT arrives, which drops it.
+///
+/// # Errors
+///
+/// The kit's error when `serving` failed before any signal.
+// cancel-safe: both arms are; a signal only drops `serving`, whose owner decides what a
+// drop ends.
+pub(crate) async fn serve_until_signal<F>(serving: F) -> Result<(), ServerError>
+where
+    F: Future<Output = Result<(), RmcpServerKitError>>,
+{
+    tokio::select! {
+        served = serving => served.map_err(ServerError::from),
+        () = termination() => Ok(()),
+    }
+}
+
+/// Resolves on the first SIGTERM or SIGINT, the signals on which the kit stops `kcc serve`;
+/// only Ctrl-C on non-Unix platforms.
+///
+/// A handler that cannot be installed is logged and never resolves, so the transport
+/// keeps serving until its input ends.
+// cancel-safe: tokio's signal futures are cancel-safe and no state is kept between polls.
+async fn termination() {
+    #[cfg(unix)]
+    {
+        let mut term = match signal(SignalKind::terminate()) {
+            Ok(term) => Some(term),
+            Err(error) => {
+                tracing::warn!(%error, "cannot install the SIGTERM handler; stopping on SIGINT only");
+                None
+            }
+        };
+        let terminated = async {
+            match term.as_mut() {
+                Some(stream) => drop(stream.recv().await),
+                None => pending().await,
+            }
+        };
+        tokio::select! {
+            interrupted = ctrl_c() => interrupt_or_wait(interrupted).await,
+            () = terminated => {}
+        }
+    }
+    #[cfg(not(unix))]
+    interrupt_or_wait(ctrl_c().await).await;
+    tracing::info!(
+        "shutdown signal received; finishing open router fail-safe brackets before exit"
+    );
+}
+
+/// Returns at once for a received Ctrl-C; logs a handler that failed and waits forever.
+// cancel-safe: holds no state.
+async fn interrupt_or_wait(interrupted: io::Result<()>) {
+    if let Err(error) = interrupted {
+        tracing::warn!(%error, "cannot install the SIGINT handler");
+        pending::<()>().await;
+    }
 }
 
 /// Waits, at most [`BRACKET_GRACE`], for requests on any surface still closing a router's

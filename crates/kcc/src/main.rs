@@ -1,5 +1,6 @@
 //! Keenetic Control Center command-line entry point.
 
+use core::time::Duration;
 use std::{
     env,
     io::{self, Write as _},
@@ -8,6 +9,12 @@ use std::{
 
 use kcc::cli::{args::Cli, entry};
 use tokio::runtime::Builder;
+
+/// How long the exit waits for blocking threads still running once the command returned.
+///
+/// A stdin read that a signal interrupted never returns, and an unbounded wait would keep
+/// `kcc mcp stdio` alive after its shutdown.
+const BLOCKING_EXIT_WAIT: Duration = Duration::from_secs(1);
 
 #[expect(
     clippy::absolute_paths,
@@ -38,5 +45,7 @@ fn main() -> ExitCode {
             return ExitCode::from(1);
         }
     };
-    ExitCode::from(runtime.block_on(entry::run(cli)))
+    let code = runtime.block_on(entry::run(cli));
+    runtime.shutdown_timeout(BLOCKING_EXIT_WAIT);
+    ExitCode::from(code)
 }
