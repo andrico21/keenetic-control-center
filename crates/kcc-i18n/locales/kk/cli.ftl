@@ -115,3 +115,4 @@ cli-router-credential-required = { $router } роутерінің URL-ін, ло
 cli-router-external-password = { $router } роутері құпиясөзін ашық { $path } файлынан оқиды. Оны мына командамен шифрлаңыз: kcc router edit { $router } --new-password --password-file { $path }
 cli-listener-in-use = kcc роутерге осы порт арқылы қосылады, сондықтан өзгеріс kcc-ді ажыратып, сақталмаған барлық өзгерістерді кері қайтарар еді; ол жіберілмеді. Оны роутерде өзгертіп, содан кейін kcc-дегі роутер мекенжайын `kcc router edit --url` пәрменімен түзетіңіз.
 cli-router-password-env-shared = KCC_PASSWORD бір командада тек бір құпияны алмастыра алады. Қалған құпияларды --password-file, --token-file немесе --read-password-file арқылы беріңіз.
+cli-dhcp-pool-replace-needs = { $name } DHCP пулы бұрыннан бар. Оны ауыстыру үшін { $missing } да көрсетіңіз, әйтпесе оның ағымдағы баптаулары әдепкі мәндерге қайтарылады; ешнәрсе жіберілген жоқ.

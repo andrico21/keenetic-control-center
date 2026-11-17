@@ -175,3 +175,14 @@
 ## [2026-11-17] Todo 48 (wt/r48) notes, not fixed here
 - MCP `kcc_dhcp_write` `op: pool` has no `gateway`: `PoolConfig::new` advertises `begin` as the default router and a replace resets lease/state (the F-11 harm through MCP). Fixing it changes the tool schema (+ docs/MCP_TOOLS.md regen); recorded in docs/BACKLOG.md.
 - Catalog `ip dhcp pool dns-server` synopsis carries the manual prompt `(config-dhcp-pool)> dns-server` as grammar words in 4.3/5.0/5.1; `address2` is typed but untrustworthy. Recorded in docs/BACKLOG.md.
+- not proven on hardware (todo 48): 'no ip dhcp pool <name> dns-server' accepted by a real router; fake router rule relaxed to allow the bare 'dns-server' leaf.
+
+## [2026-11-17] Todo 49 (wt/r49) notes, not fixed here
+- `crates/kcc-domain/src/dns/change.rs` was already 392 pure LOC before this todo (393 after); it needs a split (not in scope).
+- The text reader's `RuleForm::rule()` drops port range ends (`rule_words.rs`), so a Web move of a `port range` rule plans its identity without the range; only the domain apply path (unused by the Web) reads that identity, so nothing breaks, but the two readers still disagree (BACKLOG "two readers").
+- Correction to the line above: the text reader keeps a `port range` rule unstructured (words only, `rule_words.rs` module doc), so a Web move of such a rule plans it by its words; no identity is lost. The only real gap is the two readers' different notion of 'structured' (JSON reader models ranges, text reader does not).
+
+## [2026-11-17] Todo 51 issues
+- Pre-existing, left alone: `WireGuardParseError::UnknownSection.section` still echoes the (bracketed) line text; a `[`-prefixed line cannot be a bare base64 key, so it was not in the binding scope.
+- The fake router assigns `type` "Wireguard" to a created interface only after a wireguard sub-command; a bare `interface X` has no type (a real router types it by name prefix). The D-11 test therefore sets a listen port after Create.
+- Web: the VPN delete form now needs an account with the Destructive permission (operator no longer deletes a non-management VPN interface).

@@ -1984,3 +1984,5 @@ web-time-utc = { $time } UTC
 web-router-error-permissions = The credential file of this router can be read by other users. Run chmod 600 on it on the kcc host and try again.
 web-wizard-runs-limit = You already have 10 unfinished runs of this wizard. Finish or close one first; a run left unchanged for a day no longer counts.
 web-migrate-inputs-password-user = This password field does not belong to this user any more. Reload the page and type the passwords again.
+web-dhcp-error-name-taken = A pool with this name already exists. Edit that pool instead.
+web-dhcp-error-dns-one = Enter at most one DNS server address.

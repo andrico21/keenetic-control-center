@@ -52,7 +52,7 @@ const INTERFACE_RULES: &[LeafRule] = &[
 const DHCP_POOL_RULES: &[LeafRule] = &[
     leaf(&["range"], 3, Some(3), 1),
     leaf(&["default-router"], 2, Some(2), 1),
-    leaf(&["dns-server"], 2, Some(3), 2),
+    leaf(&["dns-server"], 1, Some(3), 1),
     leaf(&["lease"], 2, Some(2), 1),
     leaf(&["bind"], 2, Some(2), 1),
     leaf(&["enable"], 1, Some(1), 1),

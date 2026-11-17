@@ -10,7 +10,11 @@
 
 mod support;
 
+use core::time::Duration;
+
+use kcc_app::{audit::verify_chain, workflow::WorkflowError};
 use kcc_domain::clients;
+use kcc_testkit::FaultInjection;
 
 use crate::support::{Fixture, PROFILES, TestResult};
 
@@ -63,6 +67,43 @@ async fn removing_a_client_uses_known_host_cascade() -> TestResult {
                 .await?
                 .is_none()
         );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// C-23: the client read-back runs before the workflow writes its audit entry, so a failed
+/// read-back leaves no `router.change_cli` entry claiming the change applied.
+#[tokio::test]
+async fn a_failed_client_read_back_is_not_audited_as_applied() -> TestResult {
+    for firmware in PROFILES {
+        let faults = FaultInjection::default().fail_read_matching("show/ip/hotspot", 1);
+        let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
+        let mut client = clients::Client::default();
+        client.mac = Some("02:00:00:00:10:03".to_owned());
+        client.registered = Some(true);
+        let operation = clients::plan_access(
+            fixture.context(),
+            &client,
+            "phone-registered",
+            clients::Access::Deny,
+        )?;
+        let mut changes = fixture.changes().await?;
+
+        let result = clients::apply(&mut changes, fixture.context(), &operation).await;
+
+        assert!(
+            matches!(result, Err(WorkflowError::Rci(_))),
+            "{firmware:?}: {result:?}"
+        );
+        assert_eq!(fixture.audit().flush(Duration::from_secs(60)).await, 0);
+        let applied = verify_chain(&fixture.state_dir())?
+            .into_iter()
+            .filter(|entry| entry.action.starts_with("router.change_cli"))
+            .map(|entry| entry.outcome)
+            .collect::<Vec<_>>();
+        assert_eq!(applied, Vec::<String>::new(), "{firmware:?}");
         drop(changes);
         fixture.shutdown().await?;
     }

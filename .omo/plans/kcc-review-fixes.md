@@ -1070,7 +1070,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(mcp): narrow expects, single metadata, cancel-safety comments
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 48. DHCP pools: parsing, DNS servers, defaults and overwrite protection (M35)
+- [x] 48. DHCP pools: parsing, DNS servers, defaults and overwrite protection (M35)
   What to do / Must NOT do: Per the findings: `parse_pools` stops at the next top-level block; pools refuse more than one DNS server with a field error (the catalog types only `address1`; the generator's mis-parse of `address2` goes to docs/BACKLOG.md) and clear DNS with `no ip dhcp pool <name> dns-server`; the CLI does not default the gateway to the first leased address and does not wipe options on replace; a 'new' pool cannot overwrite an existing one; read-back runs before the audit entry says success (C-23). Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `C-08` (medium; critic confirmed) `parse_pools` attaches indented lines of later blocks to the last DHCP pool. Evidence: `crates/kcc-domain/src/dhcp/model.rs:175-187`. Fix: Clear the current pool on any non-indented line that is not an `ip dhcp pool` header.
   - `C-09` (medium; critic adjusted) `plan_pool` silently drops every DNS server after the first. Evidence: `crates/kcc-domain/src/dhcp.rs:107-112`, `dhcp/model.rs:140-143`, `kcc-web/src/clients_pages/dhcp_forms.rs:140`. Fix: Refuse more than the catalog supports (`address1` only), or render all of them. Critic correction (binding): The reachable path is `kcc dhcp pool … --dns A --dns B`, not the Web UI.

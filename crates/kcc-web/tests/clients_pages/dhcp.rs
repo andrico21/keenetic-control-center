@@ -195,3 +195,78 @@ async fn a_static_lease_outside_every_pool_shows_the_field_error() -> TestResult
     );
     Ok(())
 }
+
+/// W3-04: the pool editor clears DNS and never overwrites a pool.
+///
+/// An emptied DNS field removes the pool's DNS server, two DNS servers are a field error
+/// instead of a silent drop, a new pool cannot take the name of an existing one, and
+/// editing the existing pool still applies.
+#[tokio::test]
+async fn the_pool_editor_clears_dns_and_never_overwrites_a_pool() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let operator = fixture.login("operator").await?;
+    let path = format!("{PAGE}/pools/edit");
+    let created = fixture.post(&path, &operator, &form(&POOL)).await?;
+    assert_eq!(created.status(), StatusCode::OK, "pool applied");
+    let cleared = fixture
+        .post(&path, &operator, &pool_with(("dns", ""), true))
+        .await?;
+
+    assert_eq!(cleared.status(), StatusCode::OK, "the edit applies");
+    let running = fixture.handle().running_config_text();
+    assert!(running.contains("ip dhcp pool Pool23"), "{running}");
+    assert!(!running.contains("dns-server"), "DNS cleared: {running}");
+
+    let two = fixture
+        .post(
+            &path,
+            &operator,
+            &pool_with(("dns", "192.0.2.1, 192.0.2.2"), true),
+        )
+        .await?;
+    assert_eq!(two.status(), StatusCode::UNPROCESSABLE_ENTITY, "two DNS");
+    assert!(
+        text(two)
+            .await?
+            .contains(&said(Locale::En, keys::WEB_DHCP_ERROR_DNS_ONE)),
+        "the DNS rule"
+    );
+    assert_eq!(
+        fixture.handle().running_config_text(),
+        running,
+        "nothing sent"
+    );
+
+    let refused = fixture
+        .post(&path, &operator, &pool_with(("begin", "192.0.2.81"), false))
+        .await?;
+    assert_eq!(
+        refused.status(),
+        StatusCode::UNPROCESSABLE_ENTITY,
+        "name taken"
+    );
+    assert!(
+        text(refused)
+            .await?
+            .contains(&said(Locale::En, keys::WEB_DHCP_ERROR_NAME_TAKEN)),
+        "the name rule"
+    );
+    assert_eq!(
+        fixture.handle().running_config_text(),
+        running,
+        "not overwritten"
+    );
+    Ok(())
+}
+
+/// The `POOL` form with `field` changed, sent as an edit of the existing pool or as a new
+/// one.
+fn pool_with(field: (&str, &'static str), existing: bool) -> String {
+    let mut fields = POOL
+        .map(|(name, value)| (name, if name == field.0 { field.1 } else { value }))
+        .to_vec();
+    if existing {
+        fields.push(("existing", "1"));
+    }
+    form(&fields)
+}

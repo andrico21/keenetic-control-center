@@ -2,7 +2,7 @@
 
 use kcc_app::{
     permissions::Permission,
-    workflow::{CliChangeRequest, CliCommand as ValidatedCli},
+    workflow::{CliChangeRequest, CliCommand as ValidatedCli, VerificationSpec},
 };
 use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use serde_json::{Value, json};
@@ -29,25 +29,38 @@ pub(super) fn plan(router: &RouterCtx, inputs: &[(&str, Value)]) -> Result<Chang
     ))
 }
 
-/// Converts catalog requests to ordered DHCP CLI commands.
+/// Converts catalog requests to ordered DHCP CLI commands, verified before the workflow
+/// audits them: each line in the running configuration, and each static lease in `show rc`.
 pub(super) fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     let mut pool_name = None;
     let mut commands = Vec::new();
+    let mut leases = Vec::new();
     for validated in &operation.requests {
-        if validated.path == "ip dhcp pool" {
-            pool_name = validated.value().get("name").and_then(Value::as_str);
+        match validated.path.as_str() {
+            "ip dhcp pool" => pool_name = validated.value().get("name").and_then(Value::as_str),
+            "ip dhcp host" => leases.push(VerificationSpec::collection(
+                ["show", "rc", "ip", "dhcp", "host"]
+                    .map(str::to_owned)
+                    .to_vec(),
+                String::new(),
+                json!({"mac": validated.value().get("host").ok_or(DomainError::InvalidResponse)?}),
+                true,
+            )),
+            _ => {}
         }
         commands.push(ValidatedCli::new(
             cli_line(validated, pool_name)?,
             validated.clone(),
         )?);
     }
-    verification::complete(CliChangeRequest::new(
+    let mut request = verification::complete(CliChangeRequest::new(
         commands,
         Vec::new(),
         operation.permission,
         json!({"operation":"dhcp"}),
-    ))
+    ))?;
+    request.verify.extend(leases);
+    Ok(request)
 }
 
 /// Renders one validated DHCP request.
@@ -74,6 +87,9 @@ fn cli_line(request: &ValidatedRequest, pool_name: Option<&str>) -> Result<Strin
             pool()?,
             text("address")?
         )),
+        "ip dhcp pool dns-server" if request.value().get("no") == Some(&Value::Bool(true)) => {
+            Ok(format!("no ip dhcp pool {} dns-server", pool()?))
+        }
         "ip dhcp pool dns-server" if request.value().get("disable") == Some(&Value::Bool(true)) => {
             Ok(format!("ip dhcp pool {} dns-server disable", pool()?))
         }

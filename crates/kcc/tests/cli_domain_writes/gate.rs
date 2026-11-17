@@ -17,6 +17,8 @@ const WRITES: &[&[&str]] = &[
         "192.0.2.80",
         "--end",
         "192.0.2.120",
+        "--gateway",
+        "192.0.2.1",
         "--interface",
         "Bridge0",
         "--dns",

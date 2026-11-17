@@ -115,3 +115,4 @@ cli-router-credential-required = Changing the URL, login or TLS pin of router { 
 cli-router-external-password = Router { $router } reads its password from the plaintext file { $path }. Seal it with: kcc router edit { $router } --new-password --password-file { $path }
 cli-listener-in-use = kcc reaches this router through that listener, so the change would cut kcc off and roll back every unsaved change; it was not sent. Change it on the router, then edit the router URL in kcc with `kcc router edit --url`.
 cli-router-password-env-shared = KCC_PASSWORD can stand in for one secret per command only. Give the other secrets with --password-file, --token-file or --read-password-file.
+cli-dhcp-pool-replace-needs = DHCP pool { $name } already exists. To replace it, also give { $missing }, or its current settings would be reset to the defaults; nothing was sent.

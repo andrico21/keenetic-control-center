@@ -251,19 +251,16 @@ pub fn plan_wake(router: &RouterCtx, mac: &str) -> Result<ChangeOp> {
     command::plan(router, &[("ip hotspot wake", json!({"mac":mac}))])
 }
 
-/// Executes a client plan through the protected workflow and verifies host mutations via
-/// `show ip hotspot`, whose rows are authoritative for registered names.
+/// Executes a client plan through the protected workflow, which reads host mutations back
+/// from `show ip hotspot` (authoritative for registered names) before it audits them.
 // NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
 // and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
-    router: &RouterCtx,
+    _router: &RouterCtx,
     operation: &ChangeOp,
 ) -> CoreResult<CliChangeResult, WorkflowError> {
-    let request = command::request(operation)?;
-    let result = changes.apply_cli(request).await?;
-    command::verify(router, operation).await?;
-    Ok(result)
+    changes.apply_cli(command::request(operation)?).await
 }
 
 /// Builds one descriptor.

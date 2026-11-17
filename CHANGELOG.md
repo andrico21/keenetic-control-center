@@ -114,6 +114,29 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **DHCP pools: one DNS server, a clearable DNS field, no silent overwrite.** A pool
+  with more than one DNS server is refused before anything is sent: `kcc dhcp pool`
+  with a second `--dns` exits 4 (validation, field `dns`), MCP answers
+  `validation_failed`, and the Web pool editor shows the new field error
+  `web-dhcp-error-dns-one` (it now shows every DNS server the router reports, instead of
+  keeping only the first). An empty DNS field in the Web editor sends
+  `no ip dhcp pool <name> dns-server` and is read back as absent. "Add pool" refuses a
+  name the router already has (field error `web-dhcp-error-name-taken` under `name`).
+- **`kcc dhcp pool` needs `--gateway`, and a replace needs the options it would reset.**
+  `--gateway` is required (it no longer defaults to `--begin`, a client address).
+  `--lease-seconds` and `--state` have no clap defaults any more: a new pool still gets
+  86400 and `on`, but replacing a pool the router already has without them exits 2 with
+  `cli-dhcp-pool-replace-needs` and sends nothing. An omitted `--interface` or `--dns`
+  keeps the pool's own, as before.
+- **Client and DHCP read-back runs before the audit entry.** The `show ip hotspot` checks
+  of client host changes and the `show rc ip dhcp host` check of a static lease are now
+  verifications of the workflow change itself, so they run before the
+  `router.change_cli` entry is written. A failed check leaves no entry claiming the
+  change applied; only the front end's failure entry records it. Host verifications
+  compare the MAC address in lower case, as the router reports it. A failed check now
+  names the resource it read (`show/ip/hotspot`, `show/rc/ip/dhcp/host`) as the
+  `verification_failed` field instead of `client/<mac>` or `static-lease/<mac>`.
+
 - **Metric changes.** `kcc_metrics_series_dropped_total` (a counter that grew on every
   scrape) is replaced by the gauge `kcc_metrics_series_dropped`: the number of per-client
   series left out at the latest scrape, per router. The free-text interface `description`
@@ -440,6 +463,11 @@ The first release, `0.1.0`, is in preparation and contains:
   a new stream label.
 
 ### Fixed
+
+- **DHCP pools are read only from their own block.** Indented lines of a later
+  top-level block (`bind` under `ipv6 subnet`, `enable` under `crypto map`) no longer
+  overwrite the last pool's interface or state, so the DHCP page and the static lease
+  subnet check use the pool's real binding.
 
 - **Client pseudonyms are complete, exact and bounded.** `[privacy] redact_clients_in_mcp`
   now also pseudonymizes client names (`name`, `hostname`, `host`, `fqdn`, `alias` inside a

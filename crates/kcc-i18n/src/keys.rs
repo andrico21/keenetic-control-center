@@ -355,6 +355,9 @@ pub const CLI_LISTENER_IN_USE: MessageKey = MessageKey::new("cli-listener-in-use
 pub const CLI_ROUTER_PASSWORD_ENV_SHARED: MessageKey =
     MessageKey::new("cli-router-password-env-shared");
 
+/// `cli-dhcp-pool-replace-needs` in `cli.ftl`.
+pub const CLI_DHCP_POOL_REPLACE_NEEDS: MessageKey = MessageKey::new("cli-dhcp-pool-replace-needs");
+
 /// `common-app-name` in `common.ftl`.
 pub const COMMON_APP_NAME: MessageKey = MessageKey::new("common-app-name");
 
@@ -6673,8 +6676,14 @@ pub const WEB_WIZARD_RUNS_LIMIT: MessageKey = MessageKey::new("web-wizard-runs-l
 pub const WEB_MIGRATE_INPUTS_PASSWORD_USER: MessageKey =
     MessageKey::new("web-migrate-inputs-password-user");
 
+/// `web-dhcp-error-name-taken` in `web.ftl`.
+pub const WEB_DHCP_ERROR_NAME_TAKEN: MessageKey = MessageKey::new("web-dhcp-error-name-taken");
+
+/// `web-dhcp-error-dns-one` in `web.ftl`.
+pub const WEB_DHCP_ERROR_DNS_ONE: MessageKey = MessageKey::new("web-dhcp-error-dns-one");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2124] = [
+pub static ALL: [MessageKey; 2127] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -6789,6 +6798,7 @@ pub static ALL: [MessageKey; 2124] = [
     CLI_ROUTER_EXTERNAL_PASSWORD,
     CLI_LISTENER_IN_USE,
     CLI_ROUTER_PASSWORD_ENV_SHARED,
+    CLI_DHCP_POOL_REPLACE_NEEDS,
     COMMON_APP_NAME,
     COMMON_YES,
     COMMON_NO,
@@ -8799,4 +8809,6 @@ pub static ALL: [MessageKey; 2124] = [
     WEB_ROUTER_ERROR_PERMISSIONS,
     WEB_WIZARD_RUNS_LIMIT,
     WEB_MIGRATE_INPUTS_PASSWORD_USER,
+    WEB_DHCP_ERROR_NAME_TAKEN,
+    WEB_DHCP_ERROR_DNS_ONE,
 ];

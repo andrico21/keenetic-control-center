@@ -115,3 +115,4 @@ cli-router-credential-required = Для смены URL, логина или TLS-
 cli-router-external-password = Роутер { $router } читает пароль из открытого файла { $path }. Зашифруйте его командой: kcc router edit { $router } --new-password --password-file { $path }
 cli-listener-in-use = kcc подключается к роутеру через этот порт, поэтому изменение отрезало бы kcc и откатило бы все несохранённые изменения; оно не отправлено. Измените его на роутере, затем исправьте адрес роутера в kcc командой `kcc router edit --url`.
 cli-router-password-env-shared = KCC_PASSWORD может заменить только один секрет в одной команде. Передайте остальные секреты через --password-file, --token-file или --read-password-file.
+cli-dhcp-pool-replace-needs = Пул DHCP { $name } уже существует. Чтобы заменить его, укажите также { $missing }, иначе его текущие настройки сбросятся к значениям по умолчанию; ничего не отправлено.

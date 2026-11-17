@@ -1984,3 +1984,5 @@ web-time-utc = { $time } UTC
 web-router-error-permissions = Die Zugangsdatei dieses Routers ist für andere Benutzer lesbar. Führen Sie auf dem kcc-Host chmod 600 für diese Datei aus und versuchen Sie es erneut.
 web-wizard-runs-limit = Sie haben bereits 10 unvollendete Durchläufe dieses Assistenten. Schließen Sie zuerst einen ab; ein Durchlauf, der einen Tag lang unverändert blieb, zählt nicht mehr.
 web-migrate-inputs-password-user = Dieses Passwortfeld gehört nicht mehr zu diesem Benutzer. Laden Sie die Seite neu und geben Sie die Passwörter erneut ein.
+web-dhcp-error-name-taken = Ein Pool mit diesem Namen existiert bereits. Bearbeiten Sie stattdessen diesen Pool.
+web-dhcp-error-dns-one = Geben Sie höchstens eine DNS-Server-Adresse ein.

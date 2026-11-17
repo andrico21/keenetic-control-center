@@ -12,7 +12,7 @@ use serde_json::json;
 use super::{
     args_dom_family::Family,
     args_dom_lan::{ClientsWriteCommand, DhcpWriteCommand, SegmentsWriteCommand, SelectionArgs},
-    args_domains::{ClientsCommand, DhcpCommand, SegmentsCommand},
+    args_domains::{ClientsCommand, DhcpCommand, SegmentsCommand, Toggle},
     change::{Gate, applied},
     context::Ctx,
     dom_core,
@@ -85,7 +85,8 @@ pub(crate) async fn dhcp(ctx: &Ctx, command: Family<DhcpCommand, DhcpWriteComman
     }
 }
 
-/// Runs a DHCP pool write.
+/// Runs a DHCP pool write; replacing a pool without the options it would reset is
+/// refused before anything is sent.
 ///
 /// # Errors
 ///
@@ -103,11 +104,32 @@ async fn dhcp_writes(ctx: &Ctx, command: DhcpWriteCommand) -> Outcome {
         state,
     } = command;
     let session = Session::open(ctx, Permission::Write).await?;
+    let missing = [
+        ("--lease-seconds", lease_seconds.is_none()),
+        ("--state", state.is_none()),
+    ]
+    .into_iter()
+    .filter_map(|(flag, omitted)| omitted.then_some(flag))
+    .collect::<Vec<_>>();
+    if !missing.is_empty()
+        && dhcp::read_pools(session.router())
+            .await?
+            .iter()
+            .any(|pool| pool.name.as_ref() == Some(&name))
+    {
+        return Err(Failure::message(
+            Exit::Usage,
+            keys::CLI_DHCP_POOL_REPLACE_NEEDS,
+            &[("name", &name), ("missing", &missing.join(", "))],
+        ));
+    }
     let mut pool = PoolConfig::new(name, begin, end)
-        .with_default_router(gateway.unwrap_or(begin))
-        .with_dns_servers(dns)
-        .with_lease_seconds(lease_seconds)
-        .with_enabled(state.enabled());
+        .with_default_router(gateway)
+        .with_lease_seconds(lease_seconds.unwrap_or(86_400))
+        .with_enabled(state.is_none_or(Toggle::enabled));
+    if !dns.is_empty() {
+        pool = pool.with_dns_servers(dns);
+    }
     if let Some(value) = interface {
         pool = pool.with_interface(value);
     }

@@ -43,7 +43,9 @@ pub enum ClientsWriteCommand {
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
 pub enum DhcpWriteCommand {
-    /// Create or replace a DHCP pool; options not given take their defaults.
+    /// Create or replace a DHCP pool. Replacing an existing pool needs `--lease-seconds`
+    /// and `--state`, so they are not reset; an omitted `--interface` or `--dns` keeps
+    /// the pool's own.
     Pool {
         /// Pool name, e.g. `_WEBADMIN`.
         name: String,
@@ -56,18 +58,18 @@ pub enum DhcpWriteCommand {
         /// Interface the pool serves, e.g. `Bridge0`.
         #[arg(long)]
         interface: Option<String>,
-        /// Advertised default router (default: the first address).
+        /// Advertised default router, usually the interface's own address.
         #[arg(long)]
-        gateway: Option<Ipv4Addr>,
-        /// Advertised DNS server; repeat for several.
+        gateway: Ipv4Addr,
+        /// Advertised DNS server; a pool takes one.
         #[arg(long = "dns")]
         dns: Vec<Ipv4Addr>,
-        /// Lease time in seconds.
-        #[arg(long, default_value_t = 86_400)]
-        lease_seconds: u64,
-        /// Serve (`on`, the default) or stop serving (`off`) the pool.
-        #[arg(long, value_enum, default_value = "on")]
-        state: Toggle,
+        /// Lease time in seconds (a new pool: 86400).
+        #[arg(long)]
+        lease_seconds: Option<u64>,
+        /// Serve (`on`, a new pool's default) or stop serving (`off`) the pool.
+        #[arg(long, value_enum)]
+        state: Option<Toggle>,
     },
 }
 

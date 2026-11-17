@@ -34,6 +34,8 @@ async fn dhcp_pool_is_written_and_read_back() -> TestResult {
         "192.0.2.80",
         "--end",
         "192.0.2.120",
+        "--gateway",
+        "192.0.2.1",
         "--interface",
         "Bridge0",
         "--dns",
@@ -60,6 +62,8 @@ async fn dhcp_pool_without_dns_or_interface_is_written() -> TestResult {
         "192.0.2.130",
         "--end",
         "192.0.2.150",
+        "--gateway",
+        "192.0.2.129",
     ])?;
     assert_eq!(
         applied.get("applied"),
@@ -71,6 +75,83 @@ async fn dhcp_pool_without_dns_or_interface_is_written() -> TestResult {
             .running_config_text()
             .contains("ip dhcp pool Pool24")
     );
+    lab.shutdown().await
+}
+
+/// The `dhcp pool Pool25` command line on 192.0.2.128/26, followed by `extra`.
+fn pool25(extra: &[&'static str]) -> Vec<&'static str> {
+    let mut args = vec![
+        "dhcp",
+        "pool",
+        "Pool25",
+        "--begin",
+        "192.0.2.130",
+        "--end",
+        "192.0.2.150",
+    ];
+    args.extend_from_slice(extra);
+    args
+}
+
+/// F-11: `dhcp pool` without `--gateway` is refused instead of advertising the first leased
+/// address as the default router; nothing is sent.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dhcp_pool_without_gateway_is_refused() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let running = lab.fake.running_config_text();
+
+    let run = lab.run(&pool25(&[]))?;
+
+    assert_eq!(run.code, 2_i32, "{run:?}");
+    assert_eq!(lab.fake.running_config_text(), running, "nothing sent");
+    lab.shutdown().await
+}
+
+/// F-11: replacing an existing pool without `--lease-seconds` and `--state` is refused, so
+/// its lease and state are not reset to the defaults; with both given the replace applies.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn replacing_a_dhcp_pool_needs_the_options_it_would_reset() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let kept = ["--gateway", "192.0.2.129", "--lease-seconds", "3600"];
+    let mut created = kept.to_vec();
+    created.extend_from_slice(&["--state", "off"]);
+    drop(lab.json(&pool25(&created))?);
+    let running = lab.fake.running_config_text();
+    assert!(running.contains("lease 3600"), "{running}");
+
+    let run = lab.run(&pool25(&["--gateway", "192.0.2.129"]))?;
+
+    assert_eq!(run.code, 2_i32, "{run:?}");
+    assert_eq!(lab.fake.running_config_text(), running, "nothing sent");
+    let mut replaced = kept.to_vec();
+    replaced.extend_from_slice(&["--state", "on"]);
+    let applied = lab.json(&pool25(&replaced))?;
+    assert_eq!(
+        applied.get("applied"),
+        Some(&Value::Bool(true)),
+        "{applied}"
+    );
+    lab.shutdown().await
+}
+
+/// C-09: two `--dns` values are refused as a validation error (exit 4) instead of sending
+/// only the first; one `--dns` is accepted (`dhcp_pool_is_written_and_read_back`).
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_second_dns_server_is_refused() -> TestResult {
+    let lab = Lab::spawn("").await?;
+    let running = lab.fake.running_config_text();
+
+    let run = lab.run(&pool25(&[
+        "--gateway",
+        "192.0.2.129",
+        "--dns",
+        "192.0.2.1",
+        "--dns",
+        "192.0.2.2",
+    ]))?;
+
+    assert_eq!(run.code, 4_i32, "{run:?}");
+    assert_eq!(lab.fake.running_config_text(), running, "nothing sent");
     lab.shutdown().await
 }
 

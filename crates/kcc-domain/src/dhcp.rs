@@ -18,7 +18,7 @@ use kcc_app::{
     permissions::Permission,
     workflow::{ChangeSet, CliChangeResult, WorkflowError},
 };
-use kcc_catalog::Risk;
+use kcc_catalog::{Risk, ValidationIssue};
 use kcc_rci::{ConfigKind, Mac};
 use secrecy::ExposeSecret as _;
 use serde::de::DeserializeOwned;
@@ -82,7 +82,8 @@ pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
     read_show(&router.client, &["show", "ip", "arp"]).await
 }
 
-/// Plans a complete DHCP pool configuration; the pool name is one router object name.
+/// Plans a complete DHCP pool configuration; the pool name is one router object name, and
+/// more than one DNS server is refused before any request.
 pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
     let name = cli_token::object_name(&pool.name)?;
     let mut inputs = vec![
@@ -105,11 +106,20 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
             },
         ),
     ];
-    if let Some(address) = pool.dns_servers.first() {
-        inputs.push((
+    match pool.dns_servers.as_deref() {
+        None => {}
+        Some([]) => inputs.push(("ip dhcp pool dns-server", json!({"no":true}))),
+        Some([address]) => inputs.push((
             "ip dhcp pool dns-server",
             json!({"address1":address.to_string()}),
-        ));
+        )),
+        Some(_) => {
+            return Err(DomainError::Validation {
+                issues: vec![ValidationIssue::InvalidValue {
+                    field: "dns".to_owned(),
+                }],
+            });
+        }
     }
     if !pool.interface.is_empty() {
         inputs.push(("ip dhcp pool bind", json!({"interface":pool.interface})));
@@ -163,43 +173,16 @@ pub async fn plan_static_lease(
     )
 }
 
-/// Executes a DHCP plan through the protected workflow and verifies static leases via `show rc`.
+/// Executes a DHCP plan through the protected workflow, which reads every line and static
+/// lease back before it audits the change.
 // NOT cancel-safe: cancelled after the CLI request is sent, the router stays changed
 // and the read-back verification never runs.
 pub async fn apply(
     changes: &mut ChangeSet,
-    router: &RouterCtx,
+    _router: &RouterCtx,
     operation: &ChangeOp,
 ) -> CoreResult<CliChangeResult, WorkflowError> {
-    let request = command::request(operation)?;
-    let result = changes.apply_cli(request).await?;
-    for validated in &operation.requests {
-        if validated.path == "ip dhcp host" {
-            let field = |key: &str| {
-                validated
-                    .value()
-                    .get(key)
-                    .and_then(Value::as_str)
-                    .ok_or(WorkflowError::InvalidResponse)
-            };
-            let (mac, address) = (field("host")?, field("ip")?);
-            let leases = read_static_leases(router)
-                .await
-                .map_err(WorkflowError::from)?;
-            if !leases.iter().any(|lease| {
-                lease
-                    .mac
-                    .as_deref()
-                    .is_some_and(|value| value.eq_ignore_ascii_case(mac))
-                    && lease.address.as_deref() == Some(address)
-            }) {
-                return Err(WorkflowError::VerificationFailed {
-                    field: format!("static-lease/{mac}"),
-                });
-            }
-        }
-    }
-    Ok(result)
+    changes.apply_cli(command::request(operation)?).await
 }
 
 /// Builds a read descriptor.

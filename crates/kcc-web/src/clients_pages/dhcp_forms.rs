@@ -34,7 +34,7 @@ use crate::{
         outcome::Outcome,
         request::{Params, missing},
         respond::{self, Answer},
-        submit::{Invalid, Submission},
+        submit::{Invalid, Submission, rejected::Rejected},
     },
 };
 
@@ -64,7 +64,8 @@ pub(crate) struct PoolForm {
     end: String,
     /// Default gateway.
     gateway: String,
-    /// DNS server, empty for none.
+    /// DNS server, empty for none; the router's servers comma-separated when it has
+    /// several, which the check refuses.
     dns: String,
     /// Lease time in seconds.
     lease: String,
@@ -84,7 +85,7 @@ impl PoolForm {
             begin: pool.range_begin.unwrap_or_default(),
             end: pool.range_end.unwrap_or_default(),
             gateway: pool.default_router.unwrap_or_default(),
-            dns: pool.dns_servers.into_iter().next().unwrap_or_default(),
+            dns: pool.dns_servers.join(", "),
             lease: pool.lease.map_or_default(|seconds| seconds.to_string()),
             interface: pool.interface.unwrap_or_default(),
             enabled: (pool.enabled == Some(true)).then(|| "on".to_owned()),
@@ -107,11 +108,16 @@ impl PoolForm {
             Ok(_) | Err(_) => Ok(end),
         });
         let router = address(&self.gateway);
-        let servers = if self.dns.trim().is_empty() {
-            Ok(Vec::new())
-        } else {
-            address(&self.dns).map(|server| vec![server])
-        };
+        let servers = self
+            .dns
+            .split(|letter: char| letter == ',' || letter.is_whitespace())
+            .filter(|word| !word.is_empty())
+            .map(address)
+            .collect::<Result<Vec<_>, _>>()
+            .and_then(|servers| match servers.as_slice() {
+                [] | [_] => Ok(servers),
+                _ => Err(keys::WEB_DHCP_ERROR_DNS_ONE),
+            });
         let seconds = self
             .lease
             .trim()
@@ -235,8 +241,9 @@ pub(crate) async fn pool_dialog(
     Ok(pool_form(locale, &router, &form).show())
 }
 
-/// `POST /ui/r/{router}/dhcp/pools/edit`: checks the pool, plans it with the DHCP
-/// domain, applies it and answers with its outcome and the view read back.
+/// `POST /ui/r/{router}/dhcp/pools/edit`: checks, plans, applies and reads back the pool.
+///
+/// A new pool whose name the router already has is refused under its name field.
 ///
 /// # Errors
 ///
@@ -256,8 +263,22 @@ pub(crate) async fn save_pool(
     let params = Params::default();
     let resubmit = Resubmit::new(format!("/ui/r/{router}/dhcp/pools/edit"), "#page-outcome");
     Ok(Submission::new(action, &params, dialog, resubmit)
-        .submit(
-            |_params| typed,
+        .submit_reading(
+            async |_params, domain| {
+                let config = typed?;
+                if form.existing.is_none() {
+                    let pools = dhcp::read_pools(domain).await.map_err(|error| {
+                        Rejected::Refused(plan_failure(Family::Changes, locale, &error))
+                    })?;
+                    if pools
+                        .iter()
+                        .any(|pool| pool.name.as_ref() == Some(&config.name))
+                    {
+                        return Err(Invalid::at("name", keys::WEB_DHCP_ERROR_NAME_TAKEN).into());
+                    }
+                }
+                Ok(config)
+            },
             async |config, domain| Ok(applied(dhcp::plan_pool(domain, &config)?)),
             async |domain| {
                 Shown::of_page(&headers, &router, DhcpView::Pools)

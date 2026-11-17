@@ -57,6 +57,8 @@ rest on the manuals and the fake router only:
   - Audit entries for an interface going down carry the catalog path `interface up` with the field `no` (`web.interface_down`, `crates/kcc-web/src/net_interface_actions.rs:37`), which reads like the opposite action; a display label would help.
 - A direct rollback POST from a role without `Destructive` answers a 403 page whose router selector says "No routers configured" (`web-fleet-empty`, `crates/kcc-i18n/locales/en/web.ftl:30`). The refusal and its audit entry are correct; the page context is not. Reported by the final review, not re-verified.
 - At 390 px the section tab strips scroll sideways with no fade or other hint (`crates/kcc-web/assets/css/app.css:1357`, `.tabs__list`, and `:2125`, `.lan-views__list`), and the third tab can be cut in the middle of a glyph.
+- The catalog generator mis-parses the `ip dhcp pool dns-server` synopsis (all of 4.3, 5.0 and 5.1 `ip.json`): the manual's `(config-dhcp-pool)> dns-server` prompt is appended to the grammar as a `Group` keyword and a trailing `dns-server` keyword, so the optional `address2` argument cannot be trusted for a CLI line. kcc therefore sends one DNS server per pool (`address1`) and refuses a second (`crates/kcc-domain/src/dhcp.rs`, `plan_pool`). Fix: drop the prompt words in `xtask/src/catalog_build.rs`, regenerate, and then allow `address2`.
+- `kcc_dhcp_write` `op: pool` (MCP) has no `gateway` argument: `PoolConfig::new` advertises `begin` as the default router (`crates/kcc-mcp/src/domains/write/clients.rs`), the same harmful default the CLI no longer has, and a replace resets the lease and state. Fix: add `gateway` (required), `lease_seconds` and the replace guard to the tool schema.
 
 ## Decisions kept on purpose
 

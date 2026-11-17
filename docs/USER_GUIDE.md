@@ -103,6 +103,16 @@ access, assign a connection policy or schedule, set priority, wake-on-LAN, remov
 neighbours. You can edit a pool and add a static lease ("Make static" on a binding fills
 the form). Removing pools or static leases isn't offered yet.
 
+A pool hands out at most one DNS server: a second one is refused under the DNS field, and
+an empty DNS field removes the pool's DNS server (`no ip dhcp pool <name> dns-server`). Add
+pool refuses a name the router already has; edit that pool instead.
+
+On the command line, `kcc dhcp pool <name> --begin <ip> --end <ip> --gateway <ip>` creates
+or replaces a pool. `--gateway` is required (usually the interface's own address).
+Replacing a pool the router already has also needs `--lease-seconds` and `--state`, so
+they are not reset to 86400 and `on`; an omitted `--interface` or `--dns` keeps the pool's
+own. A second `--dns` is refused with exit code 4.
+
 ## Segments
 
 `/ui/r/<router>/segments` lists the segments kcc created on the router: bridge, VLAN ID,
