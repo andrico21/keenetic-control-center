@@ -7,7 +7,6 @@ use fluent_bundle::FluentArgs;
 use kcc_app::backups::BackupInfo;
 use kcc_i18n::{bundle::tr, format, keys, locale::Locale};
 
-use super::store::COPY_MARK;
 use crate::table::{
     Direction, Sort,
     rows::{Row, SortKey},
@@ -63,14 +62,9 @@ impl Row for BackupRow {
 }
 
 impl BackupRow {
-    /// The row of `info` in `locale`, its age counted to `now`; a copy stored in the same
-    /// second as another for its reason shows that reason.
+    /// The row of `info` in `locale`, its age counted to `now`.
     pub(crate) fn new(info: BackupInfo, locale: Locale, now: u64) -> Self {
-        let stored = info
-            .reason
-            .rsplit_once(COPY_MARK)
-            .filter(|(_, number)| number.parse::<u8>().is_ok())
-            .map_or(info.reason.as_str(), |(original, _)| original);
+        let stored = info.reason.as_str();
         let upload = stored
             .strip_prefix(UPLOADED)
             .filter(|rest| rest.is_empty() || rest.starts_with('-'))

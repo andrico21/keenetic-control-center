@@ -7,7 +7,6 @@
 /// One inline piece of a cell: bare text, or an element with attributes around its text,
 /// followed by child elements.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct Piece {
     /// The element; none for bare text.
     tag: Option<&'static str>,
@@ -23,7 +22,6 @@ pub(crate) struct Piece {
 
 /// One line of a cell that holds its content one element per line.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) enum Line {
     /// A piece on its own line.
     Piece(Piece),

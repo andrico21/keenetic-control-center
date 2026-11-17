@@ -122,7 +122,7 @@ pub(crate) async fn raw_restore(
         let failure = Failure::new(tr(locale, keys::WEB_KIT_UNREACHABLE, None), "unreachable");
         return Ok(stop(opened, name, failure).await);
     };
-    let record = Record::on_router("web.config_raw_restore", &router, name.to_owned());
+    let record = Record::on_router(RAW_RESTORE.action(), &router, name.to_owned());
     let (task_state, task_user) = (state.clone(), user.clone());
     let task = tokio::spawn(async move {
         let result = raw::run(job).await;

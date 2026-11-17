@@ -232,7 +232,7 @@ async fn side(target: Target<'_>, visit: Visit<'_>, choice: &str) -> Result<Line
             .await
             .map_err(|error| match error {
                 StoreError::Missing => keys::WEB_CONFIG_DIFF_MISSING,
-                StoreError::Taken | StoreError::Failed => keys::WEB_CONFIG_STORE_FAILED,
+                StoreError::Failed => keys::WEB_CONFIG_STORE_FAILED,
             })?
     };
     Lines::read(text.expose_secret()).map_err(|_error| keys::WEB_CONFIG_DIFF_UNREADABLE)

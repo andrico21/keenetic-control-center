@@ -39,7 +39,7 @@ use crate::{
     errors::{self, Kind},
     page_kit::{
         audit::Record as Audit,
-        confirm::{Ask, Confirmation, Dialog, Resubmit, Typed, Words},
+        confirm::{Ask, Confirmation, Dialog, Gate, Guard, Resubmit, Typed, Words},
         context::{Refusal, fragment_shell},
         gate::allowed,
         respond::Answer,
@@ -156,14 +156,15 @@ where
     finish(&state, &wizards, &user, (&id, visit, choice)).await
 }
 
-/// The rollback's confirmation for run `id` on `target`, unless `form` typed its name.
+/// The rollback's confirmation for run `id` on `target`, unless `form` passes the kit's
+/// destructive guard: the confirm button and the router name typed exactly.
 fn ask<F>(form: &Confirmation, (id, target): (&str, &str), locale: Locale) -> Option<Response>
 where
     F: Finishing,
 {
-    if form.confirmed() && form.name() == Some(target) {
+    let Gate::Ask { wrong_name } = Guard::Destructive.check(form, target) else {
         return None;
-    }
+    };
     let mut args = FluentArgs::new();
     args.set("router", target.to_owned());
     let (title, text) = F::ROLLBACK_WORDS;
@@ -172,7 +173,7 @@ where
         tr(locale, text, Some(&args)),
         tr(locale, keys::MIGRATE_ROLLBACK, None),
     );
-    let error = if form.confirmed() {
+    let error = if wrong_name {
         tr(locale, keys::WEB_EXPLORER_CONFIRM_NAME_ERROR, Some(&args))
     } else {
         String::new()

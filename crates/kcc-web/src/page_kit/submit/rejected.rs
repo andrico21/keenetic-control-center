@@ -4,7 +4,6 @@ use super::{super::outcome::Failure, Invalid};
 
 /// Why a submission checked against what the router has stops before its change is
 /// planned.
-#[non_exhaustive]
 pub(crate) enum Rejected {
     /// Values that failed their check: answered by the form, audited `validation_failed`.
     Invalid(Invalid),

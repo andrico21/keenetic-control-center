@@ -49,9 +49,7 @@ pub(crate) async fn download(
         Err(error) => {
             let (status, audit) = match error {
                 StoreError::Missing => (StatusCode::NOT_FOUND, "not_found"),
-                StoreError::Taken | StoreError::Failed => {
-                    (StatusCode::INTERNAL_SERVER_ERROR, "failed")
-                }
+                StoreError::Failed => (StatusCode::INTERNAL_SERVER_ERROR, "failed"),
             };
             opened.finish((&wanted.name, variant), audit).await;
             return Err(status.into_response().into());

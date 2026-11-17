@@ -148,8 +148,12 @@ where
         let Some(id) = name.to_str().filter(|found| is_id(found)) else {
             continue;
         };
-        if let Ok(Some(record)) = store.load::<F>(id) {
-            drop(index.runs.insert(id.to_owned(), record.owner().to_owned()));
+        match store.load::<F>(id) {
+            Ok(Some(record)) => drop(index.runs.insert(id.to_owned(), record.owner().to_owned())),
+            Ok(None) => {}
+            Err(error) => {
+                tracing::warn!(%error, id, "a run record could not be read for the index");
+            }
         }
     }
     Ok(index)

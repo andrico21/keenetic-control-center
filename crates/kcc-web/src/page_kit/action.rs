@@ -5,7 +5,9 @@
 //! is not a permission check) and the router's catalog is loaded. The page then plans its
 //! change with the domain, asks for the confirmation the change's risk needs and runs it
 //! through the change workflow. The action audits how it ended, once, with field names
-//! only, and returns the outcome to render.
+//! only, and returns the outcome to render ([`ending`]).
+
+mod ending;
 
 use axum::{
     http::StatusCode,
@@ -15,15 +17,15 @@ use kcc_app::workflow::{ChangeSet, WorkflowError};
 use kcc_domain::{
     DomainDescriptor, OperationDescriptor, RouterCtx, configuration::SafetyNet, verification,
 };
-use kcc_i18n::{bundle::tr, locale::Locale};
-use serde_json::{Value, json};
+use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use serde_json::json;
 
 use super::{
     audit::Record,
-    change::{self, Applied, Change, Landed, Plan, Refused},
+    change::{self, Applied, Change, Plan, Refused},
     confirm::{Confirmation, Resubmit, Stakes},
     context::{self, Target, fragment_shell},
-    facts::{FactsError, RouterFacts},
+    facts::RouterFacts,
     family::Family,
     gate::allowed,
     outcome::{Failure, Outcome},
@@ -106,7 +108,7 @@ impl Operation {
         let facts = match target.facts(state).await {
             Ok(facts) => facts,
             Err(error) => {
-                let failure = unknown(locale, error);
+                let failure = ending::unknown(locale, error);
                 let outcome = Outcome::failed(failure);
                 record.append(state, user, outcome.audit()).await;
                 return Err(outcome.render(locale).into());
@@ -233,27 +235,37 @@ impl<'call> Action<'call> {
     }
 
     /// Runs `change`, planned at `stakes`, through the change workflow and audits how it
-    /// ended.
+    /// ended. A batch of root RCI items is the command pages' own and never runs here.
     // NOT cancel-safe: see `change::apply_with`.
     async fn run(self, stakes: Stakes, change: Change) -> Outcome {
         let params = change.audit_params();
         let verified_change = match change {
             Change::Cli(request) => match verification::complete(request) {
                 Ok(verified) => Change::Cli(verified),
-                Err(error) => return self.finish(params, Err(Refused::verification(error))).await,
+                Err(error) => {
+                    let refused = Err(Refused::verification(error));
+                    return ending::finished(self, params, refused).await;
+                }
             },
-            other @ (Change::Request(_) | Change::Batch(..) | Change::Delete(_)) => other,
+            Change::Batch(..) => {
+                tracing::error!("a domain page planned a batch; nothing was sent");
+                let message = tr(self.locale(), keys::WEB_ERROR_INTERNAL_TEXT, None);
+                let failure = Failure::new(message, "internal");
+                return ending::stopped(self, params, failure).await;
+            }
+            other @ (Change::Request(_) | Change::Delete(_)) => other,
         };
         if let Change::Cli(request) = &verified_change
             && let Err(error) = verification::require(request)
         {
-            return self.finish(params, Err(Refused::verification(error))).await;
+            return ending::finished(self, params, Err(Refused::verification(error))).await;
         }
         let Some(plan) = self.plan(stakes) else {
-            return self.forbidden(params).await;
+            let failure = Failure::forbidden(self.locale());
+            return ending::stopped(self, params, failure).await;
         };
         let result = change::apply(plan, verified_change).await;
-        self.finish(params, result).await
+        ending::finished(self, params, result).await
     }
 
     /// Runs `work`, a domain function on the leased change set, at `stakes` and audits
@@ -265,10 +277,11 @@ impl<'call> Action<'call> {
     {
         let params = json!({ "operations": [self.descriptor.catalog_path] });
         let Some(plan) = self.plan(stakes) else {
-            return self.forbidden(params).await;
+            let failure = Failure::forbidden(self.locale());
+            return ending::stopped(self, params, failure).await;
         };
         let result = change::apply_with(plan, self.descriptor.permission, work).await;
-        self.finish(params, result).await
+        ending::finished(self, params, result).await
     }
 
     /// The change-workflow plan at `stakes` (never below the operation's own risk), when
@@ -277,64 +290,4 @@ impl<'call> Action<'call> {
         self.may_take(stakes)
             .then(|| Plan::new(self.target, &self.facts, self.user).at(self.effective(stakes)))
     }
-
-    /// The outcome of a change whose planned risk the role may not take, audited.
-    // NOT cancel-safe: an abandoned append may still be written.
-    async fn forbidden(self, params: Value) -> Outcome {
-        let failure = Failure::forbidden(self.locale());
-        let outcome = Outcome::failed(failure);
-        self.record
-            .with_params(params)
-            .append(self.state, self.user, outcome.audit())
-            .await;
-        outcome
-    }
-
-    /// The outcome of `result`, audited with `params`.
-    // NOT cancel-safe: an abandoned append may still be written.
-    async fn finish(self, params: Value, result: Result<Landed, Refused>) -> Outcome {
-        let locale = self.locale();
-        let outcome = match result {
-            Ok(landed) => {
-                let (applied, audit_pending) = landed.into_parts();
-                let done = match applied {
-                    Applied::Terminal(_) => {
-                        Outcome::done(tr(locale, self.family.done_terminal(), None), false)
-                    }
-                    Applied::Done { unsaved }
-                    | Applied::Batch {
-                        applied_management_changes: _,
-                        unsaved,
-                        persists_immediately: _,
-                        persisted_paths: _,
-                        responses: _,
-                    }
-                    | Applied::Cli {
-                        unsaved,
-                        responses: _,
-                    } => Outcome::done(tr(locale, self.family.done(unsaved), None), unsaved),
-                };
-                if audit_pending {
-                    done.with_audit_pending(locale)
-                } else {
-                    done
-                }
-            }
-            Err(refused) => Outcome::failed(refused.failure(self.family, locale)),
-        };
-        self.record
-            .with_params(params)
-            .append_outcome(self.state, self.user, &outcome)
-            .await;
-        outcome
-    }
-}
-
-/// The failure of a router whose catalog is unknown.
-fn unknown(locale: Locale, error: FactsError) -> Failure {
-    let audit = match error {
-        FactsError::Unreachable => "unreachable",
-        FactsError::Unsupported => "unsupported",
-    };
-    Failure::new(tr(locale, error.message(Family::Changes), None), audit)
 }

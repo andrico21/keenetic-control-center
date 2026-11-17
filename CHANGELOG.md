@@ -526,6 +526,14 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Removed
 
+- **Copy numbers on backups made in the same second.** The configuration page probed the
+  store and renamed a second backup of the same reason in the same second to
+  `manual--2` (up to `--9`, then refused it with "a backup for the same reason was stored
+  a moment ago"). The store already gives such a backup its own name
+  (`<second>-1-<reason>.txt`), so every backup now keeps its reason and none is refused
+  for its second; an uploaded file's name keeps up to 41 characters (was 38). A
+  `--N` reason stored by an earlier build is shown as it is stored.
+
 - **Storage partition check and format.** The `partition_check` and `partition_format`
   operations of the MCP tool `kcc_storage_write` (now `eject` only; an old operation is
   answered `invalid_arguments`), the CLI subcommands `kcc storage check` and
@@ -546,6 +554,19 @@ The first release, `0.1.0`, is in preparation and contains:
   retry, and a migration always stops at the first rejected line.
 
 ### Fixed
+
+- **Save is refused while the fail-safe timer is armed.** The configuration page hid
+  Save while the timer ran, but a direct `POST /ui/r/{router}/config/save` still saved and
+  left the timer armed. It now sends nothing, answers that the changes must be kept or
+  rolled back, and is audited `web.config_save` with outcome `armed`.
+- **A backup store that cannot be read is reported.** Deleting a backup while the store
+  could not be listed answered an unaudited 404 ("not found"); it now shows that the
+  backups could not be read and is audited `failed`. A wizard run record that cannot be
+  read while its index is built again, or when its apply ends, is logged as a warning
+  instead of being dropped silently.
+- **The wizards' Roll back confirms the typed router name as every other destructive
+  dialog does.** With `confirm=yes` and no name typed the dialog no longer shows the
+  name-mismatch error; a wrong name still shows it and nothing is sent.
 
 - **A migrated realm-bound password with an encoded hash is sent as a plain password.**
   Replacing `user <name> password md5|nt ns3 <hash>` produced

@@ -17,7 +17,7 @@ mod tests {
     use crate::{
         flow::{apply, moved, seed_source, to_preview, to_review},
         setup,
-        support::{outcome::TestResult, web::Fixture},
+        support::{outcome::TestResult, page::text, web::Fixture},
     };
 
     /// The id of a planted record.
@@ -126,6 +126,51 @@ mod tests {
             .ok_or("the refusal is not audited")?;
         assert_eq!(entry.outcome, "refused");
         assert_eq!(entry.params_redacted, json!({"reason": "conflict"}));
+        Ok(())
+    }
+    /// W2-12: the rollback's typed router name follows the kit's rule: `confirm=yes` with
+    /// no name asks again without the mismatch error, a wrong name asks with it, and
+    /// neither sends or audits anything.
+    // NOT cancel-safe: the fixture owns router tasks.
+    #[tokio::test]
+    async fn the_rollback_name_is_checked_as_the_kit_checks_it() -> TestResult {
+        let fixture = setup::fixture().await?;
+        plant_at_results(&fixture, "admin")?;
+        let admin = fixture.login("admin").await?;
+        let rollback = format!("/ui/migrate/{ID}/rollback");
+        let requests = fixture.router("ultra")?.request_count();
+
+        let unnamed = text(
+            fixture
+                .post_form(&rollback, &admin, &[("confirm", "yes")])
+                .await?,
+        )
+        .await?;
+        let wrong = text(
+            fixture
+                .post_form(
+                    &rollback,
+                    &admin,
+                    &[("confirm", "yes"), ("confirm_name", "giga")],
+                )
+                .await?,
+        )
+        .await?;
+
+        assert!(unnamed.contains("name=\"confirm_name\""), "{unnamed}");
+        assert!(
+            !unnamed.contains("id=\"confirm-name-error\""),
+            "no name typed is no wrong name: {unnamed}"
+        );
+        assert!(
+            wrong.contains("id=\"confirm-name-error\""),
+            "a wrong name: {wrong}"
+        );
+        assert_eq!(fixture.router("ultra")?.request_count(), requests);
+        assert_eq!(
+            fixture.outcomes("web.migrate_rollback")?,
+            Vec::<String>::new()
+        );
         Ok(())
     }
 }

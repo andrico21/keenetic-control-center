@@ -2,10 +2,6 @@
 //! runtime, and an action on them opened for one user and audited once.
 
 use alloc::sync::Arc;
-use std::{
-    sync::{Mutex, PoisonError},
-    time::SystemTime,
-};
 
 use axum::{
     http::StatusCode,
@@ -32,28 +28,14 @@ use crate::{
     },
 };
 
-/// Serializes the backups the page stores: the store names a backup by its second and
-/// reason, so a second one in the same second would replace the first.
-static STORING: Mutex<()> = Mutex::new(());
-
-/// Most backups for one reason the page stores in one second.
-const COPIES: u8 = 9;
-
-/// What joins a reason and the copy number the page adds to it (`manual--2`); neither
-/// kcc's own reasons nor an uploaded file's name ever hold two hyphens in a row.
-pub(crate) const COPY_MARK: &str = "--";
-
-/// Longest reason the page gives a backup: the store takes 48 characters, and a copy
-/// number (`--9`) may follow.
-pub(crate) const REASON_ROOM: usize = 45;
+/// Longest reason the page gives a backup: the store takes 48 characters.
+pub(crate) const REASON_ROOM: usize = 48;
 
 /// Why the store could not do what the page asked.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum StoreError {
     /// No such backup.
     Missing,
-    /// Every copy for the same reason was stored in the same second.
-    Taken,
     /// The store failed; the cause is logged.
     Failed,
 }
@@ -134,15 +116,12 @@ pub(crate) async fn read(
     .await
 }
 
-/// Stores `text` as a backup of `router` for `reason`.
-///
-/// The store would replace a backup stored for the same reason in the same second, so
-/// such a backup is stored as a copy instead: for `reason--2`, then up to `reason--9`.
+/// Stores `text` as a backup of `router` for `reason`; the store names it, and a
+/// second backup in the same second gets a name of its own.
 ///
 /// # Errors
 ///
-/// Returns `Taken` when every copy for this reason was stored in the same second, else
-/// why the store failed.
+/// Returns why the store failed.
 // NOT cancel-safe: the backup may be written after the caller stopped waiting.
 pub(crate) async fn keep(
     services: &BackupServices,
@@ -152,27 +131,9 @@ pub(crate) async fn keep(
     let store = Arc::clone(services.store());
     let id = router.to_owned();
     blocking(move || {
-        let _serialized = STORING.lock().unwrap_or_else(PoisonError::into_inner);
-        let second = SystemTime::now()
-            .duration_since(SystemTime::UNIX_EPOCH)
-            .map_or(0, |elapsed| elapsed.as_secs());
-        for number in 1..=COPIES {
-            let copy = if number > 1 {
-                format!("{reason}{COPY_MARK}{number}")
-            } else {
-                reason.clone()
-            };
-            match store.get(&id, &format!("{second}-{copy}.txt")) {
-                Ok(_) | Err(BackupError::Malformed { name: _ } | BackupError::Crypto(_)) => {}
-                Err(BackupError::NotFound { name: _ }) => {
-                    return store
-                        .create(&id, &copy, &text)
-                        .map_err(|error| StoreError::from_backup(&error));
-                }
-                Err(error) => return Err(StoreError::from_backup(&error)),
-            }
-        }
-        Err(StoreError::Taken)
+        store
+            .create(&id, &reason, &text)
+            .map_err(|error| StoreError::from_backup(&error))
     })
     .await
 }
@@ -233,6 +194,11 @@ impl Act {
             action,
             permissions,
         }
+    }
+
+    /// Stable audit action id.
+    pub(crate) const fn action(self) -> &'static str {
+        self.action
     }
 
     /// Opens the action on the backups of `router` for `user`.

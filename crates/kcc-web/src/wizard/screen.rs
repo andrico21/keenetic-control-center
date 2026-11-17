@@ -77,7 +77,7 @@ where
     let current = record.step();
     let mut args = FluentArgs::new();
     args.set("current", current.number());
-    args.set("total", 9_u32);
+    args.set("total", F::Step::ALL.len());
     let screen = Screen {
         title: tr(locale, record.title(), None),
         list: F::LIST,

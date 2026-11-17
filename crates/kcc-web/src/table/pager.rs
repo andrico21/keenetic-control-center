@@ -12,12 +12,11 @@ use url::{Url, form_urlencoded};
 use crate::page_kit::request;
 
 /// Rows per table page.
-pub const PAGE_ROWS: usize = 50;
+pub(crate) const PAGE_ROWS: usize = 50;
 
 /// One page of a table, with links to its neighbours.
 #[derive(Debug, Clone, PartialEq, Eq)]
-#[non_exhaustive]
-pub struct Pager {
+pub(crate) struct Pager {
     /// Shown page, from 1.
     current: usize,
     /// Number of pages, at least 1.
@@ -31,9 +30,8 @@ pub struct Pager {
 impl Pager {
     /// Cuts the `requested` page (clamped to the last) out of `rows`; the links go to
     /// `path` with the `query` parameters kept.
-    #[inline]
     #[must_use]
-    pub fn paginate<T>(
+    pub(crate) fn paginate<T>(
         rows: Vec<T>,
         requested: usize,
         path: String,
@@ -55,30 +53,26 @@ impl Pager {
     }
 
     /// Whether the table has more than one page.
-    #[inline]
     #[must_use]
-    pub const fn multiple(&self) -> bool {
+    pub(crate) const fn multiple(&self) -> bool {
         self.total > 1
     }
 
     /// The previous page's link.
-    #[inline]
     #[must_use]
-    pub fn previous(&self) -> Option<String> {
+    pub(crate) fn previous(&self) -> Option<String> {
         (self.current > 1).then(|| self.href(self.current.saturating_sub(1)))
     }
 
     /// The next page's link.
-    #[inline]
     #[must_use]
-    pub fn next(&self) -> Option<String> {
+    pub(crate) fn next(&self) -> Option<String> {
         (self.current < self.total).then(|| self.href(self.current.saturating_add(1)))
     }
 
     /// "Page 2 of 3" in `locale`.
-    #[inline]
     #[must_use]
-    pub fn status(&self, locale: Locale) -> String {
+    pub(crate) fn status(&self, locale: Locale) -> String {
         let mut args = FluentArgs::new();
         args.set("current", self.current);
         args.set("total", self.total);
@@ -99,9 +93,8 @@ impl Pager {
 
 /// The page number the browser shows: `page` from htmx's `HX-Current-URL`, else 1, so a
 /// table refreshed after a change stays on its page.
-#[inline]
 #[must_use]
-pub fn shown_page(headers: &HeaderMap) -> usize {
+pub(crate) fn shown_page(headers: &HeaderMap) -> usize {
     request::shown_url(headers)
         .and_then(|value| Url::parse(value).ok())
         .and_then(|url| {

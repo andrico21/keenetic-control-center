@@ -4351,9 +4351,6 @@ pub const WEB_CONFIG_BACKUP_STORED: MessageKey = MessageKey::new("web-config-bac
 /// `web-config-backup-deleted` in `web.ftl`.
 pub const WEB_CONFIG_BACKUP_DELETED: MessageKey = MessageKey::new("web-config-backup-deleted");
 
-/// `web-config-backup-taken` in `web.ftl`.
-pub const WEB_CONFIG_BACKUP_TAKEN: MessageKey = MessageKey::new("web-config-backup-taken");
-
 /// `web-config-not-text` in `web.ftl`.
 pub const WEB_CONFIG_NOT_TEXT: MessageKey = MessageKey::new("web-config-not-text");
 
@@ -6689,6 +6686,9 @@ pub const WEB_DHCP_ERROR_DNS_ONE: MessageKey = MessageKey::new("web-dhcp-error-d
 /// `web-secret-changed` in `web.ftl`.
 pub const WEB_SECRET_CHANGED: MessageKey = MessageKey::new("web-secret-changed");
 
+/// `web-config-save-armed` in `web.ftl`.
+pub const WEB_CONFIG_SAVE_ARMED: MessageKey = MessageKey::new("web-config-save-armed");
+
 /// Every message key, in catalog order.
 pub static ALL: [MessageKey; 2130] = [
     CLI_ROUTER_ADDED,
@@ -8092,7 +8092,6 @@ pub static ALL: [MessageKey; 2130] = [
     WEB_CONFIG_BACKUP_CREATED,
     WEB_CONFIG_BACKUP_STORED,
     WEB_CONFIG_BACKUP_DELETED,
-    WEB_CONFIG_BACKUP_TAKEN,
     WEB_CONFIG_NOT_TEXT,
     WEB_CONFIG_DELETE_TITLE,
     WEB_CONFIG_DELETE_TEXT,
@@ -8821,4 +8820,5 @@ pub static ALL: [MessageKey; 2130] = [
     WEB_DHCP_ERROR_NAME_TAKEN,
     WEB_DHCP_ERROR_DNS_ONE,
     WEB_SECRET_CHANGED,
+    WEB_CONFIG_SAVE_ARMED,
 ];

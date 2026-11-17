@@ -15,7 +15,7 @@ use axum::{
 };
 use kcc_app::{
     accounts::AccountStore,
-    audit::{AuditEntry, verify_chain},
+    audit::{AuditEntry, AuditLog, receipt::AUDIT_WAIT, verify_chain},
     backups::BackupStore,
     persist::StateStore,
     registry::RouterRegistry,
@@ -59,6 +59,8 @@ pub(crate) struct Fixture {
     pub(super) router: Router,
     /// The state behind the Web UI.
     pub(super) state: WebState,
+    /// The audit log behind it.
+    pub(super) audit: AuditLog,
     /// The roles the Web UI reads, as a SIGHUP reload replaces them.
     pub(super) roles: RoleSource,
     /// The accounts, as `users.json` holds them.
@@ -246,6 +248,13 @@ impl Fixture {
             .iter()
             .map(|(id, handle)| (*id, handle.request_count()))
             .collect()
+    }
+
+    /// Waits at most [`AUDIT_WAIT`] until the audit writer wrote every queued entry;
+    /// returns how many were still queued then.
+    // cancel-safe: waiting only observes the writer's progress.
+    pub(crate) async fn audit_flushed(&self) -> usize {
+        self.audit.flush(AUDIT_WAIT).await
     }
 
     /// The state behind the Web UI.

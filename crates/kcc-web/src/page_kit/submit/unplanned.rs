@@ -7,7 +7,6 @@ use super::super::outcome::Failure;
 /// A change the domain refused to plan: the domain's error, the failure it was audited
 /// as, and the domain context it was planned with, for a form whose answer reads the
 /// router.
-#[non_exhaustive]
 pub(crate) struct Unplanned<'call> {
     /// Why the domain refused the change.
     error: &'call DomainError,

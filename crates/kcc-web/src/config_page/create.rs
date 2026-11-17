@@ -83,7 +83,8 @@ pub(crate) async fn create(
 /// # Errors
 ///
 /// Answers 404 for an unknown backup, and 404, 503 or the audited 403 when the router,
-/// the store or the permission is missing.
+/// the store or the permission is missing; a store that cannot be listed stops the delete
+/// in the outcome, audited.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -95,12 +96,11 @@ pub(crate) async fn delete(
     let opened = DELETE.open(&state, &user, &router).await?;
     let visit = Visit::new(&state, &user, &router);
     let locale = user.locale();
-    let listed = store::list(opened.services(), &router).await;
-    let Some(info) = listed
-        .unwrap_or_default()
-        .into_iter()
-        .find(|info| info.name == named.name)
-    else {
+    let listed = match store::list(opened.services(), &router).await {
+        Ok(found) => found,
+        Err(error) => return Ok(stopped(opened, stored(locale, error), &headers).await),
+    };
+    let Some(info) = listed.into_iter().find(|info| info.name == named.name) else {
         return Err(missing());
     };
     if let Gate::Ask { wrong_name } = confirm::gate(&pairs, &router) {
@@ -157,7 +157,6 @@ async fn saved(state: &WebState, router: &str, locale: Locale) -> Result<SecretS
 /// The failure of a store that refused.
 pub(crate) fn stored(locale: Locale, error: StoreError) -> Failure {
     match error {
-        StoreError::Taken => Failure::new(tr(locale, keys::WEB_CONFIG_BACKUP_TAKEN, None), "taken"),
         StoreError::Missing => {
             Failure::new(tr(locale, keys::WEB_CONFIG_DIFF_MISSING, None), "not_found")
         }

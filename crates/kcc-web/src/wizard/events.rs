@@ -137,12 +137,11 @@ where
     let ending: Ending = Box::new(move || {
         let (runs, run_id) = (store.clone(), id.clone());
         async move {
-            let ended = runs
-                .load::<F>(&run_id)
-                .await
-                .ok()
-                .flatten()
-                .and_then(|record| record.run()?.ended().cloned());
+            let loaded = runs.load::<F>(&run_id).await.unwrap_or_else(|error| {
+                tracing::warn!(%error, id = %run_id, "a run record could not be read at its end");
+                None
+            });
+            let ended = loaded.and_then(|record| record.run()?.ended().cloned());
             beats::closing(
                 locale,
                 format!("{}/{run_id}/results", F::PREFIX),

@@ -121,3 +121,32 @@ async fn keep_changes_commits_only_while_the_timer_runs() -> TestResult {
     );
     Ok(())
 }
+
+/// W2-09: Save is refused while the fail-safe timer runs, as the page shows it: nothing is
+/// saved and the refusal is audited `armed`.
+#[tokio::test]
+async fn save_is_refused_while_the_timer_runs() -> TestResult {
+    let fixture = Fixture::new().await?;
+    change_and_arm(&fixture, "guarded-change").await?;
+    let operator = fixture.login("operator").await?;
+    let refused = fixture.post(&format!("{PAGE}/save"), &operator, "").await?;
+    assert_eq!(refused.status(), StatusCode::OK, "answered in the outcome");
+    let answer = text(refused).await?;
+    assert!(
+        answer.contains(&en(keys::WEB_CONFIG_SAVE_ARMED)),
+        "why nothing was saved: {answer}"
+    );
+    assert!(
+        !fixture
+            .handle()
+            .startup_config_text()
+            .contains("guarded-change"),
+        "the guarded change is not saved"
+    );
+    assert!(fixture.audited("web.config_save", "armed")?, "audited");
+    assert!(
+        !fixture.audited("web.config_save", "success")?,
+        "nothing saved"
+    );
+    Ok(())
+}

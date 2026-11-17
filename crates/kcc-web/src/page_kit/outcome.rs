@@ -11,6 +11,7 @@ use kcc_i18n::{
     keys,
     locale::Locale,
 };
+use notice::{OutcomeView, Tone};
 
 use super::{context::fragment_shell, failure::FailureKind, family::Family, submit::work::Report};
 use crate::{
@@ -18,33 +19,9 @@ use crate::{
     page::{Localize as _, Shell},
 };
 
+mod notice;
 #[cfg(test)]
 mod notice_tone_tests;
-
-/// The tone of a notice or a toast.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Tone {
-    /// Done as asked.
-    Success,
-    /// Under way, or nothing to report.
-    Info,
-    /// Done, with something to look at.
-    Warning,
-    /// Not done.
-    Error,
-}
-
-impl Tone {
-    /// The `data-tone` value.
-    pub(crate) const fn value(self) -> &'static str {
-        match self {
-            Self::Success => "success",
-            Self::Info => "info",
-            Self::Warning => "warning",
-            Self::Error => "error",
-        }
-    }
-}
 
 /// A toast sent along with a response, out of band into `#toasts`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -211,18 +188,6 @@ pub(crate) struct Outcome {
     report: Option<Report>,
 }
 
-/// The outcome fragment of a page's outcome region.
-#[derive(Template)]
-#[template(path = "partials/kit_outcome.html")]
-struct OutcomeView {
-    /// Locale carrier.
-    shell: Shell,
-    /// The outcome.
-    outcome: Outcome,
-}
-
-localized!(OutcomeView);
-
 impl Outcome {
     /// An outcome in `tone` with `headline`, audited as `audit`, and nothing else.
     const fn base(tone: Tone, headline: String, audit: &'static str) -> Self {
@@ -380,11 +345,7 @@ impl Outcome {
     /// The outcome fragment in `locale`, for a page's outcome region (`#page-outcome`).
     pub(crate) fn render(self, locale: Locale) -> Response {
         let status = self.status;
-        let view = OutcomeView {
-            shell: fragment_shell(locale),
-            outcome: self,
-        };
-        with_status(errors::render(&view), status)
+        with_status(errors::render(&OutcomeView::new(locale, self)), status)
     }
 }
 

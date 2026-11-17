@@ -19,7 +19,6 @@ use super::{
 
 /// One rendered table.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct TableView {
     /// Indentation added to every line, for a table nested one level deeper.
     pad: &'static str,

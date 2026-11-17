@@ -25,7 +25,6 @@ enum Entry {
 
 /// One entry of an action menu.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct MenuItem {
     /// The localized label.
     label: String,
@@ -60,7 +59,6 @@ enum Method {
 
 /// One action button.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct Act {
     /// The localized label.
     label: String,

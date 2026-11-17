@@ -256,8 +256,9 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
 
 ## Configuration and backups
 
-`/ui/r/<router>/config` shows the unsaved state and the fail-safe timer (Save, and
-Commit or Roll back while the timer is armed), and lists the router's backups. You can
+`/ui/r/<router>/config` shows the unsaved state and the fail-safe timer (Save while the
+timer is not armed, Commit or Roll back while it is; a Save sent while it is armed is
+refused and audited `armed`), and lists the router's backups. You can
 back up the startup configuration, upload a configuration file as a backup, download a
 backup redacted (or in full with RevealSecrets, audited), compare two backups (secrets
 redacted on both sides), delete one, and restore one. Restore offers the migration

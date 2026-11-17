@@ -3,7 +3,8 @@
 //!
 //! All three run through the domain page kit on the configuration domain's operations:
 //! Save and commit need `Save`, rollback `Destructive` and the router name typed. Commit
-//! and rollback act only while the timer runs; otherwise nothing is sent.
+//! and rollback act only while the timer runs, Save only while it does not; otherwise
+//! nothing is sent.
 
 use axum::{
     Form,
@@ -62,13 +63,16 @@ const ROLLBACK_COMMAND: &str = "system configuration fail-safe rollback";
 ///
 /// # Errors
 ///
-/// Answers what the kit answers when the router or the permission is missing.
+/// Answers why nothing was sent while the timer runs (keep or roll back the changes it
+/// guards instead), and what the kit answers when the router or the permission is
+/// missing.
 pub(crate) async fn save(
     State(state): State<WebState>,
     Path(router): Path<String>,
     user: CurrentUser,
 ) -> Result<Response, Answer> {
-    let action = SAVE.open(&state, &user, &router).await?;
+    let opened = SAVE.open(&state, &user, &router).await?;
+    let action = with_timer(opened, Timer::Idle).await?;
     let outcome = action
         .run_planned(Planned::described(|changes, _context| {
             Box::pin(async move {
@@ -97,7 +101,7 @@ pub(crate) async fn commit(
     user: CurrentUser,
 ) -> Result<Response, Answer> {
     let opened = COMMIT.open(&state, &user, &router).await?;
-    let action = while_armed(opened).await?;
+    let action = with_timer(opened, Timer::Running).await?;
     let outcome = action
         .run_planned(Planned::described(|changes, _context| {
             Box::pin(async move {
@@ -127,7 +131,7 @@ pub(crate) async fn rollback(
     Form(pairs): Form<Vec<(String, String)>>,
 ) -> Result<Response, Answer> {
     let opened = ROLLBACK.open(&state, &user, &router).await?;
-    let action = while_armed(opened).await?;
+    let action = with_timer(opened, Timer::Running).await?;
     let locale = action.locale();
     if let Gate::Ask { wrong_name } = confirm::gate(&pairs, &router) {
         let mut args = FluentArgs::new();
@@ -162,27 +166,39 @@ pub(crate) async fn rollback(
     Ok(changed(outcome, None, None, locale))
 }
 
-/// `action` back when the router's fail-safe timer runs.
+/// The state of the fail-safe timer an action needs.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Timer {
+    /// Armed: commit and rollback end it.
+    Running,
+    /// Not armed: Save runs only then, as a running timer would still restore the
+    /// configuration saved before the changes it guards.
+    Idle,
+}
+
+/// `action` back when the router's fail-safe timer is in the state `needed`.
 ///
 /// # Errors
 ///
-/// Answers why nothing is sent: the timer does not run or the router did not answer; the
-/// action is audited as abandoned.
+/// Answers why nothing is sent: the timer is in the other state or the router did not
+/// answer; the action is audited as abandoned (`not_armed`, `armed` or `unreachable`).
 // cancel-safe: one read and one audit append.
-async fn while_armed(action: Action<'_>) -> Result<Action<'_>, Answer> {
+async fn with_timer(action: Action<'_>, needed: Timer) -> Result<Action<'_>, Answer> {
     let locale = action.locale();
     let domain = action.context().await?;
     let (message, audit) = match status::last_change(&domain).await {
-        Ok(found)
-            if found
+        Ok(found) => {
+            let running = found
                 .fail_safe
                 .as_ref()
                 .and_then(|timer| timer.active)
-                .unwrap_or(false) =>
-        {
-            return Ok(action);
+                .unwrap_or(false);
+            match (needed, running) {
+                (Timer::Running, true) | (Timer::Idle, false) => return Ok(action),
+                (Timer::Running, false) => (keys::WEB_CONFIG_NOT_ARMED, "not_armed"),
+                (Timer::Idle, true) => (keys::WEB_CONFIG_SAVE_ARMED, "armed"),
+            }
         }
-        Ok(_) => (keys::WEB_CONFIG_NOT_ARMED, "not_armed"),
         Err(unread) => (unread, "unreachable"),
     };
     action.abandon(audit).await;

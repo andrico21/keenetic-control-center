@@ -16,8 +16,7 @@ const FILTER_CHARS: usize = 100;
 
 /// A value a column sorts by: numbers before text, a missing value last.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[non_exhaustive]
-pub enum SortKey {
+pub(crate) enum SortKey {
     /// A number.
     Number(i128),
     /// Text, already lowercase so it sorts without regard to case.
@@ -28,15 +27,14 @@ pub enum SortKey {
 
 impl SortKey {
     /// Text that sorts without regard to case.
-    #[inline]
     #[must_use]
-    pub fn text(value: &str) -> Self {
+    pub(crate) fn text(value: &str) -> Self {
         Self::Text(value.to_lowercase())
     }
 }
 
 /// A row of a sortable, filterable table.
-pub trait Row {
+pub(crate) trait Row {
     /// The columns the table sorts by, in header order.
     const COLUMNS: &'static [&'static str];
 
@@ -53,8 +51,7 @@ pub trait Row {
 /// A table's request: `?q=&sort=&dir=&page=`; a malformed or unknown value falls back to
 /// the table's default.
 #[derive(Debug, Clone, Default, Deserialize)]
-#[non_exhaustive]
-pub struct TableQuery {
+pub(crate) struct TableQuery {
     /// Filter text, the `q` parameter.
     #[serde(default, rename = "q")]
     filter: Option<String>,
@@ -71,8 +68,7 @@ pub struct TableQuery {
 
 /// One page of a filtered, sorted table.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
-pub struct Table<R> {
+pub(crate) struct Table<R> {
     /// The rows of the shown page.
     rows: Vec<R>,
     /// The sort order.
@@ -91,9 +87,8 @@ pub struct Table<R> {
 
 impl<R: Row> Table<R> {
     /// The page `query` asks for of `rows`, for the table page at `base`.
-    #[inline]
     #[must_use]
-    pub fn new(rows: Vec<R>, query: &TableQuery, base: String) -> Self {
+    pub(crate) fn new(rows: Vec<R>, query: &TableQuery, base: String) -> Self {
         let total = rows.len();
         let filter: String = query
             .filter
@@ -144,17 +139,15 @@ impl<R: Row> Table<R> {
     }
 
     /// The rows of the shown page.
-    #[inline]
     #[must_use]
-    pub fn rows(&self) -> &[R] {
+    pub(crate) fn rows(&self) -> &[R] {
         &self.rows
     }
 
     /// The header cell of `column`: its `aria-sort` state and the link sorting by it,
     /// which keeps the filter.
-    #[inline]
     #[must_use]
-    pub fn header(&self, column: &'static str) -> SortHeader {
+    pub(crate) fn header(&self, column: &'static str) -> SortHeader {
         if self.filter.is_empty() {
             self.sort.header(&self.base, column)
         } else {
@@ -164,44 +157,38 @@ impl<R: Row> Table<R> {
     }
 
     /// The sort order.
-    #[inline]
     #[must_use]
-    pub const fn sort(&self) -> Sort {
+    pub(crate) const fn sort(&self) -> Sort {
         self.sort
     }
 
     /// The filter text; empty for none.
-    #[inline]
     #[must_use]
-    pub fn filter(&self) -> &str {
+    pub(crate) fn filter(&self) -> &str {
         &self.filter
     }
 
     /// The page and its neighbours.
-    #[inline]
     #[must_use]
-    pub const fn pager(&self) -> &Pager {
+    pub(crate) const fn pager(&self) -> &Pager {
         &self.pager
     }
 
     /// Rows matching the filter.
-    #[inline]
     #[must_use]
-    pub const fn matched(&self) -> usize {
+    pub(crate) const fn matched(&self) -> usize {
         self.matched
     }
 
     /// Rows before filtering.
-    #[inline]
     #[must_use]
-    pub const fn total(&self) -> usize {
+    pub(crate) const fn total(&self) -> usize {
         self.total
     }
 
     /// Path of the table's page.
-    #[inline]
     #[must_use]
-    pub fn base(&self) -> &str {
+    pub(crate) fn base(&self) -> &str {
         &self.base
     }
 }

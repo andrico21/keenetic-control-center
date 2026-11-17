@@ -115,7 +115,7 @@ pub mod nav;
 pub mod page;
 pub mod session;
 pub mod sse;
-pub mod table;
+pub(crate) mod table;
 
 mod advanced;
 mod auth;

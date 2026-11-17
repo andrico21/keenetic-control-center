@@ -110,3 +110,13 @@ mod files;
 #[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
 #[path = "config_pages/restore.rs"]
 mod restore;
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+#[expect(clippy::panic_in_result_fn, reason = "a test fails by panicking")]
+#[path = "config_pages/store.rs"]
+mod store;

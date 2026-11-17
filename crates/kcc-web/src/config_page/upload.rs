@@ -105,12 +105,9 @@ pub(crate) async fn upload(
             let outcome = Outcome::done(tr(locale, keys::WEB_CONFIG_BACKUP_STORED, None), false);
             Ok(visit.answer_backups(outcome, &headers).await)
         }
-        Err(error) => {
-            let key = match error {
-                StoreError::Taken => keys::WEB_CONFIG_BACKUP_TAKEN,
-                StoreError::Missing | StoreError::Failed => keys::WEB_CONFIG_STORE_FAILED,
-            };
-            let answer = shown(&router, locale, tr(locale, key, None), StatusCode::CONFLICT);
+        Err(StoreError::Missing | StoreError::Failed) => {
+            let message = tr(locale, keys::WEB_CONFIG_STORE_FAILED, None);
+            let answer = shown(&router, locale, message, StatusCode::CONFLICT);
             Err(opened.refuse("upload", "failed", answer).await)
         }
     }

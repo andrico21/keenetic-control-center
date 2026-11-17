@@ -2,7 +2,7 @@
 //!
 //! `.notice` alone shows the success wash, so a tone without a
 //! `.notice[data-tone="..."]` rule silently renders as success. The tones come from
-//! [`super::Tone`] and from the literal `data-tone` values of every element of class
+//! [`super::notice::Tone`] and from the literal `data-tone` values of every element of class
 //! `notice` in the templates and the Rust sources (inline templates included).
 
 #[cfg(test)]
@@ -17,7 +17,7 @@ mod tests {
     use core::error::Error;
     use std::{fs, path::Path};
 
-    use super::super::Tone;
+    use super::super::notice::Tone;
 
     /// The tone `.notice` shows without a `data-tone` rule.
     const DEFAULT_TONE: &str = "success";
@@ -158,7 +158,7 @@ mod tests {
             let _: bool = emitted
                 .entry(tone.to_owned())
                 .or_default()
-                .insert("page_kit::outcome::Tone".to_owned());
+                .insert("page_kit::outcome::notice::Tone".to_owned());
         }
         for (path, text) in sources(root)? {
             for tone in notice_tones(&text) {

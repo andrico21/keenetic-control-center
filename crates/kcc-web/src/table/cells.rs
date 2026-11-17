@@ -16,7 +16,6 @@ use super::{
 
 /// The look of a state pill: the `data-status` value.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub(crate) enum Pill {
     /// Enabled, running.
     On,
@@ -26,7 +25,6 @@ pub(crate) enum Pill {
 
 /// The items of an ordered cell list and its classes.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct Ordered {
     /// Class of the list.
     class: &'static str,
@@ -38,7 +36,6 @@ pub(crate) struct Ordered {
 
 /// How a cell lays out its actions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[non_exhaustive]
 pub(crate) enum Layout {
     /// On the cell's own line.
     Inline,
@@ -85,7 +82,6 @@ enum Body {
 
 /// One table cell: a data cell, or the row header.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct Cell {
     /// Whether the cell is the row header (`th scope="row"`).
     head: bool,

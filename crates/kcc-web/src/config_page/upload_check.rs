@@ -185,7 +185,7 @@ mod tests {
         assert_eq!(reason(None), "upload", "no name");
         assert!(
             reason(Some(&"x".repeat(90))).len() <= REASON_ROOM,
-            "fits the store's reason with a copy number"
+            "fits the store's reason"
         );
     }
 

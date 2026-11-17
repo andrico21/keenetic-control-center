@@ -7,7 +7,6 @@ use super::{
 
 /// The filter box of a table: its label and the state it keeps.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct Search {
     /// The localized label.
     label: String,
@@ -21,7 +20,6 @@ pub(crate) struct Search {
 
 /// One header cell: sortable, plain, or a hidden label over the actions.
 #[derive(Debug, Clone)]
-#[non_exhaustive]
 pub(crate) struct Head {
     /// The localized label.
     label: String,

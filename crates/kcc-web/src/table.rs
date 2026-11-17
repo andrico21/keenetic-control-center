@@ -12,17 +12,16 @@ pub(crate) mod acts;
 pub(crate) mod cells;
 pub(crate) mod fleet;
 pub(crate) mod head;
-pub mod pager;
+pub(crate) mod pager;
 pub(crate) mod piece;
-pub mod rows;
+pub(crate) mod rows;
 pub(crate) mod view;
 
 use url::form_urlencoded;
 
 /// Sort direction of a column.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-pub enum Direction {
+pub(crate) enum Direction {
     /// Smallest first.
     Ascending,
     /// Largest first.
@@ -31,9 +30,8 @@ pub enum Direction {
 
 impl Direction {
     /// The `dir` query parameter value.
-    #[inline]
     #[must_use]
-    pub const fn param(self) -> &'static str {
+    pub(crate) const fn param(self) -> &'static str {
         match self {
             Self::Ascending => "asc",
             Self::Descending => "desc",
@@ -41,9 +39,8 @@ impl Direction {
     }
 
     /// Parses a `dir` query parameter value.
-    #[inline]
     #[must_use]
-    pub fn from_param(value: &str) -> Option<Self> {
+    pub(crate) fn from_param(value: &str) -> Option<Self> {
         match value {
             "asc" => Some(Self::Ascending),
             "desc" => Some(Self::Descending),
@@ -52,9 +49,8 @@ impl Direction {
     }
 
     /// The other direction.
-    #[inline]
     #[must_use]
-    pub const fn reversed(self) -> Self {
+    pub(crate) const fn reversed(self) -> Self {
         match self {
             Self::Ascending => Self::Descending,
             Self::Descending => Self::Ascending,
@@ -62,9 +58,8 @@ impl Direction {
     }
 
     /// The `aria-sort` value of a column sorted this way.
-    #[inline]
     #[must_use]
-    pub const fn aria_sort(self) -> &'static str {
+    pub(crate) const fn aria_sort(self) -> &'static str {
         match self {
             Self::Ascending => "ascending",
             Self::Descending => "descending",
@@ -74,7 +69,7 @@ impl Direction {
 
 /// The validated sort order of one table.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Sort {
+pub(crate) struct Sort {
     /// Sorted column, one of the table's own column names.
     column: &'static str,
     /// Sort direction.
@@ -83,17 +78,15 @@ pub struct Sort {
 
 impl Sort {
     /// Sorts by `column` in `direction`.
-    #[inline]
     #[must_use]
-    pub const fn new(column: &'static str, direction: Direction) -> Self {
+    pub(crate) const fn new(column: &'static str, direction: Direction) -> Self {
         Self { column, direction }
     }
 
     /// Reads the `sort` and `dir` query parameters. A column outside `columns` yields
     /// `default`; a missing or unknown direction is ascending.
-    #[inline]
     #[must_use]
-    pub fn parse(
+    pub(crate) fn parse(
         column: Option<&str>,
         direction: Option<&str>,
         columns: &[&'static str],
@@ -113,24 +106,21 @@ impl Sort {
     }
 
     /// Sorted column.
-    #[inline]
     #[must_use]
-    pub const fn column(self) -> &'static str {
+    pub(crate) const fn column(self) -> &'static str {
         self.column
     }
 
     /// Sort direction.
-    #[inline]
     #[must_use]
-    pub const fn direction(self) -> Direction {
+    pub(crate) const fn direction(self) -> Direction {
         self.direction
     }
 
     /// The header cell of `column` in a table at `base` (a path without a query): the
     /// sorted column reverses its direction, any other column sorts ascending.
-    #[inline]
     #[must_use]
-    pub fn header(self, base: &str, column: &'static str) -> SortHeader {
+    pub(crate) fn header(self, base: &str, column: &'static str) -> SortHeader {
         let sorted = self.column == column;
         let next = if sorted {
             self.direction.reversed()
@@ -149,9 +139,8 @@ impl Sort {
 
     /// As [`Sort::header`], with the `keep` query parameters, such as a filter, carried
     /// into the link before the sort.
-    #[inline]
     #[must_use]
-    pub fn header_keeping(
+    pub(crate) fn header_keeping(
         self,
         base: &str,
         column: &'static str,
@@ -179,7 +168,7 @@ impl Sort {
 
 /// The state of one sortable header cell.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SortHeader {
+pub(crate) struct SortHeader {
     /// Link that sorts by the column.
     href: String,
     /// `aria-sort` value: `ascending`, `descending` or `none`.
@@ -188,16 +177,14 @@ pub struct SortHeader {
 
 impl SortHeader {
     /// Link that sorts by the column.
-    #[inline]
     #[must_use]
-    pub fn href(&self) -> &str {
+    pub(crate) fn href(&self) -> &str {
         &self.href
     }
 
     /// `aria-sort` value: `ascending`, `descending` or `none`.
-    #[inline]
     #[must_use]
-    pub const fn aria_sort(&self) -> &'static str {
+    pub(crate) const fn aria_sort(&self) -> &'static str {
         self.aria_sort
     }
 }

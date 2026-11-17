@@ -90,7 +90,7 @@ impl BackupsRegion {
         );
         let listed = match store::list(services, router).await {
             Ok(found) => found,
-            Err(StoreError::Missing | StoreError::Taken | StoreError::Failed) => {
+            Err(StoreError::Missing | StoreError::Failed) => {
                 region.problem = Some(keys::WEB_CONFIG_STORE_FAILED);
                 return region;
             }

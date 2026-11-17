@@ -144,6 +144,7 @@ impl Setup {
             directory: core.directory,
             router: web_router(web.clone()),
             state: web,
+            audit: core.audit,
             roles,
             accounts: core.accounts,
             clock,

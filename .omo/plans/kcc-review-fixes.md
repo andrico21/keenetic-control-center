@@ -1198,7 +1198,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): network pages without swallowed reads or side channels
   Recommended task executor category: unspecified-high - multi-file change across modules
 
-- [ ] 57. Kit and config page leftovers
+- [x] 57. Kit and config page leftovers
   What to do / Must NOT do: Per the findings: correct the backup copy logic, re-check the armed-timer rule on save, propagate store errors, one typed-name confirmation, meaningful finish-recovery budget tests (dedupe the two suites), shrink unused public/non_exhaustive surface, one step-count constant, delete dead template calls and the unused Batch path. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `W2-06` (low; critic confirmed) The config page's backup "copy" logic is built on a false premise. Evidence: `config_page/store.rs:122-124`, `kcc-app/src/backups/store.rs:86-108`, `store.rs:264-285`. Fix: Call `store.create` directly. Delete `STORING`, the copy loop and `Taken`, and drop the `--N` handling.
   - `W2-09` (low; critic adjusted) Save does not re-check the "not while the timer is armed" rule the page shows. Evidence: `partials/config_status.html:19`, `config_page/safety.rs:66-80`. Fix: Refuse Save while `fail_safe.active` is true, audited as `armed`, mirroring `while_armed`. Critic correction (binding): Reachable only when the timer runs with no lease held; the router-side consequence is unverified. Fix as proposed.
