@@ -15,10 +15,7 @@ use kcc_domain::{
 };
 use serde_json::json;
 
-use super::{
-    Applier, ApplyError, StopPolicy, dispatch::submit, finish, reconnect::complete_line, verify,
-};
-use crate::planner::PlannedLine;
+use super::{Applier, ApplyError, dispatch::submit, finish, reconnect::complete_line, verify};
 
 /// Executes additions, selected removals, and management changes before read-back.
 ///
@@ -45,7 +42,6 @@ pub(super) async fn run(applier: &mut Applier, context: &JobContext) -> Result<(
         .chain(&applier.plan.phases.prune)
         .cloned()
         .collect::<Vec<_>>();
-    let mut retry = Vec::new();
     for (offset, line) in lines.iter().enumerate() {
         if context.cancellation().is_cancelled() {
             return Err(ApplyError::Cancelled);
@@ -70,13 +66,7 @@ pub(super) async fn run(applier: &mut Applier, context: &JobContext) -> Result<(
             ReplayOutcome::Applied => applier.report.applied.push(line.source_index),
             ReplayOutcome::Rejected => {
                 applier.report.failed.push(line.source_index);
-                if applier.options.stop_policy == StopPolicy::ContinueOnNonCritical
-                    && line.non_critical
-                {
-                    retry.push(line);
-                } else {
-                    return Err(ApplyError::Stopped);
-                }
+                return Err(ApplyError::Stopped);
             }
             ReplayOutcome::Indeterminate | _ => return finish::recover(applier).await,
         }
@@ -93,10 +83,6 @@ pub(super) async fn run(applier: &mut Applier, context: &JobContext) -> Result<(
             keep_alive(applier).await?;
         }
     }
-    retry_lines(applier, &catalog, &retry, context).await?;
-    if !applier.report.failed.is_empty() {
-        return Err(ApplyError::Stopped);
-    }
     management(applier, &catalog, context).await?;
     keep_alive(applier).await?;
     verify::run(applier).await?;
@@ -104,7 +90,7 @@ pub(super) async fn run(applier: &mut Applier, context: &JobContext) -> Result<(
     Ok(())
 }
 
-/// Runs connectivity changes only after additions and their deferred retries finish.
+/// Runs connectivity changes only after every addition and removal applied.
 ///
 /// # Errors
 /// Returns the first management rejection, audit failure, or recovery outcome.
@@ -134,40 +120,6 @@ async fn management(
             _ => return Err(ApplyError::Workflow),
         }
         complete_line(applier, line, result.completion).await?;
-    }
-    Ok(())
-}
-
-/// Retries explicitly non-critical lines once after the initial pass.
-///
-/// # Errors
-/// Returns command preparation or protected dispatch failures.
-// NOT cancel-safe: a retried command may apply before cancellation.
-async fn retry_lines(
-    applier: &mut Applier,
-    catalog: &Catalog,
-    retry: &[&PlannedLine],
-    context: &JobContext,
-) -> Result<(), ApplyError> {
-    for line in retry {
-        if context.cancellation().is_cancelled() {
-            return Err(ApplyError::Cancelled);
-        }
-        keep_alive(applier).await?;
-        let result = submit(applier, catalog, line).await?;
-        context.structured_progress(JobProgress::Structured(
-            json!({"source_index":line.source_index,"retry":true,"outcomes":result.outcomes}),
-        ));
-        if result.outcomes == [ReplayOutcome::Applied] && result.completion.is_ok() {
-            applier
-                .report
-                .failed
-                .retain(|index| *index != line.source_index);
-            applier.report.applied.push(line.source_index);
-        }
-        if result.completion.is_err() {
-            return Err(ApplyError::Workflow);
-        }
     }
     Ok(())
 }

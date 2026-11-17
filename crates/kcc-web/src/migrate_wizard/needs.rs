@@ -7,7 +7,7 @@
 use alloc::collections::{BTreeMap, BTreeSet};
 
 use kcc_config::config_text::flatten;
-use kcc_migrate::rules::ClassifiedItem;
+use kcc_migrate::{inventory::TargetInventory, rules::ClassifiedItem};
 
 use super::{analysis::Analysis, plan::Classified, reasons::PASSWORD_REASON, record::Record};
 
@@ -38,14 +38,14 @@ impl Needs {
             .collect::<Vec<_>>();
         users.sort();
         users.dedup();
-        let management = analysis.target().management_interface.as_deref();
-        let present = flatten(&analysis.target().running_config)
+        let target = analysis.target();
+        let present = flatten(&target.running_config)
             .iter()
             .map(ToString::to_string)
             .collect::<BTreeSet<_>>();
         let reconnect = kept.iter().any(|item| {
             item.reason_key == PASSWORD_REASON
-                || (manages(item, management)
+                || (manages(item, target)
                     && item
                         .after
                         .as_ref()
@@ -97,14 +97,14 @@ impl Needs {
 }
 
 /// Whether `item` changes how kcc reaches the router: the web server's port or TLS, or
-/// the address or security level of the management interface `management`.
-fn manages(item: &ClassifiedItem, management: Option<&str>) -> bool {
+/// the address or security level of an interface that may carry the management connection.
+fn manages(item: &ClassifiedItem, target: &TargetInventory) -> bool {
     let line = item.after.as_deref().unwrap_or(&item.before);
     let words = line.split_whitespace().collect::<Vec<_>>();
     match words.as_slice() {
         ["ip", "http", "port" | "ssl", ..] => true,
         ["interface", name, "ip", "address" | "security-level", ..]
-        | ["interface", name, "security-level", ..] => management == Some(*name),
+        | ["interface", name, "security-level", ..] => target.may_carry_management(name),
         _ => false,
     }
 }

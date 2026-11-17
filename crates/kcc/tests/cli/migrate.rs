@@ -54,9 +54,16 @@ async fn plan_writes_a_plan_file() -> TestResult {
         Some("target"),
         "{plan}"
     );
-    assert!(
-        !fs::read_to_string(&plan_path)?.contains("migrated-1"),
-        "plan files are redacted"
+    assert_eq!(
+        plan.pointer("/phases/additive/0/command")
+            .and_then(Value::as_str),
+        Some("<redacted>"),
+        "plan files carry no executable command: {plan}"
+    );
+    assert_eq!(
+        plan.pointer("/items/0/before").and_then(Value::as_str),
+        Some("interface Bridge11 description migrated-1"),
+        "report items carry the redacted line: {plan}"
     );
     handle.shutdown().await?;
     Ok(())

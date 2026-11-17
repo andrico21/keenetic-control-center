@@ -641,6 +641,21 @@ pub const MIGRATE_ROLLBACK_SAVED: MessageKey = MessageKey::new("migrate-rollback
 /// `migrate-apply-replan` in `migrate.ftl`.
 pub const MIGRATE_APPLY_REPLAN: MessageKey = MessageKey::new("migrate-apply-replan");
 
+/// `migrate-report-title` in `migrate.ftl`.
+pub const MIGRATE_REPORT_TITLE: MessageKey = MessageKey::new("migrate-report-title");
+
+/// `migrate-report-plan` in `migrate.ftl`.
+pub const MIGRATE_REPORT_PLAN: MessageKey = MessageKey::new("migrate-report-plan");
+
+/// `migrate-report-counts` in `migrate.ftl`.
+pub const MIGRATE_REPORT_COUNTS: MessageKey = MessageKey::new("migrate-report-counts");
+
+/// `migrate-report-items` in `migrate.ftl`.
+pub const MIGRATE_REPORT_ITEMS: MessageKey = MessageKey::new("migrate-report-items");
+
+/// `migrate-report-residual` in `migrate.ftl`.
+pub const MIGRATE_REPORT_RESIDUAL: MessageKey = MessageKey::new("migrate-report-residual");
+
 /// `web-nav-dashboard` in `web.ftl`.
 pub const WEB_NAV_DASHBOARD: MessageKey = MessageKey::new("web-nav-dashboard");
 
@@ -6672,7 +6687,7 @@ pub const WEB_DHCP_ERROR_DNS_ONE: MessageKey = MessageKey::new("web-dhcp-error-d
 pub const WEB_SECRET_CHANGED: MessageKey = MessageKey::new("web-secret-changed");
 
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2124] = [
+pub static ALL: [MessageKey; 2129] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -6879,6 +6894,11 @@ pub static ALL: [MessageKey; 2124] = [
     MIGRATE_COMMIT_NOT_SENT_ARMED,
     MIGRATE_ROLLBACK_SAVED,
     MIGRATE_APPLY_REPLAN,
+    MIGRATE_REPORT_TITLE,
+    MIGRATE_REPORT_PLAN,
+    MIGRATE_REPORT_COUNTS,
+    MIGRATE_REPORT_ITEMS,
+    MIGRATE_REPORT_RESIDUAL,
     WEB_NAV_DASHBOARD,
     WEB_NAV_WIFI,
     WEB_NAV_CLIENTS,

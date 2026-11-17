@@ -22,8 +22,9 @@ pub struct Fixture {
     pub loss_until: Option<Duration>,
     /// Optional internet status for verification failure scenarios.
     pub internet: Option<bool>,
-    /// Optional management link state for verification failure scenarios.
-    pub management_link: Option<String>,
+    /// Optional changes to the `show interface` reply, keyed by interface: an object's
+    /// fields replace or add to that interface's fields, `null` removes the interface.
+    pub interfaces: Option<Value>,
     /// Leave the `fail-safe` object out of `show last-change`, as a firmware without the timer does.
     pub omit_fail_safe: bool,
 }
@@ -67,9 +68,6 @@ impl State {
                 .fixture
                 .internet
                 .map(|internet| json!({"internet":internet})),
-            "interface" if self.fixture.management_link.is_some() => {
-                Some(json!({"Bridge0":{"link":self.fixture.management_link}}))
-            }
             "system/mode" => self
                 .fixture
                 .mode
@@ -84,6 +82,32 @@ impl State {
                 Some(json!({"text":"Synthetic router EULA document v1"}))
             }
             _ => None,
+        }
+    }
+
+    /// Applies the configured interface changes to a `show interface` reply.
+    pub(crate) fn overlay_interfaces(&self, reply: &mut Value) {
+        let (Some(Value::Object(changes)), Value::Object(interfaces)) =
+            (&self.fixture.interfaces, reply)
+        else {
+            return;
+        };
+        for (name, change) in changes {
+            match change {
+                Value::Object(fields) => {
+                    let entry = interfaces.entry(name.clone()).or_insert_with(|| json!({}));
+                    if let Value::Object(existing) = entry {
+                        existing.extend(fields.clone());
+                    }
+                }
+                Value::Null
+                | Value::Bool(_)
+                | Value::Number(_)
+                | Value::String(_)
+                | Value::Array(_) => {
+                    drop(interfaces.remove(name));
+                }
+            }
         }
     }
 

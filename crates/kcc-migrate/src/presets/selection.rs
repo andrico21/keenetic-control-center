@@ -125,8 +125,9 @@ fn referenced_words<'line>(
         .collect()
 }
 
-/// Returns ordinary command words and the typed NS3 marker.
-fn words(line: &CliLine) -> Vec<&str> {
+/// Returns ordinary command words and the typed NS3 marker, the words settings-group
+/// patterns match.
+pub(super) fn words(line: &CliLine) -> Vec<&str> {
     line.tokens
         .iter()
         .filter_map(|token| match token {

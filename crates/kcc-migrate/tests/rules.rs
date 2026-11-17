@@ -418,6 +418,50 @@ mod tests {
         Ok(())
     }
 
+    /// G-21: the migration classifier and the preset classifier share one password
+    /// replacement; an `ns3`-encoded realm-bound hash becomes a plain password word, never
+    /// a plaintext password inside an `ns3` token.
+    #[test]
+    #[expect(
+        clippy::missing_errors_doc,
+        reason = "integration-test assertions define the task contract"
+    )]
+    fn encoded_realm_bound_hash_becomes_a_plain_word() -> Result<(), Box<dyn Error>> {
+        let source_ast =
+            parse("! $$$ Model: Keenetic Giga\nuser admin password md5 ns3 encoded-hash\n")?;
+        let target_ast = parse("")?;
+        let installed = BTreeSet::new();
+        let port_map = PortMap::default();
+        let radio_map = RadioMap::default();
+        let interface_map = InterfaceMap::default();
+        let mut passwords = BTreeMap::new();
+        drop(passwords.insert(
+            "admin".to_owned(),
+            SecretString::from("replacement".to_owned()),
+        ));
+        let overwrites = BTreeSet::new();
+        let choices = ClassificationChoices::new(
+            &port_map,
+            &radio_map,
+            &interface_map,
+            &passwords,
+            &overwrites,
+        );
+        let target_view = ClassificationTarget::new(
+            None,
+            &target_ast,
+            &installed,
+            Some("Keenetic Ultra"),
+            InterfaceInventory::Unavailable,
+        );
+        let resolved = rules::classify(&source_ast, target_view, &choices)?;
+        assert_eq!(
+            resolved[0].output.as_ref().map(ExposeSecret::expose_secret),
+            Some("user admin password plain replacement")
+        );
+        Ok(())
+    }
+
     #[test]
     #[expect(
         clippy::missing_errors_doc,

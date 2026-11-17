@@ -2,7 +2,7 @@
 
 use alloc::collections::BTreeSet;
 
-use kcc_config::config_text::flatten;
+use kcc_config::{config_text::flatten, mask::redact_text};
 use secrecy::{ExposeSecret as _, SecretString};
 
 use super::PresetApplyOptions;
@@ -10,12 +10,12 @@ use crate::{
     apply::ApplyWarning,
     inventory::TargetInventory,
     planner::{
-        ConfigFingerprint, MigrationPlan, PlanPhases, PlannedLine, digest_lines, digest_text,
-        is_management_line, plan_id,
+        ConfigFingerprint, MigrationPlan, PlanItem, PlanPhases, PlannedLine, digest_lines,
+        digest_text, is_management_line, plan_id,
     },
     presets::{
         model::Preset,
-        plan::{PresetMode, PresetPlan},
+        plan::{PresetMode, PresetPlan, PresetPlanItem},
     },
 };
 
@@ -39,19 +39,23 @@ pub(super) fn migration_plan(
     let mut phases = PlanPhases::default();
     let mut expected = Vec::new();
     let mut warnings = Vec::new();
+    let mut items = Vec::with_capacity(plan.items.len());
     for item in plan.items {
+        let mut reported = report_item(preset, &item);
         let Some(command) = item.command else {
+            items.push(reported);
             if let Some(result) = item.result {
                 expected.push(result);
             }
             continue;
         };
         let executable = wireguard_command(command, options, &mut warnings);
+        reported.reason_key.clone_from(&executable.1);
+        items.push(reported);
         if item.result.is_some() {
             expected.push(executable.0.clone());
         }
         let planned = PlannedLine {
-            non_critical: false,
             source_index: item.index,
             display: "<redacted>".to_owned(),
             disposition: item.disposition,
@@ -95,11 +99,27 @@ pub(super) fn migration_plan(
             reconnect_url: None,
             target_not_clean: false,
             residual: Vec::new(),
-            items: Vec::new(),
+            items,
         },
         source,
         warnings,
     )
+}
+
+/// The redacted report record of one preset item: its captured line, or for a target-only
+/// removal its command, and its resulting line.
+fn report_item(preset: &Preset, item: &PresetPlanItem) -> PlanItem {
+    let before = preset.lines.get(item.index).map_or_else(
+        || item.expose_command().map_or_default(redact_text),
+        |line| redact_text(&line.to_string()),
+    );
+    PlanItem {
+        source_index: item.index,
+        disposition: item.disposition,
+        before,
+        after: item.expose_result().map(redact_text),
+        reason_key: item.reason.clone(),
+    }
 }
 
 /// Replaces a captured WireGuard private key with target-side key generation by default.

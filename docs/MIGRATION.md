@@ -125,6 +125,8 @@ kcc copy --from home --to lab --groups dns-secure --finish rollback
    the same mapping rule.
 4. **Classification**: every source line gets a disposition (below).
 5. **Plan**: lines in replay order, with redacted reports in JSON, Markdown and HTML.
+   Each report item shows the source line and the line sent, with every secret replaced
+   by `<redacted>`; the Markdown and HTML headings are in your language.
 6. **Apply** under the fail-safe timer, line by line, then verification.
 7. **Finish**: commit (fail-safe commit and save) or roll back.
 
@@ -140,6 +142,20 @@ Migration expects a target in factory or near-factory state. Lines the target ha
 the source doesn't are reported as residual and flagged `target_not_clean`; the plan
 still proceeds and leaves them in place unless you choose to remove them in the review.
 Factory-reset the target first for a predictable result.
+
+### Verification
+
+After the last line, kcc reads the target's running configuration back: every planned
+line must be there, every planned removal gone, and nothing else changed. It then checks
+the link of the management interface, the interface whose address kcc connects to (as
+reported by `show interface`); a down link fails verification. When no interface holds
+that address (NAT, a port forward), no link is checked and the apply report says so with
+an empty `management_interface`. Internet reachability is only recorded (`internet` in the
+apply report): a target on the bench without an uplink still verifies.
+
+The same management interface decides which lines are management changes, replayed last
+and followed by a reconnect. When it is unknown, an address or security-level change of
+any bridge counts as one.
 
 ### Dispositions
 

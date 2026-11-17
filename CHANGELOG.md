@@ -490,6 +490,24 @@ The first release, `0.1.0`, is in preparation and contains:
   refused as an invalid `address` (it was an invalid `mask`); both stay validation
   refusals (CLI exit 4, MCP `validation_failed`).
 
+- **Migration verification no longer needs Internet access or `Bridge0`.** The Internet
+  check is recorded in the apply report (`ApplyReport.internet`) and never fails
+  verification, so a target pre-staged on the bench without an uplink can be verified and
+  committed. The management interface is the interface whose address kcc connects to (from
+  `show interface`), not the first bridge: verification checks that interface's link and
+  reports it (`ApplyReport.management_interface`), and `TargetInventory.management_interface`
+  is that interface, or `None` when no interface holds the address. Planning then treats
+  an address or security-level change of any bridge as a management change
+  (`TargetInventory::may_carry_management`), and verification checks no link.
+- **Migration reports show the redacted command text.** Every item of the JSON, Markdown
+  and HTML report (Web download, `kcc migrate report`, MCP plan and preset reports) carries
+  its source and resulting line with secrets replaced by `<redacted>`, instead of
+  `<redacted> -> <redacted>`; preset reports list their items (they were empty). The
+  report headings and the HTML `lang` come from the user's language;
+  `MigrationReport::to_markdown` and `to_html` take a `Locale`. Markdown code spans can no
+  longer be broken out of by backticks in a command. The report JSON shape and
+  `schema_version` 1 are unchanged.
+
 ### Removed
 
 - **Storage partition check and format.** The `partition_check` and `partition_format`
@@ -506,8 +524,18 @@ The first release, `0.1.0`, is in preparation and contains:
   `show last-change` a second time after the workflow's own check, and a VPN credential
   write no longer downloads the running configuration a second time for the presence
   check the workflow already ran.
+- **The test-only migration retry policy.** `kcc_migrate::apply::StopPolicy`
+  (`ContinueOnNonCritical`), `ApplyOptions::stop_policy` and `PlannedLine::non_critical`
+  (also the `non_critical` member of the plan JSON phases): no front end could select the
+  retry, and a migration always stops at the first rejected line.
 
 ### Fixed
+
+- **A migrated realm-bound password with an encoded hash is sent as a plain password.**
+  Replacing `user <name> password md5|nt ns3 <hash>` produced
+  `user <name> password plain ns3 <password>`, which the target cannot decode; the
+  migration and preset classifiers now share one replacement that writes the password as
+  a plain word.
 
 - **An FQDN group description can be set.** `kcc dns fqdn-group ... --description` and the
   MCP DNS tool were always refused (the group name was validated as an unknown field of

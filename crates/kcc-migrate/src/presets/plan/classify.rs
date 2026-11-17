@@ -12,7 +12,7 @@ use crate::{
     maps::{MapEntry, WordMapping},
     planner::{Choices, MigrationMaps},
     presets::model::Preset,
-    rules::Disposition,
+    rules::{self, Disposition},
 };
 
 /// Applies object mappings, discovers inputs, and checks the applier boundary for one source line.
@@ -50,7 +50,7 @@ pub(super) fn source_item(
     }
     if let Some(user) = realm_password_user(&mapped, preset, target) {
         if let Some(password) = choices.new_passwords.get(user) {
-            replace_password(&mut mapped, password.expose_secret());
+            rules::replace_password(&mut mapped.tokens, password.expose_secret());
             changed = true;
         } else {
             return input_item(
@@ -143,15 +143,6 @@ fn realm_password_user<'line>(
     .then_some(user)
 }
 
-/// Converts a realm-bound hash line (`user <name> password <kind> <hash>`) into a
-/// protected plaintext-password command.
-fn replace_password(line: &mut CliLine, password: &str) {
-    if let [_, _, _, Token::Word(kind), secret, ..] = line.tokens.as_mut_slice() {
-        "plain".clone_into(kind);
-        *secret = Token::Word(password.to_owned());
-    }
-}
-
 /// Builds a non-executable item carrying one required operator input.
 fn input_item(index: usize, needed_input: PresetInput) -> PresetPlanItem {
     PresetPlanItem {
@@ -162,16 +153,4 @@ fn input_item(index: usize, needed_input: PresetInput) -> PresetPlanItem {
         needed_input: Some(needed_input),
         reason: "preset-needs-input".to_owned(),
     }
-}
-
-/// Projects a flattened line into words used by settings-group patterns.
-pub(super) fn words(line: &CliLine) -> Vec<&str> {
-    line.tokens
-        .iter()
-        .filter_map(|token| match token {
-            Token::Word(value) => Some(value.as_str()),
-            Token::Ns3(_) => Some("ns3"),
-            _ => None,
-        })
-        .collect()
 }

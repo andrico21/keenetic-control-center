@@ -94,43 +94,62 @@ impl MigrationReport {
         serde_json::to_string_pretty(self).map_err(ReportError::Json)
     }
 
-    /// Renders a self-contained Markdown report.
+    /// Renders a self-contained Markdown report with headings in `locale`; command text
+    /// stays inside code spans.
     #[inline]
     #[must_use]
-    pub fn to_markdown(&self) -> String {
-        let mut output = format!("# Migration report\n\nPlan: `{}`\n\n", self.plan_id);
-        output.push_str("## Counts\n\n");
+    pub fn to_markdown(&self, locale: Locale) -> String {
+        let labels = Labels::of(locale);
+        let mut output = format!(
+            "# {}\n\n{}: {}\n\n## {}\n\n",
+            labels.title,
+            labels.plan,
+            code_span(&self.plan_id),
+            labels.counts
+        );
         for (name, count) in &self.counts {
             let _result = writeln!(output, "- {name}: {count}");
         }
-        output.push_str("\n## Items\n\n");
+        output.push_str("\n## ");
+        output.push_str(&labels.items);
+        output.push_str("\n\n");
         for item in &self.items {
-            let after = item.after.as_deref().unwrap_or("-");
+            let after = item
+                .after
+                .as_deref()
+                .map_or_else(|| "-".to_owned(), code_span);
             let _result = writeln!(
                 output,
-                "- `{}` -> `{after}` ({}, {})",
-                item.before,
+                "- {} -> {after} ({}, {})",
+                code_span(&item.before),
                 disposition_name(item.disposition),
                 item.reason
             );
         }
-        output.push_str("\n## Residual target settings\n\n");
+        output.push_str("\n## ");
+        output.push_str(&labels.residual);
+        output.push_str("\n\n");
         for line in &self.residual {
-            let _result = writeln!(output, "- `{line}`");
+            let _result = writeln!(output, "- {}", code_span(line));
         }
         output
     }
 
-    /// Renders a standalone HTML document with no external assets.
+    /// Renders a standalone HTML document with no external assets, its skeleton in
+    /// `locale`.
     ///
     /// # Errors
     ///
-    /// Returns a template error when rendering fails.
+    /// Returns [`ReportError::Html`] when the template fails to render.
     #[inline]
-    pub fn to_html(&self) -> Result<String, ReportError> {
-        ReportTemplate { report: self }
-            .render()
-            .map_err(ReportError::Html)
+    pub fn to_html(&self, locale: Locale) -> Result<String, ReportError> {
+        ReportTemplate {
+            report: self,
+            lang: locale.tag(),
+            labels: Labels::of(locale),
+        }
+        .render()
+        .map_err(ReportError::Html)
     }
 }
 
@@ -153,12 +172,60 @@ pub enum ReportError {
 /// Standalone report document.
 #[derive(Template)]
 #[template(
-    source = r#"<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Migration report</title></head><body><main><h1>Migration report</h1><p>Plan: <code>{{ report.plan_id }}</code></p><h2>Counts</h2><ul>{% for pair in report.counts %}<li>{{ pair.0 }}: {{ pair.1 }}</li>{% endfor %}</ul><h2>Items</h2><ol>{% for item in report.items %}<li><code>{{ item.before }}</code>{% match item.after %}{% when Some with (after) %} &rarr; <code>{{ after }}</code>{% when None %}{% endmatch %}<p>{{ item.reason }}</p></li>{% endfor %}</ol><h2>Residual target settings</h2><ul>{% for line in report.residual %}<li><code>{{ line }}</code></li>{% endfor %}</ul></main></body></html>"#,
+    source = r#"<!doctype html><html lang="{{ lang }}"><head><meta charset="utf-8"><title>{{ labels.title }}</title></head><body><main><h1>{{ labels.title }}</h1><p>{{ labels.plan }}: <code>{{ report.plan_id }}</code></p><h2>{{ labels.counts }}</h2><ul>{% for pair in report.counts %}<li>{{ pair.0 }}: {{ pair.1 }}</li>{% endfor %}</ul><h2>{{ labels.items }}</h2><ol>{% for item in report.items %}<li><code>{{ item.before }}</code>{% match item.after %}{% when Some with (after) %} &rarr; <code>{{ after }}</code>{% when None %}{% endmatch %}<p>{{ item.reason }}</p></li>{% endfor %}</ol><h2>{{ labels.residual }}</h2><ul>{% for line in report.residual %}<li><code>{{ line }}</code></li>{% endfor %}</ul></main></body></html>"#,
     ext = "html"
 )]
 struct ReportTemplate<'report> {
     /// Redacted report view.
     report: &'report MigrationReport,
+    /// Language tag of the skeleton text.
+    lang: &'static str,
+    /// Localized skeleton text.
+    labels: Labels,
+}
+
+/// Localized headings shared by the Markdown and HTML reports.
+struct Labels {
+    /// Document title and top heading.
+    title: String,
+    /// Label of the plan identity.
+    plan: String,
+    /// Heading of the per-disposition counts.
+    counts: String,
+    /// Heading of the item list.
+    items: String,
+    /// Heading of the residual target settings.
+    residual: String,
+}
+
+impl Labels {
+    /// The headings in `locale`.
+    fn of(locale: Locale) -> Self {
+        Self {
+            title: tr(locale, keys::MIGRATE_REPORT_TITLE, None),
+            plan: tr(locale, keys::MIGRATE_REPORT_PLAN, None),
+            counts: tr(locale, keys::MIGRATE_REPORT_COUNTS, None),
+            items: tr(locale, keys::MIGRATE_REPORT_ITEMS, None),
+            residual: tr(locale, keys::MIGRATE_REPORT_RESIDUAL, None),
+        }
+    }
+}
+
+/// A Markdown code span showing `text` literally: its fence is one backtick longer than the
+/// longest backtick run in `text`, and line breaks become spaces.
+fn code_span(text: &str) -> String {
+    let longest = text
+        .split(|character| character != '`')
+        .map(str::len)
+        .max()
+        .unwrap_or_default();
+    let fence = "`".repeat(longest.saturating_add(1));
+    let flat = text.replace(['\r', '\n'], " ");
+    if longest == 0 {
+        format!("{fence}{flat}{fence}")
+    } else {
+        format!("{fence} {flat} {fence}")
+    }
 }
 
 /// Converts one redacted plan record to its localized report form.
@@ -182,10 +249,13 @@ fn localized_reason(reason_key: &str, locale: Locale) -> String {
     let key = match reason_key {
         "migration-reason-default-copy"
         | "migration-reason-copy-secret"
-        | "migration-reason-non-critical-description" => keys::MIGRATE_REASON_COPY,
-        "migration-reason-remap-reference" | "migration-reason-password-realm" => {
-            keys::MIGRATE_REASON_REMAP
-        }
+        | "migration-reason-non-critical-description"
+        | "preset-add"
+        | "preset-already-present"
+        | "preset-wireguard-key-kept" => keys::MIGRATE_REASON_COPY,
+        "migration-reason-remap-reference"
+        | "migration-reason-password-realm"
+        | "preset-wireguard-regenerate" => keys::MIGRATE_REASON_REMAP,
         "migration-reason-hardware-led"
         | "migration-reason-hardware-button"
         | "migration-reason-hardware-usb"
@@ -201,8 +271,9 @@ fn localized_reason(reason_key: &str, locale: Locale) -> String {
         | "migration-reason-identity-mac" => keys::MIGRATE_REASON_SKIP_IDENTITY,
         "migration-reason-install-component"
         | "migration-reason-scalar-conflict"
-        | "migration-reason-management-reconnect" => keys::MIGRATE_REASON_NEEDS_INPUT,
-        "migration-reason-operator-prune" => keys::MIGRATE_REASON_PRUNE,
+        | "migration-reason-management-reconnect"
+        | "preset-needs-input" => keys::MIGRATE_REASON_NEEDS_INPUT,
+        "migration-reason-operator-prune" | "preset-mirror-remove" => keys::MIGRATE_REASON_PRUNE,
         _ => keys::MIGRATE_REASON_UNSUPPORTED,
     };
     tr(locale, key, None)

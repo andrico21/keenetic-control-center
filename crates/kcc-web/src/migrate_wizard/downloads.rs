@@ -84,8 +84,10 @@ pub(super) async fn download(
     let rendered = match file.as_str() {
         "plan.json" => Ok(plan),
         "report.json" => report.to_json().map_err(|error| error.to_string()),
-        "report.html" => report.to_html().map_err(|error| error.to_string()),
-        _ => Ok(report.to_markdown()),
+        "report.html" => report
+            .to_html(user.locale())
+            .map_err(|error| error.to_string()),
+        _ => Ok(report.to_markdown(user.locale())),
     };
     let body = rendered
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(user.locale()))))?;

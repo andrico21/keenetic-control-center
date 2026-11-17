@@ -110,7 +110,6 @@ impl Planner {
                 && command::build(&target.catalog, &format!("no {line}")).is_ok()
             {
                 let planned = PlannedLine {
-                    non_critical: false,
                     source_index: classified.len().saturating_add(offset),
                     command: SecretString::from(format!("no {line}")),
                     display: "<redacted>".to_owned(),
@@ -198,7 +197,6 @@ fn execution_phases(
             continue;
         };
         let planned = PlannedLine {
-            non_critical: item.reason_key == "migration-reason-non-critical-description",
             source_index: item.source_index,
             command: output.clone(),
             display: "<redacted>".to_owned(),

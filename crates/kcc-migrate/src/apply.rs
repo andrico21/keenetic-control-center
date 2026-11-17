@@ -48,8 +48,8 @@ pub use raw::RawRestore;
 use serde_json::json;
 use tokio::sync::oneshot;
 pub use types::{
-    ApplyOptions, ApplyReport, ApplyRequest, ApplySource, ApplyWarning, Clock, StopPolicy,
-    SystemClock, WireGuardPublicKey,
+    ApplyOptions, ApplyReport, ApplyRequest, ApplySource, ApplyWarning, Clock, SystemClock,
+    WireGuardPublicKey,
 };
 
 /// Checks whether the migration applier can construct a protected request for `line`.

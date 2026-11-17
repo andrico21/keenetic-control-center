@@ -1,4 +1,4 @@
-//! Secret replay and deferred retry acceptance.
+//! Secret replay acceptance.
 
 #[cfg(test)]
 #[expect(
@@ -12,10 +12,7 @@ mod tests {
 
     use kcc_app::audit::verify_chain;
     use kcc_config::ns3;
-    use kcc_migrate::{
-        apply::{Applier, StopPolicy},
-        planner::Choices,
-    };
+    use kcc_migrate::{apply::Applier, planner::Choices};
     use kcc_testkit::{FakeRouter, FaultInjection, migration, model::Profile};
     use secrecy::SecretString;
 
@@ -58,30 +55,6 @@ mod tests {
         );
         assert!(!public.contains(secret));
         assert!(!public.contains(&encoded));
-        applier.rollback().await?;
-        drop(applier);
-        fixture.handle.shutdown().await?;
-        Ok(())
-    }
-
-    /// Only rule-marked non-critical lines receive a deferred retry.
-    #[tokio::test]
-    async fn non_critical_description_retries_after_later_lines() -> Result<(), Box<dyn Error>> {
-        let fixture = Fixture::spawn(
-            Profile::default(),
-            FaultInjection::default().fail_parse_matching("migrated-1", 1),
-        )
-        .await?;
-        let mut request = fixture.request(3).await?;
-        request.options.stop_policy = StopPolicy::ContinueOnNonCritical;
-        let (_id, done) = Applier::start(&fixture.runner, request).await?;
-        let mut applier = done.await??;
-        assert_eq!(applier.report().failure, None);
-        assert_eq!(applier.report().applied, [1, 2, 0]);
-        assert!(
-            applier.report().failed.is_empty(),
-            "retry must resolve the failure"
-        );
         applier.rollback().await?;
         drop(applier);
         fixture.handle.shutdown().await?;

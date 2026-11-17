@@ -957,9 +957,12 @@ impl Shared {
             return tree::select_show(&answer, selector);
         }
         let fixture = self.show.get(normalized_path);
-        let answer = lock(&self.config)
+        let mut answer = lock(&self.config)
             .show(normalized_path, fixture)
             .or_else(|| fixture.cloned())?;
+        if normalized_path == "interface" {
+            lock(&self.migration).overlay_interfaces(&mut answer);
+        }
         tree::select_show(&answer, selector)
     }
 

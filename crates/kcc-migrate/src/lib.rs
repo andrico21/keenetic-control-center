@@ -11,6 +11,7 @@
 extern crate alloc;
 
 mod interface_names;
+mod management;
 
 pub mod apply;
 pub mod inventory;

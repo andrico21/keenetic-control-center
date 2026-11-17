@@ -11,7 +11,7 @@ mod tests {
     };
     use kcc_rci::{RouterUrl, auth::Credentials, version::FirmwareVersion};
     use kcc_testkit::{
-        DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter,
+        DEFAULT_LOGIN, DEFAULT_PASSWORD, FakeRouter, migration,
         model::{Firmware, Model, Profile},
         outbound::loopback_client,
     };
@@ -24,7 +24,14 @@ mod tests {
         reason = "integration-test assertions define the task contract"
     )]
     async fn inventory_for(profile: Profile) -> Result<TargetInventory, Box<dyn Error>> {
-        let router = FakeRouter::builder(profile).build()?;
+        inventory_of(FakeRouter::builder(profile).build()?).await
+    }
+
+    #[expect(
+        clippy::missing_errors_doc,
+        reason = "integration-test assertions define the task contract"
+    )]
+    async fn inventory_of(router: FakeRouter) -> Result<TargetInventory, Box<dyn Error>> {
         let (address, handle) = router.serve(SocketAddr::from(([127, 0, 0, 1], 0))).await?;
         let url = RouterUrl::from_str(&format!("http://{address}"))?;
         let credentials = Credentials::new(
@@ -52,6 +59,32 @@ mod tests {
             assert_eq!(inventory.realm.as_deref(), Some(model.realm()));
             assert!(!inventory.installed_components.is_empty());
         }
+        Ok(())
+    }
+
+    /// G-06: the management interface is the one carrying the address kcc connects to,
+    /// not the first bridge; when no interface carries it, it is unknown.
+    #[tokio::test]
+    #[expect(
+        clippy::missing_errors_doc,
+        clippy::missing_panics_doc,
+        clippy::panic_in_result_fn,
+        reason = "integration-test assertions define the task contract"
+    )]
+    async fn management_interface_carries_the_management_address() -> Result<(), Box<dyn Error>> {
+        let mut scenario = migration::Fixture::default();
+        scenario.interfaces = Some(serde_json::json!({
+            "Bridge0":{"type":"Bridge","address":"198.51.100.1","link":"up"},
+            "Bridge1":{"type":"Bridge","address":"127.0.0.1","link":"up"}
+        }));
+        let router = FakeRouter::builder(Profile::default())
+            .build()?
+            .with_migration(scenario);
+        let derived = inventory_of(router).await?;
+        assert_eq!(derived.management_interface.as_deref(), Some("Bridge1"));
+
+        let unknown = inventory_for(Profile::default()).await?;
+        assert_eq!(unknown.management_interface, None);
         Ok(())
     }
 

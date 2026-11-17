@@ -14,6 +14,8 @@ use reqwest::header;
 use serde_json::Value;
 use thiserror::Error;
 
+use crate::management;
+
 /// Authenticated read-only client used while preparing a migration target.
 #[expect(
     clippy::module_name_repetitions,
@@ -137,7 +139,8 @@ pub struct TargetInventory {
     pub startup_config_md5: Option<String>,
     /// Stable checksum of the target's observed last-change marker.
     pub last_change_checksum: String,
-    /// Interface carrying the current management connection.
+    /// Interface whose address is the one kcc connects to, or `None` when no interface
+    /// reported by `show interface` holds it.
     pub management_interface: Option<String>,
     /// Origin used for the current management connection.
     pub management_url: String,
@@ -213,6 +216,9 @@ impl TargetInventory {
         let interface_inventory = optional_show(&client.rci, ["interface"])
             .await?
             .and_then(|value| interface_names(&value));
+        let management_interface = optional_show(&client.rci, ["show", "interface"])
+            .await?
+            .and_then(|value| management::carrying_interface(&client.rci, &value));
         let available_components = optional_show(&client.rci, ["components", "list"])
             .await?
             .map_or_else(BTreeSet::new, |value| component_names(&value));
@@ -226,10 +232,6 @@ impl TargetInventory {
         let system_mode = info.system_mode.clone();
         let startup_config_md5 = startup_config.header.md5.clone();
         let last_change_checksum = collect_last_change(&client.rci).await?;
-        let management_interface = interfaces
-            .iter()
-            .find(|interface| interface.kind == "Bridge")
-            .map(|interface| interface.name.clone());
         let management_url = client.router.as_str().to_owned();
         let login = client.rci.credentials().login;
         Ok(Self {
@@ -253,6 +255,15 @@ impl TargetInventory {
             interfaces,
             interface_inventory,
         })
+    }
+
+    /// Whether a line about interface `name` may touch kcc's management connection: `name`
+    /// is the [`management_interface`](Self::management_interface), or, when that is
+    /// unknown, any bridge.
+    #[inline]
+    #[must_use]
+    pub fn may_carry_management(&self, name: &str) -> bool {
+        management::may_carry(self.management_interface.as_deref(), name)
     }
 }
 

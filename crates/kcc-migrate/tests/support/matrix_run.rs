@@ -58,6 +58,23 @@ pub(crate) enum Outcome {
     },
 }
 
+/// The fake target of a pair, in router mode, managed through `Bridge0`, which holds the
+/// address kcc connects to as on a real router.
+///
+/// # Errors
+/// Returns profile or fake-router build failures.
+fn target_router(target: Target, clock: &Arc<MockClock>) -> Result<FakeRouter, Box<dyn Error>> {
+    let mut scenario = migration::Fixture::default();
+    scenario.mode = Some("router".to_owned());
+    scenario.interfaces = Some(serde_json::json!({
+        "Bridge0": {"type": "Bridge", "link": "up", "address": "127.0.0.1"}
+    }));
+    Ok(FakeRouter::builder(target.profile()?)
+        .clock(Arc::<MockClock>::clone(clock))
+        .build()?
+        .with_migration(scenario))
+}
+
 /// Runs one pair end to end.
 ///
 /// # Errors
@@ -65,12 +82,7 @@ pub(crate) enum Outcome {
 // NOT cancel-safe: starts routers and mutates the isolated target.
 pub(crate) async fn run(source: Source, target: Target) -> Result<Outcome, Box<dyn Error>> {
     let clock = Arc::new(MockClock::new());
-    let mut scenario = migration::Fixture::default();
-    scenario.mode = Some("router".to_owned());
-    let fake = FakeRouter::builder(target.profile()?)
-        .clock(Arc::<MockClock>::clone(&clock))
-        .build()?
-        .with_migration(scenario);
+    let fake = target_router(target, &clock)?;
     let fixture = Fixture::from_router(fake, DEFAULT_PASSWORD).await?;
     let live = match source.profile() {
         Some(profile) => Some(seed_source(profile, &source.seed_lines()).await?),

@@ -10,8 +10,6 @@ mod armed;
 mod lifecycle;
 #[path = "support/apply_login.rs"]
 mod login;
-#[path = "support/apply_policy.rs"]
-mod policy;
 #[path = "support/apply_preflight.rs"]
 mod preflight;
 #[path = "support/apply_progress.rs"]

@@ -76,8 +76,6 @@ pub struct ConfigFingerprint {
 #[derive(Clone, Debug, Serialize)]
 #[non_exhaustive]
 pub struct PlannedLine {
-    /// Whether the migration rule permits a deferred retry after rejection.
-    pub non_critical: bool,
     /// Original source-order index; prune entries sort after additive entries.
     pub source_index: usize,
     /// Zeroizing executable command; serialization always replaces its entire text.
@@ -146,8 +144,8 @@ impl From<&ClassifiedItem> for PlanItem {
         Self {
             source_index: item.source_index,
             disposition: item.disposition,
-            before: "<redacted>".to_owned(),
-            after: item.after.as_ref().map(|_line| "<redacted>".to_owned()),
+            before: item.before.clone(),
+            after: item.after.clone(),
             reason_key: item.reason_key.clone(),
         }
     }

@@ -26,6 +26,7 @@ mod tests {
         permissions::{Permission, Role},
     };
     use kcc_config::config_text::{flatten, parse};
+    use kcc_i18n::locale::Locale;
     use kcc_migrate::{
         apply::{Applier, ApplyError, ApplyWarning},
         inventory::{InventoryClient, TargetInventory, source_version},
@@ -36,6 +37,7 @@ mod tests {
             model::{CaptureRequest, Preset, PresetSource, PresetSourceKind},
             plan::{PresetMode, PresetPlanError, plan},
         },
+        report::MigrationReport,
     };
     use kcc_testkit::{
         FaultInjection,
@@ -237,6 +239,33 @@ mod tests {
         applier.rollback().await?;
         assert_eq!(fixture.handle.startup_config_text(), before);
         drop(applier);
+        fixture.handle.shutdown().await?;
+        Ok(())
+    }
+
+    /// G-15: a preset plan's report lists its items with redacted command text and never
+    /// the captured key.
+    #[tokio::test]
+    async fn preset_report_lists_redacted_items() -> Result<(), Box<dyn Error>> {
+        let fixture = Fixture::spawn(Profile::default(), FaultInjection::default()).await?;
+        let private = format!("{}=", "B".repeat(43));
+        let preset = captured(
+            "vpn-clients",
+            &format!("interface Wireguard9\n wireguard private-key {private}\n"),
+            None,
+        )?;
+        let input = apply_input(&fixture, preset, PresetMode::Merge).await?;
+        let reviewed = request(input)?;
+        let report = MigrationReport::from_plan(&reviewed.plan, Locale::En);
+        let json = report.to_json()?;
+        assert!(
+            report
+                .items
+                .iter()
+                .any(|item| item.before == "interface Wireguard9 wireguard private-key <redacted>"),
+            "{json}"
+        );
+        assert!(!json.contains(&private));
         fixture.handle.shutdown().await?;
         Ok(())
     }

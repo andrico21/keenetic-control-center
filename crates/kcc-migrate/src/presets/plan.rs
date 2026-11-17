@@ -214,7 +214,7 @@ pub fn plan(
             .map(str::to_owned)
             .collect::<BTreeSet<_>>();
         let removals = target_lines.iter().filter(|line| {
-            let words = classify::words(line);
+            let words = super::selection::words(line);
             selected
                 .clone()
                 .any(|pattern| super::glob::matches(pattern, &words))

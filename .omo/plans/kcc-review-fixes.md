@@ -1165,7 +1165,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(domain): secret read-back proves the new value
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 54. Migration verification and reports
+- [x] 54. Migration verification and reports
   What to do / Must NOT do: Per the findings: the Internet check becomes informational (reported, not failing) and the management interface is taken from inventory, not 'first bridge'; reports carry redacted command text and localized skeletons; remove the drifted duplicates; remove the test-only `ContinueOnNonCritical` path and its tests (G-23; cancel-safety annotations are todo 66). Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `G-06` (medium; critic confirmed) Verification always fails without WAN Internet or without `Bridge0`; the management interface is guessed as "first bridge". Evidence: `crates/kcc-migrate/src/apply/verify.rs:152-174`, `inventory.rs:245-248`. Fix: make the Internet check informational or an explicit option. Derive the management interface from the interface carrying the management URL's address, and check that interface's link.
   - `G-15` (low; critic confirmed) Migration reports contain no command text at all, and the HTML/Markdown skeleton is English-only. Evidence: `planner/types.rs:146-151`, `report.rs:176-178`, `report.rs:156`, `convert.rs:88-90`. Fix: copy `item.before`/`item.after` (already redacted by `redact` and `redact_ns3`) into `PlanItem`, and localize the template strings.

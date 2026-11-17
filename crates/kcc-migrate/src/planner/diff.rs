@@ -8,6 +8,7 @@ use md5::{Digest as _, Md5};
 use secrecy::SecretString;
 
 use super::{ConfigFingerprint, PlanPhases};
+use crate::management;
 
 /// How a command touches the password of the router account kcc signs in with.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -67,13 +68,12 @@ pub(crate) fn is_management_line(
     match words.as_slice() {
         ["user", _name, "password", "plain", ..] => true,
         ["ip", "http", "port" | "ssl", ..] => true,
-        ["interface", interface, rest @ ..] => management_interface.is_some_and(|current| {
-            current == *interface
-                && matches!(
-                    rest,
-                    ["ip", "address" | "security-level", ..] | ["security-level", ..]
-                )
-        }),
+        ["interface", interface, rest @ ..] => {
+            matches!(
+                rest,
+                ["ip", "address" | "security-level", ..] | ["security-level", ..]
+            ) && management::may_carry(management_interface, interface)
+        }
         _ => false,
     }
 }

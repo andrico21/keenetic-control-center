@@ -4,12 +4,13 @@ use alloc::collections::BTreeSet;
 use core::fmt::Write as _;
 
 use kcc_config::config_text::{Ast, flatten};
-use kcc_rci::{ConfigKind, RciBody, RciPath};
+use kcc_rci::{ConfigKind, RciBody, RciClient, RciPath};
 use md5::{Digest as _, Md5};
 use secrecy::ExposeSecret as _;
+use serde_json::Value;
 
 use super::{Applier, ApplyError, WireGuardPublicKey, normalize};
-use crate::source::SourceConfig;
+use crate::{management, source::SourceConfig};
 
 /// Checks every planned addition and removal against canonical running configuration.
 ///
@@ -77,7 +78,7 @@ pub(super) async fn run(applier: &mut Applier) -> Result<(), ApplyError> {
             return Err(ApplyError::Verification);
         }
     }
-    health(&client).await?;
+    health(applier, &client).await?;
     collect_wireguard_public_keys(applier, &client).await?;
     applier.report.residual_count = actual.difference(&expected).count();
     applier.report.residual = actual
@@ -94,7 +95,7 @@ pub(super) async fn run(applier: &mut Applier) -> Result<(), ApplyError> {
 /// Returns verification failure when the target does not report a generated public key.
 async fn collect_wireguard_public_keys(
     applier: &mut Applier,
-    client: &kcc_rci::RciClient,
+    client: &RciClient,
 ) -> Result<(), ApplyError> {
     let interfaces = applier
         .plan
@@ -121,7 +122,7 @@ async fn collect_wireguard_public_keys(
             .value
             .get(interface)
             .and_then(|value| value.get("public-key"))
-            .and_then(serde_json::Value::as_str)
+            .and_then(Value::as_str)
             .ok_or(ApplyError::Verification)?;
         applier
             .report
@@ -134,29 +135,20 @@ async fn collect_wireguard_public_keys(
     Ok(())
 }
 
-/// Requires positive internet reachability and an active management bridge link.
+/// Requires an active link on the interface carrying the management address, when one
+/// carries it, and records Internet reachability without requiring it.
 ///
 /// # Errors
-/// Returns failed or malformed health checks.
+/// Returns [`ApplyError::Verification`] when the interface list cannot be read or the
+/// management interface's link is not up.
 // cancel-safe: health checks only read router state.
-async fn health(client: &kcc_rci::RciClient) -> Result<(), ApplyError> {
+async fn health(applier: &mut Applier, client: &RciClient) -> Result<(), ApplyError> {
     let path = RciPath::from_segments(["show", "internet", "status"])
         .map_err(|_error| ApplyError::Validation)?;
-    let RciBody::Json(internet) = client
-        .get(&path, &())
-        .await
-        .map_err(|_error| ApplyError::Verification)?
-    else {
-        return Err(ApplyError::Verification);
+    applier.report.internet = match client.get(&path, &()).await {
+        Ok(RciBody::Json(reply)) => reply.value.get("internet").and_then(Value::as_bool),
+        Ok(RciBody::Text(_) | _) | Err(_) => None,
     };
-    if internet
-        .value
-        .get("internet")
-        .and_then(serde_json::Value::as_bool)
-        != Some(true)
-    {
-        return Err(ApplyError::Verification);
-    }
     let interface_path =
         RciPath::from_segments(["show", "interface"]).map_err(|_error| ApplyError::Validation)?;
     let RciBody::Json(interfaces) = client
@@ -166,14 +158,18 @@ async fn health(client: &kcc_rci::RciClient) -> Result<(), ApplyError> {
     else {
         return Err(ApplyError::Verification);
     };
-    if interfaces
-        .value
-        .pointer("/Bridge0/link")
-        .and_then(serde_json::Value::as_str)
-        != Some("up")
+    let management = management::carrying_interface(client, &interfaces.value);
+    if let Some(name) = &management
+        && interfaces
+            .value
+            .get(name)
+            .and_then(|interface| interface.get("link"))
+            .and_then(Value::as_str)
+            != Some("up")
     {
         return Err(ApplyError::Verification);
     }
+    applier.report.management_interface = management;
     Ok(())
 }
 

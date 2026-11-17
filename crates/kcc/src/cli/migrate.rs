@@ -92,12 +92,12 @@ pub(crate) async fn run(ctx: &Ctx, command: MigrateCommand) -> Outcome {
             let planned = Planned::make(ctx, &services, &input).await?;
             let report = MigrationReport::from_plan(planned.plan(), out.locale());
             let text = match format {
-                ReportFormat::Markdown => report.to_markdown(),
+                ReportFormat::Markdown => report.to_markdown(out.locale()),
                 ReportFormat::Json => report
                     .to_json()
                     .map_err(|error| Failure::text(Exit::Generic, &error))?,
                 ReportFormat::Html => report
-                    .to_html()
+                    .to_html(out.locale())
                     .map_err(|error| Failure::text(Exit::Generic, &error))?,
             };
             match path {

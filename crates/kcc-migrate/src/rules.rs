@@ -713,8 +713,9 @@ fn conflict_rule<'rules>(
         .unwrap_or(rule)
 }
 
-/// Converts a hash-bearing user command into a plaintext-password command.
-fn replace_password(tokens: &mut [Token], password: &str) {
+/// Converts a hash-bearing user command (`user <name> password md5|nt <hash>`, the hash
+/// plain or `ns3`-encoded) into a plaintext-password command whose password is a plain word.
+pub(crate) fn replace_password(tokens: &mut [Token], password: &str) {
     if let [
         Token::Word(_user_command),
         Token::Word(_name),
@@ -727,10 +728,7 @@ fn replace_password(tokens: &mut [Token], password: &str) {
         && matches!(kind.as_str(), "md5" | "nt")
     {
         "plain".clone_into(kind);
-        match secret {
-            Token::Word(value) | Token::Ns3(value) => password.clone_into(value),
-            _ => {}
-        }
+        *secret = Token::Word(password.to_owned());
     }
 }
 

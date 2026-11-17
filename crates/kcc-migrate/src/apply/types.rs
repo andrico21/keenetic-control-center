@@ -85,17 +85,6 @@ pub enum ApplySource {
     },
 }
 
-/// Error handling for explicitly non-critical commands.
-#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
-#[non_exhaustive]
-pub enum StopPolicy {
-    /// Never submit another line after an error.
-    #[default]
-    StopOnError,
-    /// Retry non-critical description lines once after the additive pass.
-    ContinueOnNonCritical,
-}
-
 /// Operator choices shared by preflight, execution, and finishing.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -116,8 +105,6 @@ pub struct ApplyOptions {
     pub source_firmware: Option<FirmwareVersion>,
     /// Router recovery interval, 300 through 3600 seconds.
     pub safety_seconds: u64,
-    /// Stop policy.
-    pub stop_policy: StopPolicy,
     /// Time source.
     pub clock: Arc<dyn Clock>,
     /// Progress message language.
@@ -138,7 +125,6 @@ impl Default for ApplyOptions {
             management_password: None,
             source_firmware: None,
             safety_seconds: 900,
-            stop_policy: StopPolicy::StopOnError,
             clock: Arc::new(SystemClock::default()),
             locale: Locale::En,
             initial_warnings: Vec::new(),
@@ -212,6 +198,12 @@ pub struct ApplyReport {
     pub residual_count: usize,
     /// Whether read-back and health checks passed.
     pub verified: bool,
+    /// Internet reachability the target reported during verification, or `None` when it
+    /// reported none; recorded only, it never fails verification.
+    pub internet: Option<bool>,
+    /// Interface carrying the management address whose link verification found up, or
+    /// `None` when no interface carries it, so no link was checked.
+    pub management_interface: Option<String>,
     /// Whether an explicit finish operation completed.
     pub finished: bool,
     /// Typed final failure when apply stopped.

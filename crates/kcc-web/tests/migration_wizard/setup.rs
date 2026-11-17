@@ -100,8 +100,15 @@ fn roles() -> Vec<Role> {
 }
 
 /// `giga`, `ultra` (built by `target`, in `mode`) and `legacy`.
+///
+/// Both targets report `Bridge0` holding the address kcc connects to, as a real router
+/// managed over its home network does.
 fn routers(mode: &str, target: FakeRouterBuilder) -> TestResult<Vec<(&'static str, FakeRouter)>> {
-    let mut fixture = migration::Fixture::default();
+    let mut managed = migration::Fixture::default();
+    managed.interfaces = Some(serde_json::json!({
+        "Bridge0": {"type": "Bridge", "link": "up", "address": "127.0.0.1"}
+    }));
+    let mut fixture = managed.clone();
     fixture.mode = Some(mode.to_owned());
     Ok(vec![
         (
@@ -111,7 +118,9 @@ fn routers(mode: &str, target: FakeRouterBuilder) -> TestResult<Vec<(&'static st
         ("ultra", target.build()?.with_migration(fixture)),
         (
             "legacy",
-            FakeRouter::builder(Profile::new(Model::Kn1811, Firmware::V4_3)?).build()?,
+            FakeRouter::builder(Profile::new(Model::Kn1811, Firmware::V4_3)?)
+                .build()?
+                .with_migration(managed),
         ),
     ])
 }
