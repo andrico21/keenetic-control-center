@@ -391,8 +391,9 @@ pub(crate) async fn apply(mut plan: Plan<'_>, change: Change) -> Result<Landed, 
 /// # Errors
 ///
 /// Returns the workflow error and whether the fail-safe timer stays armed.
-// NOT cancel-safe until it holds its request: dropped earlier, nothing was sent. From the
-// hold on the request is not dropped before the work ends, disarms and reports.
+// NOT cancel-safe: until it holds its request, a drop sends no change, but a sign-in dropped
+// mid-way can leave an orphaned router session; from the hold on, the request is not dropped
+// before the work ends, disarms and reports.
 pub(crate) async fn apply_with<W>(
     plan: Plan<'_>,
     permission: Permission,

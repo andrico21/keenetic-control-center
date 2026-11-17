@@ -98,6 +98,8 @@ impl KccMcp {
     /// # Errors
     ///
     /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+    // NOT cancel-safe: it only detects the router and selects its catalog, but it may sign in
+    // first, and a sign-in dropped mid-way can leave an orphaned router session.
     pub(crate) async fn catalog(&self, host: &str) -> Result<Catalog, McpFailure> {
         self.audit_alive()?;
         let info = self.registry.poll_info(host).await.map_err(|error| {
@@ -115,6 +117,8 @@ impl KccMcp {
     /// # Errors
     ///
     /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+    // NOT cancel-safe: it only detects the router and builds its client, but it may sign in first,
+    // and a sign-in dropped mid-way can leave an orphaned router session.
     pub(crate) async fn router_ctx(&self, host: &RouterId) -> Result<RouterCtx, McpFailure> {
         self.audit_alive()?;
         let catalog = self.catalog(host.as_str()).await?;

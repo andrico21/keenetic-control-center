@@ -14,7 +14,8 @@ use crate::{RciError, RciPath, encode_query, session::lock};
 ///
 /// # Errors
 /// Returns request or response-processing errors.
-// cancel-safe: both GET and fallback POST are read-only show operations.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, both GET and fallback POST are read-only show operations.
 pub(super) async fn read<T>(
     client: &RciClient,
     path: &RciPath,

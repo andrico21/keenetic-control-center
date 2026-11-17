@@ -115,6 +115,8 @@ fn plan_wifi(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply_cli`; dropped mid-way, the change may
+// be applied before its read-back or timer cleanup.
 pub(super) async fn wifi(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: WifiInput = parse(arguments)?;
     check_op(WIFI_OPS, &input.op)?;

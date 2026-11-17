@@ -38,7 +38,8 @@ impl Origin {
     /// # Errors
     ///
     /// Returns usage, policy, file, backup, router or parse failures.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn read(ctx: &Ctx, services: &Services, from: &str) -> Outcome<Self> {
         let source_arg = source_arg::parse(from)?;
         let router = source_arg.router();

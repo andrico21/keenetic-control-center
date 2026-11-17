@@ -24,6 +24,7 @@ use crate::{
 };
 
 /// `GET /ui/routers/{id}/delete`: the confirmation dialog.
+// cancel-safe: it only reads the router list.
 pub(crate) async fn delete_dialog(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -43,6 +44,8 @@ pub(crate) async fn delete_dialog(
 }
 
 /// `POST /ui/routers/{id}/delete`: forgets a Web UI profile and its password file.
+// NOT cancel-safe: the profile is removed from `routers.json` on a blocking thread that finishes
+// even if the future is dropped, and the removal's audit entry may then be skipped or written late.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     Path(id): Path<String>,

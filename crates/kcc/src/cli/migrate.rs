@@ -122,7 +122,8 @@ pub(crate) async fn run(ctx: &Ctx, command: MigrateCommand) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn inventory(ctx: &Ctx, services: &Services) -> Outcome {
     let target = ctx.router_id(services)?;
     let role = ctx

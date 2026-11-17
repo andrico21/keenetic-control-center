@@ -70,6 +70,8 @@ impl Spot {
 }
 
 /// `GET /ui/r/{router}/vpn`: the connections tab.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn connections(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -88,6 +90,8 @@ pub(crate) async fn connections(
 }
 
 /// `GET /ui/r/{router}/vpn/servers`: the servers tab.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn servers(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -100,6 +104,8 @@ pub(crate) async fn servers(
 }
 
 /// `GET /ui/r/{router}/vpn/peers/{tunnel}`: the peers of a WireGuard connection.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn peers(
     State(state): State<WebState>,
     Path((router, tunnel)): Path<(String, String)>,
@@ -117,7 +123,8 @@ pub(crate) async fn peers(
 }
 
 /// The page of `spot`.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn show(visit: Visit<'_>, caller: Caller<'_>, spot: Spot) -> Response {
     let tab = match spot {
         Spot::Connections | Spot::Peers(_) => Tab::Connections,
@@ -145,7 +152,8 @@ async fn show(visit: Visit<'_>, caller: Caller<'_>, spot: Spot) -> Response {
 }
 
 /// The region of `spot` and its page actions, read from the router of `ctx`.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn region(ctx: &RouterCtx, spot: &Spot, viewer: &Viewer) -> (Region, Vec<Act>) {
     let locale = viewer.locale();
     let failed = |error| {
@@ -191,6 +199,8 @@ pub(crate) async fn region(ctx: &RouterCtx, spot: &Spot, viewer: &Viewer) -> (Re
 ///
 /// Answers 404 for a dialog the page does not have, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -226,6 +236,8 @@ pub(crate) async fn dialog(
 ///
 /// Answers the dialog with its errors (422) when a value is invalid, and what the kit
 /// answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn submit(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,

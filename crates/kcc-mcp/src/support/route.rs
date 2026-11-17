@@ -49,6 +49,7 @@ impl Progress {
     }
 
     /// Sends one notification; a closed session only loses the notification.
+    // cancel-safe: the notification is queued whole or not at all; a dropped send only loses it.
     pub(crate) async fn notify(&self, progress: u32, text: String) {
         let message = if self.redact_clients {
             scrub_text(&text)

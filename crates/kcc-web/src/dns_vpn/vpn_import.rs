@@ -75,6 +75,8 @@ enum Unread {
 ///
 /// Answers the dialog with field errors (422), or with the size error (413), and what the
 /// kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn import(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -223,6 +225,8 @@ fn too_large(router: &str, locale: Locale) -> Response {
 
 /// Answers a request the body limit stopped (413 with no dialog) with the import dialog
 /// and its localized size error.
+// NOT cancel-safe: it awaits the rest of the request, whose handler may change the router or local
+// state, or queue an audit entry, before the future is dropped.
 pub(crate) async fn limit(request: Request, next: Next) -> Response {
     let locale = request
         .extensions()

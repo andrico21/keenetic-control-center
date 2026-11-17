@@ -128,6 +128,7 @@ impl FromRequestParts<WebState> for CurrentSession {
         clippy::unused_async_trait_impl,
         reason = "async is mandated by the axum extractor trait"
     )]
+    // cancel-safe: it has no await point.
     async fn from_request_parts(
         parts: &mut Parts,
         _state: &WebState,
@@ -147,6 +148,7 @@ impl FromRequestParts<WebState> for CurrentUser {
         clippy::unused_async_trait_impl,
         reason = "async is mandated by the axum extractor trait"
     )]
+    // cancel-safe: it has no await point.
     async fn from_request_parts(
         parts: &mut Parts,
         _state: &WebState,
@@ -160,6 +162,8 @@ impl FromRequestParts<WebState> for CurrentUser {
 }
 
 /// Resolves the session cookie and redirects unauthenticated requests to login.
+// NOT cancel-safe: it awaits the rest of the request, whose handler may change the router or local
+// state, or queue an audit entry, before the future is dropped.
 pub(crate) async fn authentication_middleware(
     State(state): State<WebState>,
     mut request: Request,
@@ -204,6 +208,8 @@ pub(crate) async fn authentication_middleware(
 }
 
 /// Enforces the route table's permission and optional router scope.
+// NOT cancel-safe: it awaits the rest of the request, whose handler may change the router or local
+// state, or queue an audit entry, before the future is dropped.
 pub(crate) async fn authorization_middleware(
     State(state): State<WebState>,
     request: Request,

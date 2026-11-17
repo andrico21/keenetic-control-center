@@ -74,7 +74,8 @@ localized!(Panel);
 
 impl Panel {
     /// The panel of `visit`, with the chosen target's report when it can be read.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>) -> Self {
         let mut panel = Self::base(visit).await;
         if visit.record().target().is_some() {
@@ -176,6 +177,8 @@ pub(super) struct Choice {
 ///
 /// Answers the refusal of the migration, and the panel with its error (422): a router
 /// the user may not migrate is refused before any request to it.
+// NOT cancel-safe: the stored passwords may be deleted, the run record written and the audit entry
+// queued after the future is dropped.
 pub(super) async fn choose(
     State(state): State<WebState>,
     Path(id): Path<String>,

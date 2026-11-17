@@ -180,7 +180,8 @@ impl TargetInventory {
     /// Returns [`InventoryError::SourceVersionRequired`] for an unknown source version,
     /// [`InventoryError::UnsupportedFirmware`] below 4.3, or
     /// [`InventoryError::TargetFirmwareOlder`] when the target is older than the source.
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     #[inline]
     pub async fn collect(
         client: &InventoryClient,
@@ -276,7 +277,8 @@ fn interface_names(value: &Value) -> Option<BTreeSet<String>> {
 ///
 /// # Errors
 /// Returns transport or malformed checksum failures.
-// cancel-safe: the show operation is read-only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, the show operation is read-only.
 async fn collect_last_change(client: &RciClient) -> Result<String, RciError> {
     let path =
         RciPath::from_segments(["show", "last-change"]).map_err(|_error| RciError::Validation)?;
@@ -469,6 +471,8 @@ pub(crate) fn interface_kind(name: &str) -> String {
 /// # Errors
 ///
 /// Returns transport, authentication, decode, or response-size failures.
+// NOT cancel-safe: it only sends one `show` read, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 async fn optional_show<const SIZE: usize>(
     client: &RciClient,
     segments: [&str; SIZE],

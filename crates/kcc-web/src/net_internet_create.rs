@@ -208,6 +208,8 @@ fn ipoe(found: &[Link]) -> Vec<String> {
 /// # Errors
 ///
 /// Returns the catalog's findings.
+// NOT cancel-safe: it only plans, using read-only topology requests, but it may sign in first, and
+// a sign-in dropped mid-way can leave an orphaned router session.
 async fn plan_create(checked: &Checked, domain: &RouterCtx) -> Result<Planned, DomainError> {
     let name = &checked.name;
     let mut operations = vec![wan::plan_create(domain, name).await?];
@@ -236,6 +238,8 @@ async fn plan_create(checked: &Checked, domain: &RouterCtx) -> Result<Planned, D
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn create_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -261,6 +265,8 @@ pub(crate) async fn create_dialog(
 ///
 /// Answers the dialog with its field errors (422) when a value is invalid, and what the
 /// kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,

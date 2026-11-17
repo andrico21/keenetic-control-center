@@ -44,6 +44,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/config`: the router's configuration state and its backups.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -116,7 +118,8 @@ impl<'call> Visit<'call> {
 
     /// The answer to a change of the configuration state: the outcome, and after a
     /// success the status region read again, out of band.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn answer_status(self, outcome: Outcome) -> Response {
         let refreshed = if outcome.succeeded() {
             match context::target(self.state, self.user, self.router).await {

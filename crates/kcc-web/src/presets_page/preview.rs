@@ -56,7 +56,8 @@ localized!(Panel);
 
 impl Panel {
     /// The preview of `visit`'s plan for `state`'s user.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>, state: &WebState) -> Self {
         let services = visit.services();
         let user = services.user();

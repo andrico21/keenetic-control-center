@@ -186,6 +186,8 @@ pub(crate) enum Field {
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn new_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -203,6 +205,8 @@ pub(crate) async fn new_dialog(
 ///
 /// Answers 404 for an unknown account, the failure when the router cannot be read, and
 /// what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn tags_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,

@@ -130,6 +130,8 @@ fn rules_view(
 }
 
 /// `GET /ui/r/{router}/nat`: the forwarding rules.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn rules(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -175,7 +177,8 @@ pub(crate) fn allows(user: &CurrentUser, router: &str, catalog: &Catalog, operat
 /// # Errors
 ///
 /// Returns why the router did not answer.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn rules_region(
     domain: &RouterCtx,
     (router, query): (&str, &TableQuery),

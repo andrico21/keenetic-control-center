@@ -47,6 +47,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/clients`: the table and the controls the role may use.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,

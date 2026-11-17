@@ -67,6 +67,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/console/rci`: the console.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -95,6 +97,8 @@ pub(crate) async fn page(
 }
 
 /// `POST /ui/r/{router}/console/rci/check`: the validation result; nothing is sent.
+// NOT cancel-safe: it only detects the router and validates the request against its catalog, but it
+// may sign in first, and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn validate(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -124,6 +128,8 @@ pub(crate) async fn validate(
 }
 
 /// `POST /ui/r/{router}/console/rci/send`: validates again and sends.
+// NOT cancel-safe: the RCI request may reach the router, and its audit entries be queued, before
+// the future is dropped.
 pub(crate) async fn send(
     State(state): State<WebState>,
     Path(router): Path<String>,

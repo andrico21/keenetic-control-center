@@ -24,7 +24,8 @@ use crate::{DomainError, Result, RouterCtx, pointer, read_show};
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
     let response = router.client.show_rc(json!({"access-list":{}})).await?;
@@ -46,7 +47,8 @@ pub async fn access_lists(router: &RouterCtx) -> Result<Value> {
 ///
 /// Returns an error when a reply or a plan does not have the expected shape
 /// ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn configured_list(router: &RouterCtx, list: &str) -> Result<Vec<ListedRule>> {
     let lists = access_lists(router).await?;
@@ -65,7 +67,8 @@ pub async fn configured_list(router: &RouterCtx, list: &str) -> Result<Vec<Liste
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn firewall(router: &RouterCtx) -> Result<Firewall> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
@@ -96,6 +99,8 @@ fn plain_words(line: &CliLine) -> Option<Vec<String>> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
+// NOT cancel-safe: it only reads the running configuration, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 pub(crate) async fn has_binding(
     router: &RouterCtx,
     interface: &str,
@@ -127,7 +132,8 @@ pub(crate) async fn has_binding(
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn upnp_redirects(router: &RouterCtx) -> Result<Vec<UpnpRedirect>> {
     read_show(&router.client, &["show", "upnp", "redirect"]).await

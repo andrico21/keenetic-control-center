@@ -67,6 +67,8 @@ pub(crate) fn protected(locale: Locale) -> String {
 ///
 /// Answers 404 for a missing name, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn password_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -93,6 +95,8 @@ pub(crate) async fn password_dialog(
 ///
 /// Answers 404 for a missing or unknown account, the dialog with its error or the
 /// refusal (422), and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after the change is sent, the router may keep it without its read-back,
+// audit entry or timer cleanup.
 pub(crate) async fn password(
     State(state): State<WebState>,
     Path(router): Path<String>,

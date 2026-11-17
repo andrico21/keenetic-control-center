@@ -174,7 +174,8 @@ impl Component {
 /// # Errors
 ///
 /// Returns the message to show when the router did not answer with its components.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn read(domain: &RouterCtx) -> Result<Vec<Component>, MessageKey> {
     let read = (
         components::read_components(domain).await,
@@ -257,7 +258,8 @@ impl<'call> Viewer<'call> {
     }
 
     /// The region read again through `domain` after a change, out of band.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<Rendered> {
         let rows = read(domain).await.ok()?;
         let controls = self.controls(domain);
@@ -269,6 +271,8 @@ impl<'call> Viewer<'call> {
 }
 
 /// `GET /ui/r/{router}/system/components`: the firmware, the queue and the components.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,

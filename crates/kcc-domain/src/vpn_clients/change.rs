@@ -64,7 +64,8 @@ pub(super) const WRITES: &[OperationDescriptor] = &[
 /// not match its request; [`DomainError::Rci`] when a router request for the interface list or the
 /// management check fails; and [`DomainError::InvalidResponse`] when those replies do not decode
 /// or the plan cannot be rendered.
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 pub(super) async fn plan(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
     if let VpnClientChange::Delete { name } = change {
         require_vpn_client(router, name).await?;
@@ -80,7 +81,8 @@ pub(super) async fn plan(router: &RouterCtx, change: &VpnClientChange) -> Result
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]), or when a router request fails or its reply does not
 /// decode ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 async fn require_vpn_client(router: &RouterCtx, name: &str) -> Result<()> {
     let interfaces: BTreeMap<String, Value> =
         read_show(&router.client, &["show", "interface"]).await?;
@@ -104,7 +106,8 @@ async fn require_vpn_client(router: &RouterCtx, name: &str) -> Result<()> {
 ///
 /// Returns an error when a reply or a plan does not have the expected shape
 /// ([`DomainError::InvalidResponse`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 pub(super) async fn classify(router: &RouterCtx, mut operation: ChangeOp) -> Result<ChangeOp> {
     let request = request(&operation)?;
     let lines = request

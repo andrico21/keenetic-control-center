@@ -114,7 +114,8 @@ pub(super) async fn rollback(applier: &mut Applier) -> Result<(), ApplyError> {
 /// # Errors
 /// [`ApplyError::FinishFailed`]: a change since verification or a lost detection leaves
 /// the recovery timer armed.
-// cancel-safe: two reads.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, two reads.
 async fn armed_context(applier: &Applier) -> Result<RouterCtx, ApplyError> {
     applier
         .changes
@@ -130,7 +131,8 @@ async fn armed_context(applier: &Applier) -> Result<RouterCtx, ApplyError> {
 ///
 /// # Errors
 /// Returns unreachability or an unsupported firmware catalog.
-// cancel-safe: a single detection read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single detection read.
 async fn context(applier: &Applier) -> Result<RouterCtx, ApplyError> {
     let client = applier.changes.client();
     let catalog = Catalog::for_router(
@@ -147,7 +149,9 @@ async fn context(applier: &Applier) -> Result<RouterCtx, ApplyError> {
 ///
 /// # Errors
 /// Returns the typed router rollback outcome or an unproven recovery failure.
-// cancel-safe: waiting and recovery probes do not mutate the router.
+// NOT cancel-safe: it awaits `wait_restored`, which may already have switched the change set
+// back to the original connection when dropped, and dropped before the end it leaves
+// `report.finished` unset although the router may have rolled back.
 pub(super) async fn recover(applier: &mut Applier) -> Result<(), ApplyError> {
     let elapsed = applier.options.clock.now().saturating_sub(applier.armed_at);
     let remaining = Duration::from_secs(applier.options.safety_seconds.saturating_add(1))
@@ -187,7 +191,8 @@ async fn wait_restored(applier: &mut Applier) -> Result<(), ApplyError> {
 ///
 /// # Errors
 /// Returns unreachability or mismatched rollback identity.
-// cancel-safe: only downloads configuration.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only downloads configuration.
 async fn original_restored(applier: &Applier) -> Result<(), ApplyError> {
     let before = SourceConfig::from_bytes(applier.backup.expose_secret())
         .map_err(|_error| ApplyError::Verification)?;

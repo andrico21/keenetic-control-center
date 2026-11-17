@@ -85,7 +85,8 @@ impl<'call> Subject<'call> {
 ///
 /// Answers the bare status when the router is not visible, and the failure in the page's
 /// outcome region when it cannot be used now.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn reader(
     state: &WebState,
     user: &CurrentUser,
@@ -125,7 +126,8 @@ pub(crate) async fn unread_change(action: Action<'_>, error: &DomainError) -> An
 
 /// The region of the page of `call`, read back from the router of `domain` after a
 /// change.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Rendered> {
     match call.tab() {
         Tab::Interfaces => net_interfaces::refreshed(call, domain).await,

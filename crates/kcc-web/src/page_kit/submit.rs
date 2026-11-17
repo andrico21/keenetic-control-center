@@ -87,6 +87,7 @@ pub(crate) trait Form: Sized {
 
     /// The answer to a change the domain could not plan: as any refusal, unless the
     /// form's words depend on the domain's error or on what the router has.
+    // cancel-safe: it has no await point.
     async fn answer_unplanned(self, unplanned: Unplanned<'_>, locale: Locale) -> Response {
         self.answer_refused(unplanned.into_failure(), locale)
     }

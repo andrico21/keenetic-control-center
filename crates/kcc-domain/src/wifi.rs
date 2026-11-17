@@ -87,7 +87,8 @@ impl Encryption {
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<AccessPoint> {
     let value = serde_json::to_value(interfaces::read_interface(router, name).await?)
@@ -102,7 +103,8 @@ pub async fn read_access_point(router: &RouterCtx, name: &ObjectName) -> Result<
 ///
 /// Returns an error when the router request fails or its reply, an access point included,
 /// does not decode ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_access_points(router: &RouterCtx) -> Result<BTreeMap<String, AccessPoint>> {
     let values: BTreeMap<String, Value> = read_show(&router.client, &["show", "interface"]).await?;
@@ -123,7 +125,8 @@ pub async fn read_access_points(router: &RouterCtx) -> Result<BTreeMap<String, A
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> {
     let values: BTreeMap<String, Value> = read_show(&router.client, &["show", "interface"]).await?;
@@ -142,7 +145,8 @@ pub async fn read_radios(router: &RouterCtx) -> Result<BTreeMap<String, Radio>> 
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_stations(router: &RouterCtx) -> Result<Vec<Station>> {
     read_show(&router.client, &["show", "associations"]).await
@@ -215,7 +219,8 @@ pub fn plan_hide_ssid(router: &RouterCtx, name: &ObjectName, hidden: bool) -> Re
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Result<ChangeOp> {
     let risk = if enabled {
@@ -248,7 +253,8 @@ pub async fn plan_up(router: &RouterCtx, name: &ObjectName, enabled: bool) -> Re
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_schedule(
     router: &RouterCtx,

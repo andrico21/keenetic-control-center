@@ -95,7 +95,8 @@ impl Dispatch<'_> {
     }
 
     /// Runs the read-only root object `root` through the shared client.
-    // cancel-safe: a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, a read.
     pub(crate) async fn read_root(self, root: &Value) -> Reply {
         match self.client().await {
             Ok(client) => match client.post_root(root).await {
@@ -107,7 +108,8 @@ impl Dispatch<'_> {
     }
 
     /// Runs read-only root items as one batch through the shared client.
-    // cancel-safe: reads.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads.
     pub(crate) async fn read_batch(self, items: Vec<Value>) -> Reply {
         match self.client().await {
             Ok(client) => match client.batch(items).await {
@@ -122,6 +124,8 @@ impl Dispatch<'_> {
 
     /// Runs `request` against the shared client and shows its answer.
     // cancel-safe when `request` only reads.
+    // cancel-safe: it awaits only the client lookup and `request`, which every caller passes as a
+    // read.
     pub(crate) async fn read_with<F, Fut>(self, request: F) -> Reply
     where
         F: FnOnce(Arc<RciClient>) -> Fut,
@@ -315,6 +319,7 @@ impl Dispatch<'_> {
     /// # Errors
     ///
     /// Returns the failure to show when the router has no client.
+    // cancel-safe: it only builds or reuses the router client; nothing is sent.
     async fn client(self) -> Result<Arc<RciClient>, Failure> {
         self.target
             .fleet()

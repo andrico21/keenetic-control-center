@@ -38,6 +38,8 @@ use crate::{
 /// # Errors
 ///
 /// Answers the refusal of the migration, and the panel with the rows' errors (422).
+// NOT cancel-safe: the run record may be written, and its audit entry queued, after the future is
+// dropped.
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,

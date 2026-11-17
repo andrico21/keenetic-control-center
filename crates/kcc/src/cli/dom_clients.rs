@@ -118,7 +118,8 @@ pub(crate) async fn clients(ctx: &Ctx, command: ClientsCommand) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn list_clients(session: &Session<'_>) -> Outcome {
     let list = clients::read_clients(session.router()).await?;
     let cell = |value: Option<&String>| value.cloned().unwrap_or_default();
@@ -152,7 +153,8 @@ async fn list_clients(session: &Session<'_>) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn known(session: &Session<'_>, mac: &str) -> Outcome<Client> {
     clients::read_client(session.router(), mac)
         .await?

@@ -241,7 +241,8 @@ impl About<'_> {
 ///
 /// Answers 404 for a missing or unknown interface, and the bare status when the router is
 /// not visible.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn drawer(
     State(state): State<WebState>,
     Path(router): Path<String>,

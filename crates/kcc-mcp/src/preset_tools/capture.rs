@@ -115,6 +115,8 @@ fn slug(name: &str) -> Result<String, McpFailure> {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads the router's startup configuration or a stored backup, but it may
+// sign in first, and a sign-in dropped mid-way can leave an orphaned router session.
 async fn read(server: &KccMcp, origin: &Origin) -> Result<SourceConfig, McpFailure> {
     let bytes = match origin {
         Origin::Router(router) => {
@@ -154,6 +156,8 @@ async fn read(server: &KccMcp, origin: &Origin) -> Result<SourceConfig, McpFailu
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the preset may be stored on the blocking pool, and its audit entry queued, after
+// the future is dropped.
 pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: CaptureInput = parse(arguments)?;
     if input.groups.is_empty() || input.groups.len() > MAX_GROUPS {

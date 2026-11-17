@@ -76,7 +76,8 @@ impl PresetRun for Visit<'_> {
         found.ok_or(Problem::Source)
     }
 
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     async fn inventory(&self, preset: &Preset) -> Result<Arc<TargetInventory>, Problem> {
         let target = self.record().target().ok_or(Problem::Unreachable)?;
         if let Some(kept) = self.session().inventory(target) {

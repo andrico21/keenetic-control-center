@@ -71,6 +71,8 @@ pub(crate) struct RowQuery {
 ///
 /// Answers 404 for a malformed value, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn multipath(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -111,6 +113,8 @@ pub(crate) async fn multipath(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn unpermit(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -184,6 +188,8 @@ fn unpermitted(op: ChangeOp, name: String, interface: String) -> Planned {
 ///
 /// Answers 404 for a policy the router does not have, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn delete_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -206,6 +212,8 @@ pub(crate) async fn delete_dialog(
 ///
 /// Answers the dialog again (422) when the typed name does not match, and what the kit
 /// answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     Path(router): Path<String>,

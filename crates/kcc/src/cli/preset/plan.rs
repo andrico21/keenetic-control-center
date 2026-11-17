@@ -44,7 +44,8 @@ impl Planned {
     ///
     /// Returns the policy refusal (also for older target firmware or an unacknowledged
     /// documentation tier), inventory or validation failures.
-    // cancel-safe: reads the target only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads the target only.
     pub(super) async fn make(
         ctx: &Ctx,
         services: &Services,

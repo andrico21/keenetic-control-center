@@ -101,7 +101,8 @@ impl<'state> Target<'state> {
     /// # Errors
     ///
     /// Returns why the facts are unknown.
-    // cancel-safe: detection only reads from the router.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, detection only reads from the router.
     pub(crate) async fn facts(self, state: &WebState) -> Result<RouterFacts, FactsError> {
         state
             .facts()
@@ -114,7 +115,8 @@ impl<'state> Target<'state> {
     /// # Errors
     ///
     /// Returns why the router cannot be used now.
-    // cancel-safe: detection only reads from the router.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, detection only reads from the router.
     pub(crate) async fn context(
         self,
         state: &WebState,

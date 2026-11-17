@@ -126,6 +126,8 @@ pub(crate) fn filtered(firewall: &Firewall, list: &str) -> Vec<String> {
 ///
 /// Answers 404 for a malformed rule, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn remove_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -150,6 +152,8 @@ pub(crate) async fn remove_dialog(
 ///
 /// Answers 404 for a malformed rule, 403 for a management change the role may not make,
 /// and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn remove(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -202,6 +206,8 @@ pub(crate) async fn remove(
 ///
 /// Answers 404 for a malformed rule or position, 403 for a management change the role may
 /// not make, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn move_rule(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -255,6 +261,8 @@ pub(crate) async fn move_rule(
 ///
 /// Answers 404 for a malformed rule or value, 403 for a management change the role may
 /// not make, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn switch(
     State(state): State<WebState>,
     Path(router): Path<String>,

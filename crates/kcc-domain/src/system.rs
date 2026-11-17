@@ -53,7 +53,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_version(router: &RouterCtx) -> Result<Version> {
     read_show(&router.client, &["show", "version"]).await
@@ -65,7 +66,8 @@ pub async fn read_version(router: &RouterCtx) -> Result<Version> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 #[expect(
     clippy::module_name_repetitions,
@@ -81,7 +83,8 @@ pub async fn read_system(router: &RouterCtx) -> Result<SystemState> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_clock_date(router: &RouterCtx) -> Result<ClockDate> {
     read_show(&router.client, &["show", "clock", "date"]).await
@@ -93,7 +96,8 @@ pub async fn read_clock_date(router: &RouterCtx) -> Result<ClockDate> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_ntp_status(router: &RouterCtx) -> Result<NtpStatus> {
     read_show(&router.client, &["show", "ntp", "status"]).await
@@ -107,7 +111,8 @@ pub async fn read_ntp_status(router: &RouterCtx) -> Result<NtpStatus> {
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]), or when a router request fails or its reply does not
 /// decode ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_system_mode(router: &RouterCtx) -> Result<SystemMode> {
     const PATH: &str = "show system mode";

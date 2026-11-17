@@ -127,6 +127,8 @@ impl Addressing {
 ///
 /// Answers 404 for a missing connection name, and what the kit answers when the router or
 /// the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn address_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -163,6 +165,8 @@ pub(crate) async fn address_dialog(
 /// Answers the dialog with its field error (422) when the values are invalid, 404 for a
 /// missing connection name, and what the kit answers when the router or the permission is
 /// missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn address(
     State(state): State<WebState>,
     Path(router): Path<String>,

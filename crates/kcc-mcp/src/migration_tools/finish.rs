@@ -65,6 +65,8 @@ pub(crate) struct ReportInput {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the commit or rollback may be sent before the future is dropped, and the
+// migration record then stays open.
 pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: FinishInput = parse(arguments)?;
     valid_job_id(&input.plan_id)?;
@@ -116,6 +118,7 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// cancel-safe: it only reads the migration record under its lock.
 pub(crate) async fn report(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: ReportInput = parse(arguments)?;
     valid_job_id(&input.plan_id)?;

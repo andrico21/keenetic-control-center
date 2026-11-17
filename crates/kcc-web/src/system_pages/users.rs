@@ -142,7 +142,8 @@ impl Account {
 /// # Errors
 ///
 /// Returns the message to show when the router did not answer with its accounts.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn accounts(
     domain: &RouterCtx,
     own: Option<&OwnLogins>,
@@ -231,7 +232,8 @@ impl<'call> Viewer<'call> {
     }
 
     /// The accounts region read again through `domain` after a change, out of band.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn refreshed(&self, state: &WebState, domain: &RouterCtx) -> Option<Rendered> {
         let own = profile_login(state, self.user, self.router).await;
         let rows = accounts(domain, own.as_ref().ok()).await.ok()?;
@@ -243,6 +245,8 @@ impl<'call> Viewer<'call> {
 }
 
 /// `GET /ui/r/{router}/system/users`: the accounts and the controls the role may use.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,

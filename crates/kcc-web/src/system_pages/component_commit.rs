@@ -47,6 +47,8 @@ const COMMIT: Operation =
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: the commit job (which reboots the router) may be started, and its audit entry
+// queued, before the future is dropped.
 pub(crate) async fn commit(
     State(state): State<WebState>,
     Path(router): Path<String>,

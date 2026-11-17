@@ -102,7 +102,8 @@ fragment!(StatusRegion);
 
 impl StatusRegion {
     /// The region of `target` for `user`, read from the router now.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read(state: &WebState, target: Target<'_>, user: &CurrentUser) -> Self {
         let router = target.router();
         let mut region = Self {
@@ -179,7 +180,8 @@ impl StatusRegion {
 /// # Errors
 ///
 /// Returns the message to show when the router did not answer with it.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn last_change(domain: &RouterCtx) -> Result<LastChangeState, MessageKey> {
     configuration::read_last_change(domain)
         .await

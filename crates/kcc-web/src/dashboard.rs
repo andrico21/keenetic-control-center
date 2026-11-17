@@ -153,6 +153,7 @@ struct LiveContext {
 }
 
 /// `GET /ui/r/{router}`: the dashboard of one router.
+// cancel-safe: it only reads the router list and waits on the router's telemetry feed.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -191,6 +192,7 @@ pub(crate) async fn page(
 
 /// `GET /ui/sse/r/{router}/traffic`: the traffic history, then the live region and the
 /// newest traffic point after every poll.
+// cancel-safe: it only reads the router list and subscribes to the router's telemetry feed.
 pub(crate) async fn stream(
     State(state): State<WebState>,
     Path(router): Path<String>,

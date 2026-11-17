@@ -54,6 +54,8 @@ impl ServerHandler for KccMcp {
     }
 
     #[inline]
+    // NOT cancel-safe: it runs the called tool, which may change the router or local state and
+    // queue an audit entry before the future is dropped.
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
@@ -66,6 +68,7 @@ impl ServerHandler for KccMcp {
     }
 
     #[inline]
+    // cancel-safe: it has no await point.
     async fn list_tools(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -77,6 +80,7 @@ impl ServerHandler for KccMcp {
     }
 
     #[inline]
+    // cancel-safe: it has no await point.
     async fn list_resources(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -101,6 +105,8 @@ impl ServerHandler for KccMcp {
     }
 
     #[inline]
+    // NOT cancel-safe: a refused read queues an audit entry that may be written after the future is
+    // dropped; the snapshot wait itself only reads.
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
@@ -180,6 +186,7 @@ impl ServerHandler for KccMcp {
     }
 
     #[inline]
+    // cancel-safe: it has no await point.
     async fn list_prompts(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -194,6 +201,7 @@ impl ServerHandler for KccMcp {
     }
 
     #[inline]
+    // cancel-safe: it has no await point.
     async fn get_prompt(
         &self,
         request: GetPromptRequestParams,

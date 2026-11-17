@@ -47,7 +47,8 @@ pub(crate) struct General {
 impl General {
     /// Reads the settings from the router of `domain`; a read that fails leaves its values
     /// unreported.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read(domain: &RouterCtx) -> Self {
         let configured = configured(domain).await;
         let shown = system::read_system(domain).await.ok().unwrap_or_default();
@@ -128,7 +129,8 @@ impl General {
 }
 
 /// The configured `system` settings of the router of `domain`, or none when unreadable.
-// cancel-safe: a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a read.
 async fn configured(domain: &RouterCtx) -> Configured {
     let Ok(path) = RciPath::from_segments(["system"]) else {
         return Configured::default();

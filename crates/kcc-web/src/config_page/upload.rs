@@ -61,6 +61,8 @@ localized!(UploadDialog);
 ///
 /// Answers 404, 503 or the audited 403 when the router, the store or the permission is
 /// missing.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -76,6 +78,8 @@ pub(crate) async fn dialog(
 ///
 /// Answers the dialog with the file's error (422, or 413 when too large), and 404, 503
 /// or the audited 403 when the router, the store or the permission is missing.
+// NOT cancel-safe: the uploaded backup may be stored, and its audit entry queued, after the future
+// is dropped.
 pub(crate) async fn upload(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -115,6 +119,8 @@ pub(crate) async fn upload(
 
 /// Answers a request the body limit stopped (413 with no dialog) with the upload dialog
 /// and its localized size error.
+// NOT cancel-safe: it awaits the rest of the request, whose handler may change the router or local
+// state, or queue an audit entry, before the future is dropped.
 pub(crate) async fn limit(request: Request, next: Next) -> Response {
     let locale = request
         .extensions()

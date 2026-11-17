@@ -347,6 +347,8 @@ impl SessionStore {
     /// # Errors
     ///
     /// Returns [`SessionError::Random`] if id or CSRF token generation fails.
+    // NOT cancel-safe: dropped between removing the old session and inserting the new one, the
+    // caller is left with neither.
     pub(crate) async fn login(
         &self,
         old_id: Option<&SessionId>,
@@ -368,6 +370,8 @@ impl SessionStore {
 
     /// Records the password `fingerprint` the session `id` now knows, after its own
     /// password change.
+    // cancel-safe: waiting for the lock changes nothing, and the change follows without another
+    // await.
     pub(crate) async fn set_fingerprint(&self, id: &SessionId, fingerprint: PasswordFingerprint) {
         if let Some(session) = self.inner.sessions.write().await.get_mut(id) {
             session.fingerprint = Some(fingerprint);
@@ -401,6 +405,8 @@ impl SessionStore {
     }
 
     /// Returns a live session and refreshes its idle deadline.
+    // cancel-safe: waiting for the lock changes nothing, and the touch or expiry removal follows
+    // without another await.
     pub(crate) async fn get(&self, id: &SessionId) -> Option<Session> {
         let now = self.inner.clock.unix_seconds();
         let mut sessions = self.inner.sessions.write().await;
@@ -420,6 +426,8 @@ impl SessionStore {
     }
 
     /// Returns a live session without extending its idle deadline.
+    // cancel-safe: waiting for the lock changes nothing, and the expiry removal follows without
+    // another await.
     pub(crate) async fn peek(&self, id: &SessionId) -> Option<Session> {
         let now = self.inner.clock.unix_seconds();
         let mut sessions = self.inner.sessions.write().await;
@@ -439,6 +447,8 @@ impl SessionStore {
     }
 
     /// Invalidates one session, including logout of an already-expired id.
+    // cancel-safe: waiting for the lock changes nothing, and the removal follows without another
+    // await.
     pub(crate) async fn invalidate(&self, id: &SessionId) {
         drop(self.inner.sessions.write().await.remove(id));
     }
@@ -483,6 +493,8 @@ impl SessionStore {
     }
 
     /// Limits a fresh login to the password-change page until the password changes.
+    // cancel-safe: waiting for the lock changes nothing, and the change follows without another
+    // await.
     pub(crate) async fn require_password_change(&self, id: &SessionId) {
         if let Some(session) = self.inner.sessions.write().await.get_mut(id) {
             session.password_change = true;
@@ -491,6 +503,8 @@ impl SessionStore {
 
     /// Gives every live session of `username` the account's new `locale`, so its next page
     /// renders in it; other accounts' sessions keep theirs.
+    // cancel-safe: waiting for the lock changes nothing, and the change follows without another
+    // await.
     pub(crate) async fn set_user_locale(&self, username: &str, locale: Locale) {
         self.inner
             .sessions
@@ -502,6 +516,8 @@ impl SessionStore {
     }
 
     /// Ends every session of `username`, after an administrator changed the account.
+    // cancel-safe: waiting for the lock changes nothing, and the removal follows without another
+    // await.
     pub(crate) async fn invalidate_user(&self, username: &str) {
         self.inner
             .sessions
@@ -511,6 +527,7 @@ impl SessionStore {
     }
 
     /// The number of signed-in sessions that have not expired.
+    // cancel-safe: it only reads under the lock.
     pub(crate) async fn active(&self) -> usize {
         let now = self.inner.clock.unix_seconds();
         self.inner
@@ -523,6 +540,8 @@ impl SessionStore {
     }
 
     /// Ends every session holding the role `name`, after an administrator changed it.
+    // cancel-safe: waiting for the lock changes nothing, and the removal follows without another
+    // await.
     pub(crate) async fn invalidate_role(&self, name: &str) {
         self.inner
             .sessions
@@ -628,6 +647,8 @@ impl Inner {
 }
 
 /// Removes expired sessions until the store no longer exists.
+// cancel-safe: each sweep runs whole under one write lock; dropped between ticks, nothing is
+// pending.
 async fn sweep_task(inner: Weak<Inner>, period: Duration) {
     let mut timer = interval(period);
     timer.set_missed_tick_behavior(MissedTickBehavior::Skip);

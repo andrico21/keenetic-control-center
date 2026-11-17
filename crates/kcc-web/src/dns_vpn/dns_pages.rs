@@ -45,6 +45,8 @@ use crate::{
 const INTERCEPT: Operation = Operation::write(&dns::DESCRIPTOR, "intercept", "web.dns_intercept");
 
 /// `GET /ui/r/{router}/dns`: the servers tab.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn servers(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -63,6 +65,8 @@ pub(crate) async fn servers(
 }
 
 /// `GET /ui/r/{router}/dns/{tab}`: the filtering, records, lists or routes tab.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn tab(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -80,7 +84,8 @@ pub(crate) async fn tab(
 }
 
 /// The page of the DNS `tab`.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn show(visit: Visit<'_>, caller: Caller<'_>, tab: Tab) -> Response {
     let shell = visit.shell(caller, tab).await;
     let locale = visit.locale();
@@ -94,7 +99,8 @@ async fn show(visit: Visit<'_>, caller: Caller<'_>, tab: Tab) -> Response {
 }
 
 /// The region of `tab` and its page actions, read from the router of `ctx`.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn region(ctx: &RouterCtx, tab: Tab, viewer: &Viewer) -> (Region, Vec<Act>) {
     match DnsState::read(ctx).await {
         Ok(state) => dns_tabs::tab(&state, tab, viewer),
@@ -115,6 +121,8 @@ async fn region(ctx: &RouterCtx, tab: Tab, viewer: &Viewer) -> (Region, Vec<Act>
 ///
 /// Answers 404 for a dialog the page does not have, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -134,6 +142,8 @@ pub(crate) async fn dialog(
 ///
 /// Answers the dialog with its errors (422) when a value is invalid, and what the kit
 /// answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn submit(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -174,6 +184,8 @@ pub(crate) async fn submit(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn intercept(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -221,7 +233,8 @@ fn controls(ctx: &RouterCtx, user: &CurrentUser, router: &str) -> Controls {
 /// # Errors
 ///
 /// Answers the failure, in the page's outcome region, when the router cannot be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn again(form: DnsForm, action: &Action<'_>, values: &Params) -> Result<FormDialog, Answer> {
     let locale = action.locale();
     let choices = if form.reads_choices() {
@@ -244,7 +257,8 @@ async fn again(form: DnsForm, action: &Action<'_>, values: &Params) -> Result<Fo
 /// # Errors
 ///
 /// Returns the router's error.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(super) async fn offered(form: DnsForm, ctx: &RouterCtx) -> Result<Choices, DomainError> {
     if !form.reads_choices() {
         return Ok(Choices::default());

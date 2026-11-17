@@ -102,6 +102,8 @@ impl DiffPage {
 }
 
 /// `GET /ui/r/{router}/config/diff`: the comparison the query asks for.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -146,7 +148,8 @@ pub(crate) async fn page(
 /// # Errors
 ///
 /// Returns why the comparison cannot be shown.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn compare(
     page: &mut DiffPage,
     (target, visit): (Target<'_>, Visit<'_>),
@@ -210,7 +213,8 @@ async fn changes(old: Lines, new: Lines) -> Result<ShownChanges, MessageKey> {
 /// # Errors
 ///
 /// Returns why the side cannot be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn side(target: Target<'_>, visit: Visit<'_>, choice: &str) -> Result<Lines, MessageKey> {
     let text = if choice == RUNNING {
         let client = target

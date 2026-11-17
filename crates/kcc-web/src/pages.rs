@@ -23,12 +23,14 @@ use crate::{
 };
 
 /// `GET /` and `GET /ui`: redirect to the dashboard.
+// cancel-safe: it has no await point.
 pub(crate) async fn to_ui() -> Redirect {
     Redirect::to(Section::Dashboard.href())
 }
 
 /// `GET /ui/{*rest}`: the router picker of a section about one router, or the 404 page for
 /// any other path.
+// cancel-safe: it only reads local state to render the page.
 pub(crate) async fn section(
     State(state): State<WebState>,
     rest: Result<Path<String>, PathRejection>,
@@ -46,6 +48,7 @@ pub(crate) async fn section(
 }
 
 /// Any method but `GET` under `/ui/{*rest}`: the 404 page.
+// cancel-safe: it only reads local state to render the page.
 pub(crate) async fn not_found(
     State(state): State<WebState>,
     headers: HeaderMap,

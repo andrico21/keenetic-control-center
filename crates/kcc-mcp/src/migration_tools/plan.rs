@@ -84,6 +84,8 @@ fn map_inventory(error: InventoryError) -> McpFailure {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads the target inventory, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 pub(crate) async fn collect(
     server: &KccMcp,
     identity: &McpIdentity,
@@ -108,6 +110,8 @@ pub(crate) async fn collect(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads the target inventory, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 pub(crate) async fn inventory(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: InventoryInput = parse(arguments)?;
     let (identity, target) = server.authorize_host(Permission::Migrate, input.host)?;
@@ -147,6 +151,8 @@ const fn tier_name(tier: SupportTier) -> &'static str {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only downloads the source startup configuration, but it may sign in first,
+// and a sign-in dropped mid-way can leave an orphaned router session.
 async fn source_config(server: &KccMcp, source: &RouterId) -> Result<SourceConfig, McpFailure> {
     let client = server
         .registry
@@ -165,6 +171,8 @@ async fn source_config(server: &KccMcp, source: &RouterId) -> Result<SourceConfi
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it reads both routers and records the plan in memory without another await, but
+// it may sign in first, and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn plan(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: PlanInput = parse(arguments)?;
     if input.overwrite.len() > MAX_CHOICES || input.exclude.len() > MAX_CHOICES {

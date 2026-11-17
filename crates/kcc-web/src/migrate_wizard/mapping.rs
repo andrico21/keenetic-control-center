@@ -65,7 +65,8 @@ impl Row {
 
 impl Panel {
     /// The panel of `visit` with its stored or proposed maps.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>) -> Self {
         let locale = visit.services().user().locale();
         let mut panel = Self {

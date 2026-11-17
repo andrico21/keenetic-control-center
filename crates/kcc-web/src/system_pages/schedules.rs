@@ -127,7 +127,8 @@ impl Schedule {
 /// # Errors
 ///
 /// Returns the message to show when the router did not answer with its schedules.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn read(domain: &RouterCtx) -> Result<Vec<Schedule>, MessageKey> {
     let states = schedules::read_schedules(domain).await.map_err(|error| {
         tracing::warn!(%error, "router schedules could not be read");
@@ -191,7 +192,8 @@ impl<'call> Viewer<'call> {
     }
 
     /// The region read again through `domain` after a change, out of band.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<Rendered> {
         let rows = read(domain).await.ok()?;
         let controls = self.controls(domain);
@@ -203,6 +205,8 @@ impl<'call> Viewer<'call> {
 }
 
 /// `GET /ui/r/{router}/system/schedules`: the schedules and the controls the role may use.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,

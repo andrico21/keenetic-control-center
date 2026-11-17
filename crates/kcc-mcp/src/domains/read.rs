@@ -103,6 +103,8 @@ fn name(input: &ReadInput) -> Result<ObjectName, McpFailure> {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads router state, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 pub(crate) async fn read(
     server: &KccMcp,
     area: Area,
@@ -129,6 +131,8 @@ pub(crate) async fn read(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only dispatches read requests, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn dispatch(ctx: &RouterCtx, area: Area, input: &ReadInput) -> Result<Value, McpFailure> {
     match area {
         Area::System => system_read(ctx, &input.op).await,
@@ -164,6 +168,8 @@ async fn dispatch(ctx: &RouterCtx, area: Area, input: &ReadInput) -> Result<Valu
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only dispatches read requests, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn system_read(ctx: &RouterCtx, op: &str) -> Result<Value, McpFailure> {
     match op {
         "version" => json(system::read_version(ctx).await),
@@ -184,6 +190,8 @@ async fn system_read(ctx: &RouterCtx, op: &str) -> Result<Value, McpFailure> {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only dispatches read requests, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn network_read(ctx: &RouterCtx, area: Area, input: &ReadInput) -> Result<Value, McpFailure> {
     match (area, input.op.as_str()) {
         (Area::Dhcp, "pools") => json(dhcp::read_pools(ctx).await),

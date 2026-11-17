@@ -113,7 +113,8 @@ impl Row for StationRow {
 /// # Errors
 ///
 /// Returns the router's error.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn stations(domain: &RouterCtx) -> Result<Vec<StationRow>, DomainError> {
     Ok(wifi::read_stations(domain)
         .await?

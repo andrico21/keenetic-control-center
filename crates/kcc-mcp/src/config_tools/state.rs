@@ -18,6 +18,8 @@ use crate::{
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads router state, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 pub(crate) async fn config_state(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse(arguments)?;
     let (_identity, router) = server.authorize_host(Permission::Read, input.into_host())?;
@@ -44,6 +46,7 @@ pub(crate) async fn config_state(server: &KccMcp, arguments: Value) -> Result<Va
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the save command may persist the configuration before the future is dropped.
 pub(crate) async fn config_save(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse(arguments)?;
     let (identity, router) = server.authorize_host(Permission::Save, input.into_host())?;

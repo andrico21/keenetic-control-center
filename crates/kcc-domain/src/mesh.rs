@@ -111,7 +111,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_members(router: &RouterCtx) -> Result<Vec<Member>> {
     read_show(&router.client, &["show", "mws", "member"]).await
@@ -123,7 +124,8 @@ pub async fn read_members(router: &RouterCtx) -> Result<Vec<Member>> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_associations(router: &RouterCtx) -> Result<Vec<Association>> {
     read_show(&router.client, &["show", "mws", "associations"]).await

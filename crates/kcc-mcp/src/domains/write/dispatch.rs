@@ -78,6 +78,8 @@ pub(crate) fn schema(area: Area) -> Arc<JsonObject> {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it awaits the area's write handler; dropped mid-way, a router change may be
+// applied without its read-back, audit receipt or timer cleanup.
 pub(crate) async fn write(
     server: &KccMcp,
     area: Area,

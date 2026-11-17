@@ -122,6 +122,8 @@ struct AuditPage {
 localized!(AuditPage);
 
 /// `GET /ui/admin/audit`: chain status, filters and the newest entries.
+// cancel-safe: it only reads the audit log; an abandoned blocking read only leaves its result in
+// the cache.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Query(query): Query<AuditQuery>,
@@ -172,6 +174,7 @@ pub(crate) async fn page(
 }
 
 /// `GET /ui/admin/audit/export`: the filtered entries as JSONL in chain order.
+// NOT cancel-safe: the export's audit entry may be written after the future is dropped.
 pub(crate) async fn export(
     State(state): State<WebState>,
     Query(query): Query<AuditQuery>,

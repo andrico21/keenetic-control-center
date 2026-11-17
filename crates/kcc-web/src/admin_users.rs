@@ -208,6 +208,7 @@ struct RoleDialog {
 localized!(RoleDialog);
 
 /// `GET /ui/admin/users`.
+// cancel-safe: it only reads the account store on a blocking thread.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Query(query): Query<ListQuery>,
@@ -232,6 +233,7 @@ pub(crate) async fn page(
 }
 
 /// `GET /ui/admin/users/new`: the add-account dialog.
+// cancel-safe: it has no await point.
 pub(crate) async fn new_dialog(State(state): State<WebState>, user: CurrentUser) -> Response {
     let dialog = NewUserDialog {
         shell: fragment_shell(user.locale()),
@@ -247,6 +249,8 @@ pub(crate) async fn new_dialog(State(state): State<WebState>, user: CurrentUser)
 
 /// `POST /ui/admin/users`: creates an account that must change its password at the
 /// first sign-in.
+// NOT cancel-safe: the account is created on a blocking thread that finishes even if the future is
+// dropped, leaving it unaudited.
 pub(crate) async fn create(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -320,6 +324,8 @@ pub(crate) async fn create(
 }
 
 /// `GET /ui/admin/users/role?name=`: the change-role dialog.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 pub(crate) async fn role_dialog(
     State(state): State<WebState>,
     Query(query): Query<NameQuery>,
@@ -338,6 +344,8 @@ pub(crate) async fn role_dialog(
 }
 
 /// `POST /ui/admin/users/role`: grants another role and ends the account's sessions.
+// NOT cancel-safe: the role change is written on a blocking thread that finishes even if the future
+// is dropped, leaving the user's sessions alive and the change unaudited.
 pub(crate) async fn set_role(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -394,6 +402,8 @@ pub(crate) async fn set_role(
 }
 
 /// `POST /ui/admin/users/disable`: blocks sign-in and ends the account's sessions.
+// NOT cancel-safe: it awaits `toggle`, whose account change finishes on a blocking thread even if
+// the future is dropped.
 pub(crate) async fn disable(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -410,6 +420,8 @@ pub(crate) async fn disable(
 }
 
 /// `POST /ui/admin/users/enable`: allows sign-in again.
+// NOT cancel-safe: it awaits `toggle`, whose account change finishes on a blocking thread even if
+// the future is dropped.
 pub(crate) async fn enable(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -426,6 +438,8 @@ pub(crate) async fn enable(
 }
 
 /// `POST /ui/admin/users/unlock`: clears failed sign-ins and any lockout.
+// NOT cancel-safe: it awaits `toggle`, whose account change finishes on a blocking thread even if
+// the future is dropped.
 pub(crate) async fn unlock(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -442,6 +456,8 @@ pub(crate) async fn unlock(
 }
 
 /// `GET /ui/admin/users/delete?name=`: the typed-name confirmation.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 pub(crate) async fn delete_dialog(
     State(state): State<WebState>,
     Query(query): Query<NameQuery>,
@@ -454,6 +470,8 @@ pub(crate) async fn delete_dialog(
 }
 
 /// `POST /ui/admin/users/delete`: removes the account once its name is typed.
+// NOT cancel-safe: the deletion is written on a blocking thread that finishes even if the future is
+// dropped, leaving the user's sessions alive and the deletion unaudited.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -508,6 +526,8 @@ struct Action {
 }
 
 /// Applies a table-row action and answers with the table and a toast.
+// NOT cancel-safe: the account change is written on a blocking thread that finishes even if the
+// future is dropped, leaving the user's sessions alive and the change unaudited.
 async fn toggle(
     state: &WebState,
     headers: &HeaderMap,
@@ -573,6 +593,8 @@ enum Failure {
 /// # Errors
 ///
 /// [`Failure::LastAdmin`], or the response for a vanished account or a storage failure.
+// NOT cancel-safe: the account change runs on a blocking thread and completes even if the future is
+// dropped.
 async fn administer(
     state: &WebState,
     user: &CurrentUser,
@@ -602,6 +624,8 @@ async fn administer(
 /// # Errors
 ///
 /// The 404, 403 (audited) or 500 response to answer with.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 async fn managed(
     state: &WebState,
     user: &CurrentUser,
@@ -641,6 +665,7 @@ async fn managed(
 /// # Errors
 ///
 /// Account storage or blocking-task failures.
+// cancel-safe: it only reads the account store on a blocking thread.
 async fn region(
     state: &WebState,
     user: &CurrentUser,
@@ -699,6 +724,7 @@ async fn region(
 }
 
 /// Answers a completed change with the refreshed table and `toasts`.
+// cancel-safe: it only reads the account store to render the region.
 async fn finish(
     state: &WebState,
     user: &CurrentUser,
@@ -713,6 +739,7 @@ async fn finish(
 }
 
 /// Answers a refused table-row change with the table, `toasts` and `status`.
+// cancel-safe: it only reads the account store to render the region.
 async fn finish_with(
     state: &WebState,
     user: &CurrentUser,

@@ -130,7 +130,8 @@ impl<'request> Visit<'request> {
     ///
     /// The error page when the router is unknown, outside the role's scope or the fleet
     /// is not configured.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn open(
         self,
         state: &WebState,
@@ -243,7 +244,8 @@ pub(crate) fn protocol_text(locale: Locale, name: &str) -> String {
 /// # Errors
 ///
 /// Returns the message saying the router could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn interface_names(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
     interfaces::read_interfaces(domain).await.map_or_else(
         |error| {

@@ -41,6 +41,8 @@ use crate::{
 /// # Errors
 ///
 /// Answers the refusal of the migration, and 409 when it is not at its review.
+// NOT cancel-safe: the review decision may be written to the run record after the future is
+// dropped; a refused open queues an audit entry that may be written after the drop.
 pub(super) async fn save(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -66,6 +68,8 @@ pub(super) async fn save(
 /// # Errors
 ///
 /// Answers the refusal of the migration, and the review with the reason (422).
+// NOT cancel-safe: the run record may be written, and its audit entry queued, after the future is
+// dropped.
 pub(super) async fn proceed(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -116,7 +120,8 @@ pub(super) async fn proceed(
 ///
 /// Answers 422 when the settings cannot be classified, 500 when the record cannot be
 /// written.
-// cancel-safe: reads, then one record write.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads, then one record write.
 async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usize, Answer> {
     let locale = visit.services().user().locale();
     let analysis = visit

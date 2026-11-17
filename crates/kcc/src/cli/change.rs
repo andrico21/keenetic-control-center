@@ -294,7 +294,8 @@ pub(crate) fn applied(unsaved: bool) -> Value {
 /// # Errors
 ///
 /// Returns the policy refusal when the mode is unknown, or the router read failure.
-// cancel-safe: a single read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read.
 pub(crate) async fn recovery_mode(target: &Target) -> Outcome<SafetyMode> {
     let state = read_last_change(target.router()).await?;
     let baseline = workflow_last_change(&state)?;

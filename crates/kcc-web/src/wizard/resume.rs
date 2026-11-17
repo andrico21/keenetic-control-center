@@ -26,7 +26,8 @@ use crate::{
 };
 
 /// `GET {PREFIX}/{id}`: the run at its current step.
-// cancel-safe: reads only.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future
+// is dropped; otherwise it only reads.
 pub(crate) async fn page<F>(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -66,7 +67,8 @@ pub(crate) struct Back<S> {
 /// # Errors
 ///
 /// Answers the refusal of the run.
-// cancel-safe: reads, then one record write.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future
+// is dropped; otherwise it reads, then writes the run record once.
 pub(crate) async fn back<F>(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -94,7 +96,8 @@ where
 /// # Errors
 ///
 /// Answers the refusal of the run and 409 while the apply runs.
-// cancel-safe: reads, then one record write.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future
+// is dropped; otherwise it reads, then writes the run record once.
 pub(crate) async fn results<F>(
     State(state): State<WebState>,
     Path(id): Path<String>,

@@ -188,6 +188,8 @@ fn change(input: &DnsInput) -> Result<DnsChange, McpFailure> {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply_cli`; dropped mid-way, the change may
+// be applied before its read-back or timer cleanup.
 pub(super) async fn dns(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DnsInput = parse(arguments)?;
     check_op(DNS_OPS, &input.op)?;

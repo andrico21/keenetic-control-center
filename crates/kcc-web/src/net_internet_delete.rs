@@ -65,6 +65,8 @@ impl submit::Form for DeleteForm {
 ///
 /// Answers 404 for a missing connection name, and what the kit answers when the router or
 /// the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn delete_confirmation(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -87,6 +89,8 @@ pub(crate) async fn delete_confirmation(
 /// Answers the dialog with its error (422) when the typed name does not match, 404 for a
 /// name that is not an interface name, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     Path(router): Path<String>,

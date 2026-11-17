@@ -106,7 +106,8 @@ impl SecurityLevel {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 #[expect(
     clippy::module_name_repetitions,
@@ -123,7 +124,8 @@ pub async fn read_interfaces(router: &RouterCtx) -> Result<BTreeMap<String, Inte
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Interface> {
     let RciBody::Json(response) = router.client.show_interface(name).await? else {
@@ -143,7 +145,8 @@ pub async fn read_interface(router: &RouterCtx, name: &ObjectName) -> Result<Int
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_statistics(router: &RouterCtx) -> Result<BTreeMap<String, InterfaceStatistics>> {
     read_show(&router.client, &["show", "interface", "stat"]).await
@@ -155,7 +158,8 @@ pub async fn read_statistics(router: &RouterCtx) -> Result<BTreeMap<String, Inte
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_traffic_history(router: &RouterCtx) -> Result<TrafficHistory> {
     read_show(&router.client, &["show", "interface", "rrd"]).await
@@ -179,7 +183,8 @@ pub fn plan_up(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
 /// Returns [`DomainError::Rci`] when a router request fails, and [`DomainError::InvalidResponse`]
 /// when the interface list or the bridge membership reply does not decode, or a bridge name is not
 /// a valid object name.
-// cancel-safe: only read requests; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only read requests; cancellation changes nothing on the router.
 #[inline]
 pub async fn detect_management(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     management::detect(router, name).await

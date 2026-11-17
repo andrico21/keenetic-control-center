@@ -98,6 +98,8 @@ fn matching(lines: Vec<String>, filter: &str) -> Vec<String> {
 }
 
 /// `GET /ui/r/{router}/system/logs[?q=]`: the latest lines and the live stream.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -143,6 +145,8 @@ pub(crate) async fn page(
 
 /// `GET /ui/sse/r/{router}/system/logs[?q=]`: the current lines, then each batch of new
 /// ones, filtered.
+// NOT cancel-safe: it only detects the router before returning the log stream, but it may sign in
+// first, and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn stream(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -190,6 +194,7 @@ fn view(lines: Vec<String>, whole: bool, locale: Locale) -> Event {
 }
 
 /// `GET /ui/r/{router}/system/logs/download`: the latest lines as a text file.
+// NOT cancel-safe: the download's audit entry may be written after the future is dropped.
 pub(crate) async fn download(
     State(state): State<WebState>,
     Path(router): Path<String>,

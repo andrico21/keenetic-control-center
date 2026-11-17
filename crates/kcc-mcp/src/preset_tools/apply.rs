@@ -41,6 +41,8 @@ const fn map_request(error: PresetApplyError) -> McpFailure {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: once `Applier::start` admits it, the persisted preset job runs on independently,
+// so a dropped call leaves a running job that is never recorded for the caller.
 pub(crate) async fn apply(
     server: &KccMcp,
     arguments: Value,

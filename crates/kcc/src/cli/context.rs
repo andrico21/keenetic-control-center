@@ -301,7 +301,8 @@ impl Ctx {
     /// # Errors
     ///
     /// Returns the policy refusal, or connection and detection failures.
-    // cancel-safe: connecting and detection only read router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, connecting and detection only read router state.
     pub(crate) async fn target(
         &self,
         services: &Services,
@@ -318,7 +319,8 @@ impl Ctx {
     /// # Errors
     ///
     /// Returns the policy refusal, or connection and detection failures.
-    // cancel-safe: connecting and detection only read router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, connecting and detection only read router state.
     pub(crate) async fn target_named(
         &self,
         services: &Services,

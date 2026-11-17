@@ -99,7 +99,8 @@ pub(crate) async fn dhcp(ctx: &Ctx, command: DhcpCommand) -> Outcome {
 /// # Errors
 ///
 /// Returns a usage failure naming `missing`, or the read failure.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn refuse_partial_replacement(
     session: &Session<'_>,
     name: &str,

@@ -152,7 +152,8 @@ pub(super) async fn read(
 /// The model and firmware version a preset of `source`, whose text is `text`, records:
 /// a router's own report, else the configuration's header; `None` without a firmware
 /// version.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(super) async fn facts(
     services: Services<'_>,
     source: &Source,

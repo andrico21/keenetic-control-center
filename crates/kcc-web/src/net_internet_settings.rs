@@ -32,7 +32,8 @@ use crate::{
 ///
 /// Answers 404 for a missing or unknown connection, and the failure in the page's outcome
 /// region when the router cannot be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn settings(
     State(state): State<WebState>,
     Path(router): Path<String>,

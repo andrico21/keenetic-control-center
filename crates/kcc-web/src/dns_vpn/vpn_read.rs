@@ -104,7 +104,8 @@ where
 /// # Errors
 ///
 /// Returns the domain's error when the connections cannot be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn exists(ctx: &RouterCtx, name: &str) -> DomainResult<bool> {
     let clients = vpn_clients::read_clients(ctx).await?;
     Ok(clients.iter().any(|client| client.id == name))

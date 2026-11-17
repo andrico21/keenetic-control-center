@@ -131,7 +131,9 @@ impl SegmentView {
     /// ([`DomainError::Validation`]), or when the interface topology needed to classify the
     /// plan cannot be read or does not decode ([`DomainError::Rci`],
     /// [`DomainError::InvalidResponse`]).
-    // cancel-safe: management classification performs read-only topology requests.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, management classification performs read-only topology
+    // requests.
     #[inline]
     pub async fn deletion_plan(&self, router: &RouterCtx) -> Result<crate::ChangeOp> {
         super::plan_delete(router, &self.record.spec).await
@@ -166,6 +168,8 @@ impl SegmentView {
 /// (a failed router request is reported this way, not as [`DomainError::Rci`]), already
 /// holds the segment's contexts or shared leaves, or the record cannot be serialized
 /// ([`DomainError::InvalidResponse`]).
+// NOT cancel-safe: it only reads the running configuration, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<String> {
     ownership::validate(spec)?;
     let tree = step::running_config(router)
@@ -208,6 +212,8 @@ pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<St
 /// Returns [`DomainError::InvalidResponse`] when the running configuration cannot be read or
 /// parsed; a failing router request is reported this way, not as [`DomainError::Rci`].
 /// Ownership records that do not decode are skipped, not reported.
+// NOT cancel-safe: it only reads the running configuration, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 pub(super) async fn read(router: &RouterCtx) -> Result<Vec<SegmentView>> {
     let tree = step::running_config(router)
         .await

@@ -75,6 +75,8 @@ localized!(Page);
 
 /// `GET /ui/r/{router}/segments`: the segments kcc created, with Create segment and each
 /// segment's delete when the role may use them.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -122,6 +124,8 @@ pub(crate) async fn page(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn details(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -142,6 +146,8 @@ pub(crate) async fn details(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn back(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -162,6 +168,8 @@ pub(crate) async fn back(
 ///
 /// Answers the details with their field errors (422), and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn review(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -195,7 +203,8 @@ pub(crate) async fn review(
 /// # Errors
 ///
 /// Answers the read's failure, shown in the page's outcome region.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(super) async fn known(domain: &RouterCtx, locale: Locale) -> Result<Known, Answer> {
     Known::read(domain).await.map_err(|error| {
         let failure = plan_failure(Family::Changes, locale, &error);

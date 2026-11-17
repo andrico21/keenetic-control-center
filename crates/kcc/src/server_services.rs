@@ -122,7 +122,9 @@ impl Services {
     }
 
     /// Opens the shared core and constructs each singleton service.
-    // cancel-safe: startup performs local state opens and read-only router recovery inspection.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, startup performs local state opens and read-only router
+    // recovery inspection.
     pub(crate) async fn open(
         config: &Config,
         state: StateStore,

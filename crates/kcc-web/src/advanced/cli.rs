@@ -95,6 +95,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/console/cli`: the console.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -123,7 +125,8 @@ pub(crate) async fn page(
 }
 
 /// `POST /ui/r/{router}/console/cli/check`: the command the line maps to; nothing is sent.
-// cancel-safe: only router facts are read before rendering.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only router facts are read before rendering.
 pub(crate) async fn validate(
     State(state): State<WebState>,
     Path(router): Path<String>,

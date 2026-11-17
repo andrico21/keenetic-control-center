@@ -46,6 +46,7 @@ const TEST_ID: &str = "connection-test";
 ///
 /// An empty password on the edit form uses the stored one. A failure, including an
 /// outbound-policy refusal, is explained in the viewer's language.
+// NOT cancel-safe: the connection test's audit entry may be written after the future is dropped.
 pub(crate) async fn test(
     State(state): State<WebState>,
     user: CurrentUser,

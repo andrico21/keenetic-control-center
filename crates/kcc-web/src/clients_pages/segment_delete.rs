@@ -65,7 +65,8 @@ pub(crate) struct Which {
 ///
 /// Answers 404 for a segment the router does not have, and what the kit answers when the
 /// router or the permission is missing.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -187,7 +188,8 @@ impl submit::Form for Deleting {
 /// # Errors
 ///
 /// Answers the read's failure, shown in the page's outcome region.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn find(domain: &RouterCtx, id: u16, locale: Locale) -> Result<Option<SegmentView>, Answer> {
     match segments::read_segments(domain).await {
         Ok(views) => Ok(views.into_iter().find(|view| view.id == id)),

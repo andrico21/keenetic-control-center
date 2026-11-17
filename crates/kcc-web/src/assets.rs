@@ -128,6 +128,7 @@ pub(crate) fn find(path: &str) -> Option<&'static Asset> {
 }
 
 /// Serves the asset addressed by the URL, or the 404 page.
+// cancel-safe: it has no await point.
 pub(crate) async fn serve(
     State(state): State<WebState>,
     address: Result<Path<(String, String)>, PathRejection>,

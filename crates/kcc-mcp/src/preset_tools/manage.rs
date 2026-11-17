@@ -33,6 +33,7 @@ pub(crate) struct DeleteInput {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// cancel-safe: it only lists presets; a store read left on the blocking pool changes nothing.
 pub(crate) async fn list(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: ListInput = parse(arguments)?;
     let identity = server.identity()?;
@@ -69,6 +70,8 @@ pub(crate) async fn list(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the deletion runs to its end on the blocking pool, and its audit entry may be
+// queued, even if the future is dropped.
 pub(crate) async fn delete(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DeleteInput = parse(arguments)?;
     valid_text(&input.id, 96)?;

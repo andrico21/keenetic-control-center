@@ -87,7 +87,8 @@ localized!(StoredView);
 
 /// `POST /ui/r/{router}/explorer/preview`: the method, endpoint and JSON the form would
 /// send, with the validation result. Nothing is sent to the router.
-// cancel-safe: only router facts are read before rendering.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only router facts are read before rendering.
 pub(crate) async fn preview(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -140,6 +141,8 @@ pub(crate) async fn preview(
 
 /// `GET /ui/r/{router}/explorer/stored?path=`: the running-configuration lines of one
 /// command, which show how the router stores it.
+// NOT cancel-safe: it only downloads the running configuration, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn stored(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -180,6 +183,7 @@ pub(crate) async fn stored(
 
 /// `GET /ui/r/{router}/explorer/response`: the last response of this session on this
 /// router that was too large for its page.
+// cancel-safe: it only checks access and returns the kept response.
 pub(crate) async fn download(
     State(state): State<WebState>,
     Path(router): Path<String>,

@@ -32,6 +32,8 @@ impl Planned {
     /// # Errors
     ///
     /// Returns the catalog's findings.
+    // NOT cancel-safe: it only plans, using read-only topology requests, but it may sign in first,
+    // and a sign-in dropped mid-way can leave an orphaned router session.
     pub(crate) async fn request(
         &self,
         ctx: &RouterCtx,

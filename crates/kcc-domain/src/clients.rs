@@ -116,7 +116,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 #[expect(
     clippy::module_name_repetitions,
@@ -132,7 +133,8 @@ pub async fn read_clients(router: &RouterCtx) -> Result<Vec<Client>> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_client(router: &RouterCtx, mac: &str) -> Result<Option<Client>> {
     Ok(read_clients(router).await?.into_iter().find(|client| {

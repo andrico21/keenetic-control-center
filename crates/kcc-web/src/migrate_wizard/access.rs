@@ -58,7 +58,8 @@ impl Migration for Visit<'_> {
             .await
     }
 
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     async fn analysis(&self) -> Result<Arc<Analysis>, Problem> {
         let target = self.record().target().ok_or(Problem::Unreachable)?;
         if let Some(kept) = self.session().analysis(target) {
@@ -87,7 +88,8 @@ impl Migration for Visit<'_> {
         Ok(fresh)
     }
 
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     async fn hardware(&self, analysis: &Analysis) -> Option<Arc<TargetInventory>> {
         let Some(Source::Router { router }) = self.record().source() else {
             return None;

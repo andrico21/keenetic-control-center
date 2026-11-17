@@ -132,7 +132,8 @@ impl<'request> Sender<'request> {
     /// # Errors
     ///
     /// Returns the domain's reason when it could not be planned.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn assess(
         &self,
         domain: &RouterCtx,
@@ -164,7 +165,8 @@ impl<'request> Sender<'request> {
     }
 
     /// The region at `spot` read back for the sender's page, out of band.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn refreshed(
         &self,
         domain: &RouterCtx,
@@ -229,7 +231,8 @@ pub(crate) async fn located<'call>(
 ///
 /// Returns the failure, in `locale`, of a rule the router no longer has or of a router
 /// that could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn find(
     domain: &RouterCtx,
     named: &Named,

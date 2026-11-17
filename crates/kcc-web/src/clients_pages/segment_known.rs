@@ -26,7 +26,8 @@ impl Known {
     /// # Errors
     ///
     /// Returns the read's failure.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read(domain: &RouterCtx) -> DomainResult<Self> {
         let mut known = Self::default();
         for (name, interface) in interfaces::read_interfaces(domain).await? {

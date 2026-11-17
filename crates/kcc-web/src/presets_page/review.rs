@@ -79,7 +79,8 @@ struct Row {
 
 impl Panel {
     /// The review of `visit`, filtered and paged by `view`.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>, view: &View) -> Self {
         let locale = visit.services().user().locale();
         let id = visit.record().id().to_owned();
@@ -129,7 +130,8 @@ impl Panel {
 /// # Errors
 ///
 /// Returns the sentence explaining why the plan cannot be made.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn rows(visit: &Visit<'_>, locale: Locale) -> Result<Vec<Row>, String> {
     let basis = Basis::of(visit)
         .await

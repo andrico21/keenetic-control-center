@@ -77,7 +77,8 @@ impl<'ctx> Session<'ctx> {
     /// # Errors
     ///
     /// Returns the policy refusal or connection failures.
-    // cancel-safe: connecting only reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, connecting only reads router state.
     pub(crate) async fn open(ctx: &'ctx Ctx, permission: Permission) -> Outcome<Self> {
         Self::open_permissions(ctx, &[permission]).await
     }
@@ -86,7 +87,8 @@ impl<'ctx> Session<'ctx> {
     ///
     /// # Errors
     /// Returns policy or connection failures.
-    // cancel-safe: connecting only reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, connecting only reads router state.
     pub(crate) async fn open_permissions(
         ctx: &'ctx Ctx,
         permissions: &[Permission],
@@ -105,6 +107,8 @@ impl<'ctx> Session<'ctx> {
     /// # Errors
     ///
     /// Returns the policy refusal, registry failure, or connection failure.
+    // NOT cancel-safe: opening the services may append a migration audit event after the future is
+    // dropped.
     pub(crate) async fn open_for_account(
         ctx: &'ctx Ctx,
         permission: Permission,

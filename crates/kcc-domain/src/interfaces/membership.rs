@@ -21,7 +21,8 @@ use crate::{DomainError, Result, RouterCtx};
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: configuration reads do not change router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, configuration reads do not change router state.
 pub(crate) async fn read(router: &RouterCtx) -> Result<BTreeMap<String, BTreeSet<String>>> {
     let lines = configuration_lines(router).await?;
     let response = router.client.show_rc(json!({"interface":{}})).await?;
@@ -72,7 +73,8 @@ fn merge(lines: Vec<Vec<String>>, tree: &Value) -> Result<BTreeMap<String, BTree
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read changes nothing on the router.
 pub(crate) async fn configuration_lines(router: &RouterCtx) -> Result<Vec<Vec<String>>> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     let text =

@@ -39,6 +39,8 @@ const READING: Duration = Duration::from_secs(5);
 
 /// `GET /ui/sse/r/{router}/network/traffic?name=`: an empty `traffic` event, then one
 /// `traffic` event with the interface's rates per counter reading after the first.
+// NOT cancel-safe: it only detects the router before returning the traffic stream, but it may sign
+// in first, and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn stream(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -106,7 +108,8 @@ impl Readings {
     }
 
     /// The interface's byte counters as a one-entry `show interface stat` map.
-    // cancel-safe: a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, a read.
     async fn reading(&self) -> Option<Value> {
         let stats = statistics(&self.domain, &self.name).await?;
         Some(json!({ self.name.as_str(): {"rxbytes": stats.rxbytes, "txbytes": stats.txbytes} }))
@@ -114,7 +117,8 @@ impl Readings {
 }
 
 /// The counters of `name` on the router of `domain`, when reported.
-// cancel-safe: a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a read.
 pub(crate) async fn statistics(
     domain: &RouterCtx,
     name: &ObjectName,

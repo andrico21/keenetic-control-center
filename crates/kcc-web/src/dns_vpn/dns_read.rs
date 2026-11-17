@@ -65,7 +65,8 @@ impl DnsState {
     /// # Errors
     ///
     /// Returns the domain's error when either read fails.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read(ctx: &RouterCtx) -> DomainResult<Self> {
         let proxy = dns::read_dns_proxy(ctx).await?;
         let config = dns::read_configuration(ctx).await?;

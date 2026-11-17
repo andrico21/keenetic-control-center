@@ -141,6 +141,8 @@ impl Drop for MetricsExporter {
 }
 
 /// Copies every successful snapshot of `router` into the cache; counts failed rounds.
+// cancel-safe: each snapshot is cached whole before the next await, and the watch channel keeps the
+// latest value for a later follower.
 async fn follow(
     shared: Arc<Shared>,
     router: String,

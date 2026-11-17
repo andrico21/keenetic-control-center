@@ -90,7 +90,8 @@ pub(crate) async fn system(ctx: &Ctx, command: SystemCommand) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn internet(ctx: &Ctx, command: InternetCommand) -> Outcome {
     let session = Session::open(ctx, Permission::Read).await?;
     match command {

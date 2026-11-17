@@ -17,7 +17,8 @@ pub const PAGE_SIZE: usize = 200;
 /// Returns [`DomainError::Rci`] when the request for the running configuration fails, and
 /// [`DomainError::InvalidResponse`] when its `ip static` entries do not decode as forwarding
 /// rules; a configuration without such entries gives an empty list.
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn running_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, false, "static").await
@@ -30,7 +31,8 @@ pub async fn running_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>>
 /// Returns [`DomainError::Rci`] when the request for the startup configuration fails, and
 /// [`DomainError::InvalidResponse`] when its `ip static` entries do not decode as forwarding
 /// rules; a configuration without such entries gives an empty list.
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn startup_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, true, "static").await
@@ -43,7 +45,8 @@ pub async fn startup_forwards(router: &RouterCtx) -> Result<Vec<ConfiguredRule>>
 /// Returns [`DomainError::Rci`] when the request for the running configuration fails, and
 /// [`DomainError::InvalidResponse`] when its `ip nat` entries do not decode as interface
 /// declarations; a configuration without such entries gives an empty list.
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn interfaces(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
     configuration(router, false, "nat").await
@@ -55,7 +58,8 @@ pub async fn interfaces(router: &RouterCtx) -> Result<Vec<ConfiguredRule>> {
 ///
 /// Returns an error when a reply or a plan does not have the expected shape
 /// ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage> {
     #[derive(Serialize)]
@@ -93,6 +97,8 @@ pub async fn sessions_page(router: &RouterCtx, offset: usize) -> Result<NatPage>
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
+// NOT cancel-safe: it only reads the running or startup configuration, but it may sign in first,
+// and a sign-in dropped mid-way can leave an orphaned router session.
 async fn configuration(
     router: &RouterCtx,
     startup: bool,

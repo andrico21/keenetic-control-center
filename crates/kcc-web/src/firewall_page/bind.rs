@@ -50,6 +50,8 @@ const UNBIND: Operation = Operation::write(&DESCRIPTOR, "binding", "web.firewall
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn bind_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -79,6 +81,8 @@ pub(crate) async fn bind_dialog(
 ///
 /// Answers the dialog with its field errors (422), 403 for a management change the role
 /// may not make, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn bind(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -135,6 +139,8 @@ pub(crate) async fn bind(
 ///
 /// Answers 404 for a malformed binding, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn unbind_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -162,6 +168,8 @@ pub(crate) async fn unbind_dialog(
 ///
 /// Answers 404 for a malformed binding, 403 for a management change the role may not
 /// make, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn unbind(
     State(state): State<WebState>,
     Path(router): Path<String>,

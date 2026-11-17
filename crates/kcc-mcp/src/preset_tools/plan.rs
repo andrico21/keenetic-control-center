@@ -219,6 +219,8 @@ impl ApplyInput {
     /// # Errors
     ///
     /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+    // NOT cancel-safe: it only reads the preset and the target inventory, but it may sign in first,
+    // and a sign-in dropped mid-way can leave an orphaned router session.
     pub(super) async fn planned(
         &self,
         server: &KccMcp,
@@ -233,6 +235,9 @@ impl ApplyInput {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads the preset and the target inventory; a store read left on the
+// blocking pool changes nothing, but it may sign in first, and a sign-in dropped mid-way can leave
+// an orphaned router session.
 async fn planned(
     server: &KccMcp,
     identity: &McpIdentity,

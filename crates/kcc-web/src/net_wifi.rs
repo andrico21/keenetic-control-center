@@ -58,6 +58,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/wifi`: radios, access points and connected devices.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -100,7 +102,8 @@ pub(crate) async fn page(
 
 /// The radios, access points and devices read back after a change, out of band, keeping
 /// the device table's filter, order and page.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Rendered> {
     let controls = Controls::new(call.user().role(), call.router())
         .with_operations(wifi::DESCRIPTOR.write_ops, Some(&domain.catalog));
@@ -136,7 +139,8 @@ impl Listing {
     /// # Errors
     ///
     /// Returns the router's error.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     async fn read(
         domain: &RouterCtx,
         viewer: Viewer,

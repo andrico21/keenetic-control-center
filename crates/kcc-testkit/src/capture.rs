@@ -250,7 +250,8 @@ impl From<io::Error> for CaptureError {
 /// # Errors
 ///
 /// [`CaptureError::SerialMissing`], [`CaptureError::SerialNotAllowed`], or the request error.
-// cancel-safe: one read-only request.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, one read-only request.
 #[inline]
 pub async fn verify_serial<S>(client: &RciClient, allowed: &[S]) -> Result<String, CaptureError>
 where
@@ -276,7 +277,8 @@ where
 }
 
 /// Reads every item; `show interface stat` items follow `show interface`.
-// cancel-safe: every request is a read and results are only held in memory.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, every request is a read and results are only held in memory.
 #[inline]
 pub async fn read_all(connection: &Connection) -> Vec<Captured> {
     let mut pending = items();
@@ -304,7 +306,8 @@ pub async fn read_all(connection: &Connection) -> Vec<Captured> {
 /// # Errors
 ///
 /// Request, size, decode or RCI errors.
-// cancel-safe: every request is a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, every request is a read.
 #[inline]
 pub async fn fetch(connection: &Connection, request: &Request) -> Result<RawBody, RciError> {
     let client = &connection.client;
@@ -356,6 +359,8 @@ pub async fn fetch(connection: &Connection, request: &Request) -> Result<RawBody
 /// # Errors
 ///
 /// Request, HTTP, size, decode or RCI errors.
+// NOT cancel-safe: it only reads `GET /rci/`, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 async fn read_root(session: &Manager) -> Result<RawBody, RciError> {
     let mut response = session.get("/rci/").await?;
     match response.status().as_u16() {

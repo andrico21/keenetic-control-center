@@ -120,6 +120,8 @@ fn interfaces_view(
 }
 
 /// `GET /ui/r/{router}/nat/interfaces`: the interfaces with address translation.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn interfaces(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -158,7 +160,8 @@ pub(crate) async fn interfaces(
 /// # Errors
 ///
 /// Returns why the router did not answer.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn interfaces_region(
     domain: &RouterCtx,
     (router, query): (&str, &TableQuery),
@@ -182,7 +185,8 @@ pub(crate) async fn interfaces_region(
 /// # Errors
 ///
 /// Returns why the router did not answer.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn nat_interfaces(domain: &RouterCtx) -> Result<Vec<String>, MessageKey> {
     let rows = read::interfaces(domain)
         .await

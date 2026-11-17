@@ -14,6 +14,8 @@ use crate::{WebState, session::SessionStore};
 pub(crate) const HEADER_NAME: &str = "x-csrf-token";
 
 /// Rejects non-safe methods without a valid token and same-origin browser metadata.
+// NOT cancel-safe: it awaits the rest of the request, whose handler may change the router or local
+// state, or queue an audit entry, before the future is dropped.
 pub(crate) async fn middleware(
     State(state): State<WebState>,
     request: Request,

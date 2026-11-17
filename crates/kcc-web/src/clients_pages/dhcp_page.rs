@@ -64,7 +64,8 @@ struct Visit<'request> {
 
 impl Visit<'_> {
     /// The page of `view` on `router`, as `query` asks.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     async fn show(self, view: DhcpView, router: String, query: TableQuery) -> Response {
         let shell = Caller::new(self.headers, self.current, self.user)
             .shell(self.state, Section::Clients, Some(&router))
@@ -115,6 +116,8 @@ impl Visit<'_> {
 }
 
 /// `GET /ui/r/{router}/dhcp`: the pools.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn pools(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -134,6 +137,8 @@ pub(crate) async fn pools(
 
 /// `GET /ui/r/{router}/dhcp/{view}`: the static leases (`leases`), the leases handed out
 /// now (`bindings`) or the ARP table (`arp`); 404 for any other view.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn view(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,

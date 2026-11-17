@@ -62,6 +62,8 @@ pub(crate) fn controls(user: &CurrentUser, router: &str, catalog: &Catalog) -> (
 }
 
 /// `GET /ui/r/{router}/firewall`: the access lists.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn lists(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -96,6 +98,8 @@ pub(crate) async fn lists(
 }
 
 /// `GET /ui/r/{router}/firewall/interfaces`: the lists applied to interfaces.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn bindings(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -133,6 +137,8 @@ pub(crate) async fn bindings(
 }
 
 /// `GET /ui/r/{router}/firewall/upnp`: the UPnP redirects, read only.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn upnp(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -171,7 +177,8 @@ pub(crate) async fn upnp(
 /// # Errors
 ///
 /// Returns why the configuration could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn lists_region(
     domain: &RouterCtx,
     router: &str,
@@ -207,7 +214,8 @@ fn lists_of(
 /// # Errors
 ///
 /// Returns why the configuration could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn bindings_region(
     domain: &RouterCtx,
     (router, query): (&str, &TableQuery),
@@ -228,7 +236,8 @@ pub(crate) async fn bindings_region(
 }
 
 /// The `spot` region read back for `user` on the page of `headers`, out of band.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn refreshed(
     domain: &RouterCtx,
     (router, user): (&str, &CurrentUser),

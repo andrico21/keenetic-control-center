@@ -106,6 +106,8 @@ fn password_dialog_for(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn psk_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -122,6 +124,8 @@ pub(crate) async fn psk_dialog(
 ///
 /// Answers the dialog with its error (422), and what the kit answers when the router or
 /// the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn psk(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -173,7 +177,8 @@ pub(crate) async fn psk(
 /// # Errors
 ///
 /// Answers the failure in the page's outcome region when the router cannot be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn accounts(
     domain: &RouterCtx,
     own: &OwnLogins,
@@ -196,6 +201,8 @@ async fn accounts(
 ///
 /// Answers the failure when the router cannot be read, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn password_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -220,6 +227,8 @@ pub(crate) async fn password_dialog(
 ///
 /// Answers 404 for an unknown account, the dialog with its error or the refusal (422), and
 /// what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after the change is sent, the router may keep it without its read-back,
+// audit entry or timer cleanup.
 pub(crate) async fn password(
     State(state): State<WebState>,
     Path(router): Path<String>,

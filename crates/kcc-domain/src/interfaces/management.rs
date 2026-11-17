@@ -47,7 +47,8 @@ impl ManagementVerdict {
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: topology reads do not change router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, topology reads do not change router state.
 pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<ManagementVerdict> {
     let interfaces: BTreeMap<String, Interface> =
         read_show(&router.client, &["show", "interface"]).await?;
@@ -110,7 +111,8 @@ pub(super) async fn detect(router: &RouterCtx, name: &ObjectName) -> Result<Mana
 ///
 /// Returns an error when a reply or a plan does not have the expected shape
 /// ([`DomainError::InvalidResponse`]).
-// cancel-safe: classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, classification performs read-only topology requests.
 pub(crate) async fn classify_generated(router: &RouterCtx, lines: &[&str]) -> Result<Risk> {
     let mut names = BTreeSet::new();
     for line in lines {
@@ -202,6 +204,8 @@ pub fn classify_direct(
 }
 
 /// Reads ARP and hotspot source-address evidence best-effort.
+// NOT cancel-safe: it only sends `show` reads, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 async fn observed_sources(router: &RouterCtx) -> Vec<ObservedSource> {
     let mut sources = Vec::new();
     for segments in [["show", "ip", "arp"], ["show", "ip", "hotspot"]] {

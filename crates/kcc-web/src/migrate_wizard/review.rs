@@ -118,7 +118,8 @@ impl Row {
 
 impl Panel {
     /// The review of `visit`, filtered and paged by `view`.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>, view: &View) -> Self {
         let locale = visit.services().user().locale();
         let id = visit.record().id().to_owned();

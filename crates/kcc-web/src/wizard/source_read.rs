@@ -48,6 +48,8 @@ pub(crate) struct Chosen {
 }
 
 /// Answers a body over the route's limit with the size error beside the file input.
+// NOT cancel-safe: it awaits the rest of the request, whose handler may change the router or local
+// state, or queue an audit entry, before the future is dropped.
 pub(crate) async fn limit(request: Request, next: Next) -> Response {
     let locale = request
         .extensions()
@@ -202,7 +204,8 @@ async fn from_backup(services: Services<'_>, value: &str) -> Result<Chosen, (Fie
 ///
 /// Returns the router field and its message for a router the user may not migrate, that
 /// does not answer, or whose configuration does not parse.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn from_router(services: Services<'_>, router: &str) -> Result<Chosen, (Field, MessageKey)> {
     if !services.permits(router).await {
         return Err((Field::Router, keys::WEB_MIGRATE_SOURCE_ERROR_ROUTER));
@@ -243,7 +246,8 @@ impl Chosen {
 }
 
 /// The kind `form` chose and the source it read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn choose(
     services: Services<'_>,
     form: Submitted,

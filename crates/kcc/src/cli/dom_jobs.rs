@@ -233,7 +233,8 @@ async fn commit(ctx: &Ctx, session: &Session<'_>) -> Outcome {
 /// # Errors
 ///
 /// Returns state failures.
-// cancel-safe: opening only reads and marks stale local job records.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, opening only reads and marks stale local job records.
 async fn runner(ctx: &Ctx, services: &Services) -> Outcome<Arc<JobRunner>> {
     JobRunner::open(
         ctx.state().clone(),

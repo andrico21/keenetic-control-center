@@ -38,6 +38,8 @@ const RESET: Operation = Operation::write(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: the factory reset may be sent before the future is dropped, leaving it
+// unaudited.
 pub(crate) async fn reset(
     State(state): State<WebState>,
     Path(router): Path<String>,

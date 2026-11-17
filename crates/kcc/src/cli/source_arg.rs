@@ -45,7 +45,8 @@ impl<'text> SourceArg<'text> {
     /// # Errors
     ///
     /// Returns file, backup, registry or router failures.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read(self, services: &Services) -> Outcome<SecretBytes> {
         match self {
             Self::File(path) => {

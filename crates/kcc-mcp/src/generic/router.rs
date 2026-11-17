@@ -150,6 +150,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_routers_list")]
+    // NOT cancel-safe: it runs through `finish_with_context`, which audits a failure; the queued
+    // audit entry may be written after the future is dropped.
     async fn routers_list(&self, Parameters(input): Parameters<ListInput>) -> CallToolResult {
         let (fields, cursor) = input.shape_input();
         finish_with_context(
@@ -161,6 +163,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_router_info")]
+    // NOT cancel-safe: it runs through `finish`, which audits a failure; the queued audit entry may
+    // be written after the future is dropped.
     async fn router_info(&self, Parameters(input): Parameters<HostInput>) -> CallToolResult {
         finish(
             self,
@@ -172,6 +176,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_catalog_search")]
+    // NOT cancel-safe: it runs through `finish_with_context`, which audits a failure; the queued
+    // audit entry may be written after the future is dropped.
     async fn catalog_search(
         &self,
         Parameters(input): Parameters<CatalogSearchInput>,
@@ -186,6 +192,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_catalog_describe")]
+    // NOT cancel-safe: it runs through `finish`, which audits a failure; the queued audit entry may
+    // be written after the future is dropped.
     async fn catalog_describe(
         &self,
         Parameters(input): Parameters<CatalogDescribeInput>,
@@ -200,6 +208,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_rci_read")]
+    // NOT cancel-safe: it runs through `finish_with_context`, which audits a failure; the queued
+    // audit entry may be written after the future is dropped.
     async fn rci_read(&self, Parameters(input): Parameters<RciReadInput>) -> CallToolResult {
         let router = input.router().to_owned();
         let fields = input.fields().to_vec();
@@ -212,6 +222,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_rci_execute")]
+    // NOT cancel-safe: the RCI write may reach the router, and the call's audit entries be queued,
+    // before the future is dropped.
     async fn rci_execute(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -223,6 +235,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_rci_delete")]
+    // NOT cancel-safe: the RCI delete may reach the router, and the call's audit entries be queued,
+    // before the future is dropped.
     async fn rci_delete(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -234,6 +248,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_rci_batch")]
+    // NOT cancel-safe: the RCI batch may reach the router, and the call's audit entries be queued,
+    // before the future is dropped.
     async fn rci_batch(&self, Parameters(input): Parameters<RciBatchInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -245,6 +261,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_cli_parse")]
+    // NOT cancel-safe: the parsed CLI command may reach the router, and the call's audit entries be
+    // queued, before the future is dropped.
     async fn cli_parse(&self, Parameters(input): Parameters<CliInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -256,6 +274,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_job_status")]
+    // NOT cancel-safe: it runs through `finish`, which audits a failure; the queued audit entry may
+    // be written after the future is dropped.
     async fn job_status(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
         finish(self, "kcc_job_status", true, async {
             fleet::job_status(self, &input)
@@ -264,6 +284,8 @@ impl KccMcp {
     }
 
     #[tool(name = "kcc_job_cancel")]
+    // NOT cancel-safe: the job may be cancelled, and the call's audit entries queued, before the
+    // future is dropped.
     async fn job_cancel(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
         finish(
             self,

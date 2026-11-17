@@ -24,8 +24,9 @@ struct Dedicated(Arc<Manager>);
 impl Dedicated {
     /// Signs out now, within [`LOGOUT_BOUND`]; a router that stays silent is left to expire
     /// the cookie.
-    // cancel-safe: the local cookie is cleared before the wire operation, so a cancelled
-    // sign-out leaves nothing for `Drop` to repeat.
+    // NOT cancel-safe: dropped after the sign-out is sent, the router may keep the session, an
+    // orphaned router session; the local cookie is cleared before the wire operation, so
+    // `Drop` has nothing to repeat.
     async fn release(&self) {
         drop(time::timeout(LOGOUT_BOUND, self.0.logout()).await);
     }
@@ -129,7 +130,9 @@ impl Handle {
     ///
     /// # Errors
     /// Returns authentication, transport, HTTP, size or response errors.
-    // cancel-safe: dropping the future releases its permit and partial local response.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, dropping the future releases its permit and partial local
+    // response.
     #[inline]
     pub async fn next(&self) -> Result<RciBody, RciError> {
         let path = process_path(&self.path, &self.process_id)?;

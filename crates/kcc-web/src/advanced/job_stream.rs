@@ -51,6 +51,7 @@ localized!(OutputView);
 
 /// `GET /ui/sse/r/{router}/jobs/{job}`: the job's status changes, then the router's
 /// final answer and a `done` event that closes the stream.
+// cancel-safe: it only checks access and returns the job's event stream.
 pub(crate) async fn stream(
     State(state): State<WebState>,
     Path((router, job)): Path<(String, String)>,

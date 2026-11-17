@@ -27,7 +27,8 @@ pub(super) type Saved<T> = Result<T>;
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 pub(super) async fn saved_ipv4(router: &RouterCtx) -> Result<Vec<Saved<Ipv4Route>>> {
     let text = running_config(router).await?;
     Ok(route_words(&text, "ip")
@@ -42,7 +43,8 @@ pub(super) async fn saved_ipv4(router: &RouterCtx) -> Result<Vec<Saved<Ipv4Route
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 pub(super) async fn saved_ipv6(router: &RouterCtx) -> Result<Vec<Saved<Ipv6Route>>> {
     let text = running_config(router).await?;
     Ok(route_words(&text, "ipv6")
@@ -102,7 +104,8 @@ async fn restore_all<T>(
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 async fn running_config(router: &RouterCtx) -> Result<String> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     from_utf8(bytes.expose_secret())

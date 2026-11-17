@@ -151,6 +151,8 @@ impl Verification {
     /// Returns [`DomainError::FirewallRuleAbsent`] when it is not, and
     /// [`DomainError::Rci`] or [`DomainError::InvalidResponse`] when the access list
     /// cannot be read.
+    // NOT cancel-safe: it only reads the configured list, but it may sign in first, and a sign-in
+    // dropped mid-way can leave an orphaned router session.
     pub(super) async fn preflight(&self, router: &RouterCtx) -> Result<()> {
         let present = match self {
             Self::Remove { list, rule } => {
@@ -186,7 +188,8 @@ impl Verification {
     /// Returns [`DomainError::FirewallVerificationFailed`] when the change is not there,
     /// and [`DomainError::Rci`] or [`DomainError::InvalidResponse`] when the router cannot
     /// be read.
-    // cancel-safe: only reads; cancellation changes nothing on the router.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, only reads; cancellation changes nothing on the router.
     pub(super) async fn verify(&self, router: &RouterCtx) -> Result<()> {
         let verified = match self {
             Self::Add { list, rule } => contains(&read::configured_list(router, list).await?, rule),

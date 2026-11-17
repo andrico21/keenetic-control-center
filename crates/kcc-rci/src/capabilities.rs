@@ -356,7 +356,8 @@ impl RouterInfo {
     ///
     /// Returns transport, authentication, HTTP, decode, or body-size failures, and
     /// [`RciError::NotFound`] when `show version` is absent.
-    // cancel-safe: every request is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every request is a read.
     #[inline]
     pub async fn detect(client: &Manager, router: &RouterUrl) -> Result<Self, RciError> {
         Self::detect_capped(client, router, engine::DEFAULT_RESPONSE_BYTES).await
@@ -367,7 +368,8 @@ impl RouterInfo {
     /// # Errors
     ///
     /// As [`RouterInfo::detect`].
-    // cancel-safe: every request is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every request is a read.
     pub(crate) async fn detect_capped(
         client: &Manager,
         router: &RouterUrl,
@@ -551,7 +553,8 @@ async fn probe_auth_schemes(
 /// # Errors
 ///
 /// Returns transport, authentication, other HTTP status, decode, or body-size failures.
-// cancel-safe: the request is a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, the request is a read.
 async fn read_optional(
     client: &Manager,
     path: &str,

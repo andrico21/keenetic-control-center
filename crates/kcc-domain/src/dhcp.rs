@@ -51,7 +51,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
@@ -65,7 +66,8 @@ pub async fn read_pools(router: &RouterCtx) -> Result<Vec<Pool>> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> {
     let answer = router
@@ -81,7 +83,8 @@ pub async fn read_static_leases(router: &RouterCtx) -> Result<Vec<StaticLease>> 
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_bindings(router: &RouterCtx) -> Result<Vec<Binding>> {
     read_show(&router.client, &["show", "ip", "dhcp", "bindings"]).await
@@ -93,7 +96,8 @@ pub async fn read_bindings(router: &RouterCtx) -> Result<Vec<Binding>> {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_neighbours(router: &RouterCtx) -> Result<Vec<Neighbour>> {
     read_show(&router.client, &["show", "ip", "arp"]).await
@@ -160,7 +164,8 @@ pub fn plan_pool(router: &RouterCtx, pool: &PoolConfig) -> Result<ChangeOp> {
 /// ([`DomainError::StaticLeaseAddressInUse`]), when the catalog refuses a planned request
 /// ([`DomainError::Validation`]), or when a router request fails or its reply does not
 /// decode ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: only read requests; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only read requests; cancellation changes nothing on the router.
 #[inline]
 pub async fn plan_static_lease(
     router: &RouterCtx,

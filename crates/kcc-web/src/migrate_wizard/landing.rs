@@ -102,6 +102,8 @@ struct Restore {
 }
 
 /// `GET /ui/migrate`: the page.
+// NOT cancel-safe: the retention sweep and the index correction run to their end even if the future
+// is dropped.
 pub(super) async fn page(
     State(state): State<WebState>,
     Query(offer): Query<Offer>,
@@ -174,6 +176,8 @@ pub(super) struct Start {
 /// # Errors
 ///
 /// Answers 503 without the fleet, and the refusal of a restore that cannot be started.
+// NOT cancel-safe: the new run's index entry, record and sealed source may be written, and its
+// audit entry queued, after the future is dropped.
 pub(super) async fn start(
     State(state): State<WebState>,
     Extension(wizards): Extension<Arc<Wizards<Record>>>,

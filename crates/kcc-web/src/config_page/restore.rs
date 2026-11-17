@@ -79,6 +79,9 @@ pub(crate) fn migrate_restore_url(router: &str, backup: &str) -> String {
 ///
 /// Answers 404 for an unknown backup, and 404, 503 or the audited 403 when the router,
 /// the store or the permission is missing.
+// NOT cancel-safe: once spawned, the restore task replaces the router's saved configuration and
+// audits itself whether or not this future is still awaited; before that, a refusal queues an audit
+// entry that may be written after the drop.
 pub(crate) async fn raw_restore(
     State(state): State<WebState>,
     Path(router): Path<String>,

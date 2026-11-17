@@ -142,9 +142,10 @@ pub async fn run_serve(config_path: Option<PathBuf>) -> Result<Outcome, ServerEr
 /// flight runs on), it waits, at most `BRACKET_GRACE`, for tool calls still closing a
 /// router's safety bracket, then drains the jobs and gives at most `AUDIT_FLUSH_WAIT` to
 /// the audit entries still queued.
-// cancel-safe: rmcp owns stdio framing, a signal drops the service future, whose drop
-// guard ends the session while its detached tool calls run on, and the bracket wait only
-// observes the count.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, rmcp owns stdio framing, a signal drops the service future, whose drop
+// guard ends the session while its detached tool calls run on, and the bracket wait only observes
+// the count.
 pub async fn run_stdio(config_path: Option<PathBuf>) -> Result<Outcome, ServerError> {
     let (_path, config, _tracing_guard) = load_config(config_path)?;
     if !config.mcp.stdio_enabled {

@@ -911,7 +911,8 @@ impl ChangeSet {
     ///
     /// # Errors
     /// Returns a conflict or read failure without transmitting a mutation.
-    // cancel-safe: this operation only reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, this operation only reads router state.
     #[inline]
     pub async fn ensure_unchanged(&self) -> Result<(), WorkflowError> {
         let current = read_last_change(&self.client).await?;
@@ -1447,7 +1448,8 @@ impl ChangeSet {
     /// # Errors
     ///
     /// Returns router request or response-shape errors.
-    // cancel-safe: the router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, the router operation is a read.
     #[inline]
     pub async fn current_last_change(&self) -> Result<LastChange, WorkflowError> {
         read_last_change(&self.client).await
@@ -1559,7 +1561,8 @@ impl ChangeSet {
     ///
     /// # Errors
     /// [`WorkflowError::Conflict`] after a change by any agent, or the read failure.
-    // cancel-safe: only reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, only reads router state.
     async fn check_conflict(&self) -> Result<(), WorkflowError> {
         if self.force {
             return Ok(());
@@ -1657,7 +1660,8 @@ impl ChangeSet {
 ///
 /// # Errors
 /// [`WorkflowError`] when the read fails or its answer cannot be decoded.
-// cancel-safe: only reads router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only reads router state.
 async fn read_last_change(client: &RciClient) -> Result<LastChange, WorkflowError> {
     let path = RciPath::from_segments(["show", "last-change"])
         .map_err(|_error| WorkflowError::InvalidResponse)?;

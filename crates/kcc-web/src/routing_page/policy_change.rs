@@ -49,7 +49,8 @@ impl NameQuery {
 /// # Errors
 ///
 /// Returns the message saying the router's policies could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Policy>, MessageKey> {
     Ok(read_policies(domain)
         .await?
@@ -63,7 +64,8 @@ pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Policy
 ///
 /// Returns the failure, in `locale`, of a policy the router no longer has, or of policies
 /// that could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn known(
     domain: &RouterCtx,
     name: &str,
@@ -111,7 +113,8 @@ where
 }
 
 /// The policies region read back for the page of `headers`, out of band.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn refreshed(
     domain: &RouterCtx,
     (router, user): (&str, &CurrentUser),

@@ -54,6 +54,8 @@ impl Named {
 ///
 /// Answers 404, 503 or the audited 403 when the router, the store or the permission is
 /// missing.
+// NOT cancel-safe: the backup may be written, and its audit entry queued, after the future is
+// dropped.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -85,6 +87,8 @@ pub(crate) async fn create(
 /// Answers 404 for an unknown backup, and 404, 503 or the audited 403 when the router,
 /// the store or the permission is missing; a store that cannot be listed stops the delete
 /// in the outcome, audited.
+// NOT cancel-safe: the backup file may be removed, and its audit entry queued, after the future is
+// dropped.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -133,7 +137,8 @@ pub(crate) async fn delete(
 /// # Errors
 ///
 /// Returns why it could not be read, the router's own words kept.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn saved(state: &WebState, router: &str, locale: Locale) -> Result<SecretString, Failure> {
     let unreachable = || Failure::new(tr(locale, keys::WEB_KIT_UNREACHABLE, None), "unreachable");
     let fleet = state.fleet().ok_or_else(unreachable)?;

@@ -186,7 +186,8 @@ pub(super) async fn submit(
 /// # Errors
 ///
 /// Returns whether the problem is the router's (else the groups') and its message.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn copied(
     services: Services<'_>,
     (id, router): (&str, &str),

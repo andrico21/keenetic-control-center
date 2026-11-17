@@ -46,7 +46,8 @@ impl Planned {
     /// # Errors
     ///
     /// Returns the policy refusal, source, inventory or blocked-plan failures.
-    // cancel-safe: reads the source and target only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads the source and target only.
     pub(crate) async fn make(ctx: &Ctx, services: &Services, input: &PlanInput) -> Outcome<Self> {
         let target = ctx.router_id(services)?;
         let from = source_arg::parse(&input.from)?;
@@ -117,7 +118,8 @@ impl Planned {
 /// # Errors
 ///
 /// Returns file, registry, backup or router failures.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn read_source(
     services: &Services,
     from: SourceArg<'_>,

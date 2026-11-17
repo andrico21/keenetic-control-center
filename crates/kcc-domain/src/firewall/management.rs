@@ -9,7 +9,8 @@ use crate::{RouterCtx, interfaces, interfaces::membership};
 ///
 /// Failed detection is management risk; successful unknown verdicts retain the
 /// interface classifier's conservative management-bridge fallback.
-// cancel-safe: topology reads do not change router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, topology reads do not change router state.
 #[inline]
 pub async fn interfaces_risk(router: &RouterCtx, names: &[String]) -> Risk {
     if names.is_empty() {
@@ -19,7 +20,8 @@ pub async fn interfaces_risk(router: &RouterCtx, names: &[String]) -> Risk {
 }
 
 /// Delegates parent-bridge membership to the shared interface classifier.
-// cancel-safe: topology reads do not change router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, topology reads do not change router state.
 async fn classify(router: &RouterCtx, names: &[String]) -> Risk {
     let mut highest = Risk::Write;
     for name in names {
@@ -35,7 +37,8 @@ async fn classify(router: &RouterCtx, names: &[String]) -> Risk {
 }
 
 /// Classifies every interface currently carrying a list, failing closed on unreadable bindings.
-// cancel-safe: configuration and topology reads do not change router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, configuration and topology reads do not change router state.
 pub(super) async fn list_risk(router: &RouterCtx, list: &str) -> Risk {
     let lines = match membership::configuration_lines(router).await {
         Ok(lines) => lines,

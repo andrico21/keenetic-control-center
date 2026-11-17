@@ -47,7 +47,8 @@ localized!(Notice);
 /// # Errors
 ///
 /// Returns the status or notice to answer with.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn facts_for<'state>(
     state: &'state WebState,
     user: &CurrentUser,

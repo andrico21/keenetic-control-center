@@ -70,6 +70,8 @@ pub(crate) const SET_TAG: Operation =
 ///
 /// Answers the dialog with its field error (422), the failure when the router's accounts
 /// cannot be read, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -145,6 +147,8 @@ pub(crate) async fn create(
 /// Answers 404 for an unknown account, the failure when the router cannot be read, the
 /// dialog with its error (422), and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn set_tags(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -218,7 +222,8 @@ pub(crate) async fn set_tags(
 ///
 /// Returns the message of the logged read failure: an account kcc could not see is not
 /// taken as absent.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn find(domain: &RouterCtx, name: &str) -> Result<Option<Account>, MessageKey> {
     Ok(accounts(domain, None)
         .await?

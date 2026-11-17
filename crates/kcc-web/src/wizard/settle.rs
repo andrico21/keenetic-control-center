@@ -65,7 +65,8 @@ where
 ///
 /// Answers the refusal of the run, 409 while changes wait for a choice, and 404 for no
 /// `how`.
-// cancel-safe: every change comes after the last await.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future
+// is dropped; otherwise every change comes after the last await.
 pub(crate) async fn settle<F>(
     state: &WebState,
     wizards: &Wizards<F>,

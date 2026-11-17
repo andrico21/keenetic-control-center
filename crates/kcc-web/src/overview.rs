@@ -82,6 +82,7 @@ struct CardFragment {
 localized!(CardFragment);
 
 /// `GET /ui/`: the fleet grid, or the dashboard of the router picked in the switcher.
+// cancel-safe: it only reads the router list and waits on the routers' telemetry feeds.
 pub(crate) async fn page(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -124,6 +125,7 @@ pub(crate) async fn page(
 
 /// `GET /ui/sse/fleet`: an event named `router-<id>` with the re-rendered card whenever
 /// the poller reports a visible router.
+// cancel-safe: it only reads the router list and subscribes to the routers' telemetry feeds.
 pub(crate) async fn stream(
     State(state): State<WebState>,
     current: CurrentSession,
@@ -152,6 +154,7 @@ pub(crate) async fn stream(
 }
 
 /// The feed of every entry, in entry order.
+// cancel-safe: it only subscribes to telemetry feeds; an abandoned feed stops when dropped.
 async fn feeds(state: &WebState, entries: &[RegistryEntry]) -> Vec<Arc<Feed>> {
     let Some(fleet) = state.fleet() else {
         return Vec::new();

@@ -187,6 +187,8 @@ impl Drop for Ended {
 }
 
 /// `POST /ui/r/{router}/jobs/{job}/cancel`: stops a running explorer job.
+// NOT cancel-safe: the job may be cancelled, and its audit entry queued, before the future is
+// dropped.
 pub(crate) async fn cancel(
     State(state): State<WebState>,
     Path((router, job)): Path<(String, String)>,

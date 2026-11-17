@@ -304,6 +304,9 @@ impl Poller {
     }
 
     /// Runs one router loop until it has stayed idle for the configured timeout.
+    // NOT cancel-safe: it runs as the router's only polling task; aborted, it leaves the router's
+    // channel entry registered with no task polling it, so later subscribers wait for snapshots
+    // that never come.
     async fn run(self: Arc<Self>, router: String) {
         let mut heavy: Option<extended::HeavyItems> = None;
         let mut idle_since = None;
@@ -372,6 +375,9 @@ impl Poller {
     ///
     /// # Errors
     /// [`PollError`] when the router client cannot be built or a required read fails.
+    // NOT cancel-safe: it only reads router state; the heavy-item cache it refreshes is replaced
+    // whole, but it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+    // session.
     async fn fetch(
         &self,
         router: &str,
@@ -460,6 +466,8 @@ pub fn wan_interface_ids(interfaces: &Value) -> Vec<String> {
 }
 
 /// Reads `show interface stat` for every Internet-facing interface.
+// NOT cancel-safe: it only reads interface counters, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn wan_stats(client: &RciClient, interfaces: &Value) -> Value {
     let mut stats = Map::new();
     let Ok(path) = RciPath::from_segments(["show", "interface", "stat"]) else {
@@ -478,6 +486,8 @@ async fn wan_stats(client: &RciClient, interfaces: &Value) -> Value {
 /// # Errors
 /// [`PollError::Request`] when the path is invalid, the read fails or the answer is not
 /// JSON.
+// NOT cancel-safe: it only sends one `show` read, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 async fn show_json(client: &RciClient, segments: &[&str]) -> Result<Value, PollError> {
     let path = RciPath::from_segments(segments).map_err(|_error| PollError::Request)?;
     match client

@@ -58,6 +58,8 @@ pub(super) struct JobInput {
 }
 
 /// Forwards one job's events as progress notifications until it ends.
+// cancel-safe: it only forwards job events as progress notifications; `broadcast::Receiver::recv`
+// is cancel-safe and the job runs on regardless.
 async fn follow(
     job: &str,
     mut events: broadcast::Receiver<JobEvent>,
@@ -84,6 +86,7 @@ async fn follow(
 }
 
 /// The started job, followed to its end when the client asked for progress.
+// cancel-safe: it only awaits `follow`, which forwards job progress; the job runs on regardless.
 async fn started(
     job: String,
     events: broadcast::Receiver<JobEvent>,
@@ -103,6 +106,8 @@ async fn started(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the diagnostic job may be started, and its audit entry queued, before the future
+// is dropped; the job then runs on without its id reaching the caller.
 pub(super) async fn diagnostics(
     server: &KccMcp,
     arguments: Value,
@@ -158,6 +163,8 @@ pub(super) async fn diagnostics(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: a component change may be sent, or the commit job (which reboots the router)
+// started, before the future is dropped.
 pub(super) async fn components(
     server: &KccMcp,
     arguments: Value,

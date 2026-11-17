@@ -133,6 +133,8 @@ pub(super) async fn prepare(mut request: ApplyRequest) -> Result<Applier, ApplyE
 ///
 /// # Errors
 /// Returns missing or mismatched credential input, or a refused line, before any write.
+// cancel-safe: it only builds a client for the reconnect address, which sends nothing, and checks
+// the plan in memory.
 async fn validate_credentials(
     request: &ApplyRequest,
     client: &RciClient,
@@ -214,7 +216,8 @@ async fn initialize(
 ///
 /// # Errors
 /// Returns scope, origin collision, backup, or source-read failures.
-// cancel-safe: source acquisition only reads.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, source acquisition only reads.
 async fn source_bytes(
     request: &ApplyRequest,
     target: &RciClient,

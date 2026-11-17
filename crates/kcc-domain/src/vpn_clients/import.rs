@@ -19,6 +19,8 @@ use crate::{ChangeOp, DomainError, Result, RouterCtx, cli_token, pointer};
 /// [`DomainError::InvalidResponse`] when a secret command cannot be bound to its template or a
 /// field has an unexpected shape, and [`DomainError::Rci`] or [`DomainError::InvalidResponse`]
 /// when the management check cannot read the router.
+// NOT cancel-safe: it only plans, using read-only topology requests, but it may sign in first, and
+// a sign-in dropped mid-way can leave an orphaned router session.
 pub(super) async fn plan(
     router: &RouterCtx,
     name: &str,

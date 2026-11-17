@@ -146,8 +146,8 @@ impl OutboundPolicy {
     ///
     /// Returns [`RciError::Policy`] when resolution fails, any address is forbidden, or TLS
     /// configuration cannot be built.
-    // NOT cancel-safe: synchronous DNS may complete after the caller abandons construction, but
-    // no request is sent and no externally visible state is changed.
+    // cancel-safe: dropped, it abandons a blocking DNS lookup whose result is discarded; no
+    // request is sent and nothing is changed.
     #[inline]
     pub async fn client_builder(
         &self,
@@ -164,8 +164,8 @@ impl OutboundPolicy {
     /// # Errors
     ///
     /// Returns [`RciError::Policy`] when the origin has no host or resolution fails.
-    // NOT cancel-safe: synchronous DNS may complete after the caller abandons it, but no
-    // request is sent and no externally visible state is changed.
+    // cancel-safe: dropped, it abandons a blocking DNS lookup whose result is discarded; no
+    // request is sent and nothing is changed.
     pub(crate) async fn resolve(router: &RouterUrl) -> Result<Vec<SocketAddr>, RciError> {
         let parsed = reqwest::Url::parse(router.as_str()).map_err(|_error| RciError::Policy)?;
         let port = parsed.port_or_known_default().ok_or(RciError::Policy)?;

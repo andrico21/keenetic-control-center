@@ -141,6 +141,8 @@ pub(super) struct SegmentInput {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only plans from read requests, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn plan_client(
     ctx: &RouterCtx,
     input: &ClientInput,
@@ -225,6 +227,8 @@ async fn apply_planned(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply_planned`; dropped mid-way, the change
+// may be applied without its read-back, verification or timer cleanup.
 pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: ClientInput = parse(arguments)?;
     check_op(CLIENT_OPS, &input.op)?;
@@ -243,6 +247,8 @@ pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, 
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply_planned`; dropped mid-way, the change
+// may be applied without its read-back, verification or timer cleanup.
 pub(super) async fn dhcp(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DhcpInput = parse(arguments)?;
     check_op(DHCP_OPS, &input.op)?;

@@ -256,7 +256,9 @@ impl JobRunner {
     /// # Errors
     ///
     /// Returns state or parse errors.
-    // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, startup recovery performs only reads and atomic local state
+    // writes.
     #[inline]
     pub async fn open(
         state: StateStore,
@@ -278,7 +280,9 @@ impl JobRunner {
     /// # Errors
     ///
     /// Returns state or parse errors.
-    // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, startup recovery performs only reads and atomic local state
+    // writes.
     #[inline]
     pub async fn open_with_retention(
         state: StateStore,
@@ -296,7 +300,9 @@ impl JobRunner {
     /// # Errors
     /// [`JobError`] when pruning finished records or recovering interrupted ones fails on
     /// local state.
-    // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, startup recovery performs only reads and atomic local state
+    // writes.
     async fn open_with_ids(
         state: StateStore,
         registry: Arc<RouterRegistry>,
@@ -511,7 +517,9 @@ impl JobRunner {
     ///
     /// # Errors
     /// [`JobError`] when a job record cannot be listed, read, parsed or written.
-    // cancel-safe: each record write is atomic and, dropped, still completes on the blocking pool.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, each record write is atomic and, dropped, still completes on
+    // the blocking pool.
     async fn recover(self: &Arc<Self>, audit: &AuditLog) -> Result<(), JobError> {
         let lister = Arc::clone(self);
         for path in blocking::run(self.state.dir(), move || lister.job_paths()).await? {
@@ -560,6 +568,8 @@ impl JobRunner {
     /// Reads `(fail_safe_active, scheduled_reboot)` from the router within the probe bound.
     ///
     /// Returns `None` when the router is unknown, unreachable, slow, or answers unexpectedly.
+    // NOT cancel-safe: it only reads `show last-change` under a time bound, but it may sign in
+    // first, and a sign-in dropped mid-way can leave an orphaned router session.
     async fn probe_recovery(&self, router: &str) -> Option<(bool, bool)> {
         let path = RciPath::from_segments(["show", "last-change"]).ok()?;
         let probe = async {
@@ -583,6 +593,8 @@ impl JobRunner {
     }
 
     /// Appends one `job.recovered` audit entry; failures are logged, never propagated.
+    // NOT cancel-safe: the audit event is queued on the first poll and written even if the future
+    // is dropped.
     async fn audit_recovered(
         &self,
         audit: &AuditLog,

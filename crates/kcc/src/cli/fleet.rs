@@ -21,7 +21,8 @@ use super::{
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn info(ctx: &Ctx) -> Outcome {
     let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
@@ -59,7 +60,8 @@ pub(crate) async fn info(ctx: &Ctx) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn show(ctx: &Ctx, words: &[String]) -> Outcome {
     let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
@@ -88,7 +90,8 @@ pub(crate) async fn show(ctx: &Ctx, words: &[String]) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn catalog(ctx: &Ctx, command: CatalogCommand) -> Outcome {
     let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;

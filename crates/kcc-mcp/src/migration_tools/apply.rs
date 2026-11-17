@@ -133,6 +133,8 @@ async fn reviewed(server: &KccMcp, input: &ApplyInput) -> Result<Reviewed, McpFa
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: once `Applier::start` admits it, the persisted apply job runs on independently,
+// so a dropped call leaves a running job whose applier is never leased to the migration record.
 pub(crate) async fn apply(
     server: &KccMcp,
     arguments: Value,
@@ -183,6 +185,8 @@ pub(crate) async fn apply(
 /// # Errors
 ///
 /// Returns the `ApplyError` that ended the apply phase.
+// NOT cancel-safe: dropped, it drops the `done` receiver, so the applier the job hands back on
+// completion is discarded instead of reaching the caller.
 pub(crate) async fn follow(
     job: &str,
     events: &mut broadcast::Receiver<JobEvent>,

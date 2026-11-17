@@ -44,6 +44,8 @@ const CHECK: Operation = Operation::write(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn check(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -75,6 +77,8 @@ pub(crate) async fn check(
 /// Answers 404 for a component or an action the list does not offer, the failure when
 /// the list cannot be read, and what the kit answers when the router or the permission
 /// is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn queue(
     State(state): State<WebState>,
     Path(router): Path<String>,

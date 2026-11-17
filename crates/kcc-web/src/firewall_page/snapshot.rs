@@ -12,7 +12,8 @@ use kcc_i18n::{bundle::MessageKey, keys};
 /// # Errors
 ///
 /// Returns why the configuration could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn read(domain: &RouterCtx) -> Result<Firewall, MessageKey> {
     read::firewall(domain)
         .await

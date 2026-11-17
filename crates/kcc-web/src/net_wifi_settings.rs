@@ -48,7 +48,8 @@ const HIDE: Operation = Operation::write(&wifi::DESCRIPTOR, "hide_ssid", "web.wi
 ///
 /// Answers 404 for a missing or unknown name, and the failure in the page's outcome
 /// region when the router cannot be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn settings(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -207,6 +208,8 @@ const fn yes_no(value: bool) -> &'static str {
 ///
 /// Answers 404 for a missing name, switch or value, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn toggle(
     State(state): State<WebState>,
     Path(router): Path<String>,

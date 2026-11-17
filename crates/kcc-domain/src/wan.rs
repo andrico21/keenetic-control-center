@@ -80,7 +80,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_connections(router: &RouterCtx) -> Result<BTreeMap<String, Connection>> {
     let interfaces: BTreeMap<String, Value> =
@@ -101,7 +102,8 @@ pub async fn read_connections(router: &RouterCtx) -> Result<BTreeMap<String, Con
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_create(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
     plan_named_generated(
@@ -120,7 +122,8 @@ pub async fn plan_create(router: &RouterCtx, name: &ObjectName) -> Result<Change
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_delete(router: &RouterCtx, name: &ObjectName) -> Result<ChangeOp> {
     plan_named_generated(
@@ -182,7 +185,8 @@ pub fn plan_static_address(
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_identity(
     router: &RouterCtx,
@@ -206,7 +210,8 @@ pub async fn plan_identity(
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_password(
     router: &RouterCtx,
@@ -244,7 +249,8 @@ pub async fn plan_password(
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_connect_via(
     router: &RouterCtx,
@@ -267,7 +273,8 @@ pub async fn plan_connect_via(
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_priority(
     router: &RouterCtx,
@@ -290,7 +297,8 @@ pub async fn plan_priority(
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_mtu(router: &RouterCtx, name: &ObjectName, mtu: i64) -> Result<ChangeOp> {
     plan_named_generated(
@@ -309,7 +317,8 @@ pub async fn plan_mtu(router: &RouterCtx, name: &ObjectName, mtu: i64) -> Result
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_default_route(
     router: &RouterCtx,
@@ -350,7 +359,8 @@ pub fn change_request(name: &ObjectName, operation: &ChangeOp) -> Result<CliChan
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 async fn plan_named_generated(
     router: &RouterCtx,
     name: &ObjectName,
@@ -369,7 +379,8 @@ async fn plan_named_generated(
 ///
 /// Returns [`DomainError::Rci`] when a router request of the management check fails, and
 /// [`DomainError::InvalidResponse`] when its replies do not decode.
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 async fn classified(
     router: &RouterCtx,
     name: &ObjectName,

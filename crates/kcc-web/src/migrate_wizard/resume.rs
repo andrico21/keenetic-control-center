@@ -27,7 +27,8 @@ const DOWNLOADS: [(&str, MessageKey); 4] = [
 ];
 
 /// The page of the migration `visit` opened, at its current step.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(super) async fn show(visit: &Visit<'_>, shell: Shell, view: &View) -> Response {
     let record = visit.record();
     match record.step() {

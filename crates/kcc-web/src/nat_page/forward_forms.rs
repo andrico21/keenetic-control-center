@@ -57,6 +57,8 @@ const ADD: Operation = Operation::write(&DESCRIPTOR, "forward", "web.nat_forward
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -76,6 +78,8 @@ pub(crate) async fn dialog(
 ///
 /// Answers the dialog with its field errors (422), and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn add(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -131,7 +135,8 @@ pub(crate) fn applied(op: ChangeOp) -> Planned {
 }
 
 /// The rules region of `router` read back for the page of `headers`, out of band.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn rules(
     domain: &RouterCtx,
     router: &str,

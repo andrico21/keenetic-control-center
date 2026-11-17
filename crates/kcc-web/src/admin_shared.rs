@@ -89,23 +89,30 @@ impl Admin {
     }
 
     /// Waits for the administrative change lock.
+    // cancel-safe: it only waits for the administration lock.
     pub(crate) async fn lock(&self) -> MutexGuard<'_, ()> {
         self.changes.lock().await
     }
 
     /// Installs the stored API keys in the running MCP transport; a warning message
     /// when they did not reach it.
+    // cancel-safe: the reload runs whole on a blocking thread even if the future is dropped; only
+    // its warning is lost.
     pub(crate) async fn reload_keys(&self) -> Option<MessageKey> {
         self.reload(|bridge| bridge.reload_keys()).await
     }
 
     /// Installs the stored roles in the running MCP transport; a warning message when
     /// they did not reach it.
+    // cancel-safe: the reload runs whole on a blocking thread even if the future is dropped; only
+    // its warning is lost.
     pub(crate) async fn reload_rbac(&self) -> Option<MessageKey> {
         self.reload(|bridge| bridge.reload_rbac()).await
     }
 
     /// Runs one reload off the async executor and maps its outcome to a warning.
+    // cancel-safe: the reload runs whole on a blocking thread even if the future is dropped; only
+    // its warning is lost.
     async fn reload<F>(&self, apply: F) -> Option<MessageKey>
     where
         F: FnOnce(&dyn AuthReload) -> Result<(), ReloadError> + Send + 'static,
@@ -280,6 +287,7 @@ pub(crate) fn tabs(role: &Role, current: Tab) -> Vec<TabLink> {
 }
 
 /// `GET /ui/admin`: the first administration page the role may open, else 403.
+// cancel-safe: it only reads local state to render the page.
 pub(crate) async fn landing(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -418,6 +426,7 @@ pub(crate) async fn record(state: &WebState, user: &CurrentUser, change: Change<
 }
 
 /// A refused change: audited, then answered with the localized 403 page.
+// NOT cancel-safe: the refusal's audit entry may be written after the future is dropped.
 pub(crate) async fn forbidden(
     state: &WebState,
     user: &CurrentUser,

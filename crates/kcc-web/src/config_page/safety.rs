@@ -66,6 +66,8 @@ const ROLLBACK_COMMAND: &str = "system configuration fail-safe rollback";
 /// Answers why nothing was sent while the timer runs (keep or roll back the changes it
 /// guards instead), and what the kit answers when the router or the permission is
 /// missing.
+// NOT cancel-safe: the save command may persist the configuration, and its audit entry be queued,
+// before the future is dropped.
 pub(crate) async fn save(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -95,6 +97,8 @@ pub(crate) async fn save(
 ///
 /// Answers why nothing was sent when the timer does not run, and what the kit answers
 /// when the router or the permission is missing.
+// NOT cancel-safe: the commit may persist the configuration, and its audit entry be queued, before
+// the future is dropped.
 pub(crate) async fn commit(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -124,6 +128,8 @@ pub(crate) async fn commit(
 ///
 /// Answers why nothing was sent when the timer does not run, and what the kit answers
 /// when the router or the permission is missing.
+// NOT cancel-safe: the rollback step may reach the router, and its audit entry be queued, before
+// the future is dropped.
 pub(crate) async fn rollback(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -182,7 +188,9 @@ enum Timer {
 ///
 /// Answers why nothing is sent: the timer is in the other state or the router did not
 /// answer; the action is audited as abandoned (`not_armed`, `armed` or `unreachable`).
-// cancel-safe: one read and one audit append.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, it reads once, and a refusal queues an audit entry that may be
+// written after the future is dropped.
 async fn with_timer(action: Action<'_>, needed: Timer) -> Result<Action<'_>, Answer> {
     let locale = action.locale();
     let domain = action.context().await?;

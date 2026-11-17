@@ -161,6 +161,8 @@ pub(crate) fn planned(operation: ChangeOp) -> DomainResult<Planned> {
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn book_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -176,6 +178,8 @@ pub(crate) async fn book_dialog(
 ///
 /// Answers the dialog with its error (422), and what the kit answers when the router or
 /// the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn book(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -218,6 +222,8 @@ pub(crate) async fn book(
 ///
 /// Answers 404 when no name is booked, the failure when the status cannot be read, and
 /// what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn drop_name(
     State(state): State<WebState>,
     Path(router): Path<String>,

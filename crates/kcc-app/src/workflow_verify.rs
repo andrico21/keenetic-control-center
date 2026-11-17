@@ -17,7 +17,8 @@ use super::{
 ///
 /// # Errors
 /// [`WorkflowError`] when the read fails or the expectation does not hold.
-// cancel-safe: only reads router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only reads router state.
 pub(super) async fn verify(
     client: &RciClient,
     spec: &VerificationSpec,
@@ -88,7 +89,8 @@ impl<'spec> Readback<'spec> {
     /// # Errors
     /// [`WorkflowError`] when the path is invalid, the read fails, or the answer has an
     /// unexpected kind.
-    // cancel-safe: only reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, only reads router state.
     async fn fetch(
         client: &RciClient,
         spec: &'spec VerificationSpec,
@@ -169,7 +171,8 @@ impl<'spec> Readback<'spec> {
 /// # Errors
 /// [`WorkflowError`] when the configuration cannot be read or decoded, or the expectation
 /// does not hold.
-// cancel-safe: only downloads and decodes router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only downloads and decodes router state.
 async fn configuration(
     client: &RciClient,
     spec: &VerificationSpec,

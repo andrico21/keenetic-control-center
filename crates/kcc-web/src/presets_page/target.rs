@@ -110,7 +110,8 @@ impl Report {
 
 impl Panel {
     /// The panel of `visit`, with the chosen target's report when it can be read.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>) -> Self {
         let mut panel = Self::base(visit).await;
         if visit.record().target().is_some() {

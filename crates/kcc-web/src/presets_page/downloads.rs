@@ -39,7 +39,8 @@ use crate::{
 /// # Errors
 ///
 /// Answers the refusal of the run and 404 for another file name.
-// cancel-safe: reads only.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future
+// is dropped; otherwise it only reads.
 pub(super) async fn download(
     State(state): State<WebState>,
     Path((id, file)): Path<(String, String)>,

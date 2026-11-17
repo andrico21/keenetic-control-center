@@ -66,7 +66,8 @@ impl Analysis {
     /// # Errors
     ///
     /// Returns why the source or the target cannot be used.
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     pub(super) async fn collect(
         fleet: &Fleet,
         role: &Role,
@@ -156,7 +157,8 @@ impl Analysis {
 /// # Errors
 ///
 /// Returns [`Problem::Unreachable`] when the router does not answer.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn pending_agreements(client: &RciClient) -> Result<Vec<Agreement>, Problem> {
     let mut pending = Vec::new();
     for name in ["dpn", "eula"] {
@@ -185,7 +187,8 @@ async fn pending_agreements(client: &RciClient) -> Result<Vec<Agreement>, Proble
 /// # Errors
 ///
 /// Returns [`Problem::Unreachable`] when the router does not answer.
-// cancel-safe: a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a read.
 async fn read(client: &RciClient, segments: [&str; 3]) -> Result<Option<Value>, Problem> {
     let path = RciPath::from_segments(segments).map_err(|_error| Problem::Unreachable)?;
     match client.get(&path, &()).await {

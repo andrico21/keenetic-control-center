@@ -95,7 +95,8 @@ async fn prepare(visit: &mut Visit<'_>, state: &WebState) -> Result<Starting, Fa
 }
 
 /// The preview again with `reason`, as 422 in the step.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn refusal(visit: &Visit<'_>, reason: String) -> Answer {
     match Panel::new(visit).await {
         Ok(panel) => screen::refused(&panel.refusing(reason)).into(),

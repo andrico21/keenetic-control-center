@@ -122,7 +122,8 @@ pub(super) async fn start(
 /// # Errors
 ///
 /// The cancellation of the job.
-// cancel-safe: it only reads the router; dropped, it stops probing.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, it only reads the router; dropped, it stops probing.
 async fn restarted(
     registry: &RouterRegistry,
     router: &str,

@@ -145,7 +145,8 @@ impl Shown {
     /// # Errors
     ///
     /// Returns the read's failure.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn region(
         &self,
         domain: &RouterCtx,
@@ -192,7 +193,8 @@ impl Shown {
 
     /// This view read back after a change by `user` on `router`, with the controls the
     /// role may use, rendered for an out-of-band swap.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read_back(
         &self,
         domain: &RouterCtx,

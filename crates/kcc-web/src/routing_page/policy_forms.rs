@@ -48,6 +48,8 @@ const PERMIT: Operation = Operation::write(&DESCRIPTOR, "permit", "web.routing_p
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn create_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -63,6 +65,8 @@ pub(crate) async fn create_dialog(
 ///
 /// Answers the dialog with its field errors (422), and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -116,6 +120,8 @@ pub(crate) async fn create(
 ///
 /// Answers 404 for a policy the router does not have, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn description_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -143,6 +149,8 @@ pub(crate) async fn description_dialog(
 ///
 /// Answers the dialog with its field error (422), 404 for a policy the router does not
 /// have, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn describe(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -182,6 +190,8 @@ pub(crate) async fn describe(
 ///
 /// Answers 404 for a policy the router does not have, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn permit_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -212,6 +222,8 @@ pub(crate) async fn permit_dialog(
 ///
 /// Answers the dialog with its field errors (422), 404 for a policy the router does not
 /// have, and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn permit(
     State(state): State<WebState>,
     Path(router): Path<String>,

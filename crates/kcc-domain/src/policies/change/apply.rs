@@ -63,6 +63,8 @@ pub async fn apply(
 ///
 /// Returns [`DomainError::Rci`] or [`DomainError::InvalidResponse`] when the running
 /// configuration cannot be read.
+// NOT cancel-safe: it only reads the running configuration, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn policy_commands(router: &RouterCtx, name: &str) -> Result<Option<Vec<Vec<String>>>> {
     let response = router.client.show_rc(json!({"ip":{"policy":{}}})).await?;
     response

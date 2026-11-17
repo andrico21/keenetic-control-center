@@ -106,6 +106,8 @@ pub(super) struct WanInput {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply`; dropped mid-way, the change may be
+// applied before its read-back or timer cleanup.
 pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: InterfaceInput = parse(arguments)?;
     check_op(INTERFACE_OPS, &input.op)?;
@@ -159,6 +161,8 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only plans from read requests, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 async fn plan_wan(
     ctx: &RouterCtx,
     name: &ObjectName,
@@ -195,6 +199,8 @@ async fn plan_wan(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply_cli`; dropped mid-way, the change may
+// be applied before its read-back or timer cleanup.
 pub(super) async fn wan(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: WanInput = parse(arguments)?;
     check_op(WAN_OPS, &input.op)?;

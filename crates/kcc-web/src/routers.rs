@@ -44,6 +44,7 @@ use crate::{
 };
 
 /// `GET /ui/routers/new`: the add form.
+// cancel-safe: it only reads local state to render the page.
 pub(crate) async fn new_page(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -65,6 +66,8 @@ pub(crate) async fn new_page(
 
 /// `POST /ui/routers/new`: validates, checks the outbound policy, stores the profile and
 /// seals its credentials, and opens the new router's dashboard.
+// NOT cancel-safe: the profile is written to `routers.json` on a blocking thread that finishes even
+// if the future is dropped, and its audit entry may then be skipped or written late.
 pub(crate) async fn create(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -167,6 +170,7 @@ fn plan(
 
 /// `GET /ui/routers/{id}/edit`: the edit form, or the read-only view of a `kcc.toml`
 /// profile.
+// cancel-safe: it only reads the router list.
 pub(crate) async fn edit_page(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -199,6 +203,8 @@ pub(crate) async fn edit_page(
 /// moves or the sign-in mode switches between password and token ([`Plan`]); a move also
 /// drops the read-only login and its sealed record unless they are entered again. A
 /// failed update puts the previous sealed records back.
+// NOT cancel-safe: the profile update finishes on a blocking thread even if the future is dropped,
+// and its audit entry may then be skipped or written late.
 pub(crate) async fn update(
     State(state): State<WebState>,
     Path(id): Path<String>,

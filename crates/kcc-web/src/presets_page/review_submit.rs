@@ -29,7 +29,8 @@ use crate::{
 /// # Errors
 ///
 /// Answers the refusal of the run, and 409 when it is not at its review.
-// cancel-safe: see `decide`.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, see `decide`.
 pub(super) async fn save(
     State(state): State<WebState>,
     Path(id): Path<String>,
@@ -92,7 +93,8 @@ pub(super) async fn proceed(
 /// # Errors
 ///
 /// Answers 422 when the plan cannot be made, 500 when the record cannot be written.
-// cancel-safe: reads, then one record write.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads, then one record write.
 async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<(), Answer> {
     let locale = visit.services().user().locale();
     let unprocessable = || Answer::from(StatusCode::UNPROCESSABLE_ENTITY.into_response());

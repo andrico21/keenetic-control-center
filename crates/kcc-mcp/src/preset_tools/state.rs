@@ -84,6 +84,8 @@ impl Presets {
     }
 
     /// Keeps a transient preset for `owner`.
+    // cancel-safe: waiting for the lock changes nothing, and the insert follows without another
+    // await.
     pub(crate) async fn keep(&self, owner: String, preset: Preset) {
         let id = preset.id.clone();
         drop(
@@ -99,6 +101,7 @@ impl Presets {
     /// # Errors
     ///
     /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+    // cancel-safe: it only reads under the lock.
     pub(crate) async fn transient(
         &self,
         owner: &str,
@@ -116,6 +119,8 @@ impl Presets {
     /// # Errors
     ///
     /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+    // cancel-safe: waiting for the lock changes nothing, and the removal follows without another
+    // await.
     pub(crate) async fn forget(&self, owner: &str, id: &str) -> Result<bool, McpFailure> {
         let mut entries = self.transients.lock().await;
         match entries.get(id) {
@@ -126,6 +131,7 @@ impl Presets {
     }
 
     /// Redacted views of `owner`'s transient presets.
+    // cancel-safe: it only reads under the lock.
     pub(crate) async fn transient_views(&self, owner: &str) -> Vec<Value> {
         self.transients
             .lock()

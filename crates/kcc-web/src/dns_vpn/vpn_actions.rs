@@ -60,6 +60,8 @@ pub(crate) struct TunnelQuery {
 ///
 /// Answers 404 for malformed fields, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: dropped after the change is sent, the router may keep it without its read-back,
+// audit entry or timer cleanup.
 pub(crate) async fn switch(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -99,6 +101,8 @@ pub(crate) async fn switch(
 ///
 /// Answers 404 for an unknown server, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: dropped after the change is sent, the router may keep it without its read-back,
+// audit entry or timer cleanup.
 pub(crate) async fn service(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -139,6 +143,8 @@ pub(crate) async fn service(
 ///
 /// Answers 404 for a malformed name, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn delete_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -160,6 +166,8 @@ pub(crate) async fn delete_dialog(
 ///
 /// Answers the dialog again (422) when the typed name does not match, and what the kit
 /// answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after the change is sent, the router may keep it without its read-back,
+// audit entry or timer cleanup.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     Path(router): Path<String>,

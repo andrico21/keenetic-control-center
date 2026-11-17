@@ -42,6 +42,8 @@ use crate::{
 ///
 /// Answers the details with their field errors (422), and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,

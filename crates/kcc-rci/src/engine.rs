@@ -232,7 +232,8 @@ impl RciClient {
     ///
     /// # Errors
     /// Returns authentication, transport, or response errors.
-    // cancel-safe: detection reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, detection reads router state.
     #[inline]
     pub async fn detect(&self) -> Result<RouterInfo, RciError> {
         let admission = Admission::take(&self.semaphore, self.observer()).await?;
@@ -246,7 +247,8 @@ impl RciClient {
     ///
     /// # Errors
     /// Returns authentication or transport errors.
-    // cancel-safe: this probe performs no configuration writes.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, this probe performs no configuration writes.
     #[inline]
     pub async fn is_bootstrap(&self) -> Result<bool, RciError> {
         // The permit (the receiver) is taken before the sign-in (the argument) runs.
@@ -275,7 +277,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns validation, policy, or transport errors.
-    // NOT cancel-safe: cancellation can abandon synchronous DNS resolution, but sends no request.
+    // cancel-safe: dropped, it abandons a blocking DNS lookup whose result is discarded; it
+    // sends no request.
     #[inline]
     pub async fn connect_with(
         router: RouterUrl,
@@ -325,7 +328,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns validation, authentication, transport, HTTP, size, decode, or RCI errors.
-    // cancel-safe: GET is read-only and partial response bytes are local state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, GET is read-only and partial response bytes are local state.
     #[inline]
     pub async fn get<T>(&self, path: &RciPath, query: &T) -> Result<RciBody, RciError>
     where
@@ -391,7 +395,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns request or response-processing errors.
-    // cancel-safe: this show operation is read-only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, this show operation is read-only.
     #[inline]
     pub async fn show_rc(&self, tree: Value) -> Result<ConfigurationAnswer, RciError> {
         let RciBody::Json(response) = self.post_root(&json!({"show":{"rc":tree}})).await? else {
@@ -405,7 +410,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns request or response-processing errors.
-    // cancel-safe: this show operation is read-only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, this show operation is read-only.
     #[inline]
     pub async fn show_sc(&self, tree: Value) -> Result<ConfigurationAnswer, RciError> {
         let RciBody::Json(response) = self.post_root(&json!({"show":{"sc":tree}})).await? else {
@@ -419,7 +425,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns request or response-processing errors.
-    // cancel-safe: both GET and fallback POST are read-only show operations.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, both GET and fallback POST are read-only show operations.
     #[inline]
     pub async fn show<T>(&self, path: &RciPath, query: &T) -> Result<RciBody, RciError>
     where
@@ -485,7 +492,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns request or response-processing errors.
-    // cancel-safe: this show operation is read-only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, this show operation is read-only.
     #[inline]
     pub async fn show_interface(&self, name: &ObjectName) -> Result<RciBody, RciError> {
         self.post_root(&json!({"show":{"interface":{"name":name}}}))
@@ -518,7 +526,8 @@ impl RciClient {
     /// # Errors
     ///
     /// Returns authentication, transport, HTTP, or body-size errors.
-    // cancel-safe: GET is read-only and partial response bytes are local state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, GET is read-only and partial response bytes are local state.
     #[inline]
     pub async fn download_config(&self, kind: ConfigKind) -> Result<SecretBytes, RciError> {
         let path = match kind {
@@ -678,6 +687,8 @@ fn map_status(response_status: StatusCode) -> Result<(), RciError> {
 /// # Errors
 ///
 /// Returns HTTP, transport, body-size, or decode errors.
+// cancel-safe: it only reads the body of a response already received; partial bytes are local and
+// dropped.
 async fn response_json(response: Response, cap: usize) -> Result<Value, RciError> {
     map_status(response.status())?;
     let body = read_capped(response, cap).await?;
@@ -689,6 +700,8 @@ async fn response_json(response: Response, cap: usize) -> Result<Value, RciError
 /// # Errors
 ///
 /// Returns HTTP, transport, body-size, RCI status, or decode errors.
+// cancel-safe: it only reads the body of a response already received; partial bytes are local and
+// dropped.
 async fn decode_response(response: Response, cap: usize) -> Result<RciBody, RciError> {
     map_status(response.status())?;
     let mut body = read_capped(response, cap).await?;

@@ -107,6 +107,8 @@ fn action_url(router: &str, route: &StaticRoute) -> String {
 ///
 /// Answers 404 for a malformed route, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -167,6 +169,8 @@ fn removal(operation: &ChangeOp, route: StaticRoute) -> Planned {
 ///
 /// Answers 404 for a malformed route, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: dropped after `run_planned` sends the removal, the router may keep it without
+// its read-back, the route-wipe check or its audit entry.
 pub(crate) async fn remove(
     State(state): State<WebState>,
     Path(router): Path<String>,

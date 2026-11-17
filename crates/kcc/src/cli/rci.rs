@@ -246,7 +246,8 @@ const fn saved_note(
 ///
 /// # Errors
 /// Returns authorization, transport or per-item failures.
-// cancel-safe: only catalog-validated reads reach the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only catalog-validated reads reach the router.
 async fn read_batch(
     ctx: &Ctx,
     target: &Target,

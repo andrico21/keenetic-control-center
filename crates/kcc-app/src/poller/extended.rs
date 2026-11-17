@@ -72,6 +72,8 @@ pub(super) fn round(
 ///
 /// # Errors
 /// [`PollError`] when the router cannot be detected or a required read fails.
+// NOT cancel-safe: it only reads router state, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 pub(super) async fn fetch_heavy(
     registry: &RouterRegistry,
     router: &str,
@@ -125,6 +127,8 @@ fn up_interface_ids(interfaces: &Value) -> Vec<String> {
 /// Uses a plain GET per interface: an interface without counters answers 404 and is
 /// skipped, and the request never takes the query-less POST fallback of
 /// [`RciClient::show`], which would return the whole table.
+// NOT cancel-safe: it only reads interface counters, but it may sign in first, and a sign-in
+// dropped mid-way can leave an orphaned router session.
 pub(super) async fn up_interface_counters(client: &RciClient, interfaces: &Value) -> Value {
     let mut counters = Map::new();
     let Ok(path) = RciPath::from_segments(["show", "interface", "stat"]) else {
@@ -153,6 +157,8 @@ pub(super) fn wan_subset(counters: &Value, ids: &[String]) -> Value {
 
 /// Reads `show ip dhcp bindings`, `show media` and `show mws member`; unreadable items
 /// are `Null`.
+// NOT cancel-safe: it only sends `show` reads, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 pub(super) async fn heavy_items(client: &RciClient) -> (Value, Value, Value) {
     let dhcp = show_json(client, &["show", "ip", "dhcp", "bindings"])
         .await

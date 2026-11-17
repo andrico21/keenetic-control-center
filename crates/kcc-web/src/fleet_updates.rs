@@ -91,8 +91,9 @@ impl ComponentsUpdateCheck {
 
     /// Checks every registered router whose result is due; routers that are offline or
     /// not polled cost no request.
-    // cancel-safe: a cancelled check leaves its router due again only after the TTL; no
-    // configuration is changed.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, a cancelled check leaves its router due again only after the
+    // TTL; no configuration is changed.
     #[inline]
     pub async fn refresh(&self) {
         let routers = match self.registry.list() {
@@ -108,8 +109,9 @@ impl ComponentsUpdateCheck {
     }
 
     /// The cached status of `router`, checking it first when due.
-    // cancel-safe: cancellation may leave a claimed check cached until the TTL, but never
-    // sends a duplicate request or changes router configuration.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, cancellation may leave a claimed check cached until the TTL,
+    // but never sends a duplicate request or changes router configuration.
     async fn status(&self, router: &str) -> UpdateStatus {
         let (due, previous) = self.claim(router);
         if !due {
@@ -153,8 +155,9 @@ impl ComponentsUpdateCheck {
     }
 
     /// Asks `router` once and publishes a known result.
-    // cancel-safe: publishing follows a request that does not change the configuration (the domain
-    // classes it Write); cancellation changes no router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, publishing follows a request that does not change the
+    // configuration (the domain classes it Write); cancellation changes no router state.
     async fn run(&self, router: &str) -> CheckOutcome {
         let outcome = self.ask(router).await;
         let status = match outcome {
@@ -174,8 +177,9 @@ impl ComponentsUpdateCheck {
 
     /// The router's answer; [`UpdateStatus::Unknown`] without a request when the router
     /// is offline, not polled, or its catalog lacks the command.
-    // cancel-safe: the parser request does not change the configuration (the domain classes it
-    // Write), and dropping it changes no router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, the parser request does not change the configuration (the
+    // domain classes it Write), and dropping it changes no router state.
     async fn ask(&self, router: &str) -> CheckOutcome {
         let Some(Ok(snapshot)) = self.poller.latest(router).await else {
             return CheckOutcome::Skipped;

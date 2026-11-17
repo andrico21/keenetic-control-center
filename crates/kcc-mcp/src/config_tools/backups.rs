@@ -68,6 +68,8 @@ fn map_backup(error: &BackupError) -> McpFailure {
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the backup is stored before its audit entry is queued, and that entry may be
+// written after the future is dropped.
 pub(crate) async fn create(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse_arguments(arguments)?;
     let (_identity, router) = server.authorize_host(Permission::Write, input.into_host())?;

@@ -41,6 +41,8 @@ const DEFAULT_ROUTE: Operation =
 ///
 /// Answers 404 for a missing connection name or choice, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn default_route(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -83,6 +85,8 @@ pub(crate) async fn default_route(
 /// Answers 404 for a missing connection name or direction, or when the connection has no
 /// neighbour to swap with, and what the kit answers when the router or the permission is
 /// missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn order(
     State(state): State<WebState>,
     Path(router): Path<String>,

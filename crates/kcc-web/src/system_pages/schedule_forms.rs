@@ -69,6 +69,8 @@ fn is_word(value: &str) -> bool {
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn new_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -85,6 +87,8 @@ pub(crate) async fn new_dialog(
 ///
 /// Answers the dialog with its field errors (422), and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn create(
     State(state): State<WebState>,
     Path(router): Path<String>,

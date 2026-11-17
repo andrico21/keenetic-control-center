@@ -73,6 +73,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/mesh`: the mesh members and the actions the role may run.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -113,7 +115,8 @@ pub(crate) async fn page(
 }
 
 /// The members read back after a change, out of band.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn refreshed(call: Call<'_>, domain: &RouterCtx) -> Option<Rendered> {
     let controls = Controls::new(call.user().role(), call.router())
         .with_operations(mesh::DESCRIPTOR.write_ops, Some(&domain.catalog));
@@ -145,7 +148,8 @@ impl Listing {
     /// # Errors
     ///
     /// Returns the router's error.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     async fn read(domain: &RouterCtx, viewer: Viewer) -> Result<Self, DomainError> {
         let members = mesh::read_members(domain).await?;
         let (router, locale, controls) = viewer.into_parts();
@@ -169,6 +173,8 @@ impl Listing {
 ///
 /// Answers 404 for a missing member name or action, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn action(
     State(state): State<WebState>,
     Path(router): Path<String>,

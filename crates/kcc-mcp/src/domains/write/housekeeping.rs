@@ -135,6 +135,8 @@ fn plan_storage(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it sends the planned change through `apply_cli`; dropped mid-way, the change may
+// be applied before its read-back or timer cleanup.
 pub(super) async fn housekeeping(
     server: &KccMcp,
     chore: Chore,

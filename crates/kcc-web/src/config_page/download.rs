@@ -38,6 +38,7 @@ pub(crate) struct Wanted {
 ///
 /// Answers 404 for an unknown backup, 500 when it cannot be read, and 404, 503 or the
 /// audited 403 when the router, the store or the permission is missing.
+// NOT cancel-safe: the download's audit entry may be written after the future is dropped.
 pub(crate) async fn download(
     State(state): State<WebState>,
     Path(router): Path<String>,

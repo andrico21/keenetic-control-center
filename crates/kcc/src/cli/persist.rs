@@ -31,7 +31,8 @@ use super::{
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn config_state(ctx: &Ctx) -> Outcome {
     let services = ctx.services().await?;
     let out = ctx.out();

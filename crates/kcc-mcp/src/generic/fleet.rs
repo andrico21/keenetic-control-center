@@ -139,6 +139,8 @@ pub(crate) fn routers_list(server: &KccMcp, input: &ListInput) -> Result<Value, 
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only reads router state, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 pub(crate) async fn router_info(server: &KccMcp, input: HostInput) -> Result<Value, McpFailure> {
     let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let info = server
@@ -171,6 +173,8 @@ pub(crate) async fn router_info(server: &KccMcp, input: HostInput) -> Result<Val
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only detects the router and searches its catalog, but it may sign in first,
+// and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn catalog_search(
     server: &KccMcp,
     input: CatalogSearchInput,
@@ -199,6 +203,8 @@ pub(crate) async fn catalog_search(
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: it only detects the router and describes a catalog command, but it may sign in
+// first, and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn catalog_describe(
     server: &KccMcp,
     input: CatalogDescribeInput,
@@ -248,6 +254,8 @@ pub(crate) fn job_status(server: &KccMcp, input: &JobInput) -> Result<Value, Mcp
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// NOT cancel-safe: the job may be cancelled, and its audit entry queued, before the future is
+// dropped.
 pub(crate) async fn job_cancel(server: &KccMcp, input: JobInput) -> Result<Value, McpFailure> {
     valid_job_id(&input.id)?;
     let identity = server.identity()?;

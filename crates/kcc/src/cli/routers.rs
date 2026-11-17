@@ -66,7 +66,8 @@ async fn remove(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn test(ctx: &Ctx, services: &Services) -> Outcome {
     let id = ctx.router_id(services)?;
     drop(

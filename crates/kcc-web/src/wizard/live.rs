@@ -136,11 +136,14 @@ impl Live {
     }
 
     /// The applier slot.
+    // cancel-safe: it only waits for the lock.
     pub(crate) async fn applier(&self) -> AsyncGuard<'_, Option<Applier>> {
         self.applier.lock().await
     }
 
     /// Hands back `applier` and marks the end, at unix time `at`, recorded.
+    // NOT cancel-safe: dropped while waiting for the lock, the applier passed in is dropped with
+    // the future instead of being stored.
     pub(crate) async fn settle(&self, applier: Option<Applier>, at: u64) {
         *self.applier.lock().await = applier;
         self.progress.send_modify(|progress| {

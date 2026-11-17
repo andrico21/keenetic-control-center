@@ -12,7 +12,8 @@ use super::{ApplyError, ApplyRequest};
 ///
 /// # Errors
 /// Returns missing confirmation or malformed agreement responses.
-// cancel-safe: only reads router documents.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only reads router documents.
 pub(super) async fn pending(
     request: &ApplyRequest,
     client: &RciClient,

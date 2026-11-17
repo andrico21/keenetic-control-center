@@ -76,6 +76,8 @@ localized!(RemoveDialog);
 ///
 /// Answers 404 for an action without a dialog or a client the router does not report,
 /// and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn dialog(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -121,6 +123,8 @@ pub(crate) async fn dialog(
 ///
 /// Answers the dialog with its field error (422), 404 for an unknown action or value, and
 /// what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn act(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -219,7 +223,8 @@ impl submit::Form for ActForm {
 }
 
 /// The table region read back after a change, in the view the browser shows.
-// cancel-safe: a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a read.
 async fn read_back(
     domain: &RouterCtx,
     user: &CurrentUser,

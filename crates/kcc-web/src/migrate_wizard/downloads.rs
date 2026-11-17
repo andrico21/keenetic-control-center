@@ -36,6 +36,8 @@ use crate::{
 ///
 /// Answers the refusal of the migration, 404 for another file name and 409 while the
 /// plan cannot be built.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future is
+// dropped; otherwise it only reads the run record.
 pub(super) async fn download(
     State(state): State<WebState>,
     Path((id, file)): Path<(String, String)>,

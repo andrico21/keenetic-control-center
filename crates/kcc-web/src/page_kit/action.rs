@@ -78,7 +78,9 @@ impl Operation {
     /// The answer instead: 404 or 503 when the router is not visible, the audited 403 when
     /// the role lacks the operation's permissions, the outcome naming the problem when
     /// the router's catalog is unknown, the logged 500 for a write the domain lacks.
-    // cancel-safe: reads and one audit append.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, it only reads, but a refusal or a failed detection queues
+    // an audit entry that may be written after the future is dropped.
     pub(crate) async fn open<'call>(
         self,
         state: &'call WebState,
@@ -160,7 +162,8 @@ impl<'call> Action<'call> {
     /// # Errors
     ///
     /// The rendered, audited outcome when the router has no client.
-    // cancel-safe: connects at most, sends no change.
+    // NOT cancel-safe: a missing client queues an audit entry that may be written after the future
+    // is dropped; otherwise it only builds or reuses the client and sends nothing.
     pub(crate) async fn context(&self) -> Result<RouterCtx, Answer> {
         match self.target.fleet().registry().client(self.router()).await {
             Ok(client) => Ok(RouterCtx::new(client, self.facts.catalog().clone())),

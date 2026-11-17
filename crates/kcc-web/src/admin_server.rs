@@ -53,6 +53,8 @@ struct ServerPage {
 localized!(ServerPage);
 
 /// `GET /ui/admin/server`.
+// cancel-safe: it only reads server settings; the state-directory probe opens `.ready` (creating it
+// if absent) on a blocking thread, which is idempotent.
 pub(crate) async fn page(
     State(state): State<WebState>,
     headers: HeaderMap,

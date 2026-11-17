@@ -18,6 +18,8 @@ use crate::{DomainError, Result, RouterCtx, routing::model::Ipv6Route};
 /// ([`DomainError::RouteCountMismatch`]). When the router reports a broad clear, the first
 /// failure of restoring the saved routes is returned, or [`DomainError::SafetyAbort`] when
 /// it succeeded.
+// NOT cancel-safe: the route removal may be applied, or the restore of the saved routes left half
+// done, when the future is dropped.
 pub(super) async fn remove(
     changes: &mut ChangeSet,
     router: &RouterCtx,

@@ -168,6 +168,8 @@ localized!(GroupView);
 localized!(CommandView);
 
 /// `GET /ui/r/{router}/explorer`: search, groups and, with `?path=`, one command.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -214,6 +216,8 @@ pub(crate) async fn page(
 }
 
 /// `GET /ui/r/{router}/explorer/search?q=`: the live search results.
+// NOT cancel-safe: it only detects the router and searches its catalog, but it may sign in first,
+// and a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn search(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -236,6 +240,8 @@ pub(crate) async fn search(
 }
 
 /// `GET /ui/r/{router}/explorer/group?prefix=&page=`: one page of a group's commands.
+// NOT cancel-safe: it only detects the router and reads its catalog, but it may sign in first, and
+// a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn group(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -270,6 +276,8 @@ pub(crate) async fn group(
 }
 
 /// `GET /ui/r/{router}/explorer/command?path=`: the detail and form of one command.
+// NOT cancel-safe: it only detects the router and reads its catalog, but it may sign in first, and
+// a sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn command(
     State(state): State<WebState>,
     Path(router): Path<String>,

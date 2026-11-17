@@ -181,7 +181,9 @@ struct Collection {
 }
 
 /// Runs the configured mode until cancellation.
-// cancel-safe: every loop iteration either performs read-only I/O or owns stream cleanup.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, every loop iteration either performs read-only I/O or owns stream
+// cleanup.
 async fn run(collection: Collection) {
     let mut dedupe = Window::default();
     match collection.mode {
@@ -192,7 +194,9 @@ async fn run(collection: Collection) {
 }
 
 /// Polls bounded snapshots until cancellation.
-// cancel-safe: snapshot POST is a read operation and emitted records are independently deduped.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, snapshot POST is a read operation and emitted records are independently
+// deduped.
 async fn poll_loop(collection: &Collection, dedupe: &mut Window) {
     loop {
         tokio::select! {
@@ -210,7 +214,8 @@ async fn poll_loop(collection: &Collection, dedupe: &mut Window) {
 }
 
 /// Maintains a dedicated stream, restarting it after process/session loss.
-// cancel-safe: the handle is stopped on every branch after a successful start.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, the handle is stopped on every branch after a successful start.
 async fn stream_loop(collection: &Collection, dedupe: &mut Window) {
     let mut failures = 0_u8;
     loop {
@@ -246,6 +251,9 @@ async fn stream_loop(collection: &Collection, dedupe: &mut Window) {
 }
 
 /// Reads one stream until cancellation or a request failure.
+// NOT cancel-safe: it only reads the router's log stream and emits each batch whole; the waits end
+// on cancellation, but it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+// router session.
 async fn consume_stream(
     collection: &Collection,
     dedupe: &mut Window,
@@ -280,6 +288,8 @@ async fn rest(collection: &Collection, interval: Duration) -> bool {
 /// # Errors
 ///
 /// Returns [`LogError`] for request or response-shape failures.
+// NOT cancel-safe: it only posts a one-shot `show log` read, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 async fn snapshot(collection: &Collection) -> Result<Value, LogError> {
     match collection
         .client

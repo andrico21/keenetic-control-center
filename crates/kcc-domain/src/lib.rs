@@ -348,6 +348,8 @@ pub type Result<T> = CoreResult<T, DomainError>;
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
+// NOT cancel-safe: it only sends one `show` read, but it may sign in first, and a sign-in dropped
+// mid-way can leave an orphaned router session.
 pub(crate) async fn read_show<T>(client: &RciClient, segments: &[&str]) -> Result<T>
 where
     T: DeserializeOwned,

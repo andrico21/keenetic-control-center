@@ -130,7 +130,8 @@ impl<'call> Viewer<'call> {
     /// # Errors
     ///
     /// Returns the message to show when the router did not answer.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     async fn panel(&self, domain: &RouterCtx) -> Result<StatusPanel, MessageKey> {
         let found = keendns::read_status(domain).await.map_err(|error| {
             tracing::warn!(%error, "KeenDNS could not be read");
@@ -156,7 +157,8 @@ impl<'call> Viewer<'call> {
     }
 
     /// The name panel read again through `domain` after a change, out of band.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn refreshed(&self, domain: &RouterCtx) -> Option<Rendered> {
         let panel = self.panel(domain).await.ok()?;
         rendered(&StatusPanel { oob: true, ..panel })
@@ -164,6 +166,8 @@ impl<'call> Viewer<'call> {
 }
 
 /// `GET /ui/r/{router}/system/keendns`: the name, remote access and proxy entries.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,

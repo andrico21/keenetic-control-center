@@ -168,6 +168,8 @@ struct AccountPage {
 localized!(AccountPage);
 
 /// `GET /ui/login`: renders login or the closed first-run instruction.
+// cancel-safe: it reads the account store and the session table; a session change happens whole
+// under one lock.
 pub(crate) async fn login_page(
     State(state): State<WebState>,
     client: Option<Extension<ClientIp>>,
@@ -215,6 +217,9 @@ pub(crate) async fn login_page(
 }
 
 /// `POST /ui/login`: verifies credentials off the async runtime and rotates the id.
+// NOT cancel-safe: the signed-in session is created and the sign-in audited before the answer;
+// dropped mid-way, a session may exist with no cookie sent, or the audit entry be written after the
+// drop.
 pub(crate) async fn login(
     State(state): State<WebState>,
     client: Option<Extension<ClientIp>>,
@@ -306,6 +311,8 @@ pub(crate) async fn login(
 }
 
 /// `POST /ui/logout`: invalidates server-side state before deleting the cookie.
+// NOT cancel-safe: the session is removed before the logout's audit entry is queued; dropped
+// between them, the logout is unaudited.
 pub(crate) async fn logout(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -331,6 +338,7 @@ pub(crate) async fn logout(
 }
 
 /// `GET /ui/account`: renders current locale and password form.
+// cancel-safe: it only reads local state to render the page.
 pub(crate) async fn account_page(
     State(state): State<WebState>,
     Query(query): Query<AccountQuery>,
@@ -342,6 +350,8 @@ pub(crate) async fn account_page(
 }
 
 /// `POST /ui/account/password`: verifies current password and ends other sessions.
+// NOT cancel-safe: the password is changed on a blocking thread that finishes even if the future is
+// dropped, leaving the session not rotated and the change unaudited.
 pub(crate) async fn change_password(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -406,6 +416,8 @@ pub(crate) async fn change_password(
 
 /// `POST /ui/account/locale`: persists a supported locale for the signed-in account and
 /// gives it to the account's live sessions, so the next page renders in it.
+// NOT cancel-safe: the locale is saved on a blocking thread that finishes even if the future is
+// dropped, leaving the live sessions on the old locale.
 pub(crate) async fn change_locale(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -436,6 +448,7 @@ pub(crate) async fn change_locale(
 
 /// Renders the uniform login failure, in the page's language, and audits only stable
 /// metadata. It answers 422, the status the page script swaps in for a refused form.
+// NOT cancel-safe: the failure's audit entry may be written after the future is dropped.
 async fn login_failure(
     state: &WebState,
     headers: &HeaderMap,
@@ -493,6 +506,7 @@ async fn login_failure(
 /// # Errors
 ///
 /// Returns account-storage or blocking-task failures.
+// cancel-safe: the account store read runs on a blocking thread; abandoned, it changes nothing.
 async fn has_admin(state: &WebState) -> Result<bool, Box<dyn Error + Send + Sync>> {
     let accounts = Arc::clone(state.accounts());
     spawn_blocking(move || accounts.has_admin())
@@ -506,6 +520,7 @@ async fn has_admin(state: &WebState) -> Result<bool, Box<dyn Error + Send + Sync
 /// # Errors
 ///
 /// Returns account-storage or blocking-task failures.
+// cancel-safe: the account store read runs on a blocking thread; abandoned, it changes nothing.
 async fn password_change_required(
     state: &WebState,
     username: &str,

@@ -408,8 +408,9 @@ impl Manager {
     /// # Errors
     ///
     /// Returns authentication or transport failures.
-    // cancel-safe: GET has no router-side mutation, and a cancelled re-authentication is recovered
-    // by the next request.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, GET has no router-side mutation, and a cancelled
+    // re-authentication is recovered by the next request.
     #[inline]
     pub async fn get(&self, path: &str) -> Result<Response, RciError> {
         self.request::<()>(Method::GET, path, None, RequestKind::Idempotent)

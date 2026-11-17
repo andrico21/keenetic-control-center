@@ -166,6 +166,7 @@ struct RoleDialog {
 localized!(RoleDialog);
 
 /// `GET /ui/admin/roles`.
+// cancel-safe: it only reads the role store on a blocking thread.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Query(query): Query<ListQuery>,
@@ -190,6 +191,7 @@ pub(crate) async fn page(
 }
 
 /// `GET /ui/admin/roles/new`: the create dialog.
+// cancel-safe: it has no await point.
 pub(crate) async fn new_dialog(user: CurrentUser) -> Response {
     let scope = if user
         .role()
@@ -204,6 +206,8 @@ pub(crate) async fn new_dialog(user: CurrentUser) -> Response {
 }
 
 /// `POST /ui/admin/roles`: adds a custom role.
+// NOT cancel-safe: the role file is written on a blocking thread that finishes even if the future
+// is dropped, leaving the role set not reloaded and the change unaudited.
 pub(crate) async fn create(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -244,6 +248,8 @@ pub(crate) async fn create(
 }
 
 /// `GET /ui/admin/roles/edit?name=`: the edit dialog.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 pub(crate) async fn edit_dialog(
     State(state): State<WebState>,
     Query(query): Query<NameQuery>,
@@ -262,6 +268,9 @@ pub(crate) async fn edit_dialog(
 }
 
 /// `POST /ui/admin/roles/edit`: replaces a custom role's permissions and scope.
+// NOT cancel-safe: the role file is written on a blocking thread that finishes even if the future
+// is dropped, leaving the role's sessions alive, the role set not reloaded and the change
+// unaudited.
 pub(crate) async fn update(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -302,6 +311,8 @@ pub(crate) async fn update(
 }
 
 /// `GET /ui/admin/roles/delete?name=`: the typed-name confirmation.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 pub(crate) async fn delete_dialog(
     State(state): State<WebState>,
     Query(query): Query<NameQuery>,
@@ -314,6 +325,9 @@ pub(crate) async fn delete_dialog(
 }
 
 /// `POST /ui/admin/roles/delete`: removes an unused custom role once its name is typed.
+// NOT cancel-safe: the role file is written on a blocking thread that finishes even if the future
+// is dropped, leaving the role's sessions alive, the role set not reloaded and the deletion
+// unaudited.
 pub(crate) async fn delete(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -361,6 +375,8 @@ pub(crate) async fn delete(
 /// # Errors
 ///
 /// The 404 or the audited 403 response.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 async fn editable(
     state: &WebState,
     user: &CurrentUser,
@@ -384,6 +400,8 @@ async fn editable(
 ///
 /// The dialog with its field errors (`422`), or the audited 403 response when the role
 /// would grant more than `user` holds.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 async fn validate(
     state: &WebState,
     user: &CurrentUser,
@@ -477,6 +495,8 @@ enum Persisted {
 ///
 /// The 503 response without administration services, or the localized 500 page for a
 /// storage or blocking-task failure.
+// NOT cancel-safe: the role file update runs on a blocking thread and completes even if the future
+// is dropped.
 async fn persist(
     state: &WebState,
     user: &CurrentUser,
@@ -553,6 +573,7 @@ fn apply(
 /// # Errors
 ///
 /// Storage or blocking-task failures.
+// cancel-safe: it only reads role holders on a blocking thread.
 async fn region(
     state: &WebState,
     user: &CurrentUser,
@@ -597,6 +618,7 @@ async fn region(
 }
 
 /// Answers a completed change from the dialog with the refreshed table and `toasts`.
+// cancel-safe: it only reads the role store to render the region.
 async fn finish(
     state: &WebState,
     user: &CurrentUser,

@@ -704,8 +704,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns profile, credential, policy, or transport errors.
-    // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
-    // sends no mutation; the slot stays empty and the next caller builds the client.
+    // cancel-safe: dropped, it abandons DNS resolution or a credential read whose results are
+    // discarded; nothing is sent, the slot stays empty and the next caller builds the client.
     #[inline]
     pub async fn client(&self, id: &str) -> Result<Arc<RciClient>, RegistryError> {
         drop(self.get(id)?);
@@ -731,8 +731,8 @@ impl RouterRegistry {
     ///
     /// Returns profile, credential, policy, or transport errors; after [`Self::shutdown`] a
     /// read-only profile answers [`RciError::Cancelled`].
-    // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
-    // sends no mutation; the slot stays empty and the next caller builds the client.
+    // cancel-safe: dropped, it abandons DNS resolution or a credential read whose results are
+    // discarded; nothing is sent, the slot stays empty and the next caller builds the client.
     #[inline]
     pub async fn poll_client(&self, id: &str) -> Result<Arc<RciClient>, RegistryError> {
         let profile = self.get(id)?.profile;
@@ -769,7 +769,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns profile, credential, authentication, detection, or policy errors.
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     #[inline]
     pub async fn test_connection(
         &self,
@@ -789,7 +790,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns profile, authentication, detection, or policy errors.
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     #[inline]
     pub async fn test_connection_with(
         &self,
@@ -860,7 +862,8 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns profile, credential, authentication, detection, or policy errors.
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     #[inline]
     pub async fn poll_info(&self, id: &str) -> Result<RouterInfo, RegistryError> {
         self.poll_client(id)
@@ -876,7 +879,8 @@ impl RouterRegistry {
     /// # Errors
     /// [`RegistryError`] for a profile that cannot be turned into a client, or a refused,
     /// failed or rejected router session.
-    // cancel-safe: every router operation is a read.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, every router operation is a read.
     async fn detect_with(
         &self,
         profile: &ManagedRouterProfile,
@@ -902,8 +906,9 @@ impl RouterRegistry {
     /// # Errors
     /// [`RegistryError`] for a bad TLS pin or URL, a credential that cannot be read, or a
     /// failed connection.
-    // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
-    // sends no mutation.
+    // cancel-safe: dropped, it abandons DNS resolution or a credential read whose results are
+    // discarded; nothing is sent, and the only stored state is the router's shared request
+    // budget, which is created whole.
     async fn connect_client(
         &self,
         profile: &ManagedRouterProfile,

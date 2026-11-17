@@ -121,7 +121,8 @@ impl Region {
     /// # Errors
     ///
     /// Returns the read's failure.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read(
         domain: &RouterCtx,
         router: &str,
@@ -143,7 +144,8 @@ impl Region {
 
     /// The list read back after a change made by a role that may change segments, rendered
     /// for an out-of-band swap; a failed read leaves the page's list as it is.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn read_back(
         domain: &RouterCtx,
         router: &str,

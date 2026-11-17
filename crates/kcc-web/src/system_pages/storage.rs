@@ -162,7 +162,8 @@ impl Device {
 /// # Errors
 ///
 /// Returns the message to show when the router did not answer with its media.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn read(
     domain: &RouterCtx,
     locale: Locale,
@@ -206,6 +207,8 @@ async fn read(
 
 /// `GET /ui/r/{router}/system/storage`: the media, the USB devices and the maintenance
 /// actions the role may run.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,

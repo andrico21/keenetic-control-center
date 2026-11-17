@@ -155,6 +155,7 @@ impl CreatedDialog {
 localized!(CreatedDialog);
 
 /// `GET /ui/admin/api-keys`.
+// cancel-safe: it only reads the key store on a blocking thread.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Query(query): Query<ListQuery>,
@@ -179,11 +180,14 @@ pub(crate) async fn page(
 }
 
 /// `GET /ui/admin/api-keys/new`: the create dialog.
+// cancel-safe: it has no await point.
 pub(crate) async fn new_dialog(State(state): State<WebState>, user: CurrentUser) -> Response {
     errors::render(&new_key_dialog(&state, &user, String::new(), "viewer"))
 }
 
 /// `POST /ui/admin/api-keys`: creates a key and shows its plaintext once.
+// NOT cancel-safe: the key is written on a blocking thread that finishes even if the future is
+// dropped, leaving it not reloaded into the MCP server and unaudited.
 pub(crate) async fn create(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -254,6 +258,8 @@ pub(crate) async fn create(
 }
 
 /// `GET /ui/admin/api-keys/revoke?name=`: the typed-name confirmation.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 pub(crate) async fn revoke_dialog(
     State(state): State<WebState>,
     Query(query): Query<NameQuery>,
@@ -267,6 +273,8 @@ pub(crate) async fn revoke_dialog(
 
 /// `POST /ui/admin/api-keys/revoke`: deletes a key once its name is typed; MCP requests
 /// with it fail from then on.
+// NOT cancel-safe: the removal is written on a blocking thread that finishes even if the future is
+// dropped, leaving the keys not reloaded and the revocation unaudited.
 pub(crate) async fn revoke(
     State(state): State<WebState>,
     headers: HeaderMap,
@@ -321,6 +329,8 @@ pub(crate) async fn revoke(
 /// # Errors
 ///
 /// The 404, the audited 403 or the 500 response.
+// NOT cancel-safe: a refusal queues an audit entry that may be written after the future is dropped;
+// otherwise it only reads.
 async fn revocable(state: &WebState, user: &CurrentUser, name: &str) -> Result<(), Box<Response>> {
     let keys = match stored(state).await {
         Ok(keys) => keys,
@@ -344,6 +354,7 @@ async fn revocable(state: &WebState, user: &CurrentUser, name: &str) -> Result<(
 /// # Errors
 ///
 /// Missing administration services, state or blocking-task failures.
+// cancel-safe: the store read runs on a blocking thread; abandoned, it changes nothing.
 async fn stored(state: &WebState) -> Result<ApiKeysDocument, Box<dyn Error + Send + Sync>> {
     let store: StateStore = state
         .admin()
@@ -359,6 +370,7 @@ async fn stored(state: &WebState) -> Result<ApiKeysDocument, Box<dyn Error + Sen
 /// # Errors
 ///
 /// State or blocking-task failures.
+// cancel-safe: it only reads the key store on a blocking thread.
 async fn region(
     state: &WebState,
     user: &CurrentUser,

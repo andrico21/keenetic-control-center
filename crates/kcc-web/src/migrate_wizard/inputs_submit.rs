@@ -51,6 +51,8 @@ use crate::{
     clippy::significant_drop_tightening,
     reason = "each answer is built from the record, which lives in the visit holding the turn"
 )]
+// NOT cancel-safe: the sealed passwords and the run record may be written, and its audit entry
+// queued, after the future is dropped.
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,

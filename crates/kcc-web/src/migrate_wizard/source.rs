@@ -45,6 +45,8 @@ use crate::{
 /// # Errors
 ///
 /// Answers the refusal of the migration, and the panel with its field error (422).
+// NOT cancel-safe: the sealed source and the run record may be written, the stored passwords
+// deleted, and the audit entry queued, after the future is dropped.
 pub(super) async fn submit(
     State(state): State<WebState>,
     Path(id): Path<String>,

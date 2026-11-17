@@ -183,7 +183,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// ([`crate::DomainError::Validation`]), or when the interface topology needed to classify
 /// the plan cannot be read or does not decode ([`crate::DomainError::Rci`],
 /// [`crate::DomainError::InvalidResponse`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
     ownership::validate(segment)?;
@@ -209,7 +210,8 @@ pub async fn plan_create(router: &RouterCtx, segment: &SegmentSpec) -> Result<Ch
 /// ([`crate::DomainError::Validation`]), or when the interface topology needed to classify
 /// the plan cannot be read or does not decode ([`crate::DomainError::Rci`],
 /// [`crate::DomainError::InvalidResponse`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<ChangeOp> {
     ownership::validate(segment)?;
@@ -305,7 +307,8 @@ pub async fn create(
     clippy::module_name_repetitions,
     reason = "read_segments is the requested public domain API"
 )]
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_segments(router: &RouterCtx) -> Result<Vec<SegmentView>> {
     discovery::read(router).await

@@ -16,7 +16,8 @@ use crate::{management, source::SourceConfig};
 ///
 /// # Errors
 /// Returns read-back, missing-line, or health-check failures.
-// cancel-safe: verification only reads router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, verification only reads router state.
 pub(super) async fn run(applier: &mut Applier) -> Result<(), ApplyError> {
     let client = applier.changes.client();
     let bytes = client
@@ -93,6 +94,8 @@ pub(super) async fn run(applier: &mut Applier) -> Result<(), ApplyError> {
 ///
 /// # Errors
 /// Returns verification failure when the target does not report a generated public key.
+// NOT cancel-safe: it only reads `show interface`; the keys are recorded without another await, but
+// it may sign in first, and a sign-in dropped mid-way can leave an orphaned router session.
 async fn collect_wireguard_public_keys(
     applier: &mut Applier,
     client: &RciClient,
@@ -141,7 +144,8 @@ async fn collect_wireguard_public_keys(
 /// # Errors
 /// Returns [`ApplyError::Verification`] when the interface list cannot be read or the
 /// management interface's link is not up.
-// cancel-safe: health checks only read router state.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, health checks only read router state.
 async fn health(applier: &mut Applier, client: &RciClient) -> Result<(), ApplyError> {
     let path = RciPath::from_segments(["show", "internet", "status"])
         .map_err(|_error| ApplyError::Validation)?;

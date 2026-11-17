@@ -61,7 +61,8 @@ localized!(Panel);
 
 impl Panel {
     /// The inputs of `visit`, with `errors` beside the users' fields.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>, errors: &[(String, String)]) -> Self {
         let locale = visit.services().user().locale();
         let mut panel = Self {

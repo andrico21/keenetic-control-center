@@ -179,6 +179,9 @@ pub(super) fn steps(segment: &SegmentSpec) -> Vec<Step> {
 /// # Errors
 ///
 /// Returns an error when a router request fails or its reply does not decode.
+// NOT cancel-safe: it only reads the running configuration; the step flags are set without another
+// await, but it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session.
 pub(super) async fn record_baseline(
     router: &RouterCtx,
     definitions: &mut [Step],
@@ -230,6 +233,8 @@ pub(super) fn plan(
 /// read-back or audit (a [`WorkflowError`]), when a router request fails or its reply does
 /// not decode, or when the read-back does not show the change
 /// ([`WorkflowError::VerificationFailed`]).
+// NOT cancel-safe: dropped after `apply_cli` sends the step, the router keeps the change and its
+// read-back never runs.
 pub(super) async fn apply(
     changes: &mut ChangeSet,
     router: &RouterCtx,
@@ -285,7 +290,8 @@ pub(super) async fn apply(
 ///
 /// Returns an error when a router request fails or its reply does not decode, or when the
 /// running configuration does not decode ([`WorkflowError::UndecodableConfig`]).
-// cancel-safe: only downloads running configuration.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only downloads running configuration.
 pub(super) async fn running_config(router: &RouterCtx) -> CoreResult<Ast, WorkflowError> {
     let bytes = router.client.download_config(ConfigKind::Running).await?;
     let text =

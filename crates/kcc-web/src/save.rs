@@ -48,6 +48,7 @@ localized!(SaveResult);
 
 /// `POST /ui/r/{router}/save`: saves the running configuration through the change
 /// workflow and answers with a toast.
+// NOT cancel-safe: the save command may persist the configuration before the future is dropped.
 pub(crate) async fn save(
     State(state): State<WebState>,
     Path(router): Path<String>,

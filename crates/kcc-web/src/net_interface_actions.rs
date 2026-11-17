@@ -43,6 +43,8 @@ const DOWN: Operation = Operation::write(&interfaces::DESCRIPTOR, "down", "web.i
 ///
 /// Answers 404 for a missing interface name or state, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn state(
     State(state): State<WebState>,
     Path(router): Path<String>,

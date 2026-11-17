@@ -114,7 +114,7 @@ impl Drop for Abandon {
 }
 
 /// Runs the request as a task the server owns.
-// NOT cancel-safe by design: dropped before the request holds a bracket, the task is
+// NOT cancel-safe: by design, dropped before the request holds a bracket, the task is
 // aborted as the request would have been; dropped after, the task runs to its end.
 pub(crate) async fn own(request: Request, next: Next) -> Response {
     let claim = Arc::new(Claim {

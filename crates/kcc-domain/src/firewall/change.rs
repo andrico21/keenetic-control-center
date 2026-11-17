@@ -57,7 +57,9 @@ pub struct Plan {
 impl Plan {
     /// Resolves runtime management risk once before the surface authorizes execution.
     /// Unclassified plans remain management risk rather than bypassing recovery.
-    // cancel-safe: only configuration and topology reads precede returning the plan.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, only configuration and topology reads precede returning the
+    // plan.
     #[inline]
     pub async fn classify(mut self, router: &RouterCtx) -> Self {
         self.operation.risk = match &self.verification {

@@ -52,7 +52,8 @@ fn dialog(router: &str, name: &ObjectName, locale: Locale) -> SecretDialog {
 
 /// Whether the connection `name` carries kcc's own connection, so setting its password is
 /// a management change; a failed check counts as carrying it.
-// cancel-safe: only read requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only read requests.
 async fn carries_management(domain: &RouterCtx, name: &ObjectName) -> bool {
     interfaces::detect_management(domain, name)
         .await
@@ -67,6 +68,8 @@ async fn carries_management(domain: &RouterCtx, name: &ObjectName) -> bool {
 ///
 /// Answers 404 for a missing name, and what the kit answers when the router or the
 /// permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn password_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -90,6 +93,8 @@ pub(crate) async fn password_dialog(
 ///
 /// Answers 404 for a missing name or a connection that is not PPP, the dialog with its
 /// error (422), and what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn password(
     State(state): State<WebState>,
     Path(router): Path<String>,

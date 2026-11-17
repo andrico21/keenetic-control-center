@@ -31,7 +31,8 @@ use crate::{
 /// # Errors
 ///
 /// Returns the read failure: a medium kcc could not see is not taken as absent.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn known(domain: &RouterCtx, id: &str) -> DomainResult<bool> {
     let media = storage::read_media(domain).await?;
     Ok(media.iter().any(|volume| volume.id.as_deref() == Some(id)))
@@ -77,6 +78,8 @@ where
 ///
 /// Answers 404 for an unknown medium, the failure when the media cannot be read, and what
 /// the kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after the change is sent, the router may keep it without its read-back,
+// audit entry or timer cleanup.
 pub(crate) async fn eject(
     State(state): State<WebState>,
     Path(router): Path<String>,

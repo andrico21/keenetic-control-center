@@ -172,6 +172,7 @@ where
 {
     /// Waits for the run's turn; requests on one run are served one at a time, and
     /// each reads the record only once it holds the turn.
+    // cancel-safe: it only waits for the turn lock.
     pub(crate) async fn turn(&self) -> OwnedMutexGuard<()> {
         Arc::clone(&self.turn).lock_owned().await
     }

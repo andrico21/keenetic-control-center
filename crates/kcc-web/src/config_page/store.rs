@@ -64,6 +64,7 @@ impl StoreError {
 /// # Errors
 ///
 /// Returns the store error of `work`, or `Failed` when the task did not finish.
+// NOT cancel-safe: dropped, `work` still runs to its end on the blocking pool.
 async fn blocking<T, F>(work: F) -> Result<T, StoreError>
 where
     F: FnOnce() -> Result<T, StoreError> + Send + 'static,
@@ -207,7 +208,8 @@ impl Act {
     ///
     /// The answer instead: 404 or 503 when the router is not visible or no backups are
     /// attached, the audited 403 when the role lacks a permission.
-    // cancel-safe: reads and one audit append.
+    // NOT cancel-safe: a refusal queues an audit entry that may be written after the future is
+    // dropped; otherwise it only reads.
     pub(crate) async fn open<'call>(
         self,
         state: &'call WebState,

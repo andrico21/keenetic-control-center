@@ -21,7 +21,8 @@ impl Baseline {
     ///
     /// # Errors
     /// [`WorkflowError`] when the running configuration cannot be read or decoded.
-    // cancel-safe: only reads router state.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, only reads router state.
     pub(super) async fn capture(
         client: &RciClient,
         specs: &[VerificationSpec],

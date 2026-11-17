@@ -157,8 +157,9 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`DomainError::Rci`], [`DomainError::InvalidResponse`]), or when a reply or a plan
 /// does not have the expected shape ([`DomainError::InvalidResponse`]).
-// cancel-safe: only reads the log; a dropped continuation poll leaves
-// just a read-only request behind.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only reads the log; a dropped continuation poll leaves just a read-only
+// request behind.
 #[inline]
 pub async fn read_log(client: &RciClient, max_lines: u32) -> Result<String> {
     let path =

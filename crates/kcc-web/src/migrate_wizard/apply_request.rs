@@ -60,7 +60,8 @@ impl Prepared {
     /// # Errors
     ///
     /// Returns why the apply cannot start.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(super) async fn new(visit: &Visit<'_>, state: &WebState) -> Result<Self, Refused> {
         let services = visit.services();
         let fleet = services.fleet();

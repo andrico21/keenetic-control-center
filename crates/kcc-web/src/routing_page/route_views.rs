@@ -66,6 +66,8 @@ struct TableRegion {
 localized!(TableRegion);
 
 /// `GET /ui/r/{router}/routing`: the IPv4 static routes.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn routes_v4(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -79,6 +81,8 @@ pub(crate) async fn routes_v4(
 }
 
 /// `GET /ui/r/{router}/routing/ipv6`: the IPv6 static routes.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn routes_v6(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -92,6 +96,8 @@ pub(crate) async fn routes_v6(
 }
 
 /// `GET /ui/r/{router}/routing/table`: the IPv4 routing table.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn table_v4(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -105,6 +111,8 @@ pub(crate) async fn table_v4(
 }
 
 /// `GET /ui/r/{router}/routing/table/ipv6`: the IPv6 routing table.
+// NOT cancel-safe: it only reads router state to render the region, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn table_v6(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -118,7 +126,8 @@ pub(crate) async fn table_v6(
 }
 
 /// The static routes page of `family`.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn statics(
     state: &WebState,
     visit: Visit<'_>,
@@ -152,7 +161,8 @@ async fn statics(
 }
 
 /// The routing table page of `family`.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 async fn table(
     state: &WebState,
     visit: Visit<'_>,
@@ -189,7 +199,8 @@ async fn table(
 /// # Errors
 ///
 /// Returns why the routes could not be read.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn static_region(
     domain: &RouterCtx,
     (router, family): (&str, Family),
@@ -214,7 +225,8 @@ pub(crate) async fn static_region(
 /// # Errors
 ///
 /// Returns why the router did not answer.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn read_table(
     domain: &RouterCtx,
     family: Family,

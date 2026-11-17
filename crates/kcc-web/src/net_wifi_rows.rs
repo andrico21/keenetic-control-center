@@ -199,7 +199,8 @@ impl ApRow {
 /// # Errors
 ///
 /// Returns the router's error.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn radios(domain: &RouterCtx) -> Result<Vec<RadioRow>, DomainError> {
     Ok(wifi::read_radios(domain)
         .await?
@@ -213,7 +214,8 @@ pub(crate) async fn radios(domain: &RouterCtx) -> Result<Vec<RadioRow>, DomainEr
 /// # Errors
 ///
 /// Returns the router's error.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn access_points(domain: &RouterCtx) -> Result<Vec<ApRow>, DomainError> {
     let found = wifi::read_access_points(domain).await?;
     let segments = segments(domain).await;
@@ -228,7 +230,8 @@ pub(crate) async fn access_points(domain: &RouterCtx) -> Result<Vec<ApRow>, Doma
 
 /// Which bridge includes each interface, from the running configuration; empty when the
 /// router does not report it.
-// cancel-safe: a read.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a read.
 async fn segments(domain: &RouterCtx) -> BTreeMap<String, String> {
     let Ok(response) = domain.client.show_rc(json!({"interface": {}})).await else {
         return BTreeMap::new();

@@ -186,6 +186,8 @@ impl Checked {
     /// # Errors
     ///
     /// Returns the catalog's findings.
+    // NOT cancel-safe: it only plans, using read-only topology requests, but it may sign in first,
+    // and a sign-in dropped mid-way can leave an orphaned router session.
     async fn plan(self, domain: &RouterCtx, name: &ObjectName) -> Result<ChangeOp, DomainError> {
         match self {
             Self::Identity(identity) => wan::plan_identity(domain, name, &identity).await,
@@ -211,6 +213,8 @@ fn vias(found: &[Link], name: &ObjectName) -> Vec<String> {
 ///
 /// Answers 404 for a setting the page does not edit or a missing connection name, and
 /// what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn field_dialog(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -247,6 +251,8 @@ pub(crate) async fn field_dialog(
 /// Answers the dialog with its field error (422) when the value is invalid, 404 for a
 /// setting the page does not edit or a missing connection name, and what the kit answers
 /// when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn field(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,

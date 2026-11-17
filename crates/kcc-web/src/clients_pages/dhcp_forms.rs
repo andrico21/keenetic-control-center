@@ -210,6 +210,8 @@ fn pool_form(locale: Locale, router: &str, form: &PoolForm) -> FormDialog {
 ///
 /// Answers 404 for a pool the router does not have, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn pool_dialog(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -249,6 +251,8 @@ pub(crate) async fn pool_dialog(
 ///
 /// Answers the dialog with its field errors (422), and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: dropped after `submit_reading` sends the change, the router may keep it without
+// its read-back, audit entry or timer cleanup.
 pub(crate) async fn save_pool(
     State(state): State<WebState>,
     Path(router): Path<String>,

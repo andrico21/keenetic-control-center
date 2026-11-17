@@ -145,7 +145,8 @@ impl Row for Policy {
 /// # Errors
 ///
 /// Returns why the router did not answer.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn read_policies(domain: &RouterCtx) -> Result<Vec<Policy>, MessageKey> {
     let unreachable = |error: &dyn Display| {
         tracing::warn!(%error, "routing page: policies unavailable");
@@ -184,7 +185,8 @@ pub(crate) async fn read_policies(domain: &RouterCtx) -> Result<Vec<Policy>, Mes
 /// # Errors
 ///
 /// Returns the router error, or the domain's invalid-response error for another shape.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn configured(
     domain: &RouterCtx,
 ) -> Result<Vec<(String, Vec<Vec<String>>)>, DomainError> {

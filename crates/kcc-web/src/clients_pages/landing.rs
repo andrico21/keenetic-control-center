@@ -57,6 +57,7 @@ impl Page {
 }
 
 /// `GET /ui/clients`: the routers and their local network pages.
+// cancel-safe: it only reads the router list.
 pub(crate) async fn page(
     State(state): State<WebState>,
     headers: HeaderMap,

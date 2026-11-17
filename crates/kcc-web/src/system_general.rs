@@ -91,6 +91,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/system/general`: the settings and the controls the role may use.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -135,6 +137,8 @@ pub(crate) async fn page(
 ///
 /// Answers 404 for a setting the page does not edit, and what the kit answers when the
 /// router or the permission is missing.
+// NOT cancel-safe: a refused or failed open queues an audit entry that may be written after the
+// future is dropped; otherwise it only reads.
 pub(crate) async fn edit_dialog(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -157,6 +161,8 @@ pub(crate) async fn edit_dialog(
 ///
 /// Answers the dialog with its field error (422) when the value is invalid, and what the
 /// kit answers when the router or the permission is missing.
+// NOT cancel-safe: dropped after `submit` sends the change, the router may keep it without its
+// read-back, audit entry or timer cleanup.
 pub(crate) async fn edit(
     State(state): State<WebState>,
     Path((router, slug)): Path<(String, String)>,
@@ -207,6 +213,7 @@ pub(crate) async fn edit(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: the reboot may be sent before the future is dropped, leaving it unaudited.
 pub(crate) async fn reboot(
     State(state): State<WebState>,
     Path(router): Path<String>,

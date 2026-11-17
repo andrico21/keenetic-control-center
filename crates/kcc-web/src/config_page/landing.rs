@@ -49,6 +49,7 @@ impl Page {
 }
 
 /// `GET /ui/configuration`: the routers and their configuration pages.
+// cancel-safe: it only reads the router list.
 pub(crate) async fn page(
     State(state): State<WebState>,
     headers: HeaderMap,

@@ -127,6 +127,7 @@ pub(crate) fn followed(
 
 /// `GET /ui/sse/r/{router}/system/jobs/{job}`: every line the job reported, its status
 /// changes, then `done`.
+// cancel-safe: it only checks access and returns the job's event stream.
 pub(crate) async fn stream(
     State(state): State<WebState>,
     Path((router, job)): Path<(String, String)>,
@@ -213,6 +214,8 @@ fn line(detail: &JobProgress, locale: Locale) -> Option<String> {
 }
 
 /// `POST /ui/r/{router}/system/jobs/{job}/cancel`: stops a running diagnostic.
+// NOT cancel-safe: the job may be cancelled, and its audit entry queued, before the future is
+// dropped.
 pub(crate) async fn cancel(
     State(state): State<WebState>,
     Path((router, job)): Path<(String, String)>,

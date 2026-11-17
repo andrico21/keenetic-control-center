@@ -197,6 +197,7 @@ where
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
+// cancel-safe: it only builds or reuses the router client; nothing is sent.
 async fn client(server: &KccMcp, host: &RouterId) -> Result<Arc<RciClient>, McpFailure> {
     server
         .registry
@@ -213,7 +214,9 @@ async fn client(server: &KccMcp, host: &RouterId) -> Result<Arc<RciClient>, McpF
 /// # Errors
 ///
 /// Returns an `McpFailure` naming the refusal or failure to report to the client.
-// cancel-safe: only validated reads reach the client, including show-only fallback POSTs.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only validated reads reach the client, including show-only fallback
+// POSTs.
 pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
     validate_fields(input.fields.as_deref())?;

@@ -85,6 +85,8 @@ struct Page {
 localized!(Page);
 
 /// `GET /ui/r/{router}/system/diagnostics`: the diagnostic form.
+// NOT cancel-safe: it only reads router state to render the page, but it may sign in first, and a
+// sign-in dropped mid-way can leave an orphaned router session.
 pub(crate) async fn page(
     State(state): State<WebState>,
     Path(router): Path<String>,
@@ -115,6 +117,8 @@ pub(crate) async fn page(
 /// # Errors
 ///
 /// Answers what the kit answers when the router or the permission is missing.
+// NOT cancel-safe: the diagnostic job may be started, and its audit entry queued, before the future
+// is dropped.
 pub(crate) async fn start(
     State(state): State<WebState>,
     Path(router): Path<String>,

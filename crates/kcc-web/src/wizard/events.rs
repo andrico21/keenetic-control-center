@@ -106,7 +106,8 @@ impl Feed {
 }
 
 /// `GET {PREFIX}/{id}/events`: the apply's progress.
-// cancel-safe: reads only; the returned stream owns its state.
+// NOT cancel-safe: a refused open queues an audit entry that may be written after the future
+// is dropped; otherwise it only reads, and the returned stream owns its state.
 pub(crate) async fn events<F>(
     State(state): State<WebState>,
     Path(id): Path<String>,

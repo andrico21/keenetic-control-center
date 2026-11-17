@@ -233,7 +233,8 @@ impl Setting {
     /// # Errors
     ///
     /// Returns the router's error when its schedules cannot be read.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn choices(self, domain: &RouterCtx) -> Result<Vec<String>, DomainError> {
         Ok(match self {
             Self::Schedule => schedules::read_schedules(domain)
@@ -256,7 +257,8 @@ impl Setting {
     /// # Errors
     ///
     /// Returns the router's error when its radios or access points cannot be read.
-    // cancel-safe: reads only.
+    // NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned
+    // router session. Apart from that, reads only.
     pub(crate) async fn current(
         self,
         domain: &RouterCtx,
@@ -311,6 +313,8 @@ impl Checked {
     /// # Errors
     ///
     /// Returns the catalog's findings.
+    // NOT cancel-safe: it only plans, using read-only topology requests, but it may sign in first,
+    // and a sign-in dropped mid-way can leave an orphaned router session.
     pub(crate) async fn plan(
         self,
         domain: &RouterCtx,

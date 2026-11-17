@@ -119,7 +119,8 @@ pub(super) fn check_baseline(spec: &SegmentSpec, tree: &Ast) -> Result<()> {
 /// Returns [`DomainError::InvalidResponse`] when the running configuration cannot be read
 /// (a failed router request is reported this way, not as [`DomainError::Rci`]) or holds
 /// children in the segment's contexts that it does not own.
-// cancel-safe: only downloads running configuration.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, only downloads running configuration.
 pub(super) async fn check_delete(router: &RouterCtx, view: &SegmentView) -> Result<()> {
     let tree = step::running_config(router)
         .await

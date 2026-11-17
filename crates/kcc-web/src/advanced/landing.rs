@@ -60,6 +60,7 @@ impl Page {
 }
 
 /// `GET /ui/advanced`: the routers and their explorer and console links.
+// cancel-safe: it only reads the router list.
 pub(crate) async fn page(
     State(state): State<WebState>,
     headers: HeaderMap,

@@ -24,7 +24,8 @@ use crate::{
 /// # Errors
 ///
 /// Returns the router's error.
-// cancel-safe: reads only.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, reads only.
 pub(crate) async fn links(domain: &RouterCtx) -> Result<Vec<Link>, DomainError> {
     let mut found: Vec<Link> = wan::read_connections(domain)
         .await?

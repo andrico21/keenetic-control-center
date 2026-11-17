@@ -326,7 +326,8 @@ pub const DESCRIPTOR: DomainDescriptor = DomainDescriptor {
 ///
 /// Returns an error when a router request fails or its reply does not decode
 /// ([`crate::DomainError::Rci`], [`crate::DomainError::InvalidResponse`]).
-// cancel-safe: a single read request; cancellation changes nothing on the router.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, a single read request; cancellation changes nothing on the router.
 #[inline]
 pub async fn read_clients(router: &RouterCtx) -> Result<Vec<VpnClientStatus>> {
     let value: Value = read_show(&router.client, &["show", "interface"]).await?;
@@ -357,7 +358,8 @@ pub fn parse_wireguard_config(text: &str) -> CoreResult<WireGuardConfig, WireGua
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`crate::DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
     change::plan(router, change).await
@@ -369,7 +371,8 @@ pub async fn plan_change(router: &RouterCtx, change: &VpnClientChange) -> Result
 ///
 /// Returns an error when the catalog refuses a planned request
 /// ([`crate::DomainError::Validation`]).
-// cancel-safe: management classification performs read-only topology requests.
+// NOT cancel-safe: it may sign in first, and a sign-in dropped mid-way can leave an orphaned router
+// session. Apart from that, management classification performs read-only topology requests.
 #[inline]
 pub async fn plan_wireguard_import(
     router: &RouterCtx,
