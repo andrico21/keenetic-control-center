@@ -2,18 +2,19 @@
 
 extern crate alloc;
 
-use alloc::{collections::BTreeSet, sync::Arc};
+use alloc::sync::Arc;
 use std::path::{Path, PathBuf};
 
 use kcc_app::{
     accounts::{AccountStore, Clock as _, SystemClock},
-    audit::{Attempt, AuditEvent, AuditLog, AuditPolicy, request_id},
-    backups::{BackupRetention, BackupStore},
+    audit::{Attempt, AuditEvent, AuditLog, request_id},
+    backups::BackupStore,
+    composition::{Core, CoreSetup},
     credentials::CredentialStore,
     permissions::{Permission, Role, load_roles},
     persist::StateStore,
     registry::RouterRegistry,
-    secrets::{MasterKey, master_key_path},
+    secrets::MasterKey,
     settings::{Config, default_config_dir},
     workflow::ChangeWorkflow,
 };
@@ -21,6 +22,7 @@ use kcc_catalog::Catalog;
 use kcc_domain::{
     RouterCtx,
     configuration::{SafetyNet, apply_needs::ApplyNeeds},
+    labels,
 };
 use kcc_i18n::{bundle::tr, keys};
 use kcc_rci::capabilities::RouterInfo;
@@ -33,7 +35,6 @@ use super::{
     output::Out,
     principal::Principal,
 };
-use crate::server_migrations::append_credential_events;
 
 /// Global options shared by every command.
 #[derive(Debug, Clone)]
@@ -86,16 +87,8 @@ impl Globals {
 /// The application services a router command needs.
 #[derive(Debug)]
 pub(crate) struct Services {
-    /// Router profiles and clients.
-    registry: Arc<RouterRegistry>,
-    /// Audit writer.
-    audit: AuditLog,
-    /// Encrypted backups.
-    backups: Arc<BackupStore>,
-    /// Protected change workflow.
-    workflow: Arc<ChangeWorkflow>,
-    /// Encrypted kcc-managed router credentials.
-    credentials: Arc<CredentialStore>,
+    /// The shared composition root.
+    core: Core,
 }
 
 /// One connected router the principal may act on.
@@ -226,53 +219,26 @@ impl Ctx {
                 Ok(())
             }
             Err(failure) => {
-                // Check if all required permissions are granted (without router scope check).
-                let all_permissions_granted = required
-                    .iter()
-                    .all(|perm| self.principal.role().grants(*perm));
-
-                // Check if the router is in the principal's scope.
-                let router_in_scope = self.principal.sees(id);
-
-                // If all permissions are granted but the router is out of scope,
-                // print the router-out-of-scope message instead of a missing permissions list.
-                if all_permissions_granted && !router_in_scope {
+                let role = self.principal.role();
+                if required.iter().all(|permission| role.grants(*permission))
+                    && !self.principal.sees(id)
+                {
                     return Err(Failure::message(
                         failure.exit(),
                         keys::CLI_ROUTER_OUT_OF_SCOPE,
                         &[("router", id)],
                     ));
                 }
-
-                // Compute the subset of actually missing permissions (without scope check).
-                let missing = required
-                    .iter()
-                    .copied()
-                    .filter(|permission| !self.principal.role().grants(*permission))
-                    .collect::<BTreeSet<_>>();
-                let labels = missing
-                    .iter()
-                    .filter_map(|permission| {
-                        [
-                            (Permission::Read, keys::WEB_ADMIN_PERMISSION_READ),
-                            (Permission::Write, keys::WEB_ADMIN_PERMISSION_WRITE),
-                            (Permission::Save, keys::WEB_ADMIN_PERMISSION_SAVE),
-                            (
-                                Permission::Destructive,
-                                keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE,
-                            ),
-                            (Permission::Migrate, keys::WEB_ADMIN_PERMISSION_MIGRATE),
-                        ]
-                        .into_iter()
-                        .find(|(known, _key)| known == permission)
-                        .map(|(_known, key)| tr(self.out.locale(), key, None))
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                let missing = labels::permissions(|permission| {
+                    required.contains(&permission) && !role.grants(permission)
+                })
+                .map(|name| tr(self.out.locale(), name, None))
+                .collect::<Vec<_>>()
+                .join(", ");
                 Err(Failure::message(
                     failure.exit(),
                     keys::CLI_APPLY_RECOVERY_FORBIDDEN,
-                    &[("missing", &labels)],
+                    &[("missing", &missing)],
                 ))
             }
         }
@@ -286,61 +252,26 @@ impl Ctx {
     /// Returns registry, key or audit failures.
     // NOT cancel-safe: a migration audit event may be appended after cancellation.
     pub(crate) async fn services(&self) -> Outcome<Services> {
-        let key = MasterKey::load_or_create(&master_key_path()?)?;
-        let credentials = Arc::new(CredentialStore::new(self.state.clone(), key.duplicate()));
-        let migrations = credentials.migrate_all()?;
-        let registry = Arc::new(
-            RouterRegistry::new(
-                self.state.clone(),
-                &self.config.routers,
-                &self.config.outbound,
-            )?
-            .with_credentials(Arc::clone(&credentials)),
-        );
-        for (router, file) in registry.external_password_files()? {
+        let core = Core::open(self.state.clone(), CoreSetup::new(&self.config, "cli")).await?;
+        for (router, file) in core.registry.external_password_files()? {
             let path = file.display().to_string();
             self.out.note(&self.out.tr(
                 keys::CLI_ROUTER_EXTERNAL_PASSWORD,
                 &[("router", &router), ("path", &path)],
             ));
         }
-        let audit = AuditLog::spawn_with_policy(
-            &self.state,
-            AuditPolicy::default().with_retention(self.config.audit.retention),
-        )?;
-        append_credential_events(&audit, migrations, "cli").await?;
-        let backups = Arc::new(BackupStore::new(self.state.clone(), key).with_retention(
-            BackupRetention::new(self.config.backups.max_age, self.config.backups.keep_last),
-        ));
-        let workflow = ChangeWorkflow::new(
-            self.state.clone(),
-            Arc::clone(&registry),
-            Arc::clone(&backups),
-            audit.clone(),
-        );
-        Ok(Services {
-            registry,
-            audit,
-            backups,
-            workflow,
-            credentials,
-        })
+        Ok(Services { core })
     }
 
-    /// Opens the Web UI account store.
-    ///
-    /// # Errors
-    ///
-    /// Returns key failures.
-    pub(crate) fn accounts(&self) -> Outcome<AccountStore> {
-        let key = MasterKey::load_or_create(&master_key_path()?)?;
-        Ok(AccountStore::new(
+    /// Opens the Web UI account store with the services' master key.
+    pub(crate) fn accounts(&self, services: &Services) -> AccountStore {
+        AccountStore::new(
             self.state.clone(),
-            key,
+            services.key().duplicate(),
             self.config.web.lockout,
             Arc::new(SystemClock::default()),
         )
-        .with_max_failures(self.config.web.login_max_failures))
+        .with_max_failures(self.config.web.login_max_failures)
     }
 
     /// The router id: `--router`, else the only registered router.
@@ -352,7 +283,7 @@ impl Ctx {
         if let Some(router) = &self.globals.router {
             return Ok(router.clone());
         }
-        let entries = services.registry.list()?;
+        let entries = services.core.registry.list()?;
         match entries.as_slice() {
             [only] => Ok(only.profile.id.clone()),
             _ => Err(Failure::message(
@@ -394,17 +325,19 @@ impl Ctx {
         id: String,
         permissions: &[Permission],
     ) -> Outcome<Target> {
-        services.audit.require_alive()?;
+        services.core.audit.require_alive()?;
         let role = self
             .authorize_audited(services, permissions, &[id.as_str()])
             .await?;
-        let url = services.registry.get(&id)?.profile.url;
+        let url = services.core.registry.get(&id)?.profile.url;
         let client = services
+            .core
             .registry
             .client(&id)
             .await
             .map_err(|error| outbound::explained(error, &url))?;
         let info = services
+            .core
             .registry
             .poll_info(&id)
             .await
@@ -489,7 +422,7 @@ impl Ctx {
     /// command's own result.
     // NOT cancel-safe: the writer may append after cancellation.
     async fn append(&self, services: &Services, event: AuditEvent) {
-        if let Err(error) = services.audit.append(event).await {
+        if let Err(error) = services.core.audit.append(event).await {
             self.out
                 .note(&Failure::from(error).details(self.out.locale()).join(" "));
         }
@@ -499,27 +432,32 @@ impl Ctx {
 impl Services {
     /// Router profiles and clients.
     pub(crate) const fn registry(&self) -> &Arc<RouterRegistry> {
-        &self.registry
+        &self.core.registry
     }
 
     /// Audit writer.
     pub(crate) const fn audit_log(&self) -> &AuditLog {
-        &self.audit
+        &self.core.audit
     }
 
     /// Encrypted backups.
     pub(crate) const fn backups(&self) -> &Arc<BackupStore> {
-        &self.backups
+        &self.core.backups
     }
 
     /// Protected change workflow.
     pub(crate) const fn workflow(&self) -> &Arc<ChangeWorkflow> {
-        &self.workflow
+        &self.core.workflow
     }
 
     /// Encrypted kcc-managed router credentials.
     pub(crate) const fn credentials(&self) -> &Arc<CredentialStore> {
-        &self.credentials
+        &self.core.credentials
+    }
+
+    /// The master key, loaded once; stores take a [`MasterKey::duplicate`].
+    pub(crate) const fn key(&self) -> &MasterKey {
+        &self.core.key
     }
 }
 

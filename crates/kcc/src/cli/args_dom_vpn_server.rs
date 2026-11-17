@@ -1,4 +1,4 @@
-//! VPN server write commands; keys and passwords come only from `--password-file`,
+//! VPN server commands; keys and passwords come only from `--password-file`,
 //! `KCC_PASSWORD` or a hidden prompt.
 
 use clap::{Subcommand, ValueEnum};
@@ -31,10 +31,12 @@ pub enum PoolServer {
     Openconnect,
 }
 
-/// VPN server commands that change the configuration.
+/// VPN server commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum VpnServerWriteCommand {
+pub enum VpnServerCommand {
+    /// VPN server configuration and state.
+    Status,
     /// Start or stop a VPN server service.
     Service {
         /// Service.
@@ -76,12 +78,6 @@ pub enum VpnServerWriteCommand {
         /// On or off.
         state: Toggle,
     },
-}
-
-/// VPN server commands that carry key material: never on the command line.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum VpnServerSecretCommand {
     /// Set the IPsec/IKEv2 server's IKE key (from `--password-file`, `KCC_PASSWORD` or a
     /// hidden prompt).
     IkePsk {

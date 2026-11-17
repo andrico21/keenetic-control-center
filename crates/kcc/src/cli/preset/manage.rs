@@ -1,9 +1,6 @@
 //! `preset list|show|capture|delete` and the preset store shared by every preset command.
 
-use kcc_app::{
-    permissions::{Permission, Role},
-    secrets::{MasterKey, master_key_path},
-};
+use kcc_app::permissions::{Permission, Role};
 use kcc_catalog::Risk;
 use kcc_i18n::keys;
 use kcc_migrate::presets::{
@@ -19,14 +16,9 @@ use crate::cli::{
     secret::confirm,
 };
 
-/// Opens the encrypted preset store; contacts no router.
-///
-/// # Errors
-///
-/// Returns key failures.
-pub(super) fn store(ctx: &Ctx) -> Outcome<PresetStore> {
-    let key = MasterKey::load_or_create(&master_key_path()?)?;
-    Ok(PresetStore::new(ctx.state().clone(), key))
+/// Opens the encrypted preset store with the services' master key; contacts no router.
+pub(super) fn store(ctx: &Ctx, services: &Services) -> PresetStore {
+    PresetStore::new(ctx.state().clone(), services.key().duplicate())
 }
 
 /// Maps a preset store failure to its exit code.
@@ -105,7 +97,7 @@ pub(super) fn document(preset: &Preset) -> Value {
 /// Returns the command's failure with its exit code.
 pub(super) fn list(ctx: &Ctx, services: &Services) -> Outcome {
     let role = scoped_role(ctx, services, &[Permission::Read])?;
-    let presets = store(ctx)?
+    let presets = store(ctx, services)
         .list(&role)
         .map_err(|error| map_preset(&error, "-"))?
         .into_iter()
@@ -162,7 +154,7 @@ pub(super) async fn show(ctx: &Ctx, services: &Services, id: &str, reveal: bool)
         permissions.push(Permission::RevealSecrets);
     }
     let role = scoped_role(ctx, services, &permissions)?;
-    let preset = store(ctx)?
+    let preset = store(ctx, services)
         .get(&role, id)
         .map_err(|error| map_preset(&error, id))?;
     visible(ctx, &preset)?;
@@ -216,7 +208,7 @@ pub(super) async fn capture(
         source,
         ctx.principal().actor().id,
     );
-    let preset = match store(ctx)?.capture(&role, &config.ast, request) {
+    let preset = match store(ctx, services).capture(&role, &config.ast, request) {
         Ok(preset) => preset,
         Err(error) => {
             if matches!(error, PresetError::Forbidden) {
@@ -259,7 +251,7 @@ pub(super) async fn capture(
 // NOT cancel-safe: the file may be removed before cancellation.
 pub(super) async fn delete(ctx: &Ctx, services: &Services, id: &str) -> Outcome {
     let role = scoped_role(ctx, services, &[Permission::Read, Permission::Migrate])?;
-    let store = store(ctx)?;
+    let store = store(ctx, services);
     let preset = store
         .get(&role, id)
         .map_err(|error| map_preset(&error, id))?;

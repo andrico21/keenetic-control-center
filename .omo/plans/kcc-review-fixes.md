@@ -1297,7 +1297,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(cli): behaviour fixes
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 62. CLI structure: one composition root, typed server errors, no history-shaped generics
+- [x] 62. CLI structure: one composition root, typed server errors, no history-shaped generics
   What to do / Must NOT do: Per the findings. F-26: delete the duplicate spellings (no deployments, D-NODEPLOY), keeping one command each; list the removed spellings in the CHANGELOG. Guardrail: capture `kcc <every subcommand> --help` before and after; the diff must be empty except for intended changes named in the commit body. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `F-09` (low; critic adjusted, medium->low) Two composition roots, and some CLI commands build them twice. Evidence: `crates/kcc/src/cli/persist.rs:144`, `accounts.rs:33`, `context.rs:275-315`, `server.rs:337-419`. Fix: Pass `&Services` into `backup_create`, `backup_get` and `passwd`. Extract one `kcc_app` builder used by both `Services::open` and `Ctx::services`, and load the key once with `duplicate()`.
   - `F-18` (low; critic adjusted) `ServerError` is a stringly-typed error, and one constructor is dead with a false doc. Evidence: `server.rs:66`, `server.rs:643-645`, `server.rs:69-74`. Fix: Delete `unsupported_command`. Make `ServerError` an enum wrapping `#[source]` errors. Critic correction (binding): Same facts, but cite error-type guidance instead of §7's String-parameter rule.

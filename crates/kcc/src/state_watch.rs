@@ -31,7 +31,7 @@ use kcc_web::{
     admin::{AuthReload as _, TransportReload},
 };
 #[cfg(unix)]
-use tokio::signal::unix::{Signal, SignalKind, signal};
+use tokio::signal::unix::Signal;
 use tokio::{
     task::spawn_blocking,
     time::{Interval, MissedTickBehavior, interval},
@@ -150,18 +150,18 @@ impl StateWatch {
         &self.transport
     }
 
-    /// Checks both files every [`POLL_INTERVAL`] until the runtime stops; each SIGHUP
-    /// applies both files, then runs `reload` for the rest of the configuration.
+    /// Checks both files every [`POLL_INTERVAL`] until the runtime stops; each SIGHUP on
+    /// `signals` applies both files, then runs `reload` for the rest of the configuration.
     // cancel-safe: every pass either records what it applied or leaves the file for the
     // next pass, and key installs and session ends are idempotent.
     #[cfg(unix)]
-    pub(crate) async fn run<F, R>(mut self, mut reload: F)
+    pub(crate) async fn run<F, R>(mut self, signals: io::Result<Signal>, mut reload: F)
     where
         F: FnMut() -> R,
         R: Future<Output = ()>,
     {
-        let mut hangups = match signal(SignalKind::hangup()) {
-            Ok(signals) => Some(signals),
+        let mut hangups = match signals {
+            Ok(stream) => Some(stream),
             Err(error) => {
                 tracing::error!(%error, "cannot install SIGHUP reload handler");
                 None

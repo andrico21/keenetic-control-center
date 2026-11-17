@@ -16,8 +16,8 @@ use super::{
     args_domains::DomainCommand,
     change::{Gate, applied, run_headlined},
     context::{Ctx, Services, Target},
-    dom_admin, dom_core, dom_dns, dom_jobs, dom_lan, dom_link, dom_mgmt, dom_net, dom_policies,
-    dom_routes, dom_vpn, dom_vpn_server, dom_wire,
+    dom_admin, dom_clients, dom_core, dom_dns, dom_jobs, dom_lan, dom_link, dom_mgmt, dom_net,
+    dom_policies, dom_routes, dom_vpn, dom_vpn_server, dom_wifi, dom_wire,
     exit::Outcome,
 };
 
@@ -27,12 +27,16 @@ use super::{
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
+#[expect(
+    clippy::cognitive_complexity,
+    reason = "a flat dispatch table: one arm per domain, each awaiting the domain's runner"
+)]
 pub(crate) async fn run(ctx: &Ctx, command: DomainCommand) -> Outcome {
     match command {
         DomainCommand::System(sub) => dom_core::system(ctx, sub).await,
         DomainCommand::Internet(sub) => dom_core::internet(ctx, sub).await,
         DomainCommand::Diagnostics(sub) => dom_jobs::diagnostics(ctx, sub).await,
-        DomainCommand::Clients(sub) => dom_lan::clients(ctx, sub).await,
+        DomainCommand::Clients(sub) => dom_clients::clients(ctx, sub).await,
         DomainCommand::Dhcp(sub) => dom_lan::dhcp(ctx, sub).await,
         DomainCommand::Segments(sub) => dom_lan::segments(ctx, sub).await,
         DomainCommand::RouterUsers(sub) => dom_net::router_users(ctx, sub).await,
@@ -44,26 +48,6 @@ pub(crate) async fn run(ctx: &Ctx, command: DomainCommand) -> Outcome {
         DomainCommand::Components(sub) => dom_jobs::components(ctx, sub).await,
         DomainCommand::Storage(sub) => dom_net::storage(ctx, sub).await,
         DomainCommand::Schedules(sub) => dom_admin::schedules(ctx, sub).await,
-        other @ (DomainCommand::Keendns(_)
-        | DomainCommand::Log(_)
-        | DomainCommand::Dns(_)
-        | DomainCommand::Vpn(_)
-        | DomainCommand::VpnServer(_)
-        | DomainCommand::Interfaces(_)
-        | DomainCommand::Wan(_)
-        | DomainCommand::Wifi(_)
-        | DomainCommand::Mesh(_)) => run_wire(ctx, other).await,
-    }
-}
-
-/// Runs the domain commands of `dom_wire`.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn run_wire(ctx: &Ctx, command: DomainCommand) -> Outcome {
-    match command {
         DomainCommand::Keendns(sub) => dom_mgmt::keendns(ctx, sub).await,
         DomainCommand::Log(sub) => dom_wire::log(ctx, sub).await,
         DomainCommand::Dns(sub) => dom_dns::dns(ctx, sub).await,
@@ -71,23 +55,8 @@ async fn run_wire(ctx: &Ctx, command: DomainCommand) -> Outcome {
         DomainCommand::VpnServer(sub) => dom_vpn_server::vpn_server(ctx, sub).await,
         DomainCommand::Interfaces(sub) => dom_link::interfaces(ctx, sub).await,
         DomainCommand::Wan(sub) => dom_link::wan(ctx, sub).await,
-        DomainCommand::Wifi(sub) => dom_link::wifi(ctx, sub).await,
+        DomainCommand::Wifi(sub) => dom_wifi::wifi(ctx, sub).await,
         DomainCommand::Mesh(sub) => dom_link::mesh(ctx, sub).await,
-        DomainCommand::System(_)
-        | DomainCommand::Internet(_)
-        | DomainCommand::Diagnostics(_)
-        | DomainCommand::Clients(_)
-        | DomainCommand::Dhcp(_)
-        | DomainCommand::Segments(_)
-        | DomainCommand::RouterUsers(_)
-        | DomainCommand::Routes(_)
-        | DomainCommand::Policies(_)
-        | DomainCommand::Nat(_)
-        | DomainCommand::Firewall(_)
-        | DomainCommand::Services(_)
-        | DomainCommand::Components(_)
-        | DomainCommand::Storage(_)
-        | DomainCommand::Schedules(_) => Ok(()),
     }
 }
 
@@ -161,6 +130,11 @@ impl<'ctx> Session<'ctx> {
     /// The connected router.
     pub(crate) const fn target(&self) -> &Target {
         &self.target
+    }
+
+    /// The application services the session opened.
+    pub(crate) const fn services(&self) -> &Services {
+        &self.services
     }
 
     /// The router accounts kcc signs in with, which account changes must keep.

@@ -135,3 +135,54 @@ fn a_profile_reading_an_external_password_file_is_warned_about_once() -> TestRes
     assert_eq!(fs::read_to_string(&file)?, "kept");
     Ok(())
 }
+
+/// F-09: `backup create`, `backup get` and `user passwd` open the application services
+/// once, so the external-password note, printed each time they are opened, appears once.
+#[test]
+fn backup_and_password_commands_open_the_services_once() -> TestResult {
+    let env = Env::new("")?;
+    let file = env.write("external", "kept")?;
+    fs::create_dir_all(env.state_dir())?;
+    let document = json!({
+        "schema": 1_u32,
+        "routers": [{
+            "id": "home",
+            "url": "http://127.0.0.1:9/",
+            "login": "admin",
+            "password_file": file,
+            "read_login": null,
+            "read_password_file": null,
+            "tls": "verify",
+            "test_device": false,
+            "tags": [],
+        }],
+    });
+    fs::write(
+        env.state_dir().join("routers.json"),
+        serde_json::to_vec(&document)?,
+    )?;
+    let remedy = format!(
+        "kcc router edit home --new-password --password-file {}",
+        file.display()
+    );
+
+    let mut notes = Vec::new();
+    for args in [
+        &["backup", "create"][..],
+        &["backup", "get", "absent"][..],
+        &["user", "passwd", "nobody"][..],
+    ] {
+        let run = env.kcc(args)?;
+        notes.push((args.join(" "), run.stderr.matches(&remedy).count()));
+    }
+
+    assert_eq!(
+        notes,
+        [
+            ("backup create".to_owned(), 1),
+            ("backup get absent".to_owned(), 1),
+            ("user passwd nobody".to_owned(), 1),
+        ]
+    );
+    Ok(())
+}

@@ -7,6 +7,7 @@ use kcc_app::{
     api_keys::ApiKeyError,
     audit::AuditError,
     backups::BackupError,
+    composition::CoreError,
     permissions::{PermissionError, assignment::GrantError},
     persist::StateError,
     secrets::CryptoError,
@@ -41,6 +42,18 @@ impl From<BackupError> for Failure {
             | _ => Exit::Generic,
         };
         Self::text(exit, &error)
+    }
+}
+
+impl From<CoreError> for Failure {
+    fn from(error: CoreError) -> Self {
+        match error {
+            CoreError::Key(source) => source.into(),
+            CoreError::Credentials(source) => source.into(),
+            CoreError::Registry(source) => source.into(),
+            CoreError::Audit(source) => source.into(),
+            other => Self::text(Exit::Generic, &other),
+        }
     }
 }
 

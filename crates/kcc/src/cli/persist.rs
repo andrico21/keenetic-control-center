@@ -15,7 +15,7 @@ use secrecy::{ExposeSecret as _, SecretString};
 use serde_json::{Value, json};
 
 use super::{
-    args_fleet::{BackupCommand, ConfigCommand, FailsafeAction},
+    args_fleet::{BackupCommand, FailsafeAction},
     change::{Gate, applied, recovery_mode, run as run_change},
     closing::reported,
     context::{Ctx, Services},
@@ -26,59 +26,61 @@ use super::{
     secret::confirm,
 };
 
-/// Runs a `config` command.
+/// Shows unsaved changes, the last changing agent and the fail-safe timer.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// NOT cancel-safe: save, commit and rollback may complete before cancellation.
-pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
+// cancel-safe: reads only.
+pub(crate) async fn config_state(ctx: &Ctx) -> Outcome {
     let services = ctx.services().await?;
     let out = ctx.out();
-    match command {
-        ConfigCommand::State => {
-            let target = ctx.target(&services, &[Permission::Read]).await?;
-            let state = configuration::read_last_change(target.router()).await?;
-            let document = serde_json::to_value(&state)?;
-            let fail_safe = state
-                .fail_safe
-                .as_ref()
-                .and_then(|timer| timer.active)
-                .unwrap_or(false);
-            let human = [
-                out.tr(
-                    keys::CLI_CONFIG_UNSAVED,
-                    &[(
-                        "value",
-                        yes_no(out, state.unsaved.unwrap_or(false)).as_str(),
-                    )],
-                ),
-                out.tr(
-                    keys::CLI_CONFIG_AGENT,
-                    &[("value", state.agent.as_deref().unwrap_or("-"))],
-                ),
-                out.tr(
-                    keys::CLI_CONFIG_FAILSAFE,
-                    &[("value", yes_no(out, fail_safe).as_str())],
-                ),
-            ]
-            .join("\n");
-            out.emit(&document, &human)
-        }
-        ConfigCommand::Save => {
-            let target = ctx.target(&services, &[Permission::Save]).await?;
-            let gate = Gate::new(Risk::Write, Permission::Save, false);
-            let document = run_change(ctx, &services, &target, gate, async |changes, _router| {
-                changes.save().await?;
-                Ok(json!({ "saved": true }))
-            })
-            .await?;
-            out.emit(&document, &out.tr(keys::CLI_SAVED, &[]))
-        }
-        ConfigCommand::Failsafe { action, seconds } => {
-            failsafe(ctx, &services, action, seconds).await
-        }
-    }
+    let target = ctx.target(&services, &[Permission::Read]).await?;
+    let state = configuration::read_last_change(target.router()).await?;
+    let document = serde_json::to_value(&state)?;
+    let fail_safe = state
+        .fail_safe
+        .as_ref()
+        .and_then(|timer| timer.active)
+        .unwrap_or(false);
+    let human = [
+        out.tr(
+            keys::CLI_CONFIG_UNSAVED,
+            &[(
+                "value",
+                yes_no(out, state.unsaved.unwrap_or(false)).as_str(),
+            )],
+        ),
+        out.tr(
+            keys::CLI_CONFIG_AGENT,
+            &[("value", state.agent.as_deref().unwrap_or("-"))],
+        ),
+        out.tr(
+            keys::CLI_CONFIG_FAILSAFE,
+            &[("value", yes_no(out, fail_safe).as_str())],
+        ),
+    ]
+    .join("\n");
+    out.emit(&document, &human)
+}
+
+/// Saves the running configuration.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+// NOT cancel-safe: the save may complete before cancellation.
+pub(crate) async fn config_save(ctx: &Ctx) -> Outcome {
+    let services = ctx.services().await?;
+    let out = ctx.out();
+    let target = ctx.target(&services, &[Permission::Save]).await?;
+    let gate = Gate::new(Risk::Write, Permission::Save, false);
+    let document = run_change(ctx, &services, &target, gate, async |changes, _router| {
+        changes.save().await?;
+        Ok(json!({ "saved": true }))
+    })
+    .await?;
+    out.emit(&document, &out.tr(keys::CLI_SAVED, &[]))
 }
 
 /// Runs a fail-safe timer action.
@@ -86,7 +88,8 @@ pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
 /// # Errors
 /// Returns validation, policy, workflow, or router failures.
 // NOT cancel-safe: timer actions may complete before cancellation.
-async fn failsafe(ctx: &Ctx, services: &Services, action: FailsafeAction, seconds: u64) -> Outcome {
+pub(crate) async fn failsafe(ctx: &Ctx, action: FailsafeAction, seconds: u64) -> Outcome {
+    let services = &ctx.services().await?;
     let (permission, risk) = match action {
         FailsafeAction::Arm | FailsafeAction::Rollback => {
             (Permission::Destructive, Risk::Destructive)
@@ -146,7 +149,7 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
     let out = ctx.out();
     let router = ctx.router_id(&services)?;
     match command {
-        BackupCommand::Create { reason } => backup_create(ctx, &reason).await,
+        BackupCommand::Create { reason } => backup_create(ctx, &services, &reason).await,
         BackupCommand::List => {
             drop(
                 ctx.authorize_audited(&services, &[Permission::Read], &[&router])
@@ -174,7 +177,9 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
                 &rows,
             )
         }
-        BackupCommand::Get { name, output } => backup_get(ctx, &name, output.as_deref()).await,
+        BackupCommand::Get { name, output } => {
+            backup_get(ctx, &services, (&name, output.as_deref())).await
+        }
         BackupCommand::Diff { older, newer } => {
             drop(
                 ctx.authorize_audited(&services, &[Permission::Read], &[&router])
@@ -233,11 +238,10 @@ pub(crate) async fn backup(ctx: &Ctx, command: BackupCommand) -> Outcome {
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: writes the backup.
-async fn backup_create(ctx: &Ctx, reason: &str) -> Outcome {
-    let services = ctx.services().await?;
+async fn backup_create(ctx: &Ctx, services: &Services, reason: &str) -> Outcome {
     let out = ctx.out();
-    let router = ctx.router_id(&services)?;
-    let target = ctx.target(&services, &[Permission::Write]).await?;
+    let router = ctx.router_id(services)?;
+    let target = ctx.target(services, &[Permission::Write]).await?;
     let bytes = target
         .router()
         .client
@@ -249,7 +253,7 @@ async fn backup_create(ctx: &Ctx, reason: &str) -> Outcome {
         .backups()
         .create(&router, reason, &SecretString::from(text.to_owned()))?;
     ctx.audit(
-        &services,
+        services,
         "cli.backup_create",
         Some(&router),
         Value::Null,
@@ -268,13 +272,16 @@ async fn backup_create(ctx: &Ctx, reason: &str) -> Outcome {
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: writes the output file.
-async fn backup_get(ctx: &Ctx, name: &str, output: Option<&Path>) -> Outcome {
-    let services = ctx.services().await?;
+async fn backup_get(
+    ctx: &Ctx,
+    services: &Services,
+    (name, output): (&str, Option<&Path>),
+) -> Outcome {
     let out = ctx.out();
-    let router = ctx.router_id(&services)?;
+    let router = ctx.router_id(services)?;
     let Some(path) = output else {
         drop(
-            ctx.authorize_audited(&services, &[Permission::Read], &[&router])
+            ctx.authorize_audited(services, &[Permission::Read], &[&router])
                 .await?,
         );
         let text = services.backups().get(&router, name)?;
@@ -285,14 +292,11 @@ async fn backup_get(ctx: &Ctx, name: &str, output: Option<&Path>) -> Outcome {
         );
     };
     let reveal = [Permission::Read, Permission::RevealSecrets];
-    drop(
-        ctx.authorize_audited(&services, &reveal, &[&router])
-            .await?,
-    );
+    drop(ctx.authorize_audited(services, &reveal, &[&router]).await?);
     let text = services.backups().get(&router, name)?;
     files::write_private(path, text.expose_secret().as_bytes(), true)?;
     ctx.audit(
-        &services,
+        services,
         "cli.backup_get",
         Some(&router),
         json!({ "variant": "full" }),

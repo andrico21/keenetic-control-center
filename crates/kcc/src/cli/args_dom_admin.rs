@@ -1,6 +1,8 @@
-//! Write commands of the firewall, service, schedule and KeenDNS domains.
+//! Firewall, service, schedule and KeenDNS commands.
 
 use clap::{Subcommand, ValueEnum};
+
+use super::args_domains::Toggle;
 
 /// Access-list verdicts.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
@@ -42,10 +44,14 @@ pub enum AclDirection {
     Out,
 }
 
-/// More firewall commands; `--remove` takes a rule or binding away.
+/// Firewall commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum FirewallWriteCommand {
+pub enum FirewallCommand {
+    /// Access lists.
+    AccessLists,
+    /// UPnP redirects.
+    Upnp,
     /// Add an access-list rule.
     Rule {
         /// Access-list name.
@@ -156,10 +162,19 @@ pub enum HttpsChoice {
     AcmeRevoke,
 }
 
-/// More service commands; all are management changes (`--yes`, fail-safe timer).
+/// Service commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum ServicesWriteCommand {
+pub enum ServicesCommand {
+    /// List services.
+    List,
+    /// Start or stop a service.
+    Set {
+        /// Service name.
+        name: String,
+        /// On or off.
+        state: Toggle,
+    },
     /// Move a management listener to another port.
     Port {
         /// Listener.
@@ -198,10 +213,24 @@ pub enum ActionChoice {
     Stop,
 }
 
-/// More schedule commands.
+/// Schedule commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum SchedulesWriteCommand {
+pub enum SchedulesCommand {
+    /// List schedules.
+    List,
+    /// Create a schedule.
+    Create {
+        /// Schedule name.
+        name: String,
+    },
+    /// Describe a schedule (one word).
+    Describe {
+        /// Schedule name.
+        name: String,
+        /// Description.
+        description: String,
+    },
     /// Add a timed action to a schedule.
     Action {
         /// Schedule name.
@@ -243,10 +272,33 @@ pub enum CloudLevelChoice {
     Private,
 }
 
-/// More KeenDNS commands; both are management changes (`--yes`, fail-safe timer).
+/// KeenDNS commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum KeenDnsWriteCommand {
+pub enum KeenDnsCommand {
+    /// Booked names and cloud state.
+    Status,
+    /// Book a name.
+    Book {
+        /// Name.
+        name: String,
+        /// KeenDNS domain.
+        domain: String,
+    },
+    /// Release a name.
+    Drop {
+        /// Name.
+        name: String,
+        /// KeenDNS domain.
+        domain: String,
+    },
+    /// Enable or disable a web proxy entry.
+    Proxy {
+        /// Proxy name.
+        name: String,
+        /// On or off.
+        state: Toggle,
+    },
     /// Point a web proxy entry at one LAN host.
     ProxyUpstream {
         /// Proxy name.

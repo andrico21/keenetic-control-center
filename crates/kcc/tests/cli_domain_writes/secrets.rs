@@ -180,7 +180,7 @@ async fn vpn_credentials_come_from_the_password_file_only() -> TestResult {
         !lab.audit_text()?.contains(PASSWORD),
         "the audit log leaks the password"
     );
-    let missing = lab.run(&["vpn", "secret", "ppp", "L2TP7"])?;
+    let missing = lab.run(&["vpn", "secret", "ipsec", "L2TP7"])?;
     assert_eq!(missing.code, 2_i32, "no secret source: {missing:?}");
     lab.shutdown().await
 }

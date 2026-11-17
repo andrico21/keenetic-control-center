@@ -1,5 +1,4 @@
-//! Domain commands: router users, routes, policies, NAT, firewall, services, components,
-//! storage and schedules.
+//! Domain commands: router users, routes, NAT and storage, and the component queue actions.
 
 use clap::{Subcommand, ValueEnum};
 
@@ -80,14 +79,6 @@ pub enum RoutesCommand {
     Remove(RouteArgs),
 }
 
-/// Connection policy commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum PoliciesCommand {
-    /// List policies.
-    List,
-}
-
 /// Forwarded protocols.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[non_exhaustive]
@@ -151,31 +142,6 @@ pub enum NatCommand {
     },
 }
 
-/// Firewall commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum FirewallCommand {
-    /// Access lists.
-    AccessLists,
-    /// UPnP redirects.
-    Upnp,
-}
-
-/// Service commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum ServicesCommand {
-    /// List services.
-    List,
-    /// Start or stop a service.
-    Set {
-        /// Service name.
-        name: String,
-        /// On or off.
-        state: Toggle,
-    },
-}
-
 /// Component queue actions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[non_exhaustive]
@@ -184,25 +150,6 @@ pub enum QueueChoice {
     Install,
     /// Stage removal.
     Remove,
-}
-
-/// Component commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum ComponentsCommand {
-    /// Installed and available components.
-    List,
-    /// The staged changes.
-    Pending,
-    /// Ask the update server for news.
-    CheckUpdate,
-    /// Stage an installation or removal.
-    Queue {
-        /// What to stage.
-        action: QueueChoice,
-        /// Component name.
-        component: String,
-    },
 }
 
 /// Storage commands.
@@ -217,25 +164,5 @@ pub enum StorageCommand {
     Eject {
         /// Volume name.
         media: String,
-    },
-}
-
-/// Schedule commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum SchedulesCommand {
-    /// List schedules.
-    List,
-    /// Create a schedule.
-    Create {
-        /// Schedule name.
-        name: String,
-    },
-    /// Describe a schedule (one word).
-    Describe {
-        /// Schedule name.
-        name: String,
-        /// Description.
-        description: String,
     },
 }

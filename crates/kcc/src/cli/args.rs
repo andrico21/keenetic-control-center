@@ -10,10 +10,9 @@ use clap_complete::Shell;
 
 use super::{
     args_admin::{AdminCommand, ApiKeyCommand, AuditCommand, TlsCommand, UserCommand},
-    args_dom_family::Family,
-    args_dom_jobs::ConfigWriteCommand,
+    args_dom_jobs::ConfigCommand,
     args_domains::DomainCommand,
-    args_fleet::{BackupCommand, CatalogCommand, ConfigCommand, RciCommand, RouterCommand},
+    args_fleet::{BackupCommand, CatalogCommand, RciCommand, RouterCommand},
     args_migrate::MigrateCommand,
     preset::args::{CopyCommand, PresetCommand},
 };
@@ -53,6 +52,28 @@ pub struct Cli {
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
 pub enum Command {
+    /// Commands on the router profiles, the state directory and the server's files.
+    #[command(flatten)]
+    Local(LocalCommand),
+    /// Run the HTTP MCP server and optional Web UI.
+    Serve,
+    /// Run an MCP transport.
+    #[command(subcommand)]
+    Mcp(McpCommand),
+    /// Print a shell completion script.
+    Completions {
+        /// Target shell.
+        shell: Shell,
+    },
+    /// Curated router domains.
+    #[command(flatten)]
+    Domain(DomainCommand),
+}
+
+/// The commands on the router profiles, the state directory and the server's files.
+#[derive(Debug, Subcommand)]
+#[non_exhaustive]
+pub enum LocalCommand {
     /// Router profiles.
     #[command(subcommand)]
     Router(RouterCommand),
@@ -72,7 +93,7 @@ pub enum Command {
     Catalog(CatalogCommand),
     /// Saving, fail-safe timer and change state.
     #[command(subcommand)]
-    Config(Family<ConfigCommand, ConfigWriteCommand>),
+    Config(ConfigCommand),
     /// Encrypted startup-configuration backups.
     #[command(subcommand)]
     Backup(BackupCommand),
@@ -101,19 +122,6 @@ pub enum Command {
     /// TLS certificates for the server.
     #[command(subcommand)]
     Tls(TlsCommand),
-    /// Run the HTTP MCP server and optional Web UI.
-    Serve,
-    /// Run an MCP transport.
-    #[command(subcommand)]
-    Mcp(McpCommand),
-    /// Print a shell completion script.
-    Completions {
-        /// Target shell.
-        shell: Shell,
-    },
-    /// Curated router domains.
-    #[command(flatten)]
-    Domain(DomainCommand),
 }
 
 /// MCP transport commands.

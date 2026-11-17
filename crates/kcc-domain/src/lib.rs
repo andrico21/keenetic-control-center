@@ -27,6 +27,7 @@ pub mod firewall;
 pub mod interfaces;
 pub mod internet;
 pub mod keendns;
+pub mod labels;
 pub mod logging;
 pub mod mesh;
 pub mod nat;

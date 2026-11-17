@@ -1,4 +1,4 @@
-//! VPN client write commands; secrets come only from `--password-file`, `KCC_PASSWORD`
+//! VPN client commands; secrets come only from `--password-file`, `KCC_PASSWORD`
 //! or a hidden prompt, and a WireGuard import reads its `.conf` from `--file`.
 
 use std::path::PathBuf;
@@ -47,8 +47,6 @@ pub enum CryptoKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
 #[non_exhaustive]
 pub enum SecretKind {
-    /// The PPP password of an L2TP, PPTP or SSTP tunnel.
-    Ppp,
     /// The IPsec pre-shared key of a tunnel interface.
     Ipsec,
     /// A named IKE key.
@@ -59,10 +57,12 @@ pub enum SecretKind {
     ProfileXauth,
 }
 
-/// VPN client commands that change the configuration.
+/// VPN client commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum VpnWriteCommand {
+pub enum VpnCommand {
+    /// List VPN connections.
+    List,
     /// Create a tunnel interface, e.g. `Wireguard1`.
     Create {
         /// Interface name.
@@ -193,12 +193,6 @@ pub enum VpnWriteCommand {
         /// Object name.
         name: String,
     },
-}
-
-/// VPN client commands that carry key material: never on the command line.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum VpnSecretCommand {
     /// Create a WireGuard tunnel from a `.conf` file (keys stay out of argv and output).
     WireguardImport {
         /// New interface name; an existing name is refused.

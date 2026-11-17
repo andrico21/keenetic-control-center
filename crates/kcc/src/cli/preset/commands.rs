@@ -68,7 +68,7 @@ pub(crate) async fn run(ctx: &Ctx, command: PresetCommand) -> Outcome {
 /// Returns the policy refusal, a usage failure for an unknown id, or store failures.
 fn load(ctx: &Ctx, services: &Services, id: &str) -> Outcome<Preset> {
     let role = scoped_role(ctx, services, &[Permission::Read, Permission::Migrate])?;
-    let preset = store(ctx)?
+    let preset = store(ctx, services)
         .load_for_apply(&role, id)
         .map_err(|error| map_preset(&error, id))?;
     visible(ctx, &preset)?;

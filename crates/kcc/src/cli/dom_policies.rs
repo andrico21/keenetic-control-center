@@ -1,54 +1,39 @@
-//! Connection-policy writes.
+//! Connection-policy commands.
 
 use kcc_app::permissions::Permission;
 use kcc_domain::policies::{
     change::{apply::apply as apply_policy, plan as policy},
     model::{PolicyPermit, PolicyRateLimit, PolicyRoute, RateDirection},
+    read as policy_read,
 };
 
 use super::{
-    args_dom_family::Family,
-    args_dom_lan::{DirectionChoice, PoliciesWriteCommand},
-    args_domains_net::PoliciesCommand,
+    args_dom_lan::{DirectionChoice, PoliciesCommand},
     change::{Gate, applied},
     context::Ctx,
-    dom_net,
     domains::Session,
     exit::Outcome,
 };
 
-/// Runs a `policies` command: the first commands, or the writes added here.
+/// Runs a `policies` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn policies(
-    ctx: &Ctx,
-    command: Family<PoliciesCommand, PoliciesWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_net::policies(ctx, sub).await,
-        Family::Writes(sub) => policies_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a connection-policy write.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn policies_writes(ctx: &Ctx, command: PoliciesWriteCommand) -> Outcome {
-    let session = Session::open(ctx, Permission::Write).await?;
+pub(crate) async fn policies(ctx: &Ctx, command: PoliciesCommand) -> Outcome {
+    let session = Session::open(ctx, policies_permission(&command)).await?;
     let router = session.router();
     let operation = match command {
-        PoliciesWriteCommand::Create { name } => policy::create(router, &name)?,
-        PoliciesWriteCommand::Delete { name } => policy::remove(router, &name)?,
-        PoliciesWriteCommand::Description { name, text } => {
+        PoliciesCommand::List => {
+            return session.show(&policy_read::policies(router).await?);
+        }
+        PoliciesCommand::Create { name } => policy::create(router, &name)?,
+        PoliciesCommand::Delete { name } => policy::remove(router, &name)?,
+        PoliciesCommand::Description { name, text } => {
             policy::description(router, &name, text.as_deref())?
         }
-        PoliciesWriteCommand::Permit {
+        PoliciesCommand::Permit {
             name,
             interface,
             order,
@@ -58,10 +43,10 @@ async fn policies_writes(ctx: &Ctx, command: PoliciesWriteCommand) -> Outcome {
             permit.order = order;
             policy::permit(router, &name, &permit, !remove)?
         }
-        PoliciesWriteCommand::Multipath { name, state } => {
+        PoliciesCommand::Multipath { name, state } => {
             policy::multipath(router, &name, state.enabled())?
         }
-        PoliciesWriteCommand::Route {
+        PoliciesCommand::Route {
             name,
             destination,
             mask,
@@ -83,7 +68,7 @@ async fn policies_writes(ctx: &Ctx, command: PoliciesWriteCommand) -> Outcome {
             route.metric = metric;
             policy::route(router, &name, &route, !remove)?
         }
-        PoliciesWriteCommand::RateLimit {
+        PoliciesCommand::RateLimit {
             name,
             interface,
             direction,
@@ -100,7 +85,7 @@ async fn policies_writes(ctx: &Ctx, command: PoliciesWriteCommand) -> Outcome {
             );
             policy::rate_limit(router, &name, &limit, !remove)?
         }
-        PoliciesWriteCommand::Standalone { name, state } => {
+        PoliciesCommand::Standalone { name, state } => {
             policy::standalone(router, &name, state.enabled())?
         }
     };
@@ -111,4 +96,38 @@ async fn policies_writes(ctx: &Ctx, command: PoliciesWriteCommand) -> Outcome {
             ))
         })
         .await
+}
+
+/// The permission a `policies` command needs.
+const fn policies_permission(command: &PoliciesCommand) -> Permission {
+    match command {
+        PoliciesCommand::List => Permission::Read,
+        PoliciesCommand::Create { name: _ }
+        | PoliciesCommand::Delete { name: _ }
+        | PoliciesCommand::Description { name: _, text: _ }
+        | PoliciesCommand::Permit {
+            name: _,
+            interface: _,
+            order: _,
+            remove: _,
+        }
+        | PoliciesCommand::Multipath { name: _, state: _ }
+        | PoliciesCommand::Route {
+            name: _,
+            destination: _,
+            mask: _,
+            interface: _,
+            gateway: _,
+            metric: _,
+            remove: _,
+        }
+        | PoliciesCommand::RateLimit {
+            name: _,
+            interface: _,
+            direction: _,
+            rate: _,
+            remove: _,
+        }
+        | PoliciesCommand::Standalone { name: _, state: _ } => Permission::Write,
+    }
 }

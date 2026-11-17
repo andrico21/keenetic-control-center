@@ -1,12 +1,25 @@
-//! Commands that run as jobs or keep a timer alive: diagnostics, the component commit
-//! and auto-update, and the fail-safe keep-alive.
+//! Configuration, diagnostics and component commands.
 
 use clap::{Args, Subcommand};
 
-/// More configuration commands.
+use super::{args_domains_net::QueueChoice, args_fleet::FailsafeAction};
+
+/// Configuration persistence commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum ConfigWriteCommand {
+pub enum ConfigCommand {
+    /// Show unsaved changes, the last changing agent and the fail-safe timer.
+    State,
+    /// Save the running configuration.
+    Save,
+    /// Arm, commit or roll back the router's fail-safe timer.
+    Failsafe {
+        /// What to do.
+        action: FailsafeAction,
+        /// Timer length when arming, 300..=3600 seconds.
+        #[arg(long, default_value_t = 900)]
+        seconds: u64,
+    },
     /// Restart the countdown of the router's armed fail-safe timer.
     KeepAlive,
 }
@@ -40,7 +53,7 @@ pub struct ProbeArgs {
 /// Diagnostic jobs; each waits for the router's answer and prints its lines.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum DiagnosticsWriteCommand {
+pub enum DiagnosticsCommand {
     /// IPv4 ping.
     Ping(ProbeArgs),
     /// IPv6 ping.
@@ -53,10 +66,23 @@ pub enum DiagnosticsWriteCommand {
     Iperf3(ProbeArgs),
 }
 
-/// More component commands.
+/// Component commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum ComponentsWriteCommand {
+pub enum ComponentsCommand {
+    /// Installed and available components.
+    List,
+    /// The staged changes.
+    Pending,
+    /// Ask the update server for news.
+    CheckUpdate,
+    /// Stage an installation or removal.
+    Queue {
+        /// What to stage.
+        action: QueueChoice,
+        /// Component name.
+        component: String,
+    },
     /// Install the staged changes and reboot (destructive); waits for the router.
     Commit,
     /// Set the automatic update channel.

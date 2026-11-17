@@ -1,4 +1,4 @@
-//! Write commands of the client, DHCP, segment and connection-policy domains.
+//! Client, DHCP, segment and connection-policy commands.
 
 use core::net::Ipv4Addr;
 
@@ -22,10 +22,71 @@ pub struct SelectionArgs {
     pub policy: Option<String>,
 }
 
-/// More client commands.
+/// Client commands; a client is named by `--mac`.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum ClientsWriteCommand {
+pub enum ClientsCommand {
+    /// List clients.
+    List,
+    /// Show one client.
+    Show {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+    },
+    /// Register or rename a client.
+    Register {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+        /// Name.
+        #[arg(long)]
+        name: String,
+    },
+    /// Forget a registered client.
+    Remove {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+    },
+    /// Permit or deny network access.
+    Access {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+        /// Permit (`on`) or deny (`off`).
+        state: Toggle,
+    },
+    /// Apply a schedule.
+    Schedule {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+        /// Schedule name.
+        schedule: String,
+    },
+    /// Apply a connection policy.
+    Policy {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+        /// Policy name.
+        policy: String,
+    },
+    /// Set the traffic priority.
+    Priority {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+        /// Priority.
+        priority: u8,
+    },
+    /// Send Wake-on-LAN.
+    Wake {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+    },
     /// Set the hotspot policy of unregistered clients.
     DefaultPolicy(SelectionArgs),
     /// Set the hotspot policy of one interface.
@@ -39,10 +100,27 @@ pub enum ClientsWriteCommand {
     },
 }
 
-/// More DHCP commands.
+/// DHCP commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum DhcpWriteCommand {
+pub enum DhcpCommand {
+    /// DHCP pools.
+    Pools,
+    /// Static leases.
+    Leases,
+    /// Current bindings.
+    Bindings,
+    /// ARP neighbours.
+    Neighbours,
+    /// Add a static lease.
+    StaticLease {
+        /// Client MAC address.
+        #[arg(long)]
+        mac: String,
+        /// Reserved address.
+        #[arg(long)]
+        address: Ipv4Addr,
+    },
     /// Create or replace a DHCP pool. Replacing an existing pool needs `--lease-seconds`
     /// and `--state`, so they are not reset; an omitted `--interface` or `--dns` keeps
     /// the pool's own.
@@ -73,10 +151,12 @@ pub enum DhcpWriteCommand {
     },
 }
 
-/// More segment commands.
+/// Segment commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum SegmentsWriteCommand {
+pub enum SegmentsCommand {
+    /// List segments.
+    List,
     /// Create a segment: VLAN, bridge, address, DHCP pool and switch ports.
     Create {
         /// Segment number, used in the generated object names.
@@ -123,10 +203,12 @@ pub enum DirectionChoice {
     Output,
 }
 
-/// More connection-policy commands; `--remove` takes a setting away.
+/// Connection policy commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum PoliciesWriteCommand {
+pub enum PoliciesCommand {
+    /// List policies.
+    List,
     /// Create a policy.
     Create {
         /// Policy name.

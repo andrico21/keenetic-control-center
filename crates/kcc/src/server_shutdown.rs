@@ -16,7 +16,7 @@ use kcc_app::{
 };
 use rmcp_server_kit::RmcpServerKitError;
 
-use crate::server::{ServerError, error};
+use crate::server_error::ServerError;
 
 /// How long the server waits, once its transport stopped, for requests still closing a
 /// router's safety bracket.
@@ -47,14 +47,14 @@ where
         () = audit.closed() => None,
     };
     if let Some(result) = served {
-        return result.map_err(error);
+        return result.map_err(ServerError::from);
     }
     tracing::error!("audit writer terminated; finishing the requests in flight before exit");
     stop();
     if let Err(source) = serving.await {
         tracing::warn!(%source, "listener stopped with an error after the audit writer terminated");
     }
-    Err(error("audit writer terminated"))
+    Err(ServerError::AuditWriterTerminated)
 }
 
 /// Waits, at most [`BRACKET_GRACE`], for requests on any surface still closing a router's

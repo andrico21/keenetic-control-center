@@ -681,6 +681,40 @@ async fn serve_starts_over_a_torn_audit_line_and_moves_it_aside() -> TestResult 
     Ok(())
 }
 
+/// F-23: a SIGHUP sent while `kcc serve` still starts (after its first log line, before
+/// it listens) does not end the process; the reload it asked for runs once it serves.
+#[cfg(unix)]
+#[tokio::test]
+async fn a_hangup_during_startup_is_applied_once_serving() -> TestResult {
+    let fixture = Fixture::new(false).await?;
+    let mut process = fixture.spawn()?;
+    let first = process.stderr_rx.recv_timeout(PROCESS_TIMEOUT)?;
+    process.stderr.push_str(&first);
+
+    let sent = Command::new("kill")
+        .args(["-HUP", &process.child.id().to_string()])
+        .status()?;
+
+    assert!(sent.success(), "kill -HUP failed");
+    process.wait_listening()?;
+    while !process
+        .stderr_rx
+        .recv_timeout(PROCESS_TIMEOUT)?
+        .contains("configuration reloaded from SIGHUP")
+    {}
+    assert_eq!(
+        client()?
+            .get(format!("{}/healthz", fixture.base_url))
+            .send()
+            .await?
+            .status(),
+        StatusCode::OK
+    );
+    drop(process);
+    fixture.shutdown().await?;
+    Ok(())
+}
+
 #[test]
 fn disabled_stdio_exits_forbidden() -> TestResult {
     let directory = TempDir::new()?;

@@ -31,7 +31,7 @@ use super::{
 pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
     ctx.principal().require(Permission::ManageUsers)?;
     let services = ctx.services().await?;
-    let accounts = ctx.accounts()?;
+    let accounts = ctx.accounts(&services);
     let out = ctx.out();
     match command {
         UserCommand::Add {
@@ -68,7 +68,10 @@ pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
         UserCommand::Passwd {
             username,
             current_password_file,
-        } => passwd(ctx, &username, current_password_file.as_deref()).await,
+        } => {
+            let current = current_password_file.as_deref();
+            passwd(ctx, &services, (&username, current)).await
+        }
         UserCommand::List => {
             let list = accounts.list()?;
             let rows = list
@@ -130,9 +133,12 @@ pub(crate) async fn user(ctx: &Ctx, command: UserCommand) -> Outcome {
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the password change writes local state.
-async fn passwd(ctx: &Ctx, username: &str, current_password_file: Option<&Path>) -> Outcome {
-    let services = ctx.services().await?;
-    let accounts = ctx.accounts()?;
+async fn passwd(
+    ctx: &Ctx,
+    services: &Services,
+    (username, current_password_file): (&str, Option<&Path>),
+) -> Outcome {
+    let accounts = ctx.accounts(services);
     let out = ctx.out();
     let new = read_secret(
         ctx.globals().password_file(),
@@ -157,7 +163,7 @@ async fn passwd(ctx: &Ctx, username: &str, current_password_file: Option<&Path>)
     };
     let outcome = if changed { "success" } else { "denied" };
     ctx.audit(
-        &services,
+        services,
         if own_account {
             "cli.user_passwd"
         } else {
@@ -191,7 +197,7 @@ pub(crate) async fn admin(ctx: &Ctx, command: AdminCommand) -> Outcome {
     let AdminCommand::Init { username } = command;
     ctx.principal().require(Permission::ManageUsers)?;
     let services = ctx.services().await?;
-    let accounts = ctx.accounts()?;
+    let accounts = ctx.accounts(&services);
     if accounts.has_admin()? {
         return Err(Failure::message(
             Exit::Conflict,

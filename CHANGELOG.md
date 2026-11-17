@@ -534,6 +534,11 @@ The first release, `0.1.0`, is in preparation and contains:
   for its second; an uploaded file's name keeps up to 41 characters (was 38). A
   `--N` reason stored by an earlier build is shown as it is stored.
 
+- **Duplicate CLI spellings.** `kcc diagnostics log [--lines N]` (use `kcc log read
+  [--lines N]`, which reads the same log) and the `ppp` kind of `kcc vpn secret` (use
+  `kcc wan password <name>`, which sets the same PPP password and also detects when the
+  connection carries kcc's own traffic). `kcc diagnostics` is now described as "Router
+  diagnostics" in `--help`.
 - **Storage partition check and format.** The `partition_check` and `partition_format`
   operations of the MCP tool `kcc_storage_write` (now `eject` only; an old operation is
   answered `invalid_arguments`), the CLI subcommands `kcc storage check` and

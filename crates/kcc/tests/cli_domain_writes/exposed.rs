@@ -166,7 +166,7 @@ pub(crate) const EXPOSED: &[Exposure] = &[
     on(VpnClients, "ipsec_profile", "vpn crypto"),
     on(VpnClients, "ipsec_transform", "vpn crypto"),
     on(VpnClients, "crypto_map", "vpn crypto"),
-    on(VpnClients, "ppp_password", "vpn secret"),
+    on(VpnClients, "ppp_password", "wan password"),
     on(VpnClients, "ipsec_psk", "vpn secret"),
     on(VpnClients, "ike_psk", "vpn secret"),
     on(VpnClients, "profile_psk", "vpn secret"),

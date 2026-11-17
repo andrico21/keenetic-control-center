@@ -1,11 +1,15 @@
 //! Wi-Fi commands.
 
 use kcc_app::permissions::Permission;
-use kcc_domain::wifi;
+use kcc_domain::wifi::{self, Encryption};
 
 use super::{
-    args_domains_wire::WifiCommand, context::Ctx, dom_net::new_secret, dom_wire::object,
-    domains::Session, exit::Outcome,
+    args_dom_link::{EncryptionChoice, WifiCommand},
+    context::Ctx,
+    dom_net::new_secret,
+    dom_wire::object,
+    domains::Session,
+    exit::Outcome,
 };
 
 /// Runs a `wifi` command.
@@ -23,7 +27,11 @@ pub(crate) async fn wifi(ctx: &Ctx, command: WifiCommand) -> Outcome {
         | WifiCommand::Enable { ap: _, state: _ }
         | WifiCommand::Channel { ap: _, channel: _ }
         | WifiCommand::Power { ap: _, power: _ }
-        | WifiCommand::Country { ap: _, code: _ } => Permission::Write,
+        | WifiCommand::Country { ap: _, code: _ }
+        | WifiCommand::Encryption { ap: _, mode: _ }
+        | WifiCommand::Schedule { ap: _, schedule: _ }
+        | WifiCommand::ChannelWidth { ap: _, width: _ }
+        | WifiCommand::BandSteering { ap: _, state: _ } => Permission::Write,
     };
     let session = Session::open(ctx, permission).await?;
     let router = session.router();
@@ -67,6 +75,31 @@ pub(crate) async fn wifi(ctx: &Ctx, command: WifiCommand) -> Outcome {
         WifiCommand::Country { ap, code } => {
             let name = object(&ap)?;
             let operation = wifi::plan_country_code(router, &name, &code)?;
+            (name, operation)
+        }
+        WifiCommand::Encryption { ap, mode } => {
+            let name = object(&ap)?;
+            let encryption = match mode {
+                EncryptionChoice::Enable => Encryption::Enable,
+                EncryptionChoice::Wpa2 => Encryption::Wpa2,
+                EncryptionChoice::Wpa3 => Encryption::Wpa3,
+            };
+            let operation = wifi::plan_encryption(router, &name, encryption)?;
+            (name, operation)
+        }
+        WifiCommand::Schedule { ap, schedule } => {
+            let name = object(&ap)?;
+            let operation = wifi::plan_schedule(router, &name, &schedule).await?;
+            (name, operation)
+        }
+        WifiCommand::ChannelWidth { ap, width } => {
+            let name = object(&ap)?;
+            let operation = wifi::plan_channel_width(router, &name, &width)?;
+            (name, operation)
+        }
+        WifiCommand::BandSteering { ap, state } => {
+            let name = object(&ap)?;
+            let operation = wifi::plan_band_steering(router, &name, state.enabled())?;
             (name, operation)
         }
     };

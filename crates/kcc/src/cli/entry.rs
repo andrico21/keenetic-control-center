@@ -6,7 +6,8 @@ use kcc_i18n::locale::Locale;
 
 use super::{
     accounts, api_keys,
-    args::{Cli, Command, McpCommand},
+    args::{Cli, Command, LocalCommand, McpCommand},
+    args_domains::DomainCommand,
     context::{Ctx, Globals},
     dom_jobs, domains,
     exit::{Exit, Failure, Outcome},
@@ -14,7 +15,7 @@ use super::{
     output::Out,
     persist, preset, rci, routers, tls,
 };
-use crate::server;
+use crate::{server, server_error};
 
 /// Runs the parsed command and returns its process exit code.
 ///
@@ -30,31 +31,16 @@ pub async fn run(cli: Cli) -> u8 {
         }
     };
     let globals = Globals::from_cli(&cli);
-    match cli.command {
+    let outcome = match cli.command {
         Command::Serve => return server_code(server::run_serve(cli.config).await, out),
         Command::Mcp(McpCommand::Stdio) => {
             return server_code(server::run_stdio(cli.config).await, out);
         }
-        Command::Router(_)
-        | Command::Info
-        | Command::Show { words: _ }
-        | Command::Rci(_)
-        | Command::Catalog(_)
-        | Command::Config(_)
-        | Command::Backup(_)
-        | Command::Migrate(_)
-        | Command::Preset(_)
-        | Command::Copy(_)
-        | Command::User(_)
-        | Command::Apikey(_)
-        | Command::Admin(_)
-        | Command::Audit(_)
-        | Command::Healthcheck
-        | Command::Tls(_)
-        | Command::Completions { shell: _ }
-        | Command::Domain(_) => {}
-    }
-    match dispatch(cli.command, globals, out).await {
+        Command::Completions { shell } => tls::completions(shell),
+        Command::Local(command) => local(command, globals, out).await,
+        Command::Domain(command) => domain(command, globals, out).await,
+    };
+    match outcome {
         Ok(()) => 0,
         Err(failure) => {
             out.failure(&failure);
@@ -85,34 +71,41 @@ pub fn report_parse_error(error: &clap::Error, arguments: &[String]) -> u8 {
     code
 }
 
-/// Runs one command.
+/// Runs one command on the router profiles, the state directory or the server's files.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: see `run`.
-async fn dispatch(command: Command, globals: Globals, out: Out) -> Outcome {
+async fn local(command: LocalCommand, globals: Globals, out: Out) -> Outcome {
     match command {
-        Command::Completions { shell } => tls::completions(shell),
-        Command::Tls(sub) => tls::self_signed(out, sub),
-        Command::Healthcheck => tls::healthcheck(&globals).await,
-        Command::Serve | Command::Mcp(_) => Ok(()),
-        Command::Router(sub) => routers::router(&Ctx::open(globals, out)?, sub).await,
-        Command::Info => fleet::info(&Ctx::open(globals, out)?).await,
-        Command::Show { words } => fleet::show(&Ctx::open(globals, out)?, &words).await,
-        Command::Catalog(sub) => fleet::catalog(&Ctx::open(globals, out)?, sub).await,
-        Command::Rci(sub) => rci::run(&Ctx::open(globals, out)?, sub).await,
-        Command::Config(sub) => dom_jobs::config(&Ctx::open(globals, out)?, sub).await,
-        Command::Backup(sub) => persist::backup(&Ctx::open(globals, out)?, sub).await,
-        Command::Migrate(sub) => migrate::run(&Ctx::open(globals, out)?, sub).await,
-        Command::Preset(sub) => preset::commands::run(&Ctx::open(globals, out)?, sub).await,
-        Command::Copy(args) => preset::copy::run(&Ctx::open(globals, out)?, args).await,
-        Command::User(sub) => accounts::user(&Ctx::open(globals, out)?, sub).await,
-        Command::Apikey(sub) => api_keys::api_key(&Ctx::open(globals, out)?, sub).await,
-        Command::Admin(sub) => accounts::admin(&Ctx::open(globals, out)?, sub).await,
-        Command::Audit(sub) => api_keys::audit(&Ctx::open(globals, out)?, &sub),
-        Command::Domain(sub) => domains::run(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Tls(sub) => tls::self_signed(out, sub),
+        LocalCommand::Healthcheck => tls::healthcheck(&globals).await,
+        LocalCommand::Router(sub) => routers::router(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Info => fleet::info(&Ctx::open(globals, out)?).await,
+        LocalCommand::Show { words } => fleet::show(&Ctx::open(globals, out)?, &words).await,
+        LocalCommand::Catalog(sub) => fleet::catalog(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Rci(sub) => rci::run(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Config(sub) => dom_jobs::config(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Backup(sub) => persist::backup(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Migrate(sub) => migrate::run(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Preset(sub) => preset::commands::run(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Copy(args) => preset::copy::run(&Ctx::open(globals, out)?, args).await,
+        LocalCommand::User(sub) => accounts::user(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Apikey(sub) => api_keys::api_key(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Admin(sub) => accounts::admin(&Ctx::open(globals, out)?, sub).await,
+        LocalCommand::Audit(sub) => api_keys::audit(&Ctx::open(globals, out)?, &sub),
     }
+}
+
+/// Runs one curated domain command.
+///
+/// # Errors
+///
+/// Returns the command's failure with its exit code.
+// NOT cancel-safe: see `run`.
+async fn domain(command: DomainCommand, globals: Globals, out: Out) -> Outcome {
+    domains::run(&Ctx::open(globals, out)?, command).await
 }
 
 /// The output language: `--lang`, else `KCC_LANG`, `LC_ALL` or `LANG`, else English.
@@ -140,7 +133,7 @@ fn locale(flag: Option<&str>) -> Outcome<Locale> {
 }
 
 /// Maps a server command's result to its exit code.
-fn server_code(result: Result<server::Outcome, server::ServerError>, out: Out) -> u8 {
+fn server_code(result: Result<server_error::Outcome, server_error::ServerError>, out: Out) -> u8 {
     match result {
         Ok(outcome) => outcome.code(),
         Err(error) => {

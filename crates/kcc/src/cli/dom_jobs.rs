@@ -10,7 +10,7 @@ use kcc_app::{
 };
 use kcc_catalog::{HttpMethod, Risk};
 use kcc_domain::{
-    components::{self, CommitError},
+    components::{self, CommitError, QueueAction},
     configuration::SafetyNet,
     diagnostics::{self, DiagnosticKind},
 };
@@ -19,46 +19,41 @@ use serde_json::{Map, Value, json};
 use tokio::sync::broadcast::{Receiver, error::RecvError};
 
 use super::{
-    args_dom_family::Family,
-    args_dom_jobs::{
-        ComponentsWriteCommand, ConfigWriteCommand, DiagnosticsWriteCommand, ProbeArgs,
-    },
-    args_domains::DiagnosticsCommand,
-    args_domains_net::ComponentsCommand,
-    args_fleet::ConfigCommand,
+    args_dom_jobs::{ComponentsCommand, ConfigCommand, DiagnosticsCommand, ProbeArgs},
+    args_domains_net::QueueChoice,
     change::{Gate, applied},
     context::{Ctx, Services},
-    dom_core, dom_net,
     domains::Session,
     exit::{Detail, Exit, Failure, Outcome},
     persist,
     secret::confirm,
 };
 
-/// Runs a `config` command: the first commands, or the writes added here.
+/// Runs a `config` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn config(
-    ctx: &Ctx,
-    command: Family<ConfigCommand, ConfigWriteCommand>,
-) -> Outcome {
+// NOT cancel-safe: save, commit, rollback and the keep-alive may complete before
+// cancellation.
+pub(crate) async fn config(ctx: &Ctx, command: ConfigCommand) -> Outcome {
     match command {
-        Family::Base(sub) => persist::config(ctx, sub).await,
-        Family::Writes(sub) => config_writes(ctx, sub).await,
+        ConfigCommand::State => persist::config_state(ctx).await,
+        ConfigCommand::Save => persist::config_save(ctx).await,
+        ConfigCommand::Failsafe { action, seconds } => {
+            persist::failsafe(ctx, action, seconds).await
+        }
+        ConfigCommand::KeepAlive => keep_alive(ctx).await,
     }
 }
 
-/// Runs a configuration keep-alive.
+/// Restarts the countdown of the router's armed fail-safe timer.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the keep-alive may reach the router before cancellation.
-async fn config_writes(ctx: &Ctx, command: ConfigWriteCommand) -> Outcome {
-    let ConfigWriteCommand::KeepAlive = command;
+async fn keep_alive(ctx: &Ctx) -> Outcome {
     let session = Session::open(ctx, Permission::Destructive).await?;
     let gate = Gate::new(Risk::Write, Permission::Destructive, false)
         .reporting(keys::CLI_FAILSAFE_RUNNING);
@@ -73,35 +68,19 @@ async fn config_writes(ctx: &Ctx, command: ConfigWriteCommand) -> Outcome {
         .await
 }
 
-/// Runs a `diagnostics` command: the first commands, or the writes added here.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn diagnostics(
-    ctx: &Ctx,
-    command: Family<DiagnosticsCommand, DiagnosticsWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_core::diagnostics(ctx, sub).await,
-        Family::Writes(sub) => diagnostics_writes(ctx, sub).await,
-    }
-}
-
 /// Runs a diagnostic job and waits for its lines.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the job keeps running in this process until it ends.
-async fn diagnostics_writes(ctx: &Ctx, command: DiagnosticsWriteCommand) -> Outcome {
+pub(crate) async fn diagnostics(ctx: &Ctx, command: DiagnosticsCommand) -> Outcome {
     let (kind, args) = match command {
-        DiagnosticsWriteCommand::Ping(args) => (DiagnosticKind::Ping, args),
-        DiagnosticsWriteCommand::Ping6(args) => (DiagnosticKind::Ping6, args),
-        DiagnosticsWriteCommand::Traceroute(args) => (DiagnosticKind::Traceroute, args),
-        DiagnosticsWriteCommand::Arping(args) => (DiagnosticKind::Arping, args),
-        DiagnosticsWriteCommand::Iperf3(args) => (DiagnosticKind::Iperf3, args),
+        DiagnosticsCommand::Ping(args) => (DiagnosticKind::Ping, args),
+        DiagnosticsCommand::Ping6(args) => (DiagnosticKind::Ping6, args),
+        DiagnosticsCommand::Traceroute(args) => (DiagnosticKind::Traceroute, args),
+        DiagnosticsCommand::Arping(args) => (DiagnosticKind::Arping, args),
+        DiagnosticsCommand::Iperf3(args) => (DiagnosticKind::Iperf3, args),
     };
     let services = ctx.services().await?;
     let target = ctx.target(&services, &[Permission::Read]).await?;
@@ -155,45 +134,51 @@ fn probe_body(kind: DiagnosticKind, args: &ProbeArgs) -> Value {
     Value::Object(body)
 }
 
-/// Runs a `components` command: the first commands, or the writes added here.
+/// Runs a `components` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn components(
-    ctx: &Ctx,
-    command: Family<ComponentsCommand, ComponentsWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_net::components(ctx, sub).await,
-        Family::Writes(sub) => components_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a component write; `commit` reboots and waits for the router to return.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: the commit job keeps running in this process until it ends.
-async fn components_writes(ctx: &Ctx, command: ComponentsWriteCommand) -> Outcome {
-    let operation = match command {
-        ComponentsWriteCommand::Commit => return commit(ctx).await,
-        ComponentsWriteCommand::AutoUpdateChannel { channel } => {
-            let session = Session::open(ctx, Permission::Write).await?;
-            let operation = components::plan_auto_update_channel(session.router(), &channel)?;
-            (session, operation)
+// NOT cancel-safe: changes, and the commit job, may run on after cancellation.
+pub(crate) async fn components(ctx: &Ctx, command: ComponentsCommand) -> Outcome {
+    let permission = match command {
+        ComponentsCommand::List | ComponentsCommand::Pending => Permission::Read,
+        ComponentsCommand::Commit => Permission::Destructive,
+        ComponentsCommand::CheckUpdate
+        | ComponentsCommand::Queue {
+            action: _,
+            component: _,
         }
-        ComponentsWriteCommand::AutoUpdateSchedule { schedule } => {
-            let session = Session::open(ctx, Permission::Write).await?;
-            let operation = components::plan_auto_update_schedule(session.router(), &schedule)?;
-            (session, operation)
+        | ComponentsCommand::AutoUpdateChannel { channel: _ }
+        | ComponentsCommand::AutoUpdateSchedule { schedule: _ } => Permission::Write,
+    };
+    let session = Session::open(ctx, permission).await?;
+    let router = session.router();
+    let operation = match command {
+        ComponentsCommand::List => {
+            return session.show(&components::read_components(router).await?);
+        }
+        ComponentsCommand::Pending => {
+            return session.show(&components::read_pending(router).await?);
+        }
+        ComponentsCommand::Commit => return commit(ctx, &session).await,
+        ComponentsCommand::CheckUpdate => components::plan_check_update(router)?,
+        ComponentsCommand::Queue { action, component } => {
+            let staged = match action {
+                QueueChoice::Install => QueueAction::Install,
+                QueueChoice::Remove => QueueAction::Remove,
+            };
+            components::plan_queue(router, staged, &component)?
+        }
+        ComponentsCommand::AutoUpdateChannel { channel } => {
+            components::plan_auto_update_channel(router, &channel)?
+        }
+        ComponentsCommand::AutoUpdateSchedule { schedule } => {
+            components::plan_auto_update_schedule(router, &schedule)?
         }
     };
-    let (session, planned) = operation;
     session
-        .cli(&planned, components::change_request(&planned)?)
+        .cli(&operation, components::change_request(&operation)?)
         .await
 }
 
@@ -203,9 +188,8 @@ async fn components_writes(ctx: &Ctx, command: ComponentsWriteCommand) -> Outcom
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: the commit job keeps running in this process until it ends.
-async fn commit(ctx: &Ctx) -> Outcome {
-    let services = ctx.services().await?;
-    let target = ctx.target(&services, &[Permission::Destructive]).await?;
+async fn commit(ctx: &Ctx, session: &Session<'_>) -> Outcome {
+    let (services, target) = (session.services(), session.target());
     let confirmation = confirm(
         ctx.out(),
         ctx.globals(),
@@ -213,13 +197,13 @@ async fn commit(ctx: &Ctx) -> Outcome {
         target.id(),
         false,
     );
-    ctx.confirmed(&services, target.id(), confirmation).await?;
+    ctx.confirmed(services, target.id(), confirmation).await?;
     let changes = services
         .workflow()
         .begin(target.id(), ctx.principal().actor(), target.role(), false)
         .await?
         .with_request_id(ctx.request_id());
-    let jobs = runner(ctx, &services).await?;
+    let jobs = runner(ctx, services).await?;
     let events = jobs.subscribe();
     let job = components::start_commit_job(
         &jobs,

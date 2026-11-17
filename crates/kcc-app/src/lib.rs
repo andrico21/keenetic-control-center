@@ -16,6 +16,7 @@ pub mod audit;
 pub mod backups;
 mod blocking;
 pub mod brackets;
+pub mod composition;
 pub mod credentials;
 pub mod jobs;
 pub mod permissions;

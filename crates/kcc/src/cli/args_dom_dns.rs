@@ -1,4 +1,4 @@
-//! DNS write commands: one subcommand per `DnsChange` family, with explicit flags.
+//! DNS commands: the reads, then one subcommand per `DnsChange` family, with explicit flags.
 
 use clap::{ArgGroup, Subcommand, ValueEnum};
 
@@ -30,10 +30,14 @@ pub enum RebindChoice {
     Strict,
 }
 
-/// DNS proxy commands that change the configuration.
+/// DNS commands.
 #[derive(Debug, Subcommand)]
 #[non_exhaustive]
-pub enum DnsWriteCommand {
+pub enum DnsCommand {
+    /// DNS proxy state.
+    Proxy,
+    /// Configured resolvers, records and lists.
+    Config,
     /// Add a DNS-over-TLS upstream.
     TlsUpstream {
         /// Resolver IP address.

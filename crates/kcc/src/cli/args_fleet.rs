@@ -1,4 +1,4 @@
-//! Router, raw RCI, catalog, configuration and backup commands.
+//! Router, raw RCI, catalog and backup commands, and the fail-safe timer actions.
 
 use std::path::PathBuf;
 
@@ -83,24 +83,6 @@ pub enum CatalogCommand {
         /// Words of the catalog path.
         #[arg(required = true, num_args = 1..)]
         path: Vec<String>,
-    },
-}
-
-/// Configuration persistence commands.
-#[derive(Debug, Subcommand)]
-#[non_exhaustive]
-pub enum ConfigCommand {
-    /// Show unsaved changes, the last changing agent and the fail-safe timer.
-    State,
-    /// Save the running configuration.
-    Save,
-    /// Arm, commit or roll back the router's fail-safe timer.
-    Failsafe {
-        /// What to do.
-        action: FailsafeAction,
-        /// Timer length when arming, 300..=3600 seconds.
-        #[arg(long, default_value_t = 900)]
-        seconds: u64,
     },
 }
 

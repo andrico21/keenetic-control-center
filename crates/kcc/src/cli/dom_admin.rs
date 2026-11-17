@@ -1,4 +1,4 @@
-//! Firewall and schedule writes.
+//! Firewall and schedule commands.
 
 use kcc_app::permissions::Permission;
 use kcc_domain::{
@@ -14,45 +14,32 @@ use kcc_domain::{
 
 use super::{
     args_dom_admin::{
-        AclDirection, ActionChoice, FirewallWriteCommand, RuleProtocolChoice,
-        SchedulesWriteCommand, VerdictChoice,
+        AclDirection, ActionChoice, FirewallCommand, RuleProtocolChoice, SchedulesCommand,
+        VerdictChoice,
     },
-    args_dom_family::Family,
-    args_domains_net::{FirewallCommand, SchedulesCommand},
     change::{Gate, applied},
     context::Ctx,
-    dom_net,
     domains::Session,
     exit::Outcome,
 };
 
-/// Runs a `firewall` command: the first commands, or the writes added here.
+/// Runs a `firewall` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn firewall(
-    ctx: &Ctx,
-    command: Family<FirewallCommand, FirewallWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_net::firewall(ctx, sub).await,
-        Family::Writes(sub) => firewall_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a firewall write.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
-    let session = Session::open(ctx, Permission::Write).await?;
+pub(crate) async fn firewall(ctx: &Ctx, command: FirewallCommand) -> Outcome {
+    let session = Session::open(ctx, firewall_permission(&command)).await?;
     let router = session.router();
     let operation = match command {
-        FirewallWriteCommand::Rule {
+        FirewallCommand::AccessLists => {
+            return session.show(&firewall_read::access_lists(router).await?);
+        }
+        FirewallCommand::Upnp => {
+            return session.show(&firewall_read::upnp_redirects(router).await?);
+        }
+        FirewallCommand::Rule {
             acl,
             action,
             protocol,
@@ -83,7 +70,7 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
                 firewall_change::plan_add_rule(router, &acl, &rule)?
             }
         }
-        FirewallWriteCommand::RuleProperty {
+        FirewallCommand::RuleProperty {
             acl,
             index,
             description,
@@ -104,7 +91,7 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
             };
             firewall_change::plan_rule_property(router, &acl, rule, property)?
         }
-        FirewallWriteCommand::Bind {
+        FirewallCommand::Bind {
             acl,
             interface,
             direction,
@@ -130,6 +117,38 @@ async fn firewall_writes(ctx: &Ctx, command: FirewallWriteCommand) -> Outcome {
         .await
 }
 
+/// The permission a `firewall` command needs.
+const fn firewall_permission(command: &FirewallCommand) -> Permission {
+    match command {
+        FirewallCommand::AccessLists | FirewallCommand::Upnp => Permission::Read,
+        FirewallCommand::Rule {
+            acl: _,
+            action: _,
+            protocol: _,
+            source: _,
+            source_mask: _,
+            destination: _,
+            destination_mask: _,
+            source_port: _,
+            port: _,
+            remove: _,
+        }
+        | FirewallCommand::RuleProperty {
+            acl: _,
+            index: _,
+            description: _,
+            disable: _,
+            schedule: _,
+        }
+        | FirewallCommand::Bind {
+            acl: _,
+            interface: _,
+            direction: _,
+            remove: _,
+        } => Permission::Write,
+    }
+}
+
 /// The access-list protocol of the command line.
 const fn rule_protocol(choice: RuleProtocolChoice) -> Protocol {
     match choice {
@@ -143,43 +162,50 @@ const fn rule_protocol(choice: RuleProtocolChoice) -> Protocol {
     }
 }
 
-/// Runs a `schedules` command: the first commands, or the writes added here.
+/// Runs a `schedules` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn schedules(
-    ctx: &Ctx,
-    command: Family<SchedulesCommand, SchedulesWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_net::schedules(ctx, sub).await,
-        Family::Writes(sub) => schedules_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a schedule action write.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn schedules_writes(ctx: &Ctx, command: SchedulesWriteCommand) -> Outcome {
-    let SchedulesWriteCommand::Action {
-        name,
-        action,
-        minute,
-        hour,
-        days,
-    } = command;
-    let session = Session::open(ctx, Permission::Write).await?;
-    let kind = match action {
-        ActionChoice::Start => ScheduleAction::Start,
-        ActionChoice::Stop => ScheduleAction::Stop,
+pub(crate) async fn schedules(ctx: &Ctx, command: SchedulesCommand) -> Outcome {
+    let permission = match command {
+        SchedulesCommand::List => Permission::Read,
+        SchedulesCommand::Create { name: _ }
+        | SchedulesCommand::Describe {
+            name: _,
+            description: _,
+        }
+        | SchedulesCommand::Action {
+            name: _,
+            action: _,
+            minute: _,
+            hour: _,
+            days: _,
+        } => Permission::Write,
     };
-    let time = ActionTime::new(kind, minute, hour, days);
-    let operation = schedules::plan_action(session.router(), &name, time)?;
+    let session = Session::open(ctx, permission).await?;
+    let router = session.router();
+    let operation = match command {
+        SchedulesCommand::List => return session.show(&schedules::read_schedules(router).await?),
+        SchedulesCommand::Create { name } => schedules::plan_create(router, &name)?,
+        SchedulesCommand::Describe { name, description } => {
+            schedules::plan_description(router, &name, &description)?
+        }
+        SchedulesCommand::Action {
+            name,
+            action,
+            minute,
+            hour,
+            days,
+        } => {
+            let kind = match action {
+                ActionChoice::Start => ScheduleAction::Start,
+                ActionChoice::Stop => ScheduleAction::Stop,
+            };
+            schedules::plan_action(router, &name, ActionTime::new(kind, minute, hour, days))?
+        }
+    };
     session
         .cli(&operation, schedules::change_request(&operation)?)
         .await

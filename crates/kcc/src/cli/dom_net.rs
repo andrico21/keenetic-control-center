@@ -1,20 +1,12 @@
-//! Router users, routes, policies, NAT, firewall, services, components, storage and
-//! schedule commands.
+//! Router user and storage commands, and the new-secret prompt.
 
 use kcc_app::permissions::Permission;
-use kcc_domain::{
-    components::{self, QueueAction},
-    configuration::SafetyNet,
-    firewall, policies, router_users, schedules, services, storage,
-};
+use kcc_domain::{router_users, storage};
 use kcc_i18n::keys;
 use secrecy::SecretString;
 
 use super::{
-    args_domains_net::{
-        ComponentsCommand, FirewallCommand, PoliciesCommand, QueueChoice, RouterUsersCommand,
-        SchedulesCommand, ServicesCommand, StorageCommand,
-    },
+    args_domains_net::{RouterUsersCommand, StorageCommand},
     context::Ctx,
     domains::Session,
     exit::Outcome,
@@ -72,97 +64,6 @@ pub(crate) async fn router_users(ctx: &Ctx, command: RouterUsersCommand) -> Outc
         .await
 }
 
-/// Runs a `policies` command.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
-pub(crate) async fn policies(ctx: &Ctx, command: PoliciesCommand) -> Outcome {
-    let PoliciesCommand::List = command;
-    let session = Session::open(ctx, Permission::Read).await?;
-    session.show(&policies::read::policies(session.router()).await?)
-}
-
-/// Runs a `firewall` command.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// cancel-safe: reads only.
-pub(crate) async fn firewall(ctx: &Ctx, command: FirewallCommand) -> Outcome {
-    let session = Session::open(ctx, Permission::Read).await?;
-    match command {
-        FirewallCommand::AccessLists => {
-            session.show(&firewall::read::access_lists(session.router()).await?)
-        }
-        FirewallCommand::Upnp => {
-            session.show(&firewall::read::upnp_redirects(session.router()).await?)
-        }
-    }
-}
-
-/// Runs a `services` command.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn services(ctx: &Ctx, command: ServicesCommand) -> Outcome {
-    match command {
-        ServicesCommand::List => {
-            let session = Session::open(ctx, Permission::Read).await?;
-            session.show(&services::read_services(session.router()).await?)
-        }
-        ServicesCommand::Set { name, state } => {
-            let permissions = SafetyNet::required(Permission::Write, services::service_risk(&name));
-            let session = Session::open_permissions(ctx, &permissions).await?;
-            let operation = services::plan_service(session.router(), &name, state.enabled())?;
-            session
-                .cli(&operation, services::change_request(&operation)?)
-                .await
-        }
-    }
-}
-
-/// Runs a `components` command.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn components(ctx: &Ctx, command: ComponentsCommand) -> Outcome {
-    let permission = match command {
-        ComponentsCommand::List | ComponentsCommand::Pending => Permission::Read,
-        ComponentsCommand::CheckUpdate
-        | ComponentsCommand::Queue {
-            action: _,
-            component: _,
-        } => Permission::Write,
-    };
-    let session = Session::open(ctx, permission).await?;
-    let router = session.router();
-    let operation = match command {
-        ComponentsCommand::List => {
-            return session.show(&components::read_components(router).await?);
-        }
-        ComponentsCommand::Pending => {
-            return session.show(&components::read_pending(router).await?);
-        }
-        ComponentsCommand::CheckUpdate => components::plan_check_update(router)?,
-        ComponentsCommand::Queue { action, component } => {
-            let staged = match action {
-                QueueChoice::Install => QueueAction::Install,
-                QueueChoice::Remove => QueueAction::Remove,
-            };
-            components::plan_queue(router, staged, &component)?
-        }
-    };
-    session
-        .cli(&operation, components::change_request(&operation)?)
-        .await
-}
-
 /// Runs a `storage` command.
 ///
 /// # Errors
@@ -189,30 +90,6 @@ pub(crate) async fn storage(ctx: &Ctx, command: StorageCommand) -> Outcome {
                 .await
         }
     }
-}
-
-/// Runs a `schedules` command.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn schedules(ctx: &Ctx, command: SchedulesCommand) -> Outcome {
-    if matches!(command, SchedulesCommand::List) {
-        let session = Session::open(ctx, Permission::Read).await?;
-        return session.show(&schedules::read_schedules(session.router()).await?);
-    }
-    let session = Session::open(ctx, Permission::Write).await?;
-    let operation = match command {
-        SchedulesCommand::List => return Ok(()),
-        SchedulesCommand::Create { name } => schedules::plan_create(session.router(), &name)?,
-        SchedulesCommand::Describe { name, description } => {
-            schedules::plan_description(session.router(), &name, &description)?
-        }
-    };
-    session
-        .cli(&operation, schedules::change_request(&operation)?)
-        .await
 }
 
 /// Reads a new router secret for `name` from the usual sources.

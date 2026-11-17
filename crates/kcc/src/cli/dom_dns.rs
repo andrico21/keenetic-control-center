@@ -1,4 +1,4 @@
-//! DNS proxy writes through the typed `DnsChange` planner.
+//! DNS proxy commands: the reads, and the writes through the typed `DnsChange` planner.
 
 use kcc_app::permissions::Permission;
 use kcc_domain::dns::{
@@ -6,46 +6,53 @@ use kcc_domain::dns::{
 };
 
 use super::{
-    args_dom_dns::{DnsWriteCommand, EngineChoice, RebindChoice},
-    args_dom_family::Family,
-    args_domains_wire::DnsCommand,
+    args_dom_dns::{DnsCommand, EngineChoice, RebindChoice},
     context::Ctx,
-    dom_wire,
     domains::Session,
     exit::Outcome,
 };
 
-/// Runs a `dns` command: the first commands, or the writes added here.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn dns(ctx: &Ctx, command: Family<DnsCommand, DnsWriteCommand>) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_wire::dns(ctx, sub).await,
-        Family::Writes(sub) => dns_writes(ctx, sub).await,
-    }
+/// What a `dns` command asks for.
+enum Request {
+    /// The DNS proxy state.
+    Proxy,
+    /// The configured resolvers, records and lists.
+    Config,
+    /// A typed configuration change.
+    Change(DnsChange),
 }
 
-/// Runs a DNS write.
+/// Runs a `dns` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
-async fn dns_writes(ctx: &Ctx, command: DnsWriteCommand) -> Outcome {
+pub(crate) async fn dns(ctx: &Ctx, command: DnsCommand) -> Outcome {
+    let change = match request(command) {
+        Request::Proxy => {
+            let session = Session::open(ctx, Permission::Read).await?;
+            return session.show(&dns::read_dns_proxy(session.router()).await?);
+        }
+        Request::Config => {
+            let session = Session::open(ctx, Permission::Read).await?;
+            return session.show(&dns::read_configuration(session.router()).await?);
+        }
+        Request::Change(change) => change,
+    };
     let session = Session::open(ctx, Permission::Write).await?;
-    let operation = dns::plan_change(session.router(), &change(command))?;
+    let operation = dns::plan_change(session.router(), &change)?;
     session
         .cli(&operation, dns::change_request(&operation)?)
         .await
 }
 
-/// The typed DNS change of the command line.
-fn change(command: DnsWriteCommand) -> DnsChange {
-    match command {
-        DnsWriteCommand::TlsUpstream {
+/// What `command` asks for: a read, or the typed DNS change.
+fn request(command: DnsCommand) -> Request {
+    let change = match command {
+        DnsCommand::Proxy => return Request::Proxy,
+        DnsCommand::Config => return Request::Config,
+        DnsCommand::TlsUpstream {
             address,
             port,
             server_name,
@@ -61,7 +68,7 @@ fn change(command: DnsWriteCommand) -> DnsChange {
             upstream.domain = domain;
             DnsChange::TlsUpstream(upstream)
         }
-        DnsWriteCommand::HttpsUpstream {
+        DnsCommand::HttpsUpstream {
             url,
             format,
             hash,
@@ -75,35 +82,35 @@ fn change(command: DnsWriteCommand) -> DnsChange {
             upstream.domain = domain;
             DnsChange::HttpsUpstream(upstream)
         }
-        DnsWriteCommand::FilterEngine { engine } => DnsChange::FilterEngine(match engine {
+        DnsCommand::FilterEngine { engine } => DnsChange::FilterEngine(match engine {
             EngineChoice::Interceptor => FilterEngine::Interceptor,
             EngineChoice::Nextdns => FilterEngine::NextDns,
             EngineChoice::Opkg => FilterEngine::Opkg,
             EngineChoice::Public => FilterEngine::Public,
             EngineChoice::Skydns => FilterEngine::SkyDns,
         }),
-        DnsWriteCommand::FilterProfile { name, description } => match description {
+        DnsCommand::FilterProfile { name, description } => match description {
             Some(text) => DnsChange::FilterProfileDescription {
                 name,
                 description: text,
             },
             None => DnsChange::FilterProfile { name },
         },
-        DnsWriteCommand::FilterAssign {
+        DnsCommand::FilterAssign {
             host,
             interface,
             preset,
             profile,
         } => assignment((host, interface), (preset, profile)),
-        DnsWriteCommand::Intercept { state } => DnsChange::Intercept {
+        DnsCommand::Intercept { state } => DnsChange::Intercept {
             enabled: state.enabled(),
         },
-        DnsWriteCommand::RebindProtect { mode } => DnsChange::RebindProtect(match mode {
+        DnsCommand::RebindProtect { mode } => DnsChange::RebindProtect(match mode {
             RebindChoice::Auto => RebindProtection::Auto,
             RebindChoice::Strict => RebindProtection::Strict,
         }),
-        DnsWriteCommand::MaxTtl { seconds } => DnsChange::MaxTtl(seconds),
-        DnsWriteCommand::Route {
+        DnsCommand::MaxTtl { seconds } => DnsChange::MaxTtl(seconds),
+        DnsCommand::Route {
             group,
             gateway,
             interface,
@@ -113,17 +120,15 @@ fn change(command: DnsWriteCommand) -> DnsChange {
             route.interface = interface;
             DnsChange::Route(route)
         }
-        DnsWriteCommand::NameServer { address } => DnsChange::NameServer { address },
-        DnsWriteCommand::StaticHost { domain, address } => {
-            DnsChange::StaticHost { domain, address }
-        }
-        DnsWriteCommand::FqdnGroup {
+        DnsCommand::NameServer { address } => DnsChange::NameServer { address },
+        DnsCommand::StaticHost { domain, address } => DnsChange::StaticHost { domain, address },
+        DnsCommand::FqdnGroup {
             name,
             description,
             include,
             exclude,
         } => fqdn(name, (description, include, exclude)),
-        DnsWriteCommand::Nextdns {
+        DnsCommand::Nextdns {
             token,
             host,
             interface,
@@ -134,7 +139,8 @@ fn change(command: DnsWriteCommand) -> DnsChange {
             },
             |mac| DnsChange::NextDnsHost { host: mac, token },
         ),
-    }
+    };
+    Request::Change(change)
 }
 
 /// A filtering assignment of `(preset, profile)` to `(host, interface)`; clap requires

@@ -1,9 +1,10 @@
-//! Management-risk writes of the service and KeenDNS domains; each runs inside the
-//! fail-safe timer and needs `--yes`.
+//! Service and KeenDNS commands; their management-risk writes run inside the fail-safe
+//! timer and need `--yes`.
 
 use kcc_app::permissions::Permission;
 use kcc_domain::{
     DomainError,
+    configuration::SafetyNet,
     keendns::{self, RemoteSecurityLevel},
     services::{self, HttpSslSetting, ManagementListener, SecurityLevel},
 };
@@ -11,42 +12,40 @@ use kcc_i18n::keys;
 
 use super::{
     args_dom_admin::{
-        CloudLevelChoice, HttpsChoice, KeenDnsWriteCommand, LevelChoice, ListenerChoice,
-        ServicesWriteCommand, UpstreamChoice,
+        CloudLevelChoice, HttpsChoice, KeenDnsCommand, LevelChoice, ListenerChoice,
+        ServicesCommand, UpstreamChoice,
     },
-    args_dom_family::Family,
-    args_domains_net::ServicesCommand,
-    args_domains_wire::KeenDnsCommand,
     context::Ctx,
-    dom_net, dom_wire,
     domains::Session,
     exit::{Exit, Failure, Outcome},
 };
 
-/// Runs a `services` command: the first commands, or the writes added here.
+/// Runs a `services` command; the listener changes are management changes.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn services(
-    ctx: &Ctx,
-    command: Family<ServicesCommand, ServicesWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_net::services(ctx, sub).await,
-        Family::Writes(sub) => services_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a management-listener write inside the fail-safe timer.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn services_writes(ctx: &Ctx, command: ServicesWriteCommand) -> Outcome {
-    let session = Session::open(ctx, Permission::Write).await?;
+pub(crate) async fn services(ctx: &Ctx, command: ServicesCommand) -> Outcome {
+    let permissions = match &command {
+        ServicesCommand::List => vec![Permission::Read],
+        ServicesCommand::Set { name, state: _ } => {
+            SafetyNet::required(Permission::Write, services::service_risk(name))
+        }
+        ServicesCommand::Port {
+            listener: _,
+            port: _,
+        }
+        | ServicesCommand::SecurityLevel {
+            listener: _,
+            level: _,
+        }
+        | ServicesCommand::Https {
+            setting: _,
+            port: _,
+        } => vec![Permission::Write],
+    };
+    let session = Session::open_permissions(ctx, &permissions).await?;
     let router = session.router();
     let listener = |choice| match choice {
         ListenerChoice::Http => ManagementListener::Http,
@@ -54,11 +53,15 @@ async fn services_writes(ctx: &Ctx, command: ServicesWriteCommand) -> Outcome {
         ListenerChoice::Telnet => ManagementListener::Telnet,
     };
     let operation = match command {
-        ServicesWriteCommand::Port {
+        ServicesCommand::List => return session.show(&services::read_services(router).await?),
+        ServicesCommand::Set { name, state } => {
+            services::plan_service(router, &name, state.enabled())?
+        }
+        ServicesCommand::Port {
             listener: which,
             port,
         } => services::plan_port(router, listener(which), port).map_err(own_listener)?,
-        ServicesWriteCommand::SecurityLevel {
+        ServicesCommand::SecurityLevel {
             listener: which,
             level,
         } => {
@@ -69,7 +72,7 @@ async fn services_writes(ctx: &Ctx, command: ServicesWriteCommand) -> Outcome {
             };
             services::plan_security_level(router, listener(which), zone)?
         }
-        ServicesWriteCommand::Https { setting, port } => {
+        ServicesCommand::Https { setting, port } => {
             let ssl = match setting {
                 HttpsChoice::On => HttpSslSetting::Enable(true),
                 HttpsChoice::Off => HttpSslSetting::Enable(false),
@@ -96,33 +99,36 @@ fn own_listener(error: DomainError) -> Failure {
     }
 }
 
-/// Runs a `keendns` command: the first commands, or the writes added here.
+/// Runs a `keendns` command.
 ///
 /// # Errors
 ///
 /// Returns the command's failure with its exit code.
 // NOT cancel-safe: changes may apply before cancellation.
-pub(crate) async fn keendns(
-    ctx: &Ctx,
-    command: Family<KeenDnsCommand, KeenDnsWriteCommand>,
-) -> Outcome {
-    match command {
-        Family::Base(sub) => dom_wire::keendns(ctx, sub).await,
-        Family::Writes(sub) => keendns_writes(ctx, sub).await,
-    }
-}
-
-/// Runs a KeenDNS management write inside the fail-safe timer.
-///
-/// # Errors
-///
-/// Returns the command's failure with its exit code.
-// NOT cancel-safe: changes may apply before cancellation.
-async fn keendns_writes(ctx: &Ctx, command: KeenDnsWriteCommand) -> Outcome {
-    let session = Session::open(ctx, Permission::Write).await?;
+pub(crate) async fn keendns(ctx: &Ctx, command: KeenDnsCommand) -> Outcome {
+    let permission = match command {
+        KeenDnsCommand::Status => Permission::Read,
+        KeenDnsCommand::Book { name: _, domain: _ }
+        | KeenDnsCommand::Drop { name: _, domain: _ }
+        | KeenDnsCommand::Proxy { name: _, state: _ }
+        | KeenDnsCommand::ProxyUpstream {
+            name: _,
+            protocol: _,
+            host: _,
+            port: _,
+        }
+        | KeenDnsCommand::CloudLevel { level: _ } => Permission::Write,
+    };
+    let session = Session::open(ctx, permission).await?;
     let router = session.router();
     let operation = match command {
-        KeenDnsWriteCommand::ProxyUpstream {
+        KeenDnsCommand::Status => return session.show(&keendns::read_status(router).await?),
+        KeenDnsCommand::Book { name, domain } => keendns::plan_book_name(router, &name, &domain)?,
+        KeenDnsCommand::Drop { name, domain } => keendns::plan_drop_name(router, &name, &domain)?,
+        KeenDnsCommand::Proxy { name, state } => {
+            keendns::plan_proxy(router, &name, state.enabled())?
+        }
+        KeenDnsCommand::ProxyUpstream {
             name,
             protocol,
             host,
@@ -135,7 +141,7 @@ async fn keendns_writes(ctx: &Ctx, command: KeenDnsWriteCommand) -> Outcome {
             };
             keendns::plan_proxy_upstream(router, &name, scheme, &host, port)?
         }
-        KeenDnsWriteCommand::CloudLevel { level } => {
+        KeenDnsCommand::CloudLevel { level } => {
             let exposure = match level {
                 CloudLevelChoice::Public => RemoteSecurityLevel::Public,
                 CloudLevelChoice::Private => RemoteSecurityLevel::Private,
