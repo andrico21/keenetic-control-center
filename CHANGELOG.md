@@ -114,6 +114,14 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **The catalog itself classifies every raw DELETE as destructive.** `kcc_catalog`'s
+  validation used to return the risk of the removed command (often `Write`) and each front
+  end raised a DELETE to destructive on its own; `ValidatedRequest::risk` is now
+  `Destructive` for every DELETE, and the MCP `kcc_rci_delete`, `kcc rci delete` and the
+  Web RCI console take it from there. Their gates are unchanged. A generated argument type
+  the runtime does not know now fails the catalog load (`InvalidGeneratedCatalog`) instead
+  of becoming unconstrained text.
+
 - **A raw batch that fails part-way is audited for what was applied.** A batch larger than
   one request (about 900 KiB) is sent in chunks. When a later chunk fails, the earlier
   chunks were already applied: the change is now audited as `router.change_batch` with a
@@ -708,6 +716,18 @@ The first release, `0.1.0`, is in preparation and contains:
   instead of re-encoding the growing batch for every record while relays wait on the lock.
 
 ### Security
+
+- **CLI lines outside the catalog are destructive changes.** A line the catalog cannot
+  map, sent through the raw escape (`kcc_cli_parse`, the Web CLI console's "send
+  unvalidated" box), used to be a management change. It is now destructive: besides
+  `RawRci` and `ManageRouters` it needs the `Destructive` permission; over MCP also
+  `[mcp] allow_destructive = true` and `confirm: true` (as before), and in the Web console
+  the router name typed in the dialog instead of a plain confirmation. It still runs under
+  the recovery timer.
+- **Unknown field names no longer cost time in proportion to their length.** The "did
+  you mean" suggestion for an unknown request field skips a name longer than every
+  candidate by more than two characters (it cannot be within the suggestion distance), so
+  a huge field name in an RCI request no longer builds an edit-distance table per sibling.
 
 - **Live views end with their session.** The fleet, dashboard, router log, interface
   traffic, job and apply-progress streams were authorized only when they opened, so a

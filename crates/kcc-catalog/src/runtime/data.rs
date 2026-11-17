@@ -195,27 +195,16 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
                 .arguments
                 .into_iter()
                 .map(|(name, argument)| {
-                    let kind = match argument.kind.as_str() {
-                        "Integer" => ArgumentKind::Integer,
-                        "IpAddress" | "Ipv6Address" => ArgumentKind::IpAddress,
-                        "IpMask" | "Mask" => ArgumentKind::IpMask,
-                        "IpAddressMask" => ArgumentKind::IpAddressMask,
-                        "MacAddress" => ArgumentKind::MacAddress,
-                        "Interface" | "ObjectName" => ArgumentKind::ObjectName,
-                        "Keyword" => ArgumentKind::Keyword,
-                        "Password" => ArgumentKind::Password,
-                        _ => ArgumentKind::String,
-                    };
                     let value = Argument {
                         name: name.clone(),
-                        kind,
+                        kind: argument_kind(&argument.kind)?,
                         values: argument.values,
                         minimum: argument.minimum,
                         maximum: argument.maximum,
                     };
-                    (name, value)
+                    Ok((name, value))
                 })
-                .collect();
+                .collect::<Result<_, CatalogError>>()?;
             let command = Command {
                 path: raw.path.clone(),
                 models: raw.models,
@@ -235,6 +224,25 @@ fn load(version: CatalogVersion) -> Result<CatalogData, CatalogError> {
         commands,
         synopses,
         models,
+    })
+}
+
+/// Maps a generated argument type name to its validation category.
+///
+/// # Errors
+/// Returns [`CatalogError::InvalidGeneratedCatalog`] for a type name the runtime does not know.
+pub(super) fn argument_kind(kind: &str) -> Result<ArgumentKind, CatalogError> {
+    Ok(match kind {
+        "Integer" => ArgumentKind::Integer,
+        "IpAddress" | "Ipv6Address" => ArgumentKind::IpAddress,
+        "IpMask" | "Mask" => ArgumentKind::IpMask,
+        "IpAddressMask" => ArgumentKind::IpAddressMask,
+        "MacAddress" => ArgumentKind::MacAddress,
+        "Interface" | "ObjectName" => ArgumentKind::ObjectName,
+        "Keyword" => ArgumentKind::Keyword,
+        "Password" => ArgumentKind::Password,
+        "String" | "Filename" => ArgumentKind::String,
+        _ => return Err(CatalogError::InvalidGeneratedCatalog),
     })
 }
 

@@ -11,6 +11,8 @@ mod raw_paths;
 
 #[path = "support/raw_redaction.rs"]
 mod raw_redaction;
+#[path = "support/raw_unvalidated.rs"]
+mod raw_unvalidated;
 
 #[path = "support/audit_pending.rs"]
 mod audit_pending;

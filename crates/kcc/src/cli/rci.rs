@@ -68,13 +68,9 @@ pub(crate) async fn run(ctx: &Ctx, command: RciCommand) -> Outcome {
                 HttpMethod::Delete,
                 &value,
             )?;
-            let gate = Gate::new(
-                validated.risk.max(Risk::Destructive),
-                Permission::RawRci,
-                true,
-            )
-            .persisting(validated.persists_immediately)
-            .recovery(validated.contains_management());
+            let gate = Gate::new(validated.risk, Permission::RawRci, true)
+                .persisting(validated.persists_immediately)
+                .recovery(validated.contains_management());
             let (document, headline) =
                 run_headlined(ctx, &services, &target, gate, async |changes, _router| {
                     let request = ChangeRequest::delete(

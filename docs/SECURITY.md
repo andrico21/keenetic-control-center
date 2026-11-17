@@ -252,6 +252,13 @@ still runs afterwards. A management node always requires the recovery timer, inc
 when a destructive sibling determines the request's maximum risk. This applies to raw
 MCP, CLI and Web requests; curated operations retain their domain plans and gates.
 
+The catalog itself sets two floors, so no front end has to: every DELETE is Destructive,
+and a CLI line the catalog cannot map, which only a role holding `RawRci` and
+`ManageRouters` may send unvalidated (MCP `kcc_cli_parse`, the Web CLI console's "Send
+without catalog validation" box), is Destructive and runs under the recovery timer. Such a
+line therefore also needs the `Destructive` permission; over MCP the server switch and
+`confirm: true`, in the Web console the router name typed in the dialog.
+
 Raw classification is deliberately coarser than curated classification: interface
 firewall bindings, access-list rules, security levels and bridge membership changes always have Management
 risk, regardless of the interface's current role. SSH, Telnet, HTTP service toggles and

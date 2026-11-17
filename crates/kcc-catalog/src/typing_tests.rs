@@ -125,6 +125,11 @@ fn network_cases() -> Vec<Case> {
             json!({"index":"ten"}),
         ),
         (
+            "access-list rule",
+            json!({"index":10_i32,"new-index":2_i32}),
+            json!({"index":10_i32,"new-index":"first"}),
+        ),
+        (
             "ip policy",
             json!({"name":"Policy0"}),
             json!({"name":"bad name"}),

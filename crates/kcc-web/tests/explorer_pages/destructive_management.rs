@@ -11,6 +11,8 @@
 )]
 #[path = "destructive_management/single_stake.rs"]
 mod single_stake;
+#[path = "destructive_management/unvalidated.rs"]
+mod unvalidated;
 
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;

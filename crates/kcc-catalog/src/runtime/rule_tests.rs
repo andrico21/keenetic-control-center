@@ -14,10 +14,11 @@ use super::{
     Catalog,
     data::{
         DESTRUCTIVE_PATHS, MANAGEMENT_INTERFACE_SUFFIXES, MANAGEMENT_INTERFACE_TREES,
-        MANAGEMENT_PATHS, MANAGEMENT_PREFIXES, PERSISTS_IMMEDIATELY_PATHS,
+        MANAGEMENT_PATHS, MANAGEMENT_PREFIXES, PERSISTS_IMMEDIATELY_PATHS, argument_kind,
     },
     path_matches,
 };
+use crate::{ArgumentKind, CatalogError};
 
 /// A misspelled overlay must fail with its pattern, even if risk tests share that rule.
 #[test]
@@ -87,4 +88,19 @@ fn every_safety_pattern_matches_an_embedded_command() -> Result<(), Box<dyn Erro
         );
     }
     Ok(())
+}
+
+/// A-20: a generated argument type the runtime does not know fails the catalog load instead
+/// of silently becoming unconstrained text; the two plain-text types map explicitly.
+#[test]
+fn unknown_generated_argument_types_are_refused() {
+    assert_eq!(argument_kind("String"), Ok(ArgumentKind::String));
+    assert_eq!(argument_kind("Filename"), Ok(ArgumentKind::String));
+    for unknown in ["Password2", "Ipv6Mask", "Boolean", ""] {
+        assert_eq!(
+            argument_kind(unknown),
+            Err(CatalogError::InvalidGeneratedCatalog),
+            "{unknown}"
+        );
+    }
 }

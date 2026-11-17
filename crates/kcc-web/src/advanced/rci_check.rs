@@ -204,7 +204,8 @@ impl RciForm {
 }
 
 impl Checked {
-    /// The request's risk: a read for `GET`, destructive for `DELETE`.
+    /// The request's risk: a read for `GET`, otherwise the catalog's risk (destructive for
+    /// `DELETE`).
     pub(crate) const fn risk(&self) -> Risk {
         match self {
             Self::Path {
@@ -212,11 +213,6 @@ impl Checked {
                 validated: _,
                 show: _,
             } => Risk::Read,
-            Self::Path {
-                method: HttpMethod::Delete,
-                validated: _,
-                show: _,
-            } => Risk::Destructive,
             Self::Path {
                 method: _,
                 validated,

@@ -161,8 +161,8 @@ impl Catalog {
     ) -> Result<ValidatedRequest, Vec<ValidationIssue>> {
         let mut request =
             self.validate_with_options(path, method, value, RequestOptions::default())?;
-        if let Some(interface_risk) = interface_node_risk(path, method, value) {
-            request.risk = request.risk.max(interface_risk);
+        if whole_interface_change(path, method, value) {
+            request.risk = request.risk.max(Risk::Management);
             request.contains_management = true;
         }
         Ok(request)
@@ -456,8 +456,9 @@ fn path_matches(pattern: &str, path: &str) -> bool {
             .all(|(expected, actual)| *expected == "*" || *expected == actual)
 }
 
-/// Distinguishes whole-interface creation/removal from a named leaf update.
-fn interface_node_risk(path: &str, method: HttpMethod, value: &serde_json::Value) -> Option<Risk> {
+/// Distinguishes whole-interface creation/removal from a named leaf update. The removal's
+/// destructive risk comes from the request itself; this only adds the management stake.
+fn whole_interface_change(path: &str, method: HttpMethod, value: &serde_json::Value) -> bool {
     let interface = if path == "interface" {
         Some(value)
     } else if path.is_empty() {
@@ -465,15 +466,13 @@ fn interface_node_risk(path: &str, method: HttpMethod, value: &serde_json::Value
     } else {
         None
     };
-    let node = interface?;
-    if method == HttpMethod::Delete || node.get("no") == Some(&serde_json::Value::Bool(true)) {
-        return Some(Risk::Destructive);
-    }
-    node.as_object()
-        .is_some_and(|object| {
-            object
-                .keys()
-                .all(|key| matches!(key.as_str(), "name" | "no"))
-        })
-        .then_some(Risk::Management)
+    interface.is_some_and(|node| {
+        method == HttpMethod::Delete
+            || node.get("no") == Some(&serde_json::Value::Bool(true))
+            || node.as_object().is_some_and(|object| {
+                object
+                    .keys()
+                    .all(|key| matches!(key.as_str(), "name" | "no"))
+            })
+    })
 }

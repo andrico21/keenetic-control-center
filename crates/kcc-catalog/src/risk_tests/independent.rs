@@ -123,7 +123,7 @@ fn removals_have_the_delete_risk_floor() -> Result<(), Box<dyn Error>> {
                 command.path
             );
             if let Ok(deleted) = catalog.validate(&command.path, HttpMethod::Delete, &json!({})) {
-                assert_eq!(removed.risk, deleted.risk.max(Risk::Destructive));
+                assert_eq!(removed.risk, deleted.risk, "{version} {}", command.path);
             }
         }
         for line in [

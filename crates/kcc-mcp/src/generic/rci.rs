@@ -269,11 +269,7 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
     let preliminary = preliminary_risk(|catalog| {
         catalog.validate(&input.catalog_path, HttpMethod::Delete, &input.value)
     })?;
-    raw_change::authorize(
-        server,
-        (&identity, &host),
-        (preliminary.max(Risk::Destructive), input.confirm),
-    )?;
+    raw_change::authorize(server, (&identity, &host), (preliminary, input.confirm))?;
     let catalog = server.catalog(host.as_str()).await?;
     let validated = checked(
         &catalog,
@@ -281,11 +277,7 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
         HttpMethod::Delete,
         &input.value,
     )?;
-    raw_change::authorize(
-        server,
-        (&identity, &host),
-        (validated.risk.max(Risk::Destructive), input.confirm),
-    )?;
+    raw_change::authorize(server, (&identity, &host), (validated.risk, input.confirm))?;
     let result = raw_change::run(
         server,
         (

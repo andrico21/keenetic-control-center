@@ -272,7 +272,10 @@ the run then shows that the router rolled the changes back.
 model, shows each command's arguments and runs it with validated input. Background
 commands run as jobs. The RCI and CLI consoles send raw requests that are still
 validated against the catalog; they need the RawRci permission. Writes go through the
-change workflow. Answers, the configuration lines of `show running-config` included,
+change workflow. In the CLI console an administrator can tick "Send without catalog
+validation" for a command the catalog does not know; such a line counts as destructive:
+it needs the Destructive permission and the router name typed in the dialog, and runs
+under the recovery timer. Answers, the configuration lines of `show running-config` included,
 show secrets as `********` unless you hold RevealSecrets on that router. On the CLI,
 `kcc show` and `kcc rci` print them as `<redacted>` under the same rule.
 

@@ -202,6 +202,6 @@ fn cli_unknown_lines_use_existing_raw_gate() {
         assert!(request.unvalidated);
         assert_eq!(request.path, line);
         assert_eq!(*request.value(), json!({"command":line}));
-        assert_eq!(request.risk, Risk::Management);
+        assert_eq!(request.risk, Risk::Destructive);
     }
 }

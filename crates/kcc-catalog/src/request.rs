@@ -55,8 +55,10 @@ impl ValidatedRequest {
         unvalidated: bool,
     ) -> Self {
         let classification = classify_request(catalog, path, &value);
-        let risk = if unvalidated {
-            Risk::Management
+        // A line outside the catalog cannot be classified, and a removal is destructive
+        // whatever it removes: both floors live here so that no caller re-derives them.
+        let risk = if unvalidated || method == HttpMethod::Delete {
+            Risk::Destructive
         } else {
             classification.risk.unwrap_or_else(|| {
                 if path.is_empty() && value.as_object().is_some_and(serde_json::Map::is_empty) {
