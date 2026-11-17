@@ -6,7 +6,10 @@ use core::mem;
 use kcc_app::settings::LogsConfig;
 use kcc_rci::RciClient;
 use thiserror::Error;
-use tokio::{sync::broadcast, task::JoinHandle};
+use tokio::{
+    sync::broadcast,
+    task::{JoinHandle, JoinSet},
+};
 
 use super::{
     pipeline::{ForwarderError, LogForwarder},
@@ -60,7 +63,7 @@ impl Service {
             if !selected(config, &router) {
                 continue;
             }
-            let collector = LogCollector::start(&router, client, config)?;
+            let collector = LogCollector::start(&router, client, config, Arc::clone(&metrics))?;
             let mut receiver = collector.subscribe();
             let relay_forwarder = Arc::clone(&forwarder);
             let relay_metrics = Arc::clone(&metrics);
@@ -107,13 +110,16 @@ impl Service {
         )
     }
 
-    /// Stops router streams, relays, and sink workers.
+    /// Stops router streams, relays, and sink workers. Every collector is told to stop at
+    /// once, so they wind down together rather than one after another.
     // NOT cancel-safe: cancellation can lose task results after shutdown has started.
     #[inline]
     pub async fn shutdown(mut self) {
+        let mut stopping = JoinSet::new();
         for (_, collector) in mem::take(&mut self.collectors) {
-            drop(collector.shutdown().await);
+            drop(stopping.spawn(collector.shutdown()));
         }
+        while stopping.join_next().await.is_some() {}
         for relay in self.relays.drain(..) {
             drop(relay.await);
         }

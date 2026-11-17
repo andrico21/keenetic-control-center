@@ -3,21 +3,23 @@
 use core::{fmt, time::Duration};
 
 use kcc_app::settings::{LogSinkConfig, SearchFlavor};
-use reqwest::{Client, StatusCode, header, redirect::Policy};
-use rustls::crypto::ring::default_provider;
+use reqwest::{Client, StatusCode, header};
 use serde::Deserialize;
 use thiserror::Error;
-use tokio::fs;
 
 use super::{
     format,
     sink::{Auth, DeliveryError, retry_after},
+    sink_http,
     types::LogRecord,
 };
 
+/// Longest Bulk API reply read; a longer reply counts as malformed.
+const MAX_REPLY: usize = 8 * 1024 * 1024;
+
 /// A configured Elasticsearch/OpenSearch Bulk API client.
 pub struct ElasticsearchClient {
-    /// No-redirect HTTP client with normal certificate verification.
+    /// No-redirect HTTP client with normal certificate verification and timeouts.
     client: Client,
     /// Fully resolved Bulk API endpoint from operator configuration.
     endpoint: String,
@@ -73,18 +75,8 @@ impl ElasticsearchClient {
             api_key_file.as_deref(),
         )
         .await?;
-        let mut builder = Client::builder().no_proxy().redirect(Policy::none());
-        if let Some(path) = ca_file {
-            let pem = fs::read(path)
-                .await
-                .map_err(|_error| DeliveryError::ReadFile)?;
-            let certificate = reqwest::Certificate::from_pem(&pem)
-                .map_err(|_error| DeliveryError::Certificate)?;
-            builder = builder.add_root_certificate(certificate);
-        }
-        drop(default_provider().install_default());
         Ok(Self {
-            client: builder.build().map_err(|_error| DeliveryError::Client)?,
+            client: sink_http::client(ca_file.as_deref()).await?,
             endpoint: format!("{}/_bulk", url.as_str().trim_end_matches('/')),
             flavor: *flavor,
             target: target.clone(),
@@ -97,8 +89,9 @@ impl ElasticsearchClient {
     ///
     /// # Errors
     ///
-    /// Returns [`BulkError`] for serialization, compression, transport, malformed responses,
-    /// or whole-request HTTP failures. HTTP 429 and 5xx failures are retriable.
+    /// Returns [`BulkError`] for serialization, compression, transport, malformed or
+    /// oversized responses, or whole-request HTTP failures. Transport, HTTP 429 and 5xx
+    /// failures are retriable.
     // NOT cancel-safe: cancellation after dispatch can retry an accepted create operation;
     // duplicate create ids are represented as item-level drops by the destination.
     #[inline]
@@ -129,10 +122,11 @@ impl ElasticsearchClient {
                 retry_after: retry_after(response.headers()),
             });
         }
-        let payload_response = response
-            .json::<BulkResponse>()
+        let reply = sink_http::read_capped(response, MAX_REPLY)
             .await
-            .map_err(|_error| BulkError::Response)?;
+            .ok_or(BulkError::Response)?;
+        let payload_response =
+            serde_json::from_slice::<BulkResponse>(&reply).map_err(|_error| BulkError::Response)?;
         classify(payload_response, records.len())
     }
 }
@@ -178,14 +172,15 @@ impl BulkError {
     /// Returns whether retry policy may resubmit the whole request.
     #[inline]
     #[must_use]
-    pub const fn is_retriable(&self) -> bool {
+    pub fn is_retriable(&self) -> bool {
         match self {
             Self::Http {
                 status: _,
                 retriable,
                 retry_after: _,
             } => *retriable,
-            Self::Delivery(_) | Self::Response | Self::ItemCount => false,
+            Self::Delivery(error) => error.is_retriable(),
+            Self::Response | Self::ItemCount => false,
         }
     }
 

@@ -3,7 +3,6 @@
 use core::time::Duration;
 use std::{fs, io::Read as _};
 
-use chrono::{FixedOffset, TimeZone as _};
 use flate2::read::GzDecoder;
 use kcc_app::settings::Config;
 use kcc_telemetry::logs::{
@@ -31,11 +30,7 @@ async fn loki_sink_applies_tenant_basic_auth_and_gzip_without_debug_secret() -> 
     config.validate()?;
     let sink = LokiClient::load(config.logs.sinks.first().ok_or("sink")?).await?;
     assert!(!format!("{sink:?}").contains("highly-secret"));
-    let offset = FixedOffset::east_opt(0).ok_or("offset")?;
-    let timestamp = offset
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 1)
-        .single()
-        .ok_or("date")?;
+    let timestamp = super::at(2026, 11, 6, 12, 0, 1)?;
 
     sink.send(&[record(9, timestamp, "delivered")]).await?;
 
@@ -128,11 +123,7 @@ async fn elasticsearch_sink_uses_api_key_and_classifies_item_failures() -> TestR
     config.validate()?;
     let sink = ElasticsearchClient::load(config.logs.sinks.first().ok_or("sink")?).await?;
     assert!(!format!("{sink:?}").contains("encoded-api-key"));
-    let offset = FixedOffset::east_opt(0).ok_or("offset")?;
-    let timestamp = offset
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 1)
-        .single()
-        .ok_or("date")?;
+    let timestamp = super::at(2026, 11, 6, 12, 0, 1)?;
     let records = [
         record(10, timestamp, "accepted"),
         record(11, timestamp, "rejected"),
@@ -184,11 +175,7 @@ async fn elasticsearch_sink_marks_429_and_500_retriable() -> TestResult {
     ))?;
     config.validate()?;
     let sink = ElasticsearchClient::load(config.logs.sinks.first().ok_or("sink")?).await?;
-    let offset = FixedOffset::east_opt(0).ok_or("offset")?;
-    let timestamp = offset
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 1)
-        .single()
-        .ok_or("date")?;
+    let timestamp = super::at(2026, 11, 6, 12, 0, 1)?;
     let records = [record(12, timestamp, "retry")];
 
     let Err(rate_limited) = sink.send(&records).await else {

@@ -9,7 +9,8 @@ use tokio::{sync::Notify, task::JoinHandle, time::timeout};
 use tokio_util::sync::CancellationToken;
 
 use super::{
-    pipeline_delivery::{Sink, Worker, worker},
+    destination::Sink,
+    pipeline_delivery::{Stop, Worker, worker},
     queue::Pending,
     retry::{Clock, TokioClock},
     sink::DeliveryError,
@@ -41,8 +42,10 @@ pub struct LogForwarder {
     senders: Vec<Sender>,
     /// Worker tasks.
     tasks: Vec<JoinHandle<()>>,
-    /// Cooperative cancellation.
+    /// Cooperative cancellation: flush what is queued, then stop.
     cancellation: CancellationToken,
+    /// Fired when the flush deadline passes: count what is left and stop.
+    abort: CancellationToken,
 }
 
 impl fmt::Debug for LogForwarder {
@@ -78,10 +81,11 @@ impl LogForwarder {
         }
     }
 
-    /// Flushes pending records for at most ten seconds and stops every worker.
+    /// Flushes pending records for at most ten seconds and stops every worker. Records still
+    /// undelivered at the deadline, in flight or queued, are counted as dropped at shutdown.
     #[inline]
-    // NOT cancel-safe: dropped while flushing, the workers are detached rather than aborted and may
-    // flush past the ten-second deadline; no record is lost.
+    // NOT cancel-safe: dropped while flushing, the workers are detached rather than stopped and
+    // may flush past the ten-second deadline.
     pub async fn shutdown(mut self) {
         self.cancellation.cancel();
         for sender in &self.senders {
@@ -96,8 +100,9 @@ impl LogForwarder {
         .await
         .is_ok();
         if !completed {
-            for task in tasks {
-                task.abort();
+            self.abort.cancel();
+            for task in tasks.into_iter().filter(|task| !task.is_finished()) {
+                drop(task.await);
             }
         }
     }
@@ -118,6 +123,7 @@ impl LogForwarder {
     ) -> Result<Self, ForwarderError> {
         let capacity = NonZeroUsize::new(config.queue_max).ok_or(ForwarderError::Capacity)?;
         let cancellation = CancellationToken::new();
+        let abort = CancellationToken::new();
         let mut senders = Vec::new();
         let mut tasks = Vec::new();
         for (index, configured) in config.sinks.iter().enumerate() {
@@ -131,7 +137,7 @@ impl LogForwarder {
                 Arc::clone(&sender.notify),
                 Arc::clone(&metrics),
                 Arc::clone(&clock),
-                cancellation.child_token(),
+                Stop::new(cancellation.child_token(), abort.child_token()),
             ))));
             senders.push(sender);
         }
@@ -139,6 +145,7 @@ impl LogForwarder {
             senders,
             tasks,
             cancellation,
+            abort,
         })
     }
 }

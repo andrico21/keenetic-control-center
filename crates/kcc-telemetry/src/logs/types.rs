@@ -1,6 +1,6 @@
 //! Typed router log records.
 
-use chrono::{DateTime, FixedOffset};
+use chrono::NaiveDateTime;
 
 /// One parsed router log record.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10,9 +10,10 @@ pub struct LogRecord {
     pub router: String,
     /// Router-assigned numeric record id.
     pub id: u64,
-    /// Timestamp interpreted in the router timezone.
-    pub ts: DateTime<FixedOffset>,
-    /// Normalized severity label.
+    /// The router's wall-clock time of the record: naive local time, because the router's
+    /// offset from UTC is unknown.
+    pub ts: NaiveDateTime,
+    /// Severity: `error`, `warning`, `info`, `debug` or `other` for a parsed record.
     pub level: String,
     /// Original short router severity label.
     pub label: Option<String>,
@@ -33,7 +34,7 @@ impl LogRecord {
     pub const fn new(
         router: String,
         id: u64,
-        ts: DateTime<FixedOffset>,
+        ts: NaiveDateTime,
         level: String,
         message: String,
     ) -> Self {

@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use core::time::Duration;
 use std::time::SystemTime;
 
-use chrono::{DateTime, FixedOffset, Utc};
+use chrono::{DateTime, Utc};
 use kcc_app::settings::{LogMode, LogsConfig};
 use kcc_rci::{BackgroundHandle, RciBody, RciClient, RciError, RciPath};
 use serde_json::{Value, json};
@@ -23,6 +23,7 @@ use super::{
     redact,
     types::LogRecord,
 };
+use crate::metrics::instrumentation::SelfMetrics;
 
 /// Maximum records requested from one router read.
 const MAX_LINES: u32 = 200;
@@ -65,7 +66,7 @@ pub struct LogCollector {
 }
 
 impl LogCollector {
-    /// Starts collection for one router.
+    /// Starts collection for one router; `metrics` counts the malformed records it skips.
     ///
     /// # Errors
     ///
@@ -77,6 +78,7 @@ impl LogCollector {
         router: &str,
         client: Arc<RciClient>,
         config: &LogsConfig,
+        metrics: Arc<SelfMetrics>,
     ) -> Result<Self, LogError> {
         if !config.enabled
             || (!config.routers.is_empty() && !config.routers.iter().any(|name| name == router))
@@ -95,6 +97,7 @@ impl LogCollector {
             stream_interval: config.stream_interval,
             poll_interval: config.poll_interval,
             redact_macs: config.redact_macs,
+            metrics,
             records: records.clone(),
             recent: Arc::clone(&recent),
             cancellation: cancellation.child_token(),
@@ -171,6 +174,8 @@ struct Collection {
     recent: Recent,
     /// Redact hardware addresses before fan-out.
     redact_macs: bool,
+    /// Counts the malformed records skipped.
+    metrics: Arc<SelfMetrics>,
     /// Cooperative shutdown.
     cancellation: CancellationToken,
 }
@@ -198,7 +203,9 @@ async fn poll_loop(collection: &Collection, dedupe: &mut Window) {
                 }
             }
         }
-        time::sleep(collection.poll_interval).await;
+        if !rest(collection, collection.poll_interval).await {
+            return;
+        }
     }
 }
 
@@ -223,17 +230,18 @@ async fn stream_loop(collection: &Collection, dedupe: &mut Window) {
                 poll_loop(collection, dedupe).await;
                 return;
             }
-            time::sleep(collection.stream_interval).await;
+            if !rest(collection, collection.stream_interval).await {
+                return;
+            }
             continue;
         };
         let restart = consume_stream(collection, dedupe, &handle).await;
         if let Err(error) = handle.stop().await {
             tracing::debug!(%error, router = %collection.router, "router log stream cleanup failed");
         }
-        if !restart {
+        if !restart || !rest(collection, collection.stream_interval).await {
             return;
         }
-        time::sleep(collection.stream_interval).await;
     }
 }
 
@@ -252,7 +260,18 @@ async fn consume_stream(
             Ok(RciBody::Json(body)) => emit(collection, dedupe, &body.value),
             _ => return true,
         }
-        time::sleep(collection.stream_interval).await;
+        if !rest(collection, collection.stream_interval).await {
+            return false;
+        }
+    }
+}
+
+/// Waits `interval`; `false` when the collector is cancelled first.
+// cancel-safe: a sleep holds no state.
+async fn rest(collection: &Collection, interval: Duration) -> bool {
+    tokio::select! {
+        () = collection.cancellation.cancelled() => false,
+        () = time::sleep(interval) => true,
     }
 }
 
@@ -275,23 +294,31 @@ async fn snapshot(collection: &Collection) -> Result<Value, LogError> {
     }
 }
 
-/// Parses, deduplicates, and broadcasts one response.
+/// Parses, deduplicates, and broadcasts one response; counts each malformed record once.
 fn emit(collection: &Collection, dedupe: &mut Window, value: &Value) {
     let utc: DateTime<Utc> = SystemTime::now().into();
-    let Some(offset) = FixedOffset::east_opt(0) else {
+    let Ok(parsed) = parser::parse_records(&collection.router, value, utc.naive_utc()) else {
         return;
     };
-    let now = utc.with_timezone(&offset);
-    let Ok(records) = parser::parse_records(&collection.router, value, now) else {
-        return;
-    };
-    for mut record in records {
-        if dedupe.accept(record.id) {
-            if collection.redact_macs {
-                record.message = redact::macs(&record.message);
-            }
-            remember(&collection.recent, &record);
-            drop(collection.records.send(record));
+    let mut malformed = parsed.unnumbered;
+    for (id, entry) in parsed.entries {
+        if !dedupe.accept(id) {
+            continue;
         }
+        let Some(mut record) = entry else {
+            malformed = malformed.saturating_add(1);
+            continue;
+        };
+        if collection.redact_macs {
+            record.message = redact::macs(&record.message);
+        }
+        remember(&collection.recent, &record);
+        drop(collection.records.send(record));
+    }
+    if malformed > 0 {
+        let count = u64::try_from(malformed).unwrap_or(u64::MAX);
+        collection
+            .metrics
+            .log_records_dropped("collector", "parse", count);
     }
 }

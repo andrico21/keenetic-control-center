@@ -90,8 +90,9 @@ loopback only; see [deploy/podman/README.md](../deploy/podman/README.md).
 Router log collection is disabled by default. Enable `[logs]` and configure one or more
 `[[logs.sinks]]` entries to forward the single collector stream owned for each selected
 router by the long-lived `kcc serve` process; `kcc mcp stdio` does not start collectors or
-sinks. Loki receives bounded `job`, `router`, and `level` labels; process, component, and
-record id remain structured metadata to avoid unbounded label cardinality. The Web UI log
+sinks. Loki receives bounded `job`, `router`, and `level` labels (`level` is one of
+`error`, `warning`, `info`, `debug` and `other`); process, component, and record id remain
+structured metadata to avoid unbounded label cardinality. The Web UI log
 page of a collected router follows the same stream (the latest 200 records, then new
 ones), so log viewers add no router requests.
 
@@ -101,6 +102,12 @@ template should map `@timestamp` as `date`, `event.id` as `keyword`, `process.pi
 `long`, and the remaining emitted ECS fields as `keyword` or `text` according to local
 search requirements. A custom `target` may select another prepared data stream.
 
+Router log times are the router's local wall-clock time, and the router does not send its
+offset from UTC. kcc therefore writes `@timestamp` as naive local time without an offset
+(`2026-11-06T12:00:01`); Elasticsearch and OpenSearch read such a value as UTC. Loki
+entries carry the same wall-clock digits as Unix nanoseconds. For a router whose time zone
+is not UTC, the stored times are off by its offset.
+
 OpenSearch defaults to daily indices named `keenetic-logs-YYYY.MM.DD`. Install an index
 template matching `keenetic-logs-*`, including the same timestamp and ECS mappings, and
 configure rollover/retention in Index State Management. OpenSearch data streams may also
@@ -108,15 +115,21 @@ be used by setting `target` to a separately prepared stream name.
 
 Sink credentials are read from files. Keep those files readable only by the kcc service
 account. Sinks connect directly: the `HTTP_PROXY`, `HTTPS_PROXY` and `ALL_PROXY`
-environment variables are ignored. Delivery retries HTTP 429 and 5xx responses, honours delta-seconds `Retry-After`,
-and caps retry delays at 60 seconds. Permanent 4xx item failures are dropped without
-blocking accepted items. Inspect the `kcc_log_*` Prometheus counters for received,
+environment variables are ignored. A sink connection gives up after 5 seconds and a
+request after 30 seconds; an Elasticsearch Bulk reply is read up to 8 MiB. Delivery retries
+connection errors, timeouts and HTTP 429 and 5xx responses, honours delta-seconds
+`Retry-After`, and caps retry delays at 60 seconds. Permanent 4xx item failures are
+dropped without blocking accepted items. Inspect the `kcc_log_*` Prometheus counters for received,
 forwarded, retried, overflowed, and permanently rejected records.
 
 ## Data loss
 
-Delivery is at-least-once while kcc runs. There is no disk spool: records still queued
-at exit (after a 10-second flush) and records dropped when a sink's queue
-(`queue_max`) overflows are lost and counted in `kcc_log_records_dropped_total`. Router
+Delivery is at-least-once while kcc runs: connection errors, timeouts and HTTP 429 and
+5xx answers are retried with the same backoff, capped at 60 seconds. There is no disk
+spool: records still undelivered at exit (after a 10-second flush, in flight or queued) are
+lost and counted in `kcc_log_records_dropped_total` with `reason="shutdown"`, and records
+dropped when a sink's queue (`queue_max`) overflows with `reason="overflow"`. A malformed
+router record (no record id, message or timestamp) is skipped, counted once with
+`sink="collector"` and `reason="parse"`, and does not hold up the records around it. Router
 logs are themselves a ring buffer, so records the router discards before kcc reads them
 are lost too.

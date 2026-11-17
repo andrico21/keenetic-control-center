@@ -30,7 +30,7 @@ rest on the manuals and the fake router only:
 
 ## Known gaps
 
-- `crates/kcc/src/server.rs:203-206`: on SIGTERM with nothing in flight, `kcc serve` exits about 4.4 s after it logs "jobs drained". The cause has not been traced.
+- `crates/kcc/src/server.rs:203-206`: on SIGTERM with nothing in flight, `kcc serve` exited about 4.4 s after it logged "jobs drained". Traced to the router log collectors: their waits between reads (the 5 s stream interval, the 30 s poll interval) could not be cancelled, and the collectors were stopped one after another, so the delay grew with the number of routers. The waits now end on cancellation and all collectors stop together (`crates/kcc-telemetry/src/logs/service.rs`, `runtime.rs`). Not re-measured on a `kcc serve` process; if a delay remains with `[logs]` disabled, its cause is elsewhere.
 - The CLI has no SIGINT or SIGTERM handling during a safety bracket (`crates/kcc/src/cli/change.rs:228`). If the process is killed, the router's own timer restores the saved configuration; `kcc serve` and `kcc mcp stdio` do wait for their brackets.
 - The Web standalone rollback is not mode-aware (`crates/kcc-web/src/config_page/safety.rs:121,170-188`): on a router in scheduled-reboot mode it refuses ("not armed") instead of rebooting like the CLI does.
 - `crates/kcc-web/src/page_kit/facts.rs:14`: the Web facts cache holds a router's catalog for 600 s, so a firmware change is noticed up to ten minutes late.

@@ -11,17 +11,15 @@ use kcc_app::{
     secrets::files::{SecretFileError, read_secret_file_async},
     settings::LogSinkConfig,
 };
-use reqwest::{Client, StatusCode, header, redirect::Policy};
-use rustls::crypto::ring::default_provider;
+use reqwest::{Client, StatusCode, header};
 use secrecy::{ExposeSecret as _, SecretString};
 use thiserror::Error;
-use tokio::fs;
 
-use super::{format, loki_reply, types::LogRecord};
+use super::{format, loki_reply, sink_http, types::LogRecord};
 
 /// A configured Loki push client.
 pub struct LokiClient {
-    /// No-redirect HTTP client with normal certificate verification.
+    /// No-redirect HTTP client with normal certificate verification and timeouts.
     client: Client,
     /// Fully resolved Loki push endpoint from operator configuration.
     endpoint: String,
@@ -73,18 +71,8 @@ impl LokiClient {
             bearer_token_file.as_deref(),
         )
         .await?;
-        let mut builder = Client::builder().no_proxy().redirect(Policy::none());
-        if let Some(path) = ca_file {
-            let pem = fs::read(path)
-                .await
-                .map_err(|_error| DeliveryError::ReadFile)?;
-            let certificate = reqwest::Certificate::from_pem(&pem)
-                .map_err(|_error| DeliveryError::Certificate)?;
-            builder = builder.add_root_certificate(certificate);
-        }
-        drop(default_provider().install_default());
         Ok(Self {
-            client: builder.build().map_err(|_error| DeliveryError::Client)?,
+            client: sink_http::client(ca_file.as_deref()).await?,
             endpoint: format!("{}/loki/api/v1/push", url.as_str().trim_end_matches('/')),
             tenant: tenant.clone(),
             auth,
@@ -284,7 +272,8 @@ pub enum DeliveryError {
 }
 
 impl DeliveryError {
-    /// Returns whether retry policy may resubmit the request.
+    /// Returns whether retry policy may resubmit the request: HTTP 429 and 5xx, and a
+    /// transport failure (no connection, a reset, or a timeout).
     #[inline]
     #[must_use]
     pub fn is_retriable(&self) -> bool {
@@ -293,6 +282,7 @@ impl DeliveryError {
                 status,
                 retry_after: _,
             } => status.as_u16() == 429 || status.is_server_error(),
+            Self::Transport => true,
             Self::WrongKind
             | Self::InvalidAuth
             | Self::ReadFile
@@ -301,7 +291,6 @@ impl DeliveryError {
             | Self::Client
             | Self::Payload
             | Self::Compress
-            | Self::Transport
             | Self::PartiallyAccepted { rejected: _ } => false,
         }
     }

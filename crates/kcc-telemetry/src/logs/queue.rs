@@ -64,9 +64,37 @@ impl Pending {
         self.records.pop_front()
     }
 
-    /// Restores one record to the front after a batch boundary is found.
+    /// Removes up to `count` of the oldest pending records, in delivery order.
     #[inline]
-    pub fn restore(&mut self, record: LogRecord) {
-        self.records.push_front(record);
+    pub fn take(&mut self, count: usize) -> Vec<LogRecord> {
+        let end = count.min(self.records.len());
+        self.records.drain(..end).collect()
+    }
+
+    /// Puts `records` taken earlier back at the front, in their order. The bound still holds:
+    /// when records pushed meanwhile fill the queue, the oldest restored records are dropped
+    /// and counted as overflow.
+    #[inline]
+    pub fn restore_front(&mut self, records: Vec<LogRecord>) {
+        let mut overflow = 0_u64;
+        for record in records.into_iter().rev() {
+            if self.records.len() < self.capacity.get() {
+                self.records.push_front(record);
+            } else {
+                overflow = overflow.saturating_add(1);
+            }
+        }
+        if overflow > 0 {
+            self.metrics
+                .log_records_dropped(&self.sink, "overflow", overflow);
+        }
+    }
+
+    /// Removes every pending record and returns how many there were.
+    #[inline]
+    pub fn clear(&mut self) -> usize {
+        let count = self.records.len();
+        self.records.clear();
+        count
     }
 }

@@ -6,7 +6,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use chrono::{FixedOffset, TimeZone as _};
 use kcc_app::settings::Config;
 use kcc_telemetry::{logs::pipeline::LogForwarder, metrics::instrumentation::SelfMetrics};
 use kcc_testkit::{
@@ -187,7 +186,7 @@ async fn loki_answering_400(
 }
 
 /// Whether `request` holds its headers and the whole body their content length names.
-fn complete(request: &[u8]) -> bool {
+pub(super) fn complete(request: &[u8]) -> bool {
     let Some(end) = request.windows(4).position(|window| window == b"\r\n\r\n") else {
         return false;
     };
@@ -201,10 +200,8 @@ fn complete(request: &[u8]) -> bool {
     request.len().saturating_sub(end.saturating_add(4)) >= length
 }
 
-fn timestamp() -> Result<chrono::DateTime<FixedOffset>, Box<dyn Error>> {
-    FixedOffset::east_opt(0)
-        .and_then(|offset| offset.with_ymd_and_hms(2026, 11, 7, 12, 0, 1).single())
-        .ok_or_else(|| "timestamp".into())
+fn timestamp() -> Result<chrono::NaiveDateTime, Box<dyn Error>> {
+    super::at(2026, 11, 7, 12, 0, 1)
 }
 
 #[derive(Clone, Default)]

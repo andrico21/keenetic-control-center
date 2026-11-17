@@ -1,6 +1,6 @@
 //! Router log wire-format parsing.
 
-use chrono::{DateTime, Datelike as _, FixedOffset, NaiveDate, TimeDelta, TimeZone as _};
+use chrono::{DateTime, Datelike as _, NaiveDate, NaiveDateTime, TimeDelta};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -13,9 +13,6 @@ pub enum ParseError {
     /// The response has no object-valued `log` member.
     #[error("router log response is malformed")]
     Response,
-    /// A record id is not an unsigned decimal integer.
-    #[error("router log record id is malformed")]
-    Id,
     /// A record has no usable message text.
     #[error("router log record message is malformed")]
     Message,
@@ -24,30 +21,46 @@ pub enum ParseError {
     Timestamp,
 }
 
-/// Parses every numeric record in one router response in ascending id order.
+/// The records of one router response.
+#[derive(Debug, Default)]
+#[non_exhaustive]
+pub struct ParsedLog {
+    /// Every entry keyed by a record id, in ascending id order; `None` marks a record whose
+    /// message or timestamp is malformed.
+    pub entries: Vec<(u64, Option<LogRecord>)>,
+    /// Entries skipped because their key is not a record id.
+    pub unnumbered: usize,
+}
+
+/// Parses every record in one router response in ascending id order.
+///
+/// A malformed record is marked and skipped, never fatal. `now` is kcc's own UTC wall
+/// clock; it only places a bracket timestamp, which has no year, in the right year.
 ///
 /// # Errors
 ///
-/// Returns [`ParseError`] when the response or any record is malformed.
+/// Returns [`ParseError::Response`] when the response has no object-valued `log` member.
 #[inline]
 pub fn parse_records(
     router: &str,
     response: &Value,
-    router_now: DateTime<FixedOffset>,
-) -> Result<Vec<LogRecord>, ParseError> {
+    now: NaiveDateTime,
+) -> Result<ParsedLog, ParseError> {
     let entries = response
         .get("log")
         .and_then(Value::as_object)
         .ok_or(ParseError::Response)?;
-    let mut records = entries
-        .iter()
-        .map(|(text_id, value)| {
-            let numeric_id = text_id.parse::<u64>().map_err(|_error| ParseError::Id)?;
-            parse_record(router, numeric_id, value, router_now)
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    records.sort_by_key(|record| record.id);
-    Ok(records)
+    let mut parsed = ParsedLog::default();
+    for (text_id, value) in entries {
+        if let Ok(id) = text_id.parse::<u64>() {
+            let record = parse_record(router, id, value, now).ok();
+            parsed.entries.push((id, record));
+        } else {
+            parsed.unnumbered = parsed.unnumbered.saturating_add(1);
+        }
+    }
+    parsed.entries.sort_by_key(|(id, _)| *id);
+    Ok(parsed)
 }
 
 /// Parses one router record and merges newline continuations into its message.
@@ -59,14 +72,14 @@ fn parse_record(
     router: &str,
     id: u64,
     value: &Value,
-    router_now: DateTime<FixedOffset>,
+    now: NaiveDateTime,
 ) -> Result<LogRecord, ParseError> {
     let body = value.get("message").unwrap_or(value);
     let raw = body
         .get("message")
         .and_then(Value::as_str)
         .ok_or(ParseError::Message)?;
-    let (ts, text) = timestamp(value, raw, router_now)?;
+    let (ts, text) = timestamp(value, raw, now)?;
     let merged = text.lines().map(str::trim).collect::<Vec<_>>().join("\n");
     let (process, pid, component, message) = prefixes(&merged);
     let label = body.get("label").and_then(Value::as_str).map(str::to_owned);
@@ -87,7 +100,7 @@ fn parse_record(
     })
 }
 
-/// Selects an explicit timestamp or parses the conventional bracket prefix.
+/// Selects an explicit timestamp (its local time) or parses the conventional bracket prefix.
 ///
 /// # Errors
 ///
@@ -95,11 +108,11 @@ fn parse_record(
 fn timestamp<'text>(
     value: &Value,
     raw: &'text str,
-    router_now: DateTime<FixedOffset>,
-) -> Result<(DateTime<FixedOffset>, &'text str), ParseError> {
+    now: NaiveDateTime,
+) -> Result<(NaiveDateTime, &'text str), ParseError> {
     if let Some(text) = value.get("time").and_then(Value::as_str) {
         let parsed = DateTime::parse_from_rfc3339(text).map_err(|_error| ParseError::Timestamp)?;
-        return Ok((parsed, raw));
+        return Ok((parsed.naive_local(), raw));
     }
     let (prefix, rest) = raw
         .strip_prefix('[')
@@ -127,42 +140,31 @@ fn timestamp<'text>(
             .parse::<u32>()
             .map_err(|_error| ParseError::Timestamp)?,
     );
-    let candidate = local_datetime(router_now, router_now.year(), month, day, time)?;
-    let future_limit = router_now
+    let candidate = local_datetime(now.year(), month, day, time)?;
+    let future_limit = now
         .checked_add_signed(TimeDelta::days(1))
         .ok_or(ParseError::Timestamp)?;
     let inferred = if candidate > future_limit {
-        local_datetime(
-            router_now,
-            router_now.year().saturating_sub(1),
-            month,
-            day,
-            time,
-        )?
+        local_datetime(now.year().saturating_sub(1), month, day, time)?
     } else {
         candidate
     };
     Ok((inferred, rest))
 }
 
-/// Constructs one unambiguous fixed-offset local timestamp.
+/// Constructs one naive local timestamp.
 ///
 /// # Errors
 ///
 /// Returns [`ParseError::Timestamp`] for an impossible date or time.
 fn local_datetime(
-    now: DateTime<FixedOffset>,
     year: i32,
     month: u32,
     day: u32,
     (hour, minute, second): (u32, u32, u32),
-) -> Result<DateTime<FixedOffset>, ParseError> {
-    let naive = NaiveDate::from_ymd_opt(year, month, day)
+) -> Result<NaiveDateTime, ParseError> {
+    NaiveDate::from_ymd_opt(year, month, day)
         .and_then(|date| date.and_hms_opt(hour, minute, second))
-        .ok_or(ParseError::Timestamp)?;
-    now.timezone()
-        .from_local_datetime(&naive)
-        .single()
         .ok_or(ParseError::Timestamp)
 }
 
@@ -209,9 +211,16 @@ const fn month_number(month: &str) -> Option<u32> {
     }
 }
 
-/// Normalizes router severity words.
+/// Maps a router severity word to the fixed level set; an unknown word is `other`.
 fn normalize_level(level: &str) -> String {
-    level.to_ascii_lowercase()
+    match level.to_ascii_lowercase().as_str() {
+        "error" | "critical" => "error",
+        "warning" => "warning",
+        "info" => "info",
+        "debug" => "debug",
+        _ => "other",
+    }
+    .to_owned()
 }
 
 /// Expands a short router label when no severity word is present.

@@ -14,7 +14,7 @@
 use core::{error::Error, time::Duration};
 use std::{env, io::ErrorKind, net::TcpListener, process::Command as ChildCommand};
 
-use chrono::{FixedOffset, TimeZone as _};
+use chrono::NaiveDate;
 use kcc_app::settings::Config;
 use kcc_telemetry::logs::{elastic_sink::ElasticsearchClient, sink::LokiClient, types::LogRecord};
 use kcc_testkit::{fake_elasticsearch::FakeElasticsearch, fake_loki::FakeLoki};
@@ -49,10 +49,8 @@ async fn deliver_to_fake_sinks() -> TestResult {
         search.url()
     ))?;
     config.validate()?;
-    let timestamp = FixedOffset::east_opt(0)
-        .ok_or("offset")?
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 1)
-        .single()
+    let timestamp = NaiveDate::from_ymd_opt(2026, 11, 6)
+        .and_then(|date| date.and_hms_opt(12, 0, 1))
         .ok_or("date")?;
     let records = [LogRecord::new(
         "home".to_owned(),

@@ -28,6 +28,9 @@ pub enum PayloadError {
 
 /// Encodes one Loki push request, grouping records by its bounded label set.
 ///
+/// Loki entries carry Unix nanoseconds and no zone, so a record's naive router-local time
+/// is written with the same digits as if it were UTC.
+///
 /// # Errors
 ///
 /// Returns [`PayloadError`] when a timestamp or JSON value cannot be serialized.
@@ -49,6 +52,7 @@ pub fn loki(records: &[LogRecord]) -> Result<Vec<u8>, PayloadError> {
                 .map(|record| {
                     let timestamp = record
                         .ts
+                        .and_utc()
                         .timestamp_nanos_opt()
                         .ok_or(PayloadError::Timestamp)?;
                     Ok(json!([
@@ -117,10 +121,12 @@ fn metadata(record: &LogRecord) -> Value {
     Value::Object(fields)
 }
 
-/// Builds an ECS document shared by Elasticsearch, `OpenSearch`, and stdout.
+/// Builds an ECS document shared by Elasticsearch, `OpenSearch`, and stdout. `@timestamp` is
+/// the router's naive local time, written without an offset.
 fn ecs(record: &LogRecord) -> Value {
     let mut document = Map::new();
-    drop(document.insert("@timestamp".to_owned(), json!(record.ts.to_rfc3339())));
+    let local = record.ts.format("%Y-%m-%dT%H:%M:%S%.f").to_string();
+    drop(document.insert("@timestamp".to_owned(), json!(local)));
     drop(document.insert("message".to_owned(), json!(record.message)));
     drop(document.insert("log.level".to_owned(), json!(record.level)));
     drop(document.insert("event.id".to_owned(), json!(record.id.to_string())));

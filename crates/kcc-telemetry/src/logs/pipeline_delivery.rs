@@ -1,14 +1,15 @@
-//! Batch selection and delivery for one log sink worker.
+//! The delivery loop of one log sink worker: batching, retries and shutdown.
 
 use alloc::sync::Arc;
-use core::{fmt, time::Duration};
+use core::time::Duration;
 use std::sync::{Mutex, MutexGuard};
 
-use kcc_app::settings::{LogSinkConfig, SearchFlavor};
 use tokio::sync::Notify;
 use tokio_util::sync::CancellationToken;
 
 use super::{
+    batch::{MAX_RECORDS, Refused, select},
+    destination::Sink,
     elastic_sink::ElasticsearchClient,
     format,
     queue::Pending,
@@ -18,77 +19,27 @@ use super::{
 };
 use crate::metrics::instrumentation::SelfMetrics;
 
-/// Maximum records per request.
-const MAX_RECORDS: usize = 1_000;
-/// Maximum bytes per request.
-const MAX_BYTES: usize = 0x0010_0000;
 /// Maximum partial-batch wait.
 const FLUSH_INTERVAL: Duration = Duration::from_secs(2);
 
-/// Loaded destination adapter.
-pub(super) enum Sink {
-    /// Loki.
-    Loki(LokiClient),
-    /// Elasticsearch or `OpenSearch`.
-    Search(ElasticsearchClient),
-    /// Standard output.
-    Stdout,
+/// The two shutdown signals of one worker.
+#[derive(Debug)]
+pub(super) struct Stop {
+    /// Stop waiting for more records and deliver what is queued.
+    flush: CancellationToken,
+    /// Give up delivering: count what is left as dropped at shutdown and return.
+    abort: CancellationToken,
 }
-impl fmt::Debug for Sink {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Loki(client) => f.debug_tuple("Loki").field(client).finish(),
-            Self::Search(client) => f.debug_tuple("Search").field(client).finish(),
-            Self::Stdout => f.write_str("Stdout"),
-        }
+
+impl Stop {
+    /// Signals taken from the forwarder's `flush` and `abort` tokens.
+    pub(super) const fn new(flush: CancellationToken, abort: CancellationToken) -> Self {
+        Self { flush, abort }
     }
 }
-impl Sink {
-    /// Loads one destination.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`DeliveryError`] when setup fails.
-    pub(super) async fn load(config: &LogSinkConfig) -> Result<Self, DeliveryError> {
-        match config {
-            LogSinkConfig::Loki {
-                url: _,
-                tenant: _,
-                basic_auth_user: _,
-                password_file: _,
-                bearer_token_file: _,
-                ca_file: _,
-                compress: _,
-            } => Ok(Self::Loki(LokiClient::load(config).await?)),
-            LogSinkConfig::Elasticsearch {
-                url: _,
-                flavor: _,
-                target: _,
-                basic_auth_user: _,
-                password_file: _,
-                api_key_file: _,
-                ca_file: _,
-                compress: _,
-            } => Ok(Self::Search(ElasticsearchClient::load(config).await?)),
-            LogSinkConfig::Stdout => Ok(Self::Stdout),
-            _ => Err(DeliveryError::WrongKind),
-        }
-    }
-    /// Measures one encoded request.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`DeliveryError::Payload`] when encoding fails.
-    fn encoded_len(&self, records: &[LogRecord]) -> Result<usize, DeliveryError> {
-        match self {
-            Self::Loki(_) => format::loki(records),
-            Self::Search(_) => format::bulk(records, SearchFlavor::Elasticsearch, None),
-            Self::Stdout => format::stdout(records),
-        }
-        .map(|payload| payload.len())
-        .map_err(|_error| DeliveryError::Payload)
-    }
-}
+
+/// A delivery cut short by [`Stop::abort`]; its records are already counted.
+struct Aborted;
 
 /// Immutable worker dependencies.
 pub(super) struct Worker {
@@ -105,7 +56,7 @@ pub(super) struct Worker {
     /// Retry clock.
     clock: Arc<dyn Clock>,
     /// Cooperative shutdown.
-    cancellation: CancellationToken,
+    stop: Stop,
 }
 
 impl Worker {
@@ -117,7 +68,7 @@ impl Worker {
         notify: Arc<Notify>,
         metrics: Arc<SelfMetrics>,
         clock: Arc<dyn Clock>,
-        cancellation: CancellationToken,
+        stop: Stop,
     ) -> Self {
         Self {
             name,
@@ -126,111 +77,145 @@ impl Worker {
             notify,
             metrics,
             clock,
-            cancellation,
+            stop,
         }
     }
 }
 
-/// Runs one sink worker.
+/// Runs one sink worker until it has flushed its queue after [`Stop::flush`], or until
+/// [`Stop::abort`], after which every undelivered record is counted as dropped at shutdown.
+// cancel-safe: queued records stay in the shared queue; only an in-flight batch is lost, and
+// the forwarder never drops this future (it signals `Stop` instead).
 pub(super) async fn worker(worker: Worker) {
+    let flush = &worker.stop.flush;
     loop {
         if lock(&worker.queue).is_empty() {
-            tokio::select! { () = worker.cancellation.cancelled() => return, () = worker.notify.notified() => {} }
+            tokio::select! { () = flush.cancelled() => return, () = worker.notify.notified() => {} }
         }
-        if !worker.cancellation.is_cancelled() {
-            tokio::select! { () = worker.cancellation.cancelled() => {}, () = worker.clock.wait(FLUSH_INTERVAL) => {}, () = worker.notify.notified(), if lock(&worker.queue).records().len() >= MAX_RECORDS => {} }
+        if !flush.is_cancelled() {
+            tokio::select! { () = flush.cancelled() => {}, () = worker.clock.wait(FLUSH_INTERVAL) => {}, () = worker.notify.notified(), if lock(&worker.queue).records().len() >= MAX_RECORDS => {} }
         }
         while let Some(batch) = take_batch(&worker) {
-            deliver(&worker, batch).await;
-            if !worker.cancellation.is_cancelled() {
+            if deliver(&worker, batch).await.is_err() {
+                let left = lock(&worker.queue).clear();
+                dropped(&worker, "shutdown", left);
+                return;
+            }
+            if !flush.is_cancelled() {
                 break;
             }
         }
-        if worker.cancellation.is_cancelled() && lock(&worker.queue).is_empty() {
+        if flush.is_cancelled() && lock(&worker.queue).is_empty() {
             return;
         }
     }
 }
 
-/// Selects one bounded batch.
+/// Selects the next non-empty batch, counting the records refused on the way.
 fn take_batch(worker: &Worker) -> Option<Vec<LogRecord>> {
-    let mut queue = lock(&worker.queue);
-    let mut batch = Vec::new();
-    while batch.len() < MAX_RECORDS {
-        let Some(record) = queue.pop() else { break };
-        batch.push(record);
-        match worker.sink.encoded_len(&batch) {
-            Ok(bytes) if bytes <= MAX_BYTES => {}
-            Ok(_) if batch.len() == 1 => {
-                worker
-                    .metrics
-                    .log_records_dropped(&worker.name, "oversize", 1);
-                batch.clear();
-            }
-            Ok(_) => {
-                if let Some(boundary) = batch.pop() {
-                    queue.restore(boundary);
-                }
-                break;
-            }
-            Err(_) => {
-                worker
-                    .metrics
-                    .log_records_dropped(&worker.name, "encode", 1);
-                drop(batch.pop());
-            }
+    loop {
+        let batch = select(
+            &worker.queue,
+            |record| worker.sink.record_len(record),
+            |refused| {
+                let reason = match refused {
+                    Refused::Oversize => "oversize",
+                    Refused::Unencodable => "encode",
+                };
+                dropped(worker, reason, 1);
+            },
+        );
+        if !batch.is_empty() {
+            return Some(batch);
+        }
+        if lock(&worker.queue).is_empty() {
+            return None;
         }
     }
-    drop(queue);
-    (!batch.is_empty()).then_some(batch)
 }
 
 /// Delivers one selected batch.
-async fn deliver(worker: &Worker, batch: Vec<LogRecord>) {
+///
+/// # Errors
+///
+/// [`Aborted`] when [`Stop::abort`] cut the delivery short; the batch is counted.
+// cancel-safe: every await inside is raced against `Stop::abort`, which counts the batch.
+async fn deliver(worker: &Worker, batch: Vec<LogRecord>) -> Result<(), Aborted> {
     match &worker.sink {
         Sink::Loki(client) => deliver_loki(worker, client, &batch).await,
         Sink::Search(client) => deliver_search(worker, client, batch).await,
-        Sink::Stdout => deliver_stdout(worker, &batch),
+        Sink::Stdout => {
+            deliver_stdout(worker, &batch);
+            Ok(())
+        }
     }
 }
 /// Delivers one Loki batch with retries.
-async fn deliver_loki(worker: &Worker, client: &LokiClient, batch: &[LogRecord]) {
+///
+/// # Errors
+///
+/// [`Aborted`] when [`Stop::abort`] cut the delivery short; the batch is counted.
+// cancel-safe: see `deliver`.
+async fn deliver_loki(
+    worker: &Worker,
+    client: &LokiClient,
+    batch: &[LogRecord],
+) -> Result<(), Aborted> {
     let mut attempt = 0_u32;
     loop {
-        match client.send(batch).await {
+        let sent = tokio::select! {
+            biased;
+            () = worker.stop.abort.cancelled() => return aborted(worker, batch.len()),
+            sent = client.send(batch) => sent,
+        };
+        match sent {
             Ok(()) => {
                 forwarded(worker, batch.len());
-                return;
+                return Ok(());
             }
             Err(error) if error.is_retriable() => {
                 worker.metrics.log_retry(&worker.name);
-                worker.clock.wait(delay(attempt, error.retry_after())).await;
+                pause(worker, delay(attempt, error.retry_after()), batch.len()).await?;
                 attempt = attempt.saturating_add(1);
             }
             Err(DeliveryError::PartiallyAccepted { rejected }) => {
                 tracing::warn!(sink = %worker.name, rejected, sent = batch.len(), "log sink refused part of a push");
                 forwarded(worker, batch.len().saturating_sub(rejected));
-                dropped(worker, rejected);
-                return;
+                dropped(worker, "permanent", rejected);
+                return Ok(());
             }
             Err(error) => {
                 tracing::warn!(sink = %worker.name, %error, sent = batch.len(), "log sink refused a push");
-                dropped(worker, batch.len());
-                return;
+                dropped(worker, "permanent", batch.len());
+                return Ok(());
             }
         }
     }
 }
 /// Delivers search items with selective retries.
-async fn deliver_search(worker: &Worker, client: &ElasticsearchClient, mut batch: Vec<LogRecord>) {
+///
+/// # Errors
+///
+/// [`Aborted`] when [`Stop::abort`] cut the delivery short; the records left are counted.
+// cancel-safe: see `deliver`.
+async fn deliver_search(
+    worker: &Worker,
+    client: &ElasticsearchClient,
+    mut batch: Vec<LogRecord>,
+) -> Result<(), Aborted> {
     let mut attempt = 0_u32;
     loop {
-        match client.send(&batch).await {
+        let sent = tokio::select! {
+            biased;
+            () = worker.stop.abort.cancelled() => return aborted(worker, batch.len()),
+            sent = client.send(&batch) => sent,
+        };
+        match sent {
             Ok(outcome) => {
                 forwarded(worker, outcome.accepted);
-                dropped(worker, outcome.dropped.len());
+                dropped(worker, "permanent", outcome.dropped.len());
                 if outcome.retriable.is_empty() {
-                    return;
+                    return Ok(());
                 }
                 batch = batch
                     .into_iter()
@@ -240,20 +225,42 @@ async fn deliver_search(worker: &Worker, client: &ElasticsearchClient, mut batch
                     })
                     .collect();
                 worker.metrics.log_retry(&worker.name);
-                worker.clock.wait(delay(attempt, None)).await;
+                pause(worker, delay(attempt, None), batch.len()).await?;
                 attempt = attempt.saturating_add(1);
             }
             Err(error) if error.is_retriable() => {
                 worker.metrics.log_retry(&worker.name);
-                worker.clock.wait(delay(attempt, error.retry_after())).await;
+                pause(worker, delay(attempt, error.retry_after()), batch.len()).await?;
                 attempt = attempt.saturating_add(1);
             }
             Err(_) => {
-                dropped(worker, batch.len());
-                return;
+                dropped(worker, "permanent", batch.len());
+                return Ok(());
             }
         }
     }
+}
+/// Waits before a retry.
+///
+/// # Errors
+///
+/// [`Aborted`] after counting the `pending` records when [`Stop::abort`] comes first.
+// cancel-safe: a clock wait holds no state.
+async fn pause(worker: &Worker, duration: Duration, pending: usize) -> Result<(), Aborted> {
+    tokio::select! {
+        biased;
+        () = worker.stop.abort.cancelled() => aborted(worker, pending),
+        () = worker.clock.wait(duration) => Ok(()),
+    }
+}
+/// Counts the `pending` records of an aborted delivery.
+///
+/// # Errors
+///
+/// Always [`Aborted`].
+fn aborted(worker: &Worker, pending: usize) -> Result<(), Aborted> {
+    dropped(worker, "shutdown", pending);
+    Err(Aborted)
 }
 /// Accounts for standard-output delivery.
 fn deliver_stdout(worker: &Worker, batch: &[LogRecord]) {
@@ -262,11 +269,7 @@ fn deliver_stdout(worker: &Worker, batch: &[LogRecord]) {
             tracing::info!(sink = %worker.name, records = batch.len(), bytes = payload.len(), "router log batch written to stdout sink");
             forwarded(worker, batch.len());
         }
-        Err(_) => {
-            worker
-                .metrics
-                .log_records_dropped(&worker.name, "encode", usize_u64(batch.len()));
-        }
+        Err(_) => dropped(worker, "encode", batch.len()),
     }
 }
 /// Counts accepted records.
@@ -275,18 +278,18 @@ fn forwarded(worker: &Worker, count: usize) {
         .metrics
         .log_records_forwarded(&worker.name, usize_u64(count));
 }
-/// Counts permanently rejected records.
-fn dropped(worker: &Worker, count: usize) {
+/// Counts records lost for `reason`.
+fn dropped(worker: &Worker, reason: &str, count: usize) {
     worker
         .metrics
-        .log_records_dropped(&worker.name, "permanent", usize_u64(count));
+        .log_records_dropped(&worker.name, reason, usize_u64(count));
 }
 /// Saturates a platform-sized count.
 fn usize_u64(value: usize) -> u64 {
     u64::try_from(value).unwrap_or(u64::MAX)
 }
 /// Recovers poisoned queue state.
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
+pub(super) fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     match mutex.lock() {
         Ok(guard) => guard,
         Err(poisoned) => poisoned.into_inner(),

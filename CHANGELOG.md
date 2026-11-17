@@ -394,6 +394,16 @@ The first release, `0.1.0`, is in preparation and contains:
   `backup:<router>/<name>` and `file:<path>`; `migrate` now also takes a bare router id.
   An unknown `<scheme>:` prefix or an empty router, backup or path is a usage error
   (exit 2) in every command.
+- **Forwarded router log times are labelled naive local time.** A router writes its log
+  times in its own time zone without an offset, and kcc does not know that offset.
+  Elasticsearch, OpenSearch and stdout documents now carry `@timestamp` without an offset
+  (`2026-11-06T12:00:01`, it used to claim `+00:00`); Loki entries carry the same wall-clock
+  digits as Unix nanoseconds, as before. In `kcc-telemetry`, `LogRecord::ts` is a
+  `NaiveDateTime`, and `parse_records` takes kcc's UTC clock (only to infer the year) and
+  returns `ParsedLog`.
+- **The Loki `level` label has a fixed set of values**: `error`, `warning`, `info`, `debug`
+  and `other`. A severity word the router sends outside that set becomes `other` instead of
+  a new stream label.
 
 ### Fixed
 
@@ -654,6 +664,25 @@ The first release, `0.1.0`, is in preparation and contains:
   the async workers.
 - **The migration review no longer takes quadratic time** in the number of form fields
   it submits.
+
+- **Log forwarding is at-least-once while kcc runs, as documented.** A connection error,
+  reset or timeout of a log sink is retried like HTTP 429 and 5xx (same backoff, delays
+  capped at 60 seconds); it used to drop the batch as permanent. Both sink clients now give
+  up a connection after 5 seconds and a request after 30, and an Elasticsearch Bulk reply
+  is read up to 8 MiB (a longer one counts as malformed).
+- **Records lost at exit are counted.** Records still undelivered when the 10-second flush
+  at shutdown ends, in flight or queued, are counted in
+  `kcc_log_records_dropped_total{reason="shutdown"}`; a retry wait or a stuck request no
+  longer outlives the flush.
+- **One malformed router log record no longer stops forwarding** for its router: the
+  record is skipped and counted once in
+  `kcc_log_records_dropped_total{sink="collector",reason="parse"}`, and the others are
+  forwarded.
+- **Log collectors stop together.** Every collector's wait between reads ends on shutdown,
+  and all collectors are stopped at once, so `kcc serve` no longer waits out a stream
+  interval (5 s) or a poll interval (30 s) per router.
+- **Batch selection for a log sink measures each record once** and outside the queue lock,
+  instead of re-encoding the growing batch for every record while relays wait on the lock.
 
 ### Security
 

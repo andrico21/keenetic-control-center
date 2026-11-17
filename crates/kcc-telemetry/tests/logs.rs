@@ -11,7 +11,7 @@
 use core::{error::Error, net::SocketAddr, num::NonZeroUsize, time::Duration};
 use std::{fs, sync::Arc};
 
-use chrono::{Datelike as _, FixedOffset, TimeZone as _};
+use chrono::{Datelike as _, NaiveDate, NaiveDateTime};
 use kcc_app::settings::{Config, SearchFlavor};
 use kcc_rci::{OutboundPolicy, RciClient, RciClientOptions, RouterUrl, auth::Credentials};
 use kcc_telemetry::{
@@ -34,6 +34,10 @@ use serde_json::json;
 use tempfile::TempDir;
 use tokio::time::{sleep, timeout};
 
+#[path = "logs/bounds.rs"]
+mod bounds;
+#[path = "logs/collection.rs"]
+mod collection;
 #[path = "logs/pipeline.rs"]
 mod pipeline;
 #[path = "logs/retry.rs"]
@@ -55,13 +59,23 @@ async fn client(address: SocketAddr) -> Result<Arc<RciClient>, Box<dyn Error>> {
     ))
 }
 
+/// A naive wall-clock time.
+fn at(
+    year: i32,
+    month: u32,
+    day: u32,
+    hour: u32,
+    minute: u32,
+    second: u32,
+) -> Result<NaiveDateTime, Box<dyn Error>> {
+    NaiveDate::from_ymd_opt(year, month, day)
+        .and_then(|date| date.and_hms_opt(hour, minute, second))
+        .ok_or_else(|| "date".into())
+}
+
 #[test]
 fn parser_infers_previous_year_and_merges_continuations() -> TestResult {
-    let offset = FixedOffset::east_opt(3 * 60 * 60).ok_or("offset")?;
-    let now = offset
-        .with_ymd_and_hms(2026, 1, 1, 0, 0, 30)
-        .single()
-        .ok_or("date")?;
+    let now = at(2026, 1, 1, 0, 0, 30)?;
     let response = json!({
         "log": {
             "42": {
@@ -74,9 +88,9 @@ fn parser_infers_previous_year_and_merges_continuations() -> TestResult {
         }
     });
 
-    let records = parse_records("home", &response, now)?;
+    let parsed = parse_records("home", &response, now)?;
 
-    let [record] = records.as_slice() else {
+    let [(42, Some(record))] = parsed.entries.as_slice() else {
         return Err("expected one record".into());
     };
     assert_eq!(record.ts.year(), 2_025_i32);
@@ -110,15 +124,8 @@ fn mac_redaction_replaces_colon_and_hyphen_addresses_only() {
 
 #[test]
 fn loki_payload_groups_bounded_labels_and_sorts_values() -> TestResult {
-    let offset = FixedOffset::east_opt(0).ok_or("offset")?;
-    let later = offset
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 2)
-        .single()
-        .ok_or("date")?;
-    let earlier = offset
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 1)
-        .single()
-        .ok_or("date")?;
+    let later = at(2026, 11, 6, 12, 0, 2)?;
+    let earlier = at(2026, 11, 6, 12, 0, 1)?;
     let records = [record(2, later, "second"), record(1, earlier, "first")];
 
     let payload: serde_json::Value = serde_json::from_slice(&loki(&records)?)?;
@@ -135,8 +142,8 @@ fn loki_payload_groups_bounded_labels_and_sorts_values() -> TestResult {
     assert_eq!(
         stream.get("values"),
         Some(&json!([
-            [earlier.timestamp_nanos_opt().ok_or("timestamp")?.to_string(), "first", {"id":"1","process":"ndm","pid":"7"}],
-            [later.timestamp_nanos_opt().ok_or("timestamp")?.to_string(), "second", {"id":"2","process":"ndm","pid":"7"}]
+            [earlier.and_utc().timestamp_nanos_opt().ok_or("timestamp")?.to_string(), "first", {"id":"1","process":"ndm","pid":"7"}],
+            [later.and_utc().timestamp_nanos_opt().ok_or("timestamp")?.to_string(), "second", {"id":"2","process":"ndm","pid":"7"}]
         ]))
     );
     Ok(())
@@ -144,11 +151,7 @@ fn loki_payload_groups_bounded_labels_and_sorts_values() -> TestResult {
 
 #[test]
 fn bulk_payload_uses_create_ecs_and_flavor_defaults() -> TestResult {
-    let offset = FixedOffset::east_opt(0).ok_or("offset")?;
-    let timestamp = offset
-        .with_ymd_and_hms(2026, 11, 6, 12, 0, 1)
-        .single()
-        .ok_or("date")?;
+    let timestamp = at(2026, 11, 6, 12, 0, 1)?;
     let records = [record(7, timestamp, "connected")];
 
     let elastic = bulk(&records, SearchFlavor::Elasticsearch, None)?;
@@ -163,7 +166,7 @@ fn bulk_payload_uses_create_ecs_and_flavor_defaults() -> TestResult {
     assert_eq!(
         serde_json::from_slice::<serde_json::Value>(elastic_lines.get(1).ok_or("document")?)?,
         json!({
-            "@timestamp":"2026-11-06T12:00:01+00:00",
+            "@timestamp":"2026-11-06T12:00:01",
             "event.id":"7",
             "log.level":"info",
             "message":"connected",
@@ -184,11 +187,7 @@ fn sink_queue_overflow_drops_oldest_and_counts_it() -> TestResult {
     let metrics = SelfMetrics::new("queue-test")?;
     let registry = Registry::new();
     metrics.register(&registry)?;
-    let offset = FixedOffset::east_opt(0).ok_or("offset")?;
-    let timestamp = offset
-        .with_ymd_and_hms(2026, 11, 7, 12, 0, 1)
-        .single()
-        .ok_or("date")?;
+    let timestamp = at(2026, 11, 7, 12, 0, 1)?;
     let capacity = NonZeroUsize::new(2).ok_or("capacity")?;
     let mut queue = Pending::new("loki-0".to_owned(), capacity, metrics);
 
@@ -207,7 +206,7 @@ fn sink_queue_overflow_drops_oldest_and_counts_it() -> TestResult {
     Ok(())
 }
 
-fn record(id: u64, ts: chrono::DateTime<FixedOffset>, message: &str) -> LogRecord {
+fn record(id: u64, ts: NaiveDateTime, message: &str) -> LogRecord {
     LogRecord::new(
         "home".to_owned(),
         id,
@@ -232,7 +231,12 @@ async fn collector_owns_one_stream_and_emits_each_id_once() -> TestResult {
     let client = client(address).await?;
     let config = Config::from_toml_str("[logs]\nenabled = true\n")?;
     config.validate()?;
-    let collector = LogCollector::start("fake", client, &config.logs)?;
+    let collector = LogCollector::start(
+        "fake",
+        client,
+        &config.logs,
+        SelfMetrics::new("collector-test")?,
+    )?;
     let mut web_reader = collector.subscribe();
     let mut sink_reader = collector.subscribe();
 

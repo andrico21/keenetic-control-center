@@ -1,6 +1,8 @@
 //! Router log collection, parsing, deduplication, and forwarding.
 
+mod batch;
 pub mod dedupe;
+mod destination;
 pub mod elastic_sink;
 pub mod format;
 mod loki_reply;
@@ -14,4 +16,5 @@ pub mod retry;
 pub mod runtime;
 pub mod service;
 pub mod sink;
+mod sink_http;
 pub mod types;
