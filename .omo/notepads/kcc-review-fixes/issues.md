@@ -166,3 +166,5 @@
 - The Web console help text `web-console-unvalidated-help` ("Administrators only... the request is audited") does not say the line is destructive now; the dialog does. Changing it needs six locales (left for a copy pass).
 - Project overlay rule (b) still reads "every raw ... CLI line ... is validated"; the audited raw escape is documented in docs/SECURITY.md and MCP_TOOLS.md and is now Destructive, but rule (b) has no sentence naming it.
 - `cargo test -p kcc-catalog --lib` takes ~6 min on 2 jobs (risk tests over three catalogs): budget for it.
+- [todo 43] `routers_list` never emits `next_cursor` for a full page (only the truncation path does); `catalog_search` fetches `offset+limit+1` results each call. Not changed.
+- [todo 43] Reverted my own edit of two test files with `git checkout -- <file>` once (they had no other change); no other git state touched.

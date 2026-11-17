@@ -140,3 +140,12 @@
 - E-22 resolved by classification (plan alternative), not by an overlay deviation: the overlay's deviation list never named the escape, so it is unchanged. MCP effect: the unvalidated line now also needs the `Destructive` permission (allow_destructive + confirm were already required because raw_change treats Management like Destructive for the switch). Web console effect: `Destructive` permission added to the needed set, and the dialog becomes destructive-management (router name typed) instead of a plain confirm. `kcc` CLI never sends unvalidated lines (no raw authorization), migration/presets use `RawAuthorization::default()`: no change.
 - N9 was already done by todo 8 (B-08): no generator/catalog change; reproducibility proven (5.1, 5.0, 4.3: zero generated diff); typed coverage row added to `typing_tests::network_cases`, mutation-checked against a temporarily untyped 5.1 shard.
 - A-20: `Boolean` (a generator ValueType never emitted today) is not mapped by the runtime, so a future Boolean argument fails the load; `Ipv6Address`/`Mask` stay accepted aliases.
+
+## [2026-11-17] Todo 43 decisions (r43)
+- Truncation keeps only an allowlist of scalars (not every scalar): `error message field unsaved persists_immediately audit_pending request_id applied rebooting factory_reset job_id status`; the largest array is cut by binary search to the longest prefix that fits; the byte cap stays a hard ceiling.
+- `next_cursor` on a cut result: only for tools whose input schema has `cursor` (routers_list, catalog_search, migration plan/report pages); = offset + kept items; absent when no item fits or no cursor input.
+- `fields` now comes from the parsed INPUT (FailureContext.with_input), applied after masking and pseudonymization to object items of top-level arrays (`statuses` exempt). A `fields` member inside a RESULT is no longer a projection.
+- `limit` clamp 1..=100 in `catalog_search` and `paginate` (routers_list).
+- Schema changes: every curated domain write tool (`schema_with_ops`) gets one `confirm` description (CONFIRM_DOC); `kcc_firewall_write` loses `index` and `description` (still invalid_arguments when sent: unknown field). Doc comments "Unused confirmation flag..." replaced on routing, policy, nat, firewall, clients, dhcp, segments, dns inputs.
+- Changed test expectation: `oversized_result_returns_truncation_marker` (gates.rs) now expects NO `next_cursor` (the tool has no cursor input) instead of a meaningless "1".
+- `docs/MCP_TOOLS.md` unchanged by `cargo xtask gen-tool-docs` (it lists no schemas).

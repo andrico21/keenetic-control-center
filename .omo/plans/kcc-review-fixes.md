@@ -983,7 +983,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(catalog): delete risk, typed arguments and the reorder argument
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 42. Config text parser refuses tab indentation
+- [x] 42. Config text parser refuses tab indentation
   What to do / Must NOT do: Binding critic correction: return `InvalidIndent` when leading whitespace contains anything other than a space; tests: a tab-indented line and a mixed tab/space line are refused with `InvalidIndent`, space indentation still parses as before. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `A-06` (low; critic adjusted, medium->low) Tab-indented config text quietly flattens nested commands to the top level. Evidence: `crates/kcc-config/src/config_text.rs:145-163`. Fix: Return `InvalidIndent` (or a new variant) when the leading whitespace contains anything other than `' '`. Critic correction (binding): The issue is real; it is a minor bug on a rare input. Reject non-space leading whitespace.
   Must NOT: change unrelated behaviour, add a crate that is not already in `[workspace.dependencies]` or `Cargo.lock`, weaken a security control, change the audit entry format or hash rule, or touch files owned by another open todo of the same wave beyond what this todo needs; keep routes, MCP tool names/schemas and CLI flags except where a finding above changes them on purpose (name each such change in the commit body).

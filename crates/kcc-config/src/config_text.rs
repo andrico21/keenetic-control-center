@@ -106,7 +106,9 @@ pub enum ParseError {
         /// One-based source line number.
         line: usize,
     },
-    /// Indentation is not a multiple of the detected per-level width.
+    /// Indentation is not a multiple of the detected per-level width, or its leading
+    /// whitespace holds a character other than a space (`width` is then zero and
+    /// `spaces` counts the whole leading whitespace).
     #[error("invalid indentation at line {line}: {spaces} spaces for width {width}")]
     InvalidIndent {
         /// One-based source line number.
@@ -156,6 +158,14 @@ pub fn parse(input: &str) -> Result<Ast, ParseError> {
         }
 
         let spaces = line.len().saturating_sub(trimmed.len());
+        if trimmed.starts_with(char::is_whitespace) {
+            let leading = line.len().saturating_sub(line.trim_start().len());
+            return Err(ParseError::InvalidIndent {
+                line: line_no,
+                spaces: leading,
+                width: 0,
+            });
+        }
         if spaces > 0 {
             indent_width = Some(indent_width.map_or(spaces, |width: usize| width.min(spaces)));
         }

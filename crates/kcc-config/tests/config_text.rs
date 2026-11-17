@@ -5,7 +5,7 @@ mod tests {
     //! Acceptance scenarios for the public sample and invalid NS3 input.
 
     use kcc_config::{
-        config_text::{Token, flatten, normalize, parse, print},
+        config_text::{ParseError, Token, flatten, normalize, parse, print},
         ns3::{Ns3Error, decode},
     };
     /// Sanitized sample derived from Superuser question 1249064.
@@ -70,5 +70,53 @@ mod tests {
     #[test]
     fn invalid_ns3_length_is_rejected() {
         assert!(matches!(decode("abc"), Err(Ns3Error::InvalidLength)));
+    }
+
+    /// A-06: a tab-indented nested line is refused instead of being flattened.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the expectation fails.
+    #[test]
+    fn tab_indented_line_is_refused() {
+        let text = "interface Bridge0\n\tsecurity-level private\n";
+        assert!(matches!(
+            parse(text),
+            Err(ParseError::InvalidIndent {
+                line: 2,
+                spaces: _,
+                width: _
+            })
+        ));
+    }
+
+    /// A-06: leading whitespace mixing spaces and tabs is refused.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the expectation fails.
+    #[test]
+    fn mixed_tab_and_space_indent_is_refused() {
+        let text = "interface Bridge0\n  \tsecurity-level private\n";
+        assert!(matches!(
+            parse(text),
+            Err(ParseError::InvalidIndent {
+                line: 2,
+                spaces: _,
+                width: _
+            })
+        ));
+    }
+
+    /// A-06: a tab inside a line and space indentation keep parsing.
+    ///
+    /// # Panics
+    ///
+    /// Panics when the expectation fails.
+    #[test]
+    fn inner_tab_and_space_indent_still_parse() {
+        let text = "interface Bridge0\n    description\tlan\n";
+        let flat = parse(text).map(|ast| flatten(&ast));
+        assert!(flat.is_ok_and(|lines| lines.len() == 1));
     }
 }

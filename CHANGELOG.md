@@ -432,6 +432,9 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Tab-indented configuration text is refused instead of being flattened.** Leading
+  whitespace other than spaces is an invalid-indentation parse error naming the line;
+  space indentation reads as before.
 - **A show read the router serves only by POST keeps its query.** When a router refuses
   GET for a show resource (404 or 405), kcc reads it by POST with the query parameters as
   the body; before, the POST was sent empty, so a filtered read (for example one
