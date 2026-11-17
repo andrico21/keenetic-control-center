@@ -6689,8 +6689,12 @@ pub const WEB_SECRET_CHANGED: MessageKey = MessageKey::new("web-secret-changed")
 /// `web-config-save-armed` in `web.ftl`.
 pub const WEB_CONFIG_SAVE_ARMED: MessageKey = MessageKey::new("web-config-save-armed");
 
+/// `web-admin-error-permission-unknown` in `web.ftl`.
+pub const WEB_ADMIN_ERROR_PERMISSION_UNKNOWN: MessageKey =
+    MessageKey::new("web-admin-error-permission-unknown");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2130] = [
+pub static ALL: [MessageKey; 2131] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8821,4 +8825,5 @@ pub static ALL: [MessageKey; 2130] = [
     WEB_DHCP_ERROR_DNS_ONE,
     WEB_SECRET_CHANGED,
     WEB_CONFIG_SAVE_ARMED,
+    WEB_ADMIN_ERROR_PERMISSION_UNKNOWN,
 ];

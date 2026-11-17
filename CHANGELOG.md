@@ -560,6 +560,20 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **A new API key is shown even when the key table cannot be read again.** When the
+  table refresh after creating an MCP API key failed, the Web UI answered an empty 500
+  and the stored, working key was never shown. The dialog now shows the key once in an
+  uncached response (never logged or audited), and the table keeps its old rows until
+  the page is reloaded.
+- **Storage failures on the administration, sign-in and account pages show the
+  localized error page.** Users, roles, API keys, sign-in, sign-out, the own password
+  change and the account language answered a storage failure with an empty 500; they now
+  answer with the generic localized 500 page, like every other page.
+- **A role form naming an unknown permission is refused with a field error.** The role
+  dialog used to answer such a form with a bare text body; it now shows the form again
+  with a localized permission error and stores nothing. The Roles page, the refusal
+  messages and the CLI take the permission names from one list.
+
 - **Save is refused while the fail-safe timer is armed.** The configuration page hid
   Save while the timer ran, but a direct `POST /ui/r/{router}/config/save` still saved and
   left the timer armed. It now sends nothing, answers that the changes must be kept or

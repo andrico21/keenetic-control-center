@@ -31,7 +31,7 @@ pub(crate) fn shell_for_locale(headers: &HeaderMap, locale: Locale) -> Shell {
 }
 
 /// The value of the first cookie named `name` across every `Cookie` header.
-fn cookie<'headers>(headers: &'headers HeaderMap, name: &str) -> Option<&'headers str> {
+pub(crate) fn cookie<'headers>(headers: &'headers HeaderMap, name: &str) -> Option<&'headers str> {
     headers
         .get_all(header::COOKIE)
         .iter()

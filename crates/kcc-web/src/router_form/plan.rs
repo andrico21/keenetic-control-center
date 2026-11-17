@@ -163,7 +163,8 @@ impl Plan {
     ///
     /// # Errors
     ///
-    /// Returns a credential path failure.
+    /// Returns a credential path failure, or [`CredentialError::Record`] for a credential
+    /// kind this form does not know where to point.
     pub(crate) fn point(
         &self,
         store: &CredentialStore,
@@ -186,10 +187,11 @@ impl Plan {
                     profile.password_file = None;
                 }
                 CredentialKind::ReadPassword => profile.read_password_file = sealed,
-                CredentialKind::Password | _ => {
+                CredentialKind::Password => {
                     profile.password_file = sealed;
                     profile.token_file = None;
                 }
+                _ => return Err(CredentialError::Record),
             }
         }
         Ok(())

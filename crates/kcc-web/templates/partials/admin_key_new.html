@@ -6,7 +6,7 @@
     <label class="field__label" for="key-role">{{ t(keys::WEB_ADMIN_KEY_ROLE) }}</label>
     <select class="field__input" id="key-role" name="role"{% if !role_error.is_empty() %} aria-invalid="true" aria-describedby="key-role-error"{% endif %}>
       {%- for option in roles %}
-      <option value="{{ option.name }}"{% if option.selected %} selected{% endif %}>{{ option.label }}</option>
+      <option value="{{ option.name() }}"{% if option.selected() %} selected{% endif %}>{{ option.label() }}</option>
       {%- endfor %}
     </select>
     {%- if !role_error.is_empty() %}

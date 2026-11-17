@@ -66,7 +66,8 @@ pub(crate) async fn audit(state: &WebState, user: &CurrentUser, change: ProfileA
     let (action, profile, credentials) = change.parts();
     let tls = match &profile.tls {
         RouterTls::PinSha256(_) => "pinned",
-        RouterTls::Verify | _ => "verify",
+        RouterTls::Verify => "verify",
+        _ => "unknown",
     };
     Record::on_router(action, &profile.id, profile.id.clone())
         .with_params(json!({

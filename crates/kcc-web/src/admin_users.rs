@@ -24,7 +24,7 @@ use axum::{
 use fluent_bundle::FluentArgs;
 use kcc_app::{
     accounts::{AccountChange, AccountError, AccountSummary, NewAccount},
-    permissions::{Permission, Role, assignment::GrantError},
+    permissions::assignment::GrantError,
 };
 use kcc_i18n::{
     bundle::{MessageKey, tr},
@@ -39,8 +39,9 @@ use tokio::task::spawn_blocking;
 use crate::{
     WebState,
     admin_shared::{
-        Change, ListQuery, NameForm, NameQuery, Tab, TabLink, forbidden, named, record, role_label,
-        roles_for, tabs, unavailable,
+        Change, ListQuery, NameForm, NameQuery, Tab, TabLink, forbidden, named, record,
+        roles::{RoleOption, manages, role_label, role_options},
+        tabs, unavailable,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
@@ -165,16 +166,6 @@ struct UsersPage {
 
 localized!(UsersPage);
 
-/// One choice of a role select.
-struct RoleOption {
-    /// Role name, the option value.
-    name: String,
-    /// Display label.
-    label: String,
-    /// Whether it is selected.
-    selected: bool,
-}
-
 /// The add-account dialog.
 #[derive(Template)]
 #[template(path = "partials/admin_user_new.html")]
@@ -244,7 +235,7 @@ pub(crate) async fn new_dialog(State(state): State<WebState>, user: CurrentUser)
     let dialog = NewUserDialog {
         shell: fragment_shell(user.locale()),
         username: String::new(),
-        roles: options(&state, &user, "viewer"),
+        roles: role_options(&state, &user, "viewer"),
         languages: languages(state.default_locale()),
         username_error: String::new(),
         password_error: String::new(),
@@ -270,7 +261,7 @@ pub(crate) async fn create(
     let mut dialog = NewUserDialog {
         shell: fragment_shell(user.locale()),
         username: form.username.clone(),
-        roles: options(&state, &user, &form.role),
+        roles: role_options(&state, &user, &form.role),
         languages: languages(language),
         username_error: String::new(),
         password_error: String::new(),
@@ -371,6 +362,7 @@ pub(crate) async fn set_role(
     }
     match administer(
         &state,
+        &user,
         &target.username,
         AccountChange::Role(role.name.clone()),
     )
@@ -480,7 +472,7 @@ pub(crate) async fn delete(
         dialog.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_CONFIRM, None));
         return respond::unprocessable(&dialog);
     }
-    match administer(&state, &target.username, AccountChange::Delete).await {
+    match administer(&state, &user, &target.username, AccountChange::Delete).await {
         Ok(()) => {}
         Err(Failure::LastAdmin) => {
             let change = Change::refused("admin.user_delete", &target.username, "last_admin");
@@ -530,7 +522,7 @@ async fn toggle(
         Ok(target) => target,
         Err(response) => return *response,
     };
-    match administer(state, &target.username, action.change).await {
+    match administer(state, user, &target.username, action.change).await {
         Ok(()) => {}
         Err(Failure::LastAdmin) => {
             record(
@@ -582,9 +574,14 @@ enum Failure {
 /// [`Failure::LastAdmin`], or the response for a vanished account or a storage failure.
 async fn administer(
     state: &WebState,
+    user: &CurrentUser,
     username: &str,
     change: AccountChange,
 ) -> Result<(), Failure> {
+    let failed = |error: &dyn fmt::Display| {
+        let response = errors::internal(error, fragment_shell(user.locale()));
+        Failure::Other(Box::new(response))
+    };
     let accounts = Arc::clone(state.accounts());
     let name = username.to_owned();
     match spawn_blocking(move || accounts.administer(&name, &change)).await {
@@ -593,8 +590,8 @@ async fn administer(
             StatusCode::NOT_FOUND.into_response(),
         ))),
         Ok(Err(AccountError::LastAdmin)) => Err(Failure::LastAdmin),
-        Ok(Err(error)) => Err(Failure::Other(Box::new(internal(&error)))),
-        Err(error) => Err(Failure::Other(Box::new(internal(&error)))),
+        Ok(Err(error)) => Err(failed(&error)),
+        Err(error) => Err(failed(&error)),
     }
 }
 
@@ -612,8 +609,18 @@ async fn managed(
     let accounts = Arc::clone(state.accounts());
     let summaries = match spawn_blocking(move || accounts.list()).await {
         Ok(Ok(summaries)) => summaries,
-        Ok(Err(error)) => return Err(Box::new(internal(&error))),
-        Err(error) => return Err(Box::new(internal(&error))),
+        Ok(Err(error)) => {
+            return Err(Box::new(errors::internal(
+                &error,
+                fragment_shell(user.locale()),
+            )));
+        }
+        Err(error) => {
+            return Err(Box::new(errors::internal(
+                &error,
+                fragment_shell(user.locale()),
+            )));
+        }
     };
     let Some(target) = summaries
         .into_iter()
@@ -626,15 +633,6 @@ async fn managed(
         return Err(Box::new(forbidden(state, user, change).await));
     }
     Ok(target)
-}
-
-/// Whether `actor` may manage an account holding the role `role`; an unknown role is
-/// treated as holding everything.
-fn manages(state: &WebState, actor: &Role, role: &str) -> bool {
-    let target = state
-        .role(role)
-        .unwrap_or_else(|| Role::new(String::new(), Permission::ALL, vec!["*".to_owned()]));
-    actor.dominates(&target)
 }
 
 /// The accounts table on `page`, with `toasts`.
@@ -709,7 +707,7 @@ async fn finish(
 ) -> Response {
     match region(state, user, shown_page(headers), toasts, true).await {
         Ok(region) => respond::region(&region, StatusCode::OK, from_dialog),
-        Err(error) => internal(&error),
+        Err(error) => errors::internal(&error, fragment_shell(user.locale())),
     }
 }
 
@@ -723,7 +721,7 @@ async fn finish_with(
 ) -> Response {
     match region(state, user, shown_page(headers), toasts, true).await {
         Ok(region) => respond::region(&region, status, false),
-        Err(error) => internal(&error),
+        Err(error) => errors::internal(&error, fragment_shell(user.locale())),
     }
 }
 
@@ -740,7 +738,7 @@ fn role_dialog_for(
         title: tr(user.locale(), keys::WEB_ADMIN_USER_ROLE_TITLE, Some(&args)),
         shell: fragment_shell(user.locale()),
         username: username.to_owned(),
-        roles: options(state, user, selected),
+        roles: role_options(state, user, selected),
         error: String::new(),
     }
 }
@@ -758,28 +756,7 @@ fn delete_confirmation(user: &CurrentUser, username: &str) -> Dialog {
     )
 }
 
-/// The roles `user` may grant, `selected` chosen.
-fn options(state: &WebState, user: &CurrentUser, selected: &str) -> Vec<RoleOption> {
-    roles_for(&state.roles(), user.role())
-        .into_iter()
-        .map(|role| RoleOption {
-            label: role_label(user.locale(), &role.name),
-            selected: role.name == selected,
-            name: role.name,
-        })
-        .collect()
-}
-
 /// The language choices with `locale` selected.
 fn languages(locale: Locale) -> [LocaleOption; 6] {
     Shell::new(locale, Theme::System).locales()
-}
-
-/// Logs `error` and answers `500`.
-fn internal<E>(error: &E) -> Response
-where
-    E: fmt::Display + ?Sized,
-{
-    tracing::error!(%error, "account administration failed");
-    StatusCode::INTERNAL_SERVER_ERROR.into_response()
 }

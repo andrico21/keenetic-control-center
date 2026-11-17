@@ -8,7 +8,7 @@
 
 mod table;
 
-use core::{error::Error, fmt};
+use core::error::Error;
 
 use askama::Template;
 use axum::{
@@ -19,7 +19,7 @@ use axum::{
 };
 use kcc_app::{
     api_keys::{ApiKeyError, ApiKeysDocument, CreatedApiKey, create_api_key, expose_created_key},
-    permissions::{Permission, Role, assignment::GrantError},
+    permissions::assignment::GrantError,
     persist::StateStore,
 };
 use kcc_i18n::{bundle::tr, keys};
@@ -31,7 +31,9 @@ use crate::{
     WebState,
     admin_shared::{
         Change, ListQuery, NameQuery, Tab, TabLink, Timestamp, done_toasts, forbidden, named,
-        record, role_label, roles_for, tabs, unavailable,
+        record,
+        roles::{RoleOption, manages, role_label, role_options},
+        tabs, unavailable,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
@@ -110,16 +112,6 @@ struct KeysPage {
 
 localized!(KeysPage);
 
-/// One choice of the role select.
-struct RoleOption {
-    /// Role name.
-    name: String,
-    /// Display label.
-    label: String,
-    /// Whether it is selected.
-    selected: bool,
-}
-
 /// The create dialog.
 #[derive(Template)]
 #[template(path = "partials/admin_key_new.html")]
@@ -146,8 +138,10 @@ struct CreatedDialog {
     shell: Shell,
     /// The new key and its stored record.
     created: CreatedApiKey,
-    /// The refreshed table and toasts, sent out of band.
-    region: KeysRegion,
+    /// The refreshed table, sent out of band; none when it could not be read again.
+    region: Option<KeysRegion>,
+    /// Outcome toasts of the change, sent out of band.
+    toasts: Vec<Toast>,
 }
 
 impl CreatedDialog {
@@ -225,8 +219,8 @@ pub(crate) async fn create(
                 dialog.name_error = tr(locale, keys::WEB_ADMIN_ERROR_KEY_EXISTS, None);
                 return respond::unprocessable(&dialog);
             }
-            Ok(Err(error)) => return internal(&error),
-            Err(error) => return internal(&error),
+            Ok(Err(error)) => return errors::internal(&error, fragment_shell(locale)),
+            Err(error) => return errors::internal(&error, fragment_shell(locale)),
         };
     let warning = admin.reload_keys().await;
     let params = json!({ "role": form.role });
@@ -236,18 +230,20 @@ pub(crate) async fn create(
         Change::done("admin.api_key_create", &form.name, params),
     )
     .await;
-    let toasts = warning
-        .map(|key| Toast::warning(locale, key))
-        .into_iter()
-        .collect();
-    let refreshed = match region(&state, &user, shown_page(&headers), toasts, true).await {
-        Ok(refreshed) => refreshed,
-        Err(error) => return internal(&error),
-    };
+    // The key exists and works now, and this response is its only display: a failed
+    // refresh of the table leaves the table as it was instead of losing the key.
+    let refreshed = region(&state, &user, shown_page(&headers), Vec::new(), true)
+        .await
+        .inspect_err(|error| tracing::error!(%error, "API key table refresh failed"))
+        .ok();
     let mut response = errors::render(&CreatedDialog {
-        shell: fragment_shell(user.locale()),
+        shell: fragment_shell(locale),
         created,
         region: refreshed,
+        toasts: warning
+            .map(|key| Toast::warning(locale, key))
+            .into_iter()
+            .collect(),
     });
     drop(response.headers_mut().insert(
         header::CACHE_CONTROL,
@@ -301,8 +297,8 @@ pub(crate) async fn revoke(
     match removed {
         Ok(Ok(true)) => {}
         Ok(Ok(false)) => return StatusCode::NOT_FOUND.into_response(),
-        Ok(Err(error)) => return internal(&error),
-        Err(error) => return internal(&error),
+        Ok(Err(error)) => return errors::internal(&error, fragment_shell(user.locale())),
+        Err(error) => return errors::internal(&error, fragment_shell(user.locale())),
     }
     let warning = admin.reload_keys().await;
     record(
@@ -314,7 +310,7 @@ pub(crate) async fn revoke(
     let toasts = done_toasts(user.locale(), keys::WEB_ADMIN_KEY_REVOKED, warning);
     match region(&state, &user, shown_page(&headers), toasts, true).await {
         Ok(refreshed) => respond::region(&refreshed, StatusCode::OK, true),
-        Err(error) => internal(&error),
+        Err(error) => errors::internal(&error, fragment_shell(user.locale())),
     }
 }
 
@@ -327,7 +323,10 @@ pub(crate) async fn revoke(
 async fn revocable(state: &WebState, user: &CurrentUser, name: &str) -> Result<(), Box<Response>> {
     let keys = match stored(state).await {
         Ok(keys) => keys,
-        Err(error) => return Err(Box::new(internal(&error))),
+        Err(error) => {
+            let failed = errors::internal(&error, fragment_shell(user.locale()));
+            return Err(Box::new(failed));
+        }
     };
     let Some(key) = keys.keys.into_iter().find(|key| key.name == name) else {
         return Err(Box::new(StatusCode::NOT_FOUND.into_response()));
@@ -337,15 +336,6 @@ async fn revocable(state: &WebState, user: &CurrentUser, name: &str) -> Result<(
         return Err(Box::new(forbidden(state, user, change).await));
     }
     Ok(())
-}
-
-/// Whether `actor` may manage a key holding `role`; an unknown role counts as holding
-/// every permission on every router.
-fn manages(state: &WebState, actor: &Role, role: &str) -> bool {
-    let target = state
-        .role(role)
-        .unwrap_or_else(|| Role::new(String::new(), Permission::ALL, vec!["*".to_owned()]));
-    actor.dominates(&target)
 }
 
 /// The stored keys, read off the async executor.
@@ -417,14 +407,7 @@ fn new_key_dialog(
     NewKeyDialog {
         shell: fragment_shell(user.locale()),
         key_name,
-        roles: roles_for(&state.roles(), user.role())
-            .into_iter()
-            .map(|role| RoleOption {
-                label: role_label(user.locale(), &role.name),
-                selected: role.name == selected,
-                name: role.name,
-            })
-            .collect(),
+        roles: role_options(state, user, selected),
         name_error: String::new(),
         role_error: String::new(),
     }
@@ -442,13 +425,4 @@ fn confirmation(user: &CurrentUser, name: &str) -> Dialog {
         ),
     )
     .with_button(keys::WEB_ADMIN_KEY_REVOKE)
-}
-
-/// Logs `error` and answers `500`.
-fn internal<E>(error: &E) -> Response
-where
-    E: fmt::Display + ?Sized,
-{
-    tracing::error!(%error, "API key administration failed");
-    StatusCode::INTERNAL_SERVER_ERROR.into_response()
 }

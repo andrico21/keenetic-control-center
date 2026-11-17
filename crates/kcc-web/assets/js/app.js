@@ -23,9 +23,21 @@
     }
   });
 
-  // A form answered with 422 carries its field errors: swap it like a success.
+  // Error statuses whose body is meant to be shown, swapped like a success. "always": a
+  // form answered with 422 carries its field errors. "retargeted": only when the server
+  // named the region with HX-Retarget; an upload over its size limit is answered with 413
+  // and the dialog showing the localized size error, and a request the role may not make
+  // is answered with 403 and its refusal (such as a console's result). Without that header
+  // they keep htmx's default.
+  const SHOWN_ERRORS = new Map([
+    [422, "always"],
+    [413, "retargeted"],
+    [403, "retargeted"],
+  ]);
   document.addEventListener("htmx:beforeSwap", (event) => {
-    if (event.detail?.xhr?.status === 422) {
+    const xhr = event.detail?.xhr;
+    const shown = SHOWN_ERRORS.get(xhr?.status);
+    if (shown === "always" || (shown === "retargeted" && xhr.getResponseHeader("HX-Retarget"))) {
       event.detail.shouldSwap = true;
       event.detail.isError = false;
     }
@@ -319,7 +331,7 @@
   });
 })();
 
-// todo 44: admin pages. The Copy button beside a new API key, and <time data-kcc-time>
+// Admin pages. The Copy button beside a new API key, and <time data-kcc-time>
 // shown in the reader's time zone and page language.
 (() => {
   "use strict";
@@ -361,7 +373,7 @@
   document.addEventListener("htmx:afterSettle", localize);
 })();
 
-// todo 36: a table row's action menu opens above its button when it would leave the
+// A table row's action menu opens above its button when it would leave the
 // viewport at the bottom.
 (() => {
   "use strict";
@@ -385,7 +397,7 @@
   );
 })();
 
-// todo 37: network pages. A dialog input's data-kcc-invalid holds the localized rule: the
+// Network pages. A dialog input's data-kcc-invalid holds the localized rule: the
 // browser shows it instead of its own message when the input's constraints fail, so an
 // invalid value is never sent. Typing clears it until the next check.
 (() => {
@@ -409,22 +421,7 @@
   });
 })();
 
-// todo 39: an upload over its size limit is answered with 413 and the dialog showing the
-// localized size error (HX-Retarget set by the server): swap it like a 422. A 413 without
-// that header (no dialog to show) keeps htmx's default.
-(() => {
-  "use strict";
-
-  document.addEventListener("htmx:beforeSwap", (event) => {
-    const xhr = event.detail?.xhr;
-    if (xhr?.status === 413 && xhr.getResponseHeader("HX-Retarget")) {
-      event.detail.shouldSwap = true;
-      event.detail.isError = false;
-    }
-  });
-})();
-
-// todo 70: a response that replaces the whole body is a new page, such as the account page
+// A response that replaces the whole body is a new page, such as the account page
 // after its language changed; htmx keeps the old <html lang>, so take it from the response.
 (() => {
   "use strict";
@@ -440,20 +437,13 @@
   });
 })();
 
-// todo 121: a request the role may not make is answered with 403, which htmx does not
-// show. A refusal that names its region (HX-Retarget, such as a console's result) is
-// swapped there like a 422; any other 403 shows the page's refusal toast, once until it is
-// closed, so no refusal passes in silence.
+// A request the role may not make is answered with 403, which htmx does not show. A
+// refusal that names its region is swapped there (see the error statuses above); any other
+// 403 shows the page's refusal toast, once until it is closed, so no refusal passes in
+// silence.
 (() => {
   "use strict";
 
-  document.addEventListener("htmx:beforeSwap", (event) => {
-    const xhr = event.detail?.xhr;
-    if (xhr?.status === 403 && xhr.getResponseHeader("HX-Retarget")) {
-      event.detail.shouldSwap = true;
-      event.detail.isError = false;
-    }
-  });
   document.addEventListener("htmx:responseError", (event) => {
     const toasts = document.getElementById("toasts");
     const template = document.getElementById("refused-toast");

@@ -26,7 +26,7 @@ mod tests {
         sync::atomic::{AtomicUsize, Ordering},
         time::Duration,
     };
-    use std::fs;
+    use std::{fs, path::PathBuf};
 
     use axum::{
         Router,
@@ -95,6 +95,23 @@ mod tests {
         }
     }
 
+    /// A reload that breaks `api_keys.json` when the keys are installed, so the next read
+    /// of the keys fails.
+    #[derive(Debug)]
+    struct BreakingReload {
+        keys_file: PathBuf,
+    }
+
+    impl AuthReload for BreakingReload {
+        fn reload_keys(&self) -> Result<(), ReloadError> {
+            fs::write(&self.keys_file, "{").map_err(|_error| ReloadError::NotReady)
+        }
+
+        fn reload_rbac(&self) -> Result<(), ReloadError> {
+            Ok(())
+        }
+    }
+
     /// A signed-in browser: its session cookie and CSRF token.
     struct Browser {
         cookie: String,
@@ -118,6 +135,8 @@ mod tests {
     struct Options {
         /// Reload through a [`TransportReload`] bridge.
         transport: bool,
+        /// Reload through a [`BreakingReload`] (when `transport` is off).
+        breaking: bool,
         /// The configuration the server page reports.
         config: Config,
     }
@@ -152,6 +171,9 @@ mod tests {
                 .then(|| Arc::new(TransportReload::new(core.state.clone(), Vec::new())));
             let bridge: Arc<dyn AuthReload> = match &transport_reload {
                 Some(kit) => Arc::<TransportReload>::clone(kit),
+                None if options.breaking => Arc::new(BreakingReload {
+                    keys_file: core.state.dir().join("api_keys.json"),
+                }),
                 None => Arc::<CountingReload>::clone(&reload),
             };
             let web_state = core
@@ -873,6 +895,133 @@ mod tests {
         Ok(())
     }
 
+    /// W1-16: a key whose table refresh fails after it was stored is still shown, once,
+    /// in an uncached response, and never audited.
+    #[tokio::test]
+    async fn a_new_key_is_shown_once_even_when_the_table_refresh_fails() -> TestResult {
+        let options = Options {
+            breaking: true,
+            ..Options::default()
+        };
+        let (fixture, _bridge) = Fixture::build("en", Vec::new(), &options)?;
+        let admin = fixture.admin().await?;
+
+        let created = fixture
+            .post(
+                &admin,
+                "/ui/admin/api-keys",
+                &[("name", "probe"), ("role", "viewer")],
+            )
+            .await?;
+
+        assert_eq!(created.status(), StatusCode::OK, "the key dialog");
+        assert_eq!(
+            header_text(&created, header::CACHE_CONTROL.as_str()).as_deref(),
+            Some("no-store, max-age=0"),
+            "the response with the key is never stored"
+        );
+        let html = text(created).await?;
+        let key = input_value(&html, "api-key-value").ok_or("the key is shown")?;
+        assert_eq!(html.matches(key.as_str()).count(), 1, "shown once");
+        assert!(
+            !html.contains("id=\"admin-region\""),
+            "no table from a failed refresh"
+        );
+        assert!(!fixture.audit_log()?.contains(&key), "never audited");
+        Ok(())
+    }
+
+    /// W1-09: a storage failure on the users, roles, API-key and account handlers answers
+    /// with the localized 500 page, not an empty body.
+    #[tokio::test]
+    async fn storage_failures_answer_with_the_localized_error_page() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        fixture.add_user("bob", "viewer")?;
+        let admin = fixture.admin().await?;
+        fs::write(fixture.state.dir().join("api_keys.json"), "{")?;
+        let keys = fixture
+            .get("/ui/admin/api-keys/revoke?name=probe", &admin.cookie)
+            .await?;
+        let roles = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles",
+                &[("name", "lab"), ("scope", "lab-*"), ("read", "on")],
+            )
+            .await?;
+        fs::write(fixture.state.dir().join("users.json"), "{")?;
+        let users = fixture
+            .post(&admin, "/ui/admin/users/disable", &[("name", "bob")])
+            .await?;
+        let account = fixture
+            .post(&admin, "/ui/account/locale", &[("locale", "de")])
+            .await?;
+
+        for (handler, response) in [
+            ("keys", keys),
+            ("roles", roles),
+            ("users", users),
+            ("account", account),
+        ] {
+            assert_eq!(
+                response.status(),
+                StatusCode::INTERNAL_SERVER_ERROR,
+                "{handler}"
+            );
+            assert!(
+                text(response)
+                    .await?
+                    .contains(&en(keys::WEB_ERROR_INTERNAL_TITLE)),
+                "{handler}: the localized error page"
+            );
+        }
+        Ok(())
+    }
+
+    /// W1-11: a role form naming a permission this server does not know is refused with
+    /// the form's permission error; nothing is stored or reloaded.
+    #[tokio::test]
+    async fn a_role_form_with_an_unknown_permission_is_refused() -> TestResult {
+        let fixture = Fixture::new("en", Vec::new())?;
+        let admin = fixture.admin().await?;
+
+        let response = fixture
+            .post(
+                &admin,
+                "/ui/admin/roles",
+                &[
+                    ("name", "lab"),
+                    ("scope", "lab-*"),
+                    ("read", "on"),
+                    ("sudo", "on"),
+                ],
+            )
+            .await?;
+
+        assert_eq!(
+            response.status(),
+            StatusCode::UNPROCESSABLE_ENTITY,
+            "refused"
+        );
+        let form = text(response).await?;
+        assert!(
+            form.contains("id=\"role-permissions-error\""),
+            "the permission error of the re-rendered form"
+        );
+        assert!(
+            form.contains("name=\"read\" value=\"on\" checked"),
+            "the known permissions stay ticked"
+        );
+        assert!(
+            !load_roles(&fixture.state)?
+                .iter()
+                .any(|role| role.name == "lab"),
+            "nothing stored"
+        );
+        assert_eq!(fixture.reload.rbac.load(Ordering::SeqCst), 0, "no reload");
+        Ok(())
+    }
+
     /// A fixture with audited changes (a web user creation, an MCP save on `lab-1`) and
     /// the auditor `ann` (`Read` + `ViewAudit`) signed in.
     async fn audited() -> Result<(Fixture, Browser), Box<dyn Error + Send + Sync>> {
@@ -1138,6 +1287,7 @@ mod tests {
         )?;
         let options = Options {
             transport: false,
+            breaking: false,
             config: Config::load(&config_file)?,
         };
         let (fixture, _) = Fixture::build("en", Vec::new(), &options)?;

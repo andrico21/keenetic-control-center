@@ -42,7 +42,7 @@ use crate::{
     errors,
     overview::masthead,
     page::{Localize as _, Shell},
-    page_kit::respond,
+    page_kit::{context::fragment_shell, respond},
     prefs,
     session::{SessionId, SessionStore, account::SignedIn},
 };
@@ -173,9 +173,12 @@ pub(crate) async fn login_page(
     client: Option<Extension<ClientIp>>,
     headers: HeaderMap,
 ) -> Response {
+    let server_error = |error: &dyn Display| {
+        errors::internal(error, prefs::shell(&headers, state.default_locale()))
+    };
     let has_admin = match has_admin(&state).await {
         Ok(value) => value,
-        Err(error) => return internal(error),
+        Err(error) => return server_error(&error),
     };
     let existing = SessionStore::id_from_headers(&headers, state.cookie_security());
     let session = match existing.as_ref() {
@@ -194,7 +197,7 @@ pub(crate) async fn login_page(
             .await
         {
             Ok(value) => value,
-            Err(error) => return internal(error),
+            Err(error) => return server_error(&error),
         },
     };
     let shell = prefs::shell(&headers, state.default_locale())
@@ -206,7 +209,7 @@ pub(crate) async fn login_page(
         username: String::new(),
     });
     if let Err(error) = set_session_cookie(&mut response, &state, &id) {
-        return internal(error);
+        return server_error(&error);
     }
     response
 }
@@ -218,6 +221,9 @@ pub(crate) async fn login(
     headers: HeaderMap,
     Form(form): Form<LoginForm>,
 ) -> Response {
+    let server_error = |error: &dyn Display| {
+        errors::internal(error, prefs::shell(&headers, state.default_locale()))
+    };
     let old_id = SessionStore::id_from_headers(&headers, state.cookie_security());
     let username = match validate_username(&form.username) {
         Ok(()) => form.username,
@@ -236,13 +242,13 @@ pub(crate) async fn login(
     .await;
     let (authentication, fingerprint) = match checked {
         Ok(Ok(value)) => value,
-        Ok(Err(error)) => return internal(error),
-        Err(error) => return internal(error),
+        Ok(Err(error)) => return server_error(&error),
+        Err(error) => return server_error(&error),
     };
     match authentication {
         Authentication::Authenticated { role, locale } => {
             let Some(resolved_role) = state.role(&role) else {
-                return internal("account role is not configured");
+                return server_error(&"account role is not configured");
             };
             let resolved_locale =
                 Locale::from_tag(&locale).unwrap_or_else(|| state.default_locale());
@@ -254,11 +260,11 @@ pub(crate) async fn login(
             drop(reading);
             let (id, _session) = match signed_in {
                 Ok(value) => value,
-                Err(error) => return internal(error),
+                Err(error) => return server_error(&error),
             };
             if let Err(error) = audit_login(&state, &username).await {
                 state.sessions().invalidate(&id).await;
-                return internal(error);
+                return server_error(&error);
             }
             let landing = match password_change_required(&state, &username).await {
                 Ok(true) => {
@@ -268,12 +274,12 @@ pub(crate) async fn login(
                 Ok(false) => "/ui/",
                 Err(error) => {
                     state.sessions().invalidate(&id).await;
-                    return internal(error);
+                    return server_error(&error);
                 }
             };
             let mut response = go_to(&headers, landing);
             if let Err(error) = set_session_cookie(&mut response, &state, &id) {
-                return internal(error);
+                return server_error(&error);
             }
             response
         }
@@ -295,7 +301,7 @@ pub(crate) async fn login(
             );
             login_failure(&state, &headers, failed, "locked").await
         }
-        _ => internal("unsupported authentication result"),
+        _ => server_error(&"unsupported authentication result"),
     }
 }
 
@@ -306,9 +312,12 @@ pub(crate) async fn logout(
     current: CurrentSession,
     user: CurrentUser,
 ) -> Response {
+    let server_error = |error: &dyn Display| {
+        errors::internal(error, prefs::shell_for_locale(&headers, user.locale()))
+    };
     state.sessions().invalidate(current.id()).await;
     if let Err(error) = audit(&state, user.username(), "web.logout", "success").await {
-        return internal(error);
+        return server_error(&error);
     }
     let mut response = go_to(&headers, "/ui/login");
     let cookie = state.cookie_security().clear_cookie();
@@ -317,7 +326,7 @@ pub(crate) async fn logout(
             drop(response.headers_mut().insert(header::SET_COOKIE, value));
             response
         }
-        Err(error) => internal(error),
+        Err(error) => server_error(&error),
     }
 }
 
@@ -340,6 +349,9 @@ pub(crate) async fn change_password(
     user: CurrentUser,
     Form(form): Form<PasswordForm>,
 ) -> Response {
+    let server_error = |error: &dyn Display| {
+        errors::internal(error, prefs::shell_for_locale(&headers, user.locale()))
+    };
     let accounts = Arc::clone(state.accounts());
     let username = user.username().to_owned();
     let auth_username = username.clone();
@@ -367,8 +379,8 @@ pub(crate) async fn change_password(
             let error = Some(keys::WEB_ADMIN_ERROR_PASSWORD_USERNAME);
             return account_response(&state, &headers, &current, &user, false, error).await;
         }
-        Ok(Err(error)) => return internal(error),
-        Err(error) => return internal(error),
+        Ok(Err(error)) => return server_error(&error),
+        Err(error) => return server_error(&error),
     };
     match authentication {
         Authentication::Authenticated { role: _, locale: _ } => {
@@ -383,12 +395,12 @@ pub(crate) async fn change_password(
         | Authentication::Disabled
         | Authentication::Locked { until: _ } => {
             if let Err(error) = audit(&state, &username, "web.password_change", "failure").await {
-                return internal(error);
+                return server_error(&error);
             }
             let error = Some(keys::ERRORS_AUTH_FAILED);
             account_response(&state, &headers, &current, &user, false, error).await
         }
-        _ => internal("unsupported authentication result"),
+        _ => server_error(&"unsupported authentication result"),
     }
 }
 
@@ -401,6 +413,9 @@ pub(crate) async fn change_locale(
     mut user: CurrentUser,
     Form(form): Form<LocaleForm>,
 ) -> Response {
+    let server_error = |error: &dyn Display| {
+        errors::internal(error, prefs::shell_for_locale(&headers, user.locale()))
+    };
     let Some(locale) = Locale::from_tag(&form.locale) else {
         return StatusCode::UNPROCESSABLE_ENTITY.into_response();
     };
@@ -411,8 +426,8 @@ pub(crate) async fn change_locale(
     match spawn_blocking(move || accounts.set_locale(&auth_username, tag)).await {
         Ok(Ok(true)) => {}
         Ok(Ok(false)) => return StatusCode::NOT_FOUND.into_response(),
-        Ok(Err(error)) => return internal(error),
-        Err(error) => return internal(error),
+        Ok(Err(error)) => return server_error(&error),
+        Err(error) => return server_error(&error),
     }
     state.sessions().set_user_locale(&username, locale).await;
     user.set_locale(locale);
@@ -427,13 +442,16 @@ async fn login_failure(
     failed: Failed,
     outcome: &'static str,
 ) -> Response {
+    let server_error = |error: &dyn Display| {
+        errors::internal(error, prefs::shell(headers, state.default_locale()))
+    };
     let Failed {
         id,
         client,
         username,
     } = failed;
     if let Err(error) = audit(state, &username, "web.login", outcome).await {
-        return internal(error);
+        return server_error(&error);
     }
     let session = match id.as_ref() {
         Some(value) => state.sessions().peek(value).await,
@@ -443,7 +461,7 @@ async fn login_failure(
         (Some(value), Some(active)) => (value, active),
         (Some(_) | None, Some(_) | None) => match state.sessions().create_anonymous(client).await {
             Ok(value) => value,
-            Err(error) => return internal(error),
+            Err(error) => return server_error(&error),
         },
     };
     let shown = if username == INVALID_USERNAME_ACTOR {
@@ -465,7 +483,7 @@ async fn login_failure(
     )
         .into_response();
     if let Err(error) = set_session_cookie(&mut response, state, &active_id) {
-        return internal(error);
+        return server_error(&error);
     }
     response
 }
@@ -515,6 +533,7 @@ async fn finish_change(
     user: &CurrentUser,
     landing: Response,
 ) -> Response {
+    let server_error = |error: &dyn Display| errors::internal(error, fragment_shell(user.locale()));
     let rotated = match state
         .sessions()
         .rotate_privilege(current.id(), user.role().clone())
@@ -522,14 +541,14 @@ async fn finish_change(
     {
         Ok(Some((id, _session))) => id,
         Ok(None) => return Redirect::to("/ui/login").into_response(),
-        Err(error) => return internal(error),
+        Err(error) => return server_error(&error),
     };
     if let Err(error) = audit(state, user.username(), "web.password_change", "success").await {
-        return internal(error);
+        return server_error(&error);
     }
     let mut response = landing;
     if let Err(error) = set_session_cookie(&mut response, state, &rotated) {
-        return internal(error);
+        return server_error(&error);
     }
     response
 }
@@ -657,12 +676,6 @@ fn set_session_cookie(
     let value = SessionStore::cookie_header(state.cookie_security(), id)?;
     drop(response.headers_mut().insert(header::SET_COOKIE, value));
     Ok(())
-}
-
-/// Logs an internal cause and returns the generic localized 500 response.
-fn internal(error: impl Display) -> Response {
-    tracing::error!(%error, "web authentication request failed");
-    StatusCode::INTERNAL_SERVER_ERROR.into_response()
 }
 
 #[cfg(test)]

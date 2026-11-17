@@ -387,23 +387,31 @@ mod tests {
         Ok(())
     }
 
+    /// W1-18: each rejecting condition refuses a request with a valid CSRF token on its
+    /// own: a foreign or missing Origin without Fetch Metadata, and a cross-site fetch
+    /// from the right Origin.
     #[tokio::test]
     async fn cross_site_origin_rejects_valid_csrf_token() -> TestResult {
         let fixture = Fixture::new("admin", CookieSecurity::LoopbackHttp)?;
         let (cookie, csrf) = fixture.authenticated().await?;
 
-        let response = fixture
-            .send(
-                Request::post("/ui/logout")
-                    .header(header::COOKIE, cookie)
-                    .header(header::ORIGIN, "https://attacker.example")
-                    .header("sec-fetch-site", "cross-site")
-                    .header("x-csrf-token", csrf)
-                    .body(Body::empty())?,
-            )
-            .await?;
-
-        assert_eq!(response.status(), StatusCode::FORBIDDEN, "cross-origin");
+        for (case, origin, fetch_site) in [
+            ("foreign origin", Some("https://attacker.example"), None),
+            ("no origin", None, None),
+            ("cross-site fetch", Some(ORIGIN), Some("cross-site")),
+        ] {
+            let mut request = Request::post("/ui/logout")
+                .header(header::COOKIE, &cookie)
+                .header("x-csrf-token", &csrf);
+            if let Some(sent) = origin {
+                request = request.header(header::ORIGIN, sent);
+            }
+            if let Some(sent) = fetch_site {
+                request = request.header("sec-fetch-site", sent);
+            }
+            let response = fixture.send(request.body(Body::empty())?).await?;
+            assert_eq!(response.status(), StatusCode::FORBIDDEN, "{case}");
+        }
         Ok(())
     }
 

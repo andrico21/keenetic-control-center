@@ -6,6 +6,8 @@
 
 extern crate alloc;
 
+pub(crate) mod roles;
+
 use alloc::sync::Arc;
 use core::time::Duration;
 use std::time::UNIX_EPOCH;
@@ -18,7 +20,7 @@ use axum::{
 };
 use fluent_bundle::FluentArgs;
 use kcc_app::{
-    permissions::{Permission, Role, built_in_roles},
+    permissions::{Permission, Role},
     persist::StateStore,
 };
 use kcc_i18n::{
@@ -133,49 +135,6 @@ pub(crate) fn valid_glob(glob: &str) -> bool {
         && glob
             .bytes()
             .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"-*".contains(&byte))
-}
-
-/// Whether `name` is one of the three immutable built-in roles.
-pub(crate) fn is_built_in(name: &str) -> bool {
-    built_in_roles().iter().any(|role| role.name == name)
-}
-
-/// `roles` in display order: built-in roles in rising privilege, then custom roles by
-/// name.
-pub(crate) fn ordered(roles: &[Role]) -> Vec<Role> {
-    let built_in = built_in_roles();
-    let rank = |role: &Role| {
-        built_in
-            .iter()
-            .position(|candidate| candidate.name == role.name)
-            .unwrap_or(built_in.len())
-    };
-    let mut sorted = roles.to_vec();
-    sorted.sort_by(|left, right| {
-        rank(left)
-            .cmp(&rank(right))
-            .then_with(|| left.name.cmp(&right.name))
-    });
-    sorted
-}
-
-/// The roles `actor` may grant, in display order.
-pub(crate) fn roles_for(roles: &[Role], actor: &Role) -> Vec<Role> {
-    ordered(roles)
-        .into_iter()
-        .filter(|role| actor.dominates(role))
-        .collect()
-}
-
-/// The display name of the role `name`: built-in roles are translated, custom roles
-/// keep their name.
-pub(crate) fn role_label(locale: Locale, name: &str) -> String {
-    match name {
-        "viewer" => tr(locale, keys::WEB_ADMIN_ROLE_VIEWER, None),
-        "operator" => tr(locale, keys::WEB_ADMIN_ROLE_OPERATOR, None),
-        "admin" => tr(locale, keys::WEB_ADMIN_ROLE_ADMIN, None),
-        custom => custom.to_owned(),
-    }
 }
 
 /// A table's page query: `?page=N`.

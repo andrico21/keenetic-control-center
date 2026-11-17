@@ -9,10 +9,11 @@
 
 extern crate alloc;
 
+mod form;
 mod table;
 
 use alloc::collections::BTreeSet;
-use core::{error::Error, fmt};
+use core::error::Error;
 
 use askama::Template;
 use axum::{
@@ -30,20 +31,22 @@ use kcc_app::{
     },
     persist::{StateError, StateStore},
 };
+use kcc_domain::labels;
 use kcc_i18n::{
     bundle::{MessageKey, tr},
     keys,
     locale::Locale,
 };
-use serde::Deserialize;
 use serde_json::{Value, json};
 use tokio::task::spawn_blocking;
 
+use self::form::{RoleForm, checkboxes};
 use crate::{
     WebState,
     admin_shared::{
-        Change, ListQuery, NameQuery, Tab, TabLink, done_toasts, forbidden, is_built_in, named,
-        ordered, record, role_label, tabs, unavailable, valid_glob,
+        Change, ListQuery, NameQuery, Tab, TabLink, done_toasts, forbidden, named, record,
+        roles::{is_built_in, ordered, role_label},
+        tabs, unavailable, valid_glob,
     },
     authz::{CurrentSession, CurrentUser},
     errors,
@@ -66,114 +69,6 @@ const MAX_GLOBS: usize = 16;
 
 /// Longest custom role name.
 const MAX_NAME_CHARS: usize = 32;
-
-/// The permission checkboxes: permission, form field and label, in display order.
-const PERMISSIONS: [(Permission, &str, MessageKey); 10] = [
-    (Permission::Read, "read", keys::WEB_ADMIN_PERMISSION_READ),
-    (Permission::Write, "write", keys::WEB_ADMIN_PERMISSION_WRITE),
-    (Permission::Save, "save", keys::WEB_ADMIN_PERMISSION_SAVE),
-    (
-        Permission::Destructive,
-        "destructive",
-        keys::WEB_ADMIN_PERMISSION_DESTRUCTIVE,
-    ),
-    (
-        Permission::Migrate,
-        "migrate",
-        keys::WEB_ADMIN_PERMISSION_MIGRATE,
-    ),
-    (
-        Permission::RawRci,
-        "raw_rci",
-        keys::WEB_ADMIN_PERMISSION_RAW_RCI,
-    ),
-    (
-        Permission::RevealSecrets,
-        "reveal_secrets",
-        keys::WEB_ADMIN_PERMISSION_REVEAL_SECRETS,
-    ),
-    (
-        Permission::ManageRouters,
-        "manage_routers",
-        keys::WEB_ADMIN_PERMISSION_MANAGE_ROUTERS,
-    ),
-    (
-        Permission::ManageUsers,
-        "manage_users",
-        keys::WEB_ADMIN_PERMISSION_MANAGE_USERS,
-    ),
-    (
-        Permission::ViewAudit,
-        "view_audit",
-        keys::WEB_ADMIN_PERMISSION_VIEW_AUDIT,
-    ),
-];
-
-/// The create and edit form; each permission is a checkbox sent as `on` when ticked.
-#[derive(Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct RoleForm {
-    /// Role name.
-    name: String,
-    /// Router-scope globs separated by commas or spaces.
-    scope: String,
-    /// Read router state.
-    read: Option<String>,
-    /// Change running configuration.
-    write: Option<String>,
-    /// Persist running configuration.
-    save: Option<String>,
-    /// Destructive operations.
-    destructive: Option<String>,
-    /// Migrations.
-    migrate: Option<String>,
-    /// Raw RCI requests.
-    raw_rci: Option<String>,
-    /// Reveal stored secrets.
-    reveal_secrets: Option<String>,
-    /// Manage router profiles.
-    manage_routers: Option<String>,
-    /// Manage users, roles and API keys.
-    manage_users: Option<String>,
-    /// View the audit log.
-    view_audit: Option<String>,
-}
-
-impl RoleForm {
-    /// The ticked permissions.
-    fn permissions(&self) -> BTreeSet<Permission> {
-        [
-            (&self.read, Permission::Read),
-            (&self.write, Permission::Write),
-            (&self.save, Permission::Save),
-            (&self.destructive, Permission::Destructive),
-            (&self.migrate, Permission::Migrate),
-            (&self.raw_rci, Permission::RawRci),
-            (&self.reveal_secrets, Permission::RevealSecrets),
-            (&self.manage_routers, Permission::ManageRouters),
-            (&self.manage_users, Permission::ManageUsers),
-            (&self.view_audit, Permission::ViewAudit),
-        ]
-        .into_iter()
-        .filter_map(|(field, permission)| field.is_some().then_some(permission))
-        .collect()
-    }
-
-    /// The globs in the order typed, without repeats.
-    fn scope(&self) -> Vec<String> {
-        let mut globs: Vec<String> = Vec::new();
-        for glob in self
-            .scope
-            .split(|character: char| character == ',' || character.is_whitespace())
-            .filter(|glob| !glob.is_empty())
-        {
-            if !globs.iter().any(|known| known == glob) {
-                globs.push(glob.to_owned());
-            }
-        }
-        globs
-    }
-}
 
 /// One role row.
 struct RoleRow {
@@ -312,18 +207,19 @@ pub(crate) async fn create(
     State(state): State<WebState>,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(form): Form<RoleForm>,
+    Form(pairs): Form<Vec<(String, String)>>,
 ) -> Response {
     let Some(admin) = state.admin() else {
         return unavailable(None);
     };
     let _changes = admin.lock().await;
+    let form = RoleForm::parse(pairs);
     let role = match validate(&state, &user, &form, None).await {
         Ok(role) => role,
         Err(response) => return *response,
     };
     let edit = Edit::Create(role.clone());
-    match persist(&state, admin.state().clone(), edit).await {
+    match persist(&state, &user, edit).await {
         Ok(Persisted::Done) => {}
         Ok(Persisted::Exists) => {
             let mut page = form_dialog(&user, None, &form);
@@ -369,13 +265,14 @@ pub(crate) async fn update(
     State(state): State<WebState>,
     headers: HeaderMap,
     user: CurrentUser,
-    Form(form): Form<RoleForm>,
+    Form(pairs): Form<Vec<(String, String)>>,
 ) -> Response {
     let Some(admin) = state.admin() else {
         return unavailable(None);
     };
     let _changes = admin.lock().await;
-    let previous = match editable(&state, &user, &form.name, "admin.role_update").await {
+    let form = RoleForm::parse(pairs);
+    let previous = match editable(&state, &user, form.name(), "admin.role_update").await {
         Ok(role) => role,
         Err(response) => return *response,
     };
@@ -383,7 +280,7 @@ pub(crate) async fn update(
         Ok(role) => role,
         Err(response) => return *response,
     };
-    match persist(&state, admin.state().clone(), Edit::Update(role.clone())).await {
+    match persist(&state, &user, Edit::Update(role.clone())).await {
         Ok(Persisted::Done) => {}
         Ok(Persisted::Missing) => return StatusCode::NOT_FOUND.into_response(),
         Ok(Persisted::Exists | Persisted::InUse) => {
@@ -435,13 +332,7 @@ pub(crate) async fn delete(
         confirm.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_CONFIRM, None));
         return respond::unprocessable(&confirm);
     }
-    match persist(
-        &state,
-        admin.state().clone(),
-        Edit::Delete(role.name.clone()),
-    )
-    .await
-    {
+    match persist(&state, &user, Edit::Delete(role.name.clone())).await {
         Ok(Persisted::Done) => {}
         Ok(Persisted::InUse) => {
             confirm.set_error(tr(user.locale(), keys::WEB_ADMIN_ERROR_ROLE_IN_USE, None));
@@ -500,7 +391,7 @@ async fn validate(
 ) -> Result<Role, Box<Response>> {
     let locale = user.locale();
     let mut page = form_dialog(user, existing, form);
-    let name = existing.unwrap_or(&form.name).to_owned();
+    let name = existing.unwrap_or_else(|| form.name()).to_owned();
     let name_error = match existing {
         None if !valid_name(&name) => Some(keys::WEB_ADMIN_ERROR_ROLE_NAME),
         None if is_built_in(&name) => Some(keys::WEB_ADMIN_ERROR_ROLE_BUILT_IN),
@@ -511,8 +402,15 @@ async fn validate(
         page.name_error = tr(locale, key, None);
     }
     let permissions = form.permissions();
-    if permissions.is_empty() {
-        page.permissions_error = tr(locale, keys::WEB_ADMIN_ERROR_PERMISSIONS, None);
+    let permissions_error = if form.names_unknown() {
+        Some(keys::WEB_ADMIN_ERROR_PERMISSION_UNKNOWN)
+    } else if permissions.is_empty() {
+        Some(keys::WEB_ADMIN_ERROR_PERMISSIONS)
+    } else {
+        None
+    };
+    if let Some(key) = permissions_error {
+        page.permissions_error = tr(locale, key, None);
     }
     let scope = form.scope();
     if scope.is_empty() || scope.len() > MAX_GLOBS || !scope.iter().all(|glob| valid_glob(glob)) {
@@ -524,7 +422,7 @@ async fn validate(
     {
         return Err(Box::new(respond::unprocessable(&page)));
     }
-    let role = Role::new(name, permissions, scope);
+    let role = Role::new(name, permissions.iter().copied(), scope);
     if !user.role().dominates(&role) {
         let action = if existing.is_some() {
             "admin.role_update"
@@ -576,12 +474,16 @@ enum Persisted {
 ///
 /// # Errors
 ///
-/// The 500 response for a storage or blocking-task failure.
+/// The 503 response without administration services, or the localized 500 page for a
+/// storage or blocking-task failure.
 async fn persist(
     state: &WebState,
-    store: StateStore,
+    user: &CurrentUser,
     edit: Edit,
 ) -> Result<Persisted, Box<Response>> {
+    let Some(store) = state.admin().map(|admin| admin.state().clone()) else {
+        return Err(Box::new(unavailable(None)));
+    };
     let outcome = spawn_blocking(
         move || -> Result<(Persisted, Vec<Role>), Box<dyn Error + Send + Sync>> {
             let persisted =
@@ -595,8 +497,14 @@ async fn persist(
             state.set_roles(roles);
             Ok(persisted)
         }
-        Ok(Err(error)) => Err(Box::new(internal(&error))),
-        Err(error) => Err(Box::new(internal(&error))),
+        Ok(Err(error)) => Err(Box::new(errors::internal(
+            &error,
+            fragment_shell(user.locale()),
+        ))),
+        Err(error) => Err(Box::new(errors::internal(
+            &error,
+            fragment_shell(user.locale()),
+        ))),
     }
 }
 
@@ -696,16 +604,14 @@ async fn finish(
 ) -> Response {
     match region(state, user, shown_page(headers), toasts, true).await {
         Ok(region) => respond::region(&region, StatusCode::OK, true),
-        Err(error) => internal(&error),
+        Err(error) => errors::internal(&error, fragment_shell(user.locale())),
     }
 }
 
 /// The permissions in display order, translated and comma-separated.
 pub(crate) fn permission_list(locale: Locale, permissions: &BTreeSet<Permission>) -> String {
-    PERMISSIONS
-        .iter()
-        .filter(|(permission, _, _)| permissions.contains(permission))
-        .map(|(_, _, label)| tr(locale, *label, None))
+    labels::permissions(|permission| permissions.contains(&permission))
+        .map(|label| tr(locale, label, None))
         .collect::<Vec<_>>()
         .join(", ")
 }
@@ -737,13 +643,12 @@ fn dialog(
         },
         editing: existing.is_some(),
         role_name: name,
-        checks: PERMISSIONS
-            .iter()
+        checks: checkboxes()
             .map(|(permission, field, label)| PermissionCheck {
                 field,
-                label: *label,
-                checked: permissions.contains(permission),
-                grantable: user.role().grants(*permission),
+                label,
+                checked: permissions.contains(&permission),
+                grantable: user.role().grants(permission),
             })
             .collect(),
         scope,
@@ -758,9 +663,9 @@ fn form_dialog(user: &CurrentUser, existing: Option<&str>, form: &RoleForm) -> R
     dialog(
         user,
         existing,
-        existing.unwrap_or(&form.name).to_owned(),
-        &form.permissions(),
-        form.scope.clone(),
+        existing.unwrap_or_else(|| form.name()).to_owned(),
+        form.permissions(),
+        form.scope_text().to_owned(),
     )
 }
 
@@ -780,13 +685,4 @@ fn confirmation(user: &CurrentUser, name: &str) -> Dialog {
 /// The audited parameters of a role.
 fn params(role: &Role) -> Value {
     json!({ "permissions": role.permissions, "router_scope": role.router_scope })
-}
-
-/// Logs `error` and answers `500`.
-fn internal<E>(error: &E) -> Response
-where
-    E: fmt::Display + ?Sized,
-{
-    tracing::error!(%error, "role administration failed");
-    StatusCode::INTERNAL_SERVER_ERROR.into_response()
 }

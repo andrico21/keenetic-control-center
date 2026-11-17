@@ -14,7 +14,7 @@ use core::{
 };
 use std::collections::HashMap;
 
-use axum::http::{HeaderMap, HeaderValue, header, header::InvalidHeaderValue};
+use axum::http::{HeaderMap, HeaderValue, header::InvalidHeaderValue};
 use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 use kcc_app::{
     accounts::{
@@ -35,6 +35,7 @@ use self::{
     account::{SignedIn, StandingsError},
     anonymous::{ANONYMOUS_IDLE, Admission},
 };
+use crate::prefs::cookie;
 
 pub mod account;
 mod anonymous;
@@ -656,17 +657,6 @@ fn random_token() -> Result<String, SessionError> {
         .try_fill_bytes(&mut bytes)
         .map_err(|_error| SessionError::Random)?;
     Ok(URL_SAFE_NO_PAD.encode(bytes))
-}
-
-/// The first cookie value named `name` across every Cookie header.
-fn cookie<'headers>(headers: &'headers HeaderMap, name: &str) -> Option<&'headers str> {
-    headers
-        .get_all(header::COOKIE)
-        .iter()
-        .filter_map(|value| value.to_str().ok())
-        .flat_map(|value| value.split(';'))
-        .filter_map(|pair| pair.trim().split_once('='))
-        .find_map(|(key, value)| (key == name).then_some(value))
 }
 
 #[cfg(test)]

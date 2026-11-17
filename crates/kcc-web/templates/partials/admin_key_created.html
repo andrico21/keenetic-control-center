@@ -1,4 +1,5 @@
 {%- import "components.html" as ui -%}
+{%- import "partials/kit_macros.html" as kit -%}
 {% call ui::dialog_body(t(keys::WEB_ADMIN_KEY_CREATED_TITLE)) %}
 <p class="dialog__text">{{ t(keys::WEB_ADMIN_KEY_CREATED_TEXT) }}</p>
 <div class="field copy-field">
@@ -13,4 +14,7 @@
   <button class="button button--primary" type="submit">{{ t(keys::WEB_ADMIN_KEY_DONE) }}</button>
 </form>
 {% endcall %}
+{%- if let Some(region) = region %}
 {{ region|safe }}
+{%- endif %}
+{{ kit::toasts(toasts) }}

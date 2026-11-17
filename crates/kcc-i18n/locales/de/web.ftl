@@ -1983,3 +1983,4 @@ web-dhcp-error-name-taken = Ein Pool mit diesem Namen existiert bereits. Bearbei
 web-dhcp-error-dns-one = Geben Sie höchstens eine DNS-Server-Adresse ein.
 web-secret-changed = { $what }: Der neue Wert wurde gesendet, und der Router speichert jetzt einen anderen Wert als zuvor. kcc prüft nur, ob er sich geändert hat, nie den Wert selbst; denselben Wert erneut zu setzen gilt deshalb als nicht angewendet. Die Änderung bleibt ungespeichert, bis Sie die Konfiguration speichern.
 web-config-save-armed = Der Fail-safe-Timer läuft, daher wurde nichts gespeichert. Übernehmen Sie die Änderungen stattdessen oder setzen Sie sie zurück.
+web-admin-error-permission-unknown = Das Formular nennt eine Berechtigung, die dieser Server nicht kennt. Laden Sie die Seite neu und versuchen Sie es erneut.
