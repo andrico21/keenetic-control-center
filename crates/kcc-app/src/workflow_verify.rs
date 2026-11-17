@@ -14,6 +14,9 @@ use super::{
 };
 
 /// Executes one read-back expectation; a replaced credential is compared with `baseline`.
+///
+/// # Errors
+/// [`WorkflowError`] when the read fails or the expectation does not hold.
 // cancel-safe: only reads router state.
 pub(super) async fn verify(
     client: &RciClient,
@@ -81,6 +84,10 @@ struct Readback<'spec> {
 
 impl<'spec> Readback<'spec> {
     /// Reads the resource named by `spec.path`.
+    ///
+    /// # Errors
+    /// [`WorkflowError`] when the path is invalid, the read fails, or the answer has an
+    /// unexpected kind.
     // cancel-safe: only reads router state.
     async fn fetch(
         client: &RciClient,
@@ -158,6 +165,10 @@ impl<'spec> Readback<'spec> {
 
 /// Compares a non-secret command, or a credential's presence or replacement, against a
 /// fresh canonical running configuration.
+///
+/// # Errors
+/// [`WorkflowError`] when the configuration cannot be read or decoded, or the expectation
+/// does not hold.
 // cancel-safe: only downloads and decodes router state.
 async fn configuration(
     client: &RciClient,

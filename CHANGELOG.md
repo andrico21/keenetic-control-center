@@ -114,6 +114,11 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **`kcc.toml` router profiles follow the same rules as the others.** A `[[routers]]`
+  `url` must be an origin (no path, query or fragment) and is refused by `kcc.toml`
+  validation with the field named, where it was accepted and then failed when the
+  registry was built; a router added with the Web UI or `kcc router add` now has a
+  malformed TLS pin refused when it is stored instead of when kcc connects.
 - **`kcc backup diff` compares what changed, in order.** It compared sets of redacted
   lines, so a changed secret, a reordered command or a repeated command showed no
   difference. It now compares the complete text of every command in order (as the Web UI
@@ -573,6 +578,11 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **A migration cannot half-move a router defined in `kcc.toml`.** When the management
+  phase moved such a router to another address, kcc kept the new URL only in memory
+  (a reload brought the old one back) but already wrote the new password into the
+  operator's `password_file`. kcc now refuses the move before writing anything and
+  logs the `url` to set in `kcc.toml`.
 - **The command explorer offers no Execute button for a background command that
   changes the router.** Such a command (`ussd send`, for one) was always refused when
   sent and audited as a validation failure; its detail page now says so and shows no

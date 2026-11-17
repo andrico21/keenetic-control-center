@@ -12,24 +12,6 @@ use crate::{
     settings::RouterAuth,
 };
 
-/// Checks that a profile names exactly one credential file and that it fits the scheme.
-pub(super) fn validate(profile: &ManagedRouterProfile) -> Result<(), RegistryError> {
-    let reason = match (&profile.password_file, &profile.token_file) {
-        (Some(_), None) if profile.auth == RouterAuth::Token => {
-            "auth = \"token\" requires token_file"
-        }
-        (Some(_), None) if profile.login.is_empty() => "login must not be empty",
-        (None, Some(_)) if profile.auth != RouterAuth::Token => {
-            "token_file requires auth = \"token\""
-        }
-        (Some(_), None) | (None, Some(_)) => return Ok(()),
-        (Some(_), Some(_)) | (None, None) => "set exactly one of password_file and token_file",
-    };
-    Err(RegistryError::InvalidProfile {
-        reason: reason.to_owned(),
-    })
-}
-
 /// The RCI authentication policy of sign-in mode `auth`, without a token.
 pub(super) fn mode_options(auth: RouterAuth) -> Options {
     let mut options = Options::default();
@@ -44,6 +26,9 @@ pub(super) fn mode_options(auth: RouterAuth) -> Options {
 
 /// Builds the RCI authentication policy; only the primary credential pair uses the token,
 /// opened from its sealed record when the profile points there.
+///
+/// # Errors
+/// [`RegistryError`] when the token cannot be read or opened.
 pub(super) fn options(
     store: Option<&CredentialStore>,
     profile: &ManagedRouterProfile,
@@ -65,6 +50,10 @@ pub(super) fn options(
 
 /// Reads one operator-managed secret file, dropping its trailing line break; refuses a
 /// file group or others can read.
+///
+/// # Errors
+/// [`RegistryError::CredentialFile`] when the file cannot be read,
+/// [`RegistryError::CredentialPermissions`] when group or others can read it.
 pub(super) fn secret_file(file: &Path) -> Result<SecretString, RegistryError> {
     read_secret_file(file).map_err(|error| match error {
         SecretFileError::Read { path, source } => RegistryError::CredentialFile { path, source },

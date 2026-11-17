@@ -1,12 +1,4 @@
 //! Subscriber-driven shared router polling.
-#![expect(
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::shadow_reuse,
-    clippy::significant_drop_tightening,
-    clippy::renamed_function_params,
-    reason = "poll-loop helpers and async public methods are lifecycle code rather than inline candidates"
-)]
 
 extern crate alloc;
 
@@ -117,6 +109,7 @@ pub enum PollError {
 }
 
 impl From<RegistryError> for PollError {
+    #[inline]
     fn from(error: RegistryError) -> Self {
         Self::Registry {
             reason: error.to_string(),
@@ -142,6 +135,7 @@ pub struct PollIntervals {
 }
 
 impl Default for PollIntervals {
+    #[inline]
     fn default() -> Self {
         Self {
             light: LIGHT_INTERVAL,
@@ -183,9 +177,9 @@ pub struct Poller {
 }
 
 impl fmt::Debug for Poller {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Poller")
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Poller")
             .field("registry", &self.registry)
             .field("intervals", &self.intervals)
             .finish_non_exhaustive()
@@ -216,6 +210,7 @@ impl Poller {
 
     /// Subscribes to one router, starting its sole polling task lazily.
     // cancel-safe: channel setup has no external side effect beyond starting a read-only task.
+    #[inline]
     pub async fn subscribe(self: &Arc<Self>, router: &str) -> watch::Receiver<Option<PollResult>> {
         let mut channels = self.channels.lock().await;
         if let Some(sender) = channels.get(router) {
@@ -223,6 +218,7 @@ impl Poller {
         }
         let (sender, receiver) = watch::channel(None);
         drop(channels.insert(router.to_owned(), sender));
+        drop(channels);
         let owner = Arc::clone(self);
         let router_id = router.to_owned();
         drop(tokio::spawn(async move {
@@ -241,6 +237,7 @@ impl Poller {
     /// The caller holds the returned receiver for the lifetime of the subscription: it is
     /// counted as the metrics subscriber, not as a UI subscriber.
     // cancel-safe: the registration is a map insert; subscribing only starts a read-only task.
+    #[inline]
     pub async fn subscribe_metrics(
         self: &Arc<Self>,
         router: &str,
@@ -254,6 +251,7 @@ impl Poller {
     /// Removes the permanent metrics subscription of `router`; the polling task then
     /// idles out as usual once no UI subscriber is left.
     // cancel-safe: a single map removal.
+    #[inline]
     pub async fn unsubscribe_metrics(&self, router: &str) {
         let _removed: Option<MetricsCadence> = self.metrics.lock().await.remove(router);
     }
@@ -263,6 +261,7 @@ impl Poller {
     /// next round.
     // NOT cancel-safe: cancelled between the two lock awaits, the flag is stored but never
     // published to the watch channel.
+    #[inline]
     pub async fn record_update_available(&self, router: &str, available: bool) {
         let _previous: Option<bool> = self
             .update_flags
@@ -283,6 +282,7 @@ impl Poller {
     /// The latest result published for `router`, without subscribing: `None` when no
     /// polling task follows the router or its first round has not completed.
     // cancel-safe: one map read.
+    #[inline]
     pub async fn latest(&self, router: &str) -> Option<PollResult> {
         self.channels
             .lock()
@@ -293,6 +293,7 @@ impl Poller {
 
     /// Returns completed light polling rounds for observability and cadence tests.
     // cancel-safe: reads a counter under a lock; cancellation changes nothing.
+    #[inline]
     pub async fn light_rounds(&self, router: &str) -> u64 {
         self.light_rounds
             .lock()
@@ -307,11 +308,11 @@ impl Poller {
         let mut heavy: Option<extended::HeavyItems> = None;
         let mut idle_since = None;
         loop {
-            let sender = {
+            let entry = {
                 let channels = self.channels.lock().await;
                 channels.get(&router).cloned()
             };
-            let Some(sender) = sender else {
+            let Some(sender) = entry else {
                 return;
             };
             let metrics = self.metrics.lock().await.get(&router).copied();
@@ -339,6 +340,7 @@ impl Poller {
                 let mut rounds = self.light_rounds.lock().await;
                 let count = rounds.entry(router.clone()).or_default();
                 *count = count.saturating_add(1);
+                drop(rounds);
             }
             let delay = if result.is_ok() {
                 round.light
@@ -367,6 +369,9 @@ impl Poller {
     }
 
     /// Fetches one snapshot, reusing heavy values until their cadence expires.
+    ///
+    /// # Errors
+    /// [`PollError`] when the router client cannot be built or a required read fails.
     async fn fetch(
         &self,
         router: &str,
@@ -436,6 +441,7 @@ impl Poller {
 /// Ids of the interfaces a `show interface` response marks as Internet-facing
 /// (`global` or `defaultgw`), in response order.
 #[must_use]
+#[inline]
 pub fn wan_interface_ids(interfaces: &Value) -> Vec<String> {
     let entries: Vec<&Value> = match interfaces {
         Value::Object(map) => map.values().collect(),
@@ -468,6 +474,10 @@ async fn wan_stats(client: &RciClient, interfaces: &Value) -> Value {
 }
 
 /// Reads one JSON show resource.
+///
+/// # Errors
+/// [`PollError::Request`] when the path is invalid, the read fails or the answer is not
+/// JSON.
 async fn show_json(client: &RciClient, segments: &[&str]) -> Result<Value, PollError> {
     let path = RciPath::from_segments(segments).map_err(|_error| PollError::Request)?;
     match client

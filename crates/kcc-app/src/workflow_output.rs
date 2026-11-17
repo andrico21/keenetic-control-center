@@ -155,15 +155,16 @@ mod tests {
             Err(error) => scrub_error(&protected, error),
             Ok(_) => return Err("error status accepted".into()),
         };
-        match &error {
-            RciError::Rci {
-                pointer: _,
-                code: _,
-                ident: _,
-                message,
-            } => assert_eq!(message, "echo <redacted>"),
-            _ => return Err("wrong error category".into()),
-        }
+        let RciError::Rci {
+            pointer: _,
+            code: _,
+            ident: _,
+            message,
+        } = &error
+        else {
+            return Err("wrong error category".into());
+        };
+        assert_eq!(message, "echo <redacted>");
         let workflow = WorkflowError::Rci(error);
         assert!(!serde_json::to_string(&workflow)?.contains(secret));
         Ok(())

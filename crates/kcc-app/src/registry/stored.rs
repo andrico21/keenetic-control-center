@@ -14,6 +14,9 @@ use crate::{
 /// The secret behind `path`: the sealed record when `path` is the managed path of
 /// `router`'s credential of `kind`, else the operator file (refused when others can
 /// read it).
+///
+/// # Errors
+/// [`RegistryError`] when the sealed record or the operator file cannot be read or opened.
 pub(super) fn secret(
     credentials: Option<&CredentialStore>,
     router: &str,
@@ -34,6 +37,9 @@ pub(super) fn secret(
 /// sealed record, gets the password sealed and points at the record; the profile's
 /// external file is left as it was. Any other password profile gets its own
 /// `password_file` rewritten (owner-only). A token profile stores nothing.
+///
+/// # Errors
+/// [`RegistryError`] when the password cannot be sealed or the file cannot be written.
 pub(super) fn replace_password(
     credentials: Option<&CredentialStore>,
     source: ProfileSource,

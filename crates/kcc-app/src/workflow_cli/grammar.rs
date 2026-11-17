@@ -110,7 +110,15 @@ pub(super) fn validate_grammar(
                 }
                 let value = match argument.kind {
                     ArgumentKind::Integer => token.parse::<i64>().map_or(Value::Null, Value::from),
-                    _ => Value::String((*token).to_owned()),
+                    ArgumentKind::IpAddress
+                    | ArgumentKind::IpMask
+                    | ArgumentKind::IpAddressMask
+                    | ArgumentKind::MacAddress
+                    | ArgumentKind::ObjectName
+                    | ArgumentKind::Keyword
+                    | ArgumentKind::String
+                    | ArgumentKind::Password
+                    | _ => Value::String((*token).to_owned()),
                 };
                 catalog
                     .validate(path, HttpMethod::Post, &json!({name: value}))
@@ -140,14 +148,22 @@ fn command_forms<'defs>(
     let synopsis = definition.synopsis.as_ref()?;
     let nodes = match synopsis {
         Grammar::Sequence(nodes) => nodes.as_slice(),
-        _ => slice::from_ref(synopsis),
+        Grammar::Optional(_)
+        | Grammar::Group(_)
+        | Grammar::Alternative(_)
+        | Grammar::Argument(_)
+        | Grammar::Keyword(_) => slice::from_ref(synopsis),
     };
     let positive = nodes.iter().take_while(|node| !matches!(node, Grammar::Group(inner) if matches!(inner.as_ref(), Grammar::Keyword(word) if word.starts_with("config")))).collect::<Vec<_>>();
     let leading = positive
         .iter()
         .map_while(|node| match node {
             Grammar::Keyword(word) => Some(word.as_str()),
-            _ => None,
+            Grammar::Sequence(_)
+            | Grammar::Optional(_)
+            | Grammar::Group(_)
+            | Grammar::Alternative(_)
+            | Grammar::Argument(_) => None,
         })
         .collect::<Vec<_>>()
         .join(" ");

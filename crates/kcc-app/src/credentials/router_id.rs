@@ -1,6 +1,7 @@
 //! A router id checked before it names a credential record, its lock or its binding.
 
 use super::{CredentialError, CredentialKind};
+use crate::settings::is_valid_router_id;
 
 /// A router id of 1..=32 bytes from `[a-z0-9-]`: a safe file-name component that holds
 /// no `:`, so no id's binding can end like another id's binding of another kind.
@@ -13,11 +14,9 @@ impl<'id> RouterId<'id> {
     /// # Errors
     /// Returns [`CredentialError::Record`] for an id outside the rule.
     pub(crate) fn parse(router: &'id str) -> Result<Self, CredentialError> {
-        let valid = (1..=32).contains(&router.len())
-            && router
-                .bytes()
-                .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-');
-        valid.then_some(Self(router)).ok_or(CredentialError::Record)
+        is_valid_router_id(router)
+            .then_some(Self(router))
+            .ok_or(CredentialError::Record)
     }
 
     /// The id.

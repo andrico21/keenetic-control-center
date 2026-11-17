@@ -1,6 +1,8 @@
 //! Completion facts derived from the workflow's own item validations and the ordered
 //! batch responses.
 
+use core::iter;
+
 use kcc_catalog::ValidatedRequest;
 use kcc_rci::{RciError, RciResponse};
 use serde_json::{Value, json};
@@ -99,7 +101,7 @@ pub(super) fn interrupted(
     let accepted = answered
         .iter()
         .map(Result::is_ok)
-        .chain(core::iter::repeat_n(false, unanswered));
+        .chain(iter::repeat_n(false, unanswered));
     let completion = completion(items.iter().zip(accepted));
     (completion.succeeded != 0).then(|| {
         let params = json!({

@@ -33,6 +33,8 @@ use serde::{Deserialize, Serialize};
 use toml::de::Error as TomlError;
 use url::Url;
 
+use crate::registry::rules::{self, ProfileFault};
+
 mod env_overrides;
 
 /// Every `KCC_*` environment variable [`Config::apply_env_overrides`] reads.
@@ -659,7 +661,7 @@ pub enum SearchFlavor {
 #[serde(deny_unknown_fields)]
 #[non_exhaustive]
 pub struct RouterProfile {
-    /// Profile id, `[A-Za-z0-9._-]`, 1..=64 characters.
+    /// Profile id: 1-32 characters of `[a-z0-9-]`.
     pub name: String,
     /// Router base URL (`http` or `https`).
     pub url: Url,
@@ -996,53 +998,19 @@ impl RouterProfile {
     ///
     /// [`ConfigError::Invalid`] naming the field.
     fn validate(&self) -> Result<(), ConfigError> {
-        let field = |key: &str| format!("routers.{}.{key}", self.name);
-        if !is_valid_router_id(&self.name) {
-            return Err(invalid(
-                "routers.name",
-                "must be 1-32 characters of [a-z0-9-]",
-            ));
-        }
-        if !matches!(self.url.scheme(), "http" | "https") {
-            return Err(invalid(field("url"), "scheme must be http or https"));
-        }
-        match (&self.password_file, &self.token_file) {
-            (Some(_), Some(_)) | (None, None) => {
-                return Err(invalid(
-                    field("password_file"),
-                    "set exactly one of password_file and token_file",
-                ));
-            }
-            (None, Some(_)) => {
-                if !matches!(self.auth, RouterAuth::Token | RouterAuth::Auto) {
-                    return Err(invalid(field("auth"), "token_file needs auth = \"token\""));
-                }
-            }
-            (Some(_), None) => {
-                if self.auth == RouterAuth::Token {
-                    return Err(invalid(field("auth"), "auth = \"token\" needs token_file"));
-                }
-                if self.login.as_deref().is_none_or(str::is_empty) {
-                    return Err(invalid(field("login"), "required with password_file"));
-                }
-            }
-        }
-        match (&self.read_login, &self.read_password_file) {
-            (None, None) => {}
-            (Some(login), Some(_)) if !login.is_empty() => {}
-            (Some(_) | None, Some(_)) | (Some(_), None) => {
-                return Err(invalid(
-                    field("read_login"),
-                    "set both non-empty read_login and read_password_file, or neither",
-                ));
-            }
-        }
-        if let RouterTls::PinSha256(pin) = &self.tls
-            && !(pin.len() == 64 && pin.bytes().all(|byte| byte.is_ascii_hexdigit()))
-        {
-            return Err(invalid(field("tls.pin_sha256"), "must be 64 hex digits"));
-        }
-        Ok(())
+        rules::check(&rules::from_config(self)).map_err(|fault| match fault {
+            ProfileFault::Id => invalid("routers.name", fault.reason()),
+            ProfileFault::Url
+            | ProfileFault::CredentialSource
+            | ProfileFault::TokenFileNeedsTokenAuth
+            | ProfileFault::TokenAuthNeedsTokenFile
+            | ProfileFault::Login
+            | ProfileFault::ReadPair
+            | ProfileFault::TlsPin => invalid(
+                format!("routers.{}.{}", self.name, fault.field()),
+                fault.reason(),
+            ),
+        })
     }
 }
 

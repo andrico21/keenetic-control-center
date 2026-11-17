@@ -69,6 +69,9 @@ pub(super) fn round(
 
 /// Fetches the heavy-cadence items; `show interface` only without a metrics
 /// subscription (with one it is a light item).
+///
+/// # Errors
+/// [`PollError`] when the router cannot be detected or a required read fails.
 pub(super) async fn fetch_heavy(
     registry: &RouterRegistry,
     router: &str,

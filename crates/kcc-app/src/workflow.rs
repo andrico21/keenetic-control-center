@@ -1,15 +1,7 @@
 //! Leased, catalog-validated, backed-up, verified router changes.
 #![expect(
-    clippy::absolute_paths,
-    clippy::arithmetic_side_effects,
-    clippy::duration_suboptimal_units,
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    clippy::wildcard_enum_match_arm,
-    clippy::renamed_function_params,
     clippy::pub_use,
-    reason = "the plan mandates workflow names and bounded deadline arithmetic; async workflow methods are not inline candidates"
+    reason = "the command and replay types are part of the workflow public facade"
 )]
 
 extern crate alloc;
@@ -64,6 +56,7 @@ use crate::{
         request_id,
     },
     backups::{BackupError, BackupStore},
+    blocking,
     brackets::{BracketGuard, Brackets},
     permissions::{Permission, Role},
     persist::{StateError, StateLock, StateStore},
@@ -71,7 +64,7 @@ use crate::{
 };
 
 /// Maximum interval in which one automatic pre-change backup is reused.
-pub const BACKUP_WINDOW: Duration = Duration::from_secs(30 * 60);
+pub const BACKUP_WINDOW: Duration = Duration::from_mins(30);
 /// Maximum time to wait for an explicit save or commit to settle.
 pub const SAVE_TIMEOUT: Duration = Duration::from_secs(30);
 
@@ -489,6 +482,10 @@ pub struct ChangeResult {
 /// Change workflow failures.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "front ends import this type unqualified next to other crates' errors"
+)]
 pub enum WorkflowError {
     /// Secret CLI construction failed before dispatch.
     #[error(transparent)]
@@ -566,6 +563,10 @@ pub enum WorkflowError {
 }
 
 /// Shared services and backup-window state for all change sets.
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "front ends import this type unqualified next to other crates' workflows"
+)]
 pub struct ChangeWorkflow {
     /// State store owning cross-process leases.
     state: StateStore,
@@ -584,9 +585,9 @@ pub struct ChangeWorkflow {
 }
 
 impl fmt::Debug for ChangeWorkflow {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ChangeWorkflow")
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ChangeWorkflow")
             .field("state", &self.state)
             .field("registry", &self.registry)
             .field("backups", &self.backups)
@@ -624,6 +625,7 @@ impl ChangeWorkflow {
     ///
     /// Returns busy, permission, registry, state, or last-change errors.
     // NOT cancel-safe: cancellation after lease acquisition releases it through Drop.
+    #[inline]
     pub async fn begin(
         self: &Arc<Self>,
         router: &str,
@@ -643,6 +645,7 @@ impl ChangeWorkflow {
     /// # Errors
     ///
     /// Returns busy, permission, audit, or state errors.
+    #[inline]
     pub fn reserve(
         self: &Arc<Self>,
         router: &str,
@@ -686,6 +689,7 @@ impl ChangeWorkflow {
     /// # Errors
     /// Returns authorization, lease, authentication, or inventory failures.
     // NOT cancel-safe: cancellation releases the acquired lease.
+    #[inline]
     pub async fn begin_migration(
         self: &Arc<Self>,
         router: &str,
@@ -703,6 +707,7 @@ impl ChangeWorkflow {
     /// # Errors
     /// Returns authentication, inventory, or last-change failures.
     // NOT cancel-safe: cancellation releases the reserved lease.
+    #[inline]
     pub async fn begin_reserved_migration(
         self: &Arc<Self>,
         reservation: Reservation,
@@ -719,6 +724,10 @@ impl ChangeWorkflow {
 
     /// Begins a change set on a reserved lease using a caller-selected migration client
     /// when supplied.
+    ///
+    /// # Errors
+    /// [`WorkflowError`] when the router cannot be read, its catalog is missing, or the set
+    /// cannot start.
     // NOT cancel-safe: cancellation releases the reserved lease.
     async fn begin_with_client(
         self: &Arc<Self>,
@@ -785,6 +794,7 @@ impl ChangeWorkflow {
     ///
     /// # Errors
     /// Returns a typed audit failure after the writer terminates.
+    #[inline]
     pub fn audit_alive(&self) -> Result<(), WorkflowError> {
         self.audit.require_alive().map_err(Into::into)
     }
@@ -811,9 +821,9 @@ pub struct Reservation {
 }
 
 impl fmt::Debug for Reservation {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("Reservation")
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Reservation")
             .field("router", &self.router)
             .finish_non_exhaustive()
     }
@@ -874,9 +884,9 @@ pub struct ChangeSet {
 }
 
 impl fmt::Debug for ChangeSet {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("ChangeSet")
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("ChangeSet")
             .field("router", &self.router)
             .field("actor", &self.actor)
             .field("baseline", &self.baseline)
@@ -889,6 +899,7 @@ impl fmt::Debug for ChangeSet {
 }
 
 impl Drop for ChangeSet {
+    #[inline]
     fn drop(&mut self) {
         drop(self.actor_label.take());
         drop(self.lease.take());
@@ -901,6 +912,7 @@ impl ChangeSet {
     /// # Errors
     /// Returns a conflict or read failure without transmitting a mutation.
     // cancel-safe: this operation only reads router state.
+    #[inline]
     pub async fn ensure_unchanged(&self) -> Result<(), WorkflowError> {
         let current = read_last_change(&self.client).await?;
         if current.checksum != self.expected.checksum {
@@ -916,6 +928,7 @@ impl ChangeSet {
     /// # Errors
     /// Returns authorization, original-origin reachability, or credential persistence errors.
     // NOT cancel-safe: registry persistence follows a successful original-client probe.
+    #[inline]
     pub async fn restore_connection(
         &mut self,
         original: Arc<RciClient>,
@@ -955,6 +968,7 @@ impl ChangeSet {
     /// # Errors
     /// Returns permission, authentication, registry persistence, or read-back errors.
     // NOT cancel-safe: the router credential may already have changed before this transition.
+    #[inline]
     pub async fn reconnect(
         &mut self,
         url: RouterUrl,
@@ -977,6 +991,7 @@ impl ChangeSet {
     /// # Errors
     /// Returns permission, conflict, backup, upload, or audit failures.
     // NOT cancel-safe: a transmitted upload can replace startup configuration before cancellation.
+    #[inline]
     pub async fn upload_startup(&mut self, bytes: &SecretBytes) -> Result<(), WorkflowError> {
         self.prepare(Permission::Destructive).await?;
         drop(self.client.upload_startup_config(bytes).await?);
@@ -998,6 +1013,7 @@ impl ChangeSet {
     ///
     /// Returns failures before dispatch; subsequent failures remain in the returned result.
     // NOT cancel-safe: a transmitted line may apply before cancellation.
+    #[inline]
     pub async fn replay(
         &mut self,
         commands: &[CliCommand],
@@ -1013,6 +1029,7 @@ impl ChangeSet {
     ///
     /// Returns validation, conflict, backup, request, verification, or audit errors.
     // NOT cancel-safe: cancellation after transmission may leave an applied unaudited mutation.
+    #[inline]
     pub async fn apply(&mut self, request: ChangeRequest) -> Result<ChangeResult, WorkflowError> {
         authorize(&self.role, request.permission, &self.router).map_err(map_permission)?;
         let wire = request.body.expose_for_send();
@@ -1078,6 +1095,7 @@ impl ChangeSet {
     /// Returns permission, validation, conflict, backup, request, verification, or audit
     /// errors.
     // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
+    #[inline]
     pub async fn apply_batch(
         &mut self,
         request: BatchChangeRequest,
@@ -1195,6 +1213,7 @@ impl ChangeSet {
     /// line the router refuses is the error; when it accepted other lines first, their
     /// partial change is audited like a partly refused root batch.
     // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
+    #[inline]
     pub async fn apply_cli(
         &mut self,
         request: CliChangeRequest,
@@ -1217,6 +1236,7 @@ impl ChangeSet {
     /// Returns a local refusal for anything but a recovery-timer request, or permission,
     /// request, verification, or audit errors.
     // NOT cancel-safe: cancellation after transmission may leave the step applied unaudited.
+    #[inline]
     pub async fn apply_recovery(
         &mut self,
         request: CliChangeRequest,
@@ -1226,6 +1246,10 @@ impl ChangeSet {
 
     /// Sends validated, authorized CLI commands, reads back, refreshes the expected state
     /// as `refresh` says, and audits the change.
+    ///
+    /// # Errors
+    /// [`WorkflowError`] when the commands are refused, fail to send, fail their read-back,
+    /// or cannot be audited.
     // NOT cancel-safe: cancellation after transmission may leave applied unaudited mutations.
     async fn send_cli(
         &mut self,
@@ -1312,6 +1336,7 @@ impl ChangeSet {
     ///
     /// Returns permission, conflict, request, decode, audit, or timeout errors.
     // NOT cancel-safe: cancellation after the save command may leave configuration persisted.
+    #[inline]
     pub async fn save(&mut self) -> Result<(), WorkflowError> {
         authorize(&self.role, Permission::Save, &self.router).map_err(map_permission)?;
         self.check_conflict().await?;
@@ -1325,6 +1350,7 @@ impl ChangeSet {
     ///
     /// Returns permission, conflict, request, decode, audit, or timeout errors.
     // NOT cancel-safe: cancellation after the commit command may leave configuration persisted.
+    #[inline]
     pub async fn commit(&mut self) -> Result<(), WorkflowError> {
         authorize(&self.role, Permission::Save, &self.router).map_err(map_permission)?;
         self.check_conflict().await?;
@@ -1367,6 +1393,7 @@ impl ChangeSet {
     /// Returns the writer's failure when it stopped before writing one of them; entries
     /// still queued at the deadline stay queued and are no error.
     // cancel-safe: waiting only observes the audit writer's progress.
+    #[inline]
     pub async fn settle_audit(&mut self, limit: Duration) -> Result<(), WorkflowError> {
         Ok(self.receipts.settle(limit).await?)
     }
@@ -1421,6 +1448,7 @@ impl ChangeSet {
     ///
     /// Returns router request or response-shape errors.
     // cancel-safe: the router operation is a read.
+    #[inline]
     pub async fn current_last_change(&self) -> Result<LastChange, WorkflowError> {
         read_last_change(&self.client).await
     }
@@ -1433,6 +1461,7 @@ impl ChangeSet {
     ///
     /// Returns permission, conflict, router request, backup, or state errors.
     // NOT cancel-safe: cancellation can interrupt backup preparation.
+    #[inline]
     pub async fn prepare(&mut self, permission: Permission) -> Result<(), WorkflowError> {
         authorize(&self.role, permission, &self.router).map_err(map_permission)?;
         self.check_conflict().await?;
@@ -1441,6 +1470,10 @@ impl ChangeSet {
 
     /// Sends CLI commands and returns each line's answer in order; a failed request is the
     /// error.
+    ///
+    /// # Errors
+    /// [`WorkflowError`] when a command cannot be exposed, a single command fails, or an
+    /// answer has an unexpected kind; a failed batch line is its entry in the answers.
     // NOT cancel-safe: dispatched commands may apply before cancellation.
     async fn dispatch_cli(
         &self,
@@ -1492,6 +1525,10 @@ impl ChangeSet {
     }
 
     /// Records a CLI mutation audit event without contacting the router.
+    ///
+    /// # Errors
+    /// [`WorkflowError::Audit`] when the event cannot be queued or its write does not
+    /// settle.
     // NOT cancel-safe: the writer can append after cancellation.
     async fn audit_cli(
         &mut self,
@@ -1519,6 +1556,9 @@ impl ChangeSet {
 
     /// Refuses any change since the last state observed after this set's own work, by
     /// any agent: every RCI client, kcc's own included, reports the same agent.
+    ///
+    /// # Errors
+    /// [`WorkflowError::Conflict`] after a change by any agent, or the read failure.
     // cancel-safe: only reads router state.
     async fn check_conflict(&self) -> Result<(), WorkflowError> {
         if self.force {
@@ -1535,6 +1575,10 @@ impl ChangeSet {
 
     /// Makes at most one automatic backup per router in the rolling window; the backup is
     /// written on the blocking pool.
+    ///
+    /// # Errors
+    /// [`WorkflowError`] when the startup configuration cannot be read or decoded, or the
+    /// backup cannot be written.
     // NOT cancel-safe: cancellation can interrupt backup preparation; dropped while the
     // backup is written, the write still completes but the window is not marked.
     async fn ensure_backup(&mut self) -> Result<(), WorkflowError> {
@@ -1554,13 +1598,13 @@ impl ChangeSet {
             });
         if needs_backup {
             let bytes = self.client.download_config(ConfigKind::Startup).await?;
-            let text = core::str::from_utf8(bytes.expose_secret())
+            let text = str::from_utf8(bytes.expose_secret())
                 .map_err(|_error| WorkflowError::UndecodableConfig)?;
             let secret = SecretString::from(text.to_owned());
             let backups = Arc::clone(&self.workflow.backups);
             let router = self.router.clone();
             drop(
-                crate::blocking::run(self.workflow.state.dir(), move || {
+                blocking::run(self.workflow.state.dir(), move || {
                     backups.create(&router, "pre-change", &secret)
                 })
                 .await
@@ -1578,9 +1622,15 @@ impl ChangeSet {
     }
 
     /// Polls until save completion and appends the explicit persistence audit event.
+    ///
+    /// # Errors
+    /// [`WorkflowError::SaveTimeout`] when the save does not settle in time; otherwise a
+    /// read or audit failure.
     // NOT cancel-safe: the save may complete before the audit append.
     async fn wait_saved(&mut self, action: &str) -> Result<(), WorkflowError> {
-        let deadline = Instant::now() + SAVE_TIMEOUT;
+        let deadline = Instant::now()
+            .checked_add(SAVE_TIMEOUT)
+            .ok_or(WorkflowError::SaveTimeout)?;
         loop {
             let current = read_last_change(&self.client).await?;
             if !current.unsaved {
@@ -1604,6 +1654,9 @@ impl ChangeSet {
 }
 
 /// Reads and decodes `show last-change`.
+///
+/// # Errors
+/// [`WorkflowError`] when the read fails or its answer cannot be decoded.
 // cancel-safe: only reads router state.
 async fn read_last_change(client: &RciClient) -> Result<LastChange, WorkflowError> {
     let path = RciPath::from_segments(["show", "last-change"])
@@ -1671,7 +1724,18 @@ fn scrub_response(secrets: &SecretValue, response: &mut RciResponse) {
 fn map_permission(error: RegistryError) -> WorkflowError {
     match error {
         RegistryError::PermissionDenied { router } => WorkflowError::PermissionDenied { router },
-        other => WorkflowError::Registry(other),
+        other @ (RegistryError::State(_)
+        | RegistryError::InvalidProfile { reason: _ }
+        | RegistryError::AlreadyExists { id: _ }
+        | RegistryError::NotFound { id: _ }
+        | RegistryError::ConfigDefined { id: _ }
+        | RegistryError::ConfigRoute { id: _, url: _ }
+        | RegistryError::CredentialFile { path: _, source: _ }
+        | RegistryError::CredentialPermissions { path: _ }
+        | RegistryError::Credential(_)
+        | RegistryError::Rci(_)
+        | RegistryError::ProfileLock
+        | RegistryError::CredentialRead) => WorkflowError::Registry(other),
     }
 }
 

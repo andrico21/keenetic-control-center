@@ -425,6 +425,16 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         expect_invalid(&ROUTER.replace("\"home\"", "\"../x\""), "routers.name")
     }
 
+    /// B-13: `kcc.toml` refuses a router URL that is not an origin, as the registry does,
+    /// instead of failing later when the registry is built.
+    #[test]
+    fn router_url_must_be_an_origin() -> TestResult {
+        for url in ["1.1/ui\"", "1.1/?a=b\"", "1.1/#top\""] {
+            expect_invalid(&ROUTER.replace("1.1\"", url), "routers.home.url")?;
+        }
+        Ok(())
+    }
+
     /// Router names must follow the registry rule: 1-32 characters, lowercase letters, digits and `-`.
     /// Uppercase letters (e.g., `Home.1`) are rejected. Names over 32 characters are rejected.
     #[test]
@@ -699,6 +709,37 @@ kind = "stdout"
                 Ok(())
             }
             other => Err(format!("expected an env error, got {other:?}").into()),
+        }
+    }
+
+    /// B-22: a bad suffix and another bad variable report the first in table order.
+    ///
+    /// The suffix error comes before a later variable's error, and an earlier variable's
+    /// error before the suffix error.
+    #[test]
+    fn bad_suffix_and_bad_variable_report_the_first_in_table_order() -> TestResult {
+        let apply = |other: &'static str| {
+            let mut config = Config::from_toml_str("")?;
+            config.apply_kcc_env_overrides_with(|var| {
+                Ok(match var {
+                    "KCC_OUTBOUND_ALLOWED_SUFFIXES" => Some("bad_suffix!".to_owned()),
+                    _ if var == other => Some("not-a-value".to_owned()),
+                    _ => None,
+                })
+            })
+        };
+        match apply("KCC_METRICS_ENABLED") {
+            Err(ConfigError::Invalid { field, reason: _ }) => {
+                assert_eq!(field, "outbound.allowed_suffixes", "suffix error first");
+            }
+            other => return Err(format!("expected the suffix error, got {other:?}").into()),
+        }
+        match apply("KCC_MCP_READ_ONLY") {
+            Err(ConfigError::Env { var, reason: _ }) => {
+                assert_eq!(var, "KCC_MCP_READ_ONLY", "earlier variable first");
+                Ok(())
+            }
+            other => Err(format!("expected the variable error, got {other:?}").into()),
         }
     }
 

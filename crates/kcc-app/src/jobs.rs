@@ -1,28 +1,21 @@
 //! Persisted cancellable long-running jobs.
-#![expect(
-    clippy::absolute_paths,
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::std_instead_of_core,
-    clippy::renamed_function_params,
-    reason = "job orchestration prioritizes lifecycle clarity; public async bodies are not useful inline candidates"
-)]
 
 extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
-use core::{fmt, time::Duration};
-use std::{
-    fs, io,
-    path::PathBuf,
+use core::{
+    fmt,
     sync::atomic::{AtomicU8, Ordering},
+    time::Duration,
 };
+use std::{fs, io, path::PathBuf};
 
+use kcc_rci::{RciBody, RciPath};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::{
     sync::{Mutex, Notify, broadcast},
-    time::{Instant, timeout_at},
+    time::{Instant, timeout, timeout_at},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -182,9 +175,9 @@ pub struct JobContext {
 }
 
 impl fmt::Debug for JobContext {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("JobContext")
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("JobContext")
             .field("id", &self.id)
             .finish_non_exhaustive()
     }
@@ -248,9 +241,9 @@ pub struct JobRunner {
 }
 
 impl fmt::Debug for JobRunner {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter
-            .debug_struct("JobRunner")
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("JobRunner")
             .field("state", &self.state)
             .field("registry", &self.registry)
             .finish_non_exhaustive()
@@ -264,6 +257,7 @@ impl JobRunner {
     ///
     /// Returns state or parse errors.
     // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    #[inline]
     pub async fn open(
         state: StateStore,
         registry: Arc<RouterRegistry>,
@@ -285,6 +279,7 @@ impl JobRunner {
     ///
     /// Returns state or parse errors.
     // cancel-safe: startup recovery performs only reads and atomic local state writes.
+    #[inline]
     pub async fn open_with_retention(
         state: StateStore,
         registry: Arc<RouterRegistry>,
@@ -297,6 +292,10 @@ impl JobRunner {
     }
 
     /// Creates a runner around one already initialized identifier allocator.
+    ///
+    /// # Errors
+    /// [`JobError`] when pruning finished records or recovering interrupted ones fails on
+    /// local state.
     // cancel-safe: startup recovery performs only reads and atomic local state writes.
     async fn open_with_ids(
         state: StateStore,
@@ -338,6 +337,7 @@ impl JobRunner {
     /// # Errors
     ///
     /// Returns missing, malformed, or state I/O errors.
+    #[inline]
     pub fn get(&self, id: &str) -> Result<JobRecord, JobError> {
         let path = self.job_path(id)?;
         read_job(&path)?.ok_or_else(|| JobError::NotFound { id: id.to_owned() })
@@ -350,6 +350,7 @@ impl JobRunner {
     /// Returns [`JobError::NotFound`] when the job is not active.
     // cancel-safe: the token is cancelled synchronously after the lock; cancelled earlier,
     // the job keeps running.
+    #[inline]
     pub async fn cancel(&self, id: &str) -> Result<(), JobError> {
         let token = self
             .active
@@ -367,6 +368,7 @@ impl JobRunner {
     /// This does not commit or roll back router state. A fail-safe armed by a
     /// running migration therefore remains armed for the router to resolve.
     // cancel-safe: cancellation leaves already-cancelled jobs running toward their ordinary cleanup.
+    #[inline]
     pub async fn drain(&self, timeout: Duration) -> DrainReport {
         let cancelled = {
             let active = self.active.lock().await;
@@ -409,6 +411,7 @@ impl JobRunner {
     // on the blocking pool and the record stays `running` without a job until the next start
     // marks it interrupted; the ownership claim is released and no router slot or map entry is
     // taken (they are taken only after the write).
+    #[inline]
     pub async fn start<F, Fut>(
         self: &Arc<Self>,
         kind: String,
@@ -505,6 +508,9 @@ impl JobRunner {
     /// Only local state errors fail startup; the router probe and the audit entry are
     /// best effort.
     /// The records are read and written on the blocking pool, one record at a time.
+    ///
+    /// # Errors
+    /// [`JobError`] when a job record cannot be listed, read, parsed or written.
     // cancel-safe: each record write is atomic and, dropped, still completes on the blocking pool.
     async fn recover(self: &Arc<Self>, audit: &AuditLog) -> Result<(), JobError> {
         let lister = Arc::clone(self);
@@ -534,6 +540,10 @@ impl JobRunner {
 
     /// Marks the record at `path` interrupted when it is running and no live process owns
     /// it, and returns it then.
+    ///
+    /// # Errors
+    /// [`JobError`] when the record cannot be read, parsed or written, or its ownership
+    /// lock cannot be probed.
     fn interrupt(&self, path: &PathBuf) -> Result<Option<JobRecord>, JobError> {
         let Some(mut record) = read_job(path)? else {
             return Ok(None);
@@ -551,14 +561,12 @@ impl JobRunner {
     ///
     /// Returns `None` when the router is unknown, unreachable, slow, or answers unexpectedly.
     async fn probe_recovery(&self, router: &str) -> Option<(bool, bool)> {
-        let path = kcc_rci::RciPath::from_segments(["show", "last-change"]).ok()?;
+        let path = RciPath::from_segments(["show", "last-change"]).ok()?;
         let probe = async {
             let client = self.registry.client(router).await.ok()?;
             client.show(&path, &()).await.ok()
         };
-        let Ok(Some(kcc_rci::RciBody::Json(response))) =
-            tokio::time::timeout(RECOVERY_PROBE_BOUND, probe).await
-        else {
+        let Ok(Some(RciBody::Json(response))) = timeout(RECOVERY_PROBE_BOUND, probe).await else {
             return None;
         };
         let active = response
@@ -644,6 +652,9 @@ impl JobRunner {
     }
 
     /// Persists one job atomically.
+    ///
+    /// # Errors
+    /// [`JobError`] when the record cannot be serialized or written.
     fn persist(&self, record: &JobRecord) -> Result<(), JobError> {
         let directory = self.jobs_dir()?;
         let mut bytes =
@@ -656,6 +667,9 @@ impl JobRunner {
     }
 
     /// Returns the private jobs directory.
+    ///
+    /// # Errors
+    /// [`JobError`] when the directory cannot be created.
     fn jobs_dir(&self) -> Result<PathBuf, JobError> {
         let directory = self.state.dir().join("jobs");
         create_private_dir(&directory)?;
@@ -663,12 +677,19 @@ impl JobRunner {
     }
 
     /// Returns one validated job path.
+    ///
+    /// # Errors
+    /// [`JobError::NotFound`] for an id outside the job id rule; otherwise a directory
+    /// failure.
     fn job_path(&self, id: &str) -> Result<PathBuf, JobError> {
         validate_id(id)?;
         Ok(self.jobs_dir()?.join(format!("{id}.json")))
     }
 
     /// Lists persisted job paths.
+    ///
+    /// # Errors
+    /// [`JobError`] when the directory cannot be created or read.
     fn job_paths(&self) -> Result<Vec<PathBuf>, JobError> {
         let directory = self.jobs_dir()?;
         let mut paths = Vec::new();
@@ -686,6 +707,10 @@ impl JobRunner {
     }
 
     /// Removes terminal records older than the configured bound.
+    ///
+    /// # Errors
+    /// [`JobError`] when a record cannot be listed, read, parsed or removed, or its lock
+    /// cannot be discarded.
     fn prune_finished(&self) -> Result<(), JobError> {
         let retention = self.finished_retention.as_secs();
         if retention == 0 {
@@ -737,6 +762,9 @@ fn warn_missing_record(job: &str, error: &JobError) {
 }
 
 /// Reads one persisted job if present.
+///
+/// # Errors
+/// [`JobError`] when the file exists but cannot be read or parsed.
 fn read_job(path: &PathBuf) -> Result<Option<JobRecord>, JobError> {
     let bytes = match fs::read(path) {
         Ok(bytes) => bytes,
@@ -749,6 +777,9 @@ fn read_job(path: &PathBuf) -> Result<Option<JobRecord>, JobError> {
 }
 
 /// Validates a job id as one safe path component.
+///
+/// # Errors
+/// [`JobError::NotFound`] for an empty id, one over 64 bytes, or one outside `[a-z0-9-]`.
 fn validate_id(id: &str) -> Result<(), JobError> {
     if id.is_empty()
         || id.len() > 64
@@ -762,22 +793,32 @@ fn validate_id(id: &str) -> Result<(), JobError> {
 }
 
 #[cfg(test)]
+#[expect(
+    clippy::missing_errors_doc,
+    reason = "test code is not rendered API documentation"
+)]
 mod tests {
     extern crate alloc;
 
     use alloc::sync::Arc;
     use core::{
+        error::Error,
         future::pending,
+        sync::atomic::{AtomicBool, Ordering},
         task::{Context, Poll, Waker},
         time::Duration,
     };
-    use std::{fs, sync::atomic::Ordering};
+    use std::{fs, path::Path};
 
+    use tempfile::TempDir;
     use tokio::{sync::oneshot, time::timeout};
 
     use super::{JobError, JobRunner, JobStatus, JobTarget, job_id::JobIdAllocator};
     use crate::{
-        accounts::Clock, audit::AuditLog, persist::StateStore, registry::RouterRegistry,
+        accounts::Clock,
+        audit::AuditLog,
+        persist::{StateStore, io_error},
+        registry::RouterRegistry,
         settings::OutboundConfig,
     };
 
@@ -798,8 +839,7 @@ mod tests {
         reason = "the assertions define the collision refusal contract"
     )]
     async fn forced_identifier_collision_is_retryable_before_work_starts() -> Result<(), JobError> {
-        let temp = tempfile::TempDir::new()
-            .map_err(|error| crate::persist::io_error(std::path::Path::new("."), error))?;
+        let temp = TempDir::new().map_err(|error| io_error(Path::new("."), error))?;
         let state = StateStore::open(&temp.path().join("state"))?;
         let registry = Arc::new(RouterRegistry::new(
             state.clone(),
@@ -839,7 +879,7 @@ mod tests {
                 )
                 .await?,
         );
-        let work_started = Arc::new(core::sync::atomic::AtomicBool::new(false));
+        let work_started = Arc::new(AtomicBool::new(false));
         let observed = Arc::clone(&work_started);
 
         let collision = second
@@ -865,9 +905,8 @@ mod tests {
         reason = "the assertion proves the start future reached the held active lock"
     )]
     #[tokio::test]
-    async fn cancelled_start_releases_router_write_slot() -> Result<(), Box<dyn core::error::Error>>
-    {
-        let temp = tempfile::TempDir::new()?;
+    async fn cancelled_start_releases_router_write_slot() -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::new()?;
         let state = StateStore::open(&temp.path().join("state"))?;
         let registry = Arc::new(RouterRegistry::new(
             state.clone(),
@@ -908,7 +947,7 @@ mod tests {
     )]
     #[tokio::test]
     async fn panicking_job_fails_record_and_releases_router_write_slot()
-    -> Result<(), Box<dyn core::error::Error>> {
+    -> Result<(), Box<dyn Error>> {
         struct PanicStarted(Option<oneshot::Sender<()>>);
 
         impl Drop for PanicStarted {
@@ -919,7 +958,7 @@ mod tests {
             }
         }
 
-        let temp = tempfile::TempDir::new()?;
+        let temp = TempDir::new()?;
         let state = StateStore::open(&temp.path().join("state"))?;
         let registry = Arc::new(RouterRegistry::new(
             state.clone(),
@@ -970,8 +1009,8 @@ mod tests {
     )]
     #[tokio::test]
     async fn missing_record_still_emits_terminal_event_and_releases_router_write_slot()
-    -> Result<(), Box<dyn core::error::Error>> {
-        let temp = tempfile::TempDir::new()?;
+    -> Result<(), Box<dyn Error>> {
+        let temp = TempDir::new()?;
         let state = StateStore::open(&temp.path().join("state"))?;
         let registry = Arc::new(RouterRegistry::new(
             state.clone(),

@@ -270,6 +270,7 @@ pub(crate) const fn failure(error: &RegistryError) -> MessageKey {
         | RegistryError::AlreadyExists { id: _ }
         | RegistryError::NotFound { id: _ }
         | RegistryError::ConfigDefined { id: _ }
+        | RegistryError::ConfigRoute { id: _, url: _, .. }
         | RegistryError::Rci(_)
         | _ => keys::WEB_ROUTER_ERROR_CHECK,
     }

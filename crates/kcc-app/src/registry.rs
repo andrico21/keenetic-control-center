@@ -1,25 +1,11 @@
 //! Router profile registry and shared authenticated client pool.
-#![expect(
-    clippy::absolute_paths,
-    clippy::chunks_exact_to_as_chunks,
-    clippy::indexing_slicing,
-    clippy::missing_const_for_fn,
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::module_name_repetitions,
-    clippy::option_if_let_else,
-    clippy::significant_drop_tightening,
-    clippy::string_slice,
-    clippy::unnested_or_patterns,
-    clippy::renamed_function_params,
-    reason = "the plan mandates registry names and validated fixed-width parsing; async registry methods are not inline candidates"
-)]
 
 extern crate alloc;
 
 mod auth;
 mod budgets;
 mod read_pool;
+pub(crate) mod rules;
 pub mod sealed_edit;
 mod stored;
 #[cfg(test)]
@@ -51,7 +37,7 @@ use crate::{
     credentials::{CredentialError, CredentialKind, CredentialStore},
     permissions::{Permission, Role},
     persist::{Migration, StateDoc, StateError, StateStore},
-    settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls, is_valid_router_id},
+    settings::{Config, OutboundConfig, RouterAuth, RouterProfile, RouterTls},
 };
 
 /// A state-backed router profile with optional read-only polling credentials.
@@ -90,7 +76,7 @@ impl ManagedRouterProfile {
     /// Creates a password-authenticated profile with optional fields unset.
     #[inline]
     #[must_use]
-    pub fn new(id: String, url: Url, login: String, password_file: PathBuf) -> Self {
+    pub const fn new(id: String, url: Url, login: String, password_file: PathBuf) -> Self {
         Self {
             id,
             url,
@@ -110,38 +96,19 @@ impl ManagedRouterProfile {
     ///
     /// # Errors
     ///
-    /// Returns [`RegistryError::InvalidProfile`] for invalid ids, URLs, credential sources,
-    /// or credential pairs.
+    /// Returns [`RegistryError::InvalidProfile`] naming the first broken rule: id, URL,
+    /// credential source, login, read-only pair or TLS pin. `kcc.toml` profiles follow the
+    /// same rules.
+    #[inline]
     pub fn validate(&self) -> Result<(), RegistryError> {
-        if !is_valid_router_id(&self.id) {
-            return Err(RegistryError::InvalidProfile {
-                reason: "id must match [a-z0-9-]{1,32}".to_owned(),
-            });
-        }
-        if !matches!(self.url.scheme(), "http" | "https")
-            || self.url.host().is_none()
-            || self.url.path() != "/"
-            || self.url.query().is_some()
-            || self.url.fragment().is_some()
-        {
-            return Err(RegistryError::InvalidProfile {
-                reason: "url must be an http(s) origin".to_owned(),
-            });
-        }
-        auth::validate(self)?;
-        match (&self.read_login, &self.read_password_file) {
-            (None, None) => Ok(()),
-            (Some(login), Some(_)) if !login.is_empty() => Ok(()),
-            (Some(_), Some(_)) | (Some(_), None) | (None, Some(_)) => {
-                Err(RegistryError::InvalidProfile {
-                    reason: "read_login and read_password_file must be set together".to_owned(),
-                })
-            }
-        }
+        rules::check(self).map_err(|fault| RegistryError::InvalidProfile {
+            reason: fault.reason().to_owned(),
+        })
     }
 
     /// The file holding this profile's credential of `kind`, when it has one.
     #[must_use]
+    #[inline]
     pub fn credential_path(&self, kind: CredentialKind) -> Option<&Path> {
         match kind {
             CredentialKind::Password => self.password_file.as_deref(),
@@ -154,6 +121,7 @@ impl ManagedRouterProfile {
     /// login or TLS pin. Such a change needs the primary credential again and drops the
     /// read-only credential unless it is given again.
     #[must_use]
+    #[inline]
     pub fn moves_endpoint(&self, before: &Self) -> bool {
         self.url != before.url || self.login != before.login || self.tls != before.tls
     }
@@ -187,6 +155,10 @@ pub enum ProfileSource {
 /// One merged registry entry.
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "front ends import this type unqualified next to other crates' entries"
+)]
 pub struct RegistryEntry {
     /// Profile data.
     pub profile: ManagedRouterProfile,
@@ -197,6 +169,10 @@ pub struct RegistryEntry {
 /// Registry failures.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "front ends import this type unqualified next to other crates' errors"
+)]
 pub enum RegistryError {
     /// State storage failed.
     #[error(transparent)]
@@ -231,6 +207,16 @@ pub enum RegistryError {
         /// Profile id.
         id: String,
     },
+    /// A config-defined profile cannot move to another URL at run time: its URL lives in
+    /// `kcc.toml`, so a reload would bring the old one back.
+    #[error("router profile {id} is defined in kcc.toml: set its url to {url} there and reload")]
+    #[non_exhaustive]
+    ConfigRoute {
+        /// Profile id.
+        id: String,
+        /// The URL the router now answers on.
+        url: Url,
+    },
     /// A credential file could not be read.
     #[error("cannot read router credential file {path}: {source}")]
     CredentialFile {
@@ -260,6 +246,10 @@ pub enum RegistryError {
 }
 
 /// Merged router registry and lazy one-client-per-profile pool.
+#[expect(
+    clippy::module_name_repetitions,
+    reason = "front ends import this type unqualified next to other crates' registries"
+)]
 pub struct RouterRegistry {
     /// State store.
     store: StateStore,
@@ -292,13 +282,13 @@ type ClientSlot = Arc<OnceCell<Arc<RciClient>>>;
 pub type RciObserverFactory = Arc<dyn Fn(&str) -> Arc<dyn RciObserver> + Send + Sync>;
 
 impl fmt::Debug for RouterRegistry {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+    #[inline]
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let config_ids = self.config.read().map_or_else(
             |_error| Vec::new(),
             |config| config.keys().cloned().collect(),
         );
-        formatter
-            .debug_struct("RouterRegistry")
+        f.debug_struct("RouterRegistry")
             .field("store", &self.store)
             .field("config_ids", &config_ids)
             .finish_non_exhaustive()
@@ -311,6 +301,7 @@ impl RouterRegistry {
     /// # Errors
     /// Returns permission, profile, credential, or connection errors.
     // cancel-safe: opens a client without writing router or registry state.
+    #[inline]
     pub async fn bootstrap_client(
         &self,
         role: &Role,
@@ -346,11 +337,23 @@ impl RouterRegistry {
     /// own `password_file` rewritten. A token profile stores no password and keeps no
     /// cached client, so its next client signs in with the stored token.
     ///
+    /// A `kcc.toml` profile keeps its URL: a client on another URL is refused before
+    /// anything is written, because only an edit of `kcc.toml` can move that profile.
+    ///
     /// The password and `routers.json` are written on the blocking pool while the client
     /// cache stays locked, so no client of the router is built in between.
+    ///
+    /// # Errors
+    /// [`RegistryError::ConfigRoute`] for a `kcc.toml` profile and a client on another URL;
+    /// [`RegistryError::NotFound`] for an unknown id; otherwise the credential or state
+    /// write failure.
     // NOT cancel-safe: dropped while the password and profile are written, both writes still
     // complete on the blocking pool, but the loaded profile and the cached client stay the old
     // ones until the next reload.
+    #[expect(
+        clippy::significant_drop_tightening,
+        reason = "the client cache stays locked across the writes so no client is built from a half-written profile"
+    )]
     pub(crate) async fn transition(
         &self,
         id: &str,
@@ -372,6 +375,13 @@ impl RouterRegistry {
             .get(id)
             .cloned()
             .ok_or_else(|| RegistryError::NotFound { id: id.to_owned() })?;
+        if matches!(source, ProfileSource::Config) && profile.url != endpoint {
+            tracing::warn!(router = id, url = %endpoint, "kcc.toml router moved; edit its url");
+            return Err(RegistryError::ConfigRoute {
+                id: id.to_owned(),
+                url: endpoint,
+            });
+        }
         let (credentials, store) = (self.credentials.clone(), self.store.clone());
         let written = blocking::run(self.store.dir(), move || {
             if let Some(credential) = &replacement {
@@ -411,6 +421,7 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns a profile or outbound-policy validation error.
+    #[inline]
     pub fn new(
         store: StateStore,
         profiles: &[RouterProfile],
@@ -445,6 +456,7 @@ impl RouterRegistry {
 
     /// Attaches the encrypted credential store used by kcc-managed profiles.
     #[must_use]
+    #[inline]
     pub fn with_credentials(mut self, credentials: Arc<CredentialStore>) -> Self {
         self.credentials = Some(credentials);
         self
@@ -456,6 +468,7 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns registry lock or credential path errors.
+    #[inline]
     pub fn external_password_files(&self) -> Result<Vec<(String, PathBuf)>, RegistryError> {
         let mut external = Vec::new();
         for entry in self.list()? {
@@ -480,6 +493,7 @@ impl RouterRegistry {
     /// generation counter bumped after each change, so a receiver re-reads
     /// [`RouterRegistry::list`] whenever it changes.
     #[must_use]
+    #[inline]
     pub fn subscribe_changes(&self) -> watch::Receiver<u64> {
         self.changes.subscribe()
     }
@@ -492,6 +506,7 @@ impl RouterRegistry {
 
     /// Attaches an observer to every client and detection session created from now on.
     #[must_use]
+    #[inline]
     pub fn with_rci_observers(mut self, factory: RciObserverFactory) -> Self {
         self.observers = Some(factory);
         self
@@ -507,6 +522,7 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns state errors when `routers.json` is unreadable.
+    #[inline]
     pub fn list(&self) -> Result<Vec<RegistryEntry>, RegistryError> {
         let config = self.config.read().map_err(lock_error)?;
         let profiles = self.profiles.read().map_err(lock_error)?;
@@ -528,6 +544,7 @@ impl RouterRegistry {
     /// # Errors
     ///
     /// Returns state errors or [`RegistryError::NotFound`].
+    #[inline]
     pub fn get(&self, id: &str) -> Result<RegistryEntry, RegistryError> {
         self.list()?
             .into_iter()
@@ -544,6 +561,7 @@ impl RouterRegistry {
     // blocking pool but the profile is not loaded; cancelled at the client-cache lock, the profile
     // is already stored and loaded but no stale client is evicted and no change notification is
     // sent.
+    #[inline]
     pub async fn create(
         &self,
         role: &Role,
@@ -598,6 +616,7 @@ impl RouterRegistry {
     // blocking pool but the new profile is not loaded; cancelled at the client-cache lock, the new
     // profile is stored and loaded but the client built from the old one stays cached and no
     // change notification is sent.
+    #[inline]
     pub async fn update(
         &self,
         role: &Role,
@@ -619,13 +638,12 @@ impl RouterRegistry {
         let target = id.clone();
         let replaced = blocking::run(self.store.dir(), move || {
             store.update::<RoutersDocument, _, _>(|document| {
-                match document.routers.iter_mut().find(|entry| entry.id == target) {
-                    Some(entry) => {
-                        *entry = profile;
-                        true
-                    }
-                    None => false,
+                let stored = document.routers.iter_mut().find(|entry| entry.id == target);
+                let found = stored.is_some();
+                if let Some(entry) = stored {
+                    *entry = profile;
                 }
+                found
             })
         })
         .await?;
@@ -652,6 +670,7 @@ impl RouterRegistry {
     // NOT cancel-safe: dropped while `routers.json` is written, the removal still completes on the
     // blocking pool but the profile stays loaded; cancelled at the client-cache lock, the profile
     // is already removed but its cached client stays and no change notification is sent.
+    #[inline]
     pub async fn delete(&self, role: &Role, id: &str) -> Result<(), RegistryError> {
         authorize(role, Permission::ManageRouters, id)?;
         if self.config.read().map_err(lock_error)?.contains_key(id) {
@@ -687,6 +706,7 @@ impl RouterRegistry {
     /// Returns profile, credential, policy, or transport errors.
     // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
     // sends no mutation; the slot stays empty and the next caller builds the client.
+    #[inline]
     pub async fn client(&self, id: &str) -> Result<Arc<RciClient>, RegistryError> {
         drop(self.get(id)?);
         let slot = Arc::clone(self.clients.lock().await.entry(id.to_owned()).or_default());
@@ -713,6 +733,7 @@ impl RouterRegistry {
     /// read-only profile answers [`RciError::Cancelled`].
     // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
     // sends no mutation; the slot stays empty and the next caller builds the client.
+    #[inline]
     pub async fn poll_client(&self, id: &str) -> Result<Arc<RciClient>, RegistryError> {
         let profile = self.get(id)?.profile;
         if profile.read_login.is_none() {
@@ -738,6 +759,7 @@ impl RouterRegistry {
     ///
     /// A router that does not answer is logged and left to expire the session itself.
     // NOT cancel-safe: cancelled midway, some sessions stay open on their routers.
+    #[inline]
     pub async fn shutdown(&self) {
         self.read_clients.close().await;
     }
@@ -748,6 +770,7 @@ impl RouterRegistry {
     ///
     /// Returns profile, credential, authentication, detection, or policy errors.
     // cancel-safe: every router operation is a read.
+    #[inline]
     pub async fn test_connection(
         &self,
         profile: &ManagedRouterProfile,
@@ -767,6 +790,7 @@ impl RouterRegistry {
     ///
     /// Returns profile, authentication, detection, or policy errors.
     // cancel-safe: every router operation is a read.
+    #[inline]
     pub async fn test_connection_with(
         &self,
         profile: &ManagedRouterProfile,
@@ -786,6 +810,7 @@ impl RouterRegistry {
     /// The outbound policy every router connection passes, for checking a target before
     /// a profile is stored.
     #[must_use]
+    #[inline]
     pub const fn outbound_policy(&self) -> &OutboundPolicy {
         &self.outbound
     }
@@ -798,6 +823,7 @@ impl RouterRegistry {
     /// Returns profile validation, state storage, or registry lock errors.
     // NOT cancel-safe: cancelled at the client-cache lock, the new profiles are live while stale
     // cached clients remain and no change notification is sent.
+    #[inline]
     pub async fn reload(&self, config: &Config) -> Result<usize, RegistryError> {
         let replacement = config_profiles(&config.routers)?;
         let state_profiles = read_state_profiles(&self.store)?;
@@ -835,6 +861,7 @@ impl RouterRegistry {
     ///
     /// Returns profile, credential, authentication, detection, or policy errors.
     // cancel-safe: every router operation is a read.
+    #[inline]
     pub async fn poll_info(&self, id: &str) -> Result<RouterInfo, RegistryError> {
         self.poll_client(id)
             .await?
@@ -845,6 +872,10 @@ impl RouterRegistry {
 
     /// Opens a policy-checked session with `credentials` under the authentication policy
     /// `auth` and detects the router.
+    ///
+    /// # Errors
+    /// [`RegistryError`] for a profile that cannot be turned into a client, or a refused,
+    /// failed or rejected router session.
     // cancel-safe: every router operation is a read.
     async fn detect_with(
         &self,
@@ -867,6 +898,10 @@ impl RouterRegistry {
 
     /// Connects one client with the selected credential pair; the credential files and
     /// sealed records are read on the blocking pool.
+    ///
+    /// # Errors
+    /// [`RegistryError`] for a bad TLS pin or URL, a credential that cannot be read, or a
+    /// failed connection.
     // NOT cancel-safe: cancellation may abandon DNS resolution or a credential read, but
     // sends no mutation.
     async fn connect_client(
@@ -898,6 +933,10 @@ impl RouterRegistry {
     }
 
     /// Reads operator-managed files directly and opens kcc-managed sealed records.
+    ///
+    /// # Errors
+    /// [`RegistryError`] when the profile lacks the credential or it cannot be read or
+    /// opened.
     fn credentials(
         &self,
         profile: &ManagedRouterProfile,
@@ -908,6 +947,9 @@ impl RouterRegistry {
 }
 
 /// Reads operator-managed files directly and opens kcc-managed sealed records.
+///
+/// # Errors
+/// [`RegistryError`] when the profile lacks the credential or it cannot be read or opened.
 fn credentials(
     store: Option<&CredentialStore>,
     profile: &ManagedRouterProfile,
@@ -937,34 +979,17 @@ enum CredentialUse {
     ReadOnly,
 }
 
-/// Converts a config-defined profile into the common registry representation.
-fn convert_config_profile(profile: &RouterProfile) -> ManagedRouterProfile {
-    let auth = match (profile.auth, &profile.token_file) {
-        (RouterAuth::Auto, Some(_)) => RouterAuth::Token,
-        (auth, _) => auth,
-    };
-    ManagedRouterProfile {
-        id: profile.name.clone(),
-        url: profile.url.clone(),
-        login: profile.login.clone().unwrap_or_default(),
-        password_file: profile.password_file.clone(),
-        auth,
-        token_file: profile.token_file.clone(),
-        read_login: profile.read_login.clone(),
-        read_password_file: profile.read_password_file.clone(),
-        tls: profile.tls.clone(),
-        test_device: profile.test_device,
-        tags: profile.tags.clone(),
-    }
-}
-
 /// Converts and validates all config-defined profiles.
+///
+/// # Errors
+/// [`RegistryError::InvalidProfile`] for a profile that breaks a rule,
+/// [`RegistryError::AlreadyExists`] for a repeated id.
 fn config_profiles(
     profiles: &[RouterProfile],
 ) -> Result<BTreeMap<String, ManagedRouterProfile>, RegistryError> {
     let mut converted = BTreeMap::new();
     for profile in profiles {
-        let entry = convert_config_profile(profile);
+        let entry = rules::from_config(profile);
         entry.validate()?;
         if converted.insert(entry.id.clone(), entry).is_some() {
             return Err(RegistryError::AlreadyExists {
@@ -991,6 +1016,10 @@ fn merged_profiles(
 }
 
 /// Reads and validates mutable profiles from the state store.
+///
+/// # Errors
+/// [`RegistryError`] when `routers.json` cannot be read or parsed, or holds a profile that
+/// breaks a rule.
 fn read_state_profiles(store: &StateStore) -> Result<Vec<ManagedRouterProfile>, RegistryError> {
     let document = store.read::<RoutersDocument>()?.unwrap_or_default();
     for profile in &document.routers {
@@ -1005,6 +1034,10 @@ fn lock_error<T>(_error: PoisonError<T>) -> RegistryError {
 }
 
 /// Reads the selected credentials.
+///
+/// # Errors
+/// [`RegistryError::InvalidProfile`] when the profile has no file for the selected
+/// credential.
 fn credential_parts(
     profile: &ManagedRouterProfile,
     credential_use: CredentialUse,
@@ -1038,6 +1071,9 @@ fn credential_parts(
 }
 
 /// Converts a profile URL into the protocol origin type.
+///
+/// # Errors
+/// [`RegistryError::InvalidProfile`] when the URL is not a router origin.
 fn router_url(profile: &ManagedRouterProfile) -> Result<RouterUrl, RegistryError> {
     RouterUrl::from_str(profile.url.as_str()).map_err(|_error| RegistryError::InvalidProfile {
         reason: "url is not a valid router origin".to_owned(),
@@ -1045,26 +1081,28 @@ fn router_url(profile: &ManagedRouterProfile) -> Result<RouterUrl, RegistryError
 }
 
 /// Converts the settings TLS shape into the RCI TLS policy.
+///
+/// # Errors
+/// [`RegistryError::InvalidProfile`] for a pin that is not 64 hex digits.
 fn tls_mode(tls: &RouterTls) -> Result<TlsMode, RegistryError> {
     match tls {
         RouterTls::Verify => Ok(TlsMode::Verify),
         RouterTls::PinSha256(encoded) => {
+            let invalid = |reason: &str| RegistryError::InvalidProfile {
+                reason: reason.to_owned(),
+            };
             let mut bytes = [0_u8; 32];
-            if encoded.len() != 64 {
-                return Err(RegistryError::InvalidProfile {
-                    reason: "TLS pin must be 64 hex digits".to_owned(),
-                });
+            let (pairs, []) = encoded.as_bytes().as_chunks::<2>() else {
+                return Err(invalid("TLS pin must be 64 hex digits"));
+            };
+            if pairs.len() != bytes.len() {
+                return Err(invalid("TLS pin must be 64 hex digits"));
             }
-            for (index, pair) in encoded.as_bytes().chunks_exact(2).enumerate() {
-                let pair_text =
-                    core::str::from_utf8(pair).map_err(|_error| RegistryError::InvalidProfile {
-                        reason: "TLS pin must be hexadecimal".to_owned(),
-                    })?;
-                bytes[index] = u8::from_str_radix(pair_text, 16).map_err(|_error| {
-                    RegistryError::InvalidProfile {
-                        reason: "TLS pin must be hexadecimal".to_owned(),
-                    }
-                })?;
+            for (byte, pair) in bytes.iter_mut().zip(pairs) {
+                *byte = str::from_utf8(pair)
+                    .ok()
+                    .and_then(|digits| u8::from_str_radix(digits, 16).ok())
+                    .ok_or_else(|| invalid("TLS pin must be hexadecimal"))?;
             }
             Ok(TlsMode::PinSha256(bytes))
         }
@@ -1072,6 +1110,11 @@ fn tls_mode(tls: &RouterTls) -> Result<TlsMode, RegistryError> {
 }
 
 /// Enforces an application permission and router scope.
+///
+/// # Errors
+/// [`RegistryError::PermissionDenied`] when `role` lacks `permission` or its router scope
+/// does not admit `router`.
+#[inline]
 pub fn authorize(role: &Role, permission: Permission, router: &str) -> Result<(), RegistryError> {
     if !role.grants(permission) || !scope_matches(&role.router_scope, router) {
         return Err(RegistryError::PermissionDenied {
@@ -1081,8 +1124,15 @@ pub fn authorize(role: &Role, permission: Permission, router: &str) -> Result<()
     Ok(())
 }
 
-/// Matches the kit-compatible `*` glob semantics used by router scopes.
+/// Whether router scope `patterns` admit router id `value`.
+///
+/// An empty list admits every router. Each pattern is case-sensitive, and `*` matches
+/// any run of characters, the empty one included. This differs from the kit's MCP host
+/// matching, which ignores case and admits nothing for an empty list; kcc never gives
+/// the kit a pattern where that differs, because router ids and the globs the Web UI
+/// accepts are lowercase and custom roles cannot have an empty scope.
 #[must_use]
+#[inline]
 pub fn scope_matches(patterns: &[String], value: &str) -> bool {
     patterns.is_empty() || patterns.iter().any(|pattern| glob_matches(pattern, value))
 }
@@ -1108,8 +1158,8 @@ pub(crate) fn glob_matches(pattern: &str, value: &str) -> bool {
             remainder = rest;
         } else if index == pieces.len().saturating_sub(1) && !pattern.ends_with('*') {
             return remainder.ends_with(piece);
-        } else if let Some(position) = remainder.find(piece) {
-            remainder = &remainder[position.saturating_add(piece.len())..];
+        } else if let Some((_skipped, rest)) = remainder.split_once(piece) {
+            remainder = rest;
         } else {
             return false;
         }

@@ -202,7 +202,9 @@ hardware.
 Lines that change how kcc reaches the target (management interface address or security
 level, HTTP port or SSL) move to a final phase and need the address kcc should use
 afterwards (`--reconnect-url`). kcc switches to it after those lines and allows two
-minutes per transition to reach the router again.
+minutes per transition to reach the router again. A target defined in `kcc.toml` cannot
+move: kcc refuses the new address (the log names the `url` to set in `kcc.toml`), stores
+nothing, and the run ends like a failed reconnect.
 
 A line that sets the password of the router account kcc signs in with
 (`user <login> password plain|md5|nt ...`) is a management line too, in migrations and

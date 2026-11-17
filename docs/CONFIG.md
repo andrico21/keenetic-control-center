@@ -222,7 +222,7 @@ with `kcc router add` or the Web UI, which live in the state directory.
 | Key | Type | Default | Meaning |
 |---|---|---|---|
 | `name` | string | required | profile id, 1 to 32 of `a-z 0-9 -` |
-| `url` | URL | required | router base URL, `http` or `https` |
+| `url` | URL | required | router origin, `http` or `https`, with no path, query or fragment (`http://192.0.2.1:8080`, not `http://192.0.2.1/ui`) |
 | `login` | string | unset | login name; required unless `auth = "token"` |
 | `password_file` | path | unset | file holding the password |
 | `read_login` | string | unset | separate login for the shared read-only poller |
@@ -242,7 +242,10 @@ and `token_file`; `token_file` needs `auth = "token"` (or `auto`, which then mea
 
 These profile credential paths are operator-managed and are read unchanged (a migration
 that changes the router's management password writes the new one into `password_file`,
-mode 0600). Routers added with the Web UI or `kcc router add` are different: every
+mode 0600). The `url` of a router listed here changes only by editing this file: a
+migration that moves such a router to another address is refused when kcc reconnects:
+kcc stores neither the new address nor a password, and the run ends like a failed
+reconnect. Routers added with the Web UI or `kcc router add` are different: every
 credential they take (password, login token, read-only polling password) is sealed into
 `<state>/router-credentials/<id>.sealed`, `<id>.token.sealed` or `<id>.read.sealed`,
 and the input file given with `--password-file`, `--token-file` or

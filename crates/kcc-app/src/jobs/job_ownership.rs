@@ -37,6 +37,10 @@ impl JobOwnership {
     }
 
     /// Claims one job until the claim is transferred or dropped.
+    ///
+    /// # Errors
+    /// [`JobError::IdCollision`] when another holder has the lock; otherwise the lock
+    /// failure.
     pub(super) fn claim(&self, id: &str) -> Result<JobOwnershipClaim<'_>, JobError> {
         let lock = match self.state.try_lock(&lock_name(id)) {
             Ok(lock) => lock,
@@ -56,6 +60,9 @@ impl JobOwnership {
     }
 
     /// Returns whether another live process currently owns this job.
+    ///
+    /// # Errors
+    /// The lock failure, other than the lock being held.
     pub(super) fn is_held(&self, id: &str) -> Result<bool, JobError> {
         match self.state.try_lock(&lock_name(id)) {
             Ok(lock) => {
@@ -68,6 +75,9 @@ impl JobOwnership {
     }
 
     /// Removes the lock file of a pruned job unless a live process still owns it.
+    ///
+    /// # Errors
+    /// The lock failure, other than the lock being held, or the lock file removal failure.
     pub(super) fn discard(&self, id: &str) -> Result<(), JobError> {
         match self.state.try_lock(&lock_name(id)) {
             Ok(lock) => {

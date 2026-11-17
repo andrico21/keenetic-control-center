@@ -77,10 +77,9 @@ impl BackupStore {
         reason: &str,
         text: &SecretString,
     ) -> Result<BackupInfo, BackupError> {
-        validate_component(router, 32)?;
+        let directory = router_dir(&self.state, router)?;
         validate_component(reason, 48)?;
         let created_at = self.clock.unix_seconds();
-        let directory = router_dir(&self.state, router)?;
         create_private_dir(&directory)?;
         let _lock = self.state.lock(&format!("backup-{router}"))?;
         let mut sequence = 0_u64;

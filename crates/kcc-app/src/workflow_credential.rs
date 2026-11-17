@@ -18,6 +18,9 @@ impl Baseline {
     /// Reads the running configuration when one of `specs` compares a credential with
     /// the one it replaces, and sends nothing otherwise. A failed read is the error, so
     /// the write whose effect it could not prove is never sent.
+    ///
+    /// # Errors
+    /// [`WorkflowError`] when the running configuration cannot be read or decoded.
     // cancel-safe: only reads router state.
     pub(super) async fn capture(
         client: &RciClient,
@@ -36,12 +39,18 @@ impl Baseline {
 }
 
 /// Requires the credential named by `spec` to be present in `text`, without reading it.
+///
+/// # Errors
+/// [`WorkflowError::VerificationFailed`] when the credential is absent.
 pub(super) fn present(text: &str, spec: &VerificationSpec) -> Result<(), WorkflowError> {
     credential(text, spec).map(|_payload| ())
 }
 
 /// Finds the stored credential payload named by `spec` in `text`, borrowed and never
 /// copied, or fails naming the field.
+///
+/// # Errors
+/// [`WorkflowError::VerificationFailed`] when the credential is absent.
 fn credential<'text>(
     text: &'text str,
     spec: &VerificationSpec,
@@ -59,6 +68,10 @@ fn credential<'text>(
 ///
 /// The two payloads are compared in constant time inside their wiped buffers. Without a
 /// captured baseline the change cannot be proven, so it fails.
+///
+/// # Errors
+/// [`WorkflowError::VerificationFailed`] when the credential is absent, unchanged, or no
+/// baseline was captured.
 pub(super) fn replaced(
     text: &str,
     spec: &VerificationSpec,

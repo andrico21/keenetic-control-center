@@ -14,8 +14,8 @@ use core::error::Error;
 
 use kcc_app::{
     persist::StateStore,
-    registry::RouterRegistry,
-    settings::{Config, OutboundConfig},
+    registry::{ManagedRouterProfile, RegistryError, RouterRegistry},
+    settings::{Config, OutboundConfig, RouterTls},
 };
 use tempfile::TempDir;
 
@@ -43,6 +43,27 @@ async fn reload_replaces_changed_config_profile() -> Result<(), Box<dyn Error>> 
 
     assert_eq!(invalidated, 1);
     assert_eq!(registry.get("router")?.profile.url.port(), Some(18081));
+    Ok(())
+}
+
+/// B-13: the registry refuses a malformed TLS pin when a profile is stored, as `kcc.toml`
+/// validation does, instead of only when a client is built.
+#[test]
+fn registry_profile_with_a_malformed_tls_pin_is_invalid() -> Result<(), Box<dyn Error>> {
+    let mut profile = ManagedRouterProfile::new(
+        "home".to_owned(),
+        url::Url::parse("http://203.0.113.10")?,
+        "admin".to_owned(),
+        "/etc/kcc/home.pw".into(),
+    );
+    profile.tls = RouterTls::PinSha256("abc".to_owned());
+
+    let checked = profile.validate();
+
+    assert!(
+        matches!(checked, Err(RegistryError::InvalidProfile { reason: _ })),
+        "{checked:?}"
+    );
     Ok(())
 }
 

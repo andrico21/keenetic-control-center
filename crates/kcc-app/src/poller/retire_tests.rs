@@ -1,5 +1,6 @@
 //! The idle task retires a router's channel only while nobody is subscribed.
 #![expect(
+    clippy::missing_errors_doc,
     clippy::missing_panics_doc,
     clippy::panic_in_result_fn,
     reason = "test assertions are not rendered API documentation"

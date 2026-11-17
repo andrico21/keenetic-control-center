@@ -21,6 +21,7 @@ use crate::{
     accounts::Clock,
     persist::{StateError, StateStore},
     secrets::{CryptoError, MasterKey, SealedSecret},
+    settings::is_valid_router_id,
 };
 
 #[path = "backups/store.rs"]
@@ -139,7 +140,11 @@ struct BackupName {
 
 /// Returns one validated router backup directory.
 fn router_dir(state: &StateStore, router: &str) -> Result<PathBuf, BackupError> {
-    validate_component(router, 32)?;
+    if !is_valid_router_id(router) {
+        return Err(BackupError::InvalidName {
+            value: router.to_owned(),
+        });
+    }
     Ok(state.dir().join("backups").join(router))
 }
 

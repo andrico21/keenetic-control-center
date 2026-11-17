@@ -274,7 +274,8 @@ impl From<RegistryError> for Failure {
             }
             RegistryError::InvalidProfile { reason: _ } => Exit::Validation,
             RegistryError::AlreadyExists { id: _ } => Exit::Conflict,
-            RegistryError::ConfigDefined { id: _ } => Exit::Policy,
+            RegistryError::ConfigDefined { id: _ }
+            | RegistryError::ConfigRoute { id: _, url: _, .. } => Exit::Policy,
             RegistryError::NotFound { id: _ } => Exit::Usage,
             RegistryError::State(_) | RegistryError::ProfileLock | _ => Exit::Generic,
         };

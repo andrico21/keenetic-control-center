@@ -25,21 +25,13 @@ struct Row {
     set: fn(&mut Config, &str) -> Result<(), String>,
 }
 
-/// Expands the table into [`NAMES`] and the two row groups around the
-/// `[outbound] allowed_suffixes` normalization.
+/// Expands the table into [`NAMES`] and [`ROWS`].
 macro_rules! env_table {
-    (
-        before_suffix_check { $($pre_var:literal => $pre_section:ident.$pre_field:ident: $pre_parse:expr,)+ }
-        after_suffix_check { $($post_var:literal => $post_section:ident.$post_field:ident: $post_parse:expr,)+ }
-    ) => {
+    ($($var:literal => $section:ident.$field:ident: $parse:expr,)+) => {
         /// Every `KCC_*` variable, in application order.
-        pub(super) const NAMES: &[&str] = &[$($pre_var,)+ $($post_var,)+];
-        /// Rows applied before the suffix normalization.
-        const BEFORE_SUFFIX_CHECK: &[Row] =
-            &[$(env_table!(@row $pre_var, $pre_section.$pre_field, $pre_parse),)+];
-        /// Rows applied after the suffix normalization.
-        const AFTER_SUFFIX_CHECK: &[Row] =
-            &[$(env_table!(@row $post_var, $post_section.$post_field, $post_parse),)+];
+        pub(super) const NAMES: &[&str] = &[$($var,)+];
+        /// Every row, in application order.
+        const ROWS: &[Row] = &[$(env_table!(@row $var, $section.$field, $parse),)+];
     };
     (@row $var:literal, $section:ident.$field:ident, $parse:expr) => {
         Row {
@@ -55,76 +47,77 @@ macro_rules! env_table {
 }
 
 env_table! {
-    before_suffix_check {
-        "KCC_WEB_ENABLED" => web.enabled: parse_bool,
-        "KCC_WEB_SESSION_IDLE" => web.session_idle: parse_duration,
-        "KCC_WEB_SESSION_ABSOLUTE" => web.session_absolute: parse_duration,
-        "KCC_WEB_LOGIN_MAX_FAILURES" => web.login_max_failures: parse_number,
-        "KCC_WEB_LOCKOUT" => web.lockout: parse_duration,
-        "KCC_WEB_DEFAULT_LOCALE" => web.default_locale: parse_string,
-        "KCC_WEB_PUBLIC_URL" => web.public_url:
-            |raw| Url::parse(raw).map(Some).map_err(|error| error.to_string()),
-        "KCC_MCP_HTTP_ENABLED" => mcp.http_enabled: parse_bool,
-        "KCC_MCP_STDIO_ENABLED" => mcp.stdio_enabled: parse_bool,
-        "KCC_MCP_STDIO_ROLE" => mcp.stdio_role: parse_string,
-        "KCC_MCP_READ_ONLY" => mcp.read_only: parse_bool,
-        "KCC_MCP_ALLOW_DESTRUCTIVE" => mcp.allow_destructive: parse_bool,
-        "KCC_MCP_MAX_RESULT_BYTES" => mcp.max_result_bytes: parse_number,
-        "KCC_MCP_TOOLSETS" => mcp.toolsets: |raw| Ok(split_list(raw)),
-        "KCC_OUTBOUND_ALLOWED_NETWORKS" => outbound.allowed_networks: |raw| {
-            split_list(raw)
-                .into_iter()
-                .map(|item| item.parse::<IpNet>().map_err(|error| error.to_string()))
-                .collect()
-        },
-        "KCC_OUTBOUND_ALLOWED_SUFFIXES" => outbound.allowed_suffixes: |raw| Ok(split_list(raw)),
-        "KCC_OUTBOUND_ALLOW_LOOPBACK" => outbound.allow_loopback: parse_bool,
-    }
-    after_suffix_check {
-        "KCC_STATE_DIR" => state.dir: |raw| {
-            if raw.is_empty() {
-                Err("must not be empty".to_owned())
-            } else {
-                Ok(Some(PathBuf::from(raw)))
-            }
-        },
-        "KCC_BACKUPS_KEEP_LAST" => backups.keep_last: parse_number,
-        "KCC_BACKUPS_MAX_AGE" => backups.max_age: parse_duration,
-        "KCC_AUDIT_RETENTION" => audit.retention: parse_duration,
-        "KCC_CLI_ROLE" => cli.role: parse_string,
-        "KCC_CLI_ROUTER_SCOPE" => cli.router_scope: |raw| Ok(split_list(raw)),
-        "KCC_PRIVACY_REDACT_CLIENTS_IN_MCP" => privacy.redact_clients_in_mcp: parse_bool,
-        "KCC_METRICS_ENABLED" => metrics.enabled: parse_bool,
-        "KCC_METRICS_BIND" => metrics.bind:
-            |raw| raw.parse::<SocketAddr>().map_err(|error| error.to_string()),
-        "KCC_METRICS_ALLOW_NON_LOOPBACK" => metrics.allow_non_loopback: parse_bool,
-        "KCC_METRICS_INTERVAL" => metrics.interval: parse_duration,
-        "KCC_METRICS_HEAVY_INTERVAL" => metrics.heavy_interval: parse_duration,
-        "KCC_METRICS_PER_CLIENT" => metrics.per_client: parse_bool,
-        "KCC_METRICS_PER_CLIENT_MAX" => metrics.per_client_max: parse_number,
-        "KCC_METRICS_PER_CLIENT_LABEL" => metrics.per_client_label: |raw| match raw {
-            "name" => Ok(ClientLabel::Name),
-            "pseudonym" => Ok(ClientLabel::Pseudonym),
-            "mac" => Ok(ClientLabel::Mac),
-            _ => Err("expected name, pseudonym or mac".to_owned()),
-        },
-        "KCC_LOGS_ENABLED" => logs.enabled: parse_bool,
-        "KCC_LOGS_ROUTERS" => logs.routers: |raw| Ok(split_list(raw)),
-        "KCC_LOGS_MODE" => logs.mode: |raw| match raw {
-            "stream" => Ok(LogMode::Stream),
-            "poll" => Ok(LogMode::Poll),
-            _ => Err("expected stream or poll".to_owned()),
-        },
-        "KCC_LOGS_STREAM_INTERVAL" => logs.stream_interval: parse_duration,
-        "KCC_LOGS_POLL_INTERVAL" => logs.poll_interval: parse_duration,
-        "KCC_LOGS_REDACT_MACS" => logs.redact_macs: parse_bool,
-        "KCC_LOGS_QUEUE_MAX" => logs.queue_max:
-            |raw| raw.parse::<usize>().map_err(|error| error.to_string()),
-    }
+    "KCC_WEB_ENABLED" => web.enabled: parse_bool,
+    "KCC_WEB_SESSION_IDLE" => web.session_idle: parse_duration,
+    "KCC_WEB_SESSION_ABSOLUTE" => web.session_absolute: parse_duration,
+    "KCC_WEB_LOGIN_MAX_FAILURES" => web.login_max_failures: parse_number,
+    "KCC_WEB_LOCKOUT" => web.lockout: parse_duration,
+    "KCC_WEB_DEFAULT_LOCALE" => web.default_locale: parse_string,
+    "KCC_WEB_PUBLIC_URL" => web.public_url:
+        |raw| Url::parse(raw).map(Some).map_err(|error| error.to_string()),
+    "KCC_MCP_HTTP_ENABLED" => mcp.http_enabled: parse_bool,
+    "KCC_MCP_STDIO_ENABLED" => mcp.stdio_enabled: parse_bool,
+    "KCC_MCP_STDIO_ROLE" => mcp.stdio_role: parse_string,
+    "KCC_MCP_READ_ONLY" => mcp.read_only: parse_bool,
+    "KCC_MCP_ALLOW_DESTRUCTIVE" => mcp.allow_destructive: parse_bool,
+    "KCC_MCP_MAX_RESULT_BYTES" => mcp.max_result_bytes: parse_number,
+    "KCC_MCP_TOOLSETS" => mcp.toolsets: |raw| Ok(split_list(raw)),
+    "KCC_OUTBOUND_ALLOWED_NETWORKS" => outbound.allowed_networks: |raw| {
+        split_list(raw)
+            .into_iter()
+            .map(|item| item.parse::<IpNet>().map_err(|error| error.to_string()))
+            .collect()
+    },
+    "KCC_OUTBOUND_ALLOWED_SUFFIXES" => outbound.allowed_suffixes: |raw| Ok(split_list(raw)),
+    "KCC_OUTBOUND_ALLOW_LOOPBACK" => outbound.allow_loopback: parse_bool,
+    "KCC_STATE_DIR" => state.dir: |raw| {
+        if raw.is_empty() {
+            Err("must not be empty".to_owned())
+        } else {
+            Ok(Some(PathBuf::from(raw)))
+        }
+    },
+    "KCC_BACKUPS_KEEP_LAST" => backups.keep_last: parse_number,
+    "KCC_BACKUPS_MAX_AGE" => backups.max_age: parse_duration,
+    "KCC_AUDIT_RETENTION" => audit.retention: parse_duration,
+    "KCC_CLI_ROLE" => cli.role: parse_string,
+    "KCC_CLI_ROUTER_SCOPE" => cli.router_scope: |raw| Ok(split_list(raw)),
+    "KCC_PRIVACY_REDACT_CLIENTS_IN_MCP" => privacy.redact_clients_in_mcp: parse_bool,
+    "KCC_METRICS_ENABLED" => metrics.enabled: parse_bool,
+    "KCC_METRICS_BIND" => metrics.bind:
+        |raw| raw.parse::<SocketAddr>().map_err(|error| error.to_string()),
+    "KCC_METRICS_ALLOW_NON_LOOPBACK" => metrics.allow_non_loopback: parse_bool,
+    "KCC_METRICS_INTERVAL" => metrics.interval: parse_duration,
+    "KCC_METRICS_HEAVY_INTERVAL" => metrics.heavy_interval: parse_duration,
+    "KCC_METRICS_PER_CLIENT" => metrics.per_client: parse_bool,
+    "KCC_METRICS_PER_CLIENT_MAX" => metrics.per_client_max: parse_number,
+    "KCC_METRICS_PER_CLIENT_LABEL" => metrics.per_client_label: |raw| match raw {
+        "name" => Ok(ClientLabel::Name),
+        "pseudonym" => Ok(ClientLabel::Pseudonym),
+        "mac" => Ok(ClientLabel::Mac),
+        _ => Err("expected name, pseudonym or mac".to_owned()),
+    },
+    "KCC_LOGS_ENABLED" => logs.enabled: parse_bool,
+    "KCC_LOGS_ROUTERS" => logs.routers: |raw| Ok(split_list(raw)),
+    "KCC_LOGS_MODE" => logs.mode: |raw| match raw {
+        "stream" => Ok(LogMode::Stream),
+        "poll" => Ok(LogMode::Poll),
+        _ => Err("expected stream or poll".to_owned()),
+    },
+    "KCC_LOGS_STREAM_INTERVAL" => logs.stream_interval: parse_duration,
+    "KCC_LOGS_POLL_INTERVAL" => logs.poll_interval: parse_duration,
+    "KCC_LOGS_REDACT_MACS" => logs.redact_macs: parse_bool,
+    "KCC_LOGS_QUEUE_MAX" => logs.queue_max:
+        |raw| raw.parse::<usize>().map_err(|error| error.to_string()),
 }
 
-/// Applies every row whose variable `lookup` finds, in table order, and
-/// normalizes `[outbound] allowed_suffixes` between the two row groups.
+/// Applies every row whose variable `lookup` finds, in table order, then normalizes
+/// `[outbound] allowed_suffixes`, also when a row failed.
+///
+/// A parsed file's suffixes are already normalized, so only
+/// `KCC_OUTBOUND_ALLOWED_SUFFIXES` can make the normalization fail, and only once its
+/// row ran: a row error before that row is reported, a bad suffix outranks the error of
+/// any later row.
 ///
 /// # Errors
 ///
@@ -134,27 +127,22 @@ pub(super) fn apply<F>(config: &mut Config, lookup: F) -> Result<Vec<OverrideRep
 where
     F: Fn(&str) -> Result<Option<String>, ConfigError>,
 {
-    let mut report = apply_rows(config, &lookup, BEFORE_SUFFIX_CHECK)?;
+    let applied = apply_rows(config, &lookup);
     normalize_suffixes(&mut config.outbound.allowed_suffixes)?;
-    report.extend(apply_rows(config, &lookup, AFTER_SUFFIX_CHECK)?);
-    Ok(report)
+    applied
 }
 
-/// Applies `rows` in order and reports each override applied.
+/// Applies [`ROWS`] in order and reports each override applied.
 ///
 /// # Errors
 ///
 /// [`ConfigError::Env`] for an unusable value, or whatever `lookup` returns.
-fn apply_rows<F>(
-    config: &mut Config,
-    lookup: &F,
-    rows: &[Row],
-) -> Result<Vec<OverrideReport>, ConfigError>
+fn apply_rows<F>(config: &mut Config, lookup: &F) -> Result<Vec<OverrideReport>, ConfigError>
 where
     F: Fn(&str) -> Result<Option<String>, ConfigError>,
 {
     let mut report = Vec::new();
-    for row in rows {
+    for row in ROWS {
         let Some(raw) = lookup(row.var)? else {
             continue;
         };
