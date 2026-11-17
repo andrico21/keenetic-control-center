@@ -114,6 +114,17 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **Secret writes prove the new value.** Setting the password of a router account (also
+  the VPN server account password), a PPP connection or a Wi-Fi access point now reads the
+  stored, encoded value from the running configuration before the write and fails with
+  `VerificationFailed` (MCP `verification_failed`, CLI exit as for any read-back failure)
+  naming the setting, never the secret, when it has not changed afterwards. A router that
+  acknowledges but ignores the write no longer passes. Setting the value an account,
+  connection or access point already has is now reported the same way (the stored value
+  did not change). If the running configuration cannot be read before the write, nothing
+  is sent. New public API: `PresencePredicate::ConfigSecretReplaced` and
+  `VerificationSpec::replaced`; the Web success message for these writes says that the
+  stored value changed (`web-secret-changed`).
 - **Firewall rules with ports need TCP or UDP.** A firewall rule with a source or
   destination port on `icmp`, `esp`, `gre`, `ipip` or `ip` is refused while planning as a
   validation error on the field `source-port` or `destination-port` (CLI exit 4, MCP

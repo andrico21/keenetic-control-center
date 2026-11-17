@@ -1982,3 +1982,4 @@ web-wizard-runs-limit = Sie haben bereits 10 unvollendete Durchläufe dieses Ass
 web-migrate-inputs-password-user = Dieses Passwortfeld gehört nicht mehr zu diesem Benutzer. Laden Sie die Seite neu und geben Sie die Passwörter erneut ein.
 web-dhcp-error-name-taken = Ein Pool mit diesem Namen existiert bereits. Bearbeiten Sie stattdessen diesen Pool.
 web-dhcp-error-dns-one = Geben Sie höchstens eine DNS-Server-Adresse ein.
+web-secret-changed = { $what }: Der neue Wert wurde gesendet, und der Router speichert jetzt einen anderen Wert als zuvor. kcc prüft nur, ob er sich geändert hat, nie den Wert selbst; denselben Wert erneut zu setzen gilt deshalb als nicht angewendet. Die Änderung bleibt ungespeichert, bis Sie die Konfiguration speichern.

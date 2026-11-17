@@ -34,6 +34,8 @@ use serde_json::{Value, json};
 mod batch;
 #[path = "workflow_cli.rs"]
 mod cli;
+#[path = "workflow_credential.rs"]
+mod credential;
 #[path = "workflow_output.rs"]
 mod output;
 #[path = "workflow_receipts.rs"]
@@ -53,7 +55,7 @@ use tokio::{
     time::{Instant, sleep},
 };
 
-use self::{receipts::Receipts, recovery::Refresh};
+use self::{credential::Baseline, receipts::Receipts, recovery::Refresh};
 use crate::{
     accounts::{Clock as _, SystemClock},
     audit::{
@@ -132,6 +134,9 @@ pub struct VerificationSpec {
 pub enum PresencePredicate {
     /// A named configuration credential has a bounded nonempty protected payload.
     ConfigSecret,
+    /// A named configuration credential has a bounded nonempty protected payload that
+    /// differs from the one stored before the write, when one was stored.
+    ConfigSecretReplaced,
     /// The canonical running configuration contains the expected CLI token sequence.
     ConfigCommand,
     /// The canonical running configuration excludes the expected CLI token sequence.
@@ -208,6 +213,21 @@ impl VerificationSpec {
             field,
             expected: Value::Null,
             predicate: Some(predicate),
+        }
+    }
+
+    /// Expects the running-configuration credential stored under the command words
+    /// `prefix` (such as `user admin password`) to differ from the one stored before the
+    /// write; a failure names `prefix`, never the credential.
+    #[inline]
+    #[must_use]
+    pub fn replaced(prefix: String) -> Self {
+        Self {
+            row: None,
+            path: Vec::new(),
+            expected: Value::String(prefix.clone()),
+            field: prefix,
+            predicate: Some(PresencePredicate::ConfigSecretReplaced),
         }
     }
 }
@@ -1009,6 +1029,7 @@ impl ChangeSet {
         }
         self.check_conflict().await?;
         self.ensure_backup().await?;
+        let baseline = Baseline::capture(&self.client, &request.verify).await?;
         let path =
             RciPath::from_segments(&request.rci_path).map_err(|_error| RciError::Validation)?;
         let sent = match request.method {
@@ -1017,7 +1038,7 @@ impl ChangeSet {
         };
         drop(sent.map_err(|error| scrub_error(validated.protected_value(), error))?);
         for verification in &request.verify {
-            verification::verify(&self.client, verification).await?;
+            verification::verify(&self.client, verification, &baseline).await?;
         }
         self.expected = read_last_change(&self.client).await?;
         let (action, outcome, unsaved) = match request.method {
@@ -1077,6 +1098,7 @@ impl ChangeSet {
             .collect::<Result<Vec<_>, _>>()?;
         self.check_conflict().await?;
         self.ensure_backup().await?;
+        let baseline = Baseline::capture(&self.client, &request.verify).await?;
         let values = wire
             .iter()
             .map(|value| value.expose_secret().clone())
@@ -1096,7 +1118,7 @@ impl ChangeSet {
             }
         }
         for verification in &request.verify {
-            verification::verify(&self.client, verification).await?;
+            verification::verify(&self.client, verification, &baseline).await?;
         }
         self.expected = read_last_change(&self.client).await?;
         let timestamp = SystemClock.unix_seconds();
@@ -1210,6 +1232,11 @@ impl ChangeSet {
         request: CliChangeRequest,
         refresh: Refresh,
     ) -> Result<CliChangeResult, WorkflowError> {
+        let baseline = if request.terminal {
+            Baseline::default()
+        } else {
+            Baseline::capture(&self.client, &request.verify).await?
+        };
         let answers = self.dispatch_cli(&request.commands).await?;
         let completion = batch::completion(
             request
@@ -1249,7 +1276,7 @@ impl ChangeSet {
             ("router.change_cli_terminal", "applied_state_unknown")
         } else {
             for verification in &request.verify {
-                verification::verify(&self.client, verification).await?;
+                verification::verify(&self.client, verification, &baseline).await?;
             }
             match refresh {
                 Refresh::Required => self.expected = read_last_change(&self.client).await?,

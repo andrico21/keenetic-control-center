@@ -1508,6 +1508,9 @@ async fn rci_delete(
 /// Reads a generated CLI configuration file.
 // cancel-safe: no await point.
 async fn ci_config(State(shared): State<Arc<Shared>>, Path(name): Path<String>) -> Response {
+    if shared.reject_read(&name) {
+        return empty(StatusCode::INTERNAL_SERVER_ERROR);
+    }
     match name.as_str() {
         "running-config.txt" => shared.config_text(false).into_response(),
         "startup-config.txt" => shared.config_text(true).into_response(),

@@ -1982,3 +1982,4 @@ web-wizard-runs-limit = You already have 10 unfinished runs of this wizard. Fini
 web-migrate-inputs-password-user = This password field does not belong to this user any more. Reload the page and type the passwords again.
 web-dhcp-error-name-taken = A pool with this name already exists. Edit that pool instead.
 web-dhcp-error-dns-one = Enter at most one DNS server address.
+web-secret-changed = { $what }: the new value was sent, and the router now stores a value different from the one before. kcc checks only that it changed, never what it is, so setting the same value again is reported as not applied. The change stays unsaved until you save the configuration.

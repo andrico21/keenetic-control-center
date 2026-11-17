@@ -258,8 +258,8 @@ impl FaultInjection {
     }
 
     /// Answers the next `times` reads containing `substring` with HTTP 500: a `show`
-    /// path such as `show/media`, or the body of a root `POST` such as `"rc":{"user"`.
-    /// Parser lines are never matched.
+    /// path such as `show/media`, the body of a root `POST` such as `"rc":{"user"`, or a
+    /// configuration file name such as `running-config.txt`. Parser lines are never matched.
     #[inline]
     #[must_use]
     pub fn fail_read_matching<S>(mut self, substring: S, times: usize) -> Self

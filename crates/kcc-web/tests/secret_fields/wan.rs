@@ -78,7 +78,7 @@ async fn a_connection_password_reaches_the_router_and_nothing_else() -> TestResu
     assert_eq!(status, StatusCode::OK, "written: {answer}");
     let what = en_with(keys::WEB_INTERNET_PASSWORD, &[]);
     assert!(
-        answer.contains(&en_with(keys::WEB_SECRET_DONE, &[("what", &what)])),
+        answer.contains(&en_with(keys::WEB_SECRET_CHANGED, &[("what", &what)])),
         "the read-back's verdict: {answer}"
     );
     let written = password(&fixture)?.ok_or("no password stored")?;

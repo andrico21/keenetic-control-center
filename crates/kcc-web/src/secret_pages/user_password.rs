@@ -196,7 +196,7 @@ where
     Submission::new(
         action,
         &params,
-        Secret::new(shown, keys::WEB_INTERNET_PASSWORD),
+        Secret::replacing(shown, keys::WEB_INTERNET_PASSWORD),
         resubmit,
     )
     .confirmed_by_page(Risk::Management)

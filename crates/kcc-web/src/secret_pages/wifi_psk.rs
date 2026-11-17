@@ -108,7 +108,7 @@ pub(crate) async fn psk(
             }
         }
     }
-    let shown = Secret::new(dialog(&router, &name, locale), keys::WEB_WIFI_PSK);
+    let shown = Secret::replacing(dialog(&router, &name, locale), keys::WEB_WIFI_PSK);
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Wifi);
     let params = Params::default();
     let resubmit = Resubmit::new(

@@ -177,6 +177,9 @@ pub fn plan_tag(
 
 /// Plans a plaintext password write whose printable plan retains only a redacted projection.
 ///
+/// Its read-back requires the stored hash to differ from the one before the write, so
+/// setting the same password again fails verification.
+///
 /// # Errors
 ///
 /// Returns an error when an argument cannot be one safe router CLI word
@@ -207,7 +210,10 @@ pub fn plan_password(
     verify.row = Some(("name".to_owned(), json!(name)));
     Ok(ChangeOp::new(
         vec![user, validated_password],
-        vec![verify],
+        vec![
+            verify,
+            VerificationSpec::replaced(format!("user {name} password")),
+        ],
         Risk::Management,
         Permission::ManageUsers,
         false,

@@ -148,6 +148,15 @@ The network area has tabs:
 - **Wi-Fi** (`/wifi`): access points and radios; turn an access point on or off, hide
   the SSID, edit settings. The Wi-Fi password is set from an access point's settings
   (Edit beside Wi-Fi password): 8 to 63 characters, checked before anything is sent.
+
+A new password of a router account, a PPP connection or a Wi-Fi access point (Web, MCP
+and CLI alike) is verified without reading it: kcc reads the stored, encoded value before
+the write and requires it to have changed afterwards. A router that accepts the write but
+keeps the old value fails with "verification failed" naming the setting (for example
+`interface WifiMaster0/AccessPoint0 authentication wpa-psk`). The stored value of the same
+password is always the same, so setting the password it already has fails the same way:
+the stored value did not change. When the stored value cannot be read before the write,
+nothing is sent. A first password, where none was stored, is checked for presence only.
 - **Mesh** (`/mesh`): mesh members with check, update and restart actions.
 
 ## Routing

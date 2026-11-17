@@ -135,7 +135,7 @@ pub(crate) async fn password(
     if management {
         asked = asked.management();
     }
-    let shown = Secret::new(asked, keys::WEB_INTERNET_PASSWORD);
+    let shown = Secret::replacing(asked, keys::WEB_INTERNET_PASSWORD);
     let call = Call::new(&state, &user, &router, &headers).on(Tab::Internet);
     let params = Params::default();
     let resubmit = Resubmit::new(

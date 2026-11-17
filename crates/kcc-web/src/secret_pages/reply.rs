@@ -35,12 +35,29 @@ pub(crate) struct Secret {
     dialog: SecretDialog,
     /// The label of the secret written.
     what: MessageKey,
+    /// What a success says the read-back checked.
+    done: MessageKey,
 }
 
 impl Secret {
-    /// `dialog`, writing the secret labelled `what`.
+    /// `dialog`, writing the secret labelled `what`, whose read-back checks only that a
+    /// value is stored.
     pub(crate) const fn new(dialog: SecretDialog, what: MessageKey) -> Self {
-        Self { dialog, what }
+        Self {
+            dialog,
+            what,
+            done: keys::WEB_SECRET_DONE,
+        }
+    }
+
+    /// `dialog`, writing the secret labelled `what`, whose read-back checks that the stored
+    /// value changed.
+    pub(crate) const fn replacing(dialog: SecretDialog, what: MessageKey) -> Self {
+        Self {
+            dialog,
+            what,
+            done: keys::WEB_SECRET_CHANGED,
+        }
     }
 }
 
@@ -84,7 +101,7 @@ impl submit::Form for Secret {
         locale: Locale,
     ) -> Response {
         changed(
-            verified(outcome, locale, self.what),
+            verified(outcome, locale, (self.what, self.done)),
             refreshed,
             None,
             locale,
@@ -102,12 +119,16 @@ pub(crate) fn typed(entry: Entry) -> Option<Result<SecretString, Invalid>> {
     }
 }
 
-/// `outcome` of writing the secret `what` (a field label); a success says what the
-/// read-back checked: the router reports a stored value, never which one.
-pub(crate) fn verified(outcome: Outcome, locale: Locale, what: MessageKey) -> Outcome {
+/// `outcome` of writing the secret `what` (a field label); a success says, in the words of
+/// `done`, what the read-back checked: a stored value, or a changed one, never which one.
+pub(crate) fn verified(
+    outcome: Outcome,
+    locale: Locale,
+    (what, done): (MessageKey, MessageKey),
+) -> Outcome {
     let mut args = FluentArgs::new();
     args.set("what", tr(locale, what, None));
-    confirmed(outcome, tr(locale, keys::WEB_SECRET_DONE, Some(&args)))
+    confirmed(outcome, tr(locale, done, Some(&args)))
 }
 
 /// `outcome` with `headline` when it succeeded, which keeps its unsaved state.

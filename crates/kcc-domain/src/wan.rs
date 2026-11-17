@@ -199,7 +199,8 @@ pub async fn plan_identity(
     .await
 }
 
-/// Plans a PPP authentication password while retaining plaintext only in protected storage.
+/// Plans a PPP authentication password while retaining plaintext only in protected storage;
+/// its read-back requires the stored value to differ from the one before the write.
 ///
 /// # Errors
 ///
@@ -219,14 +220,17 @@ pub async fn plan_password(
     let escaped_name = pointer::escape(name.as_str());
     let operation = ChangeOp::new(
         vec![validated],
-        vec![VerificationSpec::presence(
-            vec!["show".to_owned(), "interface".to_owned()],
-            format!("/{escaped_name}/authentication/password/ns3"),
-            PresencePredicate::MarkerOrLengthRange {
-                minimum: 24,
-                maximum: 256,
-            },
-        )],
+        vec![
+            VerificationSpec::presence(
+                vec!["show".to_owned(), "interface".to_owned()],
+                format!("/{escaped_name}/authentication/password/ns3"),
+                PresencePredicate::MarkerOrLengthRange {
+                    minimum: 24,
+                    maximum: 256,
+                },
+            ),
+            VerificationSpec::replaced(format!("interface {name} authentication password")),
+        ],
         Risk::Write,
         Permission::Write,
         false,

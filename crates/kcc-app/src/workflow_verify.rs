@@ -8,20 +8,25 @@ use secrecy::ExposeSecret as _;
 use serde_json::{Value, json};
 use zeroize::Zeroize as _;
 
-use super::{PresencePredicate, VerificationSpec, WorkflowError};
+use super::{
+    PresencePredicate, VerificationSpec, WorkflowError,
+    credential::{self, Baseline},
+};
 
-/// Executes one read-back expectation.
+/// Executes one read-back expectation; a replaced credential is compared with `baseline`.
 // cancel-safe: only reads router state.
 pub(super) async fn verify(
     client: &RciClient,
     spec: &VerificationSpec,
+    baseline: &Baseline,
 ) -> Result<(), WorkflowError> {
     let satisfied = match spec.predicate {
         Some(
             PresencePredicate::ConfigCommand
             | PresencePredicate::ConfigCommandAbsent
-            | PresencePredicate::ConfigSecret,
-        ) => return configuration(client, spec).await,
+            | PresencePredicate::ConfigSecret
+            | PresencePredicate::ConfigSecretReplaced,
+        ) => return configuration(client, spec, baseline).await,
         None => Readback::fetch(client, spec).await?.field() == Some(&spec.expected),
         Some(PresencePredicate::Absent) => Readback::fetch(client, spec).await?.field_absent(),
         Some(PresencePredicate::Contains) => Readback::fetch(client, spec)
@@ -151,14 +156,22 @@ impl<'spec> Readback<'spec> {
     }
 }
 
-/// Compares a non-secret command against a fresh canonical running configuration.
+/// Compares a non-secret command, or a credential's presence or replacement, against a
+/// fresh canonical running configuration.
 // cancel-safe: only downloads and decodes router state.
-async fn configuration(client: &RciClient, spec: &VerificationSpec) -> Result<(), WorkflowError> {
+async fn configuration(
+    client: &RciClient,
+    spec: &VerificationSpec,
+    baseline: &Baseline,
+) -> Result<(), WorkflowError> {
     let bytes = client.download_config(ConfigKind::Running).await?;
     let text =
         from_utf8(bytes.expose_secret()).map_err(|_error| WorkflowError::UndecodableConfig)?;
     if spec.predicate == Some(PresencePredicate::ConfigSecret) {
-        return credential(text, spec);
+        return credential::present(text, spec);
+    }
+    if spec.predicate == Some(PresencePredicate::ConfigSecretReplaced) {
+        return credential::replaced(text, spec, baseline);
     }
     let expected = spec
         .expected
@@ -204,41 +217,6 @@ fn wipe_tokens(nodes: &mut [Node]) {
         }
         wipe_tokens(&mut node.children);
     }
-}
-
-/// Checks a credential payload without allocating or comparing its value.
-fn credential(text: &str, spec: &VerificationSpec) -> Result<(), WorkflowError> {
-    let prefix = spec
-        .expected
-        .as_str()
-        .ok_or_else(|| WorkflowError::VerificationFailed {
-            field: spec.field.clone(),
-        })?;
-    let mut contexts = Vec::<(usize, &str)>::new();
-    let present = text.lines().any(|line| {
-        let trimmed = line.trim_start();
-        if trimmed.starts_with('!') || trimmed.is_empty() {
-            return false;
-        }
-        let indent = line.len().saturating_sub(trimmed.len());
-        contexts.retain(|(depth, _)| *depth < indent);
-        let remaining = contexts.iter().try_fold(prefix, |rest, (_, context)| {
-            rest.strip_prefix(context)?.strip_prefix(' ')
-        });
-        let found = remaining
-            .and_then(|rest| trimmed.strip_prefix(rest))
-            .and_then(|tail| tail.strip_prefix(' '))
-            .map(|payload| payload.strip_prefix("ns3 ").unwrap_or(payload))
-            .is_some_and(|payload| !payload.is_empty() && payload.len() <= 512);
-        contexts.push((indent, trimmed));
-        found
-    });
-    if !present {
-        return Err(WorkflowError::VerificationFailed {
-            field: spec.field.clone(),
-        });
-    }
-    Ok(())
 }
 
 /// Compares requested fields while allowing unrelated router-owned fields.

@@ -108,7 +108,7 @@ async fn a_wifi_password_reaches_the_router_and_nothing_else() -> TestResult {
     assert_eq!(status, StatusCode::OK, "written: {answer}");
     let what = en_with(keys::WEB_WIFI_PSK, &[]);
     assert!(
-        answer.contains(&en_with(keys::WEB_SECRET_DONE, &[("what", &what)])),
+        answer.contains(&en_with(keys::WEB_SECRET_CHANGED, &[("what", &what)])),
         "the read-back's verdict: {answer}"
     );
     assert!(answer.contains("id=\"unsaved-badge\""), "unsaved: {answer}");

@@ -6668,8 +6668,11 @@ pub const WEB_DHCP_ERROR_NAME_TAKEN: MessageKey = MessageKey::new("web-dhcp-erro
 /// `web-dhcp-error-dns-one` in `web.ftl`.
 pub const WEB_DHCP_ERROR_DNS_ONE: MessageKey = MessageKey::new("web-dhcp-error-dns-one");
 
+/// `web-secret-changed` in `web.ftl`.
+pub const WEB_SECRET_CHANGED: MessageKey = MessageKey::new("web-secret-changed");
+
 /// Every message key, in catalog order.
-pub static ALL: [MessageKey; 2123] = [
+pub static ALL: [MessageKey; 2124] = [
     CLI_ROUTER_ADDED,
     CLI_ROUTER_REMOVED,
     CLI_NO_ROUTERS,
@@ -8793,4 +8796,5 @@ pub static ALL: [MessageKey; 2123] = [
     WEB_MIGRATE_INPUTS_PASSWORD_USER,
     WEB_DHCP_ERROR_NAME_TAKEN,
     WEB_DHCP_ERROR_DNS_ONE,
+    WEB_SECRET_CHANGED,
 ];

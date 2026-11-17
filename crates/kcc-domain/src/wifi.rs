@@ -143,7 +143,8 @@ pub fn plan_ssid(router: &RouterCtx, name: &ObjectName, ssid: &str) -> Result<Ch
     )
 }
 
-/// Plans a WPA pre-shared key while retaining plaintext only in protected storage.
+/// Plans a WPA pre-shared key while retaining plaintext only in protected storage; its
+/// read-back requires the stored key to differ from the one before the write.
 ///
 /// # Errors
 ///

@@ -77,7 +77,7 @@ async fn account_passwords_reach_the_router_and_nothing_else() -> TestResult {
     assert_eq!(change_status, StatusCode::OK, "changed: {changed}");
     let what = en_with(keys::WEB_INTERNET_PASSWORD, &[]);
     assert!(
-        changed.contains(&en_with(keys::WEB_SECRET_DONE, &[("what", &what)])),
+        changed.contains(&en_with(keys::WEB_SECRET_CHANGED, &[("what", &what)])),
         "the read-back's verdict: {changed}"
     );
     assert_ne!(digest(&fixture, "alice")?, Some(set), "a new password");

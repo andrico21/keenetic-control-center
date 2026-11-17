@@ -1153,7 +1153,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(domain): shared helpers, no dead code, narrow expects
   Recommended task executor category: unspecified-high - multi-file change across modules
 
-- [ ] 53. Secret read-back proves the new value
+- [x] 53. Secret read-back proves the new value
   What to do / Must NOT do: Per the finding: compare against a value that changes with the written secret (e.g. the ns3 blob or length/hash marker) instead of mere presence. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `C-22` (low; critic confirmed) Read-back of secret writes passes when an old secret is already there. Evidence: `router_users.rs:161-169`, `wifi/plan.rs:72-79`, `wan.rs:180-187`. Fix: Read the hash or marker before the write and require it to change.
   Must NOT: change unrelated behaviour, add a crate that is not already in `[workspace.dependencies]` or `Cargo.lock`, weaken a security control, change the audit entry format or hash rule, or touch files owned by another open todo of the same wave beyond what this todo needs; keep routes, MCP tool names/schemas and CLI flags except where a finding above changes them on purpose (name each such change in the commit body).

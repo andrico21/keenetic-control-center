@@ -63,7 +63,8 @@ pub(super) fn plan_with_risk(
     ))
 }
 
-/// Validates one secret Wi-Fi argument and verifies only its protected representation.
+/// Validates one secret Wi-Fi argument and verifies only its protected representation: it
+/// is present, and it differs from the one stored before the write.
 ///
 /// # Errors
 ///
@@ -83,14 +84,17 @@ pub(super) fn plan_secret(
     let escaped_name = pointer::escape(name.as_str());
     Ok(ChangeOp::new(
         vec![validated],
-        vec![VerificationSpec::presence(
-            vec!["show".to_owned(), "interface".to_owned()],
-            format!("/{escaped_name}/authentication/wpa-psk/ns3"),
-            PresencePredicate::MarkerOrLengthRange {
-                minimum: 24,
-                maximum: 256,
-            },
-        )],
+        vec![
+            VerificationSpec::presence(
+                vec!["show".to_owned(), "interface".to_owned()],
+                format!("/{escaped_name}/authentication/wpa-psk/ns3"),
+                PresencePredicate::MarkerOrLengthRange {
+                    minimum: 24,
+                    maximum: 256,
+                },
+            ),
+            VerificationSpec::replaced(format!("interface {name} authentication wpa-psk")),
+        ],
         Risk::Write,
         Permission::Write,
         false,
