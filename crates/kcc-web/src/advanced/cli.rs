@@ -230,12 +230,7 @@ pub(crate) async fn send(
         }
     };
     audit.append_outcome(&state, &user, outcome.outcome()).await;
-    let response = outcome.render(locale);
-    if risk == Risk::Read {
-        response
-    } else {
-        respond::close_dialog(response)
-    }
+    outcome.respond_for(risk, locale)
 }
 
 /// Validates one CLI line against `catalog`.

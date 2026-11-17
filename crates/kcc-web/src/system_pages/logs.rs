@@ -11,7 +11,7 @@ use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
-    http::{HeaderMap, HeaderValue, StatusCode, header},
+    http::{HeaderMap, StatusCode},
     response::{IntoResponse as _, Response, sse::Event},
 };
 use futures_util::{
@@ -35,6 +35,7 @@ use crate::{
         audit::Record,
         context::{self, fragment_shell},
         request::with_query,
+        respond,
     },
     stream_session::StreamSession,
 };
@@ -210,16 +211,9 @@ pub(crate) async fn download(
     record.append(&state, &user, "success").await;
     let mut text = lines.join("\n");
     text.push('\n');
-    let mut response = text.into_response();
-    let headers = response.headers_mut();
-    drop(headers.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("text/plain; charset=utf-8"),
-    ));
-    if let Ok(disposition) =
-        HeaderValue::from_str(&format!("attachment; filename=\"{router}-log.txt\""))
-    {
-        drop(headers.insert(header::CONTENT_DISPOSITION, disposition));
-    }
-    response
+    respond::attachment(
+        text,
+        "text/plain; charset=utf-8",
+        &format!("{router}-log.txt"),
+    )
 }

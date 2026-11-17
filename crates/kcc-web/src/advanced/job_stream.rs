@@ -25,6 +25,7 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
+    job_status,
     overview::{fragment, guarded},
     page::{Localize as _, Shell},
     page_kit::{
@@ -33,21 +34,6 @@ use crate::{
     },
     stream_session::StreamSession,
 };
-
-/// The status pill of a job.
-#[derive(Template)]
-#[template(
-    ext = "html",
-    source = "<span class=\"status\" data-status=\"{{ status }}\">{{ t(*label) }}</span>"
-)]
-struct StatusView {
-    /// Locale carrier.
-    shell: Shell,
-    /// `data-status` value.
-    status: &'static str,
-    /// Label.
-    label: MessageKey,
-}
 
 /// The router's final answer to a job.
 #[derive(Template)]
@@ -60,8 +46,6 @@ struct OutputView {
     /// Why there is no answer.
     note: MessageKey,
 }
-
-localized!(StatusView);
 
 localized!(OutputView);
 
@@ -138,15 +122,7 @@ impl Events {
 
     /// A `status` event.
     fn status(&self, status: JobStatus) -> Event {
-        let (value, label) = status_label(status);
-        fragment(
-            "status",
-            &StatusView {
-                shell: fragment_shell(self.locale),
-                status: value,
-                label,
-            },
-        )
+        job_status::event(status, self.locale)
     }
 
     /// The final events: the answer, the final status and `done`.
@@ -184,14 +160,4 @@ impl Events {
 /// Whether a job in `status` has ended.
 const fn terminal(status: JobStatus) -> bool {
     !matches!(status, JobStatus::Running)
-}
-
-/// The pill value and label of a job status.
-const fn status_label(status: JobStatus) -> (&'static str, MessageKey) {
-    match status {
-        JobStatus::Running => ("running", keys::WEB_EXPLORER_JOB_RUNNING),
-        JobStatus::Completed => ("done", keys::WEB_EXPLORER_JOB_COMPLETED),
-        JobStatus::Cancelled => ("failed", keys::WEB_EXPLORER_JOB_CANCELLED_LABEL),
-        JobStatus::Failed | JobStatus::Interrupted | _ => ("failed", keys::WEB_EXPLORER_JOB_FAILED),
-    }
 }

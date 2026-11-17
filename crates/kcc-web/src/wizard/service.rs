@@ -11,12 +11,13 @@
 //! work the same way for every wizard.
 
 use alloc::{collections::BTreeMap, sync::Arc};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use kcc_migrate::inventory::TargetInventory;
 use tokio::sync::{Mutex as AsyncMutex, OwnedMutexGuard};
 
 use super::{flow::Flow, live::Live};
+use crate::sync::lock;
 
 /// Runs kept in memory; past it, the oldest idle one is forgotten first.
 const KEPT: usize = 64;
@@ -218,12 +219,6 @@ where
     fn idle(self: &Arc<Self>) -> bool {
         Arc::strong_count(self) == 1 && self.turn.try_lock().is_ok() && lock(&self.live).is_none()
     }
-}
-
-/// A lock whose holder cannot leave the data half-written, so a poisoned lock is used
-/// as is.
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(test)]

@@ -17,7 +17,7 @@ use tokio::time::{Instant, timeout_at};
 
 use crate::support::{
     outcome::TestResult,
-    page::{en, form, text},
+    page::{en, en_with, form, text},
     web::{Browser, Fixture},
 };
 
@@ -87,7 +87,10 @@ async fn a_ping_streams_its_replies_until_it_ends() -> TestResult {
         received.contains(&en(keys::WEB_EXPLORER_JOB_COMPLETED)),
         "completed: {received}"
     );
-    assert!(received.contains("Reply in 1 ms"), "localized: {received}");
+    assert!(
+        received.contains(&en_with(keys::WEB_SYSTEM_DIAG_PING_LINE, &[("value", "1")])),
+        "localized: {received}"
+    );
     assert!(
         fixture.audited("web.diagnostics_ping", "started")?,
         "audited"

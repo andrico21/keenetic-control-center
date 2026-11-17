@@ -3,7 +3,7 @@
 
 use askama::Template;
 use axum::{
-    http::{HeaderValue, StatusCode},
+    http::{HeaderValue, StatusCode, header},
     response::{IntoResponse, Response},
 };
 use kcc_i18n::{keys, locale::Locale};
@@ -75,6 +75,17 @@ pub(crate) fn close_dialog(mut response: Response) -> Response {
             .headers_mut()
             .insert("hx-trigger", HeaderValue::from_static("kcc:dialog-close")),
     );
+    response
+}
+
+/// `body` as `content_type`, downloaded as a file named `name`.
+pub(crate) fn attachment(body: String, content_type: &'static str, name: &str) -> Response {
+    let mut response = body.into_response();
+    let headers = response.headers_mut();
+    drop(headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type)));
+    if let Ok(value) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\"")) {
+        drop(headers.insert(header::CONTENT_DISPOSITION, value));
+    }
     response
 }
 

@@ -6,7 +6,9 @@
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::fmt;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
+
+use crate::sync::lock;
 
 /// Concurrent event streams one session may hold.
 pub const MAX_STREAMS_PER_SESSION: usize = 4;
@@ -26,7 +28,7 @@ impl fmt::Debug for StreamLimiter {
     #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StreamLimiter")
-            .field("sessions", &self.lock().len())
+            .field("sessions", &lock(&self.open).len())
             .finish()
     }
 }
@@ -37,7 +39,7 @@ impl StreamLimiter {
     #[inline]
     #[must_use]
     pub fn try_acquire(&self, session: &str) -> Option<StreamPermit> {
-        let mut open = self.lock();
+        let mut open = lock(&self.open);
         let count = open.entry(session.to_owned()).or_default();
         if *count >= MAX_STREAMS_PER_SESSION {
             return None;
@@ -54,24 +56,18 @@ impl StreamLimiter {
     #[inline]
     #[must_use]
     pub fn open_streams(&self, session: &str) -> usize {
-        self.lock().get(session).copied().unwrap_or(0)
+        lock(&self.open).get(session).copied().unwrap_or(0)
     }
 
     /// Releases one stream of `session`.
     fn release(&self, session: &str) {
-        let mut open = self.lock();
+        let mut open = lock(&self.open);
         if let Some(count) = open.get_mut(session) {
             *count = count.saturating_sub(1);
             if *count == 0 {
                 let _released: Option<usize> = open.remove(session);
             }
         }
-    }
-
-    /// The counters; a panic while holding the lock cannot leave them inconsistent, so a
-    /// poisoned lock is used as is.
-    fn lock(&self) -> MutexGuard<'_, BTreeMap<String, usize>> {
-        self.open.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 

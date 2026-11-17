@@ -55,6 +55,8 @@
     {%- endif %}
     {%- if detail.jobs_missing() %}
     <p class="notice" data-tone="neutral">{{ t(keys::WEB_EXPLORER_JOBS_UNAVAILABLE) }}</p>
+    {%- else if let Some(note) = detail.refusal() %}
+    <p class="notice" data-tone="neutral">{{ note }}</p>
     {%- else if !detail.can_execute() %}
     <p class="panel__note">{{ t(keys::WEB_EXPLORER_READ_ONLY_NOTE) }}</p>
     {%- endif %}

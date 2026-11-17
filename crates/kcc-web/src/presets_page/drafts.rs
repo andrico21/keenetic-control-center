@@ -5,12 +5,12 @@
 //! forgets it, and the account reads the source again.
 
 use alloc::sync::Arc;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use kcc_migrate::presets::model::{PresetSource, PresetSourceKind};
 use secrecy::SecretString;
 
-use crate::wizard::source::Source;
+use crate::{sync::lock, wizard::source::Source};
 
 /// Drafts kept in memory; the oldest one is forgotten first.
 const KEPT: usize = 32;
@@ -118,10 +118,4 @@ impl Drafts {
     pub(super) fn remove(&self, id: &str) {
         lock(&self.entries).retain(|(known, _)| known != id);
     }
-}
-
-/// A lock whose holder cannot leave the data half-written, so a poisoned lock is used
-/// as is.
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

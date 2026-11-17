@@ -14,7 +14,7 @@ use alloc::{
     sync::{Arc, Weak},
 };
 use core::time::Duration;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use kcc_app::poller::{PollResult, Poller, Snapshot};
 use tokio::{
@@ -23,7 +23,10 @@ use tokio::{
     time::{Instant, timeout},
 };
 
-use crate::traffic::{TrafficPoint, TrafficSampler};
+use crate::{
+    sync::lock,
+    traffic::{TrafficPoint, TrafficSampler},
+};
 
 /// Traffic points kept per router: 30 minutes at the 15-second poll cadence.
 pub(crate) const HISTORY_POINTS: usize = 120;
@@ -211,12 +214,6 @@ fn history_of(histories: &Histories, router: &str) -> Vec<TrafficPoint> {
     lock(histories)
         .get(router)
         .map_or_default(|points| points.iter().copied().collect())
-}
-
-/// The histories; a panic while holding the lock cannot leave a history unordered, so a
-/// poisoned lock is used as is.
-fn lock(histories: &Histories) -> MutexGuard<'_, BTreeMap<String, VecDeque<TrafficPoint>>> {
-    histories.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(test)]

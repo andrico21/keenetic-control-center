@@ -15,7 +15,7 @@ use crate::{
     INCIDENT,
     support::{
         outcome::TestResult,
-        page::{en, form, header_text, html, text},
+        page::{en, en_with, form, header_text, html, text},
         web::Fixture,
     },
 };
@@ -325,7 +325,7 @@ async fn the_cli_console_maps_lines_and_refuses_unknown_commands() -> TestResult
     )
     .await?;
     assert!(
-        known.contains("Catalog command: ip host"),
+        known.contains(&en_with(keys::WEB_CONSOLE_MATCHED, &[("path", "ip host")])),
         "mapped: {known}"
     );
     let before = fixture.handle().request_count();

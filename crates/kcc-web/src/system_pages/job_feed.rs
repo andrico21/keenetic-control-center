@@ -6,7 +6,7 @@
 //! a stream always starts from the beginning.
 
 use alloc::{collections::VecDeque, sync::Arc};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use kcc_app::{
     jobs::{JobEvent, JobProgress, JobRunner, JobStatus},
@@ -17,7 +17,7 @@ use tokio::sync::{
     watch,
 };
 
-use crate::{authz::CurrentUser, page_kit::gate::allowed};
+use crate::{authz::CurrentUser, page_kit::gate::allowed, sync::lock};
 
 /// Jobs whose progress is kept; the oldest is forgotten first.
 const KEPT_JOBS: usize = 32;
@@ -143,10 +143,4 @@ async fn collect(
             Err(RecvError::Closed) => return,
         }
     }
-}
-
-/// The kept feeds; a panic while holding the lock cannot leave an entry half-written, so
-/// a poisoned lock is used as is.
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }

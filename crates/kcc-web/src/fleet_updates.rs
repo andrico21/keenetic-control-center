@@ -13,7 +13,7 @@ extern crate alloc;
 
 use alloc::{collections::BTreeMap, sync::Arc};
 use core::{fmt, pin::Pin};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use kcc_app::{accounts::Clock, poller::Poller, registry::RouterRegistry};
 use kcc_catalog::Catalog;
@@ -21,7 +21,10 @@ use kcc_domain::{RouterCtx, components};
 use kcc_rci::RciBody;
 use serde_json::Value;
 
-use crate::fleet::{UPDATE_CHECK_TTL, UpdateCheck, UpdateStatus};
+use crate::{
+    fleet::{UPDATE_CHECK_TTL, UpdateCheck, UpdateStatus},
+    sync::lock,
+};
 
 /// [`UpdateCheck`] over the components domain's check, cached per router.
 #[non_exhaustive]
@@ -249,10 +252,4 @@ fn interpret(answer: &Value) -> UpdateStatus {
         Some(false) => UpdateStatus::Current,
         None => UpdateStatus::Unknown,
     }
-}
-
-/// The result map; a panic while holding it cannot leave an entry half-written, so a
-/// poisoned lock is used as is.
-fn lock(results: &Mutex<BTreeMap<String, Checked>>) -> MutexGuard<'_, BTreeMap<String, Checked>> {
-    results.lock().unwrap_or_else(PoisonError::into_inner)
 }

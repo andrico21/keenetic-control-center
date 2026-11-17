@@ -10,7 +10,7 @@ use kcc_i18n::{
 };
 use url::form_urlencoded::byte_serialize;
 
-use super::{check::risk_key, form::Form, meta, types::arguments_table};
+use super::{check::risk_key, form::Form, meta, request::reads_only, types::arguments_table};
 use crate::{
     page_kit::{
         facts::RouterFacts,
@@ -66,6 +66,8 @@ pub(crate) struct Detail {
     form: Form,
     /// Whether and why not the command can run.
     runnable: Runnable,
+    /// The localized reason the explorer refuses the command.
+    refusal: Option<String>,
 }
 
 /// Whether the explorer can run a command for the user.
@@ -77,6 +79,8 @@ enum Runnable {
     Forbidden,
     /// It runs in the background and the job service is missing.
     NoJobs,
+    /// It runs in the background and changes the router, which the explorer refuses.
+    Refused,
 }
 
 /// What a detail depends on besides the command.
@@ -147,6 +151,7 @@ pub(crate) fn detail(scope: &Scope<'_>, path: &str) -> Option<Detail> {
     });
     let mut count = FluentArgs::new();
     count.set("count", command.models.len());
+    let refused = background && !reads_only(path, risk);
     let permitted = scope.controls.permits(&command_permissions(risk));
     Some(Detail {
         path: path.to_owned(),
@@ -170,10 +175,20 @@ pub(crate) fn detail(scope: &Scope<'_>, path: &str) -> Option<Detail> {
         arguments: arguments_table(command.arguments.values(), locale),
         form: Form::build(&schema, locale),
         runnable: match (permitted, background && !scope.jobs) {
+            _ if refused => Runnable::Refused,
             (_, true) => Runnable::NoJobs,
             (true, false) => Runnable::Yes,
             (false, false) => Runnable::Forbidden,
         },
+        refusal: refused.then(|| {
+            let mut args = FluentArgs::new();
+            args.set("path", path.to_owned());
+            tr(
+                locale,
+                keys::WEB_EXPLORER_ISSUE_BACKGROUND_CHANGE,
+                Some(&args),
+            )
+        }),
     })
 }
 
@@ -324,6 +339,11 @@ impl Detail {
     /// Whether the command needs the missing job service.
     pub(crate) const fn jobs_missing(&self) -> bool {
         matches!(self.runnable, Runnable::NoJobs)
+    }
+
+    /// Why the explorer refuses the command, when it does.
+    pub(crate) fn refusal(&self) -> Option<&str> {
+        self.refusal.as_deref()
     }
 
     /// The execute button label: running a read or applying a change.

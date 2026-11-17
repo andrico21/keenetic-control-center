@@ -6,6 +6,7 @@
 
 use askama::Template;
 use axum::response::Response;
+use kcc_catalog::Risk;
 use kcc_i18n::{bundle::tr, keys, locale::Locale};
 
 use super::{
@@ -20,6 +21,7 @@ use crate::{
         context::fragment_shell,
         family::Family,
         outcome::{Failure, Outcome, with_status},
+        respond,
     },
 };
 
@@ -230,5 +232,15 @@ impl Reply {
             reply: self,
         };
         with_status(errors::render(&view), status)
+    }
+
+    /// The reply to a request of `risk`: a change also closes the shared dialog.
+    pub(crate) fn respond_for(self, risk: Risk, locale: Locale) -> Response {
+        let response = self.render(locale);
+        if risk == Risk::Read {
+            response
+        } else {
+            respond::close_dialog(response)
+        }
     }
 }

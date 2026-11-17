@@ -313,7 +313,8 @@ the run then shows that the router rolled the changes back.
 
 `/ui/r/<router>/explorer` searches the router's command catalog for its firmware and
 model, shows each command's arguments and runs it with validated input. Background
-commands run as jobs. The RCI and CLI consoles send raw requests that are still
+commands that only read run as jobs; one that changes the router is refused, and its
+detail page offers no Execute button. The RCI and CLI consoles send raw requests that are still
 validated against the catalog; they need the RawRci permission. Writes go through the
 change workflow. In the CLI console an administrator can tick "Send without catalog
 validation" for a command the catalog does not know; such a line counts as destructive:

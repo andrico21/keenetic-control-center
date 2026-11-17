@@ -25,9 +25,9 @@ use crate::{
     errors,
     page_kit::{
         context::{Refusal, fragment_shell},
-        respond::Answer,
+        respond::{Answer, attachment},
     },
-    wizard::{report::attachment, service::Wizards, services::Services, store::Kept},
+    wizard::{service::Wizards, services::Services, store::Kept},
 };
 
 /// `GET /ui/migrate/{id}/download/{file}`: one of the plan's files, as an attachment.

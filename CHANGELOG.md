@@ -573,6 +573,10 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **The command explorer offers no Execute button for a background command that
+  changes the router.** Such a command (`ussd send`, for one) was always refused when
+  sent and audited as a validation failure; its detail page now says so and shows no
+  button.
 - **A new API key is shown even when the key table cannot be read again.** When the
   table refresh after creating an MCP API key failed, the Web UI answered an empty 500
   and the stored, working key was never shown. The dialog now shows the key once in an

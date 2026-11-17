@@ -177,12 +177,7 @@ pub(crate) async fn send(
     let dispatch = Sender::new(&state, &user, &session).to(target, &facts);
     let outcome = run(dispatch, checked, params).await;
     audit.append_outcome(&state, &user, outcome.outcome()).await;
-    let response = outcome.render(locale);
-    if risk == Risk::Read {
-        response
-    } else {
-        respond::close_dialog(response)
-    }
+    outcome.respond_for(risk, locale)
 }
 
 /// Sends a checked console request: reads through the shared client, everything else

@@ -136,7 +136,7 @@ impl Request {
 /// The catalog rates it `Read`, or a curated domain operation runs the same command as a
 /// read (the network diagnostics, the component list and the system log). A job bypasses
 /// the change workflow, so any other background command is refused before it is sent.
-fn reads_only(path: &str, risk: Risk) -> bool {
+pub(super) fn reads_only(path: &str, risk: Risk) -> bool {
     risk == Risk::Read
         || kcc_domain::registry()
             .iter()

@@ -13,7 +13,6 @@ use axum::{
     response::Response,
 };
 use kcc_app::workflow::BatchItem;
-use kcc_catalog::Risk;
 use secrecy::zeroize::Zeroizing;
 use serde_json::json;
 
@@ -33,7 +32,6 @@ use crate::{
         confirm::{Confirmation, Resubmit, Stakes},
         family::Family,
         gate::{allowed, command_permissions},
-        respond,
     },
 };
 
@@ -103,10 +101,5 @@ pub(crate) async fn execute(
         }
     };
     audit.append_outcome(&state, &user, outcome.outcome()).await;
-    let response = outcome.render(locale);
-    if risk == Risk::Read {
-        response
-    } else {
-        respond::close_dialog(response)
-    }
+    outcome.respond_for(risk, locale)
 }

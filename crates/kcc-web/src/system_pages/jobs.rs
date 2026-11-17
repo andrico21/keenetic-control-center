@@ -30,7 +30,7 @@ use super::{
 use crate::{
     WebState,
     authz::{CurrentSession, CurrentUser},
-    errors,
+    errors, job_status,
     overview::{fragment, guarded},
     page::{Localize as _, Shell},
     page_kit::{
@@ -95,21 +95,6 @@ impl JobPanel {
     }
 }
 
-/// The status pill of a job.
-#[derive(Template)]
-#[template(
-    ext = "html",
-    source = "<span class=\"status\" data-status=\"{{ status }}\">{{ t(*label) }}</span>"
-)]
-struct StatusView {
-    /// Locale carrier.
-    shell: Shell,
-    /// `data-status` value.
-    status: &'static str,
-    /// Label.
-    label: MessageKey,
-}
-
 /// One line of a job's output.
 #[derive(Template)]
 #[template(ext = "html", source = "<li class=\"job-lines__line\">{{ text }}</li>")]
@@ -119,8 +104,6 @@ struct LineView {
     /// The line, localized.
     text: String,
 }
-
-localized!(StatusView);
 
 localized!(LineView);
 
@@ -201,7 +184,7 @@ fn events(progress: watch::Receiver<JobView>, listener: Locale) -> BoxStream<'st
             })
             .collect();
         if shown != Some(view.status()) {
-            out.push(status(view.status(), locale));
+            out.push(job_status::event(view.status(), locale));
         }
         if !open || view.status() != JobStatus::Running {
             out.push(Event::default().event("done").data("done"));
@@ -227,24 +210,6 @@ fn line(detail: &JobProgress, locale: Locale) -> Option<String> {
         JobProgress::OutputLine(text) => sentence(text, locale),
         _ => None,
     }
-}
-
-/// A `status` event.
-fn status(status: JobStatus, locale: Locale) -> Event {
-    let (value, label) = match status {
-        JobStatus::Running => ("running", keys::WEB_EXPLORER_JOB_RUNNING),
-        JobStatus::Completed => ("done", keys::WEB_EXPLORER_JOB_COMPLETED),
-        JobStatus::Cancelled => ("failed", keys::WEB_EXPLORER_JOB_CANCELLED_LABEL),
-        JobStatus::Failed | JobStatus::Interrupted | _ => ("failed", keys::WEB_EXPLORER_JOB_FAILED),
-    };
-    fragment(
-        "status",
-        &StatusView {
-            shell: fragment_shell(locale),
-            status: value,
-            label,
-        },
-    )
 }
 
 /// `POST /ui/r/{router}/system/jobs/{job}/cancel`: stops a running diagnostic.

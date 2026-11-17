@@ -13,7 +13,7 @@ use tokio::time::{Instant, timeout_at};
 
 use crate::support::{
     outcome::TestResult,
-    page::{en, form, html, text},
+    page::{en, en_with, form, html, text},
     typed_name::{Ask, TypedName, typed_names},
     web::{Fixture, ROUTER},
 };
@@ -216,5 +216,43 @@ async fn background_changes_are_refused_unsent() -> TestResult {
     );
     assert!(body.contains(&html(&refusal)), "localized refusal: {body}");
     assert_eq!(fixture.handle().request_count(), before, "nothing sent");
+    Ok(())
+}
+
+/// W4-08: the detail of a background command the explorer always refuses offers no
+/// Execute button and says why, while a background read still offers it.
+#[tokio::test]
+async fn a_refused_background_change_offers_no_execute() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let admin = fixture.login("admin").await?;
+    drop(fixture.get("/ui/r/home/explorer", &admin).await?);
+    let refused = text(
+        fixture
+            .get("/ui/r/home/explorer/command?path=ussd+send", &admin)
+            .await?,
+    )
+    .await?;
+    assert!(
+        !refused.contains("type=\"submit\""),
+        "no Execute for a refused command: {refused}"
+    );
+    let note = en_with(
+        keys::WEB_EXPLORER_ISSUE_BACKGROUND_CHANGE,
+        &[("path", "ussd send")],
+    );
+    assert!(
+        refused.contains(&note),
+        "the refusal is explained: {refused}"
+    );
+    let read = text(
+        fixture
+            .get("/ui/r/home/explorer/command?path=tools+ping", &admin)
+            .await?,
+    )
+    .await?;
+    assert!(
+        read.contains("type=\"submit\""),
+        "a background read still runs: {read}"
+    );
     Ok(())
 }

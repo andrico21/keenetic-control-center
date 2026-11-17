@@ -2,13 +2,14 @@
 //! reused for [`FACTS_TTL`] seconds, so validating a request never contacts the router.
 
 use alloc::collections::BTreeMap;
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use kcc_app::registry::RouterRegistry;
 use kcc_catalog::{Catalog, ModelMatch};
 use kcc_i18n::{bundle::MessageKey, keys};
 
 use super::family::Family;
+use crate::sync::lock;
 
 /// Seconds detected router facts are reused before the router is asked again.
 const FACTS_TTL: u64 = 600;
@@ -105,10 +106,4 @@ impl RouterFacts {
             ModelMatch::Union | _ => None,
         }
     }
-}
-
-/// The cache map; a panic while holding it cannot leave an entry half-written, so a
-/// poisoned lock is used as is.
-fn lock(entries: &Mutex<Entries>) -> MutexGuard<'_, Entries> {
-    entries.lock().unwrap_or_else(PoisonError::into_inner)
 }

@@ -29,11 +29,9 @@ use crate::{
     errors,
     page_kit::{
         context::{Refusal, fragment_shell},
-        respond::Answer,
+        respond::{Answer, attachment},
     },
-    wizard::{
-        flow::Flow as _, report::attachment, run::Ended, service::Wizards, services::Services,
-    },
+    wizard::{flow::Flow as _, run::Ended, service::Wizards, services::Services},
 };
 
 /// `GET /ui/presets/runs/{run}/download/{file}`: the report, as an attachment.

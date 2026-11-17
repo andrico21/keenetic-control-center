@@ -8,7 +8,7 @@ use askama::Template;
 use axum::{
     Form,
     extract::{Path, State},
-    http::{HeaderValue, StatusCode, header},
+    http::StatusCode,
     response::{IntoResponse as _, Response},
 };
 use fluent_bundle::FluentArgs;
@@ -36,7 +36,10 @@ use crate::{
     authz::{CurrentSession, CurrentUser},
     errors,
     page::{Localize as _, Shell},
-    page_kit::context::{self, fragment_shell},
+    page_kit::{
+        context::{self, fragment_shell},
+        respond,
+    },
 };
 
 /// Stored lines shown at most.
@@ -189,7 +192,16 @@ pub(crate) async fn download(
     let Some((body, json)) = state.advanced().response(&current.stream_key(), &router) else {
         return StatusCode::NOT_FOUND.into_response();
     };
-    attachment(&router, &body, json)
+    let (content_type, extension) = if json {
+        ("application/json", "json")
+    } else {
+        ("text/plain; charset=utf-8", "txt")
+    };
+    respond::attachment(
+        body.to_string(),
+        content_type,
+        &format!("kcc-{router}-response.{extension}"),
+    )
 }
 
 /// The stored-lines view of `all`, showing the first [`STORED_LINES`].
@@ -254,21 +266,4 @@ fn in_order(needle: &[&str], haystack: &[&str]) -> bool {
     needle
         .iter()
         .all(|word| rest.any(|candidate| candidate == word))
-}
-
-/// `body` as a file download named after `router`.
-fn attachment(router: &str, body: &str, json: bool) -> Response {
-    let (content_type, extension) = if json {
-        ("application/json", "json")
-    } else {
-        ("text/plain; charset=utf-8", "txt")
-    };
-    let disposition = format!("attachment; filename=\"kcc-{router}-response.{extension}\"");
-    let mut response = (StatusCode::OK, body.to_owned()).into_response();
-    let headers = response.headers_mut();
-    drop(headers.insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type)));
-    if let Ok(value) = HeaderValue::from_str(&disposition) {
-        drop(headers.insert(header::CONTENT_DISPOSITION, value));
-    }
-    response
 }

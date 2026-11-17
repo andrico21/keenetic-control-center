@@ -1235,7 +1235,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | refactor(web): admin and auth core leftovers
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 59. Explorer and system pages leftovers
+- [x] 59. Explorer and system pages leftovers
   What to do / Must NOT do: Per the findings: the explorer does not offer Execute for background changes it refuses; one job-stream implementation; tests use message keys. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `W4-08` (low; critic confirmed) The explorer offers Execute for background changes that it always refuses. Evidence: `detail.rs:150,172-176`, `request.rs:63-68`, `catalog/overlay.toml:2`. Fix: In `detail`, apply the same `reads_only` predicate (make it `pub(super)`) and show a fourth `Runnable` state.
   - `W4-10` (info; critic adjusted, low->info) Copy-paste duplication across the two job streams and the handlers. Evidence: `advanced/job_stream.rs:31-43,176-183`, `system_pages/jobs.rs:93-106,218-224`, `advanced.rs:173-177`, `system_pages/job_feed.rs:122-126`. Fix: Move the status view and map to a shared `jobs` helper. Make one `lock` in a common module, one `attachment(name, body, content_type)`, and one `Reply::respond_for(risk)`. Critic correction (binding): The duplication is confirmed, but the "already drifted" evidence is wrong and nothing is broken.

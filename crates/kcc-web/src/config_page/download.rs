@@ -7,7 +7,7 @@
 
 use axum::{
     extract::{Path, Query, State},
-    http::{HeaderValue, StatusCode, header},
+    http::StatusCode,
     response::{IntoResponse as _, Response},
 };
 use kcc_config::mask::redacted_copy;
@@ -16,7 +16,11 @@ use serde::Deserialize;
 use serde_json::json;
 
 use super::store::{self, DOWNLOAD, DOWNLOAD_FULL, StoreError};
-use crate::{WebState, authz::CurrentUser, page_kit::respond::Answer};
+use crate::{
+    WebState,
+    authz::CurrentUser,
+    page_kit::respond::{Answer, attachment},
+};
 
 /// The download a request asks for.
 #[derive(Debug, Deserialize)]
@@ -70,14 +74,5 @@ pub(crate) async fn download(
     } else {
         format!("{router}-{stem}-redacted.txt")
     };
-    let mut response = body.into_response();
-    let headers = response.headers_mut();
-    drop(headers.insert(
-        header::CONTENT_TYPE,
-        HeaderValue::from_static("text/plain; charset=utf-8"),
-    ));
-    if let Ok(disposition) = HeaderValue::from_str(&format!("attachment; filename=\"{file}\"")) {
-        drop(headers.insert(header::CONTENT_DISPOSITION, disposition));
-    }
-    Ok(response)
+    Ok(attachment(body, "text/plain; charset=utf-8", &file))
 }

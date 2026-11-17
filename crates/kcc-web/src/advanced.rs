@@ -40,7 +40,7 @@ mod viewer;
 
 use alloc::{collections::VecDeque, sync::Arc};
 use core::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, MutexGuard, PoisonError};
+use std::sync::Mutex;
 
 use axum::{
     Router,
@@ -49,7 +49,7 @@ use axum::{
 use kcc_app::jobs::JobRunner;
 use kcc_rci::RciBody;
 
-use crate::{WebState, system_pages::job_feed::JobFeeds};
+use crate::{WebState, sync::lock, system_pages::job_feed::JobFeeds};
 
 /// Large responses kept for download per user; a user over it loses their own oldest.
 const STORED_RESPONSES: usize = 8;
@@ -233,12 +233,6 @@ pub(crate) fn routes() -> Router<WebState> {
 /// The event-stream routes, merged outside the request timeout.
 pub(crate) fn streams() -> Router<WebState> {
     Router::new().route("/ui/sse/r/{router}/jobs/{job}", get(job_stream::stream))
-}
-
-/// A short-lived lock; a panic while holding it cannot leave an entry half-written, so a
-/// poisoned lock is used as is.
-fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
-    mutex.lock().unwrap_or_else(PoisonError::into_inner)
 }
 
 #[cfg(test)]
