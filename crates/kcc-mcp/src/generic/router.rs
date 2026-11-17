@@ -24,7 +24,7 @@ use super::{
 use crate::{
     KccMcp, config_tools, domains, migration_tools, preset_tools,
     preset_tools::state::Presets,
-    registry::definitions::{enabled, tools},
+    registry::definitions::{enabled, generic, tools},
     support::{
         call::{finish, finish_with_context},
         shape::FailureContext,
@@ -36,6 +36,10 @@ impl KccMcp {
     /// Builds a handler with toolsets and safety mode applied to both list and dispatch.
     #[inline]
     #[must_use]
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "the constructor wires the application services once and its signature is the public API the binary and the Web UI call"
+    )]
     pub fn new(
         config: McpConfig,
         privacy: PrivacyConfig,
@@ -55,6 +59,12 @@ impl KccMcp {
             .chain(preset_tools::routes::routes())
         {
             tool_router.add_route(route);
+        }
+        for definition in generic() {
+            if let Some(route) = tool_router.map.get_mut(definition.name) {
+                route.attr.description = Some(definition.description.into());
+                route.attr.annotations = Some(definition.tool_annotations());
+            }
         }
         for definition in &definitions {
             if !enabled(definition, &config) {
@@ -139,36 +149,18 @@ impl KccMcp {
         rbac_config(&self.roles.current(), &self.tool_specs)
     }
 
-    #[tool(
-        name = "kcc_routers_list",
-        description = "List authorized router profiles",
-        annotations(
-            read_only_hint = true,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_routers_list")]
     async fn routers_list(&self, Parameters(input): Parameters<ListInput>) -> CallToolResult {
         let (fields, cursor) = input.shape_input();
         finish_with_context(
             self,
             FailureContext::new("kcc_routers_list", true, None).with_input(&fields, cursor),
-            async { fleet::routers_list(self, input) },
+            async { fleet::routers_list(self, &input) },
         )
         .await
     }
 
-    #[tool(
-        name = "kcc_router_info",
-        description = "Read router identity, firmware, capabilities, and support tier",
-        annotations(
-            read_only_hint = true,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_router_info")]
     async fn router_info(&self, Parameters(input): Parameters<HostInput>) -> CallToolResult {
         finish(
             self,
@@ -179,16 +171,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_catalog_search",
-        description = "Search commands available on a router",
-        annotations(
-            read_only_hint = true,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_catalog_search")]
     async fn catalog_search(
         &self,
         Parameters(input): Parameters<CatalogSearchInput>,
@@ -202,16 +185,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_catalog_describe",
-        description = "Return the JSON Schema for one router command",
-        annotations(
-            read_only_hint = true,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_catalog_describe")]
     async fn catalog_describe(
         &self,
         Parameters(input): Parameters<CatalogDescribeInput>,
@@ -225,16 +199,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_rci_read",
-        description = "Run a catalog-validated read-only RCI request",
-        annotations(
-            read_only_hint = true,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_rci_read")]
     async fn rci_read(&self, Parameters(input): Parameters<RciReadInput>) -> CallToolResult {
         let router = input.router().to_owned();
         let fields = input.fields().to_vec();
@@ -246,16 +211,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_rci_execute",
-        description = "Apply a catalog-validated raw RCI mutation without saving; kcc_catalog_describe and the result report persists_immediately for commands the router saves at once, which the fail-safe timer cannot roll back",
-        annotations(
-            read_only_hint = false,
-            destructive_hint = true,
-            idempotent_hint = false,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_rci_execute")]
     async fn rci_execute(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -266,16 +222,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_rci_delete",
-        description = "Apply a catalog-validated RCI deletion without saving",
-        annotations(
-            read_only_hint = false,
-            destructive_hint = true,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_rci_delete")]
     async fn rci_delete(&self, Parameters(input): Parameters<RciWriteInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -286,16 +233,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_rci_batch",
-        description = "Apply catalog-validated root RCI mutations without saving",
-        annotations(
-            read_only_hint = false,
-            destructive_hint = true,
-            idempotent_hint = false,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_rci_batch")]
     async fn rci_batch(&self, Parameters(input): Parameters<RciBatchInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -306,16 +244,7 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_cli_parse",
-        description = "Validate and apply one router CLI line without saving; lines the catalog cannot map are sent unvalidated as destructive changes (requires RawRci, ManageRouters and Destructive, allow_destructive and confirm) and always reported unsaved",
-        annotations(
-            read_only_hint = false,
-            destructive_hint = true,
-            idempotent_hint = false,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_cli_parse")]
     async fn cli_parse(&self, Parameters(input): Parameters<CliInput>) -> CallToolResult {
         let router = input.router().to_owned();
         finish_with_context(
@@ -326,33 +255,15 @@ impl KccMcp {
         .await
     }
 
-    #[tool(
-        name = "kcc_job_status",
-        description = "Read a background job status",
-        annotations(
-            read_only_hint = true,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_job_status")]
     async fn job_status(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
         finish(self, "kcc_job_status", true, async {
-            fleet::job_status(self, input)
+            fleet::job_status(self, &input)
         })
         .await
     }
 
-    #[tool(
-        name = "kcc_job_cancel",
-        description = "Cancel a running background job",
-        annotations(
-            read_only_hint = false,
-            destructive_hint = false,
-            idempotent_hint = true,
-            open_world_hint = false
-        )
-    )]
+    #[tool(name = "kcc_job_cancel")]
     async fn job_cancel(&self, Parameters(input): Parameters<JobInput>) -> CallToolResult {
         finish(
             self,

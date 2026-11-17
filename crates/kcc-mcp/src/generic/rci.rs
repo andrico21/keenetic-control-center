@@ -1,6 +1,7 @@
 //! Catalog-validated raw RCI and CLI tools.
 
 use alloc::sync::Arc;
+use core::slice::from_ref;
 
 use kcc_app::{
     permissions::Permission,
@@ -138,6 +139,10 @@ impl CliInput {
 }
 
 /// Selects the generic catalog of a firmware line.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn catalog_for_version(version: &str) -> Result<Catalog, McpFailure> {
     use kcc_rci::version::{FirmwareVersion, Stage};
 
@@ -151,6 +156,10 @@ pub(crate) fn catalog_for_version(version: &str) -> Result<Catalog, McpFailure> 
 }
 
 /// Validates `value` for `catalog_path` and `method`, logging the issues.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn checked(
     catalog: &Catalog,
     catalog_path: &str,
@@ -166,6 +175,10 @@ fn checked(
 }
 
 /// Takes the strongest classification from every embedded catalog accepting the input.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn preliminary_risk<F>(validate: F) -> Result<Risk, McpFailure>
 where
     F: Fn(&Catalog) -> Result<kcc_catalog::ValidatedRequest, Vec<kcc_catalog::ValidationIssue>>,
@@ -180,6 +193,10 @@ where
 }
 
 /// The shared read client of `host`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn client(server: &KccMcp, host: &RouterId) -> Result<Arc<RciClient>, McpFailure> {
     server
         .registry
@@ -192,6 +209,10 @@ async fn client(server: &KccMcp, host: &RouterId) -> Result<Arc<RciClient>, McpF
 }
 
 /// Runs a catalog-validated read.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // cancel-safe: only validated reads reach the client, including show-only fallback POSTs.
 pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
@@ -216,6 +237,10 @@ pub(crate) async fn rci_read(server: &KccMcp, input: RciReadInput) -> Result<Val
 }
 
 /// Applies a catalog-validated mutation without saving.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmission can precede the workflow audit receipt.
 pub(crate) async fn rci_execute(
     server: &KccMcp,
@@ -267,6 +292,10 @@ pub(crate) async fn rci_execute(
 }
 
 /// Applies a catalog-validated deletion without saving.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmission can precede the workflow audit receipt.
 pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<Value, McpFailure> {
     validate_rci_input(&input.host, &input.catalog_path, &input.path, &input.value)?;
@@ -311,6 +340,10 @@ pub(crate) async fn rci_delete(server: &KccMcp, input: RciWriteInput) -> Result<
 }
 
 /// Applies a catalog-validated root batch without saving.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmission can precede the workflow audit receipt.
 pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<Value, McpFailure> {
     valid_host(&input.host)?;
@@ -338,7 +371,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
     }
     raw_change::authorize(server, (&identity, &host), (risk, input.confirm))?;
     if risk == Risk::Read {
-        authorize_routers(&identity, Permission::Read, core::slice::from_ref(&host))?;
+        authorize_routers(&identity, Permission::Read, from_ref(&host))?;
         let values = items
             .iter()
             .map(|item| item.value.expose_for_send().expose_secret().clone())
@@ -351,7 +384,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
         return Ok(reply_for(
             &identity,
             &host,
-            batch_applied(batch_values(responses), false, false, Vec::new()),
+            batch_applied(&batch_values(responses), false, false, &[]),
         ));
     }
     let mut completion = None;
@@ -382,10 +415,10 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
             &identity,
             &host,
             batch_applied(
-                batch_values(result.responses),
+                &batch_values(result.responses),
                 result.unsaved,
                 result.persists_immediately,
-                result.persisted_paths,
+                &result.persisted_paths,
             ),
         ),
         &result.audit,
@@ -403,7 +436,7 @@ pub(crate) async fn rci_batch(server: &KccMcp, input: RciBatchInput) -> Result<V
 fn batch_values(responses: Vec<Result<RciResponse, RciError>>) -> Vec<Value> {
     responses
         .into_iter()
-        .map(|response| match response {
+        .map(|outcome| match outcome {
             Ok(response) => {
                 json!({ "ok": true, "value": response.value, "statuses": statuses(&response) })
             }
@@ -413,6 +446,10 @@ fn batch_values(responses: Vec<Result<RciResponse, RciError>>) -> Vec<Value> {
 }
 
 /// Validates and applies one CLI line without saving.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmission can precede the workflow audit receipt and timer cleanup.
 pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value, McpFailure> {
     valid_host(&input.host)?;
@@ -432,11 +469,7 @@ pub(crate) async fn cli_parse(server: &KccMcp, input: CliInput) -> Result<Value,
             McpFailure::ValidationFailed
         })?;
     if validated.unvalidated {
-        authorize_routers(
-            &identity,
-            Permission::ManageRouters,
-            core::slice::from_ref(&host),
-        )?;
+        authorize_routers(&identity, Permission::ManageRouters, from_ref(&host))?;
     }
     raw_change::authorize(
         server,

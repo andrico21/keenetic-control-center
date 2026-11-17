@@ -24,6 +24,10 @@ pub(crate) fn empty_object() -> Value {
 }
 
 /// Accepts a lowercase router profile slug.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn valid_host(host: &str) -> Result<(), McpFailure> {
     if !(1..=MAX_HOST_CHARS).contains(&host.len())
         || !host
@@ -36,6 +40,10 @@ pub(crate) fn valid_host(host: &str) -> Result<(), McpFailure> {
 }
 
 /// Accepts non-empty text without control characters up to `max_chars`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn valid_text(value: &str, max_chars: usize) -> Result<(), McpFailure> {
     let length = value.chars().count();
     if !(1..=max_chars).contains(&length) || value.chars().any(char::is_control) {
@@ -45,6 +53,10 @@ pub(crate) fn valid_text(value: &str, max_chars: usize) -> Result<(), McpFailure
 }
 
 /// Accepts a persisted job or migration identifier.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn valid_job_id(id: &str) -> Result<(), McpFailure> {
     if id.len() > 64
         || id.is_empty()
@@ -58,6 +70,10 @@ pub(crate) fn valid_job_id(id: &str) -> Result<(), McpFailure> {
 }
 
 /// Checks the shared raw RCI request shape.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn validate_rci_input(
     host: &str,
     catalog_path: &str,
@@ -77,6 +93,10 @@ pub(crate) fn validate_rci_input(
 }
 
 /// Bounds one JSON request body.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn valid_value_size(value: &Value) -> Result<(), McpFailure> {
     let bytes = serde_json::to_vec(value).map_err(|_error| McpFailure::InvalidArguments)?;
     if bytes.len() > 900 * 1024 {
@@ -86,20 +106,28 @@ pub(crate) fn valid_value_size(value: &Value) -> Result<(), McpFailure> {
 }
 
 /// Bounds a field projection list.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn validate_fields(fields: Option<&[String]>) -> Result<(), McpFailure> {
-    let Some(fields) = fields else {
+    let Some(listed) = fields else {
         return Ok(());
     };
-    if fields.len() > MAX_FIELDS {
+    if listed.len() > MAX_FIELDS {
         return Err(McpFailure::InvalidArguments);
     }
-    for field in fields {
+    for field in listed {
         valid_text(field, 64)?;
     }
     Ok(())
 }
 
 /// Parses a decimal offset cursor.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn parse_cursor(cursor: Option<&str>) -> Result<usize, McpFailure> {
     cursor
         .unwrap_or("0")
@@ -108,6 +136,10 @@ pub(crate) fn parse_cursor(cursor: Option<&str>) -> Result<usize, McpFailure> {
 }
 
 /// Keeps one page of `items`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn paginate(
     items: &mut Vec<Value>,
     cursor: Option<&str>,

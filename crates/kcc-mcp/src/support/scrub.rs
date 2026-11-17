@@ -1,6 +1,6 @@
 //! Client pseudonyms in MCP results and progress messages (`redact_clients_in_mcp`).
 
-use core::{net::Ipv6Addr, ops::Range};
+use core::{iter, mem, net::Ipv6Addr, ops::Range};
 
 use kcc_app::pseudonym;
 use serde_json::Value;
@@ -77,7 +77,7 @@ fn tokens(key: &str) -> Vec<String> {
     for character in key.chars() {
         let boundary = !character.is_alphanumeric() || (previous_lower && character.is_uppercase());
         if boundary && !word.is_empty() {
-            words.push(core::mem::take(&mut word));
+            words.push(mem::take(&mut word));
         }
         if character.is_alphanumeric() {
             word.extend(character.to_lowercase());
@@ -95,7 +95,7 @@ fn rewrite(text: &str, in_run: fn(u8) -> bool, locate: fn(&str) -> Option<Range<
     let mut out = String::with_capacity(text.len());
     let mut copied = 0;
     let mut start = None;
-    for (index, byte) in text.bytes().chain(core::iter::once(0)).enumerate() {
+    for (index, byte) in text.bytes().chain(iter::once(0)).enumerate() {
         match (start, in_run(byte)) {
             (None, true) => start = Some(index),
             (Some(first), false) => {

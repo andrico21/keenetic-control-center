@@ -125,6 +125,10 @@ pub(super) struct FirewallInput {
 }
 
 /// Runs one NAT write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn nat(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: NatInput = parse(arguments)?;
@@ -179,6 +183,10 @@ pub(super) async fn nat(server: &KccMcp, arguments: Value) -> Result<Value, McpF
 }
 
 /// Plans one firewall change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_firewall(
     ctx: &RouterCtx,
     input: &FirewallInput,
@@ -224,6 +232,10 @@ fn plan_firewall(
 }
 
 /// Runs one firewall write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn firewall(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: FirewallInput = parse(arguments)?;

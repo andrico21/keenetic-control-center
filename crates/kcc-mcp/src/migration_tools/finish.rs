@@ -1,5 +1,7 @@
 //! `kcc_migration_finish` and `kcc_migration_report`.
 
+use core::slice::from_ref;
+
 use kcc_app::permissions::Permission;
 use kcc_catalog::Risk;
 use kcc_domain::configuration::SafetyNet;
@@ -59,6 +61,10 @@ pub(crate) struct ReportInput {
 }
 
 /// Commits or rolls back an applied migration.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: FinishInput = parse(arguments)?;
     valid_job_id(&input.plan_id)?;
@@ -75,8 +81,8 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
     }
     authorize_routers(&identity, Permission::Migrate, &routers)?;
     if matches!(input.action, FinishAction::Rollback) {
-        let target = core::slice::from_ref(target);
-        authorize_routers(&identity, SafetyNet::CONTROL_PERMISSION, target)?;
+        let targets = from_ref(target);
+        authorize_routers(&identity, SafetyNet::CONTROL_PERMISSION, targets)?;
     }
     if !input.confirm {
         return Err(McpFailure::ConfirmRequired);
@@ -84,7 +90,7 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
     let applier = migration.applier_mut().ok_or(McpFailure::Conflict)?;
     let result = match input.action {
         FinishAction::Commit => {
-            authorize_routers(&identity, Permission::Save, core::slice::from_ref(target))
+            authorize_routers(&identity, Permission::Save, from_ref(target))
                 .map_err(|_forbidden| McpFailure::ManagementNotCommittedFailSafeArmed)?;
             applier.commit().await
         }
@@ -106,6 +112,10 @@ pub(crate) async fn finish(server: &KccMcp, arguments: Value) -> Result<Value, M
 }
 
 /// Reads the plan counts, one page of redacted items, and the apply outcome.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn report(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: ReportInput = parse(arguments)?;
     valid_job_id(&input.plan_id)?;

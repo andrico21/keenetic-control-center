@@ -67,11 +67,19 @@ pub(super) struct DnsInput {
 }
 
 /// An owned bounded text argument.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn owned(value: Option<&str>) -> Result<String, McpFailure> {
     text(value).map(str::to_owned)
 }
 
 /// Assigns a preset or profile to a client host or interface.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn assignment(input: &DnsInput) -> Result<DnsChange, McpFailure> {
     let preset = input
         .preset
@@ -79,17 +87,17 @@ fn assignment(input: &DnsInput) -> Result<DnsChange, McpFailure> {
         .map(|value| owned(Some(value)))
         .transpose()?;
     Ok(match (input.client.as_deref(), preset) {
-        (Some(host), Some(preset)) => DnsChange::AssignHostPreset {
+        (Some(host), Some(named)) => DnsChange::AssignHostPreset {
             host: owned(Some(host))?,
-            preset,
+            preset: named,
         },
         (Some(host), None) => DnsChange::AssignHostProfile {
             host: owned(Some(host))?,
             profile: owned(input.profile.as_deref())?,
         },
-        (None, Some(preset)) => DnsChange::AssignInterfacePreset {
+        (None, Some(named)) => DnsChange::AssignInterfacePreset {
             interface: owned(input.interface.as_deref())?,
-            preset,
+            preset: named,
         },
         (None, None) => DnsChange::AssignInterfaceProfile {
             interface: owned(input.interface.as_deref())?,
@@ -99,6 +107,10 @@ fn assignment(input: &DnsInput) -> Result<DnsChange, McpFailure> {
 }
 
 /// Builds the curated DNS change of `input`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn change(input: &DnsInput) -> Result<DnsChange, McpFailure> {
     let name = || owned(input.name.as_deref());
     let address = || owned(input.address.as_deref());
@@ -172,6 +184,10 @@ fn change(input: &DnsInput) -> Result<DnsChange, McpFailure> {
 }
 
 /// Runs one DNS write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn dns(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DnsInput = parse(arguments)?;
     check_op(DNS_OPS, &input.op)?;

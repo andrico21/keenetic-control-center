@@ -3,24 +3,6 @@
 //! The crate root holds the public types the `kcc` binary and the Web UI depend on; tool
 //! families live in `generic` (fleet, catalog, raw RCI, jobs), `domains` (curated
 //! read/write tools), `config_tools` (state, save, backups), and `migration_tools`.
-#![expect(
-    clippy::absolute_paths,
-    clippy::arithmetic_side_effects,
-    clippy::missing_errors_doc,
-    clippy::missing_inline_in_public_items,
-    clippy::multiple_inherent_impl,
-    clippy::needless_pass_by_value,
-    clippy::shadow_reuse,
-    clippy::too_many_arguments,
-    reason = "RMCP adapters contain schema-only private types and macro-mandated handler shapes; bounded pagination and owned deserialization are explicit protocol boundaries"
-)]
-#![cfg_attr(
-    not(test),
-    expect(
-        clippy::missing_docs_in_private_items,
-        reason = "private RMCP schema carriers and dispatch helpers are described by their exported JSON schemas and tool metadata"
-    )
-)]
 extern crate alloc;
 
 mod config_tools;
@@ -230,23 +212,38 @@ impl McpFailure {
 #[derive(Clone)]
 #[non_exhaustive]
 pub struct KccMcp {
+    /// The `[mcp]` settings: toolsets, safety mode, and result caps.
     config: McpConfig,
+    /// Redaction settings applied to every result.
     privacy: PrivacyConfig,
+    /// The configured routers and their pooled clients.
     registry: Arc<RouterRegistry>,
+    /// The protected change workflow shared with the other front ends.
     workflow: Arc<ChangeWorkflow>,
+    /// The background job runner behind the job tools.
     jobs: Arc<JobRunner>,
+    /// Live router metrics.
     poller: Arc<Poller>,
+    /// The roles callers are authorized against.
     roles: RoleSource,
+    /// The role of stdio sessions, which carry no API key.
     fallback_role: Role,
+    /// Records the last use of each API key.
     key_use: Option<Arc<KeyUseRecorder>>,
+    /// The registered tools after the toolset and safety-mode filter.
     tool_router: ToolRouter<Self>,
+    /// The registered tools as the coarse RBAC gate sees them.
     tool_specs: Arc<[ToolSpec]>,
+    /// The audit writer, once attached.
     audit: Option<AuditLog>,
+    /// Migration plans and applies in progress.
     migrations: Arc<Migrations>,
+    /// The encrypted preset store.
     presets: Arc<Presets>,
 }
 
 impl fmt::Debug for KccMcp {
+    #[inline]
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("KccMcp")
             .field("config", &self.config)

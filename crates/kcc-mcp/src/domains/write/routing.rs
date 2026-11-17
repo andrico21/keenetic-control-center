@@ -109,6 +109,10 @@ const fn enabled_default() -> bool {
 }
 
 /// Runs one static-route write; removals go through the route-wipe guard.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouteInput = parse(arguments)?;
@@ -190,6 +194,10 @@ pub(super) async fn routing(server: &KccMcp, arguments: Value) -> Result<Value, 
 }
 
 /// Plans one policy change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_policy(
     ctx: &RouterCtx,
     input: &PolicyInput,
@@ -231,6 +239,10 @@ fn plan_policy(
 }
 
 /// Runs one policy write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn policies(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: PolicyInput = parse(arguments)?;

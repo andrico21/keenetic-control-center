@@ -90,8 +90,8 @@ async fn started(
     progress: Option<Progress>,
 ) -> Value {
     match progress {
-        Some(progress) => {
-            let status = follow(&job, events, &progress).await;
+        Some(sink) => {
+            let status = follow(&job, events, &sink).await;
             json!({ "job_id": job, "status": status })
         }
         None => json!({ "job_id": job, "status": "running" }),
@@ -99,6 +99,10 @@ async fn started(
 }
 
 /// Starts one catalog-validated diagnostic job.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn diagnostics(
     server: &KccMcp,
     arguments: Value,
@@ -150,6 +154,10 @@ pub(super) async fn diagnostics(
 }
 
 /// Runs one component write; `commit` starts the confirmed install-and-reboot job.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn components(
     server: &KccMcp,
     arguments: Value,

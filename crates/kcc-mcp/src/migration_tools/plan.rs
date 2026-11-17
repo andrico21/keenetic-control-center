@@ -80,6 +80,10 @@ fn map_inventory(error: InventoryError) -> McpFailure {
 }
 
 /// Collects the read-only inventory of `target` for `source_firmware`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn collect(
     server: &KccMcp,
     identity: &McpIdentity,
@@ -100,6 +104,10 @@ pub(crate) async fn collect(
 }
 
 /// Reads the target's migration inventory.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn inventory(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: InventoryInput = parse(arguments)?;
     let (identity, target) = server.authorize_host(Permission::Migrate, input.host)?;
@@ -135,6 +143,10 @@ const fn tier_name(tier: SupportTier) -> &'static str {
 }
 
 /// Reads and parses the source router's startup configuration.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn source_config(server: &KccMcp, source: &RouterId) -> Result<SourceConfig, McpFailure> {
     let client = server
         .registry
@@ -149,6 +161,10 @@ async fn source_config(server: &KccMcp, source: &RouterId) -> Result<SourceConfi
 }
 
 /// Plans a migration from `source` onto `host`, or lists the items that block it.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn plan(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: PlanInput = parse(arguments)?;
     if input.overwrite.len() > MAX_CHOICES || input.exclude.len() > MAX_CHOICES {

@@ -43,6 +43,10 @@ impl Presets {
     }
 
     /// The encrypted store.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) fn store(&self) -> Result<&PresetStore, McpFailure> {
         self.store.as_ref().ok_or_else(|| {
             tracing::error!("MCP preset store is not configured");
@@ -91,6 +95,10 @@ impl Presets {
     }
 
     /// The transient preset `id`, if one exists; another identity's copy is forbidden.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) async fn transient(
         &self,
         owner: &str,
@@ -104,6 +112,10 @@ impl Presets {
     }
 
     /// Removes the transient preset `id`; returns whether one was removed.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) async fn forget(&self, owner: &str, id: &str) -> Result<bool, McpFailure> {
         let mut entries = self.transients.lock().await;
         match entries.get(id) {

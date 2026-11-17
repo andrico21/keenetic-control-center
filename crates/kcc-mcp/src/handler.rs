@@ -53,6 +53,7 @@ impl ServerHandler for KccMcp {
         )
     }
 
+    #[inline]
     async fn call_tool(
         &self,
         request: CallToolRequestParams,
@@ -64,6 +65,7 @@ impl ServerHandler for KccMcp {
             .await
     }
 
+    #[inline]
     async fn list_tools(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -74,6 +76,7 @@ impl ServerHandler for KccMcp {
         ))
     }
 
+    #[inline]
     async fn list_resources(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -97,6 +100,7 @@ impl ServerHandler for KccMcp {
         Ok(ListResourcesResult::with_all_items(resources))
     }
 
+    #[inline]
     async fn read_resource(
         &self,
         request: ReadResourceRequestParams,
@@ -175,6 +179,7 @@ impl ServerHandler for KccMcp {
         Err(failure_error(McpFailure::InvalidArguments))
     }
 
+    #[inline]
     async fn list_prompts(
         &self,
         _request: Option<PaginatedRequestParams>,
@@ -188,6 +193,7 @@ impl ServerHandler for KccMcp {
         ))
     }
 
+    #[inline]
     async fn get_prompt(
         &self,
         request: GetPromptRequestParams,

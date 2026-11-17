@@ -1,6 +1,7 @@
 //! `kcc_preset_apply`: a dry-run plan, or the protected apply under the router safety timer.
 
 use alloc::sync::Arc;
+use core::slice::from_ref;
 
 use kcc_app::{
     audit::{Actor, ActorKind},
@@ -36,6 +37,10 @@ const fn map_request(error: PresetApplyError) -> McpFailure {
 
 /// Plans (`dry_run`) or applies a preset; an apply returns once its apply phase ends and
 /// is finished with `kcc_migration_finish` under the returned `plan_id`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn apply(
     server: &KccMcp,
     arguments: Value,
@@ -45,7 +50,7 @@ pub(crate) async fn apply(
     let (identity, host) = server.authorize_host(Permission::Migrate, input.host().to_owned())?;
     if !input.dry_run() {
         for permission in SafetyNet::apply_permissions(ApplyNeeds::default()) {
-            authorize_routers(&identity, permission, core::slice::from_ref(&host))?;
+            authorize_routers(&identity, permission, from_ref(&host))?;
         }
     }
     let planned = input.planned(server, &identity).await?;

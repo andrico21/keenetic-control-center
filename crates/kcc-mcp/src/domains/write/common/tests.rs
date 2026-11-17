@@ -84,6 +84,10 @@ async fn synthetic_management_operation_brackets_both_apply_entries()
     Ok(())
 }
 
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "used as a `map_err` callback, which hands over the failure by value"
+)]
 fn failure(error: McpFailure) -> String {
     format!("MCP failure: {error:?}")
 }

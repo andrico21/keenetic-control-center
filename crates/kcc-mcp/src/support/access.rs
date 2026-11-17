@@ -1,5 +1,7 @@
 //! Request identity, router authorization, and protected-workflow entry for every tool.
 
+use core::slice::from_ref;
+
 use kcc_app::{
     audit::{Actor, ActorKind},
     permissions::Permission,
@@ -9,15 +11,21 @@ use kcc_app::{
 use kcc_catalog::{Catalog, Risk};
 use kcc_config::mask::mask_reply;
 use kcc_domain::RouterCtx;
+use rmcp::model::Tool;
 use rmcp_server_kit::rbac::{current_identity, current_role};
 use serde_json::Value;
+use tokio::task;
 
 use super::{call::current_request_id, errors::map_workflow};
 use crate::{KccMcp, McpFailure, McpIdentity, RouterId, authorize_routers};
 
+#[expect(
+    clippy::multiple_inherent_impl,
+    reason = "the RMCP `#[tool_router]` macro owns the handler impl block in generic/router.rs, so the remaining inherent methods live here"
+)]
 impl KccMcp {
     /// Lists tools visible to the caller; stdio sessions are filtered by the fallback role.
-    pub(crate) fn visible_tools(&self, http_identity: bool) -> Vec<rmcp::model::Tool> {
+    pub(crate) fn visible_tools(&self, http_identity: bool) -> Vec<Tool> {
         let mut tools = self.tool_router.list_all();
         if !http_identity {
             tools.retain(|tool| {
@@ -31,6 +39,10 @@ impl KccMcp {
     }
 
     /// Resolves the caller to a configured role, or the stdio fallback role.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) fn identity(&self) -> Result<McpIdentity, McpFailure> {
         let role = match current_role() {
             Some(name) => self.roles.find(&name).ok_or(McpFailure::Forbidden)?,
@@ -58,7 +70,7 @@ impl KccMcp {
         let Some(due) = recorder.note(&key) else {
             return;
         };
-        match tokio::task::spawn_blocking(move || due.persist()).await {
+        match task::spawn_blocking(move || due.persist()).await {
             Ok(Ok(_known)) => {}
             Ok(Err(error)) => tracing::warn!(%error, "API key use could not be recorded"),
             Err(error) => tracing::warn!(%error, "API key use recording task failed"),
@@ -66,6 +78,10 @@ impl KccMcp {
     }
 
     /// Validates `host` and authorizes `permission` on it for the caller.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) fn authorize_host(
         &self,
         permission: Permission,
@@ -73,11 +89,15 @@ impl KccMcp {
     ) -> Result<(McpIdentity, RouterId), McpFailure> {
         let router = RouterId::new(host)?;
         let identity = self.identity()?;
-        authorize_routers(&identity, permission, core::slice::from_ref(&router))?;
+        authorize_routers(&identity, permission, from_ref(&router))?;
         Ok((identity, router))
     }
 
     /// Detects the router and selects its catalog.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) async fn catalog(&self, host: &str) -> Result<Catalog, McpFailure> {
         self.audit_alive()?;
         let info = self.registry.poll_info(host).await.map_err(|error| {
@@ -91,6 +111,10 @@ impl KccMcp {
     }
 
     /// Builds the curated-domain context of an authorized router.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) async fn router_ctx(&self, host: &RouterId) -> Result<RouterCtx, McpFailure> {
         self.audit_alive()?;
         let catalog = self.catalog(host.as_str()).await?;
@@ -103,6 +127,10 @@ impl KccMcp {
 
     /// Opens a protected change set as the MCP actor; its entries carry the call's
     /// request id.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     // NOT cancel-safe: cancellation after lease acquisition releases it through Drop.
     pub(crate) async fn begin_change(
         &self,
@@ -123,6 +151,10 @@ impl KccMcp {
     }
 
     /// Refuses router work when its required audit writer has terminated.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     fn audit_alive(&self) -> Result<(), McpFailure> {
         self.audit.as_ref().map_or(Ok(()), |audit| {
             audit.require_alive().map_err(|_error| McpFailure::Internal)
@@ -131,6 +163,10 @@ impl KccMcp {
 
     /// Refuses a destructive operation while the server-wide switch is off, then one
     /// without confirmation, each with its own reason code.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) fn require_destructive(&self, risk: Risk, confirm: bool) -> Result<(), McpFailure> {
         if risk != Risk::Destructive {
             return Ok(());

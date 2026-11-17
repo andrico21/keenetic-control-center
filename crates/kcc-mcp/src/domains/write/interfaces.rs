@@ -102,6 +102,10 @@ pub(super) struct WanInput {
 }
 
 /// Runs one interface write, a management one inside the router's recovery timer.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: InterfaceInput = parse(arguments)?;
     check_op(INTERFACE_OPS, &input.op)?;
@@ -151,6 +155,10 @@ pub(super) async fn interfaces(server: &KccMcp, arguments: Value) -> Result<Valu
 }
 
 /// Plans one WAN change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn plan_wan(
     ctx: &RouterCtx,
     name: &ObjectName,
@@ -183,6 +191,10 @@ async fn plan_wan(
 }
 
 /// Runs one WAN write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn wan(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: WanInput = parse(arguments)?;
     check_op(WAN_OPS, &input.op)?;

@@ -1,6 +1,7 @@
 //! Tool descriptions shared by registration, RBAC, and the generated reference.
 
 use kcc_app::{permissions::Permission, settings::McpConfig};
+use rmcp::model::ToolAnnotations;
 use serde_json::{Value, json};
 
 use crate::{config_tools, domains, migration_tools, preset_tools};
@@ -57,6 +58,16 @@ impl ToolDescription {
         self
     }
 
+    /// The listed tool's annotations.
+    #[must_use]
+    pub(crate) fn tool_annotations(&self) -> ToolAnnotations {
+        ToolAnnotations::new()
+            .read_only(self.read_only)
+            .destructive(self.destructive)
+            .idempotent(self.idempotent)
+            .open_world(false)
+    }
+
     /// MCP annotation object fed to application RBAC.
     #[inline]
     #[must_use]
@@ -74,7 +85,7 @@ impl ToolDescription {
 const READ: (bool, bool, bool) = (true, false, true);
 
 /// The generic tools of the MCP core.
-fn generic() -> Vec<ToolDescription> {
+pub(crate) fn generic() -> Vec<ToolDescription> {
     let raw = |name, description, idempotent| {
         ToolDescription::single(
             name,

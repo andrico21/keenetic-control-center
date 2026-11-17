@@ -74,6 +74,10 @@ pub(crate) fn schema(area: Area) -> Arc<JsonObject> {
 }
 
 /// Runs one write tool call.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn write(
     server: &KccMcp,
     area: Area,

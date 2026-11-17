@@ -14,6 +14,10 @@ use crate::{
 };
 
 /// Reads unsaved state, fail-safe state, and the last change of a router.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn config_state(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse(arguments)?;
     let (_identity, router) = server.authorize_host(Permission::Read, input.into_host())?;
@@ -36,6 +40,10 @@ pub(crate) async fn config_state(server: &KccMcp, arguments: Value) -> Result<Va
 }
 
 /// Explicitly saves a router's running configuration.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn config_save(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse(arguments)?;
     let (identity, router) = server.authorize_host(Permission::Save, input.into_host())?;

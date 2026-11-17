@@ -1,6 +1,7 @@
 //! `kcc_preset_capture`: capture settings groups from a router or one of its backups.
 
 use alloc::sync::Arc;
+use core::slice::from_ref;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use kcc_app::permissions::Permission;
@@ -58,11 +59,17 @@ enum Origin {
 
 impl Origin {
     /// Parses exactly one of `source` and `backup`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     fn parse(source: Option<String>, backup: Option<String>) -> Result<Self, McpFailure> {
         match (source, backup) {
             (Some(router), None) => Ok(Self::Router(RouterId::new(router)?)),
-            (None, Some(backup)) => {
-                let (router, name) = backup.split_once('/').ok_or(McpFailure::InvalidArguments)?;
+            (None, Some(reference)) => {
+                let (router, name) = reference
+                    .split_once('/')
+                    .ok_or(McpFailure::InvalidArguments)?;
                 valid_text(name, 96)?;
                 Ok(Self::Backup(
                     RouterId::new(router.to_owned())?,
@@ -82,6 +89,10 @@ impl Origin {
 }
 
 /// A file-safe id from a display name.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn slug(name: &str) -> Result<String, McpFailure> {
     let mut id = String::new();
     for character in name.trim().chars().flat_map(char::to_lowercase) {
@@ -92,14 +103,18 @@ fn slug(name: &str) -> Result<String, McpFailure> {
         };
         id.extend(kept);
     }
-    let id = id.trim_matches('-').to_owned();
-    if id.is_empty() || id.len() > 64 {
+    let trimmed = id.trim_matches('-').to_owned();
+    if trimmed.is_empty() || trimmed.len() > 64 {
         return Err(McpFailure::InvalidArguments);
     }
-    Ok(id)
+    Ok(trimmed)
 }
 
 /// Reads the source configuration after the caller's scope was checked.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn read(server: &KccMcp, origin: &Origin) -> Result<SourceConfig, McpFailure> {
     let bytes = match origin {
         Origin::Router(router) => {
@@ -115,12 +130,12 @@ async fn read(server: &KccMcp, origin: &Origin) -> Result<SourceConfig, McpFailu
             bytes.expose_secret().to_vec()
         }
         Origin::Backup(router, name) => {
-            let (backups, router, name) = (
+            let (backups, owner, backup) = (
                 Arc::clone(server.workflow.backups()),
                 router.as_str().to_owned(),
                 name.clone(),
             );
-            blocking::run(move || backups.get(&router, &name))
+            blocking::run(move || backups.get(&owner, &backup))
                 .await?
                 .map_err(|error| {
                     tracing::warn!(error = ?error, "MCP preset backup source unavailable");
@@ -135,6 +150,10 @@ async fn read(server: &KccMcp, origin: &Origin) -> Result<SourceConfig, McpFailu
 }
 
 /// Captures a preset; transient copies stay in memory and are never written to disk.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: CaptureInput = parse(arguments)?;
     if input.groups.is_empty() || input.groups.len() > MAX_GROUPS {
@@ -149,11 +168,7 @@ pub(crate) async fn capture(server: &KccMcp, arguments: Value) -> Result<Value, 
     }
     let origin = Origin::parse(input.source, input.backup)?;
     let identity = server.identity()?;
-    authorize_routers(
-        &identity,
-        Permission::Migrate,
-        core::slice::from_ref(origin.router()),
-    )?;
+    authorize_routers(&identity, Permission::Migrate, from_ref(origin.router()))?;
     let presets = &server.presets;
     let (id, persistent) = if input.transient {
         (presets.transient_id(), false)

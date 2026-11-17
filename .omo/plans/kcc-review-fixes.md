@@ -1057,7 +1057,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(telemetry): accurate metric counters and labels
   Recommended task executor category: quick - small, local change
 
-- [ ] 47. MCP code hygiene: no blanket expects, one tool metadata source
+- [x] 47. MCP code hygiene: no blanket expects, one tool metadata source
   What to do / Must NOT do: Replace the crate-root `#![expect]` blanket with item-level `#[expect]` with real reasons (fixing what they hid), and one source for tool metadata (cancel-safety comments are todo 66, E-23 test items are todo 69; E-14's 'share the ns3 mask' part is already done by todo 6). Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `E-10` (low; critic adjusted, medium->low) Crate-root `#![expect]` blankets 8 clippy lints plus private-item docs. Evidence: `crates/kcc-mcp/src/lib.rs:6-16`. Fix: Move each expectation to the specific item that triggers it, and use `checked_add`/`saturating_add` at fleet.rs:155. Critic correction (binding): Remove the example and the "no other crate" claim. What remains is a lint-scope violation with no demonstrated bug.
   - `E-14` (low; critic confirmed) Tool metadata and helper logic are duplicated and can drift. Evidence: `generic/router.rs:247-255`, `registry/definitions.rs:137-141`, `config_tools/backups.rs:157-173`, `kcc-web/src/config_page/text.rs:64-81`. Fix: Generate `#[tool]` metadata from `generic()` (or register generic tools through `route()`), and share the ns3 mask from `kcc-config`.

@@ -42,6 +42,7 @@ pub(crate) const fn armed(fate: ArmedFate) -> McpFailure {
 }
 
 impl From<WorkflowError> for McpFailure {
+    #[inline]
     fn from(error: WorkflowError) -> Self {
         map_workflow(error)
     }
@@ -144,6 +145,10 @@ pub(crate) fn statuses(response: &RciResponse) -> Vec<Value> {
 }
 
 /// Converts a stable failure into protocol error data.
+#[expect(
+    clippy::needless_pass_by_value,
+    reason = "used as a `map_err` callback, which hands over the failure by value"
+)]
 pub(crate) fn failure_error(failure: McpFailure) -> ErrorData {
     ErrorData::invalid_params(failure.code(), None)
 }

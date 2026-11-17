@@ -81,11 +81,11 @@ impl Success {
         if let Some(object) = target {
             event = event.with_target(object);
         }
-        let receipt = match audit.submit(event) {
+        let settled = match audit.submit(event) {
             Ok(queued) => queued.settle(AUDIT_WAIT).await,
             Err(error) => Err(error),
         };
-        match receipt {
+        match settled {
             Ok(receipt) => noting(result, &receipt),
             Err(error) => {
                 tracing::warn!(error = ?error, tool, "MCP success audit append failed");
@@ -115,16 +115,16 @@ fn timestamp() -> u64 {
 pub(crate) async fn failure(
     server: &KccMcp,
     context: FailureContext<'_>,
-    error: &McpFailure,
+    reported: &McpFailure,
     request_id: &str,
 ) {
     let Some(audit) = &server.audit else {
         return;
     };
-    let error = if let McpFailure::NotApplied { cause } = error {
+    let error = if let McpFailure::NotApplied { cause } = reported {
         cause.as_ref()
     } else {
-        error
+        reported
     };
     let attempt = match error {
         McpFailure::Forbidden => Attempt::Forbidden,

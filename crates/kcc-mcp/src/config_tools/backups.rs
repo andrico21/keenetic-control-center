@@ -64,6 +64,10 @@ fn map_backup(error: &BackupError) -> McpFailure {
 }
 
 /// Stores the router's startup configuration as an encrypted backup.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn create(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse_arguments(arguments)?;
     let (_identity, router) = server.authorize_host(Permission::Write, input.into_host())?;
@@ -95,6 +99,10 @@ pub(crate) async fn create(server: &KccMcp, arguments: Value) -> Result<Value, M
 }
 
 /// Lists the router's backups, newest first.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn list(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: RouterInput = parse_arguments(arguments)?;
     let (_identity, router) = server.authorize_host(Permission::Read, input.into_host())?;
@@ -110,6 +118,10 @@ pub(crate) fn list(server: &KccMcp, arguments: Value) -> Result<Value, McpFailur
 }
 
 /// Diffs two backups line by line; changed secrets show as changed redacted lines.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn diff(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DiffInput = parse_arguments(arguments)?;
     valid_text(&input.from, MAX_NAME_CHARS)?;
@@ -135,6 +147,10 @@ pub(crate) fn diff(server: &KccMcp, arguments: Value) -> Result<Value, McpFailur
 }
 
 /// Each flattened command: its complete text (secret) and its redacted display.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn lines(text: &SecretString) -> Result<Vec<(SecretString, String)>, McpFailure> {
     let ast = parse(text.expose_secret()).map_err(|_error| McpFailure::ValidationFailed)?;
     let shown = flatten(&redacted_config(&ast))

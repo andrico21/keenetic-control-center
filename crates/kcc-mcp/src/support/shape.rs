@@ -10,10 +10,15 @@ use crate::{KccMcp, McpFailure, support::validate::valid_host};
 /// Non-secret context retained from parsed tool input for failure auditing.
 #[derive(Clone, Copy)]
 pub(crate) struct FailureContext<'call> {
+    /// The protocol tool name.
     tool: &'static str,
+    /// Whether the tool never changes router state.
     read_only: bool,
+    /// The router the call named, when it named one.
     router: Option<&'call str>,
+    /// The projection members the call requested.
     fields: &'call [String],
+    /// The pagination offset the call requested.
     cursor: Option<usize>,
 }
 
@@ -74,6 +79,10 @@ pub(crate) fn noting(mut result: Value, audit: &AuditReceipt) -> Value {
 }
 
 /// Redacts, pseudonymizes, projects, and budgets one result value.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn shape(
     server: &KccMcp,
     mut value: Value,

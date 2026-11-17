@@ -105,7 +105,11 @@ pub(crate) struct JobInput {
 }
 
 /// Lists router profiles inside the caller's scope.
-pub(crate) fn routers_list(server: &KccMcp, input: ListInput) -> Result<Value, McpFailure> {
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
+pub(crate) fn routers_list(server: &KccMcp, input: &ListInput) -> Result<Value, McpFailure> {
     let _offset = parse_cursor(input.cursor.as_deref())?;
     validate_fields(input.fields.as_deref())?;
     let identity = server.identity()?;
@@ -131,6 +135,10 @@ pub(crate) fn routers_list(server: &KccMcp, input: ListInput) -> Result<Value, M
 }
 
 /// Reads router identity, firmware, capabilities, and support tier.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn router_info(server: &KccMcp, input: HostInput) -> Result<Value, McpFailure> {
     let (_identity, host) = server.authorize_host(Permission::Read, input.host)?;
     let info = server
@@ -159,6 +167,10 @@ pub(crate) async fn router_info(server: &KccMcp, input: HostInput) -> Result<Val
 }
 
 /// Searches the router's catalog.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn catalog_search(
     server: &KccMcp,
     input: CatalogSearchInput,
@@ -178,11 +190,15 @@ pub(crate) async fn catalog_search(
         .collect::<Vec<_>>();
     Ok(json!({
         "results": results,
-        "next_cursor": (results.len() == limit).then(|| (offset + limit).to_string())
+        "next_cursor": (results.len() == limit).then(|| offset.saturating_add(limit).to_string())
     }))
 }
 
 /// Returns one command's JSON schema.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn catalog_describe(
     server: &KccMcp,
     input: CatalogDescribeInput,
@@ -206,7 +222,11 @@ pub(crate) async fn catalog_describe(
 }
 
 /// Reads one job inside the caller's router scope.
-pub(crate) fn job_status(server: &KccMcp, input: JobInput) -> Result<Value, McpFailure> {
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
+pub(crate) fn job_status(server: &KccMcp, input: &JobInput) -> Result<Value, McpFailure> {
     valid_job_id(&input.id)?;
     let identity = server.identity()?;
     let record = server.jobs.get(&input.id).map_err(|error| {
@@ -224,6 +244,10 @@ pub(crate) fn job_status(server: &KccMcp, input: JobInput) -> Result<Value, McpF
 }
 
 /// Cancels one job the caller may write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn job_cancel(server: &KccMcp, input: JobInput) -> Result<Value, McpFailure> {
     valid_job_id(&input.id)?;
     let identity = server.identity()?;

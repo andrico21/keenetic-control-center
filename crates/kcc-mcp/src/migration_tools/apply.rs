@@ -4,6 +4,7 @@ use alloc::sync::Arc;
 use core::{
     future::{Future as _, poll_fn},
     pin::Pin,
+    slice::from_ref,
     task::Poll,
 };
 
@@ -90,12 +91,16 @@ pub(crate) const fn map_apply(error: ApplyError) -> McpFailure {
 type Reviewed = ([RouterId; 2], MigrationPlan, Arc<Entry>, Applying);
 
 /// Validates the arguments, then returns what the apply works with.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // cancel-safe: reads only; a dropped mark makes the record a plan again.
 async fn reviewed(server: &KccMcp, input: &ApplyInput) -> Result<Reviewed, McpFailure> {
     valid_job_id(&input.plan_id)?;
     let (identity, host) = server.authorize_host(Permission::Migrate, input.host.clone())?;
     for permission in SafetyNet::apply_permissions(ApplyNeeds::default()) {
-        authorize_routers(&identity, permission, core::slice::from_ref(&host))?;
+        authorize_routers(&identity, permission, from_ref(&host))?;
     }
     let entry = server
         .migrations
@@ -124,6 +129,10 @@ async fn reviewed(server: &KccMcp, input: &ApplyInput) -> Result<Reviewed, McpFa
 }
 
 /// Applies a reviewed plan; the call returns once the apply phase ends, before commit.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn apply(
     server: &KccMcp,
     arguments: Value,
@@ -170,6 +179,10 @@ pub(crate) async fn apply(
 
 /// Forwards the job's events as progress notifications until the apply phase ends;
 /// buffered events are forwarded before the verdict is taken.
+///
+/// # Errors
+///
+/// Returns the `ApplyError` that ended the apply phase.
 pub(crate) async fn follow(
     job: &str,
     events: &mut broadcast::Receiver<JobEvent>,
@@ -192,9 +205,9 @@ pub(crate) async fn follow(
         match step {
             Step::Done(result) => return (*result).map_err(|_error| ApplyError::Job)?,
             Step::Event(Ok(event)) if event.id == job => {
-                if let Some(progress) = progress {
+                if let Some(sink) = progress {
                     sent = sent.saturating_add(1);
-                    progress.notify(sent, describe(&event)).await;
+                    sink.notify(sent, describe(&event)).await;
                 }
             }
             Step::Event(Ok(_) | Err(broadcast::error::RecvError::Lagged(_))) => {}

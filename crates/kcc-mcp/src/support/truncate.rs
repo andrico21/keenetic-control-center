@@ -79,6 +79,10 @@ impl<'call> Shaping<'call> {
     /// The result cut to `cap` bytes: the kept scalar members, a `truncated` flag, and the
     /// longest prefix of the bulkiest array that fits, with the next offset when the tool
     /// pages. Refused when the kept scalars alone exceed `cap`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(super) fn cut(&self, value: &Value, cap: usize) -> Result<String, McpFailure> {
         let object = value.as_object();
         let mut kept = Map::new();
@@ -104,7 +108,7 @@ impl<'call> Shaping<'call> {
                 key.clone(),
                 Value::Array(items.iter().take(count).cloned().collect()),
             ));
-            let next = match self.cursor {
+            let following = match self.cursor {
                 Some(offset) if count > 0 && count < items.len() => {
                     Some(json!(offset.saturating_add(count).to_string()))
                 }
@@ -113,7 +117,7 @@ impl<'call> Shaping<'call> {
                     .cloned(),
                 Some(_) | None => None,
             };
-            if let Some(next) = next {
+            if let Some(next) = following {
                 drop(cut.insert("next_cursor".to_owned(), next));
             }
             encode(&Value::Object(cut), cap)
@@ -123,11 +127,11 @@ impl<'call> Shaping<'call> {
             let middle = low.midpoint(high);
             if let Some(text) = page(middle) {
                 best = Some(text);
-                low = middle + 1;
+                low = middle.saturating_add(1);
             } else if middle == 0 {
                 break;
             } else {
-                high = middle - 1;
+                high = middle.saturating_sub(1);
             }
         }
         Ok(best.unwrap_or(base))

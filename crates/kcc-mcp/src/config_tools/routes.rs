@@ -1,5 +1,7 @@
 //! Registry descriptions and dynamic routes of the backup tools.
 
+use core::future::ready;
+
 use kcc_app::permissions::Permission;
 use rmcp::handler::server::{common::schema_for_type, router::tool::ToolRoute};
 
@@ -108,14 +110,14 @@ impl Tool {
                 &description,
                 schema_for_type::<RouterInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
-                    Box::pin(core::future::ready(backups::list(server, arguments)))
+                    Box::pin(ready(backups::list(server, arguments)))
                 },
             ),
             Self::BackupDiff => route(
                 &description,
                 schema_for_type::<DiffInput>(),
                 |server, arguments, _progress| -> ToolFuture<'_> {
-                    Box::pin(core::future::ready(backups::diff(server, arguments)))
+                    Box::pin(ready(backups::diff(server, arguments)))
                 },
             ),
         }

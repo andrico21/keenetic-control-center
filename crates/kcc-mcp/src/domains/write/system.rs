@@ -97,6 +97,10 @@ pub(super) struct Input {
 }
 
 /// Runs one system write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn write(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: Input = parse(arguments)?;

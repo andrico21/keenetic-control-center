@@ -74,6 +74,10 @@ pub(super) struct AdminInput {
 }
 
 /// Parses a management listener.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn listener(value: Option<&str>) -> Result<ManagementListener, McpFailure> {
     Ok(match text(value)? {
         "http" => ManagementListener::Http,
@@ -84,6 +88,10 @@ fn listener(value: Option<&str>) -> Result<ManagementListener, McpFailure> {
 }
 
 /// Plans one service change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_service(
     ctx: &RouterCtx,
     input: &AdminInput,
@@ -119,6 +127,10 @@ fn plan_service(
 }
 
 /// Plans one KeenDNS change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_keendns(
     ctx: &RouterCtx,
     input: &AdminInput,
@@ -148,6 +160,10 @@ fn plan_keendns(
 }
 
 /// Runs one service or KeenDNS write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn services_or_keendns(
     server: &KccMcp,
@@ -184,6 +200,10 @@ pub(super) async fn services_or_keendns(
 }
 
 /// Runs one router-account write; the account the profile logs in with is protected.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn router_users(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: AdminInput = parse(arguments)?;
     check_op(USER_OPS, &input.op)?;

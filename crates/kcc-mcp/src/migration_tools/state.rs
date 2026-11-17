@@ -66,6 +66,10 @@ impl Migration {
     }
 
     /// Refuses callers other than the owner; returns both routers for authorization.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(crate) fn routers_for(&self, identity: &McpIdentity) -> Result<[RouterId; 2], McpFailure> {
         if self.owner != identity.name {
             return Err(McpFailure::Forbidden);

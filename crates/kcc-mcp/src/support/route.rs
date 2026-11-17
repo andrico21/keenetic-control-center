@@ -5,7 +5,7 @@ use core::pin::Pin;
 
 use rmcp::{
     handler::server::{common::schema_for_type, router::tool::ToolRoute, tool::ToolCallContext},
-    model::{JsonObject, ProgressNotificationParam, ProgressToken, Tool, ToolAnnotations},
+    model::{JsonObject, ProgressNotificationParam, ProgressToken, Tool},
     service::{Peer, RequestContext, RoleServer},
 };
 use schemars::JsonSchema;
@@ -49,11 +49,11 @@ impl Progress {
     }
 
     /// Sends one notification; a closed session only loses the notification.
-    pub(crate) async fn notify(&self, progress: u32, message: String) {
+    pub(crate) async fn notify(&self, progress: u32, text: String) {
         let message = if self.redact_clients {
-            scrub_text(&message)
+            scrub_text(&text)
         } else {
-            message
+            text
         };
         let param = ProgressNotificationParam::new(self.token.clone(), f64::from(progress))
             .with_message(message);
@@ -64,6 +64,10 @@ impl Progress {
 }
 
 /// Parses tool arguments at the boundary.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) fn parse<T>(arguments: Value) -> Result<T, McpFailure>
 where
     T: DeserializeOwned,
@@ -118,17 +122,12 @@ where
         + Sync
         + 'static,
 {
-    let annotations = ToolAnnotations::new()
-        .read_only(description.read_only)
-        .destructive(description.destructive)
-        .idempotent(description.idempotent)
-        .open_world(false);
     let takes_cursor = schema
         .get("properties")
         .and_then(|properties| properties.get("cursor"))
         .is_some();
-    let tool =
-        Tool::new(description.name, description.description, schema).with_annotations(annotations);
+    let tool = Tool::new(description.name, description.description, schema)
+        .with_annotations(description.tool_annotations());
     let name = description.name;
     let read_only = description.read_only;
     ToolRoute::new_dyn(tool, move |context: ToolCallContext<'_, KccMcp>| {

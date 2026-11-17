@@ -87,7 +87,7 @@ async fn exercise_generic(server: &KccMcp, arguments: &[Value; 9]) -> TestCaseRe
         job,
     ] = arguments;
     exercise!(list, fleet::ListInput, |input| fleet::routers_list(
-        server, input
+        server, &input
     ));
     exercise!(host, fleet::HostInput, |input| fleet::router_info(
         server, input
@@ -118,7 +118,7 @@ async fn exercise_generic(server: &KccMcp, arguments: &[Value; 9]) -> TestCaseRe
     exercise!(cli, rci::CliInput, |input| rci::cli_parse(server, input)
         .await);
     exercise!(job, fleet::JobInput, |input| fleet::job_status(
-        server, input
+        server, &input
     ));
     exercise!(job, fleet::JobInput, |input| fleet::job_cancel(
         server, input

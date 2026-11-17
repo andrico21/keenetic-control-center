@@ -61,6 +61,10 @@ pub(super) struct HousekeepingInput {
 }
 
 /// Plans one logging change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_logging(
     opened: &Opened,
     input: &HousekeepingInput,
@@ -82,6 +86,10 @@ fn plan_logging(
 }
 
 /// Plans one schedule change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_schedule(
     ctx: &RouterCtx,
     input: &HousekeepingInput,
@@ -103,6 +111,10 @@ fn plan_schedule(
 }
 
 /// Plans one storage operation; every one is destructive and needs confirmation.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_storage(
     opened: &Opened,
     input: &HousekeepingInput,
@@ -135,6 +147,10 @@ fn plan_storage(
 }
 
 /// Runs one logging, schedule, or storage write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn housekeeping(
     server: &KccMcp,
     chore: Chore,

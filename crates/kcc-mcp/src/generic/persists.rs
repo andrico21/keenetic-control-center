@@ -52,12 +52,12 @@ pub(crate) fn cli_applied(
     persistence: (bool, Vec<String>),
 ) -> Value {
     let (persists_immediately, persisted_paths) = persistence;
-    let responses = responses
+    let bodies = responses
         .into_iter()
         .map(rci_body_value)
         .collect::<Vec<_>>();
     labelled(
-        json!({ "responses": responses, "unsaved": unsaved && !persists_immediately }),
+        json!({ "responses": bodies, "unsaved": unsaved && !persists_immediately }),
         persists_immediately,
         &persisted_paths,
     )
@@ -65,10 +65,10 @@ pub(crate) fn cli_applied(
 
 /// The labelled result of an applied root batch.
 pub(crate) fn batch_applied(
-    responses: Vec<Value>,
+    responses: &[Value],
     unsaved: bool,
     persists: bool,
-    persisted_paths: Vec<String>,
+    persisted_paths: &[String],
 ) -> Value {
     let partial = responses
         .iter()
@@ -80,5 +80,5 @@ pub(crate) fn batch_applied(
     {
         drop(object.insert("persisted_paths".to_owned(), json!(persisted_paths)));
     }
-    labelled(result, persists, &persisted_paths)
+    labelled(result, persists, persisted_paths)
 }

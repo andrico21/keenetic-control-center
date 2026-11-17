@@ -84,6 +84,10 @@ pub(super) struct MeshInput {
 }
 
 /// Plans one Wi-Fi change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn plan_wifi(
     ctx: &RouterCtx,
     name: &ObjectName,
@@ -107,6 +111,10 @@ fn plan_wifi(
 }
 
 /// Runs one Wi-Fi write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn wifi(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: WifiInput = parse(arguments)?;
     check_op(WIFI_OPS, &input.op)?;
@@ -134,6 +142,10 @@ pub(super) async fn wifi(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
 }
 
 /// Runs one mesh write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn mesh(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: MeshInput = parse(arguments)?;

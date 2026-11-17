@@ -148,6 +148,10 @@ const fn map_plan(error: &PresetPlanError) -> McpFailure {
 
 impl Planned {
     /// The plan as returned to the caller: dispositions, reasons and needed inputs only.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(super) fn view(&self, dry_run: bool) -> Result<Value, McpFailure> {
         let plan = serde_json::to_value(&self.plan).map_err(|_error| McpFailure::Internal)?;
         let status = if self.plan.is_ready() {
@@ -211,6 +215,10 @@ impl ApplyInput {
 
     /// Loads the preset, authorizes source and target, reads the target inventory, and
     /// plans. Authorization happens before any router request; the inventory is read-only.
+    ///
+    /// # Errors
+    ///
+    /// Returns an `McpFailure` naming the refusal or failure to report to the client.
     pub(super) async fn planned(
         &self,
         server: &KccMcp,
@@ -221,6 +229,10 @@ impl ApplyInput {
 }
 
 /// See [`ApplyInput::planned`].
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn planned(
     server: &KccMcp,
     identity: &McpIdentity,

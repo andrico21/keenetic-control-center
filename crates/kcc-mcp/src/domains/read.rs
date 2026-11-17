@@ -72,6 +72,10 @@ pub(crate) const fn read_ops(area: Area) -> &'static [&'static str] {
 }
 
 /// Serializes one domain read.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn json<T>(result: Result<T, DomainError>) -> Result<Value, McpFailure>
 where
     T: Serialize,
@@ -81,6 +85,10 @@ where
 }
 
 /// Parses the `name` selector.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn name(input: &ReadInput) -> Result<ObjectName, McpFailure> {
     input
         .name
@@ -91,6 +99,10 @@ fn name(input: &ReadInput) -> Result<ObjectName, McpFailure> {
 }
 
 /// Runs one read tool call.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn read(
     server: &KccMcp,
     area: Area,
@@ -113,6 +125,10 @@ pub(crate) async fn read(
 }
 
 /// Calls the curated reader of `area` and `input.op`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn dispatch(ctx: &RouterCtx, area: Area, input: &ReadInput) -> Result<Value, McpFailure> {
     match area {
         Area::System => system_read(ctx, &input.op).await,
@@ -144,6 +160,10 @@ async fn dispatch(ctx: &RouterCtx, area: Area, input: &ReadInput) -> Result<Valu
 }
 
 /// System reads, including the merged internet, storage, and schedule reads.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn system_read(ctx: &RouterCtx, op: &str) -> Result<Value, McpFailure> {
     match op {
         "version" => json(system::read_version(ctx).await),
@@ -160,6 +180,10 @@ async fn system_read(ctx: &RouterCtx, op: &str) -> Result<Value, McpFailure> {
 }
 
 /// Network-area reads.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn network_read(ctx: &RouterCtx, area: Area, input: &ReadInput) -> Result<Value, McpFailure> {
     match (area, input.op.as_str()) {
         (Area::Dhcp, "pools") => json(dhcp::read_pools(ctx).await),

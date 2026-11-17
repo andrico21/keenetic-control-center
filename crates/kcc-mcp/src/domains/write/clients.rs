@@ -137,6 +137,10 @@ pub(super) struct SegmentInput {
 }
 
 /// Plans one client change.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 async fn plan_client(
     ctx: &RouterCtx,
     input: &ClientInput,
@@ -188,6 +192,10 @@ async fn plan_client(
 }
 
 /// Applies a client or DHCP plan through the domain executor.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 async fn apply_planned(
     server: &KccMcp,
@@ -213,6 +221,10 @@ async fn apply_planned(
 
 /// Runs one client write. `schedule` and `policy` take the schedule or policy in
 /// `interface` and the client's registration name in `value`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: ClientInput = parse(arguments)?;
     check_op(CLIENT_OPS, &input.op)?;
@@ -227,6 +239,10 @@ pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, 
 }
 
 /// Runs one DHCP write.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(super) async fn dhcp(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DhcpInput = parse(arguments)?;
     check_op(DHCP_OPS, &input.op)?;
@@ -279,6 +295,10 @@ fn map_segment(error: SegmentError) -> McpFailure {
 }
 
 /// Runs one segment write through the stepwise segment executor.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn segments(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: SegmentInput = parse(arguments)?;

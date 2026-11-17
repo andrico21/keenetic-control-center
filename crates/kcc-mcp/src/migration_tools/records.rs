@@ -67,8 +67,8 @@ impl Entry {
             phase: StdMutex::new(phase),
             migration: Mutex::new(migration),
         });
-        if let Some(left) = left {
-            drop(tokio::spawn(expire(Arc::downgrade(&entry), left)));
+        if let Some(remaining) = left {
+            drop(tokio::spawn(expire(Arc::downgrade(&entry), remaining)));
         }
         entry
     }
@@ -137,9 +137,9 @@ impl Drop for Applying {
 /// Lets go of the lease of `entry` once `left` passed, unless a finish came first.
 // cancel-safe: cancelled while waiting, the lease stays where it was; after the wait,
 // only the record's own lock is awaited.
-async fn expire(entry: Weak<Entry>, left: Duration) {
+async fn expire(weak: Weak<Entry>, left: Duration) {
     sleep(left).await;
-    let Some(entry) = entry.upgrade() else {
+    let Some(entry) = weak.upgrade() else {
         return;
     };
     let mut migration = entry.lock().await;

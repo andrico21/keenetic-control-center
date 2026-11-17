@@ -85,6 +85,10 @@ pub(super) struct VpnInput {
 }
 
 /// Builds the curated VPN client change of `input`.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 fn client_change(input: &VpnInput) -> Result<VpnClientChange, McpFailure> {
     let name = text(input.name.as_deref())?.to_owned();
     let value = || text(input.value.as_deref()).map(str::to_owned);
@@ -157,6 +161,10 @@ fn client_change(input: &VpnInput) -> Result<VpnClientChange, McpFailure> {
 }
 
 /// Runs one VPN client write; credential operations use the secret-safe executor.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 // NOT cancel-safe: transmitted work may precede verification or recovery cleanup.
 pub(super) async fn clients(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: VpnInput = parse(arguments)?;

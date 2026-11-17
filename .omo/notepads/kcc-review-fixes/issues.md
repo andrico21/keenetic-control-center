@@ -171,3 +171,7 @@
 
 ## [2026-11-17] Todo 44 worker incident (disclosed)
 - While killing my own stale cargo batch I ran `pkill -x cargo`, which matches EVERY cargo process of the user, not only mine. No other cargo process was listed afterwards, but if the orchestrator's gate or another worker had a cargo process running at ~09:55 it was killed and must be re-run. Rule for next time: kill exact PIDs only.
+
+## [2026-11-17] Todo 48 (wt/r48) notes, not fixed here
+- MCP `kcc_dhcp_write` `op: pool` has no `gateway`: `PoolConfig::new` advertises `begin` as the default router and a replace resets lease/state (the F-11 harm through MCP). Fixing it changes the tool schema (+ docs/MCP_TOOLS.md regen); recorded in docs/BACKLOG.md.
+- Catalog `ip dhcp pool dns-server` synopsis carries the manual prompt `(config-dhcp-pool)> dns-server` as grammar words in 4.3/5.0/5.1; `address2` is typed but untrustworthy. Recorded in docs/BACKLOG.md.

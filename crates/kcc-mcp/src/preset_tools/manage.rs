@@ -29,6 +29,10 @@ pub(crate) struct DeleteInput {
 }
 
 /// Lists presets whose source router the caller may read, or shows one; always redacted.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn list(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: ListInput = parse(arguments)?;
     let identity = server.identity()?;
@@ -61,6 +65,10 @@ pub(crate) async fn list(server: &KccMcp, arguments: Value) -> Result<Value, Mcp
 }
 
 /// Deletes a stored preset, or forgets a transient one.
+///
+/// # Errors
+///
+/// Returns an `McpFailure` naming the refusal or failure to report to the client.
 pub(crate) async fn delete(server: &KccMcp, arguments: Value) -> Result<Value, McpFailure> {
     let input: DeleteInput = parse(arguments)?;
     valid_text(&input.id, 96)?;
