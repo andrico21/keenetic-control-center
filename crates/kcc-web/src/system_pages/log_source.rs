@@ -3,26 +3,25 @@
 //! The page reads the router's log through [`LogSource`]. When the router's log
 //! collector runs (`[logs] enabled` and the router selected), it owns the router's one
 //! `show log` stream and the page follows it ([`CollectorLog`]) without a request of its
-//! own. Otherwise it is [`PollingLog`]: the POST reader (`logging::read_log`, a POST
-//! of `show log`) asked again at most every [`POLL_INTERVAL`], with the lines already
-//! seen left out.
+//! own. Otherwise it is [`SharedLog`]: the router's one shared poller (`log_poller`)
+//! reads the log (`logging::read_log`, a POST of `show log`) at most every
+//! [`POLL_INTERVAL`] for all the viewers, each of whom is shown the lines it has not seen.
 
 use alloc::sync::Arc;
-use core::{future::ready, time::Duration};
+use core::time::Duration;
+use std::sync::{Mutex, PoisonError};
 
-use futures_util::{
-    FutureExt as _, StreamExt as _,
-    future::BoxFuture,
-    stream::{self, BoxStream},
-};
-use kcc_domain::{DomainError, RouterCtx, logging};
+use futures_util::{FutureExt as _, future::BoxFuture, stream::BoxStream};
+use kcc_domain::{DomainError, RouterCtx};
 use serde_json::Value;
-use tokio::time::sleep;
 
-use super::log_collector::CollectorLog;
+use super::{
+    log_collector::CollectorLog,
+    log_poller::{Lease, PolledLogs},
+};
 use crate::WebState;
 
-/// How often [`PollingLog`] asks the router again; the router's log must not be polled
+/// How often the shared poller asks the router again; the router's log must not be polled
 /// faster than this.
 pub(crate) const POLL_INTERVAL: Duration = Duration::from_secs(5);
 
@@ -38,50 +37,41 @@ pub(crate) trait LogSource: Send + Sync {
     fn follow(&self, domain: RouterCtx, seen: Vec<String>) -> BoxStream<'static, Vec<String>>;
 }
 
-/// The log source of a router no collector follows: the reader, polled.
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct PollingLog {
-    /// Time between two reads.
-    interval: Duration,
+/// The log source of a router no collector follows: the router's shared poller.
+pub(crate) struct SharedLog {
+    /// Every router's pollers.
+    polls: Arc<PolledLogs>,
+    /// The router.
+    router: String,
+    /// This viewer's share of the router's poller, once joined.
+    lease: Mutex<Option<Arc<Lease>>>,
 }
 
-impl PollingLog {
-    /// Polling every [`POLL_INTERVAL`].
-    pub(crate) const fn new() -> Self {
+impl SharedLog {
+    /// A viewer of `router`'s log through `polls`.
+    pub(crate) const fn new(polls: Arc<PolledLogs>, router: String) -> Self {
         Self {
-            interval: POLL_INTERVAL,
+            polls,
+            router,
+            lease: Mutex::new(None),
         }
+    }
+
+    /// This viewer's share of the router's poller, joining it on first use.
+    fn lease(&self, domain: &RouterCtx) -> Arc<Lease> {
+        let mut held = self.lease.lock().unwrap_or_else(PoisonError::into_inner);
+        Arc::clone(held.get_or_insert_with(|| self.polls.join(&self.router, domain)))
     }
 }
 
-impl LogSource for PollingLog {
+impl LogSource for SharedLog {
     fn tail(&self, domain: RouterCtx) -> BoxFuture<'static, Result<Vec<String>, DomainError>> {
-        async move {
-            logging::read_log(&domain, TAIL_LINES)
-                .await
-                .map(|text| lines(&text))
-        }
-        .boxed()
+        let lease = self.lease(&domain);
+        async move { lease.tail().await }.boxed()
     }
 
     fn follow(&self, domain: RouterCtx, seen: Vec<String>) -> BoxStream<'static, Vec<String>> {
-        let start = (domain, seen, self.interval);
-        stream::unfold(start, async |(context, previous, interval)| {
-            sleep(interval).await;
-            match logging::read_log(&context, TAIL_LINES).await {
-                Ok(text) => {
-                    let current = lines(&text);
-                    let fresh = new_lines(&previous, &current);
-                    Some((fresh, (context, current, interval)))
-                }
-                Err(error) => {
-                    tracing::debug!(%error, "router log poll failed");
-                    Some((Vec::new(), (context, previous, interval)))
-                }
-            }
-        })
-        .filter(|batch| ready(!batch.is_empty()))
-        .boxed()
+        self.lease(&domain).follow(seen)
     }
 }
 
@@ -93,7 +83,10 @@ pub(crate) fn source(state: &WebState, router: &str) -> Arc<dyn LogSource> {
         .filter(|feed| feed.subscribe().is_some())
     {
         Some(feed) => Arc::new(CollectorLog::new(feed.clone())),
-        None => Arc::new(PollingLog::new()),
+        None => Arc::new(SharedLog::new(
+            Arc::clone(state.polled_logs()),
+            router.to_owned(),
+        )),
     }
 }
 

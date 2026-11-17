@@ -917,7 +917,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix: move blocking work off the async workers
   Recommended task executor category: unspecified-high - multi-file change across modules
 
-- [ ] 38. Web resource bounds: diagnostics polling, log streams, global caps, read-only views, review submit
+- [x] 38. Web resource bounds: diagnostics polling, log streams, global caps, read-only views, review submit
   What to do / Must NOT do: Per the findings. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `C-19` (low; critic confirmed) Diagnostics poll the router every 10 ms. Evidence: `crates/kcc-domain/src/diagnostics.rs:212`, `kcc-rci/src/engine/background.rs:100-106,129`. Fix: Keep the default interval in production and shorten it only in tests (or use a paused clock).
   - `W4-13` (low; critic confirmed) Each log-page stream polls the router itself. Evidence: `log_source.rs:25-26`, `log_source.rs:67-71`, `logs.rs:163-168`. Fix: Share one poller per router (a `watch`/broadcast like `JobFeeds`), or document that the limit is per viewer.

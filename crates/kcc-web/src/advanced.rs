@@ -39,6 +39,7 @@ mod types;
 mod viewer;
 
 use alloc::{collections::VecDeque, sync::Arc};
+use core::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use axum::{
@@ -50,14 +51,48 @@ use kcc_rci::RciBody;
 
 use crate::{WebState, system_pages::job_feed::JobFeeds};
 
-/// Sessions whose last large response is kept for download.
+/// Large responses kept for download per user; a user over it loses their own oldest.
 const STORED_RESPONSES: usize = 8;
 
-/// Explorer jobs whose output is kept for their listeners.
+/// Explorer jobs whose output is kept per user for their listeners; a user over it loses
+/// their own oldest finished job's slot, never a running job's.
 const STORED_OUTPUTS: usize = 32;
 
 /// Where a job leaves the router's final answer.
-type OutputSlot = Arc<Mutex<Option<RciBody>>>;
+pub(crate) struct Output {
+    /// The router's answer, once the job completed.
+    answer: Mutex<Option<RciBody>>,
+    /// Whether the job ended, whatever the outcome; only an ended slot may be evicted.
+    ended: AtomicBool,
+}
+
+impl Output {
+    /// A slot of a job that is still running.
+    pub(crate) const fn new() -> Self {
+        Self {
+            answer: Mutex::new(None),
+            ended: AtomicBool::new(false),
+        }
+    }
+
+    /// Keeps the job's final answer.
+    pub(crate) fn keep(&self, answer: RciBody) {
+        *lock(&self.answer) = Some(answer);
+    }
+
+    /// Marks the job as ended; its slot may now be evicted.
+    pub(crate) fn end(&self) {
+        self.ended.store(true, Ordering::Release);
+    }
+
+    /// Whether the job ended.
+    fn is_ended(&self) -> bool {
+        self.ended.load(Ordering::Acquire)
+    }
+}
+
+/// A shared output slot.
+type OutputSlot = Arc<Output>;
 
 /// The services and short-lived state of the advanced pages.
 pub(crate) struct Services {
@@ -73,6 +108,8 @@ pub(crate) struct Services {
 
 /// One response kept for download.
 struct Stored {
+    /// The username that obtained it; the per-user cap counts these.
+    owner: String,
     /// Opaque session key.
     session: String,
     /// Router profile id.
@@ -104,14 +141,25 @@ impl Services {
         &self.feeds
     }
 
-    /// Keeps `body` as the downloadable response of `session` on `router`.
-    fn keep_response(&self, session: &str, router: &str, body: Arc<str>, json: bool) {
+    /// Keeps `body` as the downloadable response of `session` on `router`, obtained by
+    /// `owner`. A user over the cap loses their own oldest response, nobody else's.
+    fn keep_response(
+        &self,
+        (owner, session): (&str, &str),
+        router: &str,
+        body: Arc<str>,
+        json: bool,
+    ) {
         let mut stored = lock(&self.responses);
         stored.retain(|entry| entry.session != session || entry.router != router);
-        if stored.len() >= STORED_RESPONSES {
-            drop(stored.pop_front());
+        while stored.iter().filter(|entry| entry.owner == owner).count() >= STORED_RESPONSES {
+            let Some(oldest) = stored.iter().position(|entry| entry.owner == owner) else {
+                break;
+            };
+            drop(stored.remove(oldest));
         }
         stored.push_back(Stored {
+            owner: owner.to_owned(),
             session: session.to_owned(),
             router: router.to_owned(),
             body,
@@ -127,11 +175,18 @@ impl Services {
             .map(|entry| (Arc::clone(&entry.body), entry.json))
     }
 
-    /// Registers job `id`, started by `owner`, and its output slot.
+    /// Registers job `id`, started by `owner`, and its output slot. A user over the cap
+    /// loses their own oldest ended job's slot; a running job's slot is never evicted.
     fn keep_output(&self, id: &str, owner: &str, slot: OutputSlot) {
         let mut outputs = lock(&self.outputs);
-        if outputs.len() >= STORED_OUTPUTS {
-            drop(outputs.pop_front());
+        while outputs.iter().filter(|(_, who, _)| who == owner).count() >= STORED_OUTPUTS {
+            let Some(oldest) = outputs
+                .iter()
+                .position(|(_, who, held)| who == owner && held.is_ended())
+            else {
+                break;
+            };
+            drop(outputs.remove(oldest));
         }
         outputs.push_back((id.to_owned(), owner.to_owned(), slot));
     }
@@ -150,7 +205,7 @@ impl Services {
             .iter()
             .find(|(job, _, _)| job == id)
             .map(|(_, _, slot)| Arc::clone(slot))?;
-        lock(&slot).clone()
+        lock(&slot.answer).clone()
     }
 }
 
@@ -194,13 +249,63 @@ fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
 mod tests {
     use alloc::sync::Arc;
 
-    use super::{STORED_RESPONSES, Services};
+    use super::{Output, STORED_OUTPUTS, STORED_RESPONSES, Services};
+
+    /// W4-07: one user's flood of downloads evicts only that user's own oldest ones.
+    #[test]
+    fn a_flood_of_downloads_leaves_other_users_downloads() {
+        let services = Services::new(None);
+        services.keep_response(("bea", "session-b"), "home", Arc::from("b's"), false);
+        for index in 0..STORED_RESPONSES * 3 {
+            services.keep_response(
+                ("ann", &format!("flood-{index}")),
+                "home",
+                Arc::from("x"),
+                false,
+            );
+        }
+        assert!(
+            services.response("session-b", "home").is_some(),
+            "another user's download survives the flood"
+        );
+    }
+
+    /// W4-07: a flood of jobs never evicts a running job's slot, another user's or the
+    /// flooder's own; the flooder's own oldest ended slots go first.
+    #[test]
+    fn a_flood_of_jobs_leaves_running_jobs_answers() {
+        let services = Services::new(None);
+        services.keep_output("b-job", "bea", Arc::new(Output::new()));
+        services.keep_output("a-running", "ann", Arc::new(Output::new()));
+        for index in 0..STORED_OUTPUTS * 3 {
+            let finished = Arc::new(Output::new());
+            finished.end();
+            services.keep_output(&format!("flood-{index}"), "ann", finished);
+        }
+        for (job, owner) in [("b-job", "bea"), ("a-running", "ann")] {
+            assert_eq!(
+                services.output_owner(job).as_deref(),
+                Some(owner),
+                "{job} stays known to its owner"
+            );
+        }
+        assert!(
+            services.output_owner("flood-0").is_none(),
+            "the oldest ended slot of the flooder went first"
+        );
+        assert!(
+            services
+                .output_owner(&format!("flood-{}", STORED_OUTPUTS * 3 - 1))
+                .is_some(),
+            "the newest is kept"
+        );
+    }
 
     #[test]
     fn kept_responses_belong_to_one_session_and_router() {
         let services = Services::new(None);
-        services.keep_response("alpha", "home", Arc::from("{\"a\":1}"), true);
-        services.keep_response("beta", "home", Arc::from("text"), false);
+        services.keep_response(("user", "alpha"), "home", Arc::from("{\"a\":1}"), true);
+        services.keep_response(("user", "beta"), "home", Arc::from("text"), false);
         assert_eq!(
             services
                 .response("alpha", "home")
@@ -216,7 +321,7 @@ mod tests {
             services.response("gamma", "home").is_none(),
             "other session"
         );
-        services.keep_response("alpha", "home", Arc::from("newer"), false);
+        services.keep_response(("user", "alpha"), "home", Arc::from("newer"), false);
         assert_eq!(
             services
                 .response("alpha", "home")
@@ -225,7 +330,12 @@ mod tests {
             "replaced"
         );
         for index in 0..STORED_RESPONSES {
-            services.keep_response(&format!("session-{index}"), "home", Arc::from("x"), false);
+            services.keep_response(
+                ("user", &format!("session-{index}")),
+                "home",
+                Arc::from("x"),
+                false,
+            );
         }
         assert!(
             services.response("beta", "home").is_none(),

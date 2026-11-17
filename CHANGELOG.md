@@ -625,6 +625,21 @@ The first release, `0.1.0`, is in preparation and contains:
   answers `forbidden`. They used to be sent and always rolled back by the fail-safe timer,
   with every other unsaved change. Change the listener on the router, then the router's
   URL in kcc.
+- **Diagnostics ask the router for progress every 500 ms**, not every 10 ms, so a running
+  ping or traceroute no longer loads the router.
+- **Viewers of a router's log page share one reader**: without a log collector, any
+  number of open log streams of one router cost the router one `show log` read every
+  5 seconds (they used to read it once per viewer); the reader stops when the last
+  viewer leaves.
+- **A flood of explorer downloads or jobs no longer evicts other users' results**: the
+  kept large responses (8) and job answers (32) are bounded per user, a user over the
+  bound loses their own oldest, and a running job's answer is never evicted.
+- **Page views do less work**: the backups table takes each size from the stored record
+  instead of decrypting every backup (`BackupInfo` gains `size`; the file format is
+  unchanged), tables sort each row's key once, and the configuration comparison runs off
+  the async workers.
+- **The migration review no longer takes quadratic time** in the number of form fields
+  it submits.
 
 ### Security
 

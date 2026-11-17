@@ -21,6 +21,7 @@ use kcc_i18n::{
 use kcc_rci::ConfigKind;
 use secrecy::{ExposeSecret as _, SecretString};
 use serde::Deserialize;
+use tokio::task::spawn_blocking;
 
 use super::{
     backup_rows::BackupRow,
@@ -184,8 +185,24 @@ async fn compare(
     page.to_label = newer;
     let old = side(target, visit, from).await?;
     let new = side(target, visit, to).await?;
-    page.changes = Some(ShownChanges::new(&old, &new));
+    page.changes = Some(changes(old, new).await?);
     Ok(())
+}
+
+/// The changes from `old` to `new`, computed on the blocking pool: comparing two large
+/// configurations is CPU-bound work an async worker must not carry.
+///
+/// # Errors
+///
+/// Returns the unreadable notice when the task died.
+// cancel-safe: pure computation; a dropped caller leaves it to end unseen.
+async fn changes(old: Lines, new: Lines) -> Result<ShownChanges, MessageKey> {
+    spawn_blocking(move || ShownChanges::new(&old, &new))
+        .await
+        .map_err(|error| {
+            tracing::error!(%error, "configuration comparison task failed");
+            keys::WEB_CONFIG_DIFF_UNREADABLE
+        })
 }
 
 /// The commands of one side: a backup of the router, or its running configuration.
@@ -219,4 +236,48 @@ async fn side(target: Target<'_>, visit: Visit<'_>, choice: &str) -> Result<Line
             })?
     };
     Lines::read(text.expose_secret()).map_err(|_error| keys::WEB_CONFIG_DIFF_UNREADABLE)
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::expect_used,
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation and fails by panicking"
+)]
+mod tests {
+    use std::sync::mpsc;
+
+    use futures_util::FutureExt as _;
+    use tokio::{runtime::Builder, sync::oneshot, task::spawn_blocking};
+
+    use super::{Lines, changes};
+
+    /// W2-07: with the blocking pool's only thread busy the comparison cannot finish, so
+    /// it does not run on the caller's thread; it completes once the pool is free.
+    #[test]
+    fn the_comparison_runs_on_the_blocking_pool() {
+        let runtime = Builder::new_current_thread()
+            .max_blocking_threads(1)
+            .build()
+            .expect("runtime");
+        runtime.block_on(async {
+            let (release, held) = mpsc::channel::<()>();
+            let (entered_tx, entered) = oneshot::channel::<()>();
+            let busy = spawn_blocking(move || {
+                let _sent: Result<(), ()> = entered_tx.send(());
+                let _released: Result<(), mpsc::RecvError> = held.recv();
+            });
+            entered.await.expect("the pool thread is busy");
+            let old = Lines::read("system\n description a\n!\n").expect("old");
+            let new = Lines::read("system\n description b\n!\n").expect("new");
+            let mut comparison = Box::pin(changes(old, new));
+            assert!(
+                (&mut comparison).now_or_never().is_none(),
+                "the comparison waits for the pool"
+            );
+            let _sent: Result<(), mpsc::SendError<()>> = release.send(());
+            busy.await.expect("released");
+            assert!(comparison.await.is_ok(), "then completes");
+        });
+    }
 }

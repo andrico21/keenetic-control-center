@@ -47,6 +47,7 @@ mod keendns;
 mod keendns_access;
 mod keendns_forms;
 mod log_collector;
+pub(crate) mod log_poller;
 mod log_source;
 mod logs;
 mod schedule_actions;

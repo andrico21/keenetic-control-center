@@ -1,9 +1,12 @@
 //! Backups as files: uploaded, compared as exactly their changed lines, downloaded with
 //! or without their secrets, and deleted behind the typed router name.
 
+use std::fs;
+
 use axum::http::StatusCode;
 use fluent_bundle::FluentArgs;
-use kcc_i18n::{bundle::tr, keys, locale::Locale};
+use kcc_i18n::{bundle::tr, format, keys, locale::Locale};
+use secrecy::ExposeSecret as _;
 
 use crate::{
     PAGE, backup_names, changed,
@@ -12,7 +15,7 @@ use crate::{
         outcome::TestResult,
         page::{en, header_text, html, text},
         typed_name::{Ask, TypedName, typed_names},
-        web::Fixture,
+        web::{Fixture, ROUTER},
     },
     upload,
 };
@@ -95,6 +98,45 @@ async fn uploads_of_one_file_in_one_second_are_all_kept() -> TestResult {
         page.matches("<span class=\"mono\">same</span>").count(),
         3,
         "each listed as the upload of same.txt: {page}"
+    );
+    Ok(())
+}
+
+/// W2-07: the backups table takes each size from the stored record, so a page view
+/// opens no backup: with the ciphertext tampered (it no longer decrypts) the size is
+/// still shown.
+#[tokio::test]
+async fn the_backups_page_shows_sizes_without_opening_the_backups() -> TestResult {
+    let fixture = Fixture::new().await?;
+    let operator = fixture.login("operator").await?;
+    let stored = upload(&fixture, &operator, ("lab.txt", OLD.as_bytes())).await?;
+    assert_eq!(stored.status(), StatusCode::OK, "stored");
+    let page = text(fixture.get(PAGE, &operator).await?).await?;
+    let name = backup_names(&page).into_iter().next().ok_or("one backup")?;
+    let size = fixture
+        .backup_store()?
+        .get(ROUTER, &name)?
+        .expose_secret()
+        .len();
+    let shown = format::bytes(Locale::En, u64::try_from(size)?);
+    let file = fixture.state_dir().join("backups").join(ROUTER).join(&name);
+    let mut record: serde_json::Value = serde_json::from_slice(&fs::read(&file)?)?;
+    let ciphertext = record
+        .pointer_mut("/sealed/ciphertext")
+        .ok_or("sealed ciphertext")?;
+    let sealed = ciphertext.as_str().ok_or("a string")?;
+    let rest = sealed.get(1..).ok_or("base64 is ASCII")?;
+    let flipped = if sealed.starts_with('A') { 'B' } else { 'A' };
+    *ciphertext = serde_json::Value::from(format!("{flipped}{rest}"));
+    fs::write(&file, serde_json::to_vec(&record)?)?;
+    assert!(
+        fixture.backup_store()?.get(ROUTER, &name).is_err(),
+        "the tampered backup no longer opens"
+    );
+    let listed = text(fixture.get(PAGE, &operator).await?).await?;
+    assert!(
+        listed.contains(&shown),
+        "the size {shown} is still shown: {listed}"
     );
     Ok(())
 }

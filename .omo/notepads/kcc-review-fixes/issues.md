@@ -150,3 +150,8 @@
 - `system_pages/job_feed.rs` `JobFeeds` keeps 32 feeds globally and pops the oldest (possibly a running job's) feed: the same shape as W4-07 but not in its cited evidence; candidate for the same per-owner, finished-first rule.
 - The wizard/config page-view size now comes from the record, so a backup that fails to decrypt still shows its size (previously blank).
 - Consumer tests that run a diagnostic through `start_job` now take about 1.5 s per ping (3 polls at 500 ms) instead of ~30 ms.
+- (todo 38 review) log_poller keeps the first viewer's RouterCtx for the poller's life (a profile change is picked up when all viewers leave); advanced::keep_output never evicts a running job's slot, so a user holding only running explorer jobs can exceed the 32-slot cap (bounded by the job runner). Both minor; BACKLOG candidates.
+
+## [2026-11-17] Todo 39
+- `crates/kcc-rci/src/session.rs` was 572 pure LOC and is 604 after this todo (refresh rule, cookie name filter); a split (e.g. cookie parsing into `session/cookie.rs`) is a follow-up.
+- No `KCC_OUTBOUND_ARGON2_MAX_ITERATIONS` env override was added (CONFIG.md says only the keys in env_overrides.rs have one).

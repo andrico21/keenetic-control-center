@@ -36,6 +36,8 @@ pub struct BackupInfo {
     pub created_at: u64,
     /// Caller-supplied safe reason.
     pub reason: String,
+    /// Size in bytes of the stored configuration text.
+    pub size: u64,
 }
 
 /// Readable backups of one router plus the number of files that could not be read.

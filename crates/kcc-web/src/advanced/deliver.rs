@@ -300,7 +300,7 @@ impl Dispatch<'_> {
         }
         let router = self.target.router();
         self.sender.state.advanced().keep_response(
-            self.sender.session,
+            (self.sender.user.username(), self.sender.session),
             router,
             Arc::from(full),
             json,

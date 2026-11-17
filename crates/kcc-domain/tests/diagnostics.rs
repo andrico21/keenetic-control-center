@@ -169,6 +169,49 @@ async fn diagnostic_job_emits_typed_output_line() -> Result<(), Box<dyn Error>> 
     Ok(())
 }
 
+/// C-19: a running diagnostic polls the router at the production interval, not every 10 ms.
+///
+/// The clock is paused, so the virtual time between the first and the last poll of one
+/// ping is exactly the sum of the sleeps between them.
+#[tokio::test(start_paused = true)]
+async fn diagnostics_poll_the_router_at_the_production_interval() -> Result<(), Box<dyn Error>> {
+    /// The fastest acceptable cadence between two polls of the router.
+    const FASTEST: Duration = Duration::from_millis(500);
+    let profile = Profile::new(Model::Kn1811, PROFILES[0])?;
+    let router = FakeRouter::builder(profile).build()?;
+    let (address, handle) = router.serve(([127, 0, 0, 1], 0).into()).await?;
+    let client = connect(address).await?;
+    let directory = TempDir::new()?;
+    let state = StateStore::open(&directory.path().join("state"))?;
+    let registry = Arc::new(RouterRegistry::new(
+        state.clone(),
+        &[],
+        &OutboundConfig::default(),
+    )?);
+    let jobs = JobRunner::open(state.clone(), registry, AuditLog::spawn(&state)?).await?;
+
+    let _id = diagnostics::start_job(
+        &jobs,
+        "router".to_owned(),
+        client,
+        DiagnosticKind::Ping,
+        json!({"host":"192.0.2.1"}),
+    )
+    .await?;
+    handle.wait_for_requests("GET", "/rci/tools/ping", 1).await;
+    let first = tokio::time::Instant::now();
+    handle.wait_for_requests("GET", "/rci/tools/ping", 4).await;
+    // The fake answers `continued` three times, so four polls are three sleeps apart.
+    assert!(
+        first.elapsed() >= FASTEST * 3,
+        "four polls took only {:?} of router time",
+        first.elapsed()
+    );
+    assert!(diagnostics::POLL_INTERVAL >= FASTEST);
+    handle.shutdown().await?;
+    Ok(())
+}
+
 async fn connect(address: core::net::SocketAddr) -> Result<Arc<RciClient>, Box<dyn Error>> {
     let origin = RouterUrl::from_str(&format!("http://{address}"))?;
     let credentials = Credentials::new(

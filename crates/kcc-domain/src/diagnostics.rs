@@ -188,6 +188,10 @@ pub async fn read_log(client: &RciClient, max_lines: u32) -> Result<String> {
     }
 }
 
+/// How often a running diagnostic asks the router for its next replies; the router's own
+/// tools answer at about this pace, so a faster poll only loads the router.
+pub const POLL_INTERVAL: Duration = Duration::from_millis(500);
+
 /// Starts a diagnostic as a persisted non-write job.
 // NOT cancel-safe: once spawned, the diagnostic job runs on without its id reaching the caller;
 // cancelled inside job start, its ownership lock can stay held.
@@ -208,7 +212,7 @@ pub async fn start_job(
                 .start(path, &body)
                 .await
                 .map_err(|error| error.to_string())?
-                .with_poll_interval(Duration::from_millis(10));
+                .with_poll_interval(POLL_INTERVAL);
             let completed = handle
                 .poll(&context.cancellation())
                 .await

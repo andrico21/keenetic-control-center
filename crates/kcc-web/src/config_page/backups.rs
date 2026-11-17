@@ -96,22 +96,16 @@ impl BackupsRegion {
             }
         };
         let now = visit.now();
+        region.sizes = listed
+            .iter()
+            .map(|info| (info.name.clone(), format::bytes(locale, info.size)))
+            .collect();
         let rows: Vec<BackupRow> = listed
             .into_iter()
             .map(|info| BackupRow::new(info, locale, now))
             .collect();
         region.compare = CompareForm::new(locale, router, &rows);
         let table = Table::new(rows, query, format!("/ui/r/{router}/config"));
-        let names = table
-            .rows()
-            .iter()
-            .map(|row| row.name().to_owned())
-            .collect();
-        region.sizes = store::sizes(services, router, names)
-            .await
-            .into_iter()
-            .map(|(name, size)| (name, format::bytes(locale, size)))
-            .collect();
         region.table = Some(table);
         region.problem = None;
         region

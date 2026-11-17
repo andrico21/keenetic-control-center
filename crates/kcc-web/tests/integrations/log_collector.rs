@@ -1,8 +1,8 @@
 //! The log page and its live stream follow the router's log collector.
 //!
 //! With the collector running, five concurrent viewers add no `show log` request at the
-//! router: the collector's one stream start stays the only one. Without it, each viewer
-//! reads the router itself.
+//! router: the collector's one stream start stays the only one. Without it, the viewers
+//! share one poller that reads the router once.
 
 use core::{iter, str, time::Duration};
 
@@ -80,23 +80,42 @@ async fn concurrent_viewers_add_no_router_log_request() -> TestResult {
     Ok(())
 }
 
+/// W4-13: without a collector, concurrent viewers of one router's log share one poller:
+/// opening five live streams costs the router one `show log` read, not five.
 #[tokio::test]
-async fn without_the_collector_each_viewer_reads_the_router() -> TestResult {
+async fn without_the_collector_viewers_share_one_router_read() -> TestResult {
     let fixture = Fixture::new(Options::default()).await?;
     log_line(&fixture);
-    let views = try_join_all(iter::repeat_with(|| view(&fixture)).take(VIEWERS)).await?;
-    for (page, _opening) in &views {
-        assert!(page.contains(LINE), "the page reads the line");
+    let mut bodies = Vec::new();
+    for _ in 0..VIEWERS {
+        let browser = fixture.login().await?;
+        bodies.push(
+            fixture
+                .get(STREAM, &browser)
+                .await?
+                .into_body()
+                .into_data_stream(),
+        );
     }
-    assert!(
-        fixture.log_reads() >= 2 * VIEWERS,
-        "every page and stream read the router: {}",
-        fixture.log_reads()
-    );
+    for body in &mut bodies {
+        let deadline = Instant::now()
+            .checked_add(Duration::from_secs(30))
+            .ok_or("deadline")?;
+        let mut opening = String::new();
+        while !opening.contains("</ol>") {
+            let chunk = timeout_at(deadline, body.next())
+                .await?
+                .ok_or("stream ended")??;
+            opening.push_str(str::from_utf8(&chunk)?);
+        }
+        assert!(opening.contains(LINE), "the stream opens with the line");
+    }
+    assert_eq!(fixture.log_reads(), 1, "one shared read for every viewer");
     assert_eq!(
         fixture.handle().log_streams(),
         0,
         "no stream without a collector"
     );
+    drop(bodies);
     Ok(())
 }

@@ -5,6 +5,8 @@
 //! column and cuts the requested page with the [`Pager`]; the sort headers and the page
 //! links keep the filter, and the page links keep the sort.
 
+use core::cmp::Reverse;
+
 use serde::Deserialize;
 
 use super::{Direction, Sort, SortHeader, pager::Pager};
@@ -112,13 +114,11 @@ impl<R: Row> Table<R> {
             R::COLUMNS,
             R::DEFAULT,
         );
-        kept.sort_by(|left, right| {
-            let order = left.key(sort.column()).cmp(&right.key(sort.column()));
-            match sort.direction() {
-                Direction::Ascending => order,
-                Direction::Descending => order.reverse(),
-            }
-        });
+        let column = sort.column();
+        match sort.direction() {
+            Direction::Ascending => kept.sort_by_cached_key(|row| row.key(column)),
+            Direction::Descending => kept.sort_by_cached_key(|row| Reverse(row.key(column))),
+        }
         let matched = kept.len();
         let mut links = Vec::new();
         if !filter.is_empty() {

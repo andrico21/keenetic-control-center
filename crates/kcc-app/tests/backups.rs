@@ -97,6 +97,28 @@ mod tests {
         Ok(())
     }
 
+    /// W2-07: the listing reports each backup's size from its record, without the key.
+    #[test]
+    fn listing_reports_the_plaintext_size_without_opening_the_backup() -> TestResult {
+        let (directory, backups) = store(Arc::new(FixedClock::new(100)))?;
+        let text = "a configuration of known length".to_owned();
+        let created = backups.create("router", "manual", &SecretString::from(text.clone()))?;
+        let wrong_key = BackupStore::new(
+            StateStore::open(&directory.path().join("state"))?,
+            MasterKey::from_bytes([9_u8; 32]),
+        );
+
+        let listed = wrong_key.list("router")?;
+
+        assert_eq!(u64::try_from(text.len())?, created.size);
+        assert_eq!(listed.first().map(|backup| backup.size), Some(created.size));
+        assert!(
+            wrong_key.get("router", &created.name).is_err(),
+            "cannot open"
+        );
+        Ok(())
+    }
+
     #[tokio::test]
     async fn concurrent_same_second_creates_lose_none() -> TestResult {
         const TASKS: usize = 8;

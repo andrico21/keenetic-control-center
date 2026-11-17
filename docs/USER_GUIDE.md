@@ -214,8 +214,10 @@ router account uses with the PPTP/L2TP, SSTP and OpenConnect servers.
   current access level and proxy entries aren't readable.
 - **Log**: the router log, live, with search and download. With `[logs] enabled` the
   page follows the router's log collector, so viewers add no router requests; otherwise
-  each viewer reads the router at most every 5 seconds.
-- **Diagnostics**: ping and traceroute as background jobs with live output and Stop.
+  all viewers of a router share one reader that asks the router at most every 5 seconds
+  and stops when the last viewer leaves.
+- **Diagnostics**: ping and traceroute as background jobs with live output and Stop; a
+  running diagnostic asks the router for its progress every half second.
 
 ## Configuration and backups
 

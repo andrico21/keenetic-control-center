@@ -1,7 +1,7 @@
 //! The backups of one router as the page reaches them: the store's file work off the async
 //! runtime, and an action on them opened for one user and audited once.
 
-use alloc::{collections::BTreeMap, sync::Arc};
+use alloc::sync::Arc;
 use std::{
     sync::{Mutex, PoisonError},
     time::SystemTime,
@@ -15,7 +15,7 @@ use kcc_app::{
     backups::{BackupError, BackupInfo},
     permissions::Permission,
 };
-use secrecy::{ExposeSecret as _, SecretString};
+use secrecy::SecretString;
 use serde_json::Value;
 use tokio::task::spawn_blocking;
 
@@ -132,29 +132,6 @@ pub(crate) async fn read(
             .map_err(|error| StoreError::from_backup(&error))
     })
     .await
-}
-
-/// The size in bytes of each backup of `router` in `names` that can be read.
-// cancel-safe: reads only.
-pub(crate) async fn sizes(
-    services: &BackupServices,
-    router: &str,
-    names: Vec<String>,
-) -> BTreeMap<String, u64> {
-    let store = Arc::clone(services.store());
-    let id = router.to_owned();
-    blocking(move || {
-        Ok(names
-            .into_iter()
-            .filter_map(|name| {
-                let text = store.get(&id, &name).ok()?;
-                let size = u64::try_from(text.expose_secret().len()).ok()?;
-                Some((name, size))
-            })
-            .collect())
-    })
-    .await
-    .unwrap_or_default()
 }
 
 /// Stores `text` as a backup of `router` for `reason`.

@@ -2,7 +2,10 @@
 //! Continue moves on once every setting whose value differs from the router's has its
 //! choice.
 
-use alloc::{collections::BTreeSet, sync::Arc};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use axum::{
     Extension, Form,
@@ -28,7 +31,6 @@ use crate::{
     page_kit::{
         audit::Record as Audit,
         context::{Refusal, fragment_shell},
-        request::last,
         respond::{self, Answer},
     },
     wizard::{flow::Flow as _, screen, service::Wizards, services::Services},
@@ -135,6 +137,7 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usiz
             .filter(|index| *index < count)
             .collect::<BTreeSet<_>>()
     };
+    let sent = last_values(form);
     let included = indices("include");
     for index in indices("shown") {
         let excludable = classified
@@ -142,7 +145,7 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usiz
             .get(index)
             .is_some_and(|item| item.output.is_some() || item.needed_input.is_some());
         let field = format!("resolve-{index}");
-        let chosen = last(form, &field);
+        let chosen = sent.get(field.as_str()).copied();
         match (classified.conflicts(index), chosen, excludable) {
             (true, Some("source"), _) => visit.record_mut().decide(index, false, true),
             (true, Some("router"), _) => visit.record_mut().decide(index, true, false),
@@ -160,4 +163,52 @@ async fn decide(visit: &mut Visit<'_>, form: &[(String, String)]) -> Result<usiz
         .await
         .map_err(|error| Answer::from(errors::internal(&error, fragment_shell(locale))))?;
     Ok(classified.unresolved(visit.record()))
+}
+
+/// The last value sent for each field name.
+fn last_values(form: &[(String, String)]) -> BTreeMap<&str, &str> {
+    form.iter()
+        .map(|(name, value)| (name.as_str(), value.as_str()))
+        .collect()
+}
+
+#[cfg(test)]
+#[expect(
+    clippy::missing_panics_doc,
+    reason = "test code is not rendered API documentation"
+)]
+mod tests {
+    use core::time::Duration;
+    use std::time::Instant;
+
+    use super::last_values;
+
+    /// W5-11: looking up one field per form entry takes linear time, and the last value
+    /// sent for a name still wins.
+    #[test]
+    fn a_form_with_many_fields_is_read_in_linear_time() {
+        const FIELDS: usize = 50_000;
+        let mut form: Vec<(String, String)> = (0..FIELDS)
+            .map(|index| (format!("resolve-{index}"), "router".to_owned()))
+            .collect();
+        form.push(("resolve-0".to_owned(), "source".to_owned()));
+        let started = Instant::now();
+        let sent = last_values(&form);
+        let found = (0..FIELDS)
+            .filter(|index| sent.contains_key(format!("resolve-{index}").as_str()))
+            .count();
+        assert_eq!(found, FIELDS);
+        assert!(
+            started.elapsed() < Duration::from_secs(5),
+            "{FIELDS} lookups took {:?}",
+            started.elapsed()
+        );
+        assert_eq!(
+            sent.get("resolve-0"),
+            Some(&"source"),
+            "the last value wins"
+        );
+        assert_eq!(sent.get("resolve-1"), Some(&"router"));
+        assert_eq!(sent.get("absent"), None);
+    }
 }

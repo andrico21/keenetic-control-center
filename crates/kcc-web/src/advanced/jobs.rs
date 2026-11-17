@@ -4,7 +4,6 @@
 //! (`job_stream`), and stop on request, which ends the router process through `DELETE`.
 
 use alloc::sync::Arc;
-use std::sync::Mutex;
 
 use axum::{
     extract::{Path, State},
@@ -23,7 +22,7 @@ use kcc_i18n::{
 use kcc_rci::{RciClient, RciPath};
 use serde_json::{Value, json};
 
-use super::{OutputSlot, lock, request::Request};
+use super::{Output, OutputSlot, request::Request};
 use crate::{
     WebState,
     authz::CurrentUser,
@@ -103,7 +102,7 @@ pub(crate) async fn start(
         if raw { "raw" } else { "read" },
         request.path().replace(' ', ".")
     );
-    let slot: OutputSlot = Arc::new(Mutex::new(None));
+    let slot: OutputSlot = Arc::new(Output::new());
     let work = Work {
         kind,
         router: router.to_owned(),
@@ -157,7 +156,9 @@ impl Work {
             body,
             slot,
         } = self;
+        let ended = Ended(Arc::clone(&slot));
         jobs.start(kind, JobTarget::Read(Some(router)), async move |job| {
+            let _ended = ended;
             let segments: Vec<&str> = path.split_whitespace().collect();
             let resource =
                 RciPath::from_segments(&segments).map_err(|_error| "invalid path".to_owned())?;
@@ -169,10 +170,19 @@ impl Work {
                 .poll(&job.cancellation())
                 .await
                 .map_err(|error| error.to_string())?;
-            *lock(&slot) = Some(answer);
+            slot.keep(answer);
             Ok(())
         })
         .await
+    }
+}
+
+/// Marks the job's output slot as ended when the job's work ends or is dropped.
+struct Ended(OutputSlot);
+
+impl Drop for Ended {
+    fn drop(&mut self) {
+        self.0.end();
     }
 }
 

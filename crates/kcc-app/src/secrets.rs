@@ -42,6 +42,9 @@ const KEY_LEN: usize = 32;
 /// Algorithm label stored with every sealed value.
 const ALGORITHM: &str = "xchacha20poly1305";
 
+/// Length of the Poly1305 tag that ends every ciphertext.
+const TAG_LEN: usize = 16;
+
 /// Error sealing or opening a secret, or handling the master key.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -117,6 +120,29 @@ pub struct SealedSecret {
     pub nonce: String,
     /// Base64 ciphertext with the Poly1305 tag.
     pub ciphertext: String,
+}
+
+impl SealedSecret {
+    /// The length in bytes of the plaintext, read from the ciphertext's length without
+    /// opening it: the ciphertext is the plaintext followed by the Poly1305 tag. A damaged
+    /// record answers a wrong length; opening it fails.
+    #[inline]
+    #[must_use]
+    pub fn plaintext_len(&self) -> u64 {
+        let padding = self
+            .ciphertext
+            .bytes()
+            .rev()
+            .take_while(|byte| *byte == b'=')
+            .count();
+        let decoded = self
+            .ciphertext
+            .len()
+            .div_euclid(4)
+            .saturating_mul(3)
+            .saturating_sub(padding);
+        u64::try_from(decoded.saturating_sub(TAG_LEN)).unwrap_or(u64::MAX)
+    }
 }
 
 impl MasterKey {

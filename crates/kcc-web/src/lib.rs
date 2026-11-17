@@ -256,6 +256,8 @@ pub struct WebState {
     facts: Arc<page_kit::facts::FactsCache>,
     /// The router log collectors the log page follows instead of polling.
     log_feeds: LogFeeds,
+    /// The shared pollers of the routers' logs that no collector follows.
+    polled_logs: Arc<system_pages::log_poller::PolledLogs>,
     /// The audit log as the audit page last verified it.
     audit_log: admin_audit::log::LogCache,
 }
@@ -320,6 +322,7 @@ impl WebState {
             advanced: Arc::new(advanced::Services::new(None)),
             facts: Arc::default(),
             log_feeds: LogFeeds::default(),
+            polled_logs: Arc::default(),
             audit_log: admin_audit::log::LogCache::default(),
         }
     }
@@ -430,6 +433,12 @@ impl WebState {
     #[must_use]
     pub(crate) const fn log_feeds(&self) -> &LogFeeds {
         &self.log_feeds
+    }
+
+    /// The shared pollers of the routers' logs.
+    #[must_use]
+    pub(crate) const fn polled_logs(&self) -> &Arc<system_pages::log_poller::PolledLogs> {
+        &self.polled_logs
     }
 
     /// Command explorer and console services.

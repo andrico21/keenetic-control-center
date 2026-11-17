@@ -103,6 +103,7 @@ impl BackupStore {
                     name,
                     created_at,
                     reason: reason.to_owned(),
+                    size: record.sealed.plaintext_len(),
                 };
             }
             sequence = sequence.saturating_add(1);
@@ -243,6 +244,7 @@ impl BackupStore {
             backups.push(BackupInfo {
                 name,
                 created_at: record.created_at,
+                size: record.sealed.plaintext_len(),
                 reason: record.reason,
             });
         }
