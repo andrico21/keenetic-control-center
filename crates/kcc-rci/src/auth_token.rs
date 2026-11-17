@@ -3,7 +3,7 @@
 use reqwest::{RequestBuilder, Response, StatusCode, header::HeaderValue};
 use secrecy::{ExposeSecret as _, SecretString};
 
-use crate::{AuthError, RciError};
+use crate::{AuthError, RciError, session::map_reqwest_error};
 
 /// Sends a token as a sensitive header, preserving a 401 for policy-controlled fallback.
 ///
@@ -21,7 +21,7 @@ pub(crate) async fn send(
         .header("x-ndma-tkn", value)
         .send()
         .await
-        .map_err(|_error| RciError::Transport)?;
+        .map_err(|error| map_reqwest_error(&error))?;
     Ok(response)
 }
 

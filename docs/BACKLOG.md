@@ -17,6 +17,7 @@ rest on the manuals and the fake router only:
 - Whether a real router refuses an `include` of an unknown member, accepts WireGuard leaves on a bridge, or deletes `Bridge0` (`crates/kcc-domain/src/interfaces/guard.rs`).
 - The shape of a real `show running-config` answer (`crates/kcc-domain/src/firewall/read.rs:45-60` reads it as text) and whether the router accepts every abbreviation the catalog allows.
 - `crates/kcc-migrate/src/interface_names.rs:4` decides whether an interface name is physical or logical with a name-shape heuristic taken from the documentation. The unit test pins the documented shapes only.
+- The default `[outbound] argon2_max_iterations = 16` (`crates/kcc-app/src/settings.rs`) is not verified on a real KeeneticOS 5.2 router. If a real router asks for more than 16 Argon2 iterations at ndw4 sign-in, sign-in fails with "router authentication cost exceeds local policy" until the operator raises the setting.
 - `crates/kcc-domain/src/configuration.rs:112-117`: the recovery mode for a router that reports no system mode assumes that 4.3 and 5.0 report a boolean `fail-safe.active` in `show last-change`. This is from the documentation. If it is wrong, kcc refuses the change with `router_mode_unknown`, which is the safe direction.
 
 ## Upstream (rmcp-server-kit)

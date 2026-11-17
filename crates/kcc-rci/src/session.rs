@@ -1,5 +1,7 @@
 //! Reactive HTTP session management for authenticated router requests.
 
+#[cfg(test)]
+mod refresh_tests;
 mod transport;
 
 use alloc::sync::Arc;
@@ -32,6 +34,7 @@ use crate::{
     auth_ndw4::{Cache, Exchange},
     auth_options::{Mode, Options},
     auth_token,
+    ndw4_reply::Caps,
     observe::{LoginScheme, RciObserver},
     outbound::{OutboundPolicy, TlsMode},
 };
@@ -287,7 +290,7 @@ impl Manager {
     /// Creates a manager with explicit authentication policy and a policy-checked HTTP builder.
     ///
     /// # Errors
-    /// Returns validation errors for an invalid memory cap or a profile without credentials.
+    /// Returns validation errors for an invalid Argon2 cap or a profile without credentials.
     #[doc(hidden)]
     #[inline]
     pub fn with_options_and_client_builder(
@@ -307,13 +310,14 @@ impl Manager {
     /// credentials are real password credentials rather than token-only placeholders.
     ///
     /// # Errors
-    /// Returns validation errors for an invalid memory cap or a policy without credentials.
+    /// Returns validation errors for an invalid Argon2 cap or a policy without credentials.
     pub(crate) fn with_auth(
         mut self,
         options: Options,
         password_configured: bool,
     ) -> Result<Self, RciError> {
         if !(8..=0x0004_0000).contains(&options.max_argon2_memory_kib)
+            || !(1..=64).contains(&options.max_argon2_iterations)
             || (!password_configured && options.experimental_token.is_none())
         {
             return Err(RciError::Validation);
@@ -426,7 +430,7 @@ impl Manager {
         let first = self
             .send_with_session(method.clone(), path, body, &first_session)
             .await?;
-        self.refresh_session(first.headers())?;
+        self.refresh_session(&first_session, first.status(), first.headers());
         if first.status() != StatusCode::UNAUTHORIZED || !kind.retry_on_unauthorized() {
             return Ok(first);
         }
@@ -438,7 +442,7 @@ impl Manager {
         let retry = self
             .send_with_session(method, path, body, &retry_session)
             .await?;
-        self.refresh_session(retry.headers())?;
+        self.refresh_session(&retry_session, retry.status(), retry.headers());
         Ok(retry)
     }
 
@@ -565,7 +569,13 @@ impl Manager {
                 self.bootstrap_active.store(true, Ordering::Release);
                 return Ok(LoginScheme::Existing);
             }
-            self.refresh_session(challenge_response.headers())?;
+            if let Some(current) = self.session() {
+                self.refresh_session(
+                    &current,
+                    challenge_response.status(),
+                    challenge_response.headers(),
+                );
+            }
             if self.usable_session().is_some() {
                 return Ok(LoginScheme::Existing);
             }
@@ -594,14 +604,8 @@ impl Manager {
                     Scheme::Ndw2(_) | Scheme::Unknown(_) => None,
                 })
             {
-                let exchange = Exchange {
-                    client: &self.client,
-                    origin: self.router.as_str(),
-                    credentials: &self.credentials,
-                    memory_cap: self.options.max_argon2_memory_kib,
-                    cache: &self.ndw4_cache,
-                };
-                let session = exchange
+                let session = self
+                    .ndw4_exchange()
                     .authenticate(challenge, &challenge_response)
                     .await?;
                 *lock(&self.session) = Some(session);
@@ -651,6 +655,20 @@ impl Manager {
         }
         *lock(&self.session) = Some(pending.into());
         Ok(LoginScheme::Ndw2)
+    }
+
+    /// The ndw4 exchange bound to this manager's transport, identity, Argon2 caps and keys.
+    fn ndw4_exchange(&self) -> Exchange<'_> {
+        Exchange {
+            client: &self.client,
+            origin: self.router.as_str(),
+            credentials: &self.credentials,
+            caps: Caps {
+                memory_kib: self.options.max_argon2_memory_kib,
+                iterations: self.options.max_argon2_iterations,
+            },
+            cache: &self.ndw4_cache,
+        }
     }
 
     /// Re-authenticates only if no concurrent request has already replaced the failed cookie.
@@ -708,16 +726,24 @@ impl Manager {
             .cloned()
     }
 
-    /// Applies a sliding cookie refresh from response headers.
+    /// Applies a sliding cookie refresh from the answer to a request sent with `sent`.
     ///
-    /// # Errors
-    ///
-    /// Returns an error for a malformed matching cookie.
-    fn refresh_session(&self, headers: &HeaderMap) -> Result<(), RciError> {
-        if let Some(session) = lock(&self.session).as_mut() {
-            session.refresh_from_headers(headers)?;
+    /// A 401 never refreshes, and an answer refreshes only while the current cookie is still
+    /// the one the request carried, so a late answer cannot replace a newer login. A malformed
+    /// refresh keeps the current cookie: the answer was already applied by the router, and a
+    /// dead cookie is replaced at its next 401.
+    fn refresh_session(&self, sent: &Session, status: StatusCode, headers: &HeaderMap) {
+        if status == StatusCode::UNAUTHORIZED {
+            return;
         }
-        Ok(())
+        let mut current = lock(&self.session);
+        if let Some(session) = current.as_mut()
+            && session.same_cookie(sent)
+            && let Ok(Some(parsed)) = parse_set_cookie(headers, Some(&session.cookie_name))
+        {
+            session.cookie_value = parsed.cookie_value;
+            session.expires_at = parsed.expires_at;
+        }
     }
 
     /// Joins one absolute path to the validated router origin.
@@ -779,6 +805,10 @@ impl From<ParsedCookie> for Session {
 
 /// Parses the matching `Set-Cookie` header and its `Max-Age`.
 ///
+/// A cookie with another name is skipped before its value is read, so an unrelated cookie
+/// that is not visible ASCII is absent rather than an error; without an expected name such
+/// a header is skipped too.
+///
 /// # Errors
 ///
 /// Returns an error when a matching cookie is malformed or not a valid header value.
@@ -787,7 +817,20 @@ pub(crate) fn parse_set_cookie(
     expected_name: Option<&str>,
 ) -> Result<Option<ParsedCookie>, RciError> {
     for raw in headers.get_all(header::SET_COOKIE) {
-        let text = raw.to_str().map_err(|_error| RciError::Transport)?;
+        let raw_name = raw
+            .as_bytes()
+            .split(|byte| matches!(byte, b'=' | b';'))
+            .next()
+            .map(<[u8]>::trim_ascii);
+        if expected_name.is_some_and(|expected| raw_name != Some(expected.as_bytes())) {
+            continue;
+        }
+        let Ok(text) = raw.to_str() else {
+            if expected_name.is_some() {
+                return Err(RciError::Transport);
+            }
+            continue;
+        };
         let mut parts = text.split(';').map(str::trim);
         let Some((name, value)) = parts.next().and_then(|pair| pair.split_once('=')) else {
             continue;
@@ -816,7 +859,7 @@ pub(crate) fn parse_set_cookie(
 }
 
 /// Maps reqwest timeouts separately from other transport failures.
-fn map_reqwest_error(error: &reqwest::Error) -> RciError {
+pub(crate) fn map_reqwest_error(error: &reqwest::Error) -> RciError {
     if error.is_timeout() {
         RciError::Timeout
     } else {

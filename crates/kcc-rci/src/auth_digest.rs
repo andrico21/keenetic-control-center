@@ -16,9 +16,13 @@ use zeroize::Zeroizing;
 use crate::{
     AuthError, RciError,
     auth::{Credentials, Scheme, WwwAuthenticate},
+    session::map_reqwest_error,
 };
 
 /// Digest state serializes nonce-count allocation without holding a lock during I/O.
+///
+/// One challenge is stored; a 401 carrying the stored nonce continues its count, and only a
+/// new nonce replaces it.
 #[derive(Default)]
 pub(crate) struct State(Mutex<Option<Challenge>>);
 
@@ -68,7 +72,7 @@ impl State {
             .try_clone()
             .ok_or(RciError::Transport)?
             .build()
-            .map_err(|_error| RciError::Transport)?;
+            .map_err(|error| map_reqwest_error(&error))?;
         let method = unsigned.method().as_str();
         let uri = unsigned.url().query().map_or_else(
             || unsigned.url().path().to_owned(),
@@ -84,7 +88,10 @@ impl State {
                 );
             }
         }
-        let response = first.send().await.map_err(|_error| RciError::Transport)?;
+        let response = first
+            .send()
+            .await
+            .map_err(|error| map_reqwest_error(&error))?;
         if response.status() != StatusCode::UNAUTHORIZED {
             return Ok(response);
         }
@@ -95,14 +102,22 @@ impl State {
             .filter_map(|value| value.to_str().ok())
             .collect::<Vec<_>>()
             .join(", ");
-        let mut challenge = Challenge::parse(&text)?;
-        let authorization = challenge.authorization(credentials, method, &uri)?;
-        *self.0.lock().await = Some(challenge);
+        let parsed = Challenge::parse(&text)?;
+        let authorization = {
+            let mut state = self.0.lock().await;
+            let challenge = match state.take() {
+                Some(stored) if stored.nonce == parsed.nonce => stored,
+                Some(_) | None => parsed,
+            };
+            state
+                .insert(challenge)
+                .authorization(credentials, method, &uri)?
+        };
         let result = replay
             .header(header::AUTHORIZATION, authorization)
             .send()
             .await
-            .map_err(|_error| RciError::Transport)?;
+            .map_err(|error| map_reqwest_error(&error))?;
         if result.status() == StatusCode::UNAUTHORIZED {
             return Err(RciError::Auth(AuthError::Rejected));
         }

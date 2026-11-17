@@ -336,6 +336,28 @@ tls = { pin_sha256 = "00112233445566778899aabbccddeeff00112233445566778899aabbcc
         }
     }
 
+    /// A-14: `[outbound] argon2_max_iterations` loads only inside 1..=64, the protocol range.
+    #[test]
+    fn argon2_iteration_cap_outside_protocol_range_is_refused_at_load() -> TestResult {
+        for value in [1_u32, 16, 64] {
+            drop(Config::from_toml_str(&format!(
+                "[outbound]\nargon2_max_iterations = {value}"
+            ))?);
+        }
+        for value in [0_u32, 65] {
+            let text = format!("[outbound]\nargon2_max_iterations = {value}");
+            assert!(
+                matches!(
+                    Config::from_toml_str(&text),
+                    Err(ConfigError::Invalid { field, reason: _ })
+                        if field == "outbound.argon2_max_iterations"
+                ),
+                "accepted {value}"
+            );
+        }
+        Ok(())
+    }
+
     /// The `[serverr]` typo is rejected with an error naming the table.
     #[test]
     fn misspelled_server_table_is_rejected() -> TestResult {

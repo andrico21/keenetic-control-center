@@ -16,9 +16,13 @@ use hmac::{Hmac, KeyInit as _, Mac as _};
 use serde_json::{Value, json};
 use sha3::{Digest as _, Sha3_512};
 use subtle::ConstantTimeEq as _;
+use tokio::time::sleep;
 use zeroize::Zeroizing;
 
-use crate::{auth_fixture::Shared, server::lock};
+use crate::{
+    auth_fixture::{HANG_FOR, Hang, Shared},
+    server::lock,
+};
 
 /// Fixture salt, independent of each fresh challenge nonce.
 const SALT: [u8; 16] = [7_u8; 16];
@@ -30,9 +34,9 @@ impl Salted {
     /// Computes the dummy account's salted password once, outside async execution.
     ///
     /// # Errors
-    /// Returns an error if the fixed KDF parameters are invalid.
-    pub(crate) fn new() -> io::Result<Self> {
-        let params = Params::new(64, 2, 1, Some(64)).map_err(io::Error::other)?;
+    /// Returns an error if the KDF parameters are invalid.
+    pub(crate) fn new(iterations: u32) -> io::Result<Self> {
+        let params = Params::new(64, iterations, 1, Some(64)).map_err(io::Error::other)?;
         let mut output = Zeroizing::new([0_u8; 64]);
         Argon2::new(Algorithm::Argon2id, Version::V0x13, params)
             .hash_password_into(b"admin", &SALT, output.as_mut())
@@ -114,12 +118,16 @@ fn verify(salted: &Salted, message: &str, proof: &str) -> bool {
 }
 
 /// Handles the three phases while counting effects independently from client code.
-// cancel-safe: low-cost hashes and state mutations are synchronous; Argon2 ran at fixture creation.
+// cancel-safe: low-cost hashes and state mutations are synchronous; Argon2 ran at fixture creation;
+// a hanging fixture waits before any state change.
 pub(crate) async fn phase(
     State(shared): State<Arc<Shared>>,
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
+    if shared.options.hang == Hang::Ndw4Phases {
+        sleep(HANG_FOR).await;
+    }
     if headers
         .get("cookie")
         .is_none_or(|value| value != "AUTHFIXTURE=session")

@@ -64,6 +64,42 @@ mod tests {
         Ok(())
     }
 
+    /// A-09: two requests challenged with the same nonce at once share one stored challenge:
+    /// their nonce counts differ and a later request continues the count instead of
+    /// restarting it.
+    // NOT cancel-safe: owns a fixture through three signed requests.
+    #[tokio::test]
+    async fn concurrent_challenges_share_one_nonce_count() -> TestResult {
+        let mut fixture = Fixture::default();
+        fixture.protocol = Protocol::DigestSha256;
+        fixture.hold_digest_challenges = 2;
+        let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
+        let mut options = Options::default();
+        options.mode = Mode::DigestProxy;
+        let credentials = Credentials::new("admin".to_owned(), SecretString::from("admin"));
+        let manager = Manager::connect_with_options(
+            format!("http://{address}").parse()?,
+            Some(credentials),
+            options,
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
+
+        let (first, second) = tokio::join!(
+            manager.get("/rci/show/version"),
+            manager.get("/rci/show/system")
+        );
+        let third = manager.get("/rci/show/version").await?;
+
+        assert_eq!(first?.status(), StatusCode::OK);
+        assert_eq!(second?.status(), StatusCode::OK);
+        assert_eq!(third.status(), StatusCode::OK);
+        assert_eq!(counts.digest_requests.load(Ordering::SeqCst), 3);
+        assert_eq!(counts.digest_highest_count.load(Ordering::SeqCst), 3);
+        handle.shutdown().await?;
+        Ok(())
+    }
+
     /// Wrong digest credentials are rejected without a cookie-auth fallback.
     // NOT cancel-safe: owns a fixture through authentication.
     #[tokio::test]

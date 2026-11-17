@@ -206,7 +206,7 @@ impl Default for McpConfig {
 }
 
 /// `[outbound]` section.
-#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize, Serialize)]
 #[serde(deny_unknown_fields, default)]
 #[non_exhaustive]
 pub struct OutboundConfig {
@@ -216,6 +216,20 @@ pub struct OutboundConfig {
     pub allowed_suffixes: Vec<String>,
     /// Allow loopback router addresses (test setups).
     pub allow_loopback: bool,
+    /// Most Argon2 iterations a router may ask for at ndw4 sign-in, in 1..=64.
+    pub argon2_max_iterations: u32,
+}
+
+impl Default for OutboundConfig {
+    #[inline]
+    fn default() -> Self {
+        Self {
+            allowed_networks: Vec::new(),
+            allowed_suffixes: Vec::new(),
+            allow_loopback: false,
+            argon2_max_iterations: 16,
+        }
+    }
 }
 
 /// `[state]` section.
@@ -775,6 +789,12 @@ impl Config {
     pub fn from_toml_str(text: &str) -> Result<Self, ConfigError> {
         let mut config = toml::from_str::<Self>(text)?;
         normalize_suffixes(&mut config.outbound.allowed_suffixes)?;
+        if !(1..=64).contains(&config.outbound.argon2_max_iterations) {
+            return Err(invalid(
+                "outbound.argon2_max_iterations",
+                "must be between 1 and 64",
+            ));
+        }
         Ok(config)
     }
 

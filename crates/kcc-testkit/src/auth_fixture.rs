@@ -3,11 +3,12 @@
 //! Dummy credentials are admin/admin. These protocol fixtures model the reference
 //! implementation, not captured hardware behavior.
 
-use alloc::sync::Arc;
+use alloc::{collections::BTreeSet, sync::Arc};
 use core::{
     fmt,
     net::SocketAddr,
-    sync::atomic::{AtomicUsize, Ordering},
+    sync::atomic::{AtomicBool, AtomicU32, AtomicUsize, Ordering},
+    time::Duration,
 };
 use std::{io, sync::Mutex};
 
@@ -15,12 +16,17 @@ use axum::{
     Router,
     body::Bytes,
     extract::State,
-    http::{HeaderMap, Method, StatusCode, Uri},
+    http::{HeaderMap, HeaderValue, Method, StatusCode, Uri, header},
     response::{IntoResponse as _, Response},
     routing::{any, get, post},
 };
 use serde_json::{Value, json};
-use tokio::{net::TcpListener, sync::oneshot, task::spawn_blocking};
+use tokio::{
+    net::TcpListener,
+    sync::{Barrier, BarrierWaitResult, oneshot},
+    task::spawn_blocking,
+    time::sleep,
+};
 
 use crate::{
     Handle, auth_fixture_digest,
@@ -44,6 +50,22 @@ pub enum Protocol {
     DigestSha256,
 }
 
+/// Where the fixture stops answering, so a client read times out.
+#[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
+#[non_exhaustive]
+pub enum Hang {
+    /// Every request is answered.
+    #[default]
+    Never,
+    /// `/rci/...` resources never answer.
+    Resources,
+    /// ndw4 phase POSTs never answer.
+    Ndw4Phases,
+}
+
+/// How long a hanging answer is held; tests drive it with paused Tokio time.
+pub(crate) const HANG_FOR: Duration = Duration::from_secs(3600);
+
 /// Fault controls for untrusted challenge fields.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
@@ -56,7 +78,8 @@ pub struct Options {
     pub protocol: Protocol,
     /// Advertised memory cost; fixture KDF always uses 64 KiB.
     pub memory: Value,
-    /// Advertised iteration count; fixture KDF always uses two iterations.
+    /// Advertised iteration count; the fixture KDF uses it when it is a number in
+    /// 1..=64 (as JSON number or decimal text), otherwise two iterations.
     pub iterations: Value,
     /// Replace the server signature with incorrect bytes.
     pub tamper_signature: bool,
@@ -66,6 +89,16 @@ pub struct Options {
     pub tamper_salt: bool,
     /// Return a short-name error beside an empty long-name error.
     pub short_error: bool,
+    /// The first authorized resource request after a login finds the router session ended
+    /// and answers 401 carrying a fresh pending `Set-Cookie` of the session cookie.
+    pub expire_with_cookie: bool,
+    /// Raw bytes of one extra `Set-Cookie` header on every authorized resource answer.
+    pub resource_set_cookie: Option<Vec<u8>>,
+    /// Unsigned digest requests wait until this many arrived before their 401 challenge
+    /// (0 answers at once).
+    pub hold_digest_challenges: usize,
+    /// Where the fixture stops answering.
+    pub hang: Hang,
 }
 
 impl Default for Options {
@@ -79,6 +112,10 @@ impl Default for Options {
             tamper_nonce: false,
             tamper_salt: false,
             short_error: false,
+            expire_with_cookie: false,
+            resource_set_cookie: None,
+            hold_digest_challenges: 0,
+            hang: Hang::Never,
         }
     }
 }
@@ -101,6 +138,8 @@ pub struct Counts {
     pub digest_requests: AtomicUsize,
     /// `DELETE /auth` sign-outs.
     pub logouts: AtomicUsize,
+    /// Greatest digest nonce count accepted so far.
+    pub digest_highest_count: AtomicU32,
 }
 
 /// One fixture's private protocol state.
@@ -113,8 +152,12 @@ pub(crate) struct Shared {
     pub salted: Salted,
     /// Pending handshake and successful cookie state.
     pub handshake: Mutex<Option<Handshake>>,
-    /// Greatest accepted digest nonce count.
-    pub digest_count: Mutex<u32>,
+    /// Digest nonce counts accepted so far; a count is accepted once.
+    pub digest_seen: Mutex<BTreeSet<u32>>,
+    /// Holds unsigned digest requests until enough arrived.
+    pub digest_hold: Option<Barrier>,
+    /// Whether the one-shot session end of `expire_with_cookie` happened.
+    pub expired: AtomicBool,
 }
 
 impl fmt::Debug for Shared {
@@ -124,7 +167,9 @@ impl fmt::Debug for Shared {
             counts,
             salted: _,
             handshake: _,
-            digest_count: _,
+            digest_seen: _,
+            digest_hold: _,
+            expired: _,
         } = self;
         f.debug_struct("AuthFixture")
             .field("counts", counts)
@@ -139,16 +184,28 @@ impl fmt::Debug for Shared {
 // cancel-safe: before spawning, cancellation drops the listener; blocking KDF owns only dummy input.
 #[inline]
 pub async fn spawn(options: Options) -> io::Result<(SocketAddr, Handle, Arc<Counts>)> {
-    let salted = spawn_blocking(Salted::new)
+    let iterations = match &options.iterations {
+        Value::Number(number) => number.as_u64(),
+        Value::String(text) => text.parse().ok(),
+        Value::Null | Value::Bool(_) | Value::Array(_) | Value::Object(_) => None,
+    }
+    .and_then(|number| u32::try_from(number).ok())
+    .filter(|number| (1..=64).contains(number))
+    .unwrap_or(2);
+    let salted = spawn_blocking(move || Salted::new(iterations))
         .await
         .map_err(io::Error::other)??;
     let counts = Arc::new(Counts::default());
+    let digest_hold =
+        (options.hold_digest_challenges > 0).then(|| Barrier::new(options.hold_digest_challenges));
     let shared = Arc::new(Shared {
         options,
         counts: Arc::clone(&counts),
         salted,
         handshake: Mutex::new(None),
-        digest_count: Mutex::new(0),
+        digest_seen: Mutex::new(BTreeSet::new()),
+        digest_hold,
+        expired: AtomicBool::new(false),
     });
     let app = Router::new()
         .route("/auth", get(auth_get).post(auth_post).delete(auth_delete))
@@ -228,13 +285,16 @@ async fn auth_delete(State(shared): State<Arc<Shared>>) -> StatusCode {
 }
 
 /// Protects real resource responses with the selected authentication protocol.
-// cancel-safe: all authorization work is synchronous and bounded.
+// cancel-safe: authorization work is synchronous; the waits only delay the answer.
 async fn resource(
     State(shared): State<Arc<Shared>>,
     method: Method,
     uri: Uri,
     headers: HeaderMap,
 ) -> Response {
+    if shared.options.hang == Hang::Resources {
+        sleep(HANG_FOR).await;
+    }
     let accepted = match shared.options.protocol {
         Protocol::Token => {
             if headers.contains_key("x-ndma-tkn") {
@@ -247,12 +307,31 @@ async fn resource(
         }
         Protocol::Ndw4 => authorized(&shared, &headers),
         Protocol::DigestMd5 | Protocol::DigestSha256 => {
+            if let Some(hold) = &shared.digest_hold
+                && !headers.contains_key(header::AUTHORIZATION)
+            {
+                let _: BarrierWaitResult = hold.wait().await;
+            }
             return auth_fixture_digest::resource(&shared, &headers, (&method, &uri));
         }
     };
-    if accepted {
-        axum::Json(json!({"authenticated": true})).into_response()
-    } else {
-        StatusCode::UNAUTHORIZED.into_response()
+    if accepted && shared.options.expire_with_cookie && !shared.expired.swap(true, Ordering::SeqCst)
+    {
+        *lock(&shared.handshake) = None;
+        return (
+            StatusCode::UNAUTHORIZED,
+            [("set-cookie", "AUTHFIXTURE=pending; Path=/; Max-Age=300")],
+        )
+            .into_response();
     }
+    if !accepted {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+    let mut response = axum::Json(json!({"authenticated": true})).into_response();
+    if let Some(raw) = &shared.options.resource_set_cookie
+        && let Ok(value) = HeaderValue::from_bytes(raw)
+    {
+        let _: bool = response.headers_mut().append(header::SET_COOKIE, value);
+    }
+    response
 }

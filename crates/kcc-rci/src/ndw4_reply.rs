@@ -8,6 +8,15 @@ use serde::Deserialize;
 
 use crate::{AuthError, RciError, ndw4_keys::Parameters};
 
+/// Local Argon2 ceilings; each may only lower the protocol maximum.
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct Caps {
+    /// Memory ceiling in KiB.
+    pub memory_kib: u32,
+    /// Iteration ceiling.
+    pub iterations: u32,
+}
+
 /// A number or a decimal string, preserving strings verbatim for `AuthMessage`.
 #[derive(Deserialize)]
 #[serde(untagged)]
@@ -90,12 +99,12 @@ impl Reply {
     /// Parses the challenge and its exact signed representation.
     ///
     /// # Errors
-    /// Rejects malformed challenges and costs exceeding the local memory budget.
+    /// Rejects malformed challenges and costs exceeding the local Argon2 ceilings.
     pub(crate) fn challenge(
         self,
         login: &str,
         client_nonce: &str,
-        cap: u32,
+        caps: Caps,
     ) -> Result<Challenge, RciError> {
         let nonce = self.nonce.ok_or(RciError::Auth(AuthError::Rejected))?;
         if !nonce.starts_with(client_nonce) {
@@ -115,7 +124,7 @@ impl Reply {
             .memcost
             .ok_or(RciError::Auth(AuthError::Rejected))?
             .parse(8..=0x0004_0000)?;
-        if memory > cap {
+        if memory > caps.memory_kib || iterations > caps.iterations {
             return Err(RciError::Auth(AuthError::CostTooHigh));
         }
         let message = format!(

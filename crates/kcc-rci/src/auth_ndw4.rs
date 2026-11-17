@@ -13,8 +13,8 @@ use crate::{
     AuthError, RciError,
     auth::{Credentials, Ndw4Challenge},
     ndw4_keys::{Keys, Parameters},
-    ndw4_reply::Reply,
-    session::{Session, parse_set_cookie},
+    ndw4_reply::{Caps, Reply},
+    session::{Session, map_reqwest_error, parse_set_cookie},
 };
 
 /// One cached parameter set; its manager binds the router, login, and password.
@@ -29,8 +29,8 @@ pub(crate) struct Exchange<'session> {
     pub origin: &'session str,
     /// Immutable manager credentials.
     pub credentials: &'session Credentials,
-    /// Local memory ceiling.
-    pub memory_cap: u32,
+    /// Local Argon2 ceilings.
+    pub caps: Caps,
     /// Keys bound to this manager's router and credentials.
     pub cache: &'session Cache,
 }
@@ -41,11 +41,11 @@ impl fmt::Debug for Exchange<'_> {
             client: _,
             origin: _,
             credentials: _,
-            memory_cap,
+            caps,
             cache: _,
         } = self;
         f.debug_struct("Exchange")
-            .field("memory_cap", memory_cap)
+            .field("caps", caps)
             .finish_non_exhaustive()
     }
 }
@@ -100,8 +100,7 @@ impl Exchange<'_> {
                 &mut pending,
             )
             .await?;
-        let parsed =
-            Reply::decode(first.headers())?.challenge(login, &client_nonce, self.memory_cap)?;
+        let parsed = Reply::decode(first.headers())?.challenge(login, &client_nonce, self.caps)?;
         let keys = {
             let mut cached = self.cache.0.lock().await;
             let keys = match cached.as_ref() {
@@ -163,7 +162,7 @@ impl Exchange<'_> {
             .header(header::COOKIE, session.header_value()?)
             .send()
             .await
-            .map_err(|_error| RciError::Transport)?;
+            .map_err(|error| map_reqwest_error(&error))?;
         if check.status() != StatusCode::OK {
             return Err(RciError::Auth(AuthError::Rejected));
         }
@@ -186,7 +185,10 @@ impl Exchange<'_> {
         if let Some(session) = pending.as_ref() {
             request = request.header(header::COOKIE, session.header_value()?);
         }
-        let response = request.send().await.map_err(|_error| RciError::Transport)?;
+        let response = request
+            .send()
+            .await
+            .map_err(|error| map_reqwest_error(&error))?;
         match pending {
             Some(session) => session.refresh_from_headers(response.headers())?,
             None => *pending = parse_set_cookie(response.headers(), None)?.map(Session::from),

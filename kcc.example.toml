@@ -75,6 +75,10 @@ allowed_networks = []
 allowed_suffixes = []
 # Allow loopback router addresses, even when loopback is in allowed_networks.
 allow_loopback = false
+# Most Argon2 iterations a router may ask for at ndw4 sign-in (1 to 64). A router
+# asking for more is refused before any key is derived; raise it only for a router
+# that needs more.
+argon2_max_iterations = 16
 
 [state]
 # State directory (default: unset, meaning the platform state directory:

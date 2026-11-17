@@ -512,7 +512,7 @@ pub enum AuthError {
     /// The router advertised no supported authentication method.
     #[error("router authentication method is unsupported")]
     Unsupported,
-    /// The router requested more Argon2 memory than the local budget.
+    /// The router requested more Argon2 memory or iterations than the local budget.
     #[error("router authentication cost exceeds local policy")]
     CostTooHigh,
     /// The router failed mutual authentication.

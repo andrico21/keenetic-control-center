@@ -87,6 +87,7 @@ proxies; kcc refuses to start otherwise.
 | `allowed_networks` | list of CIDRs | `[]` | networks router addresses must fall into; empty admits none |
 | `allowed_suffixes` | list of strings | `[]` | DNS suffixes whose resolved global addresses are admitted, e.g. `"keenetic.pro"`; values are case-insensitive, normalized with a leading dot, and match the bare name or subdomains only |
 | `allow_loopback` | bool | `false` | admit literal and resolved loopback router addresses; required even when a loopback CIDR is in `allowed_networks` |
+| `argon2_max_iterations` | integer | `16` | most Argon2 iterations a router may ask for at ndw4 sign-in, 1 to 64 (the protocol maximum); a router asking for more is refused ("router authentication cost exceeds local policy") before any key is derived, so a host posing as a router cannot make kcc spend 64 passes over 256 MiB per sign-in; raise it only for a router that needs more |
 
 IPv4-mapped, NAT64 (`64:ff9b::/96`), SIIT IPv4-translated (`::ffff:0:0:0/96`),
 IPv4-compatible (`::/96`) and 6to4 (`2002::/16`) addresses are checked against both

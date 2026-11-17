@@ -269,6 +269,8 @@ pub struct RouterRegistry {
     profiles: RwLock<BTreeMap<String, ManagedRouterProfile>>,
     /// Outbound destination policy.
     outbound: OutboundPolicy,
+    /// Most Argon2 iterations a router may ask for at ndw4 sign-in.
+    argon2_max_iterations: u32,
     /// Lazy shared clients, one slot per router id; a slot is built outside the map lock.
     clients: Mutex<BTreeMap<String, ClientSlot>>,
     /// Shared read-only polling clients, invalidated with `clients`.
@@ -325,6 +327,7 @@ impl RouterRegistry {
             &profile,
             CredentialUse::Primary,
         )?;
+        options.auth.max_argon2_iterations = self.argon2_max_iterations;
         Ok(Arc::new(
             RciClient::connect_bootstrap_with(
                 router_url(&profile)?,
@@ -430,6 +433,7 @@ impl RouterRegistry {
             config: RwLock::new(config),
             profiles: RwLock::new(effective),
             outbound: policy,
+            argon2_max_iterations: outbound.argon2_max_iterations,
             clients: Mutex::new(BTreeMap::new()),
             read_clients: read_pool::ReadPool::default(),
             budgets: budgets::Budgets::default(),
@@ -853,6 +857,7 @@ impl RouterRegistry {
         options.tls = tls_mode(&profile.tls)?;
         options.budget = Some(self.budgets.get(&profile.id).await);
         options.auth = auth;
+        options.auth.max_argon2_iterations = self.argon2_max_iterations;
         RciClient::connect_with(router_url(profile)?, credentials, options)
             .await?
             .detect()
@@ -886,6 +891,7 @@ impl RouterRegistry {
         .await
         .map_err(|_join_error| RegistryError::CredentialRead)??;
         options.auth = auth;
+        options.auth.max_argon2_iterations = self.argon2_max_iterations;
         RciClient::connect_with(router_url(profile)?, credentials, options)
             .await
             .map_err(RegistryError::from)

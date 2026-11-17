@@ -19,7 +19,7 @@ use crate::{
     server::lock,
 };
 
-/// Verifies method, URI, dummy credentials, and strictly increasing nonce count.
+/// Verifies method, URI, dummy credentials, and a nonce count not accepted before.
 pub(crate) fn resource(shared: &Shared, headers: &HeaderMap, target: (&Method, &Uri)) -> Response {
     let sha256 = matches!(shared.options.protocol, Protocol::DigestSha256);
     let algorithm = if sha256 { "SHA-256" } else { "MD5" };
@@ -48,7 +48,7 @@ pub(crate) fn resource(shared: &Shared, headers: &HeaderMap, target: (&Method, &
             )),
         );
         let count = u32::from_str_radix(get("nc"), 16).unwrap_or(0);
-        let mut previous = lock(&shared.digest_count);
+        let mut seen = lock(&shared.digest_seen);
         if get("username") == "admin"
             && get("realm") == "fixture"
             && get("nonce") == "fixture-nonce"
@@ -58,11 +58,16 @@ pub(crate) fn resource(shared: &Shared, headers: &HeaderMap, target: (&Method, &
             && get("opaque") == "fixture-opaque"
             && !get("cnonce").is_empty()
             && get("nc").len() == 8
-            && count > *previous
+            && count > 0
+            && !seen.contains(&count)
             && bool::from(expected.as_bytes().ct_eq(get("response").as_bytes()))
         {
-            *previous = count;
-            drop(previous);
+            let _: bool = seen.insert(count);
+            drop(seen);
+            let _: u32 = shared
+                .counts
+                .digest_highest_count
+                .fetch_max(count, Ordering::SeqCst);
             let _: usize = shared.counts.digest_requests.fetch_add(1, Ordering::SeqCst);
             return Json(json!({"authenticated":true})).into_response();
         }

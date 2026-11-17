@@ -9,11 +9,12 @@ use kcc_app::{
     registry::{RegistryError, RouterRegistry, RoutersDocument},
     settings::{Config, OutboundConfig},
 };
-use kcc_rci::RciPath;
+use kcc_rci::{AuthError, RciError, RciPath};
 use kcc_testkit::{
     DEFAULT_LOGIN, DEFAULT_PASSWORD,
     auth_fixture::{self, Counts, Options as Fixture, Protocol},
 };
+use serde_json::json;
 use tempfile::TempDir;
 
 /// A `routers.json` exactly as the registry wrote it before profiles carried an auth mode.
@@ -153,6 +154,55 @@ async fn ndw2_profile_skips_advertised_ndw4() -> Result<(), Box<dyn Error>> {
     assert_eq!(count(&counts, |seen| &seen.ndw2_posts), 1, "ndw2 logins");
     assert_eq!(count(&counts, |seen| &seen.phase_two), 0, "ndw4 phases");
     handle.shutdown().await?;
+    Ok(())
+}
+
+/// A-14: `[outbound] argon2_max_iterations` reaches the sign-in: at the default a router
+/// asking for 17 iterations is refused before any proof, and with 17 configured it signs in.
+// NOT cancel-safe: owns one fixture per setting through a login.
+#[tokio::test]
+async fn argon2_iteration_cap_comes_from_the_config() -> Result<(), Box<dyn Error>> {
+    for (setting, accepted) in [("", false), ("argon2_max_iterations = 17\n", true)] {
+        let directory = TempDir::new()?;
+        let mut fixture = Fixture::default();
+        fixture.iterations = json!(17_u32);
+        let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
+        let lines = password_lines(directory.path(), "ndw4")?;
+        let config = Config::from_toml_str(&format!(
+            "[outbound]\nallow_loopback = true\n{setting}\n[[routers]]\nname = \"router\"\nurl = \"http://{address}\"\n{lines}"
+        ))?;
+        let registry = RouterRegistry::new(
+            StateStore::open(&directory.path().join("state"))?,
+            &config.routers,
+            &config.outbound,
+        )?;
+
+        let result = read_once(&registry).await;
+
+        if accepted {
+            assert!(result.is_ok(), "{setting:?}: {result:?}");
+            assert_eq!(count(&counts, |seen| &seen.phase_three), 1, "logins");
+        } else {
+            let refused = result.as_ref().err().and_then(|error| {
+                error
+                    .downcast_ref::<RegistryError>()
+                    .map(|found| {
+                        matches!(
+                            found,
+                            RegistryError::Rci(RciError::Auth(AuthError::CostTooHigh))
+                        )
+                    })
+                    .or_else(|| {
+                        error
+                            .downcast_ref::<RciError>()
+                            .map(|rci| matches!(rci, RciError::Auth(AuthError::CostTooHigh)))
+                    })
+            });
+            assert_eq!(refused, Some(true), "{result:?}");
+            assert_eq!(count(&counts, |seen| &seen.phase_two), 0, "proofs");
+        }
+        handle.shutdown().await?;
+    }
     Ok(())
 }
 

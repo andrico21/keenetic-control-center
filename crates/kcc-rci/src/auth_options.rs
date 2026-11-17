@@ -35,6 +35,8 @@ pub struct Options {
     pub token_fallback: bool,
     /// Local Argon2 memory ceiling in KiB; may only lower the protocol maximum.
     pub max_argon2_memory_kib: u32,
+    /// Local Argon2 iteration ceiling in 1..=64; may only lower the protocol maximum of 64.
+    pub max_argon2_iterations: u32,
 }
 
 impl Default for Options {
@@ -45,6 +47,7 @@ impl Default for Options {
             experimental_token: None,
             token_fallback: false,
             max_argon2_memory_kib: 0x0004_0000,
+            max_argon2_iterations: 16,
         }
     }
 }
@@ -57,12 +60,14 @@ impl fmt::Debug for Options {
             experimental_token: _,
             token_fallback,
             max_argon2_memory_kib,
+            max_argon2_iterations,
         } = self;
         f.debug_struct("Options")
             .field("mode", mode)
             .field("experimental_token", &"[REDACTED]")
             .field("token_fallback", token_fallback)
             .field("max_argon2_memory_kib", max_argon2_memory_kib)
+            .field("max_argon2_iterations", max_argon2_iterations)
             .finish()
     }
 }

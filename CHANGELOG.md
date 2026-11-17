@@ -114,6 +114,13 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Changed
 
+- **New setting `[outbound] argon2_max_iterations` (default 16, 1 to 64).** At ndw4 sign-in
+  a router asking for more Argon2 iterations than this is refused ("router authentication
+  cost exceeds local policy") before any key is derived. Before, any count up to the
+  protocol maximum of 64 was accepted. Raise the setting for a router that needs more.
+- **A read timeout is the same error on every sign-in path.** Under token, HTTP digest and
+  ndw4 sign-in a router that stops answering is now reported as a timeout, as it already was
+  for ndw2, instead of a transport failure.
 - **A management change is refused while somebody else's recovery timer runs.** When the
   router's fail-safe timer is already active (armed with `kcc config failsafe arm`, the
   Web UI or a migration), a management change on any surface is refused before anything
@@ -390,6 +397,13 @@ The first release, `0.1.0`, is in preparation and contains:
 
 ### Fixed
 
+- **Router session cookies are refreshed only from answers that may refresh them.** A 401
+  no longer installs the cookie it carries (which skipped the next sign-in and failed the
+  replay), an answer to a request sent with an older cookie no longer replaces a newer
+  sign-in, and a malformed refresh of the session cookie, or an unrelated cookie that is not
+  plain ASCII, no longer turns a change the router applied into an error.
+- **Concurrent HTTP digest requests keep one nonce count.** Requests challenged with the
+  same nonce at once continue one count instead of each restarting it.
 - **File, lock and sealing work no longer runs on the async workers.** The automatic
   pre-change backup, router profile and password writes, job records (start, end and the
   startup recovery), every file of the Web migration and preset wizards, and the preset

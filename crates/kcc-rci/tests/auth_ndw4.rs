@@ -127,6 +127,73 @@ mod tests {
         Ok(())
     }
 
+    /// A-14: by default a router may ask for 16 Argon2 iterations; 17 is refused before any
+    /// proof is sent.
+    // NOT cancel-safe: owns a local test server for each table row.
+    #[tokio::test]
+    async fn default_iteration_cap_is_sixteen() -> TestResult {
+        for (iterations, accepted) in [(16_u32, true), (17_u32, false)] {
+            let mut fixture = Fixture::default();
+            fixture.iterations = json!(iterations);
+            let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
+            let manager = Manager::connect(
+                format!("http://{address}").parse()?,
+                credentials("admin"),
+                &OutboundPolicy::default().with_loopback(true),
+            )
+            .await?;
+
+            let result = manager.ensure_session().await;
+
+            if accepted {
+                assert!(result.is_ok(), "{iterations}: {result:?}");
+                assert_eq!(counts.phase_three.load(Ordering::SeqCst), 1);
+            } else {
+                assert!(
+                    matches!(result, Err(RciError::Auth(AuthError::CostTooHigh))),
+                    "{iterations}: {result:?}"
+                );
+                assert_eq!(counts.phase_two.load(Ordering::SeqCst), 0);
+            }
+            handle.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    /// A-14: a raised local cap admits 17 iterations; a cap above the protocol maximum of 64
+    /// is refused when the manager is built.
+    // NOT cancel-safe: owns a local test server through one login.
+    #[tokio::test]
+    async fn raised_iteration_cap_admits_seventeen() -> TestResult {
+        let mut fixture = Fixture::default();
+        fixture.iterations = json!(17_u32);
+        let (address, handle, counts) = auth_fixture::spawn(fixture).await?;
+        let mut options = Options::default();
+        options.max_argon2_iterations = 17;
+        let manager = Manager::connect_with_options(
+            format!("http://{address}").parse()?,
+            Some(credentials("admin")),
+            options.clone(),
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await?;
+
+        manager.ensure_session().await?;
+        options.max_argon2_iterations = 65;
+        let above = Manager::connect_with_options(
+            format!("http://{address}").parse()?,
+            Some(credentials("admin")),
+            options,
+            &OutboundPolicy::default().with_loopback(true),
+        )
+        .await;
+
+        assert_eq!(counts.phase_three.load(Ordering::SeqCst), 1);
+        assert!(matches!(above, Err(RciError::Validation)));
+        handle.shutdown().await?;
+        Ok(())
+    }
+
     /// Boundary validation rejects malformed nonce, salt, costs, and either error field.
     // NOT cancel-safe: owns a local test server for each table row.
     #[tokio::test]

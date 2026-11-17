@@ -43,7 +43,7 @@ impl fmt::Debug for Keys {
 pub(crate) struct Parameters {
     /// Decoded 16-byte salt.
     pub salt: [u8; 16],
-    /// Iterations in 1..=64.
+    /// Iterations in 1..=64, at most the local cap.
     pub iterations: u32,
     /// Memory in 8..=262144 KiB, below the local cap.
     pub memory: u32,
@@ -237,12 +237,14 @@ mod tests {
             experimental_token,
             token_fallback,
             max_argon2_memory_kib: _,
+            max_argon2_iterations,
         } = Options::default();
         let options = Options {
             mode,
             experimental_token,
             token_fallback,
             max_argon2_memory_kib: 32,
+            max_argon2_iterations,
         };
         let limited = Manager::connect_with_options(
             format!("http://{other_address}").parse()?,
