@@ -1003,7 +1003,7 @@ web-vpn-conf-missing = Файлда { $field } жоқ.
 web-vpn-conf-unknown-section = { $line }-жол: бұл бөлім WireGuard файлына жатпайды.
 web-vpn-conf-unknown-field = { $line }-жол: бұл параметр WireGuard файлына жатпайды.
 web-vpn-conf-malformed = { $line }-жол: Name = value түріндегі параметр күтіледі.
-web-vpn-conf-duplicate = { $line }-жол: { $field } бірнеше рет кездеседі.
+web-vpn-conf-duplicate = { $line }-жол: параметр бірнеше рет кездеседі.
 web-vpn-conf-key = { $line }-жол: { $field } 44 Base64 таңбасынан тұратын WireGuard кілті емес.
 web-vpn-conf-number = { $line }-жол: { $field } 0-ден 65535-ке дейінгі бүтін сан болуы керек.
 web-vpn-conf-invalid = Файл дұрыс WireGuard конфигурациясы емес.

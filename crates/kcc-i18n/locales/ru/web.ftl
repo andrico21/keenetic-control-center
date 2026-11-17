@@ -1015,7 +1015,7 @@ web-vpn-conf-missing = В файле нет { $field }.
 web-vpn-conf-unknown-section = Строка { $line }: этот раздел не относится к файлу WireGuard.
 web-vpn-conf-unknown-field = Строка { $line }: этот параметр не относится к файлу WireGuard.
 web-vpn-conf-malformed = Строка { $line }: ожидается параметр вида Name = value.
-web-vpn-conf-duplicate = Строка { $line }: { $field } встречается больше одного раза.
+web-vpn-conf-duplicate = Строка { $line }: параметр встречается больше одного раза.
 web-vpn-conf-key = Строка { $line }: { $field } не является ключом WireGuard из 44 символов Base64.
 web-vpn-conf-number = Строка { $line }: { $field } должен быть целым числом от 0 до 65535.
 web-vpn-conf-invalid = Файл не является корректной конфигурацией WireGuard.

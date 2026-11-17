@@ -122,7 +122,7 @@ async fn a_connection_is_created_switched_and_deleted() -> TestResult {
         &fixture,
         &[TypedName {
             action: "web.vpn_delete",
-            account: "operator",
+            account: "admin",
             denied: None,
             ask: Ask::Get(&format!("{PAGE}/delete?tunnel=Wireguard3")),
             title: None,

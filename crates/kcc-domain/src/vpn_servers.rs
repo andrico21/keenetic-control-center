@@ -16,6 +16,8 @@ mod render;
 pub mod secrets;
 mod verification;
 
+use alloc::collections::BTreeMap;
+
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
@@ -88,8 +90,8 @@ pub struct VpnServerStatus {
     pub openconnect: ServerConfigStatus,
     /// WireGuard server interface bindings.
     pub wireguard_interfaces: Vec<Value>,
-    /// IPsec/IKEv2 virtual-IP server configuration.
-    pub ipsec_virtual_ip: Value,
+    /// IPsec/IKEv2 virtual-IP server configuration per crypto-map name.
+    pub ipsec_virtual_ip: BTreeMap<String, Value>,
     /// Enabled VPN services.
     pub services: Vec<ServiceStatus>,
 }
@@ -204,7 +206,7 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
         "sstp-server":{"interface":{},"pool-range":{},"dns-servers":{},"mtu":{},"mru":{},"multi-login":{}},
         "oc-server":{"interface":{},"pool-range":{},"dns-servers":{},"mtu":{},"multi-login":{}},
         "wireguard-server":{"interface":{}},
-        "crypto":{"map":{"virtual-ip":{"enable":{},"range":{},"dns-servers":{},"interface":{}}}},
+        "crypto":{"map":{}},
         "service":{}
     });
     let response = router.client.show_rc(tree).await?;
@@ -219,9 +221,12 @@ pub async fn read_servers(router: &RouterCtx) -> Result<VpnServerStatus> {
             .cloned()
             .unwrap_or_default(),
         ipsec_virtual_ip: root
-            .pointer("/crypto/map/virtual-ip")
-            .cloned()
-            .unwrap_or_else(|| json!({})),
+            .pointer("/crypto/map")
+            .and_then(Value::as_object)
+            .into_iter()
+            .flatten()
+            .filter_map(|(name, map)| Some((name.clone(), map.get("virtual-ip")?.clone())))
+            .collect(),
         services: root
             .get("service")
             .and_then(Value::as_array)

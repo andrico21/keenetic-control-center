@@ -182,8 +182,11 @@ offered yet.
 ## VPN
 
 `/ui/r/<router>/vpn` lists VPN client connections (turn on or off, delete) and VPN
-servers (service state, address pool, DNS, IPsec). WireGuard connections can be created
-or imported from a `.conf` file. The import sends the file's private key, preshared keys
+servers (service state, address pool, DNS, IPsec; the IPsec rows show the virtual IP of
+each crypto map by name). Delete removes VPN client interfaces only; any other interface
+is refused. WireGuard connections can be created or imported from a `.conf` file. A
+`.conf` problem is reported by line number only, never with text from the file. The ASC
+command takes at most 16 values, each sent quoted. The import sends the file's private key, preshared keys
 and obfuscation keys to the router and verifies that the router reports each one; a file
 without a private key gets one the router generates. kcc reports which fields of the
 file it didn't send (address, DNS, ASC). Peers of a WireGuard tunnel are listed and

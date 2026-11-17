@@ -58,11 +58,11 @@ fn wireguard_parser_rejects_unknown_field_and_duplicate_interface() {
 
     assert!(matches!(
         vpn_clients::parse_wireguard_config(&unknown_field),
-        Err(WireGuardParseError::UnknownField { field, line: _ }) if field == "Unsupported"
+        Err(WireGuardParseError::UnknownField { line: 2 })
     ));
     assert!(matches!(
         vpn_clients::parse_wireguard_config(&duplicate_interface),
-        Err(WireGuardParseError::Duplicate { field, line: _ }) if field == "[Interface]"
+        Err(WireGuardParseError::Duplicate { line: 3 })
     ));
 }
 

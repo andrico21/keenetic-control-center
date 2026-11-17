@@ -97,34 +97,54 @@ pub(crate) fn servers(status: &VpnServerStatus, viewer: &Viewer) -> (Region, Vec
         ));
     }
     let on = running(status, "ipsec");
-    let virtual_ip = &status.ipsec_virtual_ip;
     let edit = viewer
         .allows("ipsec_virtual_ip")
         .then(|| viewer.href("vpn/form/ipsec"));
-    let enabled = virtual_ip.get("enable").map(|value| {
-        tr(
-            locale,
-            if value == &Value::Bool(false) {
-                keys::WEB_VPN_OFF
-            } else {
-                keys::WEB_VPN_ON
-            },
-            None,
-        )
-    });
-    let mut ipsec = Panel::new(locale, "vpn-ipsec", keys::WEB_VPN_SERVER_IPSEC)
-        .state(&state(locale, Some(on)))
-        .row((locale, keys::WEB_VPN_VIRTUAL_IP), enabled, edit.clone())
-        .row(
-            (locale, keys::WEB_VPN_POOL),
-            shown(virtual_ip.get("range")),
-            edit.clone(),
-        )
-        .row(
-            (locale, keys::WEB_VPN_DNS),
-            shown(virtual_ip.get("dns-servers")),
-            edit,
-        );
+    let mut ipsec =
+        Panel::new(locale, "vpn-ipsec", keys::WEB_VPN_SERVER_IPSEC).state(&state(locale, Some(on)));
+    let maps: Vec<(Option<&String>, Option<&Value>)> = if status.ipsec_virtual_ip.is_empty() {
+        vec![(None, None)]
+    } else {
+        status
+            .ipsec_virtual_ip
+            .iter()
+            .map(|(name, value)| (Some(name), Some(value)))
+            .collect()
+    };
+    for (name, virtual_ip) in maps {
+        let enabled = virtual_ip.and_then(|ip| ip.get("enable")).map(|value| {
+            tr(
+                locale,
+                if value == &Value::Bool(false) {
+                    keys::WEB_VPN_OFF
+                } else {
+                    keys::WEB_VPN_ON
+                },
+                None,
+            )
+        });
+        let named = |text: Option<String>| match name {
+            Some(map) => text.map(|shown_text| format!("{map}: {shown_text}")),
+            None => text,
+        };
+        let field = |key: &str| shown(virtual_ip.and_then(|ip| ip.get(key)));
+        ipsec = ipsec
+            .row(
+                (locale, keys::WEB_VPN_VIRTUAL_IP),
+                named(enabled),
+                edit.clone(),
+            )
+            .row(
+                (locale, keys::WEB_VPN_POOL),
+                named(field("range")),
+                edit.clone(),
+            )
+            .row(
+                (locale, keys::WEB_VPN_DNS),
+                named(field("dns-servers")),
+                edit.clone(),
+            );
+    }
     if viewer.allows("ipsec_service") {
         ipsec = ipsec.act(toggle(viewer, ("ipsec", on)));
     }

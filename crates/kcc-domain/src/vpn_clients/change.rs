@@ -1,17 +1,19 @@
 //! Catalog validation and protected workflow conversion for VPN clients.
 
+use alloc::collections::BTreeMap;
 use core::result::Result as CoreResult;
 
 use kcc_app::{
     permissions::Permission,
     workflow::{CliChangeRequest, CliCommand as ValidatedCli},
 };
-use kcc_catalog::{HttpMethod, Risk};
-use serde_json::json;
+use kcc_catalog::{HttpMethod, Risk, ValidationIssue};
+use serde_json::{Value, json};
 
-use super::{VpnClientChange, render};
+use super::{VpnClientChange, read, render};
 use crate::{
-    ChangeOp, DomainError, OperationDescriptor, Result, RouterCtx, interfaces, verification,
+    ChangeOp, DomainError, OperationDescriptor, Result, RouterCtx, interfaces, read_show,
+    verification,
 };
 
 /// Catalog-filtered VPN client write inventory.
@@ -55,7 +57,30 @@ pub(super) const WRITES: &[OperationDescriptor] = &[
 /// Plans one non-secret mutation.
 // cancel-safe: management classification performs read-only topology requests.
 pub(super) async fn plan(router: &RouterCtx, change: &VpnClientChange) -> Result<ChangeOp> {
+    if let VpnClientChange::Delete { name } = change {
+        require_vpn_client(router, name).await?;
+    }
     classify(router, unclassified(router, change)?).await
+}
+
+/// Refuses to remove an existing interface that is not a VPN client; a name the router does
+/// not list proceeds and is rejected by the router itself.
+// cancel-safe: a single read request; cancellation changes nothing on the router.
+async fn require_vpn_client(router: &RouterCtx, name: &str) -> Result<()> {
+    let interfaces: BTreeMap<String, Value> =
+        read_show(&router.client, &["show", "interface"]).await?;
+    let kind = interfaces
+        .get(name)
+        .map(|interface| interface.get("type").and_then(Value::as_str));
+    match kind {
+        None => Ok(()),
+        Some(raw) if raw.and_then(read::client_type).is_some() => Ok(()),
+        Some(_) => Err(DomainError::Validation {
+            issues: vec![ValidationIssue::InvalidValue {
+                field: "name".to_owned(),
+            }],
+        }),
+    }
 }
 
 /// Classifies every generated command in one complete VPN client operation.
@@ -69,7 +94,19 @@ pub(super) async fn classify(router: &RouterCtx, mut operation: ChangeOp) -> Res
         .collect::<CoreResult<Vec<_>, _>>()
         .map_err(|_error| DomainError::InvalidResponse)?;
     let rendered = lines.iter().map(|line| line.as_str()).collect::<Vec<_>>();
-    operation.risk = interfaces::management::classify_generated(router, &rendered).await?;
+    let classified = interfaces::management::classify_generated(router, &rendered).await?;
+    // A management verdict keeps its recovery bracket; otherwise a destructive request stays
+    // destructive.
+    operation.risk = if classified == Risk::Write
+        && operation
+            .requests
+            .iter()
+            .any(|validated| validated.risk >= Risk::Destructive)
+    {
+        Risk::Destructive
+    } else {
+        classified
+    };
     Ok(operation)
 }
 

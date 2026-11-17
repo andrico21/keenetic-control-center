@@ -95,23 +95,22 @@ fn parse_error(locale: Locale, error: &WireGuardParseError) -> String {
             args.set("line", *line);
             keys::WEB_VPN_CONF_UNKNOWN_SECTION
         }
-        WireGuardParseError::UnknownField { line, field: _ } => {
+        WireGuardParseError::UnknownField { line } => {
             args.set("line", *line);
             keys::WEB_VPN_CONF_UNKNOWN_FIELD
         }
-        WireGuardParseError::Malformed { line, field: _ } => {
+        WireGuardParseError::Malformed { line } => {
             args.set("line", *line);
             keys::WEB_VPN_CONF_MALFORMED
         }
-        WireGuardParseError::Duplicate { line, field }
-        | WireGuardParseError::InvalidKey { line, field }
+        WireGuardParseError::Duplicate { line } => {
+            args.set("line", *line);
+            keys::WEB_VPN_CONF_DUPLICATE
+        }
+        WireGuardParseError::InvalidKey { line, field }
         | WireGuardParseError::InvalidInteger { line, field } => {
             args.set("line", *line);
             match (named(field), error) {
-                (Some(known), WireGuardParseError::Duplicate { line: _, field: _ }) => {
-                    args.set("field", known);
-                    keys::WEB_VPN_CONF_DUPLICATE
-                }
                 (Some(known), WireGuardParseError::InvalidKey { line: _, field: _ }) => {
                     args.set("field", known);
                     keys::WEB_VPN_CONF_KEY

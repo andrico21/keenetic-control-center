@@ -1015,7 +1015,7 @@ web-vpn-conf-missing = У файле няма { $field }.
 web-vpn-conf-unknown-section = Радок { $line }: гэты раздзел не адносіцца да файла WireGuard.
 web-vpn-conf-unknown-field = Радок { $line }: гэты параметр не адносіцца да файла WireGuard.
 web-vpn-conf-malformed = Радок { $line }: чакаецца параметр выгляду Name = value.
-web-vpn-conf-duplicate = Радок { $line }: { $field } сустракаецца больш за адзін раз.
+web-vpn-conf-duplicate = Радок { $line }: параметр сустракаецца больш за адзін раз.
 web-vpn-conf-key = Радок { $line }: { $field } не з'яўляецца ключом WireGuard з 44 сімвалаў Base64.
 web-vpn-conf-number = Радок { $line }: { $field } павінен быць цэлым лікам ад 0 да 65535.
 web-vpn-conf-invalid = Файл не з'яўляецца карэктнай канфігурацыяй WireGuard.

@@ -69,7 +69,7 @@ async fn management_bracket_without_write_permission() -> TestResult {
 // NOT cancel-safe: fixture writes may apply before cancellation.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn curated_management_commands_bracket() -> TestResult {
-    let vpn = ["--yes", "vpn", "delete", "Bridge0"];
+    let vpn = ["--yes", "vpn", "enable", "Bridge0", "off"];
     let wan = ["--yes", "wan", "priority", "Bridge0", "7"];
     for args in [&vpn[..], &wan] {
         let (env, handle) = lab(reporting("extender"), FaultInjection::default(), "admin").await?;

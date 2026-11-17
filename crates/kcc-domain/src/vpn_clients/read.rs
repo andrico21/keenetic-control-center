@@ -17,18 +17,7 @@ pub(super) fn decode_clients(value: &Value) -> Vec<VpnClientStatus> {
 
 /// Selects the documented client type and its closed read model.
 fn decode_client(name: &str, value: &Value) -> Option<VpnClientStatus> {
-    let client_type = match value.get("type")?.as_str()?.to_ascii_lowercase().as_str() {
-        "wireguard" => VpnClientType::WireGuard,
-        "openvpn" => VpnClientType::OpenVpn,
-        "ipsec" => VpnClientType::Ipsec,
-        "l2tp" | "l2tp/ipsec" => VpnClientType::L2tpIpsec,
-        "pptp" => VpnClientType::Pptp,
-        "sstp" => VpnClientType::Sstp,
-        "zerotier" => VpnClientType::ZeroTier,
-        "openconnect" => VpnClientType::OpenConnect,
-        "proxy" => VpnClientType::Proxy,
-        _ => return None,
-    };
+    let client_type = client_type(value.get("type")?.as_str()?)?;
     Some(VpnClientStatus {
         id: value
             .get("id")
@@ -49,6 +38,22 @@ fn decode_client(name: &str, value: &Value) -> Option<VpnClientStatus> {
         zerotier: decode_for(client_type, VpnClientType::ZeroTier, value),
         openconnect: decode_for(client_type, VpnClientType::OpenConnect, value),
         proxy: decode_for(client_type, VpnClientType::Proxy, value),
+    })
+}
+
+/// The VPN client type the router names `raw`, or `None` for any other interface type.
+pub(super) fn client_type(raw: &str) -> Option<VpnClientType> {
+    Some(match raw.to_ascii_lowercase().as_str() {
+        "wireguard" => VpnClientType::WireGuard,
+        "openvpn" => VpnClientType::OpenVpn,
+        "ipsec" => VpnClientType::Ipsec,
+        "l2tp" | "l2tp/ipsec" => VpnClientType::L2tpIpsec,
+        "pptp" => VpnClientType::Pptp,
+        "sstp" => VpnClientType::Sstp,
+        "zerotier" => VpnClientType::ZeroTier,
+        "openconnect" => VpnClientType::OpenConnect,
+        "proxy" => VpnClientType::Proxy,
+        _ => return None,
     })
 }
 

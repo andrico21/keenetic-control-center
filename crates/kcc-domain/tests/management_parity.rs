@@ -14,7 +14,7 @@ use core::net::Ipv4Addr;
 
 use base64::{Engine as _, engine::general_purpose::STANDARD};
 use kcc_catalog::{RawAuthorization, Risk};
-use kcc_domain::{segments, vpn_clients, wan, wifi};
+use kcc_domain::{DomainError, segments, vpn_clients, wan, wifi};
 use kcc_rci::ObjectName;
 
 use crate::support::{Fixture, PROFILES, TestResult};
@@ -125,12 +125,22 @@ async fn vpn_delete_and_disable_preserve_management_risk() -> TestResult {
                     enabled: false,
                 },
             ] {
-                let operation = vpn_clients::plan_change(fixture.context(), &change).await?;
+                let deleting = matches!(change, vpn_clients::VpnClientChange::Delete { name: _ });
+                let planned = vpn_clients::plan_change(fixture.context(), &change).await;
+                if deleting && name != "Wireguard7" {
+                    // The VPN client path removes only VPN interfaces.
+                    assert!(matches!(
+                        planned,
+                        Err(DomainError::Validation { issues: _ })
+                    ));
+                    continue;
+                }
+                let operation = planned?;
                 let request = vpn_clients::change_request(&operation)?;
-                let expected = if name == "Wireguard7" {
-                    Risk::Write
-                } else {
-                    Risk::Management
+                let expected = match (name, deleting) {
+                    ("Wireguard7", true) => Risk::Destructive,
+                    ("Wireguard7", false) => Risk::Write,
+                    _ => Risk::Management,
                 };
                 for command in &request.commands {
                     let line = command.expose_for_send()?;

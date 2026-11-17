@@ -186,3 +186,9 @@
 - Pre-existing, left alone: `WireGuardParseError::UnknownSection.section` still echoes the (bracketed) line text; a `[`-prefixed line cannot be a bare base64 key, so it was not in the binding scope.
 - The fake router assigns `type` "Wireguard" to a created interface only after a wireguard sub-command; a bare `interface X` has no type (a real router types it by name prefix). The D-11 test therefore sets a listen port after Create.
 - Web: the VPN delete form now needs an account with the Destructive permission (operator no longer deletes a non-management VPN interface).
+- not proven on hardware (todo 49): 'access-list <name> rule <index> order <position>' reorder form and the catalog 'new-index' argument on a real router.
+
+## [2026-11-17] Todo 50 (wt/r50) notes, not fixed here
+- not proven on hardware (todo 50): `no ip policy <name> description` without an argument accepted by a real router (the fake rule was relaxed to allow the bare leaf); the IPv4/IPv6 route tails parsed from the real `show running-config` text (`gateway [interface] [metric]`, `interface [gateway]`) follow the CLI manual synopsis only.
+- Routes configured with `auto` or `reject` cannot be added by kcc (the catalog has no argument for them) and cannot be restored by the wipe recovery; they are reported after the others are restored. Extending Ipv4Route is a separate change.
+- The `apply` of policies (`policies/change/apply.rs`) still reads back after `apply_cli` returns (not a VerificationSpec before the audit entry), unlike todo 48's clients/DHCP; left alone.

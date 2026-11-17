@@ -117,28 +117,22 @@ pub enum WireGuardParseError {
         section: String,
     },
     /// A field is unsupported in its section.
-    #[error("unknown WireGuard field {field} at line {line}")]
+    #[error("unknown WireGuard field at line {line}")]
     UnknownField {
         /// Source line.
         line: usize,
-        /// Unsupported field name.
-        field: String,
     },
     /// A section or field occurs more than allowed.
-    #[error("duplicate WireGuard field {field} at line {line}")]
+    #[error("duplicate WireGuard field at line {line}")]
     Duplicate {
         /// Source line.
         line: usize,
-        /// Duplicated section or field.
-        field: String,
     },
     /// A line is not a key/value assignment.
     #[error("malformed WireGuard field at line {line}")]
     Malformed {
         /// Source line.
         line: usize,
-        /// Field associated with the error.
-        field: String,
     },
     /// A key is not exactly 32 Base64-decoded bytes.
     #[error("invalid WireGuard key in field {field} at line {line}")]

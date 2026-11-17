@@ -1118,7 +1118,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(domain): policy, route and segment planner fixes
   Recommended task executor category: unspecified-low - several small fixes in one area
 
-- [ ] 51. VPN client and server fixes; no key text in errors
+- [x] 51. VPN client and server fixes; no key text in errors
   What to do / Must NOT do: Per the findings: VPN-client delete only removes VPN interfaces and keeps the catalog's Destructive risk; the crypto-map virtual IP pointer is fixed; WireGuard parse errors never carry key material in Display or Debug (D-16 binding correction, N8: `UnknownField`, `Malformed` and `Duplicate` store only the line number, never text from the line; test: a line `<44-character base64 key>=` and a malformed key line produce errors whose Display and Debug contain neither the key nor the line text); ASC extra values are rejected or ignored as documented. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `D-11` (medium; critic confirmed) VPN-client Delete removes any interface and drops the catalog's Destructive risk. Evidence: `vpn_clients/render.rs:21-25`, `vpn_clients/change.rs:96-101`, `interfaces/management.rs:92-120`, `kcc-catalog/src/runtime.rs:466-467`. Fix: Read the interface first and refuse names whose `type` is not a VPN client type. Keep `max(catalog risk, classified risk)`.
   - `D-12` (medium; critic confirmed) VPN server status reads the crypto-map virtual IP at the wrong pointer. Evidence: `crates/kcc-domain/src/vpn_servers.rs:208,222-225`, `vpn_servers/verification.rs:37-41`. Fix: Request `crypto map {}` and collect `virtual-ip` per map name.

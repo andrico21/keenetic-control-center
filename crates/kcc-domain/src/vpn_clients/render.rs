@@ -7,10 +7,14 @@
     )
 )]
 
+use kcc_catalog::ValidationIssue;
 use serde_json::{Value, json};
 
 use super::VpnClientChange;
-use crate::{Result, cli_token::token};
+use crate::{
+    DomainError, Result,
+    cli_token::{quoted, token},
+};
 
 type Rendered = (&'static str, Value, String);
 
@@ -219,19 +223,27 @@ fn named(path: &'static str, name: &str) -> Result<Rendered> {
 }
 
 fn asc_line(values: &[String]) -> Result<String> {
+    if values.len() > ASC_FIELDS.len() {
+        return Err(DomainError::Validation {
+            issues: vec![ValidationIssue::InvalidValue {
+                field: "values".to_owned(),
+            }],
+        });
+    }
     let words = values
         .iter()
-        .map(|value| token(value))
+        .map(|value| quoted(value))
         .collect::<Result<Vec<_>>>()?;
     Ok(format!("wireguard asc {}", words.join(" ")))
 }
 
+const ASC_FIELDS: [&str; 16] = [
+    "jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4", "s3", "s4", "i1", "i2", "i3", "i4",
+    "i5",
+];
+
 fn asc_body(values: &[String]) -> Value {
-    const FIELDS: [&str; 16] = [
-        "jc", "jmin", "jmax", "s1", "s2", "h1", "h2", "h3", "h4", "s3", "s4", "i1", "i2", "i3",
-        "i4", "i5",
-    ];
-    let map = FIELDS
+    let map = ASC_FIELDS
         .iter()
         .zip(values)
         .map(|(field, value)| ((*field).to_owned(), Value::String(value.clone())))

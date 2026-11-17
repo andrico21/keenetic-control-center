@@ -191,12 +191,12 @@ mod tests {
         )
         .await
     }
-    /// VPN deletion uses the rendered interface's management verdict.
+    /// Switching a VPN interface off uses the rendered interface's management verdict.
     #[tokio::test]
-    async fn curated_bracket_vpn_delete() -> TestResult {
+    async fn curated_bracket_vpn_disable() -> TestResult {
         bracket(
             "kcc_vpn_clients_write",
-            json!({"host":"lab-1","op":"delete","name":"Bridge0","confirm":true}),
+            json!({"host":"lab-1","op":"enabled","name":"Bridge0","enabled":false,"confirm":true}),
             None,
         )
         .await

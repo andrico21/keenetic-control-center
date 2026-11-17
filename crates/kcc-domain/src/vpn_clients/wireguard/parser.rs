@@ -68,10 +68,7 @@ pub(crate) fn parse(text: &str) -> Result<WireGuardConfig, WireGuardParseError> 
         let (field, value) = line
             .split_once('=')
             .map(|(field, value)| (field.trim(), value.trim()))
-            .ok_or_else(|| WireGuardParseError::Malformed {
-                line: line_number,
-                field: line.to_owned(),
-            })?;
+            .ok_or(WireGuardParseError::Malformed { line: line_number })?;
         match section.as_ref() {
             Some(Section::Interface) => parse_interface_field(
                 interface.as_mut().ok_or(WireGuardParseError::Missing {
@@ -88,10 +85,7 @@ pub(crate) fn parse(text: &str) -> Result<WireGuardConfig, WireGuardParseError> 
                 parse_peer_field(peer, field, value, line_number)?;
             }
             None => {
-                return Err(WireGuardParseError::Malformed {
-                    line: line_number,
-                    field: field.to_owned(),
-                });
+                return Err(WireGuardParseError::Malformed { line: line_number });
             }
         }
     }
@@ -138,10 +132,7 @@ fn parse_section(
     match line {
         "[Interface]" => {
             if interface.is_some() {
-                return Err(WireGuardParseError::Duplicate {
-                    line: line_number,
-                    field: "[Interface]".to_owned(),
-                });
+                return Err(WireGuardParseError::Duplicate { line: line_number });
             }
             *interface = Some(InterfaceDraft::default());
             Ok(Section::Interface)
@@ -165,15 +156,12 @@ fn parse_interface_field(
 ) -> Result<(), WireGuardParseError> {
     match field {
         "PrivateKey" => set_secret(&mut draft.private_key, field, value, line),
-        "ObfsKey" => set_obfuscation(&mut draft.obfuscation_key, field, value, line),
+        "ObfsKey" => set_obfuscation(&mut draft.obfuscation_key, value, line),
         "ListenPort" => set_integer(&mut draft.listen_port, field, value, line),
-        "Address" => set_list(&mut draft.addresses, field, value, line),
-        "DNS" => set_list(&mut draft.dns, field, value, line),
+        "Address" => set_list(&mut draft.addresses, value, line),
+        "DNS" => set_list(&mut draft.dns, value, line),
         asc if is_asc_field(asc) => insert_once(&mut draft.asc, asc, value, line),
-        _ => Err(WireGuardParseError::UnknownField {
-            line,
-            field: field.to_owned(),
-        }),
+        _ => Err(WireGuardParseError::UnknownField { line }),
     }
 }
 
@@ -186,14 +174,11 @@ fn parse_peer_field(
     match field {
         "PublicKey" => set_public_key(&mut draft.public_key, field, value, line),
         "PresharedKey" => set_secret(&mut draft.preshared_key, field, value, line),
-        "ObfsKey" => set_obfuscation(&mut draft.obfuscation_key, field, value, line),
-        "Endpoint" => set_string(&mut draft.endpoint, field, value, line),
-        "AllowedIPs" => set_list(&mut draft.allowed_ips, field, value, line),
+        "ObfsKey" => set_obfuscation(&mut draft.obfuscation_key, value, line),
+        "Endpoint" => set_string(&mut draft.endpoint, value, line),
+        "AllowedIPs" => set_list(&mut draft.allowed_ips, value, line),
         "PersistentKeepalive" => set_integer(&mut draft.persistent_keepalive, field, value, line),
         asc if is_asc_field(asc) => insert_once(&mut draft.asc, asc, value, line),
-        _ => Err(WireGuardParseError::UnknownField {
-            line,
-            field: field.to_owned(),
-        }),
+        _ => Err(WireGuardParseError::UnknownField { line }),
     }
 }

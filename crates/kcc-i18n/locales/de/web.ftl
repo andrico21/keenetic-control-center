@@ -1003,7 +1003,7 @@ web-vpn-conf-missing = Der Datei fehlt { $field }.
 web-vpn-conf-unknown-section = Zeile { $line }: Dieser Abschnitt gehört nicht in eine WireGuard-Datei.
 web-vpn-conf-unknown-field = Zeile { $line }: Diese Einstellung gehört nicht in eine WireGuard-Datei.
 web-vpn-conf-malformed = Zeile { $line }: Erwartet wird eine Einstellung wie Name = value.
-web-vpn-conf-duplicate = Zeile { $line }: { $field } kommt mehr als einmal vor.
+web-vpn-conf-duplicate = Zeile { $line }: eine Einstellung kommt mehr als einmal vor.
 web-vpn-conf-key = Zeile { $line }: { $field } ist kein WireGuard-Schlüssel aus 44 Base64-Zeichen.
 web-vpn-conf-number = Zeile { $line }: { $field } muss eine ganze Zahl von 0 bis 65535 sein.
 web-vpn-conf-invalid = Die Datei ist keine gültige WireGuard-Konfiguration.

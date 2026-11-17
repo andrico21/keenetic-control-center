@@ -225,7 +225,7 @@ pub struct WireGuardAsc {
 
 impl WireGuardAsc {
     /// Creates ASC parameters from values in router order (`jc`, `jmin`, `jmax`, `s1`, `s2`,
-    /// `h1`..`h4`, `s3`, `s4`, `i1`..`i5`); values past the sixteenth are ignored.
+    /// `h1`..`h4`, `s3`, `s4`, `i1`..`i5`); more than sixteen values are refused.
     #[inline]
     #[must_use]
     pub const fn new(values: Vec<String>) -> Self {

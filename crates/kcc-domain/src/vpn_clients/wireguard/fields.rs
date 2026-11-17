@@ -16,7 +16,7 @@ pub(super) fn set_secret(
 ) -> Result<(), WireGuardParseError> {
     validate_key(field, value, line)?;
     if slot.replace(SecretString::from(value.to_owned())).is_some() {
-        return Err(duplicate(field, line));
+        return Err(duplicate(line));
     }
     Ok(())
 }
@@ -24,18 +24,14 @@ pub(super) fn set_secret(
 /// Parses a printable obfuscation key without imposing a Base64 format.
 pub(super) fn set_obfuscation(
     slot: &mut Option<SecretString>,
-    field: &str,
     value: &str,
     line: usize,
 ) -> Result<(), WireGuardParseError> {
     if value.is_empty() || value.len() > 256 || value.chars().any(char::is_control) {
-        return Err(WireGuardParseError::Malformed {
-            line,
-            field: field.to_owned(),
-        });
+        return Err(WireGuardParseError::Malformed { line });
     }
     if slot.replace(SecretString::from(value.to_owned())).is_some() {
-        return Err(duplicate(field, line));
+        return Err(duplicate(line));
     }
     Ok(())
 }
@@ -48,7 +44,7 @@ pub(super) fn set_public_key(
     line: usize,
 ) -> Result<(), WireGuardParseError> {
     validate_key(field, value, line)?;
-    set_string(slot, field, value, line)
+    set_string(slot, value, line)
 }
 
 /// Checks the decoded WireGuard key length.
@@ -82,7 +78,7 @@ pub(super) fn set_integer(
             field: field.to_owned(),
         })?;
     if slot.replace(parsed).is_some() {
-        return Err(duplicate(field, line));
+        return Err(duplicate(line));
     }
     Ok(())
 }
@@ -90,12 +86,11 @@ pub(super) fn set_integer(
 /// Stores one string field and refuses duplicates.
 pub(super) fn set_string(
     slot: &mut Option<String>,
-    field: &str,
     value: &str,
     line: usize,
 ) -> Result<(), WireGuardParseError> {
     if slot.replace(value.to_owned()).is_some() {
-        return Err(duplicate(field, line));
+        return Err(duplicate(line));
     }
     Ok(())
 }
@@ -103,7 +98,6 @@ pub(super) fn set_string(
 /// Parses a comma-separated list and refuses duplicates.
 pub(super) fn set_list(
     slot: &mut Option<Vec<String>>,
-    field: &str,
     value: &str,
     line: usize,
 ) -> Result<(), WireGuardParseError> {
@@ -111,7 +105,7 @@ pub(super) fn set_list(
         .replace(value.split(',').map(str::trim).map(str::to_owned).collect())
         .is_some()
     {
-        return Err(duplicate(field, line));
+        return Err(duplicate(line));
     }
     Ok(())
 }
@@ -124,7 +118,7 @@ pub(super) fn insert_once(
     line: usize,
 ) -> Result<(), WireGuardParseError> {
     if fields.insert(field.to_owned(), value.to_owned()).is_some() {
-        return Err(duplicate(field, line));
+        return Err(duplicate(line));
     }
     Ok(())
 }
@@ -152,10 +146,7 @@ pub(super) const fn is_asc_field(field: &str) -> bool {
     )
 }
 
-/// Reports a duplicate without retaining field values.
-pub(super) fn duplicate(field: &str, line: usize) -> WireGuardParseError {
-    WireGuardParseError::Duplicate {
-        line,
-        field: field.to_owned(),
-    }
+/// Reports a duplicate by line number only.
+pub(super) const fn duplicate(line: usize) -> WireGuardParseError {
+    WireGuardParseError::Duplicate { line }
 }

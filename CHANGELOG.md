@@ -484,6 +484,16 @@ The first release, `0.1.0`, is in preparation and contains:
   firewall writes read back only the list they change, and keep a rule they do not model
   (for example `port gt 1024`) as an unstructured entry; before, such a rule in any list
   made every write fail, and an added rule was reported failed after it was sent.
+- **VPN planners**: deleting through the VPN client path now reads the interface first and
+  refuses a name that is not a VPN client type (WireGuard, OpenVPN, IPsec, L2TP, PPTP, SSTP,
+  ZeroTier, OpenConnect, proxy), and a VPN client delete keeps the Destructive risk (the Destructive permission and
+  confirmation now apply to it). WireGuard
+  import errors name the line only: `UnknownField`, `Malformed` and `Duplicate` carry no field
+  name or line text, so a mistyped key line never appears in an error, Debug output or log.
+  WireGuard ASC accepts at most 16 values and quotes each value in the rendered line. The
+  VPN server status reads the IPsec virtual IP per crypto-map name (`crypto map`), and
+  `VpnServerStatus::ipsec_virtual_ip` is now a map from crypto-map name to its virtual-IP
+  settings.
 
 - **DHCP pools are read only from their own block.** Indented lines of a later
   top-level block (`bind` under `ipv6 subnet`, `enable` under `crypto map`) no longer
