@@ -62,6 +62,75 @@ async fn bridge_failure_rolls_vlan_and_trunks_back() -> TestResult {
     Ok(())
 }
 
+fn sent_lines(fixture: &Fixture) -> Vec<String> {
+    fixture
+        .handle()
+        .request_log()
+        .iter()
+        .filter_map(|record| record.command().map(ToOwned::to_owned))
+        .collect()
+}
+
+/// D-09: a step whose request was sent and whose read-back failed is rolled back too.
+#[tokio::test]
+async fn step_that_failed_its_read_back_is_rolled_back() -> TestResult {
+    for firmware in PROFILES {
+        let faults = FaultInjection::default().silent_noop_path("parse");
+        let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
+        let mut changes = fixture.changes().await?;
+
+        let error = match segments::create(&mut changes, fixture.context(), &segment()).await {
+            Err(error) => error,
+            Ok(_created) => return Err("the unverified step did not fail the creation".into()),
+        };
+
+        assert!(matches!(
+            error,
+            segments::SegmentError::StepFailed { step, source: _ } if step == "vlan-subinterface"
+        ));
+        let lines = sent_lines(&fixture);
+        let create = lines
+            .iter()
+            .position(|line| line == "interface Vlan23 vlan-id 23");
+        let delete = lines.iter().position(|line| line == "no interface Vlan23");
+        assert!(create < delete && delete.is_some(), "{lines:?}");
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
+/// D-09: a step the router refused changed nothing, so it is not rolled back.
+#[tokio::test]
+async fn step_the_router_refused_is_not_rolled_back() -> TestResult {
+    for firmware in PROFILES {
+        let faults = FaultInjection::default().fail_parse_matching("interface Bridge23", 1);
+        let fixture = Fixture::spawn_with_faults(firmware, faults).await?;
+        let mut changes = fixture.changes().await?;
+
+        let result = segments::create(&mut changes, fixture.context(), &segment()).await;
+
+        assert!(matches!(
+            result,
+            Err(segments::SegmentError::StepFailed { step, source: _ }) if step == "bridge"
+        ));
+        let lines = sent_lines(&fixture);
+        assert!(
+            lines.iter().any(|line| line == "no interface Vlan23"),
+            "{lines:?}"
+        );
+        assert!(
+            !lines
+                .iter()
+                .any(|line| line.starts_with("no interface Bridge23")),
+            "{lines:?}"
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
 fn segment() -> segments::SegmentSpec {
     segments::SegmentSpec::new(
         23,

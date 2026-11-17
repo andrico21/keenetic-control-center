@@ -24,13 +24,11 @@ use kcc_catalog::{HttpMethod, Risk, ValidatedRequest};
 use kcc_rci::RciBody;
 use serde_json::{Value, json};
 
-use super::{
-    model::{Ipv4Route, Ipv6Route, RouteTableEntry},
-    read,
-};
+use super::model::{Ipv4Route, Ipv6Route};
 use crate::{ChangeOp, DomainError, Result, RouterCtx, verification};
 
 mod ipv6;
+mod restore;
 
 /// Plans adding one catalog-validated IPv4 route.
 pub fn plan_add_ipv4(router: &RouterCtx, route: &Ipv4Route) -> Result<ChangeOp> {
@@ -40,7 +38,7 @@ pub fn plan_add_ipv4(router: &RouterCtx, route: &Ipv4Route) -> Result<ChangeOp> 
 /// Plans removing one IPv4 route without executing the protected workflow.
 ///
 /// Execute removals through [`remove_ipv4`] so broad clears are restored and the
-/// route-count invariant is verified.
+/// removal is verified.
 pub fn plan_remove_ipv4(router: &RouterCtx, route: &Ipv4Route) -> Result<ChangeOp> {
     plan_ipv4(router, route, true)
 }
@@ -53,7 +51,7 @@ pub fn plan_add_ipv6(router: &RouterCtx, route: &Ipv6Route) -> Result<ChangeOp> 
 /// Plans removing one IPv6 route without executing the protected workflow.
 ///
 /// Execute removals through [`remove_ipv6`] so broad clears are restored and the
-/// route-count invariant is verified.
+/// removal is verified.
 pub fn plan_remove_ipv6(router: &RouterCtx, route: &Ipv6Route) -> Result<ChangeOp> {
     plan_ipv6(router, route, true)
 }
@@ -72,7 +70,8 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
     ))
 }
 
-/// Removes one IPv4 route, restoring it and aborting on any broad-clear status.
+/// Removes one IPv4 route and verifies the exact command is gone from the running
+/// configuration; a broad-clear status restores every saved static route and aborts.
 // NOT cancel-safe: cancelled after the removal is sent, the route (or, on a broad clear,
 // every static route not yet restored) stays removed and unverified.
 pub async fn remove_ipv4(
@@ -80,8 +79,7 @@ pub async fn remove_ipv4(
     router: &RouterCtx,
     route: &Ipv4Route,
 ) -> Result<CliChangeResult> {
-    let before_table = read::ipv4_table(router).await?;
-    let before = before_table.len();
+    let saved = restore::saved_ipv4(router).await?;
     let removal = plan_remove_ipv4(router, route)?;
     let result = match changes.apply_cli(request(&removal)?).await {
         Ok(result) => result,
@@ -91,20 +89,13 @@ pub async fn remove_ipv4(
         Err(error) => return Err(error.into()),
     };
     if reports_cleared(&result.responses) {
-        for saved in before_table.iter().filter_map(configured_ipv4_route) {
-            let restore = plan_add_ipv4(router, &saved?)?;
-            drop(changes.apply_cli(request(&restore)?).await?);
-        }
-        return Err(DomainError::SafetyAbort);
-    }
-    let after = read::ipv4_table(router).await?.len();
-    if before.checked_sub(after) != Some(1) {
-        return Err(DomainError::RouteCountMismatch);
+        return Err(restore::restore_ipv4(changes, router, saved).await);
     }
     Ok(result)
 }
 
-/// Removes one IPv6 route, restoring all static routes and aborting on a broad-clear status.
+/// Removes one IPv6 route, restoring every saved static route and aborting on a broad-clear
+/// status.
 // NOT cancel-safe: cancelled after the removal is sent, the route (or, on a broad clear,
 // every static route not yet restored) stays removed and unverified.
 pub async fn remove_ipv6(
@@ -113,27 +104,6 @@ pub async fn remove_ipv6(
     route: &Ipv6Route,
 ) -> Result<CliChangeResult> {
     ipv6::remove(changes, router, route).await
-}
-
-fn configured_ipv4_route(entry: &RouteTableEntry) -> Option<Result<Ipv4Route>> {
-    if entry.is_static != Some(true) {
-        return None;
-    }
-    Some(match entry.command.as_slice() {
-        [network, mask, gateway] => Ok(Ipv4Route::network(network, mask, gateway)),
-        [network, mask, gateway, interface] => {
-            Ok(Ipv4Route::network(network, mask, gateway).on_interface(interface))
-        }
-        [network, mask, gateway, interface, metric] => metric
-            .parse::<u32>()
-            .map(|value| {
-                Ipv4Route::network(network, mask, gateway)
-                    .on_interface(interface)
-                    .with_metric(value)
-            })
-            .map_err(|_error| DomainError::InvalidResponse),
-        _ => Err(DomainError::InvalidResponse),
-    })
 }
 
 fn plan_ipv4(router: &RouterCtx, route: &Ipv4Route, remove: bool) -> Result<ChangeOp> {

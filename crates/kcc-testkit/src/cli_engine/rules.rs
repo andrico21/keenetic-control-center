@@ -81,7 +81,7 @@ const CRYPTO_MAP_RULES: &[LeafRule] = &[
 
 /// Connection-policy context shapes.
 const POLICY_RULES: &[LeafRule] = &[
-    leaf(&["description"], 2, Some(2), 1),
+    leaf(&["description"], 1, Some(2), 1),
     leaf(&["permit"], 2, None, 2),
     leaf(&["multipath"], 1, None, 1),
     leaf(&["route"], 2, None, 2),

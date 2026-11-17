@@ -146,6 +146,54 @@ async fn policy_leaf_removal_is_verified_as_absent() -> TestResult {
     Ok(())
 }
 
+/// D-04: clearing a policy description sends `no ip policy <name> description` without an
+/// argument and the description is gone afterwards.
+#[tokio::test]
+async fn clearing_a_policy_description_sends_the_bare_no_line() -> TestResult {
+    for firmware in PROFILES {
+        let fixture = Fixture::spawn(firmware).await?;
+        let name = "Policy6";
+        let mut changes = fixture.changes().await?;
+        for operation in [
+            plan::create(fixture.context(), name)?,
+            plan::description(fixture.context(), name, Some("uplink-policy"))?,
+        ] {
+            drop(apply::apply(&mut changes, fixture.context(), &operation).await?);
+        }
+        assert!(
+            fixture
+                .handle()
+                .running_config_text()
+                .contains("description uplink-policy")
+        );
+
+        let cleared = plan::description(fixture.context(), name, None)?;
+        drop(apply::apply(&mut changes, fixture.context(), &cleared).await?);
+
+        let lines: Vec<String> = fixture
+            .handle()
+            .request_log()
+            .iter()
+            .filter_map(|record| record.command().map(ToOwned::to_owned))
+            .collect();
+        assert!(
+            lines
+                .iter()
+                .any(|line| line == "no ip policy Policy6 description"),
+            "{lines:?}"
+        );
+        assert!(
+            !fixture
+                .handle()
+                .running_config_text()
+                .contains("description uplink-policy")
+        );
+        drop(changes);
+        fixture.shutdown().await?;
+    }
+    Ok(())
+}
+
 #[tokio::test]
 async fn invalid_policy_name_is_rejected_before_any_router_request() -> TestResult {
     for firmware in PROFILES {

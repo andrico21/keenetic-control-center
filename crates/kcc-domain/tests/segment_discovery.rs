@@ -25,7 +25,7 @@ mod tests {
     };
     use serde_json::json;
 
-    use crate::support::{Fixture, PROFILES, TestResult};
+    use crate::support::{Fixture, PROFILES, TestResult, TraceCapture};
 
     /// Discovery reconstructs deletion ownership without retaining the creation receipt.
     // NOT cancel-safe: applies segment creation and deletion to an isolated router.
@@ -189,6 +189,55 @@ mod tests {
 
             assert!(matches!(result, Err(segments::SegmentError::Domain(_))));
             assert_eq!(fixture.handle().running_config_text(), before);
+            drop(changes);
+            fixture.shutdown().await?;
+        }
+        Ok(())
+    }
+
+    /// D-20: a stray `kcc-segment:` description is skipped and logged without its text;
+    /// the owned segments are still discovered.
+    // NOT cancel-safe: mutates an isolated router.
+    #[tokio::test]
+    async fn stray_ownership_description_does_not_break_discovery() -> TestResult {
+        for firmware in PROFILES {
+            let trace = TraceCapture::install();
+            let fixture = Fixture::spawn(firmware).await?;
+            let mut changes = fixture.changes().await?;
+            drop(segments::create(&mut changes, fixture.context(), &spec()).await?);
+            let stray = "kcc-segment:stray-marker-text";
+            let validated = fixture
+                .context()
+                .catalog
+                .validate(
+                    "interface description",
+                    HttpMethod::Post,
+                    &json!({"description":stray}),
+                )
+                .map_err(|_issues| "description invalid")?;
+            drop(
+                changes
+                    .apply_cli(CliChangeRequest::new(
+                        vec![ValidatedCli::new(
+                            format!("interface Bridge0 description {stray}"),
+                            validated,
+                        )?],
+                        Vec::new(),
+                        Permission::Write,
+                        json!({}),
+                    ))
+                    .await?,
+            );
+
+            let discovered = segments::read_segments(fixture.context()).await?;
+
+            let [view] = discovered.as_slice() else {
+                return Err("the stray record hid the owned segment".into());
+            };
+            assert_eq!(view.id, 23);
+            let log = trace.text()?;
+            assert!(log.contains("WARN"), "{log}");
+            assert!(!log.contains("stray-marker-text"), "{log}");
             drop(changes);
             fixture.shutdown().await?;
         }

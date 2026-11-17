@@ -317,7 +317,7 @@ pub enum DomainError {
     /// A single-route operation produced a router-wide clearing status.
     #[error("route operation aborted because the router reported a broad clear")]
     SafetyAbort,
-    /// Route removal did not decrease the fresh route count by exactly one.
+    /// Route removal left the exact route command in the running configuration.
     #[error("route removal verification failed")]
     RouteCountMismatch,
     /// The requested access-list rule was absent before a removal attempt.

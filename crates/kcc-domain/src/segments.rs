@@ -11,6 +11,7 @@
 
 pub mod discovery;
 mod ownership;
+mod rollback;
 mod step;
 
 use core::{net::Ipv4Addr, result::Result as CoreResult};
@@ -186,7 +187,8 @@ pub async fn plan_delete(router: &RouterCtx, segment: &SegmentSpec) -> Result<Ch
     )
 }
 
-/// Creates one segment, rolling applied steps back in reverse order on failure.
+/// Creates one segment, rolling applied steps back in reverse order on failure; the failed
+/// step is rolled back first when its request may have changed the router.
 // NOT cancel-safe: cancelled between steps, the steps already applied stay on the router
 // and the reverse-order rollback never runs.
 pub async fn create(
@@ -205,7 +207,8 @@ pub async fn create(
     let mut applied = Vec::<&Step>::new();
     for definition in &definitions {
         if let Err(source) = step::apply(changes, router, definition, Direction::Create).await {
-            for rollback in applied.into_iter().rev() {
+            let failed = rollback::may_have_changed_router(&source).then_some(definition);
+            for rollback in failed.into_iter().chain(applied.into_iter().rev()) {
                 if let Err(rollback_source) =
                     step::apply(changes, router, rollback, Direction::Delete).await
                 {

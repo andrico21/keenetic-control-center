@@ -174,14 +174,15 @@ pub(super) async fn prepare(router: &RouterCtx, spec: &SegmentSpec) -> Result<St
     .map_err(|_error| DomainError::InvalidResponse)
 }
 
-/// Discovers only contexts carrying the domain's persisted ownership marker.
+/// Discovers only contexts carrying the domain's persisted ownership marker; a record that
+/// cannot be decoded is skipped and logged by its line number, never by its text.
 pub(super) async fn read(router: &RouterCtx) -> Result<Vec<SegmentView>> {
     let text = step::running_config(router)
         .await
         .map_err(|_error| DomainError::InvalidResponse)?;
     let mut context = "";
     let mut result = Vec::new();
-    for line in text.lines() {
+    for (index, line) in text.lines().enumerate() {
         if !line.starts_with(' ') {
             context = line;
             continue;
@@ -194,24 +195,35 @@ pub(super) async fn read(router: &RouterCtx) -> Result<Vec<SegmentView>> {
         let Some(body) = decoded.strip_prefix("kcc-segment:") else {
             continue;
         };
-        let record: Ownership =
-            serde_json::from_str(body).map_err(|_error| DomainError::InvalidResponse)?;
-        ownership::validate(&record.spec)?;
-        if record.cleanup.iter().any(|cleanup_context| {
-            !record
-                .spec
-                .switch_ports
-                .iter()
-                .any(|port| cleanup_context == &format!("interface {port}"))
-        }) {
-            return Err(DomainError::InvalidResponse);
+        match decode(context, body, &text) {
+            Ok(view) => result.push(view),
+            Err(_error) => tracing::warn!(
+                line = index.saturating_add(1),
+                "skipped an invalid segment ownership record"
+            ),
         }
-        if context != format!("interface Vlan{}", record.spec.id) {
-            return Err(DomainError::InvalidResponse);
-        }
-        result.push(project(record, &text)?);
     }
     Ok(result)
+}
+
+/// Decodes one ownership record found under `context` into its current view.
+fn decode(context: &str, body: &str, text: &str) -> Result<SegmentView> {
+    let record: Ownership =
+        serde_json::from_str(body).map_err(|_error| DomainError::InvalidResponse)?;
+    ownership::validate(&record.spec)?;
+    if record.cleanup.iter().any(|cleanup_context| {
+        !record
+            .spec
+            .switch_ports
+            .iter()
+            .any(|port| cleanup_context == &format!("interface {port}"))
+    }) {
+        return Err(DomainError::InvalidResponse);
+    }
+    if context != format!("interface Vlan{}", record.spec.id) {
+        return Err(DomainError::InvalidResponse);
+    }
+    project(record, text)
 }
 
 /// Projects current presence separately from persisted intent so partial segments remain visible.

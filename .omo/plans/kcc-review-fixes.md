@@ -1103,7 +1103,7 @@ Todo numbers are identifiers, not order; execute by the dependency matrix. Paral
   Commit: Y | fix(domain,web): firewall planner and reader correctness
   Recommended task executor category: deep-low - correctness reasoning across files, settled by reading the code
 
-- [ ] 50. DNS, policy, route and segment planner fixes
+- [x] 50. DNS, policy, route and segment planner fixes
   What to do / Must NOT do: Per the findings: clearing a policy description works; route removal is verified by the specific route, and the wipe recovery restores every removed route; segment create rolls back the failing step; a stray `kcc-segment:` description no longer breaks discovery. Findings closed by this todo (fix each one; where a critic correction is given it overrides the reviewer's text):
   - `D-04` (medium; critic confirmed) Clearing a connection-policy description always fails. Evidence: `crates/kcc-domain/src/policies/change/plan.rs:36`, `crates/kcc-domain/src/policies/change/render.rs:46-49`. Fix: When `no` is set, render `no ip policy N description` without an argument.
   - `D-08` (medium; critic confirmed) Route removal is checked by routing-table row count, and the wipe recovery is lossy. Evidence: `crates/kcc-domain/src/routing/change.rs:83-104`, `change/ipv6.rs:95-118`. Fix: Verify absence of the exact command in `show rc`. Take the restore set from the running config, not the table, and restore every route before returning the first error.

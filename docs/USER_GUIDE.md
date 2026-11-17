@@ -122,7 +122,9 @@ marked Incomplete. Segments made outside kcc aren't listed; their bridges and VL
 on the Network page.
 
 Create segment builds a new one (VLAN, bridge, address, DHCP pool, ports, access point,
-policy) step by step, rolling back finished steps if one fails. Delete lists the router
+policy) step by step, rolling back finished steps, and the failing step when the router
+accepted it but the read-back failed, if one fails. A stray description that starts with
+`kcc-segment:` but isn't a valid record is skipped, not listed. Delete lists the router
 objects that go and the ports that stay (only the segment's VLAN leaves them), and asks
 you to type the router's name. It deletes nothing if the segment changed after the
 dialog opened. Incomplete segments delete what is left. Deleting needs the same Write
@@ -152,8 +154,10 @@ The network area has tabs:
 
 The Routing section has tabs for static routes (IPv4 and IPv6, add and remove), the
 routing table, and connection policies (create, description, permitted interfaces and
-their order, multipath, delete). Removing a route runs a guard: if the router clears
-more than the one route, kcc puts every other static route back and says so.
+their order, multipath, delete; an empty description clears it). Removing a route runs
+a guard: kcc checks that the exact route line is gone from the running configuration, and
+if the router clears more than the one route, it puts every static route back from the
+running configuration and says so.
 
 ## NAT and port forwarding
 

@@ -494,6 +494,27 @@ The first release, `0.1.0`, is in preparation and contains:
   VPN server status reads the IPsec virtual IP per crypto-map name (`crypto map`), and
   `VpnServerStatus::ipsec_virtual_ip` is now a map from crypto-map name to its virtual-IP
   settings.
+- **Clearing a connection-policy description works.** An empty description field on the
+  Web page, MCP and CLI now sends `no ip policy <name> description` (no argument);
+  before, the plan failed locally with an invalid-response error and nothing was sent.
+
+- **Route removal is verified by the route's own command.** A removal succeeds when the
+  exact `ip route` or `ipv6 route` line is gone from a fresh running configuration; the
+  routing-table row count is no longer compared, so inactive routes and concurrent table
+  changes no longer fail a removal. The broad-clear recovery now restores the static
+  routes saved from the running configuration (interface-only and default routes
+  included) instead of the routing table, restores every one before it reports the first
+  failure, and reports a route the model cannot carry (`auto`, `reject`) as an invalid
+  response after all others were restored.
+
+- **A failed segment-creation step is rolled back too.** When a step's request reached
+  the router and its read-back (or audit) failed, creation now removes that step with the
+  earlier ones; a step the router refused, or that failed before it was sent, is not
+  rolled back.
+
+- **One malformed `kcc-segment:` description no longer hides every segment.** Segment
+  discovery skips an ownership record it cannot decode (bad JSON, invalid values, or a
+  context other than its VLAN) and logs a warning with the line number only.
 
 - **DHCP pools are read only from their own block.** Indented lines of a later
   top-level block (`bind` under `ipv6 subnet`, `enable` under `crypto map`) no longer

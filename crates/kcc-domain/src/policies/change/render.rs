@@ -43,6 +43,7 @@ pub fn request(operation: &ChangeOp) -> Result<CliChangeRequest> {
 /// Returns the positive leaf tokens expected in a fresh running-config read.
 pub(super) fn expected_leaf(request: &ValidatedRequest) -> Result<Vec<String>> {
     let mut tokens = match request.path.as_str() {
+        "ip policy description" if is_removal(request) => vec!["description".to_owned()],
         "ip policy description" => vec![
             "description".to_owned(),
             text(request, "description")?.to_owned(),
@@ -64,14 +65,18 @@ pub(super) fn expected_leaf(request: &ValidatedRequest) -> Result<Vec<String>> {
         "ip policy standalone" => vec!["standalone".to_owned()],
         _ => return Err(DomainError::InvalidResponse),
     };
-    if request.value().get("no") == Some(&Value::Bool(true)) {
+    if is_removal(request) {
         tokens.insert(0, "no".to_owned());
     }
     Ok(tokens)
 }
 
+fn is_removal(request: &ValidatedRequest) -> bool {
+    request.value().get("no") == Some(&Value::Bool(true))
+}
+
 fn context_line(request: &ValidatedRequest, name: &str) -> String {
-    if request.value().get("no") == Some(&Value::Bool(true)) {
+    if is_removal(request) {
         format!("no ip policy {name}")
     } else {
         format!("ip policy {name}")
